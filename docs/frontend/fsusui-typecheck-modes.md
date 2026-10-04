@@ -60,6 +60,14 @@ download an FsusUI package or read the GitHub Packages token.
 installation projection. It removes only `@ozwasyd/element-plus` from the copied
 root dependency declarations and its exact lock record. Every other lock record,
 including nested public dependencies and tarball integrity, remains unchanged.
+Source-only public dependencies receive exact locked root declarations so npm
+does not prune them with the removed private parent. A version-conflicting nested
+dependency receives a dedicated public npm alias whose tarball and integrity are
+copied from its original locked record; existing root declarations are retained.
+Its necessary transitive records are copied from their original lock resolution
+into the temporary alias subtree, preserving exact URLs and integrity instead of
+asking npm to resolve a new dependency version. Missing, cyclic or excessive
+alias closures and colliding or invalid package names fail closed.
 The checked-in manifest and lockfile are never rewritten or regenerated. Ordinary
 public dependencies are installed with `npm ci` against these temporary inputs;
 remaining non-public URLs or missing integrity fail closed. Bundled records are
@@ -67,11 +75,12 @@ accepted only through a present package-parent chain ending at an unchanged
 public tarball with integrity; removed-parent orphans are rejected.
 
 After installation, the helper verifies the source's locked runtime dependencies
-and their installed identities. Retained nested dependencies are exposed through
-`vue/packages/node_modules`, while the existing root dependency link supplies the
-shared frontend runtime. Thus source imports retain the locked nested KaTeX
-version instead of accidentally selecting the different root version. A missing
-nested dependency is an error, not permission to resolve or update the lock.
+and their installed identities. Each source import name is linked to its verified
+public dependency through `vue/packages/node_modules`, while the existing root
+dependency link supplies the shared frontend runtime. Thus source imports retain
+the locked nested KaTeX version instead of accidentally selecting the different
+root version. A missing dependency is an error, not permission to resolve or
+update the lock.
 
 `FSUSBLOG_USE_LOCAL_FSUSUI=0` retains the existing published-package installation
 with its original private lock and required token. Other switch values fail;

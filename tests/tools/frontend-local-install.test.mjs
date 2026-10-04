@@ -97,7 +97,7 @@ function fixture(t)
     }
     write(path.join(frontend, 'node_modules/vue/package.json'), JSON.stringify({ name: 'vue', version: '3.5.33' }));
     write(path.join(frontend, 'node_modules/katex/package.json'), JSON.stringify({ name: 'katex', version: '0.16.45' }));
-    write(path.join(frontend, location, 'node_modules/katex/package.json'), JSON.stringify({ name: 'katex', version: '0.17.0' }));
+    write(path.join(frontend, 'node_modules/fsusui-local-katex/package.json'), JSON.stringify({ name: 'katex', version: '0.17.0' }));
     return { frontend, fsusui, output, write, manifest, lockfile };
 }
 
@@ -118,6 +118,14 @@ test('local projection removes only the exact package and keeps every other lock
         }
     }
     const restored = structuredClone(projected);
+    assert.equal(restored.manifest.dependencies['fsusui-local-katex'], 'npm:katex@0.17.0');
+    assert.equal(restored.lockfile.packages[''].dependencies['fsusui-local-katex'], 'npm:katex@0.17.0');
+    assert.deepEqual(restored.lockfile.packages['node_modules/fsusui-local-katex'], {
+        ...original.lockfile.packages[`${location}/node_modules/katex`], name: 'katex'
+    });
+    delete restored.manifest.dependencies['fsusui-local-katex'];
+    delete restored.lockfile.packages[''].dependencies['fsusui-local-katex'];
+    delete restored.lockfile.packages['node_modules/fsusui-local-katex'];
     restored.manifest.dependencies[packageName] = original.manifest.dependencies[packageName];
     restored.lockfile.packages[''].dependencies[packageName] = original.lockfile.packages[''].dependencies[packageName];
     restored.lockfile.packages[location] = original.lockfile.packages[location];
@@ -137,6 +145,51 @@ test('current real lock projects without altering any public or nested lock iden
         }
     }
     assert.deepEqual(projected.lockfile.packages[`${location}/node_modules/katex`], lockfile.packages[`${location}/node_modules/katex`]);
+});
+
+test('source-only public dependencies remain reachable after removing the private parent', () =>
+{
+    const original = inputs();
+    original.lockfile.packages[location].dependencies['escape-html'] = '^1.0.3';
+    original.lockfile.packages['node_modules/escape-html'] = {
+        version: '1.0.3', resolved: 'https://registry.npmjs.org/escape-html/-/escape-html-1.0.3.tgz', integrity: 'sha512-Ynl0ZXM='
+    };
+    const projected = projectLocalFsusUiInstall(original);
+    assert.equal(projected.manifest.dependencies['escape-html'], '1.0.3');
+    assert.equal(projected.lockfile.packages[''].dependencies['escape-html'], '1.0.3');
+    assert.deepEqual(projected.lockfile.packages['node_modules/escape-html'], original.lockfile.packages['node_modules/escape-html']);
+    assert.equal(projected.manifest.dependencies['fsusui-local-katex'], 'npm:katex@0.17.0');
+    assert.equal(projected.lockfile.packages['node_modules/fsusui-local-katex'].integrity,
+        original.lockfile.packages[`${location}/node_modules/katex`].integrity);
+    assert.equal(projected.lockfile.packages['node_modules/katex'].version, '0.16.45');
+});
+
+test('temporary public aliases retain their original transitive resolution and reject name collisions', () =>
+{
+    const original = inputs();
+    original.lockfile.packages[`${location}/node_modules/katex`].dependencies = { commander: '^8.3.0' };
+    original.lockfile.packages[`${location}/node_modules/commander`] = {
+        version: '8.3.0', resolved: 'https://registry.npmjs.org/commander/-/commander-8.3.0.tgz', integrity: 'sha512-Ynl0ZXM='
+    };
+    original.lockfile.packages['node_modules/commander'] = {
+        version: '7.2.0', resolved: 'https://registry.npmjs.org/commander/-/commander-7.2.0.tgz', integrity: 'sha512-Ynl0ZXM='
+    };
+    const projected = projectLocalFsusUiInstall(original);
+    assert.deepEqual(projected.lockfile.packages['node_modules/fsusui-local-katex/node_modules/commander'],
+        original.lockfile.packages[`${location}/node_modules/commander`]);
+    assert.deepEqual(projected.lockfile.packages['node_modules/commander'], original.lockfile.packages['node_modules/commander']);
+    const collision = inputs();
+    for (const name of ['foo.bar', 'foo_bar'])
+    {
+        collision.lockfile.packages[location].dependencies[name] = '1.0.0';
+        collision.lockfile.packages[`${location}/node_modules/${name}`] = {
+            version: '1.0.0', resolved: `https://registry.npmjs.org/${name}/-/${name}-1.0.0.tgz`, integrity: 'sha512-Ynl0ZXM='
+        };
+    }
+    assert.throws(() => projectLocalFsusUiInstall(collision), /alias.*colli/u);
+    const invalid = inputs();
+    invalid.lockfile.packages[`${location}/node_modules/katex`].name = '../escape';
+    assert.throws(() => projectLocalFsusUiInstall(invalid), /package name/u);
 });
 
 test('pinned npm virtual and ideal trees retain every public lock location without resolving FsusUI', async (t) =>
@@ -264,7 +317,7 @@ test('installed source dependencies preserve the nested locked version without c
     const context = fixture(t);
     verifyLocalFsusUiInstall(context);
     const nested = path.join(context.fsusui, 'vue/packages/node_modules');
-    assert.equal(fs.realpathSync(path.join(nested, 'katex')), fs.realpathSync(path.join(context.frontend, location, 'node_modules/katex')));
+    assert.equal(fs.realpathSync(path.join(nested, 'katex')), fs.realpathSync(path.join(context.frontend, 'node_modules/fsusui-local-katex')));
     assert.equal(JSON.parse(fs.readFileSync(path.join(nested, 'katex/package.json'))).version, '0.17.0');
     assert.equal(fs.existsSync(path.join(context.frontend, location, 'package.json')), false);
     assert.equal(fs.existsSync(path.join(context.fsusui, 'node_modules')), false);
@@ -273,10 +326,10 @@ test('installed source dependencies preserve the nested locked version without c
 test('verify rejects absent nested packages, version drift, already installed private package and source dependency drift', (t) =>
 {
     const missing = fixture(t);
-    fs.unlinkSync(path.join(missing.frontend, location, 'node_modules/katex/package.json'));
+    fs.unlinkSync(path.join(missing.frontend, 'node_modules/fsusui-local-katex/package.json'));
     assert.throws(() => verifyLocalFsusUiInstall(missing), /installed locked dependency/u);
     const drift = fixture(t);
-    drift.write(path.join(drift.frontend, location, 'node_modules/katex/package.json'), JSON.stringify({ name: 'katex', version: '0.16.45' }));
+    drift.write(path.join(drift.frontend, 'node_modules/fsusui-local-katex/package.json'), JSON.stringify({ name: 'katex', version: '0.16.45' }));
     assert.throws(() => verifyLocalFsusUiInstall(drift), /installed locked dependency/u);
     const privatePackage = fixture(t);
     privatePackage.write(path.join(privatePackage.frontend, location, 'package.json'), '{}');
