@@ -3671,6 +3671,9 @@ tiers:
           - tools/dependencies/verify-fsusui-candidate.mjs
           - tools/dependencies/fsusui-candidate-package-smoke.mjs
           - tests/tools/fsusui-candidate.test.mjs
+          - tests/tools/frontend-local-install.test.mjs
+          - src/frontend/scripts/prepare-local-fsusui-install.mjs
+          - src/frontend/scripts/fsusui-root.mjs
           - tests/frontend/checks/static/check-fsusui-boundary.mjs
           - tests/frontend/checks/static/check-fsusui-typecheck-modes.mjs
           - docs/frontend/fsusui-typecheck-modes.md
