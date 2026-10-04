@@ -6,6 +6,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { Writable } from 'node:stream';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
 const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox, projectPlannedEndpoints, validateExecutionNetworkPolicy} = await import(new URL('../../tools/test/execution-envelope-network.mjs', import.meta.url));
@@ -582,4 +583,77 @@ test('original physical owner binds only current owned /tmp and retains external
     assert.deepEqual([hostAfter.dev, hostAfter.ino], [hostTmp.dev, hostTmp.ino]);
     assert.equal(fs.readlinkSync('/proc/self/ns/mnt'), hostNamespace);
     assert.equal(finalizeNetworkSandbox(sandbox).admission, 'planned-actual-exact');
+});
+
+test('original preexec /tmp refusal diagnostics are bounded and cannot replace rejection', {
+    skip: process.platform !== 'linux'
+}, async (context) =>
+{
+    // Direct refusal component controls, not a systemd alias success or SDK qualification.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-preexec-tmp-diagnostic-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const helper = fileURLToPath(new URL('../../tools/test/physical-execution-linux-preexec.py', import.meta.url));
+    const script = `
+import builtins, io, json, os, runpy, stat, sys
+from unittest.mock import patch
+owner = runpy.run_path(sys.argv[1])
+source = os.stat(sys.argv[2])
+host = os.stat('/tmp')
+plan = {'destination': '/tmp', 'source': sys.argv[2], 'device': str(source.st_dev),
+        'inode': str(source.st_ino), 'uid': str(source.st_uid),
+        'hostMountNamespace': os.readlink('/proc/self/ns/mnt'),
+        'hostTmpDevice': str(host.st_dev), 'hostTmpInode': str(host.st_ino)}
+mode = sys.argv[3]
+original_open = builtins.open
+def diagnostic_input(file, *args, **kwargs):
+    if mode == 'bounded-mounts' and file == '/proc/self/mountinfo':
+        return io.StringIO(('1 0 0:1 / /tmp rw - tmpfs tmpfs rw,' + 'x' * 6000 + '\\n') * 40)
+    return original_open(file, *args, **kwargs)
+class FailingStderr:
+    def write(self, _text):
+        raise OSError('diagnostic sink refused')
+captured = io.StringIO()
+with patch('builtins.open', diagnostic_input), patch('sys.stderr',
+        FailingStderr() if mode == 'sink-failure' else captured):
+    try:
+        owner['observe_owned_private_tmp'](plan)
+    except RuntimeError as error:
+        assert str(error) == 'physical execution kernel owned /tmp alias is unverifiable'
+    else:
+        raise AssertionError('original /tmp refusal was bypassed')
+text = captured.getvalue()
+assert len(text.encode('utf8')) <= 32768
+if mode == 'sink-failure':
+    assert text == ''
+else:
+    diagnostic = json.loads(text)
+    assert diagnostic['predicates']['sourceDeviceMatches'] is True
+    assert diagnostic['predicates']['sourceInodeMatches'] is True
+    assert diagnostic['predicates']['aliasObjectMatches'] is False
+    assert diagnostic['predicates']['privateMountNamespace'] is False
+    assert diagnostic['predicates']['notHostTmpObject'] is False
+    assert all(isinstance(value, bool) for value in diagnostic['predicates'].values())
+    assert diagnostic['source']['mode'] == stat.S_IMODE(source.st_mode)
+    for key in ['sourceFd', 'aliasFd']:
+        assert diagnostic[key]['fdinfo']['status'] == 'observed'
+        assert diagnostic[key]['fdinfo']['mnt_id'].isdigit()
+    assert len(diagnostic['tmpMountInfo']) <= 16
+    assert sum(len(line.encode('utf8')) for line in diagnostic['tmpMountInfo']) <= 16384
+    if mode == 'bounded-mounts':
+        assert diagnostic['tmpMountInfoCount'] == 40
+        assert diagnostic['tmpMountInfoOmitted'] > 0
+        assert all(line.endswith('x' * 6000) for line in diagnostic['tmpMountInfo'])
+print('original-refusal-preserved')
+`;
+    for (const mode of ['actual-refusal', 'bounded-mounts', 'sink-failure'])
+    {
+        await context.test(mode, () =>
+        {
+            const result = spawnSync(process.env.FSUSBLOG_PYTHON ?? 'python3',
+                ['-I', '-S', '-c', script, helper, root, mode], { encoding: 'utf8', timeout: 5000, maxBuffer: 32768 });
+            assert.equal(result.error, undefined);
+            assert.equal(result.status, 0, result.stderr);
+            assert.equal(result.stdout, 'original-refusal-preserved\n');
+        });
+    }
 });

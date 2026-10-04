@@ -65,6 +65,68 @@ def execute(command, environment, candidates):
     raise saved_error or last_error
 
 
+def emit_owned_private_tmp_refusal_diagnostic(plan, source, alias, namespace, entries, source_fd, alias_fd):
+    # Refusal-only observation; neither stderr nor its failure is admission authority.
+    try:
+        def descriptor_mount_id(descriptor):
+            try:
+                with open(f"/proc/self/fdinfo/{descriptor}", encoding="utf8") as info:
+                    text = info.read(4097)
+                if len(text) > 4096:
+                    return {"status": "bounded-input-exceeded"}
+                values = [line.split(":", 1)[1].strip() for line in text.splitlines()
+                          if line.startswith("mnt_id:")]
+                if (len(values) != 1 or not values[0] or len(values[0]) > 20
+                        or not all("0" <= character <= "9" for character in values[0])):
+                    return {"status": "unavailable"}
+                return {"status": "observed", "mnt_id": values[0]}
+            except Exception:
+                return {"status": "unavailable"}
+
+        mount_lines = []
+        mount_bytes = 0
+        for entry in entries:
+            entry_bytes = len(entry.encode("utf8"))
+            if len(mount_lines) < 16 and mount_bytes + entry_bytes <= 16384:
+                mount_lines.append(entry)
+                mount_bytes += entry_bytes
+        diagnostic = {
+            "diagnostic": "physical-execution-owned-tmp-refusal",
+            "predicates": {
+                "sourceDeviceMatches": str(source.st_dev) == plan["device"],
+                "sourceInodeMatches": str(source.st_ino) == plan["inode"],
+                "aliasObjectMatches": (alias.st_dev, alias.st_ino) == (source.st_dev, source.st_ino),
+                "aliasModeMatches": stat.S_IMODE(alias.st_mode) == 0o700,
+                "aliasUidMatches": str(alias.st_uid) == plan["uid"],
+                "privateMountNamespace": namespace != plan["hostMountNamespace"],
+                "notHostTmpObject": (str(alias.st_dev), str(alias.st_ino)) !=
+                                    (plan["hostTmpDevice"], plan["hostTmpInode"]),
+                "oneTmpMount": len(entries) == 1,
+                "tmpMountWritable": bool(entries) and "rw" in entries[0].split()[5].split(","),
+            },
+            "source": {"device": str(source.st_dev), "inode": str(source.st_ino),
+                       "mode": stat.S_IMODE(source.st_mode), "uid": str(source.st_uid)},
+            "alias": {"device": str(alias.st_dev), "inode": str(alias.st_ino),
+                      "mode": stat.S_IMODE(alias.st_mode), "uid": str(alias.st_uid)},
+            "planned": {"device": plan["device"], "inode": plan["inode"], "mode": 0o700,
+                        "uid": plan["uid"], "hostTmpDevice": plan["hostTmpDevice"],
+                        "hostTmpInode": plan["hostTmpInode"]},
+            "mountNamespace": namespace,
+            "hostMountNamespace": plan["hostMountNamespace"],
+            "tmpMountInfo": mount_lines,
+            "tmpMountInfoCount": len(entries),
+            "tmpMountInfoOmitted": len(entries) - len(mount_lines),
+            "sourceFd": {"descriptor": source_fd, "fdinfo": descriptor_mount_id(source_fd)},
+            "aliasFd": {"descriptor": alias_fd, "fdinfo": descriptor_mount_id(alias_fd)},
+        }
+        serialized = json.dumps(diagnostic, separators=(",", ":")) + "\n"
+        if len(serialized.encode("utf8")) <= 32768:
+            sys.stderr.write(serialized)
+    except Exception:
+        # Keep the original rejection even if observation, encoding or stderr fails.
+        pass
+
+
 def observe_owned_private_tmp(plan):
     if plan is None:
         return None
@@ -86,6 +148,7 @@ def observe_owned_private_tmp(plan):
                     or namespace == plan["hostMountNamespace"]
                     or (str(alias.st_dev), str(alias.st_ino)) == (plan["hostTmpDevice"], plan["hostTmpInode"])
                     or len(entries) != 1 or "rw" not in entries[0].split()[5].split(",")):
+                emit_owned_private_tmp_refusal_diagnostic(plan, source, alias, namespace, entries, source_fd, alias_fd)
                 raise RuntimeError("physical execution kernel owned /tmp alias is unverifiable")
             return {"plan": plan, "mountNamespace": namespace,
                     "sourceDevice": str(source.st_dev), "sourceInode": str(source.st_ino),
