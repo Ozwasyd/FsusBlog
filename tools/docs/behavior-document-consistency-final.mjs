@@ -4,18 +4,18 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import Module, { builtinModules } from 'node:module';
 import path from 'node:path';
-import vm from 'node:vm';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
-import { digestCatalog } from '../contracts/behavior-contract-catalog.mjs';
-import {
+const { digestCatalog } = await import(new URL('../contracts/behavior-contract-catalog.mjs', import.meta.url));
+const {
     resolveGitRepositoryAuthority,
     runGitRepository,
     sealSourceIdentity
-} from '../fact-extractors/identity.mjs';
-import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
-import { assertPreRuntimeQualified } from '../test-matrix/behavior-evidence-pre-runtime.mjs';
-import { validatePostRuntimeReceipt } from '../test-matrix/behavior-evidence-post-runtime.mjs';
+} = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
+const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
+const { assertPreRuntimeQualified } = await import(new URL('../test-matrix/behavior-evidence-pre-runtime.mjs', import.meta.url));
+const { validatePostRuntimeReceipt } = await import(new URL('../test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const finalReportSchema = 'fsusblog.behavior-document-consistency-final-report.v1';
@@ -401,7 +401,7 @@ function pathClassesFor(file)
     {
         classes.push('package-scripts');
     }
-    if (/(?:^|\/)(?:generated|projections?)(?:[-_.\/]|$)|(?:^|[-_.])generated(?:[-_.]|$)/iu.test(file))
+    if (/(?:^|\/)(?:generated|projections?)(?:[-_./]|$)|(?:^|[-_.])generated(?:[-_.]|$)/iu.test(file))
     {
         classes.push('generated-projection');
     }
@@ -438,6 +438,7 @@ function isForbiddenMachineField(normalized, qualification)
 
 function legacySurfaceName(value, context)
 {
+    void context;
     const normalized = normalizeIdentifier(value);
     return legacyStates.some((state) => normalized.includes(state))
         && legacyRoles.some((role) => normalized.includes(role));
@@ -788,7 +789,7 @@ function maskSourceLiteralsAndComments(source, commentStyle)
     const masked = source.split('');
     for (let index = 0; index < source.length; index += 1)
     {
-        let end = index;
+        let end;
         if (commentStyle === 'powershell' && source[index] === '<' && source[index + 1] === '#')
         {
             const closing = powerShellBlockCommentEnd(source, index);

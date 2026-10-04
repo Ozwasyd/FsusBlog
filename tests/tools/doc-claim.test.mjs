@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { spawnSync } from 'node:child_process';
 import test from 'node:test';
-import {
+
+const {
     DocClaimErrorCode,
     assertReceiptHasNoPassEvidence,
     buildParseReceipt,
@@ -19,8 +20,8 @@ import {
     serializeClaimDeclaration,
     validateClaimDeclaration,
     validateDocClaimSchemaContract
-} from '../../tools/docs/doc-claim.mjs';
-import { digestCatalog, loadCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
+} = await import(new URL('../../tools/docs/doc-claim.mjs', import.meta.url));
+const { digestCatalog, loadCatalog } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 
 const root = path.resolve(import.meta.dirname, '../..');
 const checker = path.join(root, 'tools/docs/check-doc-claim.mjs');
