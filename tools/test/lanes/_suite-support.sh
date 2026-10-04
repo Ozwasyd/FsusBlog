@@ -1027,6 +1027,150 @@ FinalizeBackendPlatformOutcome() {
         --out "$(BackendPlatformOutcomeFile "$lane")"
 }
 
+RunBoundedWarningOnlySourceMutation() (
+    # Explicit development operation only; no ordinary or mutation lane invokes it.
+    # Expected identity comes from the caller, separately from invocation metadata.
+    local expectedCommit="${1:?expected current commit required}" expectedFingerprint="${2:?expected fingerprint required}"
+    local expectedRunId="${3:?expected run ID required}" purpose="${4:?explicit purpose required}"
+    local parentCommit="$expectedCommit" ownerPid="$BASHPID"
+    [[ "$purpose" == development ]] || { Log 'physical helper is development-only; canonical routing is not admitted'; return 2; }
+    parentCommit="${FSUSBLOG_BOUNDED_MUTATION_PARENT_COMMIT:-$expectedCommit}"
+    local workRoot="${FSUSBLOG_BOUNDED_MUTATION_WORK_ROOT:-$ROOT_DIR/.tmp/bounded-warning-only-development}"
+    local availableKb evidenceRoot activeGroup="" activeLauncher="" variant stage status
+    local oracle='FsusBlog.Server.Tests.Unit.AdminAuditDurableAdmissionIssue2040Tests.PersistentReplayFailure_BlocksRealAdminParticipantHealthAndQualification'
+    local sourcePath='src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs'
+    local readyScript
+    # read reaches heredoc EOF (no NUL); its nonzero EOF status is expected.
+    IFS= read -r -d '' readyScript <<'READY' || true
+prefix="$1"; shift
+ps -o pid=,ppid=,pgid=,sid= -p "$BASHPID" >"$prefix.ready"
+printf 'ready\n' >"$prefix.ready.pipe"
+# No dotnet command may start before independently validated ownership.
+IFS= read -r -t 5 release <"$prefix.release.pipe" || exit 125
+[[ "$release" == release ]] || exit 125
+exec "$@"
+READY
+    [[ "$parentCommit" =~ ^[a-f0-9]{40}$ ]] || return 2
+    mkdir -p "$workRoot"
+    availableKb="$(df -Pk "$workRoot" | awk 'END {print $4}')"
+    # Fail before archives/builds on the near-full source volume.
+    if [[ ! "$availableKb" =~ ^[0-9]+$ ]] || ((availableKb < 12582912)); then
+        Log "physical warning-only mutation requires 12GiB available in $workRoot"
+        return 2
+    fi
+    [[ "$(uname -s)" == Linux ]] || { Log 'physical mutation requires isolated Linux process/cgroup ownership'; return 2; }
+    command -v setsid >/dev/null || return 2
+    evidenceRoot="$(mktemp -d "$workRoot/warning-only-source-mutation.XXXXXX")"
+    Log "physical warning-only evidence=$evidenceRoot parent=$parentCommit"
+    trap 'if [[ -n "$activeGroup" ]]; then kill -TERM -- "-$activeGroup" 2>/dev/null || true; elif [[ -n "$activeLauncher" ]]; then kill -TERM "$activeLauncher" 2>/dev/null || true; fi; if [[ -n "$activeLauncher" ]]; then wait "$activeLauncher" 2>/dev/null || true; fi' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    if [[ -n "${FSUSBLOG_BOUNDED_MUTATION_PARENT_INPUTS:-}" ]]; then
+        cp "${FSUSBLOG_BOUNDED_MUTATION_PARENT_INPUTS}/parent."{commit,index,tar} "$evidenceRoot/"
+    else
+        git -C "$ROOT_DIR" cat-file commit "$parentCommit" >"$evidenceRoot/parent.commit"
+        git -C "$ROOT_DIR" ls-tree -rz "$parentCommit" >"$evidenceRoot/parent.index"
+        git -C "$ROOT_DIR" archive --format=tar "$parentCommit" >"$evidenceRoot/parent.tar"
+    fi
+    for variant in baseline mutant; do
+        mkdir "$evidenceRoot/$variant"
+        tar -xf "$evidenceRoot/parent.tar" -C "$evidenceRoot/$variant"
+    done
+    # Only the disposable mutant is changed. The current product and oracle stay frozen.
+    perl -0pi -e 's/await store\.WriteBatchAsync\(audits, cancellationToken\)\.ConfigureAwait\(false\);/cancellationToken.ThrowIfCancellationRequested();\n                _logger.LogWarning("admin-audit mutation omitted required store write. StoreType={StoreType}", store.GetType().Name);/g' \
+        "$evidenceRoot/mutant/$sourcePath"
+    status=0
+    (cd "$evidenceRoot" && git diff --no-index --binary --full-index --no-ext-diff --no-textconv --no-renames \
+        "baseline/$sourcePath" "mutant/$sourcePath") >"$evidenceRoot/mutation.patch" || status=$?
+    [[ "$status" == 1 ]] || return 2
+    cp /sys/fs/cgroup/cpu.max "$evidenceRoot/cpu.max"
+    cp /sys/fs/cgroup/memory.max "$evidenceRoot/memory.max"
+    FSUSBLOG_REPO_ROOT="$ROOT_DIR" FSUSBLOG_MUTATION_EVIDENCE_ROOT="$evidenceRoot" FSUSBLOG_MUTATION_PARENT="$parentCommit" \
+        FSUSBLOG_MUTATION_PURPOSE="$purpose" FSUSBLOG_MUTATION_OWNER_PID="$ownerPid" \
+        Run "${FSUSBLOG_NODE:-node}" --input-type=module - <<'NODE'
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import path from 'node:path';
+const root = process.env.FSUSBLOG_REPO_ROOT;
+const owners = ['tools/governance/bounded-channel-contracts.mjs', 'tests/tools/bounded-channel-contracts.test.mjs',
+    'tools/test/lanes/_suite-support.sh', 'tests/matrix.yml', 'docs/testing.md',
+    'tests/backend/Fixtures/backend-evidence-path-authority.generated.json'];
+const source = owners.map(file => ({file, digest: `sha256:${crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex')}`}));
+fs.writeFileSync(path.join(process.env.FSUSBLOG_MUTATION_EVIDENCE_ROOT, 'invocation.json'), JSON.stringify({
+    parentCommit: process.env.FSUSBLOG_MUTATION_PARENT,
+    candidateCommit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+    candidateFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT,
+    runId: process.env.FSUSBLOG_TEST_RUN_ID,
+    purpose: process.env.FSUSBLOG_MUTATION_PURPOSE,
+    ownerProcessId: Number(process.env.FSUSBLOG_MUTATION_OWNER_PID),
+    executionOwnerSources: source
+}, null, 2), {flag: 'wx'});
+NODE
+    local identityArgs=(--expected-current-commit "$expectedCommit" --expected-fingerprint "$expectedFingerprint"
+        --expected-run-id "$expectedRunId" --purpose "$purpose")
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/bounded-channel-contracts.mjs" \
+        --physical-warning-only-proof "$evidenceRoot" "$parentCommit" "${identityArgs[@]}" \
+        --inputs-only --proof-output "$evidenceRoot/inputs.json" || return $?
+    for variant in baseline mutant; do
+        # Independent, fresh source/obj/bin/data roots; never reuse the baseline assembly.
+        for stage in restore build test; do
+            local args=(dotnet "$stage" tests/backend/FsusBlog.Server.Tests.csproj --disable-build-servers -m:1
+                -p:BuildInParallel=false -p:UseSharedCompilation=false -p:NuGetAudit=false)
+            case "$stage" in
+                restore) args+=(--locked-mode --disable-parallel) ;;
+                build) args+=(--no-restore -c Debug --nologo) ;;
+                test) args+=(--no-build --no-restore -c Debug --nologo --filter "FullyQualifiedName=$oracle"
+                    --logger "trx;LogFileName=$variant.trx" --results-directory "$evidenceRoot") ;;
+            esac
+            availableKb="$(df -Pk "$evidenceRoot/$variant" | awk 'END {print $4}')"
+            ((availableKb >= 4194304)) || { Log 'insufficient remaining physical mutation build capacity'; return 2; }
+            printf '%s\0' "${args[@]}" >"$evidenceRoot/$variant.$stage.argv"
+            date -u +%s >"$evidenceRoot/$variant.$stage.start"
+            local prefix="$evidenceRoot/$variant.$stage" readyFd releaseFd readyLine
+            mkfifo "$prefix.ready.pipe" "$prefix.release.pipe"
+            exec {readyFd}<>"$prefix.ready.pipe"
+            exec {releaseFd}<>"$prefix.release.pipe"
+            (
+                cd "$evidenceRoot/$variant"
+                exec env FSUSBLOG_DATA_ROOT="$evidenceRoot/$variant-data" FSUSBLOG_PRODUCTION_BUILD_ROOT="" \
+                    MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 DOTNET_PROCESSOR_COUNT=1 \
+                    setsid --wait bash -c "$readyScript" bounded-mutation-ready \
+                        "$prefix" "$evidenceRoot/$variant/tools/build-with-data-env.sh" "${args[@]}"
+            ) >"$evidenceRoot/$variant.$stage.log" 2>&1 &
+            activeLauncher=$!
+            printf '%s\n' "$activeLauncher" >"$prefix.pid"
+            IFS= read -r -t 5 -u "$readyFd" readyLine || return 2
+            [[ "$readyLine" == ready ]] || return 2
+            ps -eo pid,ppid,pgid,sid,state,args >"$prefix.ready-processes"
+            Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/bounded-channel-contracts.mjs" \
+                --physical-warning-only-ready "$prefix" "$activeLauncher" "$ownerPid" \
+                --proof-output "$prefix.ready-authority.json" || return $?
+            activeGroup="$("${FSUSBLOG_NODE:-node}" -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')).processGroup" "$prefix.ready-authority.json")"
+            printf 'release\n' >&"$releaseFd"
+            exec {readyFd}>&-
+            exec {releaseFd}>&-
+            status=0
+            wait "$activeLauncher" || status=$?
+            date -u +%s >"$evidenceRoot/$variant.$stage.end"
+            printf '%s\n' "$status" >"$evidenceRoot/$variant.$stage.exit"
+            ps -eo pid,ppid,pgid,sid,state,args >"$evidenceRoot/$variant.$stage.processes"
+            if kill -0 -- "-$activeGroup" 2>/dev/null; then
+                Log "owned process group $activeGroup remains; refusing mutation proof"
+                return 2
+            fi
+            activeGroup=""
+            activeLauncher=""
+            if [[ "$variant" == mutant && "$stage" == test ]]; then
+                [[ "$status" == 1 ]] || return 1
+            else
+                [[ "$status" == 0 ]] || return "$status"
+            fi
+        done
+    done
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/bounded-channel-contracts.mjs" \
+        --physical-warning-only-proof "$evidenceRoot" "$parentCommit" "${identityArgs[@]}" --proof-output "$evidenceRoot/proof.json"
+)
+
 RunBackendUnitLane() {
     if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
         Log "backend-unit selection=affected"

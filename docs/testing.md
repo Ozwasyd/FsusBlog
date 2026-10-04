@@ -15,7 +15,7 @@ node --test tests/tools/bounded-channel-contracts.test.mjs
 
 ## Catalog-driven bounded queue drain matrix
 
-`drainParticipant: true` in the sole bounded-channel catalog is the participant admission boundary. `BoundedQueueDeliveryCatalog` loads that same embedded catalog, and `BoundedQueueDrainAggregator` accepts exactly one registered adapter receipt for every participant queue. A receipt is current-run and content-addressed: it binds queue identity, delivery class, generation, sequence, queued/in-flight/durable-pending/terminal counts, commit postcondition, and any class-valid drop proof. Missing, duplicate, unknown, stale, cross-run, underflowed, observer-unavailable, or digest-mismatched observations fail closed.
+`drainParticipant: true` in the sole bounded-channel catalog is the participant admission boundary. `BoundedQueueDeliveryCatalog` loads that same embedded catalog, and `BoundedQueueDrainAggregator` accepts exactly one registered adapter receipt for every participant queue. A receipt is current-run and content-addressed: it binds queue identity, delivery class, generation, sequence, queued/in-flight/durable-pending/terminal counts, commit postcondition, and any class-valid drop proof. Missing, duplicate, unknown, stale, cross-run, underflowed, observer-unavailable, or digest-mismatched observations fail closed. A rejected generation/sequence regression or content collision must not replace the participant watermark; rereading the same rejected snapshot cannot make health, readiness, or qualification succeed. Digest-, run-, or catalog-binding-invalid receipts cannot establish the watermark; correcting only their envelope can recover without changing the queue version, while valid pending receipts still advance monotonic observation.
 
 The release drain wrapper and `ProductionHealth` both consume the aggregate; health, readiness, and qualification are not computed from a second queue list or a `QueuedCount`-only shortcut. Queue adapters only expose existing queue-owned snapshots. The PublicHot adapter remains a wrapper around the authoritative PublicHot activity/quiescence APIs and does not copy or change PublicHot delivery behavior.
 
@@ -30,7 +30,60 @@ node --test tests/tools/bounded-channel-contracts.test.mjs
 dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~BoundedQueueDrainAggregatorTests"
 ```
 
-The receipt schema is `fsusblog.bounded-queue-acceptance.v1`. It binds the catalog digest, every participant and adapter source, the ten scenarios, the aggregate source/schema, all mutation results, and `warnings: []`; a verifier must rebuild it from the current source before accepting it. A changed catalog or source requires the catalog gate, matrix, and receipt to be rerun. This lane does not change individual queue delivery implementations, add a runner/catalog, or alter the PublicHot authoritative contract.
+The receipt schema is `fsusblog.bounded-queue-acceptance.v1`. Its source bindings include every file referenced by the catalog's queue owners, callsites, class proofs, evidence and proof tests, together with the matrix and aggregate owners. It also binds the catalog digest, declared scenarios, mutation records, and `warnings: []`; a verifier must rebuild these bindings from the current source. This static inventory does not prove execution of each queue's business fixtures. In particular, `source-bound` mutation records are not executed mutation kills. Terminal acceptance additionally requires current-run per-queue runtime receipts, an observed drain aggregate, and the actual mutation outcomes. A changed catalog or source requires the catalog gate, matrix, and receipt to be rerun. This lane does not change individual queue delivery implementations, add a runner/catalog, or alter the PublicHot authoritative contract.
+
+The eight static mutation negatives are not physical product-source kills.
+`RunBoundedWarningOnlySourceMutation` in `tools/test/lanes/_suite-support.sh`
+is an explicitly invoked development-only Shell operation. Ordinary `backend-unit`
+does not invoke it or declare its private proof/cache dependencies; normal unit
+platform and resource behavior is unchanged. No mutation lane invokes it either.
+Canonical mutation-owner/platform integration remains unapproved, not a passing
+skip or whole-chain qualification. The operation builds two fresh snapshots of an
+immutable parent, removes only the real `AdminAuditLogChannel.ReplayAsync`
+store-write callback in the disposable mutant, and executes the unchanged
+`PersistentReplayFailure_BlocksRealAdminParticipantHealthAndQualification` oracle.
+Baseline must execute exactly one passing test; the compiled warning-only mutant
+must execute that same test and fail its expected `IOException` assertion.
+Compile, restore, timeout, skipped test, unrelated assertion, or environment
+failures are not kills. This focused oracle uses the real channel/journal/adapter
+and an injected failing store; it is not PostgreSQL or four-queue acceptance.
+
+The Shell owner, not Node, creates snapshots, builds/tests, owns process groups,
+and records terminal process observations. Node only validates the full raw Git
+index/tree/blob bindings, single patch, fresh assemblies/PDBs, commands, cgroup
+limits, TRX/log/exit and cleanup observations. The derived proof is `proof.json`
+inside the unique task-owned evidence root, not ordinary backend-unit evidence;
+whole-chain
+`qualificationEligible` remains false. Version 2 additionally compares independently
+supplied expected current commit, fingerprint and run ID to invocation metadata,
+checks native pre-exec PID/PPID/PGID/SID and launcher ancestry before releasing
+the command, and requires test-directory Server DLL bytes to equal the variant's
+backend build DLL. File mtimes are only a freshness auxiliary, not independent
+loaded-server identity. The original v1 raw results must not be relabelled as v2.
+Raw evidence stays in a unique task root.
+Set `FSUSBLOG_BOUNDED_MUTATION_WORK_ROOT` to a task-owned large-disk/Linux root
+(12GiB free before extraction, 4GiB before each stage). The execution environment
+must supply actual 1CPU/3GiB Linux cgroups and the locked SDK/dependency cache.
+The Shell caller supplies expected commit/fingerprint/run ID and explicit
+`development` purpose; a canonical request to this helper fails before any build.
+The verifier retains the canonical parent=current and immutable live-input
+negative checks for future admitted integration; those checks do not admit an
+execution platform or create a qualification caller. Development mode allows
+`FSUSBLOG_BOUNDED_MUTATION_PARENT_COMMIT`, still binding the live
+product/oracle to that parent; it cannot claim current-tree qualification. Archive
+inputs for a non-Git Linux snapshot may be supplied with
+`FSUSBLOG_BOUNDED_MUTATION_PARENT_INPUTS` containing unmodified `parent.commit`
+(`git cat-file commit`), `parent.index` (`git ls-tree -rz`) and `parent.tar`
+(`git archive --format=tar`). Case-distinct source paths must be preserved.
+
+```bash
+# Explicit development execution only, after authorizing the owned Linux resources:
+# source tools/test/lanes/_suite-support.sh
+# RunBoundedWarningOnlySourceMutation "$CURRENT_COMMIT" "$CURRENT_FINGERPRINT" "$CURRENT_RUN_ID" development
+node tools/governance/bounded-channel-contracts.mjs --physical-warning-only-proof "$OWNED_EVIDENCE_ROOT" "$PARENT_COMMIT" \
+  --expected-current-commit "$CURRENT_COMMIT" --expected-fingerprint "$CURRENT_FINGERPRINT" \
+  --expected-run-id "$CURRENT_RUN_ID" --purpose development
+```
 
 The required audit owner's focused execution additionally covers real protected
 files, process kill/restart, and PostgreSQL commit-acknowledgement loss. Run it in an

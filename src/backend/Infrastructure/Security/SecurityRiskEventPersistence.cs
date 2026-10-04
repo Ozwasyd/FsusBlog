@@ -168,7 +168,10 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
     /// <param name="write">The bounded event to persist.</param>
     /// <param name="cancellationToken">A token that cancels the write.</param>
     /// <returns>A task that completes when the event has been persisted.</returns>
-    public async Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
+    public Task AppendAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken = default)
+        => WithCancellationAsync(() => AppendSingleCoreAsync(write, cancellationToken), cancellationToken);
+
+    private async Task AppendSingleCoreAsync(SecurityRiskEventWrite write, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         SecurityRiskEvent entity = ToEntity(write);
@@ -176,16 +179,18 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
         {
             await db.Insertable(entity).ExecuteCommandAsync();
         }
-        catch (Exception)
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
-            if (!await IsAlreadyPersistedAsync(entity.Id, cancellationToken).ConfigureAwait(false))
+            if (!await IsExactlyPersistedAsync(entity, cancellationToken).ConfigureAwait(false))
             {
                 throw;
             }
-
-            // The stable event id is the commit receipt. A replay after an
-            // acknowledged insert is an idempotent no-op, never a second risk
-            // contribution.
+        }
+        // A stable ID alone cannot prove a commit of this payload. Both ordinary
+        // delivery and commit-before-ACK replay require the normalized exact row.
+        if (!await IsExactlyPersistedAsync(entity, cancellationToken).ConfigureAwait(false))
+        {
+            throw new InvalidDataException("security_risk_commit_postcondition_failed");
         }
     }
 
@@ -193,9 +198,12 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
     /// <param name="writes">The bounded events to persist.</param>
     /// <param name="cancellationToken">A token that cancels the write.</param>
     /// <returns>A task that completes when the batch has been persisted.</returns>
-    public async Task AppendBatchAsync(
+    public Task AppendBatchAsync(
         IReadOnlyList<SecurityRiskEventWrite> writes,
         CancellationToken cancellationToken = default)
+        => WithCancellationAsync(() => AppendBatchCoreAsync(writes, cancellationToken), cancellationToken);
+
+    private async Task AppendBatchCoreAsync(IReadOnlyList<SecurityRiskEventWrite> writes, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
         if (writes.Count == 0)
@@ -214,7 +222,7 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
         {
             await db.Insertable(entities).ExecuteCommandAsync();
         }
-        catch (Exception)
+        catch (Exception) when (!cancellationToken.IsCancellationRequested)
         {
             // A partial batch commit or a duplicate event must be reduced to
             // per-event idempotent writes before the worker records disposition.
@@ -223,12 +231,44 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
                 await AppendAsync(write, cancellationToken).ConfigureAwait(false);
             }
         }
+        foreach (SecurityRiskEvent entity in entities)
+        {
+            if (!await IsExactlyPersistedAsync(entity, cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidDataException("security_risk_commit_postcondition_failed");
+            }
+        }
     }
 
-    private async Task<bool> IsAlreadyPersistedAsync(string id, CancellationToken cancellationToken)
-        => await db.Queryable<SecurityRiskEvent>()
-            .AnyAsync(item => item.Id == id, cancellationToken)
-            .ConfigureAwait(false);
+    private async Task<bool> IsExactlyPersistedAsync(SecurityRiskEvent expected, CancellationToken cancellationToken)
+    {
+        List<SecurityRiskEvent> rows = await db.Queryable<SecurityRiskEvent>()
+            .Where(item => item.Id == expected.Id).ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (rows.Count == 0)
+        {
+            return false;
+        }
+        if (rows.Count != 1 || !SecurityRiskDurableDelivery.Matches(expected, rows[0]))
+        {
+            throw new InvalidDataException("security_risk_commit_payload_mismatch");
+        }
+        return true;
+    }
+
+    private async Task WithCancellationAsync(Func<Task> operation, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        CancellationToken? previous = db.Ado.CancellationToken;
+        db.Ado.CancellationToken = cancellationToken;
+        try
+        {
+            await operation().ConfigureAwait(false);
+        }
+        finally
+        {
+            db.Ado.CancellationToken = previous;
+        }
+    }
 
     /// <summary>Queries recent persisted events using bounded administrative filters.</summary>
     /// <param name="query">The event filters and requested result limit.</param>
@@ -356,7 +396,7 @@ public sealed class SecurityRiskEventStore(ISqlSugarClient db) : ISecurityRiskEv
             item.TraceId,
             item.PseudonymEpoch);
 
-    private static SecurityRiskEvent ToEntity(SecurityRiskEventWrite write)
+    internal static SecurityRiskEvent ToEntity(SecurityRiskEventWrite write)
     {
         bool hasPseudonym = write.SubjectHash is not null
             || write.ClientIpHash is not null
@@ -503,25 +543,21 @@ public sealed class SecurityRiskEventSink(
         {
             SecurityRiskEventWrite write = BuildWrite(signal, totalScore);
             ApplyPublicHotReadProjection(write, publicHotReadRiskProjection, publicHotReadRiskProjectionPublisher, logger);
-            if (!eventQueue.TryEnqueueOrShed(write))
+            if (!await eventQueue.EnqueueAsync(write, cancellationToken).ConfigureAwait(false))
             {
                 FsusObservability.RecordSecurityRiskEvent(
                     signal.Source,
                     signal.Reason.ToString(),
                     signal.Action,
-                    SecurityRiskHotPathAdmission.ShedTelemetryResult);
+                    "durable_admission_rejected");
             }
         }
-        catch (Exception ex)
+        catch (Exception)
         {
+            eventQueue.MarkPreparationFailed();
             FsusObservability.RecordSecurityEvent("security_risk", signal.Reason, "persist_failed");
             FsusObservability.RecordSecurityRiskEvent(signal.Source, signal.Reason.ToString(), signal.Action, "persist_failed");
-            logger.LogWarning(
-                ex,
-                "security-risk-persist-failed {Source} {Reason} {Action}",
-                signal.Source,
-                signal.Reason.ToString(),
-                signal.Action);
+            logger.LogWarning("security-risk-persist-failed Reason=signal-preparation-failed");
         }
     }
 
