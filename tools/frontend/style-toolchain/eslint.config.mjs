@@ -9,6 +9,16 @@ import vue from 'eslint-plugin-vue';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
 
+import { wrapParentImportRule } from './closed-canonical-edge.mjs';
+
+const governedImportX = {
+    ...importX,
+    rules: {
+        ...importX.rules,
+        'no-relative-parent-imports': wrapParentImportRule(importX.rules['no-relative-parent-imports'])
+    }
+};
+
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const repositoryRoot = path.resolve(process.env.FSUSBLOG_STYLE_ROOT ?? defaultRoot);
 const frontendRoot = path.join(repositoryRoot, 'src/frontend');
@@ -153,7 +163,7 @@ export default [
         files: allLintFiles,
         plugins: {
             '@stylistic': stylistic,
-            'import-x': importX
+            'import-x': governedImportX
         },
         linterOptions: {
             reportUnusedDisableDirectives: 'error'

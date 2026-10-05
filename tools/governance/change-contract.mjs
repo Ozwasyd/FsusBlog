@@ -3994,7 +3994,7 @@ function validateTrustedPolicyFiles({ root, head, authorityRoot, changedFiles },
     {
         return;
     }
-    const policyChanges = [...changeContract.trustedPolicyFiles, ...changeContract.generatedOutputHistoryRepairPolicyFiles]
+    const policyChanges = changeContract.effectiveTrustedPolicyFiles
         .filter((path) => changedFiles.includes(path));
     for (const path of policyChanges)
     {
@@ -4847,8 +4847,7 @@ export function validateRepositorySources(root)
 {
     const errors = [];
     const requiredFiles = [...new Set([
-        ...changeContract.trustedPolicyFiles,
-        ...changeContract.generatedOutputHistoryRepairPolicyFiles,
+        ...changeContract.effectiveTrustedPolicyFiles,
         '.git-blame-ignore-revs',
         'config/development/authoritative-development-docs.json',
         'config/schemas/external-naming-exceptions.schema.json',
@@ -4909,8 +4908,7 @@ export function validateRepositorySources(root)
         ...changeContract.commitScopes,
         ...changeContract.releaseNoteCategories.map((entry) => entry.label),
         ...changeContract.reviewedLegacyFormatRevisions,
-        ...changeContract.trustedPolicyFiles,
-        ...changeContract.generatedOutputHistoryRepairPolicyFiles,
+        ...changeContract.effectiveTrustedPolicyFiles,
         ...Object.values(changeContract.evidenceSchemas),
         ...changeContract.generatedOutputRepairProducers.flatMap((entry) => [
             entry.id,

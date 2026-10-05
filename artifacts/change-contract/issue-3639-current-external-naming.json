@@ -1,0 +1,40 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/canonical-digest-edge.json",
+                "config/development/frontend-style-policy.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
+            ],
+            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/frontend-style-enforcement.md"
+            ],
+            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
+                "tools/frontend/style-toolchain/eslint.config.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs"
+            ],
+            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+        }
+    ]
+}
