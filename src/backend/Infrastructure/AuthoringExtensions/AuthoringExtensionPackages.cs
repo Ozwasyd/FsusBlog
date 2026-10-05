@@ -489,7 +489,7 @@ public sealed class AuthoringPackageVerifier(
             contract.Manifest.ContentSha256,
             package.SourceReference,
             package.ProvenanceReference);
-        return new VerifiedAuthoringPackage(
+        var verified = new VerifiedAuthoringPackage(
             contract,
             package with
             {
@@ -503,6 +503,14 @@ public sealed class AuthoringPackageVerifier(
             },
             trust,
             packageIdentity);
+        now = timeProvider.GetUtcNow();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (trust.EvaluatedAt > now || trust.ValidUntil <= now)
+        {
+            throw new AuthoringExtensionContractException("Package trust validity no longer holds at verification completion.");
+        }
+
+        return verified;
     }
 
     private static void ValidateEntries(

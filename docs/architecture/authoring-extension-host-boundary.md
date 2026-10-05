@@ -19,6 +19,10 @@ implicit fields fail closed. Manifest bytes, object depth, identifiers,
 contribution count, capability count, entrypoint text, and every resource value are
 bounded before a contract is accepted.
 
+Manifest identity, signature/trust reference, digest and numeric version patterns
+require the exact input end; a terminal newline cannot be hidden by a regex line-end
+anchor. Both typed and JSON admission retain the same closed kind and host API checks.
+
 `AuthoringContributionKind`, `AuthoringCapability`, `AuthoringExecutionClass`, and
 the related policy enums are the sole closed registries. A contribution contains
 one enum-valued kind, one enum-valued execution class, one matching entrypoint
@@ -335,7 +339,14 @@ ambient browser inference.
 Invocation binds the package/runtime identity, lifecycle generation, exact
 document identity and epoch, source revision, selection identity, request, and
 required capabilities. Permission, lifecycle, document, revision, selection, or
-result-identity drift aborts or rejects the result. The only accepted document
+result-identity drift aborts or rejects the result.
+
+The command coordinator rechecks caller cancellation and its registered business
+clock before timeout admission, after asynchronous admission callbacks, and after
+copying the accepted result. Reaching the exact deadline rejects execution or
+publication; callback completion cannot extend the original operation budget.
+
+The only accepted document
 change is a bounded transaction submitted through the public FsusUI dispatcher
 with `expectedRevision`; direct source, DOM, or nearest-revision mutation is not
 an alternative.
