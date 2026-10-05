@@ -89,6 +89,20 @@ public sealed class AuthoringCanvasReferenceResolver(
         // Reject a result that lost the document race before it can enter cache or reach a consumer.
         await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
         cancellationToken.ThrowIfCancellationRequested();
+        // Cache hits bypass batch revalidation, so recheck authority before any fact is exposed or cached.
+        AuthoringCanvasReferenceAuthorityCoordinate verifiedCoordinate = await factSource.ReadAuthorityCoordinateAsync(
+            request.Owner,
+            request.Permission,
+            cancellationToken).ConfigureAwait(false);
+        AuthoringCanvasReferenceContract.ValidateAuthorityCoordinate(verifiedCoordinate);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (verifiedCoordinate != coordinate)
+        {
+            throw new AuthoringCanvasValidationException("canvas_reference_authority_changed");
+        }
+        // The authority read is asynchronous too; keep the final document check after it.
+        await EnsureCurrentCanvasCoordinateAsync(request, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
         foreach ((AuthoringCanvasReferenceCacheKey key, AuthoringCanvasReferenceFact fact) in cacheable)
         {
             cancellationToken.ThrowIfCancellationRequested();

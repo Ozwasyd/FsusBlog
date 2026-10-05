@@ -359,6 +359,137 @@ public sealed class AuthoringCanvasReferenceResolverTests
         Assert.Equal(0, cancelledCache.EntryCount);
     }
 
+    [Theory]
+    [InlineData(false, "permission")]
+    [InlineData(true, "permission")]
+    [InlineData(false, "generation")]
+    [InlineData(true, "generation")]
+    [InlineData(false, "digest")]
+    [InlineData(true, "digest")]
+    public async Task ResolveAsync_RejectsAuthorityRaceBeforeReturningOrCaching(
+        bool warmCache,
+        string changedComponent)
+    {
+        AuthoringCanvasNode node = Reference(502);
+        var source = new DeterministicFactSource(target => Fact(target));
+        var cache = new AuthoringCanvasReferenceProjectionCache();
+        AuthoringCanvasReferenceResolutionRequest request = Request([node]);
+        int canvasReads = 0;
+        IAuthoringCanvasDocumentStore store = Substitute.For<IAuthoringCanvasDocumentStore>();
+        store.GetAsync(s_owner, request.CanvasId, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            canvasReads++;
+            if (canvasReads == (warmCache ? 5 : 2))
+            {
+                switch (changedComponent)
+                {
+                    case "permission":
+                        source.PermissionFingerprint = "permission-revoked";
+                        break;
+                    case "generation":
+                        source.Generation++;
+                        break;
+                    case "digest":
+                        source.ContentDigest = new string('f', 64);
+                        break;
+                    default:
+                        throw new InvalidOperationException();
+                }
+            }
+            return Task.FromResult<AuthoringCanvasDocumentHeader?>(Header(
+                request.CanvasId,
+                [node],
+                request.CanvasRevision,
+                request.CanvasContentDigest));
+        });
+        var resolver = new AuthoringCanvasReferenceResolver(store, source, cache, TimeProvider.System);
+        if (warmCache)
+        {
+            AuthoringCanvasReferenceResolutionBatch first = await resolver.ResolveAsync(request);
+            Assert.Equal(0, first.Receipt.CacheHitCount);
+            Assert.Equal(1, cache.EntryCount);
+        }
+
+        AuthoringCanvasValidationException exception = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => resolver.ResolveAsync(request));
+
+        Assert.Equal("canvas_reference_authority_changed", exception.Code);
+        Assert.Equal(warmCache ? 5 : 2, canvasReads);
+        Assert.Equal(warmCache ? 4 : 2, source.AuthorityReadCount);
+        Assert.Equal(1, source.BatchReadCount);
+        Assert.Equal(warmCache ? 1 : 0, cache.EntryCount);
+    }
+
+    [Theory]
+    [InlineData(false, "revision")]
+    [InlineData(true, "revision")]
+    [InlineData(false, "digest")]
+    [InlineData(true, "digest")]
+    public async Task ResolveAsync_RejectsDocumentRaceDuringFinalAuthorityReadBeforeReturningOrCaching(
+        bool warmCache,
+        string changedComponent)
+    {
+        AuthoringCanvasNode node = Reference(503);
+        var cache = new AuthoringCanvasReferenceProjectionCache();
+        AuthoringCanvasReferenceResolutionRequest request = Request([node]);
+        long canvasRevision = request.CanvasRevision;
+        string canvasDigest = request.CanvasContentDigest;
+        var source = new DeterministicFactSource(target => Fact(target))
+        {
+            AfterAuthorityRead = readCount =>
+            {
+                if (readCount == (warmCache ? 4 : 2))
+                {
+                    switch (changedComponent)
+                    {
+                        case "revision":
+                            canvasRevision++;
+                            break;
+                        case "digest":
+                            canvasDigest = new string('f', 64);
+                            break;
+                        default:
+                            throw new InvalidOperationException();
+                    }
+                }
+            }
+        };
+        int canvasReads = 0;
+        IAuthoringCanvasDocumentStore store = Substitute.For<IAuthoringCanvasDocumentStore>();
+        store.GetAsync(s_owner, request.CanvasId, Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            canvasReads++;
+            return Task.FromResult<AuthoringCanvasDocumentHeader?>(Header(
+                request.CanvasId,
+                [node],
+                canvasRevision,
+                canvasDigest));
+        });
+        var resolver = new AuthoringCanvasReferenceResolver(store, source, cache, TimeProvider.System);
+        if (warmCache)
+        {
+            AuthoringCanvasReferenceResolutionBatch first = await resolver.ResolveAsync(request);
+            Assert.Equal(0, first.Receipt.CacheHitCount);
+            Assert.Equal(1, cache.EntryCount);
+        }
+
+        if (changedComponent == "revision")
+        {
+            await Assert.ThrowsAsync<AuthoringCanvasRevisionConflictException>(() => resolver.ResolveAsync(request));
+        }
+        else
+        {
+            AuthoringCanvasValidationException exception = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+                () => resolver.ResolveAsync(request));
+            Assert.Equal("canvas_reference_content_digest_stale", exception.Code);
+        }
+
+        Assert.Equal(warmCache ? 6 : 3, canvasReads);
+        Assert.Equal(warmCache ? 4 : 2, source.AuthorityReadCount);
+        Assert.Equal(1, source.BatchReadCount);
+        Assert.Equal(warmCache ? 1 : 0, cache.EntryCount);
+    }
+
     [Fact]
     public async Task ResolveAsync_UsesStableIdsWhenTitlesMatchAndNeverFirstMatches()
     {
@@ -429,7 +560,7 @@ public sealed class AuthoringCanvasReferenceResolverTests
                 AuthoringCanvasReferenceProjectionStatus.PermissionDeniedOrUnknown
             ],
             candidate.Projections.Select(static projection => projection.Status));
-        Assert.Equal(2, source.AuthorityReadCount);
+        Assert.Equal(3, source.AuthorityReadCount);
         Assert.Equal(2, source.BatchReadCount);
     }
 
@@ -669,6 +800,8 @@ public sealed class AuthoringCanvasReferenceResolverTests
 
         public string PermissionFingerprint { get; set; } = "permission-a";
 
+        public string ContentDigest { get; set; } = AuthorityDigest;
+
         public int AuthorityReadCount
         {
             get; private set;
@@ -691,16 +824,23 @@ public sealed class AuthoringCanvasReferenceResolverTests
             get; init;
         }
 
+        public Action<int>? AfterAuthorityRead
+        {
+            get; init;
+        }
+
         public Task<AuthoringCanvasReferenceAuthorityCoordinate> ReadAuthorityCoordinateAsync(
             AuthoringCanvasOwner owner,
             AuthoringCanvasReferencePermission permission,
             CancellationToken cancellationToken = default)
         {
             AuthorityReadCount++;
-            return Task.FromResult(new AuthoringCanvasReferenceAuthorityCoordinate(
+            var coordinate = new AuthoringCanvasReferenceAuthorityCoordinate(
                 Generation,
-                AuthorityDigest,
-                PermissionFingerprint));
+                ContentDigest,
+                PermissionFingerprint);
+            AfterAuthorityRead?.Invoke(AuthorityReadCount);
+            return Task.FromResult(coordinate);
         }
 
         public Task<IReadOnlyList<AuthoringCanvasReferenceFact>> ReadBatchAsync(

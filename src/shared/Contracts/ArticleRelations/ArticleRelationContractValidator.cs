@@ -491,6 +491,11 @@ public static class ArticleRelationContractValidator
             return Invalid("article_relation_mention_public_scope_forbidden");
         }
 
+        if (candidate.Visibility.SourceActor != candidate.Source.SourceActor)
+        {
+            return Invalid("article_relation_source_actor_binding_mismatch");
+        }
+
         string expectedIdentity = ArticleRelationDigest.ComputeCandidateIdentity(candidate);
         if (!DigestEquals(candidate.CandidateIdentity, expectedIdentity))
         {
@@ -504,12 +509,16 @@ public static class ArticleRelationContractValidator
 
     public static ArticleRelationValidationResult Validate(ArticleRelationLifecycleEvent? lifecycleEvent)
     {
+        const ArticleRelationLifecycleChanges allowedChanges = ArticleRelationLifecycleChanges.Slug
+            | ArticleRelationLifecycleChanges.Title
+            | ArticleRelationLifecycleChanges.HeadingIdentity;
         if (lifecycleEvent is null
             || lifecycleEvent.Schema != ArticleRelationSchemas.LifecycleEvent
             || lifecycleEvent.SchemaVersion != ArticleRelationSchemas.Version
             || !ArticleRelationDigest.IsSha256(lifecycleEvent.EventIdentity)
             || !Enum.IsDefined(lifecycleEvent.Kind)
             || !Enum.IsDefined(lifecycleEvent.Owner)
+            || (lifecycleEvent.Changes & ~allowedChanges) != ArticleRelationLifecycleChanges.None
             || !IsStableArticleIdentity(lifecycleEvent.ArticleIdentity)
             || !IsStableRevisionIdentity(lifecycleEvent.RevisionIdentity)
             || lifecycleEvent.EventRevision < 1)

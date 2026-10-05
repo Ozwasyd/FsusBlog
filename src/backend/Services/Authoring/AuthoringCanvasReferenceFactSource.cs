@@ -117,7 +117,7 @@ public sealed class AuthoringCanvasReferenceFactSource(
                     target.NodeId,
                     target.TargetArticleId,
                     AuthoringCanvasArticleState.Current,
-                    AuthoringCanvasReferenceCoordinateState.Missing,
+                    AuthoringCanvasReferenceCoordinateState.SourceStale,
                     article.CurrentRevision,
                     target.PinnedTargetRevision ?? 0,
                     false,
