@@ -45,7 +45,7 @@ if (!handoffPath)
 }
 const context = JSON.parse(fs.readFileSync(path.resolve(contextPath), 'utf8'));
 const handoff = JSON.parse(fs.readFileSync(path.resolve(handoffPath), 'utf8'));
-const checkpoint = attachCurrentRunEvidenceReferenceToCheckpoint({ checkpointPath, context,
+const checkpoint = await attachCurrentRunEvidenceReferenceToCheckpoint({ checkpointPath, context,
     entry, handoff, registry, repositoryRoot });
 process.stdout.write(`${JSON.stringify({ authorityId: entry.authorityId,
     checkpointRevision: checkpoint.revision })}\n`);

@@ -2441,7 +2441,7 @@ function readCheckpoint(checkpointFile)
         runId: identity.runId,
         sourceState: identity.sourceState
     });
-    const recovered = store.recover(applyCheckpointPatch);
+    const recovered = store.recover((state, _event, payload) => applyCheckpointPatch(state, payload));
     const recoveredCheckpoint = recovered.state?.schema === checkpointSchema ? recovered.state : null;
     if (compatibilityCheckpoint
     && (!recoveredCheckpoint
@@ -2583,7 +2583,7 @@ function schedulerPersistence(checkpointFile, checkpoint)
         let previous = null;
         try
         {
-            previous = store.recover(applyCheckpointPatch).state;
+            previous = store.recover((state, _event, payload) => applyCheckpointPatch(state, payload)).state;
         }
         catch (error)
         {
@@ -3846,6 +3846,94 @@ function persistEvidenceFailure(checkpointFile, expectedRunId, error)
         tier: checkpoint.targetTierId,
         step: 'finalize-evidence'
     });
+}
+
+export function attachCheckpointCurrentRunEvidence(checkpointFileValue, expectedRunId, {
+    expectedRevision, context, entry, handoff, registry, repositoryRoot
+})
+{
+    const checkpointFile = path.resolve(checkpointFileValue);
+    // Observe the original recovered revision before lock acquisition, then
+    // compare it again under ownership. A failed compact publication can
+    // leave the compatibility JSON behind the durable journal revision.
+    if (expectedRevision === undefined)
+    {
+        expectedRevision = readCheckpoint(checkpointFile)?.revision;
+    }
+    if (!Number.isInteger(expectedRevision) || expectedRevision <= 0)
+    {
+        throw new Error('checkpoint evidence attach requires a positive expectedRevision');
+    }
+    const releaseLock = acquireRunLock(path.dirname(path.dirname(checkpointFile)), expectedRunId);
+    let failure = null;
+    let cleanupFailure = null;
+    let result;
+    try
+    {
+        const checkpoint = readCheckpoint(checkpointFile);
+        if (!checkpoint || checkpoint.runId !== expectedRunId
+        || context.schedulerRunId !== expectedRunId)
+        {
+            throw new Error(`missing or mismatched scheduler checkpoint: ${checkpointFileValue}`);
+        }
+        if (checkpoint.revision !== expectedRevision)
+        {
+            throw new Error(`checkpoint revision ${checkpoint.revision} does not match expected revision ${expectedRevision}`);
+        }
+        if (checkpoint.sourceState?.commit !== context.sourceCommit
+        || checkpoint.sourceState?.worktreeFingerprint !== context.worktreeFingerprint)
+        {
+            throw new Error('scheduler checkpoint source identity mismatch');
+        }
+        const baseline = structuredClone(checkpoint);
+        attachCurrentRunEvidenceHandoff({ checkpoint, context, entry, handoff, registry, repositoryRoot });
+        // A different process may have advanced this run since our last
+        // attachment. Reconstruct the original writer's baseline under the
+        // same lock as the fresh read/CAS; a cached prior epoch is not valid.
+        checkpointPersistence.delete(checkpointFile);
+        const persistence = schedulerPersistence(checkpointFile, baseline);
+        if (persistence.previous !== null
+        && fingerprint(persistence.previous) !== fingerprint(baseline))
+        {
+            throw new Error('scheduler checkpoint journal baseline does not match the locked revision');
+        }
+        writeCheckpoint(checkpointFile, checkpoint, {
+            boundary: true,
+            stage: 'current-run-evidence-attached',
+            eventType: 'current-run-evidence-attached',
+            tier: checkpoint.targetTierId,
+            step: 'attach-current-run-evidence'
+        });
+        result = checkpoint;
+    }
+    catch (error)
+    {
+        failure = error;
+        throw error;
+    }
+    finally
+    {
+        try
+        {
+            releaseLock(failure === null ? 'complete' : 'failed');
+        }
+        catch (cleanupError)
+        {
+            if (failure === null)
+            {
+                cleanupFailure = cleanupError;
+            }
+            else
+            {
+                failure.checkpointLockFinalizeError = cleanupError;
+            }
+        }
+    }
+    if (cleanupFailure !== null)
+    {
+        throw cleanupFailure;
+    }
+    return result;
 }
 
 export async function attachCheckpointEvidence(checkpointFileValue, expectedRunId, evidenceOrBuilder, options = {})
