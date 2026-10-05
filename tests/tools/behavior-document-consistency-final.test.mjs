@@ -724,6 +724,30 @@ test('zero-legacy machine-field mutation corpus rejects separator variants and b
     assert.ok(rules.includes('forbidden-self-certification:reviewed'))
 })
 
+test('zero-legacy qualification-only fields retain their exact path scope', (t) =>
+{
+    const fields = {
+        expectedValue: 1,
+        baselineValue: 1,
+        verifiedAt: 'now',
+        waiver: 'manual'
+    };
+    const qualified = 'config/testing/behavior-qualification.json';
+    const ordinary = 'config/runtime/options.json';
+    const scan = scanZeroLegacyGovernance(repositoryFixture(t, {
+        [qualified]: JSON.stringify(fields),
+        [ordinary]: JSON.stringify(fields)
+    }));
+    for (const field of Object.keys(fields))
+    {
+        assert.ok(scan.findings.some((finding) => finding.file === qualified
+            && finding.rule === `forbidden-machine-field:${field}`), `${field} escaped qualification`);
+        assert.equal(scan.findings.some((finding) => finding.file === ordinary
+            && finding.rule === `forbidden-machine-field:${field}`), false, `${field} leaked outside qualification`);
+    }
+});
+
+
 test('zero-legacy fixture classification requires the complete reviewed source to rejection sink', (t) =>
 {
     const source = fs.readFileSync(fileURLToPath(import.meta.url), 'utf8')
@@ -751,9 +775,9 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['helper-parser-change', representative, helper.replace('typescript/lib/typescript.js', 'typescript/lib/other.js'), imports, true],
         ['fake-import', representative, helper, imports.replace("'../../tools/docs/behavior-document-consistency-final.mjs'", "'./fake-scanner.mjs'"), true],
         ['findings-replaced', representative.replace('scanZeroLegacyGovernance(scannerFixture.root).findings', 'inventedFindings'), helper, imports, true],
-        ['missing-assertion', representative.replace("    assert.ok(rules.includes('forbidden-self-certification:reviewed'))\n", ''), helper, imports, true],
+        ['missing-assertion', representative.replace(/    assert\.ok\(rules\.includes\('forbidden-self-certification:reviewed'\)\);?\n/u, ''), helper, imports, true],
         ['wrong-rule', representative.replace('forbidden-machine-field:${field}', 'other-rule:${field}'), helper, imports, true],
-        ['caught-assertion', representative.replace('        assert.ok(rules.includes(`forbidden-machine-field:${field}`), `${field} mutation survived`)', '        try { assert.ok(rules.includes(`forbidden-machine-field:${field}`)) } catch {}'), helper, imports, true],
+        ['caught-assertion', representative.replace(/        assert\.ok\(rules\.includes\(`forbidden-machine-field:\$\{field\}`\), `\$\{field\} mutation survived`\);?/u, '        try { assert.ok(rules.includes(`forbidden-machine-field:${field}`)); } catch {}'), helper, imports, true],
         ['unreachable-assertions', representative.replace('    for (const field', '    return\n    for (const field'), helper, imports, true],
         ['assert-shadow', representative.replace('    const machineFields', '    const assert = fakeAssert\n    const machineFields'), helper, imports, true],
         ['global-write', `${representative}\nJSON.stringify = replacement\n`, helper, imports, true],
@@ -763,6 +787,11 @@ test('zero-legacy fixture classification requires the complete reviewed source t
     ]
     for (const [name, callback, helperSource, importSource, rejected] of variants)
     {
+        if (rejected)
+        {
+            assert.ok(callback !== representative || helperSource !== helper || importSource !== imports,
+                `${name} must change a real mutation input`);
+        }
         const repositoryRoot = repositoryFixture(t, {
             [scannerPath]: scanner,
             [helperPath]: helperSource,
