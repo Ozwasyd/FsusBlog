@@ -6,6 +6,7 @@ export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v
 
 import { browserContractScenarios, selectBrowserContractScenarios, BrowserContractFailure, contractAssert } from './contract-core.mjs';
 export { browserContractScenarios, selectBrowserContractScenarios, BrowserContractFailure, contractAssert } from './contract-core.mjs';
+void selectBrowserContractScenarios;
 
 export function productAssert(condition, message, details = null)
 {
@@ -113,6 +114,9 @@ export function finalizeBrowserContractReceipt(receipt, {
     };
     receipt.status = status;
     receipt.classification = classification;
+    receipt.attemptStatus = status === 'success' ? 'clean-success' : 'failed-no-retry';
+    receipt.cleanFirstAttempt = status === 'success';
+    receipt.qualificationEligible = status === 'success';
     receipt.error = error;
     receipt.finishedAt = finishedAt;
     receipt.wallClockMs = wallClockMs;

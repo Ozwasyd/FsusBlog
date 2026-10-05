@@ -1,10 +1,11 @@
 #!/usr/bin/env node
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
 import { readCleanAttemptEvidenceSource } from './clean-attempt-evidence-source.mjs';
-import { admitCleanAttemptCohort } from './release-clean-attempt-cohort.mjs';
+import { admitCleanAttemptCohort, archiveCleanAttemptCohortInputs } from './release-clean-attempt-cohort.mjs';
 
 function option(args, name)
 {
@@ -33,6 +34,7 @@ function main()
     const outputFile = path.resolve(option(args, '--output'));
     const expectedCohortId = option(args, '--cohort-id');
     const expectedBuildIdentity = option(args, '--build-identity');
+    const expectedCandidate = JSON.parse(fs.readFileSync(path.resolve(option(args, '--candidate')), 'utf8'));
     const input = JSON.parse(fs.readFileSync(inputFile, 'utf8'));
     exactKeys(input, ['schema', 'cohortId', 'buildIdentity', 'slots'], 'cohort input');
     if (input.schema !== 'fsusblog.release-clean-attempt-cohort-input.v1'
@@ -47,19 +49,27 @@ function main()
     }
     const slots = input.slots.map((entry, index) =>
     {
-        exactKeys(entry, ['slot', 'evidenceSource'], `cohort input slot ${index + 1}`);
+        exactKeys(entry, ['slot', 'members'], `cohort input slot ${index + 1}`);
         return {
             slot: entry.slot,
-            attemptEvidence: readCleanAttemptEvidenceSource(
-                path.resolve(path.dirname(inputFile), entry.evidenceSource),
-                { repositoryRoot }
-            )
+            members: entry.members.map((member) =>
+            {
+                exactKeys(member, ['authorityId', 'evidenceSource'], 'cohort member');
+                const evidenceSource = path.resolve(path.dirname(inputFile), member.evidenceSource);
+                return { authorityId: member.authorityId,
+                    evidenceSource: { path: evidenceSource, fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(evidenceSource)).digest('hex')}` },
+                    attemptEvidence: readCleanAttemptEvidenceSource(evidenceSource, { repositoryRoot }) };
+            })
         };
     });
+    const archived = archiveCleanAttemptCohortInputs({ slots, expectedCandidate, repositoryRoot,
+        archiveRoot: path.dirname(outputFile), cohortId: input.cohortId, rejectedOutputFile: outputFile });
     const cohort = admitCleanAttemptCohort({
         cohortId: input.cohortId,
         buildIdentity: input.buildIdentity,
-        slots,
+        slots: archived.slots,
+        expectedCandidate: archived.expectedCandidate,
+        candidateRepositoryRoot: path.dirname(outputFile),
         outputFile
     });
     process.stdout.write(`${JSON.stringify({

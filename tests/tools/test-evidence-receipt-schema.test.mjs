@@ -7,6 +7,15 @@ import test from 'node:test';
 
 /* eslint-disable import-x/no-relative-parent-imports */
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
+import { BehaviorId, digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
+import {
+    zeroLegacyRequiredPathClasses,
+    zeroLegacyScanSchema
+} from '../../tools/docs/behavior-document-consistency-final.mjs';
+import {
+    createReleaseFinalTerminalAcceptance,
+    validateReleaseFinalTerminalAcceptance
+} from '../../tools/release/release-final-terminal-acceptance.mjs';
 import {
     browserDiagnosticsReceiptSchema,
     browserlessCorrectnessReceiptSchema,
@@ -20,23 +29,15 @@ import {
     validatePublicPreviewEvidenceBinding,
     validateReleaseFinalTestEvidenceBinding
 } from '../../tools/release/test-evidence-receipts.mjs';
-import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
-import {
-    createRequiredEvidenceCatalogBinding
-} from '../../tools/test-matrix/required-evidence-catalog.mjs';
+import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
 import {
     loadCanonicalReleaseFinalEvidenceInputs
 } from '../../tools/test-matrix/release-final-evidence-contract.mjs';
 import {
-    createReleaseFinalTerminalAcceptance,
-    validateReleaseFinalTerminalAcceptance
-} from '../../tools/release/release-final-terminal-acceptance.mjs';
-import { BehaviorId, digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
-import {
-    zeroLegacyRequiredPathClasses,
-    zeroLegacyScanSchema
-} from '../../tools/docs/behavior-document-consistency-final.mjs';
-import { authorityDigest, loadPostRuntimeProducerRegistry } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
+    createRequiredEvidenceCatalogBinding
+} from '../../tools/test-matrix/required-evidence-catalog.mjs';
+
+import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
 
 const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
     consumerId: 'production-correctness',
@@ -44,7 +45,9 @@ const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
         selectedTierIds: ['production-correctness', 'unit'],
         testVectors: ['node:unit.test.mjs#works']
     },
-    schedulerRunId: 'receipt-schema-clean-attempt'
+    schedulerRunId: 'run-1151',
+    sourceCommit: 'a'.repeat(40),
+    worktreeFingerprint: `sha256:${'b'.repeat(64)}`
 });
 test.after(() => correctnessAttemptFixture.cleanup());
 
@@ -103,7 +106,8 @@ function buildFixture(context)
 function correctnessFixture(build)
 {
     return createBrowserlessCorrectnessReceipt({
-        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
+        attemptEvidence: { ...correctnessAttemptFixture.attemptEvidence, buildIdentity: build.receipt.contentDigest },
+        expectedCandidate: { ...correctnessAttemptFixture.expectedCandidate, buildIdentity: build.receipt.contentDigest },
         matrix: {
             tiers: [
                 { id: 'unit', dependsOn: [], requiresPlaywright: 'none' },
@@ -378,9 +382,14 @@ test('browserless correctness receipt binds exact tiers and IDs while proving a 
     assert.ok(validateBrowserlessCorrectnessReceipt(unboundSummaryFile).some((error) => error.includes('file digest is invalid')));
 });
 
-test('PR plan authority separates executed and policy-skipped tiers without claiming skipped success', (context) =>
+test('PR plan authority separates executed and policy-skipped tiers without claiming skipped success', async (context) =>
 {
     const build = buildFixture(context);
+    const planAttempt = await createCleanAttemptEvidenceFixture({ consumerId: 'production-correctness',
+        sourceCommit: build.sourceState.commit, worktreeFingerprint: `sha256:${build.sourceState.worktreeFingerprint}`,
+        schedulerRunId: '42', buildIdentity: build.receipt.contentDigest,
+        membership: { selectedTierIds: ['pr-unit', 'production-correctness'], testVectors: ['node:pr-unit.test.mjs#selected'] } });
+    context.after(() => planAttempt.cleanup());
     const plan = sealDocument({
         schema: 'fsusblog.pr-smart-gate.v1',
         sourceState: build.sourceState,
@@ -392,7 +401,8 @@ test('PR plan authority separates executed and policy-skipped tiers without clai
         skippedJobIds: ['full-only-job']
     });
     const receipt = createBrowserlessCorrectnessReceipt({
-        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
+        attemptEvidence: planAttempt.attemptEvidence,
+        expectedCandidate: planAttempt.expectedCandidate,
         matrix: {
             tiers: [
                 { id: 'full-only', dependsOn: [], requiresPlaywright: 'none' },
@@ -431,7 +441,8 @@ test('PR plan authority separates executed and policy-skipped tiers without clai
     assert.deepEqual(validateBrowserlessCorrectnessReceipt(receipt), []);
 
     const createWithPlan = (candidatePlan, authorityBuildReceiptDigest = build.receipt.contentDigest) => createBrowserlessCorrectnessReceipt({
-        attemptEvidence: correctnessAttemptFixture.attemptEvidence,
+        attemptEvidence: planAttempt.attemptEvidence,
+        expectedCandidate: planAttempt.expectedCandidate,
         matrix: {
             tiers: [
                 { id: 'full-only', dependsOn: [], requiresPlaywright: 'none' },

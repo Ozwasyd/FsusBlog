@@ -640,6 +640,7 @@ export function locateReleaseReliabilityQualifiedReceipt({
     expectedBuildReceiptContentDigest = null,
     expectedImageDigest = null,
     attemptEvidence = null,
+    expectedCandidate = null,
     verifyQualifiedReceipt = runIndependentReleaseReliabilityVerifier
 })
 {
@@ -682,6 +683,10 @@ export function locateReleaseReliabilityQualifiedReceipt({
     requireCleanAttemptConsumerAdmission({
         consumerId: 'release-reliability',
         attemptEvidence,
+        expectedCandidate,
+        candidateBinding: { sourceCommit: binding.sourceIdentity.commit,
+            worktreeFingerprint: binding.sourceIdentity.worktreeFingerprint,
+            schedulerRunId: binding.sourceIdentity.runId, buildIdentity: binding.buildIdentity.build.contentDigest },
         repositoryRoot: root
     });
     return binding;
