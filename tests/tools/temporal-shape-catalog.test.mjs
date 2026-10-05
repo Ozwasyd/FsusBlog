@@ -286,6 +286,38 @@ test('current temporal domain producers have zero private clock residue', () =>
     });
 });
 
+test('readiness delay classification is exact and never permits business sleeps', () =>
+{
+    const sourcePath = 'src/backend/Services/Fixtures/MessagingFixtureSeeder.cs';
+    const source = readFile(sourcePath);
+    const ledger = JSON.parse(readFile('config/testing/temporal-callsite-dispositions.json'));
+    const index = ledger.entries.findIndex((entry) => entry.callSiteId === 'backend.messaging-outbox-readiness');
+    assert.ok(index >= 0);
+    const anchor = ledger.entries[index].sourceAnchor;
+    for (const altered of [
+        `${source}\nawait Task.Delay(60_000);`,
+        `${source}\nThread.Sleep(60_000);`,
+        source.replace(anchor, 'await Task.Delay(TimeSpan.FromSeconds(60), cancellationToken);'),
+        `${source}\n${anchor}`
+    ])
+    {
+        assert.throws(() => verifyTemporalShapeGovernance({ sourceOverrides: new Map([[sourcePath, altered]]) }),
+            /retains real sleep/u);
+    }
+    for (const [field, value] of [
+        ['clockKind', 'business-wall'],
+        ['disposition', 'unknown'],
+        ['authorityKind', 'canonical-business-epoch'],
+        ['ingress', 'canonical-injected'],
+        ['semanticEffect', 'included']
+    ])
+    {
+        const alteredLedger = clone(ledger);
+        alteredLedger.entries[index][field] = value;
+        assert.throws(() => verifyTemporalShapeGovernance({ temporalLedger: alteredLedger }), /retains real sleep/u);
+    }
+});
+
 function readFile(relative)
 {
     return readFileSync(path.join(repositoryRoot, relative), 'utf8');

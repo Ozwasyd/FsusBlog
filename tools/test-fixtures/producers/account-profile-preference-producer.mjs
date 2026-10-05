@@ -11,6 +11,7 @@
 import { createHash } from 'node:crypto';
 
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
+import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForPostgres, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const producerId = 'account-profile-preferences';
 const strategy = 'transaction-fixture';
@@ -307,6 +308,7 @@ function normalizeResult(raw, context, capabilities, resolvedTemporalRoles)
     verifyResolvedTemporalArtifact(resolvedTemporalRoles, {
         temporalContext: context.temporalContext
     });
+    const temporalObservation = validateBackendTemporalObservation(context.temporalContext, raw.temporalObservation);
     return Object.freeze({
         producerId,
         strategy,
@@ -359,7 +361,7 @@ function normalizeResult(raw, context, capabilities, resolvedTemporalRoles)
         temporalRoleReceipt: createTemporalDomainProducerReceipt(resolvedTemporalRoles),
         postgresTemporalRoles: projectTemporalRolesForPostgres(resolvedTemporalRoles),
         browserTemporalRoles: projectTemporalRolesForBrowser(resolvedTemporalRoles),
-        ...(raw.temporalObservation ? { temporalObservation: raw.temporalObservation } : {})
+        temporalObservation
     });
 }
 
@@ -400,6 +402,8 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
     }
     try
     {
+        validateBackendTemporalObservation(context.temporalContext, producerResult.temporalObservation);
+        validateBackendTemporalObservation(context.temporalContext, producerResult.compositionReceipt.temporalObservation);
         const verifiedIdentityReferences = verifyIdentityReferences(context, producerResult);
         const verification = await invoke(
             context,

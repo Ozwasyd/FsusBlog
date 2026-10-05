@@ -45,6 +45,8 @@ export const clockApiPatterns = Object.freeze([
     ['process.uptime', /\bprocess\.uptime\s*\(\s*\)/gu],
     ['Environment.TickCount64', /\bEnvironment\.TickCount64\b/gu],
     ['Stopwatch', /\bStopwatch\.(?:StartNew|GetTimestamp|GetElapsedTime)\s*\(/gu],
+    ['Task.Delay', /\bTask\.Delay\s*\(/gu],
+    ['Thread.Sleep', /\bThread\.Sleep\s*\(/gu],
     ['setTimeout', /\bsetTimeout\s*\(/gu],
     ['AbortSignal.timeout', /\bAbortSignal\.timeout\s*\(/gu],
     ['pg_sleep', /\bpg_sleep\s*\(/giu],

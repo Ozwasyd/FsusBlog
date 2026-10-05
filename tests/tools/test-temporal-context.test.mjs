@@ -154,6 +154,33 @@ test('qualification fails closed when plan, actual or receipt binding is absent'
     );
 });
 
+test('actual ingress and independent replay reject absent observed business epochs even with fresh digests', () =>
+{
+    const { actual, context, plan } = fixture();
+    for (const observations of [undefined, null, {}, { nodeTimezone: 'UTC' },
+        { ...actual.observations, businessEpochUtc: '' }])
+    {
+        assert.throws(() => createTemporalActual(context, observations),
+            (error) => error.reasonCode === 'temporal.actual-context-missing');
+        const unsignedActual = { ...actual, observations };
+        delete unsignedActual.digest;
+        const missing = { ...unsignedActual, digest: digestCanonical(unsignedActual) };
+        const receipt = createTemporalReceipt({
+            plan,
+            actual: missing,
+            outcome: { rows: 3 },
+            generatedAt: '2026-07-28T00:00:00.000Z'
+        });
+        assert.throws(() => verifyTemporalReplay({ plan, actual: missing, receipt }),
+            (error) => error.reasonCode === 'temporal.actual-context-missing');
+    }
+    assert.throws(() => bindProducerTemporalArtifacts({
+        contextInput: identity,
+        outcome: { rows: 3 },
+        generatedAt: '2026-07-28T00:00:00.000Z'
+    }), (error) => error.reasonCode === 'temporal.actual-context-missing');
+});
+
 test('artifact metadata does not alter semantic outcome digest', () =>
 {
     const first = semanticOutcomeDigest({
@@ -604,4 +631,47 @@ test('CLI session-fixture producer writes verifiable temporal plan/actual/receip
     assert.equal(outcome.authenticatedAtEpochSeconds, 1_709_251_199);
     assert.equal(verifyTemporalReplay({ plan, actual, receipt }).reasonCode, 'temporal.ok');
     assert.equal(receipt.semanticOutcomeDigest, semanticOutcomeDigest(outcome));
+});
+
+
+test('temporal replay reads fresh policy bytes and rejects a redirected authority', (t) =>
+{
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-temporal-fresh-authority-'));
+    t.after(() => fs.rmSync(fixtureRoot, { recursive: true, force: true }));
+    for (const relative of [
+        'tools/test/temporal-context.mjs',
+        'tools/test/temporal-context-contract.mjs',
+        'config/testing/temporal-policy.json',
+        'config/testing/temporal-callsite-dispositions.json'
+    ])
+    {
+        const target = path.join(fixtureRoot, relative);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(path.join(repositoryRoot, relative), target);
+    }
+    const script = `
+        import assert from 'node:assert/strict';
+        import fs from 'node:fs';
+        import { readTemporalReplayAuthority, qualificationTemporalContext, validateTemporalContext }
+            from './tools/test/temporal-context.mjs';
+        const file = 'config/testing/temporal-policy.json';
+        const input = ${JSON.stringify(identity)};
+        const previous = qualificationTemporalContext(input);
+        const original = readTemporalReplayAuthority();
+        const changed = structuredClone(original.policy);
+        changed.qualificationDefaults.calendar = 'fresh-policy-calendar';
+        fs.writeFileSync(file, JSON.stringify(changed));
+        assert.deepEqual(readTemporalReplayAuthority().policy, changed);
+        assert.throws(() => validateTemporalContext(previous), /qualification policy|policy digest/);
+        const current = qualificationTemporalContext(input);
+        assert.equal(current.calendar, changed.qualificationDefaults.calendar);
+        assert.notEqual(current.temporalPolicyDigest, previous.temporalPolicyDigest);
+        fs.renameSync(file, file + '.original');
+        fs.symlinkSync('temporal-policy.json.original', file);
+        assert.throws(() => readTemporalReplayAuthority(), /must not be a symlink/);
+    `;
+    const result = spawnSync(process.execPath, ['--input-type=module', '--eval', script], {
+        cwd: fixtureRoot, encoding: 'utf8'
+    });
+    assert.equal(result.status, 0, result.stderr);
 });

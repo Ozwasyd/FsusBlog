@@ -134,6 +134,106 @@
             "reason": "Development-only Playwright auth fixture status probe, gated by loopback caller and shared secret; production startup rejects enabling this fixture."
         },
         {
+            "id": "local-auth-fixture-lifecycle-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalAuthFixtureEndpoints.cs",
+            "patterns": [
+                "CancellationToken cancellationToken) => Results.Json("
+            ],
+            "routes": [
+                "/api/local/auth-fixture/prepare",
+                "/api/local/auth-fixture/verify"
+            ],
+            "reason": "The auth-session fixture producer consumes these Development-only lifecycle receipts behind an explicit gate, shared secret and loopback check. Retain JSON only for this tooling consumer; remove the exemption if the tooling route is retired or becomes an application API."
+        },
+        {
+            "id": "local-audit-fixture-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalAuditFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(receipt)"
+            ],
+            "routes": [
+                "/__local/audit-fixture/prepare"
+            ],
+            "reason": "The audit-records fixture producer consumes this Development-only receipt behind an explicit gate, shared secret and loopback check. Retain JSON only for this tooling consumer; remove the exemption if the tooling route is retired or becomes an application API."
+        },
+        {
+            "id": "local-account-profile-preference-fixture-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(result, s_jsonOptions)",
+                "Results.Json(verification, s_jsonOptions)"
+            ],
+            "routes": [
+                "/__local/account-profile-preferences/prepare",
+                "/__local/account-profile-preferences/verify"
+            ],
+            "reason": "The account-profile-preferences fixture producer consumes these Development-only lifecycle receipts behind an explicit gate, shared secret and loopback check. Retain JSON only for this tooling consumer; remove the exemption if the tooling route is retired or becomes an application API."
+        },
+        {
+            "id": "local-comment-fixture-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalCommentFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(await seeder.PrepareAsync(plan, cancellationToken)",
+                "Results.Json(await seeder.CleanupAsync(receipt, cancellationToken)",
+                "Results.Json(new"
+            ],
+            "routes": [
+                "/api/local/comment-fixture/prepare",
+                "/api/local/comment-fixture/cleanup"
+            ],
+            "reason": "The comment-moderation fixture producer consumes Development-only lifecycle and failure-recovery receipts behind an explicit gate, shared secret and loopback check. Retain JSON for tool-owned recovery; remove the exemption if these tooling routes are retired or become application APIs."
+        },
+        {
+            "id": "local-messaging-fixture-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalMessagingFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(result)"
+            ],
+            "routes": [
+                "/api/local/messaging-fixture/prepare"
+            ],
+            "reason": "The account-messaging fixture producer consumes this Development-only receipt behind an explicit gate, shared secret and loopback check. Retain JSON only for this tooling consumer; remove the exemption if the tooling route is retired or becomes an application API."
+        },
+        {
+            "id": "local-security-fixture-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/LocalSecurityFixtureEndpoints.cs",
+            "patterns": [
+                "Results.Json(await invoke(root, body, binding, cancellationToken)"
+            ],
+            "routes": [
+                "/__local/security-fixture/apply",
+                "/__local/security-fixture/observe",
+                "/__local/security-fixture/cleanup",
+                "/__local/security-fixture/observe-cleanup"
+            ],
+            "reason": "The security-state fixture producer consumes Development/Test-only domain receipts behind an explicit gate, shared secret and loopback check; Production does not map them. Retain JSON only for this tooling consumer; remove the exemption if the tooling routes are retired or become application APIs."
+        },
+        {
+            "id": "runtime-cache-redis-fault-probe-json",
+            "classification": "allowed-exemption",
+            "scope": "backend",
+            "file": "src/backend/Modules/Endpoints/RuntimeCacheFaultAndRevocationScenarioEndpoints.cs",
+            "patterns": [
+                "return Results.Json("
+            ],
+            "routes": [
+                "/_fsus/testing/runtime-cache/redis-fault/{operationClass}"
+            ],
+            "reason": "The runtime-cache evidence runner consumes Redis fault classification, not application data. The parent maps this probe only in Development/Test with a configured evidence secret, and the handler requires middleware-authenticated evidence access. Remove the exemption when the probe is retired or becomes an application API."
+        },
+        {
             "id": "local-demo-fixture-json",
             "classification": "allowed-exemption",
             "scope": "backend",

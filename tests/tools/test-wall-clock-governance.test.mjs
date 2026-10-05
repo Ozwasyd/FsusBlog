@@ -35,11 +35,11 @@ function ledger(entries)
 test('repository temporal ledger has finite closure over real correctness producers', () =>
 {
     assert.deepEqual(verifyRepositoryWallClockGovernance(), {
-        callSiteCount: 67,
+        callSiteCount: 100,
         mixedClockCount: 0,
         pendingCount: 0,
         unknownCount: 0,
-        governedSourceCount: 50
+        governedSourceCount: 68
     });
 });
 
@@ -54,6 +54,21 @@ test('Program binds the canonical test business clock before application service
     );
     assert.ok(temporalIndex >= 0);
     assert.ok(applicationIndex > temporalIndex);
+});
+
+test('moderation runtime clock cannot escape the producer execution boundary', () =>
+{
+    const sourcePath = 'src/backend/Services/Moderation/ModerationRuntimeStateService.cs';
+    const source = fs.readFileSync(new URL(`../../${sourcePath}`, import.meta.url), 'utf8');
+    const mutated = source.replace('timeProvider.GetUtcNow().UtcDateTime', 'DateTime.UtcNow');
+    assert.notEqual(source, mutated);
+    const independentlyDiscoveredSources = discoverRepositoryTemporalSources({
+        sourceOverrides: new Map([[sourcePath, mutated]])
+    });
+    // Boundary sources are checked even without an independent discovery marker.
+    independentlyDiscoveredSources.set(sourcePath, mutated);
+    assert.throws(() => verifyRepositoryWallClockGovernance({ independentlyDiscoveredSources }),
+        (error) => error.reasonCode === 'temporal.ledger-unresolved');
 });
 
 test('independent full-repository discovery rejects a hidden temporal producer callsite', () =>

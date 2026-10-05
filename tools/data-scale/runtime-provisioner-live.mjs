@@ -3,6 +3,9 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 
+const { inspectBackendIdentity } = await import(new URL('../test/release-reliability-lifecycle.mjs', import.meta.url));
+const { loadTemporalContext, materializeTemporalEnvironment, monotonicNow } = await import(new URL('../test/temporal-context.mjs', import.meta.url));
+
 import {
     assertDedicatedContainer,
     computeSha256,
@@ -134,8 +137,8 @@ function inspectDedicatedResource(provisioner, {
 
 async function waitForDedicatedService(provisioner, role, containerName)
 {
-    const deadline = Date.now() + 60_000;
-    while (Date.now() < deadline)
+    const deadline = monotonicNow() + 60_000;
+    while (monotonicNow() < deadline)
     {
         let ready;
         if (role === 'postgres')
@@ -409,7 +412,7 @@ export async function executeLiveOfflineMigration(provisioner)
     return { status: 'migrated', envelopePath };
 }
 
-export async function executeLiveOfflineSeed(provisioner, { tier })
+export async function executeLiveOfflineSeed(provisioner, { tier, environment = process.env })
 {
     if (!provisioner.state.migrationCompleted)
     {
@@ -423,14 +426,22 @@ export async function executeLiveOfflineSeed(provisioner, { tier })
     const outDir = path.resolve(provisioner.repositoryRoot, provisioner.plan.roots.dataRoot);
     fs.mkdirSync(outDir, { recursive: true });
     const seedScript = path.join(provisioner.repositoryRoot, 'tools/data-scale/seed.sh');
+    const temporalEnvironment = environment.FSUSBLOG_TEMPORAL_CONTEXT_JSON || environment.FSUSBLOG_TEMPORAL_CONTEXT_FILE
+        ? {
+            ...materializeTemporalEnvironment(loadTemporalContext(environment)),
+            FSUSBLOG_TEMPORAL_CONTEXT_FILE: undefined
+        }
+        : {
+            FSUSBLOG_TEST_BUSINESS_EPOCH_UTC: environment.FSUSBLOG_TEST_BUSINESS_EPOCH_UTC,
+            FSUSBLOG_TEST_POSTGRES_TIMEZONE: environment.FSUSBLOG_TEST_POSTGRES_TIMEZONE
+        };
     const seedResult = provisioner.processRunner('bash', [seedScript, tier], {
         cwd: provisioner.repositoryRoot,
         env: {
+            ...temporalEnvironment,
             FSUSBLOG_POSTGRES_CONTAINER_NAME: provisioner.plan.postgres.containerName,
             FSUSBLOG_TEST_NAMESPACE: provisioner.namespace,
             FSUSBLOG_DATA_SCALE_OUT_DIR: outDir,
-            FSUSBLOG_TEST_BUSINESS_EPOCH_UTC: '2024-02-29T23:59:59.000Z',
-            FSUSBLOG_TEST_POSTGRES_TIMEZONE: 'UTC',
             // Offline seed must not observe ambient shared/dev backend identity.
             FSUSBLOG_DEBUG_BACKEND_URL: '',
             FSUSBLOG_BACKEND_PID: '',
@@ -462,7 +473,7 @@ export async function executeLiveOfflineSeed(provisioner, { tier })
     return provisioner.state.seedReceipt;
 }
 
-export async function createDedicatedBackendContainer(provisioner)
+export async function createDedicatedBackendContainer(provisioner, { observeBackend = inspectBackendIdentity } = {})
 {
     if (!provisioner.state.seedCompleted)
     {
@@ -512,25 +523,44 @@ export async function createDedicatedBackendContainer(provisioner)
         );
     }
 
-    const inspect = provisioner.dockerRunner([
+    const inspectArgs = [
         'inspect', provisioner.plan.backend.containerName,
-        '--format', '{{.Id}}|{{.State.Running}}|{{.Image}}'
-    ]);
+        '--format', '{{.Id}}|{{.State.Running}}|{{.Image}}|{{.State.Pid}}'
+    ];
+    const inspect = provisioner.dockerRunner(inspectArgs);
     if (inspect.status !== 0)
     {
         throw new Error('failed to inspect dedicated backend container');
     }
-    const [containerIdRaw, running, imageIdRaw] = String(inspect.stdout || '').trim().split('|');
+    const [containerIdRaw, running, imageIdRaw, hostPid] = String(inspect.stdout || '').trim().split('|');
     if (running !== 'true')
     {
         throw new Error('dedicated backend container is not running');
     }
     const backendImageDigest = `sha256:${normalizeDockerId(imageIdRaw)}`;
+    const containerId = normalizeDockerId(containerIdRaw);
+    const identity = observeBackend(
+        { pidOrContainerId: containerId },
+        (_command, args) => provisioner.dockerRunner(args),
+        provisioner.repositoryRoot
+    );
+    const startTicks = String(identity.startTicks ?? '');
+    if (identity.status !== 'running' || identity.id !== containerId
+        || identity.hostPid !== Number(hostPid) || identity.executableOrImageDigest !== backendImageDigest
+        || !/^[0-9]+$/u.test(startTicks) || BigInt(startTicks) <= 0n)
+    {
+        throw new Error('dedicated backend process start identity is unavailable');
+    }
+    const confirmed = provisioner.dockerRunner(inspectArgs);
+    if (confirmed.status !== 0 || String(confirmed.stdout).trim() !== String(inspect.stdout).trim())
+    {
+        throw new Error('dedicated backend container changed during process identity observation');
+    }
     provisioner.state.liveIdentity.backend = {
-        containerId: normalizeDockerId(containerIdRaw),
+        containerId,
         containerName: provisioner.plan.backend.containerName,
         imageDigest: backendImageDigest,
-        startTicks: Date.now() * 10000
+        startTicks
     };
     provisioner.state.backendRunning = true;
     provisioner.state.stepIndex = 6;
@@ -677,11 +707,11 @@ export function teardownDedicatedRuntime(provisioner)
     return { status: 'torn-down' };
 }
 
-export async function runFullLiveProvisionLifecycle(provisioner, { tier })
+export async function runFullLiveProvisionLifecycle(provisioner, { tier, environment = process.env })
 {
     await createAndStartDedicatedContainers(provisioner);
     await executeLiveOfflineMigration(provisioner);
-    await executeLiveOfflineSeed(provisioner, { tier });
+    await executeLiveOfflineSeed(provisioner, { tier, environment });
     await createDedicatedBackendContainer(provisioner);
     const sourceCommit = resolveSourceCommit(provisioner.repositoryRoot);
     const worktreeFingerprint = resolveWorktreeFingerprint(provisioner.repositoryRoot);
