@@ -102,6 +102,10 @@ StaticBlockAnchorContract() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-block-anchor-contract.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/block-anchor-contract.test.mjs"
 }
+StaticArticleRelations() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-relations.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-relations.test.mjs"
+}
 StaticArticleScalePlanGovernance() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-article-scale-plan-governance.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-scale-plan-governance.test.mjs"
@@ -220,6 +224,7 @@ RunApplicationStaticPrechecksPhase() {
         article-embed-publication StaticArticleEmbedPublication \
         article-embed-relations StaticArticleEmbedRelations \
         block-anchor-contract StaticBlockAnchorContract \
+        article-relations StaticArticleRelations \
         article-scale-plan-governance StaticArticleScalePlanGovernance \
         article-bulk-authority-governance StaticArticleBulkAuthorityGovernance \
         central-package-management StaticCentralPackageManagement \
