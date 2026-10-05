@@ -1618,6 +1618,31 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "admin_session_projection_convergence"
                 ]));
 
+        result.Add(
+            "20260915-post-author-recent-history",
+            new OnlineSchemaMigrationMetadata(
+                "20260915-post-author-recent-history",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260915-author-recent-history"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "author_recent_history_closed_schema",
+                    "author_recent_history_owner_site_scope",
+                    "author_recent_history_cas_idempotency",
+                    "author_recent_history_receipt_outbox_audit"
+                ]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 

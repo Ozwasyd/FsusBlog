@@ -39,7 +39,8 @@ internal sealed class SchemaMigrationManifest
             SchemaMigrationCatalog20260906AuthoringCanvasOperations.Create(),
             SchemaMigrationCatalog20260907.Create(),
             SchemaMigrationCatalog20260908ArticleCreate.Create(),
-            SchemaMigrationCatalog20260913BanStateProjection.Create()
+            SchemaMigrationCatalog20260913BanStateProjection.Create(),
+            SchemaMigrationCatalog20260915AuthorRecentHistory.Create()
         ],
         [
             new SchemaMigrationVersionGap(
@@ -71,7 +72,10 @@ internal sealed class SchemaMigrationManifest
                 new DateOnly(2026, 9, 3)),
             new SchemaMigrationVersionGap(
                 new DateOnly(2026, 9, 9),
-                new DateOnly(2026, 9, 12))
+                new DateOnly(2026, 9, 12)),
+            new SchemaMigrationVersionGap(
+                new DateOnly(2026, 9, 14),
+                new DateOnly(2026, 9, 14))
         ]);
 
     private static SchemaMigrationCatalog Create20260904Catalog()

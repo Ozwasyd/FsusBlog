@@ -1676,6 +1676,31 @@ public static class OfflineMigrationClassificationFacts
                     "admin_session_projection_convergence"
                 ]));
 
+        result.Add(
+            "20260915-post-author-recent-history",
+            new OfflineMigrationClassificationFact(
+                "20260915-post-author-recent-history",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20260915-author-recent-history"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "author_recent_history_closed_schema",
+                    "author_recent_history_owner_site_scope",
+                    "author_recent_history_cas_idempotency",
+                    "author_recent_history_receipt_outbox_audit"
+                ]));
+
         foreach (string id in result.Keys.ToArray())
         {
             result[id] = result[id] with

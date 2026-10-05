@@ -6080,6 +6080,23 @@
             ]
         },
         {
+            "file": "tests/tools/author-recent-history-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "author-recent-history-authority",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
             "file": "tests/tools/author-saved-view-query-contract.test.mjs",
             "owner": "manual-diagnostic:tests/tools/author-saved-view-query-contract.test.mjs",
             "executionCategory": "manual-diagnostic",
