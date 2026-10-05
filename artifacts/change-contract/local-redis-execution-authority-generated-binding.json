@@ -1,0 +1,23 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/matrix.yml",
+        "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+        "tools/check-test-retention.mjs",
+        "tools/test-inventory/adapters.mjs",
+        "tools/test-inventory/discovery.mjs",
+        "tools/test-inventory/produce.mjs",
+        "tools/dotnet/check-csharp-style.mjs",
+        "tools/test-lifecycle/lifecycle.mjs",
+        "tools/test-retention/audit.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "e50468242e1bd9494c5118537acd5cf20b5c265289295af94256c6a940502c62"
+        }
+    ]
+}

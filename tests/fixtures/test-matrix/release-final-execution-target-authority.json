@@ -30,8 +30,8 @@
         },
         {
             "path": "src/backend/Infrastructure/Helpers/JwtHelper.cs",
-            "contentDigest": "sha256:352e6e921d48ecba6e06f1a19540fbd1b724298c7bdc96cd5aefa4b0b112d2e0",
-            "indexDigest": "sha256:352e6e921d48ecba6e06f1a19540fbd1b724298c7bdc96cd5aefa4b0b112d2e0"
+            "contentDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103",
+            "indexDigest": "sha256:6715f7357d63ea33d42e3f833837c2f7bca97d6b79d5170b4b436bbfcf988103"
         },
         {
             "path": "src/frontend/package.json",
@@ -1605,8 +1605,8 @@
         },
         {
             "path": "tools/check-test-retention.mjs",
-            "contentDigest": "sha256:06506b00f41ceb79dee41a5f885d258a129cbecde1b8f66fcbc43d975f272729",
-            "indexDigest": "sha256:06506b00f41ceb79dee41a5f885d258a129cbecde1b8f66fcbc43d975f272729"
+            "contentDigest": "sha256:99ae47e86af6fa65ebb8da49224e1dbd02542b529f2c63ea1dcf94c07ea9b501",
+            "indexDigest": "sha256:99ae47e86af6fa65ebb8da49224e1dbd02542b529f2c63ea1dcf94c07ea9b501"
         },
         {
             "path": "tools/check-test-suite-convergence.mjs",
@@ -2245,13 +2245,13 @@
         },
         {
             "path": "tools/dotnet-affected-tests.sh",
-            "contentDigest": "sha256:f2ce61e0ea6ae03a0f3856eedc7ac03dd6a9d622ce37a29ff37223619cdd7749",
-            "indexDigest": "sha256:f2ce61e0ea6ae03a0f3856eedc7ac03dd6a9d622ce37a29ff37223619cdd7749"
+            "contentDigest": "sha256:c121b369016a0ae7156ade0925a85677fbdf2b870c1ac2ee1e691f71cbb9bab0",
+            "indexDigest": "sha256:c121b369016a0ae7156ade0925a85677fbdf2b870c1ac2ee1e691f71cbb9bab0"
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:705220fdd5741bc4d7c689d204b5c0dd1b5fe002c2926209219a162cc9900129",
-            "indexDigest": "sha256:705220fdd5741bc4d7c689d204b5c0dd1b5fe002c2926209219a162cc9900129"
+            "contentDigest": "sha256:ce8193bc485408b40be237ebaec22690aa091aaa3537ae1f32054056b62f11f8",
+            "indexDigest": "sha256:ce8193bc485408b40be237ebaec22690aa091aaa3537ae1f32054056b62f11f8"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -3275,8 +3275,8 @@
         },
         {
             "path": "tools/test-inventory/adapters.mjs",
-            "contentDigest": "sha256:b63bfa94c23221b666d5c0fc085bacf4b319700932dd148929f3d0e9b3413321",
-            "indexDigest": "sha256:b63bfa94c23221b666d5c0fc085bacf4b319700932dd148929f3d0e9b3413321"
+            "contentDigest": "sha256:5e9ae8ef4b87de88b0c5d647dc52d5581b930f3875384137d1ee2a51a9ddbadc",
+            "indexDigest": "sha256:5e9ae8ef4b87de88b0c5d647dc52d5581b930f3875384137d1ee2a51a9ddbadc"
         },
         {
             "path": "tools/test-inventory/api.mjs",
@@ -3285,13 +3285,13 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:c6e3c1a3763e6d85a2d4ee8d29b8bf0b1f549d249eb4ad32e20ce438dfb12323",
-            "indexDigest": "sha256:c6e3c1a3763e6d85a2d4ee8d29b8bf0b1f549d249eb4ad32e20ce438dfb12323"
+            "contentDigest": "sha256:f4bdbfc05f5eabf034ef33af79f6e01d1eac6bf2714f437065faf7678ef461c8",
+            "indexDigest": "sha256:f4bdbfc05f5eabf034ef33af79f6e01d1eac6bf2714f437065faf7678ef461c8"
         },
         {
             "path": "tools/test-inventory/produce.mjs",
-            "contentDigest": "sha256:956ffb808132f8ee5e1ed10f8c60ecc86dd7c499d1804e3df5036a06cdb89e03",
-            "indexDigest": "sha256:956ffb808132f8ee5e1ed10f8c60ecc86dd7c499d1804e3df5036a06cdb89e03"
+            "contentDigest": "sha256:6c7a16b64b9ec4dbf1e5de17758acf49955debb8b37843083a4e49d41947d3c7",
+            "indexDigest": "sha256:6c7a16b64b9ec4dbf1e5de17758acf49955debb8b37843083a4e49d41947d3c7"
         },
         {
             "path": "tools/test-inventory/schema.mjs",
@@ -3300,8 +3300,8 @@
         },
         {
             "path": "tools/test-lifecycle/lifecycle.mjs",
-            "contentDigest": "sha256:cbf51bc5e79e3457a6da833ff22b6e96b0688dd5fbe5c8983500e7df4904c495",
-            "indexDigest": "sha256:cbf51bc5e79e3457a6da833ff22b6e96b0688dd5fbe5c8983500e7df4904c495"
+            "contentDigest": "sha256:86c4edf6b2ed57a7da0c9fe3f6bb6365d8fd4cbb1acf9d0194b0c70a9b0b0a7b",
+            "indexDigest": "sha256:86c4edf6b2ed57a7da0c9fe3f6bb6365d8fd4cbb1acf9d0194b0c70a9b0b0a7b"
         },
         {
             "path": "tools/test-matrix/aggregate-plan.mjs",
@@ -3725,8 +3725,8 @@
         },
         {
             "path": "tools/test-retention/audit.mjs",
-            "contentDigest": "sha256:ea9f29d43a40c323d48ac676739668e91fbdda7756bef2cdff1a0ef033863a7d",
-            "indexDigest": "sha256:ea9f29d43a40c323d48ac676739668e91fbdda7756bef2cdff1a0ef033863a7d"
+            "contentDigest": "sha256:f88eda233320e013ac3954a09b823e828250c677270d75c91ef0a5ea8ba8e57a",
+            "indexDigest": "sha256:f88eda233320e013ac3954a09b823e828250c677270d75c91ef0a5ea8ba8e57a"
         },
         {
             "path": "tools/test-runtime/behavior-evidence-ready-authority.mjs",
@@ -3820,8 +3820,8 @@
         },
         {
             "path": "tools/test/backend-platform-selection.mjs",
-            "contentDigest": "sha256:dc29b69b6b738c017ab9eff5ce6c6c65c347e3a1ccc0e740f866567a00d2be60",
-            "indexDigest": "sha256:dc29b69b6b738c017ab9eff5ce6c6c65c347e3a1ccc0e740f866567a00d2be60"
+            "contentDigest": "sha256:27f1934a86d93f8a620b966b9cccaa7225221e368c0b89edd69bf0d6420dce32",
+            "indexDigest": "sha256:27f1934a86d93f8a620b966b9cccaa7225221e368c0b89edd69bf0d6420dce32"
         },
         {
             "path": "tools/test/bundles/bundle-steps.mjs",
@@ -4045,8 +4045,8 @@
         },
         {
             "path": "tools/test/lanes/_suite-support.sh",
-            "contentDigest": "sha256:51e100a50449598c279d71fd7ca11c54a2192e0bba3f668eaca7122cdef427c7",
-            "indexDigest": "sha256:51e100a50449598c279d71fd7ca11c54a2192e0bba3f668eaca7122cdef427c7"
+            "contentDigest": "sha256:fea8679055a25a64594219f7ba41ee843d48b53d5a0376f48b69499875a55c32",
+            "indexDigest": "sha256:fea8679055a25a64594219f7ba41ee843d48b53d5a0376f48b69499875a55c32"
         },
         {
             "path": "tools/test/lanes/browser-contract.sh",
@@ -4167,6 +4167,11 @@
             "path": "tools/test/native-test-runtime-support.mjs",
             "contentDigest": "sha256:ec01219b2489942392b6468e1cf8ec05796a704f4e30574158b7ce13afc68673",
             "indexDigest": "sha256:ec01219b2489942392b6468e1cf8ec05796a704f4e30574158b7ce13afc68673"
+        },
+        {
+            "path": "tools/test/perception-redis-producer.mjs",
+            "contentDigest": "sha256:4439f741de88a163f544db6fc92b40ad861b1d3d455f8025c88d02e061b2450c",
+            "indexDigest": "sha256:4439f741de88a163f544db6fc92b40ad861b1d3d455f8025c88d02e061b2450c"
         },
         {
             "path": "tools/test/performance-admission.mjs",
@@ -5257,6 +5262,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -6497,6 +6503,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -7239,6 +7246,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -7866,6 +7874,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -8493,6 +8502,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -9174,6 +9184,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -9801,6 +9812,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -10428,6 +10440,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -11055,6 +11068,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -11811,6 +11825,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -12460,6 +12475,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -13087,6 +13103,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -13714,6 +13731,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -14495,6 +14513,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -15374,6 +15393,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -16068,6 +16088,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -16697,6 +16718,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -17324,6 +17346,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -18151,6 +18174,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -18813,6 +18837,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -19440,6 +19465,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -20067,6 +20093,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -20718,6 +20745,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -21345,6 +21373,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -21972,6 +22001,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -22600,6 +22630,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -23285,6 +23316,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -23998,6 +24030,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -24625,6 +24658,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -25404,6 +25438,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -26207,6 +26242,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -26834,6 +26870,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -27554,6 +27591,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -28361,6 +28399,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -28988,6 +29027,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -29653,6 +29693,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -30306,6 +30347,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -31249,6 +31291,7 @@
                 "tools/test/native-test-governance.mjs",
                 "tools/test/native-test-matrix-validation.mjs",
                 "tools/test/native-test-receipt.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -31955,6 +31998,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -32582,6 +32626,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -33209,6 +33254,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -33836,6 +33882,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
@@ -34463,6 +34510,7 @@
                 "tools/test/measurement-product-conclusion.mjs",
                 "tools/test/messaging-fixture-contract.mjs",
                 "tools/test/native-p99-producer-contract.mjs",
+                "tools/test/perception-redis-producer.mjs",
                 "tools/test/performance-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-process-tree.mjs",

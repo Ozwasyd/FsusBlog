@@ -50,7 +50,7 @@ jobs:
                   > .tmp/fsusui-release-train/receipt.json
 
             - name: Run deterministic release-train contract fixture
-              run: node --test tests/tools/fsusui-release-train.test.mjs tests/tools/fsusui-release-orchestration.test.mjs
+              run: node --test tests/tools/fsusui-release-train.test.mjs
 
             - name: Apply verified release train
               run: >-

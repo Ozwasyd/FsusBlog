@@ -15,9 +15,10 @@ import {
     buildRetentionCatalogSnapshot,
     compactRetentionBaseline,
     decodeCompactRetentionIndex,
-    inferTierIdsForFile,
+    inferTierIdsForInventoryFile,
     normalizeReplacementManifest,
     retentionSourceState,
+    resolveLocalRedisRetentionMembership,
     reviewCandidateFiles,
     vitestHistoryEntries,
     xunitTrxHistoryEntries
@@ -262,6 +263,9 @@ async function buildAudit({ runId = null } = {})
     }
 
     const canonicalInventory = loadCanonicalInventory(root);
+    const localRedisMembership = resolveLocalRedisRetentionMembership({
+        inventory: canonicalInventory, matrix, coverageRegistry
+    });
     const files = auditedFiles.map((file) =>
     {
         const coverageIds = [...(fileToCoverage.get(file) ?? [])].sort();
@@ -269,7 +273,7 @@ async function buildAudit({ runId = null } = {})
         const tierIds = [...new Set([
             ...(fileToTiers.get(file) ?? []),
             ...(fileToCommandTiers.get(file) ?? []),
-            ...inferTierIdsForFile(file, source)
+            ...inferTierIdsForInventoryFile(file, source, canonicalInventory, localRedisMembership)
         ])].sort();
         const tierRetention = [...(fileToTierRetention.get(file) ?? [])].sort();
         const textReferences = [...(fileToTextReferences.get(file) ?? [])].sort();
@@ -350,6 +354,7 @@ async function buildAudit({ runId = null } = {})
         timingHistory: loadTimingHistory(),
         failureHistory: loadFailureHistory(),
         inventory: canonicalInventory,
+        localRedisMembership,
         oracleFacts,
         qualityResult
     });

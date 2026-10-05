@@ -30,6 +30,86 @@ export const LOCAL_REDIS_PLANNED_TESTS = Object.freeze([
 ]);
 export const LOCAL_REDIS_FILTER =
     `Fixture=LocalRedis&(${LOCAL_REDIS_PLANNED_TESTS.map((testId) => `FullyQualifiedName=${testId}`).join('|')})`;
+
+export function planOrdinaryLocalRedisMembership(filter)
+{
+    // OR requires exclusion in every branch; AND needs one excluding conjunct.
+    // Parse the whole expression so a substring or unparsed suffix cannot certify it.
+    const tokens = String(filter ?? '').match(/[^&|()]+|[&|()]/gu) ?? [];
+    let cursor = 0;
+    function atom()
+    {
+        const token = tokens[cursor++];
+        if (token === '(')
+        {
+            const excludes = disjunction();
+            if (tokens[cursor++] !== ')')
+            {
+                throw new Error('ordinary backend filter has unbalanced parentheses');
+            }
+            return excludes;
+        }
+        if (!token?.trim() || ['&', '|', ')'].includes(token))
+        {
+            throw new Error('ordinary backend filter has an invalid expression');
+        }
+        return token.trim() === 'Fixture!=LocalRedis';
+    }
+    function conjunction()
+    {
+        let excludes = atom();
+        while (tokens[cursor] === '&')
+        {
+            cursor += 1;
+            const right = atom();
+            excludes = excludes || right;
+        }
+        return excludes;
+    }
+    function disjunction()
+    {
+        let excludes = conjunction();
+        while (tokens[cursor] === '|')
+        {
+            cursor += 1;
+            const right = conjunction();
+            excludes = excludes && right;
+        }
+        return excludes;
+    }
+    if (!disjunction() || cursor !== tokens.length)
+    {
+        throw new Error('ordinary backend filter must conjunctively exclude Fixture=LocalRedis');
+    }
+    return LOCAL_REDIS_PLANNED_TESTS.map((fullyQualifiedName) => ({
+        fullyQualifiedName,
+        result: 'not-selected',
+        planned: false,
+        owner: 'perception-character-v3-redis-fixture',
+        reason: 'Fixture=LocalRedis is owned exclusively by the canonical LocalRedis producer'
+    }));
+}
+
+export function reconcileOrdinaryLocalRedisOutcome(plan, trxContent)
+{
+    if (plan?.schema !== 'fsusblog.ordinary-local-redis-membership-plan.v1' ||
+        !plan.runId || !plan.sourceCommit || !plan.sourceFingerprint ||
+        JSON.stringify(plan.tests) !== JSON.stringify(planOrdinaryLocalRedisMembership(plan.executionFilter)))
+    {
+        throw new Error('ordinary LocalRedis outcome requires the exact current-run plan');
+    }
+    const results = parseTrxResults(trxContent);
+    if (results.length === 0 || results.some((result) => result.outcome !== 'Passed'))
+    {
+        throw new Error('ordinary affected TRX requires executed passing tests');
+    }
+    if (results.some((result) => LOCAL_REDIS_PLANNED_TESTS.includes(result.testName)))
+    {
+        throw new Error('ordinary affected executed a not-selected LocalRedis test');
+    }
+    return { ...plan, schema: 'fsusblog.ordinary-local-redis-membership-outcome.v1',
+        totalExecuted: results.length, status: 'passed' };
+}
 export const BUDGET_CASE_IDS = Object.freeze([
     'first-lease', 'operation-retry', 'subject-rejected', 'egress-rejected', 'ambiguous-reply', 'ambiguous-retry'
 ]);
@@ -118,6 +198,7 @@ export function reconcileLocalRedisOutcome({
     redisLuaCallsBefore,
     redisLuaCallsAfter,
     redisLuaCaseEvidence,
+    redisBurnEvidence,
     redisBudgetEvidence,
     redisCutoverEvidence,
     plannedTestIds = LOCAL_REDIS_PLANNED_TESTS,
@@ -227,6 +308,23 @@ export function reconcileLocalRedisOutcome({
         redisLuaCallsAfter <= redisLuaCallsBefore)
     {
         failureCodes.push('no-test-redis-lua-calls');
+    }
+
+    if (redisBurnEvidence?.schema !== 'fsusblog.perception-character-v3-burn-redis-calls.v1' ||
+        redisBurnEvidence?.testId !== MANDATORY_BURN_TEST ||
+        redisBurnEvidence?.runId !== runId ||
+        redisBurnEvidence?.prefixNamespace !== `${prefixNamespace}artifact-burn:` ||
+        redisBurnEvidence?.endpoint !== endpoint ||
+        redisBurnEvidence?.sourceCommit !== sourceCommit ||
+        redisBurnEvidence?.sourceFingerprint !== sourceFingerprint)
+    {
+        failureCodes.push('burn-redis-call-identity-mismatch');
+    }
+    if (!Number.isSafeInteger(redisBurnEvidence?.commandCount) || redisBurnEvidence.commandCount <= 0 ||
+        !Number.isSafeInteger(redisBurnEvidence?.luaCalls) || redisBurnEvidence.luaCalls <= 0 ||
+        redisBurnEvidence.luaCalls > redisBurnEvidence.commandCount)
+    {
+        failureCodes.push('burn-no-test-redis-calls');
     }
 
     const redisLuaCases = Array.isArray(redisLuaCaseEvidence?.cases)
@@ -396,6 +494,7 @@ export function reconcileLocalRedisOutcome({
                 redisLuaCallsAfter > redisLuaCallsBefore
         },
         redisBudgetEvidence: redisBudgetEvidence ?? null,
+        redisBurnEvidence: redisBurnEvidence ?? null,
         redisCutoverEvidence: {
             schema: redisCutoverEvidence?.schema ?? null,
             testId: redisCutoverEvidence?.testId ?? null,
@@ -469,6 +568,36 @@ function main()
         process.stdout.write(`${LOCAL_REDIS_FILTER}\n`);
         return;
     }
+    if (args['ordinary-plan'] === true)
+    {
+        for (const key of ['filter', 'lane', 'run-id', 'source-commit', 'source-fingerprint', 'output'])
+        {
+            if (typeof args[key] !== 'string' || !args[key].trim())
+            {
+                throw new Error(`ordinary LocalRedis membership requires --${key}`);
+            }
+        }
+        const plan = {
+            schema: 'fsusblog.ordinary-local-redis-membership-plan.v1',
+            lane: args.lane,
+            executionFilter: args.filter,
+            runId: args['run-id'],
+            sourceCommit: args['source-commit'],
+            sourceFingerprint: args['source-fingerprint'],
+            tests: planOrdinaryLocalRedisMembership(args.filter)
+        };
+        fs.mkdirSync(path.dirname(path.resolve(args.output)), { recursive: true });
+        fs.writeFileSync(path.resolve(args.output), `${JSON.stringify(plan, null, 2)}\n`);
+        return;
+    }
+    if (args['ordinary-outcome'] === true)
+    {
+        const plan = JSON.parse(fs.readFileSync(path.resolve(args.plan), 'utf8'));
+        const outcome = reconcileOrdinaryLocalRedisOutcome(plan, fs.readFileSync(path.resolve(args.trx), 'utf8'));
+        fs.mkdirSync(path.dirname(path.resolve(args.output)), { recursive: true });
+        fs.writeFileSync(path.resolve(args.output), `${JSON.stringify(outcome, null, 2)}\n`);
+        return;
+    }
     const required = [
         'trx',
         'container',
@@ -482,6 +611,7 @@ function main()
         'redis-lua-calls-before',
         'redis-lua-calls-after',
         'redis-lua-case-evidence',
+        'redis-burn-evidence',
         'redis-budget-evidence',
         'cutover-evidence',
         'cleanup-verified',
@@ -547,6 +677,9 @@ function main()
         redisLuaCallsBefore: Number(args['redis-lua-calls-before']),
         redisLuaCallsAfter: Number(args['redis-lua-calls-after']),
         redisLuaCaseEvidence,
+        redisBurnEvidence: fs.existsSync(path.resolve(args['redis-burn-evidence']))
+            ? JSON.parse(fs.readFileSync(path.resolve(args['redis-burn-evidence']), 'utf8'))
+            : null,
         redisBudgetEvidence: fs.existsSync(path.resolve(args['redis-budget-evidence']))
             ? JSON.parse(fs.readFileSync(path.resolve(args['redis-budget-evidence']), 'utf8'))
             : null,
