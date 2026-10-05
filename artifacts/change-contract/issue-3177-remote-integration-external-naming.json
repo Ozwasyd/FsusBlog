@@ -1,0 +1,67 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "compiler-intrinsic",
+            "paths": [
+                "src/frontend/wasm/aeds/src/aeds_decode.cpp",
+                "tests/frontend/fixtures/aeds-protocol-cpp-contract.cpp"
+            ],
+            "reason": "Review the native decoder and compiler fixtures under the registered compiler-syntax exception; preserve compiler-owned intrinsic spelling while repository-owned identifiers follow the current mapping."
+        },
+        {
+            "id": "generated-native",
+            "paths": [
+                "src/frontend/wasm/aeds/include/aeds_frame.hpp"
+            ],
+            "reason": "The current protocol producer owns the changed native ABI header and its existing external member spelling; regenerate it without a manual naming override."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Modules/Endpoints/FontAdminEndpoints.cs",
+                "src/backend/Modules/Endpoints/ThemeAdminEndpoints.cs",
+                "src/core/Algorithms/AedsFrameType.cs",
+                "src/core/Cache/PodBinaryCodec.FontThemeAdmin.cs",
+                "src/shared/AedsFrameHeader.cs",
+                "src/shared/Contracts/Models/FontThemeAdminPods.cs",
+                "src/shared/Contracts/Outputs/FontThemeAdminResponses.cs",
+                "src/shared/Contracts/Validation/PodSizeCatalog.cs",
+                "tools/frontend/generate-aeds-protocol.mjs"
+            ],
+            "reason": "Review all changed registered C# and generator surfaces against the current internal naming mapping while preserving any caller-visible process environment spelling."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh"
+            ],
+            "reason": "Preserve the suite support process environment keys and external shell calling convention; internal aliases remain governed by repository naming."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "The generated testing document retains existing external test and tooling identifiers, including registered search-owner sections; the document is regenerated through its existing producer."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "docs/api/contracts.md",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve current external document markers, receipt and registry JSON keys on the changed API documentation and test-governance surfaces; internal identifiers remain governed by repository naming."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/Fixtures/aeds-golden-catalog.json",
+                "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+                "tests/frontend/fixtures/cross-stack-contract-matrix.json"
+            ],
+            "reason": "Preserve wire, fixture and schema JSON keys in the changed contract and testing products; current producers and adapters retain their established external names."
+        }
+    ]
+}
