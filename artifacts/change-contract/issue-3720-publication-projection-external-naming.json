@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/api/article-publication-revisions.md"
+            ],
+            "reason": "Preserve current runtime environment keys, fixture-facing storage and receipt names, and maintained publication documentation anchors while integrating the original read-only projection invocation under child issue #3720 and parent #2175."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs",
+                "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs",
+                "src/backend/Services/Fixtures/PublicContentFixtureSeeder.Verification.cs",
+                "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+                "tools/governance/check-canonical-article-lifecycle-authority.mjs",
+                "tools/test-fixtures/receipt/postconditions.mjs"
+            ],
+            "reason": "Preserve current runtime environment keys, fixture-facing storage and receipt names, and maintained publication documentation anchors while integrating the original read-only projection invocation under child issue #3720 and parent #2175."
+        }
+    ]
+}

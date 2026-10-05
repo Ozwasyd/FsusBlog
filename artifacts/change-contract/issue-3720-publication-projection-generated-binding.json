@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/backend/FsusBlog.Server.csproj"
+    ],
+    "outputs": [
+        {
+            "path": "src/backend/packages.lock.json",
+            "sha256": "faf347073d76a55c4f48b4621a8591d33d7f2f45fd6330ed9eda3f07ec3ed51c"
+        }
+    ]
+}
