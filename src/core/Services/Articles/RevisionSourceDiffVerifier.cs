@@ -210,13 +210,11 @@ public static partial class RevisionSourceDiffVerifier
         {
             return false;
         }
-        long expectedMemory = ((long)bundle.BasePackage.RawMarkdown.Length + bundle.ComparePackage.RawMarkdown.Length) * 3L
-            + ((long)result.BaseLines.Length + result.CompareLines.Length) * 128L
-            + (result.BaseHeadings.Length + result.CompareHeadings.Length) * 96L
-            + result.Receipt.HunkCount * 192L
-            + result.Chunks.Sum(static chunk => chunk.Hunks.Sum(static hunk =>
-                (long)hunk.WordEdits.Length * 80L + hunk.HeadingIdentities.Length * 72L))
-            + result.ContextGroups.Length * 128L;
+        if (!TryEstimateMemory(bundle, result, out long expectedMemory, out int expectedTokenCount)
+            || result.Receipt.TokenCount != expectedTokenCount)
+        {
+            return false;
+        }
         long expectedOutput = result.Receipt.HunkCount * 192L
             + result.Chunks.Sum(static chunk => chunk.Hunks.Sum(static hunk =>
                 (long)hunk.WordEdits.Length * 80L + hunk.HeadingIdentities.Length * 72L))
