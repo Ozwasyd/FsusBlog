@@ -53,6 +53,34 @@ node tools/frontend/check-frontend-style.mjs --mode full
 node tools/frontend/check-frontend-style.mjs --mode strict-full
 ```
 
+Baseline exemptions additionally require all three whole-repository bindings to match:
+the current configuration digest (including the Node runtime), current source-state
+digest, and `generatedFrom` equal to `source-state:<current source-state digest>`.
+Any mismatch invalidates **all** exemptions, not merely the selected file's allowance.
+The mode boundaries are:
+
+- `full` rejects each stale binding explicitly: `baseline configuration digest is
+  stale`, `baseline source-state digest is stale`, and `baseline generatedFrom does
+  not match the current source-state digest`. All mismatches and all selected ESLint
+  and Stylelint findings are aggregated; a clean zero-debt source set still cannot
+  certify a stale full-scan baseline. `--file` limits lint selection, not binding scope.
+- `changed` applies only valid unchanged-file exemptions. Binding drift removes all
+  exemptions but is not itself a global history failure: clean selected source may
+  pass, and every selected file-level finding remains visible.
+- `strict-full` never applies exemptions. Binding drift is not an additional history
+  failure; clean selected source may pass, and all selected debt remains visible.
+- `--update-baseline` runs the separate updater rather than these scan-time binding
+  diagnostics. Source-state and `generatedFrom` are refreshed only after its existing
+  debt/path/identity and reviewed-authority checks succeed. Configuration migration
+  still requires the exact prior digest authorization described below. This mode does
+  not authorize new debt, count increases, equal-count diagnostic replacement, or
+  candidate-authored correction/residual authority.
+
+Missing baselines grant no exemptions. Existing malformed schema/JSON diagnostics and
+configuration/governance validation remain enforced in every mode; the mode boundary
+above does not suppress them. None of these checks promotes a candidate's policy or
+baseline to trusted authority.
+
 Regenerate a reviewed baseline without changing source:
 
 ```bash

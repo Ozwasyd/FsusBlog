@@ -1454,6 +1454,149 @@ test('frontend style governance full check rejects source drift without a per-fi
     });
 });
 
+test('frontend style governance unchanged zero-debt bindings pass every scan mode', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/sample/clean-binding.mjs';
+        writeFixture(fixtureRoot, relativePath, 'export const value = 1;\n');
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        for (const mode of ['changed', 'full', 'strict-full'])
+        {
+            const checked = runChecker(fixtureRoot, ['--mode', mode, '--file', relativePath]);
+            assert.equal(checked.status, 0, output(checked));
+            assert.match(output(checked), /violations=0 new=0/u);
+        }
+    });
+});
+
+test('frontend style governance rejects each clean full-scan binding drift without blocking other modes', () =>
+{
+    for (const [field, diagnostic] of [
+        ['configurationSha256', 'baseline configuration digest is stale'],
+        ['sourceStateSha256', 'baseline source-state digest is stale'],
+        ['generatedFrom', 'baseline generatedFrom does not match']
+    ])
+    {
+        withFixture((fixtureRoot) =>
+        {
+            const relativePath = 'tools/sample/clean-binding.mjs';
+            writeFixture(fixtureRoot, relativePath, 'export const value = 1;\n');
+            const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+            assert.equal(initial.status, 0, output(initial));
+            const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+            const document = JSON.parse(readFileSync(baselinePath, 'utf8'));
+            document[field] = field === 'generatedFrom' ? `source-state:${'0'.repeat(64)}` : '0'.repeat(64);
+            const staleBytes = `${JSON.stringify(document, null, 4)}\n`;
+            writeFileSync(baselinePath, staleBytes);
+            for (const mode of ['changed', 'full', 'strict-full'])
+            {
+                const checked = runChecker(fixtureRoot, ['--mode', mode, '--file', relativePath]);
+                assert.equal(checked.status, mode === 'full' ? 1 : 0, output(checked));
+                if (mode === 'full')
+                {
+                    assert.ok(output(checked).includes(diagnostic), output(checked));
+                }
+                else
+                {
+                    assert.doesNotMatch(output(checked), /baseline (?:configuration|source-state|generatedFrom)/u);
+                }
+                assert.equal(readFileSync(baselinePath, 'utf8'), staleBytes);
+            }
+        });
+    }
+});
+
+test('frontend style governance aggregates combined binding drift and every selected file finding', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/combined-binding.mjs';
+        writeFixture(fixtureRoot, relativePath, 'export function readValue(value) {\n  return value\n}\n');
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const document = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        document.configurationSha256 = '0'.repeat(64);
+        document.sourceStateSha256 = '0'.repeat(64);
+        document.generatedFrom = `source-state:${'0'.repeat(64)}`;
+        writeFileSync(baselinePath, `${JSON.stringify(document, null, 4)}\n`);
+        for (const mode of ['changed', 'full', 'strict-full'])
+        {
+            const checked = runChecker(fixtureRoot, ['--mode', mode, '--file', relativePath]);
+            assert.equal(checked.status, 1, output(checked));
+            for (const rule of ['brace-style', 'indent', 'semi'])
+            {
+                assert.ok(output(checked).includes(`eslint/@stylistic/${rule}:`), output(checked));
+            }
+            if (mode === 'full')
+            {
+                assert.match(output(checked), /baseline configuration digest is stale/u);
+                assert.match(output(checked), /baseline source-state digest is stale/u);
+                assert.match(output(checked), /baseline generatedFrom does not match/u);
+            }
+            else
+            {
+                assert.doesNotMatch(output(checked), /baseline (?:configuration|source-state|generatedFrom)/u);
+            }
+        }
+    });
+});
+
+test('frontend style governance clean source and real configuration drift preserve scan mode boundaries', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/sample/clean-binding.mjs';
+        writeFixture(fixtureRoot, relativePath, 'export const value = 1;\n');
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        writeFixture(fixtureRoot, 'tools/sample/new-clean-binding.mjs', 'export const addedValue = 2;\n');
+        writeFixture(fixtureRoot, '.editorconfig', `${readFileSync(path.join(fixtureRoot, '.editorconfig'), 'utf8')}\n# binding drift\n`);
+        for (const mode of ['changed', 'full', 'strict-full'])
+        {
+            const checked = runChecker(fixtureRoot, ['--mode', mode, '--file', relativePath]);
+            assert.equal(checked.status, mode === 'full' ? 1 : 0, output(checked));
+            if (mode === 'full')
+            {
+                assert.match(output(checked), /baseline configuration digest is stale/u);
+                assert.match(output(checked), /baseline source-state digest is stale/u);
+                assert.match(output(checked), /baseline generatedFrom does not match/u);
+            }
+        }
+    });
+});
+
+test('frontend style governance updater refreshes source bindings only after original debt checks', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const relativePath = 'tools/legacy/update-binding.mjs';
+        writeFixture(fixtureRoot, relativePath, 'export function readValue(value) {\n  return value\n}\n');
+        const initial = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(initial.status, 0, output(initial));
+        const baselinePath = path.join(fixtureRoot, sourcePolicy.baseline);
+        const previous = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        previous.sourceStateSha256 = '0'.repeat(64);
+        previous.generatedFrom = `source-state:${'0'.repeat(64)}`;
+        writeFileSync(baselinePath, `${JSON.stringify(previous, null, 4)}\n`);
+        writeFixture(fixtureRoot, 'tools/sample/clean-update-binding.mjs', 'export const value = 1;\n');
+        const updated = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(updated.status, 0, output(updated));
+        const current = JSON.parse(readFileSync(baselinePath, 'utf8'));
+        assert.notEqual(current.sourceStateSha256, previous.sourceStateSha256);
+        assert.equal(current.generatedFrom, `source-state:${current.sourceStateSha256}`);
+        assert.deepEqual(current.files.find((entry) => entry.path === relativePath), previous.files.find((entry) => entry.path === relativePath));
+        const acceptedBytes = readFileSync(baselinePath, 'utf8');
+        writeFixture(fixtureRoot, 'tools/legacy/new-update-debt.mjs', 'export function readValue(value) {\n  return value\n}\n');
+        const rejected = runChecker(fixtureRoot, ['--mode', 'full', '--update-baseline']);
+        assert.equal(rejected.status, 1, output(rejected));
+        assert.match(output(rejected), /refusing new frontend style baseline path/u);
+        assert.equal(readFileSync(baselinePath, 'utf8'), acceptedBytes);
+    });
+});
+
 test('frontend style governance baseline removes deleted paths only through reviewed pruning', () =>
 {
     withFixture((fixtureRoot) =>

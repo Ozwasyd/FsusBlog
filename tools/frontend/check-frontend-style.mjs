@@ -532,7 +532,7 @@ function sourceStateDigest()
     return sha256(files.map((file) => `${file}\nsha256:${sha256(fs.readFileSync(path.join(root, file)))}`).join('\n'));
 }
 
-function loadBaseline()
+function loadBaseline(mode)
 {
     const baselinePath = path.join(root, policy.baseline);
     if (!fs.existsSync(baselinePath))
@@ -554,13 +554,31 @@ function loadBaseline()
         return new Map();
     }
     const currentSourceStateSha256 = sourceStateDigest();
-    // A drifted configuration or source-state digest must not authorize residual
-    // exemptions. Return an empty map so checked files are held to a clean slate
-    // instead of failing closed before any file-level lint results are considered.
-    if (document.configurationSha256 !== configurationDigest()
-        || document.sourceStateSha256 !== currentSourceStateSha256
-        || document.generatedFrom !== `source-state:${currentSourceStateSha256}`)
+    const bindingFailures = [];
+    if (document.configurationSha256 !== configurationDigest())
     {
+        bindingFailures.push('baseline configuration digest is stale');
+    }
+    if (document.sourceStateSha256 !== currentSourceStateSha256)
+    {
+        bindingFailures.push('baseline source-state digest is stale');
+    }
+    if (document.generatedFrom !== `source-state:${currentSourceStateSha256}`)
+    {
+        bindingFailures.push('baseline generatedFrom does not match the current source-state digest');
+    }
+    // Every drift invalidates all exemptions. Only the baseline-aware full mode
+    // additionally rejects the binding itself, alongside all file-level findings.
+    // Changed and strict-full checks must not become global historical blockers.
+    if (bindingFailures.length > 0)
+    {
+        if (mode === 'full')
+        {
+            for (const failure of bindingFailures)
+            {
+                fail(failure);
+            }
+        }
         return new Map();
     }
     return new Map(document.files.map((entry) => [entry.path, entry]));
@@ -1200,7 +1218,7 @@ function main()
         return { files: files.length, eslintFiles: eslintFiles.length, stylelintFiles: stylelintFiles.length, violations: violations.length, unexpected: 0 };
     }
 
-    const baseline = loadBaseline();
+    const baseline = loadBaseline(args.mode);
     const sourceDigests = new Map(files.map((file) => [file, sha256(fs.readFileSync(path.join(root, file)))]));
     const unexpected = args.mode === 'strict-full'
         ? violations
