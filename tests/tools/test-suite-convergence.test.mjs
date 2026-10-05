@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict'
+import { execFileSync } from 'node:child_process'
 import { readFileSync } from 'node:fs';
 import test from 'node:test'
 import { dirname, resolve } from 'node:path'
@@ -17,6 +18,7 @@ import {
   validateEvidenceContract,
   verifySourceLockingFixtures
 } from '@fsusblog/governance-tools/test-convergence/audit'
+import { POST_BASELINE_HISTORY_ANCHOR } from '@fsusblog/governance-tools/test-convergence/post-baseline-history'
 import { compactRetentionBaseline } from '@fsusblog/governance-tools/test-retention/audit'
 import { parseMatrix } from '@fsusblog/governance-tools/test-matrix/parse-matrix'
 
@@ -33,10 +35,17 @@ test('matrix is the single current command and retention governance authority', 
   assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json')
   const postBaselines = matrix.governance.retention.postBaselines;
   assert.equal(new Set(postBaselines).size, postBaselines.length);
+  const trustedMatrix = parseMatrix(execFileSync('git', [
+    'show', `${POST_BASELINE_HISTORY_ANCHOR}:tests/matrix.yml`
+  ], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }))
+  const trustedPaths = new Set(trustedMatrix.governance.retention.postBaselines)
+  for (const path of trustedPaths) assert.ok(postBaselines.includes(path), `${path} remains trusted`)
   for (const baselinePath of postBaselines)
   {
     const baseline = JSON.parse(readFileSync(resolve(root, baselinePath), 'utf8'));
-    assert.equal(baseline.schema, 'fsusblog.issue-acceptance-baseline.v1');
+    assert.equal(baseline.schema, trustedPaths.has(baselinePath)
+      ? 'fsusblog.issue-acceptance-baseline.v1'
+      : 'fsusblog.issue-acceptance-baseline.v2');
     assert.ok(Array.isArray(baseline.records));
   }
   assert.equal(matrix.governance.retention.automaticDeletion, false)

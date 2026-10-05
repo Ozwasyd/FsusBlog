@@ -3,6 +3,7 @@ import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 
 import { dirname, relative, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { maskCSharpTrivia } from './test/csharp-source-mask.mjs';
 import {
     auditCompactRetentionRecords,
     auditRetentionRecords,
@@ -12,7 +13,9 @@ import {
     validateAfterSnapshotAuthority,
     verifySourceLockingFixtures
 } from './test-convergence/audit.mjs';
+import { validatePostBaselineHistory } from './test-convergence/post-baseline-history.mjs';
 import { loadTestMatrix } from './test-matrix/command-groups.mjs';
+import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     decodeCompactRetentionIndex,
     isCompactRetentionBaseline,
@@ -98,51 +101,6 @@ function recordsFromSnapshot(snapshot, source)
     return records;
 }
 
-function validatePostBaselines(paths, replacements)
-{
-    const replacementById = new Map(replacements.map((entry) => [entry.id, entry]));
-    const ids = [];
-    const errors = [];
-    const sources = [];
-    for (const path of paths ?? [])
-    {
-        const absolute = resolve(root, path);
-        if (!existsSync(absolute))
-        {
-            errors.push(`post-baseline snapshot does not exist: ${path}`);
-            continue;
-        }
-        const baseline = readJson(absolute);
-        if (baseline?.schema !== 'fsusblog.issue-acceptance-baseline.v1')
-        {
-            errors.push(`${path}: unsupported post-baseline schema ${baseline?.schema ?? 'missing'}`);
-            continue;
-        }
-        let accepted = 0;
-        for (const record of baseline.records ?? [])
-        {
-            if (record?.disposition !== 'migrated')
-            {
-                continue;
-            }
-            const replacement = replacementById.get(record.id);
-            if (!replacement || replacement.path !== record.path)
-            {
-                errors.push(`${path}: migrated record lacks an exact central replacement: ${record?.id ?? '<missing id>'}`);
-                continue;
-            }
-            ids.push(record.id);
-            accepted += 1;
-        }
-        if (Number.isInteger(baseline.expectedMigrated) && accepted !== baseline.expectedMigrated)
-        {
-            errors.push(`${path}: expected ${baseline.expectedMigrated} migrated records, found ${accepted}`);
-        }
-        sources.push({ source: path, issue: baseline.issue, accepted });
-    }
-    return { ids: [...new Set(ids)], errors, sources };
-}
-
 function sourceLockingAudit()
 {
     const positivePath = resolve(root, 'tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt');
@@ -168,7 +126,13 @@ if (compactBefore)
 const beforeRecords = compactBefore ? null : recordsFromSnapshot(beforeSnapshot, repoPath(beforePath));
 const merged = mergeReplacementEntries([{ source: repoPath(centralPath), manifest: readJson(centralPath) }]);
 const replacementChainAuthority = validateReplacementChainAuthority(merged.entries);
-const postBaseline = validatePostBaselines(retentionGovernance.postBaselines, merged.entries);
+const postBaseline = validatePostBaselineHistory({
+    root,
+    paths: retentionGovernance.postBaselines,
+    replacements: merged.entries,
+    parseMatrix,
+    maskCSharpTrivia
+});
 const defaultAfterPath = resolve(root, retentionGovernance.auditOutput ?? '.tmp/release-evidence/test-retention-audit.json');
 const afterPath = options.after ?? (options.final && existsSync(defaultAfterPath) ? defaultAfterPath : null);
 const afterSnapshot = afterPath ? readJson(afterPath) : null;

@@ -8,6 +8,7 @@ governance:
         postBaselines:
             - tests/admin-inline-empty-state-retirement-baseline.json
             - tests/anonymous-nullifier-concurrency-retirement-baseline.json
+            - tests/bounded-runtime-projection-retirement-baseline.json
             - tests/ci-local-matrix-retirement-baseline.json
             - tests/lightweight-acceptance-baseline.json
             - tests/mfa-login-continuation-retirement-baseline.json
@@ -2249,6 +2250,8 @@ tiers:
           - tests/frontend/unit/components/user/MessagesStateMachine.test.ts
           - tests/admin-console-behavior-evidence.json
           - tests/test-retention-replacements.json
+          - tools/test-convergence/post-baseline-history.mjs
+          - tools/post-baseline-history.test.mjs
       ciJob: fast-frontend-unit
       localOnly: false
       nightlyOnly: false
