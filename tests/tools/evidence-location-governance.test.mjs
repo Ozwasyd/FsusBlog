@@ -136,10 +136,10 @@ test('clean-attempt evidence library keeps its exact scanner finding and canonic
     const finding = generated.scan.findings.find((entry) =>
         entry.file === 'tools/release/clean-attempt-evidence-source.mjs');
     assert.deepEqual(finding, {
-        findingId: '123c57abfcd53baa',
+        findingId: '0bb0613a313dec54',
         ruleId: 'evidence-selection.first-match',
         file: 'tools/release/clean-attempt-evidence-source.mjs',
-        line: 359,
+        line: 362,
         column: 19,
         function: '<module>',
         excerpt: 'const candidate = authorityReferences.find((item) => item.kind === reference.kind);',
