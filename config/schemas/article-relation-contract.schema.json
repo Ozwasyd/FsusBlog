@@ -1,0 +1,420 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fsusblog.local/contracts/article-relation-contract.schema.json",
+  "title": "FsusBlog article relation contract",
+  "oneOf": [
+    { "$ref": "#/$defs/relation" },
+    { "$ref": "#/$defs/relationSet" },
+    { "$ref": "#/$defs/mentionCandidate" },
+    { "$ref": "#/$defs/lifecycleEvent" },
+    { "$ref": "#/$defs/receipt" },
+    { "$ref": "#/$defs/ignoreDecisionReference" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$",
+      "description": "Lowercase SHA-256 digest."
+    },
+    "coordinate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractVersion",
+        "kindCatalogVersion",
+        "resolutionCatalogVersion",
+        "visibilityCatalogVersion",
+        "lifecycleCatalogVersion"
+      ],
+      "properties": {
+        "contractVersion": { "const": 1 },
+        "kindCatalogVersion": { "const": 1 },
+        "resolutionCatalogVersion": { "const": 1 },
+        "visibilityCatalogVersion": { "const": 1 },
+        "lifecycleCatalogVersion": { "const": 1 }
+      }
+    },
+    "actorContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["actorIdentity", "siteIdentity", "permissionContextDigest"],
+      "properties": {
+        "actorIdentity": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "siteIdentity": { "type": "string", "minLength": 3, "maxLength": 160 },
+        "permissionContextDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sourceFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "articleIdentity",
+        "revisionIdentity",
+        "revisionNumber",
+        "revisionKind",
+        "lifecycle",
+        "permission",
+        "sourceActor",
+        "contentDigest"
+      ],
+      "properties": {
+        "articleIdentity": { "type": "string", "pattern": "^article:[^\\s/#?=]+$" },
+        "revisionIdentity": { "type": "string", "pattern": "^revision:[^\\s/#?=]+$" },
+        "revisionNumber": { "type": "integer", "minimum": 1 },
+        "revisionKind": { "enum": ["draft", "current", "published"] },
+        "lifecycle": { "enum": ["draft", "scheduled", "published", "archived", "deleted"] },
+        "permission": { "enum": ["allowed", "denied", "unknown"] },
+        "sourceActor": { "$ref": "#/$defs/actorContext" },
+        "contentDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "targetIdentity": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["articleIdentity", "kind", "headingIdentity", "blockAnchorIdentity"],
+      "properties": {
+        "articleIdentity": { "type": "string", "pattern": "^article:[^\\s/#?=]+$" },
+        "kind": { "enum": ["article", "heading", "block"] },
+        "headingIdentity": {
+          "oneOf": [
+            { "type": "string", "pattern": "^heading:[^\\s/#?=]+$" },
+            { "type": "null" }
+          ]
+        },
+        "blockAnchorIdentity": {
+          "oneOf": [
+            { "type": "string", "pattern": "^(?:block|anchor):[^\\s/#?=]+$" },
+            { "type": "null" }
+          ]
+        }
+      }
+    },
+    "targetFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "targetIdentity",
+        "revisionIdentity",
+        "revisionNumber",
+        "revisionKind",
+        "lifecycle",
+        "permission"
+      ],
+      "properties": {
+        "targetIdentity": {
+          "oneOf": [{ "$ref": "#/$defs/targetIdentity" }, { "type": "null" }]
+        },
+        "revisionIdentity": {
+          "oneOf": [
+            { "type": "string", "pattern": "^revision:[^\\s/#?=]+$" },
+            { "type": "null" }
+          ]
+        },
+        "revisionNumber": {
+          "oneOf": [{ "type": "integer", "minimum": 1 }, { "type": "null" }]
+        },
+        "revisionKind": {
+          "oneOf": [{ "enum": ["draft", "current", "published"] }, { "type": "null" }]
+        },
+        "lifecycle": {
+          "oneOf": [
+            { "enum": ["draft", "scheduled", "published", "archived", "deleted"] },
+            { "type": "null" }
+          ]
+        },
+        "permission": { "enum": ["allowed", "denied", "unknown"] }
+      }
+    },
+    "visibilityFacts": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sourceActor", "queryActor", "queryScope", "publicContext", "permissionPolicyDigest"],
+      "properties": {
+        "sourceActor": { "$ref": "#/$defs/actorContext" },
+        "queryActor": { "$ref": "#/$defs/actorContext" },
+        "queryScope": { "enum": ["authoring", "current-public-publication", "publication-evidence"] },
+        "publicContext": { "enum": ["authoring-actor", "anonymous-public", "publication-build"] },
+        "permissionPolicyDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "sourceRange": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["start", "end", "matchedText"],
+      "properties": {
+        "start": { "type": "integer", "minimum": 0 },
+        "end": { "type": "integer", "minimum": 1 },
+        "matchedText": { "type": "string", "minLength": 1, "maxLength": 8192 }
+      }
+    },
+    "occurrence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["linkText", "first", "last", "count"],
+      "properties": {
+        "linkText": { "type": "string", "minLength": 1, "maxLength": 8192 },
+        "first": { "$ref": "#/$defs/sourceRange" },
+        "last": { "$ref": "#/$defs/sourceRange" },
+        "count": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "relation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "relationIdentity",
+        "indexVersion",
+        "kind",
+        "source",
+        "occurrence",
+        "target",
+        "visibility",
+        "resolution",
+        "coordinate",
+        "recordDigest"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-relation.v1" },
+        "schemaVersion": { "const": 1 },
+        "relationIdentity": { "$ref": "#/$defs/sha256" },
+        "indexVersion": { "type": "integer", "minimum": 1 },
+        "kind": { "enum": ["outgoing", "backlink", "broken", "visibility-risk", "unlinked-mention"] },
+        "source": { "$ref": "#/$defs/sourceFacts" },
+        "occurrence": { "$ref": "#/$defs/occurrence" },
+        "target": { "$ref": "#/$defs/targetFacts" },
+        "visibility": { "$ref": "#/$defs/visibilityFacts" },
+        "resolution": {
+          "enum": [
+            "resolved",
+            "missing-target",
+            "missing-anchor",
+            "deleted",
+            "archived",
+            "unauthorized",
+            "private",
+            "draft",
+            "stale",
+            "ambiguous",
+            "unsupported"
+          ]
+        },
+        "coordinate": { "$ref": "#/$defs/coordinate" },
+        "recordDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "relationSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "schemaVersion", "source", "relations", "setDigest"],
+      "properties": {
+        "schema": { "const": "fsusblog.article-relation-set.v1" },
+        "schemaVersion": { "const": 1 },
+        "source": { "$ref": "#/$defs/sourceFacts" },
+        "relations": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": { "$ref": "#/$defs/relation" }
+        },
+        "setDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "ignoreDecisionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["schema", "schemaVersion", "decisionIdentity", "decisionRevision", "decisionDigest"],
+      "properties": {
+        "schema": { "const": "fsusblog.article-relation-ignore-decision-reference.v1" },
+        "schemaVersion": { "const": 1 },
+        "decisionIdentity": { "$ref": "#/$defs/sha256" },
+        "decisionRevision": { "type": "integer", "minimum": 1 },
+        "decisionDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "mentionCandidate": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "candidateIdentity",
+        "source",
+        "visibility",
+        "matchedRange",
+        "candidateTargets",
+        "matchRule",
+        "matchReason",
+        "confidence",
+        "ambiguity",
+        "ignoreDecision",
+        "isAuthoritative",
+        "coordinate",
+        "candidateDigest"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-relation-unlinked-mention.v1" },
+        "schemaVersion": { "const": 1 },
+        "candidateIdentity": { "$ref": "#/$defs/sha256" },
+        "source": { "$ref": "#/$defs/sourceFacts" },
+        "visibility": { "$ref": "#/$defs/visibilityFacts" },
+        "matchedRange": { "$ref": "#/$defs/sourceRange" },
+        "candidateTargets": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 10000,
+          "items": { "$ref": "#/$defs/targetIdentity" }
+        },
+        "matchRule": { "enum": ["exact-title", "exact-alias", "unicode-normalized-alias"] },
+        "matchReason": { "enum": ["exact-text", "registered-alias", "case-or-unicode-normalization"] },
+        "confidence": { "enum": ["certain", "high", "medium"] },
+        "ambiguity": { "enum": ["unique", "ambiguous"] },
+        "ignoreDecision": {
+          "oneOf": [{ "$ref": "#/$defs/ignoreDecisionReference" }, { "type": "null" }]
+        },
+        "isAuthoritative": { "const": false },
+        "coordinate": { "$ref": "#/$defs/coordinate" },
+        "candidateDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "lifecycleEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "eventIdentity",
+        "kind",
+        "owner",
+        "articleIdentity",
+        "revisionIdentity",
+        "eventRevision",
+        "changes",
+        "obligations",
+        "coordinate",
+        "eventDigest"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-relation-lifecycle-event.v1" },
+        "schemaVersion": { "const": 1 },
+        "eventIdentity": { "$ref": "#/$defs/sha256" },
+        "kind": {
+          "enum": [
+            "create",
+            "edit",
+            "publish",
+            "schedule",
+            "archive",
+            "delete",
+            "restore",
+            "rollback",
+            "import",
+            "migration",
+            "slug-title-heading-rename"
+          ]
+        },
+        "owner": {
+          "enum": [
+            "source-revision-authority",
+            "publication-lifecycle-authority",
+            "article-identity-authority",
+            "import-migration-authority"
+          ]
+        },
+        "articleIdentity": { "type": "string", "pattern": "^article:[^\\s/#?=]+$" },
+        "revisionIdentity": { "type": "string", "pattern": "^revision:[^\\s/#?=]+$" },
+        "eventRevision": { "type": "integer", "minimum": 1 },
+        "changes": { "type": "array", "items": { "enum": ["slug", "title", "heading-identity"] } },
+        "obligations": { "type": "array", "items": { "enum": ["rebuild", "invalidate", "reresolve"] } },
+        "coordinate": { "$ref": "#/$defs/coordinate" },
+        "eventDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "receiptContext": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceArticleIdentity",
+        "sourceRevisionIdentity",
+        "sourceRevisionNumber",
+        "sourceRevisionKind",
+        "sourceActor",
+        "queryActor",
+        "queryScope",
+        "worktreeIdentity",
+        "buildIdentity",
+        "parserContract",
+        "rendererContract",
+        "articleSchemaVersion",
+        "permissionPolicyVersion",
+        "coordinate",
+        "contentDigest"
+      ],
+      "properties": {
+        "sourceArticleIdentity": { "type": "string", "pattern": "^article:[^\\s/#?=]+$" },
+        "sourceRevisionIdentity": { "type": "string", "pattern": "^revision:[^\\s/#?=]+$" },
+        "sourceRevisionNumber": { "type": "integer", "minimum": 1 },
+        "sourceRevisionKind": { "enum": ["draft", "current", "published"] },
+        "sourceActor": { "$ref": "#/$defs/actorContext" },
+        "queryActor": { "$ref": "#/$defs/actorContext" },
+        "queryScope": { "enum": ["authoring", "current-public-publication", "publication-evidence"] },
+        "worktreeIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "buildIdentity": { "type": "string", "minLength": 1, "maxLength": 160 },
+        "parserContract": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "rendererContract": { "type": "string", "minLength": 1, "maxLength": 200 },
+        "articleSchemaVersion": { "type": "integer", "minimum": 1 },
+        "permissionPolicyVersion": { "type": "integer", "minimum": 1 },
+        "coordinate": { "$ref": "#/$defs/coordinate" },
+        "contentDigest": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaVersion",
+        "receiptIdentity",
+        "kind",
+        "context",
+        "relationDigests",
+        "candidateDigests",
+        "relationCount",
+        "candidateCount",
+        "receiptDigest"
+      ],
+      "properties": {
+        "schema": { "const": "fsusblog.article-relation-receipt.v1" },
+        "schemaVersion": { "const": 1 },
+        "receiptIdentity": { "$ref": "#/$defs/sha256" },
+        "kind": { "enum": ["index", "query", "ignore-decision", "prepublish", "inspector"] },
+        "context": { "$ref": "#/$defs/receiptContext" },
+        "relationDigests": {
+          "type": "array",
+          "maxItems": 100000,
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "candidateDigests": {
+          "type": "array",
+          "maxItems": 10000,
+          "items": { "$ref": "#/$defs/sha256" }
+        },
+        "relationCount": { "type": "integer", "minimum": 0 },
+        "candidateCount": { "type": "integer", "minimum": 0 },
+        "receiptDigest": { "$ref": "#/$defs/sha256" }
+      }
+    }
+  },
+  "x-fsusblog-contract": {
+    "schema": "fsusblog.article-relation-contract.v1",
+    "contractVersion": 1,
+    "kindCatalogVersion": 1,
+    "resolutionCatalogVersion": 1,
+    "visibilityCatalogVersion": 1,
+    "lifecycleCatalogVersion": 1,
+    "publicQueryPolicy": "current-public-publication-only",
+    "identityPolicy": "stable-article-revision-range-anchor-only",
+    "projectionOnlyFields": ["url", "slug", "title", "headingText"],
+    "forbiddenAuthorities": ["frontend-regex", "rendered-dom", "related-reading", "search-index", "ai", "embedding"]
+  }
+}
