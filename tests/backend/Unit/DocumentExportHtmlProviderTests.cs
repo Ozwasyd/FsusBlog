@@ -90,6 +90,74 @@ public sealed class DocumentExportHtmlProviderTests
     }
 
     [Theory]
+    [InlineData("</article><p>TAIL-CANARY</p>")]
+    [InlineData("</article>TAIL-CANARY")]
+    [InlineData("</article><!--TAIL-CANARY-->")]
+    public void RejectsPrematureWrapperCloseWithoutDroppingTrailingRendererContent(string suffix)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+        byte[] benign = DocumentExportHtmlSanitizer.Sanitize(
+            DocumentExportTestToolFixture.DefaultFragment, input.Assets, maximumBytes);
+        Assert.NotEmpty(benign);
+        Assert.Contains("Heading 中文 🌍", Encoding.UTF8.GetString(benign), StringComparison.Ordinal);
+
+        DocumentExportRendererResponse response = ValidResponse(
+            input, DocumentExportTestToolFixture.DefaultFragment + suffix);
+        SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(response, input);
+        Assert.Throws<InvalidDataException>(() => DocumentExportHtmlSanitizer.Sanitize(
+            response.HtmlFragment, input.Assets, maximumBytes));
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData(" \n\t")]
+    public void PreservesCompleteRendererFragmentAndLegalSurroundingWhitespace(string whitespace)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        long maximumBytes = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets.MaxOutputBytes;
+        byte[] baseline = DocumentExportHtmlSanitizer.Sanitize(
+            DocumentExportTestToolFixture.DefaultFragment, input.Assets, maximumBytes);
+        DocumentExportRendererResponse response = ValidResponse(
+            input, whitespace + DocumentExportTestToolFixture.DefaultFragment + whitespace);
+        SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(response, input);
+
+        byte[] actual = DocumentExportHtmlSanitizer.Sanitize(response.HtmlFragment, input.Assets, maximumBytes);
+
+        Assert.Equal(whitespace + Encoding.UTF8.GetString(baseline) + whitespace, Encoding.UTF8.GetString(actual));
+    }
+
+    [Fact]
+    public async Task ProviderRejectsFullySealedPrematureWrapperCloseAfterCompleteValidPrefix()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        string fragment = DocumentExportTestToolFixture.DefaultFragment + "</article><p>TAIL-CANARY</p>";
+        DocumentExportRendererResponse response = ValidResponse(input, fragment);
+        SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(response, input);
+        using var fixture = new DocumentExportTestToolFixture(fragment, response.ContentDigest);
+
+        await Assert.ThrowsAsync<InvalidDataException>(() => CreateProvider(fixture).ExportAsync(task, input));
+    }
+
+    [Fact]
+    public async Task ProviderPreservesAllowedTailAfterCompleteValidPrefix()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        string fragment = DocumentExportTestToolFixture.DefaultFragment + "<p>TAIL-CANARY</p>";
+        DocumentExportRendererResponse response = ValidResponse(input, fragment);
+        SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(response, input);
+        using var fixture = new DocumentExportTestToolFixture(fragment, response.ContentDigest);
+
+        DocumentExportProviderResult result = await CreateProvider(fixture).ExportAsync(task, input);
+
+        Assert.Contains("<p>TAIL-CANARY</p>", Encoding.UTF8.GetString(result.Bytes), StringComparison.Ordinal);
+        SelfContainedHtmlDocumentExportProvider.ValidateResult(
+            result, task, input, fixture.Tool, fixture.HostBuildDigest);
+    }
+
+    [Theory]
     [InlineData("light-v1", "ltr", "#FFFFFF", "#0F0F11", "#71717A", "#2A599C")]
     [InlineData("dark-v1", "rtl", "#09090B", "#F0F0F4", "#A1A1AA", "#4B79CC")]
     public async Task ProjectsExactThemeDirectionAndReadingAuthority(

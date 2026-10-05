@@ -107,6 +107,11 @@ internal static class DocumentExportHtmlSanitizer
             {
                 if (reader.NodeType == XmlNodeType.EndElement && reader.Depth == 0)
                 {
+                    // A renderer-supplied closing tag must not hide unread fragment content.
+                    if (reader.Read() || !reader.EOF)
+                    {
+                        throw new InvalidDataException("Canonical renderer fragment has content after its wrapper.");
+                    }
                     break;
                 }
                 switch (reader.NodeType)
