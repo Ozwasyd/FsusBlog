@@ -118,6 +118,48 @@ public static class LocalCommentFixtureEndpoints
             .AddEndpointFilter(RequireSecret)
             .AddEndpointFilter(RequireLoopback);
 
+        app.MapPost("/api/local/comment-fixture/verify", async (
+                HttpContext context,
+                [FromServices] ICommentFixtureSeeder seeder,
+                CancellationToken cancellationToken) =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                try
+                {
+                    CommentFixtureVerificationRequest? request = await JsonSerializer.DeserializeAsync<CommentFixtureVerificationRequest>(
+                        context.Request.Body, s_json, cancellationToken).ConfigureAwait(false);
+                    if (request?.Plan is null || request.CleanupReceipt is null || request.Roles is null
+                        || request.AuthReference is null || request.PublicReference is null)
+                        return Results.BadRequest(new
+                        {
+                            message = "comment fixture verification authority required"
+                        });
+                    RequireHeaderIdentity(context, request.Plan.Namespace, request.Plan.RunId, request.Plan.TestSession);
+                    return Results.Json(await seeder.VerifyAsync(request, cancellationToken).ConfigureAwait(false));
+                }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException
+                    or KeyNotFoundException or FormatException)
+                {
+                    // Do not echo private receipt/authority material or expected facts on rejection.
+                    return Results.BadRequest(new
+                    {
+                        message = "comment fixture verification authority or live postcondition rejected"
+                    });
+                }
+            })
+            .AllowAnonymous()
+            .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(
+                SecretHeaderName,
+                LocalPublicContentFixtureEndpoints.TestNamespaceHeaderName,
+                LocalPublicContentFixtureEndpoints.TestRunIdHeaderName,
+                HttpTestSessionKeyScope.HeaderName))
+            .AddEndpointFilter(RequireSecret)
+            .AddEndpointFilter(RequireLoopback);
+
         app.MapPost("/api/local/comment-fixture/cleanup", async (
                 HttpContext context,
                 [FromServices] ICommentFixtureSeeder seeder,

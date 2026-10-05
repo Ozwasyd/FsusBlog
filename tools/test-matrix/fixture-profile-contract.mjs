@@ -159,6 +159,28 @@ function sha256Json(value)
     return `sha256:${createHash('sha256').update(stableStringify(value)).digest('hex')}`;
 }
 
+/** The one authorized prerequisite is a distinct profile, never a capability union. */
+export function matrixFixturePrerequisites(tier)
+{
+    const expected = [{ id: 'typed-admin-session', profileId: 'auth-basic',
+        producerId: 'auth-session', capabilityId: 'auth.admin.full-permission',
+        semanticRole: 'admin.full-permission', consumerId: 'runtime-cache-hot-featured-frame' }];
+    if (tier.id === 'runtime-cache-hot-featured-frame')
+    {
+        if (tier.fixtureProfile !== 'public-content-lifecycle' || tier.executionClass !== 'runtime'
+            || stableStringify(tier.fixturePrerequisites) !== stableStringify(expected))
+        {
+            throw new Error('hot-featured matrix requires exact typed-admin-session prerequisite declaration');
+        }
+        return expected;
+    }
+    if (Object.hasOwn(tier, 'fixturePrerequisites'))
+    {
+        throw new Error('fixture prerequisite is only authorized for hot-featured runtime tier');
+    }
+    return [];
+}
+
 /**
  * Stable per-tier inventory for every matrix step (not only fixture consumers).
  * The digest covers tier id, execution class and fixture-profile declaration so
@@ -173,7 +195,8 @@ export function buildFixtureProfileMatrixInventory(matrix)
             fixtureProfile: String(tier.fixtureProfile ?? ''),
             fixtureProfileReason: expectedFixtureProfileReason(tier),
             fixtureProfileProof: String(tier.fixtureProfileProof ?? ''),
-            fixtureMutatorAllowed: expectedFixtureMutatorAllowed(tier)
+            fixtureMutatorAllowed: expectedFixtureMutatorAllowed(tier),
+            ...(Object.hasOwn(tier, 'fixturePrerequisites') ? { fixturePrerequisites: tier.fixturePrerequisites } : {})
         }))
         .sort((left, right) => left.tierId.localeCompare(right.tierId));
     return {
@@ -232,6 +255,14 @@ export function validateFixtureProfileMatrix(matrix, {
             continue;
         }
         const profileId = String(tier.fixtureProfile);
+        try
+        {
+            matrixFixturePrerequisites(tier);
+        }
+        catch (error)
+        {
+            errors.push(`matrix tier ${id}: ${error.message}`);
+        }
         if (!FIXTURE_EXECUTION_CLASSES.includes(tier.executionClass))
         {
             errors.push(`matrix tier ${id} has unknown executionClass ${tier.executionClass}`);

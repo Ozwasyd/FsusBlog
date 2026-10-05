@@ -10,19 +10,22 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     resolveSourceCommit,
     resolveWorktreeFingerprint
-} from '../fact-extractors/identity.mjs';
-import {
-    writeFixtureProfileReceipt
-} from '../testing/fixture-catalog.mjs';
+} = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
+const {
+    writeFixtureProfileReceipt,
+    resolveMatrixFixturePrerequisiteEnvironment,
+    sealMatrixFixtureProfile
+} = await import(new URL('../testing/fixture-catalog.mjs', import.meta.url));
 
 import {
     cleanup,
     plan as planOrchestration,
     prepare,
-    verify
+    verify,
+    planFromState
 } from './orchestrator.mjs';
 import { createDefaultProducerPorts, createPortsForProducerIds } from './producers/catalog-ports.mjs';
 import {
@@ -30,10 +33,15 @@ import {
     FIXTURE_PREPARE_STATE_SCHEMA,
     FIXTURE_RECEIPT_SCHEMA,
     readFixtureReceipt,
+    readPrivateJson,
+    writeFixtureIdProjection,
     writePreparedPublicIdProjection,
     writeFixtureReceipt,
     writePrivateJson
 } from './receipt/index.mjs';
+import { createFixtureArtifactOutlet } from './receipt/private-io.mjs';
+import { writeVerifiedAdminPrerequisiteProjection, writeRuntimeCacheFixtureInput, writeRuntimeCacheProfileInputs,
+    prepareRuntimeCacheDeclaredPrerequisites, resolveRuntimeCacheConsumer } from './receipt/projection.mjs';
 
 function parseArgs(argv)
 {
@@ -81,9 +89,9 @@ function readJson(file)
     return JSON.parse(fs.readFileSync(file, 'utf8'));
 }
 
-function writePrepareState(file, value)
+function writePrepareState(file, value, signal = undefined)
 {
-    return writePrivateJson(file, value, { label: 'fixture-prepare-state' });
+    return writePrivateJson(file, value, { label: 'fixture-prepare-state', signal });
 }
 
 function parseVariantIds(value, label)
@@ -199,9 +207,13 @@ function buildExecutionIdentity(options)
     };
 }
 
-function buildPrivateRuntimeHandles()
+function buildPrivateRuntimeHandles(options = {})
 {
     const handles = {};
+    if (options['private-carrier-dir'])
+    {
+        handles.authPrivateCarrierDir = path.resolve(options['private-carrier-dir']);
+    }
     if (process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET)
     {
         handles.localPublicContentFixtureSecret = process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET;
@@ -302,23 +314,103 @@ function resolvePorts(planDocument, options)
     return createPortsForProducerIds(ids);
 }
 
-function writeAuthoritativeOut(file, document)
+function writeAuthoritativeOut(file, document, signal = undefined)
 {
+    signal?.throwIfAborted();
     if (!file)
     {
         return;
     }
     if (document?.schema === FIXTURE_RECEIPT_SCHEMA)
     {
-        writeFixtureReceipt(file, document);
+        writeFixtureReceipt(file, document, { signal });
         return;
     }
     if (document?.schema === FIXTURE_PREPARE_STATE_SCHEMA)
     {
-        writePrepareState(file, document);
+        writePrepareState(file, document, signal);
         return;
     }
-    writePrivateJson(file, document, { label: 'fixture-out' });
+    writePrivateJson(file, document, { label: 'fixture-out', signal });
+}
+
+function artifactOutletFor(options, planDocument, signal, command)
+{
+    if (!options['artifact-dir'])
+    {
+        return null;
+    }
+    const consumerId = options['artifact-consumer-id'];
+    if (!options.out && !options['fixture-receipt'])
+    {
+        throw new Error('fixture artifact outlet requires an explicit final output marker');
+    }
+    if (options['skip-verify'] || options.verify === false)
+    {
+        throw new Error('fixture artifact outlet cannot publish prepared-only qualification');
+    }
+    if (options['runtime-cache-consumer-id'])
+    {
+        if (consumerId !== options['runtime-cache-consumer-id']
+            || consumerId !== process.env.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID
+            || resolveRuntimeCacheConsumer(consumerId).profileId !== planDocument.profileIdentity.profileId)
+        {
+            throw new Error('fixture artifact consumer differs from sealed canonical consumer/profile');
+        }
+    }
+    else if (planDocument.profileIdentity.profileSource === 'matrix' || consumerId !== `fixture-cli:${command}`)
+    {
+        throw new Error('fixture artifact consumer must match its actual CLI command or sealed matrix consumer');
+    }
+    const repository = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+    const source = planDocument.executionIdentity.sourceIdentity ?? planDocument.executionIdentity.source;
+    if (source?.commit !== resolveSourceCommit(repository)
+        || source.worktreeFingerprint !== `sha256:${resolveWorktreeFingerprint(repository)}`)
+    {
+        throw new Error('fixture artifact source binding differs from current canonical source identity');
+    }
+    const marker = path.resolve(options['fixture-receipt'] ?? options.out);
+    if (fs.existsSync(marker))
+    {
+        throw new Error('fixture artifact final marker must be a new owned output');
+    }
+    const protectedPaths = ['src', 'tools', 'tests', 'docs', 'config', '.git'].map((item) => path.join(repository, item));
+    for (const name of ['out', 'fixture-receipt', 'prepare-state', 'prepare-out', 'receipt', 'receipt-file', 'private-carrier-dir',
+        'previous-fixture-receipt', 'public-projection', 'runtime-cache-input-dir'])
+    {
+        if (typeof options[name] === 'string')
+        {
+            protectedPaths.push(options[name]);
+        }
+    }
+    return createFixtureArtifactOutlet(options['artifact-dir'], { plan: planDocument, consumerId, signal, protectedPaths });
+}
+
+function preserveRecoveryFailure(error, action)
+{
+    try
+    {
+        action();
+    }
+    catch (recoveryError)
+    {
+        // Diagnostic only. Never replace the business/cleanup/cancellation first failure.
+        if (error && typeof error === 'object')
+        {
+            error.recoveryPublicationError ??= recoveryError;
+        }
+    }
+}
+
+function preserveOutletFailure(error, outlet, signal)
+{
+    if (outlet && !signal.aborted)
+    {
+        preserveRecoveryFailure(error, () =>
+        {
+            error.outletArtifactReferences = outlet.publish('failure');
+        });
+    }
 }
 
 async function main(argv = process.argv.slice(2))
@@ -331,11 +423,18 @@ async function main(argv = process.argv.slice(2))
   node tools/test-fixtures/cli.mjs plan --profile <id> --source dev-cli|matrix [--variant-ids <ids>] [sealed opts] [--out plan.json]
   node tools/test-fixtures/cli.mjs prepare --plan plan.json [--out prepare-state.json] [--previous-fixture-receipt path]
   node tools/test-fixtures/cli.mjs verify --receipt prepare-state.json [--out fixture-receipt.json]
+  node tools/test-fixtures/cli.mjs project-verified --receipt fixture-receipt.json --out projection.json
+  node tools/test-fixtures/cli.mjs project-admin-prerequisite --auth-fixture-receipt auth.json --public-fixture-receipt public.json --carrier-reference private-reference.json --consumer-profile <id> --consumer-id <id> --base-url <loopback-url> --out private-projection.json
   node tools/test-fixtures/cli.mjs cleanup --receipt prepare-state|fixture-receipt.json [--out out.json]
   node tools/test-fixtures/cli.mjs run --profile <id> --source ... [--out fixture-receipt.json] [--previous-fixture-receipt path]
+  node tools/test-fixtures/cli.mjs run --profile <sealed-primary> --source matrix ... --runtime-cache-consumer-id <sealed-id> --runtime-cache-input-dir <owned-dir> --public-projection <owned-file>
   node tools/test-fixtures/cli.mjs dev-transition --receipt fixture-receipt.json --profile <id> [execution identity opts]
   node tools/test-fixtures/cli.mjs source-identity [--repository-root path]
   node tools/test-fixtures/cli.mjs receipt-digest --file fixture-receipt.json
+
+Active admin prepare/run requires --private-carrier-dir <owned-private-directory>.
+Optional raw outlet: --artifact-dir <empty-owned-0700-directory> --artifact-consumer-id <actual-consumer>.
+Private projection consumes independently verified auth-basic and designated public receipts; it is not a receipt.
 `);
         return;
     }
@@ -419,7 +518,7 @@ async function main(argv = process.argv.slice(2))
                 planDocument,
                 ports,
                 controller.signal,
-                { previousFixtureReceipt, handles: buildPrivateRuntimeHandles() });
+                { previousFixtureReceipt, handles: buildPrivateRuntimeHandles(options) });
             if (options.out)
             {
                 writeAuthoritativeOut(options.out, prepareState);
@@ -465,15 +564,104 @@ async function main(argv = process.argv.slice(2))
         }
         const prepareState = readJson(receiptFile);
         const ports = resolvePorts(prepareState.plan ?? prepareState, options);
-        const next = await verify(prepareState, ports, {
-            handles: buildPrivateRuntimeHandles()
-        });
         const out = options.out ?? options['fixture-receipt'];
-        if (out)
+        const controller = new AbortController();
+        const onSignal = () => controller.abort(new Error('fixture verify cancelled'));
+        process.once('SIGINT', onSignal);
+        process.once('SIGTERM', onSignal);
+        let artifactOutlet = null;
+        try
         {
-            writeAuthoritativeOut(out, next);
+            artifactOutlet = artifactOutletFor(options, prepareState.plan, controller.signal, command);
+            const next = await verify(prepareState, ports, {
+                handles: buildPrivateRuntimeHandles(options), signal: controller.signal, artifactOutlet
+            });
+            writeAuthoritativeOut(out, next, controller.signal);
+            controller.signal.throwIfAborted();
+            process.stdout.write(`${JSON.stringify(next)}\n`);
         }
-        process.stdout.write(`${JSON.stringify(next)}\n`);
+        catch (error)
+        {
+            preserveOutletFailure(error, artifactOutlet, controller.signal);
+            if (!controller.signal.aborted && error.fixtureReceipt && out
+                && path.resolve(out) !== path.resolve(receiptFile))
+            {
+                preserveRecoveryFailure(error, () => writeAuthoritativeOut(out, error.fixtureReceipt));
+            }
+            throw error;
+        }
+        finally
+        {
+            process.removeListener('SIGINT', onSignal);
+            process.removeListener('SIGTERM', onSignal);
+        }
+        return;
+    }
+
+    if (command === 'project-verified')
+    {
+        if (!options.receipt || !options.out)
+        {
+            throw new Error('project-verified requires --receipt and --out');
+        }
+        const projection = writeFixtureIdProjection(options.out, readFixtureReceipt(options.receipt));
+        process.stdout.write(`${JSON.stringify(projection)}\n`);
+        return;
+    }
+
+    if (command === 'project-runtime-cache-profile-inputs')
+    {
+        for (const key of ['receipt', 'prepare-state', 'public-projection', 'out-dir'])
+        {
+            if (!options[key])
+            {
+                throw new Error(`project-runtime-cache-profile-inputs requires --${key}`);
+            }
+        }
+        const results = writeRuntimeCacheProfileInputs({ directory: options['out-dir'],
+            receiptFile: options.receipt, prepareStateFile: options['prepare-state'],
+            publicProjectionFile: options['public-projection'],
+            prerequisiteInputs: options['prerequisite-inputs'] ? readPrivateJson(options['prerequisite-inputs']).document : [] });
+        process.stdout.write(`${JSON.stringify(results)}\n`);
+        return;
+    }
+
+    if (command === 'project-runtime-cache-input')
+    {
+        for (const key of ['receipt', 'prepare-state', 'public-projection', 'consumer-id', 'out'])
+        {
+            if (!options[key])
+            {
+                throw new Error(`project-runtime-cache-input requires --${key}`);
+            }
+        }
+        const written = writeRuntimeCacheFixtureInput(options.out, {
+            receiptFile: options.receipt, prepareStateFile: options['prepare-state'],
+            publicProjectionFile: options['public-projection'], consumerId: options['consumer-id'],
+            prerequisiteInputs: options['prerequisite-inputs'] ? readPrivateJson(options['prerequisite-inputs']).document : []
+        });
+        process.stdout.write(`${JSON.stringify({ contentDigest: written.contentDigest })}\n`);
+        return;
+    }
+
+    if (command === 'project-admin-prerequisite')
+    {
+        for (const key of ['auth-fixture-receipt', 'public-fixture-receipt', 'carrier-reference', 'consumer-profile', 'consumer-id', 'out'])
+        {
+            if (!options[key])
+            {
+                throw new Error(`project-admin-prerequisite requires --${key}`);
+            }
+        }
+        const summary = await writeVerifiedAdminPrerequisiteProjection(options.out, {
+            authReceipt: readFixtureReceipt(options['auth-fixture-receipt']),
+            publicReceipt: readFixtureReceipt(options['public-fixture-receipt']),
+            carrierReference: readPrivateJson(options['carrier-reference'], { label: 'auth-private-carrier-reference' }).document,
+            consumerProfileId: options['consumer-profile'], consumerId: options['consumer-id'],
+            publicProjectionFile: options['public-projection'],
+            handles: { ...buildPrivateRuntimeHandles(options), baseUrl: options['base-url'] }
+        });
+        process.stdout.write(`${JSON.stringify(summary)}\n`);
         return;
     }
 
@@ -506,23 +694,40 @@ async function main(argv = process.argv.slice(2))
         const onSignal = () => controller.abort(new Error('fixture cleanup cancelled'));
         process.once('SIGINT', onSignal);
         process.once('SIGTERM', onSignal);
+        let artifactOutlet = null;
         try
         {
+            artifactOutlet = artifactOutletFor(options, planFromState(receipt), controller.signal, command);
             const next = await cleanup(
                 receipt,
                 ports,
                 controller.signal,
                 {
+                    artifactOutlet,
                     handles: {
                         ...buildExecutionIdentity(options).handles,
-                        ...buildPrivateRuntimeHandles()
+                        ...buildPrivateRuntimeHandles(options)
                     }
                 });
+            controller.signal.throwIfAborted();
+            const artifacts = artifactOutlet?.publish('cleanup') ?? [];
+            const published = artifacts.length ? { ...next, outputArtifacts: [...(next.outputArtifacts ?? []), ...artifacts] } : next;
             if (options.out)
             {
-                writePrivateJson(options.out, next, { label: 'fixture-cleanup-state' });
+                writePrivateJson(options.out, published, { label: 'fixture-cleanup-state', signal: controller.signal });
             }
-            process.stdout.write(`${JSON.stringify(next)}\n`);
+            controller.signal.throwIfAborted();
+            process.stdout.write(`${JSON.stringify(published)}\n`);
+        }
+        catch (error)
+        {
+            preserveOutletFailure(error, artifactOutlet, controller.signal);
+            if (!controller.signal.aborted && error.receipt && options.out
+                && path.resolve(options.out) !== path.resolve(receiptFile))
+            {
+                preserveRecoveryFailure(error, () => writePrivateJson(options.out, error.receipt, { label: 'fixture-cleanup-recovery-state' }));
+            }
+            throw error;
         }
         finally
         {
@@ -535,6 +740,25 @@ async function main(argv = process.argv.slice(2))
     if (command === 'run')
     {
         const planDocument = planOrchestration(buildProfileIdentity(options), buildExecutionIdentity(options));
+        let declaredPrerequisites = [];
+        if (options['runtime-cache-consumer-id'])
+        {
+            if (options['runtime-cache-consumer-id'] !== process.env.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID
+                || !options['runtime-cache-input-dir'] || !options['public-projection']
+                || !options['prepare-state'] || !options['fixture-receipt'] || options['skip-verify'])
+            {
+                throw new Error('runtime cache declared prerequisite run requires sealed consumer and verified owned outputs');
+            }
+            const declaration = resolveRuntimeCacheConsumer(options['runtime-cache-consumer-id']);
+            const primary = sealMatrixFixtureProfile({ fixtureProfile: planDocument.profileIdentity.profileId,
+                executionClass: planDocument.profileIdentity.executionClass });
+            declaredPrerequisites = resolveMatrixFixturePrerequisiteEnvironment(process.env, primary);
+            if (!planDocument.profileIdentity.sealed || planDocument.profileIdentity.profileSource !== 'matrix'
+                || declaration.profileId !== primary.profileId)
+            {
+                throw new Error('runtime cache prerequisite run requires original sealed matrix profile');
+            }
+        }
         if (options['plan-out'])
         {
             writePrivateJson(options['plan-out'], planDocument, { label: 'fixture-plan' });
@@ -569,16 +793,18 @@ async function main(argv = process.argv.slice(2))
         const previousFixtureReceipt = previousFixtureReceiptFile
             ? readFixtureReceipt(previousFixtureReceiptFile)
             : null;
+        let artifactOutlet = null;
         try
         {
+            artifactOutlet = artifactOutletFor(options, planDocument, controller.signal, command);
             let prepareState = await prepare(
                 planDocument,
                 ports,
                 controller.signal,
-                { previousFixtureReceipt, handles: buildPrivateRuntimeHandles() });
+                { previousFixtureReceipt, handles: buildPrivateRuntimeHandles(options), artifactOutlet });
             if (prepareOut)
             {
-                writeAuthoritativeOut(prepareOut, prepareState);
+                writeAuthoritativeOut(prepareOut, prepareState, controller.signal);
             }
 
             const skipVerify = options.verify === false || options['skip-verify'] === true;
@@ -601,34 +827,45 @@ async function main(argv = process.argv.slice(2))
 
             const fixtureReceipt = await verify(prepareState, ports, {
                 signal: controller.signal,
-                handles: buildPrivateRuntimeHandles()
+                handles: buildPrivateRuntimeHandles(options),
+                artifactOutlet
             });
             if (fixtureReceiptOut)
             {
-                writeAuthoritativeOut(fixtureReceiptOut, fixtureReceipt);
+                writeAuthoritativeOut(fixtureReceiptOut, fixtureReceipt, controller.signal);
             }
             else if (options.out)
             {
-                writeAuthoritativeOut(options.out, fixtureReceipt);
+                writeAuthoritativeOut(options.out, fixtureReceipt, controller.signal);
             }
+            if (declaredPrerequisites.length)
+            {
+                await prepareRuntimeCacheDeclaredPrerequisites({ consumerId: options['runtime-cache-consumer-id'],
+                    directory: options['runtime-cache-input-dir'], receiptFile: fixtureReceiptOut,
+                    prepareStateFile: prepareOut, publicProjectionFile: options['public-projection'],
+                    sealedPrerequisites: declaredPrerequisites, handles: buildPrivateRuntimeHandles(options),
+                    signal: controller.signal });
+            }
+            controller.signal.throwIfAborted();
             process.stdout.write(`${JSON.stringify(fixtureReceipt)}\n`);
         }
         catch (error)
         {
-            if (error?.receipt && prepareOut)
+            preserveOutletFailure(error, artifactOutlet, controller.signal);
+            if (!controller.signal.aborted && error?.receipt && prepareOut)
             {
-                writeAuthoritativeOut(prepareOut, error.receipt);
+                preserveRecoveryFailure(error, () => writeAuthoritativeOut(prepareOut, error.receipt));
             }
             const fixtureOutputReplacesPrevious = fixtureReceiptOut
         && previousFixtureReceiptFile
         && path.resolve(fixtureReceiptOut) === path.resolve(previousFixtureReceiptFile);
-            if (error?.fixtureReceipt && fixtureReceiptOut && !fixtureOutputReplacesPrevious)
+            if (!controller.signal.aborted && error?.fixtureReceipt && fixtureReceiptOut && !fixtureOutputReplacesPrevious)
             {
-                writeAuthoritativeOut(fixtureReceiptOut, error.fixtureReceipt);
+                preserveRecoveryFailure(error, () => writeAuthoritativeOut(fixtureReceiptOut, error.fixtureReceipt));
             }
-            else if (error?.receipt && options.out && !fixtureReceiptOut)
+            else if (!controller.signal.aborted && error?.receipt && options.out && !fixtureReceiptOut)
             {
-                writeAuthoritativeOut(options.out, error.receipt);
+                preserveRecoveryFailure(error, () => writeAuthoritativeOut(options.out, error.receipt));
             }
             throw error;
         }

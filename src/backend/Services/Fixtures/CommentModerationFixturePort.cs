@@ -255,6 +255,10 @@ public interface ICommentModerationFixturePort
     Task<CommentModerationFixtureResult> ExecuteAsync(
         CommentModerationFixturePlan plan,
         CancellationToken cancellationToken = default);
+
+    Task<CommentModerationFixtureResult> ObserveCurrentAsync(
+        CommentModerationFixturePlan plan,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -516,6 +520,16 @@ public sealed class CommentModerationFixturePort(
             await TransitionAsync(plan.Binding, plan.AdminPrincipalId, operation, cancellationToken).ConfigureAwait(false);
 
         await DrainOutboxAsync(plan.Operations, cancellationToken).ConfigureAwait(false);
+
+        return await ObserveCurrentAsync(plan, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Independent reads only: no transition, drain, runtime lease or cache repair.</summary>
+    public async Task<CommentModerationFixtureResult> ObserveCurrentAsync(
+        CommentModerationFixturePlan plan,
+        CancellationToken cancellationToken = default)
+    {
+        ValidatePlan(plan);
 
         var queueMembership = new Dictionary<CommentModerationStatus, QueueSnapshot>
         {
