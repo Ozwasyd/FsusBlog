@@ -1008,7 +1008,17 @@ The original `tools/test-matrix/mysql-fixture-recovery.mjs` component preflights
 
 Migration's MySQL fixture preparation and cleanup remain with `tools/test-fixtures/services/mysql.mjs`, using the existing closed service catalog and exact source/run/namespace/resource grant. It requires a supervisor-retained pre-create binding, a locally pinned image with pull denied, private random credentials, a dedicated non-root SQL user, an isolated loopback endpoint and independently observed server UUID/version. Live admission is read through `tools/test/mysql-fixture-admission.mjs`; completed cleanup is reobserved independently, never replaced by a child declaration. A changed daemon, owner, journal, resource grant, credential or unresolved recovery lock refuses. The existing backend-unit matrix declaration now names the MySQL requirement; canonical scheduler allocation/producer wiring is still pending. All service-owner Node tests inject controlled observers and Docker command adapters: they do not start a real container, execute SQL or establish native qualification.
 
-The existing backend-unit lane uses `tools/test/build-migration-tests.mjs` under its original Release writer lock, with locked restores of the two independent projects, then executes the prebuilt Migration assembly once through `tools/test/run-migration-tests.mjs`. Its reader joins original compiler/engine/source artifacts, actual Roslyn inventory, independent VSTest discovery and exact TRX rows; unadmitted MySQL fixtures refuse before discovery. The backend-fast summary only reads that unit's original namespace, engine and sealed live-or-cleaned fixture references, and cannot start another testhost. Narrow driver tests use deliberately simulated compiler/SDK/Docker bytes and controlled command adapters, not native qualification. Scheduler service allocation and producer inventory wiring plus locked dependency production still have to complete before the actual lane can qualify.
+The existing backend-unit lane uses `tools/test/build-migration-tests.mjs` under its original Release writer lock, with locked restores of the two independent projects, then executes the prebuilt Migration assembly once through `tools/test/run-migration-tests.mjs`. Its reader joins original compiler/engine/source artifacts, actual Roslyn inventory, independent VSTest discovery and exact TRX rows; unadmitted MySQL fixtures refuse before discovery. The backend-fast summary only reads that unit's original namespace, engine and sealed live-or-cleaned fixture references, and cannot start another testhost. Narrow driver tests use deliberately simulated compiler/SDK/Docker bytes and controlled command adapters, not native qualification. Scheduler service allocation plus locked dependency production still have to complete before the actual lane can qualify.
+
+The canonical backend physical bundle now declares `migration-tests-build`,
+`xunit-inventory-adapter-build` and `migration-test-execution` with separate
+artifacts. Both builds finish before the existing marker publication; execution
+reads the bound result before registering the exact source case IDs for unit and
+fast consumers. `generate-correctness-attempt-producers.mjs` produces the three
+inventory entries from this same owner, retaining first-failure blocking and zero
+retry policy. Registration and source-order checks are not actual compiler/SQL
+qualification; scheduler MySQL allocation and canonical locked dependencies
+remain prerequisites.
 
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 

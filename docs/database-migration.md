@@ -1015,3 +1015,20 @@ Rollback without restarting the application is limited to the database index sha
 The migration is safe to retry. Runtime claim takeover uses `INSERT ... ON CONFLICT ... WHERE` and can replace only released/expired leases or an active lease whose expiry boundary has passed. Deployment gates are: invalid-index check in `pg_index`, queue `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` showing bounded keyset work, and claim conflict/expiry integration tests. Observe index bytes, `n_tup_upd`, dead tuples and autovacuum cadence after rollout; the claim table intentionally isolates lease write amplification from the large `comment` table.
 
 No-restart degradation is to stop issuing new claims at the edge and continue read-only queue inspection while existing leases expire. Rollback drops only the four new indexes concurrently; the additive table remains through the N-1 window so an older process cannot lose in-flight ownership evidence. A later destructive cleanup may drop it only after rollback eligibility ends and a backup is verified.
+
+## Physical terminal graph diagnostics
+
+The existing `tools/db/check-migration-terminal-governance.mjs` diagnostic follows
+literal, repository-owned physical `ProjectReference` declarations from Server,
+Migration and Shared, rejects transitive forbidden edges and cycles, and binds
+complete project and C# source bytes rather than a prefix. Symlinks, escaping or
+missing references, conditional/computed declarations and explicit imports cannot
+stand in for an evaluated SDK graph. Its targeted literal/constant loading scan
+does not prove arbitrary C# semantics, generated code or dynamic runtime loading.
+
+A clean physical graph does not qualify terminal acceptance. The existing CLI
+refuses to write an acceptance receipt without evaluated compile/runtime assets,
+compiled loading, nonempty published output, independent PostgreSQL/MySQL/SQLite
+provider results, mutation results and an evaluable benchmark. Source/model tests
+do not supply those observations. These diagnostic changes neither replace the
+current migration operation/fact producers nor alter database migration behavior.
