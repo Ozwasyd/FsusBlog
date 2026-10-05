@@ -1,0 +1,175 @@
+# WIP: codex/issue-3662-pure-import-contract-20261003
+
+历史备份与接续信息，非当前规范、合并资格或验收证据。
+
+- 原始分支：`codex/issue-3662-pure-import-contract-20261003`
+- 原始 commit：`f1355a3b7d085d092bc749d85c9c57bb42fb693f`
+- 原始 tree：`255ad1a47f04d9b7e08388e72b41a96fd1fa5c7e`
+- 与当前 master 的 merge base：`b19b3dc715691b871f0e3cab598ec5da8f27633c`
+- 相关 issue 线索：#3662, #2218
+- 本次状态：源码已保存，未实施或运行任何新的产品/测试修改。
+- 本次未运行构建、测试、数据库、浏览器或 CI；历史结果不得自动算当前候选通过。
+- 本分支只加此 WIP 文档，父提交保留原始源码和完整历史，不替代原候选 head。
+- 接续要求：核对 issue 原验收条件和最新 master；复用原 source owners/producer，不手改生成产物；补齐测试与独审后再走独立 PR。不得直接合并此备份分支。
+- 保留边界：原始本地分支/worktree/stash/ignored证据未删除、未重置。WIP 推送不代表 VM、凭据或所有本地 raw 材料已远端备份。
+
+## 最近提交（原始历史，不代表已验收）
+
+```text
+f1355a3b7 test(governance): close the lexical release helper boundary
+Permit only crypto and explicit POSIX lexical path normalization in the original pure release helper contract. Preserve the four-module closure and I/O refusal controls without granting native evidence.
+
+Refs: #3662
+
+4a808117b test(governance): bind current release schema fact controls
+Preserve historical window fixture source custody and reject it at current consumers. Bind complete v2 schema and authority materials without inventing a replacement golden or native qualification.
+
+Refs: #3662
+
+6cfed668b feat(governance): bind current schema release authority values
+Compare the original receipt references and admitted auxiliary values without replacing the native codec or granting native execution qualification. Retire the unused compatibility coordinate input and keep current-only fixture refusals.
+
+Refs: #3662
+
+7beb094e1 fix(governance): bind native admission to original ledger scope
+Synchronize the original scope roster with its registered current-schema admission entry. Preserve all claim entries and consumer stage policies.
+
+Refs: #3662
+
+73e958b04 feat(governance)!: split code-model and native admission claims
+Bind strict runtime build v4 in the original static admission schema; register post-runtime current-schema admission and its actual-source coverage without granting native qualification.
+
+BREAKING CHANGE: historical runtime build v2/v3 no longer satisfy the current nested admission schema. Original outer receipt and ordering remain unchanged.
+
+Refs #3662
+
+42d415e1f fix(governance): align current admission fixtures with v4
+Preserve explicit historical v3 downgrade refusals and all existing identity controls.
+
+Refs #3662
+
+56c1c69f6 feat(governance)!: version compiled current-schema role contracts
+Separate pre-runtime production code-model probes from native database qualification and bind exact v4 runtime build receipts without changing admission order.
+
+BREAKING CHANGE: runtime-role observation v3 and its build receipt v4 replace old compatibility overlap contracts without dual acceptance.
+
+Refs: #3662
+
+30b6ea7ad fix(contracts): refuse retired runtime schema overlap proof
+Change-Class: implementation
+
+Refs: #2218
+```
+
+## 相对原 merge base 的源码差异概况
+
+```text
+...-2218-runtime-role-refusal-external-naming.json |   19 +
+ config/contracts/behavior-contracts.json           |   33 +-
+ config/contracts/behavior-fact-extractors.json     |    8 +-
+ .../contracts/document-claim-migration-ledger.json |   11 +-
+ ...havior-doc-static-admission-receipt.schema.json |   14 +-
+ .../schemas/runtime-role-observation.schema.json   |  222 ++-
+ docs/api/contracts.md                              |   52 +-
+ .../admin-operations-health-boundary.md            |   41 +-
+ .../monolithic-distributed-boundary.md             |   15 +
+ docs/database-migration.md                         |   46 +-
+ docs/online-database-migration-operations.md       |  428 ++---
+ docs/online-database-migration.md                  |   62 +-
+ docs/operations.md                                 |    6 +-
+ docs/releases/blue-green-deployment-runbook.md     |   44 +-
+ docs/testing.md                                    |    4 +
+ ops/docker/FsusBlog.Server.Dockerfile              |    2 +-
+ .../Bootstrap/LifecycleHostedBootstrapService.cs   |    2 +-
+ ...urityAndLifecycleServiceCollectionExtensions.cs |    1 +
+ .../Infrastructure/Operations/ProductionHealth.cs  |   79 +-
+ .../Infrastructure/Operations/ServerCommand.cs     |  358 +++++
+ .../SchemaMigration/CurrentSchemaReadObserver.cs   |  140 ++
+ .../CurrentSchemaReceiptAdmission.cs               |  102 ++
+ .../OnlineSchemaMigrationCoordinator.cs            |  603 -------
+ .../PostgresOnlineSchemaMigrationStateStore.cs     |  287 ----
+ .../SchemaMigration/SchemaMigrationRunner.cs       |   93 +-
+ ...ntSchemaTestMaterializationCandidateVerifier.cs |    4 +-
+ .../Testing/CurrentSchemaTestMaterializer.cs       |    4 +-
+ .../ReleaseSchemaQualificationEndpoints.cs         |  123 +-
+ src/backend/Program.cs                             |   35 +-
+ .../CurrentSchemaMigrationIdentityContracts.cs     |   33 +
+ .../CurrentSchemaReceiptContracts.cs               |  316 ++++
+ .../Integration/SchemaMigrationIntegrationTests.cs |    1 +
+ tests/backend/Unit/BackendTestGovernanceTests.cs   |    2 -
+ tests/backend/Unit/CurrentSchemaReceiptTests.cs    |  394 +++++
+ .../Unit/LifecycleHostedBootstrapServiceTests.cs   |   83 +
+ .../Unit/OnlineSchemaMigrationCoordinatorTests.cs  |  113 +-
+ .../Unit/OnlineSchemaMigrationPolicyTests.cs       |   87 +-
+ .../backend/Unit/PasskeyProjectionCommandTests.cs  |   18 +-
+ tests/backend/Unit/ProductionHealthTests.cs        |  120 +-
+ .../ReleaseSchemaQualificationEndpointsTests.cs    |   82 +
+ tests/backend/Unit/ServerCommandTests.cs           |  277 ++++
+ tests/coverage-registry.json                       |   25 +
+ tests/tools/behavior-doc-static-admission.test.mjs |   10 +-
+ tests/tools/canonical-release-authorities.test.mjs |  342 +++-
+ .../tools/challenge-kind-cutover-rollout.test.mjs  |   13 +-
+ tests/tools/current-schema-authority.test.mjs      |    2 +-
+ tests/tools/deployment-slots.test.mjs              |    6 +-
+ tests/tools/destructive-migration-proof.test.mjs   |   30 +-
+ .../tools/destructive-operation-authority.test.mjs |    2 +
+ tests/tools/final-image-toolchain-pin.test.mjs     |   48 +
+ tests/tools/gateway-switch.test.mjs                |  465 +++++-
+ .../tools/online-schema-migration-wrapper.test.mjs |   75 +-
+ tests/tools/release-manifest.test.mjs              |  233 ++-
+ tests/tools/release-retention-state.test.mjs       |    3 +
+ tests/tools/release-rollout-bundle.test.mjs        |    6 +-
+ tests/tools/release-rollout-evidence.test.mjs      |   95 +-
+ tests/tools/release-rollout-probes.test.mjs        |    4 +-
+ tests/tools/release-rollout-state.test.mjs         |   66 +-
+ tests/tools/release-traffic-probe-session.test.mjs |    4 +-
+ .../tools/release-worker-normal-observer.test.mjs  |    4 +-
+ .../tools/release-worker-observer-service.test.mjs |    2 +
+ tests/tools/release-worker-reconciliation.test.mjs |    2 +
+ .../tools/runtime-role-contract-boundary.test.mjs  |   95 +-
+ .../runtime-role-minimal-v3-contract.test.mjs      |   35 +-
+ .../support/behavior-doc-admission-fixture.mjs     |    4 +-
+ .../support/pure-release-authority-fixture.mjs     |  111 +-
+ .../support/release-authority-test-fixtures.mjs    |    3 +
+ .../support/release-readiness-test-helpers.mjs     |    4 +-
+ .../support/release-rollout-evidence-fixture.mjs   |   61 +-
+ .../support/runtime-role-minimal-v3-fixture.mjs    |   72 +-
+ tests/tools/zero-downtime-rehearsal.test.mjs       |  595 +++++--
+ tools/build-final-image.sh                         |   25 +-
+ .../FsusBlog.RuntimeRoleObservation/Models.cs      |   34 +-
+ .../FsusBlog.RuntimeRoleObservation/Program.cs     |  414 ++---
+ tools/db/run-online-migrations.sh                  |  113 +-
+ tools/deploy-production.sh                         |    5 +-
+ tools/deployment/gateway-recover.sh                |   66 +-
+ tools/deployment/gateway-rollback.sh               |   67 +-
+ tools/deployment/gateway-switch.sh                 |   54 +-
+ ...release-rollout-auxiliary-evidence-contract.mjs |   53 +-
+ .../release-rollout-evidence-constants.mjs         |    8 +-
+ .../release-rollout-evidence-sections.mjs          |    8 +-
+ .../release-rollout-evidence-verifier.mjs          |    2 +
+ tools/deployment/release-rollout-evidence.mjs      |  129 +-
+ tools/deployment/release-rollout-gate.mjs          |    7 +-
+ tools/deployment/release-rollout-lib.mjs           |   53 +-
+ tools/deployment/release-rollout-recovery.sh       |  242 +--
+ .../release-rollout-semantic-artifact-contract.mjs |    2 +-
+ tools/deployment/release-rollout.sh                |  191 ++-
+ tools/deployment/release-traffic-probe.mjs         |    2 +-
+ tools/deployment/rollout-state.mjs                 |   14 +
+ tools/deployment/slot-common.sh                    |    3 +-
+ .../verify-release-challenge-kind-cutover.mjs      |    7 +-
+ tools/deployment/zero-downtime-rehearsal-plan.mjs  |  566 +++++--
+ tools/deployment/zero-downtime-rehearsal.sh        | 1692 +-------------------
+ ...vior-doc-minimal-contract-build-v3-contract.mjs |   71 +-
+ tools/docs/behavior-doc-minimal-contract-build.mjs |   12 +-
+ tools/fact-extractors/test-matrix/extract.mjs      |   75 +-
+ .../operations/check-release-evidence-manifest.mjs |  253 ++-
+ .../operations/collect-release-rollout-bundle.mjs  |    4 +-
+ tools/release/check-release-final.mjs              |   41 +-
+ tools/release/check-release-manifest.mjs           |   27 +-
+ tools/release/create-release-manifest.mjs          |   52 +-
+ tools/release/release-manifest-value-contract.mjs  |  146 +-
+ tools/release/release-manifest.mjs                 |  119 +-
+ ...anonical-release-authorities-value-contract.mjs |   68 +-
+ 106 files changed, 6534 insertions(+), 4872 deletions(-)
+```
+
