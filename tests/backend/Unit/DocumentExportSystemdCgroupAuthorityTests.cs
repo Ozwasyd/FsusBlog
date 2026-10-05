@@ -1,4 +1,5 @@
 using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 
 using FsusBlog.Server.Services.DocumentExport;
@@ -224,28 +225,41 @@ public sealed class DocumentExportSystemdCgroupAuthorityTests : IDisposable
     }
 
     [Fact]
-    public void StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu()
+    public async Task StaticContractUsesServicePreStartLimitsAndNeverMisstatesCpuQuotaAsTotalCpu()
     {
-        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "DocumentExportSystemdCgroupAuthority.cs");
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(typeof(DocumentExportSystemdCgroupAuthority)),
+            RuntimeMetadataInspection.DescribeConstructors(typeof(DocumentExportSystemdCgroupAuthority)));
 
-        Assert.Contains("--service-type=exec", source, StringComparison.Ordinal);
-        Assert.Contains("--no-block", source, StringComparison.Ordinal);
-        Assert.Contains("MemoryMax=", source, StringComparison.Ordinal);
-        Assert.Contains("MemorySwapMax=0", source, StringComparison.Ordinal);
-        Assert.Contains("TasksMax=", source, StringComparison.Ordinal);
-        Assert.Contains("RuntimeMaxSec=", source, StringComparison.Ordinal);
-        Assert.Contains("KillMode=control-group", source, StringComparison.Ordinal);
-        Assert.Contains("cgroup.kill", source, StringComparison.Ordinal);
-        Assert.Contains("cgroup.events", source, StringComparison.Ordinal);
-        Assert.Contains("usage_usec.sampled-kill", source, StringComparison.Ordinal);
-        Assert.Equal(1, source.Split("Process.Start(", StringSplitOptions.None).Length - 1);
-        Assert.DoesNotContain("UseShellExecute = true", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("/bin/sh", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Environment.GetEnvironment", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("CPUQuota", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("cpu.max", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("--scope", source, StringComparison.Ordinal);
+        Assert.Contains("--service-type=exec", compiled, StringComparison.Ordinal);
+        Assert.Contains("--no-block", compiled, StringComparison.Ordinal);
+        Assert.Contains("MemoryMax=", compiled, StringComparison.Ordinal);
+        Assert.Contains("MemorySwapMax=0", compiled, StringComparison.Ordinal);
+        Assert.Contains("TasksMax=", compiled, StringComparison.Ordinal);
+        Assert.Contains("RuntimeMaxSec=", compiled, StringComparison.Ordinal);
+        Assert.Contains("KillMode=control-group", compiled, StringComparison.Ordinal);
+        Assert.Contains("cgroup.kill", compiled, StringComparison.Ordinal);
+        Assert.Contains("cgroup.events", compiled, StringComparison.Ordinal);
+        Assert.Contains("usage_usec.sampled-kill", compiled, StringComparison.Ordinal);
+        Assert.Equal(1, compiled.Split("System.Diagnostics.Process.Start", StringSplitOptions.None).Length - 1);
+        Assert.Equal(2, compiled.Split("System.Diagnostics.ProcessStartInfo.set_UseShellExecute", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain("/bin/sh", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Environment.GetEnvironment", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("CPUQuota", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("cpu.max", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("--scope", compiled, StringComparison.Ordinal);
+
+        DocumentExportSystemdCgroupAuthorityContract contract =
+            DocumentExportSystemdCgroupAuthority.DiscoverInstalledContract();
+        var authority = new DocumentExportSystemdCgroupAuthority(contract);
+        MethodInfo runControl = Assert.IsAssignableFrom<MethodInfo>(typeof(DocumentExportSystemdCgroupAuthority).GetMethod(
+            "RunControlAsync", BindingFlags.Instance | BindingFlags.NonPublic));
+        Task command = Assert.IsAssignableFrom<Task>(runControl.Invoke(authority,
+            ["/bin/true", Array.Empty<string>(), CancellationToken.None]));
+        await command;
+        object result = Assert.IsAssignableFrom<object>(command.GetType().GetProperty("Result")?.GetValue(command));
+        int exitCode = Assert.IsType<int>(result.GetType().GetProperty("ExitCode")?.GetValue(result));
+        Assert.Equal(0, exitCode);
     }
 
     public void Dispose()
