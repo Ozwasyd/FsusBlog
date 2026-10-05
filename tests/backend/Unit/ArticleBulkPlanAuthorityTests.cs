@@ -253,7 +253,10 @@ public sealed class ArticleBulkPlanAuthorityTests
         var authority = new ArticleBulkPlanAuthority(
             new SelectionAuthority(ids), preflight, new TestTimeProvider(s_now));
         ArticleBulkPlan first = await authority.CreateAsync(Request("category.add", ids));
-        preflight.Observation = preflight.Observation with { StateDigest = ArticleBulkDigest.Of("state-b") };
+        preflight.Observation = preflight.Observation with
+        {
+            StateDigest = ArticleBulkDigest.Of("state-b")
+        };
         ArticleBulkPlan second = await authority.CreateAsync(Request("category.add", ids));
 
         Assert.Equal(blocked ? ArticleBulkPlanItemStatus.Blocked : ArticleBulkPlanItemStatus.Eligible,
@@ -319,7 +322,10 @@ public sealed class ArticleBulkPlanAuthorityTests
         });
         ArticleBulkPlanItem tamperedItem = Assert.Single(tampered.Items);
         Assert.Equal(ArticleBulkPlanItemStatus.Eligible, tamperedItem.Status);
-        Assert.Equal(ArticleBulkDigest.Of(tamperedItem with { ContentDigest = string.Empty }), tamperedItem.ContentDigest);
+        Assert.Equal(ArticleBulkDigest.Of(tamperedItem with
+        {
+            ContentDigest = string.Empty
+        }), tamperedItem.ContentDigest);
         ArticleBulkPlanItemChunk chunk = Assert.Single(tampered.ItemChunks);
         Assert.Equal(ArticleBulkDigest.Of(chunk.Items), chunk.ContentDigest);
         Assert.NotEqual(control.ContentDigest, tampered.ContentDigest);
@@ -336,7 +342,10 @@ public sealed class ArticleBulkPlanAuthorityTests
     {
         ArticleBulkPlanItem sealedItem = item with
         {
-            ContentDigest = ArticleBulkDigest.Of(item with { ContentDigest = string.Empty })
+            ContentDigest = ArticleBulkDigest.Of(item with
+            {
+                ContentDigest = string.Empty
+            })
         };
         ImmutableArray<ArticleBulkPlanItem> items = [sealedItem];
         ArticleBulkPlanItemChunk chunk = Assert.Single(plan.ItemChunks) with
@@ -344,13 +353,20 @@ public sealed class ArticleBulkPlanAuthorityTests
             Items = items,
             ContentDigest = ArticleBulkDigest.Of(items)
         };
-        ArticleBulkPlan unsigned = plan with { ItemChunks = [chunk], ContentDigest = string.Empty };
+        ArticleBulkPlan unsigned = plan with
+        {
+            ItemChunks = [chunk],
+            ContentDigest = string.Empty
+        };
         // Reuse only the production hash to reseal the adversarial fixture, not a second plan builder.
         // The refusal oracle is the real integrity entry point, independent of a stale digest mismatch.
         MethodInfo digestPlan = typeof(ArticleBulkPlanAuthority).GetMethod("DigestPlan", BindingFlags.NonPublic | BindingFlags.Static)
             ?? throw new InvalidOperationException("Production plan digest method is unavailable.");
         string digest = Assert.IsType<string>(digestPlan.Invoke(null, [unsigned]));
-        return unsigned with { ContentDigest = digest };
+        return unsigned with
+        {
+            ContentDigest = digest
+        };
     }
 
     private static ArticleBulkPlanRequest Request(
