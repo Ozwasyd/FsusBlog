@@ -42,6 +42,14 @@ validates the envelope and complete reference graph before passing the original
 document to the existing schema validator. Missing, tampered, cyclic, and
 cross-run references never become an empty or stale receipt.
 
+`RunEvidenceObjectStore` accepts an explicit `readOnly: true` observation mode.
+Opening this mode requires the existing root and all store directories; it never
+creates missing state. Object/receipt/journal/checkpoint publication and
+collection reject before any write or lock acquisition. Recovery also rejects a
+journal truncated before the compact checkpoint sequence. This observer mode
+does not certify resource settlement or qualify an incomplete producer receipt;
+canonical scheduler retention and reconciliation remain their existing owners.
+
 ## Scheduler journal and compact checkpoints
 
 The matrix scheduler appends `fsusblog.run-evidence-journal-event.v1` records,
