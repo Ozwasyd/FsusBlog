@@ -14,6 +14,7 @@ const {digestPath, digestValue, sealSourceIdentity} = await import(new URL('../f
 const {semanticDigestFromReceipt} = await import(new URL('../fact-extractors/receipt.mjs', import.meta.url));
 const {loadRegistry, validateOwnershipAgainstBehaviorCatalog, validateRegistry} = await import(new URL('../fact-extractors/registry.mjs', import.meta.url));
 const {runExtractor} = await import(new URL('../fact-extractors/runner.mjs', import.meta.url));
+import { validateMinimalContractBuildReceipt } from './behavior-doc-minimal-contract-build-v3-contract.mjs';
 import {
     runMinimalContractBuild
 } from './behavior-doc-minimal-contract-build.mjs';
@@ -28,6 +29,7 @@ export {
     defaultBehaviorDocAdmissionComponentsDirectory,
     defaultBehaviorDocAdmissionReceipt
 } from './behavior-doc-static-admission-contract.mjs';
+import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import {
     formatGovernanceViolations as formatMutationGovernanceViolations,
     runStalenessMutationGovernance
@@ -43,7 +45,6 @@ import {
     scanDocClaimGovernance,
     validateDocClaimSchemaContract
 } from './doc-claim.mjs';
-import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import {
     loadCatalog as loadGeneratedSectionCatalog
 } from './generated-fact-sections/catalog.mjs';
@@ -291,6 +292,7 @@ export async function runBehaviorDocStaticAdmission({
                 buildReceiptPath: extractor.requiredBuildArtifact === null
                     ? null
                     : minimalBuild.identityReceiptFile,
+                minimalBuildReceiptValidator: validateMinimalContractBuildReceipt,
                 useCache: false
             });
             if (result.receipt.status !== 'ok')

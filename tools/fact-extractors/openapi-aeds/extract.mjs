@@ -2,11 +2,6 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-const { digestCatalog } = await import(new URL('../../contracts/behavior-contract-catalog.mjs', import.meta.url));
-const { validateMinimalContractBuildReceipt } = await import(new URL('../../docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
-const { buildIdentitySchema, digestPath, resolveContainedPath, validateBuildIdentity } = await import(new URL('../identity.mjs', import.meta.url));
-const { digestValue } = await import(new URL('../lib/canonicalize.mjs', import.meta.url));
-
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
 const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
 const buildReceiptRelative = '.tmp/contracts/openapi/build-receipt.json';
@@ -32,7 +27,9 @@ const sourcePaths = Object.freeze([
     'tools/contracts/FsusBlog.OpenApiObservation/Program.cs',
     'tools/contracts/FsusBlog.OpenApiObservation/RequestContractObserver.cs',
     generatorRelative,
-    'tools/fact-extractors/openapi-aeds/extract.mjs'
+    'tools/fact-extractors/openapi-aeds/extract.mjs',
+    'tools/fact-extractors/runner.mjs',
+    'tools/fact-extractors/lib/canonicalize.mjs'
 ]);
 const sha256 = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const exactKeys = (value, expected) => value && typeof value === 'object'
@@ -323,7 +320,7 @@ function readJson(absolute, label, failureReasons)
     }
 }
 
-function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
+function validateExactBuildReceipt(repositoryRoot, suppliedIdentity, canonicalDigest)
 {
     const failureReasons = [];
     const receipt = readJson(path.join(repositoryRoot, buildReceiptRelative), 'canonical OpenAPI build receipt', failureReasons);
@@ -354,7 +351,7 @@ function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
     }
 
     const { buildIdentity: embeddedIdentity, ...receiptBody } = receipt;
-    const actualReceiptDigest = digestValue(receiptBody);
+    const actualReceiptDigest = canonicalDigest(receiptBody);
     if (embeddedIdentity.receiptDigest !== actualReceiptDigest)
     {
         failureReasons.push('canonical OpenAPI build receipt self-digest mismatch');
@@ -389,7 +386,7 @@ function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
             failureReasons.push(`build receipt source digest mismatch: ${relative}`);
         }
     }
-    if (receipt.sourceDigest !== digestValue(actualSourceDigests))
+    if (receipt.sourceDigest !== canonicalDigest(actualSourceDigests))
     {
         failureReasons.push('build receipt aggregate source digest mismatch');
     }
@@ -413,7 +410,7 @@ function validateExactBuildReceipt(repositoryRoot, suppliedIdentity)
         }
     }
     const behaviorCatalog = readJson(path.join(repositoryRoot, behaviorCatalogRelative), 'current BehaviorCatalog', failureReasons);
-    if (behaviorCatalog != null && receipt.errorCatalogDigest !== digestCatalog(behaviorCatalog))
+    if (behaviorCatalog != null && receipt.errorCatalogDigest !== canonicalDigest(behaviorCatalog))
     {
         failureReasons.push('build receipt error authority digest mismatch');
     }
@@ -439,8 +436,21 @@ function validateCanonicalMinimalReceipt(context)
 {
     try
     {
+        const services = context.minimalBuildServices;
+        if (services == null
+            || typeof services.buildIdentitySchema !== 'string'
+            || typeof services.digestPath !== 'function'
+            || typeof services.resolveContainedPath !== 'function'
+            || typeof services.validateBuildIdentity !== 'function'
+            || typeof services.validateMinimalContractBuildReceipt !== 'function')
+        {
+            throw new Error('canonical minimal-build validation capability is missing');
+        }
+        const { buildIdentitySchema, digestPath, resolveContainedPath,
+            validateBuildIdentity, validateMinimalContractBuildReceipt } = services;
         if (context.buildIdentity.schema !== buildIdentitySchema
       || typeof context.buildReceiptPath !== 'string'
+      || !/^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}\/receipts\/[A-Za-z0-9_.-]+\.json$/u.test(context.buildReceiptPath)
       || !/^[a-f0-9]{40}$/u.test(context.sourceCommit ?? '')
       || !/^[a-f0-9]{64}$/u.test(context.worktreeFingerprint ?? ''))
         {
@@ -462,6 +472,7 @@ function validateCanonicalMinimalReceipt(context)
             expectedSourceIdentity
         });
         validateMinimalContractBuildReceipt(receipt, {
+            expectedRunId: path.posix.basename(context.buildReceiptPath, '.json'),
             expectedSourceIdentity,
             repositoryRoot: context.repositoryRoot,
             readArtifactDigest: digestPath
@@ -573,6 +584,15 @@ function projectResponse(response)
 // BEHAVIOR-OWNER: binary-api-aeds-contract
 export function extract(context)
 {
+    const canonicalDigest = context.canonicalDigest;
+    if (typeof canonicalDigest !== 'function')
+    {
+        return {
+            status: 'failed',
+            failureReasons: ['openapi-aeds-fact-extractor requires runner-owned canonical digest capability'],
+            observations: {}
+        };
+    }
     const buildIdentity = context.buildIdentity;
     if (buildIdentity == null || typeof buildIdentity !== 'object')
     {
@@ -605,7 +625,7 @@ export function extract(context)
     || ['schema', 'sourceDigests', 'sourceDigest'].some((key) => Object.hasOwn(buildIdentity, key));
     const receiptValidation = canonical
         ? validateCanonicalMinimalReceipt(context)
-        : validateExactBuildReceipt(context.repositoryRoot, buildIdentity);
+        : validateExactBuildReceipt(context.repositoryRoot, buildIdentity, canonicalDigest);
     if (receiptValidation.failureReasons.length > 0)
     {
         return {
@@ -722,7 +742,7 @@ export function extract(context)
     }
     const behaviorCatalog = path.join(context.repositoryRoot, behaviorCatalogRelative);
     if (existsSync(behaviorCatalog)
-    && digestCatalog(JSON.parse(readFileSync(behaviorCatalog, 'utf8'))) !== errorAuthority?.catalogDigest)
+    && canonicalDigest(JSON.parse(readFileSync(behaviorCatalog, 'utf8'))) !== errorAuthority?.catalogDigest)
     {
         failureReasons.push('error authority catalog digest does not match current BehaviorCatalog');
     }
