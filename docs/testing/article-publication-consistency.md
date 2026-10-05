@@ -45,3 +45,40 @@ worker, and repository data:
 - fault injection: failure in a publication record, pointer, or outbox write rolls back the transaction and leaves the old public version readable.
 
 Full production environments, PRs, releases, and external validation platforms are not acceptance requirements for this issue.
+
+The `public-minimal` fixture's published articles use the existing
+`ICanonicalArticlePublicationFixturePort` and `CanonicalArticlePublicationVerifier`,
+including revision/publication pointers, rights/responsibility bindings and outbox/audit
+evidence. A status-only article created without a verified publication cannot stand in
+for a published article in runtime-cache acceptance. The related-reading producer retains
+the actual response bytes for all 102 requests; its independent checker requires HTTP
+200, AEDS v2 `ArticleRelatedReading` type and valid payload CRC, same-key/hot byte parity,
+cold DB commands at most two, one same-key build, and a zero-command hot L1 frame.
+Negative-cache 404 responses cannot satisfy these assertions. Checker unit fixtures are
+not a substitute for the source-bound real PostgreSQL/Redis/Kestrel run.
+
+## Independent public fixture admission
+
+The public-content composition root exposes a Development-only, loopback and
+local-fixture-secret gated `/api/local/public-content-fixture/verify` port. Prepare
+signs its run/namespace/profile/source/variant identity, owned IDs and original
+observations with the local fixture key. Verify rejects foreign or altered proofs,
+independently reruns the existing publication/lifecycle verifiers, and rereads owned
+DB rows, public detail/list/hot/featured/search ports and actual Redis rank/version
+state. It invokes no fixture writer, cache rebuild, invalidation or repair action.
+Pointer, readability, ordering, cursor, cache or generation drift fails admission;
+prepare observations and an adapter returning only `ok: true` cannot qualify it.
+
+After independent verification, the unique CLI can project a verified receipt:
+
+```bash
+node tools/test-fixtures/cli.mjs verify --receipt prepare-state.json --out fixture-receipt.json
+node tools/test-fixtures/cli.mjs project-verified --receipt fixture-receipt.json --out projection.json
+```
+
+The existing `article-pagination-deep` postcondition validates the sealed
+pagination-keyset observation before its page 10/100/1000 cursors are projected.
+The private projection binds the verified receipt digest and remains
+`notAuthoritative: true`; neither a prepared projection nor a prepare-state can
+authorize this command. Focused verifier/CLI regressions are not real-runtime
+qualification, and a new source candidate requires fresh runtime evidence.

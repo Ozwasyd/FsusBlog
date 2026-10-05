@@ -5,6 +5,8 @@ export const FIXTURE_RECEIPT_SCHEMA = 'fsusblog.fixture-receipt.v2';
 export const FIXTURE_PREPARE_STATE_SCHEMA = 'fsusblog.fixture-prepare-state.v1';
 export const FIXTURE_ID_PROJECTION_SCHEMA = 'fsusblog.fixture-id-projection.v1';
 export const PREPARED_PUBLIC_ID_PROJECTION_SCHEMA = 'fsusblog.prepared-public-id-projection.v1';
+export const PRIVATE_ADMIN_SESSION_PROJECTION_SCHEMA = 'fsusblog.fixture-private-admin-session-projection.v1';
+export const RUNTIME_CACHE_FIXTURE_INPUT_SCHEMA = 'fsusblog.runtime-cache-fixture-input.v1';
 
 /** Deleted schemas — readers must fail closed, not adapt. */
 export const RETIRED_FIXTURE_RECEIPT_SCHEMAS = Object.freeze([

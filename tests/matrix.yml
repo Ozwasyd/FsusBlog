@@ -6890,6 +6890,13 @@ tiers:
     - id: runtime-cache-hot-featured-frame
       executionClass: runtime
       fixtureProfile: public-content-lifecycle
+      fixturePrerequisites:
+          - id: typed-admin-session
+            profileId: auth-basic
+            producerId: auth-session
+            capabilityId: auth.admin.full-permission
+            semanticRole: admin.full-permission
+            consumerId: runtime-cache-hot-featured-frame
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true

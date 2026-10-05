@@ -2,8 +2,8 @@
 using System.Buffers.Binary;
 using System.Globalization;
 using System.IdentityModel.Tokens.Jwt;
-using System.Security.Cryptography;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
@@ -18,8 +18,8 @@ using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Security;
 
-using Microsoft.Extensions.Hosting;
 using Microsoft.AspNetCore.WebUtilities;
+using Microsoft.Extensions.Hosting;
 
 namespace FsusBlog.Server.Services.Fixtures;
 
@@ -32,6 +32,11 @@ public interface IAuthFixtureSeeder
     Task<AuthFixtureVerificationResult> VerifyAsync(
         AuthFixtureVerificationRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<AuthFixturePrivateVerificationResult> VerifyPrivateAsync(
+        AuthFixturePrivateVerificationRequest request, CancellationToken cancellationToken = default);
+
+    Task CleanupPrivateAsync(AuthFixturePrivateVerificationRequest request, CancellationToken cancellationToken = default);
 }
 
 public interface IAuthFixtureLifecycleRepository
@@ -344,6 +349,10 @@ public sealed class ControlledWebAuthnAuthenticator(
 
 public sealed record AuthFixturePlan
 {
+    public AuthFixturePrivateIdentity? PrivateProjectionIdentity
+    {
+        get; init;
+    }
     public required string Schema
     {
         get; init;
@@ -504,7 +513,13 @@ public sealed record AuthFixturePrepareResult(
     AuthFixtureObservations Observations,
     string PermissionCatalogDigest,
     string? CeremonyEvidenceDigest,
-    object TemporalObservation);
+    object TemporalObservation)
+{
+    public IReadOnlyList<AuthFixturePrivateCarrier>? PrivateCarriers
+    {
+        get; init;
+    }
+}
 
 public sealed record AuthFixtureVerificationEntity(
     string Kind,
@@ -524,7 +539,7 @@ public sealed record AuthFixtureVerificationResult(
     string ReceiptDigest,
     string? Reason = null);
 
-public sealed class AuthFixtureSeeder(
+public sealed partial class AuthFixtureSeeder(
     IAuthFixtureLifecycleRepository repository,
     IUserMfaCommandService mfaCommands,
     IRecoveryKeyService recoveryKeys,
@@ -536,7 +551,8 @@ public sealed class AuthFixtureSeeder(
     TimeProvider timeProvider,
     IHostEnvironment environment,
     TestTemporalRuntimeContext temporalRuntimeContext,
-    IControlledWebAuthnAuthenticator? authenticator = null) : IAuthFixtureSeeder
+    IControlledWebAuthnAuthenticator? authenticator = null,
+    IServiceProvider? privateServices = null) : IAuthFixtureSeeder
 {
     private const string ProducerId = "auth-session";
     private const string Strategy = "transaction-fixture";
@@ -548,6 +564,8 @@ public sealed class AuthFixtureSeeder(
     {
         RequireTestOnly();
         ValidatePlan(request);
+        ValidatePrivatePlan(request);
+        _privateCarriers.Clear();
         temporalRuntimeContext.RequireExactRequest(request.TemporalContext);
         string resolvedDigest = request.ResolvedTemporalRoles
             .GetProperty("contentDigest")
@@ -568,19 +586,44 @@ public sealed class AuthFixtureSeeder(
         }
 
         var entities = new List<AuthFixtureEntityObservation>();
-        foreach (AuthFixtureRolePlan role in request.Roles)
+        try
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            IReadOnlyList<AuthFixtureEntityObservation> observed = role.Kind switch
+            foreach (AuthFixtureRolePlan role in request.Roles)
             {
-                "user" => [await PrepareUserAsync(role, cancellationToken)],
-                "session" => await PrepareSessionsAsync(role, cancellationToken),
-                "admin" => [await PrepareAdminAsync(role, cancellationToken)],
-                "admin-root-set" => [await PrepareRootEmptyAsync(role, cancellationToken)],
-                _ => throw new InvalidOperationException(
-                    $"Unknown auth fixture role kind {role.Kind}.")
-            };
-            entities.AddRange(observed);
+                cancellationToken.ThrowIfCancellationRequested();
+                IReadOnlyList<AuthFixtureEntityObservation> observed = role.Kind switch
+                {
+                    "user" => [await PrepareUserAsync(role, cancellationToken)],
+                    "session" => await PrepareSessionsAsync(role, cancellationToken),
+                    "admin" => [await PreparePrivateAdminAsync(request, role, cancellationToken)],
+                    "admin-root-set" => [await PrepareRootEmptyAsync(role, cancellationToken)],
+                    _ => throw new InvalidOperationException(
+                        $"Unknown auth fixture role kind {role.Kind}.")
+                };
+                entities.AddRange(observed);
+            }
+        }
+        catch (Exception primary) when (_privateCarriers.Count > 0)
+        {
+            var pending = new List<AuthFixturePrivateCarrier>();
+            var failures = new List<Exception> { primary };
+            foreach (AuthFixturePrivateCarrier carrier in _privateCarriers)
+            {
+                try
+                {
+                    await CleanupPrivateAsync(new(carrier.Identity, carrier.Opaque, carrier.PublicFact), CancellationToken.None);
+                }
+                catch (Exception cleanup)
+                {
+                    pending.Add(carrier);
+                    failures.Add(cleanup);
+                }
+            }
+            if (pending.Count > 0)
+            {
+                throw new AuthFixturePrivatePrepareFailure(pending, new AggregateException(failures));
+            }
+            throw;
         }
 
         IReadOnlyList<string> capabilities = request.Capabilities
@@ -615,7 +658,10 @@ public sealed class AuthFixtureSeeder(
                     CultureInfo.InvariantCulture),
                 observationBoundary = "auth-fixture-backend-and-postgres-read-model",
                 resolvedTemporalRoleArtifactDigest = resolvedTemporalRoles.ContentDigest
-            });
+            })
+        {
+            PrivateCarriers = _privateCarriers.ToArray()
+        };
     }
 
     public async Task<AuthFixtureVerificationResult> VerifyAsync(
