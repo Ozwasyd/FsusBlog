@@ -561,6 +561,12 @@ expectMatrixValidateFailure(
 expectMatrixValidateFailure(
     replaceTierField(matrixSourceText, 'release-final', 'requiresEvidenceFrom', '[missing-evidence-producer]'),
     'release-final.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer',
+    'release-final must reject noncanonical evidence inputs'
+);
+
+expectMatrixValidateFailure(
+    removeTier(matrixSourceText, 'browser-contract'),
+    'canonical release-final evidence inputs reference missing tiers: browser-contract',
     'release-final must reject missing evidence producers'
 );
 

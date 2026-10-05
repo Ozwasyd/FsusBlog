@@ -81,7 +81,10 @@ function parseModuleRequestBatch(modules)
     {
         return modules.map(({ source }) => moduleRequestCache.get(source));
     }
-    if (uncached.length > moduleRequestBatchSize) throw new Error('ESM fixture parser batch exceeds its module limit');
+    if (uncached.length > moduleRequestBatchSize)
+    {
+        throw new Error('ESM fixture parser batch exceeds its module limit');
+    }
     const parsed = spawnSync(process.execPath, [
         '--experimental-vm-modules',
         '--input-type=module',
@@ -119,7 +122,10 @@ function parseModuleRequestBatch(modules)
     }
     const results = rows.map(({ requests }) => [...new Set(requests
         .filter(specifier => specifier.startsWith('./') || specifier.startsWith('../')))]);
-    for (const [index, { source }] of uncached.entries()) moduleRequestCache.set(source, results[index]);
+    for (const [index, { source }] of uncached.entries())
+    {
+        moduleRequestCache.set(source, results[index]);
+    }
     return modules.map(({ source }) => moduleRequestCache.get(source));
 }
 
@@ -194,7 +200,10 @@ function discoverClosure(root, entries, allowedRoots)
                 throw fixtureError('entry is missing or not a file', '<entry>', path.relative(root, importer), importer);
             }
             assertAllowed(fs.realpathSync(importer), allowedRoots, '<entry>', path.relative(root, importer));
-            if (discovered.has(importer)) continue;
+            if (discovered.has(importer))
+            {
+                continue;
+            }
             discovered.add(importer);
             modules.push({ importer, source: fs.readFileSync(importer, 'utf8') });
         }
