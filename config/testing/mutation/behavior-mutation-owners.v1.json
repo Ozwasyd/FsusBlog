@@ -28,12 +28,13 @@
         },
         {
             "behaviorId": "authentication-session-permission",
-            "provenance": "behavior-fact-extractors.json auth-session-permission-fact-extractor consumedInputs (C# under src/backend/src/core); shared authentication and step-up sources disambiguated to this behavior",
+            "provenance": "behavior-fact-extractors.json auth-session-permission-fact-extractor consumedInputs (C# under src/backend/src/core), including the production binary auth endpoint owner for MFA login admission, verification and continuation consumption; shared authentication and step-up sources disambiguated to this behavior",
             "sourceFiles": [
                 "src/backend/Entities/UserSessionAuthenticationContext.cs",
                 "src/backend/Infrastructure/Auth/AdminPermissions.cs",
                 "src/backend/Infrastructure/Auth/AuthCookieService.cs",
                 "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
                 "src/backend/Services/Security/AdminPrincipalService.cs",
                 "src/backend/Services/Security/MfaChallengeService.cs",
                 "src/backend/Services/Security/PasskeyService.cs",

@@ -103,6 +103,13 @@ The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run for
 
 ## Governance preservation
 
+The pure receipt validator `tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs`
+retains its literal `../fact-extractors/lib/canonicalize.mjs` dependency. The named
+rule-registry exception applies only to that file and specifier. Other files,
+other specifiers and equivalent path aliases retain parent-import rejection.
+The pure dependency firewall remains mandatory and unchanged; this style mapping
+does not authorize filesystem, execution, Markdown or DocClaim capabilities.
+
 The policy pins the count, ID digest and definition digest of all existing `check:*` scripts. Generic lint is additive: a change that removes or rewrites an AEDS, security, privacy, accessibility, UI or performance command fails before linting. Every new generic rule has an owner, source scope and fixability in the rule registry.
 
 External JSON keys, browser events, storage keys, Wasm exports, HTML attributes and CSS contracts are preserved as literals or mapping metadata while internal identifiers follow the language mapping. A formatter commit must never rename these surfaces.

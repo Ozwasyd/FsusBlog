@@ -13,7 +13,7 @@ const {createChangedCriticalMutationAuthority} = await import(new URL('../../too
 const {createChangedCriticalStrykerConfig, selectChangedCriticalMutation, selectRequiredBehaviorMutations, validateToolPolicy} = await import(new URL('../../tools/test/changed-critical-mutation.mjs', import.meta.url));
 const {digestValue: receiptDigestValue, sealMutationEvidenceReceipt} = await import(new URL('../../tools/test/mutation-evidence-receipt.mjs', import.meta.url));
 const {deriveBehaviorMutationOwners, loadBehaviorMutationOwnerCatalog, loadFactExtractorRegistry, validateBehaviorMutationOwnerCatalog} = await import(new URL('../../tools/test-matrix/behavior-mutation-owner.mjs', import.meta.url));
-const {canonicalProducerCommand, produceBehaviorMutationQualification, produceBehaviorMutationQualificationCommand} = await import(new URL('../../tools/test-matrix/produce-behavior-mutation-qualification.mjs', import.meta.url));
+const {produceBehaviorMutationQualification, produceBehaviorMutationQualificationCommand} = await import(new URL('../../tools/test-matrix/produce-behavior-mutation-qualification.mjs', import.meta.url));
 const {loadTestPlan} = await import(new URL('../../tools/test-matrix/produce-behavior-test-evidence.mjs', import.meta.url));
 const {verifyBehaviorMutationQualification} = await import(new URL('../../tools/test-matrix/verify-behavior-mutation-qualification.mjs', import.meta.url));
 const COMMIT = 'a'.repeat(40);
@@ -94,6 +94,7 @@ const EXPECTED_MUTATION_OWNER_FILES = Object.freeze({
         'src/backend/Infrastructure/Auth/AdminPermissions.cs',
         'src/backend/Infrastructure/Auth/AuthCookieService.cs',
         'src/backend/Infrastructure/Helpers/JwtHelper.cs',
+        'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs',
         'src/backend/Services/Security/AdminPrincipalService.cs',
         'src/backend/Services/Security/MfaChallengeService.cs',
         'src/backend/Services/Security/PasskeyService.cs',

@@ -22,6 +22,7 @@ const {
     validateReviewedResidualConsumption,
     validateReviewedResidualDocument
 } = await import(pathToFileURL(path.join(root, 'tools/frontend/reviewed-residual-classification.mjs')).href);
+const { validatePostRuntimeReaderFirewall } = await import(new URL('../../tools/test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
 const { validateJsonSchema } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/schema-validator/validate.mjs')).href
 );
@@ -232,6 +233,61 @@ export const residualValue = parentValue;
         ]);
         assert.notEqual(result.status, 0);
         assert.match(output(result), /eslint\/import-x\/no-relative-parent-imports/u);
+    });
+});
+
+test('pure receipt parent import exception is limited to one file and one dependency', async (t) =>
+{
+    const pureFile = 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
+    for (const vector of [
+        { name: 'exact file and literal', file: pureFile, literal: '../fact-extractors/lib/canonicalize.mjs', accepted: true },
+        { name: 'other file', file: 'tools/docs/other-contract.mjs', literal: '../fact-extractors/lib/canonicalize.mjs', accepted: false },
+        { name: 'other literal', file: pureFile, literal: '../fact-extractors/identity.mjs', accepted: false },
+        { name: 'path alias', file: pureFile, literal: '../fact-extractors/lib/../lib/canonicalize.mjs', accepted: false }
+    ])
+    {
+        await t.test(vector.name, () =>
+        {
+            withFixture((fixtureRoot) =>
+            {
+                writeFixture(fixtureRoot, 'tools/fact-extractors/lib/canonicalize.mjs',
+                    'export const digestValue = (value) => value;\n');
+                writeFixture(fixtureRoot, 'tools/fact-extractors/identity.mjs',
+                    'export const digestValue = (value) => value;\n');
+                writeFixture(fixtureRoot, vector.file,
+                    `import { digestValue } from ${JSON.stringify(vector.literal)};\n\nexport const digest = digestValue;\n`);
+                const result = runChecker(fixtureRoot, ['--mode', 'strict-full', '--file', vector.file]);
+                if (vector.accepted)
+                {
+                    assert.equal(result.status, 0, output(result));
+                    assert.match(result.stdout, /violations=0 new=0/u);
+                }
+                else
+                {
+                    assert.notEqual(result.status, 0, output(result));
+                    assert.match(output(result), /eslint\/import-x\/no-relative-parent-imports/u);
+                }
+            });
+        });
+    }
+});
+
+test('pure receipt style mapping does not admit transitive I/O or execution', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const entry = 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
+        const canonicalizer = 'tools/fact-extractors/lib/canonicalize.mjs';
+        writeFixture(fixtureRoot, entry, readFileSync(path.join(root, entry), 'utf8'));
+        writeFixture(fixtureRoot, canonicalizer, readFileSync(path.join(root, canonicalizer), 'utf8'));
+        assert.deepEqual(validatePostRuntimeReaderFirewall(fixtureRoot, entry).modules, [entry, canonicalizer]);
+        for (const moduleName of ['node:fs', 'node:child_process'])
+        {
+            writeFixture(fixtureRoot, canonicalizer,
+                `import * as capability from ${JSON.stringify(moduleName)};\n\nexport const digestValue = capability;\n`);
+            assert.throws(() => validatePostRuntimeReaderFirewall(fixtureRoot, entry),
+                new RegExp(`forbidden I/O or execution module ${moduleName}`, 'u'));
+        }
     });
 });
 

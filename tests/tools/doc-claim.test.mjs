@@ -408,6 +408,28 @@ test('governance scanner distinguishes terminal ban lists from self-proving clai
     }
 });
 
+test('governance scanner distinguishes terminal ban lists from self-proving claim payloads', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'doc-claim-terminal-ban-list-'));
+    try
+    {
+        write(directory, 'tools/docs/behavior-document-consistency-final.mjs',
+            readFileSync(path.join(root, 'tools/docs/behavior-document-consistency-final.mjs'), 'utf8'));
+        assert.deepEqual(scanDocClaimGovernance(directory), []);
+        for (const field of ['expectedValue', 'baselineValue', 'allowStaleUntil', 'ignoreDifference'])
+        {
+            write(directory, 'tools/claim-payload.mjs', `export const DocClaim = { ${field}: true }\n`);
+            assert.ok(scanDocClaimGovernance(directory).some((item) =>
+                item.code === DocClaimErrorCode.SELF_PROVING_SURFACE
+                && item.documentPath === 'tools/claim-payload.mjs'));
+        }
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
 test('generated-section uses generatedSectionId and does not require prose body', () =>
 {
     const markdown = `# Generated

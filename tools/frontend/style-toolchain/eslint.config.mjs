@@ -184,6 +184,15 @@ export default [
         }
     },
     {
+        name: 'fsusblog/pure-receipt-canonicalizer-dependency',
+        files: ['tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'],
+        rules: {
+            'import-x/no-relative-parent-imports': ['error', {
+                ignore: ['^\\.\\./fact-extractors/lib/canonicalize\\.mjs$']
+            }]
+        }
+    },
+    {
         name: 'fsusblog/browser-javascript',
         files: browserJavaScriptFiles,
         languageOptions: {
