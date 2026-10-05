@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/security/check-authoring-extension-terminal-matrix.mjs"
+            ],
+            "reason": "Preserve the registered tooling environment surface while refusing unqualified terminal evidence; no environment key, default or authority is changed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md",
+                "docs/security/authoring-extension-capability-isolation.md"
+            ],
+            "reason": "Preserve registered external CSS-like names in the current host and isolation boundary documentation while describing the missing canonical receipt qualification; no selector or token changes."
+        }
+    ]
+}

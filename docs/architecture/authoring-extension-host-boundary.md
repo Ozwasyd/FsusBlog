@@ -446,9 +446,15 @@ from the implementation and binds each registry to one positive, negative, and
 owner fixture. Registry drift, a missing suite, an unknown evidence item, a
 non-passing artifact, or an artifact digest mismatch fails closed.
 
-The checker can emit a terminal receipt only from the complete current-run
-artifact set. That receipt binds the catalog, checker, sources, suites, per-domain
-evidence digests, zero warnings, and its own digest. The ordinary audit currently
+The terminal acceptance contract requires the complete current-run artifact set,
+binding the catalog, checker, sources, suites, per-domain evidence digests, zero
+warnings, and its own digest. The current checker cannot emit an accepted receipt:
+the canonical domain/CI receipt join has no registered current-run producer
+validators yet. Evidence mode retains missing/unknown/status/hash diagnostics but
+refuses acceptance even for a complete set of synthetic files. Catalog overrides
+must exactly match the checker checkout's sole source-owned canonical inventory;
+they cannot remove registries, suites, domains, or declared blockers.
+The ordinary audit currently
 declares the unresolved trusted-adapter, Linux runtime/broker/pressure, canonical
 document/consent, durable lifecycle, browser/Avalonia, and rendered core-editor
 evidence as blockers. A checker self-test or source-ready stage cannot convert
