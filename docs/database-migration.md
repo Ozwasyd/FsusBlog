@@ -43,6 +43,21 @@ runner consumes this manifest order directly: all
 `PreCodeFirst` descriptors remain ordered by migration ID before all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
 
+Plan fingerprint controls bind the first descriptor definition admitted to master,
+preserving every earlier descriptor's ordered ID, phase and checksum. A draft
+fingerprint cannot replace that published source. Oracle reconciliation requires
+the original PR/merge identity and exact descriptor, transaction, step-order,
+SQL-byte and checksum facts; applied history must not be rewritten to fit an oracle.
+
+For [PR #3515](https://github.com/Ozwasyd/FsusBlog/pull/3515), the first published
+recent-history definition is master commit `493abaedad77df5f301222405d7904268bb32e75`,
+blob `5c473c4ae9d1bd3bfa46d7f968eabfb897ae954a`. The original 145-descriptor plan
+remains anchored separately; the complete 146-descriptor plan binds that published
+addition and its receipt timestamp/constraint SQL. The older `6d7e8bfa3` draft
+fingerprint records source history, not an accepted applied-database checksum.
+External draft application, native qualification and complete source-bound assembly
+receipt generation remain separate, unverified obligations.
+
 Descriptor implementations live under
 `src/migration/Definitions/`; release-range catalogs
 live under `src/migration/Catalogs/`. To add a
