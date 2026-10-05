@@ -197,10 +197,6 @@ public partial class ArticleService
         if (article == null || !article.IsDeleted)
             return false;
         ct.ThrowIfCancellationRequested();
-        article.Content = await _db.Queryable<ArticleBody>().Where(it => it.ArticleId == id).Select(it => it.MarkdownContent).FirstAsync() ?? string.Empty;
-        ct.ThrowIfCancellationRequested();
-        string[] imageUrls = ArticleAssetReferenceWriteBoundary
-            .ExtractPublicAssetUrls(article.Content, article.CoverImageUrl);
         ArticleVersionCoordinates version = await LoadCurrentVersionCoordinatesAsync(id).ConfigureAwait(false);
         var beforeScope = new ArticleMutationScopeSnapshot(
             state.CategoryIds.Single(),
@@ -238,7 +234,7 @@ public partial class ArticleService
             ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotAsync(id, state.CategoryIds, state.TagIds, "permanent-delete", mutationId);
             ct.ThrowIfCancellationRequested();
-            await _mutationSideEffects.AfterPermanentlyDeletedAsync(id, imageUrls, ct);
+            await _mutationSideEffects.AfterPermanentlyDeletedAsync(id, ct);
             return true;
         }
         return false;
@@ -252,7 +248,6 @@ public partial class ArticleService
         List<int> articleIds = [];
         List<int> categoryIds = [];
         List<int> tagIds = [];
-        Dictionary<int, string> trashedBodyMap = new();
         Dictionary<int, ArticleVersionCoordinates> versions = new();
         Dictionary<int, ArticleMutationScopeSnapshot> scopes = new();
         ct.ThrowIfCancellationRequested();
@@ -272,11 +267,6 @@ public partial class ArticleService
             }
             categoryIds = lockedTrashArticles.Select(static a => a.CategoryId).Distinct().ToList();
             tagIds = await LoadArticleTagIdsAsync(articleIds);
-            trashedBodyMap = (await _db.Queryable<ArticleBody>()
-                .Where(it => articleIds.Contains(it.ArticleId))
-                .Select(it => new { it.ArticleId, it.MarkdownContent })
-                .ToListAsync(ct))
-                .ToDictionary(static it => it.ArticleId, static it => it.MarkdownContent);
             return await new ArticleDeletionKernel(_db).DeleteLockedAsync(
                 articleIds,
                 articleId => RecordArticleMutationOutboxAsync(
@@ -299,7 +289,7 @@ public partial class ArticleService
             ct.ThrowIfCancellationRequested();
             await InvalidatePublicAotBatchAsync(articleIds, categoryIds, tagIds, "clear-trash", mutationId);
             ct.ThrowIfCancellationRequested();
-            await _mutationSideEffects.AfterTrashClearedAsync(articleIds, trashedBodyMap, ct);
+            await _mutationSideEffects.AfterTrashClearedAsync(articleIds, ct);
             return result.Data;
         }
         _logger.LogError("清空回收站失败 | DbError: {Error}", result.ErrorMessage);

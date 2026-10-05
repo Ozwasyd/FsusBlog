@@ -12,7 +12,7 @@ const verificationCommands = [
     ['dotnet', ['test', 'tests/migration/FsusBlog.Migration.Tests.csproj', '-c', 'Release', '--no-restore']]
 ];
 const extractedSources = new Map([
-    ['src/migration/ContentAssetCutoverBackfillStep.cs', ['src/backend/Infrastructure/SchemaMigration/ContentAssetCutoverBackfill.cs']],
+    ['src/migration/ContentAssetCutoverBackfill.cs', ['src/backend/Infrastructure/SchemaMigration/ContentAssetCutoverBackfill.cs']],
     ['src/migration/OnlineSchemaBackfillPrimitives.cs', ['src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs']],
     ['src/migration/SchemaMigrationExecution.cs', ['src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs']],
     ['src/migration/Definitions/CommentRevisionMigrationRows.cs', [
