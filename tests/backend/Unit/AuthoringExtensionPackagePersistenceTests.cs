@@ -1030,6 +1030,191 @@ public sealed class AuthoringExtensionPackagePersistenceTests
                 AuthoringHostPlatform.ServerLinux));
     }
 
+    // SOURCE controls only, not executed qualification. These consume the real
+    // signed archive, immutable ECDSA keyset, composition and persistent scope
+    // owner; no fixture grant, consent or physical execution proof is minted.
+    [Theory]
+    [InlineData("archive.fspkg")]
+    [InlineData("metadata.json")]
+    [InlineData("content/worker/main.wasm")]
+    public async Task PersistentReadScope_RechecksActualArtifactsInsteadOfPreviouslyVerifiedRecord(string relativePath)
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        VerifiedAuthoringPackage previous = Assert.IsType<VerifiedAuthoringPackage>(
+            await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+        string path = Path.Combine(directory.Path, "store", "packages", previous.PackageIdentity,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+        byte[] original = File.ReadAllBytes(path);
+        MakeWritable(path);
+        File.WriteAllBytes(path, "tampered persistent bytes"u8.ToArray());
+        try
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await fixture.Runtime.ExecutionResolver.AcquireReadScopeAsync(previous, default));
+        }
+        finally
+        {
+            File.WriteAllBytes(path, original);
+        }
+        using IAuthoringInstalledPackageReadScope current = await fixture.Runtime.ExecutionResolver.AcquireReadScopeAsync(previous, default);
+        Assert.Equal(previous.PackageIdentity, current.ActivePackage.PackageIdentity);
+        Assert.NotSame(previous, current.ActivePackage);
+    }
+
+    [Fact]
+    public async Task PersistentReadScope_HoldsSameStoreAndCrossInstanceMutationOwnersUntilRelease()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        LocalAuthoringPackageRuntime second = LocalAuthoringPackageComposition.Create(directory.Path,
+            AuthoringHostPlatform.ServerLinux, [fixture.Key], [fixture.Artifact], new FixedTimeProvider(s_now));
+        IAuthoringInstalledPackageReadScope scope = await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default);
+        try
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await second.Store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await second.Store.DeactivateAsync("acme.author-tools", scope.ActivePackage.PackageIdentity, default));
+            Assert.Equal(fixture.PackageIdentity, scope.ActivePackage.PackageIdentity);
+        }
+        finally
+        {
+            scope.Dispose();
+        }
+        scope.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => scope.ActivePackage);
+        await second.Store.DeactivateAsync("acme.author-tools", fixture.PackageIdentity, default);
+        Assert.Null(await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+    }
+
+    [Fact]
+    public async Task PersistentReadScope_SameOwnerDeactivateSettlesOnlyAfterScopeRelease()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        IAuthoringInstalledPackageReadScope scope = await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default);
+        Task deactivation = fixture.Runtime.Store.DeactivateAsync("acme.author-tools", fixture.PackageIdentity, default).AsTask();
+        try
+        {
+            Assert.False(deactivation.IsCompleted);
+            Assert.Equal(fixture.PackageIdentity, scope.ActivePackage.PackageIdentity);
+        }
+        finally
+        {
+            scope.Dispose();
+        }
+        await deactivation;
+        Assert.Null(await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PersistentReadScope_UnknownTrustOwnerHasNoCachedAuthorityFallback(bool mutableEcdsaKeyset)
+    {
+        using var directory = new TemporaryDirectory();
+        LocalAuthoringPackageStore store;
+        if (mutableEcdsaKeyset)
+        {
+            SignedScopeFixture signed = await CreateSignedScopeFixtureAsync(directory.Path);
+            var keys = new ReadScopeMutableKeyset([signed.Key]);
+            var verifier = new AuthoringPackageVerifier(
+                new EcdsaAuthoringPackageTrustVerifier(keys, new FixedTimeProvider(s_now)),
+                new ZipAuthoringPackageArchiveReader(), new FixedTimeProvider(s_now));
+            store = new LocalAuthoringPackageStore(Path.Combine(directory.Path, "store"), verifier,
+                AuthoringHostPlatform.ServerLinux);
+        }
+        else
+        {
+            PackageFixture fixture = CreatePackage("1.0.0", "unknown trust lifetime");
+            ProductionRuntime runtime = CreateRuntime(directory.Path, fixture.Trust);
+            await runtime.Activation.InstallOrUpdateAsync(fixture.Artifact);
+            store = runtime.Store;
+        }
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+        Assert.NotNull(await store.GetActiveAsync("acme.author-tools", default));
+    }
+
+    [Fact]
+    public async Task PersistentReadScope_CancelledPreparationDoesNotConsumeMutationOwnership()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        using var caller = new CancellationTokenSource();
+        caller.Cancel();
+        OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", caller.Token));
+        Assert.Equal(caller.Token, error.CancellationToken);
+        using IAuthoringInstalledPackageReadScope scope = await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default);
+        Assert.Equal(fixture.PackageIdentity, scope.ActivePackage.PackageIdentity);
+    }
+
+    [Fact]
+    public async Task PersistentBrokerScope_OriginalSignedOwnerSurvivesContinuationAndBlocksMutation()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        VerifiedAuthoringPackage package = Assert.IsType<VerifiedAuthoringPackage>(
+            await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+        LocalAuthoringPackageRuntime second = LocalAuthoringPackageComposition.Create(directory.Path,
+            AuthoringHostPlatform.ServerLinux, [fixture.Key], [fixture.Artifact], new FixedTimeProvider(s_now));
+        IAuthoringInstalledPackageAsyncReadScope scope =
+            await fixture.Runtime.ExecutionResolver.AcquireBrokerReadScopeAsync(package, default);
+        try
+        {
+            await Task.Run(async () =>
+            {
+                Assert.Equal(package.PackageIdentity, scope.ActivePackage.PackageIdentity);
+                await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                    await second.Store.DeactivateAsync("acme.author-tools", package.PackageIdentity, default));
+            });
+        }
+        finally
+        {
+            await Task.Run(scope.Dispose);
+        }
+        Assert.Throws<ObjectDisposedException>(() => scope.ActivePackage);
+        await second.Store.DeactivateAsync("acme.author-tools", package.PackageIdentity, default);
+        Assert.Null(await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+    }
+
+    private sealed record SignedScopeFixture(LocalAuthoringPackageRuntime Runtime,
+        AuthoringPackageArtifact Artifact, AuthoringPackagePublisherKey Key, string PackageIdentity);
+
+    private sealed class ReadScopeMutableKeyset(ImmutableArray<AuthoringPackagePublisherKey> keys) : IAuthoringPackageKeyset
+    {
+        public ImmutableArray<AuthoringPackagePublisherKey> Keys { get; set; } = keys;
+        public ValueTask<ImmutableArray<AuthoringPackagePublisherKey>> GetPublisherKeysAsync(
+            string publisher, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(Keys);
+        }
+    }
+
+    private static async ValueTask<SignedScopeFixture> CreateSignedScopeFixtureAsync(string root)
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        PackageFixture fixture = CreatePackage("1.0.0", "signed read-scope bytes");
+        AuthoringPackageArtifact artifact = fixture.Artifact with
+        {
+            Signature = ImmutableArray.Create(signer.SignData(fixture.Artifact.CanonicalArchive.AsSpan(),
+                HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
+        };
+        var key = new AuthoringPackagePublisherKey("acme", "key-1",
+            ImmutableArray.Create(signer.ExportSubjectPublicKeyInfo()), s_now.AddHours(-1), s_now.AddHours(1));
+        LocalAuthoringPackageRuntime runtime = LocalAuthoringPackageComposition.Create(root,
+            AuthoringHostPlatform.ServerLinux, [key], [artifact], new FixedTimeProvider(s_now));
+        AuthoringPackageReceipt receipt = await runtime.Activation.InstallOrUpdateFromSourceAsync(artifact.SourceReference);
+        return new SignedScopeFixture(runtime, artifact, key, receipt.PackageIdentity);
+    }
+
     private static ProductionRuntime CreateRuntime(string root, LocalTrustVerifier trust)
     {
         var verifier = new AuthoringPackageVerifier(

@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Net;
 using System.Net.Sockets;
+using System.Runtime.ExceptionServices;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
@@ -191,6 +192,8 @@ public sealed class LinuxAuthoringFilePathVerifier : IAuthoringFilePathVerifier
 
 public sealed class AuthoringExtensionServiceIoBroker
 {
+    internal const string StagedWriteCleanupFailuresKey = "AuthoringStagedWriteCleanupFailures";
+
     private readonly AuthoringServiceGrantValidator _grantValidator;
     private readonly IAuthoringPinnedNetworkTransport _network;
     private readonly string _privateStagingRoot;
@@ -311,31 +314,12 @@ public sealed class AuthoringExtensionServiceIoBroker
             purpose,
             digest))));
         string proposalPath = Path.Combine(_privateStagingRoot, proposalId);
-        try
-        {
-            await using var stream = new FileStream(
-                proposalPath,
-                FileMode.CreateNew,
-                FileAccess.Write,
-                FileShare.None,
-                16 * 1024,
-                FileOptions.Asynchronous | FileOptions.WriteThrough);
-            await stream.WriteAsync(payload.AsMemory(), cancellationToken);
-        }
-        catch
-        {
-            if (File.Exists(proposalPath))
-            {
-                File.Delete(proposalPath);
-            }
-
-            throw;
-        }
-
-        if (!OperatingSystem.IsWindows())
-        {
-            File.SetUnixFileMode(proposalPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
-        }
+        await WriteOwnedProposalAsync(
+            proposalPath,
+            payload.AsMemory(),
+            SetProposalPermissions,
+            File.Delete,
+            cancellationToken);
 
         return new AuthoringServiceIoReceipt(
             grant.GrantId,
@@ -345,6 +329,97 @@ public sealed class AuthoringExtensionServiceIoBroker
             digest,
             "write-staged-for-host-approval",
             proposalId);
+    }
+
+    internal static async ValueTask WriteOwnedProposalAsync(
+        string proposalPath,
+        ReadOnlyMemory<byte> payload,
+        Action<string> setPermissions,
+        Action<string> deleteProposal,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(setPermissions);
+        ArgumentNullException.ThrowIfNull(deleteProposal);
+        FileStream? stream = null;
+        Exception? failure = null;
+        ImmutableArray<Exception>.Builder cleanupFailures = ImmutableArray.CreateBuilder<Exception>();
+        try
+        {
+            stream = new FileStream(
+                proposalPath,
+                FileMode.CreateNew,
+                FileAccess.Write,
+                FileShare.None,
+                16 * 1024,
+                FileOptions.Asynchronous | FileOptions.WriteThrough);
+            await stream.WriteAsync(payload, cancellationToken);
+        }
+        catch (Exception exception)
+        {
+            failure = exception;
+        }
+
+        if (stream is not null)
+        {
+            try
+            {
+                await stream.DisposeAsync();
+            }
+            catch (Exception exception)
+            {
+                if (failure is null)
+                {
+                    failure = exception;
+                }
+                else
+                {
+                    cleanupFailures.Add(exception);
+                }
+            }
+        }
+
+        if (failure is null)
+        {
+            try
+            {
+                setPermissions(proposalPath);
+            }
+            catch (Exception exception)
+            {
+                failure = exception;
+            }
+        }
+
+        if (failure is not null)
+        {
+            // A failed CreateNew never owns an existing proposal at this path.
+            if (stream is not null)
+            {
+                try
+                {
+                    deleteProposal(proposalPath);
+                }
+                catch (Exception exception)
+                {
+                    cleanupFailures.Add(exception);
+                }
+            }
+
+            if (cleanupFailures.Count != 0)
+            {
+                failure.Data[StagedWriteCleanupFailuresKey] = cleanupFailures.ToImmutable();
+            }
+
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+    }
+
+    private static void SetProposalPermissions(string proposalPath)
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            File.SetUnixFileMode(proposalPath, UnixFileMode.UserRead | UnixFileMode.UserWrite);
+        }
     }
 
     public ValueTask RevokeStagedWriteAsync(

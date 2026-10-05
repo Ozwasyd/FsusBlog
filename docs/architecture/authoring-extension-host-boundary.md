@@ -164,9 +164,19 @@ reparse boundaries, reads only bounded regular files, and stages proposed writes
 under a private non-reparse host root for later approval. This stage defines no
 document RPC, permission decision, lifecycle, or concrete provider.
 
+The proposed-write stage keeps its deterministic identity and exclusive
+`CreateNew` operation. A create collision cannot delete an existing artifact;
+only a successfully created file enters this invocation's failure cleanup.
+Write, awaited release, and permission setup failures retain the first cause and
+record secondary cleanup failures internally without publishing a stage receipt.
+This local create ledger is not a native inode/rename exclusion lease and does
+not establish concurrent filesystem custody.
+
 ## Versioned RPC and canonical mutation boundary
 
-All execution classes share the internal schema-version-1 RPC envelope. The
+All execution classes share the internal RPC envelope. Existing read/mutation
+operations retain schema version 1; the closed broker proposals below require
+version 2 and do not admit a legacy broker payload. The
 envelope binds runtime, extension/version, package/content, contribution/class,
 request, document epoch/revision/snapshot, host API/schema/policy/grant, deadline,
 site, and purpose identities. Its method and payload vocabularies are closed and
@@ -184,13 +194,124 @@ transaction receipts are rejected. Full-document grants additionally bind one
 exact document epoch, revision, and snapshot digest; other grants cannot smuggle a
 destination, root, or revision scope.
 
-The registry reserves the remaining read/query/broker/diagnostic/state method
-identities, but this stage does not invent production handlers for them. In
-particular it does not create a browser, HTTP, or AEDS bridge. A real canonical
+The mutation preview's version-1 content binding is produced only by
+`AuthoringExtensionRpcAuthority.ComputeMutationPreviewDigest`: length-framed
+UTF-16 code units and little-endian integers bind the complete ordered plan and
+its RPC host identities, grant and deadline. The host captures its own bounded
+mutation array before the first authority await, checks the approved digest, and
+rechecks that owned content after revision observation, then preserves the final
+grant, deadline and cancellation checks before consuming the request. Same plan
+IDs cannot authorize changed text, ranges, selection or order.
+This digest is not a signature, approval issuer or grant: computing it does not
+set `Approved`, establish consent, or validate a real preview interaction. The
+confirmation owner must bind the same material to its actual approved preview;
+the source fixtures prove content binding only, not that external integration.
+
+The three registered document read methods now have a bounded internal typed
+handler. Their existing version-1 envelope and single `DocumentRange` payload
+field are unchanged: range, current selection, or the exact whole-document span
+is requested explicitly. No RPC method, payload field, public wire schema or
+registry version is added. The handler reuses the sole manifest validator's
+owned capability snapshot, declared request/response/depth budgets, active-package
+execution resolver and exact grant authority. Full-document reads require both
+the declared full-document capability and its existing explicitly approved,
+epoch/revision/snapshot-bound grant; a range or selection grant cannot return a
+nonempty whole-document span.
+
+Only the same canonical transaction instance may implement the optional read
+port. It supplies an immutable `AuthoringDocumentSnapshot`, total document length
+and actual current selection, then performs a final non-yielding live observation
+and invocation check after the resolver/revision/grant awaits. This is not
+permission inferred from two caller-editable DTOs. Wrong ranges, overbroad values,
+revision/digest/selection drift, revocation, expired deadlines and cancellation
+are rejected. The value return alone contains the exact requested text; its
+completion is protected by short-lived exclusion scopes of the original active
+package store and original grant store, acquired in that fixed order and released
+in reverse order. `LocalAuthoringPackageStore` prepares its scope asynchronously
+under the original non-thread-bound semaphore and cross-instance mutation file
+lock. It rereads the actual activation pointer, independently verifies the actual
+archive/signature/manifest/trust and extracted content, then rereads the pointer;
+no previously returned verified record is used as cached authorization. This
+read lifetime accepts only the existing immutable local publisher keyset and the
+original ECDSA/archive verification owners; an unknown mutable trust owner has no
+held-lifetime port and remains blocked. Synchronous store acquisition does not
+skip this verification. All existing stage/activation/deactivation/removal/recovery
+writers retain the same locks. The grant scope is acquired after this last
+preparation await. Both stores refuse a busy scope
+acquisition rather than wait without a bound, and prevent deactivation,
+replacement, trust changes and revocation for the held lifetime. No `GetActive`,
+`Find` or further await is allowed during terminal publication; the same canonical document owner
+performs its final non-yielding live check inside both scopes. Deadline, current
+package trust validity and grant expiry are independently checked at publication
+using the original clock. Scope cleanup releases both owners without replacing
+a primary failure; secondary failures are non-wire diagnostics, not authority.
+These optional owner interfaces do not alter the existing version-1 envelope or
+registry. Existing stores without an actual exclusion-scope implementation refuse
+read completion; a record-only lease or a caller callback is not an implementation.
+The original mutable fixture scopes are explicitly source-level component
+simulation, not production store or consent qualification. The read value's
+metadata receipt contains identities, range, sizes and digests but no text or
+secret. Its returned-value digest binds document/epoch/revision/snapshot/range and
+the exact text with the existing framed UTF-16 producer under the internal
+`fsusblog.authoring-document-read-value.v1` domain; it is content binding, not a
+permission, consent issuer or independently qualified authority. Declared response
+bounds include the serialized value metadata and JSON
+string escaping, counted in bounded scratch chunks without a second document-size
+copy. That internal size measurement is not a JSON public transport or fallback.
+
+The source component does not create a production canonical document reader or
+consent issuer or durable production grant store. The persistent package scope
+does not create a grant store, a consent policy, a production RPC registration or
+a document reader. A missing canonical read port, original resolver or either
+original store exclusion port is blocked;
+simulated public-handler controls are not actual consent, browser or native
+acceptance. Query/diagnostic/state method identities remain reserved without
+production RPC handlers. In particular this does not create a browser, HTTP, or
+AEDS bridge. A real canonical
 document transaction owner and the machine-driven consent UI remain external
 dependencies; until those reviewed artifacts are composed, the RPC authority is
 fail-closed and this issue remains a Draft/Refs delivery rather than production
 activation evidence.
+
+The two broker methods have an internal version-2 typed handler. Network input
+contains only host, port and a bounded path-and-query; file input contains only
+relative path, the original closed read/propose-write operation and explicitly
+bounded proposed bytes. These are caller proposals, not grants. The same
+original capability grant store must provide an approved broker exclusion scope
+whose existing network/file grant binds the original consent's destination/root,
+runtime, purpose, expiry and byte limits. The broker scope must be thread-independent
+because it holds revocation/replacement exclusion across the IO await.
+Missing production consent/store scopes, resolver or actual IO broker refuse;
+there is no caller-grant DTO, URL/filesystem fallback or new approval issuer.
+
+The handler reuses the original manifest validator, active package resolver,
+revision gate, deadline/cancellation checks and request-ID owner. It prepares
+the original package scope through the same installed authority and store, then
+rechecks the original grant, revision, deadline and cancellation after preparation
+before consuming the request ID and calling `AuthoringExtensionServiceIoBroker`.
+Broker IO requires the host-owned `IAuthoringInstalledPackageAsyncReadScope`
+lifetime contract; an unknown or default synchronous scope is refused, not wrapped
+or upgraded by its async method name. This type is an implementation obligation,
+not an approval issuer, caller field or runtime proof. The actual persistent
+owner holds its original semaphore and mutation file lock without thread affinity.
+The package-then-grant exclusion lifetimes both remain held until the actual IO
+promise settles, then release in reverse order. Cleanup cannot leave that promise
+unobserved or replace its first failure, and a completed stage stays available
+to the original refusal cleanup path.
+Its original DNS/TLS/path/root and
+operation validators still decide admission. Manifest limits can only narrow an
+approved IO grant, never grant permission. After IO the handler rechecks package,
+grant and document revision; it independently prepares the same terminal package
+scope, rechecks admission after preparation, then acquires the grant scope with no
+subsequent await, and rejects a changed approved IO scope or an
+expired authority. Receipt metadata includes RPC context and proposal/value
+digests but excludes the path/query, proposed bytes and returned value. A write
+is only staged for later host approval, never applied to the destination or to
+the canonical document. Refused staged returns invoke the same broker's owned
+revocation path; cleanup failure preserves the primary refusal and reports an
+unverified diagnostic, not successful removal. Source component simulations do
+not prove production consent, broker execution, native cleanup or transport
+integration; those acceptance gates remain pending.
 
 ## Command contribution and editor projection
 

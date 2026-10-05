@@ -150,8 +150,60 @@ public interface IAuthoringInstalledPackageAuthority
         CancellationToken cancellationToken);
 }
 
+/// <summary>
+/// A short-lived exclusion scope of the original active package store. The
+/// store must hold activation, deactivation, removal and trust changes until
+/// Dispose; a cached record or a caller-provided boolean is not such a scope.
+/// Acquisition must refuse a busy owner rather than wait without a bound.
+/// Dispose only releases ownership and must not throw. No await is permitted
+/// by the consumer while holding this scope unless the same owner's returned
+/// object also implements the explicit non-thread-bound lifetime below.
+/// </summary>
+public interface IAuthoringInstalledPackageReadScope : IDisposable
+{
+    VerifiedAuthoringPackage ActivePackage { get; }
+}
+
+/// <summary>
+/// The trusted host's original store-owned exclusion lifetime may cross an
+/// asynchronous continuation. Acquisition and Dispose are not thread-affine;
+/// activation, removal and trust exclusion remain held until Dispose. This is
+/// an implementation contract, not a permission, receipt or caller proposal.
+/// A synchronous read scope must not be wrapped to claim this capability.
+/// </summary>
+public interface IAuthoringInstalledPackageAsyncReadScope : IAuthoringInstalledPackageReadScope
+{
+}
+
+public interface IAuthoringPackageReadScopeStore : IAuthoringPackageStore
+{
+    IAuthoringInstalledPackageReadScope AcquireActiveReadScope(string extensionId);
+
+    // A production owner may prepare while holding a non-thread-bound lifetime.
+    // A synchronous scope implementation must complete this value immediately;
+    // it cannot carry a thread-bound lock across an asynchronous continuation.
+    ValueTask<IAuthoringInstalledPackageReadScope> AcquireActiveReadScopeAsync(
+        string extensionId, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(AcquireActiveReadScope(extensionId));
+    }
+}
+
+public interface IAuthoringInstalledPackageReadScopeAuthority : IAuthoringInstalledPackageAuthority
+{
+    IAuthoringInstalledPackageReadScope AcquireActiveReadScope(VerifiedAuthoringPackage package);
+
+    ValueTask<IAuthoringInstalledPackageReadScope> AcquireActiveReadScopeAsync(
+        VerifiedAuthoringPackage package, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        return ValueTask.FromResult(AcquireActiveReadScope(package));
+    }
+}
+
 public sealed class ActiveAuthoringInstalledPackageAuthority(
-    IAuthoringPackageStore packageStore) : IAuthoringInstalledPackageAuthority
+    IAuthoringPackageStore packageStore) : IAuthoringInstalledPackageReadScopeAuthority
 {
     public async ValueTask<bool> IsActiveExactAsync(
         VerifiedAuthoringPackage package,
@@ -161,7 +213,63 @@ public sealed class ActiveAuthoringInstalledPackageAuthority(
         VerifiedAuthoringPackage? active = await packageStore.GetActiveAsync(
             package.Contract.Manifest.Id,
             cancellationToken);
-        return active is not null &&
+        return IsExactActivePackage(active, package);
+    }
+
+    public IAuthoringInstalledPackageReadScope AcquireActiveReadScope(VerifiedAuthoringPackage package)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+        if (packageStore is not IAuthoringPackageReadScopeStore scopeStore)
+        {
+            throw new AuthoringExtensionContractException("Active package store has no terminal read exclusion scope.");
+        }
+        IAuthoringInstalledPackageReadScope scope = scopeStore.AcquireActiveReadScope(package.Contract.Manifest.Id);
+        try
+        {
+            RequireExactActivePackage(scope.ActivePackage, package);
+            return scope;
+        }
+        catch (Exception failure)
+        {
+            AuthoringTerminalReadScopes.Release(failure, scope);
+            throw;
+        }
+    }
+
+    internal static void RequireExactActivePackage(VerifiedAuthoringPackage? active, VerifiedAuthoringPackage package)
+    {
+        if (!IsExactActivePackage(active, package))
+        {
+            throw new AuthoringExtensionContractException("Terminal package read scope is not the exact active package.");
+        }
+    }
+
+    public async ValueTask<IAuthoringInstalledPackageReadScope> AcquireActiveReadScopeAsync(
+        VerifiedAuthoringPackage package, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (packageStore is not IAuthoringPackageReadScopeStore scopeStore)
+        {
+            throw new AuthoringExtensionContractException("Active package store has no terminal read exclusion scope.");
+        }
+        IAuthoringInstalledPackageReadScope scope = await scopeStore.AcquireActiveReadScopeAsync(
+            package.Contract.Manifest.Id, cancellationToken);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            RequireExactActivePackage(scope.ActivePackage, package);
+            return scope;
+        }
+        catch (Exception failure)
+        {
+            AuthoringTerminalReadScopes.Release(failure, scope);
+            throw;
+        }
+    }
+
+    private static bool IsExactActivePackage(VerifiedAuthoringPackage? active, VerifiedAuthoringPackage package) =>
+        active is not null &&
             string.Equals(active.PackageIdentity, package.PackageIdentity, StringComparison.Ordinal) &&
             string.Equals(active.Contract.ContractIdentity, package.Contract.ContractIdentity, StringComparison.Ordinal) &&
             string.Equals(active.Artifact.ArchiveSha256, package.Artifact.ArchiveSha256, StringComparison.Ordinal) &&
@@ -174,7 +282,6 @@ public sealed class ActiveAuthoringInstalledPackageAuthority(
                 package.Contract.Manifest.ContentSha256,
                 StringComparison.Ordinal) &&
             active.Trust.Status == AuthoringPackageTrustStatus.Trusted;
-    }
 }
 
 public sealed class LoadedAssemblyTrustedAuthoringAdapterModuleVerifier : ITrustedAuthoringAdapterModuleVerifier
@@ -295,6 +402,73 @@ public sealed class AuthoringExecutionResolver(
     ITrustedAuthoringAdapterModuleVerifier moduleVerifier,
     IAuthoringInstalledPackageAuthority installedPackageAuthority)
 {
+    internal async ValueTask<IAuthoringInstalledPackageAsyncReadScope> AcquireBrokerReadScopeAsync(
+        VerifiedAuthoringPackage package, CancellationToken cancellationToken)
+    {
+        // Obtain the actual scope through this resolver's installed authority
+        // and its original store. There is no scope supplied by an RPC caller.
+        IAuthoringInstalledPackageReadScope scope = await AcquireReadScopeAsync(package, cancellationToken);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (scope is not IAuthoringInstalledPackageAsyncReadScope asyncScope)
+            {
+                throw new AuthoringExtensionContractException("Broker IO requires a non-thread-bound original package lifetime.");
+            }
+            return asyncScope;
+        }
+        catch (Exception failure)
+        {
+            AuthoringTerminalReadScopes.Release(failure, scope);
+            throw;
+        }
+    }
+
+    public async ValueTask<IAuthoringInstalledPackageReadScope> AcquireReadScopeAsync(
+        VerifiedAuthoringPackage package, CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(package);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (installedPackageAuthority is not IAuthoringInstalledPackageReadScopeAuthority authority)
+        {
+            throw new AuthoringExtensionContractException("Installed package authority has no terminal read exclusion scope.");
+        }
+        IAuthoringInstalledPackageReadScope scope = await authority.AcquireActiveReadScopeAsync(package, cancellationToken);
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            ActiveAuthoringInstalledPackageAuthority.RequireExactActivePackage(scope.ActivePackage, package);
+            return scope;
+        }
+        catch (Exception failure)
+        {
+            AuthoringTerminalReadScopes.Release(failure, scope);
+            throw;
+        }
+    }
+
+    // This is deliberately synchronous: the final grant and canonical document
+    // check must share the original store's held lifetime, not another async
+    // active-package observation that merely moves the race.
+    public IAuthoringInstalledPackageReadScope AcquireReadScope(VerifiedAuthoringPackage package)
+    {
+        if (installedPackageAuthority is not IAuthoringInstalledPackageReadScopeAuthority authority)
+        {
+            throw new AuthoringExtensionContractException("Installed package authority has no terminal read exclusion scope.");
+        }
+        IAuthoringInstalledPackageReadScope scope = authority.AcquireActiveReadScope(package);
+        try
+        {
+            ActiveAuthoringInstalledPackageAuthority.RequireExactActivePackage(scope.ActivePackage, package);
+            return scope;
+        }
+        catch (Exception failure)
+        {
+            AuthoringTerminalReadScopes.Release(failure, scope);
+            throw;
+        }
+    }
+
     public async ValueTask<AuthoringExecutionTarget> ResolveAsync(
         VerifiedAuthoringPackage package,
         string contributionId,
@@ -461,4 +635,43 @@ public sealed class AuthoringExecutionResolver(
             null,
             string.Empty,
             reason);
+}
+
+// Ordinary, non-wire cleanup diagnostics; no grant, package or physical proof
+// is derived from these exceptions. Release every acquired scope even if a
+// nonconforming owner throws, without replacing the original failure.
+internal static class AuthoringTerminalReadScopes
+{
+    internal static void Release(Exception? failure, params IDisposable?[] scopes)
+    {
+        var cleanupFailures = new List<Exception>();
+        foreach (IDisposable? scope in scopes)
+        {
+            try
+            {
+                scope?.Dispose();
+            }
+            catch (Exception cleanupFailure)
+            {
+                cleanupFailures.Add(cleanupFailure);
+            }
+        }
+        if (cleanupFailures.Count == 0)
+        {
+            return;
+        }
+        Exception primary = failure ?? cleanupFailures[0];
+        try
+        {
+            primary.Data["AuthoringTerminalReadScopeCleanupFailures"] = cleanupFailures.ToArray();
+        }
+        catch
+        {
+            // Diagnostics must not displace the original failure.
+        }
+        if (failure is null)
+        {
+            System.Runtime.ExceptionServices.ExceptionDispatchInfo.Capture(primary).Throw();
+        }
+    }
 }
