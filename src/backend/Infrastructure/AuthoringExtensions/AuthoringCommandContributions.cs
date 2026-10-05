@@ -420,8 +420,15 @@ public sealed class AuthoringCommandExecutionCoordinator
                 "Command capability scope is missing, revoked, expired, or bound to another document.");
         }
 
+        cancellationToken.ThrowIfCancellationRequested();
+        DateTimeOffset admissionTime = _timeProvider.GetUtcNow();
+        if (admissionTime >= context.Deadline)
+        {
+            throw new AuthoringExtensionContractException("Command execution binding is missing, stale, or unbounded.");
+        }
+
         using var deadlineCancellation = new CancellationTokenSource(
-            context.Deadline - _timeProvider.GetUtcNow(),
+            context.Deadline - admissionTime,
             _timeProvider);
         using var executionCancellation = CancellationTokenSource.CreateLinkedTokenSource(
             cancellationToken,
@@ -434,6 +441,12 @@ public sealed class AuthoringCommandExecutionCoordinator
                 context.SourceRevision,
                 executionToken) ||
             !await _lifecycle.AcceptResultAsync(command.ExtensionId, context.LifecycleGeneration, executionToken))
+        {
+            throw new AuthoringExtensionContractException("Command execution context is stale or disabled.");
+        }
+
+        executionToken.ThrowIfCancellationRequested();
+        if (_timeProvider.GetUtcNow() >= context.Deadline)
         {
             throw new AuthoringExtensionContractException("Command execution context is stale or disabled.");
         }
@@ -475,7 +488,7 @@ public sealed class AuthoringCommandExecutionCoordinator
             throw new AuthoringExtensionContractException("Command result is stale, drifted, or outside its closed schema.");
         }
 
-        return response with
+        AuthoringCommandExecutionResponse acceptedResponse = response with
         {
             Result = [.. response.Result],
             MutationPlan = response.MutationPlan is null
@@ -485,6 +498,14 @@ public sealed class AuthoringCommandExecutionCoordinator
                     Mutations = [.. response.MutationPlan.Mutations]
                 }
         };
+
+        executionToken.ThrowIfCancellationRequested();
+        if (_timeProvider.GetUtcNow() >= context.Deadline)
+        {
+            throw new AuthoringExtensionContractException("Command result is stale, drifted, or outside its closed schema.");
+        }
+
+        return acceptedResponse;
     }
 
     private static bool IsBoundedContextIdentity(string? value, int maximumLength) =>
