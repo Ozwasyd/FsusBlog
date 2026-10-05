@@ -421,6 +421,13 @@ requires an explicit quarantine-clear approval before reactivation. A runtime
 crash follows the same containment path, and the host rechecks core continuity
 before returning a closed result.
 
+A returned operation value remains subject to cancellation through final
+measurement and telemetry completion. Caller cancellation discards the value;
+an independently measured budget breach retains its breach reason and containment
+even when the caller also cancels. A cancellation arriving while completed
+telemetry is stored prevents a completed result from being returned, without
+rewriting that already-recorded telemetry.
+
 Budget telemetry is a closed metadata record over runtime/package/contribution,
 policy, lifecycle generation, stable reason, elapsed/resource counters, and time.
 It has no payload, source text, document contents, credential, grant secret, or

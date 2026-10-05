@@ -117,6 +117,98 @@ public sealed class AuthorSavedViewContractTests
         Assert.NotEqual(first.QueryDigest, changed.QueryDigest);
     }
 
+    [Theory]
+    [InlineData("tag:not stable")]
+    [InlineData("tag:not\u00a0stable")]
+    public async Task CanonicalValues_RejectSameCountStableIdentitySemanticTamper(string malformedValue)
+    {
+        AuthorSavedViewCondition condition = Condition(
+            AuthorSavedViewFieldKind.Tag,
+            "tag:stable",
+            "identity.equals",
+            "tag:stable");
+        AuthorSavedViewQuery query = Query([condition]);
+        AuthorSavedViewContract.ValidateQueryShape(query);
+        var provider = new TestDependencyProvider { ReuseMutableCanonicalBuffer = true };
+        provider.MutableCanonicalBuffer.Clear();
+        provider.MutableCanonicalBuffer.Add(malformedValue);
+        AuthorSavedViewDependencyFact fact = Assert.IsType<AuthorSavedViewDependencyFact>(
+            await provider.ResolveConditionAsync(s_owner, condition));
+        Assert.Equal(condition.Field, fact.Dependency);
+        Assert.Equal(condition.OperatorId, fact.OperatorId);
+        Assert.Equal(AuthorSavedViewDependencyStatus.Current, fact.Status);
+        Assert.Equal(condition.Values.Count, fact.CanonicalValues.Count);
+        Assert.Equal(malformedValue, Assert.Single(fact.CanonicalValues));
+        Assert.True(malformedValue.Any(char.IsWhiteSpace));
+        Assert.False(string.IsNullOrWhiteSpace(malformedValue));
+        Assert.False(malformedValue.Any(char.IsControl));
+        Assert.NotEqual(Assert.Single(condition.Values), malformedValue);
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+
+        await AssertValidationCode(
+            "saved_view_stable_identity_value_invalid",
+            () => validator.ValidateAsync(s_owner, query));
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" \t")]
+    [InlineData("tag:\u0000invalid")]
+    public async Task CanonicalValues_RejectMalformedProviderValueWithValidationCode(string? malformedValue)
+    {
+        AuthorSavedViewCondition condition = Condition(
+            AuthorSavedViewFieldKind.Tag,
+            "tag:stable",
+            "identity.equals",
+            "tag:stable");
+        AuthorSavedViewQuery query = Query([condition]);
+        AuthorSavedViewContract.ValidateQueryShape(query);
+        var provider = new TestDependencyProvider { ReuseMutableCanonicalBuffer = true };
+        provider.MutableCanonicalBuffer.Clear();
+        provider.MutableCanonicalBuffer.Add(malformedValue!);
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+
+        await AssertValidationCode(
+            "saved_view_condition_value_invalid",
+            () => validator.ValidateAsync(s_owner, query));
+    }
+
+    [Fact]
+    public async Task CanonicalValues_AcceptBenignSameCountReorderingBeforeSetNormalization()
+    {
+        AuthorSavedViewCondition condition = Condition(
+            AuthorSavedViewFieldKind.Tag,
+            "tag:stable",
+            "identity.any-of",
+            "tag:a",
+            "tag:b");
+        var provider = new TestDependencyProvider { ReuseMutableCanonicalBuffer = true };
+        AuthorSavedViewDependencyFact fact = Assert.IsType<AuthorSavedViewDependencyFact>(
+            await provider.ResolveConditionAsync(s_owner, condition));
+        Assert.Equal(condition.Field, fact.Dependency);
+        Assert.Equal(condition.OperatorId, fact.OperatorId);
+        Assert.Equal(AuthorSavedViewDependencyStatus.Current, fact.Status);
+        Assert.Equal(condition.Values.Count, fact.CanonicalValues.Count);
+        Assert.Equal(["tag:b", "tag:a"], fact.CanonicalValues);
+        Assert.False(condition.Values.SequenceEqual(fact.CanonicalValues));
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+        var unchangedValidator = new AuthorSavedViewQueryValidator(
+            new AuthorSavedViewDependencyCatalog([new TestDependencyProvider()]));
+
+        AuthorSavedViewQueryValidationResult reordered = await validator.ValidateAsync(s_owner, Query([condition]));
+        AuthorSavedViewQueryValidationResult unchanged = await unchangedValidator.ValidateAsync(s_owner, Query([condition]));
+
+        Assert.True(reordered.IsValid);
+        Assert.True(unchanged.IsValid);
+        Assert.Equal(["tag:a", "tag:b"], Assert.Single(reordered.Query.Conditions).Values);
+        Assert.Equal(
+            ["tag:b", "tag:a"],
+            Assert.Single(reordered.Resolutions, static resolution => resolution.OperatorId == "identity.any-of").CanonicalValues);
+        Assert.Equal(unchanged.QueryDigest, reordered.QueryDigest);
+        Assert.Equal(unchanged.DependencyDigest, reordered.DependencyDigest);
+    }
+
     [Fact]
     public async Task ValidationResult_IsDeeplyDetachedFromMutableInputsAndProviderBuffers()
     {

@@ -117,6 +117,94 @@ public sealed class AuthoringCanvasOperationEngineTests
                 "TransactionDigest", "JournalDigest", "CanvasContentDigest", "ReceiptDigest"
             ],
             PropertyNames(receiptJson));
+
+        AuthoringCanvasOperationVerificationResult verified = AuthoringCanvasOperationVerifier.Verify(
+            authority.InitialSnapshot,
+            authority.Audit,
+            authority.Receipts,
+            authority.Snapshot());
+        Assert.True(verified.Valid, string.Join(',', verified.Reasons));
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public async Task ApplyAsync_RejectsDependencyBeforeCreationButReplaysOrderedBatchAndHistory(int dependentKind)
+    {
+        Guid firstId = Guid.CreateVersion7();
+        Guid secondId = Guid.CreateVersion7();
+        Guid frameId = Guid.CreateVersion7();
+        Guid edgeId = Guid.CreateVersion7();
+        AuthoringCanvasNode first = Note(firstId, "first");
+        AuthoringCanvasNode second = Note(secondId, "second");
+        AuthoringCanvasNode emptyFrame = Frame(frameId, []);
+        AuthoringCanvasNode populatedFrame = Frame(frameId, [firstId, secondId]);
+        AuthoringCanvasNode[] initialNodes = dependentKind == 2 ? [emptyFrame] : [];
+        AuthoringCanvasClosedCommand dependent = dependentKind switch
+        {
+            0 => Command(
+                AuthoringCanvasOperationKind.Connect,
+                MissingEdge(edgeId),
+                Present(new AuthoringCanvasEdge(edgeId, AuthoringCanvasEdgeType.VisualOnly, 0, firstId, secondId))),
+            1 => Command(AuthoringCanvasOperationKind.CreateFrame, MissingNode(frameId), Present(populatedFrame)),
+            2 => Command(AuthoringCanvasOperationKind.Group, Present(emptyFrame), Present(populatedFrame)),
+            _ => throw new ArgumentOutOfRangeException(nameof(dependentKind))
+        };
+        AuthoringCanvasClosedCommand createFirst = Command(
+            AuthoringCanvasOperationKind.CreateNote, MissingNode(firstId), Present(first));
+        AuthoringCanvasClosedCommand createSecond = Command(
+            AuthoringCanvasOperationKind.CreateNote, MissingNode(secondId), Present(second));
+        AuthoringCanvasClosedCommand[] malordered = [dependent, createFirst, createSecond];
+        Assert.All(malordered, AuthoringCanvasOperationSemantics.ValidateCommand);
+        var rejected = new DeterministicCanvasAuthority(initialNodes);
+
+        AuthoringCanvasValidationException exception = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
+            () => rejected.Engine.ApplyAsync(rejected.Request(malordered)));
+
+        Assert.Equal(dependentKind == 0
+            ? "canvas_operation_incident_edge_not_deleted"
+            : "canvas_operation_frame_member_missing", exception.Code);
+        Assert.Equal(0, rejected.CommitCount);
+        Assert.Equal(rejected.InitialSnapshot.Header, rejected.Header);
+        Assert.Equal(initialNodes, rejected.Nodes.Values.ToArray());
+        Assert.Empty(rejected.Edges);
+        Assert.Empty(rejected.Audit);
+        Assert.Empty(rejected.Receipts);
+        Assert.Equal(0, rejected.ArticleMutationCount);
+        Assert.Equal(0, rejected.RelationMutationCount);
+
+        var accepted = new DeterministicCanvasAuthority(initialNodes);
+        AuthoringCanvasOperationReceipt applied = await accepted.Engine.ApplyAsync(
+            accepted.Request([createFirst, createSecond, dependent]));
+
+        Assert.Equal(AuthoringCanvasOperationStatus.Committed, applied.Status);
+        Assert.Equal(3, applied.CommandCount);
+        Assert.Equal(1, accepted.CommitCount);
+        Assert.Equal(first, accepted.Nodes[firstId]);
+        Assert.Equal(second, accepted.Nodes[secondId]);
+        if (dependentKind == 0)
+        {
+            Assert.Equal(edgeId, Assert.Single(accepted.Edges.Values).Id);
+        }
+        else
+        {
+            Assert.Equal([firstId, secondId], accepted.Nodes[frameId].MemberNodeIds);
+        }
+        AuthoringCanvasOperationVerificationResult verified = AuthoringCanvasOperationVerifier.Verify(
+            accepted.InitialSnapshot, accepted.Audit, accepted.Receipts, accepted.Snapshot());
+        Assert.True(verified.Valid, string.Join(',', verified.Reasons));
+
+        await accepted.Engine.UndoAsync(accepted.HistoryRequest(applied.JournalId, AuthoringCanvasJournalMode.Undo));
+        Assert.Equal(initialNodes, accepted.Nodes.Values.ToArray());
+        Assert.Empty(accepted.Edges);
+        await accepted.Engine.RedoAsync(accepted.HistoryRequest(applied.JournalId, AuthoringCanvasJournalMode.Redo));
+        AuthoringCanvasOperationVerificationResult historyVerified = AuthoringCanvasOperationVerifier.Verify(
+            accepted.InitialSnapshot, accepted.Audit, accepted.Receipts, accepted.Snapshot());
+        Assert.True(historyVerified.Valid, string.Join(',', historyVerified.Reasons));
+        Assert.Equal(3, accepted.CommitCount);
+        Assert.Equal(0, accepted.ArticleMutationCount);
+        Assert.Equal(0, accepted.RelationMutationCount);
     }
 
     [Fact]
@@ -151,6 +239,13 @@ public sealed class AuthoringCanvasOperationEngineTests
         Assert.Equal([secondId], authority.Nodes[frameId].MemberNodeIds);
         Assert.Equal(0, authority.ArticleMutationCount);
         Assert.Equal(0, authority.RelationMutationCount);
+
+        AuthoringCanvasOperationVerificationResult verified = AuthoringCanvasOperationVerifier.Verify(
+            authority.InitialSnapshot,
+            authority.Audit,
+            authority.Receipts,
+            authority.Snapshot());
+        Assert.True(verified.Valid, string.Join(',', verified.Reasons));
 
         var incomplete = new DeterministicCanvasAuthority([first, second, frame], [edge]);
         AuthoringCanvasClosedCommand unsafeDelete = Command(

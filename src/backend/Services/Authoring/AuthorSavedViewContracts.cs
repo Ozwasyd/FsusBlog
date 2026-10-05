@@ -422,7 +422,7 @@ public static class AuthorSavedViewContract
         params AuthorSavedViewFieldKind[] values)
         => Array.AsReadOnly(values);
 
-    private static void ValidateConditionShape(AuthorSavedViewCondition condition)
+    internal static void ValidateConditionShape(AuthorSavedViewCondition condition)
     {
         ArgumentNullException.ThrowIfNull(condition);
         ArgumentNullException.ThrowIfNull(condition.Field);
@@ -799,6 +799,13 @@ public sealed class AuthorSavedViewQueryValidator(
         {
             throw new AuthorSavedViewValidationException("saved_view_dependency_values_tampered");
         }
+
+        AuthorSavedViewCondition canonicalCondition = condition with
+        {
+            Values = Array.AsReadOnly(values)
+        };
+        AuthorSavedViewContract.ValidateConditionShape(canonicalCondition);
+        ValidateResolution(canonicalCondition, resolution);
 
         return resolution.Operator.Cardinality == AuthorSavedViewOperatorCardinality.MultipleSet
             ? Array.AsReadOnly(values.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray())
