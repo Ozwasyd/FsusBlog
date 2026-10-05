@@ -197,6 +197,65 @@ public sealed class AccountSubjectHashProjectionTests
             $"Expected cached metadata description to be at least 2x faster; uncached={uncached.Elapsed.TotalMilliseconds:F3}ms cached={cached.Elapsed.TotalMilliseconds:F3}ms.");
     }
 
+    [Theory]
+    [InlineData("call")]
+    [InlineData("ldftn")]
+    [InlineData("ldtoken-method")]
+    [InlineData("newobj")]
+    [InlineData("ldtoken-constructor")]
+    public void RuntimeMetadataInspection_MemberSites_PreserveOpcodeOwnerAndOffset(string instruction)
+    {
+        var assembly = AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName("RuntimeMemberSites"), AssemblyBuilderAccess.Run);
+        TypeBuilder type = assembly.DefineDynamicModule("Sites").DefineType("MemberSitesFixture");
+        MethodBuilder method = type.DefineMethod("Observe", MethodAttributes.Public | MethodAttributes.Static,
+            typeof(void), Type.EmptyTypes);
+        ILGenerator il = method.GetILGenerator();
+        MethodInfo concat = typeof(string).GetMethod(nameof(string.Concat), [typeof(string), typeof(string)])!;
+        ConstructorInfo constructor = typeof(object).GetConstructor(Type.EmptyTypes)!;
+        MemberInfo expectedMember = instruction is "newobj" or "ldtoken-constructor" ? constructor : concat;
+        OpCode expectedOpcode;
+        int expectedOffset = 0;
+        switch (instruction)
+        {
+            case "call":
+                il.Emit(OpCodes.Ldnull);
+                il.Emit(OpCodes.Ldnull);
+                expectedOffset = 2;
+                expectedOpcode = OpCodes.Call;
+                il.Emit(expectedOpcode, concat);
+                break;
+            case "ldftn":
+                expectedOpcode = OpCodes.Ldftn;
+                il.Emit(expectedOpcode, concat);
+                break;
+            case "ldtoken-method":
+                expectedOpcode = OpCodes.Ldtoken;
+                il.Emit(expectedOpcode, concat);
+                break;
+            case "newobj":
+                expectedOpcode = OpCodes.Newobj;
+                il.Emit(expectedOpcode, constructor);
+                break;
+            case "ldtoken-constructor":
+                expectedOpcode = OpCodes.Ldtoken;
+                il.Emit(expectedOpcode, constructor);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(instruction));
+        }
+        il.Emit(OpCodes.Pop);
+        il.Emit(OpCodes.Ret);
+        Type fixture = type.CreateType()!;
+
+        RuntimeMetadataInspection.RuntimeMemberSite site = Assert.Single(
+            RuntimeMetadataInspection.ReadMemberSites(fixture, "Observe"));
+        Assert.Equal(fixture.GetMethod("Observe"), site.Owner);
+        Assert.Equal(expectedOffset, site.Offset);
+        Assert.Equal(expectedOpcode, site.OpCode);
+        Assert.Equal(expectedMember, site.Member);
+    }
+
     private static class RuntimeMetadataCacheFixture
     {
         public static string First() => "cache-first";
@@ -297,6 +356,36 @@ internal static class RuntimeMetadataInspection
             key,
             () => Describe(type, roots, followCallsWithinType: true),
             CanCacheRuntimeDescription(type));
+    }
+
+    public readonly record struct RuntimeMemberSite(MethodBase Owner, int Offset, OpCode OpCode, MemberInfo Member);
+
+    // Instruction sites share the original decoder and state-machine traversal, not textual facts.
+    public static IReadOnlyList<RuntimeMemberSite> ReadMemberSites(Type type, params string[] methodNames)
+    {
+        MethodBase[] roots;
+        if (methodNames.Length == 0)
+        {
+            roots = EnumerateTypeTree(type)
+                .SelectMany(static inspectedType =>
+                {
+                    IEnumerable<MethodBase> members = inspectedType.GetMethods(AllDeclaredMembers)
+                        .Cast<MethodBase>().Concat(inspectedType.GetConstructors(AllDeclaredMembers));
+                    return inspectedType.TypeInitializer is { } initializer ? members.Append(initializer) : members;
+                })
+                .Distinct().ToArray();
+        }
+        else
+        {
+            HashSet<string> requested = methodNames.ToHashSet(StringComparer.Ordinal);
+            roots = type.GetMethods(AllDeclaredMembers).Where(method => requested.Contains(method.Name))
+                .Cast<MethodBase>().ToArray();
+            Assert.Equal(requested.Count, roots.Select(static method => method.Name).Distinct(StringComparer.Ordinal).Count());
+        }
+
+        var sites = new List<RuntimeMemberSite>();
+        _ = Describe(type, roots, followCallsWithinType: true, memberSites: sites);
+        return sites.ToArray();
     }
 
     public static string DescribeMethodClosureContaining(Type type, params string[] requiredFacts)
@@ -621,14 +710,15 @@ internal static class RuntimeMetadataInspection
     private static string Describe(
         Type rootType,
         IEnumerable<MethodBase> roots,
-        bool followCallsWithinType)
+        bool followCallsWithinType,
+        List<RuntimeMemberSite>? memberSites = null)
     {
         Type topLevelType = TopLevelType(rootType);
         var pending = new Queue<MethodBase>(roots);
         var visited = new HashSet<MethodBase>();
         var facts = new List<string>();
 
-        foreach (Type inspectedType in EnumerateTypeTree(rootType))
+        foreach (Type inspectedType in memberSites is null ? EnumerateTypeTree(rootType) : Array.Empty<Type>())
         {
             foreach (FieldInfo field in inspectedType.GetFields(AllDeclaredMembers))
             {
@@ -691,6 +781,7 @@ internal static class RuntimeMetadataInspection
 
             for (int offset = 0; offset < il.Length;)
             {
+                int instructionOffset = offset;
                 OpCode opCode = ReadOpCode(il, ref offset);
                 int operandOffset = offset;
                 int operandSize = OperandSize(opCode.OperandType, il, operandOffset);
@@ -715,6 +806,7 @@ internal static class RuntimeMetadataInspection
                         MemberInfo? member = method.Module.ResolveMember(token, typeArguments, methodArguments);
                         if (member is not null)
                         {
+                            memberSites?.Add(new RuntimeMemberSite(method, instructionOffset, opCode, member));
                             facts.Add(DescribeMember(member));
                             if (followCallsWithinType
                                 && member is MethodBase called
@@ -725,7 +817,7 @@ internal static class RuntimeMetadataInspection
                             }
                         }
                     }
-                    catch (ArgumentException)
+                    catch (ArgumentException) when (memberSites is null)
                     {
                         facts.Add($"metadata-token:0x{token:x8}");
                     }
