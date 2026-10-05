@@ -1002,6 +1002,8 @@ External execution can only be bound via an explicit `FSUSBLOG_EXTERNAL_EVIDENCE
 
 The Migration discovery/evidence helper joins the independent assembly, fully-qualified method and every static theory row to the existing VSTest/TRX readers. Project ownership derives only from `tools/test-inventory/adapters.mjs`'s canonical v2 registry; the helper does not register a second project table or move Migration cases into Server. Missing, duplicate, foreign, dynamic-placeholder, skipped and inconsistent execution identities refuse. These pure joins are not build/source/run/service/cleanup attestations; canonical execution wiring and real engine receipts remain separate obligations.
 
+The existing production build layout allocates separate Migration.Tests and Roslyn adapter project outputs. `tools/test/migration-build-binding.mjs` binds their Release runtime/dependency files, intermediate assemblies/generated source, Migration/Shared dependency closure and current Git source to the original run-bound marker. Only the existing backend-tests or backend-unit producer identity is admitted; crossed namespace, source, owner state, missing/changed/extra artifacts and symlinks refuse. Marker contract tests use explicitly controlled owner states and bytes, not compiler or service evidence; publishing this build marker alone cannot establish execution, cleanup or qualification.
+
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 
 - `release-rollout-state.test.mjs`: 15-stage sequence, rollout identity, failed-stage recovery and resume.
