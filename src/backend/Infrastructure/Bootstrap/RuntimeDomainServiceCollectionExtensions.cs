@@ -196,6 +196,18 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthorArticlePinReconciliationSink, AuthorArticlePinReconciliationSink>();
         services.AddScoped<IAuthorArticlePinProjectionService, AuthorArticlePinProjectionService>();
         services.AddScoped<IAuthorArticlePinApplicationFacade, AuthorArticlePinApplicationFacade>();
+        services.AddScoped<IAuthorRecentArticleHistoryStore, AuthorRecentArticleHistoryStore>();
+        services.AddScoped<SqlAuthorRecentArticleHistoryPermissionAuthority>();
+        services.AddScoped<IAuthorRecentArticleHistoryMutationAuthorizer>(sp =>
+            sp.GetRequiredService<SqlAuthorRecentArticleHistoryPermissionAuthority>());
+        services.AddScoped<IAuthorRecentArticleHistoryPermissionProjectionProvider>(sp =>
+            sp.GetRequiredService<SqlAuthorRecentArticleHistoryPermissionAuthority>());
+        services.AddScoped<IAuthorRecentArticleHistoryCursorCodec, AuthorRecentArticleHistoryCursorCodec>();
+        services.AddSingleton<
+            IAuthorRecentArticleHistoryProjectionCache,
+            DirectAuthorRecentArticleHistoryProjectionCache>();
+        services.AddScoped<IAuthorRecentArticleHistoryProjectionService, AuthorRecentArticleHistoryProjectionService>();
+        services.AddScoped<IAuthorRecentArticleHistoryApplicationFacade, AuthorRecentArticleHistoryApplicationFacade>();
         services.AddScoped<IArticleTemplatePersistence, PostgresArticleTemplatePersistence>();
         services.AddScoped<IArticleTemplateStore, ArticleTemplateStore>();
         services.AddScoped<IArticleTemplatePermissionAuthority, ArticleTemplatePermissionAuthority>();
