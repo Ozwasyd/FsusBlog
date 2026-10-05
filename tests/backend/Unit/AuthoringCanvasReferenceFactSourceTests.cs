@@ -1,5 +1,7 @@
 using FsusBlog.Server.Services.Authoring;
 
+using NSubstitute;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 [Trait("Category", "Unit")]
@@ -63,6 +65,108 @@ public sealed class AuthoringCanvasReferenceFactSourceTests
             facts[1].DisplayProjectionReference);
         Assert.Equal(AuthoringCanvasReferenceCoordinateState.SourceStale, facts[1].CoordinateState);
         Assert.Null(facts[1].ContextSnippet);
+    }
+
+    [Theory]
+    [InlineData(AuthoringCanvasNodeType.ArticleReference)]
+    [InlineData(AuthoringCanvasNodeType.HeadingReference)]
+    [InlineData(AuthoringCanvasNodeType.BlockReference)]
+    public async Task Source_MissingPinnedRevisionRemainsSourceStaleWithoutLatestDisplayOrOpenIntent(
+        AuthoringCanvasNodeType nodeType)
+    {
+        AuthoringCanvasReferenceTarget target = Target(
+            103,
+            nodeType,
+            pinnedRevision: 11,
+            heading: nodeType == AuthoringCanvasNodeType.HeadingReference ? "heading-a" : null,
+            block: nodeType == AuthoringCanvasNodeType.BlockReference ? "block-a" : null);
+        var reader = new DeterministicArticleReader
+        {
+            Records = new Dictionary<int, AuthoringCanvasArticleReferenceRecord>
+            {
+                [103] = Record(
+                    103,
+                    22,
+                    "LATEST DISPLAY MUST NOT ESCAPE",
+                    new AuthoringCanvasArticleRevisionDisplayFact(12, "OTHER PIN MUST NOT ESCAPE", "Other context"))
+            }
+        };
+        var source = new AuthoringCanvasReferenceFactSource(
+            reader,
+            new AuthoringCanvasCoordinateFactProvider([]));
+        AuthoringCanvasReferenceAuthorityCoordinate coordinate = await source.ReadAuthorityCoordinateAsync(
+            s_owner,
+            AuthoringCanvasReferencePermission.ArticleRead);
+        AuthoringCanvasReferenceFact fact = Assert.Single(await source.ReadBatchAsync(Query([target], coordinate)));
+        AuthoringCanvasReferenceContract.ValidateFact(target, fact);
+        Assert.Equal(AuthoringCanvasArticleState.Current, fact.ArticleState);
+        Assert.Equal(AuthoringCanvasReferenceCoordinateState.SourceStale, fact.CoordinateState);
+        Assert.Equal(22, fact.CurrentRevision);
+        Assert.Equal(11, fact.ResolvedRevision);
+        Assert.Null(fact.Title);
+        Assert.Null(fact.ContextSnippet);
+        Assert.Null(fact.StableRoute);
+        Assert.Null(fact.DisplayProjectionReference);
+        Assert.False(fact.TargetChangedSinceProjection);
+
+        var node = new AuthoringCanvasNode(
+            target.NodeId,
+            nodeType,
+            target.TargetArticleId,
+            new AuthoringCanvasGeometry(10, 20, 240, 120),
+            TargetArticleId: target.TargetArticleId,
+            TargetHeadingIdentity: target.TargetHeadingIdentity,
+            TargetBlockIdentity: target.TargetBlockIdentity,
+            PinnedTargetRevision: target.PinnedTargetRevision,
+            DisplayProjectionReference: target.DisplayProjectionReference,
+            ReferenceState: AuthoringCanvasReferenceState.Unresolved);
+        var request = new AuthoringCanvasReferenceResolutionRequest(
+            Guid.CreateVersion7(),
+            Guid.CreateVersion7(),
+            7,
+            CanvasDigest,
+            s_owner,
+            AuthoringCanvasReferencePermission.ArticleRead,
+            [node]);
+        IAuthoringCanvasDocumentStore store = Substitute.For<IAuthoringCanvasDocumentStore>();
+        store.GetAsync(s_owner, request.CanvasId, Arg.Any<CancellationToken>()).Returns(
+            Task.FromResult<AuthoringCanvasDocumentHeader?>(new AuthoringCanvasDocumentHeader(
+                request.CanvasId,
+                s_owner,
+                AuthoringCanvasContract.SchemaVersion,
+                request.CanvasRevision,
+                "Research",
+                new AuthoringCanvasViewport(0, 0, 1),
+                1,
+                0,
+                DateTime.UnixEpoch,
+                DateTime.UnixEpoch,
+                CanvasDigest)));
+        var resolver = new AuthoringCanvasReferenceResolver(
+            store,
+            source,
+            new AuthoringCanvasReferenceProjectionCache(),
+            TimeProvider.System);
+        AuthoringCanvasReferenceResolutionBatch batch = await resolver.ResolveAsync(request);
+        AuthoringCanvasReferenceProjection projection = Assert.Single(batch.Projections);
+        Assert.Equal(AuthoringCanvasReferenceProjectionStatus.SourceStale, projection.Status);
+        Assert.Equal(11, projection.TargetRevision);
+        Assert.Equal(22, projection.CurrentTargetRevision);
+        Assert.Null(projection.Title);
+        Assert.Null(projection.ContextSnippet);
+        Assert.Null(projection.DisplayProjectionReference);
+        Assert.Null(projection.OpenIntent);
+        Assert.False(projection.UpdateAvailable);
+        AuthoringCanvasReferenceResolutionReceiptItem receipt = Assert.Single(batch.Receipt.Items);
+        Assert.Equal(AuthoringCanvasReferenceProjectionStatus.SourceStale, receipt.Status);
+        Assert.Equal(11, receipt.TargetRevision);
+        Assert.Null(receipt.Title);
+        Assert.Null(receipt.ContextSnippet);
+        Assert.Null(receipt.OpenIntent);
+        AuthoringCanvasReferenceVerificationResult verification = await resolver.VerifyAsync(request, batch);
+        Assert.True(verification.Valid);
+        Assert.Empty(verification.Reasons);
+        Assert.Equal(3, reader.BatchReadCount);
     }
 
     [Fact]

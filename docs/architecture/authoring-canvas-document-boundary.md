@@ -94,10 +94,28 @@ the owning block; inaccessible articles, absent revisions and missing content
 return no coordinate, which the resolver projects as `source-stale` rather than
 a guessed fact.
 
+Revision Markdown is read once per distinct revision through a sequential native
+reader and its borrowed connection/transaction. The coordinate scanner consumes
+bounded text chunks, not full Markdown values or full lines; it retains only the
+requested identities (the existing 10,000-node batch limit), including every
+duplicate claim that survives the original grammar. Line state consists of a
+64-character identity suffix plus caret/separator, two bounded context prefixes,
+and lexical counters. Fences remain excluded even when unclosed. LaTeX and
+container regions defer requested claims until their original closing delimiter
+or EOF: at most one pending region of each kind is needed because same-kind
+openers share the same next bare closer. Consequently at most three requested
+claim maps coexist, independent of source length, line length or opener count.
+The existing string scan entry uses the same grammar state machine; production
+uses the requested-only streaming entry. This is an application retention bound,
+not a claim about driver buffering or a physically measured process heap limit.
+
 The cache is non-authoritative and binds document, node, stable target,
 principal, site, permission fingerprint and authority generation. The resolver
 rechecks the document revision and digest after asynchronous fact reads before
-it caches or returns a result. Receipts bind stable heading/block identities,
+it caches or returns a result. It also validates a fresh authority coordinate
+against the initial coordinate before cache writes or return, including cache hits.
+It rechecks the document again after that asynchronous authority read.
+Receipts bind stable heading/block identities,
 authorized title and bounded context, exact revision and the actual open intent.
 An optional target group is carried only in that intent; resolution never
 creates a session or mutates workspace/group state.

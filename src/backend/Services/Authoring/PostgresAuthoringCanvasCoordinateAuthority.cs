@@ -1,3 +1,4 @@
+using System.Data;
 using System.Data.Common;
 
 using FsusBlog.Server.Entities;
@@ -83,24 +84,20 @@ public sealed class PostgresAuthoringCanvasCoordinateAuthority(ISqlSugarClient d
             return facts;
         }
 
-        IReadOnlyDictionary<long, RevisionMarkdownSource> sources =
-            await ReadRevisionSourcesAsync([.. revisionIds], cancellationToken).ConfigureAwait(false);
-        var scans = new Dictionary<long, IReadOnlyDictionary<string, AuthoringCanvasAnchorObservation>>();
-        foreach ((AuthoringCanvasReferenceTarget target, long revision) in resolved)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            if (!sources.TryGetValue(revision, out RevisionMarkdownSource? source)
-                || source.ArticleId != target.TargetArticleId
-                || source.Markdown is null)
-            {
-                continue;
-            }
-            if (!scans.TryGetValue(revision, out IReadOnlyDictionary<string, AuthoringCanvasAnchorObservation>? scan))
-            {
-                scan = AuthoringCanvasAnchorSourceProjection.Scan(source.Markdown);
-                scans.Add(revision, scan);
-            }
+        await ReadRevisionCoordinatesAsync(resolved, [.. revisionIds], facts, cancellationToken).ConfigureAwait(false);
+        // Includes the native reader/command's awaited cleanup, not merely scanner EOF.
+        cancellationToken.ThrowIfCancellationRequested();
+        return facts;
+    }
 
+    private static void ProjectCoordinates(
+        IReadOnlyList<AuthoringCanvasReferenceTarget> targets,
+        long revision,
+        IReadOnlyDictionary<string, AuthoringCanvasAnchorObservation> scan,
+        Dictionary<Guid, AuthoringCanvasCoordinateFact> facts)
+    {
+        foreach (AuthoringCanvasReferenceTarget target in targets)
+        {
             string? identity = target.NodeType == AuthoringCanvasNodeType.HeadingReference
                 ? target.TargetHeadingIdentity
                 : target.TargetBlockIdentity;
@@ -138,7 +135,6 @@ public sealed class PostgresAuthoringCanvasCoordinateAuthority(ISqlSugarClient d
                 state,
                 contextSnippet);
         }
-        return facts;
     }
 
     private static void ValidateTargetShape(AuthoringCanvasReferenceTarget target)
@@ -205,36 +201,73 @@ public sealed class PostgresAuthoringCanvasCoordinateAuthority(ISqlSugarClient d
         return scopes;
     }
 
-    private async Task<IReadOnlyDictionary<long, RevisionMarkdownSource>> ReadRevisionSourcesAsync(
+    private async Task ReadRevisionCoordinatesAsync(
+        IReadOnlyList<(AuthoringCanvasReferenceTarget Target, long Revision)> resolved,
         long[] revisionIds,
+        Dictionary<Guid, AuthoringCanvasCoordinateFact> facts,
         CancellationToken cancellationToken)
     {
-        var sources = new Dictionary<long, RevisionMarkdownSource>(revisionIds.Length);
-        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
-            """
+        var targetsByRevision = resolved.GroupBy(static item => item.Revision)
+            .ToDictionary(static group => group.Key, static group => group.Select(static item => item.Target).ToArray());
+        DbConnection connection = db.Ado.Connection as DbConnection
+            ?? throw new InvalidOperationException("canvas_reference_native_connection_required");
+        if (connection.State != ConnectionState.Open)
+        {
+            await connection.OpenAsync(cancellationToken).ConfigureAwait(false);
+        }
+        // Borrow the existing connection/transaction; only this command, reader and text stream are owned here.
+        await using DbCommand command = connection.CreateCommand();
+        command.CommandTimeout = db.Ado.CommandTimeOut;
+        command.Transaction = db.Ado.Transaction as DbTransaction;
+        if (db.Ado.Transaction is not null && command.Transaction is null)
+        {
+            throw new InvalidOperationException("canvas_reference_native_transaction_required");
+        }
+        command.CommandText = """
             SELECT revision.id, revision.article_id,
                    COALESCE(block.markdown_content, revision.markdown_content) AS markdown_content
             FROM article_revision revision
             LEFT JOIN article_revision_content_block block ON block.id = revision.content_block_id
             WHERE revision.id = ANY(@RevisionIds);
-            """,
-            new SugarParameter("@RevisionIds", revisionIds) { IsArray = true }).ConfigureAwait(false);
+            """;
+        DbParameter revisions = command.CreateParameter();
+        revisions.ParameterName = "@RevisionIds";
+        revisions.Value = revisionIds;
+        command.Parameters.Add(revisions);
+        await using DbDataReader reader = await command.ExecuteReaderAsync(
+            CommandBehavior.SequentialAccess,
+            cancellationToken).ConfigureAwait(false);
         while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
-            long revisionId = reader.GetInt64(reader.GetOrdinal("id"));
-            string? markdown = reader.IsDBNull(reader.GetOrdinal("markdown_content"))
-                ? null
-                : reader.GetString(reader.GetOrdinal("markdown_content"));
-            sources[revisionId] = new RevisionMarkdownSource(
-                reader.GetInt32(reader.GetOrdinal("article_id")),
-                string.IsNullOrEmpty(markdown) ? null : markdown);
+            long revisionId = reader.GetInt64(0);
+            int articleId = reader.GetInt32(1);
+            if (!targetsByRevision.TryGetValue(revisionId, out AuthoringCanvasReferenceTarget[]? targets)
+                || reader.IsDBNull(2))
+            {
+                continue;
+            }
+            AuthoringCanvasReferenceTarget[] matching = targets
+                .Where(target => target.TargetArticleId == articleId).ToArray();
+            if (matching.Length == 0)
+            {
+                continue;
+            }
+            string[] identities = matching.Select(static target =>
+                target.NodeType == AuthoringCanvasNodeType.HeadingReference
+                    ? target.TargetHeadingIdentity!
+                    : target.TargetBlockIdentity!).Distinct(StringComparer.Ordinal).ToArray();
+            using TextReader text = reader.GetTextReader(2);
+            AuthoringCanvasAnchorSourceProjection.ScanResult scan =
+                await AuthoringCanvasAnchorSourceProjection.ScanAsync(text, identities, cancellationToken).ConfigureAwait(false);
+            if (scan.SourceCharacters > 0)
+            {
+                ProjectCoordinates(matching, revisionId, scan.Anchors, facts);
+            }
         }
-        return sources;
     }
 
     private sealed record ArticleCoordinateScope(bool Accessible, bool Current, long CurrentRevision);
 
-    private sealed record RevisionMarkdownSource(int ArticleId, string? Markdown);
 }
 
 /// <summary>
@@ -258,109 +291,240 @@ internal sealed record AuthoringCanvasAnchorObservation(
 /// </summary>
 internal static class AuthoringCanvasAnchorSourceProjection
 {
-    internal static IReadOnlyDictionary<string, AuthoringCanvasAnchorObservation> Scan(
-        string markdown)
+    // The suffix is exactly the existing 64-character identity plus caret and separator.
+    private const int MarkerSuffixLength = 66;
+
+    internal sealed record ScanResult(
+        long SourceCharacters,
+        IReadOnlyDictionary<string, AuthoringCanvasAnchorObservation> Anchors);
+
+    internal static IReadOnlyDictionary<string, AuthoringCanvasAnchorObservation> Scan(string markdown)
     {
         ArgumentNullException.ThrowIfNull(markdown);
-        List<string> lines = SplitLines(markdown);
-        bool[] insideAtomic = MarkAtomicRegionLines(lines);
-        var anchors = new Dictionary<string, (int Claims, bool OwnsHeading, string? Context)>(
-            StringComparer.Ordinal);
-        var claimed = new HashSet<string>(StringComparer.Ordinal);
-        for (int index = 0; index < lines.Count; index++)
+        var scanner = new Scanner(null);
+        foreach (char character in markdown)
         {
-            if (insideAtomic[index])
-            {
-                continue;
-            }
-            string text = lines[index];
-            if (text.StartsWith('^') && !string.Equals(text, "^", StringComparison.Ordinal))
-            {
-                // Exclusive-line marker: valid only directly after an atomic owner block.
-                if (!TryParseMarker(text, out AnchorMarker marker) || !marker.Valid)
-                {
-                    continue;
-                }
-                string? previous = index > 0 ? lines[index - 1] : null;
-                if (previous is null || IsBlank(previous) || !IsAtomicOwnerLine(previous))
-                {
-                    continue;
-                }
-                if (!claimed.Add(marker.Id))
-                {
-                    (int claims, bool heading, string? snippet) = anchors[marker.Id];
-                    anchors[marker.Id] = (claims + 1, heading, snippet);
-                    continue;
-                }
-                string? context = ExclusiveOwnerContext(lines, index - 1);
-                anchors[marker.Id] = (1, false, context);
-                continue;
-            }
+            scanner.Feed(character);
+        }
+        return scanner.Finish().Anchors;
+    }
 
-            if (!TryParseMarker(text, out AnchorMarker trailing) || !trailing.Valid)
+    internal static async Task<ScanResult> ScanAsync(
+        TextReader source,
+        IReadOnlyCollection<string> requestedIdentities,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(source);
+        ArgumentNullException.ThrowIfNull(requestedIdentities);
+        if (requestedIdentities.Count > AuthoringCanvasReferenceContract.MaxBatchSize)
+        {
+            throw new AuthoringCanvasBudgetExceededException("canvas_reference_coordinate_batch_budget_exceeded");
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        var scanner = new Scanner(new HashSet<string>(requestedIdentities, StringComparer.Ordinal));
+        // Reuse the existing snippet limit as a transport chunk, not a source-length ceiling.
+        char[] buffer = new char[AuthoringCanvasReferenceContract.MaxContextSnippetLength];
+        int count;
+        while ((count = await source.ReadAsync(buffer.AsMemory(), cancellationToken).ConfigureAwait(false)) != 0)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            for (int index = 0; index < count; index++)
             {
-                continue;
+                scanner.Feed(buffer[index]);
             }
-            if (trailing.Placement == AnchorMarkerPlacement.LineEnd)
-            {
-                string ownerText = text[..trailing.MarkerStart];
-                if (!IsInlineCapable(ownerText))
-                {
-                    continue;
-                }
-                if (!claimed.Add(trailing.Id))
-                {
-                    (int claims, bool ownsHeading, string? context) = anchors[trailing.Id];
-                    anchors[trailing.Id] = (claims + 1, ownsHeading, context);
-                    continue;
-                }
-                anchors[trailing.Id] = (1, IsHeadingText(ownerText), Snippet(ownerText));
-                continue;
-            }
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        ScanResult result = scanner.Finish();
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
+    }
 
-            // A single-space exclusive marker is accepted by the upstream grammar without an
-            // owner-kind check; its owner is still the directly preceding line when present.
-            if (!claimed.Add(trailing.Id))
+    private sealed class Scanner(HashSet<string>? requested)
+    {
+        private readonly Dictionary<string, AuthoringCanvasAnchorObservation> _anchors = new(StringComparer.Ordinal);
+        private readonly List<PendingRegion> _pending = new(2);
+        private readonly Queue<char> _suffix = new(MarkerSuffixLength);
+        private LineFacts _line = new();
+        private LineSummary? _previous;
+        private string? _lastNonblankContext;
+        private string? _previousContext;
+        private long _sourceCharacters;
+        private char _fenceMarker;
+        private long _fenceLength;
+
+        internal void Feed(char character)
+        {
+            _sourceCharacters++;
+            if (character == '\n')
             {
-                (int claims, bool ownsHeading, string? context) = anchors[trailing.Id];
-                anchors[trailing.Id] = (claims + 1, ownsHeading, context);
-                continue;
+                EndLine();
+                return;
             }
-            string? owner = index > 0 && !IsBlank(lines[index - 1]) ? lines[index - 1] : null;
-            anchors[trailing.Id] = (
-                1,
-                owner is not null && IsHeadingText(owner),
-                owner is null ? null : ExclusiveOwnerContext(lines, index - 1));
+            if (_suffix.Count == MarkerSuffixLength)
+            {
+                _line.Feed(_suffix.Dequeue());
+            }
+            _suffix.Enqueue(character);
         }
 
-        return anchors.ToDictionary(
-            static pair => pair.Key,
-            static pair => new AuthoringCanvasAnchorObservation(
-                pair.Value.Claims,
-                pair.Value.OwnsHeading,
-                pair.Value.Context),
-            StringComparer.Ordinal);
-    }
-
-    private enum AnchorMarkerPlacement
-    {
-        LineEnd = 0,
-        FollowingLine = 1
-    }
-
-    private readonly record struct AnchorMarker(
-        bool Valid,
-        string Id,
-        AnchorMarkerPlacement Placement,
-        int MarkerStart);
-
-    private static bool TryParseMarker(string text, out AnchorMarker marker)
-    {
-        marker = default;
-        int caret = -1;
-        for (int index = text.Length - 1; index >= 0; index--)
+        internal ScanResult Finish()
         {
-            char character = text[index];
+            EndLine(); // SplitLines also includes the final empty line.
+            foreach (PendingRegion region in _pending)
+            {
+                foreach ((string identity, AuthoringCanvasAnchorObservation observation) in region.Claims)
+                {
+                    Merge(_anchors, identity, observation);
+                }
+            }
+            return new ScanResult(_sourceCharacters, _anchors);
+        }
+
+        private void EndLine()
+        {
+            string tail = new(_suffix.ToArray());
+            if (tail.EndsWith('\r'))
+            {
+                tail = tail[..^1];
+            }
+            LineFacts full = _line.Copy();
+            foreach (char character in tail)
+            {
+                full.Feed(character);
+            }
+            LineSummary summary = full.Summarize();
+            Marker? marker = ParseMarker(tail, _line.Length, _line.LastCharacter);
+            LineSummary? owner = null;
+            if (marker is not null)
+            {
+                LineFacts ownerFacts = _line.Copy();
+                foreach (char character in tail.AsSpan(0, marker.Value.Caret))
+                {
+                    ownerFacts.Feed(character);
+                }
+                owner = ownerFacts.Summarize();
+            }
+            ProcessLine(summary, marker, owner);
+            _previousContext = summary.BareOwner ? _lastNonblankContext : summary.Snippet;
+            _previous = summary;
+            if (!summary.Blank)
+            {
+                _lastNonblankContext = summary.Snippet;
+            }
+            _suffix.Clear();
+            _line = new LineFacts();
+        }
+
+        private void ProcessLine(LineSummary line, Marker? marker, LineSummary? owner)
+        {
+            // Lookahead in the original grammar sees a bare outer closer even inside a
+            // tentative inner region/fence. Each kind needs at most one pending opener:
+            // another opener of that kind has exactly the same future first closer.
+            for (int index = 0; index < _pending.Count; index++)
+            {
+                if (line.Closes(_pending[index].Kind))
+                {
+                    _pending.RemoveRange(index, _pending.Count - index);
+                    _fenceMarker = default;
+                    _fenceLength = 0;
+                    return;
+                }
+            }
+            if (_fenceMarker != default)
+            {
+                if (line.FenceMarker == _fenceMarker
+                    && line.FenceLength >= _fenceLength && line.FenceSuffixWhite)
+                {
+                    _fenceMarker = default;
+                    _fenceLength = 0;
+                }
+                return;
+            }
+            if (line.FenceLength >= 3)
+            {
+                _fenceMarker = line.FenceMarker;
+                _fenceLength = line.FenceLength;
+                return;
+            }
+            RegionKind? opener = line.Latex ? RegionKind.Latex
+                : line.ContainerOpen ? RegionKind.Container : null;
+            if (opener is not null && !_pending.Any(region => region.Kind == opener))
+            {
+                _pending.Add(new PendingRegion(opener.Value));
+            }
+            if (marker is null || (requested is not null && !requested.Contains(marker.Value.Id)))
+            {
+                return;
+            }
+            bool heading;
+            string? context;
+            if (line.StartsCaret)
+            {
+                if (_previous is null || _previous.Blank || !_previous.AtomicOwner)
+                {
+                    return;
+                }
+                heading = false;
+                context = _previousContext;
+            }
+            else if (!marker.Value.FollowingLine)
+            {
+                if (owner is null || owner.Blank)
+                {
+                    return;
+                }
+                heading = owner.Heading;
+                context = owner.Snippet;
+            }
+            else
+            {
+                heading = _previous is not null && !_previous.Blank && _previous.Heading;
+                context = _previous is not null && !_previous.Blank ? _previousContext : null;
+            }
+            Dictionary<string, AuthoringCanvasAnchorObservation> claims =
+                _pending.Count == 0 ? _anchors : _pending[^1].Claims;
+            Merge(claims, marker.Value.Id, new AuthoringCanvasAnchorObservation(1, heading, context));
+        }
+
+        private static void Merge(
+            Dictionary<string, AuthoringCanvasAnchorObservation> claims,
+            string identity,
+            AuthoringCanvasAnchorObservation observation)
+        {
+            if (claims.TryGetValue(identity, out AuthoringCanvasAnchorObservation? original))
+            {
+                claims[identity] = original with
+                {
+                    ClaimCount = original.ClaimCount + observation.ClaimCount
+                };
+            }
+            else
+            {
+                claims.Add(identity, observation);
+            }
+        }
+    }
+
+    private enum RegionKind
+    {
+        Latex,
+        Container
+    }
+
+    private sealed class PendingRegion(RegionKind kind)
+    {
+        internal RegionKind Kind { get; } = kind;
+        internal Dictionary<string, AuthoringCanvasAnchorObservation> Claims { get; } = new(StringComparer.Ordinal);
+    }
+
+    private readonly record struct Marker(string Id, int Caret, bool FollowingLine);
+
+    private static Marker? ParseMarker(string suffix, long prefixLength, char prefixLastCharacter)
+    {
+        int caret = -1;
+        for (int index = suffix.Length - 1; index >= 0; index--)
+        {
+            char character = suffix[index];
             if (character == '^')
             {
                 caret = index;
@@ -368,290 +532,247 @@ internal static class AuthoringCanvasAnchorSourceProjection
             }
             if (!(character is (>= 'a' and <= 'z') or (>= 'A' and <= 'Z') or (>= '0' and <= '9') or '-'))
             {
-                return false;
+                return null;
             }
         }
-        if (caret < 0 || caret == text.Length - 1 || text.Length - caret - 1 > 64)
-        {
-            return false;
-        }
-        if (caret > 0 && text[caret - 1] != ' ')
-        {
-            return false;
-        }
-        int matchIndex = caret > 0 ? caret - 1 : 0;
-        string id = text[(caret + 1)..];
-        if (!BlockAnchorId.IsCanonical(id))
-        {
-            // Parsed but non-canonical markers are upstream diagnostics, never anchor claims.
-            marker = new AnchorMarker(false, string.Empty, AnchorMarkerPlacement.LineEnd, caret);
-            return true;
-        }
-        marker = new AnchorMarker(
-            true,
-            id,
-            matchIndex == 0 ? AnchorMarkerPlacement.FollowingLine : AnchorMarkerPlacement.LineEnd,
-            caret);
-        return true;
-    }
-
-    private static List<string> SplitLines(string source)
-    {
-        var lines = new List<string>();
-        int offset = 0;
-        while (offset <= source.Length)
-        {
-            int newline = source.IndexOf('\n', offset);
-            int end = newline < 0 ? source.Length : newline;
-            if (end > offset && source[end - 1] == '\r')
-            {
-                end--;
-            }
-            lines.Add(source[offset..end]);
-            if (newline < 0)
-            {
-                break;
-            }
-            offset = newline + 1;
-        }
-        return lines;
-    }
-
-    private static bool[] MarkAtomicRegionLines(List<string> lines)
-    {
-        var inside = new bool[lines.Count];
-        int index = 0;
-        while (index < lines.Count)
-        {
-            string text = lines[index];
-            if (TryFenceDelimiter(text, out char fenceMarker, out int fenceLength))
-            {
-                int close = -1;
-                for (int cursor = index + 1; cursor < lines.Count; cursor++)
-                {
-                    if (ClosesFence(lines[cursor], fenceMarker, fenceLength))
-                    {
-                        close = cursor;
-                        break;
-                    }
-                }
-                int last = close < 0 ? lines.Count - 1 : close;
-                for (int cursor = index; cursor <= last; cursor++)
-                {
-                    inside[cursor] = true;
-                }
-                index = last + 1;
-                continue;
-            }
-
-            Func<string, bool>? closer = null;
-            if (IsLatexDelimiterLine(text))
-            {
-                closer = static line => IsBareDelimiterLine(line, "$$");
-            }
-            else if (IsContainerOpenLine(text))
-            {
-                closer = static line => IsBareDelimiterLine(line, ":::");
-            }
-            if (closer is not null)
-            {
-                int close = -1;
-                for (int cursor = index + 1; cursor < lines.Count; cursor++)
-                {
-                    if (closer(lines[cursor]))
-                    {
-                        close = cursor;
-                        break;
-                    }
-                }
-                if (close >= 0)
-                {
-                    for (int cursor = index; cursor <= close; cursor++)
-                    {
-                        inside[cursor] = true;
-                    }
-                    index = close + 1;
-                    continue;
-                }
-            }
-            index++;
-        }
-        return inside;
-    }
-
-    private static bool TryFenceDelimiter(string text, out char marker, out int length)
-    {
-        marker = default;
-        length = 0;
-        int start = SkipWhitespace(text, 3);
-        int cursor = start;
-        while (cursor < text.Length && (text[cursor] == '`' || text[cursor] == '~'))
-        {
-            if (marker == default)
-            {
-                marker = text[cursor];
-            }
-            else if (text[cursor] != marker)
-            {
-                break;
-            }
-            cursor++;
-        }
-        length = cursor - start;
-        return marker != default && length >= 3;
-    }
-
-    private static bool ClosesFence(string text, char marker, int openingLength)
-    {
-        int start = SkipWhitespace(text, 3);
-        int cursor = start;
-        while (cursor < text.Length && text[cursor] == marker)
-        {
-            cursor++;
-        }
-        return cursor - start >= openingLength
-            && cursor - start >= 3
-            && text[cursor..].Trim().Length == 0;
-    }
-
-    private static bool IsLatexDelimiterLine(string text)
-        => StartsWithAfterWhitespace(text, "$$");
-
-    private static bool IsContainerOpenLine(string text)
-    {
-        int start = SkipWhitespace(text, 3);
-        return text.AsSpan(start).StartsWith(":::", StringComparison.Ordinal)
-            && text.Length > start + 3
-            && !char.IsWhiteSpace(text[start + 3]);
-    }
-
-    private static bool IsBareDelimiterLine(string text, string delimiter)
-    {
-        int start = SkipWhitespace(text, 3);
-        return text.AsSpan(start).StartsWith(delimiter, StringComparison.Ordinal)
-            && text[(start + delimiter.Length)..].Trim().Length == 0;
-    }
-
-    private static bool IsAtomicOwnerLine(string text)
-        => TryFenceDelimiter(text, out _, out _)
-            || IsLatexDelimiterLine(text)
-            || StartsWithAfterWhitespace(text, ":::")
-            || text.TrimStart().StartsWith('|')
-            || IsRegisteredAtomicLine(text);
-
-    private static bool IsRegisteredAtomicLine(string text)
-    {
-        int start = SkipWhitespace(text, 3);
-        ReadOnlySpan<char> rest = text.AsSpan(start);
-        if (!rest.StartsWith("::", StringComparison.Ordinal) || rest.Length <= 2)
-        {
-            return false;
-        }
-        rest = rest[2..];
-        if (rest.IsEmpty || rest[0] is < 'a' or > 'z')
-        {
-            return false;
-        }
-        int cursor = 1;
-        while (cursor < rest.Length && (rest[cursor] is >= 'a' and <= 'z' or >= '0' and <= '9' or '-'))
-        {
-            cursor++;
-        }
-        return cursor < rest.Length && rest[cursor] == '[';
-    }
-
-    private static bool IsInlineCapable(string ownerText)
-    {
-        if (IsHeadingText(ownerText))
-        {
-            return true;
-        }
-        foreach (char character in ownerText)
-        {
-            if (!char.IsWhiteSpace(character))
-            {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static bool IsHeadingText(string text)
-    {
-        int cursor = 0;
-        while (cursor < text.Length && text[cursor] == '#')
-        {
-            cursor++;
-        }
-        if (cursor is < 1 or > 6 || cursor >= text.Length || !char.IsWhiteSpace(text[cursor]))
-        {
-            return false;
-        }
-        while (cursor < text.Length && char.IsWhiteSpace(text[cursor]))
-        {
-            cursor++;
-        }
-        return cursor < text.Length;
-    }
-
-    private static string? ExclusiveOwnerContext(List<string> lines, int ownerIndex)
-    {
-        string owner = lines[ownerIndex];
-        if (IsBareDelimiterLine(owner, "```")
-            || IsBareDelimiterLine(owner, "~~~")
-            || IsBareDelimiterLine(owner, "$$")
-            || IsBareDelimiterLine(owner, ":::"))
-        {
-            for (int cursor = ownerIndex - 1; cursor >= 0; cursor--)
-            {
-                if (!IsBlank(lines[cursor]))
-                {
-                    return Snippet(lines[cursor]);
-                }
-            }
-            return null;
-        }
-        return Snippet(owner);
-    }
-
-    private static string? Snippet(string ownerText)
-    {
-        string candidate = ownerText.Trim();
-        if (IsHeadingText(candidate))
-        {
-            int cursor = 0;
-            while (cursor < candidate.Length && candidate[cursor] == '#')
-            {
-                cursor++;
-            }
-            candidate = candidate[cursor..].Trim();
-        }
-        if (candidate.Length == 0
-            || candidate.Any(static character => char.IsControl(character)
-                && character is not '\n' and not '\r' and not '\t')
-            || candidate.Contains('<', StringComparison.Ordinal)
-            || candidate.Contains('>', StringComparison.Ordinal))
+        if (caret < 0 || caret == suffix.Length - 1 || suffix.Length - caret - 1 > 64
+            || (caret > 0 && suffix[caret - 1] != ' ')
+            || (caret == 0 && prefixLength > 0 && prefixLastCharacter != ' '))
         {
             return null;
         }
-        return candidate.Length <= AuthoringCanvasReferenceContract.MaxContextSnippetLength
-            ? candidate
-            : candidate[..AuthoringCanvasReferenceContract.MaxContextSnippetLength];
+        string identity = suffix[(caret + 1)..];
+        return BlockAnchorId.IsCanonical(identity)
+            ? new Marker(identity, caret, prefixLength + caret <= 1)
+            : null;
     }
 
-    private static int SkipWhitespace(string text, int maximum)
+    private sealed record LineSummary(
+        bool Blank,
+        bool Heading,
+        bool StartsCaret,
+        char FenceMarker,
+        long FenceLength,
+        bool FenceSuffixWhite,
+        bool Latex,
+        bool ContainerOpen,
+        bool AtomicOwner,
+        bool BareOwner,
+        bool BareLatex,
+        bool BareContainer,
+        string? Snippet)
     {
-        int cursor = 0;
-        while (cursor < text.Length && cursor < maximum && char.IsWhiteSpace(text[cursor]))
-        {
-            cursor++;
-        }
-        return cursor;
+        internal bool Closes(RegionKind kind) => kind == RegionKind.Latex ? BareLatex : BareContainer;
     }
 
-    private static bool StartsWithAfterWhitespace(string text, string token)
-        => text.AsSpan(SkipWhitespace(text, 3)).StartsWith(token, StringComparison.Ordinal);
+    // Constant-size lexical state, two bounded snippet prefixes, and counters only.
+    // No complete line, opening-token string, region stack, or unrequested-ID roster.
+    private sealed class LineFacts
+    {
+        private readonly char[] _start = new char[4];
+        private readonly bool[] _bare = [true, true, true, true];
+        private static readonly string[] s_bareTokens = ["\u0060\u0060\u0060", "~~~", "$$", ":::"];
+        private readonly SnippetPrefix _plain = new();
+        private readonly SnippetPrefix _headingBody = new();
+        private int _skipped;
+        private bool _syntaxStarted;
+        private long _syntaxLength;
+        private bool _blank = true;
+        private bool _startsCaret;
+        private bool _pipe;
+        private int _rawHeadingState;
+        private int _rawHashes;
+        private int _trimHeadingState;
+        private int _trimHashes;
+        private int _registeredState;
+        private bool _registered;
+        private char _fenceMarker;
+        private long _fenceLength;
+        private bool _fenceRun = true;
+        private bool _fenceSuffixWhite = true;
+        internal long Length
+        {
+            get; private set;
+        }
+        internal char LastCharacter
+        {
+            get; private set;
+        }
 
-    private static bool IsBlank(string text)
-        => string.IsNullOrWhiteSpace(text);
+        internal LineFacts Copy()
+        {
+            var copy = new LineFacts();
+            Array.Copy(_start, copy._start, _start.Length);
+            Array.Copy(_bare, copy._bare, _bare.Length);
+            copy._plain.CopyFrom(_plain);
+            copy._headingBody.CopyFrom(_headingBody);
+            copy._skipped = _skipped;
+            copy._syntaxStarted = _syntaxStarted;
+            copy._syntaxLength = _syntaxLength;
+            copy._blank = _blank;
+            copy._startsCaret = _startsCaret;
+            copy._pipe = _pipe;
+            copy._rawHeadingState = _rawHeadingState;
+            copy._rawHashes = _rawHashes;
+            copy._trimHeadingState = _trimHeadingState;
+            copy._trimHashes = _trimHashes;
+            copy._registeredState = _registeredState;
+            copy._registered = _registered;
+            copy._fenceMarker = _fenceMarker;
+            copy._fenceLength = _fenceLength;
+            copy._fenceRun = _fenceRun;
+            copy._fenceSuffixWhite = _fenceSuffixWhite;
+            copy.Length = Length;
+            copy.LastCharacter = LastCharacter;
+            return copy;
+        }
+
+        internal void Feed(char character)
+        {
+            bool whitespace = char.IsWhiteSpace(character);
+            if (Length == 0)
+            {
+                _startsCaret = character == '^';
+            }
+            AdvanceHeading(character, ref _rawHeadingState, ref _rawHashes);
+            if (_blank && !whitespace)
+            {
+                _pipe = character == '|';
+            }
+            if (!_blank || !whitespace)
+            {
+                AdvanceHeading(character, ref _trimHeadingState, ref _trimHashes);
+                if (_trimHeadingState == 3)
+                {
+                    _headingBody.Feed(character);
+                }
+            }
+            _blank &= whitespace;
+            _plain.Feed(character);
+            Length++;
+            LastCharacter = character;
+
+            if (!_syntaxStarted && _skipped < 3 && whitespace)
+            {
+                _skipped++;
+                return;
+            }
+            _syntaxStarted = true;
+            long index = _syntaxLength++;
+            if (index < _start.Length)
+            {
+                _start[(int)index] = character;
+            }
+            for (int tokenIndex = 0; tokenIndex < s_bareTokens.Length; tokenIndex++)
+            {
+                string token = s_bareTokens[tokenIndex];
+                _bare[tokenIndex] &= index < token.Length ? character == token[(int)index] : whitespace;
+            }
+            if (index == 0 && character is '\u0060' or '~')
+            {
+                _fenceMarker = character;
+            }
+            if (_fenceRun && _fenceMarker != default && character == _fenceMarker)
+            {
+                _fenceLength++;
+            }
+            else
+            {
+                _fenceRun = false;
+                _fenceSuffixWhite &= whitespace;
+            }
+            _registeredState = _registeredState switch
+            {
+                0 when character == ':' => 1,
+                1 when character == ':' => 2,
+                2 when character is >= 'a' and <= 'z' => 3,
+                3 when character is >= 'a' and <= 'z' or >= '0' and <= '9' or '-' => 3,
+                3 when character == '[' => 4,
+                _ => -1
+            };
+            _registered |= _registeredState == 4;
+        }
+
+        internal LineSummary Summarize()
+        {
+            bool latex = _syntaxLength >= 2 && _start[0] == '$' && _start[1] == '$';
+            bool container = _syntaxLength >= 3 && _start[0] == ':' && _start[1] == ':' && _start[2] == ':';
+            bool bareLatex = _syntaxLength >= 2 && _bare[2];
+            bool bareContainer = _syntaxLength >= 3 && _bare[3];
+            bool bareFence = _syntaxLength >= 3 && (_bare[0] || _bare[1]);
+            return new LineSummary(
+                _blank, _rawHeadingState == 3, _startsCaret,
+                _fenceMarker, _fenceLength, _fenceSuffixWhite,
+                latex, container && _syntaxLength > 3 && !char.IsWhiteSpace(_start[3]),
+                _fenceLength >= 3 || latex || container || _pipe || _registered,
+                bareFence || bareLatex || bareContainer, bareLatex, bareContainer,
+                _trimHeadingState == 3 ? _headingBody.Value() : _plain.Value());
+        }
+
+        private static void AdvanceHeading(char character, ref int state, ref int hashes)
+        {
+            if (state == 0)
+            {
+                if (character == '#')
+                {
+                    hashes = Math.Min(hashes + 1, 7);
+                }
+                else
+                {
+                    state = hashes is >= 1 and <= 6 && char.IsWhiteSpace(character) ? 2 : -1;
+                }
+            }
+            else if (state == 2 && !char.IsWhiteSpace(character))
+            {
+                state = 3;
+            }
+        }
+    }
+
+    private sealed class SnippetPrefix
+    {
+        private readonly char[] _prefix = new char[AuthoringCanvasReferenceContract.MaxContextSnippetLength];
+        private long _length;
+        private long _lastNonWhitespace;
+        private bool _unsafe;
+        private bool _pendingUnsafeWhitespace;
+
+        internal void CopyFrom(SnippetPrefix original)
+        {
+            Array.Copy(original._prefix, _prefix, _prefix.Length);
+            _length = original._length;
+            _lastNonWhitespace = original._lastNonWhitespace;
+            _unsafe = original._unsafe;
+            _pendingUnsafeWhitespace = original._pendingUnsafeWhitespace;
+        }
+
+        internal void Feed(char character)
+        {
+            bool whitespace = char.IsWhiteSpace(character);
+            if (_length == 0 && whitespace)
+            {
+                return;
+            }
+            bool unsafeControl = char.IsControl(character) && character is not '\n' and not '\r' and not '\t';
+            if (whitespace)
+            {
+                _pendingUnsafeWhitespace |= unsafeControl;
+            }
+            else
+            {
+                _unsafe |= _pendingUnsafeWhitespace || unsafeControl || character is '<' or '>';
+                _pendingUnsafeWhitespace = false;
+                _lastNonWhitespace = _length + 1;
+            }
+            if (_length < _prefix.Length)
+            {
+                _prefix[(int)_length] = character;
+            }
+            _length++;
+        }
+
+        internal string? Value()
+            => _unsafe || _lastNonWhitespace == 0 ? null
+                : new string(_prefix, 0, (int)Math.Min(_lastNonWhitespace, _prefix.Length));
+    }
 }
