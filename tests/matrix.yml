@@ -2638,7 +2638,7 @@ tiers:
       owner: ServerContractAgent
       command: tools/test/lanes/backend-unit.sh
       executionDependsOn: [backend-build-governance]
-      services: []
+      services: [mysql]
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
       phase: 1
