@@ -1,3 +1,5 @@
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Algorithms;
@@ -9,6 +11,67 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class BackendGoldenCatalogTests
 {
     private const string GoldenCatalogPath = "tests/backend/Fixtures/aeds-golden-catalog.json";
+    private const int RetainedFrameCount = 236;
+    private const string RetainedFrameOracleSha256 = "14186d7a265c139b9e45a3f631d2761654c73952de0c576507167940b8d87407";
+
+    [Fact]
+    public void AedsGoldenCatalog_RetainsIndependentNumericFamilyAndOrderOracle()
+    {
+        JsonArray frames = ReadGoldenCatalog()["frames"]!.AsArray();
+
+        Assert.True(frames.Count >= RetainedFrameCount);
+        Assert.Equal(RetainedFrameOracleSha256, ComputeRetainedFrameOracleDigest(frames));
+    }
+
+    [Theory]
+    [InlineData("FontRegistryList", 244, "font-registry-response")]
+    [InlineData("FontRegistryDetail", 245, "font-registry-response")]
+    [InlineData("FontActivationList", 246, "font-activation-response")]
+    [InlineData("ThemeRegistryList", 247, "theme-registry-response")]
+    [InlineData("ThemeRegistryDetail", 248, "theme-registry-response")]
+    [InlineData("ThemeActivationList", 249, "theme-activation-response")]
+    [InlineData("ThemeActivation", 250, "theme-activation-response")]
+    [InlineData("ThemeActivationHistory", 252, "theme-activation-response")]
+    public void AedsGoldenCatalog_FontAndThemeFramesRetainIndependentLiteralOracles(
+        string frameName,
+        int expectedValue,
+        string expectedFamily)
+    {
+        JsonObject frame = ReadGoldenCatalog()["frames"]!.AsArray()
+            .Select(static entry => entry!.AsObject())
+            .Single(entry => entry["name"]!.GetValue<string>() == frameName);
+
+        Assert.Equal(expectedValue, frame["value"]!.GetValue<int>());
+        Assert.Equal(expectedValue, (int)Enum.Parse<AedsFrameType>(frameName));
+        Assert.Equal(expectedFamily, frame["family"]!.GetValue<string>());
+    }
+
+    [Theory]
+    [InlineData("number")]
+    [InlineData("family")]
+    [InlineData("order")]
+    public void AedsGoldenCatalog_IndependentOracleRejectsOtherwiseLegalRetainedFrameTamper(string mutation)
+    {
+        JsonArray frames = ReadGoldenCatalog()["frames"]!.AsArray();
+        switch (mutation)
+        {
+            case "number":
+                frames.Single(static frame => frame!["name"]!.GetValue<string>() == "ArticleHot")!["value"] = 65535;
+                break;
+            case "family":
+                frames[0]!["family"] = "test-response";
+                break;
+            case "order":
+                JsonNode first = frames[0]!;
+                frames.RemoveAt(0);
+                frames.Insert(1, first);
+                break;
+            default:
+                throw new ArgumentOutOfRangeException(nameof(mutation));
+        }
+
+        Assert.NotEqual(RetainedFrameOracleSha256, ComputeRetainedFrameOracleDigest(frames));
+    }
 
     [Fact]
     public void AedsGoldenCatalog_CoversEveryGeneratedFrameType()
@@ -109,4 +172,24 @@ public sealed class BackendGoldenCatalogTests
 
     private static JsonObject ReadGoldenCatalog()
         => BackendTestPaths.ReadJsonFromRoot(GoldenCatalogPath);
+
+    private static string ComputeRetainedFrameOracleDigest(JsonArray frames)
+    {
+        // This TestOwner seal is captured from the original fixture, never from a regenerated manifest.
+        using var output = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(output))
+        {
+            writer.WriteStartArray();
+            foreach (JsonNode? frame in frames.Take(RetainedFrameCount))
+            {
+                writer.WriteStartObject();
+                writer.WriteString("name", frame!["name"]!.GetValue<string>());
+                writer.WriteNumber("value", frame["value"]!.GetValue<int>());
+                writer.WriteString("family", frame["family"]!.GetValue<string>());
+                writer.WriteEndObject();
+            }
+            writer.WriteEndArray();
+        }
+        return Convert.ToHexStringLower(SHA256.HashData(output.ToArray()));
+    }
 }

@@ -242,7 +242,7 @@ internal static class OpenApiObservationHost
                 operations.Add(publicArtifact);
             }
 
-            CompiledEndpointContractCensus.Validate(census, requireExactIssue3177Exceptions: true);
+            CompiledEndpointContractCensus.Validate(census);
 
             return operations
                 .OrderBy(static item => item.Method, StringComparer.Ordinal)
@@ -331,8 +331,8 @@ internal static class OpenApiObservationHost
         builder.Services.RemoveAll<IHostedService>();
 
         WebApplication app = builder.Build();
-        // Register the full production binary route surface. The census below must
-        // observe legacy JSON implementations as non-AEDS until their owner migrates them.
+        // Register the full production binary route surface so the census rejects
+        // every non-AEDS implementation, including regressions in migrated routes.
         app.MapBinaryEndpoints();
         app.MapAuthoringEndpoints();
         app.MapSecurityEndpoints();

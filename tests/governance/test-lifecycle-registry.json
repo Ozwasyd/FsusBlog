@@ -6,6 +6,17 @@
     },
     "nodeTests": [
         {
+            "file": "tests/tools/aeds-protocol-generation.test.mjs",
+            "owner": "matrix-tier:backend-golden",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",

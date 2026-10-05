@@ -545,29 +545,13 @@ internal static class CompiledEndpointContractObserver
 
 internal static class CompiledEndpointContractCensus
 {
-    private static readonly IReadOnlySet<string> s_issue3177NonAedsRoutes = new HashSet<string>(
-        [
-            "GET /api/binary/author/ops/fonts/activations",
-            "GET /api/binary/author/ops/fonts/registry",
-            "GET /api/binary/author/ops/fonts/registry/{fontId}",
-            "GET /api/binary/author/ops/themes/activations",
-            "GET /api/binary/author/ops/themes/activations/{scope}",
-            "GET /api/binary/author/ops/themes/activations/{scope}/history",
-            "GET /api/binary/author/ops/themes/registry",
-            "GET /api/binary/author/ops/themes/registry/{themeId}"
-        ],
-        StringComparer.Ordinal);
-
-    public static void Validate(
-        IReadOnlyList<(string Key, CompiledEndpointContract Contract)> routes,
-        bool requireExactIssue3177Exceptions = false)
+    public static void Validate(IReadOnlyList<(string Key, CompiledEndpointContract Contract)> routes)
     {
         (string Key, CompiledEndpointContract Contract)[] nonAeds = routes
             .Where(static item => !item.Contract.IsAeds)
             .OrderBy(static item => item.Key, StringComparer.Ordinal)
             .ToArray();
         string[] unexpected = nonAeds
-            .Where(item => !s_issue3177NonAedsRoutes.Contains(item.Key))
             .Select(static item => $"{item.Key} requestFrame={item.Contract.RequestFrame ?? "none"} "
                 + $"responseFrame={item.Contract.ResponseFrame ?? "none"} errorFrame={item.Contract.ErrorFrame ?? "none"} "
                 + $"successStatus={item.Contract.SuccessStatus?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none"} "
@@ -579,26 +563,6 @@ internal static class CompiledEndpointContractCensus
             throw new InvalidOperationException(
                 $"production /api/binary census found {unexpected.Length} unexpected non-AEDS route(s):\n"
                 + string.Join('\n', unexpected));
-        }
-
-        string[] issue3177Observed = nonAeds
-            .Select(static item => item.Key)
-            .Where(s_issue3177NonAedsRoutes.Contains)
-            .ToArray();
-        if (requireExactIssue3177Exceptions
-            && !issue3177Observed.SequenceEqual(s_issue3177NonAedsRoutes.Order(StringComparer.Ordinal)))
-        {
-            throw new InvalidOperationException(
-                "pre-#3177 non-AEDS exception set drift: expected="
-                + string.Join(',', s_issue3177NonAedsRoutes.Order(StringComparer.Ordinal))
-                + " observed="
-                + string.Join(',', issue3177Observed));
-        }
-        if (issue3177Observed.Length > 0)
-        {
-            Console.Error.WriteLine(
-                $"[openapi-observation] pre-#3177 known non-AEDS routes excluded count={issue3177Observed.Length}: "
-                + string.Join(',', issue3177Observed));
         }
     }
 }
