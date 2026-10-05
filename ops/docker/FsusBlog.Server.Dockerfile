@@ -290,6 +290,24 @@ RUN dotnet publish "./FsusBlog.Server.csproj" \
     /p:PublishReadyToRun=false
 
 ## =========================================================================
+# Independent offline tool; never part of the Server publish directory/graph.
+## =========================================================================
+FROM build-${RUNTIME_BASE_FLAVOR} AS migration-build
+ARG BUILD_CONFIGURATION=Release
+ARG TARGET_RUNTIME=linux-musl-x64
+ARG FSUSBLOG_COMMIT_SHA=0000000000000000000000000000000000000000
+WORKDIR /src
+RUN for input in /.editorconfig /.globalconfig /Directory.Build.props /Directory.Build.targets /Directory.Packages.props /NuGet.Config /NuGet.config /nuget.config /global.json; do test ! -e "$input" && test ! -L "$input" || exit 1; done
+COPY --from=backend-inputs /migration/restore/ /src/
+RUN test "$(cat /src/.migration-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$FSUSBLOG_COMMIT_SHA")"
+RUN dotnet restore "./src/migration/FsusBlog.Migration.csproj" --configfile /src/config/build/backend-restore.xml --runtime "$TARGET_RUNTIME" /p:Configuration="$BUILD_CONFIGURATION" /p:SelfContained=true /p:UseAppHost=false /p:PublishSingleFile=false /p:PublishTrimmed=false /p:PublishReadyToRun=false /p:ReadyToRunUseCrossgen2=false /p:FsusBlogCommitSha="$FSUSBLOG_COMMIT_SHA"
+
+FROM migration-build AS migration-publish
+COPY --from=backend-inputs /migration/compile/ /src/
+RUN test "$(cat /src/.migration-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$FSUSBLOG_COMMIT_SHA")"
+RUN dotnet publish "./src/migration/FsusBlog.Migration.csproj" -c "$BUILD_CONFIGURATION" -r "$TARGET_RUNTIME" -o /app/migration-publish --no-restore --self-contained true /p:RestoreConfigFile=/src/config/build/backend-restore.xml /p:UseAppHost=false /p:PublishSingleFile=false /p:PublishTrimmed=false /p:PublishReadyToRun=false /p:ReadyToRunUseCrossgen2=false /p:FsusBlogCommitSha="$FSUSBLOG_COMMIT_SHA"
+
+## =========================================================================
 # 阶段 3：前端 Vue 构建
 # Release 镜像只消费外部准备好的 wasm 工件包。
 ## =========================================================================
@@ -458,6 +476,13 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
       curl -fsS -H "Host: $host" http://127.0.0.1:8080/health/live >/dev/null || exit 1
 
 ENTRYPOINT ["./FsusBlog.Server"]
+
+## =========================================================================
+# Task-only image. Inherits the unchanged Server entrypoint, not an auto-migrate command.
+## =========================================================================
+FROM final AS current-native-task
+COPY --from=migration-publish --chown=$APP_UID:$APP_UID /app/migration-publish /app/tools/migration
+LABEL io.fsusblog.task.tool-contract="fsusblog.current-native-task-tool-image.v1"
 
 ## =========================================================================
 # 阶段 5：Debug 最终镜像（仅后端，不含前端 release 构建产物）

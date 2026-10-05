@@ -12,6 +12,53 @@ export const productionBuildLifecycleSchema = 'fsusblog.ci-production-build-life
 export const productionBuildConsumerMaterializationVerificationSchema =
     'fsusblog.ci-production-build-consumer-materialization-verification.v1';
 
+// Original final-image producer supplies only its actual task-image file measurement.
+// This package binding is not a native capability, default-host configuration or receipt issuer.
+export function createCurrentNativeTaskToolImageBinding({ sourceCommit, imageId, targetRuntime, measurement })
+{
+    if (!/^[a-f0-9]{40}$/u.test(sourceCommit ?? '') || /^0{40}$/u.test(sourceCommit)
+        || !/^sha256:[a-f0-9]{64}$/u.test(imageId ?? '')
+        || !['linux-x64', 'linux-musl-x64', 'linux-arm64', 'linux-musl-arm64'].includes(targetRuntime)
+        || typeof measurement !== 'string')
+    {
+        throw new Error('task tool package image/source/runtime identity is incomplete');
+    }
+    const artifacts = [];
+    const seen = new Set();
+    for (const line of measurement.trimEnd().split('\n'))
+    {
+        const match = /^([a-f0-9]{64})\t(0|[1-9][0-9]*)\t([A-Za-z0-9_.@/-]+)$/u.exec(line);
+        if (!match || !Number.isSafeInteger(Number(match[2])))
+        {
+            throw new Error('task tool package file measurement is invalid');
+        }
+        const relativePath = match[3];
+        if (relativePath.startsWith('/') || relativePath.split('/').some(part => !part || part === '.' || part === '..')
+            || seen.has(relativePath))
+        {
+            throw new Error('task tool package file path is unsafe or duplicated');
+        }
+        seen.add(relativePath);
+        artifacts.push({ path: `/app/tools/migration/${relativePath}`, bytes: Number(match[2]), sha256: `sha256:${match[1]}` });
+    }
+    for (const required of ['FsusBlog.Migration.dll', 'FsusBlog.Migration.deps.json', 'FsusBlog.Migration.runtimeconfig.json'])
+    {
+        if (!seen.has(required) || artifacts.find(item => item.path === `/app/tools/migration/${required}`).bytes === 0)
+        {
+            throw new Error(`task tool package is missing ${required}`);
+        }
+    }
+    const binding = { schema: 'fsusblog.current-native-task-tool-image.v1',
+        target: 'current-native-task', sourceCommit, imageId, targetRuntime,
+        tool: { project: 'src/migration/FsusBlog.Migration.csproj', directory: '/app/tools/migration',
+            assembly: '/app/tools/migration/FsusBlog.Migration.dll',
+            assemblySha256: artifacts.find(item => item.path === '/app/tools/migration/FsusBlog.Migration.dll').sha256 },
+        artifacts: artifacts.sort((left, right) => compareArtifactPaths(left.path, right.path)),
+        serverEntryPoint: ['./FsusBlog.Server'], deployableProductionRelease: false,
+        nativeCapabilityConfiguration: 'not-observed', nativeQualification: false };
+    return { ...binding, contentDigest: contentDigest(binding) };
+}
+
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function canonicalize(value)
@@ -195,6 +242,23 @@ function digestInput(root, declaration)
         size: entries.reduce((sum, entry) => sum + entry.size, 0),
         sha256: sha256Buffer(JSON.stringify(entries))
     };
+}
+
+// Reuse the production owner's complete regular-file inventory for retained SDK
+// inputs. Version strings and a selected handful of executables are not this tree.
+export function collectProductionInputTree(root)
+{
+    const absolute = path.resolve(root);
+    if (fs.realpathSync(absolute) !== absolute || !fs.lstatSync(absolute).isDirectory())
+    {
+        throw new Error('production input tree must be a canonical non-symlink directory');
+    }
+    const files = walkRootFiles(absolute, 'production input tree').sort();
+    if (files.length === 0)
+    {
+        throw new Error('production input tree must not be empty');
+    }
+    return files.map(relative => fileRecord(absolute, relative));
 }
 
 function validateSourceState(sourceState)

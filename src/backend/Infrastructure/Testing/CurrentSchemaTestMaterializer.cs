@@ -6,6 +6,8 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Contracts.Schema;
+using FsusBlog.Shared.Algorithms.Schema;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Security;
 
@@ -296,7 +298,7 @@ public static class CurrentSchemaTestMaterializer
         bool preparedPublished = false;
         bool verifiedPublished = false;
         bool committed = false;
-        await db.Ado.BeginTranAsync().ConfigureAwait(false);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead).ConfigureAwait(false);
         try
         {
             await ValidateLivePostgresInstanceAsync(db, serviceIdentity.PostgresInstance, cancellationToken)
@@ -306,9 +308,14 @@ public static class CurrentSchemaTestMaterializer
             db.CodeFirst.InitTables(entityTypes.ToArray());
             await CurrentSchemaRuntimeRollupTables.ApplyEnsureTableStepsAsync(db, cancellationToken)
                 .ConfigureAwait(false);
+            // Test-only materialization uses the same current control facts as
+            // offline Core; production startup never creates this table.
+            await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(
+                (System.Data.Common.DbConnection)db.Ado.Connection,
+                (System.Data.Common.DbTransaction)db.Ado.Transaction, cancellationToken).ConfigureAwait(false);
 
-            var verifier = new CurrentSchemaStartupVerifier(db, inspector);
-            await verifier.RunAsync(cancellationToken).ConfigureAwait(false);
+            var observer = new CurrentSchemaReadObserver(db, inspector);
+            CurrentSchemaReadObservation observation = await observer.ReadAsync(cancellationToken).ConfigureAwait(false);
             SchemaModelSnapshot actual = await inspector.ReadActualModelAsync(db, cancellationToken).ConfigureAwait(false);
             string observedDatabaseDigest = CurrentSchemaCanonicalAuthority.ComputeObservationDigest(actual.Tables);
             string[] tables = actual.Tables.Keys.Order(StringComparer.Ordinal).ToArray();
@@ -328,7 +335,7 @@ public static class CurrentSchemaTestMaterializer
                 options.SourceCommit,
                 serviceIdentity,
                 databaseIdentity,
-                canonical.Identity,
+                observation.CanonicalIdentity,
                 observedDatabaseDigest,
                 tables.Length,
                 tables,

@@ -66,7 +66,15 @@ RequireCommand bwrap
 RequireCommand git
 RequireCommand node
 [[ -n "${GITHUB_PACKAGES_TOKEN:-}" ]] || Fail "GITHUB_PACKAGES_TOKEN is required"
-[[ "$TARGET" == "final" ]] || Fail "production release manifest only supports Docker target final"
+TASK_TOOL_ARGS=()
+case "$TARGET" in
+    final) ;;
+    current-native-task)
+        [[ "$LOCAL_ONLY" == "1" && "$PUSH_IMAGE" == "0" ]] || Fail "current-native-task is local task-only, never a production release"
+        TASK_TOOL_ARGS=(--tool migration)
+        ;;
+    *) Fail "production release manifest only supports Docker target final" ;;
+esac
 [[ "$IMAGE_REPOSITORY" =~ ^[a-z0-9]+([._/-][a-z0-9]+)*(:[0-9]+(/[a-z0-9]+([._/-][a-z0-9]+)*)?)?$ ]] ||
     Fail "FSUSBLOG_FINAL_IMAGE_REPOSITORY must be an untagged lowercase repository"
 if [[ "$PUSH_IMAGE" == "$LOCAL_ONLY" ]]; then
@@ -102,6 +110,10 @@ done
 
 if [[ -z "$COMMIT_SHA" ]]; then
     COMMIT_SHA="$(git -C "$ROOT_DIR" rev-parse HEAD)"
+fi
+if [[ "$TARGET" == "current-native-task" ]]; then
+    [[ "$COMMIT_SHA" == "$(git -C "$ROOT_DIR" rev-parse HEAD)" && -z "$(git -C "$ROOT_DIR" status --porcelain --untracked-files=no)" ]] ||
+        Fail "task tool package requires exact tracked-clean current source"
 fi
 COMMIT_SHA="${COMMIT_SHA,,}"
 [[ "$COMMIT_SHA" =~ ^[0-9a-f]{40}$ ]] || Fail "FSUSBLOG_COMMIT_SHA must be a full lowercase Git SHA"
@@ -219,6 +231,7 @@ node "$ROOT_DIR/tools/docker/backend-input-closure.mjs" materialize \
     --target publish --single-file "$PUBLISH_SINGLE_FILE" --tiered-pgo "$TIERED_PGO" \
     --quick-jit-for-loops "$QUICK_JIT_FOR_LOOPS" --server-gc "$SERVER_GC" \
     --release-id "$RELEASE_ID" --commit-sha "$COMMIT_SHA" \
+    "${TASK_TOOL_ARGS[@]}" \
     --output "$BACKEND_INPUT_CONTEXT"
 
 if [[ "${FSUSBLOG_FINAL_SKIP_WASM:-0}" == "1" ]]; then
@@ -366,6 +379,36 @@ node_contract="$(docker run --rm --entrypoint sh "$IMAGE_TAG" -c 'set -eu; node 
 Log "verified image toolchain identity: runtime=$DOTNET_RUNTIME_VERSION sdk=$DOTNET_SDK_VERSION node=$NODE_VERSION base=$EXPECTED_RUNTIME_BASE_DIGEST"
 
 if [[ "$LOCAL_ONLY" == "1" ]]; then
+    if [[ "$TARGET" == "current-native-task" ]]; then
+        task_tool_contract="$(docker image inspect "$image_id" --format '{{index .Config.Labels "io.fsusblog.task.tool-contract"}}')" || Fail "task tool image contract could not be observed"
+        [[ "$task_tool_contract" == "fsusblog.current-native-task-tool-image.v1" ]] || Fail "task tool image contract version mismatch"
+        task_tool_files="$(docker run --rm --network none --read-only --cap-drop ALL --entrypoint sh "$image_id" -c '
+            set -eu
+            cd /app/tools/migration
+            test -f FsusBlog.Migration.dll
+            test -f FsusBlog.Migration.deps.json
+            test -f FsusBlog.Migration.runtimeconfig.json
+            test -z "$(find . -type l -print)"
+            test -z "$(find . ! -type d ! -type f -print)"
+            find . -type f -print | LC_ALL=C sort | while IFS= read -r file; do
+                hash=$(sha256sum "$file"); hash=${hash%% *}
+                bytes=$(wc -c < "$file")
+                printf "%s\t%s\t%s\n" "$hash" "$bytes" "${file#./}"
+            done')" || Fail "task tool artifact closure could not be measured"
+        printf '%s\n' "$task_tool_files" | node --input-type=module -e '
+            import fs from "node:fs";
+            import path from "node:path";
+            import { pathToFileURL } from "node:url";
+            const [root, sourceCommit, imageId, targetRuntime, releaseId] = process.argv.slice(1);
+            const { createCurrentNativeTaskToolImageBinding } = await import(pathToFileURL(path.join(root, "tools/ci/production-build-artifacts.mjs")));
+            const binding = createCurrentNativeTaskToolImageBinding({ sourceCommit, imageId, targetRuntime,
+                measurement: fs.readFileSync(0, "utf8") });
+            const file = path.join(root, "build/releases", releaseId, "current-native-task-tool-image.json");
+            fs.mkdirSync(path.dirname(file), { recursive: true });
+            fs.writeFileSync(file, JSON.stringify(binding, null, 2) + "\n", { flag: "wx", mode: 0o600 });
+            console.log("[build-final-image] task tool binding=" + file);
+        ' "$ROOT_DIR" "$COMMIT_SHA" "$image_id" "$TARGET_RUNTIME" "$RELEASE_ID" || Fail "task tool binding creation failed"
+    fi
     Log "local-only image ready: $IMAGE_TAG ($image_id); no deployable release manifest was emitted"
     exit 0
 fi
