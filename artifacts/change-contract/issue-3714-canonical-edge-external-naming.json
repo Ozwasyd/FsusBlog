@@ -8,7 +8,7 @@
                 "config/development/frontend-style-policy.json",
                 "tests/backend/Fixtures/backend-evidence-path-authority.generated.json"
             ],
-            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },
         {
             "id": "content-doc-exactness-authority",
@@ -16,14 +16,14 @@
                 "config/testing/correctness-attempt-producers.json",
                 "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },
         {
             "id": "css-like-contract",
             "paths": [
                 "docs/development/frontend-style-enforcement.md"
             ],
-            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },
         {
             "id": "environment-variable",
@@ -34,7 +34,7 @@
                 "tools/governance/change-contract-registry.mjs",
                 "tools/governance/change-contract.mjs"
             ],
-            "reason": "Preserve registered external JSON, document, environment, rule and tooling spellings while integrating complete exact canonical ownership; internal identifiers remain governed."
+            "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         }
     ]
 }

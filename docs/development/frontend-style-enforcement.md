@@ -134,7 +134,7 @@ identity after path normalization; a destination already owned by the baseline, 
 duplicate, cycle, chain or path reuse, fails closed. `referenceFiles` are audit context
 only and never authorize a violation identity replacement or a new baseline path.
 
-The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
+The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. The current runner invokes ESLint without its content cache for every scan. It retains source/configuration cache-key invalidation under ignored `.tmp/frontend-style/`, but unchanged files are parsed again; those files do not authorize cached diagnostics or canonical-edge admission. This trades repeated parsing for the closed authority read contract; no cached parser or classifier decision can bypass capability controls.
 
 ## Governance preservation
 
