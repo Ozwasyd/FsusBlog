@@ -34,6 +34,31 @@ RejectPattern() {
     fi
 }
 
+RequireLocationPattern() {
+    local file="$1"
+    local location="$2"
+    local pattern="$3"
+    local label="$4"
+    local block
+    if ! block="$(awk -v marker="$location" '
+        !inside && /^[[:space:]]*location[[:space:]]/ && index($0, marker) {
+            inside = 1
+            found++
+        }
+        inside {
+            print
+            line = $0
+            depth += gsub(/\{/, "{", line)
+            line = $0
+            depth -= gsub(/\}/, "}", line)
+            if (depth == 0) inside = 0
+        }
+        END { if (found != 1) exit 2 }
+    ' "$file")" || ! grep -Eq "$pattern" <<<"$block"; then
+        failures+=("${file#"$ROOT_DIR"/}: missing $label in unique $location location")
+    fi
+}
+
 RequireFile "$COMPOSE_FILE"
 RequireFile "$GATEWAY_FILE"
 RequireFile "$GATEWAY_UPSTREAM_EXAMPLE"
@@ -45,7 +70,11 @@ if [[ -f "$COMPOSE_FILE" ]]; then
     RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:\?' 'explicit shared public-assets volume'
     RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared' 'shared storage root outside WebRoot'
     RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances' 'instance storage root outside WebRoot'
+    RequirePattern "$COMPOSE_FILE" '^[[:space:]]+-[[:space:]]+fsus-storage:/app/storage[[:space:]]*$' 'single shared app storage mount'
+    RequirePattern "$COMPOSE_FILE" '^[[:space:]]+fsus-storage:[[:space:]]*$' 'host-backed shared storage volume'
+    RequirePattern "$COMPOSE_FILE" '^[[:space:]]+device:[[:space:]]+/var/lib/fsusblog/storage[[:space:]]*$' 'shared storage host root'
     RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:\?' 'explicit shared DataProtection volume'
+    RejectPattern "$COMPOSE_FILE" '/app/storage/shared/assets/private' 'direct private asset directory mount'
     RejectPattern "$COMPOSE_FILE" '/app/wwwroot/uploads' 'legacy WebRoot uploads mount'
     RejectPattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_UPLOADS_VOLUME' 'retired shared uploads volume variable'
     RejectPattern "$COMPOSE_FILE" '127\.0\.0\.1:8080:8080' 'retired single-slot Kestrel binding'
@@ -86,6 +115,10 @@ if [[ -f "$GATEWAY_FILE" ]]; then
     RequirePattern "$GATEWAY_FILE" 'location[[:space:]]+\^~[[:space:]]+/_fsus/private-assets/' 'private internal sendfile lane'
     RequirePattern "$GATEWAY_FILE" 'alias[[:space:]]+/var/lib/fsusblog/storage/shared/assets/private/;' 'private host-backed alias'
     RequirePattern "$GATEWAY_FILE" 'internal;' 'private alias internal guard'
+    RequireLocationPattern "$GATEWAY_FILE" 'location ^~ /assets/private/ {' '^[[:space:]]*access_log[[:space:]]+off;' 'ticket path access log disabled'
+    RequireLocationPattern "$GATEWAY_FILE" 'location ^~ /_fsus/private-assets/ {' '^[[:space:]]*internal;' 'private alias internal guard'
+    RequireLocationPattern "$GATEWAY_FILE" 'location ^~ /_fsus/private-assets/ {' '^[[:space:]]*alias[[:space:]]+/var/lib/fsusblog/storage/shared/assets/private/;' 'private host-backed alias'
+    RejectPattern "$GATEWAY_FILE" 'PrivateAssetRoot' 'application private root exposure in gateway'
 fi
 
 if [[ -f "$GATEWAY_UPSTREAM_EXAMPLE" ]]; then
@@ -115,6 +148,7 @@ fi
 if [[ "${FSUSBLOG_SKIP_PRODUCTION_EXPOSURE_TOOL_TEST:-0}" != "1" ]]; then
     "$ROOT_DIR/tools/security/check-production-exposure-prereqs.sh"
     "$ROOT_DIR/tools/security/test-production-exposure-tools.sh"
+    "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/production-network-baseline.test.mjs"
 fi
 
 if ((${#failures[@]} > 0)); then
