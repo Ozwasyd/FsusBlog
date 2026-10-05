@@ -246,9 +246,13 @@ The canonical terminal matrix is
 `config/testing/authoring-extension-terminal-matrix.json`; its single local/CI
 command is `node tools/security/check-authoring-extension-terminal-matrix.mjs`.
 Audit mode verifies registry and fixture ownership while reporting external
-blockers. Receipt mode additionally requires one current-run, passing,
-content-digest-bound artifact for every terminal domain and rejects missing,
-unknown, failed, stale, or tampered evidence. Synthetic verifier tests exercise
+blockers. Diagnostic catalog overrides must equal the checker checkout's canonical
+source-owned inventory. Terminal acceptance requires independently verified
+current-run producer evidence for every domain; its original domain/CI receipt
+join remains unregistered. Current evidence mode checks declared artifact bytes
+but always refuses accepted-receipt creation, including complete synthetic sets;
+artifact status and hashes alone are not execution, freshness, or source binding.
+Missing, unknown, failed, or hash-tampered evidence also remains rejected. Synthetic verifier tests exercise
 only that fail-closed machinery and are never runtime, browser, platform, or
 core-editor evidence. CI receipt-join registration remains blocked until those
 producers and their current-run artifact paths exist.
