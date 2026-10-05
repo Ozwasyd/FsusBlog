@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/SqliteCurrentSchemaEffectObserver.cs",
+                "src/shared/Algorithms/SqliteImmutableTriggerObservation.cs"
+            ],
+            "reason": "Preserve native SQLite trigger SQL event/action identifiers, failure codes and Microsoft.Data.Sqlite lifecycle names; decoder symbols use the current FsusBlog.Shared.Algorithms owner and original controls retain external provider grammar."
+        }
+    ]
+}
