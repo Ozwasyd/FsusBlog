@@ -114,13 +114,19 @@ function validateDigest(value, field)
     return normalized;
 }
 
-function validateEpoch(value)
+/** Validate the existing RFC3339 UTC ingress without rounding millisecond precision. */
+export function validateBusinessEpochUtc(value)
 {
     const epoch = requiredText(value, 'businessEpochUtc');
     if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/u.test(epoch)
       || !Number.isFinite(Date.parse(epoch)))
     {
         fail('temporal.context-invalid', 'businessEpochUtc must be an RFC3339 UTC instant');
+    }
+    const fraction = epoch.match(/\.(\d+)Z$/u)?.[1] ?? '';
+    if (fraction.length > 3 && /[1-9]/u.test(fraction.slice(3)))
+    {
+        fail('temporal.precision-loss', 'business epoch exceeds exact millisecond precision');
     }
     return epoch;
 }
@@ -226,7 +232,7 @@ export function validateTemporalContext(value, { requireQualificationDefaults = 
         fail('temporal.context-invalid', 'producerId is invalid');
     }
     normalized.schedulerRunId = requiredText(normalized.schedulerRunId, 'schedulerRunId');
-    normalized.businessEpochUtc = validateEpoch(normalized.businessEpochUtc);
+    normalized.businessEpochUtc = validateBusinessEpochUtc(normalized.businessEpochUtc);
     exactEnum(normalized.businessClockMode, ['fixed', 'manually-advanced'], 'businessClockMode');
     exactEnum(normalized.businessClockStepPolicy, ['none', 'explicit-only'], 'businessClockStepPolicy');
     exactEnum(normalized.monotonicClockSource, policy.qualificationDefaults.monotonicClockSource === 'performance-now'
@@ -428,10 +434,20 @@ export function assertMonotonicMeasurementSource(source)
     return normalized;
 }
 
-export function createTemporalActual(context, observations = {})
+function requireBusinessEpochObservation(observations)
+{
+    if (!plainObject(observations))
+    {
+        fail('temporal.actual-context-missing', 'actual temporal observations are required');
+    }
+    requiredText(observations.businessEpochUtc, 'businessEpochUtc', 'temporal.actual-context-missing');
+    return observations;
+}
+
+export function createTemporalActual(context, observations)
 {
     const normalized = validateTemporalContext(context);
-    const checkedObservations = validateTemporalObservations(normalized, observations);
+    const checkedObservations = validateTemporalObservations(normalized, requireBusinessEpochObservation(observations));
     const actual = {
         schema: TEMPORAL_ACTUAL_SCHEMA,
         source: {
@@ -553,6 +569,15 @@ export function verifyTemporalReplay({ plan, actual, receipt })
     }
     const normalizedPlanContext = validateTemporalContext(plan.temporalContext);
     const normalizedActualContext = validateTemporalContext(actual.temporalContext);
+    for (const [artifact, context] of [[plan, normalizedPlanContext], [actual, normalizedActualContext]])
+    {
+        sameBinding({ commit: context.sourceCommit, fingerprint: context.sourceFingerprint },
+            artifact.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
+        sameBinding({ schedulerRunId: context.schedulerRunId },
+            artifact.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
+        sameBinding({ producerId: context.producerId },
+            artifact.producer, ['producerId'], 'temporal.producer-binding-mismatch');
+    }
     sameBinding(plan.source, actual.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
     sameBinding(plan.run, actual.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
     sameBinding(plan.producer, actual.producer, ['producerId'], 'temporal.producer-binding-mismatch');
@@ -560,7 +585,7 @@ export function verifyTemporalReplay({ plan, actual, receipt })
     sameBinding(plan.source, receipt.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
     sameBinding(plan.run, receipt.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
     sameBinding(plan.producer, receipt.producer, ['producerId'], 'temporal.producer-binding-mismatch');
-    validateTemporalObservations(normalizedPlanContext, actual.observations ?? {});
+    validateTemporalObservations(normalizedPlanContext, requireBusinessEpochObservation(actual.observations));
     assertMonotonicMeasurementSource(normalizedPlanContext.monotonicClockSource);
     if (receipt.planDigest !== plan.digest
       || receipt.actualDigest !== actual.digest
@@ -590,13 +615,28 @@ export function monotonicNow(source = policy.qualificationDefaults.monotonicCloc
     fail('temporal.mixed-clock', `unsupported Node monotonic source: ${normalized}`);
 }
 
-export function formatBusinessEpochUtc(ms)
+export function formatBusinessEpochUtc(ms, minimumFractionDigits = 3)
 {
-    if (!Number.isFinite(ms))
+    if (!Number.isSafeInteger(ms))
     {
         fail('temporal.context-invalid', 'business wall clock instant is invalid');
     }
-    return new Date(ms).toISOString().replace(/\.(\d{3})\d*Z$/u, '.$1Z');
+    if (!Number.isInteger(minimumFractionDigits)
+        || minimumFractionDigits < 0 || minimumFractionDigits > 7)
+    {
+        fail('temporal.context-invalid', 'business wall clock fraction shape is invalid');
+    }
+    const actualInstant = new Date(ms);
+    if (!Number.isFinite(actualInstant.getTime()))
+    {
+        fail('temporal.context-invalid', 'business wall clock instant is outside the ECMAScript range');
+    }
+    const instant = actualInstant.toISOString();
+    const [whole, fraction] = instant.slice(0, -1).split('.');
+    const significantFraction = fraction.replace(/0+$/u, '');
+    const formattedFraction = significantFraction.padEnd(
+        Math.max(significantFraction.length, minimumFractionDigits), '0');
+    return `${whole}${formattedFraction ? `.${formattedFraction}` : ''}Z`;
 }
 
 /**
@@ -605,6 +645,7 @@ export function formatBusinessEpochUtc(ms)
 export function createBusinessWallClock(context)
 {
     const normalized = validateTemporalContext(context);
+    const fractionDigits = normalized.businessEpochUtc.match(/\.(\d+)Z$/u)?.[1].length ?? 0;
     let currentMs = Date.parse(normalized.businessEpochUtc);
     if (!Number.isFinite(currentMs))
     {
@@ -614,13 +655,13 @@ export function createBusinessWallClock(context)
         businessClockMode: normalized.businessClockMode,
         businessClockStepPolicy: normalized.businessClockStepPolicy,
         nowMs: () => currentMs,
-        nowIso: () => formatBusinessEpochUtc(currentMs),
+        nowIso: () => formatBusinessEpochUtc(currentMs, fractionDigits),
         epochSeconds: () => Math.floor(currentMs / 1000),
         advanceMs(deltaMs)
         {
-            if (!Number.isFinite(deltaMs) || deltaMs < 0)
+            if (!Number.isSafeInteger(deltaMs) || deltaMs < 0)
             {
-                fail('temporal.context-invalid', 'business wall clock cannot move backwards');
+                fail('temporal.context-invalid', 'business wall clock requires nonnegative exact millisecond steps');
             }
             if (normalized.businessClockStepPolicy === 'none' && deltaMs !== 0)
             {
@@ -631,8 +672,10 @@ export function createBusinessWallClock(context)
             {
                 fail('temporal.context-invalid', 'fixed business clocks require explicit-only step policy');
             }
-            currentMs += deltaMs;
-            return formatBusinessEpochUtc(currentMs);
+            const advancedMs = currentMs + deltaMs;
+            const observed = formatBusinessEpochUtc(advancedMs, fractionDigits);
+            currentMs = advancedMs;
+            return observed;
         }
     });
 }
@@ -728,14 +771,16 @@ export function projectSessionFixtureBusinessOutcome({
     rememberMe = false
 } = {})
 {
-    const epochMs = Date.parse(businessEpochUtc);
+    const epoch = validateBusinessEpochUtc(businessEpochUtc);
+    const fractionDigits = epoch.match(/\.(\d+)Z$/u)?.[1].length ?? 0;
+    const epochMs = Date.parse(epoch);
     if (!Number.isFinite(epochMs))
     {
         fail('temporal.context-invalid', 'businessEpochUtc is not parseable for session-fixture projection');
     }
     const authenticatedAtEpochSeconds = Math.floor(epochMs / 1000);
     const accessTokenExpiresAtEpochSeconds = authenticatedAtEpochSeconds + (accessTokenExpiresMinutes * 60);
-    const businessNow = formatBusinessEpochUtc(epochMs);
+    const businessNow = formatBusinessEpochUtc(epochMs, fractionDigits);
     return Object.freeze({
         status: 'ok',
         strategy: 'canonical-business-epoch-projection',
@@ -766,12 +811,14 @@ export function projectDataScaleBusinessOutcome({
     const counts = articleCount == null || commentCount == null
         ? resolveDataScaleTierCounts(tier)
         : { articleCount, commentCount };
-    const epochMs = Date.parse(businessEpochUtc);
+    const epoch = validateBusinessEpochUtc(businessEpochUtc);
+    const fractionDigits = epoch.match(/\.(\d+)Z$/u)?.[1].length ?? 0;
+    const epochMs = Date.parse(epoch);
     if (!Number.isFinite(epochMs))
     {
         fail('temporal.context-invalid', 'businessEpochUtc is not parseable for data-scale projection');
     }
-    const businessNow = formatBusinessEpochUtc(epochMs);
+    const businessNow = formatBusinessEpochUtc(epochMs, fractionDigits);
     const articles = [];
     for (let seed = 1; seed <= counts.articleCount; seed += 1)
     {
@@ -868,7 +915,7 @@ export function bindProducerTemporalArtifacts({
 {
     const context = qualificationTemporalContext(contextInput);
     const plan = createTemporalPlan(context);
-    const actual = createTemporalActual(context, observations ?? observeRuntimeTemporalContext(context));
+    const actual = createTemporalActual(context, observations);
     const receipt = createTemporalReceipt({
         plan,
         actual,

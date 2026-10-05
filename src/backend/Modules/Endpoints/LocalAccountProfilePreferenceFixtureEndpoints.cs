@@ -140,7 +140,8 @@ internal static class LocalAccountProfilePreferenceFixtureEndpoints
                             System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
                         Convert.ToString(
                             observation.Rows[0]["business_epoch"],
-                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty)
+                            System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+                        context.RequestServices.GetRequiredService<TimeProvider>())
             };
             return Results.Json(result, s_jsonOptions);
         }

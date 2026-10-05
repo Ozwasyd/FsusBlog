@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/temporal-context.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "2981054030c3c528e9c3eacf4ee9e89d50a71bcbf2f584e1da72c9127e9ce7bd"
+        }
+    ]
+}

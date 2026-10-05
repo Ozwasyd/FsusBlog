@@ -669,7 +669,7 @@
             "callSiteId": "temporal-context.business-epoch-format",
             "path": "tools/test/temporal-context.mjs",
             "symbol": "formatBusinessEpochUtc",
-            "sourceAnchor": "  return new Date(ms).toISOString().replace(/\\.(\\d{3})\\d*Z$/u, '.$1Z')",
+            "sourceAnchor": "const actualInstant = new Date(ms);",
             "api": "new Date(value)",
             "clockKind": "business-wall",
             "authorityKind": "canonical-business-epoch",

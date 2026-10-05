@@ -26,6 +26,7 @@ function fixture()
     const context = qualificationTemporalContext(identity);
     const plan = createTemporalPlan(context);
     const actual = createTemporalActual(context, {
+        businessEpochUtc: createBusinessWallClock(context).nowIso(),
         backendCulture: 'Invariant',
         nodeTimezone: 'UTC',
         postgresTimezone: 'UTC'
@@ -72,6 +73,68 @@ test('plan, actual and receipt must exact-match every run-bound identity', () =>
         () => verifyTemporalReplay({ plan, actual: mismatched, receipt }),
         (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.run-binding-mismatch'
     );
+});
+
+test('coordinated envelope resealing cannot replace the source run or producer observed by the context', () =>
+{
+    for (const [section, field, changed, reasonCode] of [
+        ['source', 'commit', 'd'.repeat(40), 'temporal.source-binding-mismatch'],
+        ['source', 'fingerprint', `sha256:${'e'.repeat(64)}`, 'temporal.source-binding-mismatch'],
+        ['run', 'schedulerRunId', 'unobserved-run', 'temporal.run-binding-mismatch'],
+        ['producer', 'producerId', 'unobserved-producer', 'temporal.producer-binding-mismatch']
+    ])
+    {
+        for (const remove of [false, true])
+        {
+            const { actual, plan, receipt } = structuredClone(fixture());
+            for (const artifact of [plan, actual, receipt])
+            {
+                if (remove)
+                {
+                    delete artifact[section][field];
+                }
+                else
+                {
+                    artifact[section][field] = changed;
+                }
+                delete artifact.digest;
+            }
+            plan.digest = digestCanonical(plan);
+            actual.digest = digestCanonical(actual);
+            receipt.planDigest = plan.digest;
+            receipt.actualDigest = actual.digest;
+            receipt.digest = digestCanonical(receipt);
+            assert.throws(() => verifyTemporalReplay({ plan, actual, receipt }),
+                (error) => error instanceof TemporalContractError && error.reasonCode === reasonCode);
+        }
+    }
+});
+
+test('actual ingress and independent replay reject absent observed business epochs even with fresh digests', () =>
+{
+    const { actual, context, plan } = fixture();
+    for (const observations of [undefined, null, {}, { nodeTimezone: 'UTC' },
+        { ...actual.observations, businessEpochUtc: '' }])
+    {
+        assert.throws(() => createTemporalActual(context, observations),
+            (error) => error.reasonCode === 'temporal.actual-context-missing');
+        const unsignedActual = { ...actual, observations };
+        delete unsignedActual.digest;
+        const missing = { ...unsignedActual, digest: digestCanonical(unsignedActual) };
+        const receipt = createTemporalReceipt({
+            plan,
+            actual: missing,
+            outcome: { rows: 3 },
+            generatedAt: '2026-07-28T00:00:00.000Z'
+        });
+        assert.throws(() => verifyTemporalReplay({ plan, actual: missing, receipt }),
+            (error) => error.reasonCode === 'temporal.actual-context-missing');
+    }
+    assert.throws(() => bindProducerTemporalArtifacts({
+        contextInput: identity,
+        outcome: { rows: 3 },
+        generatedAt: '2026-07-28T00:00:00.000Z'
+    }), (error) => error.reasonCode === 'temporal.actual-context-missing');
 });
 
 test('qualification fails closed when plan, actual or receipt binding is absent', () =>
@@ -296,6 +359,88 @@ test('business wall clock advances explicitly without freezing monotonic measure
         () => wall.advanceMs(-1),
         (error) => error.reasonCode === 'temporal.context-invalid'
     );
+});
+
+test('business epoch ingress rejects nonzero submillisecond digits before clock construction', () =>
+{
+    for (const businessEpochUtc of [
+        '2024-02-29T23:59:59.0001Z',
+        '2024-02-29T23:59:59.1234567Z',
+        '2024-02-29T23:59:59.0000001Z'
+    ])
+    {
+        assert.match(businessEpochUtc, /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{1,7}Z$/u);
+        assert.ok(Number.isFinite(Date.parse(businessEpochUtc)));
+        assert.throws(
+            () => qualificationTemporalContext({ ...identity, businessEpochUtc }),
+            (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.precision-loss'
+        );
+        for (const project of [projectSessionFixtureBusinessOutcome, projectDataScaleBusinessOutcome])
+        {
+            assert.throws(() => project({ businessEpochUtc, articleCount: 1, commentCount: 1 }),
+                (error) => error instanceof TemporalContractError && error.reasonCode === 'temporal.precision-loss');
+        }
+    }
+});
+
+test('business clock formats its actual instant with every original lossless RFC3339 shape', () =>
+{
+    for (const [businessEpochUtc, advancedEpochUtc] of [
+        ['2024-02-29T23:59:59Z', '2024-02-29T23:59:59.001Z'],
+        ['2024-02-29T23:59:59.1Z', '2024-02-29T23:59:59.101Z'],
+        ['2024-02-29T23:59:59.12Z', '2024-02-29T23:59:59.121Z'],
+        ['2024-02-29T23:59:59.123Z', '2024-02-29T23:59:59.124Z'],
+        ['2024-02-29T23:59:59.1230Z', '2024-02-29T23:59:59.1240Z'],
+        ['2024-02-29T23:59:59.12300Z', '2024-02-29T23:59:59.12400Z'],
+        ['2024-02-29T23:59:59.123000Z', '2024-02-29T23:59:59.124000Z'],
+        ['2024-02-29T23:59:59.1230000Z', '2024-02-29T23:59:59.1240000Z']
+    ])
+    {
+        const context = qualificationTemporalContext({ ...identity, businessEpochUtc });
+        const wall = createBusinessWallClock(context);
+        assert.equal(wall.nowMs(), Date.parse(businessEpochUtc));
+        assert.equal(wall.nowIso(), businessEpochUtc);
+        for (const project of [projectSessionFixtureBusinessOutcome, projectDataScaleBusinessOutcome])
+        {
+            const projected = project({ businessEpochUtc: wall.nowIso(), articleCount: 1, commentCount: 1 });
+            assert.equal(projected.businessEpochUtc, businessEpochUtc);
+            assert.equal(Date.parse(projected.businessEpochUtc), wall.nowMs());
+        }
+        const plan = createTemporalPlan(context);
+        const actual = createTemporalActual(context, { businessEpochUtc: wall.nowIso(), nodeTimezone: 'UTC' });
+        const receipt = createTemporalReceipt({ plan, actual, outcome: { actualEpoch: wall.nowIso() },
+            generatedAt: '2026-10-03T00:00:00.000Z' });
+        assert.equal(verifyTemporalReplay({ plan, actual, receipt }).reasonCode, 'temporal.ok');
+
+        assert.equal(wall.advanceMs(1), advancedEpochUtc);
+        assert.equal(wall.nowMs(), Date.parse(businessEpochUtc) + 1);
+        assert.equal(wall.nowIso(), advancedEpochUtc);
+        assert.notEqual(wall.nowIso(), businessEpochUtc);
+        for (const project of [projectSessionFixtureBusinessOutcome, projectDataScaleBusinessOutcome])
+        {
+            const projected = project({ businessEpochUtc: wall.nowIso(), articleCount: 1, commentCount: 1 });
+            assert.equal(projected.businessEpochUtc, advancedEpochUtc);
+            assert.equal(Date.parse(projected.businessEpochUtc), wall.nowMs());
+        }
+        assert.throws(
+            () => createTemporalActual(context, { businessEpochUtc: wall.nowIso() }),
+            (error) => error.reasonCode === 'temporal.actual-context-mismatch'
+        );
+    }
+});
+
+test('fractional and overflowing business clock advances cannot alter the admitted instant', () =>
+{
+    const context = qualificationTemporalContext(identity);
+    const wall = createBusinessWallClock(context);
+    const originalInstant = wall.nowMs();
+    for (const deltaMs of [0.1, Number.MAX_SAFE_INTEGER])
+    {
+        assert.throws(() => wall.advanceMs(deltaMs),
+            (error) => error.reasonCode === 'temporal.context-invalid');
+        assert.equal(wall.nowMs(), originalInstant);
+        assert.equal(wall.nowIso(), identity.businessEpochUtc);
+    }
 });
 
 test('data-scale projection is stable under fixed business epoch and changes when epoch changes', () =>
