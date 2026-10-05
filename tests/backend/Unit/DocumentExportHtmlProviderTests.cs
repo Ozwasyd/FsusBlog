@@ -326,26 +326,33 @@ public sealed class DocumentExportHtmlProviderTests
     [Fact]
     public void StaticGovernanceHasNoRendererParserNetworkScreenshotOrFormatFallbackAuthority()
     {
-        string providerSource = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "SelfContainedHtmlDocumentExportProvider.cs");
-        string adapterSource = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "CanonicalDocumentRendererAdapter.cs");
-        string sanitizerSource = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "DocumentExportHtmlSanitizer.cs");
-        string verifierSource = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "DocumentExportHtmlVerifier.cs");
-        string[] sources = [providerSource, adapterSource, sanitizerSource, verifierSource];
-
-        Assert.All(sources, source =>
+        Type[] closedTypes =
+        [
+            typeof(DocumentExportRendererRequest),
+            typeof(DocumentExportRendererResponse),
+            typeof(DocumentExportProviderResult),
+            typeof(SelfContainedHtmlDocumentExportProvider),
+            typeof(CanonicalDocumentRendererResult),
+            typeof(ICanonicalDocumentRendererAdapter),
+            typeof(SandboxCanonicalDocumentRendererAdapter),
+            typeof(DocumentExportProviderRegistry),
+            typeof(DocumentExportBoundedMemoryStream),
+            typeof(DocumentExportHtmlSanitizer),
+            typeof(DocumentExportHtmlVerifier)
+        ];
+        Assert.All(closedTypes, type =>
         {
-            Assert.DoesNotContain("Markdig", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("Markdown.Parse", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("Screenshot", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("document-export.pdf", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("document-export.docx", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("document-export.epub", source, StringComparison.Ordinal);
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
+            Assert.DoesNotContain("Markdig", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Markdown.Parse", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Screenshot", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("document-export.pdf", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("document-export.docx", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("document-export.epub", compiled, StringComparison.Ordinal);
         });
         Assert.Empty(typeof(SelfContainedHtmlDocumentExportProvider).GetConstructors());
         System.Reflection.MethodInfo export = Assert.Single(
@@ -354,8 +361,15 @@ public sealed class DocumentExportHtmlProviderTests
         Assert.Equal(
             [typeof(DocumentExportTask), typeof(DocumentExportFrozenInput), typeof(CancellationToken)],
             export.GetParameters().Select(parameter => parameter.ParameterType));
-        Assert.Equal(1, adapterSource.Split("new SelfContainedHtmlDocumentExportProvider(", StringSplitOptions.None).Length - 1);
-        Assert.Contains("RequireRegisteredTool(\"self-contained-html\")", adapterSource, StringComparison.Ordinal);
+        string registryConstruction = RuntimeMetadataInspection.DescribeSoleConstructorBody(
+            typeof(DocumentExportProviderRegistry));
+        Assert.Equal(1, registryConstruction.Split(
+            "SelfContainedHtmlDocumentExportProvider..ctor",
+            StringSplitOptions.None).Length - 1);
+        Assert.Contains(
+            "self-contained-html\nFsusBlog.Server.Services.DocumentExport.DocumentExportSandboxRuntime.RequireRegisteredTool",
+            registryConstruction,
+            StringComparison.Ordinal);
     }
 
     private static DocumentExportRendererResponse ValidResponse(
