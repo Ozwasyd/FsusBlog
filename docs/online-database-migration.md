@@ -1,21 +1,58 @@
 # Online Database Migration Protocol
 
-FsusBlog production schema changes follow one irreversible ordering:
+## Current runtime and release boundary
 
-`Expand -> deploy compatible code -> Backfill -> observe -> Contract`
+The production web process is not a migration control plane. Its sole command
+parser rejects `migrate` and the old phase, release-selection, evidence and
+confirmation options before host construction. The old Server coordinator,
+command host, control-plane registration and PostgreSQL writable state store are
+removed rather than retained as compatibility wrappers.
 
-The production web process is not a migration control plane. `FsusBlog.Server serve`
-registers `ServeSchemaCompatibilityRunner` last for `ISchemaMigrationRunner`, so the
-existing lifecycle hook becomes a read-only compatibility check. Only an explicit
-`migrate` command may acquire the PostgreSQL advisory lock, create control tables,
-or execute a descriptor.
+`FsusBlog.Server serve` registers `CurrentSchemaStartupVerifier` through the
+runtime lifecycle. Admission consumes the explicit current receipt path, whole
+artifact SHA-256 and candidate source revision, then performs the current native
+observation. Missing or mismatched inputs fail closed; a historical catalogue,
+old compatibility report, release window or pending-Backfill warning is not
+readiness authority. The explicit `current-schema-check` command uses the same
+read-only verifier without publishing startup admission.
 
-The production release control plane has one entry:
-`tools/deployment/release-rollout.sh`. It runs an explicit Expand as stage 4 and
-hash-binds the result to the rollout state before the candidate starts. Backfill is
-resumed explicitly from its durable token. Contract is outside the 15-stage rollout
-and can run only after a completed normal release plus its observation/retention and
-backup evidence; it must never be inferred from startup or candidate readiness.
+`tools/deployment/release-rollout.sh` consumes the v3 current-only release manifest
+and explicit receipt binding. Its current-schema-admission stage does not invoke
+offline plan, apply or verify. Those operations belong only to the offline
+migration executable and its sealed inputs. A release does not acquire that
+authority by parsing command arguments or constructing synthetic test metadata.
+
+After activation, recovery requires a verified matching backup/database pair or
+a forward repair; selecting an older image against a changed database is not
+rollback. Pre-activation abandonment must retain the source binding and owned
+resource cleanup obligations.
+
+The sole historical classification source is now
+`src/migration/OfflineMigrationClassificationFacts.cs`. It retains every explicit
+descriptor classification, batch/resume setting, validator, rollback/lock-risk
+value and historical fence; its validator checks recorded data only. Min/max are
+historical scalars, not a Serve compatibility window. No runtime evaluator,
+Ready/warning API, previous-release selector or deployment identity parser moves
+into Migration. Recorded release values in tests are first validated by the
+existing Server `ReleaseId` owner, not reinterpreted by the historical facts API.
+
+The original `generate-offline-migration-catalog.mjs` producer derives the same
+four-field table from that single source. Its source-digest binding and the parity
+checker remain exact: source custody changes require actual regeneration, never a
+hand-edited product or an accepted stale digest. The generator source migration
+does not itself establish that regeneration has run. Historical compatibility and
+Contract/manifest test identities retain their recorded inputs as current receipt
+refusal controls, not as online Ready assertions. Source changes and component
+fixtures do not establish native observations, three-provider migration, publish,
+crash recovery or deployment qualification.
+
+## Historical online protocol reference — not an executable runtime contract
+
+The following sections retain the former ordering and historical classification
+evidence: `Expand -> deploy compatible code -> Backfill -> observe -> Contract`.
+Their window, previous-release, command and readiness descriptions are historical
+only. They do not restore a Server migration entry point or substitute for the
+current contract above.
 
 ## Offline historical classification custody
 
@@ -26,15 +63,15 @@ settings, rollback/lock-risk data and scalar fences. Its data validator is not a
 Serve admission, deployment identity parser or online readiness evaluator.
 `generate-offline-migration-catalog.mjs` projects the original four classification
 fields; the original parity consumer binds the exact facts digest and Definitions.
-The retained 145-row product was generated against its original frozen inputs,
-not by running a producer again in this source combination.
+The current classification owner retains the master catalogue and source-bound
+product. This integration does not regenerate or overwrite those existing inputs.
 
-This bounded combination does not retire the existing Server compatibility
-consumers or claim that their old metadata/window APIs have disappeared. Their
-retirement and the v3 release-consumer integration remain pending. The task-only
-Migration package preserves this candidate's existing Server v2/default image
-chain; neither packaged resources nor source-paired catalogue data installs the
-four owned Host capabilities or qualifies native migration/deployment.
+This source integration retires the five former Server compatibility owners and
+connects the current-only CLI, manifest v3 and compiled RuntimeRole v3/build v4
+contracts. It preserves the current master native receipt and catalogue owners.
+Source integration and component controls do not establish native receipt
+issuance, admitted post-runtime collection, provider qualification, image publish
+or deployment acceptance. Those production gates remain pending.
 
 ## Metadata contract
 
@@ -188,7 +225,7 @@ schema writers across candidate releases. The online control plane uses:
 - `__fsus_schema_online_state` for the current schema compatibility coordinate;
 - `__fsus_schema_backfill_progress` for resumable progress and verification time.
 
-Production serve reads these tables without creating or altering them. It fails
+Historically, production serve read these tables without creating or altering them. It failed
 closed for a missing history/marker, duplicate or unknown ids, failed entries,
 checksum mismatch, schema coordinate outside the immutable manifest window,
 required pending Expand, failed/incompatible Backfill, pending legacy bootstrap, or
@@ -200,8 +237,8 @@ It comes from the provider-neutral canonical current schema described in
 runtime, generated and migration-target adapters must carry the same sealed source
 and content identity before readiness comparison can enter warmup or sampling.
 
-Public readiness exposes only `schema_incompatible`; protected diagnostics use the
-stable codes below through `OnlineSchemaCompatibilityRuntimeState`:
+The former compatibility readiness exposed `schema_incompatible`; its historical
+protected diagnostic vocabulary was:
 
 | condition | protected code |
 | --- | --- |

@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 const { hostDeclarations, runtimeReproduciblePathMapArgument } = await import(new URL('../../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
@@ -34,6 +35,74 @@ export function createRuntimeRoleStaticV3Fixture(runId, source, {
         prose: { status: 'ok', verifiedClaimCount: 0, contentDigest: '8'.repeat(64) },
         mutationFixtures: { status: 'ok', caseCount: 9, contentDigest: '9'.repeat(64) },
         candidateSpawnCountBeforeReceipt: 0, status: 'ok', failureReasons: [], durationMs: 1
+    });
+}
+
+/** Synthetic compiled-contract shape for component controls, not native evidence. */
+export function createCurrentSchemaCodeContractFixture()
+{
+    const value = {
+        ...{
+        "schema": "fsusblog.current-schema-code-contract-observation.v1",
+        "evidenceStage": "pre-runtime",
+        "evidenceClass": "compiled-production-code-model",
+        "receiptFormat": "fsusblog.current-schema-receipt.v1",
+        "maximumEncodedBytes": 1048576,
+        "fixtureOnly": true,
+        "nativeQualification": false,
+        "codecType": "FsusBlog.Contracts.SchemaMigration.CurrentSchemaReceiptCodec",
+        "admissionType": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaReceiptAdmission",
+        "contractValidated": true
+        },
+        fixtureArtifactSha256: 'a'.repeat(64),
+        fixtureContentDigest: 'b'.repeat(64),
+        positiveControls: ['canonical-codec-roundtrip', 'whole-artifact-admission-contract',
+            'artifact-sha-distinct-from-content-seal'],
+        refusalControls: {
+        "content-seal-as-file-sha": "current_receipt_artifact_digest_mismatch",
+        "content-seal-drift": "current_receipt_digest_mismatch",
+        "database-swap": "current_receipt_live_admission_mismatch",
+        "duplicate-checkpoint": "current_receipt_reference_duplicate",
+        "duplicate-member": "current_receipt_json_invalid",
+        "empty-bytes": "current_receipt_size_invalid",
+        "latest-reference": "current_receipt_latest_reference_forbidden",
+        "missing-plan": "current_receipt_reference_missing",
+        "missing-status": "current_receipt_json_invalid",
+        "old-format": "current_receipt_shape_invalid",
+        "oversized-bytes": "current_receipt_size_invalid",
+        "physical-schema-swap": "current_receipt_live_admission_mismatch",
+        "provider-swap": "current_receipt_live_admission_mismatch",
+        "rejected-status": "current_receipt_live_admission_mismatch",
+        "semantic-mismatch": "current_receipt_postcondition_failed",
+        "target-swap": "current_receipt_live_admission_mismatch",
+        "unknown-member": "current_receipt_json_invalid",
+        "unknown-provider": "current_receipt_provider_unknown",
+        "unknown-status": "current_receipt_json_invalid",
+        "whole-file-drift": "current_receipt_artifact_digest_mismatch"
+        },
+        observationDigest: ''
+    };
+    value.observationDigest = createHash('sha256').update(JSON.stringify(value)).digest('hex');
+    return value;
+}
+
+/** Synthetic current v4 build binding; legacy v3 fixtures remain explicit. */
+export function createRuntimeRoleMinimalV4Fixture(runId, source)
+{
+    const value = createRuntimeRoleMinimalV3Fixture(runId, source);
+    const runtime = value.artifacts['runtime-role-observation'].buildReceipt;
+    runtime.schema = 'fsusblog.runtime-role-observation-build-receipt.v4';
+    runtime.observationSchema = 'fsusblog.runtime-role-observation.v3';
+    runtime.evidenceStage = 'pre-runtime';
+    runtime.evidenceClass = 'compiled-production-code-model';
+    return seal(value);
+}
+
+export function createRuntimeRoleStaticV4Fixture(runId, source, options)
+{
+    return createRuntimeRoleStaticV3Fixture(runId, source, {
+        ...options,
+        minimalContractBuild: options?.minimalContractBuild ?? createRuntimeRoleMinimalV4Fixture(runId, source)
     });
 }
 
@@ -86,7 +155,8 @@ export function createRuntimeRoleMinimalV3Fixture(runId, source)
                     }
                     : {}),
                 buildReceipt: {
-                    schema: declaration.buildReceiptSchema,
+                    schema: artifactId === 'runtime-role-observation'
+                        ? 'fsusblog.runtime-role-observation-build-receipt.v3' : declaration.buildReceiptSchema,
                     artifactId,
                     artifactPath: declaration.output,
                     artifactDigest: 'd'.repeat(64),

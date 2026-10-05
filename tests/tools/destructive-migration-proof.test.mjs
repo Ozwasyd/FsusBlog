@@ -7,7 +7,8 @@ const paths = {
     primitives: new URL('../../src/migration/SchemaMigrationPrimitives.cs', import.meta.url),
     proofs: new URL('../../src/migration/DestructiveMigrationProofs.cs', import.meta.url),
     runner: new URL('../../src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs', import.meta.url),
-    online: new URL('../../src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs', import.meta.url),
+    executor: new URL('../../src/migration/OfflineMigrationExecutor.cs', import.meta.url),
+    transaction: new URL('../../src/migration/SchemaMigrationExecution.cs', import.meta.url),
     manifest: new URL('../../docs/schema-migrations/destructive-rollback-window-proofs.json', import.meta.url)
 };
 
@@ -99,20 +100,19 @@ test('drop primitives require typed proof and runtime gates precede transactions
     assert.match(source.primitives, /DropTableStep\([\s\S]*DestructiveMigrationProof Proof\)\s*:\s*SchemaMigrationStep, IDestructiveSchemaMigrationStep/u);
     assert.doesNotMatch(source.primitives, /DestructiveMigrationProof\? Proof/u);
 
-    const runnerPhaseStart = source.runner.indexOf('private async Task ExecutePhaseAsync');
-    const runnerPhaseEnd = source.runner.indexOf('private async Task ExecuteStepAsync', runnerPhaseStart);
-    const runnerPhase = source.runner.slice(runnerPhaseStart, runnerPhaseEnd);
-    const runnerGuard = runnerPhase.indexOf('DestructiveMigrationProofs.ValidateDescriptor');
-    const runnerTransaction = runnerPhase.indexOf('SchemaMigrationTransactionExecutor.ExecuteAsync');
-    assert.ok(runnerGuard > 0 && runnerGuard < runnerTransaction);
-    assert.match(source.runner, /GetTableInfoList\(false\)\.Count == 0/u);
-
-    const executorStart = source.online.indexOf('public sealed class PostgresOnlineSchemaMigrationDescriptorExecutor');
-    const coordinatorStart = source.online.indexOf('public sealed class OnlineSchemaMigrationOptions');
-    const executor = source.online.slice(executorStart, coordinatorStart);
-    const onlineGuard = executor.indexOf('DestructiveMigrationProofs.ValidateDescriptor');
-    const onlineTransaction = executor.indexOf('UseTranAsync');
-    assert.ok(onlineGuard > 0 && onlineGuard < onlineTransaction);
+    // The original mutation guard belongs to Migration, not a retained Server
+    // executor. This is a source-order control, not provider execution evidence.
+    const executorStart = source.executor.indexOf('private static async Task<OfflineMigrationExecutionResult> ExecuteExpandAsync');
+    const executorEnd = source.executor.indexOf('private static async Task<OfflineMigrationExecutionResult> ExecuteBackfillAsync', executorStart);
+    assert.ok(executorStart >= 0 && executorEnd > executorStart);
+    const executor = source.executor.slice(executorStart, executorEnd);
+    const guard = executor.indexOf('DestructiveMigrationProofs.ValidateDescriptor');
+    const transaction = executor.indexOf('SchemaMigrationTransactionExecutor.ExecuteAsync');
+    assert.ok(guard > 0 && guard < transaction);
+    assert.match(executor, /freshBootstrap: false/u);
+    assert.match(source.transaction, /descriptor\.Transactional[\s\S]*UseTranAsync[\s\S]*executeStep/u);
+    assert.doesNotMatch(source.runner, /DestructiveMigrationProofs|SchemaMigrationTransactionExecutor|UseTranAsync|InitTables/u);
+    assert.match(source.runner, /CurrentSchemaReceiptAdmission\.VerifyAsync/u);
 });
 
 test('proof contract names every qualification and restore requirement', () =>

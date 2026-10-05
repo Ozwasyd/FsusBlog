@@ -17,7 +17,7 @@ DRAIN_TIMEOUT_SECONDS="${FSUSBLOG_DRAIN_TIMEOUT_SECONDS:-45}"
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --action)
-            [[ $# -ge 2 ]] || SlotFail "--action requires auto, inspect, restore-source or commit-target"
+            [[ $# -ge 2 ]] || SlotFail "--action requires auto, inspect or commit-target"
             ACTION="$2"
             shift 2
             ;;
@@ -69,8 +69,9 @@ while [[ $# -gt 0 ]]; do
     esac
 done
 
-[[ "$ACTION" == "auto" || "$ACTION" == "inspect" || "$ACTION" == "restore-source" || "$ACTION" == "commit-target" ]] ||
-    SlotFail "--action must be auto, inspect, restore-source or commit-target"
+[[ "$ACTION" != "restore-source" ]] || SlotFail "schema_image_only_rollback_retired"
+[[ "$ACTION" == "auto" || "$ACTION" == "inspect" || "$ACTION" == "commit-target" ]] ||
+    SlotFail "--action must be auto, inspect or commit-target"
 [[ -f "$ACTIVE_UPSTREAM_FILE" ]] || SlotFail "active upstream file is missing: $ACTIVE_UPSTREAM_FILE"
 [[ -f "$GATEWAY_CONFIG_FILE" ]] || SlotFail "gateway config is missing: $GATEWAY_CONFIG_FILE"
 [[ "$PUBLIC_PROBE_URL" =~ ^https://[A-Za-z0-9.-]+(:[0-9]{1,5})?/health/ready$ ]] ||
@@ -337,6 +338,7 @@ DirectReleaseIsExpected() {
 }
 
 ActivateUpstream() {
+    # Target activation precedes this call; saved upstream bytes are not database recovery proof.
     local desiredSlot="$1"
     local desiredRelease="$2"
     local currentSlot="$3"
@@ -359,35 +361,14 @@ ActivateUpstream() {
     fi
 
     if ! "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE"; then
-        if [[ -n "$backupFile" && -f "$backupFile" ]]; then
-            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore \
-                --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1 || true
-        fi
-        rm -f "$stagedConfig" "$backupFile"
         return 1
     fi
     active_config_ok=true
     if ! "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE"; then
-        if [[ -n "$backupFile" && -f "$backupFile" ]] &&
-            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore \
-                --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1; then
-            if "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1; then
-                "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 || true
-            fi
-        fi
-        rm -f "$stagedConfig" "$backupFile"
         return 1
     fi
     reload_ok=true
     if ! ProbeReleaseUntil "$PUBLIC_PROBE_URL" "$desiredRelease" "$desiredSlot"; then
-        if [[ -n "$backupFile" && -f "$backupFile" ]] &&
-            node "$ROOT_DIR/tools/deployment/gateway-control.mjs" restore \
-                --active "$ACTIVE_UPSTREAM_FILE" --backup "$backupFile" >/dev/null 2>&1; then
-            if "$OPENRESTY_BIN" -t -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1; then
-                "$OPENRESTY_BIN" -s reload -c "$GATEWAY_CONFIG_FILE" >/dev/null 2>&1 || true
-            fi
-        fi
-        rm -f "$stagedConfig" "$backupFile"
         return 1
     fi
     public_release_ok=true
@@ -436,6 +417,8 @@ fi
 pending="$(jq -c '.pendingTransition' <<<"$state")"
 [[ "$pending" != "null" ]] || RecoveryFail "$state_status state has no pending transition"
 transition_kind="$(jq -r '.kind' <<<"$pending")"
+[[ "$transition_kind" == "switch" ]] ||
+    RecoveryFail "schema_image_only_rollback_retired"
 generation="$(jq -r '.generation' <<<"$pending")"
 source_slot="$(jq -r '.fromSlot' <<<"$pending")"
 source_release="$(jq -r '.fromReleaseId' <<<"$pending")"
@@ -467,7 +450,8 @@ if [[ "$ACTION" == "auto" ]]; then
         "$target_active" == "true" ]]; then
         resolved_action="commit-target"
     elif [[ "$source_healthy" == "true" && "$source_active" == "true" ]]; then
-        resolved_action="restore-source"
+        # A healthy previous image is not proof that the database can be restored.
+        resolved_action="blocked"
     elif [[ "$target_healthy" == "true" && ("$target_ready" == "true" || "$target_active" == "true") ]]; then
         resolved_action="commit-target"
     else
@@ -501,37 +485,9 @@ if [[ "$DRY_RUN" == "1" || "$resolved_action" == "inspect" ]]; then
     exit 0
 fi
 [[ "$resolved_action" != "blocked" ]] ||
-    RecoveryFail "neither source nor target release is healthy; manual runtime recovery is required"
+    RecoveryFail "verified database restore or explicit forward recovery is required"
 
-if [[ "$resolved_action" == "restore-source" ]]; then
-    [[ "$source_healthy" == "true" && "$source_active" == "true" ]] ||
-        RecoveryFail "source release is not a verified Active runtime"
-    ActivateUpstream "$source_slot" "$source_release" "$upstream_slot" ||
-        RecoveryFail "failed to restore and publicly verify the source release"
-    if [[ "$target_runtime_status_ok" == "true" && "$target_active" == "true" ]]; then
-        target_drain_raw="$(DeploymentControl drain "$target_port" \
-            --slot "$target_slot" \
-            --release "$target_release" \
-            --generation "$target_generation" \
-            --timeout-seconds "$DRAIN_TIMEOUT_SECONDS" \
-            --wait)" ||
-            RecoveryFail "source traffic was restored but active target drain did not complete"
-        target_runtime_after="$(SanitizeRuntimeSnapshot <<<"$target_drain_raw")"
-        target_neutralized_ok=true
-    elif [[ "$target_runtime_status_ok" == "true" &&
-        "$(jq -r '.canReceiveTraffic == false and .canClaimBackgroundWork == false' <<<"$target_runtime_before")" == "true" ]]; then
-        target_runtime_after="$target_runtime_before"
-        target_neutralized_ok=true
-    elif [[ "$(jq -r '(.exists == false) or (.running == false)' <<<"$target_runtime" 2>/dev/null || printf false)" == "true" ]]; then
-        target_neutralized_ok=true
-    else
-        RecoveryFail "source traffic was restored but target runtime could not be proven neutralized"
-    fi
-    node "$ROOT_DIR/tools/deployment/slot-state.mjs" abort-transition \
-        --state "$SLOT_STATE_FILE" --message "gateway recovery restored source release" >/dev/null ||
-        RecoveryFail "source traffic was restored but durable transition abort failed"
-    state_resolution_ok=true
-else
+if [[ "$resolved_action" == "commit-target" ]]; then
     [[ "$target_healthy" == "true" && "$target_runtime_status_ok" == "true" &&
         ("$target_ready" == "true" || "$target_active" == "true") ]] ||
         RecoveryFail "target release is not a verified Ready Candidate or Active runtime"

@@ -4,6 +4,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { isDeepStrictEqual } from 'node:util';
+import { validateCurrentSchemaAdmissionOutput } from '../release/release-manifest-value-contract.mjs';
+import { validateAuxiliaryEvidence, validateCurrentRolloutEvidenceBindings } from '../deployment/release-rollout-auxiliary-evidence-contract.mjs';
+import { ROLLOUT_STAGES, REQUIRED_FINAL_ARTIFACTS, REQUIRED_AUXILIARY_EVIDENCE, FINAL_SCHEMA, STAGE_SCHEMA } from '../deployment/release-rollout-evidence-constants.mjs';
+import { createPublicAotWarmEvidence } from '../frontend/public-aot-warm-evidence.mjs';
 
 const { assertReleaseIdentity, isValidReleaseId } = await import(new URL('../release/release-id.mjs', import.meta.url));
 const { validateReleaseManifest } = await import(new URL('../release/release-manifest.mjs', import.meta.url));
@@ -25,29 +30,14 @@ const requiredPostgresFaultCases = ['postgres-readiness', 'postgres-reconnect', 
 const requiredNotificationFaultCases = ['notification-stream-slow-consumer'];
 const requiredGracefulShutdownFaultCases = ['graceful-shutdown'];
 const requiredDiskArtifactFaultCases = ['disk-artifact-storage-write-failure'];
-const requiredRolloutStages = [
-    'manifest-validate', 'capacity-preflight', 'backup-restore-gate', 'expand-migration',
-    'asset-materialize', 'candidate-start', 'candidate-readiness', 'candidate-smoke',
-    'compatibility-smoke', 'gateway-switch', 'source-drain', 'active-fence',
-    'public-verify', 'source-stop', 'release-evidence'
-];
-const requiredRolloutArtifacts = [
-    'publicTraffic', 'notificationStream', 'assetCompatibility',
-    'workerReconciliation', 'resourceBudget', 'faultInjection'
-];
+const requiredRolloutStages = ROLLOUT_STAGES;
+const requiredRolloutArtifacts = REQUIRED_FINAL_ARTIFACTS;
 const requiredTrafficCategories = [
     'home', 'archive', 'article', 'binary', 'search', 'static',
     'login', 'refresh', 'protected-read', 'write', 'upload', 'admin-health'
 ];
 const requiredTrafficPolicyStages = ['status:planned', ...requiredRolloutStages, 'status:completed'];
-const requiredRolloutAuxiliary = [
-    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
-    'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'candidateSmoke',
-    'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
-    'activeFenceSourceRevoke', 'activeFenceVerify', 'publicTrafficCheckpoint',
-    'sourceDrainSnapshot', 'sourceDrainGate', 'targetHealth',
-    'retentionDrainComplete', 'operatorNote'
-];
+const requiredRolloutAuxiliary = REQUIRED_AUXILIARY_EVIDENCE;
 
 const requiredStatusChecks = [
     ['image digest', (manifest) => manifest.evidenceSummary?.image?.status === 'present'],
@@ -587,7 +577,7 @@ function releaseRolloutOkUnsafe(manifest, context)
     const report = readArtifactJson(manifest, context, 'releaseRollout');
     const finalFile = artifactPath(manifest, context.manifestPath, 'releaseRollout');
     const bundle = artifactPath(manifest, context.manifestPath, 'releaseRolloutBundle');
-    if (!report || report.schema !== 'fsusblog.release-rollout-evidence.v1' || report.status !== 'pass')
+    if (!report || report.schema !== FINAL_SCHEMA || report.status !== 'pass')
     {
         return false;
     }
@@ -603,7 +593,11 @@ function releaseRolloutOkUnsafe(manifest, context)
     {
         return false;
     }
-    if (!['deploy', 'rollback'].includes(report.kind))
+    const bindingErrors = [];
+    validateCurrentRolloutEvidenceBindings(report, bindingErrors);
+    if (bindingErrors.length !== 0 || report.candidateSourceRevision !== manifest.commitSha
+    || report.candidateSourceRevision !== manifest.releaseIdentity?.commitSha
+    || !isDeepStrictEqual(report.currentSchema, manifest.releaseIdentity?.currentSchema))
     {
         return false;
     }
@@ -630,17 +624,6 @@ function releaseRolloutOkUnsafe(manifest, context)
     if (report.target.releaseId !== manifest.releaseIdentity?.releaseId
     || report.target.slot !== manifest.releaseIdentity?.releaseSlot
     || report.target.imageDigest !== manifest.releaseIdentity?.imageDigest)
-    {
-        return false;
-    }
-    if (report.rollback?.target?.releaseId !== report.source.releaseId
-    || report.rollback?.target?.slot !== report.source.slot
-    || typeof report.rollback?.allowed !== 'boolean'
-    || typeof report.rollback?.contractMigrationApplied !== 'boolean')
-    {
-        return false;
-    }
-    if (report.rollback.contractMigrationApplied === report.rollback.allowed)
     {
         return false;
     }
@@ -683,7 +666,7 @@ function releaseRolloutOkUnsafe(manifest, context)
             return false;
         }
         const stageReport = readJson(localFile);
-        if (stageReport.schema !== 'fsusblog.release-rollout-stage-evidence.v1'
+        if (stageReport.schema !== STAGE_SCHEMA
       || stageReport.rolloutId !== report.rolloutId
       || stageReport.stage !== stage.stage
       || stageReport.status !== 'ok'
@@ -699,6 +682,8 @@ function releaseRolloutOkUnsafe(manifest, context)
                 return false;
             }
         }
+        if (!currentSchemaCommandOutputOk(stageReport, report, bundle)) return false;
+        if (!Array.isArray(stage.attemptEvidence)) return false;
         if (Array.isArray(stage.attemptEvidence))
         {
             if (stage.attemptEvidence.length !== stage.attempts)
@@ -713,7 +698,7 @@ function releaseRolloutOkUnsafe(manifest, context)
                     return false;
                 }
                 const attemptReport = readJson(attemptFile);
-                if (attemptReport.schema !== 'fsusblog.release-rollout-stage-evidence.v1'
+                if (attemptReport.schema !== STAGE_SCHEMA
           || attemptReport.rolloutId !== report.rolloutId
           || attemptReport.stage !== stage.stage
           || attemptReport.status !== attempt.status)
@@ -728,10 +713,14 @@ function releaseRolloutOkUnsafe(manifest, context)
                         return false;
                     }
                 }
+                if (!currentSchemaCommandOutputOk(attemptReport, report, bundle)) return false;
             }
+            if (!stage.attemptEvidence.some(attempt => isDeepStrictEqual(attempt.evidence, stage.evidence)
+                && attempt.status === 'ok')) return false;
         }
     }
 
+    if (Object.keys(report.artifacts ?? {}).join('\n') !== requiredRolloutArtifacts.join('\n')) return false;
     for (const name of requiredRolloutArtifacts)
     {
         const metadata = report.artifacts?.[name];
@@ -759,6 +748,9 @@ function releaseRolloutOkUnsafe(manifest, context)
             return false;
         }
         const auxiliary = readJson(localFile);
+        if (name === 'releaseManifest' && (metadata.sha256 !== `sha256:${report.manifestSha256}`
+            || auxiliary.commitSha !== report.candidateSourceRevision
+            || !isDeepStrictEqual(auxiliary.currentSchema, manifest.releaseIdentity.currentSchema))) return false;
         if (!rolloutAuxiliarySemanticsOk(name, auxiliary, report))
         {
             return false;
@@ -804,6 +796,9 @@ function releaseRolloutOkUnsafe(manifest, context)
 
 function rolloutAuxiliarySemanticsOk(name, value, rollout)
 {
+    const errors = [];
+    validateAuxiliaryEvidence(name, value, rollout, errors);
+    if (errors.length !== 0) return false;
     if (!value || typeof value !== 'object' || Array.isArray(value))
     {
         return false;
@@ -826,7 +821,7 @@ function rolloutAuxiliarySemanticsOk(name, value, rollout)
     };
     if (name === 'releaseManifest')
     {
-        return value.schema === 'fsusblog.release-manifest.v2'
+        return value.schema === 'fsusblog.release-manifest.v3'
       && value.releaseId === rollout.target.releaseId
       && value.imageDigest === rollout.target.imageDigest;
     }
@@ -838,7 +833,18 @@ function rolloutAuxiliarySemanticsOk(name, value, rollout)
       && typeof value.note === 'string'
       && value.note.length <= 4000;
     }
+    if (['currentSchemaAdmission', 'publicAotWarm', 'challengeKindCutoverReceipt',
+        'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'perceptionCharacterV3Cutover'].includes(name)) return true;
     return value.status === undefined || ['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status);
+}
+
+function currentSchemaCommandOutputOk(stage, rollout, bundle)
+{
+    if (stage.stage !== 'current-schema-admission' || stage.status !== 'ok') return true;
+    const output = stage.output?.stdout;
+    const file = path.join(bundle, 'commands', path.basename(String(output?.path ?? '')));
+    return metadataMatchesFile(output, file)
+        && validateCurrentSchemaAdmissionOutput(readJson(file), rollout.currentSchema, rollout.candidateSourceRevision).length === 0;
 }
 
 function rolloutArtifactSemanticsOk(name, value)
@@ -901,7 +907,7 @@ function rolloutArtifactSemanticsOk(name, value)
     {
         const cases = Array.isArray(value.cases) ? value.cases : [];
         return [
-            'manifest-digest-mismatch', 'capacity-insufficient', 'expand-failure', 'candidate-readiness',
+            'manifest-digest-mismatch', 'capacity-insufficient', 'current-admission-failure', 'candidate-readiness',
             'asset-hash-mismatch', 'gateway-reload-failure', 'active-fence-failure', 'public-probe-failure',
             'drain-timeout', 'source-stop-failure', 'host-interruption', 'redis-disconnect', 'postgres-disconnect'
         ].every(caseName => cases.some(item => item?.case === caseName && item.status === 'pass' && item.automated === true));
@@ -1996,6 +2002,12 @@ function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest)
         runtimeGeneration: 1
     };
     const target = { slot: 'green', releaseId, imageDigest, runtimeGeneration: 2 };
+    // Closed self-test component data, never an issued receipt or native database observation.
+    const currentSchema = manifest.releaseIdentity.currentSchema;
+    const currentAdmission = { status: 'verified-current', candidateSourceRevision: manifest.commitSha,
+        artifactSha256: currentSchema.receipt.sha256, target: currentSchema.target,
+        database: currentSchema.database, actualSchemaDigest: currentSchema.actualSchemaDigest };
+    const { releaseSlot, ...releaseManifest } = manifest.releaseIdentity;
     const metadata = (file, original) => ({
         path: original,
         bytes: fs.statSync(file).size,
@@ -2047,7 +2059,7 @@ function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest)
         faultInjection: writeArtifact('faultInjection', {
             schema: 'fsusblog.zero-downtime-fault-matrix.v1', status: 'pass',
             cases: [
-                'manifest-digest-mismatch', 'capacity-insufficient', 'expand-failure', 'candidate-readiness',
+                'manifest-digest-mismatch', 'capacity-insufficient', 'current-admission-failure', 'candidate-readiness',
                 'asset-hash-mismatch', 'gateway-reload-failure', 'active-fence-failure', 'public-probe-failure',
                 'drain-timeout', 'source-stop-failure', 'host-interruption', 'redis-disconnect', 'postgres-disconnect'
             ].map(caseName => ({ case: caseName, status: 'pass', automated: true }))
@@ -2063,7 +2075,23 @@ function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest)
     const auxiliary = Object.fromEntries(requiredRolloutAuxiliary.map(name => [name, writeAuxiliary(
         name,
     name === 'releaseManifest'
-        ? manifest.releaseIdentity
+        ? releaseManifest
+        : name === 'currentSchemaAdmission' ? currentAdmission
+        : name === 'publicAotWarm' ? currentRolloutPublicAotFixture(target)
+        : name === 'challengeKindCutoverReceipt'
+        ? { schemaVersion: 'fsus.security-challenge-kind-cutover-receipt.v1', accepted: true, status: 'applied', dryRun: false,
+            releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
+        : name === 'challengeKindCutoverAcceptance'
+        ? { schemaVersion: 'fsus.security-challenge-kind-cutover-acceptance.v1', accepted: true,
+            releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
+        : name === 'challengeKindCutoverGate'
+        ? { schema: 'fsusblog.release-challenge-kind-cutover-gate.v1', status: 'pass', rolloutId,
+            releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration,
+            lifecycle: { destructiveCutoverStarted: true, activationCommitted: false, stage: 'source-drain' },
+            bindings: { backendFence: true, frontend: true, staticAssets: true, cutover: true, perceptionCharacterV3: true }, errors: [] }
+        : name === 'perceptionCharacterV3Cutover'
+        ? { schemaVersion: 'fsus.security.perception-character-v3-cutover-receipt.v1', accepted: true, status: 'activated', dryRun: false,
+            releaseId: target.releaseId, slot: target.slot, generation: target.runtimeGeneration }
         : name === 'operatorNote'
         ? {
             schema: 'fsusblog.release-rollout-operator-note.v1', rolloutId,
@@ -2073,26 +2101,38 @@ function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest)
     )]));
     const stages = requiredRolloutStages.map(stage =>
     {
+        let output;
+        if (stage === 'current-schema-admission')
+        {
+            const stdout = path.join(commands, `${stage}.attempt-1.stdout`);
+            fs.writeFileSync(stdout, `${JSON.stringify(currentAdmission)}\n`);
+            output = { stdout: metadata(stdout, `/var/lib/fsusblog/deployment/rollouts/${rolloutId}/evidence/commands/${path.basename(stdout)}`) };
+        }
         const file = path.join(commands, `${stage}.attempt-1.json`);
         fs.writeFileSync(file, `${JSON.stringify({
-            schema: 'fsusblog.release-rollout-stage-evidence.v1', rolloutId, stage,
-            status: 'ok', exitCode: 0
+            schema: STAGE_SCHEMA, rolloutId, stage,
+            status: 'ok', exitCode: 0, ...(output ? { output } : {})
         })}\n`);
         return {
             stage,
             attempts: 1,
-            evidence: metadata(file, `/var/lib/fsusblog/deployment/rollouts/${rolloutId}/evidence/commands/${path.basename(file)}`)
+            evidence: metadata(file, `/var/lib/fsusblog/deployment/rollouts/${rolloutId}/evidence/commands/${path.basename(file)}`),
+            attemptEvidence: [{ attempt: 1, status: 'ok', errorCode: null,
+                evidence: metadata(file, `/var/lib/fsusblog/deployment/rollouts/${rolloutId}/evidence/commands/${path.basename(file)}`) }]
         };
     });
     const report = {
-        schema: 'fsusblog.release-rollout-evidence.v1',
+        schema: FINAL_SCHEMA,
         status: 'pass',
         rolloutId,
         kind: 'deploy',
         source,
         target,
         gatewayGeneration: 2,
-        rollback: { allowed: true, contractMigrationApplied: false, target: source },
+        manifestSha256: auxiliary.releaseManifest.sha256.slice('sha256:'.length),
+        candidateSourceRevision: manifest.commitSha,
+        currentSchema,
+        rollback: { allowed: false },
         stages,
         recoveries: [],
         artifacts,
@@ -2105,6 +2145,7 @@ function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest)
     const bundleFiles = [
         path.join(bundle, 'release-rollout.json'),
         ...requiredRolloutStages.map(stage => path.join(commands, `${stage}.attempt-1.json`)),
+        path.join(commands, 'current-schema-admission.attempt-1.stdout'),
         ...requiredRolloutArtifacts.map(name => path.join(bundle, 'artifacts', name, `${name}.json`)),
         ...requiredRolloutAuxiliary.map(name => path.join(bundle, 'auxiliary', name, `${name}.json`))
     ];
@@ -2124,6 +2165,126 @@ function writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest)
     };
 }
 
+function currentRolloutPublicAotFixture(target)
+{
+    const route = { pageId: 'Home', kind: 'home', routeKey: 'home', path: '/', priority: 0 };
+    const settled = { status: 200, source: 'server-ssr', state: 'fresh', rendererVersion: 'fixture-renderer',
+        frontendAssetVersion: 'fixture-frontend', releaseId: target.releaseId, releaseSlot: target.slot,
+        canonicalUrl: 'https://blog.example.com/', checks: { title: true, description: true, canonical: true,
+            robots: true, openGraph: true, twitter: true, jsonLd: true, mainContent: true } };
+    return createPublicAotWarmEvidence({ baseUrl: 'http://127.0.0.1:7568', scope: 'all', manifest: [route],
+        results: [{ ...route, first: settled, settled, ok: true, firstResponseMs: 5, settledMs: 5 }],
+        generatedAtUtc: '2026-07-11T00:19:00.000Z', expectedPublicOrigin: 'https://blog.example.com' });
+}
+
+function verifyCurrentRolloutConsumerNegativeFixtures(tmpDir, manifest, releaseId, imageDigest)
+{
+    const context = { manifestPath: path.join(tmpDir, 'release-evidence-manifest.json') };
+    const negativeCases = [
+        ['legacy-final', report => { report.schema = 'fsusblog.release-rollout-evidence.v1'; }],
+        ['image-rollback', report => { report.kind = 'rollback'; }],
+        ['rollback-allowed', report => { report.rollback.allowed = true; }],
+        ['retired-Contract', report => { report.rollback.contractMigrationApplied = false; }],
+        ['retired-window', report => { report.schemaCompatibility = {}; }],
+        ['wrong-candidate', report => { report.candidateSourceRevision = 'a'.repeat(40); }],
+        ['missing-current', report => { delete report.currentSchema; }],
+        ['wrong-manifest-bytes', report => { report.manifestSha256 = 'a'.repeat(64); }],
+        ['missing-attempts', report => { delete report.stages[0].attemptEvidence; }],
+        ['extra-artifact', report => { report.artifacts.extra = report.artifacts.publicTraffic; }],
+        ['missing-native-stdout', (report, bundle) =>
+        {
+            const stage = report.stages.find(item => item.stage === 'current-schema-admission');
+            const file = path.join(bundle, 'commands', path.basename(stage.evidence.path));
+            const command = readJson(file);
+            delete command.output;
+            fs.writeFileSync(file, JSON.stringify(command));
+            stage.evidence.bytes = fs.statSync(file).size;
+            stage.evidence.sha256 = `sha256:${sha256Hex(file)}`;
+            stage.attemptEvidence[0].evidence = { ...stage.evidence };
+        }]
+    ];
+    for (const name of ['currentSchemaAdmission', 'publicAotWarm', 'challengeKindCutoverReceipt',
+        'challengeKindCutoverAcceptance', 'challengeKindCutoverGate', 'perceptionCharacterV3Cutover'])
+    {
+        negativeCases.push([`generic-status-${name}`, (report, bundle) =>
+        {
+            const metadata = report.auxiliary[name];
+            const file = path.join(bundle, 'auxiliary', name, path.basename(metadata.path));
+            fs.writeFileSync(file, JSON.stringify({ status: 'pass', rolloutId: report.rolloutId }));
+            metadata.bytes = fs.statSync(file).size;
+            metadata.sha256 = `sha256:${sha256Hex(file)}`;
+        }]);
+    }
+    for (const version of ['v1', 'v2'])
+    {
+        negativeCases.push([`legacy-manifest-${version}`, (report, bundle) =>
+        {
+            const metadata = report.auxiliary.releaseManifest;
+            const file = path.join(bundle, 'auxiliary', 'releaseManifest', path.basename(metadata.path));
+            const value = readJson(file);
+            value.schema = `fsusblog.release-manifest.${version}`;
+            value.schemaCompatibility = { minimumCoordinate: value.releaseId, maximumCoordinate: value.releaseId };
+            fs.writeFileSync(file, JSON.stringify(value));
+            metadata.bytes = fs.statSync(file).size;
+            metadata.sha256 = `sha256:${sha256Hex(file)}`;
+            report.manifestSha256 = metadata.sha256.slice('sha256:'.length);
+        }]);
+    }
+    negativeCases.push(['legacy-Expand-stage', report => { report.stages[3].stage = 'expand-migration'; }]);
+    negativeCases.push(['legacy-Expand-fault', (report, bundle) =>
+    {
+        const metadata = report.artifacts.faultInjection;
+        const file = path.join(bundle, 'artifacts', 'faultInjection', path.basename(metadata.path));
+        const value = readJson(file);
+        value.cases[2].case = 'expand-failure';
+        fs.writeFileSync(file, JSON.stringify(value));
+        metadata.bytes = fs.statSync(file).size;
+        metadata.sha256 = `sha256:${sha256Hex(file)}`;
+    }]);
+    negativeCases.push(['wrong-native-stdout', (report, bundle) =>
+    {
+        const stage = report.stages.find(item => item.stage === 'current-schema-admission');
+        const file = path.join(bundle, 'commands', path.basename(stage.evidence.path));
+        const command = readJson(file);
+        const stdout = path.join(bundle, 'commands', path.basename(command.output.stdout.path));
+        const output = readJson(stdout);
+        output.database.databaseId = 'other-database';
+        fs.writeFileSync(stdout, JSON.stringify(output));
+        command.output.stdout.bytes = fs.statSync(stdout).size;
+        command.output.stdout.sha256 = `sha256:${sha256Hex(stdout)}`;
+        fs.writeFileSync(file, JSON.stringify(command));
+        stage.evidence.bytes = fs.statSync(file).size;
+        stage.evidence.sha256 = `sha256:${sha256Hex(file)}`;
+        stage.attemptEvidence[0].evidence = { ...stage.evidence };
+    }]);
+    for (const [name, mutate] of negativeCases)
+    {
+        writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest);
+        if (!releaseRolloutOk(manifest, context)) fail(`current rollout ${name} positive control is invalid`);
+        const finalFile = path.join(tmpDir, 'releaseRollout.json');
+        const bundle = path.join(tmpDir, 'releaseRolloutBundle');
+        const report = readJson(finalFile);
+        mutate(report, bundle);
+        // Rebind all actual component bytes so rejection cannot be credited to a stale fixture hash.
+        fs.writeFileSync(finalFile, JSON.stringify(report));
+        fs.copyFileSync(finalFile, path.join(bundle, 'release-rollout.json'));
+        manifest.artifactDigests.releaseRollout.value = sha256Hex(finalFile);
+        const indexFile = path.join(bundle, 'bundle-index.json');
+        const index = readJson(indexFile);
+        index.sourceEvidenceSha256 = `sha256:${sha256Hex(finalFile)}`;
+        for (const item of index.files)
+        {
+            const file = path.join(bundle, item.path);
+            item.bytes = fs.statSync(file).size;
+            item.sha256 = `sha256:${sha256Hex(file)}`;
+        }
+        fs.writeFileSync(indexFile, JSON.stringify(index));
+        if (releaseRolloutOk(manifest, context)) fail(`current rollout consumer accepted ${name}`);
+    }
+    writeReleaseRolloutFixture(tmpDir, manifest, releaseId, imageDigest);
+    if (!releaseRolloutOk(manifest, context)) fail('current rollout positive control was not restored');
+}
+
 async function runSelfTest()
 {
     const releaseId = '20260711010101-0123456789ab';
@@ -2137,7 +2298,7 @@ async function runSelfTest()
         workflowRun: { id: '123', attempt: '1', workflow: 'Quality Gate' },
         imageDigest,
         releaseIdentity: {
-            schema: 'fsusblog.release-manifest.v2',
+            schema: 'fsusblog.release-manifest.v3',
             releaseId,
             commitSha,
             imageRepository: 'ghcr.io/fsusblog/app',
@@ -2148,7 +2309,10 @@ async function runSelfTest()
             createdAtUtc: '2026-07-11T01:01:01.000Z',
             frontendManifestHash: `sha256:${'b'.repeat(64)}`,
             wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-            schemaCompatibility: { minimumCoordinate: releaseId, maximumCoordinate: releaseId },
+            currentSchema: { receipt: { reference: '/fixture/current-receipt.json', sha256: '1'.repeat(64) },
+                target: { modelVersion: 'fixture-v1', extractorVersion: 'fixture-v1', generatorVersion: 'fixture-v1',
+                    sourceDigest: '2'.repeat(64), contentDigest: '3'.repeat(64) },
+                database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' }, actualSchemaDigest: '4'.repeat(64) },
             toolchain: {
                 dotnetVersion: '10.0.100',
                 nodeVersion: 'v20.19.0',
@@ -2664,6 +2828,7 @@ async function runSelfTest()
     {
         fail(`self-test expected ok manifest to pass: ${ok.errors.join('; ')}`);
     }
+    verifyCurrentRolloutConsumerNegativeFixtures(tmpDir, base, releaseId, imageDigest);
 
     const validAedsDecodeBudget = readJson(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'));
     fs.writeFileSync(path.join(tmpDir, 'aedsDecodeBudgetSummary.json'), JSON.stringify({

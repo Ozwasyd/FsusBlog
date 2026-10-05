@@ -11,7 +11,7 @@ const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-cont
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { deriveBrowserObservedRawFacts } = await import(new URL('../../tools/test-evidence/browser-contract-observed-facts.mjs', import.meta.url));
 const { selectBrowserContractScenarios } = await import(new URL('../browser-contract/contract-core.mjs', import.meta.url));
-const { createRuntimeRoleStaticV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { createRuntimeRoleStaticV4Fixture, createCurrentSchemaCodeContractFixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
 const {
     createCanonicalAotSourceFixture,
     createCanonicalHydrationFixtureObservation,
@@ -94,7 +94,7 @@ function createRuntimeRoleAdmission(sourceState)
         sourceCommit: sourceState.sourceCommit,
         worktreeFingerprint: sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
     };
-    let admission = createRuntimeRoleStaticV3Fixture(sourceState.runId, source, {
+    let admission = createRuntimeRoleStaticV4Fixture(sourceState.runId, source, {
         repositoryRoot: receiptRepositoryRoot,
         extractorIds: JSON.parse(fs.readFileSync(
             path.join(receiptRepositoryRoot, 'config/contracts/behavior-fact-extractors.json'),
@@ -116,7 +116,8 @@ function createRuntimeRoleAdmission(sourceState)
         }
         const value = artifactId === 'runtime-role-observation'
             ? {
-                schema: 'fsusblog.runtime-role-observation.v2',
+                schema: 'fsusblog.runtime-role-observation.v3',
+                currentSchemaContract: createCurrentSchemaCodeContractFixture(),
                 ownership: { claimEligible: true },
                 deploymentAuthority: {
                     observationDigest: deploymentObservationDigest
@@ -126,6 +127,13 @@ function createRuntimeRoleAdmission(sourceState)
         const output = writeJson(artifact.path, value);
         artifact.artifactDigest = fileDigestHex(output);
         artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+        if (artifactId === 'openapi-aeds-observation')
+        {
+            const projection = { fixture: 'independent-openapi-projection-bytes' };
+            const cachedProjection = writeJson(artifact.buildReceipt.openapiPath, projection);
+            writeJson(artifact.buildReceipt.openapiArtifactPath, projection);
+            artifact.buildReceipt.openapiDigest = fileDigestHex(cachedProjection);
+        }
     }
     const assembly = path.join(receiptRepositoryRoot, runtimeArtifact.assemblyPath);
     fs.mkdirSync(path.dirname(assembly), { recursive: true });
@@ -1007,7 +1015,7 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(observation, null, 2)}\n`
             );
             resealMinimal(admission, observationFile, 'artifact');
-        }, /runtime-role v2 observation authority/u],
+        }, /runtime-role v3 observation authority/u],
         [({ admission, deploymentFile, resealMinimal }) => {
             const deployment = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
             deployment.ownership.claimEligible = false;
@@ -1016,7 +1024,7 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(deployment, null, 2)}\n`
             );
             resealMinimal(admission, deploymentFile, 'deployment');
-        }, /runtime-role v2 observation authority/u]
+        }, /runtime-role v3 observation authority/u]
     ])
     {
         const receipt = producerReceipt(classId);

@@ -252,16 +252,14 @@ public sealed class ProductionHealthTests
             DateTimeOffset.Parse("2026-07-11T02:00:00Z"),
             new Dictionary<string, object?>
             {
-                ["schemaCompatibility"] = new ProductionOnlineSchemaCompatibilityHealthCheck(
+                ["currentSchema"] = new ProductionCurrentSchemaAdmissionHealthCheck(
                     "failed",
                     "schema_incompatible",
-                    "20260720-current",
-                    "20260801-schema",
-                    [new OnlineSchemaCompatibilityIssue(
-                        "schema_coordinate_outside_manifest",
-                        OnlineSchemaCompatibilitySeverity.Error,
-                        Detail: "protected detail")],
-                    "schema_incompatible")
+                    new string('a', 64),
+                    new string('b', 40),
+                    new string('c', 64),
+                    new string('d', 64),
+                    "current_schema_admission_observation_changed")
             });
 
         IReadOnlyDictionary<string, object?> report = ProductionReadinessPublicReport.Create(detailed);
@@ -269,8 +267,110 @@ public sealed class ProductionHealthTests
 
         Assert.Equal(["checkedAt", "code", "status"], report.Keys.OrderBy(static key => key, StringComparer.Ordinal).ToArray());
         Assert.Equal("schema_incompatible", report["code"]);
-        Assert.DoesNotContain("schema_coordinate_outside_manifest", json, StringComparison.Ordinal);
-        Assert.DoesNotContain("20260801-schema", json, StringComparison.Ordinal);
+        Assert.DoesNotContain("current_schema_admission_observation_changed", json, StringComparison.Ordinal);
+        Assert.DoesNotContain(new string('a', 64), json, StringComparison.Ordinal);
+        Assert.DoesNotContain(new string('b', 40), json, StringComparison.Ordinal);
+        Assert.DoesNotContain(new string('c', 64), json, StringComparison.Ordinal);
+        Assert.DoesNotContain(new string('d', 64), json, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CurrentSchemaReadiness_RejectsMissingStartupAdmissionEvenWhenLegacyReportIsReady(bool registerEmptyCurrentState)
+    {
+        // Untrusted status metadata cannot substitute for the current startup
+        // admission. No retired production compatibility publisher is retained.
+        var legacy = new
+        {
+            Status = "ready", ReleaseId = "legacy-release", SchemaCoordinate = "legacy-coordinate"
+        };
+        var registrations = new ServiceCollection().AddSingleton(legacy);
+        if (registerEmptyCurrentState)
+        {
+            registrations.AddSingleton<CurrentSchemaAdmissionState>();
+        }
+        using ServiceProvider provider = registrations.BuildServiceProvider();
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        var environment = new TestWebHostEnvironment(Path.GetTempPath(), Environments.Production);
+        var probe = new ProductionReadinessProbe(
+            configuration, environment, provider, CreateConfigurationSnapshot(configuration, environment, provider),
+            NullLogger<ProductionReadinessProbe>.Instance);
+
+        ProductionCurrentSchemaAdmissionHealthCheck check = await probe.CheckCurrentSchemaAdmissionAsync(CancellationToken.None);
+
+        Assert.Equal("failed", check.Status);
+        Assert.Equal("schema_incompatible", check.PublicErrorCode);
+        Assert.Equal("current_schema_admission_unavailable", check.Error);
+        Assert.Null(check.ArtifactSha256);
+        Assert.Null(check.CandidateSourceRevision);
+        Assert.Null(check.TargetContentDigest);
+        Assert.Null(check.ActualSchemaDigest);
+    }
+
+    [Theory]
+    [InlineData("candidate", "current_schema_admission_binding_mismatch")]
+    [InlineData("configured-source", "current_schema_admission_binding_mismatch")]
+    [InlineData("artifact", "current_schema_admission_binding_mismatch")]
+    [InlineData("missing-release", "current_schema_admission_binding_mismatch")]
+    [InlineData("missing-observer", "current_schema_admission_failed")]
+    public async Task CurrentSchemaReadiness_MetadataOrUnissuedStateNeverSubstitutesForFreshObserver(string invalid, string expectedError)
+    {
+        string source = new('a', 40);
+        string artifact = new('b', 64);
+        var values = new Dictionary<string, string?>
+        {
+            ["Release:Id"] = "20261003010101-aaaaaaaaaaaa",
+            ["Release:Slot"] = "green",
+            ["Release:CommitSha"] = source,
+            ["Release:ImageRef"] = "registry.example/fsusblog@sha256:" + new string('c', 64),
+            ["Release:ImageDigest"] = "sha256:" + new string('c', 64),
+            ["SchemaMigration:CurrentReceipt:CandidateSourceRevision"] = source,
+            ["SchemaMigration:CurrentReceipt:Sha256"] = artifact,
+            ["SchemaMigration:CurrentReceipt:Path"] = Path.Combine(Path.GetTempPath(), "unissued.json")
+        };
+        if (invalid == "configured-source")
+        {
+            values["SchemaMigration:CurrentReceipt:CandidateSourceRevision"] = new string('d', 40);
+        }
+        if (invalid == "artifact")
+        {
+            values["SchemaMigration:CurrentReceipt:Sha256"] = new string('d', 64);
+        }
+        if (invalid == "missing-release")
+        {
+            values["Release:Id"] = null;
+        }
+        var startup = new CurrentSchemaAdmissionState();
+        // Deliberately unissued/corrupt test input, never a production receipt or positive readiness proof.
+        startup.Publish(new CurrentSchemaAdmissionResult(null!, invalid == "candidate" ? new string('d', 40) : source, artifact));
+        using ServiceProvider provider = new ServiceCollection().AddSingleton(startup).BuildServiceProvider();
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(values).Build();
+        var environment = new TestWebHostEnvironment(Path.GetTempPath(), Environments.Production);
+        var probe = new ProductionReadinessProbe(
+            configuration, environment, provider, CreateConfigurationSnapshot(configuration, environment, provider),
+            NullLogger<ProductionReadinessProbe>.Instance);
+
+        ProductionCurrentSchemaAdmissionHealthCheck check = await probe.CheckCurrentSchemaAdmissionAsync(CancellationToken.None);
+
+        Assert.Equal("failed", check.Status);
+        Assert.Equal("schema_incompatible", check.PublicErrorCode);
+        Assert.Equal(expectedError, check.Error);
+        Assert.Null(check.ArtifactSha256);
+    }
+
+    [Fact]
+    public async Task CurrentSchemaReadiness_CancellationPrecedesStateOrDatabaseObservation()
+    {
+        using ServiceProvider provider = new ServiceCollection().BuildServiceProvider();
+        IConfiguration configuration = new ConfigurationBuilder().Build();
+        var environment = new TestWebHostEnvironment(Path.GetTempPath(), Environments.Production);
+        var probe = new ProductionReadinessProbe(
+            configuration, environment, provider, CreateConfigurationSnapshot(configuration, environment, provider),
+            NullLogger<ProductionReadinessProbe>.Instance);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => probe.CheckCurrentSchemaAdmissionAsync(cancellation.Token));
     }
 
     [Fact]

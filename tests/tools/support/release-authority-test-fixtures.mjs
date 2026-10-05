@@ -9,5 +9,8 @@ export {
 export { createReleaseRolloutEvidenceFixture } from './release-rollout-evidence-fixture.mjs'
 export {
   createRuntimeRoleMinimalV3Fixture,
+  createCurrentSchemaCodeContractFixture,
+  createRuntimeRoleMinimalV4Fixture,
+  createRuntimeRoleStaticV4Fixture,
   createRuntimeRoleStaticV3Fixture
 } from './runtime-role-minimal-v3-fixture.mjs'

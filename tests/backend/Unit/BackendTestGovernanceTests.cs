@@ -1,7 +1,6 @@
 using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.Observability;
-using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Tests.TestInfrastructure;
@@ -118,7 +117,6 @@ public sealed class BackendTestGovernanceTests
             ["SchemaMigration:QualificationEnabled"] = "true"
         });
         EndpointContractApplication.AddContractServices(qualificationBuilder);
-        qualificationBuilder.Services.AddScoped<IOnlineSchemaMigrationCoordinator, OnlineSchemaMigrationCoordinator>();
         await using WebApplication qualification = qualificationBuilder.Build();
         qualification.MapReleaseSchemaQualificationEndpoints();
 
