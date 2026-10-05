@@ -853,6 +853,48 @@ export function projectLocalBootstrapFixtureProfile(physicalTiers, logicalTiers)
     return physicalTiers;
 }
 
+/** Preserve a logical member's ephemeral service requirement at its physical scheduler owner. */
+export function projectLocalNonResidentServiceRequirements(physicalTiers, logicalTiers)
+{
+    const logicalById = new Map(logicalTiers.map((tier) => [tier.id, tier]));
+    if (logicalById.size !== logicalTiers.length)
+    {
+        throw new Error('local service projection requires unique logical tier identities');
+    }
+    for (const physical of physicalTiers)
+    {
+        const memberServices = new Set();
+        for (const id of physical.logicalMembers ?? [])
+        {
+            const logical = logicalById.get(id);
+            if (!logical || !Array.isArray(logical.services))
+            {
+                throw new Error(`local service projection lacks the exact logical member ${id}`);
+            }
+            for (const service of logical.services)
+            {
+                memberServices.add(service);
+            }
+        }
+        if (physical.residentLeaseProducer || physical.residentLeaseConsumer)
+        {
+            // The resident-service handoff owns these bundles' service roster.
+            if (memberServices.has('mysql'))
+            {
+                throw new Error('MySQL cannot be projected onto a resident-service bundle');
+            }
+            continue;
+        }
+        if (!Array.isArray(physical.services)
+            || physical.services.some((service) => !memberServices.has(service)))
+        {
+            throw new Error(`local service projection found a service outside ${physical.id}'s logical members`);
+        }
+        physical.services = [...memberServices].sort();
+    }
+    return physicalTiers;
+}
+
 export function localProfileSystemResources(profile, system = {})
 {
     const cpuCount = Number(system.cpuCount);

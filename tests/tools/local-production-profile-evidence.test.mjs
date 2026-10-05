@@ -13,6 +13,7 @@ const {
     localProfileBudgetCriticalPath,
     performanceMixedWindowFloorMs,
     projectLocalBootstrapFixtureProfile,
+    projectLocalNonResidentServiceRequirements,
     resolveLocalProfileResources,
     validateLocalBundleSummary,
     validatePerformanceDeadlineEvidence
@@ -89,6 +90,43 @@ test('logical bootstrap fixture identity is projected only onto runtime-browser'
     assert.equal(bundles.filter((bundle) => bundle.selfBootstraps === true).length, 1);
     assert.ok(bundles.filter((bundle) => bundle !== runtime)
         .every((bundle) => !Object.hasOwn(bundle, 'fixtureProfile')));
+});
+
+test('non-resident physical bundle inherits its exact logical MySQL service requirement', () =>
+{
+    const repositoryMatrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const resolved = resolveLocalProfileResources(repositoryMatrix.localProfiles.production,
+        { availableCpuUnits: 8, availableMemoryGiB: 18 });
+    const bundles = createLocalBundleTiers('production', resolved);
+    projectLocalNonResidentServiceRequirements(bundles, repositoryMatrix.tiers);
+    const backend = bundles.find((bundle) => bundle.physicalBundleId === 'backend-tests');
+    assert.deepEqual(backend.services, ['mysql']);
+    assert.ok(bundles.filter((bundle) => bundle !== backend)
+        .every((bundle) => !bundle.services.includes('mysql')));
+    const missing = createLocalBundleTiers('production', resolved);
+    assert.throws(() => projectLocalNonResidentServiceRequirements(missing,
+        repositoryMatrix.tiers.filter((tier) => tier.id !== 'backend-unit')), /exact logical member backend-unit/u);
+    const foreign = createLocalBundleTiers('production', resolved);
+    foreign.find((bundle) => bundle.physicalBundleId === 'backend-tests').services = ['redis'];
+    assert.throws(() => projectLocalNonResidentServiceRequirements(foreign, repositoryMatrix.tiers),
+        /service outside/u);
+});
+
+test('MySQL projection rejects duplicate logical identities and resident ownership without changing runtime bootstrap admission', () =>
+{
+    const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const resolved = resolveLocalProfileResources(matrix.localProfiles.production,
+        { availableCpuUnits: 8, availableMemoryGiB: 18 });
+    assert.throws(() => projectLocalNonResidentServiceRequirements(
+        createLocalBundleTiers('production', resolved), [...matrix.tiers, matrix.tiers[0]]),
+        /unique logical tier identities/u);
+    const resident = createLocalBundleTiers('production', resolved);
+    resident.find((bundle) => bundle.physicalBundleId === 'runtime-browser').logicalMembers = ['backend-unit'];
+    assert.throws(() => projectLocalNonResidentServiceRequirements(resident, matrix.tiers),
+        /MySQL cannot be projected onto a resident-service bundle/u);
+    const runner = fs.readFileSync(path.join(root, 'tools/run-test-matrix.mjs'), 'utf8');
+    assert.equal(runner.split('projectLocalNonResidentServiceRequirements(physicalTiers, matrix.tiers);').length - 1, 1);
+    assert.equal(runner.split('projectLocalNonResidentServiceRequirements(physicalTiers, resolvedLogicalMatrix.tiers);').length - 1, 1);
 });
 
 test('bootstrap projection counts self-bootstrap tiers only inside runtime-browser', () =>
