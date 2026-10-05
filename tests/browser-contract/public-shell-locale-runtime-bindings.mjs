@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
-import { createRequire, stripTypeScriptTypes } from 'node:module';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Consume the immutable build admission owner without repairing its seal.
@@ -9,6 +9,7 @@ import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-ar
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Reuse the canonical AEDS v2 envelope reader, not another framing implementation.
 import { decodeAedsFrame, decodeApiErrorFrame } from '../frontend/support/aeds-envelope.mjs';
 
+import { createPublicShellFiniteInputOwner, mutateFinitePublicShellDomainResource } from './public-shell-finite-input-owner.mjs';
 import { validatePublicShellLocaleMatrix } from './public-shell-locale-matrix.mjs';
 
 const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
@@ -17,41 +18,11 @@ const sha256 = (bytes) => `sha256:${createHash('sha256').update(bytes).digest('h
 export async function resolvePublicShellLocalePublishedRoute({ root, scene, fixture })
 {
     assert.ok(scene.issue === 2083 && scene.stage === 'first-response', 'first-response route required');
-    const refs = [];
-    async function module(file, replacements = {})
-    {
-        const bytes = await readFile(path.join(root, file));
-        refs.push({ path: file, digest: sha256(bytes) });
-        let source = stripTypeScriptTypes(bytes.toString('utf8'));
-        for (const [specifier, url] of Object.entries(replacements))
-        {
-            source = source.replaceAll(`'${specifier}'`, `'${url}'`);
-        }
-        const url = `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`;
-        return url;
-    }
-    const generated = '@/public-renderers/generated/publicPageManifest';
-    const fixed = '@/public-renderers/publicFixedPageSemantics';
-    const paths = '@/public-renderers/publicRoutePaths';
-    const registry = '@/public-renderers/publicRouteRegistry';
-    const filters = '@/public-renderers/publicFilterSemantics';
-    const titles = '@/router/routeTitleContract';
-    const manifestUrl = await module('src/frontend/src/public-renderers/generated/publicPageManifest.ts');
-    const fixedUrl = await module('src/frontend/src/public-renderers/publicFixedPageSemantics.ts', { [generated]: manifestUrl });
-    const pathsUrl = await module('src/frontend/src/public-renderers/publicRoutePaths.ts', {
-        [generated]: manifestUrl, [fixed]: fixedUrl
-    });
-    const titleUrl = await module('src/frontend/src/router/routeTitleContract.ts');
-    const registryUrl = await module('src/frontend/src/public-renderers/publicRouteRegistry.ts', {
-        [generated]: manifestUrl, [paths]: pathsUrl, [titles]: titleUrl
-    });
-    const filterUrl = await module('src/frontend/src/public-renderers/publicFilterSemantics.ts');
-    const routeUrl = await module('src/frontend/src/public-renderers/publicRouteIdentity.ts', {
-        [generated]: manifestUrl, [fixed]: fixedUrl, [registry]: registryUrl, [filters]: filterUrl
-    });
-    const routes = await import(routeUrl);
-    const fixedOwner = await import(fixedUrl);
-    const manifest = await import(manifestUrl);
+    const owner = await createPublicShellFiniteInputOwner(root);
+    const routes = await owner.load('routeIdentity');
+    const fixedOwner = await owner.load('fixedPages');
+    const manifest = await owner.load('pageManifest');
+    const refs = owner.refs();
     const descriptor = manifest.PUBLIC_PAGE_MANIFEST[scene.route];
     assert.ok(descriptor?.seoEligible && descriptor.aotShellReady, 'published route is not production SEO/AOT eligible');
     let selectedPath;
@@ -87,28 +58,8 @@ export async function resolvePublicShellLocalePublishedRoute({ root, scene, fixt
 /** Pure production schema authority plus a parser for sealed emitted modules. No runtime hooks. */
 export async function loadPublicShellLocaleDomainBindings(root)
 {
-    const file = 'src/frontend/src/locales/localeDomainBundleStore.ts';
-    const bytes = await readFile(path.join(root, file));
-    const require = createRequire(path.join(root, 'src/frontend/package.json'));
-    const ts = require('typescript');
-    const ast = ts.createSourceFile(file, bytes.toString(), ts.ScriptTarget.Latest, true);
-    const functions = ast.statements.filter((node) => ts.isFunctionDeclaration(node)
-        && ['leafKind', 'localeDomainSchemaDigest'].includes(node.name?.text));
-    assert.equal(functions.length, 2, 'production schema functions missing/ambiguous');
-    const names = ast.statements.flatMap((node) => ts.isVariableStatement(node) ? [...node.declarationList.declarations] : [])
-        .filter((node) => node.name.getText(ast) === 'EXPORT_NAMES');
-    assert.equal(names.length, 1, 'production domain export map missing/ambiguous');
-    const schemas = ast.statements.flatMap((node) => ts.isVariableStatement(node) ? [...node.declarationList.declarations] : [])
-        .filter((node) => node.name.getText(ast) === 'LOCALE_DOMAIN_SCHEMA_DIGESTS');
-    assert.equal(schemas.length, 1, 'production schema digest map missing/ambiguous');
-    const code = stripTypeScriptTypes(`${functions.map((node) => node.getText(ast)).join('\n')}\nexport const exportNames = ${names[0].initializer.getText(ast)};
-export const schemaDigests = ${schemas[0].initializer.getText(ast)};`);
-    const production = await import(`data:text/javascript;base64,${Buffer.from(code).toString('base64')}`);
-    const { parse } = require('acorn');
-    return Object.freeze({ schemaDigest: production.localeDomainSchemaDigest, exportNames: production.exportNames,
-        schemaDigests: production.schemaDigests,
-        parse: (source) => parse(source, { ecmaVersion: 'latest', sourceType: 'module' }),
-        refs: [{ path: file, digest: sha256(bytes) }] });
+    const owner = await createPublicShellFiniteInputOwner(root);
+    return owner.schemaBindings();
 }
 
 /** Mutate the admitted module, not a hand-written replacement or a product-state hook.
@@ -117,96 +68,7 @@ export const schemaDigests = ${schemas[0].initializer.getText(ast)};`);
  */
 export async function mutatePublicShellLocaleDomainResource({ body, identity, mode, domains })
 {
-    assert.ok(domains?.parse && domains.schemaDigest && domains.exportNames, 'production domain bindings required');
-    assert.ok(['invalid-content', 'invalid-schema', 'invalid-digest'].includes(mode), 'unknown domain mutation');
-    const source = Buffer.from(body).toString('utf8');
-    assert.ok(Buffer.from(source).equals(Buffer.from(body)), 'sealed JS is not canonical UTF-8');
-    const ast = domains.parse(source);
-    assert.equal(ast.body.filter((node) => node.type === 'ImportDeclaration'
-        || (node.type.startsWith('Export') && node.source)).length, 0, 'mutation requires a standalone sealed module');
-    const hasDynamicImport = (node) => node && typeof node === 'object' && (node.type === 'ImportExpression'
-        || Object.values(node).some((value) => Array.isArray(value) ? value.some(hasDynamicImport) : hasDynamicImport(value)));
-    assert.equal(hasDynamicImport(ast), false, 'mutation must not introduce/execute dependency requests');
-    const exportName = domains.exportNames[identity.domain];
-    assert.ok(exportName, 'production export map has no domain');
-    const exports = ast.body.filter((node) => node.type === 'ExportNamedDeclaration');
-    const names = exports.flatMap((node) => node.declaration?.declarations?.map((item) => item.id.name)
-        ?? node.specifiers.map((item) => item.exported.name));
-    assert.deepEqual([...names].sort(), [exportName, 'localeDomainIdentity'].sort(), 'sealed domain export set');
-    const original = await import(`data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
-    assert.deepEqual(original.localeDomainIdentity, { locale: identity.locale, domain: identity.domain }, 'sealed module identity');
-    const schemaDigest = domains.schemaDigest(original[exportName]);
-    assert.equal(schemaDigest, identity.schemaDigest, 'sealed module schema differs from production loader');
-    const edits = [];
-    let suffix;
-    if (mode === 'invalid-content')
-    {
-        suffix = '\n/* fsusblog: invalid-content syntax boundary */\nconst = ;\n';
-    }
-    else
-    {
-        const reference = exports.flatMap((node) => node.specifiers ?? [])
-            .filter((item) => item.exported.name === exportName);
-        let local;
-        if (reference.length)
-        {
-            assert.equal(reference.length, 1, 'ambiguous exported artifact binding');
-            local = reference[0].local.name;
-            edits.push({ start: reference[0].start, end: reference[0].end, text: `__fsusFaultArtifact as ${exportName}` });
-        }
-        else
-        {
-            const declarations = exports.filter((node) => node.declaration?.declarations?.some((item) => item.id.name === exportName));
-            assert.equal(declarations.length, 1, 'artifact has no mutable export binding');
-            const node = declarations[0];
-            local = exportName;
-            edits.push({ start: node.start, end: node.declaration.start, text: '' });
-            const other = node.declaration.declarations.map((item) => item.id.name).filter((name) => name !== exportName);
-            edits.push({ start: source.length, end: source.length,
-                text: `\nexport { __fsusFaultArtifact as ${exportName}${other.map((name) => `, ${name}`).join('')} };\n` });
-        }
-        assert.ok(!source.includes('__fsusFaultArtifact'), 'mutation binding collides with sealed module');
-        if (mode === 'invalid-schema')
-        {
-            assert.ok(Object.keys(original[exportName]).length > 0, 'domain has no removable own key');
-            suffix = `\nconst __fsusFaultArtifact = Object.fromEntries(Object.entries(${local}).slice(1));\n`;
-        }
-        else
-        {
-            suffix = `\nlet __fsusFaultChanged = false;
-const __fsusFaultTransform = value => {
-  if (typeof value === 'string' && !__fsusFaultChanged) { __fsusFaultChanged = true; return value + ' [fsus-content-mutation]'; }
-  if (!value || typeof value !== 'object') return value;
-  if (Array.isArray(value)) return value.map(__fsusFaultTransform);
-  return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, key === 'kind' && item === 'plural' ? item : __fsusFaultTransform(item)]));
-};
-const __fsusFaultArtifact = __fsusFaultTransform(${local});
-if (!__fsusFaultChanged) throw new Error('domain has no translated string');\n`;
-        }
-    }
-    let changed = source;
-    for (const edit of [...edits].sort((left, right) => right.start - left.start))
-    {
-        changed = changed.slice(0, edit.start) + edit.text + changed.slice(edit.end);
-    }
-    changed += suffix;
-    let mutatedSchemaDigest = null;
-    if (mode !== 'invalid-content')
-    {
-        const mutated = await import(`data:text/javascript;base64,${Buffer.from(changed).toString('base64')}`);
-        assert.deepEqual(mutated.localeDomainIdentity, original.localeDomainIdentity, 'mutation changed artifact identity');
-        mutatedSchemaDigest = domains.schemaDigest(mutated[exportName]);
-        if (mode === 'invalid-schema')
-        {
-            assert.notEqual(mutatedSchemaDigest, schemaDigest, 'schema mutation did not change schema');
-        }
-        else
-        {
-            assert.equal(mutatedSchemaDigest, schemaDigest, 'digest mutation changed schema instead of content');
-        }
-    }
-    return { body: new Uint8Array(Buffer.from(changed)), mutation: { mode, recipe: 'sealed-module-ast',
-        targetDigest: sha256(body), originalLength: body.length, edits, suffix, schemaDigest, mutatedSchemaDigest } };
+    return mutateFinitePublicShellDomainResource({ body, identity, mode, domains });
 }
 
 /** Load pure production codec modules only; no browser runtime, locale state or storage hooks. */
@@ -219,24 +81,11 @@ export async function loadPublicShellLocalePreferenceBindings(root)
         refs.push({ path: relative, digest: sha256(bytes) });
         return bytes.toString('utf8');
     }
-    async function module(relative, replacements = {})
-    {
-        let code = stripTypeScriptTypes(await source(relative));
-        for (const [specifier, replacement] of Object.entries(replacements))
-        {
-            code = code.replaceAll(`'${specifier}'`, `'${replacement}'`);
-        }
-        return `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
-    }
-    const errors = await module('src/frontend/src/utils/appError.ts');
-    const reader = await module('src/frontend/src/codecs/binary/reader.ts', { '@/utils/appError': errors });
-    const types = await module('src/frontend/src/adapters/binary/types.ts');
-    const mapper = await import(await module('src/frontend/src/adapters/binary/localePreferenceAdapter.ts', {
-        '@/codecs/binary/reader': reader, '@/utils/appError': errors, './types': types
-    }));
-    const frame = await module('src/frontend/wasm/web/protocol/frame.ts');
-    const encoder = await import(await module('src/frontend/src/api/binaryFrame.ts', { '@wasm/protocol/frame': frame }));
-    const contracts = await import(await module('src/frontend/src/api/contracts.ts'));
+    const owner = await createPublicShellFiniteInputOwner(root);
+    const mapper = await owner.load('localePreference');
+    const encoder = await owner.load('binaryEncoder');
+    const contracts = await owner.load('apiContracts');
+    refs.push(...owner.refs());
     const protocol = JSON.parse(await source('src/shared/Contracts/Validation/aeds-protocol.json'));
     const endpoint = JSON.parse(await source('src/shared/Contracts/Validation/aeds-endpoint-contracts.json'));
     const catalog = JSON.parse(await source('src/shared/Contracts/Localization/locale-catalog.json'));
@@ -386,8 +235,8 @@ export async function admitPublicShellLocaleRuntimeBindings({ root, matrix, harn
     }
     const entries = Object.entries(manifest);
     const domains = await loadPublicShellLocaleDomainBindings(root);
-    const domainSource = await readFile(path.join(root, 'src/frontend/src/locales/localeDomains.ts'), 'utf8');
-    const { LOCALE_DOMAINS } = await import(`data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(domainSource)).toString('base64')}`);
+    const domainOwner = await createPublicShellFiniteInputOwner(root);
+    const { LOCALE_DOMAINS } = await domainOwner.load('localeDomains');
     for (const locale of matrix.locales)
     {
         for (const domain of LOCALE_DOMAINS)
