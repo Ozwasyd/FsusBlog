@@ -1004,6 +1004,8 @@ The Migration discovery/evidence helper joins the independent assembly, fully-qu
 
 The existing production build layout allocates separate Migration.Tests and Roslyn adapter project outputs. `tools/test/migration-build-binding.mjs` binds their Release runtime/dependency files, intermediate assemblies/generated source, Migration/Shared dependency closure and current Git source to the original run-bound marker. Only the existing backend-tests or backend-unit producer identity is admitted; crossed namespace, source, owner state, missing/changed/extra artifacts and symlinks refuse. Marker contract tests use explicitly controlled owner states and bytes, not compiler or service evidence; publishing this build marker alone cannot establish execution, cleanup or qualification.
 
+The original `tools/test-matrix/mysql-fixture-recovery.mjs` component preflights the complete supervisor-retained allocation roster before cleanup, keeps the acquired recovery guard held, and requires independent container-absence and credential-removal observations before grant release. Cleanup cannot qualify an execution; crossed run/source/controller/path, later foreign allocations, stale proof, lost lease and incomplete durable cleanup refuse. Its narrow tests use lifecycle adapters only; current scheduler integration and real Docker/MySQL cleanup remain separate pending work.
+
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 
 - `release-rollout-state.test.mjs`: 15-stage sequence, rollout identity, failed-stage recovery and resume.
