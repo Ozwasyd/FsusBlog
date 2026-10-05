@@ -126,6 +126,11 @@ Temporal replay additionally joins each plan/actual envelope's source commit/fin
 run and producer to its own validated context before comparing the receipt. Coordinated
 rewrites or removal of outer identities remain invalid even with newly recomputed digests.
 
+Temporal actual ingress and independent replay both require an explicitly observed
+nonempty business epoch. The producer binder does not substitute planned context for
+missing observations. These Node contract checks do not establish actual product-clock
+or pending-publication runtime qualification.
+
 ## Media shape authority
 
 `config/testing/media-shape-catalog.json` is the only closed/versioned MediaShapeCatalog. It registers MIME, extension, magic and independent codec fact owners of JPEG, PNG, SVG and WebP respectively, and fixes six aspect contracts, ten types of consumer applicability, ten canonical positive shapes and eight single-fault negative shapes. The catalog only saves AssetId-compatible generator digest refs and does not save absolute path, public URL, storage path or second asset ledger; `no-cover` explicitly does not generate bytes, URL or default images. `tools/test-fixtures/media-shape-catalog.mjs` performs independent fail-closed verification of the catalog and each shape's content digest, matrix integrity, format/MIME/extension, orientation/alpha/dimensions, single-fault, consumer isolation, and unique authority.
