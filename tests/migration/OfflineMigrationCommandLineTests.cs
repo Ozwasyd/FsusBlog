@@ -5,6 +5,49 @@ namespace FsusBlog.Migration.Tests;
 public sealed class OfflineMigrationCommandLineTests
 {
     [Fact]
+    public void ParsePlan_RequiresExplicitDatabaseProviderAndOriginalBackupReferences()
+    {
+        OfflineMigrationPlanCommandOptions options = OfflineMigrationCommandLine.ParsePlan(PlanArguments());
+        Assert.Equal("instance", options.ExpectedDatabase.InstanceId);
+        Assert.Equal("database", options.ExpectedDatabase.DatabaseId);
+        Assert.Equal("backup.fsbenc", options.BackupPackagePath);
+        Assert.Equal("manifest.json", options.BackupManifestPath);
+        Assert.Equal("drill.json", options.RestoreDrillPath);
+        Assert.Equal("restore.env", options.RestoreEnvironmentFilePath);
+        Assert.Equal("plan.json", options.PlanOutputPath);
+    }
+
+    [Theory]
+    [InlineData("--release-manifest")]
+    [InlineData("--slot")]
+    [InlineData("--latest-backup")]
+    [InlineData("--phase")]
+    [InlineData("--steps")]
+    public void ParsePlan_RejectsReleaseSlotLegacyPhaseAndManualSelection(string argument)
+    {
+        Assert.StartsWith("schema_plan_argument_unknown:", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParsePlan([.. PlanArguments(), argument, "value"])).Message);
+    }
+
+    [Fact]
+    public void ParsePlan_RejectsDuplicateMissingAndUnknownProvider()
+    {
+        Assert.StartsWith("schema_plan_argument_invalid_or_duplicate:", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParsePlan([.. PlanArguments(), "--database-id", "other"])).Message);
+        Assert.StartsWith("schema_plan_argument_required:", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParsePlan(["plan", "--provider", "postgresql"])).Message);
+        string[] unknown = PlanArguments();
+        unknown[2] = "guess";
+        Assert.Equal("schema_plan_provider_unknown", Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationCommandLine.ParsePlan(unknown)).Message);
+    }
+
+    private static string[] PlanArguments()
+        => ["plan", "--provider", "postgresql", "--instance-id", "instance", "--database-id", "database",
+            "--env-file", "source.env", "--backup-package", "backup.fsbenc", "--backup-manifest", "manifest.json",
+            "--restore-drill", "drill.json", "--restore-env-file", "restore.env", "--output", "plan.json"];
+
+    [Fact]
     public void Parse_Expand()
     {
         OfflineMigrationCommandOptions options = OfflineMigrationCommandLine.Parse(

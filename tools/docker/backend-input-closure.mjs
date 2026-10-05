@@ -42,7 +42,7 @@ function parseArguments(argv)
     {
         const argument = argv[index];
         if (['--root', '--output', '--configuration', '--runtime', '--ready-to-run', '--target',
-            '--single-file', '--tiered-pgo', '--quick-jit-for-loops', '--server-gc', '--release-id', '--commit-sha'].includes(argument))
+            '--single-file', '--tiered-pgo', '--quick-jit-for-loops', '--server-gc', '--release-id', '--commit-sha', '--tool'].includes(argument))
         {
             const value = argv[index + 1];
             if (!value)
@@ -190,11 +190,29 @@ function assertStringArray(value, name)
     return value;
 }
 
-function loadInventory(root)
+export function migrationToolProfile(properties)
+{
+    if (!/^[a-f0-9]{40}$/u.test(properties.FsusBlogCommitSha ?? '')
+        || /^0{40}$/u.test(properties.FsusBlogCommitSha))
+    {
+        fail('independent Migration publish requires an exact nonzero source commit');
+    }
+    return { Configuration: properties.Configuration, RuntimeIdentifier: properties.RuntimeIdentifier,
+        SelfContained: 'true', UseAppHost: 'false', PublishSingleFile: 'false', PublishTrimmed: 'false',
+        PublishReadyToRun: 'false', ReadyToRunUseCrossgen2: 'false',
+        FsusBlogCommitSha: properties.FsusBlogCommitSha };
+}
+
+export function migrationToolProfileMarker(properties)
+{
+    return `${properties.Configuration}\n${properties.RuntimeIdentifier}\n${properties.FsusBlogCommitSha}\n`;
+}
+
+export function loadInventory(root)
 {
     const path = join(root, inventoryRelativePath);
     const inventory = JSON.parse(readFileSync(path, 'utf8'));
-    if (inventory.schema !== 'fsusblog.backend-docker-inputs.v1')
+    if (inventory.schema !== 'fsusblog.backend-docker-inputs.v2')
     {
         fail('inventory schema is invalid');
     }
@@ -234,6 +252,42 @@ function loadInventory(root)
             fail('each project path must be a string');
         }
         assertStringArray(project.references, `references for ${project.path}`);
+    }
+    if (!Array.isArray(inventory.tools) || inventory.tools.length > 1)
+    {
+        fail('tools must be the closed independent migration root roster');
+    }
+    for (const tool of inventory.tools)
+    {
+        if (tool.id !== 'migration' || tool.entryProject !== 'src/migration/FsusBlog.Migration.csproj'
+            || Object.keys(tool).sort().join('\0') !== ['id', 'entryProject', 'projects', 'restoreFiles', 'embeddedResources'].sort().join('\0'))
+        {
+            fail('independent tool root is not the original Migration project');
+        }
+        if (!Array.isArray(tool.projects) || JSON.stringify(tool.projects) !== JSON.stringify([
+            { path: 'src/migration/FsusBlog.Migration.csproj', references: ['src/shared/FsusBlog.Shared.csproj'] },
+            { path: 'src/shared/FsusBlog.Shared.csproj', references: [] }
+        ]))
+        {
+            fail('independent Migration project closure is not exact');
+        }
+        assertStringArray(tool.restoreFiles, 'independent Migration restoreFiles');
+        if (!Array.isArray(tool.embeddedResources) || tool.embeddedResources.length !== 4
+            || tool.embeddedResources.some(item => !item || typeof item.path !== 'string'
+                || Object.keys(item).sort().join('\0') !== ['logicalName', 'path'].join('\0')
+                || !/^tools\/(?:ci|fact-extractors)(?:\/[A-Za-z0-9_.-]+)+\.mjs$/u.test(item.path)
+                || item.path.split('/').some(part => part === '.' || part === '..')
+                || item.logicalName !== `FsusBlog.Migration.RetainedReader.${item.path.replaceAll('/', '.')}`)
+            || JSON.stringify(tool.embeddedResources.map(item => item.path))
+                !== JSON.stringify(sortedUnique(tool.embeddedResources.map(item => item.path))))
+        {
+            fail('independent Migration embedded resource declarations are not canonical');
+        }
+        if (inventory.projects.some(project => project.path === tool.entryProject
+            || project.references.includes(tool.entryProject)))
+        {
+            fail('Server graph must not reference the independent Migration tool');
+        }
     }
     return inventory;
 }
@@ -379,6 +433,27 @@ export function selectEvaluatedInput(root, project, itemType, item)
     return path;
 }
 
+export function validateMigrationEmbeddedResources(root, project, inventory, items)
+{
+    if (!inventory.embeddedResources)
+    {
+        return;
+    }
+    const projectRoots = inventory.projects.map(value => dirname(value.path).split(sep).join('/'));
+    const actual = (items.EmbeddedResource ?? []).map(item => ({ item,
+        path: selectEvaluatedInput(root, project, 'EmbeddedResource', item) }))
+        .filter(value => !projectRoots.some(prefix => isWithin(value.path, prefix)));
+    const expected = project === inventory.entryProject ? inventory.embeddedResources : [];
+    if (actual.length !== expected.length || actual.some(value =>
+        !expected.some(item => item.path === value.path && item.logicalName === value.item.LogicalName)
+        || ['CopyToOutputDirectory', 'CopyToPublishDirectory'].some(key =>
+            ![undefined, '', 'Never'].includes(value.item[key])))
+        || new Set(actual.map(value => value.path)).size !== actual.length)
+    {
+        fail(`independent Migration embedded resource closure mismatch in ${project}`);
+    }
+}
+
 function evaluateProject(root, project, inventory)
 {
     const itemTypes = sortedUnique([...inventory.itemTypes, 'None']);
@@ -398,6 +473,7 @@ function evaluateProject(root, project, inventory)
         ], evaluationProperties));
         const evaluated = JSON.parse(runMsbuild(root, project, inventory, [query, '-getProperty:MSBuildToolsPath'], evaluationProperties));
         const items = evaluated.Items ?? {};
+        validateMigrationEmbeddedResources(root, project, inventory, items);
         const references = (items.ProjectReference ?? [])
             .map(item => repositoryRelativeOrNull(root, item.FullPath ?? item.Identity))
             .map(path => path ?? fail(`ProjectReference escapes the repository in ${project}`));
@@ -416,6 +492,11 @@ function evaluateProject(root, project, inventory)
                 if (path === null)
                 {
                     continue;
+                }
+                if (inventory.embeddedResources?.some(item => item.path === path)
+                    && (project !== inventory.entryProject || itemType !== 'EmbeddedResource'))
+                {
+                    fail(`independent Migration retained input has a different item owner/type: ${path}`);
                 }
                 if (isWithin(path, `${projectRoot}/bin`) || isWithin(path, `${projectRoot}/obj`))
                 {
@@ -544,7 +625,9 @@ export function assertDockerfile(root)
             'COPY --from=backend-inputs /compile/ /src/'
         ]],
         ['publish', ['COPY --from=backend-inputs /publish/ /src/']],
-        ['publish-debug', []]
+        ['publish-debug', []],
+        ['migration-build', ['COPY --from=backend-inputs /migration/restore/ /src/']],
+        ['migration-publish', ['COPY --from=backend-inputs /migration/compile/ /src/']]
     ]);
     const ancestorGuard = `RUN for input in ${backendAncestorFiles.join(' ')}; do test ! -e "$input" && test ! -L "$input" || exit 1; done`;
     const buildInstructions = instructionsByStage.get('build') ?? [];
@@ -605,6 +688,36 @@ export function assertDockerfile(root)
             fail(`backend SDK COPY authority mismatch for ${stage}: ${actualCopies.join(', ') || '<none>'}`);
         }
     }
+    const toolMarker = String.raw`RUN test "$(cat /src/.migration-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$FSUSBLOG_COMMIT_SHA")"`;
+    const toolCommands = {
+        'migration-build': 'RUN dotnet restore "./src/migration/FsusBlog.Migration.csproj" --configfile /src/config/build/backend-restore.xml --runtime "$TARGET_RUNTIME" /p:Configuration="$BUILD_CONFIGURATION" /p:SelfContained=true /p:UseAppHost=false /p:PublishSingleFile=false /p:PublishTrimmed=false /p:PublishReadyToRun=false /p:ReadyToRunUseCrossgen2=false /p:FsusBlogCommitSha="$FSUSBLOG_COMMIT_SHA"',
+        'migration-publish': 'RUN dotnet publish "./src/migration/FsusBlog.Migration.csproj" -c "$BUILD_CONFIGURATION" -r "$TARGET_RUNTIME" -o /app/migration-publish --no-restore --self-contained true /p:RestoreConfigFile=/src/config/build/backend-restore.xml /p:UseAppHost=false /p:PublishSingleFile=false /p:PublishTrimmed=false /p:PublishReadyToRun=false /p:ReadyToRunUseCrossgen2=false /p:FsusBlogCommitSha="$FSUSBLOG_COMMIT_SHA"'
+    };
+    const toolBuild = instructionsByStage.get('migration-build') ?? [];
+    if (toolBuild.filter(line => line === ancestorGuard).length !== 1
+        || toolBuild.indexOf(ancestorGuard) > toolBuild.indexOf(expectedCopiesByStage.get('migration-build')[0]))
+    {
+        fail('independent tool SDK ancestor absence guard is missing or late');
+    }
+    for (const [stage, expectedCommand] of Object.entries(toolCommands))
+    {
+        const instructions = instructionsByStage.get(stage) ?? [];
+        const commands = instructions.filter(line => /^RUN dotnet (restore|publish) /u.test(line));
+        if (JSON.stringify(commands) !== JSON.stringify([expectedCommand])
+            || instructions.filter(line => line === toolMarker).length !== 1
+            || instructions.indexOf(toolMarker) > instructions.indexOf(expectedCommand))
+        {
+            fail(`independent tool profile command binding mismatch in ${stage}`);
+        }
+    }
+    const taskStage = instructionsByStage.get('current-native-task') ?? [];
+    if (!taskStage.includes('FROM final AS current-native-task')
+        || JSON.stringify(taskStage.filter(line => /^COPY\s/u.test(line))) !== JSON.stringify([
+            'COPY --from=migration-publish --chown=$APP_UID:$APP_UID /app/migration-publish /app/tools/migration'
+        ]) || taskStage.some(line => /^(?:ENTRYPOINT|CMD)\s/u.test(line)))
+    {
+        fail('task tool image must preserve Server entrypoint and independent tool directory');
+    }
     for (const stage of ['build-musl', 'build-glibc'])
     {
         const instructions = instructionsByStage.get(stage) ?? [];
@@ -655,7 +768,7 @@ export function assertDockerfile(root)
 export function assertBuildScript(root)
 {
     const source = readFileSync(join(root, buildScriptRelativePath), 'utf8');
-    const materializers = source.match(/^node "\$ROOT_DIR\/tools\/docker\/backend-input-closure\.mjs" materialize \\\r?\n\s+--root "\$ROOT_DIR" \\\r?\n\s+--configuration Release --runtime "\$TARGET_RUNTIME" --ready-to-run "\$PUBLISH_READY_TO_RUN" \\\r?\n\s+--target publish --single-file "\$PUBLISH_SINGLE_FILE" --tiered-pgo "\$TIERED_PGO" \\\r?\n\s+--quick-jit-for-loops "\$QUICK_JIT_FOR_LOOPS" --server-gc "\$SERVER_GC" \\\r?\n\s+--release-id "\$RELEASE_ID" --commit-sha "\$COMMIT_SHA" \\\r?\n\s+--output "\$BACKEND_INPUT_CONTEXT"\s*$/gmu) ?? [];
+    const materializers = source.match(/^node "\$ROOT_DIR\/tools\/docker\/backend-input-closure\.mjs" materialize \\\r?\n\s+--root "\$ROOT_DIR" \\\r?\n\s+--configuration Release --runtime "\$TARGET_RUNTIME" --ready-to-run "\$PUBLISH_READY_TO_RUN" \\\r?\n\s+--target publish --single-file "\$PUBLISH_SINGLE_FILE" --tiered-pgo "\$TIERED_PGO" \\\r?\n\s+--quick-jit-for-loops "\$QUICK_JIT_FOR_LOOPS" --server-gc "\$SERVER_GC" \\\r?\n\s+--release-id "\$RELEASE_ID" --commit-sha "\$COMMIT_SHA" \\\r?\n\s+"\$\{TASK_TOOL_ARGS\[@\]\}" \\\r?\n\s+--output "\$BACKEND_INPUT_CONTEXT"\s*$/gmu) ?? [];
     if (materializers.length !== 1)
     {
         fail(`final-image build must invoke the backend input materializer exactly once: ${materializers.length}`);
@@ -674,6 +787,26 @@ export function assertBuildScript(root)
 }
 
 export function evaluateClosure(root, inventory)
+{
+    const closure = evaluateProjectClosure(root, inventory);
+    for (const tool of inventory.tools ?? [])
+    {
+        const properties = migrationToolProfile(inventory.evaluationProperties);
+        const toolInventory = { ...inventory, ...tool, tools: [],
+            evaluationProperties: properties, restoreEvaluationProperties: properties,
+            optionalPublishRoots: [], allowedExternalItemRoots: [],
+            allowedExternalItemFiles: sortedUnique([...inventory.allowedExternalItemFiles,
+                ...tool.embeddedResources.map(item => item.path)]) };
+        const toolClosure = evaluateProjectClosure(root, toolInventory);
+        for (const [domain, paths] of Object.entries(toolClosure))
+        {
+            closure[`migration/${domain}`] = paths;
+        }
+    }
+    return closure;
+}
+
+function evaluateProjectClosure(root, inventory)
 {
     const declaredProjects = inventory.projects.map(project => project.path);
     const declaredProjectSet = new Set(declaredProjects);
@@ -1432,6 +1565,18 @@ async function main()
     const options = parseArguments(process.argv.slice(2));
     const root = realpathSync(resolve(options.root));
     const inventory = loadInventory(root);
+    if (options.tool !== undefined && options.tool !== 'migration')
+    {
+        fail('unknown independent tool selection');
+    }
+    if (options.tool === 'migration' && inventory.tools.length !== 1)
+    {
+        fail('selected Migration tool has no declared input closure');
+    }
+    if (options.tool === undefined)
+    {
+        inventory.tools = [];
+    }
     inventory.evaluationProperties = requestedEvaluationProfile(inventory, options);
     inventory.restoreEvaluationProperties = { Configuration: inventory.evaluationProperties.Configuration,
         RuntimeIdentifier: inventory.evaluationProperties.RuntimeIdentifier,
@@ -1442,16 +1587,20 @@ async function main()
     const { evaluateBackendEnvironment } = await import('./backend-input-environment.mjs');
     const { closure, evidence } = await evaluateBackendEnvironment(root, inventory, backendAncestorFiles);
     const summary = {
-        schema: 'fsusblog.backend-docker-input-closure.v1',
+        schema: 'fsusblog.backend-docker-input-closure.v2',
         inventory: inventoryRelativePath,
         evaluationEvidence: evidence,
         evaluationProperties: inventory.evaluationProperties,
         restoreEvaluationProperties: inventory.restoreEvaluationProperties,
+        tools: inventory.tools.map(tool => ({ id: tool.id, entryProject: tool.entryProject,
+            evaluationProperties: migrationToolProfile(inventory.evaluationProperties) })),
         profileDigest: createHash('sha256').update(profileMarker(inventory.evaluationProperties))
             .update(publishProfileMarker(inventory.evaluationProperties)).digest('hex'),
         domains: Object.fromEntries(Object.entries(closure).map(([domain, paths]) => [domain, {
             count: paths.length,
-            digest: domain === 'restore' ? `sha256:${createHash('sha256').update(digestDomain(root, paths))
+            digest: domain === 'migration/restore' ? `sha256:${createHash('sha256').update(digestDomain(root, paths))
+                .update(migrationToolProfileMarker(migrationToolProfile(inventory.evaluationProperties))).digest('hex')}`
+                : domain === 'restore' ? `sha256:${createHash('sha256').update(digestDomain(root, paths))
         .update(profileMarker(inventory.evaluationProperties)).update(publishProfileMarker(inventory.evaluationProperties)).digest('hex')}` : digestDomain(root, paths),
             paths
         }]))
@@ -1477,6 +1626,11 @@ async function main()
         }
         writeFileSync(join(output, 'restore', '.backend-input-profile'), profileMarker(inventory.evaluationProperties));
         writeFileSync(join(output, 'restore', '.backend-publish-profile'), publishProfileMarker(inventory.evaluationProperties));
+        if (inventory.tools.length === 1)
+        {
+            writeFileSync(join(output, 'migration', 'restore', '.migration-input-profile'),
+                migrationToolProfileMarker(migrationToolProfile(inventory.evaluationProperties)));
+        }
         writeFileSync(join(output, 'closure.json'), `${JSON.stringify(summary, null, 2)}\n`);
     }
     if (options.command === 'print')

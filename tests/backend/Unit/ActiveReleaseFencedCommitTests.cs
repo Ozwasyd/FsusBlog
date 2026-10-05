@@ -1,6 +1,7 @@
 using System.Data;
 using System.Data.Common;
 
+using FsusBlog.Migration;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Services.Background;
@@ -311,7 +312,7 @@ public sealed class ActiveReleaseFencedCommitTests
         ISchemaMigrationDescriptor descriptor = Assert.Single(
             new SchemaMigrationRegistry().GetDescriptors(),
             static item => item.MigrationId == Id);
-        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[Id];
+        OfflineMigrationClassificationFact metadata = OfflineMigrationClassificationFacts.All[Id];
         string fingerprint = string.Join('\n', descriptor.Steps.Select(static step => step.Fingerprint));
 
         Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
@@ -321,8 +322,8 @@ public sealed class ActiveReleaseFencedCommitTests
         Assert.Contains("CHECK (generation > 0)", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_sys_fenced_commit_enlisted", fingerprint, StringComparison.Ordinal);
         Assert.Contains("idx_sys_fenced_commit_generation_time", fingerprint, StringComparison.Ordinal);
-        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
-        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OfflineMigrationPhase.Expand, metadata.Phase);
+        Assert.Equal(OfflineMigrationHistoricalRollbackMode.CompatibleCode, metadata.RollbackMode);
         Assert.False(metadata.Destructive);
         Assert.False(metadata.RequiresExclusiveMode);
     }
