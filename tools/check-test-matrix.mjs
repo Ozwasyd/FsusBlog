@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix, tierExecutionDependencies } from './test-matrix/parse-matrix.mjs';
+import { loadCanonicalReleaseFinalEvidenceInputs } from './test-matrix/release-final-evidence-contract.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '..'));
 const docsOutputRoot = path.resolve(process.env.FSUSBLOG_DOCS_EVIDENCE_DIR || path.join(root, '.tmp/docs'));
@@ -383,7 +384,9 @@ function expectMatrixValidateFailure(matrixText, expected, message)
     });
     fs.rmSync(tempDir, { recursive: true, force: true });
     const outputText = `${result.stdout ?? ''}${result.stderr ?? ''}`;
-    if (result.status === 0 || !outputText.includes(expected))
+    const expectedDiagnostics = Array.isArray(expected) ? expected : [expected];
+    if (result.status === 0 || expectedDiagnostics.length === 0
+        || expectedDiagnostics.some((diagnostic) => !outputText.includes(diagnostic)))
     {
         console.error(`[test-matrix] ${message}`);
         console.error(outputText);
@@ -560,14 +563,25 @@ expectMatrixValidateFailure(
 
 expectMatrixValidateFailure(
     replaceTierField(matrixSourceText, 'release-final', 'requiresEvidenceFrom', '[missing-evidence-producer]'),
-    'release-final.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer',
-    'release-final must reject noncanonical evidence inputs'
+    [
+        'release-final.requiresEvidenceFrom must contain exactly 22 canonical evidence inputs; got 1',
+        'release-final.requiresEvidenceFrom is missing canonical evidence inputs: '
+            + loadCanonicalReleaseFinalEvidenceInputs().inputs.join(', '),
+        'release-final.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer'
+    ],
+    'release-final must reject missing evidence producers'
 );
 
 expectMatrixValidateFailure(
     removeTier(matrixSourceText, 'browser-contract'),
     'canonical release-final evidence inputs reference missing tiers: browser-contract',
     'release-final must reject missing evidence producers'
+);
+
+expectMatrixValidateFailure(
+    replaceTierField(matrixSourceText, 'coverage-gate', 'requiresEvidenceFrom', '[missing-evidence-producer]'),
+    'coverage-gate requires evidence from missing tier missing-evidence-producer',
+    'validate must reject missing evidence producers outside the release-final parse boundary'
 );
 
 expectMatrixValidateFailure(

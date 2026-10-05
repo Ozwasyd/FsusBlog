@@ -1,4 +1,5 @@
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -183,36 +184,173 @@ public sealed class CanonicalArticlePublicationFixturePortTests
     [Fact]
     public void ArticleService_SharedSeams_AreReferencedByProductionSources()
     {
-        string service = string.Join('\n',
-            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "NormalizeArticleRights"),
-            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "SaveArticleRightsAsync"),
-            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "EnsureArticleRightsPolicyAsync"),
-            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "CreateMutationAsync"),
-            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "SaveArticleRevisionAsync"));
-        string mutations = RuntimeMetadataInspection.DescribeMethods(
-            typeof(ArticleService), "ResolveUpdateArticleRightsAsync", "ToRightsWriteModel");
-        string cache = RuntimeMetadataInspection.DescribeMethods(
+        var service = RuntimeMetadataInspection.ReadMemberSites(typeof(ArticleService),
+            "NormalizeArticleRights", "SaveArticleRightsAsync", "EnsureArticleRightsPolicyAsync",
+            "CreateMutationAsync", "SaveArticleRevisionAsync");
+        var cache = RuntimeMetadataInspection.ReadMemberSites(
             typeof(ArticleService), "NormalizeText", "NormalizeTagIds");
-        string responsibility = RuntimeMetadataInspection.DescribeMethods(
+        var responsibility = RuntimeMetadataInspection.ReadMemberSites(
             typeof(ArticleResponsibilityAuthoringService), nameof(ArticleResponsibilityAuthoringService.SaveAsync));
-        string publish = RuntimeMetadataInspection.DescribeMethods(
+        var publish = RuntimeMetadataInspection.ReadMemberSites(
             typeof(CanonicalArticlePublicationFixturePort), nameof(CanonicalArticlePublicationFixturePort.PublishAsync));
-        string port = DescribeCompletePortType(typeof(CanonicalArticlePublicationFixturePort));
 
-        Assert.Contains("ArticleProductionNormalizers.NormalizeArticleRights", service, StringComparison.Ordinal);
-        Assert.Contains("ArticleRightsSnapshotBuilder.Build", service, StringComparison.Ordinal);
-        Assert.Contains("ArticleRightsPolicyPersistence.UpsertAsync", service, StringComparison.Ordinal);
-        Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", service, StringComparison.Ordinal);
-        Assert.Contains("ArticleRevisionPersistence.SaveAsync", service, StringComparison.Ordinal);
-        Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", publish, StringComparison.Ordinal);
-        Assert.Contains("BeginPublicMutationFenceAsync", publish, StringComparison.Ordinal);
-        AssertNoDirectArticleRevisionConstruction(port);
-        Assert.Contains("ArticleProductionNormalizers.NormalizeText", cache, StringComparison.Ordinal);
-        Assert.Contains("ArticleProductionNormalizers.NormalizeTagIds", cache, StringComparison.Ordinal);
-        Assert.Contains("ArticleResponsibilitySnapshotBuilder.Build", responsibility, StringComparison.Ordinal);
+        AssertSharedSeam(service, typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeArticleRights));
+        AssertSharedSeam(service, typeof(ArticleRightsSnapshotBuilder), nameof(ArticleRightsSnapshotBuilder.Build));
+        AssertSharedSeam(service, typeof(ArticleRightsPolicyPersistence), nameof(ArticleRightsPolicyPersistence.UpsertAsync));
+        AssertSharedSeam(service, typeof(ArticleCreateMutationAuthority), nameof(ArticleCreateMutationAuthority.ExecuteAsync));
+        AssertSharedSeam(service, typeof(ArticleRevisionPersistence), nameof(ArticleRevisionPersistence.SaveAsync));
+        AssertSharedSeam(publish, typeof(ArticleCreateMutationAuthority), nameof(ArticleCreateMutationAuthority.ExecuteAsync));
+        AssertSharedSeam(publish, typeof(IArticlePublicMutationFence), nameof(IArticlePublicMutationFence.BeginPublicMutationFenceAsync));
+        AssertNoDirectArticleRevisionConstruction(typeof(CanonicalArticlePublicationFixturePort));
+        AssertSharedSeam(cache, typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeText));
+        AssertSharedSeam(cache, typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeTagIds));
+        AssertSharedSeam(responsibility, typeof(ArticleResponsibilitySnapshotBuilder), nameof(ArticleResponsibilitySnapshotBuilder.Build));
         Assert.Null(typeof(ArticleService).GetNestedType("ArticleRightsWriteModel",
             BindingFlags.Public | BindingFlags.NonPublic));
-        Assert.Contains("ArticleRightsNormalizedModel", mutations, StringComparison.Ordinal);
+        MethodInfo[] rightsMethods = typeof(ArticleService).GetMethods(
+            BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly);
+        Assert.Contains(rightsMethods, static method => method.Name == "ResolveUpdateArticleRightsAsync");
+        MethodInfo[] writeModels = rightsMethods.Where(static method => method.Name == "ToRightsWriteModel").ToArray();
+        Assert.NotEmpty(writeModels);
+        Assert.All(writeModels, static method => Assert.Equal(typeof(ArticleRightsNormalizedModel), method.ReturnType));
+    }
+
+    [Theory]
+    [InlineData(typeof(PortNestedMethodFixture), typeof(PortNestedMethodFixture.Nested), "Create")]
+    [InlineData(typeof(PortDeepNestedMethodFixture), typeof(PortDeepNestedMethodFixture.Nested.Deeper), "Create")]
+    [InlineData(typeof(PortNestedConstructorFixture), typeof(PortNestedConstructorFixture.Nested), ".ctor")]
+    [InlineData(typeof(PortNestedStaticConstructorFixture), typeof(PortNestedStaticConstructorFixture.Nested), ".cctor")]
+    public void PortConstructionRule_RejectsCompiledNestedArticleRevisionConstruction(
+        Type portType,
+        Type declaringType,
+        string memberName)
+    {
+        string declaredBody;
+        if (memberName is ".ctor" or ".cctor")
+        {
+            if (memberName == ".cctor")
+            {
+                Assert.NotNull(declaringType.TypeInitializer);
+            }
+            else
+            {
+                Assert.NotEmpty(declaringType.GetConstructors(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
+            }
+            declaredBody = RuntimeMetadataInspection.DescribeConstructors(declaringType);
+        }
+        else
+        {
+            declaredBody = RuntimeMetadataInspection.DescribeMethods(declaringType, memberName);
+            string previousDescription = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(portType),
+                RuntimeMetadataInspection.DescribeConstructors(portType));
+            Assert.DoesNotContain("ArticleRevision..ctor", previousDescription, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("ArticleRevision..ctor", declaredBody, StringComparison.Ordinal);
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoDirectArticleRevisionConstruction(portType));
+    }
+
+    [Fact]
+    public void PortConstructionRule_AcceptsCompiledBenignNestedMembers()
+    {
+        Type nestedType = typeof(PortBenignNestedFixture.Nested);
+        Assert.NotNull(nestedType.TypeInitializer);
+        string method = RuntimeMetadataInspection.DescribeMethods(nestedType, "Create");
+        string constructors = RuntimeMetadataInspection.DescribeConstructors(nestedType);
+        Assert.Contains("System.Object..ctor", method, StringComparison.Ordinal);
+        Assert.Contains("System.Object..ctor", constructors, StringComparison.Ordinal);
+
+        AssertNoDirectArticleRevisionConstruction(typeof(PortBenignNestedFixture));
+    }
+
+    [Theory]
+    [InlineData(typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeArticleRights))]
+    [InlineData(typeof(ArticleRightsSnapshotBuilder), nameof(ArticleRightsSnapshotBuilder.Build))]
+    [InlineData(typeof(ArticleRightsPolicyPersistence), nameof(ArticleRightsPolicyPersistence.UpsertAsync))]
+    [InlineData(typeof(ArticleCreateMutationAuthority), nameof(ArticleCreateMutationAuthority.ExecuteAsync))]
+    [InlineData(typeof(ArticleRevisionPersistence), nameof(ArticleRevisionPersistence.SaveAsync))]
+    [InlineData(typeof(IArticlePublicMutationFence), nameof(IArticlePublicMutationFence.BeginPublicMutationFenceAsync))]
+    [InlineData(typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeText))]
+    [InlineData(typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeTagIds))]
+    [InlineData(typeof(ArticleResponsibilitySnapshotBuilder), nameof(ArticleResponsibilitySnapshotBuilder.Build))]
+    public void SharedSeamRule_RejectsMatchingStringLiterals(Type owner, string memberName)
+    {
+        Assert.Contains(owner.Name + "." + memberName,
+            RuntimeMetadataInspection.DescribeMethods(typeof(SeamLiteralFixture), "References"), StringComparison.Ordinal);
+        var sites = RuntimeMetadataInspection.ReadMemberSites(typeof(SeamLiteralFixture), "References");
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertSharedSeam(sites, owner, memberName));
+    }
+
+    [Fact]
+    public void SharedSeamRule_RejectsFunctionPointerWithoutInvocation()
+    {
+        var sites = RuntimeMetadataInspection.ReadMemberSites(typeof(SeamFunctionPointerFixture), "Reference");
+        Assert.Contains(sites, static site => site.OpCode == OpCodes.Ldftn
+            && site.Member.DeclaringType == typeof(ArticleProductionNormalizers)
+            && site.Member.Name == nameof(ArticleProductionNormalizers.NormalizeText));
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertSharedSeam(sites,
+            typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeText)));
+    }
+
+    [Fact]
+    public void SharedSeamRule_PreservesCompiledDelegateAndAsyncClosure()
+    {
+        var reference = RuntimeMetadataInspection.ReadMemberSites(typeof(SeamNestedFunctionPointerFixture), "Reference");
+        AssertSharedSeam(reference, typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeText));
+        Assert.Contains(reference, static site => site.Owner.Name == "MoveNext"
+            && site.Member.DeclaringType == typeof(ArticleProductionNormalizers)
+            && site.Member.Name == nameof(ArticleProductionNormalizers.NormalizeText)
+            && site.OpCode == OpCodes.Call);
+    }
+
+    [Fact]
+    public void SharedSeamRule_RejectsSameMemberNameOnDifferentOwner()
+    {
+        var sites = RuntimeMetadataInspection.ReadMemberSites(typeof(SeamDifferentOwnerFixture), "Invoke");
+        AssertSharedSeam(sites, typeof(SeamDifferentOwnerFixture), nameof(ArticleProductionNormalizers.NormalizeText));
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertSharedSeam(sites,
+            typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeText)));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void MemberReferenceRule_DoesNotTreatMetadataTokensAsCallsOrConstruction(bool constructorToken)
+    {
+        var assembly = AssemblyBuilder.DefineDynamicAssembly(
+            new AssemblyName("CanonicalMemberToken"), AssemblyBuilderAccess.Run);
+        TypeBuilder type = assembly.DefineDynamicModule("Tokens").DefineType("TokenFixture");
+        MethodBuilder method = type.DefineMethod("Reference", MethodAttributes.Public | MethodAttributes.Static,
+            typeof(void), Type.EmptyTypes);
+        ILGenerator il = method.GetILGenerator();
+        if (constructorToken)
+        {
+            il.Emit(OpCodes.Ldtoken, typeof(ArticleRevision).GetConstructor(Type.EmptyTypes)!);
+        }
+        else
+        {
+            il.Emit(OpCodes.Ldtoken, typeof(ArticleProductionNormalizers).GetMethod(
+                nameof(ArticleProductionNormalizers.NormalizeText), [typeof(string), typeof(int)])!);
+        }
+        il.Emit(OpCodes.Pop);
+        il.Emit(OpCodes.Ret);
+        Type fixture = type.CreateType()!;
+        var sites = RuntimeMetadataInspection.ReadMemberSites(fixture, "Reference");
+        Assert.Equal(OpCodes.Ldtoken, Assert.Single(sites).OpCode);
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertSharedSeam(sites,
+            typeof(ArticleProductionNormalizers), nameof(ArticleProductionNormalizers.NormalizeText)));
+        AssertNoDirectArticleRevisionConstruction(fixture);
+    }
+
+    [Theory]
+    [InlineData(typeof(PortConstructorLiteralFixture))]
+    [InlineData(typeof(PortTypeTokenFixture))]
+    [InlineData(typeof(SeamFunctionPointerFixture))]
+    public void PortConstructionRule_AcceptsNonConstructionReferences(Type portType)
+    {
+        AssertNoDirectArticleRevisionConstruction(portType);
     }
 
     [Theory]
@@ -432,6 +570,81 @@ public sealed class CanonicalArticlePublicationFixturePortTests
     private static void AssertNoDirectArticleRevisionConstruction(string port)
     {
         Assert.DoesNotContain("ArticleRevision..ctor", port, StringComparison.Ordinal);
+    }
+
+    private static void AssertSharedSeam(
+        IReadOnlyList<RuntimeMetadataInspection.RuntimeMemberSite> sites, Type owner, string memberName)
+    {
+        Assert.Contains(sites, site => (site.OpCode == OpCodes.Call || site.OpCode == OpCodes.Callvirt)
+            && site.Member is MethodInfo method && method.DeclaringType == owner && method.Name == memberName);
+    }
+
+    private static void AssertNoDirectArticleRevisionConstruction(Type portType)
+    {
+        Assert.DoesNotContain(RuntimeMetadataInspection.ReadMemberSites(portType), static site =>
+            site.OpCode == OpCodes.Newobj && site.Member is ConstructorInfo constructor
+            && constructor.DeclaringType == typeof(ArticleRevision));
+    }
+
+    private static class SeamLiteralFixture
+    {
+        public static void References()
+        {
+            GC.KeepAlive("ArticleProductionNormalizers.NormalizeArticleRights");
+            GC.KeepAlive("ArticleRightsSnapshotBuilder.Build");
+            GC.KeepAlive("ArticleRightsPolicyPersistence.UpsertAsync");
+            GC.KeepAlive("ArticleCreateMutationAuthority.ExecuteAsync");
+            GC.KeepAlive("ArticleRevisionPersistence.SaveAsync");
+            GC.KeepAlive("IArticlePublicMutationFence.BeginPublicMutationFenceAsync");
+            GC.KeepAlive("ArticleProductionNormalizers.NormalizeText");
+            GC.KeepAlive("ArticleProductionNormalizers.NormalizeTagIds");
+            GC.KeepAlive("ArticleResponsibilitySnapshotBuilder.Build");
+        }
+    }
+
+    private static class SeamFunctionPointerFixture
+    {
+        public static void Reference()
+        {
+            Func<string?, int, string> normalize =
+                ArticleProductionNormalizers.NormalizeText;
+            GC.KeepAlive(normalize);
+        }
+    }
+
+    private static class SeamDifferentOwnerFixture
+    {
+        public static void Invoke() => GC.KeepAlive(NormalizeText());
+
+        public static string NormalizeText() => "different-owner";
+    }
+
+    private static class SeamNestedFunctionPointerFixture
+    {
+        public static void Reference()
+        {
+            Func<Task<string>> normalize = Nested.NormalizeAsync;
+            GC.KeepAlive(normalize);
+        }
+
+        private static class Nested
+        {
+            public static async Task<string> NormalizeAsync()
+            {
+                await Task.Yield();
+                return ArticleProductionNormalizers.NormalizeText("nested", 10);
+            }
+        }
+    }
+
+    private static class PortConstructorLiteralFixture
+    {
+        public static void Reference() => GC.KeepAlive("ArticleRevision..ctor");
+    }
+
+    private static class PortTypeTokenFixture
+    {
+        public static void Reference() => GC.KeepAlive(typeof(ArticleRevision));
     }
 
     private sealed class PortNestedMethodFixture
