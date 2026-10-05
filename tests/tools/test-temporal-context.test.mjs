@@ -74,6 +74,41 @@ test('plan, actual and receipt must exact-match every run-bound identity', () =>
     );
 });
 
+test('coordinated envelope resealing cannot replace the source run or producer observed by the context', () =>
+{
+    for (const [section, field, changed, reasonCode] of [
+        ['source', 'commit', 'd'.repeat(40), 'temporal.source-binding-mismatch'],
+        ['source', 'fingerprint', `sha256:${'e'.repeat(64)}`, 'temporal.source-binding-mismatch'],
+        ['run', 'schedulerRunId', 'unobserved-run', 'temporal.run-binding-mismatch'],
+        ['producer', 'producerId', 'unobserved-producer', 'temporal.producer-binding-mismatch']
+    ])
+    {
+        for (const remove of [false, true])
+        {
+            const { actual, plan, receipt } = structuredClone(fixture());
+            for (const artifact of [plan, actual, receipt])
+            {
+                if (remove)
+                {
+                    delete artifact[section][field];
+                }
+                else
+                {
+                    artifact[section][field] = changed;
+                }
+                delete artifact.digest;
+            }
+            plan.digest = digestCanonical(plan);
+            actual.digest = digestCanonical(actual);
+            receipt.planDigest = plan.digest;
+            receipt.actualDigest = actual.digest;
+            receipt.digest = digestCanonical(receipt);
+            assert.throws(() => verifyTemporalReplay({ plan, actual, receipt }),
+                (error) => error instanceof TemporalContractError && error.reasonCode === reasonCode);
+        }
+    }
+});
+
 test('qualification fails closed when plan, actual or receipt binding is absent', () =>
 {
     const { actual, plan, receipt } = fixture();

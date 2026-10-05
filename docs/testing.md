@@ -122,6 +122,10 @@ epoch cannot conceal a drifting backend clock. These boundaries do not freeze mo
 measurement clocks or qualify pending publication projections; #1601/#2174/#2175 still
 require their current source-bound runtime acceptance.
 
+Temporal replay additionally joins each plan/actual envelope's source commit/fingerprint,
+run and producer to its own validated context before comparing the receipt. Coordinated
+rewrites or removal of outer identities remain invalid even with newly recomputed digests.
+
 ## Media shape authority
 
 `config/testing/media-shape-catalog.json` is the only closed/versioned MediaShapeCatalog. It registers MIME, extension, magic and independent codec fact owners of JPEG, PNG, SVG and WebP respectively, and fixes six aspect contracts, ten types of consumer applicability, ten canonical positive shapes and eight single-fault negative shapes. The catalog only saves AssetId-compatible generator digest refs and does not save absolute path, public URL, storage path or second asset ledger; `no-cover` explicitly does not generate bytes, URL or default images. `tools/test-fixtures/media-shape-catalog.mjs` performs independent fail-closed verification of the catalog and each shape's content digest, matrix integrity, format/MIME/extension, orientation/alpha/dimensions, single-fault, consumer isolation, and unique authority.
