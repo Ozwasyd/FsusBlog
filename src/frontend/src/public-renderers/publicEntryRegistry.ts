@@ -403,6 +403,10 @@ const articleDetailEntryDefinition = definePublicEntry({
         const hydration = {
             ...scope.baseModel.hydrationBase,
             articleId,
+            currentRevisionId: article.currentRevisionId,
+            revisionNo: article.revisionNo,
+            currentPublicationId: article.currentPublicationId,
+            publicationNo: article.publicationNo,
             title: article.title,
             authorName,
             responsibilityAuthors,

@@ -70,8 +70,11 @@ vi.mock('@/components/ui/MarkdownRenderer.vue', () => ({
 }))
 
 import { decodePublicAotPayload } from '@/bootstrap/publicAotBinaryPayload'
+import { toBootstrapArticleDetail } from '@/bootstrap/publicAotBootstrap'
+import type { BootstrapArticleDetailSummary } from '@/public-renderers/publicPayloadTypes'
 import { getSharedPublicPageManifestEntry, PUBLIC_PAGE_MANIFEST } from '@/public-renderers/generated/publicPageManifest'
-import { PUBLIC_RENDERER_VERSION, renderShell } from '@/public-renderers/publicEntryCore'
+import { normalizeArticleDetail, PUBLIC_RENDERER_VERSION, renderShell } from '@/public-renderers/publicEntryCore'
+import { normalizePublicHydrationPayload } from '@/public-renderers/publicPayloadNormalizer'
 import { renderMarkdownOrThrow } from '@/fsusui/markdown'
 import { createPublicHydrationRoot } from '@/public-renderers/publicHydrationRoot'
 import { buildPublicEntry as buildPublicEntryRaw } from '@/public-renderers/publicEntryRegistry'
@@ -89,6 +92,102 @@ const buildPublicEntry: typeof buildPublicEntryRaw = async (pageKind, options) =
   })
 
 describe('publicEntryRegistry shared coverage', () => {
+    const articleOptions = {
+        id: 42,
+        title: 'Article',
+        bodyContent: 'Body',
+        summary: 'Summary',
+        rights: articleRightsFixture,
+        siteTitle: 'FsusBlog',
+        siteDescription: 'desc'
+    }
+
+    it.each([
+        ['9007199254740993', '9007199254740995'],
+        ['9223372036854775807', '9223372036854775806']
+    ])('preserves exact publication IDs %s/%s through original entry and hydration normalization', async (currentRevisionId, currentPublicationId) => {
+        const coordinates = { currentRevisionId, revisionNo: 7, currentPublicationId, publicationNo: 2147483647 }
+        const result = await buildPublicEntry('ArticleDetail', {
+            ...articleOptions,
+            ...coordinates,
+            rights: { ...articleRightsFixture, articleRevisionId: currentRevisionId }
+        })
+        const bootstrap = decodePublicAotPayload<{ article: BootstrapArticleDetailSummary }>(result.entry.bootstrapPayload)!
+        const hydration = decodePublicAotPayload<PublicHydrationPayload>(result.entry.hydrationPropsPayload)!
+
+        expect(bootstrap.article).toMatchObject(coordinates)
+        expect(toBootstrapArticleDetail(bootstrap.article)).toMatchObject(coordinates)
+        expect(hydration).toMatchObject(coordinates)
+        expect(normalizePublicHydrationPayload(hydration)).toMatchObject(coordinates)
+        expect(typeof bootstrap.article.currentRevisionId).toBe('string')
+        expect(typeof bootstrap.article.currentPublicationId).toBe('string')
+    })
+
+    it('retains missing coordinates rather than inventing them from rights', async () => {
+        const result = await buildPublicEntry('ArticleDetail', articleOptions)
+        const bootstrap = decodePublicAotPayload<{ article: BootstrapArticleDetailSummary }>(result.entry.bootstrapPayload)!
+        const hydration = normalizePublicHydrationPayload(decodePublicAotPayload<PublicHydrationPayload>(result.entry.hydrationPropsPayload)!)
+
+        for (const field of ['currentRevisionId', 'revisionNo', 'currentPublicationId', 'publicationNo']) {
+            expect(bootstrap.article).not.toHaveProperty(field)
+            expect(hydration).not.toHaveProperty(field)
+        }
+        expect(toBootstrapArticleDetail(bootstrap.article).currentRevisionId).toBeUndefined()
+        expect(toBootstrapArticleDetail(bootstrap.article).currentPublicationId).toBeUndefined()
+        expect(bootstrap.article.rights).toMatchObject({ articleRevisionId: '801', revisionNo: 7 })
+    })
+
+    it('retains mismatched coordinates for independent readback instead of replacing them with rights', async () => {
+        const coordinates = { currentRevisionId: '802', revisionNo: 8, currentPublicationId: '902', publicationNo: 2 }
+        const result = await buildPublicEntry('ArticleDetail', { ...articleOptions, ...coordinates })
+        const bootstrap = decodePublicAotPayload<{ article: BootstrapArticleDetailSummary }>(result.entry.bootstrapPayload)!
+        const hydration = decodePublicAotPayload<PublicHydrationPayload>(result.entry.hydrationPropsPayload)!
+
+        expect(bootstrap.article).toMatchObject(coordinates)
+        expect(toBootstrapArticleDetail(bootstrap.article)).toMatchObject(coordinates)
+        expect(hydration).toMatchObject(coordinates)
+        expect(bootstrap.article.rights).toMatchObject({ articleRevisionId: '801', revisionNo: 7 })
+        expect(hydration.pageKind === 'ArticleDetail' && hydration.rights.articleRevisionId).toBe('801')
+    })
+
+    it('keeps existing zero and null publication coordinate states without asserting a publication', () => {
+        expect(normalizeArticleDetail({
+            ...articleOptions,
+            currentRevisionId: '0',
+            revisionNo: 0,
+            currentPublicationId: null,
+            publicationNo: null
+        })).toMatchObject({ currentRevisionId: '0', revisionNo: 0, currentPublicationId: null, publicationNo: null })
+        expect(normalizeArticleDetail({ ...articleOptions, currentRevisionId: 801, currentPublicationId: 901 }))
+            .toMatchObject({ currentRevisionId: '801', currentPublicationId: '901' })
+    })
+
+    it.each([
+        ['currentRevisionId', 9007199254740992],
+        ['currentPublicationId', 9007199254740993],
+        ['currentRevisionId', '9223372036854775808'],
+        ['currentPublicationId', '9007199254740993.0'],
+        ['currentRevisionId', '01'],
+        ['currentRevisionId', '-1'],
+        ['currentRevisionId', ' 801 '],
+        ['currentRevisionId', '801\n'],
+        ['currentRevisionId', '801\r\n'],
+        ['currentRevisionId', null],
+        ['currentRevisionId', true],
+        ['revisionNo', 1.5],
+        ['revisionNo', '7'],
+        ['publicationNo', -1],
+        ['publicationNo', 2147483648],
+        ['publicationNo', Number.NaN]
+    ])('rejects malformed or lossy %s=%s before emitting an original entry', async (field, value) => {
+        const renderShellMock = vi.mocked(renderShell)
+        renderShellMock.mockClear()
+
+        await expect(buildPublicEntry('ArticleDetail', { ...articleOptions, [field]: value }))
+            .rejects.toThrow(`public_aot_article_coordinates_invalid:${field}`)
+        expect(renderShellMock).not.toHaveBeenCalled()
+    })
+
   it('fails before emitting an entry when the FsusUI Markdown runtime fails', async () => {
     vi.mocked(renderMarkdownOrThrow).mockRejectedValueOnce(new Error('markdown_runtime_failed:unavailable'))
 

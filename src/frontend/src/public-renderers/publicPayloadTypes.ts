@@ -27,6 +27,10 @@ export type BootstrapArticleSummary = Readonly<{
 }>;
 
 export type BootstrapArticleDetailSummary = BootstrapArticleSummary & Readonly<{
+    currentRevisionId?: string;
+    revisionNo?: number;
+    currentPublicationId?: string | null;
+    publicationNo?: number | null;
     rights: ArticleRightsResponse;
 }>;
 
@@ -162,6 +166,10 @@ export interface PublicHydrationPayloadByKind {
     }>;
     ArticleDetail: BaseHydrationPayload<'ArticleDetail'> & Readonly<{
         articleId: number | string;
+        currentRevisionId?: string;
+        revisionNo?: number;
+        currentPublicationId?: string | null;
+        publicationNo?: number | null;
         authorName?: string | null;
         responsibilityAuthors?: readonly Readonly<{ name: string; profileUrl: string | null; }>[];
         responsibilityManifest?: ArticleResponsibilityPublicView | null;

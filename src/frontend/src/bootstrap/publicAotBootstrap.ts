@@ -251,6 +251,10 @@ export function toBootstrapArticleDetail(article: BootstrapArticleDetailSummary)
         createTime: article.createTime,
         category,
         tags: normalizeTagList(article.tags),
+        currentRevisionId: article.currentRevisionId,
+        revisionNo: article.revisionNo,
+        currentPublicationId: article.currentPublicationId,
+        publicationNo: article.publicationNo,
         rights: article.rights
     };
 }
