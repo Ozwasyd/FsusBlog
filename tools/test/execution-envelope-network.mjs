@@ -6,6 +6,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
+import { admitsPrivateDotnetScratch, privateDotnetScratchPath } from './physical-execution-private-dotnet-scratch.mjs';
 const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const landlockSource = path.join(
@@ -173,6 +174,8 @@ export function prepareNetworkSandbox({
     plannedEndpoints = [],
     environment,
     policy,
+    producerId = null,
+    attemptId = null,
     platform = process.platform,
     pathValue = environment.PATH
 })
@@ -188,6 +191,12 @@ export function prepareNetworkSandbox({
         ...writableRoots
     ]);
     const readWritePaths = [...bindings, ...standardWritableFiles].sort();
+    const privateDotnetScratch = admitsPrivateDotnetScratch({
+        producerId, attemptId, environment
+    });
+    const landlockReadWritePaths = privateDotnetScratch
+        ? [...readWritePaths, privateDotnetScratchPath].sort()
+        : readWritePaths;
     const landlockExecutable = path.join(
         directories.toolCache,
         'execution-envelope-landlock'
@@ -213,7 +222,7 @@ export function prepareNetworkSandbox({
             networkLog,
             '--',
             landlock.helper.absolutePath,
-            ...readWritePaths.flatMap((entry) => [
+            ...landlockReadWritePaths.flatMap((entry) => [
                 standardWritableFiles.includes(entry) ? '--writable-file' : '--writable',
                 entry
             ]),
@@ -226,6 +235,7 @@ export function prepareNetworkSandbox({
             allow: 'localhost'
         },
         linuxReadWritePaths: readWritePaths,
+        privateDotnetScratch,
         networkLog,
         fragment: {
             schema: executionEnvelopeNetworkSchema,
@@ -241,7 +251,10 @@ export function prepareNetworkSandbox({
                     compiler: landlock.compiler,
                     helper: landlock.helper,
                     privateTmp: true,
-                    readWritePaths
+                    readWritePaths: landlockReadWritePaths,
+                    systemdReadWritePaths: readWritePaths,
+                    privateDotnetScratch: privateDotnetScratch
+                        ? privateDotnetScratchPath : null
                 }
             },
             planned: {
