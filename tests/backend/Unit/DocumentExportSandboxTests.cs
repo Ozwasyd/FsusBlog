@@ -1,3 +1,5 @@
+using System.Diagnostics;
+using System.Reflection;
 using System.Text;
 
 using FsusBlog.Server.Services.DocumentExport;
@@ -490,17 +492,36 @@ public sealed class DocumentExportSandboxTests : IDisposable
     [Fact]
     public void StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment()
     {
-        string source = FsusBlog.Server.Tests.TestInfrastructure.BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "DocumentExport", "DocumentExportSandbox.cs");
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(typeof(DocumentExportSandboxRuntime)),
+            RuntimeMetadataInspection.DescribeConstructors(typeof(DocumentExportSandboxRuntime)));
+        Assert.DoesNotContain("System.Diagnostics.Process.Start", compiled, StringComparison.Ordinal);
+        Assert.Equal(1, compiled.Split("System.Diagnostics.ProcessStartInfo..ctor", StringSplitOptions.None).Length - 1);
+        Assert.Equal(1, compiled.Split("System.Diagnostics.ProcessStartInfo.set_UseShellExecute", StringSplitOptions.None).Length - 1);
+        Assert.DoesNotContain("/bin/sh", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Net.Http.HttpClient", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Environment.GetEnvironment", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("PATH", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("latest", compiled, StringComparison.OrdinalIgnoreCase);
 
-        Assert.Equal(0, source.Split("Process.Start(", StringSplitOptions.None).Length - 1);
-        Assert.Equal(1, source.Split("new ProcessStartInfo(", StringSplitOptions.None).Length - 1);
-        Assert.DoesNotContain("UseShellExecute = true", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("/bin/sh", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Environment.GetEnvironment", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("PATH", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("latest", source, StringComparison.OrdinalIgnoreCase);
+        MethodInfo builder = Assert.IsAssignableFrom<MethodInfo>(typeof(DocumentExportSandboxRuntime).GetMethod(
+            "BuildStartInfo", BindingFlags.Instance | BindingFlags.NonPublic));
+        string runRoot = Path.Combine(_fixture.Root, "runs", "shape-check");
+        ProcessStartInfo start = Assert.IsType<ProcessStartInfo>(builder.Invoke(_fixture.CreateSandbox(),
+        [
+            runRoot,
+            Path.Combine(runRoot, "input"),
+            Path.Combine(runRoot, "output"),
+            Path.Combine(runRoot, "work"),
+            _fixture.Tool.ExecutablePath,
+            _fixture.Tool.RuntimeRoot,
+            _fixture.Tool
+        ]));
+        Assert.False(start.UseShellExecute);
+        Assert.Equal(runRoot, start.WorkingDirectory);
+        Assert.Equal("/usr/bin/bwrap", start.FileName);
+        Assert.Contains("--clearenv", start.ArgumentList);
+        Assert.DoesNotContain("PATH", start.ArgumentList);
     }
 
     public void Dispose() => _fixture.Dispose();
