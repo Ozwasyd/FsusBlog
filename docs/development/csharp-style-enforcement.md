@@ -30,6 +30,8 @@ Import normalization has an explicit fix path. It writes only the leading `using
 node tools/dotnet/check-csharp-style.mjs --mode full --fix
 ```
 
+The current mother-standard mapping requires `System`, third-party, then `FsusBlog` imports. The bounded declaration `config/development/csharp-import-compatibility.json` applies that order only to `tests/backend/Unit/RedisOperationExecutorTests.cs`; it does not change the repository-wide migration comparator. The existing checker validates the sole exact path, supported order and meaningful reason, rejecting missing, duplicate, wildcard, noncanonical, foreign or unknown declarations. The selected owner must have exact path spelling and regular non-symlink file/directory identity. Other files, same-directory peers and symlink aliases receive no registration. Ordinary imports remain sorted within root groups, while static and alias imports keep their existing ordering and separation rules. `--fix` and the read-only gate share this comparator; this is executable compatibility, not a diagnostic suppression or historical baseline allowance. The declaration stays separate from the digest-bound style policy, so the existing policy and historical baseline are unchanged. No runtime or release acceptance gate is altered.
+
 ## Full-repository modes
 
 The normal full scan is baseline-aware:
