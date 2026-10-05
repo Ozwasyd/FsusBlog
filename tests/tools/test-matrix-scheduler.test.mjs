@@ -22,8 +22,6 @@ const { createSchedulerRunOwner, schedulerCandidateIdentityDigest, sealScheduler
 const runOnce = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
 const temporal = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
 
-import { materializeEsmFixture, preflightMaterializedEsmFixture } from './support/esm-fixture-materializer.mjs';
-import { posixCancellationFailureSource } from './support/posix-cancellation-fixture.mjs';
 import { runActiveJsonProbe } from './support/active-json-probe.mjs';
 import {
     createBehaviorDocAdmissionFixture,
@@ -35,6 +33,8 @@ import {
     assertTransitiveMaterialization,
     materializeTestMatrixRunner
 } from './support/esm-fixture-materializer-contracts.mjs';
+import { materializeEsmFixture, preflightMaterializedEsmFixture } from './support/esm-fixture-materializer.mjs';
+import { posixCancellationFailureSource } from './support/posix-cancellation-fixture.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
@@ -5099,7 +5099,10 @@ test('ESM fixture parser cache follows current source bytes rather than paths or
     const source = parserFixtureRoot('parser-cache-source');
     const fixture = parserFixtureRoot('parser-cache-target');
     const refused = parserFixtureRoot('parser-cache-refused');
-    for (const location of [source, fixture, refused]) t.after(() => fs.rmSync(location, { recursive: true, force: true }));
+    for (const location of [source, fixture, refused])
+    {
+        t.after(() => fs.rmSync(location, { recursive: true, force: true }));
+    }
     fs.mkdirSync(path.join(source, 'tools'));
     fs.writeFileSync(path.join(source, 'tools/entry.mjs'), 'export const value = 12345;\n');
     const declaration = { repositoryRoot: source, entries: ['tools/entry.mjs'], allowedRoots: ['tools'] };
