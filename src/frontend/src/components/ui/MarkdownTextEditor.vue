@@ -7,7 +7,10 @@
         @keyup.capture="rememberTextareaSelectionFromEvent"
         @select.capture="rememberTextareaSelectionFromEvent"
         @keydown.capture="handleKeydown"
+        @pointerdown.capture="cancelProgrammaticViewportSuppression"
         @paste.capture="handlePaste"
+        @wheel.capture="cancelProgrammaticViewportSuppression"
+        @scroll.capture="trackAuthoringViewport"
     >
         <ElMarkdownEditor
             ref="editorRef"
@@ -81,10 +84,13 @@ import {
     type MarkdownEditorCommand as FsusUiMarkdownEditorCommand,
     type MarkdownEditorCommandContext as FsusUiMarkdownEditorCommandContext,
     type MarkdownEditorMode as FsusUiMarkdownEditorMode,
+    type MarkdownEditorOutlineRange,
+    type MarkdownEditorRevealOptions,
+    type MarkdownEditorRevealResult,
     type MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
     type MarkdownEditorTransactionEvent as FsusUiMarkdownEditorTransactionEvent
 } from '@ozwasyd/element-plus';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 import {
     articleBodyCommandOverflowLabel,
@@ -108,6 +114,7 @@ import {
     type FsusUiAuthoringDocumentIdentity,
     type FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import { createMarkdownSourceCoordinateMap } from '@/fsusui/markdownOutline';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorCommand,
@@ -119,6 +126,14 @@ import type {
 type FsusUiMarkdownEditorExpose = Readonly<{
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
+    revealHeading?: (
+        nodeId: string,
+        options?: MarkdownEditorRevealOptions
+    ) => MarkdownEditorRevealResult;
+    revealSourceRange?: (
+        range: MarkdownEditorOutlineRange,
+        options?: MarkdownEditorRevealOptions
+    ) => MarkdownEditorRevealResult;
 }>;
 
 type AuthoringDocumentBinding = Readonly<{
@@ -128,6 +143,10 @@ type AuthoringDocumentBinding = Readonly<{
     selectionDirection: 'backward' | 'forward' | 'none';
     selectionEnd: number;
     selectionStart: number;
+}>;
+
+type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
+    documentIdentity?: FsusUiAuthoringDocumentIdentity;
 }>;
 
 type BlogCommandKey = Exclude<MarkdownEditorCommandKey, 'undo' | 'redo' | 'image' | 'save' | 'bold' | 'italic' | 'quote' | 'link' | 'code'>;
@@ -171,6 +190,14 @@ const emit = defineEmits<{
     (e: 'on-draft-save'): void;
     (e: 'on-submit'): void;
     (e: 'on-upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
+    (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
+    (e: 'transaction', event: FsusUiMarkdownEditorTransactionEvent): void;
+    (e: 'viewport-change', event: {
+        documentIdentity: FsusUiAuthoringDocumentIdentity;
+        revision: number;
+        viewport: { start: number; end: number; };
+        cause: 'manual-scroll';
+    }): void;
 }>();
 
 const rootRef = ref<HTMLElement | null>(null);
@@ -181,6 +208,11 @@ const isUploading = ref(false);
 const uploadError = ref('');
 const lastSelection = ref<SelectionSnapshot | null>(null);
 const cursorState = ref({ line: 1, column: 1 });
+let coordinateMapSource = '';
+let coordinateMap: ReturnType<typeof createMarkdownSourceCoordinateMap> | null = null;
+const programmaticViewportSuppressionMs = 1000;
+let suppressProgrammaticViewportUntil = 0;
+let programmaticViewportSuppressionTimer: ReturnType<typeof setTimeout> | undefined;
 
 const actionOverflowKeys = ['image'] as const;
 
@@ -385,9 +417,62 @@ function openCommandPalette(): void
     editorRef.value?.openCommandPalette?.();
 }
 
+function revealHeading(
+    nodeId: string,
+    options?: MarkdownEditorRevealOptions
+): MarkdownEditorRevealResult
+{
+    const result = editorRef.value?.revealHeading?.(nodeId, options) ?? 'not-found';
+    if (result === 'success')
+    {
+        armProgrammaticViewportSuppression();
+    }
+    return result;
+}
+
+function revealSourceRange(
+    range: MarkdownEditorOutlineRange,
+    options?: MarkdownEditorRevealOptions
+): MarkdownEditorRevealResult
+{
+    const result = editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
+    if (result === 'success')
+    {
+        armProgrammaticViewportSuppression();
+    }
+    return result;
+}
+
+function armProgrammaticViewportSuppression(): void
+{
+    if (programmaticViewportSuppressionTimer !== undefined)
+    {
+        clearTimeout(programmaticViewportSuppressionTimer);
+    }
+    suppressProgrammaticViewportUntil = Date.now() + programmaticViewportSuppressionMs;
+    programmaticViewportSuppressionTimer = setTimeout(() =>
+    {
+        suppressProgrammaticViewportUntil = 0;
+        programmaticViewportSuppressionTimer = undefined;
+    }, programmaticViewportSuppressionMs);
+}
+
+function cancelProgrammaticViewportSuppression(): void
+{
+    if (programmaticViewportSuppressionTimer !== undefined)
+    {
+        clearTimeout(programmaticViewportSuppressionTimer);
+        programmaticViewportSuppressionTimer = undefined;
+    }
+    suppressProgrammaticViewportUntil = 0;
+}
+
+onBeforeUnmount(cancelProgrammaticViewportSuppression);
+
 function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): void
 {
     const identity = props.documentIdentity;
+    emit('selection-change', identity ? { ...event, documentIdentity: identity } : event);
     if (identity === undefined)
     {
         currentAuthoringBinding.value = null;
@@ -405,6 +490,7 @@ function trackAuthoringSelection(event: FsusUiMarkdownEditorSelectionEvent): voi
 
 function trackAuthoringTransaction(event: FsusUiMarkdownEditorTransactionEvent): void
 {
+    emit('transaction', event);
     if (!event.accepted)
     {
         return;
@@ -416,6 +502,62 @@ function trackAuthoringTransaction(event: FsusUiMarkdownEditorTransactionEvent):
         selectionDirection: event.selection.direction ?? 'none',
         selectionEnd: event.selection.end,
         selectionStart: event.selection.start
+    });
+}
+
+function trackAuthoringViewport(event: Event): void
+{
+    const identity = props.documentIdentity;
+    const textarea = textareaFromEvent(event);
+    if (!identity || !textarea || textarea.hidden)
+    {
+        return;
+    }
+
+    if (suppressProgrammaticViewportUntil > Date.now())
+    {
+        return;
+    }
+
+    const lineHeight = Number.parseFloat(getComputedStyle(textarea).lineHeight);
+    if (!Number.isFinite(lineHeight) || lineHeight <= 0)
+    {
+        return;
+    }
+
+    if (coordinateMapSource !== localValue.value || coordinateMap === null)
+    {
+        coordinateMapSource = localValue.value;
+        coordinateMap = createMarkdownSourceCoordinateMap(localValue.value);
+    }
+
+    const firstLine = Math.max(1, Math.floor(textarea.scrollTop / lineHeight) + 1);
+    const visibleLines = Math.max(1, Math.ceil(textarea.clientHeight / lineHeight) + 1);
+    const lastLine = firstLine + visibleLines;
+    let start = 0;
+    try
+    {
+        start = coordinateMap.toRawOffsetFromLineColumn({ line: firstLine, column: 0 });
+    }
+    catch
+    {
+        return;
+    }
+    let end = localValue.value.length;
+    try
+    {
+        end = coordinateMap.toRawOffsetFromLineColumn({ line: lastLine, column: 0 });
+    }
+    catch
+    {
+        // The final viewport can extend past the last source line.
+    }
+
+    emit('viewport-change', {
+        cause: 'manual-scroll',
+        documentIdentity: identity,
+        revision: currentAuthoringBinding.value?.revision ?? 0,
+        viewport: { start, end: Math.max(start, end) }
     });
 }
 
@@ -495,6 +637,8 @@ function handleKeydown(event: KeyboardEvent): void
     {
         return;
     }
+
+    cancelProgrammaticViewportSuppression();
 
     if (event.key === 'Escape')
     {
@@ -601,7 +745,9 @@ watch(() => props.documentIdentity, () =>
 
 defineExpose({
     insertMarkdownAtCursor,
-    openCommandPalette
+    openCommandPalette,
+    revealHeading,
+    revealSourceRange
 });
 </script>
 

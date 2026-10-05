@@ -3,6 +3,7 @@ export * from '@/fsusui/feedback';
 export * from '@/fsusui/icons';
 export { FsusUiKpiGroup } from '@/fsusui/kpiGroup';
 export * from '@/fsusui/markdown';
+export * from '@/fsusui/markdownOutline';
 export * from '@/fsusui/metricPrimitives';
 export * from '@/fsusui/keyValueGrid';
 export * from '@/fsusui/dangerZone';
