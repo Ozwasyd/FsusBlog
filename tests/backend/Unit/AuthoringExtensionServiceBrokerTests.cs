@@ -8,6 +8,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -397,18 +398,41 @@ public sealed class AuthoringExtensionServiceBrokerTests
     [Fact]
     public void BrokerSource_DoesNotExposeShellDirectIoOrSecretArguments()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs"));
-
-        Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("File.Open", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("EnvironmentVariables", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Arguments", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Password", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("AccessToken", source, StringComparison.OrdinalIgnoreCase);
+        Type[] brokerTypes =
+        [
+            typeof(AuthoringProcessOwnershipMechanism),
+            typeof(AuthoringServiceResultStatus),
+            typeof(AuthoringFileGrantOperation),
+            typeof(AuthoringProcessOwnershipReport),
+            typeof(AuthoringServiceHealthReport),
+            typeof(AuthoringNetworkGrant),
+            typeof(AuthoringFileGrant),
+            typeof(AuthoringServiceLaunchDescriptor),
+            typeof(AuthoringServiceRequest),
+            typeof(AuthoringServiceResponse),
+            typeof(AuthoringServiceExecutionResult),
+            typeof(IAuthoringServiceProcess),
+            typeof(IAuthoringOwnedServiceProcessObservation),
+            typeof(IAuthoringServiceProcessRuntime),
+            typeof(IAuthoringNetworkAddressResolver),
+            typeof(IAuthoringFilePathVerifier),
+            typeof(AuthoringServiceGrantValidator),
+            typeof(AuthoringExtensionServiceBroker)
+        ];
+        Assert.All(brokerTypes, type =>
+        {
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
+            Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("File.Open", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("EnvironmentVariables", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Arguments", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Password", compiled, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("AccessToken", compiled, StringComparison.OrdinalIgnoreCase);
+        });
     }
 
     [Fact]
