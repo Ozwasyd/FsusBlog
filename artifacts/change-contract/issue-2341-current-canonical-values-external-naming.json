@@ -9,6 +9,14 @@
                 "src/backend/Services/Authoring/AuthorSavedViewContracts.cs"
             ],
             "reason": "Preserve the registered C# process-environment naming surface while enforcing cancellation, closed canvas command state and detached saved-view value validation through their existing owners. These changes introduce no environment keys, renames, defaults or parallel authority."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-canvas-document-boundary.md",
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve registered external CSS-like names in the current authoring boundary documentation while clarifying cancellation and ordered command validation; no selector, token or public name changes."
         }
     ]
 }
