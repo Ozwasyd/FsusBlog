@@ -1,0 +1,28 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/outcome-field-dispositions.json",
+                "config/schemas/producer-semantic-outcome.schema.json",
+                "config/schemas/aggregate-run-outcome.schema.json"
+            ],
+            "reason": "Preserve the versioned disposition registry's serialized field names and source schema paths while extending its single canonical owner."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": ["docs/testing.md"],
+            "reason": "Preserve caller-visible schema identifiers and evidence contract terminology in the maintained testing document."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/outcomes/outcome-contract.mjs",
+                "tools/test-matrix/outcomes/producer-outcome-analysis.mjs",
+                "tools/test-matrix/outcomes/semantic-outcome-contract.mjs"
+            ],
+            "reason": "Maintain the existing registered Node tooling boundary while repository-owned symbols retain internal JavaScript naming."
+        }
+    ]
+}
