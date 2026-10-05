@@ -5,7 +5,8 @@
             "id": "post-runtime-observation-authority",
             "paths": [
                 "config/contracts/behavior-fact-extractors.json",
-                "docs/architecture/monolithic-distributed-boundary.md"
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/architecture/repository-layout.md"
             ],
             "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
         },
@@ -43,8 +44,11 @@
                 "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
                 "src/backend/Infrastructure/SchemaMigration/PostgresOnlineSchemaMigrationStateStore.cs",
                 "src/backend/Infrastructure/SchemaMigration/SchemaCompatibilityCoordinate.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
                 "src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs",
                 "src/backend/Program.cs",
+                "src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs",
+                "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
                 "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
                 "tools/deployment/release-rollout-evidence-constants.mjs",
                 "tools/deployment/release-rollout-evidence-sections.mjs",
