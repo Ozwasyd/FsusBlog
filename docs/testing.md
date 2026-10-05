@@ -1000,6 +1000,8 @@ External execution can only be bound via an explicit `FSUSBLOG_EXTERNAL_EVIDENCE
 
 `MySqlDdlExecutionTests` consumes an already admitted scheduler-owned MySQL fixture through `MySqlDdlFixture`, not an ambient connection string or a self-started service. Missing private client file, namespace, observed UUID/version or operation budget refuses before the test's DDL; the client re-observes server/account identity before selecting a database. The native cases retain row preservation, idempotence, exact metadata identity, SQL-mode/default-literal, ambiguous-index refusal and implicit-commit assertions. `MySqlDdlClientContractTests` and `MySqlDdlFixtureContractTests` cover rejection before network access but cannot qualify actual MySQL. Container grant, lifecycle, observation and cleanup remain with the enclosing service/scheduler owner; this fixture's dispose does not certify teardown.
 
+The Migration discovery/evidence helper joins the independent assembly, fully-qualified method and every static theory row to the existing VSTest/TRX readers. Project ownership derives only from `tools/test-inventory/adapters.mjs`'s canonical v2 registry; the helper does not register a second project table or move Migration cases into Server. Missing, duplicate, foreign, dynamic-placeholder, skipped and inconsistent execution identities refuse. These pure joins are not build/source/run/service/cleanup attestations; canonical execution wiring and real engine receipts remain separate obligations.
+
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 
 - `release-rollout-state.test.mjs`: 15-stage sequence, rollout identity, failed-stage recovery and resume.
