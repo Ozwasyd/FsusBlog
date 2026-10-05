@@ -80,4 +80,3 @@ test('canonical backend bundle builds independent consumers before reading and r
     assert.match(backend, /migration\/FsusBlog\.Migration\.Tests\.csproj -c Release --no-restore -warnaserror/u);
     assert.match(backend, /xunit-roslyn-adapter\/FsusBlog\.XunitRoslynAdapter\.csproj -c Release --no-restore --no-dependencies -warnaserror/u);
 });
-
