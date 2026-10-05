@@ -576,6 +576,12 @@ expectMatrixValidateFailure(
     'validate must reject missing frontend-fast split tiers'
 );
 
+expectMatrixValidateFailure(
+    replaceTierField(matrixSourceText, 'frontend-build', 'ciJob', 'fast-backend'),
+    'frontend-build.ciJob must be frontend-build',
+    'frontend fast split must reject a mismatched frontend-build CI job'
+);
+
 run(['preflight']);
 run(['validate']);
 run(['plan', 'production']);

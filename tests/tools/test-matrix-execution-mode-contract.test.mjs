@@ -74,36 +74,70 @@ function fixtureMatrix({ excludedFlag = null, producerCiJob = 'canonical-produce
     };
 }
 
+function replaceAggregateCliTierField(source, tierId, field, value)
+{
+    const lines = source.split('\n');
+    const starts = lines.flatMap((line, index) => line === `    - id: ${tierId}` ? [index] : []);
+    assert.equal(starts.length, 1, `fixture must contain exactly one tier ${tierId}`);
+    const start = starts[0];
+    const nextTier = lines.findIndex((line, index) => index > start && line.startsWith('    - id: '));
+    const end = nextTier === -1 ? lines.length : nextTier;
+    const prefix = `      ${field}:`;
+    const fields = lines.flatMap((line, index) =>
+        index > start && index < end && line.startsWith(prefix) ? [index] : []
+    );
+    assert.ok(fields.length <= 1, `fixture contains duplicate ${tierId}.${field}`);
+    if (fields.length === 1)
+    {
+        const expected = field === 'ciJob' ? 'integration-runtime' : 'false';
+        assert.equal(lines[fields[0]], `${prefix} ${expected}`);
+        lines[fields[0]] = `${prefix} ${value}`;
+    }
+    else
+    {
+        assert.equal(tierId, 'ci');
+        assert.equal(field, 'manualOnly');
+        const anchors = lines.flatMap((line, index) =>
+            index > start && index < end && line === '      requiresBootstrap: none' ? [index] : []
+        );
+        assert.equal(anchors.length, 1, 'ci.manualOnly insertion requires one exact tier-local anchor');
+        lines.splice(anchors[0] + 1, 0, `${prefix} ${value}`);
+    }
+    const mutated = lines.join('\n');
+    const expectedMatrix = parseMatrix(source);
+    const tier = expectedMatrix.tiers.find((entry) => entry.id === tierId);
+    tier[field] = value === 'true' ? true : value;
+    assert.deepEqual(parseMatrix(mutated), expectedMatrix, 'CLI fixture must change only its selected field');
+    return mutated;
+}
+
 function aggregateCliFixture({ excludedFlag = null, sameJobProducer = false } = {})
 {
-    const flag = excludedFlag ? `      ${excludedFlag}: true\n` : '';
-    const producerJob = sameJobProducer ? 'release-summary' : 'canonical-producer';
-    return `aggregateAuthorities:
-    release-summary:
-        id: release-summary
-        commandKind: aggregate
-        ciJob: release-summary
-        summaryTierIds: [release-summary-tier]
-        inputReceiptSchemas: [fsusblog.ci.job-result.v1]
-        outputReceiptSchema: fsusblog.ci.job-result.v1
-tiers:
-    - id: canonical-producer
-      ciJob: ${producerJob}
-      outputReceiptSchema: fsusblog.ci.job-result.v1
-      executionDependsOn: []
-      artifacts: [.tmp/canonical/receipt.json]
-      evidence: [.tmp/canonical/receipt.json]
-    - id: release-summary-tier
-      ciJob: release-summary
-      executionMode: summary
-      commandKind: aggregate
-      summaryAuthority: release-summary
-      summaryInputs: [fsusblog.ci.job-result.v1]
-      outputReceiptSchema: fsusblog.ci.job-result.v1
-      command: node tools/run-test-matrix.mjs aggregate release-summary
-      executionDependsOn: []
-      requiresEvidenceFrom: [canonical-producer]
-${flag}`;
+    assert.ok(excludedFlag === null || ['localOnly', 'nightlyOnly', 'manualOnly'].includes(excludedFlag));
+    assert.equal(typeof sameJobProducer, 'boolean');
+    assert.ok(excludedFlag === null || !sameJobProducer, 'CLI fixture must not combine refusal mutations');
+    const source = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
+    if (excludedFlag !== null)
+    {
+        return replaceAggregateCliTierField(source, 'ci', excludedFlag, 'true');
+    }
+    if (sameJobProducer)
+    {
+        return replaceAggregateCliTierField(source, 'integration', 'ciJob', 'ci-summary');
+    }
+    return source;
+}
+
+function recordAggregateCliTerminal(context, caseId, result)
+{
+    context.diagnostic(`[aggregate-cli-case] ${JSON.stringify({
+        caseId,
+        status: result.status,
+        signal: result.signal,
+        error: result.error ? { name: result.error.name, code: result.error.code, message: result.error.message } : null,
+        stdout: result.stdout,
+        stderr: result.stderr
+    })}`);
 }
 
 function runAggregateCli(matrixSource)
@@ -116,7 +150,7 @@ function runAggregateCli(matrixSource)
         return spawnSync(process.execPath, [
             'tools/run-test-matrix.mjs',
             'aggregate',
-            'release-summary',
+            'ci-summary',
             '--dry-run'
         ], {
             cwd: root,
@@ -140,11 +174,28 @@ test('aggregate planner resolves a declared artifact-only authority without spaw
     assert.equal(plan.executesTestCommands, false);
 });
 
-test('aggregate planner and real CLI reject unknown and every filter-empty target', () =>
+test('aggregate planner and real CLI reject unknown and every filter-empty target', (context) =>
 {
     assert.deepEqual(buildAggregatePlan(fixtureMatrix(), 'release-admin-console').errors, [
         'unknown aggregate authority: release-admin-console'
     ]);
+    const neutralSource = aggregateCliFixture();
+    assert.equal(neutralSource, readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const positiveCli = runAggregateCli(neutralSource);
+    recordAggregateCliTerminal(context, 'positive-control', positiveCli);
+    assert.equal(positiveCli.error, undefined);
+    assert.equal(positiveCli.signal, null);
+    assert.equal(positiveCli.status, 0, positiveCli.stderr);
+    const positivePlan = JSON.parse(positiveCli.stdout);
+    assert.equal(positivePlan.target, 'ci-summary');
+    assert.equal(positivePlan.authorityId, 'ci-summary');
+    assert.deepEqual(positivePlan.selectedTierIds, ['ci']);
+    assert.deepEqual(positivePlan.dependencyJobs, ['fast-summary', 'integration-runtime']);
+    assert.deepEqual(positivePlan.resolvedInputReceiptSchemas, ['fsusblog.ci.job-result.v1']);
+    assert.equal(positivePlan.outputReceiptSchema, 'fsusblog.ci.job-result.v1');
+    assert.equal(positivePlan.artifactOnly, true);
+    assert.equal(positivePlan.executesTestCommands, false);
+    assert.deepEqual(positivePlan.errors, []);
     for (const excludedFlag of ['localOnly', 'nightlyOnly', 'manualOnly'])
     {
         assert.deepEqual(
@@ -153,10 +204,13 @@ test('aggregate planner and real CLI reject unknown and every filter-empty targe
             excludedFlag
         );
         const cli = runAggregateCli(aggregateCliFixture({ excludedFlag }));
+        recordAggregateCliTerminal(context, excludedFlag, cli);
+        assert.equal(cli.error, undefined, excludedFlag);
+        assert.equal(cli.signal, null, excludedFlag);
         assert.notEqual(cli.status, 0, excludedFlag);
         assert.match(
             cli.stderr,
-            /\[matrix\] release-summary selects a tier excluded from aggregation/u,
+            /\[matrix\] ci-summary selects a tier excluded from aggregation/u,
             excludedFlag
         );
     }
@@ -170,7 +224,7 @@ test('aggregate declarations reject shell suffixes instead of inferring a comman
     assert.equal(parseAggregateCommand('node tools/run-test-matrix.mjs aggregate release-summary && producer'), null);
 });
 
-test('aggregate planner rejects a declared tier with mismatched command, input, or receipt output contract', () =>
+test('aggregate planner rejects a declared tier with mismatched command, input, or receipt output contract', (context) =>
 {
     const matrix = fixtureMatrix();
     matrix.tiers[1] = {
@@ -201,8 +255,15 @@ test('aggregate planner rejects a declared tier with mismatched command, input, 
     assert.ok(sameJobErrors.some((error) => error.includes('same aggregate CI job')));
     assert.ok(sameJobErrors.some((error) => error.includes('external dependency job')));
     const sameJobCli = runAggregateCli(aggregateCliFixture({ sameJobProducer: true }));
+    recordAggregateCliTerminal(context, 'same-job-producer', sameJobCli);
+    assert.equal(sameJobCli.error, undefined);
+    assert.equal(sameJobCli.signal, null);
     assert.notEqual(sameJobCli.status, 0);
     assert.match(sameJobCli.stderr, /same aggregate CI job/u);
+    assert.match(
+        sameJobCli.stderr,
+        /\[matrix\] ci\.requiresEvidenceFrom must not consume integration from the same aggregate CI job/u
+    );
 });
 
 test('matrix schema makes aggregate authorities and summary receipt declarations machine-readable', () =>
