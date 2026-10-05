@@ -273,6 +273,12 @@ internal static class RuntimeMetadataInspection
         return Describe(type, roots, followCallsWithinType: true);
     }
 
+    public static string DescribeSoleConstructorBody(Type type)
+    {
+        ConstructorInfo constructor = Assert.Single(type.GetConstructors(AllDeclaredMembers));
+        return DescribeMethodBodyFacts(constructor);
+    }
+
     internal static string DescribeTypeUncachedForBenchmark(Type type)
         => Describe(type, type.GetMethods(AllDeclaredMembers).Cast<MethodBase>(), followCallsWithinType: true);
 
