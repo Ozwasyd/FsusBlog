@@ -1,0 +1,180 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/aggregate-run-outcome.v1.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "schemaVersion",
+        "fingerprintAlgorithmVersion",
+        "fieldDispositionDigest",
+        "failureTaxonomyDigest",
+        "producerCatalogDigest",
+        "runId",
+        "sourceCommit",
+        "worktreeFingerprint",
+        "requiredProducerIds",
+        "producerOutcomeRefs",
+        "plannedTestIds",
+        "executedTestIds",
+        "passedTestIds",
+        "failedTestIds",
+        "skippedTestIds",
+        "blockedTestIds",
+        "requiredCoverageIds",
+        "observedCoverageIds",
+        "stateSemanticDigests",
+        "artifactSemanticDigests",
+        "failureTopology",
+        "producerStatusVector",
+        "completenessStatus",
+        "aggregateOutcomeFingerprint",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.aggregate-run-outcome.v1"
+        },
+        "schemaVersion": {
+            "const": "1"
+        },
+        "fingerprintAlgorithmVersion": {
+            "const": "registry-canonical-json-sha256-v2"
+        },
+        "fieldDispositionDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "failureTaxonomyDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "producerCatalogDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "runId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+        },
+        "sourceCommit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "worktreeFingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "requiredProducerIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "producerOutcomeRefs": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/producerRef"
+            },
+            "uniqueItems": true
+        },
+        "plannedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "executedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "passedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "failedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "skippedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "blockedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "requiredCoverageIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "observedCoverageIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "stateSemanticDigests": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/semanticDigest"
+            },
+            "uniqueItems": true
+        },
+        "artifactSemanticDigests": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/semanticDigest"
+            },
+            "uniqueItems": true
+        },
+        "failureTopology": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/failure"
+            },
+            "uniqueItems": true
+        },
+        "producerStatusVector": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/statusEntry"
+            },
+            "uniqueItems": true
+        },
+        "completenessStatus": {
+            "enum": [
+                "complete",
+                "incomplete"
+            ]
+        },
+        "aggregateOutcomeFingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/digest"
+        },
+        "id": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/id"
+        },
+        "ids": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/ids"
+        },
+        "policyDigest": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/policyDigest"
+        },
+        "semanticDigest": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/semanticDigest"
+        },
+        "projectionReceipt": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/projectionReceipt"
+        },
+        "failure": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/failure"
+        },
+        "assertion": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/assertion"
+        },
+        "redactedSecret": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/redactedSecret"
+        },
+        "producerRef": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/producerRef"
+        },
+        "statusEntry": {
+            "$ref": "producer-semantic-outcome.schema.json#/$defs/statusEntry"
+        }
+    }
+}

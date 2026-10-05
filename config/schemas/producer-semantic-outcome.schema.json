@@ -1,0 +1,610 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/schemas/producer-semantic-outcome.v1.json",
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+        "schema",
+        "schemaVersion",
+        "fingerprintAlgorithmVersion",
+        "fieldDispositionDigest",
+        "failureTaxonomyDigest",
+        "producerCatalogDigest",
+        "producerId",
+        "producerAuthorityId",
+        "sourceCommit",
+        "worktreeFingerprint",
+        "schedulerRunId",
+        "executionEnvelopeDigest",
+        "replayPlanDigest",
+        "temporalContextDigest",
+        "policyDigests",
+        "plannedTestIds",
+        "executedTestIds",
+        "passedTestIds",
+        "failedTestIds",
+        "skippedTestIds",
+        "blockedTestIds",
+        "assertions",
+        "failures",
+        "scenarioIds",
+        "coverageIds",
+        "artifactSemanticDigests",
+        "stateSemanticDigests",
+        "projectionReceipts",
+        "redactedSecrets",
+        "cleanFirstAttempt",
+        "qualificationEligible",
+        "producerStatus",
+        "semanticPayloadDigest",
+        "outcomeFingerprint",
+        "contentDigest"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.producer-semantic-outcome.v1"
+        },
+        "schemaVersion": {
+            "const": "1"
+        },
+        "fingerprintAlgorithmVersion": {
+            "const": "registry-canonical-json-sha256-v2"
+        },
+        "fieldDispositionDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "failureTaxonomyDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "producerCatalogDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "producerId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+        },
+        "producerAuthorityId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+        },
+        "sourceCommit": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "worktreeFingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "schedulerRunId": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+        },
+        "executionEnvelopeDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "replayPlanDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "temporalContextDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "policyDigests": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/policyDigest"
+            },
+            "uniqueItems": true
+        },
+        "plannedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "executedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "passedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "failedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "skippedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "blockedTestIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "assertions": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/assertion"
+            },
+            "uniqueItems": true
+        },
+        "failures": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/failure"
+            },
+            "uniqueItems": true
+        },
+        "scenarioIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "coverageIds": {
+            "$ref": "#/$defs/ids"
+        },
+        "artifactSemanticDigests": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/semanticDigest"
+            },
+            "uniqueItems": true
+        },
+        "stateSemanticDigests": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/semanticDigest"
+            },
+            "uniqueItems": true
+        },
+        "projectionReceipts": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/projectionReceipt"
+            },
+            "uniqueItems": true
+        },
+        "redactedSecrets": {
+            "type": "array",
+            "items": {
+                "$ref": "#/$defs/redactedSecret"
+            },
+            "uniqueItems": true
+        },
+        "cleanFirstAttempt": {
+            "type": "boolean"
+        },
+        "qualificationEligible": {
+            "type": "boolean"
+        },
+        "producerStatus": {
+            "enum": [
+                "success",
+                "failed",
+                "blocked",
+                "cancelled",
+                "partial"
+            ]
+        },
+        "semanticPayloadDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "outcomeFingerprint": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "contentDigest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        }
+    },
+    "$defs": {
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
+        "id": {
+            "type": "string",
+            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+        },
+        "ids": {
+            "type": "array",
+            "items": {
+                "type": "string",
+                "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+            },
+            "uniqueItems": true
+        },
+        "policyDigest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "policyId",
+                "digest"
+            ],
+            "properties": {
+                "policyId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "semanticDigest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "semanticId",
+                "owner",
+                "digest"
+            ],
+            "properties": {
+                "semanticId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "owner": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "digest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "projectionReceipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "projectionId",
+                "producerAuthorityId",
+                "schema",
+                "contentDigest",
+                "semanticPayloadDigest"
+            ],
+            "properties": {
+                "projectionId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "producerAuthorityId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "schema": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "semanticPayloadDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "failure": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "producerId",
+                "testId",
+                "assertionId",
+                "failureClass",
+                "failureKind",
+                "identity"
+            ],
+            "properties": {
+                "producerId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "testId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "assertionId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "failureClass": {
+                    "enum": [
+                        "product",
+                        "contract",
+                        "infra",
+                        "determinism"
+                    ]
+                },
+                "failureKind": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "identity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "producerId",
+                        "testId",
+                        "assertionId"
+                    ],
+                    "properties": {
+                        "producerId": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                        },
+                        "testId": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                        },
+                        "assertionId": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                        },
+                        "evidenceId": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                        },
+                        "identityField": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                        },
+                        "schemaPath": {
+                            "type": "string",
+                            "pattern": "^\\$[.\\[]"
+                        },
+                        "temporalContextDigest": {
+                            "type": "string",
+                            "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "replayPlanDigest": {
+                            "type": "string",
+                            "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "semanticPayloadDigest": {
+                            "type": "string",
+                            "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "attemptNumber": {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        "executionEnvelopeDigest": {
+                            "type": "string",
+                            "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "toolchainDigest": {
+                            "type": "string",
+                            "pattern": "^sha256:[0-9a-f]{64}$"
+                        },
+                        "semanticId": {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                        }
+                    }
+                }
+            }
+        },
+        "assertion": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "testId",
+                "status",
+                "failureClass",
+                "failureKind",
+                "failureIdentity"
+            ],
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "testId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "status": {
+                    "enum": [
+                        "passed",
+                        "failed",
+                        "skipped",
+                        "blocked"
+                    ]
+                },
+                "failureClass": {
+                    "anyOf": [
+                        {
+                            "enum": [
+                                "product",
+                                "contract",
+                                "infra",
+                                "determinism"
+                            ]
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "failureKind": {
+                    "anyOf": [
+                        {
+                            "type": "string",
+                            "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "failureIdentity": {
+                    "anyOf": [
+                        {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "producerId",
+                                "testId",
+                                "assertionId"
+                            ],
+                            "properties": {
+                                "producerId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                                },
+                                "testId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                                },
+                                "assertionId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                                },
+                                "evidenceId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                                },
+                                "identityField": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                                },
+                                "schemaPath": {
+                                    "type": "string",
+                                    "pattern": "^\\$[.\\[]"
+                                },
+                                "temporalContextDigest": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[0-9a-f]{64}$"
+                                },
+                                "replayPlanDigest": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[0-9a-f]{64}$"
+                                },
+                                "semanticPayloadDigest": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[0-9a-f]{64}$"
+                                },
+                                "attemptNumber": {
+                                    "type": "integer",
+                                    "minimum": 1
+                                },
+                                "executionEnvelopeDigest": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[0-9a-f]{64}$"
+                                },
+                                "toolchainDigest": {
+                                    "type": "string",
+                                    "pattern": "^sha256:[0-9a-f]{64}$"
+                                },
+                                "semanticId": {
+                                    "type": "string",
+                                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                                }
+                            }
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                }
+            }
+        },
+        "redactedSecret": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "semanticId",
+                "present",
+                "type",
+                "contextDigest"
+            ],
+            "properties": {
+                "semanticId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "present": {
+                    "type": "boolean"
+                },
+                "type": {
+                    "enum": [
+                        "absent",
+                        "string",
+                        "number",
+                        "boolean",
+                        "object",
+                        "array"
+                    ]
+                },
+                "contextDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "producerRef": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "producerId",
+                "producerAuthorityId",
+                "schema",
+                "contentDigest",
+                "semanticPayloadDigest",
+                "outcomeFingerprint"
+            ],
+            "properties": {
+                "producerId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "producerAuthorityId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "schema": {
+                    "const": "fsusblog.producer-semantic-outcome.v1"
+                },
+                "contentDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "semanticPayloadDigest": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                },
+                "outcomeFingerprint": {
+                    "type": "string",
+                    "pattern": "^sha256:[0-9a-f]{64}$"
+                }
+            }
+        },
+        "statusEntry": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "producerId",
+                "status"
+            ],
+            "properties": {
+                "producerId": {
+                    "type": "string",
+                    "pattern": "^[A-Za-z0-9][A-Za-z0-9_.:/@-]*$"
+                },
+                "status": {
+                    "enum": [
+                        "success",
+                        "failed",
+                        "blocked",
+                        "cancelled",
+                        "partial"
+                    ]
+                }
+            }
+        }
+    }
+}
