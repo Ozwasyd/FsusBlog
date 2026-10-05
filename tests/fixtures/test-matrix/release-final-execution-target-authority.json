@@ -2250,8 +2250,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:705220fdd5741bc4d7c689d204b5c0dd1b5fe002c2926209219a162cc9900129",
-            "indexDigest": "sha256:705220fdd5741bc4d7c689d204b5c0dd1b5fe002c2926209219a162cc9900129"
+            "contentDigest": "sha256:ce8193bc485408b40be237ebaec22690aa091aaa3537ae1f32054056b62f11f8",
+            "indexDigest": "sha256:ce8193bc485408b40be237ebaec22690aa091aaa3537ae1f32054056b62f11f8"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -3300,8 +3300,8 @@
         },
         {
             "path": "tools/test-lifecycle/lifecycle.mjs",
-            "contentDigest": "sha256:cbf51bc5e79e3457a6da833ff22b6e96b0688dd5fbe5c8983500e7df4904c495",
-            "indexDigest": "sha256:cbf51bc5e79e3457a6da833ff22b6e96b0688dd5fbe5c8983500e7df4904c495"
+            "contentDigest": "sha256:86c4edf6b2ed57a7da0c9fe3f6bb6365d8fd4cbb1acf9d0194b0c70a9b0b0a7b",
+            "indexDigest": "sha256:86c4edf6b2ed57a7da0c9fe3f6bb6365d8fd4cbb1acf9d0194b0c70a9b0b0a7b"
         },
         {
             "path": "tools/test-matrix/aggregate-plan.mjs",

@@ -6,7 +6,9 @@
         "tools/test/perception-redis-producer.mjs",
         "tools/test/backend-platform-selection.mjs",
         "tools/test/lanes/_suite-support.sh",
-        "tools/dotnet-affected-tests.sh"
+        "tools/dotnet-affected-tests.sh",
+        "tools/dotnet/check-csharp-style.mjs",
+        "tools/test-lifecycle/lifecycle.mjs"
     ],
     "outputs": [
         {
@@ -19,7 +21,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "0be950cac214e0ebfaff0bf9991c0c55aa466f12b8533b667a24543dc9c85f9f"
+            "sha256": "e50468242e1bd9494c5118537acd5cf20b5c265289295af94256c6a940502c62"
         }
     ]
 }
