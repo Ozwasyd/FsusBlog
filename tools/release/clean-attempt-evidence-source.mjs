@@ -19,6 +19,7 @@ const inputFields = Object.freeze([
     'aggregateReference',
     'domainReceiptReference',
     'expectedIdentity',
+    'buildIdentity',
     'transport'
 ]);
 
@@ -244,6 +245,7 @@ function validateInput(document)
         && !Array.isArray(document.expected),
     'expected must be an object', 'attempt.evidence-source-invalid');
     const identity = validateIdentity(document.expectedIdentity);
+    requiredDigest(document.buildIdentity, 'buildIdentity');
     return { identity, consumerId: document.consumerId };
 }
 
@@ -354,6 +356,7 @@ export function readCleanAttemptEvidenceSource(file, { repositoryRoot = defaultR
             verificationReceiptDigest
         }) => ({ kind, artifactPath, artifactDigest, verificationReceiptPath, verificationReceiptDigest })),
         expectedIdentity: identity,
+        buildIdentity: document.buildIdentity,
         verifyAuthority: (reference) =>
         {
             const candidate = authorityReferences.find((item) => item.kind === reference.kind);

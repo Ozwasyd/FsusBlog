@@ -9,11 +9,33 @@ const {fileBackedCleanAttemptEvidence} = await import(new URL('../../tools/relea
 const {admitCleanAttemptCohort, appendCleanAttemptCohortSlot, createCleanAttemptCohort, persistCleanAttemptCohortRevision, validateCleanAttemptCohort} = await import(new URL('../../tools/release/release-clean-attempt-cohort.mjs', import.meta.url));
 const {sealContentDigest, sha256} = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const {runProducerAttempts} = await import(new URL('../../tools/test/attempt-runner.mjs', import.meta.url));
+const {requiredCleanAttemptCohortMembers, verifyCleanAttemptCohortManifest} = await import(new URL('../../tools/release/release-clean-attempt-cohort.mjs', import.meta.url));
+import { createCleanAttemptEvidenceFixture, writeCleanAttemptEvidenceFixtureSource } from './support/clean-attempt-evidence-fixture.mjs';
+const { createProductionBuildReceipt } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+const { archiveCleanAttemptCohortInputs } = await import(new URL('../../tools/release/release-clean-attempt-cohort.mjs', import.meta.url));
+const { readCleanAttemptEvidenceSource } = await import(new URL('../../tools/release/clean-attempt-evidence-source.mjs', import.meta.url));
+const { requiredEvidenceAuthoritiesForContext, checkRequiredEvidenceCatalog } = await import(new URL('../../tools/test-matrix/required-evidence-catalog.mjs', import.meta.url));
+const { loadCanonicalReleaseFinalEvidenceInputs } = await import(new URL('../../tools/test-matrix/release-final-evidence-contract.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '../..');
 const commandFixture = path.join(root, 'tests/tools/fixtures/attempt-runner-command.mjs');
 const sourceCommit = '1'.repeat(40);
 const worktreeFingerprint = `sha256:${'2'.repeat(64)}`;
 const buildIdentity = `sha256:${'9'.repeat(64)}`;
+
+test('release-final roster follows its canonical context, not an all-context authority union', () =>
+{
+    const canonical = loadCanonicalReleaseFinalEvidenceInputs();
+    const entries = checkRequiredEvidenceCatalog();
+    const unrelated = { authorityId: 'foreign-context-only', canonicalOwner: 'foreign-context-producer',
+        producerTierIds: ['foreign-context-tier'], allowDiagnostic: false };
+    assert.deepEqual(requiredEvidenceAuthoritiesForContext(canonical, [...entries, unrelated]), entries);
+    for (const entry of entries)
+    {
+        assert.throws(() => requiredEvidenceAuthoritiesForContext(canonical,
+            entries.filter((candidate) => candidate !== entry)), /missing required authority families/u);
+    }
+    assert.throws(() => requiredEvidenceAuthoritiesForContext({ ...canonical, targetTier: 'diagnostic' }, entries), /target release-final/u);
+});
 
 function authorityReferences()
 {
@@ -147,7 +169,7 @@ test('receipt size limit is inclusive and descriptors close after parse and size
     }
 });
 
-test('three independent first-attempt clean runs qualify an append-only cohort', async (context) =>
+test('three independent generic clean runs cannot substitute the formal producer roster', async (context) =>
 {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-clean-cohort-'));
     context.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
@@ -158,7 +180,7 @@ test('three independent first-attempt clean runs qualify an append-only cohort',
         cohort = add(cohort, slot, evidence);
         assert.equal(cohort.events.at(-1).status, 'admitted');
     }
-    assert.equal(cohort.qualificationEligible, true);
+    assert.equal(cohort.qualificationEligible, false);
     assert.equal(validateCleanAttemptCohort(cohort), cohort);
     const revision = path.join(temporary, 'cohorts/candidate-1/revision-3.json');
     persistCleanAttemptCohortRevision(revision, cohort);
@@ -170,16 +192,14 @@ test('release collector admission persists an exact three-slot qualified cohort'
 {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-cohort-adapter-'));
     context.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
-    const slots = [];
-    for (const slot of [1, 2, 3])
-    {
-        slots.push({ slot, attemptEvidence: await producer(temporary, `adapter-run-${slot}`) });
-    }
+    const { slots, expectedCandidate, buildIdentity } = await formalCohortFixture(context, temporary);
     const outputFile = path.join(temporary, 'release-evidence/cohort.json');
     const cohort = admitCleanAttemptCohort({
         cohortId: 'release-candidate-adapter',
         buildIdentity,
         slots,
+        expectedCandidate,
+        candidateRepositoryRoot: fs.realpathSync(temporary),
         outputFile
     });
     assert.equal(cohort.qualificationEligible, true);
@@ -190,6 +210,322 @@ test('release collector admission persists an exact three-slot qualified cohort'
     ]);
     assert.deepEqual(JSON.parse(fs.readFileSync(outputFile, 'utf8')), cohort);
     assert.equal(fs.statSync(outputFile).mode & 0o222, 0);
+});
+
+async function formalCohortFixture(context, temporary)
+{
+    temporary = fs.realpathSync(temporary);
+    fs.mkdirSync(path.join(temporary, 'build/frontend-dist'), { recursive: true });
+    fs.writeFileSync(path.join(temporary, 'inputs.json'), '{}\n');
+    fs.writeFileSync(path.join(temporary, 'build/frontend-dist/index.html'), '<!doctype html>\n');
+    const receipt = createProductionBuildReceipt({ root: temporary, artifactRoot: path.join(temporary, 'build'),
+        sourceState: { commit: sourceCommit, worktreeFingerprint },
+        producer: { workflow: 'cohort-fixture', runId: 'formal-slot-1', runAttempt: 1, job: 'production-build-artifacts' },
+        toolchain: { node: 'v24.0.0', npm: '11.0.0', dotnet: '10.0.100', vite: '7.0.0',
+            vitest: '3.0.0', playwright: '1.55.0', emsdk: '4.0.0' },
+        inputPaths: ['inputs.json'], domains: [{ name: 'frontend-dist', path: 'frontend-dist' }] });
+    const buildIdentity = receipt.contentDigest;
+    const receiptFileDigest = sha256(fs.readFileSync(path.join(temporary, 'build/receipt.json')));
+    const imageDigest = `sha256:${'8'.repeat(64)}`;
+    const imageIdentity = sealContentDigest({ schema: 'fsusblog.release-reliability-run-identity.v1',
+        status: 'complete', runId: 'formal-slot-1', sourceState: receipt.sourceState,
+        build: { contentDigest: buildIdentity, fileDigest: receiptFileDigest, imageDigest,
+            image: { imageDigest, revision: sourceCommit } } });
+    fs.writeFileSync(path.join(temporary, 'image-identity.json'), JSON.stringify(imageIdentity));
+    const slots = [];
+    const expectedSlots = [];
+    for (const slot of [1, 2, 3])
+    {
+        const members = [];
+        const expectedMembers = [];
+        for (const member of requiredCleanAttemptCohortMembers())
+        {
+            const fixture = await createCleanAttemptEvidenceFixture({ consumerId: 'production-correctness',
+                membership: { selectedTierIds: [member.authorityId], testVectors: ['fixture:attempt-runner'] },
+                producerId: member.producerId, schedulerRunId: `formal-slot-${slot}`, buildIdentity });
+            context.after(() => fixture.cleanup());
+            const directory = path.join(temporary, `slot-${slot}`, member.authorityId);
+            fs.mkdirSync(directory, { recursive: true });
+            const evidenceSource = writeCleanAttemptEvidenceFixtureSource(fixture, path.join(directory, 'source.json'));
+            members.push({ authorityId: member.authorityId, attemptEvidence: fixture.attemptEvidence, evidenceSource });
+            expectedMembers.push({ authorityId: member.authorityId, ...fixture.expectedCandidate });
+        }
+        slots.push({ slot, members });
+        const runContext = sealContentDigest({ schema: 'fsusblog.current-run-evidence-context.v1',
+            schedulerRunId: `formal-slot-${slot}`, attemptId: `formal-attempt-${slot}`,
+            sourceCommit, worktreeFingerprint, candidateIdentity: { id: 'release-final', digest: imageDigest },
+            buildIdentity: { id: 'production-build-artifacts', digest: buildIdentity }, ownedRoots: [`slot-${slot}`] });
+        const contextPath = `slot-${slot}/current-run-context.json`;
+        fs.writeFileSync(path.join(temporary, contextPath), JSON.stringify(runContext));
+        expectedSlots.push({ slot, schedulerRunId: `formal-slot-${slot}`, members: expectedMembers,
+            contextReference: { path: contextPath, fileDigest: sha256(fs.readFileSync(path.join(temporary, contextPath))) } });
+    }
+    return { slots, buildIdentity, expectedCandidate: { targetTier: 'release-final', sourceCommit, worktreeFingerprint,
+        buildIdentity, imageDigest, slots: expectedSlots,
+        buildGraph: { artifactRoot: 'build', receiptFile: 'receipt.json', producer: receipt.producer,
+            receiptReference: { path: 'build/receipt.json', fileDigest: receiptFileDigest, digest: receipt.contentDigest } },
+        imageIdentityReference: { path: 'image-identity.json', digest: imageIdentity.contentDigest,
+            fileDigest: sha256(fs.readFileSync(path.join(temporary, 'image-identity.json'))) } } };
+}
+
+test('archive rejects unsafe producer graph before reading or exporting root-external bytes', async (context) =>
+{
+    const temporary = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-archive-boundary-')));
+    context.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+    const fixture = await formalCohortFixture(context, temporary);
+    const original = fixture.slots[0].members[0];
+    const evidenceRoot = original.attemptEvidence.evidenceRoot;
+    const aggregateFile = path.join(evidenceRoot, original.attemptEvidence.aggregateReference.path);
+    const aggregateBytes = fs.readFileSync(aggregateFile);
+    const aggregate = JSON.parse(aggregateBytes);
+    const producerRoot = path.dirname(aggregateFile);
+    const attemptFile = path.join(producerRoot, aggregate.attempts[0].path);
+    const attemptBytes = fs.readFileSync(attemptFile);
+    const outside = path.join(temporary, 'outside-owned-test-root');
+    fs.mkdirSync(outside);
+    const secret = 'ROOT-EXTERNAL-BYTES-MUST-NEVER-BE-ARCHIVED';
+    const secretFile = path.join(outside, 'secret.json');
+    const secretBytes = JSON.stringify(sealContentDigest({ secret }));
+    fs.writeFileSync(secretFile, secretBytes);
+
+    for (const kind of ['subsequent-attempt-traversal', 'artifact-traversal', 'symlink-parent', 'archive-destination-escape'])
+    {
+        await context.test(kind, (check) =>
+        {
+            const slots = fixture.slots.map((slot) => ({ ...slot, members: slot.members.map((member) => ({ ...member,
+                attemptEvidence: { ...member.attemptEvidence, aggregateReference: { ...member.attemptEvidence.aggregateReference } } })) }));
+            const member = slots[0].members[0];
+            let modifiedAggregate = structuredClone(aggregate);
+            let modifiedAttempt = JSON.parse(attemptBytes);
+            const archiveRoot = path.join(temporary, `archive-${kind}`);
+            fs.mkdirSync(archiveRoot);
+            const rejection = path.join(archiveRoot, 'cohort.json');
+            const link = path.join(path.dirname(attemptFile), 'external-parent');
+            check.after(() =>
+            {
+                for (const [file, bytes] of [[aggregateFile, aggregateBytes], [attemptFile, attemptBytes]])
+                {
+                    fs.chmodSync(file, 0o600);
+                    fs.writeFileSync(file, bytes);
+                }
+                if (kind === 'symlink-parent')
+                {
+                    fs.unlinkSync(link);
+                }
+            });
+            if (kind === 'subsequent-attempt-traversal')
+            {
+                modifiedAggregate.attempts.push({ ...modifiedAggregate.attempts[0], attemptNumber: 2,
+                    path: path.relative(producerRoot, secretFile).replaceAll(path.sep, '/'),
+                    digest: JSON.parse(secretBytes).contentDigest });
+            }
+            if (kind === 'artifact-traversal' || kind === 'symlink-parent')
+            {
+                if (kind === 'symlink-parent')
+                {
+                    fs.symlinkSync(outside, link, 'dir');
+                }
+                const artifact = kind === 'artifact-traversal'
+                    ? path.relative(path.dirname(attemptFile), secretFile).replaceAll(path.sep, '/')
+                    : 'external-parent/secret.json';
+                modifiedAttempt.artifactPaths = [...modifiedAttempt.artifactPaths, artifact].sort();
+                modifiedAttempt.artifactDigests[artifact] = sha256(secretBytes);
+                modifiedAttempt = sealContentDigest(modifiedAttempt);
+                fs.chmodSync(attemptFile, 0o600);
+                fs.writeFileSync(attemptFile, JSON.stringify(modifiedAttempt));
+                modifiedAggregate.attempts[0].digest = modifiedAttempt.contentDigest;
+            }
+            if (kind === 'archive-destination-escape')
+            {
+                fs.symlinkSync(outside, path.join(archiveRoot, 'cohort-evidence'), 'dir');
+            }
+            modifiedAggregate = sealContentDigest(modifiedAggregate);
+            fs.chmodSync(aggregateFile, 0o600);
+            fs.writeFileSync(aggregateFile, JSON.stringify(modifiedAggregate));
+            member.attemptEvidence.aggregateReference.digest = modifiedAggregate.contentDigest;
+            member.attemptEvidence.aggregateReference.fileDigest = sha256(fs.readFileSync(aggregateFile));
+
+            let externalReads = 0;
+            const originalOpen = fs.openSync;
+            const originalRead = fs.readFileSync;
+            const outsidePath = (file) => typeof file === 'string' && fs.existsSync(file)
+                && fs.realpathSync(file) === secretFile;
+            check.mock.method(fs, 'openSync', (...args) =>
+            {
+                if (outsidePath(args[0]))
+                {
+                    externalReads++;
+                }
+                return originalOpen(...args);
+            });
+            check.mock.method(fs, 'readFileSync', (...args) =>
+            {
+                if (outsidePath(args[0]))
+                {
+                    externalReads++;
+                }
+                return originalRead(...args);
+            });
+            assert.throws(() => archiveCleanAttemptCohortInputs({ ...fixture, slots, cohortId: `boundary-${kind}`,
+                repositoryRoot: temporary, archiveRoot, rejectedOutputFile: rejection }), /rejected|non-symlink/u);
+            assert.equal(externalReads, 0, 'no outside file may be opened/read before rejection');
+            const archiveBytes = (directory) => fs.readdirSync(directory, { withFileTypes: true }).flatMap((entry) =>
+                entry.isDirectory() ? archiveBytes(path.join(directory, entry.name))
+                    : entry.isFile() ? [fs.readFileSync(path.join(directory, entry.name), 'utf8')] : []);
+            assert.equal(archiveBytes(archiveRoot).some((bytes) => bytes.includes(secret)), false);
+            assert.deepEqual(fs.readdirSync(outside), ['secret.json'], 'destination parents cannot redirect archive writes');
+            if (kind !== 'archive-destination-escape')
+            {
+                const rejected = JSON.parse(fs.readFileSync(rejection));
+                assert.equal(rejected.qualificationEligible, false);
+                assert.equal(rejected.events[0].status, 'rejected');
+                assert.equal(fs.existsSync(path.join(archiveRoot, 'cohort-evidence')), false, 'preflight precedes every graph copy');
+            }
+            else
+            {
+                assert.equal(fs.existsSync(path.join(outside, 'build')), false);
+                const escaping = slots.map((slot) => ({ ...slot, members: [...slot.members] }));
+                escaping[0].members[0] = { ...escaping[0].members[0], authorityId: '../../escaped' };
+                assert.throws(() => archiveCleanAttemptCohortInputs({ ...fixture, slots: escaping, cohortId: 'escape',
+                    repositoryRoot: temporary, archiveRoot }), /rejected/u);
+            }
+        });
+    }
+});
+
+test('formal cohort rejects missing duplicate cross-candidate and tampered producer evidence', async (context) =>
+{
+    const temporary = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-formal-negative-')));
+    context.after(() => fs.rmSync(temporary, { recursive: true, force: true }));
+    const fixture = await formalCohortFixture(context, temporary);
+    const buildIdentity = fixture.buildIdentity;
+    const admit = (slots = fixture.slots, expectedCandidate = fixture.expectedCandidate) => admitCleanAttemptCohort({
+        cohortId: 'negative', buildIdentity, slots, expectedCandidate, candidateRepositoryRoot: temporary });
+    for (const mutate of [
+        (slots) => slots[0].members.pop(),
+        (slots) => slots[0].members.push(slots[0].members[0]),
+        (slots) => slots[0].members[0].attemptEvidence.buildIdentity = `sha256:${'a'.repeat(64)}`,
+        (slots) => slots[0].members[0].attemptEvidence.domainReceiptReference.digest = `sha256:${'a'.repeat(64)}`,
+        (slots) => slots[0].members[0].attemptEvidence.aggregateReference.fileDigest = `sha256:${'a'.repeat(64)}`
+    ])
+    {
+        const slots = fixture.slots.map((entry) => ({ ...entry, members: entry.members.map((member) => ({
+            ...member, attemptEvidence: { ...member.attemptEvidence,
+                aggregateReference: { ...member.attemptEvidence.aggregateReference },
+                domainReceiptReference: { ...member.attemptEvidence.domainReceiptReference } } })) }));
+        mutate(slots);
+        assert.throws(() => admit(slots), /rejected/u);
+    }
+    for (const field of ['sourceCommit', 'worktreeFingerprint'])
+    {
+        assert.throws(() => admit(fixture.slots, { ...fixture.expectedCandidate,
+            [field]: field === 'sourceCommit' ? 'a'.repeat(40) : `sha256:${'a'.repeat(64)}` }), /rejected/u);
+    }
+    for (const field of ['executionEnvelopeDigest', 'replayPlanDigest', 'temporalContextDigest'])
+    {
+        const candidate = structuredClone(fixture.expectedCandidate);
+        candidate.slots[0].members[0][field] = `sha256:${'a'.repeat(64)}`;
+        assert.throws(() => admit(fixture.slots, candidate), /rejected/u);
+    }
+    for (const mutate of [
+        (candidate) =>
+        {
+            delete candidate.buildGraph;
+        },
+        (candidate) =>
+        {
+            candidate.buildGraph.receiptReference.digest = `sha256:${'a'.repeat(64)}`;
+        },
+        (candidate) =>
+        {
+            candidate.slots[0].contextReference.fileDigest = `sha256:${'a'.repeat(64)}`;
+        },
+        (candidate) =>
+        {
+            candidate.imageDigest = `sha256:${'a'.repeat(64)}`;
+        }
+    ])
+    {
+        const candidate = structuredClone(fixture.expectedCandidate);
+        mutate(candidate);
+        assert.throws(() => admit(fixture.slots, candidate), /rejected/u);
+    }
+    const candidate = structuredClone(fixture.expectedCandidate);
+    candidate.slots[1].schedulerRunId = candidate.slots[0].schedulerRunId;
+    assert.throws(() => admit(fixture.slots, candidate), /rejected/u);
+    const cohort = admit();
+    const memberMutation = structuredClone(cohort);
+    memberMutation.events[0].evidence.members.pop();
+    memberMutation.events[0] = sealContentDigest(memberMutation.events[0]);
+    memberMutation.events[1].previousEventDigest = memberMutation.events[0].contentDigest;
+    memberMutation.events[1] = sealContentDigest(memberMutation.events[1]);
+    memberMutation.events[2].previousEventDigest = memberMutation.events[1].contentDigest;
+    memberMutation.events[2] = sealContentDigest(memberMutation.events[2]);
+    assert.throws(() => validateCleanAttemptCohort(sealContentDigest(memberMutation)), /formal producer/u);
+    const archiveRoot = path.join(temporary, 'release-archive');
+    fs.mkdirSync(archiveRoot);
+    const archived = archiveCleanAttemptCohortInputs({ ...fixture, cohortId: 'negative', repositoryRoot: temporary, archiveRoot });
+    const archivedCohort = admitCleanAttemptCohort({ cohortId: 'negative', buildIdentity,
+        slots: archived.slots, expectedCandidate: archived.expectedCandidate, candidateRepositoryRoot: archiveRoot });
+    persistCleanAttemptCohortRevision(path.join(archiveRoot, 'cohort.json'), archivedCohort);
+    const movedRoot = path.join(temporary, 'moved-release-archive');
+    fs.renameSync(archiveRoot, movedRoot);
+    const artifacts = { cleanAttemptCohort: 'cohort.json', cleanAttemptCandidate: 'clean-attempt-expected-candidate.json',
+        cleanAttemptGraph: 'clean-attempt-archive-graph.json' };
+    const manifest = { artifacts,
+        artifactDigests: Object.fromEntries(Object.entries(artifacts).map(([key, relative]) => [key,
+            { algorithm: 'sha256', value: sha256(fs.readFileSync(path.join(movedRoot, relative))).slice(7) }])),
+        commitSha: sourceCommit, imageDigest: fixture.expectedCandidate.imageDigest, releaseNamespace: 'negative' };
+    const manifestPath = path.join(movedRoot, 'manifest.json');
+    for (const slot of fixture.slots)
+    {
+        for (const member of slot.members)
+        {
+            fs.rmSync(member.attemptEvidence.evidenceRoot, { recursive: true, force: true });
+        }
+        fs.rmSync(path.join(temporary, `slot-${slot.slot}`), { recursive: true, force: true });
+    }
+    fs.rmSync(path.join(temporary, 'build'), { recursive: true, force: true });
+    assert.equal(verifyCleanAttemptCohortManifest(manifest, manifestPath, temporary), true);
+    for (const field of ['schedulerRunId', 'worktreeFingerprint', 'executionEnvelopeDigest'])
+    {
+        const stale = structuredClone(archivedCohort);
+        for (const event of stale.events)
+        {
+            if (field !== 'executionEnvelopeDigest')
+            {
+                event.evidence[field] = field === 'schedulerRunId' ? `stale-run-${event.slot}` : `sha256:${'a'.repeat(64)}`;
+            }
+            for (const member of event.evidence.members)
+            {
+                member[field] = field === 'schedulerRunId' ? `stale-run-${event.slot}` : `sha256:${'a'.repeat(64)}`;
+            }
+        }
+        for (let index = 0; index < stale.events.length; index++)
+        {
+            stale.events[index].previousEventDigest = stale.events[index - 1]?.contentDigest ?? null;
+            stale.events[index] = sealContentDigest(stale.events[index]);
+        }
+        const cohortFile = path.join(movedRoot, 'cohort.json');
+        fs.chmodSync(cohortFile, 0o600);
+        fs.writeFileSync(cohortFile, JSON.stringify(sealContentDigest(stale)));
+        const rehashedManifest = { ...manifest, artifactDigests: { ...manifest.artifactDigests,
+            cleanAttemptCohort: { algorithm: 'sha256', value: sha256(fs.readFileSync(cohortFile)).slice(7) } } };
+        assert.throws(() => verifyCleanAttemptCohortManifest(rehashedManifest, manifestPath, temporary), /replay differs/u,
+            `rehashed coherent ${field} cohort cannot replace independent current candidate receipts`);
+        fs.writeFileSync(cohortFile, `${JSON.stringify(archivedCohort)}\n`);
+        manifest.artifactDigests.cleanAttemptCohort.value = sha256(fs.readFileSync(cohortFile)).slice(7);
+        fs.chmodSync(cohortFile, 0o444);
+    }
+    assert.throws(() => verifyCleanAttemptCohortManifest({ ...manifest, artifacts: {} }, manifestPath, temporary), /cleanAttemptCandidate/u);
+    assert.throws(() => verifyCleanAttemptCohortManifest({ ...manifest, imageDigest: `sha256:${'a'.repeat(64)}` }, manifestPath, temporary), /identity/u);
+    assert.throws(() => verifyCleanAttemptCohortManifest({ ...manifest, artifactDigests: {} }, manifestPath, temporary), /digest/u);
+    const member = archivedCohort.events[0].evidence.members[0];
+    const evidence = readCleanAttemptEvidenceSource(member.evidenceSource.path, { repositoryRoot: movedRoot });
+    const log = path.join(evidence.evidenceRoot, path.dirname(evidence.aggregateReference.path), 'attempt-1/stdout.log');
+    fs.chmodSync(log, 0o600);
+    fs.appendFileSync(log, 'tampered');
+    assert.throws(() => verifyCleanAttemptCohortManifest(manifest, manifestPath, temporary), /digest|rejected/u);
 });
 
 test('release collector require-ok fails before collection without cohort admission input', () =>

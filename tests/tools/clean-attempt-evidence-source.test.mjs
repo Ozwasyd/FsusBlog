@@ -124,6 +124,7 @@ test('file-backed authority source drives a real producer aggregate into consume
         const inputFile = path.join(directory, 'clean-attempt-input.json');
         writeJson(inputFile, {
             schema: cleanAttemptEvidenceInputSchema,
+            buildIdentity: `sha256:${'9'.repeat(64)}`,
             consumerId: 'production-correctness',
             membership: { selectedTierIds: ['source-backed'], testVectors: ['fixture'] },
             expected: { selectedTierIds: ['source-backed'], testVectors: ['fixture'] },
@@ -156,6 +157,11 @@ test('file-backed authority source drives a real producer aggregate into consume
             consumerId: source.consumerId,
             attemptEvidence: source,
             membership: source.membership,
+            expectedCandidate: { sourceCommit, worktreeFingerprint, schedulerRunId, producerId,
+                buildIdentity: `sha256:${'9'.repeat(64)}`, membership: { selectedTierIds: ['source-backed'], testVectors: ['fixture'] },
+                executionEnvelopeDigest: `sha256:${'3'.repeat(64)}`, replayPlanDigest: `sha256:${'4'.repeat(64)}`,
+                temporalContextDigest: `sha256:${'5'.repeat(64)}`,
+                domainReceiptReference: { path: 'payload.json', digest: result.attempts[0].artifactDigests['payload.json'] } },
             expected: source.expected
         });
         assert.equal(admission.eligible, true, JSON.stringify(admission));
@@ -178,6 +184,7 @@ test('source rejects modified external verification receipts before consumer adm
         const inputFile = path.join(directory, 'clean-attempt-input.json');
         writeJson(inputFile, {
             schema: cleanAttemptEvidenceInputSchema,
+            buildIdentity: `sha256:${'9'.repeat(64)}`,
             consumerId: 'production-correctness',
             membership: { selectedTierIds: ['source-backed'], testVectors: ['fixture'] },
             expected: { selectedTierIds: ['source-backed'], testVectors: ['fixture'] },

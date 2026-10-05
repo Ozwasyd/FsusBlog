@@ -4,6 +4,35 @@ import path from 'node:path';
 export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v2';
 export const productionBuildReceiptSchema = 'fsusblog.ci-production-build-receipt.v1';
 
+export function productionBuildBinding(receipt, receiptPath)
+{
+    if (receipt?.schema !== productionBuildReceiptSchema)
+    {
+        throw new Error(`unexpected production build receipt schema: ${receipt?.schema ?? 'missing'}`);
+    }
+    if (receipt.status !== 'complete')
+    {
+        throw new Error(`production build receipt is not complete: ${receipt.status}`);
+    }
+    if (receipt.contentDigest !== digestValue(receipt))
+    {
+        throw new Error('production build receipt content digest mismatch');
+    }
+    const sourceErrors = sourceStateErrors(receipt.sourceState, 'production build receipt sourceState');
+    if (sourceErrors.length > 0)
+    {
+        throw new Error(sourceErrors.join('; '));
+    }
+    return {
+        schema: productionBuildReceiptSchema,
+        receipt: String(receiptPath).replaceAll(path.sep, '/'),
+        receiptContentDigest: receipt.contentDigest,
+        sourceState: receipt.sourceState,
+        profile: receipt.build?.profile ?? null,
+        producer: receipt.producer ?? null
+    };
+}
+
 export function canonicalize(value)
 {
     if (Array.isArray(value))

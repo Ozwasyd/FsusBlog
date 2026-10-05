@@ -160,10 +160,10 @@ export function createAuthSessionPort(catalogs = readFixtureCatalogs())
                 postconditions: [...producer.receiptPostconditions]
             };
         },
-        async verify(context, producerResult)
+        async verify(context, producerResult, signal)
         {
             const { verifyAuthSession } = await import('./auth-session-producer.mjs');
-            return verifyAuthSession(context, producerResult);
+            return verifyAuthSession(context, producerResult, signal);
         },
         async cleanup(context, receipt, signal)
         {
@@ -439,10 +439,10 @@ export function createAccountMessagingPort(catalogs = readFixtureCatalogs())
                 postconditions: [...producer.receiptPostconditions]
             };
         },
-        async verify(context, producerResult)
+        async verify(context, producerResult, signal)
         {
             const { verifyAccountMessaging } = await import('./account-messaging-producer.mjs');
-            return verifyAccountMessaging(context, producerResult);
+            return verifyAccountMessaging(context, producerResult, signal);
         },
         async cleanup(context, producerResult, signal)
         {
@@ -537,15 +537,15 @@ export function createCommentModerationPort(catalogs = readFixtureCatalogs())
                 postconditions: [...producer.receiptPostconditions]
             };
         },
-        async verify(context, result)
+        async verify(context, result, signal)
         {
             const { verifyCommentModeration } = await import('./comment-moderation-producer.mjs');
-            return verifyCommentModeration(context, result);
+            return verifyCommentModeration(context, result, signal);
         },
         async cleanup(context, result, signal)
         {
             const { cleanupCommentModeration } = await import('./comment-moderation-producer.mjs');
-            await cleanupCommentModeration(context, result, signal);
+            return cleanupCommentModeration(context, result, signal);
         }
     });
 }

@@ -3679,6 +3679,9 @@ tiers:
           - tools/dependencies/verify-fsusui-candidate.mjs
           - tools/dependencies/fsusui-candidate-package-smoke.mjs
           - tests/tools/fsusui-candidate.test.mjs
+          - tests/tools/frontend-local-install.test.mjs
+          - src/frontend/scripts/prepare-local-fsusui-install.mjs
+          - src/frontend/scripts/fsusui-root.mjs
           - tests/frontend/checks/static/check-fsusui-boundary.mjs
           - tests/frontend/checks/static/check-fsusui-typecheck-modes.mjs
           - docs/frontend/fsusui-typecheck-modes.md
@@ -6887,6 +6890,13 @@ tiers:
     - id: runtime-cache-hot-featured-frame
       executionClass: runtime
       fixtureProfile: public-content-lifecycle
+      fixturePrerequisites:
+          - id: typed-admin-session
+            profileId: auth-basic
+            producerId: auth-session
+            capabilityId: auth.admin.full-permission
+            semanticRole: admin.full-permission
+            consumerId: runtime-cache-hot-featured-frame
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true

@@ -29,6 +29,7 @@ function canonicalize(value)
 export function digestValue(value)
 {
     const { contentDigest: _ignored, ...content } = value;
+    void _ignored;
     return `sha256:${createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`;
 }
 
@@ -1260,6 +1261,7 @@ export function createTimeline({ invocationId, runId, scenarioResults, identityR
 export function createCandidateReceipt({
     repositoryRoot = process.cwd(),
     attemptEvidence = null,
+    expectedCandidate = null,
     invocationId,
     runId,
     scenarioResults,
@@ -1275,6 +1277,10 @@ export function createCandidateReceipt({
     requireCleanAttemptConsumerAdmission({
         consumerId: 'release-reliability',
         attemptEvidence,
+        expectedCandidate,
+        candidateBinding: { sourceCommit: identity?.sourceState?.commit,
+            worktreeFingerprint: normalizeFingerprint(identity?.sourceState?.worktreeFingerprint),
+            schedulerRunId: runId, buildIdentity: identity?.build?.contentDigest },
         repositoryRoot
     });
     const receipt = {

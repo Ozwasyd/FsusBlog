@@ -58,7 +58,10 @@ const reliabilityAttemptFixture = await createCleanAttemptEvidenceFixture({
         lifecyclePhases: ['measurement', 'postcondition', 'precondition', 'reset'],
         scenarioIds: [...scenarioIds].sort()
     },
-    schedulerRunId: 'release-reliability-receipt-clean-attempt'
+    schedulerRunId: 'receipt-run',
+    sourceCommit: 'a'.repeat(40),
+    worktreeFingerprint: `sha256:${'b'.repeat(64)}`,
+    buildIdentity: `sha256:${'d'.repeat(64)}`
 });
 test.after(() => reliabilityAttemptFixture.cleanup());
 const invocationId = 'receipt-invocation';
@@ -814,6 +817,7 @@ function qualifiedReceipt(identity = completeIdentity(), results = scenarioResul
     const receipt = createCandidateReceipt({
         repositoryRoot,
         attemptEvidence: reliabilityAttemptFixture.attemptEvidence,
+        expectedCandidate: reliabilityAttemptFixture.expectedCandidate,
         invocationId: identity.invocationId,
         runId: identity.runId,
         scenarioResults: results,
@@ -886,6 +890,7 @@ test('identity precondition failures still produce sealed partial timeline and f
     const receipt = createCandidateReceipt({
         repositoryRoot,
         attemptEvidence: reliabilityAttemptFixture.attemptEvidence,
+        expectedCandidate: reliabilityAttemptFixture.expectedCandidate,
         invocationId: identity.invocationId,
         runId: identity.runId,
         scenarioResults: results,
@@ -1915,6 +1920,20 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
         inputPaths: ['config/testing/release-reliability-scenario-catalog.json'],
         domains: [{ name: 'backend-runtime', path: 'payload/backend' }]
     });
+    // Bind the CLI attempt to its independent Git/build producer inputs,
+    // before constructing the run identity or the receipt under verification.
+    const cliAttemptFixture = await createCleanAttemptEvidenceFixture({
+        consumerId: 'release-reliability',
+        membership: {
+            lifecyclePhases: ['measurement', 'postcondition', 'precondition', 'reset'],
+            scenarioIds: [...catalog.canonicalScenarioIds].sort()
+        },
+        schedulerRunId: runId,
+        sourceCommit: sourceState.commit,
+        worktreeFingerprint: sourceState.worktreeFingerprint,
+        buildIdentity: build.contentDigest
+    });
+    context.after(() => cliAttemptFixture.cleanup());
     const binding = (relative) => ({
         status: 'complete',
         path: relative,
@@ -2269,7 +2288,8 @@ const requested = process.argv.at(-1); const entry = state.containers[requested]
     files.timeline = path.join(root, timelinePath);
     const receipt = createCandidateReceipt({
         repositoryRoot: root,
-        attemptEvidence: reliabilityAttemptFixture.attemptEvidence,
+        attemptEvidence: cliAttemptFixture.attemptEvidence,
+        expectedCandidate: cliAttemptFixture.expectedCandidate,
         invocationId,
         runId,
         scenarioResults: results,
@@ -2319,6 +2339,25 @@ function verifyCli(fixture)
         '--attestation-out',
         `.tmp/release-reliability/${invocationId}/verified-attestation.json`
     ], { encoding: 'utf8', env: { ...process.env, PATH: `${fixture.fakeTools}${path.delimiter}${process.env.PATH ?? ''}`, FSUSBLOG_RECEIPT_DOCKER_STATE: fixture.dockerState } });
+}
+
+function verifyCliPreflight(fixture)
+{
+    const result = verifyCli(fixture);
+    assert.equal(result.status, 0, result.stderr);
+    const attestation = JSON.parse(fs.readFileSync(path.join(
+        fixture.root,
+        `.tmp/release-reliability/${invocationId}/verified-attestation.json`
+    ), 'utf8'));
+    assert.equal(attestation.status, 'verified');
+    assert.equal(attestation.runId, runId);
+    assert.equal(attestation.candidate.path, fixture.receiptPath);
+    assert.equal(attestation.candidate.fileDigest, bytesDigest(fs.readFileSync(fixture.receiptFile)));
+}
+
+function assertVerifierRejection(result, message)
+{
+    assert.equal(result.stderr.trim(), `[release-reliability-receipt] ${message}`);
 }
 
 function finalizeCli(fixture)
@@ -2392,6 +2431,116 @@ test('independent verifier re-reads every bound file and accepts an untampered r
     assert.doesNotMatch(source, /mtime/u);
 });
 
+test('independent verifier requires the dedicated data-scale closed environment sets', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    const scenario = fixture.catalog.scenarios.find((entry) => entry.id === 'release-data-scale-m');
+    assert.deepEqual(scenario.command.env, {
+        FSUSBLOG_DATA_SCALE_CONCURRENCY: '2',
+        FSUSBLOG_DATA_SCALE_PROVISION_MODE: 'full',
+        FSUSBLOG_DATA_SCALE_REQUESTS: '12',
+        FSUSBLOG_DATA_SCALE_ROOT: '.tmp/scale',
+        FSUSBLOG_SCALE_TIER: 'scale-m'
+    });
+    assert.deepEqual(scenario.command.inheritEnv, {
+        required: ['FSUSBLOG_TEST_NAMESPACE', 'FSUSBLOG_TEST_RUN_ID'],
+        optional: [
+            'FSUSBLOG_AOT_CACHE_DIR',
+            'FSUSBLOG_BACKEND_WEBROOT',
+            'FSUSBLOG_DEBUG_BACKEND_URL',
+            'FSUSBLOG_POSTGRES_CONTAINER_NAME',
+            'FSUSBLOG_PUBLIC_AOT_CACHE_DIR',
+            'FSUSBLOG_REDIS_CONTAINER_NAME',
+            'FSUSBLOG_SEARCH_DIR',
+            'FSUSBLOG_SEARCH_INDEX_DIR',
+            'FSUSBLOG_WEB_ROOT'
+        ]
+    });
+    verifyCliPreflight(fixture);
+    const catalogFile = fixture.files.catalog;
+    const original = fs.readFileSync(catalogFile);
+    const mutations = [
+        (command) =>
+        {
+            delete command.env.FSUSBLOG_DATA_SCALE_PROVISION_MODE;
+        },
+        (command) =>
+        {
+            command.env.FSUSBLOG_DATA_SCALE_PROVISION_MODE = 'plan-identity';
+        },
+        (command) =>
+        {
+            command.env.FSUSBLOG_DATA_SCALE_PROVISION_MODE = 'seed-only';
+        },
+        (command) =>
+        {
+            command.env.FSUSBLOG_UNDECLARED_FIXED_VALUE = '1';
+        },
+        (command) =>
+        {
+            command.inheritEnv.required = ['FSUSBLOG_TEST_RUN_ID'];
+        },
+        (command) =>
+        {
+            command.inheritEnv.required = ['FSUSBLOG_TEST_NAMESPACE'];
+        },
+        (command) =>
+        {
+            command.inheritEnv.required = [
+                'FSUSBLOG_DEBUG_BACKEND_URL', 'FSUSBLOG_POSTGRES_CONTAINER_NAME',
+                'FSUSBLOG_REDIS_CONTAINER_NAME', 'FSUSBLOG_TEST_NAMESPACE', 'FSUSBLOG_TEST_RUN_ID'
+            ];
+            command.inheritEnv.optional = command.inheritEnv.optional.filter((key) =>
+                !command.inheritEnv.required.includes(key));
+        },
+        (command) =>
+        {
+            command.inheritEnv.optional.push('FSUSBLOG_UNDECLARED_OPTIONAL');
+            command.inheritEnv.optional.sort();
+        },
+        (command) =>
+        {
+            command.inheritEnv.required.push('FSUSBLOG_UNDECLARED_REQUIRED');
+            command.inheritEnv.required.sort();
+        },
+        (command) =>
+        {
+            command.inheritEnv.required = ['FSUSBLOG_TEST_NAMESPACE'];
+            command.inheritEnv.optional.push('FSUSBLOG_TEST_RUN_ID');
+            command.inheritEnv.optional.sort();
+        },
+        (command) =>
+        {
+            command.inheritEnv.optional = command.inheritEnv.optional.filter((key) =>
+                key !== 'FSUSBLOG_REDIS_CONTAINER_NAME');
+        }
+    ];
+    for (const mutate of mutations)
+    {
+        const mutated = JSON.parse(original);
+        mutate(mutated.scenarios.find((entry) => entry.id === 'release-data-scale-m').command);
+        writeJson(catalogFile, mutated);
+        const result = verifyCli(fixture);
+        assert.notEqual(result.status, 0);
+        assertVerifierRejection(result, 'canonical scenario catalog is invalid');
+        fs.writeFileSync(catalogFile, original);
+    }
+    verifyCliPreflight(fixture);
+});
+
+test('independent verifier rejects a forged threshold check after the exact policy passes', async (context) =>
+{
+    const fixture = await createCliFixture(context);
+    verifyCliPreflight(fixture);
+    rewriteEvidenceAndAggregate(fixture, 'release-load-peak', (evidence) =>
+    {
+        evidence.thresholdEvaluation.checks[0].threshold = 999999;
+    });
+    const result = verifyCli(fixture);
+    assert.notEqual(result.status, 0);
+    assertVerifierRejection(result, 'scenario release-load-peak forged threshold check: p95Ms');
+});
+
 test('independent verifier rejects self-recomputed weakened effective, sampling, threshold, and policy evidence', async (context) =>
 {
     const mutations = [
@@ -2416,22 +2565,29 @@ test('independent verifier rejects self-recomputed weakened effective, sampling,
     for (const mutate of mutations)
     {
         const fixture = await createCliFixture(context);
+        verifyCliPreflight(fixture);
         rewriteEvidenceAndAggregate(fixture, 'release-load-peak', mutate);
-        assert.notEqual(verifyCli(fixture).status, 0);
+        const result = verifyCli(fixture);
+        assert.notEqual(result.status, 0);
+        assertVerifierRejection(result, 'scenario release-load-peak effective load policy/sampling mismatch');
     }
 });
 
 test('independent verifier rejects self-recomputed scale and mutation authority substitution', async (context) =>
 {
     const scaleFixture = await createCliFixture(context);
+    verifyCliPreflight(scaleFixture);
     rewriteEvidenceAndAggregate(scaleFixture, 'release-data-scale-m', (evidence) =>
     {
         evidence.tier = 'scale-xs';
         evidence.sampling = { requests: 1, concurrency: 1, routeCount: 3 };
     });
-    assert.notEqual(verifyCli(scaleFixture).status, 0);
+    const scaleResult = verifyCli(scaleFixture);
+    assert.notEqual(scaleResult.status, 0);
+    assertVerifierRejection(scaleResult, 'scenario release-data-scale-m effective scale tier/sampling mismatch');
 
     const mutationFixture = await createCliFixture(context);
+    verifyCliPreflight(mutationFixture);
     rewriteEvidenceAndAggregate(
         mutationFixture,
         'release-mutation-critical-slice',
@@ -2441,7 +2597,9 @@ test('independent verifier rejects self-recomputed scale and mutation authority 
             evidence.releaseQualification.executedMutantIds = ['substituted-mutant'];
         }
     );
-    assert.notEqual(verifyCli(mutationFixture).status, 0);
+    const mutationResult = verifyCli(mutationFixture);
+    assert.notEqual(mutationResult.status, 0);
+    assertVerifierRejection(mutationResult, 'scenario release-mutation-critical-slice release mutation qualification mismatch');
 });
 
 test('verified attestation finalizes and re-verifies after every live container is removed', async (context) =>
@@ -2490,6 +2648,31 @@ test('candidate without attestation and tampered or cross-run attestation cannot
 test('tamper after receipt fails for every source, identity, evidence, lifecycle, and aggregate binding', async (context) =>
 {
     const fixture = await createCliFixture(context);
+    verifyCliPreflight(fixture);
+    const sourceMismatch = 'run source identity does not match the current worktree bytes/mode/index state';
+    const expectedMessages = {
+        source: sourceMismatch,
+        build: 'build receipt bytes digest mismatch',
+        identity: 'run identity is not valid JSON',
+        fixtureConfig: sourceMismatch,
+        fixtureSchema: sourceMismatch,
+        fixtureSeed: sourceMismatch,
+        fixtureAuditRetentionPolicy: sourceMismatch,
+        topology: 'fixture topology bytes digest mismatch',
+        catalog: 'canonical scenario catalog is not valid JSON',
+        threshold: sourceMismatch,
+        mutationSubset: sourceMismatch,
+        releaseResource: sourceMismatch,
+        physicalExecution: sourceMismatch,
+        routeCatalog: sourceMismatch,
+        schedulerPolicy: sourceMismatch,
+        lifecycle: 'action receipt bytes digest mismatch',
+        processTree: 'release-soak-min-fixture-measurement process-tree receipt is not valid JSON',
+        evidence: 'scenario release-soak-min evidence bytes/reference mismatch',
+        result: 'scenario release-soak-min result is not valid JSON',
+        timeline: 'timeline is not valid JSON',
+        receipt: 'candidate receipt is not valid JSON'
+    };
     for (const [label, file] of Object.entries(fixture.files))
     {
         const original = fs.readFileSync(file);
@@ -2497,13 +2680,38 @@ test('tamper after receipt fails for every source, identity, evidence, lifecycle
         fs.writeFileSync(file, Buffer.concat([original, Buffer.from(`\n${label}-tamper`)]));
         const result = verifyCli(fixture);
         assert.notEqual(result.status, 0, `${label} tamper unexpectedly passed`);
+        if (['lifecycleActionRegistry', 'stateDomainRegistry'].includes(label))
+        {
+            // These two owners parse their JSON before the source snapshot check.
+            assert.throws(() => JSON.parse(fs.readFileSync(file, 'utf8')), (error) =>
+            {
+                assertVerifierRejection(result, error.message);
+                return true;
+            });
+        }
+        else
+        {
+            assert.equal(typeof expectedMessages[label], 'string', `missing exact oracle for ${label}`);
+            assertVerifierRejection(result, expectedMessages[label]);
+        }
         fs.writeFileSync(file, original);
     }
 });
 
 test('independent verifier rejects stopped, replaced, and topology-image-mismatched live fixture state', async (context) =>
 {
-    for (const mutate of [
+    const messages = [
+        'fixture postgres container identity changed or stopped',
+        'fixture redis container identity changed or stopped',
+        'fixture postgres inspected topology digest mismatch',
+        'fixture backend app container no longer binds image, health, port, ownership, and PID',
+        'fixture backend app container no longer binds image, health, port, ownership, and PID',
+        'fixture backend app container no longer binds image, health, port, ownership, and PID',
+        'fixture postgres runtime network attachment changed',
+        'fixture backend app container no longer binds image, health, port, ownership, and PID',
+        'fixture runtime network aliases or membership changed'
+    ];
+    const mutations = [
         (state) =>
         {
             state.containers['fixture-postgres'].State.Running = false;
@@ -2544,19 +2752,31 @@ test('independent verifier rejects stopped, replaced, and topology-image-mismatc
         {
             delete state.network.Containers['fixture-fixture-redis-id'];
         }
-    ])
+    ];
+    assert.equal(mutations.length, messages.length);
+    for (const [index, mutate] of mutations.entries())
     {
         const fixture = await createCliFixture(context);
+        verifyCliPreflight(fixture);
         const state = JSON.parse(fs.readFileSync(fixture.dockerState, 'utf8'));
         mutate(state);
         fs.writeFileSync(fixture.dockerState, JSON.stringify(state));
-        assert.notEqual(verifyCli(fixture).status, 0);
+        const result = verifyCli(fixture);
+        assert.notEqual(result.status, 0);
+        assertVerifierRejection(result, messages[index]);
     }
 });
 
 test('independent verifier rejects replaced and cross-source registry image inspection', async (context) =>
 {
-    for (const mutate of [
+    const messages = [
+        'runtime image ID, source revision, or RootFS layers changed',
+        'runtime image source or FsusUI producer labels changed',
+        'runtime image source or FsusUI producer labels changed',
+        'runtime image source or FsusUI producer labels changed',
+        'runtime image source or FsusUI producer labels changed'
+    ];
+    const mutations = [
         (state) =>
         {
             state.image.Id = digest('f');
@@ -2577,30 +2797,40 @@ test('independent verifier rejects replaced and cross-source registry image insp
         {
             state.image.Config.Labels['io.fsusblog.build.fsusui-commit'] = '1'.repeat(40);
         }
-    ])
+    ];
+    assert.equal(mutations.length, messages.length);
+    for (const [index, mutate] of mutations.entries())
     {
         const fixture = await createCliFixture(context);
+        verifyCliPreflight(fixture);
         const state = JSON.parse(fs.readFileSync(fixture.dockerState, 'utf8'));
         mutate(state);
         fs.writeFileSync(fixture.dockerState, JSON.stringify(state));
-        assert.notEqual(verifyCli(fixture).status, 0);
+        const result = verifyCli(fixture);
+        assert.notEqual(result.status, 0);
+        assertVerifierRejection(result, messages[index]);
     }
 });
 
 test('verifier rejects cross-root references and symlinks without consulting mtime', async (context) =>
 {
     const fixture = await createCliFixture(context);
+    verifyCliPreflight(fixture);
     const originalReceipt = fs.readFileSync(fixture.receiptFile);
     const escaped = structuredClone(fixture.receipt);
     escaped.scenarios[0].evidencePath = '../outside.json';
     writeJson(fixture.receiptFile, sealDocument(escaped));
-    assert.notEqual(verifyCli(fixture).status, 0);
+    const escapedResult = verifyCli(fixture);
+    assert.notEqual(escapedResult.status, 0);
+    assertVerifierRejection(escapedResult, 'scenario release-data-scale-m evidence path is unsafe');
     fs.writeFileSync(fixture.receiptFile, originalReceipt);
 
     const noncanonical = structuredClone(fixture.receipt);
     noncanonical.scenarios[0].evidencePath = `.tmp/evidence/../evidence/${scenarioIds[0]}.json`;
     writeJson(fixture.receiptFile, sealDocument(noncanonical));
-    assert.notEqual(verifyCli(fixture).status, 0);
+    const noncanonicalResult = verifyCli(fixture);
+    assert.notEqual(noncanonicalResult.status, 0);
+    assertVerifierRejection(noncanonicalResult, 'scenario release-data-scale-m evidence path is unsafe');
     fs.writeFileSync(fixture.receiptFile, originalReceipt);
 
     const originalEvidence = fs.readFileSync(fixture.files.evidence);
@@ -2608,7 +2838,9 @@ test('verifier rejects cross-root references and symlinks without consulting mti
     fs.writeFileSync(target, originalEvidence);
     fs.rmSync(fixture.files.evidence);
     fs.symlinkSync(target, fixture.files.evidence);
-    assert.notEqual(verifyCli(fixture).status, 0);
+    const symlinkResult = verifyCli(fixture);
+    assert.notEqual(symlinkResult.status, 0);
+    assertVerifierRejection(symlinkResult, 'scenario release-soak-min evidence path contains a symlink');
 });
 
 test('an old receipt cannot be verified after the repository advances to a new commit', async (context) =>

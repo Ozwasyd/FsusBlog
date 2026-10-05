@@ -109,6 +109,7 @@ function canonicalize(value)
 function digestValue(value)
 {
     const { contentDigest: _ignored, ...content } = value;
+    void _ignored;
     return `sha256:${crypto.createHash('sha256').update(JSON.stringify(canonicalize(content))).digest('hex')}`;
 }
 
@@ -139,6 +140,8 @@ function sameSourceState(left, right)
     return left?.commit === right?.commit
     && normalizeFingerprint(left?.worktreeFingerprint) === normalizeFingerprint(right?.worktreeFingerprint);
 }
+
+void sameSourceState;
 
 export function validatePrSmartGatePlan(plan, env = process.env, buildReceiptDigest = null)
 {
@@ -596,7 +599,11 @@ function createCorrectness(options)
     });
     requireCleanAttemptConsumerAdmission({
         consumerId: 'production-correctness',
-        repositoryRoot: root
+        repositoryRoot: root,
+        candidateBinding: { sourceCommit: build.receipt.sourceState.commit,
+            worktreeFingerprint: `sha256:${build.receipt.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')}`,
+            schedulerRunId: authority.runId ?? authority.plan?.runId ?? process.env.GITHUB_RUN_ID,
+            buildIdentity: build.receipt.contentDigest }
     });
     const errors = validateBrowserlessCorrectnessReceipt(receipt);
     if (errors.length > 0)

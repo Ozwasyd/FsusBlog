@@ -5,17 +5,18 @@ import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
 
-import { assertReleaseIdentity, isValidReleaseId } from '../release/release-id.mjs';
-import { validateReleaseManifest } from '../release/release-manifest.mjs';
-import { validateReleaseRuntimeMatrix } from '../runtime-profiles/release-runtime-matrix.mjs';
-import {
+const { assertReleaseIdentity, isValidReleaseId } = await import(new URL('../release/release-id.mjs', import.meta.url));
+const { validateReleaseManifest } = await import(new URL('../release/release-manifest.mjs', import.meta.url));
+const { validateReleaseRuntimeMatrix } = await import(new URL('../runtime-profiles/release-runtime-matrix.mjs', import.meta.url));
+const {
     createProductionFreshRunBoundLocator,
     readProductionFreshJsonOutput,
     resolveProductionFreshLocatorEnvironment
-} from '../test-matrix/production-fresh-output-locator.mjs';
-import { resolveProductionFreshOutputAttempt } from '../test-matrix/production-fresh-run-bound-outputs.mjs';
+} = await import(new URL('../test-matrix/production-fresh-output-locator.mjs', import.meta.url));
+const { resolveProductionFreshOutputAttempt } = await import(new URL('../test-matrix/production-fresh-run-bound-outputs.mjs', import.meta.url));
 
 import { evidenceClassificationErrors } from './evidence-classification.mjs';
+const { verifyCleanAttemptCohortManifest } = await import(new URL('../release/release-clean-attempt-cohort.mjs', import.meta.url));
 
 
 const rootDir = path.resolve(path.dirname(new URL(import.meta.url).pathname), '..', '..');
@@ -962,6 +963,7 @@ function rolloutAssetCompatibilitySemanticsOk(value)
     }
     const binding = value.browserBinding;
     const { browserBinding: ignored, ...unsignedValue } = value;
+    void ignored;
     return binding?.schema === 'fsusblog.release-asset-browser-binding.v1'
     && binding?.algorithm === 'hmac-sha256'
     && /^hmac-sha256:[0-9a-f]{64}$/u.test(String(binding?.keyId ?? ''))
@@ -1068,6 +1070,7 @@ function rolloutPublicTrafficSemanticsOk(value)
     }
     const binding = value.finalBinding;
     const { finalBinding: ignored, ...unsignedValue } = value;
+    void ignored;
     return binding?.schema === 'fsusblog.release-traffic-final-binding.v1'
     && binding?.algorithm === 'hmac-sha256'
     && /^hmac-sha256:[0-9a-f]{64}$/u.test(String(binding?.keyId ?? ''))
@@ -1215,7 +1218,9 @@ function releaseEvidenceModelErrors(manifest, options, context)
         canonicalIdentity = true;
     }
     catch
-    {}
+    {
+        void canonicalIdentity;
+    }
     const identityMatches = canonicalIdentity
     && /^sha256:[0-9a-f]{64}$/u.test(String(manifest.imageDigest ?? ''))
     && manifest.releaseIdentity?.commitSha === manifest.commitSha
@@ -1710,6 +1715,8 @@ function uxViewportSummaryOk(manifest, context)
     && typeof report.artifacts?.[mode] === 'string';
 }
 
+void uxViewportSummaryOk;
+
 function frontendRenderStructureOk(manifest, context)
 {
     const report = readArtifactJson(manifest, context, 'frontendRenderStructureSummary');
@@ -1761,6 +1768,17 @@ function validateManifest(manifest, options = {})
 {
     const context = { manifestPath: options.manifestPath ?? null };
     const errors = [];
+    if (options.requireOk || manifest.artifacts?.cleanAttemptCohort)
+    {
+        try
+        {
+            verifyCleanAttemptCohortManifest(manifest, context.manifestPath, rootDir);
+        }
+        catch (error)
+        {
+            errors.push(`clean attempt cohort: ${error.message}`);
+        }
+    }
     if (!['collected-ok', 'collected-blocked'].includes(manifest.status))
     {
         errors.push(`invalid status: ${String(manifest.status)}`);
@@ -2218,7 +2236,7 @@ async function runSelfTest()
 
     const tmpDir = fs.mkdtempSync(path.join(os.tmpdir(), 'fsus-release-manifest-'));
     const manifestFile = path.join(tmpDir, 'manifest.json');
-    const { createReleaseRuntimeMatrixFixture } = await import('../../tests/tools/fixtures/release-runtime-matrix.mjs');
+    const { createReleaseRuntimeMatrixFixture } = await import(new URL('../../tests/tools/fixtures/release-runtime-matrix.mjs', import.meta.url));
     const runtimeMatrixFile = path.join(tmpDir, 'runtimePublishMatrix.json');
     fs.writeFileSync(runtimeMatrixFile, `${JSON.stringify(createReleaseRuntimeMatrixFixture({ commitSha, profileManifestDigest, profileDigest }))}\n`);
     base.artifacts.runtimePublishMatrix = 'runtimePublishMatrix.json';
@@ -2943,6 +2961,8 @@ function resolveRunBoundManifest()
 
 let manifest = null;
 let manifestPath = null;
+void manifest;
+void manifestPath;
 if (manifestArg)
 {
     manifestPath = path.resolve(manifestArg);

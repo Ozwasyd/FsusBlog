@@ -178,6 +178,77 @@ public sealed class MessageCacheServiceTests
         Assert.Equal("accountId", parameter.Name);
     }
 
+    [Theory]
+    [InlineData("0", 0)]
+    [InlineData("7", 7)]
+    public async Task ReadUnreadAsync_ObservesCanonicalIdentityWithoutRecovery(string cached, int expected)
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        using var cancellation = new CancellationTokenSource();
+        cache.GetStringAsync(CachePolicyId.MessageUnread, "account:42", cancellation.Token).Returns(cached);
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+
+        Assert.Equal(expected, await sut.ReadUnreadAsync(42, cancellation.Token));
+        Assert.Single(cache.ReceivedCalls());
+        await cache.Received(1).GetStringAsync(CachePolicyId.MessageUnread, "account:42", cancellation.Token);
+    }
+
+    [Theory]
+    [InlineData(null)]
+    [InlineData("corrupt")]
+    [InlineData("-1")]
+    [InlineData("2147483648")]
+    public async Task ReadUnreadAsync_MissingOrCorruptProjectionFailsWithoutRepair(string? cached)
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        cache.GetStringAsync(CachePolicyId.MessageUnread, "account:42", Arg.Any<CancellationToken>()).Returns(cached);
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+
+        await Assert.ThrowsAsync<InvalidOperationException>(async () => await sut.ReadUnreadAsync(42));
+        Assert.Single(cache.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task ReadUnreadAsync_PropagatesReaderFailureWithoutRecovery()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        var failure = new IOException("owned read failed");
+        cache.GetStringAsync(CachePolicyId.MessageUnread, "account:42", Arg.Any<CancellationToken>())
+            .Returns(Task.FromException<string?>(failure));
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+
+        Assert.Same(failure, await Assert.ThrowsAsync<IOException>(async () => await sut.ReadUnreadAsync(42)));
+        Assert.Single(cache.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task ReadUnreadAsync_AlreadyCancelledNeverCallsReader()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await sut.ReadUnreadAsync(42, cancellation.Token));
+        Assert.Empty(cache.ReceivedCalls());
+    }
+
+    [Fact]
+    public async Task ReadUnreadAsync_IgnoredReaderCancellationCannotReturnSuccess()
+    {
+        var cache = Substitute.For<IUnifiedCache>();
+        using var cancellation = new CancellationTokenSource();
+        cache.GetStringAsync(CachePolicyId.MessageUnread, "account:42", cancellation.Token).Returns(_ =>
+        {
+            cancellation.Cancel();
+            return Task.FromResult<string?>("7");
+        });
+        var sut = new MessageCacheService(cache, cache, cache, cache);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () => await sut.ReadUnreadAsync(42, cancellation.Token));
+        Assert.Single(cache.ReceivedCalls());
+    }
+
     private sealed class NullAsyncDisposable : IAsyncDisposable
     {
         public static NullAsyncDisposable Instance { get; } = new();

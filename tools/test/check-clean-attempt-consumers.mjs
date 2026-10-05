@@ -14,11 +14,24 @@ const adapters = [
 ];
 const cohortCli = 'tools/release/release-clean-attempt-cohort-cli.mjs';
 const releaseCollector = 'tools/operations/collect-release-evidence.sh';
+const { acceptanceTestFiles } = await import('./attempt-governance-acceptance.mjs');
 
 try
 {
     const direct = readCleanAttemptConsumerInventory();
     const semantic = readSemanticOutcomeConsumerInventory();
+    const lifecycle = JSON.parse(fs.readFileSync(path.join(root, 'tests/governance/test-lifecycle-registry.json'), 'utf8'));
+    for (const file of [...acceptanceTestFiles, 'tests/browser-contract/fixture-lifecycle.test.mjs',
+        'tests/tools/summary-only-qualification.test.mjs', 'tests/tools/release-final-reliability-binding.test.mjs'])
+    {
+        const entry = lifecycle.nodeTests.find((item) => item.file === file);
+        if (entry?.owner !== 'repository-governance:static-node-contracts'
+            || entry.lifecycle !== 'canonical-execution' || entry.physicalExecutionCount !== 1
+            || !entry.staticGovernance)
+        {
+            throw new Error(`${file} must remain registered to the existing required static-governance producer`);
+        }
+    }
     for (const relative of adapters)
     {
         const source = fs.readFileSync(path.join(root, relative), 'utf8');
