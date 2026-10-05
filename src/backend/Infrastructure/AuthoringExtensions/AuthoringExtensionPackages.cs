@@ -271,12 +271,16 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
             valid = false;
         }
 
+        DateTimeOffset validUntil = valid &&
+            key.RevokedAt is { } futureRevocation && futureRevocation < key.ValidUntil
+            ? futureRevocation
+            : key.ValidUntil;
         return Decision(
             valid ? AuthoringPackageTrustStatus.Trusted : AuthoringPackageTrustStatus.Untrusted,
             publisher,
             keyId,
             now,
-            key.ValidUntil,
+            validUntil,
             keysetIdentity);
     }
 

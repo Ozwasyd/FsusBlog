@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionPackages.cs"
+            ],
+            "reason": "preserve registered external process spelling while changing only the existing package trust cutoff"
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "preserve registered caller-visible document spelling while maintaining the package trust boundary"
+        }
+    ]
+}

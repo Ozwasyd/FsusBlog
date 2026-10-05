@@ -65,6 +65,10 @@ relative and bounded; traversal, links/reparse points, duplicate paths, director
 entries, remote URLs/imports, post-install scripts, and undeclared entrypoints are
 rejected.
 
+`EcdsaAuthoringPackageTrustVerifier` limits a trusted decision to the earlier of
+the selected key's validity end and its already-recorded revocation time; at that
+revocation time the existing revoked-key rejection applies.
+
 `LocalAuthoringPackageStore` is the single activation/recovery authority. It writes
 an independently reverified package to a private staging directory, verifies the
 stored archive and extracted files, atomically renames the content-addressed
