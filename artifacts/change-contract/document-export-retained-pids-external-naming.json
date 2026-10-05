@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve existing standalone export contract identifiers while documenting first-failure handling, exact owned cgroup drain and run-private retained process accounting."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs"
+            ],
+            "reason": "Preserve existing closed workload and systemd control-environment spellings across first-failure handling, exact owned cgroup drain and retained accounting; the changes use the same installed tools and introduce no environment access."
+        }
+    ]
+}

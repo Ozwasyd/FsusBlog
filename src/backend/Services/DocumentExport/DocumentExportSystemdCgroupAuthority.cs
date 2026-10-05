@@ -54,6 +54,9 @@ public sealed class DocumentExportCgroupAdmissionCleanupException : Exception
 /// before ExecStart. CPU is intentionally different: cgroup v2 exposes cumulative
 /// descendant usage but no total-CPU hard limit, so the host samples cpu.stat and
 /// kills the cgroup after observing an overrun. Receipts must retain that overshoot.
+/// A run-private parent slice retains native pids peak/events after the service
+/// cgroup retires. It contains no accounting helper or unrelated workload; the
+/// authority validates its exact binding and removes it with the service.
 /// </summary>
 public sealed class DocumentExportSystemdCgroupAuthority
 {
@@ -145,6 +148,12 @@ public sealed class DocumentExportSystemdCgroupAuthority
         await ValidateInstalledIdentityAsync(cancellationToken);
 
         string unitName = $"fsusblog-document-export-{runId}.service";
+        string accountingSlice = AccountingSliceName(runId);
+        string accountingControlGroup = await PrepareAccountingIdentityAsync(
+            unitName,
+            accountingSlice,
+            cancellationToken);
+        string accountingCgroupPath = ResolveCgroupPath(accountingSlice, accountingControlGroup, requireExisting: false);
         long cpuBudgetMicroseconds = ToPositiveMicroseconds(budgets.CpuTime, nameof(budgets.CpuTime));
         long runtimeMaxMicroseconds = ToPositiveMicroseconds(budgets.WallTime, nameof(budgets.WallTime));
         Directory.CreateDirectory(Path.GetDirectoryName(standardOutputPath)!);
@@ -159,7 +168,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
             "--quiet",
             "--no-block",
             $"--unit={unitName}",
-            $"--slice={DocumentExportSlice}",
+            $"--slice={accountingSlice}",
             "--service-type=exec",
             $"--working-directory={workload.WorkingDirectory}",
             "--property=CPUAccounting=yes",
@@ -179,25 +188,13 @@ public sealed class DocumentExportSystemdCgroupAuthority
         };
         arguments.AddRange(workload.ArgumentList);
 
-        bool unitMayExist = false;
-        try
+        async Task<Execution> AdmitAsync(CancellationToken admissionToken)
         {
-            unitMayExist = true;
-            ControlResult launch = await RunControlAsync(
-                Contract.SystemdRunPath,
-                arguments,
-                cancellationToken);
-            if (launch.ExitCode != 0)
-            {
-                throw new PlatformNotSupportedException(
-                    $"Document export transient service admission failed: {BoundedDiagnostic(launch)}");
-            }
-
             for (int admissionAttempt = 0; admissionAttempt < 3; admissionAttempt++)
             {
                 IReadOnlyDictionary<string, string> properties = await WaitForAdmissionPropertiesAsync(
                     unitName,
-                    cancellationToken,
+                    admissionToken,
                     "LoadState",
                     "ActiveState",
                     "SubState",
@@ -221,7 +218,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     "RuntimeMaxUSec",
                     "KillMode",
                     "RemainAfterExit");
-                ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds);
+                ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds, accountingSlice);
                 string controlGroup = RequireProperty(properties, "ControlGroup");
                 bool terminalAdmission = IsTerminalAdmission(properties);
                 if (terminalAdmission)
@@ -229,13 +226,15 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     ValidateTerminalAdmissionProperties(properties);
                     if (string.IsNullOrEmpty(controlGroup))
                     {
-                        controlGroup = await ResolveTerminalControlGroupAsync(unitName, cancellationToken);
+                        controlGroup = await ResolveTerminalControlGroupAsync(unitName, accountingSlice, admissionToken);
                     }
                 }
                 string cgroupPath = ResolveCgroupPath(
                     unitName,
                     controlGroup,
                     requireExisting: false);
+                ValidateAccountingIdentity(runId, unitName, accountingSlice, controlGroup, accountingControlGroup);
+                await ValidateAccountingOwnerAsync(accountingSlice, accountingControlGroup, unitName, admissionToken);
                 int rootProcessId = ParsePositiveInt(
                     FirstNonZeroProperty(properties, "MainPID", "ExecMainPID"),
                     "document export root process ID");
@@ -244,7 +243,7 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 DocumentExportCgroupObservation initial;
                 if (terminalAdmission)
                 {
-                    initial = CreateTerminalObservation(properties);
+                    initial = ReadRetainedPids(CreateTerminalObservation(properties), accountingCgroupPath);
                 }
                 else
                 {
@@ -269,6 +268,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 return new Execution(
                     this,
                     unitName,
+                    accountingSlice,
+                    accountingCgroupPath,
                     controlGroup,
                     cgroupPath,
                     rootProcessId,
@@ -283,18 +284,272 @@ public sealed class DocumentExportSystemdCgroupAuthority
             throw new InvalidDataException(
                 "Document export cgroup retired repeatedly before admission accounting could be qualified.");
         }
+
+        bool unitMayExist = false;
+        bool dispatchAcknowledged = false;
+        using var dispatchDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+        Task<ControlResult>? dispatch = null;
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            unitMayExist = true;
+            dispatch = RunControlAsync(
+                Contract.SystemdRunPath,
+                arguments,
+                dispatchDeadline.Token);
+            ControlResult launch = await dispatch.WaitAsync(cancellationToken);
+            if (launch.ExitCode != 0)
+            {
+                throw new PlatformNotSupportedException(
+                    $"Document export transient service admission failed: {BoundedDiagnostic(launch)}");
+            }
+            dispatchAcknowledged = true;
+
+            return await AdmitAsync(cancellationToken);
+        }
         catch (Exception exception)
         {
+            if (ShouldRecoverCancelledAdmission(unitMayExist, exception, cancellationToken.IsCancellationRequested))
+            {
+                // Keep the original dispatch alive until its manager reply. Killing
+                // the CLI on caller cancellation does not fence a late accepted RPC.
+                using var recoveryDeadline = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                Execution? recovered = null;
+                bool neverStartedAndCleaned = false;
+                try
+                {
+                    ControlResult acknowledged = await dispatch!.WaitAsync(recoveryDeadline.Token);
+                    if (acknowledged.ExitCode != 0)
+                    {
+                        throw new InvalidDataException(
+                            $"Document export cancelled dispatch was not acknowledged: {BoundedDiagnostic(acknowledged)}");
+                    }
+                    dispatchAcknowledged = true;
+                    IReadOnlyDictionary<string, string> before = await QueryCancelledAdmissionAsync(
+                        unitName,
+                        recoveryDeadline.Token);
+                    ValidateCancelledAdmissionOwner(before, unitName, accountingSlice, budgets, runtimeMaxMicroseconds);
+                    bool startedSeen = HasNativeExecutionEvidence(before);
+                    bool accountingActivitySeen = Directory.Exists(accountingCgroupPath)
+                        && !ReadNoAccountingActivity(accountingCgroupPath);
+                    string jobId = RequireProperty(before, "Job");
+                    if (!string.IsNullOrEmpty(jobId))
+                    {
+                        _ = ParseStartJobId(jobId);
+                        string[] jobProperties = ["Id", "Unit", "JobType", "State"];
+                        ControlResult jobResult = await RunUnitQueryAsync(
+                            jobId,
+                            recoveryDeadline.Token,
+                            jobProperties);
+                        if (jobResult.ExitCode == 0)
+                        {
+                            ValidateOwnedStartJob(ParseProperties(jobResult.StandardOutput, jobProperties), jobId, unitName);
+                            await RunSystemctlAllowFailureAsync(
+                                ["--user", "cancel", jobId],
+                                recoveryDeadline.Token);
+                        }
+                        else
+                        {
+                            IReadOnlyDictionary<string, string> retired = await QueryCancelledAdmissionAsync(
+                                unitName,
+                                recoveryDeadline.Token);
+                            ValidateCancelledAdmissionOwner(retired, unitName, accountingSlice, budgets, runtimeMaxMicroseconds);
+                            startedSeen |= HasNativeExecutionEvidence(retired);
+                            if (!string.IsNullOrEmpty(RequireProperty(retired, "Job")))
+                            {
+                                throw new InvalidDataException("Document export start job inspection failed without exact retirement.");
+                            }
+                        }
+                    }
+                    await RunSystemctlAllowFailureAsync(
+                        ["--user", "kill", "--kill-whom=all", "--signal=KILL", unitName],
+                        recoveryDeadline.Token);
+                    IReadOnlyDictionary<string, string> after = await QueryCancelledAdmissionAsync(
+                        unitName,
+                        recoveryDeadline.Token);
+                    ValidateCancelledAdmissionOwner(after, unitName, accountingSlice, budgets, runtimeMaxMicroseconds);
+                    if (HasNoNativeStart(after, startedSeen, accountingActivitySeen)
+                        && await HasNoAccountingActivityAsync(
+                            accountingSlice,
+                            accountingControlGroup,
+                            accountingCgroupPath,
+                            unitName,
+                            RequireProperty(after, "ControlGroup"),
+                            recoveryDeadline.Token))
+                    {
+                        neverStartedAndCleaned = await TryTerminateAndRemoveUnitAsync(
+                            unitName, accountingSlice, accountingCgroupPath);
+                        if (!neverStartedAndCleaned)
+                        {
+                            throw new InvalidDataException("Document export unstarted cancellation cleanup was not qualified.");
+                        }
+                    }
+                    else
+                    {
+                        recovered = await AdmitAsync(recoveryDeadline.Token);
+                        // CancelJob cannot abort a running start job. Kill again
+                        // after its native process identity becomes observable.
+                        await RunSystemctlAllowFailureAsync(
+                            ["--user", "kill", "--kill-whom=all", "--signal=KILL", unitName],
+                            recoveryDeadline.Token);
+                    }
+                }
+                catch (Exception recoveryException)
+                {
+                    _ = await TryTerminateAndRemoveUnitAsync(unitName, accountingSlice, accountingCgroupPath);
+                    throw new DocumentExportCgroupAdmissionCleanupException(
+                        new AggregateException(exception, recoveryException));
+                }
+                if (neverStartedAndCleaned)
+                {
+                    throw;
+                }
+                return recovered!;
+            }
             if (unitMayExist)
             {
-                bool cleanupQualified = await TryTerminateAndRemoveUnitAsync(unitName);
-                if (!cleanupQualified)
+                bool cleanupQualified = await TryTerminateAndRemoveUnitAsync(unitName, accountingSlice, accountingCgroupPath);
+                if (!CanQualifyAdmissionFailureCleanup(dispatchAcknowledged, cleanupQualified))
                 {
                     throw new DocumentExportCgroupAdmissionCleanupException(exception);
                 }
             }
             throw;
         }
+    }
+
+    internal static bool CanQualifyAdmissionFailureCleanup(bool dispatchAcknowledged, bool cleanupQualified)
+        => dispatchAcknowledged && cleanupQualified;
+
+    private Task<IReadOnlyDictionary<string, string>> QueryCancelledAdmissionAsync(
+        string unitName,
+        CancellationToken cancellationToken)
+        => QueryUnitAsync(
+            unitName,
+            cancellationToken,
+            "Id", "Transient", "LoadState", "ActiveState", "Type", "Slice", "Job", "ControlGroup",
+            "MainPID", "ExecMainPID", "ExecMainStartTimestampMonotonic", "ExecMainExitTimestampMonotonic",
+            "ExecMainCode", "ExecMainStatus", "MemoryAccounting", "TasksAccounting", "MemoryMax",
+            "MemorySwapMax", "TasksMax", "RuntimeMaxUSec", "KillMode", "RemainAfterExit");
+
+    private static void ValidateCancelledAdmissionOwner(
+        IReadOnlyDictionary<string, string> properties,
+        string unitName,
+        string accountingSlice,
+        DocumentExportResourceBudgets budgets,
+        long runtimeMaxMicroseconds)
+    {
+        if (RequireProperty(properties, "Id") != unitName
+            || RequireProperty(properties, "Transient") != "yes")
+        {
+            throw new InvalidDataException("Document export cancelled service identity was not exact.");
+        }
+        ValidateAdmissionProperties(properties, budgets, runtimeMaxMicroseconds, accountingSlice, allowInactive: true);
+    }
+
+    internal static void ValidateOwnedStartJob(
+        IReadOnlyDictionary<string, string> properties,
+        string jobId,
+        string unitName)
+    {
+        _ = ParseStartJobId(jobId);
+        if (RequireProperty(properties, "Id") != jobId
+            || RequireProperty(properties, "Unit") != unitName
+            || RequireProperty(properties, "JobType") != "start"
+            || RequireProperty(properties, "State") is not ("waiting" or "running"))
+        {
+            throw new InvalidDataException("Document export cancelled job was not its exact start job.");
+        }
+    }
+
+    private static uint ParseStartJobId(string jobId)
+    {
+        if (!uint.TryParse(jobId, NumberStyles.None, CultureInfo.InvariantCulture, out uint numericId)
+            || numericId == 0
+            || jobId != numericId.ToString(CultureInfo.InvariantCulture))
+        {
+            throw new InvalidDataException("Document export start job ID was not canonical and nonzero.");
+        }
+        return numericId;
+    }
+
+    internal static bool HasNoNativeStart(
+        IReadOnlyDictionary<string, string> properties,
+        bool previouslyStarted = false,
+        bool previousAccountingActivity = false)
+        => !previouslyStarted
+            && !previousAccountingActivity
+            && RequireProperty(properties, "LoadState") == "loaded"
+            && RequireProperty(properties, "ActiveState") is "inactive" or "failed"
+            && string.IsNullOrEmpty(RequireProperty(properties, "Job"))
+            && new[]
+            {
+                "MainPID", "ExecMainPID", "ExecMainStartTimestampMonotonic",
+                "ExecMainExitTimestampMonotonic", "ExecMainCode", "ExecMainStatus"
+            }.All(name => ParseNonNegativeLong(RequireProperty(properties, name), name) == 0);
+
+    internal static bool HasNativeExecutionEvidence(IReadOnlyDictionary<string, string> properties)
+        => new[]
+        {
+            "MainPID", "ExecMainPID", "ExecMainStartTimestampMonotonic",
+            "ExecMainExitTimestampMonotonic", "ExecMainCode", "ExecMainStatus"
+        }.Any(name => ParseNonNegativeLong(RequireProperty(properties, name), name) > 0);
+
+    private async Task<bool> HasNoAccountingActivityAsync(
+        string accountingSlice,
+        string accountingControlGroup,
+        string accountingCgroupPath,
+        string unitName,
+        string serviceControlGroup,
+        CancellationToken cancellationToken)
+    {
+        // Missing counters are not zero counters. An inactive implicit slice
+        // only supplements the still-retained service's complete zero identity.
+        if (!Directory.Exists(accountingCgroupPath))
+        {
+            IReadOnlyDictionary<string, string> slice = await QueryUnitAsync(
+                accountingSlice,
+                cancellationToken,
+                "Id", "LoadState", "ActiveState", "ControlGroup", "Slice", "FragmentPath", "SourcePath", "DropInPaths",
+                "ActiveEnterTimestampMonotonic", "InactiveExitTimestampMonotonic", "Job");
+            return string.IsNullOrEmpty(serviceControlGroup) && HasUnactivatedAccountingSlice(slice, accountingSlice);
+        }
+        await ValidateAccountingOwnerAsync(accountingSlice, accountingControlGroup, unitName, cancellationToken);
+        return ReadNoAccountingActivity(accountingCgroupPath);
+    }
+
+    private static bool ReadNoAccountingActivity(string accountingCgroupPath)
+    {
+        if (new DirectoryInfo(accountingCgroupPath).LinkTarget is not null)
+        {
+            throw new InvalidDataException("Document export cancellation accounting path was linked.");
+        }
+        return HasNoNativeAccountingActivity(
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.current"),
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.peak"),
+            RequireCounter(ParseCounterFile(Path.Combine(accountingCgroupPath, "pids.events")), "max"),
+            RequireCounter(ParseCounterFile(Path.Combine(accountingCgroupPath, "cgroup.events")), "populated") != 0);
+    }
+
+    internal static bool HasUnactivatedAccountingSlice(
+        IReadOnlyDictionary<string, string> properties,
+        string accountingSlice)
+        => RequireProperty(properties, "Id") == accountingSlice
+            && RequireProperty(properties, "LoadState") == "loaded"
+            && RequireProperty(properties, "ActiveState") == "inactive"
+            && RequireProperty(properties, "Slice") == DocumentExportSlice
+            && new[] { "ControlGroup", "FragmentPath", "SourcePath", "DropInPaths", "Job" }.All(
+                name => string.IsNullOrEmpty(RequireProperty(properties, name)))
+            && ParseNonNegativeLong(RequireProperty(properties, "ActiveEnterTimestampMonotonic"), "slice activation") == 0
+            && ParseNonNegativeLong(RequireProperty(properties, "InactiveExitTimestampMonotonic"), "slice activation") == 0;
+
+    internal static bool HasNoNativeAccountingActivity(long current, long peak, long maxEvents, bool populated)
+    {
+        if (current < 0 || peak < 0 || maxEvents < 0)
+        {
+            throw new InvalidDataException("Document export native cancellation counters must be nonnegative.");
+        }
+        return current == 0 && peak == 0 && maxEvents == 0 && !populated;
     }
 
     private async Task<IReadOnlyDictionary<string, string>> WaitForAdmissionPropertiesAsync(
@@ -314,7 +569,11 @@ public sealed class DocumentExportSystemdCgroupAuthority
             {
                 return properties;
             }
-            if (loadState == "loaded" && !string.IsNullOrEmpty(controlGroup))
+            if (loadState == "loaded"
+                && !string.IsNullOrEmpty(controlGroup)
+                && (RequireProperty(properties, "MainPID") != "0"
+                    || RequireProperty(properties, "ExecMainPID") != "0")
+                && RequireProperty(properties, "ExecMainStartTimestampMonotonic") != "0")
             {
                 string cgroupPath = ResolveCgroupPath(unitName, controlGroup, requireExisting: false);
                 if (Directory.Exists(cgroupPath))
@@ -335,10 +594,11 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
     private async Task<string> ResolveTerminalControlGroupAsync(
         string unitName,
+        string accountingSlice,
         CancellationToken cancellationToken)
     {
         IReadOnlyDictionary<string, string> slice = await QueryUnitAsync(
-            DocumentExportSlice,
+            accountingSlice,
             cancellationToken,
             "LoadState",
             "ControlGroup");
@@ -359,6 +619,160 @@ public sealed class DocumentExportSystemdCgroupAuthority
                 "Document export terminal service retained an unqualified cgroup path.");
         }
         return controlGroup;
+    }
+
+    private async Task<string> PrepareAccountingIdentityAsync(
+        string unitName,
+        string accountingSlice,
+        CancellationToken cancellationToken)
+    {
+        string[] names = [unitName, accountingSlice, DocumentExportSlice];
+        string[] propertyNames = ["Id", "LoadState", "ActiveState", "ControlGroup", "Slice", "FragmentPath", "SourcePath", "DropInPaths"];
+        var arguments = new List<string> { "--user", "show" };
+        arguments.AddRange(names);
+        arguments.Add("--no-pager");
+        arguments.AddRange(propertyNames.Select(name => $"--property={name}"));
+        ControlResult result = await RunControlAsync(Contract.SystemctlPath, arguments, cancellationToken);
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidDataException($"Document export could not inspect accounting identities: {BoundedDiagnostic(result)}");
+        }
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> units = ParseUnitPropertyBlocks(
+            result.StandardOutput,
+            names,
+            propertyNames);
+        if (RequireProperty(units[unitName], "LoadState") != "not-found")
+        {
+            throw new InvalidDataException("Document export service identity was already in use.");
+        }
+        IReadOnlyDictionary<string, string> parent = units[DocumentExportSlice];
+        string parentControlGroup = RequireProperty(parent, "ControlGroup");
+        if (RequireProperty(parent, "LoadState") != "loaded"
+            || !parentControlGroup.EndsWith($"/{DocumentExportSlice}", StringComparison.Ordinal))
+        {
+            throw new InvalidDataException("Document export accounting parent slice was not exact.");
+        }
+        string controlGroup = $"{parentControlGroup}/{accountingSlice}";
+        string path = ResolveCgroupPath(accountingSlice, controlGroup, requireExisting: false);
+        IReadOnlyDictionary<string, string> candidate = units[accountingSlice];
+        if (Directory.Exists(path)
+            || RequireProperty(candidate, "ActiveState") != "inactive"
+            || new[] { "ControlGroup", "FragmentPath", "SourcePath", "DropInPaths" }.Any(
+                name => !string.IsNullOrEmpty(RequireProperty(candidate, name))))
+        {
+            throw new InvalidDataException("Document export accounting slice identity was already owned or configured.");
+        }
+        return controlGroup;
+    }
+
+    internal static IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ParseUnitPropertyBlocks(
+        string value,
+        IReadOnlyCollection<string> expectedUnits,
+        IReadOnlyCollection<string> propertyNames)
+    {
+        if (expectedUnits.Count == 0 || expectedUnits.Distinct(StringComparer.Ordinal).Count() != expectedUnits.Count)
+        {
+            throw new InvalidDataException("Document export accounting inspection identities were empty or duplicated.");
+        }
+        var result = new Dictionary<string, IReadOnlyDictionary<string, string>>(StringComparer.Ordinal);
+        foreach (string block in value.Split("\n\n", StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            IReadOnlyDictionary<string, string> properties = ParseProperties(block, propertyNames);
+            string unit = RequireProperty(properties, "Id");
+            if (!expectedUnits.Contains(unit, StringComparer.Ordinal) || !result.TryAdd(unit, properties))
+            {
+                throw new InvalidDataException("Document export accounting inspection returned a foreign or duplicated unit.");
+            }
+        }
+        if (result.Count != expectedUnits.Count)
+        {
+            throw new InvalidDataException("Document export accounting inspection omitted an exact unit.");
+        }
+        return result;
+    }
+
+    internal static bool ShouldRecoverCancelledAdmission(
+        bool unitMayExist,
+        Exception exception,
+        bool callerCancellationRequested)
+        => unitMayExist && exception is OperationCanceledException && callerCancellationRequested;
+
+    private async Task ValidateAccountingOwnerAsync(
+        string accountingSlice,
+        string expectedControlGroup,
+        string unitName,
+        CancellationToken cancellationToken)
+    {
+        IReadOnlyDictionary<string, string> properties = await QueryUnitAsync(
+            accountingSlice,
+            cancellationToken,
+            "LoadState",
+            "ActiveState",
+            "ControlGroup",
+            "Slice",
+            "FragmentPath",
+            "SourcePath",
+            "DropInPaths");
+        if (RequireProperty(properties, "LoadState") != "loaded"
+            || RequireProperty(properties, "ActiveState") != "active"
+            || RequireProperty(properties, "ControlGroup") != expectedControlGroup
+            || RequireProperty(properties, "Slice") != DocumentExportSlice
+            || new[] { "FragmentPath", "SourcePath", "DropInPaths" }.Any(
+                name => !string.IsNullOrEmpty(RequireProperty(properties, name))))
+        {
+            throw new InvalidDataException("Document export retained accounting owner did not match its exact run.");
+        }
+        ValidateAccountingMembers(ResolveCgroupPath(accountingSlice, expectedControlGroup), unitName);
+    }
+
+    private static void ValidateAccountingMembers(string accountingCgroupPath, string unitName)
+    {
+        string[] children = Directory.GetDirectories(accountingCgroupPath);
+        ValidateAccountingMemberNames(
+            unitName,
+            File.ReadAllText(Path.Combine(accountingCgroupPath, "cgroup.procs"), Encoding.ASCII),
+            children.Select(Path.GetFileName));
+        if (children.Any(path => new DirectoryInfo(path).LinkTarget is not null))
+        {
+            throw new InvalidDataException("Document export accounting slice contained a redirected child cgroup.");
+        }
+    }
+
+    internal static void ValidateAccountingMemberNames(
+        string unitName,
+        string directMembers,
+        IEnumerable<string?> childNames)
+    {
+        if (!string.IsNullOrWhiteSpace(directMembers)
+            || childNames.Any(name => name != unitName))
+        {
+            throw new InvalidDataException("Document export accounting slice contained a foreign process or child cgroup.");
+        }
+    }
+
+    internal static string AccountingSliceName(string runId)
+    {
+        ValidateRunId(runId);
+        return $"app-fsusblogdocumentexport{runId}.slice";
+    }
+
+    internal static void ValidateAccountingIdentity(
+        string runId,
+        string unitName,
+        string accountingSlice,
+        string serviceControlGroup,
+        string accountingControlGroup)
+    {
+        if (unitName != $"fsusblog-document-export-{runId}.service"
+            || accountingSlice != AccountingSliceName(runId)
+            || !accountingControlGroup.StartsWith("/", StringComparison.Ordinal)
+            || !accountingControlGroup.EndsWith($"/{DocumentExportSlice}/{accountingSlice}", StringComparison.Ordinal)
+            || accountingControlGroup.Split('/').Any(segment => segment is "." or "..")
+            || accountingControlGroup.Contains("//", StringComparison.Ordinal)
+            || serviceControlGroup != $"{accountingControlGroup}/{unitName}")
+        {
+            throw new InvalidDataException("Document export service and retained accounting identities did not bind to one exact run.");
+        }
     }
 
     private async Task ValidateInstalledIdentityAsync(CancellationToken cancellationToken)
@@ -412,6 +826,20 @@ public sealed class DocumentExportSystemdCgroupAuthority
         CancellationToken cancellationToken,
         params string[] propertyNames)
     {
+        ControlResult result = await RunUnitQueryAsync(unitName, cancellationToken, propertyNames);
+        if (result.ExitCode != 0)
+        {
+            throw new InvalidDataException(
+                $"Document export authority could not inspect {unitName}: {BoundedDiagnostic(result)}");
+        }
+        return ParseProperties(result.StandardOutput, propertyNames);
+    }
+
+    private async Task<ControlResult> RunUnitQueryAsync(
+        string unitName,
+        CancellationToken cancellationToken,
+        params string[] propertyNames)
+    {
         var arguments = new List<string>
         {
             "--user",
@@ -423,16 +851,10 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             arguments.Add($"--property={propertyName}");
         }
-        ControlResult result = await RunControlAsync(
+        return await RunControlAsync(
             Contract.SystemctlPath,
             arguments,
             cancellationToken);
-        if (result.ExitCode != 0)
-        {
-            throw new InvalidDataException(
-                $"Document export authority could not inspect {unitName}: {BoundedDiagnostic(result)}");
-        }
-        return ParseProperties(result.StandardOutput, propertyNames);
     }
 
     private async Task<ControlResult> RunControlAsync(
@@ -541,17 +963,22 @@ public sealed class DocumentExportSystemdCgroupAuthority
     private async Task<DocumentExportCgroupObservation> ObserveAsync(
         string unitName,
         string cgroupPath,
+        string accountingSlice,
+        string accountingCgroupPath,
         DocumentExportCgroupObservation lastObservation,
         CancellationToken cancellationToken)
     {
         try
         {
+            ValidateAccountingMembers(accountingCgroupPath, unitName);
             return ReadObservation(cgroupPath);
         }
         catch (IOException)
         {
             return await ReadTerminalObservationAsync(
                 unitName,
+                accountingSlice,
+                accountingCgroupPath,
                 lastObservation,
                 cancellationToken);
         }
@@ -559,6 +986,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
 
     private async Task<DocumentExportCgroupObservation> ReadTerminalObservationAsync(
         string unitName,
+        string accountingSlice,
+        string accountingCgroupPath,
         DocumentExportCgroupObservation lastObservation,
         CancellationToken cancellationToken)
     {
@@ -583,7 +1012,14 @@ public sealed class DocumentExportSystemdCgroupAuthority
             }
             if (IsTerminalAdmission(properties))
             {
-                DocumentExportCgroupObservation terminal = CreateTerminalObservation(properties);
+                await ValidateAccountingOwnerAsync(
+                    accountingSlice,
+                    accountingCgroupPath[CgroupRoot.Length..],
+                    unitName,
+                    cancellationToken);
+                DocumentExportCgroupObservation terminal = ReadRetainedPids(
+                    CreateTerminalObservation(properties),
+                    accountingCgroupPath);
                 return terminal with
                 {
                     CpuUsageMicroseconds = Math.Max(
@@ -592,8 +1028,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
                     MemoryPeakBytes = Math.Max(lastObservation.MemoryPeakBytes, terminal.MemoryPeakBytes),
                     MemoryMaxEvents = Math.Max(lastObservation.MemoryMaxEvents, terminal.MemoryMaxEvents),
                     MemoryOomEvents = Math.Max(lastObservation.MemoryOomEvents, terminal.MemoryOomEvents),
-                    PidsPeak = lastObservation.PidsPeak,
-                    PidsMaxEvents = lastObservation.PidsMaxEvents
+                    PidsPeak = Math.Max(lastObservation.PidsPeak, terminal.PidsPeak),
+                    PidsMaxEvents = Math.Max(lastObservation.PidsMaxEvents, terminal.PidsMaxEvents)
                 };
             }
             await Task.Delay(10, cancellationToken);
@@ -605,28 +1041,34 @@ public sealed class DocumentExportSystemdCgroupAuthority
     private async Task<DocumentExportCgroupCleanup> CleanupAsync(
         string unitName,
         string cgroupPath,
+        string accountingSlice,
+        string accountingCgroupPath,
         DocumentExportCgroupObservation lastObservation,
         CancellationToken cancellationToken)
     {
         DocumentExportCgroupObservation final = await ObserveAsync(
             unitName,
             cgroupPath,
+            accountingSlice,
+            accountingCgroupPath,
             lastObservation,
             cancellationToken);
-        if (final.Populated)
+        if (!IsDrained(final))
         {
-            throw new InvalidDataException("Document export cgroup remained populated before unit cleanup.");
+            throw new InvalidDataException("Document export cgroup did not reach an empty process count and population state before unit cleanup.");
         }
 
         await RunSystemctlAllowFailureAsync(["--user", "stop", unitName], cancellationToken);
         await RunSystemctlAllowFailureAsync(["--user", "reset-failed", unitName], cancellationToken);
+        ValidateAccountingMembers(accountingCgroupPath, unitName);
+        await RunSystemctlAllowFailureAsync(["--user", "stop", accountingSlice], cancellationToken);
 
         bool unitRemoved = false;
         bool cgroupRemoved = false;
         for (int attempt = 0; attempt < 50; attempt++)
         {
             unitRemoved = await IsUnitRemovedAsync(unitName, cancellationToken);
-            cgroupRemoved = !Directory.Exists(cgroupPath);
+            cgroupRemoved = !Directory.Exists(cgroupPath) && !Directory.Exists(accountingCgroupPath);
             if (unitRemoved && cgroupRemoved)
             {
                 break;
@@ -639,6 +1081,9 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
         return new DocumentExportCgroupCleanup(false, unitRemoved, cgroupRemoved);
     }
+
+    internal static bool IsDrained(DocumentExportCgroupObservation observation)
+        => !observation.Populated && observation.PidsCurrent == 0;
 
     private async Task<bool> IsUnitRemovedAsync(string unitName, CancellationToken cancellationToken)
     {
@@ -660,7 +1105,10 @@ public sealed class DocumentExportSystemdCgroupAuthority
         CancellationToken cancellationToken)
         => _ = await RunControlAsync(Contract.SystemctlPath, arguments, cancellationToken);
 
-    private async Task<bool> TryTerminateAndRemoveUnitAsync(string unitName)
+    private async Task<bool> TryTerminateAndRemoveUnitAsync(
+        string unitName,
+        string accountingSlice,
+        string accountingCgroupPath)
     {
         try
         {
@@ -673,9 +1121,17 @@ public sealed class DocumentExportSystemdCgroupAuthority
             await RunSystemctlAllowFailureAsync(
                 ["--user", "reset-failed", unitName],
                 CancellationToken.None);
+            if (Directory.Exists(accountingCgroupPath))
+            {
+                ValidateAccountingMembers(accountingCgroupPath, unitName);
+            }
+            await RunSystemctlAllowFailureAsync(
+                ["--user", "stop", accountingSlice],
+                CancellationToken.None);
             for (int attempt = 0; attempt < 50; attempt++)
             {
-                if (await IsUnitRemovedAsync(unitName, CancellationToken.None))
+                if (await IsUnitRemovedAsync(unitName, CancellationToken.None)
+                    && !Directory.Exists(accountingCgroupPath))
                 {
                     return true;
                 }
@@ -692,14 +1148,17 @@ public sealed class DocumentExportSystemdCgroupAuthority
     private static void ValidateAdmissionProperties(
         IReadOnlyDictionary<string, string> properties,
         DocumentExportResourceBudgets budgets,
-        long expectedRuntimeMaxMicroseconds)
+        long expectedRuntimeMaxMicroseconds,
+        string accountingSlice,
+        bool allowInactive = false)
     {
         string loadState = RequireProperty(properties, "LoadState");
         string activeState = RequireProperty(properties, "ActiveState");
         if (loadState != "loaded"
-            || activeState is not ("active" or "activating" or "deactivating" or "failed")
+            || (activeState is not ("active" or "activating" or "deactivating" or "failed")
+                && !(allowInactive && activeState == "inactive"))
             || RequireProperty(properties, "Type") != "exec"
-            || RequireProperty(properties, "Slice") != DocumentExportSlice
+            || RequireProperty(properties, "Slice") != accountingSlice
             || RequireProperty(properties, "MemoryAccounting") != "yes"
             || RequireProperty(properties, "TasksAccounting") != "yes"
             || RequireProperty(properties, "KillMode") != "control-group"
@@ -772,6 +1231,36 @@ public sealed class DocumentExportSystemdCgroupAuthority
             false);
     }
 
+    private static DocumentExportCgroupObservation ReadRetainedPids(
+        DocumentExportCgroupObservation terminal,
+        string accountingCgroupPath)
+        => RetainPids(
+            terminal,
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.current"),
+            ReadNonNegativeLongFile(accountingCgroupPath, "pids.peak"),
+            RequireCounter(ParseCounterFile(Path.Combine(accountingCgroupPath, "pids.events")), "max"),
+            ParsePopulated(ParseCounterFile(Path.Combine(accountingCgroupPath, "cgroup.events"))));
+
+    internal static DocumentExportCgroupObservation RetainPids(
+        DocumentExportCgroupObservation terminal,
+        long hostCurrent,
+        long hostPeak,
+        long maxEvents,
+        bool populated)
+    {
+        if (hostCurrent < 0 || hostPeak < 0 || maxEvents < 0)
+        {
+            throw new InvalidDataException("Document export retained process accounting was negative.");
+        }
+        return terminal with
+        {
+            PidsCurrent = BusinessProcessCount(hostCurrent),
+            PidsPeak = BusinessProcessCount(hostPeak),
+            PidsMaxEvents = maxEvents,
+            Populated = populated
+        };
+    }
+
     private static void ValidateCgroupFilesAndLimits(
         string cgroupPath,
         DocumentExportResourceBudgets budgets)
@@ -833,6 +1322,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
         internal Execution(
             DocumentExportSystemdCgroupAuthority authority,
             string unitName,
+            string accountingSlice,
+            string accountingCgroupPath,
             string controlGroup,
             string cgroupPath,
             int rootProcessId,
@@ -846,6 +1337,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
         {
             _authority = authority;
             UnitName = unitName;
+            AccountingSlice = accountingSlice;
+            AccountingCgroupPath = accountingCgroupPath;
             ControlGroup = controlGroup;
             CgroupPath = cgroupPath;
             RootProcessId = rootProcessId;
@@ -870,6 +1363,16 @@ public sealed class DocumentExportSystemdCgroupAuthority
         }
 
         public string CgroupPath
+        {
+            get;
+        }
+
+        internal string AccountingSlice
+        {
+            get;
+        }
+
+        internal string AccountingCgroupPath
         {
             get;
         }
@@ -920,6 +1423,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
             _lastObservation = await _authority.ObserveAsync(
                 UnitName,
                 CgroupPath,
+                AccountingSlice,
+                AccountingCgroupPath,
                 _lastObservation,
                 cancellationToken);
             return _lastObservation;
@@ -937,6 +1442,8 @@ public sealed class DocumentExportSystemdCgroupAuthority
             => _authority.CleanupAsync(
                 UnitName,
                 CgroupPath,
+                AccountingSlice,
+                AccountingCgroupPath,
                 _lastObservation,
                 cancellationToken);
     }

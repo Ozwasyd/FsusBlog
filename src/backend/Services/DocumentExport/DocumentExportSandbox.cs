@@ -547,11 +547,13 @@ public sealed class DocumentExportSandboxRuntime
                     if (observation.Populated)
                     {
                         cgroupKillIssued |= await execution.KillAsync(CancellationToken.None);
-                        for (int attempt = 0; attempt < 100 && observation.Populated; attempt++)
-                        {
-                            await Task.Delay(_authority.CpuPollIntervalMilliseconds, CancellationToken.None);
-                            observation = await execution.ObserveAsync(CancellationToken.None);
-                        }
+                    }
+                    for (int attempt = 0;
+                        attempt < 100 && !DocumentExportSystemdCgroupAuthority.IsDrained(observation);
+                        attempt++)
+                    {
+                        await Task.Delay(_authority.CpuPollIntervalMilliseconds, CancellationToken.None);
+                        observation = await execution.ObserveAsync(CancellationToken.None);
                     }
                     finalCgroupPopulated = observation.Populated;
                     finalProcessesRemaining = observation.PidsCurrent;
@@ -618,7 +620,7 @@ public sealed class DocumentExportSandboxRuntime
             }
         }
 
-        if (cancellationToken.IsCancellationRequested && failure is not OperationCanceledException)
+        if (ShouldRecordCancellation(failure, cancellationToken))
         {
             failure = new OperationCanceledException("Document export sandbox cancellation was requested.", cancellationToken);
             failureCode = "cancelled";
@@ -744,6 +746,13 @@ public sealed class DocumentExportSandboxRuntime
             _ => new DocumentExportSandboxExecutionException(failure.Message, plan, receipt, failure)
         };
     }
+
+    // Cleanup can outlast the caller deadline; cancellation must not replace
+    // an already observed failure. Physical cleanup qualification still wins.
+    internal static bool ShouldRecordCancellation(
+        Exception? failure,
+        CancellationToken cancellationToken)
+        => failure is null && cancellationToken.IsCancellationRequested;
 
     public static void ValidateReceipt(
         DocumentExportSandboxReceipt receipt,

@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/architecture/overview.md"
+            ],
+            "reason": "Preserve current standalone document-export and generated dependency contract identifiers while documenting exact drain observation; no external identifier is renamed."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+                "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs"
+            ],
+            "reason": "Preserve the existing closed workload and systemd control-environment variable spellings. This change only requires exact observed cgroup drain before cleanup and introduces no new environment access."
+        }
+    ]
+}
