@@ -280,6 +280,111 @@ public sealed class AuthoringExtensionContractsTests
             Enum.GetNames<AuthoringCapability>());
     }
 
+    [Theory]
+    [InlineData("Id")]
+    [InlineData("Publisher")]
+    [InlineData("Version")]
+    [InlineData("ContributionId")]
+    [InlineData("SignatureReference")]
+    [InlineData("TrustPolicyReference")]
+    [InlineData("PackageSha256")]
+    [InlineData("ContentSha256")]
+    [InlineData("EntrypointContentSha256")]
+    public void VerifyAndParseAndVerify_TerminalNewlineInClosedIdentity_FailsClosed(string field)
+    {
+        AuthoringExtensionManifest manifest = CreateManifest();
+        VerifiedAuthoringExtensionContract verified = AuthoringExtensionContractValidator.Verify(manifest);
+        VerifiedAuthoringExtensionContract parsed = AuthoringExtensionContractValidator.ParseAndVerify(
+            JsonSerializer.SerializeToUtf8Bytes(manifest),
+            AuthoringHostPlatform.ServerLinux);
+        Assert.Equal(verified.ContractIdentity, parsed.ContractIdentity);
+
+        AuthoringContributionDeclaration contribution = manifest.Contributions[0];
+        AuthoringExtensionManifest tampered = field switch
+        {
+            "Id" => manifest with { Id = manifest.Id + "\n" },
+            "Publisher" => manifest with { Publisher = manifest.Publisher + "\n" },
+            "Version" => manifest with { Version = manifest.Version + "\n" },
+            "ContributionId" => manifest with
+            {
+                Contributions = [contribution with { Id = contribution.Id + "\n" }]
+            },
+            "SignatureReference" => manifest with { SignatureReference = manifest.SignatureReference + "\n" },
+            "TrustPolicyReference" => manifest with { TrustPolicyReference = manifest.TrustPolicyReference + "\n" },
+            "PackageSha256" => manifest with { PackageSha256 = manifest.PackageSha256 + "\n" },
+            "ContentSha256" => manifest with { ContentSha256 = manifest.ContentSha256 + "\n" },
+            "EntrypointContentSha256" => manifest with
+            {
+                Contributions =
+                [
+                    contribution with
+                    {
+                        Entrypoint = contribution.Entrypoint with
+                        {
+                            ContentSha256 = contribution.Entrypoint.ContentSha256 + "\n"
+                        }
+                    }
+                ]
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(field))
+        };
+
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(tampered));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.ParseAndVerify(
+                JsonSerializer.SerializeToUtf8Bytes(tampered),
+                AuthoringHostPlatform.ServerLinux));
+    }
+
+    [Fact]
+    public void VerifyAndParseAndVerify_UnknownContributionKind_FailsClosed()
+    {
+        AuthoringExtensionManifest manifest = CreateManifest();
+        VerifiedAuthoringExtensionContract verified = AuthoringExtensionContractValidator.Verify(manifest);
+        VerifiedAuthoringExtensionContract parsed = AuthoringExtensionContractValidator.ParseAndVerify(
+            JsonSerializer.SerializeToUtf8Bytes(manifest),
+            AuthoringHostPlatform.ServerLinux);
+        Assert.Equal(verified.ContractIdentity, parsed.ContractIdentity);
+
+        AuthoringExtensionManifest unknownKind = manifest with
+        {
+            Contributions = [manifest.Contributions[0] with { Kind = (AuthoringContributionKind)999 }]
+        };
+        AuthoringExtensionContractException verifyFailure = Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(unknownKind));
+        AuthoringExtensionContractException parseFailure = Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.ParseAndVerify(
+                JsonSerializer.SerializeToUtf8Bytes(unknownKind),
+                AuthoringHostPlatform.ServerLinux));
+        Assert.Equal("Contribution type or execution class is not registered.", verifyFailure.Message);
+        Assert.Equal(verifyFailure.Message, parseFailure.Message);
+    }
+
+    [Fact]
+    public void VerifyAndParseAndVerify_UnsupportedHostApi_FailsClosed()
+    {
+        AuthoringExtensionManifest manifest = CreateManifest();
+        VerifiedAuthoringExtensionContract verified = AuthoringExtensionContractValidator.Verify(manifest);
+        VerifiedAuthoringExtensionContract parsed = AuthoringExtensionContractValidator.ParseAndVerify(
+            JsonSerializer.SerializeToUtf8Bytes(manifest),
+            AuthoringHostPlatform.ServerLinux);
+        Assert.Equal(verified.ContractIdentity, parsed.ContractIdentity);
+
+        AuthoringExtensionManifest unsupportedApi = manifest with
+        {
+            HostApi = new AuthoringHostApiRange(2, 2)
+        };
+        AuthoringExtensionContractException verifyFailure = Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.Verify(unsupportedApi));
+        AuthoringExtensionContractException parseFailure = Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringExtensionContractValidator.ParseAndVerify(
+                JsonSerializer.SerializeToUtf8Bytes(unsupportedApi),
+                AuthoringHostPlatform.ServerLinux));
+        Assert.Equal("Host API range is invalid or incompatible.", verifyFailure.Message);
+        Assert.Equal(verifyFailure.Message, parseFailure.Message);
+    }
+
     [Fact]
     public void ContractSource_HasOneRegistryAndNoGenericExecutableRegistrationSurface()
     {

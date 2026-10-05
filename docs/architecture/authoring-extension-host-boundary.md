@@ -19,6 +19,10 @@ implicit fields fail closed. Manifest bytes, object depth, identifiers,
 contribution count, capability count, entrypoint text, and every resource value are
 bounded before a contract is accepted.
 
+Manifest identity, signature/trust reference, digest and numeric version patterns
+require the exact input end; a terminal newline cannot be hidden by a regex line-end
+anchor. Both typed and JSON admission retain the same closed kind and host API checks.
+
 `AuthoringContributionKind`, `AuthoringCapability`, `AuthoringExecutionClass`, and
 the related policy enums are the sole closed registries. A contribution contains
 one enum-valued kind, one enum-valued execution class, one matching entrypoint

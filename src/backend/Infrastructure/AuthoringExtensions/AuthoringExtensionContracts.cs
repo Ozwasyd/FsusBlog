@@ -678,16 +678,16 @@ public static partial class AuthoringExtensionContractValidator
         ImmutableArray<string> ContractIdentities,
         AuthoringCoreAuthorityRegistry CoreAuthorities);
 
-    [GeneratedRegex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex IdentifierPattern();
 
-    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._:/-]*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._:/-]*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex ReferencePattern();
 
-    [GeneratedRegex("^[0-9a-f]{64}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[0-9a-f]{64}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex Sha256Pattern();
 
-    [GeneratedRegex("^[0-9]+(?:\\.[0-9]+){1,3}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[0-9]+(?:\\.[0-9]+){1,3}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex VersionPattern();
 
     [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._/-]*$", RegexOptions.CultureInvariant)]
