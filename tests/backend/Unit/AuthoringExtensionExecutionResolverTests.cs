@@ -304,23 +304,45 @@ public sealed class AuthoringExtensionExecutionResolverTests
             typeof(ClosedTrustedAuthoringAdapterRegistry),
             typeof(AuthoringExecutionResolver)
         ];
-        Assert.All(resolverTypes, type =>
+        Assert.All(resolverTypes, AssertNoResolverSurface);
+    }
+
+    private static void AssertNoResolverSurface(Type rootType)
+    {
+        foreach (Type type in EnumerateResolverTypeTree(rootType))
         {
-            string compiled = string.Join('\n',
-                RuntimeMetadataInspection.DescribeType(type),
-                RuntimeMetadataInspection.DescribeConstructors(type));
-            Assert.DoesNotContain("Assembly.Load", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Activator.CreateInstance", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("WebView", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("iframe", compiled, StringComparison.OrdinalIgnoreCase);
-            Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Microsoft.CSharp.RuntimeBinder", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("System.Runtime.CompilerServices.CallSite", compiled, StringComparison.Ordinal);
+            AssertNoCompiledResolverSurface(type);
             AssertNoErasedResolverSurface(type);
-        });
+        }
+    }
+
+    private static void AssertNoCompiledResolverSurface(Type type)
+    {
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("Assembly.Load", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Activator.CreateInstance", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebView", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("iframe", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Microsoft.CSharp.RuntimeBinder", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("System.Runtime.CompilerServices.CallSite", compiled, StringComparison.Ordinal);
+    }
+
+    private static IEnumerable<Type> EnumerateResolverTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateResolverTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     private static void AssertNoErasedResolverSurface(Type type)
@@ -341,8 +363,9 @@ public sealed class AuthoringExtensionExecutionResolverTests
             };
             if (valueType is not null)
             {
-                Assert.False(IsFuncOrAction(valueType), $"{type.FullName}.{member.Name}");
-                Assert.False(member.Name == "Payload" && valueType == typeof(object));
+                Assert.False(IsFuncOrAction(valueType), $"{type.FullName}.{member.Name}: Func/Action");
+                Assert.False(member.Name == "Payload" && IsObjectPayloadType(valueType),
+                    $"{type.FullName}.{member.Name}: object Payload");
             }
 
             if (member is MethodInfo methodInfo)
@@ -356,8 +379,9 @@ public sealed class AuthoringExtensionExecutionResolverTests
                 {
                     AssertNoDynamicAttribute(parameter.CustomAttributes);
                     Assert.False(IsFuncOrAction(parameter.ParameterType),
-                        $"{type.FullName}.{member.Name}({parameter.Name})");
-                    Assert.False(parameter.Name == "Payload" && parameter.ParameterType == typeof(object));
+                        $"{type.FullName}.{member.Name}({parameter.Name}): Func/Action");
+                    Assert.False(parameter.Name == "Payload" && IsObjectPayloadType(parameter.ParameterType),
+                        $"{type.FullName}.{member.Name}({parameter.Name}): object Payload");
                 }
             }
         }
@@ -365,6 +389,9 @@ public sealed class AuthoringExtensionExecutionResolverTests
 
     private static void AssertNoDynamicAttribute(IEnumerable<CustomAttributeData> attributes) =>
         Assert.DoesNotContain(attributes, attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+    private static bool IsObjectPayloadType(Type type) =>
+        type == typeof(object) || type.IsByRef && type.GetElementType() == typeof(object);
 
     private static bool IsFuncOrAction(Type type)
     {
@@ -377,6 +404,276 @@ public sealed class AuthoringExtensionExecutionResolverTests
                (type.Name == "Action" || type.Name.StartsWith("Action`", StringComparison.Ordinal) ||
                 type.Name.StartsWith("Func`", StringComparison.Ordinal)) ||
                type.IsGenericType && type.GetGenericArguments().Any(IsFuncOrAction);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsUncalledNestedLiteral()
+    {
+        Type root = typeof(NestedTextFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Assert.Contains(nested, EnumerateResolverTypeTree(root));
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.NotNull(method.GetMethodBody());
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(root),
+            RuntimeMetadataInspection.DescribeConstructors(root));
+        Assert.DoesNotContain("Pinia", oldRoots, StringComparison.Ordinal);
+        string nestedBody = RuntimeMetadataInspection.DescribeMethods(nested, "Read");
+        Assert.Contains("Pinia", nestedBody, StringComparison.Ordinal);
+        AssertNoErasedResolverSurface(root);
+        AssertNoErasedResolverSurface(nested);
+
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertNoResolverSurface(root));
+        Assert.Contains("Pinia", exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedErasedInput()
+    {
+        Type root = typeof(NestedInputFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        ParameterInfo parameter = Assert.Single(method.GetParameters());
+        Assert.Equal(typeof(object), parameter.ParameterType);
+        Assert.Contains(parameter.CustomAttributes,
+            attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "DynamicAttribute");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedErasedOutput()
+    {
+        Type root = typeof(NestedOutputFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.Equal(typeof(object), method.ReturnType);
+        Assert.Contains(method.ReturnParameter.CustomAttributes,
+            attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "DynamicAttribute");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedFactorySignature()
+    {
+        Type root = typeof(NestedFactoryFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        PropertyInfo property = nested.GetProperty("Factory")!;
+        Assert.Equal(nested, property.DeclaringType);
+        Assert.Equal(typeof(Func<int>), property.PropertyType);
+        Assert.True(IsFuncOrAction(property.PropertyType));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "Func/Action");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedHandlerSignature()
+    {
+        Type root = typeof(NestedHandlerFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        PropertyInfo property = nested.GetProperty("Handler")!;
+        Assert.Equal(nested, property.DeclaringType);
+        Assert.Equal(typeof(Action<int>), property.PropertyType);
+        Assert.True(IsFuncOrAction(property.PropertyType));
+
+        AssertNestedErasedFixtureRefusal(root, nested, "Func/Action");
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsNestedObjectPayload()
+    {
+        Type root = typeof(NestedValueFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        PropertyInfo property = nested.GetProperty("Payload")!;
+        Assert.Equal(nested, property.DeclaringType);
+        Assert.Equal("Payload", property.Name);
+        Assert.Equal(typeof(object), property.PropertyType);
+
+        AssertNestedErasedFixtureRefusal(root, nested, "object Payload");
+    }
+
+    [Fact]
+    public void ResolverSurface_AcceptsUnrelatedReferenceInputWithObjectShape()
+    {
+        Type root = typeof(ReferenceInputFixture);
+        ParameterInfo parameter = Assert.Single(root.GetMethod("Read")!.GetParameters());
+        Assert.Equal("payload", parameter.Name);
+        Assert.True(parameter.ParameterType.IsByRef);
+        Assert.NotEqual(typeof(object), parameter.ParameterType);
+        Assert.Equal(typeof(object), parameter.ParameterType.GetElementType());
+        Assert.True(IsObjectPayloadType(parameter.ParameterType));
+        Assert.False(parameter.Name == "Payload" && IsObjectPayloadType(parameter.ParameterType));
+
+        AssertNoCompiledResolverSurface(root);
+        AssertNoResolverSurface(root);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsReferencePayloadOutput()
+    {
+        Type root = typeof(ReferenceOutputFixture);
+        MethodInfo method = root.GetMethod("Payload")!;
+        Assert.Equal("Payload", method.Name);
+        Assert.True(method.ReturnType.IsByRef);
+        Assert.NotEqual(typeof(object), method.ReturnType);
+        Assert.Equal(typeof(object), method.ReturnType.GetElementType());
+
+        AssertReferenceFixtureRefusal(root);
+    }
+
+    [Fact]
+    public void ResolverSurface_RejectsReferencePayloadMember()
+    {
+        Type root = typeof(ReferenceMemberFixture);
+        PropertyInfo property = root.GetProperty("Payload")!;
+        Assert.Equal(root, property.DeclaringType);
+        Assert.Equal("Payload", property.Name);
+        Assert.True(property.PropertyType.IsByRef);
+        Assert.NotEqual(typeof(object), property.PropertyType);
+        Assert.Equal(typeof(object), property.PropertyType.GetElementType());
+
+        AssertReferenceFixtureRefusal(root);
+    }
+
+    [Fact]
+    public void ResolverSurface_AcceptsNestedUnrelatedObjectAndReference()
+    {
+        Type root = typeof(SafeTreeFixture);
+        Type nested = root.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Assert.Contains(nested, EnumerateResolverTypeTree(root));
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.NotNull(method.GetMethodBody());
+        ParameterInfo parameter = Assert.Single(nested.GetMethod("Read")!.GetParameters());
+        Assert.Equal("value", parameter.Name);
+        Assert.Equal(typeof(object), parameter.ParameterType);
+        PropertyInfo property = nested.GetProperty("Current")!;
+        Assert.Equal("Current", property.Name);
+        Assert.True(property.PropertyType.IsByRef);
+        Assert.Equal(typeof(object), property.PropertyType.GetElementType());
+        Assert.False(IsObjectPayloadType(typeof(object[])));
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(root),
+            RuntimeMetadataInspection.DescribeConstructors(root));
+        Assert.DoesNotContain(".Read ", oldRoots, StringComparison.Ordinal);
+        string nestedBody = RuntimeMetadataInspection.DescribeMethods(nested, "Read");
+        Assert.Contains("closed-surface", nestedBody, StringComparison.Ordinal);
+
+        AssertNoResolverSurface(root);
+    }
+
+    private static void AssertNestedErasedFixtureRefusal(Type root, Type nested, string diagnostic)
+    {
+        Assert.Contains(nested, EnumerateResolverTypeTree(root));
+        AssertNoErasedResolverSurface(root);
+        Assert.All(EnumerateResolverTypeTree(root), AssertNoCompiledResolverSurface);
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertNoResolverSurface(root));
+        Assert.Contains(diagnostic, exception.Message, StringComparison.Ordinal);
+    }
+
+    private static void AssertReferenceFixtureRefusal(Type root)
+    {
+        Assert.Equal(root, Assert.Single(EnumerateResolverTypeTree(root)));
+        AssertNoCompiledResolverSurface(root);
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertNoResolverSurface(root));
+        Assert.Contains("object Payload", exception.Message, StringComparison.Ordinal);
+    }
+
+    private sealed class NestedTextFixture
+    {
+        private sealed class Node
+        {
+            public static string Read() => "Pinia";
+        }
+    }
+
+    private sealed class NestedInputFixture
+    {
+        private sealed class Node
+        {
+            public static void Read(dynamic value)
+            {
+            }
+        }
+    }
+
+    private sealed class NestedOutputFixture
+    {
+        private sealed class Node
+        {
+            public static dynamic Read() => new object();
+        }
+    }
+
+    private sealed class NestedFactoryFixture
+    {
+        private sealed class Node
+        {
+            public Func<int>? Factory => null;
+        }
+    }
+
+    private sealed class NestedHandlerFixture
+    {
+        private sealed class Node
+        {
+            public Action<int>? Handler => null;
+        }
+    }
+
+    private sealed class NestedValueFixture
+    {
+        private sealed class Node
+        {
+            public object Payload => new();
+        }
+    }
+
+    private sealed class ReferenceInputFixture
+    {
+        public static void Read(ref object payload)
+        {
+        }
+    }
+
+    private sealed class ReferenceOutputFixture
+    {
+        private static object s_value = new();
+
+        public static ref object Payload() => ref s_value;
+    }
+
+    private sealed class ReferenceMemberFixture
+    {
+        private static object s_value = new();
+
+        public static ref object Payload => ref s_value;
+    }
+
+    private sealed class SafeTreeFixture
+    {
+        private sealed class Node
+        {
+            private static object s_value = new();
+
+            public static object Read(object value) => "closed-surface";
+
+            public static ref object Current => ref s_value;
+        }
     }
 
     private static TrustedAuthoringAdapterDescriptor CreateDescriptor() => new(

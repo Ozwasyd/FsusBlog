@@ -447,7 +447,7 @@ public sealed class ArticleVaultExecutionTests
             .Where(type => type.Namespace == executorType.Namespace)
             .ToArray();
         Assert.NotEmpty(vaultTypes);
-        string vaultExecution = string.Join('\n', vaultTypes.Select(RuntimeMetadataInspection.DescribeType));
+        string vaultExecution = DescribeExecutionTypes(vaultTypes);
         string executor = RuntimeMetadataInspection.DescribeMethods(
             executorType,
             nameof(ArticleVaultSyncPlanExecutor.ExecuteAsync));
@@ -491,9 +491,7 @@ public sealed class ArticleVaultExecutionTests
         string update = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "UpdateAsync");
         string delete = RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "DeleteAsync");
 
-        Assert.DoesNotContain("System.IO.", vaultExecution, StringComparison.Ordinal);
-        Assert.DoesNotContain("Watcher", vaultExecution, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("Import", vaultExecution, StringComparison.OrdinalIgnoreCase);
+        AssertExecutionHasNoForbiddenSidePath(vaultExecution);
         Assert.DoesNotContain("VaultPathProjection", executor, StringComparison.Ordinal);
         Assert.DoesNotContain("INSERT INTO article", writerBoundary, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("UPDATE article SET", writerBoundary, StringComparison.OrdinalIgnoreCase);
@@ -514,6 +512,104 @@ public sealed class ArticleVaultExecutionTests
         Assert.Contains("EstablishArticlePublicMutationFenceAsync", update, StringComparison.Ordinal);
         Assert.Contains("EstablishArticlePublicMutationFenceAsync", delete, StringComparison.Ordinal);
         Assert.True(fenceCallIndex >= 0 && groupTransactionCheckIndex > fenceCallIndex);
+    }
+
+    [Theory]
+    [InlineData(typeof(InstanceFileAccessFixture), "System.IO.")]
+    [InlineData(typeof(StaticFileAccessFixture), "System.IO.")]
+    [InlineData(typeof(InstanceObservationFixture), "Watcher")]
+    [InlineData(typeof(StaticObservationFixture), "Watcher")]
+    [InlineData(typeof(InstanceLoadingFixture), "Import")]
+    [InlineData(typeof(StaticLoadingFixture), "Import")]
+    public void ExecutionBoundary_RejectsConstructorOnlyForbiddenReferences(Type fixtureType, string forbiddenFact)
+    {
+        string methods = RuntimeMetadataInspection.DescribeType(fixtureType);
+        string constructors = RuntimeMetadataInspection.DescribeConstructors(fixtureType);
+        Assert.DoesNotContain(forbiddenFact, methods, StringComparison.OrdinalIgnoreCase);
+        AssertExecutionHasNoForbiddenSidePath(methods);
+        Assert.Contains(forbiddenFact, constructors, StringComparison.OrdinalIgnoreCase);
+        string execution = DescribeExecutionTypes([fixtureType]);
+
+        Xunit.Sdk.XunitException rejection = Assert.ThrowsAny<Xunit.Sdk.XunitException>(
+            () => AssertExecutionHasNoForbiddenSidePath(execution));
+
+        Assert.Contains(forbiddenFact, rejection.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void ExecutionBoundary_AcceptsBenignMethodsAndConstructors()
+    {
+        Type[] fixtureTypes = [typeof(BenignExecutionFixture), typeof(BenignExecutionFixture.Nested)];
+        string execution = DescribeExecutionTypes(fixtureTypes);
+        Assert.Contains("benign-instance-body", execution, StringComparison.Ordinal);
+        Assert.Contains("benign-static-body", execution, StringComparison.Ordinal);
+        Assert.Contains("benign-method-body", execution, StringComparison.Ordinal);
+        Assert.Contains("benign-nested-body", execution, StringComparison.Ordinal);
+
+        AssertExecutionHasNoForbiddenSidePath(execution);
+    }
+
+    private static string DescribeExecutionTypes(IEnumerable<Type> types)
+        => string.Join('\n', types.Select(static type => string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type))));
+
+    private static void AssertExecutionHasNoForbiddenSidePath(string execution)
+    {
+        Assert.DoesNotContain("System.IO.", execution, StringComparison.Ordinal);
+        Assert.DoesNotContain("Watcher", execution, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("Import", execution, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private sealed class InstanceFileAccessFixture
+    {
+        public InstanceFileAccessFixture() => GC.KeepAlive(System.IO.Path.GetFileName("fixture"));
+    }
+
+    private static class StaticFileAccessFixture
+    {
+        static StaticFileAccessFixture() => GC.KeepAlive(System.IO.Path.GetFileName("fixture"));
+    }
+
+    private sealed class InstanceObservationFixture
+    {
+        private InstanceObservationFixture() => ExecutionFixtureActions.StartWatcher();
+    }
+
+    private static class StaticObservationFixture
+    {
+        static StaticObservationFixture() => ExecutionFixtureActions.StartWatcher();
+    }
+
+    private sealed class InstanceLoadingFixture
+    {
+        public InstanceLoadingFixture() => ExecutionFixtureActions.LoadImport();
+    }
+
+    private static class StaticLoadingFixture
+    {
+        static StaticLoadingFixture() => ExecutionFixtureActions.LoadImport();
+    }
+
+    private static class ExecutionFixtureActions
+    {
+        public static void StartWatcher() => GC.KeepAlive("observation-body");
+
+        public static void LoadImport() => GC.KeepAlive("loading-body");
+    }
+
+    private sealed class BenignExecutionFixture
+    {
+        static BenignExecutionFixture() => GC.KeepAlive("benign-static-body");
+
+        private BenignExecutionFixture() => GC.KeepAlive("benign-instance-body");
+
+        public static void Run() => GC.KeepAlive("benign-method-body");
+
+        public static class Nested
+        {
+            public static void Run() => GC.KeepAlive("benign-nested-body");
+        }
     }
 
     private static ArticleVaultSealedExecutionBundle CreateBundle(int itemCount = 1)

@@ -197,9 +197,7 @@ public sealed class CanonicalArticlePublicationFixturePortTests
             typeof(ArticleResponsibilityAuthoringService), nameof(ArticleResponsibilityAuthoringService.SaveAsync));
         string publish = RuntimeMetadataInspection.DescribeMethods(
             typeof(CanonicalArticlePublicationFixturePort), nameof(CanonicalArticlePublicationFixturePort.PublishAsync));
-        string port = string.Join('\n',
-            RuntimeMetadataInspection.DescribeType(typeof(CanonicalArticlePublicationFixturePort)),
-            RuntimeMetadataInspection.DescribeConstructors(typeof(CanonicalArticlePublicationFixturePort)));
+        string port = DescribeCompletePortType(typeof(CanonicalArticlePublicationFixturePort));
 
         Assert.Contains("ArticleProductionNormalizers.NormalizeArticleRights", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsSnapshotBuilder.Build", service, StringComparison.Ordinal);
@@ -208,13 +206,64 @@ public sealed class CanonicalArticlePublicationFixturePortTests
         Assert.Contains("ArticleRevisionPersistence.SaveAsync", service, StringComparison.Ordinal);
         Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", publish, StringComparison.Ordinal);
         Assert.Contains("BeginPublicMutationFenceAsync", publish, StringComparison.Ordinal);
-        Assert.DoesNotContain("ArticleRevision..ctor", port, StringComparison.Ordinal);
+        AssertNoDirectArticleRevisionConstruction(port);
         Assert.Contains("ArticleProductionNormalizers.NormalizeText", cache, StringComparison.Ordinal);
         Assert.Contains("ArticleProductionNormalizers.NormalizeTagIds", cache, StringComparison.Ordinal);
         Assert.Contains("ArticleResponsibilitySnapshotBuilder.Build", responsibility, StringComparison.Ordinal);
         Assert.Null(typeof(ArticleService).GetNestedType("ArticleRightsWriteModel",
             BindingFlags.Public | BindingFlags.NonPublic));
         Assert.Contains("ArticleRightsNormalizedModel", mutations, StringComparison.Ordinal);
+    }
+
+    [Theory]
+    [InlineData(typeof(PortNestedMethodFixture), typeof(PortNestedMethodFixture.Nested), "Create")]
+    [InlineData(typeof(PortDeepNestedMethodFixture), typeof(PortDeepNestedMethodFixture.Nested.Deeper), "Create")]
+    [InlineData(typeof(PortNestedConstructorFixture), typeof(PortNestedConstructorFixture.Nested), ".ctor")]
+    [InlineData(typeof(PortNestedStaticConstructorFixture), typeof(PortNestedStaticConstructorFixture.Nested), ".cctor")]
+    public void PortConstructionRule_RejectsCompiledNestedArticleRevisionConstruction(
+        Type portType,
+        Type declaringType,
+        string memberName)
+    {
+        string declaredBody;
+        if (memberName is ".ctor" or ".cctor")
+        {
+            if (memberName == ".cctor")
+            {
+                Assert.NotNull(declaringType.TypeInitializer);
+            }
+            else
+            {
+                Assert.NotEmpty(declaringType.GetConstructors(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
+            }
+            declaredBody = RuntimeMetadataInspection.DescribeConstructors(declaringType);
+        }
+        else
+        {
+            declaredBody = RuntimeMetadataInspection.DescribeMethods(declaringType, memberName);
+            string previousDescription = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(portType),
+                RuntimeMetadataInspection.DescribeConstructors(portType));
+            Assert.DoesNotContain("ArticleRevision..ctor", previousDescription, StringComparison.Ordinal);
+        }
+
+        Assert.Contains("ArticleRevision..ctor", declaredBody, StringComparison.Ordinal);
+        string port = DescribeCompletePortType(portType);
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoDirectArticleRevisionConstruction(port));
+    }
+
+    [Fact]
+    public void PortConstructionRule_AcceptsCompiledBenignNestedMembers()
+    {
+        Type nestedType = typeof(PortBenignNestedFixture.Nested);
+        Assert.NotNull(nestedType.TypeInitializer);
+        string method = RuntimeMetadataInspection.DescribeMethods(nestedType, "Create");
+        string constructors = RuntimeMetadataInspection.DescribeConstructors(nestedType);
+        Assert.Contains("System.Object..ctor", method, StringComparison.Ordinal);
+        Assert.Contains("System.Object..ctor", constructors, StringComparison.Ordinal);
+
+        AssertNoDirectArticleRevisionConstruction(DescribeCompletePortType(typeof(PortBenignNestedFixture)));
     }
 
     [Fact]
@@ -361,5 +410,74 @@ public sealed class CanonicalArticlePublicationFixturePortTests
         Assert.Contains("search-projection", edges);
         Assert.Contains("public-aot-invalidation", edges);
         Assert.Contains("http-cache-invalidation", edges);
+    }
+
+    private static string DescribeCompletePortType(Type type)
+    {
+        var descriptions = new List<string> { RuntimeMetadataInspection.DescribeConstructors(type) };
+        var pending = new Queue<Type>();
+        pending.Enqueue(type);
+        while (pending.TryDequeue(out Type? inspectedType))
+        {
+            descriptions.Add(RuntimeMetadataInspection.DescribeType(inspectedType));
+            foreach (Type nested in inspectedType.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                pending.Enqueue(nested);
+            }
+        }
+
+        return string.Join('\n', descriptions);
+    }
+
+    private static void AssertNoDirectArticleRevisionConstruction(string port)
+    {
+        Assert.DoesNotContain("ArticleRevision..ctor", port, StringComparison.Ordinal);
+    }
+
+    private sealed class PortNestedMethodFixture
+    {
+        public static class Nested
+        {
+            public static ArticleRevision Create() => new ArticleRevision();
+        }
+    }
+
+    private sealed class PortDeepNestedMethodFixture
+    {
+        public static class Nested
+        {
+            public static class Deeper
+            {
+                public static ArticleRevision Create() => new ArticleRevision();
+            }
+        }
+    }
+
+    private sealed class PortNestedConstructorFixture
+    {
+        public sealed class Nested
+        {
+            public Nested() => GC.KeepAlive(new ArticleRevision());
+        }
+    }
+
+    private sealed class PortNestedStaticConstructorFixture
+    {
+        public static class Nested
+        {
+            static Nested() => GC.KeepAlive(new ArticleRevision());
+        }
+    }
+
+    private sealed class PortBenignNestedFixture
+    {
+        public sealed class Nested
+        {
+            static Nested() => GC.KeepAlive(new object());
+
+            public Nested() => GC.KeepAlive(new object());
+
+            public static object Create() => new object();
+        }
     }
 }
