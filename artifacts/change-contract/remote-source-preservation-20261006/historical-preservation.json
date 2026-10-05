@@ -1522,7 +1522,7 @@
                         "blob": "c366eb01b3092da7e60bebb69ec15d0a4626ec75"
                     },
                     "mappingKind": "reviewed-current-owner-increment",
-                    "preservation": "The original AuthorArticlePinStoreIntegrationTests membership remains in SchemaMigrationPostgresCollectionB with the same path/class. Current totals reflect changed fixture-backed case inventory, enforced by tools/check-postgres-test-collections.mjs; original member mapping attached. Later additions and removal of a now non-PG AdminSessionValidation class are outside this original increment.",
+                    "preservation": "The original increment registers AuthorArticlePinProjectionIntegrationTests in SchemaMigrationPostgresCollectionB with the same path/class; that membership remains on current master. AuthorArticlePinStoreIntegrationTests predates this increment. Source/current membership is visible in the bound complete Git objects and diff witnesses. Current totals reflect changed fixture-backed case inventory, enforced by tools/check-postgres-test-collections.mjs; later additions and removal of a now non-PG AdminSessionValidation class are outside this original increment.",
                     "laterHistory": [
                         "493abaedad77df5f301222405d7904268bb32e75 feat(backend): integrate recent history authority as work in progress",
                         "92c46b48798a4243846b32eb5259fee4369f4709 fix(governance): register article lifecycle fixture execution as work in progress",
