@@ -1,9 +1,12 @@
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -286,21 +289,94 @@ public sealed class AuthoringExtensionExecutionResolverTests
     [Fact]
     public void ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs"));
+        Type[] resolverTypes =
+        [
+            typeof(AuthoringExecutionResolutionStatus),
+            typeof(TrustedAuthoringAdapterDescriptor),
+            typeof(AuthoringExecutionTarget),
+            typeof(ITrustedAuthoringAdapterRegistry),
+            typeof(ITrustedAuthoringAdapterModuleVerifier),
+            typeof(ITrustedAuthoringAdapterSourceVerifier),
+            typeof(CheckedInAuthoringAdapterSourceVerifier),
+            typeof(IAuthoringInstalledPackageAuthority),
+            typeof(ActiveAuthoringInstalledPackageAuthority),
+            typeof(LoadedAssemblyTrustedAuthoringAdapterModuleVerifier),
+            typeof(ClosedTrustedAuthoringAdapterRegistry),
+            typeof(AuthoringExecutionResolver)
+        ];
+        Assert.All(resolverTypes, type =>
+        {
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
+            Assert.DoesNotContain("Assembly.Load", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Activator.CreateInstance", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("editorRef", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Pinia", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("WebView", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("iframe", compiled, StringComparison.OrdinalIgnoreCase);
+            Assert.DoesNotContain("Delegate", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Microsoft.CSharp.RuntimeBinder", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("System.Runtime.CompilerServices.CallSite", compiled, StringComparison.Ordinal);
+            AssertNoErasedResolverSurface(type);
+        });
+    }
 
-        Assert.DoesNotContain("Assembly.Load", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Activator.CreateInstance", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("editorRef", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Pinia", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("WebView", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("iframe", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("object Payload", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Func<", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Action<", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("dynamic ", source, StringComparison.Ordinal);
+    private static void AssertNoErasedResolverSurface(Type type)
+    {
+        const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Instance | BindingFlags.Static;
+        AssertNoDynamicAttribute(type.CustomAttributes);
+        foreach (MemberInfo member in type.GetMembers(Declared))
+        {
+            AssertNoDynamicAttribute(member.CustomAttributes);
+            Type? valueType = member switch
+            {
+                FieldInfo field => field.FieldType,
+                PropertyInfo property => property.PropertyType,
+                EventInfo eventInfo => eventInfo.EventHandlerType,
+                MethodInfo method => method.ReturnType,
+                _ => null
+            };
+            if (valueType is not null)
+            {
+                Assert.False(IsFuncOrAction(valueType), $"{type.FullName}.{member.Name}");
+                Assert.False(member.Name == "Payload" && valueType == typeof(object));
+            }
+
+            if (member is MethodInfo methodInfo)
+            {
+                AssertNoDynamicAttribute(methodInfo.ReturnParameter.CustomAttributes);
+            }
+
+            if (member is MethodBase methodBase)
+            {
+                foreach (ParameterInfo parameter in methodBase.GetParameters())
+                {
+                    AssertNoDynamicAttribute(parameter.CustomAttributes);
+                    Assert.False(IsFuncOrAction(parameter.ParameterType),
+                        $"{type.FullName}.{member.Name}({parameter.Name})");
+                    Assert.False(parameter.Name == "Payload" && parameter.ParameterType == typeof(object));
+                }
+            }
+        }
+    }
+
+    private static void AssertNoDynamicAttribute(IEnumerable<CustomAttributeData> attributes) =>
+        Assert.DoesNotContain(attributes, attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+    private static bool IsFuncOrAction(Type type)
+    {
+        if (type.HasElementType)
+        {
+            return IsFuncOrAction(type.GetElementType()!);
+        }
+
+        return type.Namespace == "System" &&
+               (type.Name == "Action" || type.Name.StartsWith("Action`", StringComparison.Ordinal) ||
+                type.Name.StartsWith("Func`", StringComparison.Ordinal)) ||
+               type.IsGenericType && type.GetGenericArguments().Any(IsFuncOrAction);
     }
 
     private static TrustedAuthoringAdapterDescriptor CreateDescriptor() => new(
