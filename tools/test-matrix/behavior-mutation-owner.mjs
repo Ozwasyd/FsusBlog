@@ -122,7 +122,7 @@ export function validateBehaviorMutationOwnerCatalog({
     behaviorCatalog,
     factExtractorRegistry,
     ownerCatalog,
-    sourceProjects = ['src/backend', 'src/core'],
+    sourceProjects = ['src/backend', 'src/core', 'src/shared'],
     repositoryRoot = defaultRoot,
     reviewedSliceSourceFiles = ['src/core/Algorithms/AedsEncoder.cs']
 })
@@ -326,7 +326,7 @@ export function deriveBehaviorMutationOwners({
     behaviorCatalog,
     factExtractorRegistry,
     ownerCatalog,
-    sourceProjects = ['src/backend', 'src/core'],
+    sourceProjects = ['src/backend', 'src/core', 'src/shared'],
     repositoryRoot = defaultRoot,
     worktreeDigest = resolveWorktreeDigest(repositoryRoot),
     reviewedSliceSourceFiles

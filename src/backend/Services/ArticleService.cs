@@ -4,6 +4,7 @@ using System.Runtime.CompilerServices;
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Mapping.Models;

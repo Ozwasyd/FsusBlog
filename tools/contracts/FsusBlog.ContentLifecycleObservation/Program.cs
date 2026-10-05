@@ -5,7 +5,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 
-using FsusBlog.Core.Services.Articles;
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Models.Moderation;

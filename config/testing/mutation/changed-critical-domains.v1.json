@@ -17,7 +17,8 @@
     },
     "sourceProjects": [
         "src/backend",
-        "src/core"
+        "src/core",
+        "src/shared"
     ],
     "executionLimits": {
         "maxConcurrentTestRunners": 4,

@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;

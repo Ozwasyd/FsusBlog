@@ -1,5 +1,6 @@
 using System.Globalization;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Entities;

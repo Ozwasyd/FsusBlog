@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.Threading.Channels;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Integrity;

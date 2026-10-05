@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Helpers;
 using FsusBlog.Server.Infrastructure.Audit;

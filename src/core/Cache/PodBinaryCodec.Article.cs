@@ -3,6 +3,7 @@ using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Mapping.Codecs;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Mapping.Projectors;
@@ -120,7 +121,7 @@ public static partial class PodBinaryCodec
     {
         var payload = new ArrayBufferWriter<byte>(Math.Max(512, request.Title.Length + request.Content.Length + (request.Summary?.Length ?? 0) + (request.CoverImageUrl?.Length ?? 0)));
         ArticleRightsMutationMode rightsMutation = ResolveArticleRightsMutation(request);
-        ArticleRightsRequestCoreModel rights = NormalizeArticleRights(request.Rights);
+        ArticleRightsRequestCoreModel rights = ArticleProductionNormalizers.NormalizeWireArticleRights(request.Rights);
         var rightsPayload = new ArrayBufferWriter<byte>(Math.Max(256,
             rights.LicenseType.Length
             + (rights.CopyrightHolder?.Length ?? 0)
@@ -332,36 +333,6 @@ public static partial class PodBinaryCodec
         => request.RightsMutation == ArticleRightsMutationMode.Preserve && request.Rights.HasValue
             ? ArticleRightsMutationMode.Replace
             : request.RightsMutation;
-
-    private static ArticleRightsRequestCoreModel NormalizeArticleRights(ArticleRightsRequestCoreModel? rights)
-    {
-        if (!rights.HasValue)
-        {
-            return DefaultArticleRights();
-        }
-
-        ArticleRightsRequestCoreModel value = rights.Value;
-        return value with
-        {
-            LicenseType = string.IsNullOrWhiteSpace(value.LicenseType) ? "all-rights-reserved" : value.LicenseType,
-            CopyPolicy = string.IsNullOrWhiteSpace(value.CopyPolicy) ? "append-attribution" : value.CopyPolicy,
-            MaxExcerptChars = value.MaxExcerptChars < 0 ? 0 : value.MaxExcerptChars
-        };
-    }
-
-    private static ArticleRightsRequestCoreModel DefaultArticleRights()
-        => new(
-            Enabled: true,
-            LicenseType: "all-rights-reserved",
-            CopyrightHolder: null,
-            CopyrightYear: null,
-            RightsStatement: null,
-            AttributionTemplate: null,
-            CopyPolicy: "append-attribution",
-            MaxExcerptChars: 300,
-            AllowCodeCopy: true,
-            ShowPublicBadge: true,
-            ProofBindingEnabled: true);
 
     private static int BuildRightsFlags(ArticleRightsRequestCoreModel rights)
     {

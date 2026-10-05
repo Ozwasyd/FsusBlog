@@ -2,6 +2,7 @@ using System.Net;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Auth;

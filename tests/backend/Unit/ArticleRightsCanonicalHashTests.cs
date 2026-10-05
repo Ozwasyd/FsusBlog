@@ -1,6 +1,7 @@
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
