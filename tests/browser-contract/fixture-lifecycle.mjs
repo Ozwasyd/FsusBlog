@@ -1,10 +1,18 @@
-import { spawn } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import { createHash, randomUUID } from 'node:crypto';
 import { chmodSync, existsSync, lstatSync, readFileSync, readdirSync, realpathSync } from 'node:fs';
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
+
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Reuse the official private fixture I/O boundary.
+import { readPrivateJson } from '../../tools/test-fixtures/receipt/private-io.mjs';
 
 import { BrowserContractFailure } from './contract.mjs';
+
+const { collectProcessGroupOrJobIdentity, processGroupMemberIdentities, processIdentityMatches } =
+    await import(new URL('../../tools/test/process-identity.mjs', import.meta.url));
 
 export const browserContractFixtureLifecycleSchema = 'fsusblog.browser-contract-fixture-lifecycle.v1';
 export const browserContractFixtureManifestSchema = 'fsusblog.browser-contract-fixture.v2';
@@ -14,6 +22,207 @@ export const browserContractFixedFixtureTopology = Object.freeze({ sessions: 1, 
 
 const cleanupPromises = new WeakMap();
 const providerOutputLimitBytes = 1024 * 1024;
+const darwinSnapshotScript = fileURLToPath(new URL('../../tools/test/darwin-process-snapshot.py', import.meta.url));
+const sceneBindingSchema = 'fsusblog.browser-contract-public-shell-scene-bindings.v1';
+
+function sceneFailure(message, details)
+{
+    throw new BrowserContractFailure(`PublicShell scene fixture ${message}`, 'contract', details);
+}
+
+function sceneOwner(request)
+{
+    return {
+        identity: request.identity,
+        preparation: request.preparation,
+        sourceState: request.sourceState,
+        buildDigest: request.build?.receiptContentDigest,
+        fixtureRoot: request.resources.fixtureRoot,
+        resources: request.resources
+    };
+}
+
+function sceneBindingsFile(root)
+{
+    return path.join(root, 'public-shell-locale-scene-bindings.json');
+}
+
+export function readPublicShellLocaleSceneBindings(root)
+{
+    const file = sceneBindingsFile(root);
+    if (!existsSync(file))
+    {
+        return null;
+    }
+    if (realpathSync(file) !== path.resolve(file))
+    {
+        sceneFailure('binding path is not canonical', { file });
+    }
+    const { document } = readPrivateJson(file, { label: 'PublicShell scene bindings' });
+    const { contentDigest, ...body } = document;
+    const statuses = { prepared: [0, 0], reserved: [0, 0], entered: [1, 0], finished: [1, 1], abandoned: [0, 0], 'creation-failed': [0, 0] };
+    if (document?.schema !== sceneBindingSchema || !Array.isArray(document.leases)
+        || contentDigest !== digest(JSON.stringify(body), 64)
+        || document.owner?.fixtureRoot !== root
+        || document.leases.some((lease) => !statuses[lease.status]
+            || lease.entered !== statuses[lease.status][0] || lease.ended !== statuses[lease.status][1]
+            || !isDeepStrictEqual(lease.owner, document.owner)
+            || lease.role !== 'anonymous' || !lease.authority?.rawRefs?.length
+            || ['leaseId', 'actorId', 'contextId'].some((key) => !/^[0-9a-f-]{36}$/u.test(lease[key] ?? ''))
+            || typeof lease.sceneId !== 'string' || !lease.sceneId)
+        || ['leaseId', 'actorId', 'contextId', 'sceneId'].some((key) =>
+            new Set(document.leases.map((lease) => lease[key])).size !== document.leases.length))
+    {
+        sceneFailure('binding schema is invalid', { file });
+    }
+    return document;
+}
+
+async function writeSceneBindings(file, state)
+{
+    const body = { ...state };
+    delete body.contentDigest;
+    await writeJsonAtomic(file, { ...body, contentDigest: digest(JSON.stringify(body), 64) });
+}
+
+export function assertPublicShellLocaleScenesReleased(root)
+{
+    const state = readPublicShellLocaleSceneBindings(root);
+    const active = state?.leases.filter((lease) => !['finished', 'abandoned', 'creation-failed'].includes(lease.status)) ?? [];
+    if (active.length || state?.leases.some((lease) => lease.entered !== lease.ended))
+    {
+        sceneFailure('cleanup is premature; context/actor leases retained', { file: sceneBindingsFile(root), leases: active });
+    }
+}
+
+async function withSceneBindingLock(root, action)
+{
+    const stat = lstatSync(root);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || realpathSync(root) !== path.resolve(root)
+        || (stat.mode & 0o777) !== 0o700)
+    {
+        sceneFailure('root is not a canonical private fixture directory', { root });
+    }
+    const file = `${sceneBindingsFile(root)}.lock`;
+    const token = randomUUID();
+    await writeFile(file, token, { flag: 'wx', mode: 0o600 });
+    try
+    {
+        return await action();
+    }
+    finally
+    {
+        if (await readFile(file, 'utf8') === token)
+        {
+            await rm(file);
+        }
+    }
+}
+
+/** Existing provider consumer binding only; no actor/session producer or browser qualification. */
+export async function preparePublicShellLocaleSceneBinding(request, scene, authority)
+{
+    return await withSceneBindingLock(request.resources.fixtureRoot, async () =>
+    {
+        const file = sceneBindingsFile(request.resources.fixtureRoot);
+        const owner = sceneOwner(request);
+        const state = readPublicShellLocaleSceneBindings(request.resources.fixtureRoot) ?? {
+            schema: sceneBindingSchema, owner, closing: false, leases: [], blocked: []
+        };
+        if (!isDeepStrictEqual(state.owner, owner) || state.closing)
+        {
+            sceneFailure('owner is stale, foreign or closing', { file, owner: state.owner });
+        }
+        if (!scene?.id || scene.id !== request.sceneId || !authority?.matrixDigest
+            || !authority.rawRefs?.length || !authority.runtime?.frontendUrl || !authority.runtime?.backendUrl)
+        {
+            sceneFailure('actor source authority is incomplete', { file, authority });
+        }
+        if (state.leases.some((lease) => lease.sceneId === scene.id))
+        {
+            sceneFailure('scene actor cannot be reused', { file, sceneId: scene.id });
+        }
+        if (scene.authActionContext !== 'anonymous')
+        {
+            const blocked = {
+                sceneId: scene.id, status: 'blocked', reason: 'canonical-scene-auth-allocation-unavailable',
+                requiredOwner: 'auth-session', contextCount: 0, authority
+            };
+            state.blocked.push(blocked);
+            await writeSceneBindings(file, state);
+            return blocked;
+        }
+        if (state.leases.some((lease) => ['prepared', 'reserved', 'entered'].includes(lease.status)))
+        {
+            sceneFailure('fixed concurrency already has an active lease', { file });
+        }
+        const lease = {
+            leaseId: randomUUID(), actorId: randomUUID(), contextId: randomUUID(),
+            sceneId: scene.id, role: 'anonymous', owner, authority,
+            status: 'prepared', entered: 0, ended: 0, firstFailure: null,
+            events: [{ phase: 'prepared', at: new Date().toISOString() }]
+        };
+        state.leases.push(lease);
+        await writeSceneBindings(file, state);
+        return lease;
+    });
+}
+
+export async function transitionPublicShellLocaleSceneBinding(request, authority)
+{
+    return await withSceneBindingLock(request.resources.fixtureRoot, async () =>
+    {
+        const root = request.resources.fixtureRoot;
+        const file = sceneBindingsFile(root);
+        const state = readPublicShellLocaleSceneBindings(root);
+        const lease = state?.leases.find((item) => item.leaseId === request.lease?.leaseId);
+        if (!lease || state.closing || !isDeepStrictEqual(state.owner, sceneOwner(request))
+            || request.sceneId !== lease.sceneId || request.lease.actorId !== lease.actorId
+            || request.lease.sceneId !== lease.sceneId || request.lease.role !== lease.role
+            || request.lease.contextId !== lease.contextId
+            || !isDeepStrictEqual(request.lease.owner, lease.owner)
+            || !isDeepStrictEqual(request.lease.authority, lease.authority)
+            || !isDeepStrictEqual(authority, lease.authority))
+        {
+            sceneFailure('lease is missing, foreign, stale or mismatched', { file, lease, authority });
+        }
+        const allowed = {
+            reserved: 'prepared', entered: 'reserved', finished: 'entered',
+            abandoned: 'prepared', 'creation-failed': 'reserved', 'close-failed': 'entered'
+        };
+        if (allowed[request.phase] !== lease.status)
+        {
+            sceneFailure('context transition is out of order or reused', { file, lease, phase: request.phase });
+        }
+        lease.status = request.phase === 'close-failed' ? 'entered' : request.phase;
+        lease.entered += request.phase === 'entered' ? 1 : 0;
+        lease.ended += request.phase === 'finished' ? 1 : 0;
+        lease.firstFailure ??= request.failure ?? null;
+        lease.events.push({ phase: request.phase, at: new Date().toISOString() });
+        await writeSceneBindings(file, state);
+        return lease;
+    });
+}
+
+export async function closePublicShellLocaleSceneBindings(root, request = null)
+{
+    return await withSceneBindingLock(root, async () =>
+    {
+        assertPublicShellLocaleScenesReleased(root);
+        const state = readPublicShellLocaleSceneBindings(root) ?? (request ? {
+            schema: sceneBindingSchema, owner: sceneOwner(request), closing: false, leases: [], blocked: []
+        } : null);
+        if (state)
+        {
+            if (request && !isDeepStrictEqual(state.owner, sceneOwner(request)))
+            {
+                sceneFailure('cleanup owner is stale or foreign', { file: sceneBindingsFile(root), owner: state.owner });
+            }
+            state.closing = true;
+            await writeSceneBindings(sceneBindingsFile(root), state);
+        }
+    });
+}
 
 function compactIdentity(value, label)
 {
@@ -200,17 +409,92 @@ function decodeProcessEnvironment(raw)
         }));
 }
 
+function macProviderEnvironment(member, processGroupIdentity, execute)
+{
+    const snapshot = JSON.parse(execute('/usr/bin/python3', [darwinSnapshotScript, String(member.pid), '--provider-bindings'], {
+        encoding: 'utf8', maxBuffer: providerOutputLimitBytes
+    }));
+    const nativeStart = /^darwin:(\d+):(\d{6})$/u.exec(member.processStartIdentity);
+    const expectedStart = nativeStart ? String(BigInt(nativeStart[1]) * 1_000_000n + BigInt(nativeStart[2])) : null;
+    const selectedKeys = [
+        'FSUSBLOG_BROWSER_CONTRACT_PROVIDER_INVOCATION_ID',
+        'FSUSBLOG_PLAYWRIGHT_SESSION_MODE',
+        'FSUSBLOG_TEST_NAMESPACE',
+        'FSUSBLOG_FIXTURE_ROOT'
+    ];
+    if (!expectedStart || snapshot?.processGroupId !== processGroupIdentity.groupId
+        || snapshot.sessionId !== processGroupIdentity.groupId || snapshot.startTimeTicks !== expectedStart
+        || !snapshot.environment || Object.keys(snapshot.environment).length !== selectedKeys.length
+        || selectedKeys.some((key) => typeof snapshot.environment[key] !== 'string' || !snapshot.environment[key]))
+    {
+        throw new Error('provider native snapshot binding is unverifiable');
+    }
+    return snapshot.environment;
+}
+
+function macProviderProcessGroupIsOwned(processGroupId, {
+    invocationId, namespace, fixtureRoot, processGroupIdentity, execute
+})
+{
+    if (processGroupIdentity.schema !== 'fsusblog.process-group-or-job-identity.v1'
+        || !processGroupIdentity.leaderProcessStartIdentity
+        || processGroupIdentity.kind !== 'process-group'
+        || processGroupIdentity.groupId !== processGroupId
+        || processGroupIdentity.leaderPid !== processGroupId)
+    {
+        return false;
+    }
+    try
+    {
+        const options = { platform: 'darwin', execute };
+        const before = processGroupMemberIdentities(processGroupIdentity, options);
+        if (before.status !== 'verified' || before.identities.length === 0)
+        {
+            return false;
+        }
+        for (const member of before.identities)
+        {
+            const environment = macProviderEnvironment(member, processGroupIdentity, execute);
+            if (environment.FSUSBLOG_BROWSER_CONTRACT_PROVIDER_INVOCATION_ID !== invocationId
+                || environment.FSUSBLOG_PLAYWRIGHT_SESSION_MODE !== 'browser-contract'
+                || environment.FSUSBLOG_TEST_NAMESPACE !== namespace
+                || !environment.FSUSBLOG_FIXTURE_ROOT
+                || path.resolve(environment.FSUSBLOG_FIXTURE_ROOT) !== path.resolve(fixtureRoot))
+            {
+                return false;
+            }
+        }
+        const after = processGroupMemberIdentities(processGroupIdentity, options);
+        return after.status === 'verified'
+            && before.identities.length === after.identities.length
+            && before.identities.every((member, index) => processIdentityMatches(member, after.identities[index]));
+    }
+    catch
+    {
+        return false;
+    }
+}
+
 export function providerProcessGroupIsOwned(processGroupId, {
     invocationId,
     namespace,
     fixtureRoot,
-    procRoot = '/proc'
+    procRoot = '/proc',
+    processGroupIdentity = null,
+    execute = execFileSync
 } = {})
 {
     if (!Number.isInteger(processGroupId) || processGroupId <= 1
     || !invocationId || !namespace || !fixtureRoot)
     {
         return false;
+    }
+
+    if (processGroupIdentity?.platform === 'darwin')
+    {
+        return macProviderProcessGroupIsOwned(processGroupId, {
+            invocationId, namespace, fixtureRoot, processGroupIdentity, execute
+        });
     }
 
     let ownedMemberCount = 0;
@@ -298,6 +582,10 @@ async function invokeProvider(provider, request, { env, repoRoot, signal })
             stdio: ['pipe', 'pipe', 'pipe'],
             detached: process.platform !== 'win32'
         });
+        // Preserve the original leader identity before TERM can leave only group members alive.
+        const processGroup = process.platform === 'darwin'
+            ? collectProcessGroupOrJobIdentity(child.pid)
+            : null;
         let stdout = '';
         let stderr = '';
         let settled = false;
@@ -308,7 +596,8 @@ async function invokeProvider(provider, request, { env, repoRoot, signal })
       && providerProcessGroupIsOwned(child.pid, {
           invocationId,
           namespace: request.identity.namespace,
-          fixtureRoot: request.resources.fixtureRoot
+          fixtureRoot: request.resources.fixtureRoot,
+          processGroupIdentity: processGroup?.status === 'verified' ? processGroup.value : null
       });
 
         const terminate = (signalName = 'SIGTERM') =>
@@ -330,7 +619,9 @@ async function invokeProvider(provider, request, { env, repoRoot, signal })
                 }
             }
             catch
-            {}
+            {
+                // Process exit can race signal delivery; ownership is checked before retrying KILL.
+            }
             if (signalName === 'SIGTERM' && !forcedKillTimer)
             {
                 forcedKillTimer = setTimeout(() =>
@@ -541,6 +832,24 @@ export function createBrowserContractFixtureApi({
         async createAdminSession()
         {
             return requireEntity(await call('createAdminSession'), 'createAdminSession');
+        },
+        async preparePublicShellLocaleScene(sceneId)
+        {
+            return requireEntity(await call('preparePublicShellLocaleScene', { sceneId }), 'preparePublicShellLocaleScene');
+        },
+        async readPublicShellLocaleAuthority(sceneId)
+        {
+            return requireEntity(await call('readPublicShellLocaleAuthority', { sceneId }), 'readPublicShellLocaleAuthority');
+        },
+        async readPublicShellLocalePublishedArtifact(sceneId, path)
+        {
+            return requireEntity(await call('readPublicShellLocalePublishedArtifact', { sceneId, path }), 'readPublicShellLocalePublishedArtifact');
+        },
+        async transitionPublicShellLocaleScene(lease, phase, failure = null)
+        {
+            return requireEntity(await call('transitionPublicShellLocaleScene', {
+                sceneId: lease.sceneId, lease, phase, failure: serializeLifecycleError(failure)
+            }), 'transitionPublicShellLocaleScene');
         }
     });
 }
@@ -915,6 +1224,25 @@ export async function cleanupBrowserContractFixture(prepared, { reason = 'comple
     if (cleanupPromises.has(prepared))
     {
         return await cleanupPromises.get(prepared);
+    }
+    // Fail before provider cleanup or any lifecycle/file mutation. Keep the raw lease ledger for retry.
+    if (prepared.lifecycle.publicShellLocaleSceneBindingFile
+        && !existsSync(prepared.lifecycle.publicShellLocaleSceneBindingFile))
+    {
+        sceneFailure('cleanup actor/context binding source is missing', {
+            file: prepared.lifecycle.publicShellLocaleSceneBindingFile
+        });
+    }
+    assertPublicShellLocaleScenesReleased(prepared.root);
+    const scenes = readPublicShellLocaleSceneBindings(prepared.root);
+    if (scenes)
+    {
+        const request = providerRequest('resetContractNamespace', prepared);
+        if (!isDeepStrictEqual(scenes.owner, sceneOwner(request)))
+        {
+            sceneFailure('cleanup owner is stale or foreign', { file: sceneBindingsFile(prepared.root), owner: scenes.owner });
+        }
+        prepared.lifecycle.publicShellLocaleScenes = scenes;
     }
     const cleanupPromise = (async () =>
     {

@@ -1,11 +1,14 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 using FsusBlog.Shared.Contracts.Governance;
@@ -16,6 +19,7 @@ using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
+using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.IdentityModel.Tokens;
 
 using NSubstitute;
@@ -228,6 +232,143 @@ public sealed class UserSessionJwtAuthenticationTests
         using HttpResponseMessage response = await client.SendAsync(request);
 
         Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+    }
+
+    [Theory]
+    [InlineData("unknown")]
+    [InlineData("revoked")]
+    [InlineData("expired")]
+    [InlineData("principal-disabled")]
+    public async Task AdminBearer_InvalidRealProjectionReturns401AndClearsOnlyAdminCookies(string state)
+    {
+        using ServiceProvider scopes = new ServiceCollection().BuildServiceProvider();
+        using AdminSessionTouchScheduler touches = CreateAdminTouches(scopes);
+        var projection = new AdminSessionProjection(new AdminSessionProjectionLimits(16, 16, 1024 * 1024));
+        var adminValidator = new RecordingAdminValidator(new AdminSessionValidationService(projection, touches));
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator);
+        DateTime now = DateTime.UtcNow;
+        var principal = new AdminPrincipal { Id = 7, Handle = "root" };
+        var session = new AdminSession
+        {
+            SessionId = "admin-bearer-invalid",
+            AdminPrincipalId = principal.Id,
+            IdleExpiresAtUtc = now.AddHours(1),
+            AbsoluteExpiresAtUtc = now.AddHours(8)
+        };
+        IssuedAccessToken token = app.Services.GetRequiredService<IJwtHelper>()
+            .GenerateAdminAccessToken(principal, session, [AdminPermissions.AdminManage]);
+        if (state != "unknown")
+        {
+            Assert.True(projection.Apply(new AdminSessionProjectionSessionUpdate(
+                session.SessionId, principal.Id, SHA256.HashData(Encoding.UTF8.GetBytes(token.Token)),
+                state == "revoked" ? new DateTimeOffset(now.AddMinutes(-1)) : null,
+                new DateTimeOffset(state == "expired" ? now.AddMinutes(-1) : session.IdleExpiresAtUtc),
+                new DateTimeOffset(session.AbsoluteExpiresAtUtc), 1, 1,
+                new AdminSessionProjectionPrincipalUpdate(principal.Id,
+                    state == "principal-disabled" ? AdminSessionProjectionPrincipalStatus.Disabled : AdminSessionProjectionPrincipalStatus.Active,
+                    1, 1))).Accepted);
+        }
+        Assert.True(projection.MarkReady(state == "unknown" ? 0 : 1));
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/admin/protected");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+        request.Headers.Add("Cookie", "RefreshToken=ordinary-refresh; SessionId=ordinary-session");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        Assert.Equal(token.Token, adminValidator.LastAccessToken);
+        Assert.NotNull(adminValidator.LastResult);
+        Assert.False(adminValidator.LastResult.IsValid);
+        Assert.Equal(state switch
+        {
+            "unknown" => AdminSessionProjectionReasons.UnknownSession,
+            "revoked" => AdminSessionProjectionReasons.Revoked,
+            "expired" => AdminSessionProjectionReasons.IdleExpired,
+            "principal-disabled" => AdminSessionProjectionReasons.PrincipalInactive,
+            _ => throw new ArgumentOutOfRangeException(nameof(state))
+        }, adminValidator.LastResult.Reason);
+        Assert.Equal(1, adminValidator.Calls);
+        await userValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>());
+        string[] cookies = response.Headers.GetValues("Set-Cookie").ToArray();
+        string[] names = cookies.Select(cookie => cookie.Split('=', 2)[0]).Order(StringComparer.Ordinal).ToArray();
+        Assert.Equal(new[] { "AdminAccessToken", "AdminSessionId", "__Host-AdminAccessToken", "__Host-AdminSessionId" }
+            .Order(StringComparer.Ordinal), names);
+        Assert.All(cookies, cookie => Assert.Contains("expires=", cookie, StringComparison.OrdinalIgnoreCase));
+        Assert.Equal(0, touches.Snapshot().EnqueuedCount);
+        Assert.Equal(0, projection.Snapshot().AuthorityReadCount);
+    }
+
+    [Fact]
+    public async Task AdminBearer_ActiveRealProjectionIsAcceptedWithoutOrdinaryValidation()
+    {
+        using ServiceProvider scopes = new ServiceCollection().BuildServiceProvider();
+        using AdminSessionTouchScheduler touches = CreateAdminTouches(scopes);
+        var projection = new AdminSessionProjection(new AdminSessionProjectionLimits(16, 16, 1024 * 1024));
+        var adminValidator = new RecordingAdminValidator(new AdminSessionValidationService(projection, touches));
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator);
+        DateTime now = DateTime.UtcNow;
+        var principal = new AdminPrincipal { Id = 7, Handle = "root" };
+        var session = new AdminSession
+        {
+            SessionId = "admin-bearer-active",
+            AdminPrincipalId = principal.Id,
+            IdleExpiresAtUtc = now.AddHours(1),
+            AbsoluteExpiresAtUtc = now.AddHours(8)
+        };
+        IssuedAccessToken token = app.Services.GetRequiredService<IJwtHelper>()
+            .GenerateAdminAccessToken(principal, session, [AdminPermissions.AdminManage]);
+        Assert.True(projection.Apply(new AdminSessionProjectionSessionUpdate(
+            session.SessionId, principal.Id, SHA256.HashData(Encoding.UTF8.GetBytes(token.Token)), null,
+            new DateTimeOffset(session.IdleExpiresAtUtc), new DateTimeOffset(session.AbsoluteExpiresAtUtc), 1, 1,
+            new AdminSessionProjectionPrincipalUpdate(principal.Id, AdminSessionProjectionPrincipalStatus.Active, 1, 1))).Accepted);
+        Assert.True(projection.MarkReady(1));
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/admin/protected");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token.Token);
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Equal(token.Token, adminValidator.LastAccessToken);
+        Assert.True(adminValidator.LastResult!.IsValid);
+        Assert.False(response.Headers.TryGetValues("Set-Cookie", out _));
+        await userValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>());
+        Assert.Equal(1, touches.Snapshot().EnqueuedCount);
+        Assert.Equal(0, projection.Snapshot().AuthorityReadCount);
+    }
+
+    private static AdminSessionTouchScheduler CreateAdminTouches(IServiceProvider services)
+        => new(services.GetRequiredService<IServiceScopeFactory>(),
+            new AdminSessionProjectionRuntimeOptions(new AdminSessionProjectionLimits(16, 16, 1024 * 1024),
+                8, 8, 8, TimeSpan.FromSeconds(45), TimeSpan.FromMilliseconds(10), TimeSpan.FromSeconds(1)),
+            TimeProvider.System, NullLogger<AdminSessionTouchScheduler>.Instance);
+
+    private sealed class RecordingAdminValidator(IAdminSessionValidationService owner) : IAdminSessionValidationService
+    {
+        public string? LastAccessToken
+        {
+            get; private set;
+        }
+        public AdminSessionValidationResult? LastResult
+        {
+            get; private set;
+        }
+        public int Calls
+        {
+            get; private set;
+        }
+
+        public async Task<AdminSessionValidationResult> ValidateAsync(
+            ClaimsPrincipal? principal, string accessToken, CancellationToken cancellationToken)
+        {
+            Calls++;
+            LastAccessToken = accessToken;
+            LastResult = await owner.ValidateAsync(principal, accessToken, cancellationToken);
+            return LastResult;
+        }
     }
 
     private static async Task<WebApplication> StartHostAsync(

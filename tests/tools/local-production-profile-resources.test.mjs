@@ -41,7 +41,7 @@ function tier(id, dependsOn = [])
 function profile(overrides = {})
 {
     return {
-        budgetMs: 300_000,
+        budgetMs: 3_600_000,
         minimumSupportedCpuUnits: 4,
         memoryReserveShare: 0.05,
         bundles: [
@@ -92,6 +92,14 @@ test('production profile requires exact fresh logical-tier coverage', () =>
             : bundle)
     });
     assert.ok(validateLocalProfiles({ production: missing }, tiers).some((error) => error.includes('missing logical tier: d')));
+});
+
+test('production profile rejects the retired five-minute fixture budget', () =>
+{
+    const tiers = [tier('production', ['a', 'b', 'c', 'd']), tier('a'), tier('b'), tier('c'), tier('d')];
+    assert.deepEqual(validateLocalProfiles({ production: profile({ budgetMs: 300_000 }) }, tiers), [
+        'localProfiles.production.budgetMs must be 3600000'
+    ]);
 });
 
 test('production profile rejects invalid resource declarations', () =>

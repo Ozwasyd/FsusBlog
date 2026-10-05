@@ -163,7 +163,8 @@ export function verifyPublicShellLocaleBuild(gate, expectedSourceState = {
     const result = verifyProductionBuildReceipt({
         artifactRoot: path.dirname(gate.receiptFile),
         receiptFile: path.basename(gate.receiptFile),
-        expectedSourceState
+        expectedSourceState,
+        repairReadOnlySeal: false
     });
     const required = new Set(gate.config.build.requiredDomains);
     const actual = new Set(result.receipt.domains.map((domain) => domain.name));

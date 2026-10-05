@@ -21,6 +21,10 @@ const {
 const {
     resolveGroupChecks
 } = await import(new URL('../../tools/governance/dependency-required-checks.mjs', import.meta.url));
+const {
+    buildStaticGovernanceExecutionPlan,
+    loadStaticGovernanceRegistry
+} = await import(new URL('../../tools/test/static-governance-host.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const packageVersion = '1.5.2';
@@ -147,12 +151,15 @@ test('workflow serializes verification, both contract suites, and one regular up
 {
     const workflow = readFileSync(path.join(repositoryRoot, '.github/workflows/fsusui-release-train.yml'), 'utf8');
     const verifier = workflow.indexOf('verify-fsusui-release-event.mjs');
-    const contracts = workflow.indexOf('fsusui-release-orchestration.test.mjs');
+    const workflowContractCommand = 'node --test tests/tools/fsusui-release-train.test.mjs';
+    const workflowContractInvocations = [...workflow.matchAll(/^\s*run: (node --test[^\r\n]*)$/gmu)];
+    assert.deepEqual(workflowContractInvocations.map((match) => match[1]), [workflowContractCommand]);
+    const contracts = workflowContractInvocations[0].index;
     const updater = workflow.indexOf('update-fsusui-release.mjs');
     assert.ok(verifier >= 0 && contracts > verifier && updater > contracts);
     assert.match(workflow, /repository_dispatch:[\s\S]*fsusui-npm-published-v1/u);
     assert.match(workflow, /concurrency:\s*\n\s*group: fsusui-release-train\s*\n\s*cancel-in-progress: false/u);
-    assert.match(workflow, /node --test tests\/tools\/fsusui-release-train\.test\.mjs tests\/tools\/fsusui-release-orchestration\.test\.mjs/u);
+    assert.doesNotMatch(workflow, /fsusui-release-orchestration\.test\.mjs/u);
     assert.match(workflow, /--receipt \.tmp\/fsusui-release-train\/receipt\.json/u);
     assert.doesNotMatch(workflow, /--first-migration/u);
     assert.doesNotMatch(workflow, /package\.json.*replace|replace.*package\.json/u);
@@ -160,4 +167,38 @@ test('workflow serializes verification, both contract suites, and one regular up
     assert.match(workflow, /actions\/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10/u);
     assert.match(workflow, /actions\/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e/u);
     assert.equal(PACKAGE_NAME, '@ozwasyd/element-plus');
+
+    const registryPath = path.join(repositoryRoot, 'tests/governance/test-lifecycle-registry.json');
+    const lifecycleRegistry = JSON.parse(readFileSync(registryPath, 'utf8'));
+    const orchestrationFile = 'tests/tools/fsusui-release-orchestration.test.mjs';
+    const orchestrationEntries = lifecycleRegistry.nodeTests.filter((entry) => entry.file === orchestrationFile);
+    assert.equal(orchestrationEntries.length, 1);
+    const [orchestrationEntry] = orchestrationEntries;
+    assert.equal(orchestrationEntry.owner, 'repository-governance:static-node-contracts');
+    assert.equal(orchestrationEntry.executionCategory, 'repository-governance');
+    assert.equal(orchestrationEntry.lifecycle, 'canonical-execution');
+    assert.equal(orchestrationEntry.physicalExecutionCount, 1);
+    assert.deepEqual(orchestrationEntry.staticGovernance, {
+        id: 'fsusui-release-orchestration',
+        category: 'real-subprocess-lifecycle',
+        physicalOwner: 'process:lifecycle'
+    });
+
+    const workflowEntries = lifecycleRegistry.nodeTests.filter((entry) => entry.file === 'tests/tools/fsusui-release-train.test.mjs');
+    assert.equal(workflowEntries.length, 1);
+    assert.equal(workflowEntries[0].owner, 'workflow-lint:fsusui-release-train.yml');
+    assert.equal(workflowEntries[0].executionCategory, 'workflow-only');
+    assert.equal(workflowEntries[0].physicalExecutionCount, 1);
+    assert.equal(workflowEntries[0].staticGovernance, undefined);
+
+    const staticRegistry = loadStaticGovernanceRegistry(registryPath, repositoryRoot);
+    const checks = staticRegistry.checks.filter((check) => check.file === orchestrationFile);
+    assert.equal(checks.length, 1);
+    assert.equal(staticRegistry.checks.some((check) => check.file === workflowEntries[0].file), false);
+    const executionPlan = buildStaticGovernanceExecutionPlan(staticRegistry);
+    const orchestrationHosts = executionPlan.hosts.filter((host) => host.checks.some((check) => check.file === orchestrationFile));
+    assert.equal(orchestrationHosts.length, 1);
+    assert.equal(orchestrationHosts[0].id, 'process:lifecycle:fsusui-release-orchestration');
+    assert.equal(orchestrationHosts[0].category, 'real-subprocess-lifecycle');
+    assert.deepEqual(orchestrationHosts[0].checks, checks);
 });

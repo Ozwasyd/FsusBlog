@@ -18,9 +18,11 @@ import { BrowserContractFailure, contractAssert } from './contract.mjs';
 import {
     browserContractFixedFixtureTopology,
     browserContractFixtureManifestSchema,
+    createBrowserContractFixtureApi,
     readSealedBrowserContractFixture,
     resolveBrowserContractRunIdentity
 } from './fixture-lifecycle.mjs';
+import { validatePublicShellLocaleMatrix } from './public-shell-locale-matrix.mjs';
 
 export { browserContractFixedFixtureTopology, resolveBrowserContractRunIdentity };
 export {
@@ -33,6 +35,246 @@ export {
 } from './contract.mjs';
 
 export const browserContractFixtureAdapterSchema = 'fsusblog.browser-contract-fixture-adapter.v2';
+const publicShellSceneHandles = new WeakMap();
+const publicShellContexts = new WeakMap();
+const usedPublicShellContexts = new WeakSet();
+
+function publicShellSceneApi(prepared, signal = null)
+{
+    contractAssert(prepared?.lifecycle?.status === 'prepared', 'PublicShell scene requires live canonical preparation');
+    return createBrowserContractFixtureApi({
+        identity: prepared.identity, env: prepared.env, repoRoot: prepared.repoRoot,
+        sourceState: prepared.sourceState, build: prepared.build, preparation: prepared.preparation, signal
+    });
+}
+
+function sceneHandle(prepared, handle)
+{
+    const owned = publicShellSceneHandles.get(handle);
+    contractAssert(owned?.prepared === prepared && owned.status === 'prepared',
+        'PublicShell scene handle is missing, foreign or already consumed', { lease: handle });
+    publicShellSceneApi(prepared);
+    return owned;
+}
+
+/** Read current common authority through the configured provider; allocate no scene or actor. */
+export async function readPublicShellLocaleRootAuthority(prepared, { matrix, signal = null })
+{
+    if (signal?.aborted)
+    {
+        throw new BrowserContractFailure('PublicShell Root authority query was cancelled', 'infra');
+    }
+    const api = publicShellSceneApi(prepared, signal);
+    await validatePublicShellLocaleMatrix(matrix, prepared.repoRoot);
+    contractAssert(matrix.identity.sourceCommit === prepared.sourceState.commit
+        && matrix.identity.worktreeFingerprint === prepared.sourceState.worktreeFingerprint,
+    'PublicShell Root matrix does not bind the prepared source');
+    contractAssert(matrix.scenes.length > 0, 'PublicShell Root matrix has no canonical scene');
+    if (signal?.aborted)
+    {
+        throw new BrowserContractFailure('PublicShell Root authority query was cancelled', 'infra');
+    }
+    const authority = await api.readPublicShellLocaleAuthority(matrix.scenes[0].id);
+    if (signal?.aborted)
+    {
+        throw new BrowserContractFailure('PublicShell Root authority query was cancelled', 'infra');
+    }
+    contractAssert(authority.matrixDigest === matrix.contentDigest
+        && typeof authority.runtimeRunId === 'string' && authority.runtimeRunId.trim().length > 0
+        && typeof authority.runtime?.frontendUrl === 'string'
+        && typeof authority.runtime?.backendUrl === 'string'
+        && authority.runtime?.frontendUrl === prepared.lifecycle.runtime?.frontendUrl
+        && authority.runtime?.backendUrl === prepared.lifecycle.runtime?.backendUrl
+        && typeof authority.fixtureReceiptDigest === 'string'
+        && /^(?:sha256:)?[a-f0-9]{64}$/u.test(authority.fixtureReceiptDigest),
+    'PublicShell Root authority does not bind the current prepared runtime');
+    return Object.freeze(structuredClone(authority));
+}
+
+/** Formal facade: returns a lease (or explicit auth blocker), never a product acceptance flag. */
+export async function preparePublicShellLocaleScene(prepared, { matrix, sceneId })
+{
+    const api = publicShellSceneApi(prepared);
+    await validatePublicShellLocaleMatrix(matrix, prepared.repoRoot);
+    contractAssert(matrix.identity.sourceCommit === prepared.sourceState.commit
+        && matrix.identity.worktreeFingerprint === prepared.sourceState.worktreeFingerprint,
+    'PublicShell scene matrix does not bind the prepared source');
+    const scene = matrix.scenes.find((item) => item.id === sceneId);
+    contractAssert(scene, 'PublicShell scene is not in the canonical matrix');
+    const lease = await api.preparePublicShellLocaleScene(sceneId);
+    prepared.lifecycle.publicShellLocaleSceneBindingFile = path.join(prepared.root, 'public-shell-locale-scene-bindings.json');
+    if (lease.status === 'blocked')
+    {
+        contractAssert(scene.authActionContext !== 'anonymous' && lease.contextCount === 0
+            && lease.reason === 'canonical-scene-auth-allocation-unavailable', 'PublicShell auth blocker is invalid');
+        return Object.freeze(lease);
+    }
+    contractAssert(lease.status === 'prepared' && lease.role === 'anonymous' && scene.authActionContext === 'anonymous'
+        && lease.sceneId === sceneId && lease.authority?.matrixDigest === matrix.contentDigest,
+    'PublicShell scene actor source is missing or mismatched', { lease });
+    const handle = Object.freeze(structuredClone(lease));
+    publicShellSceneHandles.set(handle, { prepared, lease, api, status: 'prepared' });
+    return handle;
+}
+
+/** Only the canonical runner supplies its existing Browser; this facade does not launch one. */
+export async function consumePublicShellLocaleScene(prepared, handle, browser)
+{
+    const owned = sceneHandle(prepared, handle);
+    contractAssert(typeof browser?.newContext === 'function' && typeof browser.contexts === 'function',
+        'PublicShell scene requires the canonical Browser owner');
+    const previousContexts = new Set(browser.contexts());
+    owned.lease = await owned.api.transitionPublicShellLocaleScene(owned.lease, 'reserved');
+    owned.status = 'reserved';
+    const inputs = owned.lease.authority.inputs;
+    const options = {
+        viewport: { ...inputs.viewport }, javaScriptEnabled: inputs.javaScriptEnabled,
+        serviceWorkers: 'block',
+        storageState: { cookies: [], origins: [] },
+        extraHTTPHeaders: inputs.acceptLanguage === null ? {} : { 'Accept-Language': inputs.acceptLanguage }
+    };
+    if (inputs.cookie !== null)
+    {
+        options.storageState.cookies.push({
+            name: inputs.cookieName, value: inputs.cookie,
+            domain: new URL(owned.lease.authority.runtime.frontendUrl).hostname,
+            path: '/', expires: -1, httpOnly: true, secure: false, sameSite: 'Lax'
+        });
+    }
+    let context;
+    try
+    {
+        context = await browser.newContext(options);
+    }
+    catch (error)
+    {
+        try
+        {
+            owned.lease = await owned.api.transitionPublicShellLocaleScene(owned.lease, 'creation-failed', error);
+        }
+        catch (bindingError)
+        {
+            Object.assign(error, { sceneBindingError: bindingError, sceneLease: owned.lease });
+        }
+        owned.status = 'creation-failed';
+        throw error;
+    }
+    contractAssert(context && typeof context.close === 'function' && typeof context.browser === 'function'
+        && context.browser() === browser && browser.contexts().includes(context)
+        && !previousContexts.has(context) && !usedPublicShellContexts.has(context),
+    'PublicShell context is missing, foreign or reused; reserved lease retained', { lease: owned.lease });
+    usedPublicShellContexts.add(context);
+    publicShellContexts.set(context, owned);
+    owned.context = context;
+    owned.lease = await owned.api.transitionPublicShellLocaleScene(owned.lease, 'entered');
+    owned.status = 'entered';
+    if (inputs.acceptLanguage === null)
+    {
+        try
+        {
+            contractAssert(typeof context.route === 'function', 'PublicShell missing-header context requires request routing');
+            await context.route('**/*', async (route) =>
+            {
+                const headers = { ...await route.request().allHeaders() };
+                for (const name of Object.keys(headers))
+                {
+                    if (name.toLowerCase() === 'accept-language')
+                    {
+                        delete headers[name];
+                    }
+                }
+                await route.continue({ headers });
+            });
+        }
+        catch (error)
+        {
+            try
+            {
+                await finishPublicShellLocaleScene(prepared, handle, context, error);
+            }
+            catch (cleanupError)
+            {
+                Object.assign(error, { sceneCleanupError: cleanupError, sceneLease: owned.lease });
+            }
+            throw error;
+        }
+    }
+    return context;
+}
+
+/** Read only through the entered scene's original provider capability and live context. */
+export async function readPublicShellLocaleScenePublishedArtifact(prepared, handle, context, selectedPath)
+{
+    const owned = publicShellSceneHandles.get(handle);
+    const requireEntered = () =>
+    {
+        publicShellSceneApi(prepared);
+        contractAssert(owned?.prepared === prepared && owned.status === 'entered'
+            && owned.context === context && publicShellContexts.get(context) === owned
+            && !owned.finishing && !owned.closed,
+        'PublicShell published read requires its exact entered scene context');
+    };
+    requireEntered();
+    const result = await owned.api.readPublicShellLocalePublishedArtifact(handle.sceneId, selectedPath);
+    requireEntered();
+    contractAssert(result.sceneId === handle.sceneId
+        && result.matrixDigest === handle.authority.matrixDigest
+        && result.runtimeRunId === handle.authority.runtimeRunId,
+    'PublicShell published read result belongs to another scene or runtime');
+    return Object.freeze(structuredClone(result));
+}
+
+export async function finishPublicShellLocaleScene(prepared, handle, context, failure = null)
+{
+    const owned = publicShellSceneHandles.get(handle);
+    contractAssert(owned?.prepared === prepared && owned.status === 'entered'
+        && !owned.finishing && owned.context === context && publicShellContexts.get(context) === owned,
+    'PublicShell close requires the exact live context owner', { lease: handle });
+    publicShellSceneApi(prepared);
+    owned.firstFailure ??= failure;
+    // A failed close retains the entered lease; no invented end count or early namespace cleanup.
+    owned.finishing = true;
+    try
+    {
+        if (!owned.closed)
+        {
+            try
+            {
+                await context.close();
+                owned.closed = true;
+            }
+            catch (error)
+            {
+                owned.firstFailure ??= error;
+                try
+                {
+                    owned.lease = await owned.api.transitionPublicShellLocaleScene(owned.lease, 'close-failed', owned.firstFailure);
+                }
+                catch (bindingError)
+                {
+                    Object.assign(error, { sceneBindingError: bindingError, sceneLease: owned.lease });
+                }
+                throw error;
+            }
+        }
+        owned.lease = await owned.api.transitionPublicShellLocaleScene(owned.lease, 'finished', owned.firstFailure ?? failure);
+        owned.status = 'finished';
+        publicShellContexts.delete(context);
+        return Object.freeze(structuredClone(owned.lease));
+    }
+    finally
+    {
+        owned.finishing = false;
+    }
+}
+
+export async function abandonPublicShellLocaleScene(prepared, handle, failure = null)
+{
+    const owned = sceneHandle(prepared, handle);
+    owned.lease = await owned.api.transitionPublicShellLocaleScene(owned.lease, 'abandoned', failure);
+    owned.status = 'abandoned';
+    return Object.freeze(structuredClone(owned.lease));
+}
 
 function resolveStorageStateFile(authDirectory, descriptor, role, { requirePrivate = false } = {})
 {

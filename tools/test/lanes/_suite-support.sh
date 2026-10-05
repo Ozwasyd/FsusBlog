@@ -994,6 +994,12 @@ PrepareBackendPlatformPlan() {
     local lane="$1"
     local baseFilter="$2"
     local configuration outputDirectory testAssembly diagnosticRoot planFile runtimePlatform
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" --ordinary-plan \
+        --lane "$lane" --filter "$baseFilter" \
+        --run-id "${FSUSBLOG_TEST_RUN_ID:-ordinary-$$}" \
+        --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:-$(git -C "$ROOT_DIR" rev-parse HEAD)}" \
+        --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-$(node --input-type=module -e 'const { snapshotGitWorktree } = await import(process.argv[1] + "/tools/test-matrix/scheduler.mjs"); process.stdout.write((await snapshotGitWorktree(process.argv[1])).fingerprint)' "$ROOT_DIR")}" \
+        --output "$ROOT_DIR/.tmp/$lane/local-redis-membership-plan.json"
     configuration="$(BackendTestConfiguration)"
     EnsureBackendFilteredBuild
     outputDirectory="$(BackendTestRuntimeOutputDirectory)"
