@@ -343,8 +343,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "article_mutation_idempotency_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             if (!httpContext.Request.Headers.TryGetValue("X-Fsus-Client-Mutation-Id", out var rawMutationId))
             {
@@ -365,8 +364,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Unauthorized, "admin_principal_required"),
-                    aeds,
-                    StatusCodes.Status401Unauthorized);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             string requestHash = Convert.ToHexString(SHA256.HashData(payload.Payload.Span));
@@ -429,7 +427,7 @@ public static partial class BinaryEndpoints
                     success: false,
                     reasonCode: BuildArticleTrashClearStepUpReason(stepUp.Value.StatusCode),
                     cancellationToken);
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             int count = await articles.ClearTrashAsync(cancellationToken);
@@ -470,7 +468,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is not null)
             {
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             bool success = await articles.DeleteAsync(id, cancellationToken);
@@ -494,7 +492,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is not null)
             {
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             Result result = await articles.RestoreAsync(id, cancellationToken);
@@ -518,7 +516,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is not null)
             {
-                return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
             }
 
             bool success = await articles.PermanentlyDeleteArticleAsync(id, cancellationToken);

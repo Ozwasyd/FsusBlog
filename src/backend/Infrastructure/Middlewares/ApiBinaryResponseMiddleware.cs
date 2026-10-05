@@ -5,6 +5,7 @@ using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Binary;
+using FsusBlog.Server.Infrastructure.Results;
 
 namespace FsusBlog.Server.Infrastructure.Middlewares;
 
@@ -41,21 +42,23 @@ public sealed class ApiBinaryResponseMiddleware
             {
                 if (HasExplicitIncompatibleAccept(context.Request, envelopePolicy))
                 {
+                    const ApiErrorTransportMappingId MappingId = ApiErrorTransportMappingId.Generic406InfraFailure;
                     await envelopePolicy.WriteApiErrorAsync(
                         context,
                         context.Response.Body,
-                        ErrorDetail.Create(envelopePolicy.MapErrorCode(StatusCodes.Status406NotAcceptable), "binary_accept_required", traceId: context.TraceIdentifier),
-                        StatusCodes.Status406NotAcceptable);
+                        ApiErrorSemanticMapper.CreateError(MappingId, "binary_accept_required", context.TraceIdentifier),
+                        MappingId);
                     return;
                 }
 
                 if (HasIncompatibleBinaryRequestBody(context.Request, envelopePolicy))
                 {
+                    const ApiErrorTransportMappingId MappingId = ApiErrorTransportMappingId.Generic415InfraFailure;
                     await envelopePolicy.WriteApiErrorAsync(
                         context,
                         context.Response.Body,
-                        ErrorDetail.Create(envelopePolicy.MapErrorCode(StatusCodes.Status415UnsupportedMediaType), "binary_content_type_required", traceId: context.TraceIdentifier),
-                        StatusCodes.Status415UnsupportedMediaType);
+                        ApiErrorSemanticMapper.CreateError(MappingId, "binary_content_type_required", context.TraceIdentifier),
+                        MappingId);
                     return;
                 }
 
@@ -111,38 +114,41 @@ public sealed class ApiBinaryResponseMiddleware
 
             if (rawBody.Length == 0 && context.Response.StatusCode >= 400)
             {
+                ApiErrorTransportMappingId fallbackMappingId = envelopePolicy.GetGenericMappingId(context.Response.StatusCode);
                 await envelopePolicy.WriteApiErrorAsync(
                     context,
                     originalBody,
-                    ErrorDetail.Create(envelopePolicy.MapErrorCode(context.Response.StatusCode), $"HTTP {context.Response.StatusCode}", traceId: context.TraceIdentifier),
-                    context.Response.StatusCode);
+                    ApiErrorSemanticMapper.CreateError(fallbackMappingId, $"HTTP {context.Response.StatusCode}", context.TraceIdentifier),
+                    fallbackMappingId);
                 return;
             }
 
-            int statusCode = context.Response.StatusCode >= 400
+            int requestedStatusCode = context.Response.StatusCode >= 400
                 ? context.Response.StatusCode
                 : StatusCodes.Status406NotAcceptable;
+            ApiErrorTransportMappingId responseMappingId = envelopePolicy.GetGenericMappingId(requestedStatusCode);
             string message = context.Response.StatusCode >= 400
                 ? $"HTTP {context.Response.StatusCode}"
                 : "binary_response_required";
             await envelopePolicy.WriteApiErrorAsync(
                 context,
                 originalBody,
-                ErrorDetail.Create(envelopePolicy.MapErrorCode(statusCode), message, traceId: context.TraceIdentifier),
-                statusCode);
+                ApiErrorSemanticMapper.CreateError(responseMappingId, message, context.TraceIdentifier),
+                responseMappingId);
         }
         catch (BinaryResponseCaptureLimitExceededException)
         {
             if (!context.Response.HasStarted)
             {
+                const ApiErrorTransportMappingId CaptureMappingId = ApiErrorTransportMappingId.Generic413InfraFailure;
                 await envelopePolicy.WriteApiErrorAsync(
                     context,
                     originalBody,
-                    ErrorDetail.Create(
-                        envelopePolicy.MapErrorCode(StatusCodes.Status413PayloadTooLarge),
+                    ApiErrorSemanticMapper.CreateError(
+                        CaptureMappingId,
                         "binary_response_capture_limit_exceeded",
-                        traceId: context.TraceIdentifier),
-                    StatusCodes.Status413PayloadTooLarge);
+                        context.TraceIdentifier),
+                    CaptureMappingId);
             }
         }
         finally
@@ -302,11 +308,12 @@ public sealed class ApiBinaryResponseMiddleware
             return;
         }
 
+        ApiErrorTransportMappingId mappingId = envelopePolicy.GetGenericMappingId(context.Response.StatusCode);
         await envelopePolicy.WriteApiErrorAsync(
             context,
             context.Response.Body,
-            ErrorDetail.Create(envelopePolicy.MapErrorCode(context.Response.StatusCode), $"HTTP {context.Response.StatusCode}", traceId: context.TraceIdentifier),
-            context.Response.StatusCode);
+            ApiErrorSemanticMapper.CreateError(mappingId, $"HTTP {context.Response.StatusCode}", context.TraceIdentifier),
+            mappingId);
     }
 
     private static bool IsResponseBodyEmpty(Stream body)

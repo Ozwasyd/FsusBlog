@@ -115,7 +115,7 @@ public static partial class BinaryEndpoints
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status406NotAcceptable, ErrorCode.Validation));
         }
 
         BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
@@ -173,8 +173,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "security_challenge_unsupported_reissue_unavailable"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             PoSpaceUnsupportedReissueResult reissued = await poSpaceUnsupportedReissueService.ReissueAsync(
@@ -190,8 +189,7 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Conflict, "security_challenge_client_capability_incompatible"),
-                aeds,
-                StatusCodes.Status409Conflict);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status409Conflict, ErrorCode.Conflict));
         }
 
         if (decision.Kind is not (RiskDecisionKind.Challenge or RiskDecisionKind.StepUp))
@@ -222,7 +220,7 @@ public static partial class BinaryEndpoints
         {
             return DecisionRequiresPerceptionCharacterV3(decision)
                 ? CreatePerceptionCharacterV3Failure(aeds, issued.Reason)
-                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, issued.Reason), aeds, StatusCodes.Status428PreconditionRequired);
+                : BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Forbidden, issued.Reason), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
         }
 
         var providerPayloads = issued.ProviderPayloads
@@ -291,7 +289,7 @@ public static partial class BinaryEndpoints
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status406NotAcceptable, ErrorCode.Validation));
         }
 
         BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
@@ -453,7 +451,7 @@ public static partial class BinaryEndpoints
     {
         if (!AcceptsBinaryResponse(httpContext.Request))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, StatusCodes.Status406NotAcceptable);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "binary_accept_required"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status406NotAcceptable, ErrorCode.Validation));
         }
 
         BinaryRequestPayload payload = await ReadBinaryRequestPayloadAsync(
@@ -568,8 +566,7 @@ public static partial class BinaryEndpoints
     private static BinaryFrameResult CreateSecurityChallengeVerifyGenericFailure(IAedsEncoder aeds)
         => BinaryResults.FromError(
             ErrorDetail.Create(ErrorCode.Forbidden, SecurityChallengeVerifyGenericFailure),
-            aeds,
-            StatusCodes.Status428PreconditionRequired);
+            aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
 
     private static BinaryFrameResult CreatePerceptionCharacterV3Failure(IAedsEncoder aeds, string reason)
     {
@@ -578,7 +575,7 @@ public static partial class BinaryEndpoints
                 ? "unavailable"
                 : "rejected";
         int status = coarse == "unavailable" ? StatusCodes.Status503ServiceUnavailable : StatusCodes.Status428PreconditionRequired;
-        return BinaryResults.FromError(ErrorDetail.Create(coarse == "unavailable" ? ErrorCode.InfraFailure : ErrorCode.Forbidden, coarse), aeds, status);
+        return BinaryResults.FromError(ErrorDetail.Create(coarse == "unavailable" ? ErrorCode.InfraFailure : ErrorCode.Forbidden, coarse), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(status, coarse == "unavailable" ? ErrorCode.InfraFailure : ErrorCode.Forbidden));
     }
 
     private static bool AcceptsBinaryResponse(HttpRequest request)

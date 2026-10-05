@@ -31,11 +31,25 @@ public static class BinaryResults
         return Frame(aeds, frameType, writer => writePayload(value, writer));
     }
 
-    public static BinaryFrameResult FromError(in ErrorDetail error, IAedsEncoder aeds, int httpStatus = 0)
+    public static BinaryFrameResult FromError(in ErrorDetail error, IAedsEncoder aeds)
     {
         ErrorDetail copy = error;
-        int status = httpStatus > 0 ? httpStatus : ApiErrorSemanticMapper.MapStatusCode(copy);
-        return Frame(aeds, AedsFrameType.ApiError, writer => PodBinaryCodec.WriteApiError(copy, writer, status), status);
+        ApiErrorTransportMappingId mappingId = ApiErrorSemanticMapper.GetDefaultMappingId(copy.Code);
+        return FromError(copy, aeds, mappingId);
+    }
+
+    public static BinaryFrameResult FromError(
+        in ErrorDetail error,
+        IAedsEncoder aeds,
+        ApiErrorTransportMappingId mappingId)
+    {
+        ErrorDetail copy = error;
+        ApiErrorSemanticMapper.TransportMapping mapping = ApiErrorSemanticMapper.ValidateError(mappingId, copy);
+        return Frame(
+            aeds,
+            AedsFrameType.ApiError,
+            writer => PodBinaryCodec.WriteApiError(copy, writer, mapping.HttpStatus),
+            mapping.HttpStatus);
     }
 
     public static BinaryFramePayloadResult FrameRaw(

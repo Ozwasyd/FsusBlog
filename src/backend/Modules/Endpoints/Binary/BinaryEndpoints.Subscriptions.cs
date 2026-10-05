@@ -61,8 +61,7 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Validation, "subscription_request_invalid"),
-                aeds,
-                StatusCodes.Status400BadRequest);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status400BadRequest, ErrorCode.Validation));
         }
 
         SiteSubscriptionBinaryResponse? response;
@@ -76,8 +75,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Forbidden, "subscription_unsubscribe_proof_required"),
-                    aeds,
-                    StatusCodes.Status428PreconditionRequired);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status428PreconditionRequired, ErrorCode.Forbidden));
             }
 
             var proofRequest = new SiteSubscriptionUnsubscribeProofConsumeRequest(
@@ -97,8 +95,7 @@ public static partial class BinaryEndpoints
                     : ErrorCode.Forbidden;
                 return BinaryResults.FromError(
                     ErrorDetail.Create(code, proof.Reason),
-                    aeds,
-                    statusCode);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(statusCode, code));
             }
 
             response = await SubscriptionEndpoints.UnsubscribeAsync(request, db, proof.Claims, configuration, cancellationToken);
@@ -112,8 +109,7 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.Validation, "email_invalid"),
-                aeds,
-                StatusCodes.Status400BadRequest);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status400BadRequest, ErrorCode.Validation));
         }
 
         return BinaryResults.Frame(

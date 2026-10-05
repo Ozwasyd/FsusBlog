@@ -14,6 +14,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Filters;
 using FsusBlog.Server.Infrastructure.Policies;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Shared.Contracts.Governance;
@@ -1489,6 +1490,8 @@ internal static class CompiledPublicStatusObserver
 
         int offset = 0;
         int? pendingStatus = null;
+        var recentIntegers = new Queue<(int Value, int Offset)>();
+        int instruction = 0;
         while (offset < il.Length)
         {
             int instructionOffset = offset;
@@ -1503,6 +1506,15 @@ internal static class CompiledPublicStatusObserver
             }
 
             int? constant = ReadIntegerConstant(opCode, il, offset);
+            if (constant is not null)
+            {
+                recentIntegers.Enqueue((constant.Value, instruction));
+            }
+            while (recentIntegers.TryPeek(out (int Value, int Offset) candidate)
+                && instruction - candidate.Offset > 24)
+            {
+                recentIntegers.Dequeue();
+            }
             if (constant is >= 400 and <= 599 && captureConstants)
             {
                 Add(evidence, constant.Value, $"compiled-il:{MethodIdentity(method)}@{instructionOffset}");
@@ -1519,6 +1531,12 @@ internal static class CompiledPublicStatusObserver
                 if (called is not null)
                 {
                     ObserveKnownStatus(called, evidence);
+                    ObserveTransportMappingStatus(
+                        called,
+                        recentIntegers,
+                        evidence,
+                        $"compiled-mapping-authority:{(method.DeclaringType?.IsNested == true ? "nested" : "method")}:"
+                        + $"{MethodIdentity(method)}->{MethodIdentity(called)}@{instructionOffset}");
                     if (pendingStatus is >= 400 and <= 599 && AcceptsExplicitStatus(called))
                     {
                         Add(
@@ -1539,6 +1557,7 @@ internal static class CompiledPublicStatusObserver
                 pendingStatus = null;
             }
             offset += OperandSize(opCode, il, offset);
+            instruction++;
         }
     }
 
@@ -1611,6 +1630,59 @@ internal static class CompiledPublicStatusObserver
                 or "FsusBlog.Server.Infrastructure.Results.BinaryResults"
                 or "Microsoft.AspNetCore.Http.Results")
             && method.GetParameters().Any(static parameter => parameter.ParameterType == typeof(int));
+    }
+
+    private static void ObserveTransportMappingStatus(
+        MethodBase called,
+        IEnumerable<(int Value, int Offset)> recentIntegers,
+        Dictionary<int, HashSet<string>> evidence,
+        string source)
+    {
+        if (called.DeclaringType == typeof(ApiErrorSemanticMapper)
+            && called.Name == nameof(ApiErrorSemanticMapper.GetDefaultMappingId))
+        {
+            foreach (int status in ApiErrorSemanticMapper.TransportMappings
+                .Where(static mapping =>
+                    mapping.Kind == ApiErrorTransportMappingKind.ErrorCodeDefaultStatus)
+                .Select(static mapping => mapping.HttpStatus)
+                .Distinct()
+                .Order())
+            {
+                Add(evidence, status, source);
+            }
+            return;
+        }
+
+        if (called.DeclaringType == typeof(ApiErrorSemanticMapper)
+            && called.Name == nameof(ApiErrorSemanticMapper.RequireTransportMappingId))
+        {
+            int? status = recentIntegers
+                .Reverse()
+                .Select(static item => item.Value)
+                .FirstOrDefault(static value => value is >= 400 and <= 599);
+            if (status is >= 400 and <= 599)
+            {
+                Add(evidence, status.Value, source);
+            }
+            return;
+        }
+
+        if (called.DeclaringType != typeof(AedsJsonResults)
+            || !called.GetParameters().Any(static parameter =>
+                parameter.ParameterType == typeof(ApiErrorTransportMappingId)))
+        {
+            return;
+        }
+
+        foreach (int value in recentIntegers.Reverse().Select(static item => item.Value))
+        {
+            var mappingId = (ApiErrorTransportMappingId)value;
+            if (mappingId != ApiErrorTransportMappingId.None && Enum.IsDefined(mappingId))
+            {
+                Add(evidence, ApiErrorSemanticMapper.GetMapping(mappingId).HttpStatus, source);
+                return;
+            }
+        }
     }
 
     private static void ObserveKnownStatus(

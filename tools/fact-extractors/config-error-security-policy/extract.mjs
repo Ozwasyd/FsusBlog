@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
 const observationRelative = '.tmp/contracts/config-error-security/config-error-security-policy-observation.json';
+const buildReceiptRelative = '.tmp/contracts/config-error-security/build-receipt.json';
 const expectedArtifactId = 'config-error-security-policy-observation';
 const expectedSchema = 'fsusblog.config-error-security-policy-observation.v2';
 const expectedDomainErrorSchema = 'fsusblog.domain-error-catalog.v1';
@@ -14,6 +15,7 @@ const requiredFactKeys = Object.freeze([
     'configuration.allowed-values',
     'configuration.required-production-values',
     'error-codes.public',
+    'error-codes.status-mapping-keys',
     'error-codes.transport-mapping',
     'error-codes.domain',
     'security.challenge-kinds',
@@ -32,6 +34,115 @@ function failResult(reasons)
         failureReasons: reasons.map(String),
         observations: {}
     };
+}
+
+function exactKeys(value, keys)
+{
+    return value != null
+        && typeof value === 'object'
+        && !Array.isArray(value)
+        && Object.keys(value).sort().join('\0') === [...keys].sort().join('\0');
+}
+
+function validateExactBuildReceipt(repositoryRoot, suppliedIdentity, digestValue, observationAuthoritySourcePaths)
+{
+    const receiptPath = path.join(repositoryRoot, buildReceiptRelative);
+    if (!existsSync(receiptPath))
+    {
+        return { failureReasons: [`missing canonical config/error build receipt ${buildReceiptRelative}`], receipt: null };
+    }
+
+    let receipt;
+    try
+    {
+        receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    }
+    catch (error)
+    {
+        return {
+            failureReasons: [`canonical config/error build receipt JSON parse failed: ${error instanceof Error ? error.message : String(error)}`],
+            receipt: null
+        };
+    }
+
+    const receiptKeys = [
+        'schema',
+        'artifactId',
+        'observationPath',
+        'observationDigest',
+        'artifactDigest',
+        'sourceDigests',
+        'sourceDigest',
+        'configuration',
+        'buildIdentity'
+    ];
+    const embeddedIdentityKeys = [
+        'artifactId',
+        'receiptDigest',
+        'artifactDigest',
+        'sourceDigests',
+        'sourceDigest'
+    ];
+    const failureReasons = [];
+    if (
+        !exactKeys(receipt, receiptKeys)
+        || receipt.schema !== 'fsusblog.config-error-security-observation-build-receipt.v1'
+        || receipt.artifactId !== expectedArtifactId
+        || receipt.observationPath !== observationRelative
+        || !['Debug', 'Release'].includes(receipt.configuration)
+        || !exactKeys(receipt.buildIdentity, embeddedIdentityKeys)
+        || !exactKeys(receipt.sourceDigests, observationAuthoritySourcePaths)
+    )
+    {
+        failureReasons.push('canonical config/error build receipt shape/path/source set is invalid');
+        return { failureReasons, receipt };
+    }
+
+    const { buildIdentity: embeddedIdentity, ...receiptBody } = receipt;
+    const actualReceiptDigest = digestValue(receiptBody);
+    if (embeddedIdentity.receiptDigest !== actualReceiptDigest)
+    {
+        failureReasons.push('canonical config/error build receipt self-digest mismatch');
+    }
+    for (const key of embeddedIdentityKeys.filter((key) => key !== 'receiptDigest'))
+    {
+        if (JSON.stringify(embeddedIdentity[key]) !== JSON.stringify(receipt[key]))
+        {
+            failureReasons.push(`config/error build receipt embedded ${key} mismatch`);
+        }
+    }
+    if (
+        !exactKeys(suppliedIdentity, ['artifactId', 'receiptDigest', 'artifactDigest'])
+        || suppliedIdentity.artifactId !== embeddedIdentity.artifactId
+        || suppliedIdentity.receiptDigest !== embeddedIdentity.receiptDigest
+        || suppliedIdentity.artifactDigest !== embeddedIdentity.artifactDigest
+    )
+    {
+        failureReasons.push('supplied buildIdentity does not identify the canonical config/error build receipt');
+    }
+
+    const actualSourceDigests = Object.fromEntries(observationAuthoritySourcePaths.map((relative) => [
+        relative,
+        existsSync(path.join(repositoryRoot, relative))
+            ? createHash('sha256').update(readFileSync(path.join(repositoryRoot, relative))).digest('hex')
+            : null
+    ]));
+    for (const relative of observationAuthoritySourcePaths)
+    {
+        if (actualSourceDigests[relative] == null)
+        {
+            failureReasons.push(`build receipt source missing: ${relative}`);
+        }
+        else if (receipt.sourceDigests[relative] !== actualSourceDigests[relative])
+        {
+            failureReasons.push(`build receipt source digest mismatch: ${relative}`);
+        }
+    }
+    if (receipt.sourceDigest !== digestValue(actualSourceDigests))
+    {
+        failureReasons.push('config/error build receipt aggregate source digest mismatch');
+    }
+    return { failureReasons, receipt };
 }
 
 function isSortedUniqueStrings(values)
@@ -149,7 +260,9 @@ function validateDomainErrors(domainErrors, transport, failureReasons)
             failureReasons.push(`${identity} has unknown or unmapped transport`);
             continue;
         }
-        const canonical = transport?.[`code:${mapping.aedsErrorCode}`];
+        const canonical = Object.values(transport ?? {}).find((candidate) =>
+            candidate?.mappingKind === 'error-code-default-status'
+            && candidate?.errorCode === mapping.aedsErrorCode);
         if (canonical == null || canonical.httpStatus !== mapping.httpStatus)
         {
             failureReasons.push(`${identity} transport mapping conflicts with production ErrorCode policy`);
@@ -173,6 +286,166 @@ function validateDomainErrors(domainErrors, transport, failureReasons)
             {
                 failureReasons.push(`${identity} must not be both active and ${partition}`);
             }
+        }
+    }
+}
+
+function validateTransportMappings(transport, statusMappingKeys, publicCodes, failureReasons)
+{
+    if (transport == null || typeof transport !== 'object' || Array.isArray(transport) || Object.keys(transport).length === 0)
+    {
+        failureReasons.push('error-codes.transport-mapping must be a non-empty map');
+        return;
+    }
+
+    const expectedKeys = ['defaultMessage', 'direction', 'errorCode', 'httpStatus', 'mappingId', 'mappingKind'];
+    const mappingIds = new Set();
+    const typedTuples = new Set();
+    const genericStatuses = new Set();
+    const reverseCodes = new Set();
+    const mappingStatuses = new Set();
+    let operationMappingCount = 0;
+    for (const [identity, mapping] of Object.entries(transport))
+    {
+        if (mapping == null || typeof mapping !== 'object' || Array.isArray(mapping)
+      || JSON.stringify(Object.keys(mapping).sort()) !== JSON.stringify(expectedKeys))
+        {
+            failureReasons.push(`error-codes.transport-mapping.${identity} must be an exact typed mapping`);
+            continue;
+        }
+        if (mapping.mappingId !== identity
+      || !/^(?:Generic|Default|Operation)[1-5][0-9]{2}[A-Z][A-Za-z]+$/u.test(mapping.mappingId))
+        {
+            failureReasons.push(`transport mapping ${identity} must use its exact stable mappingId`);
+        }
+        if (mappingIds.has(mapping.mappingId))
+        {
+            failureReasons.push(`duplicate transport mapping ID ${mapping.mappingId}`);
+        }
+        mappingIds.add(mapping.mappingId);
+        if (!Number.isInteger(mapping.httpStatus) || mapping.httpStatus < 400 || mapping.httpStatus > 599
+      || typeof mapping.errorCode !== 'string' || !publicCodes?.includes(mapping.errorCode)
+      || typeof mapping.defaultMessage !== 'string' || mapping.defaultMessage.trim().length === 0)
+        {
+            failureReasons.push(`error-codes.transport-mapping.${identity} has invalid status, ErrorCode or default message`);
+            continue;
+        }
+        const typedTuple = `${mapping.mappingKind}\u0000${mapping.httpStatus}\u0000${mapping.errorCode}`;
+        mappingStatuses.add(mapping.httpStatus);
+        if (typedTuples.has(typedTuple))
+        {
+            failureReasons.push(`duplicate typed transport tuple ${typedTuple}`);
+        }
+        typedTuples.add(typedTuple);
+
+        if (mapping.direction === 'status-to-error-code')
+        {
+            if (mapping.mappingKind !== 'generic-status-default')
+            {
+                failureReasons.push(`status mapping ${identity} must be classified as generic-status-default`);
+            }
+            if (genericStatuses.has(mapping.httpStatus))
+            {
+                failureReasons.push(`duplicate generic status mapping ${mapping.httpStatus}`);
+            }
+            genericStatuses.add(mapping.httpStatus);
+            continue;
+        }
+
+        if (mapping.direction === 'error-code-to-status')
+        {
+            if (mapping.mappingKind !== 'error-code-default-status')
+            {
+                failureReasons.push(`ErrorCode mapping ${identity} must be classified as error-code-default-status`);
+            }
+            if (reverseCodes.has(mapping.errorCode))
+            {
+                failureReasons.push(`duplicate ErrorCode reverse mapping ${mapping.errorCode}`);
+            }
+            reverseCodes.add(mapping.errorCode);
+            continue;
+        }
+
+        if (mapping.direction === 'operation-status-pair')
+        {
+            if (mapping.mappingKind !== 'operation-status-pair')
+            {
+                failureReasons.push(`operation mapping ${identity} must be classified as operation-status-pair`);
+            }
+            operationMappingCount += 1;
+            continue;
+        }
+
+        failureReasons.push(`error-codes.transport-mapping.${identity} has invalid direction`);
+    }
+
+    if (genericStatuses.size === 0)
+    {
+        failureReasons.push('error-codes.transport-mapping requires explicit status mappings');
+    }
+
+    if (!Array.isArray(statusMappingKeys) || statusMappingKeys.length === 0
+    || statusMappingKeys.some((status) => !Number.isInteger(status) || status < 400 || status > 599))
+    {
+        failureReasons.push('error-codes.status-mapping-keys must be a non-empty HTTP error status set');
+    }
+    else
+    {
+        for (let index = 1; index < statusMappingKeys.length; index += 1)
+        {
+            if (statusMappingKeys[index] <= statusMappingKeys[index - 1])
+            {
+                failureReasons.push('error-codes.status-mapping-keys must be strictly ascending and unique');
+                break;
+            }
+        }
+        const keySet = new Set(statusMappingKeys);
+        for (const status of statusMappingKeys)
+        {
+            if (!mappingStatuses.has(status))
+            {
+                failureReasons.push(`status mapping key ${status} has no transport mapping`);
+            }
+            if (!genericStatuses.has(status))
+            {
+                failureReasons.push(`status mapping key ${status} has no generic status mapping`);
+            }
+        }
+        for (const status of [...mappingStatuses].sort((left, right) => left - right))
+        {
+            if (!keySet.has(status))
+            {
+                failureReasons.push(`transport mapping status ${status} is missing its status mapping key`);
+            }
+        }
+    }
+    if (operationMappingCount === 0)
+    {
+        failureReasons.push('error-codes.transport-mapping requires explicit operation pairs');
+    }
+    for (const code of publicCodes ?? [])
+    {
+        if (!reverseCodes.has(code))
+        {
+            failureReasons.push(`error-codes.transport-mapping missing ErrorCode reverse mapping ${code}`);
+        }
+    }
+
+    const requiredMappings = {
+        Generic500InfraFailure: ['generic-status-default', 500, 'InfraFailure'],
+        Generic501InfraFailure: ['generic-status-default', 501, 'InfraFailure'],
+        Default500InfraFailure: ['error-code-default-status', 500, 'InfraFailure'],
+        Default500Unknown: ['error-code-default-status', 500, 'Unknown']
+    };
+    for (const [identity, [mappingKind, httpStatus, errorCode]] of Object.entries(requiredMappings))
+    {
+        const mapping = transport[identity];
+        if (mapping?.mappingId !== identity
+      || mapping?.mappingKind !== mappingKind
+      || mapping?.httpStatus !== httpStatus
+      || mapping?.errorCode !== errorCode)
+        {
+            failureReasons.push(`error-codes.transport-mapping missing canonical ${identity}`);
         }
     }
 }
@@ -359,6 +632,14 @@ function readOptional(repositoryRoot, relative)
 // BEHAVIOR-OWNER: configuration-error-security-policy
 export function extract(context)
 {
+    const digestValue = context.canonicalDigest;
+    const observationAuthoritySourcePaths = context.observationAuthoritySourcePaths;
+    if (typeof digestValue !== 'function'
+        || !Array.isArray(observationAuthoritySourcePaths)
+        || observationAuthoritySourcePaths.length === 0)
+    {
+        return failResult(['config-error-security-policy-fact-extractor requires runner-owned digest and authority-source capabilities']);
+    }
     const buildIdentity = context.buildIdentity;
     if (buildIdentity == null || typeof buildIdentity !== 'object')
     {
@@ -372,6 +653,57 @@ export function extract(context)
     || /bin[/\\](?:Debug|Release)\b/iu.test(String(buildIdentity.path ?? '')))
     {
         return failResult(['refuses ambient bin/Debug or bin/Release observation identity']);
+    }
+
+    const canonicalIdentity = buildIdentity.schema === 'fsusblog.build-identity.v1';
+    const standaloneReceiptValidation = canonicalIdentity
+        ? null
+        : validateExactBuildReceipt(context.repositoryRoot, buildIdentity, digestValue, observationAuthoritySourcePaths);
+    if (standaloneReceiptValidation?.failureReasons.length > 0)
+    {
+        return failResult(standaloneReceiptValidation.failureReasons);
+    }
+
+    const sourceDigests = canonicalIdentity
+        ? buildIdentity.sourceDigests
+        : standaloneReceiptValidation.receipt.sourceDigests;
+    const sourceDigestMap = Array.isArray(sourceDigests)
+        ? Object.fromEntries(sourceDigests.map((entry) => [entry?.path, entry?.digest]))
+        : sourceDigests;
+    const sourceDigestKeys = sourceDigestMap != null
+        && typeof sourceDigestMap === 'object'
+        && !Array.isArray(sourceDigestMap)
+        ? Object.keys(sourceDigestMap).sort()
+        : [];
+    const expectedAuthorityPaths = [...observationAuthoritySourcePaths].sort();
+    const isMinimalBuildIdentity = canonicalIdentity;
+    if (
+        isMinimalBuildIdentity
+            ? expectedAuthorityPaths.some((relative) => !sourceDigestKeys.includes(relative))
+            : JSON.stringify(sourceDigestKeys) !== JSON.stringify(expectedAuthorityPaths)
+    )
+    {
+        return failResult(['buildIdentity.sourceDigests must exactly bind the ApiErrorSemanticMapper authority source']);
+    }
+    const declaredSourceDigest = canonicalIdentity
+        ? buildIdentity.sourceDigest
+        : standaloneReceiptValidation.receipt.sourceDigest;
+    if (declaredSourceDigest !== digestValue(sourceDigests))
+    {
+        return failResult(['buildIdentity.sourceDigest does not match sourceDigests']);
+    }
+    for (const relative of observationAuthoritySourcePaths)
+    {
+        const sourcePath = path.join(context.repositoryRoot, relative);
+        if (!existsSync(sourcePath))
+        {
+            return failResult([`missing authority source ${relative}`]);
+        }
+        const actualDigest = createHash('sha256').update(readFileSync(sourcePath)).digest('hex');
+        if (sourceDigestMap[relative] !== actualDigest)
+        {
+            return failResult([`authority source digest mismatch for ${relative}`]);
+        }
     }
 
     const absolute = path.join(context.repositoryRoot, observationRelative);
@@ -503,10 +835,8 @@ export function extract(context)
     }
 
     const transport = facts['error-codes.transport-mapping'];
-    if (transport == null || typeof transport !== 'object' || Array.isArray(transport) || Object.keys(transport).length === 0)
-    {
-        failureReasons.push('error-codes.transport-mapping must be a non-empty map');
-    }
+    const statusMappingKeys = facts['error-codes.status-mapping-keys'];
+    validateTransportMappings(transport, statusMappingKeys, publicCodes, failureReasons);
     validateDomainErrors(facts['error-codes.domain'], transport, failureReasons);
 
     // challenges
@@ -755,6 +1085,7 @@ export function extract(context)
         'configuration.allowed-values': facts['configuration.allowed-values'],
         'configuration.required-production-values': facts['configuration.required-production-values'],
         'error-codes.public': facts['error-codes.public'],
+        'error-codes.status-mapping-keys': facts['error-codes.status-mapping-keys'],
         'error-codes.transport-mapping': facts['error-codes.transport-mapping'],
         'error-codes.domain': facts['error-codes.domain'],
         'security.challenge-kinds': facts['security.challenge-kinds'],

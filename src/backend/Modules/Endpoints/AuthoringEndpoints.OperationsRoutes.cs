@@ -579,9 +579,8 @@ public static partial class AuthoringEndpoints
             {
                 return AedsJsonResults.Error(
                     aeds,
-                    ErrorCode.Conflict,
-                    "plugin_install_conflict",
-                    StatusCodes.Status409Conflict);
+                    ApiErrorTransportMappingId.Default409Conflict,
+                    "plugin_install_conflict");
             }
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
@@ -679,9 +678,8 @@ public static partial class AuthoringEndpoints
             {
                 return AedsJsonResults.Error(
                     aeds,
-                    ErrorCode.Conflict,
-                    "plugin_config_version_conflict",
-                    StatusCodes.Status409Conflict);
+                    ApiErrorTransportMappingId.Default409Conflict,
+                    "plugin_config_version_conflict");
             }
             catch (Exception exception) when (
                 exception is PluginAdminValidationException
@@ -693,9 +691,8 @@ public static partial class AuthoringEndpoints
             {
                 return AedsJsonResults.Error(
                     aeds,
-                    ErrorCode.Conflict,
-                    "plugin_lifecycle_conflict",
-                    StatusCodes.Status409Conflict);
+                    ApiErrorTransportMappingId.Default409Conflict,
+                    "plugin_lifecycle_conflict");
             }
             catch (Exception exception) when (
                 exception is PluginJavaScriptRuntimeException
@@ -704,9 +701,8 @@ public static partial class AuthoringEndpoints
             {
                 return AedsJsonResults.Error(
                     aeds,
-                    ErrorCode.InfraFailure,
-                    "plugin_runtime_action_failed",
-                    StatusCodes.Status503ServiceUnavailable);
+                    ApiErrorTransportMappingId.Generic503InfraFailure,
+                    "plugin_runtime_action_failed");
             }
         })
         .RequireAdminPermission(AdminPermissions.SystemConfig)
