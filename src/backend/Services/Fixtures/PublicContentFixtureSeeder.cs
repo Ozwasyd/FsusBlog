@@ -34,7 +34,7 @@ namespace FsusBlog.Server.Services.Fixtures;
 
 /// <summary>
 /// Test-only public content fixture composition root (#1712).
-/// Canonical lifecycle rows call application/domain ports (IArticleCoreGateway, IAdminArtifactOperations).
+/// Canonical lifecycle rows call application/domain ports and only observe production-owned projections.
 /// The dedicated deep-pagination profile uses an owned, set-based PostgreSQL fixture write here,
 /// then derives boundaries with the production keyset order and IArticleListCursorCodec.
 /// Never public/admin HTTP APIs, never Node SQL or cursor construction.
@@ -803,27 +803,33 @@ public sealed partial class PublicContentFixtureSeeder(
                 cancellationToken).ConfigureAwait(false);
         }
 
-        // Cache / search / hot rebuild via domain ports — fail closed if degraded.
         await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
-
         bool requiresSearch = capabilities.Contains("public.search.indexed", StringComparer.Ordinal);
-        if (!requiresDeepPagination || requiresSearch)
+        if (capabilities.Any(IsLifecycleCapability))
         {
-            AdminCacheActionResponse searchRebuild = await artifactOperations.RunCacheActionAsync(
-                new AdminCacheActionRequest("search-rebuild"),
-                cancellationToken).ConfigureAwait(false);
-            if (!string.Equals(searchRebuild.Status, "ok", StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException($"search-rebuild failed: {searchRebuild.Status} {searchRebuild.Detail}");
-            }
+            await AwaitPublicHotProjectionAsync(cancellationToken).ConfigureAwait(false);
         }
-
-        AdminCacheActionResponse hotRebuild = await artifactOperations.RunCacheActionAsync(
-            new AdminCacheActionRequest("public-hot-rebuild"),
-            cancellationToken).ConfigureAwait(false);
-        if (hotRebuild.Status is "degraded" or "failed")
+        else
         {
-            throw new InvalidOperationException($"public-hot-rebuild failed: {hotRebuild.Status} {hotRebuild.Detail}");
+            // Non-canonical preparation remains owned by #2690, not this verifier.
+            if (!requiresDeepPagination || requiresSearch)
+            {
+                AdminCacheActionResponse searchRebuild = await artifactOperations.RunCacheActionAsync(
+                    new AdminCacheActionRequest("search-rebuild"),
+                    cancellationToken).ConfigureAwait(false);
+                if (!string.Equals(searchRebuild.Status, "ok", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new InvalidOperationException($"search-rebuild failed: {searchRebuild.Status} {searchRebuild.Detail}");
+                }
+            }
+
+            AdminCacheActionResponse hotRebuild = await artifactOperations.RunCacheActionAsync(
+                new AdminCacheActionRequest("public-hot-rebuild"),
+                cancellationToken).ConfigureAwait(false);
+            if (hotRebuild.Status is "degraded" or "failed")
+            {
+                throw new InvalidOperationException($"public-hot-rebuild failed: {hotRebuild.Status} {hotRebuild.Detail}");
+            }
         }
 
         // Observe real read ports.
@@ -1559,6 +1565,17 @@ public sealed partial class PublicContentFixtureSeeder(
                 observedBusinessTimeUtc = timeProvider.GetUtcNow().UtcDateTime
             };
         }
+        await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
+        await AwaitPublicHotProjectionAsync(cancellationToken).ConfigureAwait(false);
+        CanonicalArticleProjectionVerifier projectionVerifier = serviceProvider
+            .GetService<CanonicalArticleProjectionVerifier>()
+            ?? throw new InvalidOperationException(
+                "canonical article projection verifier is only available when local fixture services are enabled");
+        CanonicalArticleProjectionOutputAggregate projectionAggregate = await projectionVerifier
+            .VerifyAsync(result.Receipt, cancellationToken)
+            .ConfigureAwait(false);
+        entity.Fields["projectionAggregate"] = projectionAggregate;
+        entity.Fields["requiredProjectionEdgesVerified"] = true;
         if (variant == CanonicalArticleLifecycleVariants.MultipleRevisions)
         {
             entity.Fields["revisionCount"] = result.Receipt.RevisionIds.Count;
@@ -1704,15 +1721,15 @@ public sealed partial class PublicContentFixtureSeeder(
             int pending = await db.Queryable<ArticleMutationOutboxEvent>()
                 .Where(item => item.Status == "pending" || item.Status == "processing")
                 .CountAsync(cancellationToken).ConfigureAwait(false);
-            if (pending == 0)
-            {
-                return;
-            }
             if (await db.Queryable<ArticleMutationOutboxEvent>()
                     .Where(item => item.Status == "poison")
                     .AnyAsync(cancellationToken).ConfigureAwait(false))
             {
                 throw new InvalidOperationException("Article mutation outbox did not reach exact processed state.");
+            }
+            if (pending == 0)
+            {
+                return;
             }
             // Rows may be in-flight under the hosted dispatcher's claim lease; give the
             // current claim owner a bounded window to commit before the next pass.
@@ -1720,6 +1737,65 @@ public sealed partial class PublicContentFixtureSeeder(
             await RunDispatcherPassAsync(cancellationToken).ConfigureAwait(false);
         }
         throw new InvalidOperationException("Article mutation outbox did not converge within the bounded worker drain.");
+    }
+
+    private Task AwaitPublicHotProjectionAsync(CancellationToken cancellationToken)
+        => AwaitPublicHotProjectionAsync(publicHotObligations, TimeSpan.FromSeconds(
+            Math.Clamp(
+                configuration.GetValue<int?>("PublicContentFixture:ProjectionConvergenceTimeoutSeconds") ?? 30,
+                1,
+                360)), cancellationToken);
+
+    internal static async Task AwaitPublicHotProjectionAsync(
+        IPublicHotArtifactObligationStore obligations,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        // Fixture business time can be fixed. Convergence is an operational bound,
+        // including a reader that does not itself honor cancellation.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(timeout);
+        CancellationToken token = deadline.Token;
+        try
+        {
+            while (true)
+            {
+                token.ThrowIfCancellationRequested();
+                if (await obligations.HasTerminalFailureAsync(token).WaitAsync(token).ConfigureAwait(false))
+                {
+                    throw new InvalidOperationException("canonical article public-hot projection reached terminal failure");
+                }
+
+                PublicHotArtifactObligation? obligation = await obligations
+                    .GetActiveAsync(token).WaitAsync(token).ConfigureAwait(false);
+                if (obligation is null)
+                {
+                    throw new InvalidOperationException(
+                        "canonical article public-hot projection has no durable current-run obligation");
+                }
+                if (obligation.Recovered)
+                {
+                    throw new InvalidOperationException(
+                        $"canonical article public-hot projection required recovery:{obligation.ObligationId}");
+                }
+                if (obligation.State == PublicHotArtifactObligationState.Published
+                    && obligation.PublishedGeneration >= obligation.TargetGeneration)
+                {
+                    return;
+                }
+                if (obligation.State == PublicHotArtifactObligationState.FailedTerminal)
+                {
+                    throw new InvalidOperationException(
+                        $"canonical article public-hot projection failed:{obligation.ObligationId}");
+                }
+
+                await Task.Delay(TimeSpan.FromMilliseconds(100), token).ConfigureAwait(false);
+            }
+        }
+        catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("canonical article public-hot projection convergence timed out");
+        }
     }
 
     private async Task RunDispatcherPassAsync(CancellationToken cancellationToken)

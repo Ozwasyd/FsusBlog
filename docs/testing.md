@@ -97,6 +97,21 @@ Static source-bound receipt output does not establish that these runtime tests,
 the catalog drain matrix, or independent acceptance ran. See the current
 [audit admission/recovery contract](security/audit-retention-cryptographic-erasure.md#required-channel-admission-and-recovery).
 
+## Canonical article required-projection verification
+
+The independent public-content verify port rereads lifecycle projection edges through the same read-only verifier and compares the resulting aggregate with its original sealed preparation facts. It cannot qualify stale copied preparation aggregates or refresh a drifted aggregate into a successful original receipt.
+
+The `public-content-lifecycle` fixture accepts a canonical article lifecycle result only after the production article mutation outbox has reached its terminal state and `CanonicalArticleProjectionVerifier` has independently reread the current output of every edge in `ArticleMutationReplayEdges.Required`. The fixture does not own another required-edge list and cannot invoke search, PublicHot, cache, AEDS, AOT, revocation, list, or detail repair/rebuild paths to manufacture acceptance.
+
+The verifier consumes either a canonical publication receipt or a canonical lifecycle receipt, verifies its existing digest, and preserves that receipt's identity. The projection aggregate binds run, namespace, receipt digest, article/version/publication/rights/responsibility coordinates, current outbox event and schema version, payload digest, delivery keys, attempt counts, output generations, output digests, and per-edge terminal receipt digests. Search evidence comes from the published manifest and core shard bytes rather than the database fallback of the query API. AEDS bytes are decoded through the production v2 and ArticleDetail POD decoders and compared with the sealed coordinates, content, and rights; equal stale frame digests alone cannot qualify. Superseded operations may retain a production `skipped` edge, but every required edge for the current operation must be `completed`; production optional edges do not become required. Missing, duplicate, failed, poisoned, recovered, timed-out, canceled, cross-run, unsealed, or tampered required evidence is non-qualifying.
+
+The verifier rereads metadata from the sealed immutable revision rather than accepting mutable latest article metadata, uses the normal public list source-cache read, and checks the article-specific AOT invalidation generation. Superseded terminal reasons must identify a later operation in the bound authority receipt. The Node receipt postconditions recompute the serialized aggregate and per-edge digests, validate production delivery keys, and reject unsafe numeric coordinates before a lifecycle capability is exposed to consumers. A shared C#/Node golden envelope covers identifier escaping and object-key reordering. The direct `VerifyAsync` tests simulate read ports locally while using the real v2/POD decoder, HotRead snapshot and receipt digest code; these tests do not claim that a production worker or an AOT renderer ran. Focused checks are:
+
+```bash
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~CanonicalArticleProjectionVerifierTests"
+node --test tests/tools/canonical-article-lifecycle-authority.test.mjs tests/tools/public-content-producer.test.mjs
+```
+
 ## Media shape authority
 
 `config/testing/media-shape-catalog.json` is the only closed/versioned MediaShapeCatalog. It registers MIME, extension, magic and independent codec fact owners of JPEG, PNG, SVG and WebP respectively, and fixes six aspect contracts, ten types of consumer applicability, ten canonical positive shapes and eight single-fault negative shapes. The catalog only saves AssetId-compatible generator digest refs and does not save absolute path, public URL, storage path or second asset ledger; `no-cover` explicitly does not generate bytes, URL or default images. `tools/test-fixtures/media-shape-catalog.mjs` performs independent fail-closed verification of the catalog and each shape's content digest, matrix integrity, format/MIME/extension, orientation/alpha/dimensions, single-fault, consumer isolation, and unique authority.

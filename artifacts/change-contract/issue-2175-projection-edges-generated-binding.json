@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/test-fixtures/receipt/postconditions.mjs",
+        "tools/test-fixtures/orchestrator.mjs",
+        "tools/test-fixtures/receipt/reuse-verifier.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "faf4df842270155dffa61abcb5cddb57c73f7b150d765a1f0d4d55a68f7157cf"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "2360b858dd1a7587953d3e527d70e32662cffc0b71eb7e91c6ac8e63d893b6a6"
+        }
+    ]
+}

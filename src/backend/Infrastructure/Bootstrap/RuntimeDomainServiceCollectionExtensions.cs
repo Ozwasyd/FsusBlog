@@ -98,6 +98,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentModerationFixturePort, FsusBlog.Server.Services.Fixtures.CommentModerationFixturePort>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICanonicalArticlePublicationFixturePort, FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationFixturePort>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICanonicalArticleLifecycleFixturePort, FsusBlog.Server.Services.Fixtures.CanonicalArticleLifecycleFixturePort>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.CanonicalArticleProjectionVerifier>();
             services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureCapabilityVault, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureCapabilityVault>();
             services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureOperationLedger, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureOperationLedger>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureProvider, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureProvider>();

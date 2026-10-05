@@ -818,6 +818,24 @@
             ]
         },
         {
+            "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "canonical-article-lifecycle-authority",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/canonical-article-lifecycle-authority",
+                "output": ".tmp/test-governance/results/{checkId}/canonical-article-lifecycle-authority.json"
+            }
+        },
+        {
             "file": "tests/tools/canonical-hash-source-governance.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -4270,15 +4288,20 @@
         },
         {
             "file": "tests/tools/public-content-producer.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/public-content-producer.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "source-text",
                 "migration",
                 "runtime"
-            ]
+            ],
+            "staticGovernance": {
+                "id": "public-content-producer",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
         },
         {
             "file": "tests/tools/public-preview-quality-publication.test.mjs",

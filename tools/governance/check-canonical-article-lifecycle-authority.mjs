@@ -14,6 +14,11 @@ export const requiredAuthorityFiles = Object.freeze([
     "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
     "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
     "src/backend/Services/Fixtures/CanonicalArticleLifecycleVerifier.cs",
+    "src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs",
+    "src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs",
+    "src/backend/Services/Fixtures/PublicContentFixtureSeeder.Verification.cs",
+    "src/backend/Services/ArticleMutationSideEffects.cs",
+    "src/backend/Services/SearchIndexService.ProjectionEvidence.cs",
     "src/backend/Services/ArticlePublicationTransition.cs",
     "src/backend/Services/Articles/ArticleRevisionPersistence.cs",
     "src/backend/Services/Articles/ArticleRightsSnapshotBuilder.cs",
@@ -41,6 +46,15 @@ export function checkCanonicalArticleLifecycleAuthority(repositoryRoot = default
     const writer = read("src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs");
     const port = read("src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs");
     const verifier = read("src/backend/Services/Fixtures/CanonicalArticleLifecycleVerifier.cs");
+    const projectionVerifier = read("src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs");
+    const publicContentSeeder = read("src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs");
+    const publicContentVerification = read("src/backend/Services/Fixtures/PublicContentFixtureSeeder.Verification.cs");
+    const productionEdges = read("src/backend/Services/ArticleMutationSideEffects.cs");
+    if (!publicContentVerification.includes("projectionVerifier.VerifyAsync(lifecycle, cancellationToken)")
+        || !/RequireVerificationEquality\(original\.Fields, fields,\s*"projectionAggregate", "requiredProjectionEdgesVerified"\)/u.test(publicContentVerification))
+    {
+        violations.push("independent public verification must reread and match the sealed projection aggregate");
+    }
     const registration = read("src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs");
 
     const requiredVariants = [
@@ -68,6 +82,11 @@ export function checkCanonicalArticleLifecycleAuthority(repositoryRoot = default
     if (registration.replace(localBlock, "").includes("ICanonicalArticleLifecycleFixturePort"))
     {
         violations.push("lifecycle fixture port must not be registered for production");
+    }
+    if (!localBlock.test(registration)
+        || !localBlock.exec(registration)?.[0].includes("CanonicalArticleProjectionVerifier"))
+    {
+        violations.push("projection verifier must only be registered in the local fixture block");
     }
 
     if (!port.includes("ArticleLifecycleTransitionWriter.CreateAsync")
@@ -157,6 +176,103 @@ export function checkCanonicalArticleLifecycleAuthority(repositoryRoot = default
         || !port.includes("VerifyAsync(db, configuration, receipt"))
     {
         violations.push("lifecycle fixture receipt must be checked by an independent verifier");
+    }
+
+    if (!productionEdges.includes("public static readonly IReadOnlySet<string> Required")
+        || !projectionVerifier.includes("ArticleMutationReplayEdges.Required")
+        || !projectionVerifier.includes("ArticleMutationReplayEdges.ContractId"))
+    {
+        violations.push("projection verifier must consume the production required edge contract");
+    }
+    const derivedReaders = [
+        "ISearchIndexService",
+        "ISearchProjectionEvidenceReader",
+        "IPublicArticleProjectionStore",
+        "IArticleDetailAedsArtifactStore",
+        "PublicHotReadStore",
+        "IPublicAotInvalidationGenerationAuthority",
+        "PublicArtifactRevocationRegistry",
+        "IPublicArtifactRevocationStateStore",
+        "IArticleCoreGateway",
+        "ICacheStringReader"
+    ];
+    for (const reader of derivedReaders)
+    {
+        if (!projectionVerifier.includes(reader))
+        {
+            violations.push(`projection verifier must independently read ${reader}`);
+        }
+    }
+    if (!projectionVerifier.includes("authority.RunId")
+        || !projectionVerifier.includes("authority.Namespace")
+        || !projectionVerifier.includes("authority.ReceiptDigest")
+        || !projectionVerifier.includes("ArticleMutationOutboxEnvelopeCodec.Read")
+        || !projectionVerifier.includes("ComputeTerminalReceiptDigest")
+        || !projectionVerifier.includes("ComputeAggregateDigest"))
+    {
+        violations.push("projection verifier must bind current-run authority, sealed payload, and tamper digests");
+    }
+    const forbiddenVerifierWrites = [
+        ".BuildIndexAsync(",
+        ".AddOrUpdateIndexAsync(",
+        ".SetStringAsync(",
+        ".SetRawAsync(",
+        ".StringIncrementAsync(",
+        ".KeyDeleteAsync(",
+        ".SortedSetAddAsync(",
+        ".ScriptEvaluateAsync(",
+        ".Insertable<",
+        ".Updateable<",
+        ".Deleteable<",
+        ".ExecuteCommand",
+        ".UpsertAsync(",
+        ".GenerateAndStoreAsync(",
+        ".InvalidateArticleMutationAsync(",
+        "File.Exists(",
+        "Directory.Exists("
+    ];
+    for (const marker of forbiddenVerifierWrites)
+    {
+        if (projectionVerifier.includes(marker))
+        {
+            violations.push(`projection verifier must remain read-only: ${marker}`);
+        }
+    }
+    const forbiddenFixtureRepair = [
+        "\"search-rebuild\"",
+        "\"public-hot-rebuild\"",
+        ".BuildIndexAsync(",
+        ".AddOrUpdateIndexAsync(",
+        ".SetStringAsync(",
+        ".SetRawAsync(",
+        ".SortedSetAddAsync(",
+        ".StringIncrementAsync(",
+        ".KeyDeleteAsync(",
+        ".ScriptEvaluateAsync(",
+        ".GenerateAndStoreAsync("
+    ];
+    // #2175 must not migrate #2690's non-canonical paths. Only the exact guarded
+    // else branch and the existing exclusive empty-profile method retain rebuilds.
+    const legacyPrepare = /if \(capabilities\.Any\(IsLifecycleCapability\)\)\s*\{\s*await AwaitPublicHotProjectionAsync\(cancellationToken\)\.ConfigureAwait\(false\);\s*\}\s*else\s*\{[\s\S]*?\n {8}\}\n\n {8}\/\/ Observe real read ports\./u;
+    const legacyEmpty = / {4}private async Task EnsureEmptyOwnedNamespaceAsync\(string ownerPrefix, CancellationToken cancellationToken\)\n {4}\{[\s\S]*?\n {4}\}/u;
+    if (!legacyPrepare.test(publicContentSeeder))
+    {
+        violations.push("canonical lifecycle preparation must be isolated from non-canonical rebuilds");
+    }
+    const canonicalSeeder = publicContentSeeder.replace(legacyPrepare, "").replace(legacyEmpty, "");
+    for (const marker of forbiddenFixtureRepair)
+    {
+        const source = marker.includes("rebuild") ? canonicalSeeder : publicContentSeeder;
+        if (source.includes(marker))
+        {
+            violations.push(`public-content fixture must not repair required projections: ${marker}`);
+        }
+    }
+    if (!publicContentSeeder.includes("AwaitPublicHotProjectionAsync")
+        || !publicContentSeeder.includes(".VerifyAsync(result.Receipt")
+        || !publicContentSeeder.includes("requiredProjectionEdgesVerified"))
+    {
+        violations.push("canonical fixture must wait for production owners and publish verified projection evidence");
     }
     return violations;
 }
