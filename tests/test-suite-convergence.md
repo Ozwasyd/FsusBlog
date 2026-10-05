@@ -21,6 +21,13 @@ optional after retention snapshot.
   retained in the source-free v3 baseline.
 - Replacement declarations have one current owner:
   `tests/test-retention-replacements.json`.
+- The two #2348 MFA state cases are already in the immutable compact before
+  snapshot under their fully qualified `#case-0000` identities, with their
+  original path and four/five assertion bindings. Their exact source/deletion
+  Git transition is checked by the existing suite-convergence Node owner;
+  neither a later v1 post-baseline declaration nor the retired short aliases
+  may supply a second admission authority. The membership controls are not
+  a current after inventory or auth runtime qualification.
 - All errors are emitted in one run; the auditor has no maximum-error cutoff.
 - Backend `*Tests.cs` files may read runtime artifacts and checked-in fixture
   data, but may not read production, documentation, workflow/matrix, or sibling

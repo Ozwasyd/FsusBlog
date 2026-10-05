@@ -18,11 +18,112 @@ import {
   validateEvidenceContract,
   verifySourceLockingFixtures
 } from '@fsusblog/governance-tools/test-convergence/audit'
-import { POST_BASELINE_HISTORY_ANCHOR } from '@fsusblog/governance-tools/test-convergence/post-baseline-history'
-import { compactRetentionBaseline } from '@fsusblog/governance-tools/test-retention/audit'
+import {
+  POST_BASELINE_HISTORY_ANCHOR,
+  historicalXunitMethodPresent
+} from '@fsusblog/governance-tools/test-convergence/post-baseline-history'
+import {
+  compactRetentionBaseline,
+  compactRetentionKey,
+  decodeCompactRetentionIndex
+} from '@fsusblog/governance-tools/test-retention/audit'
 import { parseMatrix } from '@fsusblog/governance-tools/test-matrix/parse-matrix'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+
+test('#2348 canonical MFA retirement retains before identities without post-baseline self-admission', async () =>
+{
+    const path = 'tests/backend/Unit/BackendAuthStateMachineTests.cs';
+    const sourceCommit = '865dc18c29c208d3be0dcab6442f00864e7583f2';
+    const deletionCommit = '80038e83710cc9bd252aaef4c014d893d2c4bdc0';
+    const sourceBlob = '5c80eb7a0183610b0b00a23fd596a7f213328242';
+    const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'));
+    assert.ok(!matrix.governance.retention.postBaselines.includes(
+        'tests/mfa-login-continuation-retirement-baseline.json'
+    ));
+    assert.ok(!matrix.governance.retention.postBaselines.includes(
+        'tests/auth-mfa-state-retirement-baseline.json'
+    ));
+
+    const beforeSnapshot = JSON.parse(readFileSync(resolve(root, 'tests/test-retention-before.json'), 'utf8'));
+    const testKeys = decodeCompactRetentionIndex(beforeSnapshot.testIndex);
+    const pathKeys = decodeCompactRetentionIndex(beforeSnapshot.pathIndex);
+    const { entries, errors } = mergeReplacementEntries([{
+        source: 'tests/test-retention-replacements.json',
+        manifest: JSON.parse(readFileSync(resolve(root, 'tests/test-retention-replacements.json'), 'utf8'))
+    }]);
+    assert.deepEqual(errors, []);
+    const cases = [
+        ['LoginWithMfa_RequiresPartialAuthBeforeFullSession', 1, 4],
+        ['IllegalTransitions_AreRejected', 8176, 5]
+    ];
+    const selected = cases.map(([method, position, assertionCount]) =>
+    {
+        const id = `xunit:${path}#FsusBlog.Server.Tests.Unit.BackendAuthStateMachineTests.${method}#case-0000`;
+        const key = compactRetentionKey(id);
+        assert.equal(testKeys.indexOf(key), position);
+        const owner = beforeSnapshot.assertionIndex.owners.find(([testPosition]) => testPosition === position);
+        assert.ok(owner);
+        assert.equal(pathKeys[owner[1]], compactRetentionKey(path));
+        assert.equal(owner[2].length, assertionCount);
+        const entry = entries.find((candidate) => candidate.id === id);
+        assert.ok(entry, id);
+        assert.equal(entry.path, path);
+        assert.ok(entry.replacementTestIds.length > 0);
+        return entry;
+    });
+
+    const { devNull } = await import('node:os');
+    const { maskCSharpTrivia } = await import(new URL('../../tools/test/csharp-source-mask.mjs', import.meta.url));
+    const git = (args) => execFileSync('git', args, {
+        cwd: root,
+        encoding: 'utf8',
+        env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: devNull }
+    });
+    assert.equal(git(['rev-list', '--parents', '-n', '1', deletionCommit]).trim(),
+        `${deletionCommit} ${sourceCommit}`);
+    assert.equal(git(['ls-tree', '-z', sourceCommit, '--', path]),
+        `100644 blob ${sourceBlob}\t${path}\0`);
+    assert.equal(git(['ls-tree', '-z', deletionCommit, '--', path]), '');
+    const source = git(['show', `${sourceCommit}:${path}`]);
+    for (const [method] of cases)
+    {
+        assert.equal(historicalXunitMethodPresent(source, 'BackendAuthStateMachineTests', method, maskCSharpTrivia), true);
+    }
+
+    // These membership/refusal controls are not a current after inventory or runtime qualification.
+    const input = { beforeSnapshot, replacements: selected, postBaselineDeletionIds: [] };
+    const accepted = auditCompactRetentionRecords(input);
+    assert.deepEqual(accepted.unknownDeletionDeclarations, []);
+    assert.deepEqual(accepted.mismatchedDeletionPaths, []);
+    const aliases = auditCompactRetentionRecords({
+        ...input,
+        replacements: selected.map((entry) => ({
+            ...entry,
+            id: entry.id.replace('FsusBlog.Server.Tests.Unit.', '').replace('#case-0000', '')
+        }))
+    });
+    assert.deepEqual(aliases.unknownDeletionDeclarations.map((entry) => entry.id), selected.map((entry) =>
+        entry.id.replace('FsusBlog.Server.Tests.Unit.', '').replace('#case-0000', '')
+    ));
+    const wrongPath = auditCompactRetentionRecords({
+        ...input,
+        replacements: [{ ...selected[0], path: 'tests/backend/Unit/WrongOwnerTests.cs' }, selected[1]]
+    });
+    assert.deepEqual(wrongPath.mismatchedDeletionPaths.map((entry) => entry.id), [selected[0].id]);
+    const afterRecords = [...new Set(selected.flatMap((entry) => entry.replacementTestIds))]
+        .map((id) => ({ id }));
+    const presentTargets = auditCompactRetentionRecords({ ...input, afterRecords });
+    assert.deepEqual(presentTargets.missingReplacementTargets, []);
+    const removedTarget = selected[0].replacementTestIds[0];
+    const missingTarget = auditCompactRetentionRecords({
+        ...input,
+        afterRecords: afterRecords.filter((record) => record.id !== removedTarget)
+    });
+    assert.deepEqual(missingTarget.missingReplacementTargets, selected
+        .filter((entry) => entry.replacementTestIds.includes(removedTarget))
+        .map((entry) => ({ deletedTestId: entry.id, replacementTestId: removedTarget })));
+});
 
 test('matrix is the single current command and retention governance authority', () => {
   const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'))
