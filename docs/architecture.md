@@ -605,6 +605,14 @@ authoring has ended the partial transition state of the same runtime type: the e
 
 The author display name projection of the comment review link must be consistent with public reading: queues, review-passed `CommentAdded` push and reply site notifications only read comment / parent comment in-line snapshots; public uses `public_handle` followed by unsigned backing, anonymous / zk anonymous uses `anonymous_display_name` followed by anonymous backing. The audit link must not go through `user_id`, `reply_to_user_id` or `sys_user` fallback account username / public handle. `reply_to_user_id` only saves the notification route derived from the active public account of the target comment; it has nothing to do with whether the respondent is anonymous, and the account share lock is used within the transaction to prevent the logout race from delivering the notification to the invalid account.
 
+Document export sandbox terminal classification retains an already observed
+budget, contract or execution failure when the caller cancels during cleanup.
+Cancellation without an earlier failure still uses the original cancellation
+category. Cleanup qualification remains independent: any unqualified process,
+cgroup, unit or run-directory terminal state reports `cleanup-unqualified` /
+`cleanup-required`, with the original failure retained as its inner cause. This
+does not relax resource budgets, extend cancellation deadlines or qualify cleanup.
+
 ### ZK-prod Anonymous comments on cryptography selection
 
 [ADR-Anonymous-Credential-Blind-Issuance.md](architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md) defines the current issuance: Credential collection uses RFC 9474 randomized blind RSA, the browser holds the finalized signature/opening/secret, and the issuer only handles blinded representatives. Comments prove that contract is fixed to `fsus.anonymous.comment.v5` / layout `6`. Currently, only the real blind issuance primitive, AEDS cross-stack and browser Finalize verification are completed; the current circuit-specific ceremony, proving key, verifying key and Wasm prover have not yet been run, so `production_usable=false`, blind signer and ZK ticket are closed by default. Credential possession and all stable credential material can only be current circuit private witnesses; ticket/public transcript still only allows scope-bound nullifiers. Any issuer/root/circuit/ceremony/verifier/prover gate that is not ready will fail closed and may not splice non-current artifacts, roll back deterministic verifier, or call the managed signature network.
