@@ -4,6 +4,7 @@ using System.Security.Cryptography;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -207,19 +208,19 @@ public sealed class AuthoringExtensionWorkerSandboxTests
     [Fact]
     public void LinuxRuntimeSource_EnforcesDeclaredMemoryAndClosedModuleBoundary()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs"));
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(typeof(LinuxBubblewrapAuthoringWorkerRuntime)),
+            RuntimeMetadataInspection.DescribeConstructors(typeof(LinuxBubblewrapAuthoringWorkerRuntime)));
 
-        Assert.Contains("inspectMemoryPolicy(moduleBytes)", source, StringComparison.Ordinal);
-        Assert.Contains("wasm-memory-policy-invalid", source, StringComparison.Ordinal);
-        Assert.Contains("--unshare-all", source, StringComparison.Ordinal);
-        Assert.Contains("imports.length !== 0", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("eval(", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("WebView", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("iframe", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("node:net", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("node:child_process", source, StringComparison.Ordinal);
+        Assert.Contains("inspectMemoryPolicy(moduleBytes)", compiled, StringComparison.Ordinal);
+        Assert.Contains("wasm-memory-policy-invalid", compiled, StringComparison.Ordinal);
+        Assert.Contains("--unshare-all", compiled, StringComparison.Ordinal);
+        Assert.Contains("imports.length !== 0", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("eval(", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebView", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("iframe", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("node:net", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("node:child_process", compiled, StringComparison.Ordinal);
     }
 
     [Fact]
