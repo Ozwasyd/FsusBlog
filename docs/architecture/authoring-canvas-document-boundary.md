@@ -53,6 +53,14 @@ precondition. Undo and redo retain bounded sealed before/after facts rather than
 whole-document snapshots, and an apply after undo closes the redo branch while
 preserving its audit entries.
 
+An apply batch preserves its explicit command order. After all before/after
+facts of each closed command are applied to the candidate state, its endpoints,
+frame membership and record bounds must already be valid; creating a dependency
+later in the same batch cannot repair an earlier invalid command. This is the
+same command boundary used by independent journal replay. A Delete command still
+applies node, incident-edge and frame-membership cleanup together before that
+validation, and an invalid batch never reaches the transaction commit.
+
 One owner/site pair may hold 100 canvases. One canvas may hold 10,000 nodes and
 10,000 edges. Read pages contain at most 256 records; strings, geometry, viewport
 and note fields have contract constants and database checks. Exceeding a budget
