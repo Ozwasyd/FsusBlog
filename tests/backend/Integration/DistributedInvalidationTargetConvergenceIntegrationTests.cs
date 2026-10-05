@@ -1,6 +1,7 @@
 using System.Collections.Frozen;
 using System.Diagnostics;
 using System.Net;
+using System.Text.Json;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Services.Abstractions;
@@ -206,10 +207,11 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
             sourceProjection,
             obligations);
 
-        await service.BanUserAsync(accountId, "policy");
+        await service.BanUserAsync(accountId, "  spam  ");
 
         User committed = await db.Queryable<User>().InSingleAsync(accountId);
         Assert.Equal(BanStateProjectionFacts.BannedStatus, committed.Status);
+        Assert.Equal("spam", committed.BanReason);
         Assert.Equal(2, committed.BanStateGeneration);
         Assert.Equal(BanStateProjectionStatus.Banned, sourceProjection.Read(BanSubject).Status);
         Assert.Equal(1, runtime.Snapshot().DurablePublishFailures);
@@ -242,6 +244,133 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
             await restartedTarget.Bus.StopAsync(CancellationToken.None);
             restartedTarget.Dispose();
         }
+    }
+
+    [Fact]
+    public async Task UnbanMutation_CommitsNormalGenerationAndDurableEventThenReplaysAfterTargetRestart()
+    {
+        await using NodePair nodes = await NodePair.CreateAsync(postgres, redis, "unban-commit-replay");
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(nodes.Connection);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(User));
+        int accountId = await db.Insertable(new User
+        {
+            AccountSubjectHash = BanSubject,
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            Status = BanStateProjectionFacts.NormalStatus,
+            BanStateGeneration = 1
+        }).ExecuteReturnIdentityAsync();
+        var runtime = new BanStateProjectionRuntimeState();
+        IBanStateProjectionObligationCoordinator obligations = CreateBanObligationCoordinator(
+            db, nodes, nodes.Source.Bus, nodes.Source.BanStateProjection, runtime);
+        var service = new BlacklistService(
+            db,
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            nodes.Source.BanStateProjection,
+            obligations);
+
+        await service.BanUserAsync(accountId, "  spam  ");
+        await EventuallyAsync(() => nodes.Target.BanStateProjection.Read(BanSubject).Status
+            == BanStateProjectionStatus.Banned);
+        await EventuallyAsync(() => BanProjectionIsDurablyComplete(nodes.Connection));
+        Assert.Equal("spam", (await db.Queryable<User>().InSingleAsync(accountId)).BanReason);
+        await nodes.Target.Bus.StopAsync(CancellationToken.None);
+        _ = nodes.DrainSourceRedisCommands();
+
+        await service.UnbanUserAsync(accountId);
+
+        User committed = await db.Queryable<User>().InSingleAsync(accountId);
+        Assert.Equal(BanStateProjectionFacts.NormalStatus, committed.Status);
+        Assert.Null(committed.BanReason);
+        Assert.Equal(3, committed.BanStateGeneration);
+        BanStateProjectionLookup local = nodes.Source.BanStateProjection.Read(BanSubject);
+        Assert.Equal(BanStateProjectionStatus.Normal, local.Status);
+        Assert.Null(local.ReasonCode);
+        Assert.Equal(committed.BanStateGeneration, local.Generation);
+        Assert.Equal(2, runtime.Snapshot().DurableEventsPrepared);
+        Assert.Equal(2, runtime.Snapshot().LocalMutationUpdates);
+        Assert.Contains("PUBLISH", nodes.DrainSourceRedisCommands());
+
+        List<DistributedInvalidationConvergenceObligationEntity> events = await db
+            .Queryable<DistributedInvalidationConvergenceObligationEntity>()
+            .Where(item => item.Kind == DistributedInvalidationEventKinds.BanStateProjection)
+            .OrderBy(item => item.Id)
+            .ToListAsync();
+        Assert.Equal(2, events.Count);
+        DistributedInvalidationConvergenceObligationEntity unban = events[1];
+        Assert.NotEqual(events[0].EventId, unban.EventId);
+        Assert.NotEqual("complete", unban.State);
+        Assert.True(unban.AttemptCount > 0);
+        DistributedInvalidationEvent invalidation = Assert.IsType<DistributedInvalidationEvent>(
+            JsonSerializer.Deserialize<DistributedInvalidationEvent>(unban.PayloadJson!));
+        Assert.Equal(unban.EventId, invalidation.EventId);
+        Assert.Equal(nodes.Prefix, invalidation.RuntimeScope);
+        Assert.True(DistributedInvalidationTargetResolver.TryParseBanStateProjectionTarget(
+            Assert.Single(invalidation.ArtifactKeys), out DistributedBanStateProjectionTarget normal));
+        Assert.Equal(BanSubject, normal.AccountSubjectHash);
+        Assert.Equal(BanStateProjectionStatus.Normal, normal.Status);
+        Assert.Null(normal.ReasonCode);
+        Assert.Equal(committed.BanStateGeneration, normal.Generation);
+
+        NodeHarness restartedTarget = NodeHarness.Create(
+            "node-b", ["node-a", "node-b"], nodes.Channel, nodes.Prefix,
+            nodes.TargetRedis, nodes.TargetServices);
+        try
+        {
+            Assert.Equal(BanStateProjectionStatus.Unknown, restartedTarget.BanStateProjection.Read(BanSubject).Status);
+            await restartedTarget.PublicAotGeneration.InitializeAsync(CancellationToken.None);
+            await restartedTarget.Bus.StartAsync(CancellationToken.None);
+            await EventuallyAsync(() => restartedTarget.BanStateProjection.Read(BanSubject).Status
+                == BanStateProjectionStatus.Normal);
+            await EventuallyAsync(() => BanProjectionIsDurablyComplete(nodes.Connection));
+            Assert.Equal(3, restartedTarget.BanStateProjection.Read(BanSubject).Generation);
+            Assert.True(await db.Queryable<DistributedInvalidationInboxEntity>()
+                .Where(item => item.EventId == unban.EventId
+                    && item.TargetNodeId == "node-b" && item.ApplyState == AppliedState)
+                .AnyAsync());
+        }
+        finally
+        {
+            await restartedTarget.Bus.StopAsync(CancellationToken.None);
+            restartedTarget.Dispose();
+        }
+    }
+
+    [Fact]
+    public async Task UnbanMutation_PrepareFailureRollsBackAuthorityGenerationAndDurableEvent()
+    {
+        await using NodePair nodes = await NodePair.CreateAsync(postgres, redis, "unban-rollback");
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(nodes.Connection);
+        PostgresSqlSugarTestClient.InitTables(db, typeof(User));
+        int accountId = await db.Insertable(new User
+        {
+            AccountSubjectHash = BanSubject,
+            IdentityKind = AnonymousIdentityRuntime.AnonymousAccountKind,
+            Status = BanStateProjectionFacts.BannedStatus,
+            BanReason = "spam",
+            BanStateGeneration = 2
+        }).ExecuteReturnIdentityAsync();
+        IBanStateProjectionObligationCoordinator durable = CreateBanObligationCoordinator(
+            db, nodes, nodes.Source.Bus, nodes.Source.BanStateProjection, new BanStateProjectionRuntimeState());
+        var service = new BlacklistService(
+            db,
+            Substitute.For<IAccountStateProjectionMutationPublisher>(),
+            nodes.Source.BanStateProjection,
+            new PrepareThenThrowBanCoordinator(durable));
+        _ = nodes.DrainSourceRedisCommands();
+
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => service.UnbanUserAsync(accountId));
+
+        Assert.Equal("simulated-ban-ledger-prepare-failure", failure.Message);
+        User unchanged = await db.Queryable<User>().InSingleAsync(accountId);
+        Assert.Equal(BanStateProjectionFacts.BannedStatus, unchanged.Status);
+        Assert.Equal("spam", unchanged.BanReason);
+        Assert.Equal(2, unchanged.BanStateGeneration);
+        Assert.Equal(0, await db.Queryable<DistributedInvalidationConvergenceObligationEntity>()
+            .Where(item => item.Kind == DistributedInvalidationEventKinds.BanStateProjection)
+            .CountAsync());
+        Assert.Equal(BanStateProjectionStatus.Unknown, nodes.Source.BanStateProjection.Read(BanSubject).Status);
+        Assert.DoesNotContain("PUBLISH", nodes.DrainSourceRedisCommands());
     }
 
     [Fact]
@@ -953,6 +1082,24 @@ public sealed class DistributedInvalidationTargetConvergenceIntegrationTests(
             DistributedInvalidationEvent? invalidation,
             CancellationToken cancellationToken = default)
             => inner.PublishPreparedAsync(invalidation, cancellationToken);
+    }
+
+    private sealed class PrepareThenThrowBanCoordinator(IBanStateProjectionObligationCoordinator inner)
+        : IBanStateProjectionObligationCoordinator
+    {
+        public async Task<DistributedInvalidationEvent?> PrepareAsync(
+            IReadOnlyCollection<BanStateProjectionUpdate> updates,
+            CancellationToken cancellationToken = default)
+        {
+            _ = await inner.PrepareAsync(updates, cancellationToken).ConfigureAwait(false);
+            throw new InvalidOperationException("simulated-ban-ledger-prepare-failure");
+        }
+
+        public Task<DistributedInvalidationPublishResult?> ApplyLocalAndPublishPreparedAsync(
+            DistributedInvalidationEvent? invalidation,
+            IReadOnlyCollection<BanStateProjectionUpdate> updates,
+            CancellationToken cancellationToken = default)
+            => inner.ApplyLocalAndPublishPreparedAsync(invalidation, updates, cancellationToken);
     }
 
     private sealed class MissingBanStateProjectionSource : IBanStateProjectionSource

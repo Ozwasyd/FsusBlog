@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
-import { access, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, mkdir, mkdtemp, readFile, realpath, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -21,6 +21,7 @@ import {
     resolveBrowserContractRunIdentity
 } from './fixture-lifecycle.mjs';
 import { fixtureReceiptView, loadBrowserContractFixture } from './fixture.mjs';
+import { cleanupSingleBrowserContractFixture } from './prepare-fixture.mjs';
 
 
 const commit = 'a'.repeat(40);
@@ -89,6 +90,9 @@ if (request.operation === 'createPublishedArticle') {
   entity = { id: 303, storageStateFile: 'user.storage-state.json', capabilities: { webAuthnRegistration: true } }
 } else if (request.operation === 'createAdminSession') {
   await writeFile(root + '/admin.storage-state.json', storage, { mode: 0o600 })
+  if (process.env.FAKE_BROKEN_SCENE_LEDGER === '1') {
+    await writeFile(root + '/public-shell-locale-scene-bindings.json', '{"invalid":true}', { mode: 0o600 })
+  }
   entity = { id: 404, storageStateFile: 'admin.storage-state.json' }
 }
 process.stdout.write(JSON.stringify({
@@ -127,7 +131,7 @@ process.stdout.write(JSON.stringify({
 
 async function harness(context, overrides = {})
 {
-    const directory = await mkdtemp(path.join(os.tmpdir(), 'fsus-browser-contract-lifecycle-'));
+    const directory = await realpath(await mkdtemp(path.join(os.tmpdir(), 'fsus-browser-contract-lifecycle-')));
     context.after(async () =>
     {
         await rm(directory, { recursive: true, force: true });
@@ -578,6 +582,43 @@ test('runner retains primary failure when every startup cleanup attempt fails', 
     assert.deepEqual(receipt.fixture.cleanupAttempts.map((attempt) => attempt.status), ['failure', 'failure']);
     assert.equal(receipt.finalization.primary.status, 'failure');
     assert.equal(receipt.finalization.cleanup.status, 'failure');
+    await context.test('prelaunch failure survives rejected startup cleanup and retains the original ledger', async (child) =>
+    {
+        const owned = await harness(child, { FAKE_BROKEN_SCENE_LEDGER: '1' });
+        const ownedBuildReceipt = await createRunnerBuildReceipt(owned.directory);
+        const ownedOutputRoot = path.join(repositoryRoot, '.tmp/browser-contract',
+            `startup-cleanup-rejected-${process.pid}-${Date.now()}`);
+        child.after(() => rm(ownedOutputRoot, { recursive: true, force: true }));
+        const execution = spawnSync(process.execPath, [path.join(repositoryRoot, 'tests/browser-contract/run.mjs')], {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            env: {
+                ...process.env,
+                ...owned.env,
+                FSUSBLOG_TEST_SOURCE_COMMIT: sourceState.commit,
+                FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceState.worktreeFingerprint,
+                FSUSBLOG_BROWSER_CONTRACT_BUILD_RECEIPT: ownedBuildReceipt,
+                FSUSBLOG_BROWSER_CONTRACT_OUTPUT: ownedOutputRoot,
+                FSUSBLOG_BROWSER_CONTRACT_RECEIPT: path.join(ownedOutputRoot, 'receipt.json')
+            }
+        });
+        assert.notEqual(execution.status, 0);
+        const terminal = JSON.parse(await readFile(path.join(ownedOutputRoot, 'receipt.json'), 'utf8'));
+        assert.equal(terminal.status, 'failure');
+        assert.equal(terminal.topology.browserLaunchCount, 0);
+        assert.equal(terminal.finalization.primary.error.message, terminal.error.message);
+        assert.doesNotMatch(terminal.error.message, /binding schema is invalid/u);
+        assert.equal(terminal.fixture.cleanup.status, 'failure');
+        assert.match(terminal.fixture.cleanup.error.message, /binding schema is invalid/u);
+        assert.deepEqual(terminal.fixture.cleanupAttempts.map((attempt) => attempt.status), ['failure', 'failure']);
+        assert.deepEqual(terminal.fixture.cleanupAttempts.map((attempt) => attempt.attempts), [0, 0]);
+        assert.equal(terminal.finalization.cleanup.status, 'failure');
+        const identity = resolveBrowserContractRunIdentity({ env: owned.env, sourceState, repoRoot: repositoryRoot });
+        assert.equal(await readFile(path.join(identity.fixtureRoot, 'public-shell-locale-scene-bindings.json'), 'utf8'),
+            '{"invalid":true}');
+        const operations = (await readFile(owned.log, 'utf8')).trim().split('\n');
+        assert.equal(operations.filter((operation) => operation === 'resetContractNamespace:cleanup').length, 0);
+    });
 });
 
 function primaryFailure(message = 'primary contract failure', classification = 'contract')
@@ -612,6 +653,47 @@ function cleanupOutcome(status, attempts = 1)
 
 test('terminal state keeps primary and cleanup outcomes independent across failure combinations', async (context) =>
 {
+    await context.test('rejected scene cleanup retains private state and still finalizes the first failure', async (child) =>
+    {
+        const directory = await realpath(await mkdtemp(path.join(os.tmpdir(), 'fsus-scene-cleanup-rejected-')));
+        child.after(() => rm(directory, { recursive: true, force: true }));
+        const ledgerFile = path.join(directory, 'public-shell-locale-scene-bindings.json');
+        const raw = JSON.stringify({ schema: 'invalid-scene-ledger' });
+        await writeFile(ledgerFile, raw, { mode: 0o600 });
+        const prepared = {
+            root: directory,
+            repoRoot: directory,
+            lifecycle: { cleanup: { status: 'pending', attempts: 0, resources: {} } }
+        };
+        const before = structuredClone(prepared.lifecycle);
+        await assert.rejects(cleanupSingleBrowserContractFixture(prepared), /binding schema is invalid/u);
+        const cleanup = await cleanupSingleBrowserContractFixture(prepared, {
+            reason: 'failure', retainRejection: true
+        });
+        assert.equal(cleanup.status, 'failure');
+        assert.equal(cleanup.attempts, 0);
+        assert.equal(cleanup.resources.files.status, 'retained');
+        assert.equal(cleanup.resources.files.evidence.retainedForRetry, true);
+        assert.deepEqual(prepared.lifecycle, before);
+        assert.equal(await readFile(ledgerFile, 'utf8'), raw);
+        for (const primary of [
+            primaryFailure('first product failure', 'product'),
+            primaryFailure('locale scene closure is incomplete', 'contract')
+        ])
+        {
+            const receipt = createBrowserContractReceipt();
+            finalizeBrowserContractReceipt(receipt, { primary, cleanup });
+            let writes = 0;
+            await persistFinalBrowserContractReceipt(receipt, async (terminal) =>
+            {
+                assert.equal(terminal.error.message, primary.error.message);
+                assert.equal(terminal.classification, primary.classification);
+                assert.match(terminal.fixture.cleanup.error.message, /binding schema is invalid/u);
+                writes += 1;
+            });
+            assert.equal(writes, 1);
+        }
+    });
     await context.test('primary failure remains authoritative when every cleanup attempt fails', () =>
     {
         const receipt = createBrowserContractReceipt();

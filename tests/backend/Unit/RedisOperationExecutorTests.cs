@@ -2,20 +2,522 @@ using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.Text.Json;
 
-using FsusBlog.Server.Infrastructure.Cache;
-using FsusBlog.Server.Infrastructure.Execution;
-using FsusBlog.Server.Infrastructure.Testing;
-
 using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
 
 using StackExchange.Redis;
 
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Infrastructure.Testing;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class RedisOperationExecutorTests
 {
+    [Fact]
+    public void FailureDiagnosticsHaveAnIndependentOptInObserverBoundary()
+    {
+        Type? diagnostics = typeof(RedisOperationExecutor).Assembly.GetType(
+            "FsusBlog.Server.Infrastructure.Cache.RedisOperationFailureDiagnostics");
+        Assert.NotNull(diagnostics);
+        Assert.NotNull(diagnostics.GetMethod(
+            "Subscribe",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic));
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsAreNoOpWithoutSubscribers()
+    {
+        Assert.False(RedisOperationFailureDiagnostics.HasSubscribers);
+        var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            executor.ExecuteAsync<int>(RedisOperationPort.PerceptionChallenge,
+                (_, _) => throw new RedisServerException("private-key-payload"), CancellationToken.None));
+        Assert.Equal(RedisOperationFailureKind.RedisFailure, failure.FailureKind);
+        Assert.Equal(0, executor.DiagnosticIdentity);
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsDoNotReadExceptionTextWhenUnsubscribed()
+    {
+        Assert.False(RedisOperationFailureDiagnostics.HasSubscribers);
+        var original = new CountingProviderFailure();
+        var executor = new RedisOperationExecutor(new FailingConnectionProvider(original),
+            new RedisOperationBudgetCatalog(), TimeProvider.System);
+        RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            executor.ExecuteAsync(RedisOperationPort.PerceptionChallenge, (_, _) => Task.FromResult(1), CancellationToken.None));
+        Assert.Same(original, failure.InnerException);
+        // The original filter and final failure mapping each read once; diagnostics must add no read.
+        Assert.Equal(2, original.MessageReads);
+        Assert.Equal(0, executor.DiagnosticIdentity);
+    }
+
+    [Theory]
+    [InlineData(0, "redis-connection", RedisOperationFailureKind.RedisFailure)]
+    [InlineData(1, "redis-server", RedisOperationFailureKind.RedisFailure)]
+    [InlineData(2, "timeout", RedisOperationFailureKind.CommandTimeout)]
+    [InlineData(3, "redis-timeout", RedisOperationFailureKind.CommandTimeout)]
+    [InlineData(4, "redis-readonly", RedisOperationFailureKind.RedisFailure)]
+    [InlineData(5, "redis-moved", RedisOperationFailureKind.RedisFailure)]
+    public async Task FailureDiagnosticsKeepClosedCategoriesAndOriginalAtomicFailure(
+        int kind, string category, RedisOperationFailureKind failureKind)
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        const string PrivateText = "endpoint-key-payload-secret";
+        Exception original = kind switch
+        {
+            0 => new RedisConnectionException(ConnectionFailureType.UnableToConnect, PrivateText),
+            1 => new RedisServerException(PrivateText),
+            2 => new TimeoutException(PrivateText),
+            3 => new RedisTimeoutException(PrivateText, CommandStatus.Unknown),
+            4 => new RedisServerException($"READONLY {PrivateText}"),
+            _ => new RedisServerException($"MOVED {PrivateText}")
+        };
+        int attempts = 0;
+        RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            executor.ExecuteAsync<int>(RedisOperationPort.PerceptionChallenge, (_, _) =>
+            {
+                attempts++;
+                throw original;
+            }, CancellationToken.None));
+        Assert.Same(original, failure.InnerException);
+        Assert.Equal(failureKind, failure.FailureKind);
+        Assert.Equal(1, attempts);
+        RedisOperationFailureDiagnostic observation = Assert.Single(OwnEvents(collector, executor));
+        Assert.Equal(category, observation.ExceptionCategory);
+        Assert.Equal(RedisOperationDiagnosticStage.Command, observation.Stage);
+        Assert.Equal(RedisOperationDiagnosticDisposition.Terminal, observation.Disposition);
+        Assert.Equal(1, observation.Attempt);
+        Assert.Equal(failureKind, observation.FailureKind);
+        Assert.Equal(kind == 0 ? ConnectionFailureType.UnableToConnect : (ConnectionFailureType?)null,
+            observation.ConnectionFailure);
+        Assert.True(observation.ObservedTimestamp > 0);
+        Assert.True(observation.ElapsedMilliseconds >= 0);
+        Assert.DoesNotContain(PrivateText, JsonSerializer.Serialize(observation));
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsDistinguishConnectionAndCommandDeadlines()
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var connection = new RedisOperationExecutor(new PendingConnectionProvider(),
+            new RedisOperationBudgetCatalog(), TimeProvider.System);
+        await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => connection.ExecuteAsync(
+            RedisOperationPort.PerceptionChallenge, (_, _) => Task.FromResult(1), CancellationToken.None));
+        RedisOperationFailureDiagnostic connect = Assert.Single(OwnEvents(collector, connection));
+        Assert.Equal(RedisOperationDiagnosticStage.Connection, connect.Stage);
+        Assert.Equal("timeout", connect.ExceptionCategory);
+        var command = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => command.ExecuteAsync(
+            RedisOperationPort.PerceptionChallenge,
+            (_, _) => new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously).Task,
+            CancellationToken.None));
+        RedisOperationFailureDiagnostic execution = Assert.Single(OwnEvents(collector, command));
+        Assert.Equal(RedisOperationDiagnosticStage.Command, execution.Stage);
+        Assert.NotEqual(connect.ExecutorIdentity, execution.ExecutorIdentity);
+        Assert.NotEqual(connect.CallIdentity, execution.CallIdentity);
+        Assert.True(execution.Sequence > connect.Sequence);
+        Assert.True(execution.ObservedTimestamp >= connect.ObservedTimestamp);
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsPreserveRetryAttemptsAndSuccessfulResult()
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        int attempts = 0;
+        Assert.Equal(42, await executor.ExecuteAsync(RedisOperationPort.UnifiedCacheRead, (_, _) =>
+            ++attempts == 1
+                ? Task.FromException<int>(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "private"))
+                : Task.FromResult(42), CancellationToken.None));
+        Assert.Equal(2, attempts);
+        RedisOperationFailureDiagnostic observation = Assert.Single(OwnEvents(collector, executor));
+        Assert.Equal(RedisOperationDiagnosticDisposition.Retry, observation.Disposition);
+        Assert.Equal(1, observation.Attempt);
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsDistinguishInitialFailuresAndCircuitEntryRejection()
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        var catalog = new RedisOperationBudgetCatalog();
+        int threshold = catalog.Get(RedisOperationClass.SecurityAtomic).CircuitFailureThreshold;
+        int commands = 0;
+        for (int index = 0; index <= threshold; index++)
+        {
+            await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => executor.ExecuteAsync<int>(
+                RedisOperationPort.PerceptionChallenge, (_, _) =>
+                {
+                    commands++;
+                    throw new RedisConnectionException(ConnectionFailureType.UnableToConnect, "private");
+                }, CancellationToken.None));
+        }
+
+        Assert.Equal(threshold, commands);
+        RedisOperationFailureDiagnostic[] events = OwnEvents(collector, executor);
+        Assert.Equal(threshold + 1, events.Length);
+        Assert.All(events.Take(threshold), item => Assert.Equal(RedisOperationDiagnosticDisposition.Terminal, item.Disposition));
+        Assert.Equal(RedisOperationDiagnosticStage.CircuitEntry, events[^1].Stage);
+        Assert.Equal(RedisOperationDiagnosticDisposition.Rejected, events[^1].Disposition);
+        Assert.Equal("none", events[^1].ExceptionCategory);
+        Assert.Equal(0, events[^1].Attempt);
+        Assert.Null(events[^1].ConnectionFailure);
+        Assert.Equal(events.Length, events.Select(static item => item.CallIdentity).Distinct().Count());
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsPreserveCallerCancellationAndProviderClassification()
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var unavailable = new RedisOperationExecutor(new UnavailableConnectionProvider(),
+            new RedisOperationBudgetCatalog(), TimeProvider.System);
+        RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            unavailable.ExecuteAsync(RedisOperationPort.PerceptionChallenge, (_, _) => Task.FromResult(1), CancellationToken.None));
+        Assert.Equal(RedisOperationFailureKind.ConnectionUnavailable, failure.FailureKind);
+        RedisOperationFailureDiagnostic provider = Assert.Single(OwnEvents(collector, unavailable));
+        Assert.Equal("connection-provider-unavailable", provider.ExceptionCategory);
+        Assert.Equal(RedisOperationDiagnosticStage.Connection, provider.Stage);
+        var cancelled = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        using var cancellation = new CancellationTokenSource();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => cancelled.ExecuteAsync<int>(
+            RedisOperationPort.PerceptionChallenge, (_, token) =>
+            {
+                cancellation.Cancel();
+                throw new OperationCanceledException(token);
+            }, cancellation.Token));
+        RedisOperationFailureDiagnostic caller = Assert.Single(OwnEvents(collector, cancelled));
+        Assert.Equal(RedisOperationDiagnosticDisposition.CallerCancellation, caller.Disposition);
+        Assert.Null(caller.FailureKind);
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsSubscriberFailureCannotReplaceResultOrOriginalException()
+    {
+        using IDisposable faulty = RedisOperationFailureDiagnostics.Subscribe(_ => throw new InvalidOperationException("private"));
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        var original = new RedisServerException("private");
+        RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() =>
+            executor.ExecuteAsync<int>(RedisOperationPort.PerceptionChallenge, (_, _) => throw original, CancellationToken.None));
+        Assert.Same(original, failure.InnerException);
+        Assert.Single(OwnEvents(collector, executor));
+        int attempts = 0;
+        Assert.Equal(7, await executor.ExecuteAsync(RedisOperationPort.UnifiedCacheRead, (_, _) =>
+            ++attempts == 1
+                ? Task.FromException<int>(new RedisConnectionException(ConnectionFailureType.UnableToConnect, "private"))
+                : Task.FromResult(7), CancellationToken.None));
+        Assert.Equal(2, attempts);
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsObservePostQueueCircuitRejectionWithoutExecutingQueuedCommand()
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        RedisOperationBudget budget = new RedisOperationBudgetCatalog().Get(RedisOperationClass.SecurityAtomic);
+        var release = new TaskCompletionSource<int>(TaskCreationOptions.RunContinuationsAsynchronously);
+        Task<int>[] holders = Enumerable.Range(0, budget.MaxConcurrency - 1).Select(_ => executor.ExecuteAsync(
+            RedisOperationPort.PerceptionChallenge, (_, _) => release.Task, CancellationToken.None)).ToArray();
+        Task<int>? queued = null;
+        int queuedCommands = 0;
+        try
+        {
+            for (int index = 0; index < budget.CircuitFailureThreshold; index++)
+            {
+                bool last = index == budget.CircuitFailureThreshold - 1;
+                await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => executor.ExecuteAsync<int>(
+                    RedisOperationPort.PerceptionChallenge, (_, _) =>
+                    {
+                        if (last)
+                        {
+                            queued = executor.ExecuteAsync(RedisOperationPort.PerceptionChallenge, (_, _) =>
+                            {
+                                queuedCommands++;
+                                return Task.FromResult(1);
+                            }, CancellationToken.None);
+                        }
+
+                        throw new RedisServerException("private");
+                    }, CancellationToken.None));
+            }
+
+            Assert.NotNull(queued);
+            RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => queued);
+            Assert.Equal(RedisOperationFailureKind.CircuitOpen, failure.FailureKind);
+            Assert.Null(failure.InnerException);
+            Assert.Equal(0, queuedCommands);
+            RedisOperationFailureDiagnostic rejection = Assert.Single(OwnEvents(collector, executor),
+                item => item.Stage == RedisOperationDiagnosticStage.CircuitAfterQueue);
+            Assert.Equal(RedisOperationDiagnosticDisposition.Rejected, rejection.Disposition);
+            Assert.Equal("none", rejection.ExceptionCategory);
+        }
+        finally
+        {
+            release.TrySetResult(1);
+            await Task.WhenAll(holders);
+        }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task FailureDiagnosticsDistinguishQueueDeadlineAndCallerCancellation(bool callerCancellation)
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector();
+        var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        // Mechanical admission saturation, not a claim about physical Redis load or burn concurrency.
+        var slots = (SemaphoreSlim[])typeof(RedisOperationExecutor).GetField("_operationSlots",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic)!.GetValue(executor)!;
+        SemaphoreSlim security = slots[(int)RedisOperationClass.SecurityAtomic];
+        int capacity = security.CurrentCount;
+        for (int index = 0; index < capacity; index++)
+        {
+            Assert.True(security.Wait(0));
+        }
+
+        using var cancellation = new CancellationTokenSource();
+        int commands = 0;
+        try
+        {
+            Task<int> pending = executor.ExecuteAsync(RedisOperationPort.PerceptionChallenge, (_, _) =>
+            {
+                commands++;
+                return Task.FromResult(1);
+            }, cancellation.Token);
+            if (callerCancellation)
+            {
+                cancellation.Cancel();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            }
+            else
+            {
+                RedisOperationUnavailableException failure = await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => pending);
+                Assert.Equal(RedisOperationFailureKind.CommandTimeout, failure.FailureKind);
+            }
+
+            Assert.Equal(0, commands);
+            RedisOperationFailureDiagnostic observation = Assert.Single(OwnEvents(collector, executor));
+            Assert.Equal(RedisOperationDiagnosticStage.Queue, observation.Stage);
+            Assert.Equal(0, observation.Attempt);
+            Assert.Equal(callerCancellation ? RedisOperationDiagnosticDisposition.CallerCancellation
+                : RedisOperationDiagnosticDisposition.Terminal, observation.Disposition);
+        }
+        finally
+        {
+            security.Release(capacity);
+        }
+    }
+
+    [Fact]
+    public void FailureDiagnosticsRejectForeignNonPrivateAndSymlinkRoots()
+    {
+        string parent = Path.Combine(Path.GetTempPath(), $"redis-diagnostic-unit-{Guid.NewGuid():N}");
+        string root = Path.Combine(parent, "redis-diagnostics-mechanical.owned");
+        Directory.CreateDirectory(root);
+        try
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                Assert.Throws<InvalidOperationException>(() => RedisOperationFailureDiagnosticCollector.ValidatePrivateRoot(root, "mechanical"));
+                return;
+            }
+
+            File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            RedisOperationFailureDiagnosticCollector.ValidatePrivateRoot(root, "mechanical");
+            Assert.Throws<InvalidOperationException>(() => RedisOperationFailureDiagnosticCollector.ValidatePrivateRoot(root, "foreign"));
+            File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute | UnixFileMode.GroupRead);
+            Assert.Throws<InvalidOperationException>(() => RedisOperationFailureDiagnosticCollector.ValidatePrivateRoot(root, "mechanical"));
+            File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+            string link = Path.Combine(parent, "redis-diagnostics-mechanical.link");
+            Directory.CreateSymbolicLink(link, root);
+            Assert.Throws<InvalidOperationException>(() => RedisOperationFailureDiagnosticCollector.ValidatePrivateRoot(link, "mechanical"));
+        }
+        finally
+        {
+            Directory.Delete(parent, recursive: true);
+        }
+    }
+
+    [Fact]
+    public async Task FailureDiagnosticsCollectorOverflowIsExplicitAndBounded()
+    {
+        using var collector = new RedisOperationFailureDiagnosticCollector(capacity: 2);
+        for (int index = 0; index < 5; index++)
+        {
+            var executor = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+            await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => executor.ExecuteAsync<int>(
+                RedisOperationPort.PerceptionChallenge, (_, _) => throw new RedisServerException("private"), CancellationToken.None));
+        }
+
+        RedisOperationDiagnosticSnapshot snapshot = collector.Snapshot();
+        Assert.Equal(2, snapshot.Capacity);
+        Assert.Equal(2, snapshot.RetainedCount);
+        Assert.Equal(3, snapshot.DroppedCount);
+        Assert.Equal("overflow-incomplete", snapshot.Completeness);
+        Assert.Equal(2, snapshot.Events.Length);
+        collector.Dispose();
+        collector.Dispose();
+        var after = CreateExecutor(Substitute.For<IConnectionMultiplexer>());
+        await Assert.ThrowsAsync<RedisOperationUnavailableException>(() => after.ExecuteAsync<int>(
+            RedisOperationPort.PerceptionChallenge, (_, _) => throw new RedisServerException("private"), CancellationToken.None));
+        Assert.Equal(snapshot, collector.Snapshot() with
+        {
+            Events = snapshot.Events
+        });
+        Assert.Throws<ArgumentOutOfRangeException>(() => new RedisOperationFailureDiagnosticCollector(0));
+        Assert.Throws<ArgumentOutOfRangeException>(() => new RedisOperationFailureDiagnosticCollector(
+            RedisOperationFailureDiagnosticCollector.MaximumEvents + 1));
+    }
+
+    private static RedisOperationFailureDiagnostic[] OwnEvents(
+        RedisOperationFailureDiagnosticCollector collector, RedisOperationExecutor executor)
+        => collector.Snapshot().Events.Where(item => item.ExecutorIdentity == executor.DiagnosticIdentity).ToArray();
+
+    [Fact]
+    public void FailureDiagnosticsFailedSerializationDoesNotPublishFinalMarker()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        string root = Path.Combine(Path.GetTempPath(), $"redis-diagnostic-publication-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        try
+        {
+            System.Reflection.MethodInfo writer = typeof(RedisOperationFailureDiagnosticCollector).GetMethod(
+                "WritePrivate", System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+            var payload = new FailingPublicationPayload();
+            System.Reflection.TargetInvocationException failure = Assert.Throws<System.Reflection.TargetInvocationException>(() =>
+                writer.Invoke(null, [root, "testhost-model-final.json", payload]));
+            Assert.IsType<IOException>(failure.InnerException);
+            Assert.False(File.Exists(Path.Combine(root, "testhost-model-final.json")));
+            string pending = Assert.Single(Directory.GetFiles(root, "*.pending-*"));
+            Assert.True(new FileInfo(pending).Length > 0);
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(pending));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private sealed class FailingPublicationPayload
+    {
+        [System.Text.Json.Serialization.JsonPropertyOrder(0)]
+        public bool FinalizedAtProcessExit => true;
+
+        [System.Text.Json.Serialization.JsonPropertyOrder(1)]
+        public string Padding => new('x', 256 * 1024);
+
+        [System.Text.Json.Serialization.JsonPropertyOrder(2)]
+        public string Failure => throw new IOException("injected_writer_failure");
+    }
+
+    [Fact]
+    public void FailureDiagnosticsFailedFlushRetainsCompleteJsonOnlyAsPending()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        string root = Path.Combine(Path.GetTempPath(), $"redis-diagnostic-flush-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        try
+        {
+            Assert.Throws<ObjectDisposedException>(() => RedisOperationFailureDiagnosticCollector.PublishPrivate(
+                root, "testhost-model-final.json",
+                stream => JsonSerializer.Serialize(stream, new { FinalizedAtProcessExit = true }),
+                stream =>
+                {
+                    // Actual FileStream flush fails after all JSON bytes were written to this private inode.
+                    stream.Dispose();
+                    stream.Flush(flushToDisk: true);
+                }));
+            Assert.False(File.Exists(Path.Combine(root, "testhost-model-final.json")));
+            string pending = Assert.Single(Directory.GetFiles(root, "*.pending-*"));
+            using JsonDocument json = JsonDocument.Parse(File.ReadAllBytes(pending));
+            Assert.True(json.RootElement.GetProperty("FinalizedAtProcessExit").GetBoolean());
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(pending));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    [Fact]
+    public void FailureDiagnosticsPublicationNeverOverwritesAnExistingPrivateFinal()
+    {
+        if (OperatingSystem.IsWindows())
+        {
+            return;
+        }
+
+        string root = Path.Combine(Path.GetTempPath(), $"redis-diagnostic-final-{Guid.NewGuid():N}");
+        Directory.CreateDirectory(root);
+        File.SetUnixFileMode(root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
+        try
+        {
+            const string Name = "testhost-model-final.json";
+            RedisOperationFailureDiagnosticCollector.PublishPrivate(root, Name,
+                stream => JsonSerializer.Serialize(stream, new { Phase = "first" }),
+                static stream => stream.Flush(flushToDisk: true));
+            string final = Path.Combine(root, Name);
+            byte[] original = File.ReadAllBytes(final);
+            Assert.Empty(Directory.GetFiles(root, "*.pending-*"));
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(final));
+            Assert.Throws<IOException>(() => RedisOperationFailureDiagnosticCollector.PublishPrivate(root, Name,
+                stream => JsonSerializer.Serialize(stream, new { Phase = "second" }),
+                static stream => stream.Flush(flushToDisk: true)));
+            Assert.Equal(original, File.ReadAllBytes(final));
+            string pending = Assert.Single(Directory.GetFiles(root, "*.pending-*"));
+            using JsonDocument json = JsonDocument.Parse(File.ReadAllBytes(pending));
+            Assert.Equal("second", json.RootElement.GetProperty("Phase").GetString());
+            Assert.Equal(UnixFileMode.UserRead | UnixFileMode.UserWrite, File.GetUnixFileMode(pending));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private sealed class PendingConnectionProvider : IRedisConnectionProvider
+    {
+        public Task<IConnectionMultiplexer> WaitAsync()
+            => new TaskCompletionSource<IConnectionMultiplexer>(TaskCreationOptions.RunContinuationsAsynchronously).Task;
+    }
+
+    private sealed class CountingProviderFailure : InvalidOperationException
+    {
+        public int MessageReads
+        {
+            get;
+            private set;
+        }
+
+        public override string Message
+        {
+            get
+            {
+                MessageReads++;
+                return "redis_multiplexer_private";
+            }
+        }
+    }
+
+    private sealed class FailingConnectionProvider(Exception exception) : IRedisConnectionProvider
+    {
+        public Task<IConnectionMultiplexer> WaitAsync() => Task.FromException<IConnectionMultiplexer>(exception);
+    }
+
     [Fact]
     public async Task IdempotentPortRetriesTransientFailureWithinClassBudget()
     {

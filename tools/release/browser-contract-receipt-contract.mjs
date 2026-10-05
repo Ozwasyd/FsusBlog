@@ -202,6 +202,144 @@ export function sortedUniqueErrors(values, label, { allowEmpty = false } = {})
     return errors;
 }
 
+/** Project actual fixture leases; the required roster comes only from the admitted matrix. */
+export function projectBrowserContractLocaleTopology({ matrix, bindings, expectedOwner })
+{
+    const reject = (message) =>
+    {
+        throw new Error(`Browser Contract locale topology ${message}`);
+    };
+    const requiredSceneIds = matrix?.scenes?.map((scene) => scene.id);
+    if (typeof matrix?.contentDigest !== 'string' || !/^[a-f0-9]{64}$/u.test(matrix.contentDigest)
+        || !Array.isArray(requiredSceneIds) || requiredSceneIds.length === 0
+        || requiredSceneIds.some((id) => typeof id !== 'string' || !id)
+        || new Set(requiredSceneIds).size !== requiredSceneIds.length
+        || sourceStateErrors(expectedOwner?.sourceState, 'locale owner source').length > 0
+        || !isDigest(expectedOwner?.buildDigest) || !expectedOwner?.preparation?.id
+        || !expectedOwner?.identity?.namespace || !path.isAbsolute(expectedOwner?.fixtureRoot ?? '')
+        || !sameSourceState(expectedOwner?.sourceState, {
+            commit: matrix?.identity?.sourceCommit, worktreeFingerprint: matrix?.identity?.worktreeFingerprint
+        }))
+    {
+        reject('matrix or current owner identity is invalid');
+    }
+    const ownerFields = ['identity', 'sourceState', 'buildDigest', 'preparation', 'fixtureRoot', 'resources'];
+    const sameOwner = (owner) => ownerFields.every((field) => JSON.stringify(canonicalize(owner?.[field]))
+        === JSON.stringify(canonicalize(expectedOwner?.[field])));
+    if (bindings && (!sameOwner(bindings.owner) || !Array.isArray(bindings.leases) || !Array.isArray(bindings.blocked)
+        || !/^[a-f0-9]{64}$/u.test(bindings.contentDigest ?? '')))
+    {
+        reject('fixture binding belongs to another owner');
+    }
+    const contexts = (bindings?.leases ?? []).map((lease) =>
+    {
+        if (!lease || !sameOwner(lease.owner) || lease.authority?.matrixDigest !== matrix.contentDigest
+            || !requiredSceneIds.includes(lease.sceneId)
+            || typeof lease.contextId !== 'string' || !lease.contextId
+            || typeof lease.leaseId !== 'string' || !lease.leaseId
+            || ![0, 1].includes(lease.entered) || ![0, 1].includes(lease.ended) || lease.ended > lease.entered)
+        {
+            reject('scene context has invalid identity or counters');
+        }
+        return {
+            sceneId: lease.sceneId, contextId: lease.contextId, leaseId: lease.leaseId,
+            status: lease.status, entered: lease.entered, ended: lease.ended,
+            firstFailureRetained: lease.firstFailure !== null && lease.firstFailure !== undefined
+        };
+    });
+    for (const field of ['sceneId', 'contextId', 'leaseId'])
+    {
+        if (new Set(contexts.map((context) => context[field])).size !== contexts.length)
+        {
+            reject(`duplicate ${field}`);
+        }
+    }
+    const blockedSceneIds = (bindings?.blocked ?? []).map((blocked) => blocked?.sceneId);
+    if (new Set(blockedSceneIds).size !== blockedSceneIds.length
+        || blockedSceneIds.some((id) => !requiredSceneIds.includes(id) || contexts.some((context) => context.sceneId === id)))
+    {
+        reject('blocked scene roster is invalid');
+    }
+    const topology = {
+        schema: 'fsusblog.browser-contract-locale-topology.v1',
+        matrixDigest: `sha256:${matrix.contentDigest}`,
+        requiredSceneIds,
+        bindingDigest: bindings ? `sha256:${bindings.contentDigest}` : null,
+        contextCount: contexts.reduce((total, context) => total + context.entered, 0),
+        endedContextCount: contexts.reduce((total, context) => total + context.ended, 0),
+        blockedSceneIds,
+        contexts
+    };
+    if (validateBrowserContractLocaleTopology(topology).length > 0)
+    {
+        reject('fixture observation is invalid');
+    }
+    return topology;
+}
+
+/** Separate exact locale accounting never changes the original product-context equation. */
+export function validateBrowserContractLocaleTopology(topology, { requireSuccess = false } = {})
+{
+    const errors = [];
+    const required = topology?.requiredSceneIds;
+    const contexts = topology?.contexts;
+    const topologyFields = ['schema', 'matrixDigest', 'requiredSceneIds', 'bindingDigest', 'contextCount',
+        'endedContextCount', 'blockedSceneIds', 'contexts'];
+    const contextFields = ['sceneId', 'contextId', 'leaseId', 'status', 'entered', 'ended', 'firstFailureRetained'];
+    const statusCounts = { prepared: [0, 0], reserved: [0, 0], entered: [1, 0], finished: [1, 1],
+        abandoned: [0, 0], 'creation-failed': [0, 0] };
+    if (topology?.schema !== 'fsusblog.browser-contract-locale-topology.v1' || !isDigest(topology?.matrixDigest)
+        || !Array.isArray(required) || required.length === 0 || new Set(required).size !== required.length
+        || required.some((id) => typeof id !== 'string' || !id) || !Array.isArray(contexts)
+        || !Array.isArray(topology.blockedSceneIds)
+        || Object.keys(topology).length !== topologyFields.length
+        || Object.keys(topology).some((field) => !topologyFields.includes(field))
+        || contexts.some((context) => !context || typeof context !== 'object' || Array.isArray(context)
+            || Object.keys(context).length !== contextFields.length
+            || Object.keys(context).some((field) => !contextFields.includes(field))
+            || typeof context.status !== 'string'
+            || ![0, 1].includes(context.entered) || ![0, 1].includes(context.ended)))
+    {
+        return ['Browser Contract locale topology is invalid'];
+    }
+    for (const field of ['sceneId', 'contextId', 'leaseId'])
+    {
+        if (contexts.some((context) => typeof context[field] !== 'string' || !context[field])
+            || new Set(contexts.map((context) => context[field])).size !== contexts.length)
+        {
+            errors.push(`Browser Contract locale topology ${field} is invalid or duplicate`);
+        }
+    }
+    if (!Array.isArray(topology.blockedSceneIds)
+        || new Set(topology.blockedSceneIds).size !== topology.blockedSceneIds.length
+        || topology.blockedSceneIds.some((id) => !required.includes(id) || contexts.some((context) => context.sceneId === id))
+        || contexts.some((context) => !required.includes(context.sceneId)
+            || ![0, 1].includes(context.entered) || ![0, 1].includes(context.ended) || context.ended > context.entered
+            || !Object.hasOwn(statusCounts, context.status)
+            || context.entered !== statusCounts[context.status]?.[0] || context.ended !== statusCounts[context.status]?.[1]
+            || typeof context.firstFailureRetained !== 'boolean'))
+    {
+        errors.push('Browser Contract locale topology observations are invalid');
+    }
+    if (topology.contextCount !== contexts.reduce((total, context) => total + context.entered, 0)
+        || topology.endedContextCount !== contexts.reduce((total, context) => total + context.ended, 0))
+    {
+        errors.push('Browser Contract locale topology counters do not match actual leases');
+    }
+    if ((topology.bindingDigest !== null && !isDigest(topology.bindingDigest))
+        || ((contexts.length > 0 || topology.blockedSceneIds.length > 0) && !isDigest(topology.bindingDigest)))
+    {
+        errors.push('Browser Contract locale topology fixture binding digest is missing');
+    }
+    if (requireSuccess && (contexts.length !== required.length || topology.blockedSceneIds.length > 0
+        || contexts.some((context) => context.status !== 'finished' || context.entered !== 1
+            || context.ended !== 1 || context.firstFailureRetained)))
+    {
+        errors.push('Browser Contract locale success requires every required scene to enter and finish exactly once without failure');
+    }
+    return errors;
+}
+
 export function validateBrowserContractReceipt(receipt, {
     expectedCommit = null,
     expectedFingerprint = null,
@@ -352,6 +490,12 @@ export function validateBrowserContractReceipt(receipt, {
     if (!Number.isInteger(receipt?.topology?.contextCount) || receipt.topology.contextCount < 0)
     {
         errors.push('Browser Contract context count is invalid');
+    }
+    if (receipt?.topology?.publicShellLocale !== undefined)
+    {
+        errors.push(...validateBrowserContractLocaleTopology(receipt.topology.publicShellLocale, {
+            requireSuccess: receipt.status === 'success'
+        }));
     }
     if (typeof receipt?.fixtureNamespace !== 'string' || !receipt.fixtureNamespace.trim())
     {

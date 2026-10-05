@@ -705,6 +705,67 @@ test('release-final tier separates an empty execution graph from the canonical e
     );
 });
 
+test('matrix validation rejects an unknown release-final evidence producer at the canonical static boundary', () =>
+{
+    const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-unknown-producer-'));
+    try
+    {
+        const matrixFile = path.join(fixture, 'matrix.yml');
+        writeFileSync(matrixFile, replaceTierField(
+            readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'),
+            'release-final',
+            'requiresEvidenceFrom',
+            '[missing-evidence-producer]'
+        ));
+        const result = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate'], {
+            cwd: root,
+            encoding: 'utf8',
+            env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrixFile }
+        });
+        assert.equal(result.error, undefined);
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '', 'invalid producer roster must be rejected before publishing a plan');
+        assert.match(result.stderr, /release-final static boundary rejected matrix parse/u);
+        assert.match(result.stderr, /release-final\.requiresEvidenceFrom must contain exactly 22 canonical evidence inputs; got 1/u);
+        assert.match(result.stderr, /release-final\.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer/u);
+    }
+    finally
+    {
+        rmSync(fixture, { recursive: true, force: true });
+    }
+});
+
+test('matrix validation rejects a missing frontend build at the sealed execution target boundary', () =>
+{
+    const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-missing-build-'));
+    try
+    {
+        const matrixFile = path.join(fixture, 'matrix.yml');
+        const lines = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8').split('\n');
+        const start = lines.findIndex((line) => line === '    - id: frontend-build');
+        assert.notEqual(start, -1);
+        const nextTier = lines.slice(start + 1).findIndex((line) => line.startsWith('    - id: '));
+        assert.notEqual(nextTier, -1);
+        lines.splice(start, nextTier + 1);
+        writeFileSync(matrixFile, lines.join('\n'));
+        const result = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate'], {
+            cwd: root,
+            encoding: 'utf8',
+            env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrixFile }
+        });
+        assert.equal(result.error, undefined);
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '', 'missing execution target must be rejected before publishing a plan');
+        assert.match(result.stderr, /release-final static boundary rejected matrix parse/u);
+        assert.match(result.stderr, /independent release-final execution declaration index drifted/u);
+        assert.match(result.stderr, /finite execution target tools\/test\/lanes\/frontend-build\.sh is missing/u);
+    }
+    finally
+    {
+        rmSync(fixture, { recursive: true, force: true });
+    }
+});
+
 test('release-final exact-set binding rejects deletion, replacement, duplication, and addition', async (context) =>
 {
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
