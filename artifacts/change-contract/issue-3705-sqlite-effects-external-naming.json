@@ -5,9 +5,10 @@
             "id": "environment-variable",
             "paths": [
                 "src/migration/SqliteCurrentSchemaEffectObserver.cs",
-                "src/shared/Algorithms/SqliteImmutableTriggerObservation.cs"
+                "src/shared/Algorithms/SqliteImmutableTriggerObservation.cs",
+                "src/migration/SqliteCurrentSchemaCatalogObserver.cs"
             ],
-            "reason": "Preserve native SQLite trigger SQL event/action identifiers, failure codes and Microsoft.Data.Sqlite lifecycle names; decoder symbols use the current FsusBlog.Shared.Algorithms owner and original controls retain external provider grammar."
+            "reason": "Preserve native SQLite trigger SQL event/action identifiers, failure codes and Microsoft.Data.Sqlite lifecycle names, including the original bounded metadata query and required NULL refusal. Internal decoder symbols use the current FsusBlog.Shared.Algorithms owner; all native grammar and strict sequence checks remain intact."
         }
     ]
 }

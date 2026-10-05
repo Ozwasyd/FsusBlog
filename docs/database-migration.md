@@ -335,11 +335,24 @@ is granted by this rendering/measurement adapter.
 
 The remote source integration retains the complete catalog/effect SOURCE controls
 from #1761 and #2217 under the bounded #3705 integration and the last source commit
-`c85ceb9004cbafc545b12c8deb7360fa0a4194a7`. The existing strict SQLite sequence
-catalog reader is unchanged; the shared decoder uses the current
-`FsusBlog.Shared.Algorithms` owner. This is WIP until the canonical Migration
-candidate build and original local provider controls execute against this source,
-and independent full-provider bootstrap/admission gates remain separate. No task
+`c85ceb9004cbafc545b12c8deb7360fa0a4194a7`. The original strict SQLite sequence storage-type checks remain unchanged; the
+shared decoder uses the current `FsusBlog.Shared.Algorithms` owner. Real native
+SOURCE controls exposed an existing catalog defect: SQLite 3.49.1 returns NULL
+from `SUBSTR` of an empty BLOB, so the original bounded text projection lost the
+legitimate empty namespace filename before `RequiredText` could observe it. The
+projection now preserves a zero-byte non-NULL value as empty text before taking
+the original byte prefix. Actual NULL still remains NULL and is refused by the
+original required-field check. The `(MaximumCellCharacters + 1) * 4` byte prefix,
+row/character budgets, embedded-NUL refusal, strict sequence checks, original
+native connection/transaction and namespace admission remain unchanged.
+
+The supplementary combination of these complete production/control sources and
+prebuilt Migration prerequisite dependencies executed all 72 original controls
+and seven additional empty/NULL, Unicode, oversized-byte and NUL controls with
+79 passes and no skips. The original 57 failures before this fix remain recorded;
+no expected result or native fixture was weakened. This source combination does
+not prove the canonical candidate Migration assembly/build or required matrix.
+Those gates and independent full-provider bootstrap/admission remain separate. No task
 service, production receipt or approved SQLite action policy is implied. Rollback
 removes this isolated decoder/effect integration and its controls while preserving
 the existing catalog reader, owned-domain observer and shared PostgreSQL owners.
