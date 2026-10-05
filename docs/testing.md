@@ -1020,6 +1020,14 @@ retry policy. Registration and source-order checks are not actual compiler/SQL
 qualification; scheduler MySQL allocation and canonical locked dependencies
 remain prerequisites.
 
+Before local physical scheduling, the existing runner projects each non-resident
+bundle's service requirements from its exact logical members. Duplicate or
+missing logical identities, foreign service declarations and MySQL on a resident
+bundle refuse; the existing resident handoff and bootstrap capability ownership
+remain unchanged. This requirement projection does not create or admit a MySQL
+service, and still requires the scheduler's independent allocation, preparation
+and cleanup boundaries.
+
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 
 - `release-rollout-state.test.mjs`: 15-stage sequence, rollout identity, failed-stage recovery and resume.
