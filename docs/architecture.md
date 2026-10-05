@@ -613,6 +613,16 @@ cgroup, unit or run-directory terminal state reports `cleanup-unqualified` /
 `cleanup-required`, with the original failure retained as its inner cause. This
 does not relax resource budgets, extend cancellation deadlines or qualify cleanup.
 
+Saved-view persistence remains the single PostgreSQL authority scoped by
+`owner_admin_principal_id` and `site_scope`. The preflight owner count is not
+authorization for an uncommitted conflicting view ID. `PersistViewAsync` binds
+both scope fields in the actual `ON CONFLICT DO UPDATE WHERE`, requires exactly
+one affected header row, and only then replaces AST child rows. A scope refusal
+rolls back the surrounding collection/view/receipt/idempotency transaction;
+it does not copy another owner's query or overwrite its children. The existing
+CAS, ordering, query validation and privacy boundaries are unchanged. This
+storage guard neither executes the saved query nor adds public/UI behavior.
+
 ### ZK-prod Anonymous comments on cryptography selection
 
 [ADR-Anonymous-Credential-Blind-Issuance.md](architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md) defines the current issuance: Credential collection uses RFC 9474 randomized blind RSA, the browser holds the finalized signature/opening/secret, and the issuer only handles blinded representatives. Comments prove that contract is fixed to `fsus.anonymous.comment.v5` / layout `6`. Currently, only the real blind issuance primitive, AEDS cross-stack and browser Finalize verification are completed; the current circuit-specific ceremony, proving key, verifying key and Wasm prover have not yet been run, so `production_usable=false`, blind signer and ZK ticket are closed by default. Credential possession and all stable credential material can only be current circuit private witnesses; ticket/public transcript still only allows scope-bound nullifiers. Any issuer/root/circuit/ceremony/verifier/prover gate that is not ready will fail closed and may not splice non-current artifacts, roll back deterministic verifier, or call the managed signature network.
