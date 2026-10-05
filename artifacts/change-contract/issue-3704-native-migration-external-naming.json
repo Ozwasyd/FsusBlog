@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md"
+            ],
+            "reason": "Retain the maintained Migration and shared schema owner identities in the current repository layout and document pending native acceptance without introducing another authority."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/AccountSubjectHashBackfillStep.cs",
+                "src/migration/CurrentSchemaBootstrapCompiler.cs",
+                "src/migration/PgArticlePreservationOperation.cs"
+            ],
+            "reason": "Preserve the original migration database identifiers, caller-visible refusal categories and established source bindings while restoring the original missing helper and method access."
+        }
+    ]
+}
