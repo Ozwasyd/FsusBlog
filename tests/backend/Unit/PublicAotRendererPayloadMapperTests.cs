@@ -93,6 +93,10 @@ public sealed class PublicAotRendererPayloadMapperTests
 
         Assert.False(options.ContainsKey("content"));
         Assert.Equal("# Body", options["bodyContent"]);
+        Assert.Equal("0", options["currentRevisionId"]);
+        Assert.Equal(0, options["revisionNo"]);
+        Assert.Equal("0", options["currentPublicationId"]);
+        Assert.Equal(0, options["publicationNo"]);
         Dictionary<string, object?>[] authors = Assert.IsType<Dictionary<string, object?>[]>(options["authors"]);
         Assert.Equal(new[] { "Alice", "Bob" }, authors.Select(static author => author["name"] as string ?? string.Empty).ToArray());
     }
@@ -128,6 +132,63 @@ public sealed class PublicAotRendererPayloadMapperTests
         Assert.Equal(Expected, options["createTime"]);
         Assert.Equal(Expected, options["publishedAt"]);
         Assert.Equal(Expected, options["updatedAt"]);
+    }
+
+    [Theory]
+    [InlineData(9007199254740993L, 9007199254740995L)]
+    [InlineData(long.MaxValue, long.MaxValue - 1)]
+    public void ArticleDetailOptions_PreserveExactPublicationCoordinates(long revisionId, long publicationId)
+    {
+        PublicArticlePageSnapshot article = new(
+            Seo(),
+            ArticleId: 42,
+            Title: "Article",
+            Content: "# Body",
+            Summary: "Summary",
+            Views: 9,
+            AuthorName: "Author",
+            CreateTime: DateTime.UnixEpoch,
+            Category: new PublicAotArticleCategorySnapshot(2, "Category"),
+            Tags: [],
+            Rights: Rights() with
+            {
+                RevisionId = revisionId
+            },
+            RelatedReading: null)
+        {
+            RevisionId = revisionId,
+            RevisionNo = 7,
+            PublicationId = publicationId,
+            PublicationNo = int.MaxValue
+        };
+        IReadOnlyDictionary<string, object?> payload = PublicAotRendererPayloadMapper.ToBuildEntryPayload(
+            new PublicAotRenderRequest(
+                new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail, "article:42", "/article/42", "/article/42", string.Empty),
+                article,
+                s_renderTimestamp));
+        Assert.True(PublicAotBinaryPayload.TryDecodeObject(PublicAotBinaryPayload.EncodeObject(payload), out Dictionary<string, object?> decoded));
+        IReadOnlyDictionary<string, object?> options = GetOptions(decoded);
+        IReadOnlyDictionary<string, object?> rights = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(options["rights"]);
+
+        Assert.Equal(revisionId.ToString(System.Globalization.CultureInfo.InvariantCulture), Assert.IsType<string>(options["currentRevisionId"]));
+        Assert.Equal(publicationId.ToString(System.Globalization.CultureInfo.InvariantCulture), Assert.IsType<string>(options["currentPublicationId"]));
+        Assert.Equal(7, Assert.IsType<int>(options["revisionNo"]));
+        Assert.Equal(int.MaxValue, Assert.IsType<int>(options["publicationNo"]));
+        Assert.Equal(options["currentRevisionId"], rights["articleRevisionId"]);
+
+        IReadOnlyDictionary<string, object?> mismatchedOptions = GetOptions(PublicAotRendererPayloadMapper.ToBuildEntryPayload(
+            new PublicAotRenderRequest(
+                new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail, "article:42", "/article/42", "/article/42", string.Empty),
+                article with
+                {
+                    Rights = Rights()
+                },
+                s_renderTimestamp)));
+        IReadOnlyDictionary<string, object?> mismatchedRights = Assert.IsAssignableFrom<IReadOnlyDictionary<string, object?>>(mismatchedOptions["rights"]);
+
+        Assert.Equal(options["currentRevisionId"], mismatchedOptions["currentRevisionId"]);
+        Assert.Equal("801", mismatchedRights["articleRevisionId"]);
+        Assert.NotEqual(mismatchedOptions["currentRevisionId"], mismatchedRights["articleRevisionId"]);
     }
 
     [Fact]

@@ -187,6 +187,41 @@ export function normalizeArticleSummary(value: unknown): ArticleListItemResponse
     };
 }
 
+function toOptionalCoordinateId(value: unknown, fieldName: string): string | undefined
+{
+    if (value === undefined)
+    {
+        return undefined;
+    }
+
+    const text = typeof value === 'string'
+        ? value
+        : typeof value === 'number' && Number.isSafeInteger(value) && value >= 0
+            ? String(value)
+            : '';
+    if (text.trim() !== text || !/^(0|[1-9]\d{0,18})$/u.test(text) || BigInt(text) > 9223372036854775807n)
+    {
+        throw new Error(`public_aot_article_coordinates_invalid:${fieldName}`);
+    }
+
+    return text;
+}
+
+function toOptionalCoordinateNumber(value: unknown, fieldName: string): number | undefined
+{
+    if (value === undefined)
+    {
+        return undefined;
+    }
+
+    if (typeof value !== 'number' || !Number.isInteger(value) || value < 0 || value > 2147483647)
+    {
+        throw new Error(`public_aot_article_coordinates_invalid:${fieldName}`);
+    }
+
+    return value;
+}
+
 export function normalizeArticleDetail(options: Record<string, unknown>): ArticleDetailResponse
 {
     return {
@@ -196,6 +231,14 @@ export function normalizeArticleDetail(options: Record<string, unknown>): Articl
         summary: toText(options.summary, ''),
         publishedAt: toOptionalText(options.publishedAt ?? options.PublishedAt),
         updatedAt: toOptionalText(options.updatedAt ?? options.UpdatedAt),
+        currentRevisionId: toOptionalCoordinateId(options.currentRevisionId, 'currentRevisionId'),
+        revisionNo: toOptionalCoordinateNumber(options.revisionNo, 'revisionNo'),
+        currentPublicationId: options.currentPublicationId === null
+            ? null
+            : toOptionalCoordinateId(options.currentPublicationId, 'currentPublicationId'),
+        publicationNo: options.publicationNo === null
+            ? null
+            : toOptionalCoordinateNumber(options.publicationNo, 'publicationNo'),
         rights: normalizeArticleRights(options.rights ?? options.Rights)
     };
 }

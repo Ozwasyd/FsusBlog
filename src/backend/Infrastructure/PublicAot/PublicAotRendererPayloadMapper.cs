@@ -42,6 +42,10 @@ internal static class PublicAotRendererPayloadMapper
                 return common;
             case PublicArticlePageSnapshot article:
                 common["articleId"] = article.ArticleId;
+                common["currentRevisionId"] = article.RevisionId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                common["revisionNo"] = article.RevisionNo;
+                common["currentPublicationId"] = article.PublicationId.ToString(System.Globalization.CultureInfo.InvariantCulture);
+                common["publicationNo"] = article.PublicationNo;
                 common["title"] = article.Title;
                 common["bodyContent"] = article.Content;
                 common["summary"] = article.Summary;
