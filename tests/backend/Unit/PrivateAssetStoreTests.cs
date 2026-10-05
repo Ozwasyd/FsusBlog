@@ -12,9 +12,11 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.PrivateAssets;
+using FsusBlog.Server.Tests.Unit;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -749,26 +751,29 @@ public sealed class PrivateAssetStoreTests
     }
 
     [Fact]
-    public void ProductionGateway_UsesOnlyInternalPrivateStorageAlias()
+    public async Task ProductionGateway_UsesOnlyInternalPrivateStorageAlias()
     {
-        string repositoryRoot = RepositoryRoot();
-        string compose = File.ReadAllText(Path.Combine(repositoryRoot, "ops/docker/docker-compose.production.yml"));
-        string gateway = File.ReadAllText(Path.Combine(repositoryRoot, "ops/gateway/production-openresty.conf"));
+        using var directory = new TemporaryDirectory();
+        ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(directory.Path);
+        AssetRecord record = CreateRecord([2, 4, 6]);
+        var context = new DefaultHttpContext();
+        await using var handle = new PrivateAssetReadHandle(
+            record.Id,
+            record.StorageKey,
+            record.MimeType,
+            record.Extension,
+            record.SizeBytes,
+            record.Sha256!);
 
-        Assert.Contains("location ^~ /assets/private/", gateway, StringComparison.Ordinal);
-        Assert.Contains("access_log off;", gateway, StringComparison.Ordinal);
-        Assert.Contains("location ^~ /_fsus/private-assets/", gateway, StringComparison.Ordinal);
-        Assert.Contains("internal;", gateway, StringComparison.Ordinal);
-        Assert.Contains(
-            "alias /var/lib/fsusblog/storage/shared/assets/private/;",
-            gateway,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain("PrivateAssetRoot", gateway, StringComparison.Ordinal);
-        Assert.DoesNotContain("/app/storage/shared/assets/private", compose, StringComparison.Ordinal);
-        Assert.Contains("FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared", compose, StringComparison.Ordinal);
-        Assert.Contains("FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances", compose, StringComparison.Ordinal);
-        Assert.Contains("fsus-storage:/app/storage", compose, StringComparison.Ordinal);
-        Assert.Contains("device: /var/lib/fsusblog/storage", compose, StringComparison.Ordinal);
+        await new OpenRestyPrivateAssetResponseWriter().WriteAsync(context, handle);
+
+        Assert.Equal(Path.Combine("assets", "public"), Path.GetRelativePath(paths.SharedRoot, paths.PublicAssetRoot));
+        Assert.Equal(Path.Combine("assets", "private"), Path.GetRelativePath(paths.SharedRoot, paths.PrivateAssetRoot));
+        Assert.Equal(
+            OpenRestyPrivateAssetResponseWriter.InternalLocationPrefix + record.StorageKey.Value,
+            context.Response.Headers["X-Accel-Redirect"]);
+        Assert.DoesNotContain(paths.SharedRoot, context.Response.Headers["X-Accel-Redirect"], StringComparison.Ordinal);
+        Assert.DoesNotContain(paths.PrivateAssetRoot, context.Response.Headers["X-Accel-Redirect"], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -833,16 +838,24 @@ public sealed class PrivateAssetStoreTests
     [Fact]
     public void StaticProviderOwners_NeverConsumePrivateAssetRoot()
     {
-        string backendRoot = Path.Combine(RepositoryRoot(), "src/backend");
-        string[] providerOwners = [.. Directory.EnumerateFiles(backendRoot, "*.cs", SearchOption.AllDirectories)
-            .Where(path => File.ReadAllText(path).Contains("UseStaticFiles", StringComparison.Ordinal))];
+        (Type Type, string Runtime)[] providerOwners = [.. typeof(PublicWebRuntime).Assembly.GetTypes()
+            .Where(static type => type.IsClass)
+            .Select(static type => (Type: type, Runtime: RuntimeMetadataInspection.DescribeType(type)))
+            .Where(static owner => owner.Runtime.Contains("UseStaticFiles", StringComparison.Ordinal))];
 
-        Assert.NotEmpty(providerOwners);
-        Assert.All(providerOwners, path =>
+        Type[] expectedOwners =
+        [
+            typeof(PublicWebRuntime),
+            typeof(ReleaseAssetStaticFileExtensions),
+            typeof(ReleaseDerivedStaticFileExtensions)
+        ];
+        Assert.Equal(
+            expectedOwners.OrderBy(static type => type.FullName),
+            providerOwners.Select(static owner => owner.Type).OrderBy(static type => type.FullName));
+        Assert.All(providerOwners, owner =>
         {
-            string source = File.ReadAllText(path);
-            Assert.DoesNotContain("PrivateAssetRoot", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("IPrivateAssetStore", source, StringComparison.Ordinal);
+            Assert.DoesNotContain("PrivateAssetRoot", owner.Runtime, StringComparison.Ordinal);
+            Assert.DoesNotContain("IPrivateAssetStore", owner.Runtime, StringComparison.Ordinal);
         });
     }
 
@@ -888,9 +901,6 @@ public sealed class PrivateAssetStoreTests
             now,
             now);
     }
-
-    private static string RepositoryRoot([System.Runtime.CompilerServices.CallerFilePath] string sourcePath = "")
-        => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourcePath)!, "../../.."));
 
     private sealed class TestRecordSource(AssetRecord? record) : IPrivateAssetRecordSource
     {
