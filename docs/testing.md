@@ -112,6 +112,16 @@ dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "Fu
 node --test tests/tools/canonical-article-lifecycle-authority.test.mjs tests/tools/public-content-producer.test.mjs
 ```
 
+The existing temporal ingress rejects nonzero submillisecond business epochs before a
+clock or projection is created. Lossless RFC3339 precision is retained while the actual
+business clock advances in exact milliseconds; invalid or overflowing advances do not
+alter the admitted instant. Backend fixture temporal observations independently read the
+registered `TimeProvider` and require its epoch, the PostgreSQL session epoch/timezone,
+and current culture/UI culture to match the explicit runtime context. A correct database
+epoch cannot conceal a drifting backend clock. These boundaries do not freeze monotonic
+measurement clocks or qualify pending publication projections; #1601/#2174/#2175 still
+require their current source-bound runtime acceptance.
+
 ## Media shape authority
 
 `config/testing/media-shape-catalog.json` is the only closed/versioned MediaShapeCatalog. It registers MIME, extension, magic and independent codec fact owners of JPEG, PNG, SVG and WebP respectively, and fixes six aspect contracts, ten types of consumer applicability, ten canonical positive shapes and eight single-fault negative shapes. The catalog only saves AssetId-compatible generator digest refs and does not save absolute path, public URL, storage path or second asset ledger; `no-cover` explicitly does not generate bytes, URL or default images. `tools/test-fixtures/media-shape-catalog.mjs` performs independent fail-closed verification of the catalog and each shape's content digest, matrix integrity, format/MIME/extension, orientation/alpha/dimensions, single-fault, consumer isolation, and unique authority.

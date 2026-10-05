@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Text.Json;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 using Microsoft.Extensions.DependencyInjection.Extensions;
 
@@ -79,8 +80,14 @@ public sealed class TestTemporalRuntimeContext
         FormattableString.Invariant(
             $"-c timezone={PostgresTimezone} -c fsusblog.test_business_epoch_utc={BusinessEpochUtc:O}");
 
-    public object Observe(string postgresTimezone, string postgresBusinessEpochUtc)
+    private int BusinessEpochFractionDigits { get; init; } = 3;
+
+    public object Observe(
+        string postgresTimezone,
+        string postgresBusinessEpochUtc,
+        TimeProvider businessTimeProvider)
     {
+        ArgumentNullException.ThrowIfNull(businessTimeProvider);
         if (!DateTimeOffset.TryParse(
                 postgresBusinessEpochUtc,
                 CultureInfo.InvariantCulture,
@@ -91,11 +98,32 @@ public sealed class TestTemporalRuntimeContext
             throw new InvalidOperationException(
                 "PostgreSQL business epoch observation is not an RFC3339 UTC instant");
         }
+
+        DateTimeOffset backendEpoch = businessTimeProvider.GetUtcNow();
+        if (backendEpoch != BusinessEpochUtc)
+        {
+            throw new InvalidOperationException(
+                "backend business epoch observation does not match the temporal context");
+        }
+        if (observedEpoch != BusinessEpochUtc)
+        {
+            throw new InvalidOperationException(
+                "PostgreSQL business epoch observation does not match the temporal context");
+        }
+        if (!string.Equals(postgresTimezone, PostgresTimezone, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException(
+                "PostgreSQL timezone observation does not match the temporal context");
+        }
+        if (!CultureInfo.CurrentCulture.Equals(CultureInfo.InvariantCulture)
+            || !CultureInfo.CurrentUICulture.Equals(CultureInfo.InvariantCulture))
+        {
+            throw new InvalidOperationException(
+                "backend culture observation does not match the temporal context");
+        }
         return new
         {
-            businessEpochUtc = observedEpoch.ToString(
-                "yyyy-MM-dd'T'HH:mm:ss.fff'Z'",
-                CultureInfo.InvariantCulture),
+            businessEpochUtc = FormatBusinessEpochUtc(backendEpoch),
             backendCulture = CultureInfo.CurrentCulture.Equals(CultureInfo.InvariantCulture)
                 && CultureInfo.CurrentUICulture.Equals(CultureInfo.InvariantCulture)
                 ? "Invariant"
@@ -140,7 +168,12 @@ public sealed class TestTemporalRuntimeContext
 
         string epochRaw = root.GetProperty("businessEpochUtc").GetString()
             ?? throw new InvalidOperationException("businessEpochUtc is required");
-        if (!DateTimeOffset.TryParse(
+        Match epochMatch = Regex.Match(
+            epochRaw,
+            "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}(?:\\.([0-9]{1,7}))?Z$",
+            RegexOptions.CultureInvariant);
+        if (!epochMatch.Success
+            || !DateTimeOffset.TryParse(
                 epochRaw,
                 CultureInfo.InvariantCulture,
                 DateTimeStyles.RoundtripKind,
@@ -148,6 +181,10 @@ public sealed class TestTemporalRuntimeContext
             || epoch.Offset != TimeSpan.Zero)
         {
             throw new InvalidOperationException("businessEpochUtc must be an RFC3339 UTC instant");
+        }
+        if (epoch.Ticks % TimeSpan.TicksPerMillisecond != 0)
+        {
+            throw new InvalidOperationException("business epoch exceeds exact millisecond precision");
         }
 
         return new TestTemporalRuntimeContext(
@@ -160,7 +197,24 @@ public sealed class TestTemporalRuntimeContext
             Required(root, "postgresTimezone"),
             Required(root, "nodeTimezone"),
             Required(root, "calendar"),
-            Required(root, "firstDayOfWeek"));
+            Required(root, "firstDayOfWeek"))
+        {
+            BusinessEpochFractionDigits = epochMatch.Groups[1].Value.Length
+        };
+    }
+
+    private string FormatBusinessEpochUtc(DateTimeOffset actual)
+    {
+        if (actual.Ticks % TimeSpan.TicksPerMillisecond != 0)
+        {
+            throw new InvalidOperationException("business epoch exceeds exact millisecond precision");
+        }
+        string fraction = actual.ToString("fff", CultureInfo.InvariantCulture).TrimEnd('0');
+        int fractionDigits = Math.Max(fraction.Length, BusinessEpochFractionDigits);
+        string format = fractionDigits == 0
+            ? "yyyy-MM-dd'T'HH:mm:ss'Z'"
+            : $"yyyy-MM-dd'T'HH:mm:ss.{new string('f', fractionDigits)}'Z'";
+        return actual.ToString(format, CultureInfo.InvariantCulture);
     }
 
     public static TimeProvider? Configure(WebApplicationBuilder builder)
