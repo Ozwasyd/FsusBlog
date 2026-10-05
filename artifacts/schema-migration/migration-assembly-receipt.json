@@ -2692,11 +2692,15 @@
   "testFiles": [
     {
       "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
-      "sha256": "e5160a72e306044117de9775444e4a61d5996f05d2e654c9a9bd94e504159af9"
+      "sha256": "deafdea9b55e1bf47bc5674d03f8483fe307504d64aeaf70ef76ba48714c4c40"
     },
     {
       "path": "tests/migration/MigrationAssemblyBoundaryTests.cs",
       "sha256": "a2a241a9359712c801ba5efb9b713fc9c2e17635f4c710c4a82bcb95cb9affd3"
+    },
+    {
+      "path": "tests/migration/MigrationProviderExecutionTests.cs",
+      "sha256": "416c652e8d4efb4a29eb6b431842ea1a6a9358774a863bc9c0b4da4d160c16b6"
     },
     {
       "path": "tests/migration/OfflineMigrationCommandLineTests.cs",
@@ -2704,7 +2708,7 @@
     },
     {
       "path": "tests/migration/packages.lock.json",
-      "sha256": "9932d64ee31ddde272b8104f466ef4bfe78fe564d259c74add51c2c547e1ba8c"
+      "sha256": "94ae401481cbb194a8da650a9f739e57a362767b64e9c33dbd782288fe5222af"
     },
     {
       "path": "tests/migration/schema-ddl-provider-snapshots.json",
@@ -2715,22 +2719,22 @@
       "sha256": "5ab89b14fd6de0fcdea83656facca23980405c604230da63deab3aaf57d0011e"
     }
   ],
-  "testContentDigest": "ef941999b7922a6a67b7162dbdea78eb7306c6a1c03718c802908ee75d7d865a",
-  "verificationInputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
+  "testContentDigest": "3694b6ba84961aa2ad5a8ffe08f9962276a0e71869e320927799b8657238b0b1",
+  "verificationInputDigest": "c68152be20f1b1e35dbc0837df9ac2ac156f034b393e2dd400ec4404df2cd26e",
   "verificationResults": [
     {
       "command": "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
-      "summary": "0 Warning(s) | 0 Error(s) | Time Elapsed 00:00:00.71"
+      "inputDigest": "c68152be20f1b1e35dbc0837df9ac2ac156f034b393e2dd400ec4404df2cd26e",
+      "summary": "0 Warning(s) | 0 Error(s) | Time Elapsed 00:00:03.46"
     },
     {
       "command": "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore",
       "status": "passed",
       "exitCode": 0,
-      "inputDigest": "0e3885a6dd928a889c2e1e0200449ebc66649e204909d18003caa15ea71ee84b",
-      "summary": "Test run for <repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0) | A total of 1 test files matched the specified pattern. | Passed!  - Failed:     0, Passed:    36, Skipped:     0, Total:    36, Duration: 135 ms - FsusBlog.Migration.Tests.dll (net10.0)"
+      "inputDigest": "c68152be20f1b1e35dbc0837df9ac2ac156f034b393e2dd400ec4404df2cd26e",
+      "summary": "Test run for <repo>/tests/migration/bin/Release/net10.0/FsusBlog.Migration.Tests.dll (.NETCoreApp,Version=v10.0) | A total of 1 test files matched the specified pattern. | Passed!  - Failed:     0, Passed:    38, Skipped:     0, Total:    38, Duration: 862 ms - FsusBlog.Migration.Tests.dll (net10.0)"
     }
   ]
 }

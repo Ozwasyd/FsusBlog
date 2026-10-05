@@ -85,6 +85,7 @@ for (const publishRoot of publishRoots)
     }
     publishScanned = true;
     const published = readdirSync(publishRoot, { recursive: true }).map(String);
+    reject(published.length === 0, `publish: published output is empty: ${publishRoot}`);
     reject(published.some(name => /FsusBlog\.Migration/i.test(name)), `publish residue: ${publishRoot} contains Migration assembly`);
     reject(published.some(name => /Npgsql\.EntityFramework|MySqlConnector|SQLitePCL/i.test(name) && /migration/i.test(name)), `publish residue: provider package in ${publishRoot}`);
 }
@@ -120,9 +121,9 @@ const receipt = {
         residue: 0
     },
     providers: {
-        postgresql: 'independent-migration-tests',
-        mysql: 'independent-migration-tests',
-        sqlite: 'independent-migration-tests'
+        postgresql: 'not-observed',
+        mysql: 'not-observed',
+        sqlite: 'not-observed'
     },
     mutation: {
         classes: [
@@ -137,7 +138,7 @@ const receipt = {
             'publish-residue',
             'second-current-schema-inventory'
         ],
-        status: 'checked-by-static-and-mutation-tests'
+        status: 'not-observed'
     },
     benchmark: {
         status: 'not-evaluable',
@@ -147,6 +148,15 @@ const receipt = {
     warningsCount: warnings.length,
     failures
 };
+
+// Static source inspection does not observe executable provider, mutation or
+// benchmark results. Missing observations must not become an acceptance receipt.
+reject(!publishScanned, 'publish: no published output was observed');
+reject(
+    Object.values(receipt.providers).some(status => status !== 'passed'),
+    'providers: executable PostgreSQL, MySQL and SQLite observations are missing');
+reject(receipt.mutation.status !== 'passed', 'mutation: terminal mutation results were not observed');
+reject(receipt.benchmark.status === 'not-evaluable', 'benchmark: not-evaluable cannot qualify terminal acceptance');
 
 if (failures.length > 0)
 {

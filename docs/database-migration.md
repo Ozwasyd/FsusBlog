@@ -134,6 +134,23 @@ seeds, comment attribution, and history row count. This protects fresh bootstrap
 supported upgrades, and duplicate-run idempotency without a production database or
 external migration service.
 
+### Terminal Acceptance Evidence
+
+`tools/db/check-migration-terminal-governance.mjs` cannot qualify migration
+acceptance from source inspection alone. Missing or empty publish output,
+unobserved executable provider or mutation results, and a `not-evaluable`
+cold-readiness comparison reject acceptance and prevent `--write` from emitting
+an acceptance receipt. A list of expected providers or mutation classes is not
+evidence that they executed.
+
+The standalone `tests/migration/FsusBlog.Migration.Tests.csproj` includes real
+in-memory SQLite execution of the typed DDL provider, row preservation and
+transactional DDL/data rollback without referencing Server. Its SQL preview tests
+for PostgreSQL and MySQL remain preview evidence, not executable acceptance.
+Three-provider observations, complete publish inspection, mutation results and
+the symmetric startup comparison must still be bound and verified before the
+terminal checker can qualify the migration boundary.
+
 SqlSugar string `SugarColumn.DefaultValue` values are logical literals, not
 pre-quoted SQL fragments. For example, use `DefaultValue = "basic"`, never
 `DefaultValue = "'basic'"`; the latter is escaped again during each CodeFirst pass
