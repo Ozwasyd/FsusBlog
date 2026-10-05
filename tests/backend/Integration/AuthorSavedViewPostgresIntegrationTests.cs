@@ -1,8 +1,12 @@
+using System.Collections.Concurrent;
+
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Tests.TestInfrastructure;
+
+using Npgsql;
 
 using SqlSugar;
 
@@ -16,6 +20,163 @@ public sealed class AuthorSavedViewPostgresIntegrationTests(
 {
     private static readonly AuthorSavedViewOwner s_singleOwner = new(1, "saved-view-single");
     private static readonly AuthorSavedViewOwner s_scaleOwner = new(2, "saved-view-scale");
+
+    [Theory]
+    [InlineData(2L, "collision-primary")]
+    [InlineData(1L, "collision-other-site")]
+    public async Task Persistence_RejectsConcurrentViewIdentityFromAnotherOwnerScope(
+        long otherPrincipalId,
+        string otherSiteScope)
+    {
+        using SqlSugarClient observer = await CreateDatabaseAsync();
+        string connectionString = observer.CurrentConnectionConfig.ConnectionString;
+        string winnerApplication = $"saved-view-winner-{Guid.NewGuid():N}";
+        string loserApplication = $"saved-view-loser-{Guid.NewGuid():N}";
+        using SqlSugarClient winnerDb = PostgresSqlSugarTestClient.Create(
+            WithApplicationName(connectionString, winnerApplication));
+        using SqlSugarClient loserDb = PostgresSqlSugarTestClient.Create(
+            WithApplicationName(connectionString, loserApplication));
+        Assert.Equal("read committed", await winnerDb.Ado.GetStringAsync("SHOW transaction_isolation;"));
+        Assert.Equal("read committed", await loserDb.Ado.GetStringAsync("SHOW transaction_isolation;"));
+        var winnerOwner = new AuthorSavedViewOwner(1, "collision-primary");
+        var loserOwner = new AuthorSavedViewOwner(otherPrincipalId, otherSiteScope);
+        Guid viewId = Guid.CreateVersion7();
+        AuthorSavedViewQuery winnerQuery = LifecycleQuery();
+        AuthorSavedViewQuery loserQuery = winnerQuery with
+        {
+            PageSize = 50,
+            Conditions =
+            [
+                new(new(AuthorSavedViewFieldKind.LifecycleStatus, AuthorSavedViewContract.LifecycleStatusField),
+                    "identity.equals", ["draft"])
+            ]
+        };
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([]));
+        AuthorSavedViewQueryValidationResult expected = await validator.ValidateAsync(winnerOwner, winnerQuery);
+        Assert.True(expected.IsValid);
+        var winnerStore = new AuthorSavedViewStore(new PostgresAuthorSavedViewPersistence(winnerDb),
+            validator, TimeProvider.System);
+        var loserStore = new AuthorSavedViewStore(new PostgresAuthorSavedViewPersistence(loserDb),
+            validator, TimeProvider.System);
+        var headerWritten = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        using var releaseWinner = new ManualResetEventSlim();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var loserStatements = new ConcurrentQueue<string>();
+        winnerDb.Aop.OnLogExecuting = (sql, _) =>
+        {
+            if (sql.Contains("INSERT INTO author_saved_view_condition(", StringComparison.Ordinal))
+            {
+                // The real header INSERT has returned inside the still-open
+                // transaction; pause before its first AST child write.
+                headerWritten.TrySetResult();
+                releaseWinner.Wait(deadline.Token);
+            }
+        };
+        loserDb.Aop.OnLogExecuting = (sql, _) => loserStatements.Enqueue(sql);
+        Task<AuthorSavedViewWriteReceipt> winner = Task.Run(() => winnerStore.CreateAsync(new(
+            viewId, winnerOwner, 0, Guid.CreateVersion7(), "Winner private view", winnerQuery), deadline.Token));
+        Task<AuthorSavedViewWriteReceipt>? loser = null;
+        try
+        {
+            await headerWritten.Task.WaitAsync(deadline.Token);
+            Assert.Equal(0, await observer.Ado.GetIntAsync(
+                "SELECT COUNT(*) FROM author_saved_view WHERE id = @ViewId;",
+                new SugarParameter("@ViewId", viewId)));
+            loser = loserStore.CreateAsync(new(
+                viewId, loserOwner, 0, Guid.CreateVersion7(), "Loser private view", loserQuery), deadline.Token);
+            await WaitForHeaderCollisionAsync(observer, winnerApplication, loserApplication, loser, deadline.Token);
+            Assert.False(winner.IsCompleted);
+            Assert.False(loser.IsCompleted);
+            Assert.Contains(loserStatements, static sql =>
+                sql.Contains("SELECT COUNT(1)", StringComparison.Ordinal)
+                && sql.Contains("owner_admin_principal_id <>", StringComparison.Ordinal));
+
+            releaseWinner.Set();
+            AuthorSavedViewWriteReceipt created = await winner.WaitAsync(deadline.Token);
+            await Assert.ThrowsAsync<AuthorSavedViewAccessDeniedException>(() => loser.WaitAsync(deadline.Token));
+            Assert.DoesNotContain(loserStatements, static sql =>
+                sql.Contains("DELETE FROM author_saved_view_condition", StringComparison.Ordinal)
+                || sql.Contains("DELETE FROM author_saved_view_projection", StringComparison.Ordinal)
+                || sql.Contains("INSERT INTO author_saved_view_condition(", StringComparison.Ordinal)
+                || sql.Contains("INSERT INTO author_saved_view_projection(", StringComparison.Ordinal));
+
+            AuthorSavedView stored = Assert.IsType<AuthorSavedView>(await winnerStore.GetAsync(winnerOwner, viewId));
+            Assert.Equal(winnerOwner, stored.Owner);
+            Assert.Equal("Winner private view", stored.Name);
+            Assert.Equal(1, stored.Revision);
+            Assert.Equal(AuthorSavedViewContract.SchemaVersion, stored.SchemaVersion);
+            Assert.False(stored.Pinned);
+            Assert.Equal(0, stored.OrderKey);
+            Assert.Equal(AuthorSavedViewLifecycleState.Active, stored.LifecycleState);
+            Assert.Equal(expected.QueryDigest, stored.QueryDigest);
+            Assert.Equal(expected.DependencyDigest, stored.DependencyDigest);
+            Assert.Equal(expected.QueryDigest, AuthorSavedViewContract.ComputeQueryDigest(stored.Query));
+            Assert.Equal(expected.Query.SchemaVersion, stored.Query.SchemaVersion);
+            Assert.Equal(expected.Query.Sort, stored.Query.Sort);
+            Assert.Equal(expected.Query.PageSize, stored.Query.PageSize);
+            Assert.Equal(expected.Query.Sort.StableTieBreaker, stored.Query.Sort.StableTieBreaker);
+            Assert.Equal(expected.Query.Projection.ToArray(), stored.Query.Projection.ToArray());
+            Assert.Equal(expected.Query.Conditions.Count, stored.Query.Conditions.Count);
+            foreach ((AuthorSavedViewCondition before, AuthorSavedViewCondition after)
+                in expected.Query.Conditions.Zip(stored.Query.Conditions))
+            {
+                Assert.Equal(before.Field, after.Field);
+                Assert.Equal(before.OperatorId, after.OperatorId);
+                Assert.Equal(before.TimeZoneId, after.TimeZoneId);
+                Assert.Equal(before.Values.ToArray(), after.Values.ToArray());
+            }
+            Assert.Equal(AuthorSavedViewStorageContract.ComputeViewDigest(
+                winnerOwner, viewId, 1, stored.Name, expected.QueryDigest, expected.DependencyDigest,
+                false, 0, AuthorSavedViewLifecycleState.Active), stored.ContentDigest);
+            Assert.Equal(created.QueryDigest, stored.QueryDigest);
+            Assert.True((await winnerStore.VerifyAsync(winnerOwner)).Valid);
+            Assert.Null(await loserStore.GetAsync(loserOwner, viewId));
+            Assert.Empty((await loserStore.ListAsync(loserOwner, null, 100)).Items);
+            foreach (string table in new[]
+            {
+                "author_saved_view_collection", "author_saved_view_receipt", "author_saved_view_idempotency"
+            })
+            {
+                Assert.Equal(0, await observer.Ado.GetIntAsync(
+                    $"SELECT COUNT(*) FROM {table} WHERE owner_admin_principal_id = @Owner AND site_scope = @Site;",
+                    new SugarParameter("@Owner", loserOwner.AdminPrincipalId),
+                    new SugarParameter("@Site", loserOwner.SiteScope)));
+            }
+            Assert.Equal(1, await observer.Ado.GetIntAsync("SELECT COUNT(*) FROM author_saved_view_receipt_change;"));
+        }
+        finally
+        {
+            releaseWinner.Set();
+            try
+            {
+                deadline.Cancel();
+            }
+            finally
+            {
+                // Cancellation cannot interrupt every SQL command. Both tasks
+                // must actually finish before their clients and gate are disposed.
+                try
+                {
+                    await ObserveCollisionOperationAsync(winner);
+                }
+                finally
+                {
+                    try
+                    {
+                        if (loser is not null)
+                        {
+                            await ObserveCollisionOperationAsync(loser);
+                        }
+                    }
+                    finally
+                    {
+                        winnerDb.Aop.OnLogExecuting = null;
+                        loserDb.Aop.OnLogExecuting = null;
+                    }
+                }
+            }
+        }
+    }
 
     [Fact]
     public async Task ProductionProvider_UsesTaxonomyAndFailsClosedForUnavailableUpstreams()
@@ -225,6 +386,58 @@ public sealed class AuthorSavedViewPostgresIntegrationTests(
 
     private static Guid ScaleViewId(int index)
         => Guid.Parse($"00000000-0000-0000-0000-{index:D12}");
+
+    private static string WithApplicationName(string connectionString, string applicationName)
+        => new NpgsqlConnectionStringBuilder(connectionString)
+        {
+            ApplicationName = applicationName
+        }.ConnectionString;
+
+    private static async Task WaitForHeaderCollisionAsync(
+        SqlSugarClient observer,
+        string winnerApplication,
+        string loserApplication,
+        Task loser,
+        CancellationToken cancellationToken)
+    {
+        while (true)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            Assert.False(loser.IsCompleted, "The competing write must reach the uncommitted header, not a preflight rejection.");
+            int blocked = await observer.Ado.GetIntAsync(
+                """
+                SELECT COUNT(*)
+                FROM pg_stat_activity AS losing
+                JOIN pg_stat_activity AS winning ON winning.datname = losing.datname
+                WHERE losing.datname = current_database()
+                  AND losing.application_name = @Loser
+                  AND winning.application_name = @Winner
+                  AND losing.wait_event_type = 'Lock'
+                  AND winning.pid = ANY(pg_blocking_pids(losing.pid))
+                  AND losing.query LIKE '%INSERT INTO author_saved_view(%';
+                """,
+                new SugarParameter("@Loser", loserApplication),
+                new SugarParameter("@Winner", winnerApplication));
+            if (blocked == 1)
+            {
+                return;
+            }
+            await Task.Delay(TimeSpan.FromMilliseconds(25), cancellationToken);
+        }
+    }
+
+    private static async Task ObserveCollisionOperationAsync(Task operation)
+    {
+        try
+        {
+            await operation;
+        }
+        catch (Exception) when (operation.IsCompleted)
+        {
+            // Observe a terminal fault without replacing the case's original
+            // assertion or barrier failure; no wait timeout substitutes for exit.
+        }
+    }
 
     private static AuthorSavedViewQuery LifecycleQuery()
         => new(

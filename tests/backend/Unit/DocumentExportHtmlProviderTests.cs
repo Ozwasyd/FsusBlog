@@ -1,4 +1,6 @@
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Runtime.InteropServices;
 using System.Text;
 
@@ -408,36 +410,349 @@ public sealed class DocumentExportHtmlProviderTests
             typeof(DocumentExportHtmlSanitizer),
             typeof(DocumentExportHtmlVerifier)
         ];
-        Assert.All(closedTypes, type =>
-        {
-            string compiled = string.Join('\n',
-                RuntimeMetadataInspection.DescribeType(type),
-                RuntimeMetadataInspection.DescribeConstructors(type));
-            Assert.DoesNotContain("Markdig", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Markdown.Parse", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("Screenshot", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("document-export.pdf", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("document-export.docx", compiled, StringComparison.Ordinal);
-            Assert.DoesNotContain("document-export.epub", compiled, StringComparison.Ordinal);
-        });
+        Assert.All(closedTypes, AssertNoFallbackAuthority);
         Assert.Empty(typeof(SelfContainedHtmlDocumentExportProvider).GetConstructors());
-        System.Reflection.MethodInfo export = Assert.Single(
+        MethodInfo export = Assert.Single(
             typeof(SelfContainedHtmlDocumentExportProvider).GetMethods(),
             method => method.Name == nameof(SelfContainedHtmlDocumentExportProvider.ExportAsync));
         Assert.Equal(
             [typeof(DocumentExportTask), typeof(DocumentExportFrozenInput), typeof(CancellationToken)],
             export.GetParameters().Select(parameter => parameter.ParameterType));
-        string registryConstruction = RuntimeMetadataInspection.DescribeSoleConstructorBody(
-            typeof(DocumentExportProviderRegistry));
-        Assert.Equal(1, registryConstruction.Split(
-            "SelfContainedHtmlDocumentExportProvider..ctor",
-            StringSplitOptions.None).Length - 1);
-        Assert.Contains(
-            "self-contained-html\nFsusBlog.Server.Services.DocumentExport.DocumentExportSandboxRuntime.RequireRegisteredTool",
-            registryConstruction,
-            StringComparison.Ordinal);
+        AssertRegistryConstruction(typeof(DocumentExportProviderRegistry));
+    }
+
+    [Fact]
+    public void CompiledRegistryRefusalsCannotSubstituteTextOrAnotherTypeForRealConstruction()
+    {
+        Type[] refusals =
+        [
+            typeof(TextOnlyRegistryFixture),
+            typeof(OtherProviderRegistryFixture),
+            typeof(DuplicateProviderRegistryFixture),
+            typeof(TextOnlyToolRegistryFixture),
+            typeof(OtherToolRegistryFixture),
+            typeof(WrongFormatRegistryFixture)
+        ];
+        ConstructorInfo providerConstructor = ProviderConstructor();
+        MethodInfo requireTool = RegisteredToolMethod();
+        Assert.Empty(ReadSoleConstructor(typeof(TextOnlyRegistryFixture))
+            .Where(instruction => instruction.OpCode == OpCodes.Newobj && instruction.Member == providerConstructor));
+        IlInstruction otherConstruction = Assert.Single(ReadSoleConstructor(typeof(OtherProviderRegistryFixture)),
+            instruction => instruction.OpCode == OpCodes.Newobj
+                && instruction.Member?.DeclaringType == typeof(OtherProviderRegistryFixture.SelfContainedHtmlDocumentExportProvider));
+        Assert.NotEqual(providerConstructor, otherConstruction.Member);
+        Assert.Equal(2, ReadSoleConstructor(typeof(DuplicateProviderRegistryFixture))
+            .Count(instruction => instruction.OpCode == OpCodes.Newobj && instruction.Member == providerConstructor));
+        Assert.DoesNotContain(ReadSoleConstructor(typeof(TextOnlyToolRegistryFixture)),
+            instruction => instruction.Member == requireTool);
+        Assert.Contains(ReadSoleConstructor(typeof(OtherToolRegistryFixture)),
+            instruction => instruction.Member?.DeclaringType == typeof(OtherToolRegistryFixture.OtherSandbox)
+                && instruction.Member?.Name == requireTool.Name);
+        Assert.Contains(ReadSoleConstructor(typeof(WrongFormatRegistryFixture)),
+            instruction => instruction.Member == requireTool
+                && (instruction.OpCode == OpCodes.Call || instruction.OpCode == OpCodes.Callvirt));
+        Assert.All(refusals, type => Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertRegistryConstruction(type)));
+
+        AssertRegistryConstruction(typeof(BenignRegistryFixture));
+    }
+
+    [Fact]
+    public void CompiledFallbackRefusalsIncludeUncalledNestedMethodsAndConstructors()
+    {
+        MethodInfo network = Assert.Single(typeof(NestedNetworkFixture.Uncalled).GetMethods(DeclaredMembers),
+            method => method.Name == nameof(NestedNetworkFixture.Uncalled.CreateClient));
+        Assert.Contains(ReadInstructions(network), instruction => instruction.OpCode == OpCodes.Newobj
+            && instruction.Member?.DeclaringType == typeof(System.Net.Http.HttpClient));
+        MethodInfo process = Assert.Single(typeof(NestedProcessFixture.Uncalled).GetMethods(DeclaredMembers),
+            method => method.Name == nameof(NestedProcessFixture.Uncalled.Start));
+        Assert.Contains(ReadInstructions(process), instruction => instruction.OpCode == OpCodes.Call
+            && instruction.Member?.DeclaringType == typeof(System.Diagnostics.Process)
+            && instruction.Member?.Name == nameof(System.Diagnostics.Process.Start));
+        Assert.Contains(ReadSoleConstructor(typeof(NestedConstructorFixture.Uncalled)),
+            instruction => instruction.OpCode == OpCodes.Ldstr && instruction.Literal == "Screenshot");
+        (Type Type, string Method, string Literal)[] literalBodies =
+        [
+            (typeof(NestedFormatFixture.Uncalled), "Format", "document-export.epub"),
+            (typeof(NestedPdfFixture.Uncalled), "Format", "document-export.pdf"),
+            (typeof(NestedDocxFixture.Uncalled), "Format", "document-export.docx"),
+            (typeof(NestedParserFixture.Uncalled), "Parser", "Markdig"),
+            (typeof(NestedMarkdownFixture.Uncalled), "Parser", "Markdown.Parse")
+        ];
+        Assert.All(literalBodies, candidate =>
+        {
+            MethodInfo method = Assert.Single(candidate.Type.GetMethods(DeclaredMembers),
+                declared => declared.Name == candidate.Method);
+            Assert.Contains(ReadInstructions(method), instruction => instruction.OpCode == OpCodes.Ldstr
+                && instruction.Literal == candidate.Literal);
+        });
+        Type[] refusals =
+        [
+            typeof(NestedNetworkFixture),
+            typeof(NestedProcessFixture),
+            typeof(NestedConstructorFixture),
+            typeof(NestedFormatFixture),
+            typeof(NestedPdfFixture),
+            typeof(NestedDocxFixture),
+            typeof(NestedParserFixture),
+            typeof(NestedMarkdownFixture)
+        ];
+        Assert.All(refusals, type => Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoFallbackAuthority(type)));
+        AssertNoFallbackAuthority(typeof(BenignFallbackFixture));
+    }
+
+    private const BindingFlags DeclaredMembers = BindingFlags.Instance | BindingFlags.Static
+        | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+    private static readonly IReadOnlyDictionary<ushort, OpCode> s_opCodes = typeof(OpCodes)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(field => field.FieldType == typeof(OpCode))
+        .Select(field => (OpCode)field.GetValue(null)!)
+        .GroupBy(opCode => unchecked((ushort)opCode.Value))
+        .ToDictionary(group => group.Key, group => group.First());
+
+    private static void AssertNoFallbackAuthority(Type type)
+    {
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("Markdig", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Markdown.Parse", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Screenshot", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("document-export.pdf", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("document-export.docx", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("document-export.epub", compiled, StringComparison.Ordinal);
+        Assert.All(type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic), AssertNoFallbackAuthority);
+    }
+
+    private static ConstructorInfo ProviderConstructor()
+    {
+        ConstructorInfo constructor = Assert.Single(typeof(SelfContainedHtmlDocumentExportProvider).GetConstructors(DeclaredMembers));
+        Assert.Equal([typeof(ICanonicalDocumentRendererAdapter)],
+            constructor.GetParameters().Select(parameter => parameter.ParameterType));
+        return constructor;
+    }
+
+    private static MethodInfo RegisteredToolMethod()
+    {
+        MethodInfo method = Assert.Single(typeof(DocumentExportSandboxRuntime).GetMethods(DeclaredMembers),
+            candidate => candidate.Name == "RequireRegisteredTool");
+        Assert.Equal(typeof(DocumentExportToolContract), method.ReturnType);
+        Assert.Equal([typeof(string)], method.GetParameters().Select(parameter => parameter.ParameterType));
+        return method;
+    }
+
+    private static void AssertRegistryConstruction(Type type)
+    {
+        IReadOnlyList<IlInstruction> instructions = ReadSoleConstructor(type);
+        ConstructorInfo providerConstructor = ProviderConstructor();
+        Assert.Single(instructions, instruction => instruction.OpCode == OpCodes.Newobj
+            && instruction.Member == providerConstructor);
+        MethodInfo requireTool = RegisteredToolMethod();
+        // These are exact sites in the declared constructor, not a tool-to-provider dataflow proof.
+        Assert.Contains(Enumerable.Range(1, instructions.Count - 1), index =>
+            (instructions[index].OpCode == OpCodes.Call || instructions[index].OpCode == OpCodes.Callvirt)
+            && instructions[index].Member == requireTool
+            && instructions[index - 1].OpCode == OpCodes.Ldstr
+            && instructions[index - 1].Literal == "self-contained-html");
+    }
+
+    private static IReadOnlyList<IlInstruction> ReadSoleConstructor(Type type)
+        => ReadInstructions(Assert.Single(type.GetConstructors(DeclaredMembers)));
+
+    private static IReadOnlyList<IlInstruction> ReadInstructions(MethodBase method)
+    {
+        MethodBody body = Assert.IsAssignableFrom<MethodBody>(method.GetMethodBody());
+        byte[] il = Assert.IsType<byte[]>(body.GetILAsByteArray());
+        Type[] typeArguments = method.DeclaringType?.GetGenericArguments() ?? Type.EmptyTypes;
+        Type[] methodArguments = method.IsGenericMethod ? method.GetGenericArguments() : Type.EmptyTypes;
+        var instructions = new List<IlInstruction>();
+        for (int offset = 0; offset < il.Length;)
+        {
+            ushort value = il[offset++];
+            if (value == 0xfe)
+            {
+                Assert.True(offset < il.Length);
+                value = (ushort)(0xfe00 | il[offset++]);
+            }
+            Assert.True(s_opCodes.TryGetValue(value, out OpCode opCode));
+            int operandSize = opCode.OperandType switch
+            {
+                OperandType.InlineNone => 0,
+                OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                OperandType.InlineVar => 2,
+                OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or OperandType.InlineMethod
+                    or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType
+                    or OperandType.ShortInlineR => 4,
+                OperandType.InlineI8 or OperandType.InlineR => 8,
+                OperandType.InlineSwitch when offset + 4 <= il.Length => checked(4 + BitConverter.ToInt32(il, offset) * 4),
+                _ => -1
+            };
+            Assert.True(operandSize >= 0 && operandSize <= il.Length - offset);
+            MemberInfo? member = opCode.OperandType == OperandType.InlineMethod
+                ? method.Module.ResolveMethod(BitConverter.ToInt32(il, offset), typeArguments, methodArguments)
+                : null;
+            string? literal = opCode == OpCodes.Ldstr
+                ? method.Module.ResolveString(BitConverter.ToInt32(il, offset))
+                : null;
+            if (opCode != OpCodes.Nop)
+            {
+                instructions.Add(new IlInstruction(opCode, member, literal));
+            }
+            offset += operandSize;
+        }
+        return instructions;
+    }
+
+    private readonly record struct IlInstruction(OpCode OpCode, MemberInfo? Member, string? Literal);
+
+    private sealed class TextOnlyRegistryFixture
+    {
+        public TextOnlyRegistryFixture() => GC.KeepAlive(
+            "SelfContainedHtmlDocumentExportProvider..ctor\nself-contained-html\nFsusBlog.Server.Services.DocumentExport.DocumentExportSandboxRuntime.RequireRegisteredTool");
+    }
+
+    private sealed class OtherProviderRegistryFixture
+    {
+        public OtherProviderRegistryFixture(DocumentExportSandboxRuntime sandbox)
+        {
+            GC.KeepAlive(sandbox.RequireRegisteredTool("self-contained-html"));
+            GC.KeepAlive(new SelfContainedHtmlDocumentExportProvider());
+        }
+
+        internal sealed class SelfContainedHtmlDocumentExportProvider
+        {
+            public SelfContainedHtmlDocumentExportProvider()
+            {
+            }
+        }
+    }
+
+    private sealed class DuplicateProviderRegistryFixture
+    {
+        public DuplicateProviderRegistryFixture(DocumentExportSandboxRuntime sandbox)
+        {
+            GC.KeepAlive(sandbox.RequireRegisteredTool("self-contained-html"));
+            GC.KeepAlive(new SelfContainedHtmlDocumentExportProvider(null!));
+            GC.KeepAlive(new SelfContainedHtmlDocumentExportProvider(null!));
+        }
+    }
+
+    private sealed class TextOnlyToolRegistryFixture
+    {
+        public TextOnlyToolRegistryFixture()
+        {
+            GC.KeepAlive("self-contained-html\nFsusBlog.Server.Services.DocumentExport.DocumentExportSandboxRuntime.RequireRegisteredTool");
+            GC.KeepAlive(new SelfContainedHtmlDocumentExportProvider(null!));
+        }
+    }
+
+    private sealed class WrongFormatRegistryFixture
+    {
+        public WrongFormatRegistryFixture(DocumentExportSandboxRuntime sandbox)
+        {
+            GC.KeepAlive("self-contained-html");
+            GC.KeepAlive(sandbox.RequireRegisteredTool("document-export.pdf"));
+            GC.KeepAlive(new SelfContainedHtmlDocumentExportProvider(null!));
+        }
+    }
+
+    private sealed class OtherToolRegistryFixture
+    {
+        public OtherToolRegistryFixture(OtherSandbox sandbox)
+        {
+            GC.KeepAlive(sandbox.RequireRegisteredTool("self-contained-html"));
+            GC.KeepAlive(new SelfContainedHtmlDocumentExportProvider(null!));
+        }
+
+        internal sealed class OtherSandbox
+        {
+            public DocumentExportToolContract RequireRegisteredTool(string formatId) => null!;
+        }
+    }
+
+    private sealed class BenignRegistryFixture
+    {
+        public BenignRegistryFixture(DocumentExportSandboxRuntime sandbox)
+        {
+            GC.KeepAlive("SelfContainedHtmlDocumentExportProvider..ctor");
+            DocumentExportToolContract tool = sandbox.RequireRegisteredTool("self-contained-html");
+            GC.KeepAlive(new SelfContainedHtmlDocumentExportProvider(
+                new SandboxCanonicalDocumentRendererAdapter(sandbox, tool)));
+        }
+    }
+
+    private sealed class NestedNetworkFixture
+    {
+        internal static class Uncalled
+        {
+            public static object CreateClient() => new System.Net.Http.HttpClient();
+        }
+    }
+
+    private sealed class NestedProcessFixture
+    {
+        internal static class Uncalled
+        {
+            public static object? Start() => System.Diagnostics.Process.Start("forbidden-fixture");
+        }
+    }
+
+    private sealed class NestedConstructorFixture
+    {
+        internal sealed class Uncalled
+        {
+            public Uncalled() => GC.KeepAlive("Screenshot");
+        }
+    }
+
+    private sealed class NestedFormatFixture
+    {
+        internal static class Uncalled
+        {
+            public static string Format() => "document-export.epub";
+        }
+    }
+
+    private sealed class BenignFallbackFixture
+    {
+        internal static class Uncalled
+        {
+            public static string Format() => "self-contained-html";
+        }
+    }
+
+    private sealed class NestedPdfFixture
+    {
+        internal static class Uncalled
+        {
+            public static string Format() => "document-export.pdf";
+        }
+    }
+
+    private sealed class NestedDocxFixture
+    {
+        internal static class Uncalled
+        {
+            public static string Format() => "document-export.docx";
+        }
+    }
+
+    private sealed class NestedParserFixture
+    {
+        internal static class Uncalled
+        {
+            public static string Parser() => "Markdig";
+        }
+    }
+
+    private sealed class NestedMarkdownFixture
+    {
+        internal static class Uncalled
+        {
+            public static string Parser() => "Markdown.Parse";
+        }
     }
 
     private static DocumentExportRendererResponse ValidResponse(

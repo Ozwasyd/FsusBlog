@@ -771,7 +771,7 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
                 throw new AuthorSavedViewAccessDeniedException();
             }
 
-            await db.Ado.ExecuteCommandAsync(
+            int affected = await db.Ado.ExecuteCommandAsync(
                 """
                 INSERT INTO author_saved_view(
                     id, owner_admin_principal_id, site_scope, schema_version, revision, name, name_key,
@@ -804,8 +804,21 @@ public sealed class PostgresAuthorSavedViewPersistence(ISqlSugarClient db) : IAu
                     order_key = EXCLUDED.order_key,
                     lifecycle_state = EXCLUDED.lifecycle_state,
                     updated_at_utc = EXCLUDED.updated_at_utc,
-                    content_digest = EXCLUDED.content_digest;
+                    content_digest = EXCLUDED.content_digest
+                WHERE author_saved_view.owner_admin_principal_id = EXCLUDED.owner_admin_principal_id
+                  AND author_saved_view.site_scope = EXCLUDED.site_scope;
+                """,
+                ViewParameters(view)).ConfigureAwait(false);
+            // The preflight count cannot see a different owner's uncommitted
+            // insert. Authorize the conflicting row atomically before touching
+            // its child rows; a refusal rolls back the surrounding transaction.
+            if (affected != 1)
+            {
+                throw new AuthorSavedViewAccessDeniedException();
+            }
 
+            await db.Ado.ExecuteCommandAsync(
+                """
                 DELETE FROM author_saved_view_condition WHERE view_id = @ViewId;
                 DELETE FROM author_saved_view_projection WHERE view_id = @ViewId;
                 """,
