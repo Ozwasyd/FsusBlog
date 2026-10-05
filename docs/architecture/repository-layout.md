@@ -32,6 +32,8 @@ For the complete classification, runtime paths, and fallback constraints, see
 
 `src/shared/Contracts/` is the sole product-source root for cross-stack contracts. Handwritten security-protocol JSON lives in `src/shared/Contracts/Validation/Security/`, and cross-language generators live in `tools/contracts/`; generated C# and TypeScript consumers may live in Shared and frontend, but cannot become authorities. Root `contracts/security/` and `tools/frontend/` do not hold cross-stack security-protocol source or generators.
 
+The fact-extractor runner supplies its canonical JSON digest and the admission owner's minimal-build receipt validator as explicit execution capabilities. The OpenAPI extractor requires them instead of importing parent governance modules. Its standalone producer and reader seal the runner and canonicalization source; canonical admission retains the run-relative receipt and independently verifies both cached and published observation/projection bytes. Missing capabilities or canonical cache reuse fail closed and never select the standalone receipt.
+
 Content-lifecycle document exactness reuses the existing ownership of
 `config/contracts/behavior-contracts.json`, `config/contracts/document-claim-migration-ledger.json`,
 and `config/contracts/generated-fact-sections.json`. `tools/docs/content-doc-exactness.mjs`

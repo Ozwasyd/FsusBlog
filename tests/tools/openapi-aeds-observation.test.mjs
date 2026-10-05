@@ -12,7 +12,8 @@ const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, rea
 const { observationBuildSourcePaths, observationContentDigest, openApiProjectionTextFromObservationFile, observationToFactObservations, validateObservationAgainstProtocol, writeGeneratedOpenApiProjection } = await import(new URL("../../tools/contracts/lib/openapi-observation.mjs", import.meta.url));
 const { extract: extractOpenApi } = await import(new URL("../../tools/fact-extractors/openapi-aeds/extract.mjs", import.meta.url));
 const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
-const { digestPath, sealSourceIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
+const { buildIdentitySchema, digestPath, resolveContainedPath, sealSourceIdentity, validateBuildIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
+const { validateMinimalContractBuildReceipt } = await import(new URL('../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
 const { runExtractor } = await import(new URL('../../tools/fact-extractors/runner.mjs', import.meta.url));
 const { createRuntimeRoleMinimalV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
 
@@ -244,6 +245,14 @@ function writeCanonicalObservation(repositoryRoot, observation)
         receipt,
         legacy,
         context: {
+            canonicalDigest: digestValue,
+            minimalBuildServices: {
+                buildIdentitySchema,
+                digestPath,
+                resolveContainedPath,
+                validateBuildIdentity,
+                validateMinimalContractBuildReceipt
+            },
             repositoryRoot,
             ...source,
             buildReceiptPath: receiptPath,
@@ -259,6 +268,61 @@ function writeCanonicalObservation(repositoryRoot, observation)
     };
 }
 
+test('OpenAPI requires the runner canonical digest and seals its exact provider sources', (t) =>
+{
+    const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-capability-')));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const produced = writeObservation(directory, sampleObservation());
+    const context = { repositoryRoot: directory, buildIdentity: produced.buildIdentity, canonicalDigest: digestValue };
+    assert.equal(extractOpenApi(context).status, 'ok');
+    const missing = extractOpenApi({ ...context, canonicalDigest: undefined });
+    assert.equal(missing.status, 'failed');
+    assert.match(missing.failureReasons.join('\n'), /runner-owned canonical digest/u);
+    assert.deepEqual(missing.observations, {});
+    assert.equal(digestValue(loadCatalog()), digestCatalog(loadCatalog()));
+    for (const relative of ['tools/fact-extractors/runner.mjs', 'tools/fact-extractors/lib/canonicalize.mjs'])
+    {
+        assert.ok(observationBuildSourcePaths.includes(relative));
+        const original = readFileSync(path.join(directory, relative));
+        writeFileSync(path.join(directory, relative), `${original}\n// changed provider\n`);
+        const changed = extractOpenApi(context);
+        assert.equal(changed.status, 'failed');
+        assert.match(changed.failureReasons.join('\n'), /source digest mismatch/u);
+        assert.deepEqual(changed.observations, {});
+        writeFileSync(path.join(directory, relative), original);
+    }
+});
+
+test('canonical OpenAPI refuses missing validation capabilities and runner cache before extraction', async (t) =>
+{
+    const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-capability-')));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const { context } = writeCanonicalObservation(directory, sampleObservation());
+    assert.equal(extractOpenApi(context).status, 'ok');
+    for (const key of ['buildIdentitySchema', 'digestPath', 'resolveContainedPath',
+        'validateBuildIdentity', 'validateMinimalContractBuildReceipt'])
+    {
+        const result = extractOpenApi({ ...context, minimalBuildServices: { ...context.minimalBuildServices, [key]: undefined } });
+        assert.equal(result.status, 'failed', key);
+        assert.match(result.failureReasons.join('\n'), /validation capability is missing/u);
+        assert.deepEqual(result.observations, {});
+    }
+    const registry = structuredClone(loadRegistry());
+    registry.extractors = registry.extractors.filter((extractor) => extractor.id === 'openapi-aeds-fact-extractor');
+    registry.extractors[0].consumedInputs = context.buildIdentity.sourceDigests.map((source) => source.path);
+    const options = {
+        extractorId: 'openapi-aeds-fact-extractor',
+        repositoryRoot: directory,
+        registry,
+        buildIdentity: context.buildIdentity,
+        buildReceiptPath: context.buildReceiptPath,
+        useCache: false
+    };
+    await assert.rejects(runExtractor(options), /uncached canonical minimal-build receipt validation/u);
+    await assert.rejects(runExtractor({ ...options, minimalBuildReceiptValidator: validateMinimalContractBuildReceipt, useCache: true }),
+        /uncached canonical minimal-build receipt validation/u);
+});
+
 test('canonical OpenAPI runner consumes the run-relative minimal receipt without a fixed sidecar', async (t) =>
 {
     const directory = realpathSync(mkdtempSync(path.join(os.tmpdir(), 'openapi-canonical-runner-')));
@@ -273,6 +337,7 @@ test('canonical OpenAPI runner consumes the run-relative minimal receipt without
         registry,
         buildIdentity: context.buildIdentity,
         buildReceiptPath: context.buildReceiptPath,
+        minimalBuildReceiptValidator: validateMinimalContractBuildReceipt,
         useCache: false
     });
     assert.equal(receipt.status, 'ok', JSON.stringify(receipt));
@@ -397,7 +462,7 @@ test('canonical OpenAPI refuses receipt drift and unsafe paths without falling b
         const { context, legacy } = writeCanonicalObservation(directory, sampleObservation());
         // Recreate a genuine legacy unit receipt before presenting an invalid canonical context.
         writeFileSync(path.join(directory, buildReceiptRelative), `${JSON.stringify(legacy.receipt)}\n`);
-        const standalone = extractOpenApi({ repositoryRoot: directory, buildIdentity: legacy.buildIdentity });
+        const standalone = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: legacy.buildIdentity });
         assert.equal(standalone.status, 'ok', standalone.failureReasons.join('\n'));
         mutate(context, directory);
         const result = extractOpenApi(context);
@@ -767,7 +832,7 @@ test('2) missing operationId fails extractor', () =>
         const observation = sampleObservation();
         observation.operations[0].operationId = '';
         const sealed = writeObservation(directory, observation);
-        const result = extractOpenApi({
+        const result = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: sealed.buildIdentity
         });
@@ -822,7 +887,7 @@ test('7) ambient bin/Debug identity is refused by extractor', () =>
     {
         const observation = sampleObservation();
         const sealed = writeObservation(directory, observation);
-        const result = extractOpenApi({
+        const result = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: identityFor(observation, sealed.artifactDigest, {
                 path: 'src/backend/bin/Debug/net10.0/FsusBlog.Server.dll'
@@ -847,7 +912,7 @@ test('8) reverse generation markers from checked-in OpenAPI fail closed', () =>
             generatedFromCheckedInOpenApi: true
         });
         const sealed = writeObservation(directory, observation);
-        const result = extractOpenApi({
+        const result = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: sealed.buildIdentity
         });
@@ -869,7 +934,7 @@ test('9) duplicate method/path fails extractor', () =>
         observation.operations.push({ ...observation.operations[0], operationId: 'binary_get_article_id_aeds_dup' });
         observation.operationCount = 3;
         const sealed = writeObservation(directory, observation);
-        const result = extractOpenApi({
+        const result = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: sealed.buildIdentity
         });
@@ -889,7 +954,7 @@ test('extractor accepts sealed observation and emits operation map', () =>
     {
         const observation = sampleObservation();
         const sealed = writeObservation(directory, observation);
-        const result = extractOpenApi({
+        const result = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: sealed.buildIdentity
         });
@@ -911,7 +976,7 @@ test('stale artifact digest (yesterday Debug swap) fails', () =>
     {
         const observation = sampleObservation();
         const sealed = writeObservation(directory, observation);
-        const result = extractOpenApi({
+        const result = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: { ...sealed.buildIdentity, artifactDigest: '0'.repeat(64) }
         });
@@ -931,7 +996,7 @@ test('arbitrary lowercase sha256 identity cannot select an unreceipted artifact'
     {
         const observation = sampleObservation();
         const sealed = writeObservation(directory, observation);
-        const result = extractOpenApi({
+        const result = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: identityFor(observation, sealed.artifactDigest)
         });
@@ -955,7 +1020,7 @@ test('canonical receipt self-digest and recomputed aggregate source digest fail 
         const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
         receipt.buildIdentity.receiptDigest = 'f'.repeat(64);
         writeFileSync(receiptPath, `${JSON.stringify(receipt, null, 2)}\n`);
-        const selfDigest = extractOpenApi({
+        const selfDigest = extractOpenApi({ canonicalDigest: digestValue,
             repositoryRoot: directory,
             buildIdentity: { ...sealed.buildIdentity, receiptDigest: 'f'.repeat(64) }
         });
@@ -967,7 +1032,7 @@ test('canonical receipt self-digest and recomputed aggregate source digest fail 
         {
             value.sourceDigest = 'e'.repeat(64);
         });
-        const aggregate = extractOpenApi({ repositoryRoot: directory, buildIdentity: forgedIdentity });
+        const aggregate = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: forgedIdentity });
         assert.equal(aggregate.status, 'failed');
         assert.match(aggregate.failureReasons.join('\n'), /aggregate source digest mismatch/iu);
 
@@ -977,7 +1042,7 @@ test('canonical receipt self-digest and recomputed aggregate source digest fail 
             'tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs'
         );
         writeFileSync(compiledObserver, `${readFileSync(compiledObserver, 'utf8')}tampered\n`);
-        const sourceDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: sourceSealed.buildIdentity });
+        const sourceDrift = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: sourceSealed.buildIdentity });
         assert.equal(sourceDrift.status, 'failed');
         assert.match(sourceDrift.failureReasons.join('\n'), /CompiledEndpointContractObserver\.cs/iu);
     }
@@ -1007,7 +1072,7 @@ test('receipt cannot self-select contract, error, generator, protocol, or artifa
             {
                 receipt[field] = '0'.repeat(64);
             });
-            const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+            const result = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: identity });
             assert.equal(result.status, 'failed', field);
             assert.match(result.failureReasons.join('\n'), expected, field);
         }
@@ -1035,7 +1100,7 @@ test('observationDigest is recomputed from sealed content, not trusted from arti
             receipt.observationDigest = document.observationDigest;
             receipt.artifactDigest = sha256(Buffer.from(text, 'utf8'));
         });
-        const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        const result = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: identity });
         assert.equal(result.status, 'failed');
         assert.match(result.failureReasons.join('\n'), /observationDigest does not match current observation content/iu);
     }
@@ -1239,7 +1304,7 @@ test('typed request, response, protocol, and error authority counterexamples fai
             const observation = sampleObservation();
             mutate(observation);
             const sealed = writeObservation(directory, observation);
-            const result = extractOpenApi({
+            const result = extractOpenApi({ canonicalDigest: digestValue,
                 repositoryRoot: directory,
                 buildIdentity: sealed.buildIdentity
             });
@@ -1275,27 +1340,27 @@ test('current error authority catalog digest and sealed artifact bytes are indep
         const observation = sampleObservation();
         const sealed = writeObservation(directory, observation);
         const identity = sealed.buildIdentity;
-        assert.equal(extractOpenApi({ repositoryRoot: directory, buildIdentity: identity }).status, 'ok');
+        assert.equal(extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: identity }).status, 'ok');
 
         const catalogPath = path.join(directory, 'config/contracts/behavior-contracts.json');
         writeFileSync(catalogPath, '  { "schema": "fixture-behavior-catalog", "contracts": [] }\n');
-        const byteDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        const byteDrift = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: identity });
         assert.equal(byteDrift.status, 'failed');
         assert.match(byteDrift.failureReasons.join('\n'), /source digest mismatch.*behavior-contracts/iu);
 
         writeFileSync(catalogPath, '{"schema":"tampered"}\n');
-        const authorityDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        const authorityDrift = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: identity });
         assert.equal(authorityDrift.status, 'failed');
         assert.match(authorityDrift.failureReasons.join('\n'), /error authority digest|source digest/iu);
 
         const endpointPath = path.join(directory, 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json');
         writeFileSync(endpointPath, '{"schema":"tampered"}\n');
-        const endpointDrift = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        const endpointDrift = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: identity });
         assert.equal(endpointDrift.status, 'failed');
         assert.match(endpointDrift.failureReasons.join('\n'), /contract digest|source digest/iu);
 
         writeFileSync(sealed.absolute, `${sealed.text} `);
-        const artifactTamper = extractOpenApi({ repositoryRoot: directory, buildIdentity: identity });
+        const artifactTamper = extractOpenApi({ canonicalDigest: digestValue, repositoryRoot: directory, buildIdentity: identity });
         assert.equal(artifactTamper.status, 'failed');
         assert.match(artifactTamper.failureReasons.join('\n'), /artifact digest mismatch/iu);
     }
