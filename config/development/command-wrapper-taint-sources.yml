@@ -1,0 +1,6 @@
+# Additive sources only. Default sinks and propagations remain enabled.
+Propagations:
+    - Name: getenv
+      DstArgs: [-1]
+    - Name: secure_getenv
+      DstArgs: [-1]

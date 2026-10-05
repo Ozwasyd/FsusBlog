@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/command-wrapper-input-registry.json"
+            ],
+            "reason": "Preserve the trusted registered external CLI, C compiler, JSON policy and tooling interface spellings while integrating complete closed command-input source; internal names retain repository governance."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/native-tooling-style-enforcement.md"
+            ],
+            "reason": "Preserve the trusted registered external CLI, C compiler, JSON policy and tooling interface spellings while integrating complete closed command-input source; internal names retain repository governance."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/style/check-native-tooling-style.mjs",
+                "tools/style/command-wrapper-caller-binding.mjs",
+                "tools/style/command-wrapper-compile-binding.mjs",
+                "tools/style/command-wrapper-input-ast.mjs",
+                "tools/style/command-wrapper-input-model.mjs"
+            ],
+            "reason": "Preserve the trusted registered external CLI, C compiler, JSON policy and tooling interface spellings while integrating complete closed command-input source; internal names retain repository governance."
+        }
+    ]
+}
