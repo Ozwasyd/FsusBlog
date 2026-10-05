@@ -274,7 +274,6 @@
             "owner": "DependencyOwner",
             "patterns": [
                 "tools/vcpkg-overlays/**",
-                "config/dependencies/fsusui-public-npm-migration.patch.gz",
                 "**/vendor/**",
                 "**/node_modules/**"
             ],

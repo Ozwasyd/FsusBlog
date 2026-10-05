@@ -274,7 +274,7 @@ test('account-messaging prepares, independently verifies, and exactly cleans own
         }
     ]);
     const verification = await verifyAccountMessaging(context, result);
-    assert.equal(verification.ok, true);
+    assert.equal(verification.ok, true, verification.reason);
     assert.equal(verification.producerId, 'account-messaging');
     assert.match(verification.identitySourceReceiptDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.match(verification.identityReferencesDigest, /^[a-f0-9]{64}$/u);
@@ -541,6 +541,7 @@ async function c2HttpUnitModel()
         prepare: async ({ messagingPlan }) =>
         {
             preparedRaw = buildRaw(messagingPlan);
+            preparedRaw.temporalObservation.businessEpochUtc = '2042-05-17T09:30:00.000Z';
             preparedRaw.capabilityProofs = preparedRaw.capabilityProofs.map((proof) => ({ ...proof, cache: 'exact', outbox: 'exact' }));
             preparedRaw.observations.database.entities[0].semanticRole = 'single-thread';
             return preparedRaw;
@@ -620,7 +621,7 @@ test('C2 actual Node verify path consumes a fresh independent HTTP read and boun
         return new Response(JSON.stringify(c2UnitRead(request, preparedRaw)));
     }, () => verifyAccountMessaging(context, result, controller.signal));
     assert.equal(calls, 1);
-    assert.equal(verification.ok, true);
+    assert.equal(verification.ok, true, verification.reason);
     assert.match(verification.readObservationDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.deepEqual(verification.observations, result.observations);
 });
@@ -676,7 +677,8 @@ for (const field of ['source', 'generation', 'run', 'namespace', 'profile', 'cat
 }
 
 for (const mutation of ['prepared-only', 'warning', 'structural', 'fallback', 'binding', 'auth-digest', 'cleanup',
-    'cache-missing', 'cache-drift', 'cache-proof', 'db-drift', 'stream-drift', 'outbox-proof', 'count-only', 'payload', 'owner', 'empty'])
+    'cache-missing', 'cache-drift', 'cache-proof', 'db-drift', 'stream-drift', 'outbox-proof', 'count-only', 'payload', 'owner', 'empty',
+    'temporal-clock-missing', 'temporal-epoch-drift'])
 {
     test(`C2 unit model rejects independent ${mutation} evidence instead of repairing or accepting prepare`, async () =>
     {
@@ -689,6 +691,12 @@ for (const mutation of ['prepared-only', 'warning', 'structural', 'fallback', 'b
             const read = c2UnitRead(request, preparedRaw);
             switch (mutation)
             {
+                case 'temporal-clock-missing':
+                    delete read.result.temporalObservation;
+                    break;
+                case 'temporal-epoch-drift':
+                    read.result.temporalObservation.businessEpochUtc = '2024-02-29T23:59:59.000Z';
+                    break;
                 case 'prepared-only':
                     delete read.ok;
                     break;

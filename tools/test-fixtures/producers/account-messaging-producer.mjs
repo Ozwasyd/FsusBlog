@@ -431,6 +431,12 @@ async function invokeCompositionRoot(context, plan, signal, action = 'prepare')
         }
         throw new Error(`account-messaging composition root failed HTTP ${response.status}: ${payload?.detail ?? text.slice(0, 400)}`);
     }
+    if (action === 'verify')
+    {
+        // The current verification endpoint returns its fresh actual observation
+        // inside the independently reread result, rather than the prepare envelope.
+        return payload;
+    }
     return {
         ...payload,
         temporalObservation: await observePreparedBackendTemporalContext(
@@ -571,6 +577,7 @@ async function verifyLiveMessaging(context, result, verifiedIdentities, signal)
     {
         throw new Error('account-messaging independent live result/cleanup identity drift');
     }
+    validateBackendTemporalObservation(context.temporalContext, live.temporalObservation ?? live.TemporalObservation);
     requireCapabilityProofs(live, plan.capabilities);
     if (live.capabilityProofs.some((proof) => proof.cache !== 'exact' || proof.outbox !== 'exact'))
     {

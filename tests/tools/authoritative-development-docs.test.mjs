@@ -89,10 +89,10 @@ test('authoritative development documentation assigns only the sealed FsusUI mig
 {
     const archivePath = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
     const manifest = readManifest();
-    const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+    const vendor = manifest.pathClassifications.find((entry) => entry.id === 'dependency-migration-archive');
     assert.ok(vendor.patterns.includes(archivePath));
     assert.deepEqual(manifest.pathClassifications.filter((entry) => entry.patterns.includes(archivePath))
-        .map((entry) => ({ id: entry.id, owner: entry.owner })), [{ id: 'vendor', owner: 'DependencyOwner' }]);
+        .map((entry) => ({ id: entry.id, owner: entry.owner })), [{ id: 'dependency-migration-archive', owner: 'DependencyOwner' }]);
     assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
     assert.ok(!vendor.patterns.includes('config/dependencies/**'));
 
@@ -109,7 +109,7 @@ test('authoritative development documentation rejects the FsusUI migration archi
     withOverlay((overlay) =>
     {
         const manifest = readManifest();
-        const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+        const vendor = manifest.pathClassifications.find((entry) => entry.id === 'dependency-migration-archive');
         vendor.patterns = vendor.patterns.filter((pattern) =>
             pattern !== 'config/dependencies/fsusui-public-npm-migration.patch.gz');
         writeManifest(overlay, manifest);

@@ -5417,4 +5417,3 @@ test('sealed scheduler CLI fixture rejects missing finalizer and executable drif
     assert.match(drifted.stderr, /working-tree bytes differ from the repository index/u);
     assert.equal(fs.existsSync(marker), false);
 });
-
