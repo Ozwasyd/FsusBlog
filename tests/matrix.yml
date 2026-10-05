@@ -3946,6 +3946,9 @@ tiers:
           - tests/backend/security-hardening-evidence.json
           - tests/test-retention-replacements.json
           - tests/tools/test-suite-convergence.test.mjs
+          - tests/tools/package.json
+          - tests/tools/package-lock.json
+          - tools/package.json
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt
           - tests/backend/cleanup-worker-human-read-behavior.md

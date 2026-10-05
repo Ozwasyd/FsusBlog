@@ -16,9 +16,9 @@ import {
   validateConvergencePlan,
   validateEvidenceContract,
   verifySourceLockingFixtures
-} from '../../tools/test-convergence/audit.mjs'
-import { compactRetentionBaseline } from '../../tools/test-retention/audit.mjs'
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
+} from '@fsusblog/governance-tools/test-convergence/audit'
+import { compactRetentionBaseline } from '@fsusblog/governance-tools/test-retention/audit'
+import { parseMatrix } from '@fsusblog/governance-tools/test-matrix/parse-matrix'
 
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
 
