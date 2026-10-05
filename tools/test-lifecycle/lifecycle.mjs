@@ -237,6 +237,28 @@ export function reconcileLifecycleRegistry({ root, audit, registry })
 export function buildLifecycleReport({ audit, registry })
 {
     const errors = validateLifecycleRegistry({ audit, registry });
+    const auditFilesByPath = new Map(audit.files.map((file) => [file.path, file]));
+    for (const record of audit.testRecords)
+    {
+        if (isNodeTestFile(record.path) || record.tierIds === undefined)
+        {
+            continue;
+        }
+        if (!Array.isArray(record.tierIds))
+        {
+            errors.push(`${record.id} has invalid case tier ownership`);
+        }
+        else if (record.tierIds.length === 1)
+        {
+            const tier = record.tierIds[0];
+            const fileTiers = auditFilesByPath.get(record.path)?.tierIds;
+            if (typeof tier !== 'string' || !tier.trim() || tier !== tier.trim()
+                || !Array.isArray(fileTiers) || !fileTiers.includes(tier))
+            {
+                errors.push(`${record.id} has an unresolved singleton case tier owner`);
+            }
+        }
+    }
     if (errors.length > 0)
     {
         return { errors, report: null };
@@ -262,11 +284,17 @@ export function buildLifecycleReport({ audit, registry })
     const testRecords = audit.testRecords.map((record) =>
     {
         const file = filesByPath.get(record.path);
+        // File tiers aggregate mixed execution lanes; a resolved case-level
+        // singleton must not inherit a different file-level lane. Explicit Node
+        // registry owners remain authoritative, including projection owners.
+        const caseTier = !nodeEntries.has(record.path) && record.tierIds?.length === 1
+            ? record.tierIds[0]
+            : null;
         return {
             id: record.id,
             file: record.path,
             semanticAssertionTargets: record.assertionTargets,
-            canonicalOwner: file.canonicalOwner,
+            canonicalOwner: caseTier ? `matrix:${caseTier}` : file.canonicalOwner,
             lifecycle: file.lifecycle,
             physicalExecutionCount: file.physicalExecutionCount,
             classifications: file.classifications,

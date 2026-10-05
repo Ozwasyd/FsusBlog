@@ -4953,7 +4953,7 @@
                 ".tmp/test-results/backend/perception-character-v3-redis-producer.json"
             ],
             "assertionType": "integration",
-            "failClosedRule": "Reject missing Redis, mismatched current run prefix, missing or failed individual test outcome, duplicate execution, accounting drift and unverified prefix cleanup.",
+            "failClosedRule": "Reject ordinary LocalRedis selection, incomplete exact-four not-selected plans, absent or zero own-connection artifact-burn Redis calls despite aggregate success, missing Redis, mismatched current run prefix, missing or failed individual budget test outcome, duplicate execution, accounting drift and unverified prefix cleanup.",
             "minimumRequirement": "Execute budgeted lease exactly once in real isolated Redis; preserve exact bytes and quotas, operation retry identity, ambiguous reply accounting and inventory. Ordinary unit Passed is not evidence for this test.",
             "tierIds": [
                 "perception-character-v3-release-gate"

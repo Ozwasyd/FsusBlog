@@ -9,7 +9,12 @@
  * into a static case.
  */
 
-export const ADAPTER_VERSION = 'fsusblog.test-inventory.adapters.v1';
+export const ADAPTER_VERSION = 'fsusblog.test-inventory.adapters.v2';
+
+export const xunitTestProjects = Object.freeze([
+    Object.freeze({ directory: 'tests/backend', project: 'tests/backend/FsusBlog.Server.Tests.csproj' }),
+    Object.freeze({ directory: 'tests/migration', project: 'tests/migration/FsusBlog.Migration.Tests.csproj' })
+]);
 
 const posix = (value) => String(value ?? '').replaceAll('\\', '/');
 
@@ -17,8 +22,9 @@ const JS_TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const FIXTURE_DIRECTORY = /^tests\/.*(?:\/|^)(?:fixtures?|Fixtures)(?:\/|$)/u;
 const NATIVE_CORPUS = /^tests\/native\/corpus\//u;
 const CHECKS_MJS = /^tests\/frontend\/checks\/.*\.mjs$/u;
-const BACKEND_CS_TESTS = /^tests\/backend\/.*(?:Tests|Test)\.cs$/u;
-const BACKEND_CS_SUPPORT = /^tests\/backend\/.*(?:Fixture|Collection)\.cs$/u;
+const isXunitSource = (file) => xunitTestProjects.some(({ directory }) => file.startsWith(`${directory}/`));
+const isXunitTest = (file) => isXunitSource(file) && /(?:Tests|Test)\.cs$/u.test(file);
+const isXunitSupport = (file) => isXunitSource(file) && /(?:Fixture|Collection)\.cs$/u.test(file);
 const NATIVE_SMOKE = 'tests/native/AedsCrc16SmokeTests.cpp';
 const NATIVE_FUZZ = 'tests/native/AedsCrc16Fuzz.cpp';
 const NATIVE_CMAKE = 'tests/native/CMakeLists.txt';
@@ -27,14 +33,6 @@ const E2E_SPEC = (file) => JS_TEST_FILE.test(file) && /\/e2e\//u.test(file) && /
 const hasNodeTestImport = (source) => (
     /(?:from\s*['"]node:test['"]|require\s*\(\s*['"]node:test['"]\s*\))/u.test(source ?? '')
 );
-
-const deferredStaticCase = (adapterOwner, deferredTo) => ({
-    mode: 'static',
-    owner: adapterOwner,
-    extractionStatus: 'deferred',
-    deferredTo,
-    inventoryObligation: `case records for this file are produced by the ${adapterOwner} adapter before per-case membership is counted`
-});
 
 const readyStaticCase = (adapterOwner) => ({
     mode: 'static',
@@ -79,7 +77,7 @@ export const ADAPTERS = [
         version: 'xunit.v2',
         kind: 'discoverable-test',
         caseIdentity: () => readyStaticCase('xunit-adapter'),
-        matches: (file) => BACKEND_CS_TESTS.test(file)
+        matches: (file) => isXunitTest(file)
     },
     {
         id: 'xunit-support',
@@ -89,7 +87,7 @@ export const ADAPTERS = [
             'xunit-support-adapter',
             'fixture and collection support files never count as discoverable test cases'
         ),
-        matches: (file) => BACKEND_CS_SUPPORT.test(file)
+        matches: (file) => isXunitSupport(file)
     },
     {
         id: 'native-smoke',
@@ -197,8 +195,8 @@ export const ADAPTERS = [
       && !FIXTURE_DIRECTORY.test(file)
       && !NATIVE_CORPUS.test(file)
       && !CHECKS_MJS.test(file)
-      && !BACKEND_CS_TESTS.test(file)
-      && !BACKEND_CS_SUPPORT.test(file)
+      && !isXunitTest(file)
+      && !isXunitSupport(file)
       && ![NATIVE_SMOKE, NATIVE_FUZZ, NATIVE_CMAKE].includes(file)
         )
     }

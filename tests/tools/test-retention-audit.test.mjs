@@ -6,7 +6,9 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import {
+const retention = await import(new URL('../../tools/test-retention/audit.mjs', import.meta.url));
+const { LOCAL_REDIS_PLANNED_TESTS } = await import(new URL('../../tools/test/perception-redis-producer.mjs', import.meta.url));
+const {
     auditTestRecords,
     buildRetentionCatalogSnapshot,
     compactRetentionBaseline,
@@ -24,7 +26,7 @@ import {
     vitestTestId,
     xunitMethodHistoryId,
     xunitTrxHistoryEntries
-} from '../../tools/test-retention/audit.mjs';
+} = retention;
 
 function xunitInventory(file, cases)
 {
@@ -48,7 +50,7 @@ function xunitInventory(file, cases)
 function jsInventory(file, cases)
 {
     return {
-        testCases: cases.map((spec, index) => ({
+        testCases: cases.map((spec) => ({
             id: spec.id ?? vitestTestId(file, spec.name, spec.ordinal ?? 1),
             displayName: spec.displayName ?? spec.name,
             kind: spec.kind ?? 'test',
@@ -61,6 +63,177 @@ function jsInventory(file, cases)
         }))
     };
 }
+
+function localRedisRetentionFixture()
+{
+    const file = 'tests/backend/Unit/MixedFixtureTests.cs';
+    const inventory = xunitInventory(file, LOCAL_REDIS_PLANNED_TESTS.map((fullyQualifiedName) =>
+    {
+        const separator = fullyQualifiedName.lastIndexOf('.');
+        const ownerSuite = fullyQualifiedName.slice(0, separator);
+        return {
+            ownerSuite,
+            ownerClass: ownerSuite.split('.').at(-1),
+            methodName: fullyQualifiedName.slice(separator + 1),
+            bodySource: '{ Assert.True(true); }',
+            traits: [{ name: 'Fixture', value: 'LocalRedis' }]
+        };
+    }));
+    const matrix = { tiers: [{
+        id: 'existing-fixture-owner',
+        command: 'tools/test/lanes/existing-fixture-owner.sh',
+        cacheInputs: ['tools/test/perception-redis-producer.mjs', 'tools/test/perception-character-v3-redis-fixture.sh']
+    }] };
+    const coverageRegistry = { entries: [{
+        id: 'existing-fixture-coverage',
+        evidencePaths: [file],
+        tierIds: ['existing-fixture-owner']
+    }] };
+    return { file, inventory, matrix, coverageRegistry };
+}
+
+test('LocalRedis retention resolves current producer members and preserves ordinary cases in a mixed file', async () =>
+{
+    const fixture = localRedisRetentionFixture();
+    fixture.inventory.testCases.push(...xunitInventory(fixture.file, [{
+        ownerClass: 'OrdinaryTests', methodName: 'Portable', bodySource: '{ Assert.True(true); }'
+    }]).testCases);
+    const membership = retention.resolveLocalRedisRetentionMembership(fixture);
+    assert.equal(membership.size, LOCAL_REDIS_PLANNED_TESTS.length);
+    const root = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-retention-local-redis-'));
+    try
+    {
+        await mkdir(path.join(root, 'tests/backend/Unit'), { recursive: true });
+        await writeFile(path.join(root, fixture.file), 'mixed fixture source');
+        const records = await auditTestRecords({
+            root, files: [fixture.file], inventory: fixture.inventory,
+            localRedisMembership: membership,
+            fileMetadata: new Map([[fixture.file, { coverageIds: ['unrelated-file-coverage'], tierIds: ['backend-unit'] }]]),
+            timingHistory: new Map(), failureHistory: new Map()
+        });
+        assert.equal(records.length, fixture.inventory.testCases.length);
+        for (const testCase of fixture.inventory.testCases.slice(0, LOCAL_REDIS_PLANNED_TESTS.length))
+        {
+            const record = records.find((item) => item.id === testCase.id);
+            assert.deepEqual(record.tierIds, ['existing-fixture-owner']);
+            assert.deepEqual(record.coverageIds, ['existing-fixture-coverage']);
+            assert.equal(record.tierInvocationCount, 1);
+            assert.equal(record.methodHistoryId, xunitMethodHistoryId(testCase.ownerClass, testCase.methodName));
+            assert.equal(record.qualityOutcome, 'not-applicable');
+            const legacyId = `xunit:${fixture.file}#${testCase.ownerClass}.${testCase.methodName}`;
+            assert.equal(normalizeReplacementManifest({
+                schema: 'fsusblog.test-retention-replacements.v1',
+                deletedTests: [{ id: 'historical-owner', path: fixture.file, replacementTestIds: [legacyId], reason: 'retained canonical owner' }]
+            }, records).deletedTests[0].replacementTestIds[0], legacyId);
+            assert.throws(() => normalizeReplacementManifest({
+                schema: 'fsusblog.test-retention-replacements.v1',
+                deletedTests: [{ id: 'historical-owner', path: fixture.file, replacementTestIds: [`${legacyId}Missing`], reason: 'invalid target' }]
+            }, records), /replacement manifest invalid/u);
+        }
+        const ordinary = records.at(-1);
+        assert.deepEqual(ordinary.tierIds, ['backend-unit', 'coverage-backend']);
+        assert.deepEqual(ordinary.coverageIds, ['unrelated-file-coverage']);
+        assert.deepEqual(retention.inferTierIdsForInventoryFile(fixture.file, '', fixture.inventory, membership),
+            ['backend-unit', 'coverage-backend', 'existing-fixture-owner']);
+        assert.deepEqual(retention.inferTierIdsForInventoryFile(fixture.file, '', {
+            testCases: fixture.inventory.testCases.slice(0, LOCAL_REDIS_PLANNED_TESTS.length)
+        }, membership), ['existing-fixture-owner']);
+        const unresolved = await auditTestRecords({
+            root, files: [fixture.file], inventory: fixture.inventory,
+            localRedisMembership: membership,
+            fileMetadata: new Map(), timingHistory: new Map(), failureHistory: new Map(),
+            oracleFacts: { cases: [{ testId: fixture.inventory.testCases[0].id, assertions: [] }] }
+        });
+        assert.equal(unresolved[0].qualityOutcome, 'unresolved-failed');
+        assert.equal(unresolved[0].retentionClass, 'blocked-quality');
+        await assert.rejects(auditTestRecords({
+            root, files: [fixture.file], inventory: fixture.inventory,
+            fileMetadata: new Map(), timingHistory: new Map(), failureHistory: new Map()
+        }), /LocalRedis case requires resolved current canonical ownership/u);
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('LocalRedis retention rejects unknown fixture members, missing traits, duplicates and incomplete discovery', () =>
+{
+    for (const mutate of [
+        (fixture) =>
+        {
+            fixture.inventory.testCases[0].ownerSuite = 'Unrelated.RedisFixture';
+        },
+        (fixture) =>
+        {
+            fixture.inventory.testCases[0].traits = [];
+        },
+        (fixture) =>
+        {
+            fixture.inventory.testCases[0].traits.push({ name: 'Fixture', value: 'OtherRedis' });
+        },
+        (fixture) =>
+        {
+            fixture.inventory.testCases.push({ ...fixture.inventory.testCases[0], id: 'duplicate-case' });
+        },
+        (fixture) =>
+        {
+            fixture.inventory.testCases.pop();
+        },
+        (fixture) =>
+        {
+            fixture.inventory.testCases = [];
+        }
+    ])
+    {
+        const fixture = localRedisRetentionFixture();
+        mutate(fixture);
+        assert.throws(() => retention.resolveLocalRedisRetentionMembership(fixture), /LocalRedis /u);
+    }
+});
+
+test('LocalRedis retention fails closed for absent or ambiguous matrix and coverage ownership', () =>
+{
+    for (const mutate of [
+        (fixture) =>
+        {
+            fixture.matrix.tiers = [];
+        },
+        (fixture) =>
+        {
+            fixture.matrix.tiers.push({ ...fixture.matrix.tiers[0], id: 'second-owner' });
+        },
+        (fixture) =>
+        {
+            fixture.matrix.tiers[0].executionMode = 'summary';
+        },
+        (fixture) =>
+        {
+            fixture.coverageRegistry.entries = [];
+        },
+        (fixture) =>
+        {
+            fixture.coverageRegistry.entries[0].tierIds = ['backend-unit'];
+        },
+        (fixture) =>
+        {
+            fixture.coverageRegistry.entries[0].tierIds.push('backend-unit');
+        },
+        (fixture) =>
+        {
+            fixture.coverageRegistry.entries.push({ ...fixture.coverageRegistry.entries[0] });
+        }
+    ])
+    {
+        const fixture = localRedisRetentionFixture();
+        mutate(fixture);
+        assert.throws(() => retention.resolveLocalRedisRetentionMembership(fixture), /LocalRedis /u);
+    }
+    const ordinary = xunitInventory('tests/backend/Unit/Ordinary.cs', [{ ownerClass: 'Ordinary', methodName: 'Run' }]);
+    assert.equal(retention.resolveLocalRedisRetentionMembership({
+        inventory: ordinary, matrix: { tiers: [] }, coverageRegistry: { entries: [] }
+    }).size, 0);
+});
 
 test('retention snapshot follows evidence inputs and aggregate authority siblings without scheduling them', () =>
 {

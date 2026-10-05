@@ -5,6 +5,7 @@ import {
     mkdtempSync,
     readFileSync,
     rmSync,
+    symlinkSync,
     writeFileSync
 } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -16,6 +17,9 @@ const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '.
 const checker = path.join(root, 'tools/dotnet/check-csharp-style.mjs');
 const editorConfig = readFileSync(path.join(root, '.editorconfig'), 'utf8');
 const sourcePolicy = JSON.parse(readFileSync(path.join(root, 'config/development/csharp-style-policy.json'), 'utf8'));
+const importCompatibilityPath = 'config/development/csharp-import-compatibility.json';
+const sourceImportCompatibility = JSON.parse(readFileSync(path.join(root, importCompatibilityPath), 'utf8'));
+const compatibleImportOwner = 'tests/backend/Unit/RedisOperationExecutorTests.cs';
 
 function writeFixture(fixtureRoot, relativePath, content)
 {
@@ -34,6 +38,7 @@ function createFixture()
         baseline: 'config/csharp-style-baseline.json'
     };
     writeFixture(fixtureRoot, 'config/csharp-style-policy.json', `${JSON.stringify(policy, null, 2)}\n`);
+    writeFixture(fixtureRoot, importCompatibilityPath, `${JSON.stringify(sourceImportCompatibility, null, 2)}\n`);
     return fixtureRoot;
 }
 
@@ -293,6 +298,205 @@ public sealed class ImportFix
 }
 `
         );
+    });
+});
+
+const compatibleImports = `using System;
+
+using Microsoft.Extensions.Logging;
+
+using NSubstitute;
+
+using StackExchange.Redis;
+
+using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Execution;
+
+namespace Fixture;
+
+public sealed class ImportCompatibility
+{
+}
+`;
+const migrationImports = compatibleImports.replace(
+    'using Microsoft.Extensions.Logging;\n\nusing NSubstitute;\n\nusing StackExchange.Redis;\n\nusing FsusBlog.Server.Infrastructure.Cache;\nusing FsusBlog.Server.Infrastructure.Execution;',
+    'using FsusBlog.Server.Infrastructure.Cache;\nusing FsusBlog.Server.Infrastructure.Execution;\n\nusing Microsoft.Extensions.Logging;\n\nusing NSubstitute;\n\nusing StackExchange.Redis;'
+);
+
+test('exact import compatibility accepts the declared unit owner without baseline debt', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, compatibleImportOwner, compatibleImports);
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+        assert.equal(result.status, 0, output(result));
+        assert.match(result.stdout, /ok files=1 violations=0 new=0/u);
+    });
+});
+
+test('exact import compatibility fix shares the declared comparator without changing other files', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const other = 'tests/backend/Unit/UnregisteredImports.cs';
+        writeFixture(fixtureRoot, compatibleImportOwner, migrationImports);
+        writeFixture(fixtureRoot, other, migrationImports);
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--fix', '--file', compatibleImportOwner]);
+        assert.equal(result.status, 0, output(result));
+        assert.equal(readFileSync(path.join(fixtureRoot, compatibleImportOwner), 'utf8'), compatibleImports);
+        assert.equal(readFileSync(path.join(fixtureRoot, other), 'utf8'), migrationImports);
+    });
+});
+
+test('exact import compatibility does not change the migration comparator for an unregistered file', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const other = 'tests/backend/Unit/UnregisteredImports.cs';
+        writeFixture(fixtureRoot, other, migrationImports);
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', other]);
+        assert.equal(result.status, 0, output(result));
+    });
+});
+
+test('exact import compatibility retains valid static and alias groups without a repository-rank override', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, compatibleImportOwner, compatibleImports.replace('namespace Fixture;',
+            'using static FsusBlog.Alpha;\n\nusing static Vendor.Zeta;\n\nusing AVendor = Vendor;\nusing ZRepo = FsusBlog.Server.Infrastructure.Cache;\n\nnamespace Fixture;'));
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+        assert.equal(result.status, 0, output(result));
+    });
+});
+
+for (const other of [
+    'src/sample/RedisOperationExecutorTests.cs',
+    'tests/backend/Unit/OtherExecutorTests.cs',
+    'tests/backend/Unit/redisOperationExecutorTests.cs'
+])
+{
+    test(`exact import compatibility rejects leakage to ${other}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            writeFixture(fixtureRoot, other, compatibleImports);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', other]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), / using-order:/u);
+        });
+    });
+}
+
+test('exact import compatibility does not grant a symlink alias the target registration', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const alias = 'tests/backend/Unit/ExecutorAlias.cs';
+        writeFixture(fixtureRoot, compatibleImportOwner, compatibleImports);
+        symlinkSync(path.join(fixtureRoot, compatibleImportOwner), path.join(fixtureRoot, alias));
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', alias]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), / using-order:/u);
+    });
+});
+
+test('exact import compatibility rejects a declared owner implemented by a symlink', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, 'src/sample/Imports.cs', migrationImports);
+        mkdirSync(path.join(fixtureRoot, 'tests/backend/Unit'), { recursive: true });
+        symlinkSync(path.join(fixtureRoot, 'src/sample/Imports.cs'), path.join(fixtureRoot, compatibleImportOwner));
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /import compatibility requires a regular canonical source/u);
+    });
+});
+
+test('exact import compatibility rejects a symlink ancestor of the declared owner', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, 'owned/RedisOperationExecutorTests.cs', migrationImports);
+        mkdirSync(path.join(fixtureRoot, 'tests/backend'), { recursive: true });
+        symlinkSync(path.join(fixtureRoot, 'owned'), path.join(fixtureRoot, 'tests/backend/Unit'));
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /import compatibility requires a regular canonical source/u);
+    });
+});
+
+for (const [name, source] of [
+    ['System last', compatibleImports.replace('using System;\n\n', '').replace('namespace Fixture;', 'using System;\n\nnamespace Fixture;')],
+    ['third-party roots reversed', compatibleImports.replace('using Microsoft.Extensions.Logging;\n\nusing NSubstitute;', 'using NSubstitute;\n\nusing Microsoft.Extensions.Logging;')],
+    ['repository namespaces reversed', compatibleImports.replace('using FsusBlog.Server.Infrastructure.Cache;\nusing FsusBlog.Server.Infrastructure.Execution;', 'using FsusBlog.Server.Infrastructure.Execution;\nusing FsusBlog.Server.Infrastructure.Cache;')],
+    ['repository before third-party', migrationImports],
+    ['FsusBlog lookalike is not repository-owned', compatibleImports.replace('using FsusBlog.Server.Infrastructure.Cache;', 'using FsusBlogExtra;\n\nusing FsusBlog.Server.Infrastructure.Cache;')],
+    ['static imports reversed', compatibleImports.replace('namespace Fixture;', 'using static Vendor.Zeta;\n\nusing static FsusBlog.Alpha;\n\nnamespace Fixture;')],
+    ['alias imports reversed', compatibleImports.replace('namespace Fixture;', 'using ZRepo = FsusBlog.Server.Infrastructure.Cache;\nusing AVendor = Vendor;\n\nnamespace Fixture;')]
+])
+{
+    test(`exact import compatibility still rejects ${name}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            writeFixture(fixtureRoot, compatibleImportOwner, source);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), / using-order:/u);
+        });
+    });
+}
+
+test('exact import compatibility preserves root groups and other style requirements', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, compatibleImportOwner, compatibleImports
+            .replace('using StackExchange.Redis;\n\nusing FsusBlog', 'using StackExchange.Redis;\nusing FsusBlog')
+            .replace('class ImportCompatibility', 'class bad_type'));
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), / using-group:/u);
+        assert.match(output(result), / type-name:/u);
+    });
+});
+
+for (const [name, mutate] of [
+    ['unknown schema', (value) => ({ ...value, schema: 'unknown' })],
+    ['unknown declaration field', (value) => ({ ...value, checked: true })],
+    ['unknown entry field', (value) => ({ ...value, entries: [{ ...value.entries[0], waive: true }] })],
+    ['duplicate entry', (value) => ({ ...value, entries: [...value.entries, value.entries[0]] })],
+    ['wildcard path', (value) => ({ ...value, entries: [{ ...value.entries[0], path: 'tests/backend/Unit/*.cs' }] })],
+    ['same-directory foreign declaration', (value) => ({ ...value, entries: [{ ...value.entries[0], path: 'tests/backend/Unit/OtherExecutorTests.cs' }] })],
+    ['noncanonical declaration alias', (value) => ({ ...value, entries: [{ ...value.entries[0], path: 'tests/backend/Unit/../Unit/RedisOperationExecutorTests.cs' }] })],
+    ['unknown order', (value) => ({ ...value, entries: [{ ...value.entries[0], order: 'unchecked' }] })],
+    ['missing compatibility reason', (value) => ({ ...value, entries: [{ path: value.entries[0].path, order: value.entries[0].order }] })]
+])
+{
+    test(`exact import compatibility fails closed on ${name}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            writeFixture(fixtureRoot, compatibleImportOwner, migrationImports);
+            writeFixture(fixtureRoot, importCompatibilityPath, `${JSON.stringify(mutate(sourceImportCompatibility), null, 2)}\n`);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /import compatibility/u);
+        });
+    });
+}
+
+test('exact import compatibility fails closed on a missing declaration', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        writeFixture(fixtureRoot, compatibleImportOwner, migrationImports);
+        rmSync(path.join(fixtureRoot, importCompatibilityPath));
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /import compatibility/u);
     });
 });
 

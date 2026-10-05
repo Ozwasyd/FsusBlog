@@ -64,4 +64,20 @@ if ((auth_security_sensitive == 1)); then
 else
     Log "selection=affected effective=full reason=backend-shared-core-or-tests changed=${#changed_files[@]}"
 fi
-"$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c Debug -v minimal --no-build --filter "Category!=Integration"
+ordinaryFilter="${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Fixture!=LocalRedis}"
+configuration="${FSUSBLOG_BACKEND_TEST_CONFIGURATION:-Debug}"
+rm -f "$ROOT_DIR/.tmp/backend-unit/affected.trx" \
+    "$ROOT_DIR/.tmp/backend-unit/local-redis-membership-outcome.json"
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" --ordinary-plan \
+    --lane backend-unit-affected --filter "$ordinaryFilter" \
+    --run-id "${FSUSBLOG_TEST_RUN_ID:-affected-$$}" \
+    --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:-$(git -C "$ROOT_DIR" rev-parse HEAD)}" \
+    --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-$(node --input-type=module -e 'const { snapshotGitWorktree } = await import(process.argv[1] + "/tools/test-matrix/scheduler.mjs"); process.stdout.write((await snapshotGitWorktree(process.argv[1])).fingerprint)' "$ROOT_DIR")}" \
+    --output "$ROOT_DIR/.tmp/backend-unit/local-redis-membership-plan.json"
+"$BUILD_ENV_RUNNER" dotnet test "$SERVER_TEST_PROJ" -c "$configuration" -v minimal --no-build --no-restore \
+    --filter "$ordinaryFilter" \
+    --logger "trx;LogFileName=$ROOT_DIR/.tmp/backend-unit/affected.trx"
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" --ordinary-outcome \
+    --plan "$ROOT_DIR/.tmp/backend-unit/local-redis-membership-plan.json" \
+    --trx "$ROOT_DIR/.tmp/backend-unit/affected.trx" \
+    --output "$ROOT_DIR/.tmp/backend-unit/local-redis-membership-outcome.json"

@@ -5,6 +5,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { readVstestDiscoveryDiagnostic } from './vstest-discovery-diagnostic.mjs';
+import { planOrdinaryLocalRedisMembership } from './perception-redis-producer.mjs';
 
 export const backendPlatformTrait = Object.freeze({
     name: 'Platform',
@@ -272,6 +273,8 @@ export function projectBackendPlatformPlan(
         discoveredTestCaseCount: records.length,
         plannedTestCaseCount,
         notSelectedTestCaseCount,
+        ...(baseFilter.includes('Fixture!=LocalRedis')
+            ? { localRedisTests: planOrdinaryLocalRedisMembership(baseFilter) } : {}),
         platformTests
     };
 }
@@ -519,6 +522,18 @@ export function reconcileBackendPlatformOutcome(plan, results)
     {
         throw new Error('backend platform outcome requires TRX result records');
     }
+    if (plan.baseFilter?.includes('Fixture!=LocalRedis'))
+    {
+        const expected = planOrdinaryLocalRedisMembership(plan.baseFilter);
+        if (JSON.stringify(plan.localRedisTests) !== JSON.stringify(expected))
+        {
+            throw new Error('ordinary backend plan must record all four LocalRedis tests as not-selected');
+        }
+        if (results.some((result) => expected.some((test) => test.fullyQualifiedName === result.testName)))
+        {
+            throw new Error('ordinary backend executed a not-selected LocalRedis test');
+        }
+    }
     const resultsById = new Map();
     for (const result of results)
     {
@@ -609,6 +624,7 @@ export function reconcileBackendPlatformOutcome(plan, results)
         runtimePlatform: plan.runtimePlatform,
         platformFamily: plan.platformFamily,
         executionFilter: plan.executionFilter,
+        ...(plan.localRedisTests ? { localRedisTests: plan.localRedisTests } : {}),
         platformTests
     };
 }

@@ -532,6 +532,18 @@ function scanLocalRedisFixtureGovernance(relativePath, source)
 
 function verifyLocalRedisFixtureGovernance()
 {
+    const affectedSource = readFileSync(resolve(root, 'tools/dotnet-affected-tests.sh'), 'utf8');
+    if (!affectedSource.includes('ordinaryFilter="${FSUSBLOG_BACKEND_ORDINARY_TEST_FILTER:-Category!=Integration&Fixture!=LocalRedis}"') ||
+        !affectedSource.includes('--filter "$ordinaryFilter"') || !affectedSource.includes('--ordinary-plan'))
+    {
+        fail('ordinary affected backend must exclude LocalRedis and emit exact not-selected membership');
+    }
+    const burnSource = readFileSync(resolve(root, 'tests/backend/Unit/PerceptionCharacterV3ArtifactPoolTests.cs'), 'utf8');
+    if (!burnSource.includes('FSUSBLOG_TEST_REDIS_BURN_EVIDENCE') || !burnSource.includes('redis.RegisterProfiler') ||
+        !burnSource.includes('redisProfile.FinishProfiling'))
+    {
+        fail('artifact burn must emit its own profiled Redis-call evidence');
+    }
     const positiveFixture = `${localRedisFixtureGovernanceDirectory}/planned-local-redis-test.fixture.cs.txt`;
     const runtimeReturnFixture = `${localRedisFixtureGovernanceDirectory}/runtime-return.fixture.cs.txt`;
     const missingTraitFixture = `${localRedisFixtureGovernanceDirectory}/missing-fixture-trait.fixture.cs.txt`;

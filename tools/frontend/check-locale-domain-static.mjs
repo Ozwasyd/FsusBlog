@@ -755,104 +755,388 @@ function assertModuleIdentity(source, locale, domain, file, errors)
 function assertLoaderMap(rootDir, locales, domains, errors)
 {
     const source = readFileSync(path.join(rootDir, 'src/frontend/src/locales/localeDomainBundleStore.ts'), 'utf8');
-    const localeKeys = [...source.matchAll(/^\s*'([^']+)':\s*loadersFor\('\1',\s*\{/gmu)].map((item) => item[1]);
-    const expectedLocales = new Set(locales);
-    const actualLocales = new Set(localeKeys);
-    for (const locale of expectedLocales)
-    {
-        if (!actualLocales.has(locale))
-        {
-            errors.push(diagnostic({
-                locale,
-                domain: '',
-                key: '',
-                file: 'src/frontend/src/locales/localeDomainBundleStore.ts',
-                rule: 'loader-map-keyset',
-                expected: 'loader entry present',
-                actual: 'missing locale in LOCALE_DOMAIN_LOADERS'
-            }));
-        }
-    }
-    for (const locale of actualLocales)
-    {
-        if (!expectedLocales.has(locale))
-        {
-            errors.push(diagnostic({
-                locale,
-                domain: '',
-                key: '',
-                file: 'src/frontend/src/locales/localeDomainBundleStore.ts',
-                rule: 'loader-map-keyset',
-                expected: 'only catalog enabled locales',
-                actual: 'extra locale in LOCALE_DOMAIN_LOADERS'
-            }));
-        }
-    }
+    errors.push(...validateLocaleDomainLoaderMap(source, locales, domains));
+}
 
-    for (const locale of localeKeys)
+// A lexical/structural parser for the closed loader declaration grammar, not a
+// line/indentation matcher. Keep property lists (rather than objects) so duplicate
+// keys remain observable. Never evaluate the TypeScript or install a parser to
+// run this prebuild admission check.
+function tokenizeLoaderSource(source)
+{
+    const tokens = [];
+    let i = 0;
+    const emit = (kind, value, start) => tokens.push({ kind, value, start });
+    const scan = (closing = '') =>
     {
-        const start = source.indexOf(`'${locale}': loadersFor('${locale}', {`);
-        const end = source.indexOf('\n  })', start);
-        if (start < 0 || end < 0)
+        while (i < source.length)
         {
-            errors.push(diagnostic({
-                locale,
-                domain: '',
-                key: '',
-                file: 'src/frontend/src/locales/localeDomainBundleStore.ts',
-                rule: 'loader-map-keyset',
-                expected: `loadersFor('${locale}', ...)`,
-                actual: 'block not found'
-            }));
-            continue;
-        }
-        const block = source.slice(start, end);
-        const domainImports = [...block.matchAll(/^\s{4}([a-z]+):\s*\(\)\s*=>\s*import\('\.\/([^/]+)\/([^']+)'\)/gmu)];
-        const actualDomains = new Set(domainImports.map((item) => item[1]));
-        for (const domain of domains)
-        {
-            if (!actualDomains.has(domain))
+            const start = i;
+            const ch = source[i];
+            if (/\s/u.test(ch))
             {
-                errors.push(diagnostic({
-                    locale,
-                    domain,
-                    key: '',
-                    file: 'src/frontend/src/locales/localeDomainBundleStore.ts',
-                    rule: 'loader-map-keyset',
-                    expected: 'domain loader present',
-                    actual: 'missing'
-                }));
+                i += 1;
+                continue;
+            }
+            if (source.startsWith('//', i))
+            {
+                while (i < source.length && !/[\r\n]/u.test(source[i]))
+                {
+                    i += 1;
+                }
+                continue;
+            }
+            if (source.startsWith('/*', i))
+            {
+                const end = source.indexOf('*/', i + 2);
+                if (end < 0)
+                {
+                    throw new Error(`unterminated comment at ${i}`);
+                }
+                i = end + 2;
+                continue;
+            }
+            if (ch === "'" || ch === '"')
+            {
+                i += 1;
+                let value = '';
+                while (i < source.length && source[i] !== ch)
+                {
+                    if (/[\r\n]/u.test(source[i]))
+                    {
+                        throw new Error(`newline in string at ${i}`);
+                    }
+                    if (source[i] !== '\\')
+                    {
+                        value += source[i++];
+                        continue;
+                    }
+                    i += 1;
+                    const escape = source[i++];
+                    const simple = { n: '\n', r: '\r', t: '\t', b: '\b', f: '\f', v: '\v', '0': '\0' };
+                    if (escape === 'u' || escape === 'x')
+                    {
+                        const width = escape === 'u' ? 4 : 2;
+                        const hex = source.slice(i, i + width);
+                        if (hex.length !== width || !/^[\da-f]+$/iu.test(hex))
+                        {
+                            throw new Error(`unsupported string escape at ${i}`);
+                        }
+                        value += String.fromCharCode(Number.parseInt(hex, 16));
+                        i += width;
+                    }
+                    else if (escape === '\n' || escape === '\r')
+                    {
+                        if (escape === '\r' && source[i] === '\n')
+                        {
+                            i += 1;
+                        }
+                    }
+                    else
+                    {
+                        value += simple[escape] ?? escape;
+                    }
+                }
+                if (source[i] !== ch)
+                {
+                    throw new Error(`unterminated string at ${start}`);
+                }
+                i += 1;
+                emit('string', value, start);
+                continue;
+            }
+            if (ch === '`')
+            {
+                // Template text is not code. Its interpolations are, including
+                // any extra import calls hidden outside the registry.
+                emit('template', '`', i++);
+                while (i < source.length && source[i] !== '`')
+                {
+                    if (source[i] === '\\')
+                    {
+                        i += 2;
+                    }
+                    else if (source.startsWith('${', i))
+                    {
+                        emit('template', '${', i);
+                        i += 2;
+                        scan('}');
+                    }
+                    else
+                    {
+                        i += 1;
+                    }
+                }
+                if (source[i] !== '`')
+                {
+                    throw new Error(`unterminated template at ${start}`);
+                }
+                emit('template', '`', i++);
+                continue;
+            }
+            if (/[A-Za-z_$]/u.test(ch))
+            {
+                i += 1;
+                while (/[A-Za-z0-9_$]/u.test(source[i] ?? ''))
+                {
+                    i += 1;
+                }
+                emit('identifier', source.slice(start, i), start);
+                continue;
+            }
+            const punctuation = source.startsWith('=>', i) ? '=>' : ch;
+            i += punctuation.length;
+            emit('punctuation', punctuation, start);
+            if (ch === closing)
+            {
+                return;
+            }
+            if ('([{'.includes(ch))
+            {
+                scan({ '(': ')', '[': ']', '{': '}' }[ch]);
+            }
+            else if (')]}'.includes(ch))
+            {
+                throw new Error(`unmatched ${ch} at ${start}`);
             }
         }
-        for (const [, domain, importLocale, importDomain] of domainImports)
+        if (closing)
         {
-            if (locale !== importLocale || domain !== importDomain)
+            throw new Error(`missing ${closing}`);
+        }
+    };
+    scan();
+    return tokens;
+}
+
+/** Validate the one authoritative loader registry, including all import calls. */
+export function validateLocaleDomainLoaderMap(source, locales, domains)
+{
+    const errors = [];
+    const file = 'src/frontend/src/locales/localeDomainBundleStore.ts';
+    const report = (rule, expected, actual, locale = '', domain = '') =>
+        errors.push(diagnostic({ file, rule, expected, actual, locale, domain }));
+    try
+    {
+        const tokens = tokenizeLoaderSource(source);
+        const is = (index, value) => tokens[index]?.value === value && tokens[index]?.kind !== 'string';
+        const declarations = tokens.flatMap((token, index) =>
+            token.kind === 'identifier' && token.value === 'LOCALE_DOMAIN_LOADERS'
+                && is(index - 1, 'const') && is(index - 2, 'export') ? [index] : []);
+        if (declarations.length !== 1)
+        {
+            throw new Error(`expected one exported registry, found ${declarations.length}`);
+        }
+        let cursor = declarations[0] + 1;
+        if (!is(cursor, ':') && !is(cursor, '='))
+        {
+            throw new Error('expected type annotation or registry initializer');
+        }
+        // Skip the optional type annotation structurally; '=' inside a nested
+        // object/function type is not the declaration initializer.
+        const typeClosers = [];
+        while (cursor < tokens.length && !(typeClosers.length === 0 && is(cursor, '=')))
+        {
+            const value = tokens[cursor++].value;
+            if (['(', '[', '{', '<'].includes(value))
             {
-                errors.push(diagnostic({
-                    locale,
-                    domain,
-                    key: '',
-                    file: 'src/frontend/src/locales/localeDomainBundleStore.ts',
-                    rule: 'loader-import-identity',
-                    expected: `${locale}/${domain}`,
-                    actual: `${importLocale}/${importDomain}`
-                }));
+                typeClosers.push({ '(': ')', '[': ']', '{': '}', '<': '>' }[value]);
+            }
+            else if (value === typeClosers.at(-1))
+            {
+                typeClosers.pop();
+            }
+            else if (value === ';' && typeClosers.length === 0)
+            {
+                throw new Error('registry initializer missing');
+            }
+        }
+        const take = (value) =>
+        {
+            if (!is(cursor, value))
+            {
+                throw new Error(`expected ${value} at token ${cursor}`);
+            }
+            cursor += 1;
+        };
+        const parseList = (closing, parseItem) =>
+        {
+            const items = [];
+            while (!is(cursor, closing))
+            {
+                items.push(parseItem());
+                if (!is(cursor, closing))
+                {
+                    take(',');
+                }
+            }
+            take(closing);
+            return items;
+        };
+        const parseExpression = () =>
+        {
+            const token = tokens[cursor++];
+            if (!token)
+            {
+                throw new Error('unexpected end of registry');
+            }
+            if (token.kind === 'string')
+            {
+                return { kind: 'string', value: token.value };
+            }
+            if (token.value === '(')
+            {
+                if (is(cursor, ')'))
+                {
+                    take(')');
+                    take('=>');
+                    return { kind: 'arrow', body: parseExpression() };
+                }
+                const expression = parseExpression();
+                take(')');
+                return expression;
+            }
+            if (token.value === '{')
+            {
+                return { kind: 'object', properties: parseList('}', () =>
+                {
+                    const key = tokens[cursor++];
+                    if (!key || !['string', 'identifier'].includes(key.kind))
+                    {
+                        throw new Error('expected literal property key');
+                    }
+                    take(':');
+                    return { key: key.value, value: parseExpression() };
+                }) };
+            }
+            if (token.kind !== 'identifier')
+            {
+                throw new Error(`unsupported registry expression ${token.value}`);
+            }
+            let name = token.value;
+            while (is(cursor, '.'))
+            {
+                take('.');
+                const member = tokens[cursor++];
+                if (member?.kind !== 'identifier')
+                {
+                    throw new Error('expected member name');
+                }
+                name += `.${member.value}`;
+            }
+            take('(');
+            return { kind: 'call', name, start: token.start, arguments: parseList(')', parseExpression) };
+        };
+        take('=');
+        const registry = parseExpression();
+        if (cursor < tokens.length && ![';', 'export', 'const', 'function', 'class'].some((value) => is(cursor, value)))
+        {
+            throw new Error('unsupported expression after registry initializer');
+        }
+        const isCall = (node, name, count) => node?.kind === 'call' && node.name === name && node.arguments.length === count;
+        if (!isCall(registry, 'Object.freeze', 1) || registry.arguments[0].kind !== 'object')
+        {
+            throw new Error('registry must be Object.freeze of an object literal');
+        }
+        const exactKeys = (properties, expected, locale = '') =>
+        {
+            const keys = properties.map((property) => property.key);
+            for (const key of expected)
+            {
+                if (!keys.includes(key))
+                {
+                    report('loader-map-keyset', 'loader entry present', 'missing', locale || key, locale ? key : '');
+                }
+            }
+            const seen = new Set();
+            for (const key of keys)
+            {
+                if (seen.has(key))
+                {
+                    report('loader-map-keyset', 'unique loader key', `duplicate ${key}`, locale || key, locale ? key : '');
+                }
+                if (!expected.includes(key))
+                {
+                    report('loader-map-keyset', 'only catalog locales / declared domains', `extra ${key}`, locale || key, locale ? key : '');
+                }
+                seen.add(key);
+            }
+        };
+        const properties = registry.arguments[0].properties;
+        exactKeys(properties, locales);
+        const acceptedImports = new Set();
+        for (const { key: locale, value: entry } of properties)
+        {
+            if (!isCall(entry, 'loadersFor', 2) || entry.arguments[0].kind !== 'string' || entry.arguments[1].kind !== 'object')
+            {
+                throw new Error(`expected loadersFor(locale, object) for ${locale}`);
+            }
+            if (entry.arguments[0].value !== locale)
+            {
+                report('loader-import-identity', locale, entry.arguments[0].value, locale);
+            }
+            const imports = entry.arguments[1].properties;
+            exactKeys(imports, domains, locale);
+            for (const { key: domain, value: importer } of imports)
+            {
+                const call = importer.kind === 'arrow' ? importer.body : null;
+                if (!isCall(call, 'import', 1) || call.arguments[0].kind !== 'string')
+                {
+                    throw new Error(`expected () => import(literal) for ${locale}/${domain}`);
+                }
+                acceptedImports.add(call.start);
+                const module = call.arguments[0].value;
+                if (module !== `./${locale}/${domain}`)
+                {
+                    report('loader-import-identity', `${locale}/${domain}`, module, locale, domain);
+                }
+            }
+        }
+        for (let index = 0; index < tokens.length; index += 1)
+        {
+            if (!is(index, 'import'))
+            {
+                continue;
+            }
+            if (!is(index + 1, '('))
+            {
+                // Infrastructure imports (localeCatalog/localeDomains) are
+                // allowed; dictionary side-effect/value/type imports are not
+                // alternative owners for the closed dynamic loader map.
+                let module = tokens[index + 1];
+                if (module?.kind !== 'string')
+                {
+                    for (let end = index + 1; end < tokens.length && !is(end, ';'); end += 1)
+                    {
+                        if (is(end, 'from'))
+                        {
+                            module = tokens[end + 1];
+                            break;
+                        }
+                    }
+                }
+                if (module?.kind === 'string' && /^\.\/[^/]+\//u.test(module.value))
+                {
+                    report('loader-import-identity', 'dictionary modules owned by declared dynamic importers', `extra static import ${module.value}`);
+                }
+                continue;
+            }
+            const module = tokens[index + 2];
+            if (module?.kind === 'string' && /^\.\/[^/]+$/u.test(module.value))
+            {
+                report('whole-bundle-forbidden', 'per-domain dynamic import only', 'whole-locale dynamic import');
+            }
+            if (!acceptedImports.has(tokens[index].start))
+            {
+                report('loader-import-identity', 'only declared locale/domain importer calls', `extra import at ${tokens[index].start}`);
             }
         }
     }
-
-    if (/import\('\.\/[^/'"]+'\)/u.test(source))
+    catch (error)
     {
-        errors.push(diagnostic({
-            locale: '',
-            domain: '',
-            key: '',
-            file: 'src/frontend/src/locales/localeDomainBundleStore.ts',
-            rule: 'whole-bundle-forbidden',
-            expected: 'per-domain dynamic import only',
-            actual: 'whole-locale dynamic import'
-        }));
+        report('loader-map-keyset', 'parseable closed loader registry structure', error instanceof Error ? error.message : String(error));
     }
+    return errors;
 }
 
 /**

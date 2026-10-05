@@ -40,7 +40,8 @@ export function assertPublicShellLocaleSwitch({ scene, copy, record, requests = 
     }
     if (scene.stage === 'latest-wins')
     {
-        assert.ok(scene.transition.rapidTargets.length === 3, 'latest-wins rapid targets');
+        assert.ok([3, 4].includes(scene.transition.rapidTargets.length), 'latest-wins rapid targets');
+        equal(scene.transition.rapidTargets.at(-1), scene.locale, 'latest-wins final clicked target');
         equal(record.uiLocale, scene.locale, 'latest-wins target');
     }
     for (const request of requests)
