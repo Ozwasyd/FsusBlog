@@ -13,6 +13,8 @@ const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox
 const {runPhysicalExecution} = await import(new URL('../../tools/test/physical-execution-process-tree.mjs', import.meta.url));
 const policy = loadExecutionNetworkPolicy();
 
+const { inspectOwnedPrivateTmp, finalizeRunOwnedDirectoriesAfterPhysical } = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
+
 test('network policy is default deny with no ambient external endpoint', () =>
 {
     assert.deepEqual(validateExecutionNetworkPolicy(policy), []);
@@ -290,6 +292,53 @@ test('Landlock grants only the exact null device while retaining default-deny wr
     assert.equal(fs.readFileSync(deniedFile, 'utf8'), 'unchanged');
     assert.deepEqual(prepared.linuxReadWritePaths, ['/dev/null', ...Object.values(directories)].sort());
     assert.equal(finalizeNetworkSandbox(prepared).admission, 'planned-actual-exact');
+});
+
+test('original Landlock helper supports missing and present ABI 5 UAPI declarations without changing write denial', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-header-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = path.resolve(import.meta.dirname, '../../tools/test/native/execution-envelope-landlock.c');
+    const allowed = path.join(directory, 'allowed');
+    const denied = path.join(directory, 'denied.txt');
+    fs.mkdirSync(allowed, { mode: 0o700 });
+    fs.writeFileSync(denied, 'unchanged');
+    const executables = [];
+    for (const declaration of ['missing', 'present'])
+    {
+        const include = path.join(directory, declaration);
+        fs.mkdirSync(path.join(include, 'linux'), { recursive: true });
+        fs.writeFileSync(path.join(include, 'linux/landlock.h'), [
+            '#include_next <linux/landlock.h>',
+            ...(declaration === 'missing' ? ['#undef LANDLOCK_ACCESS_FS_IOCTL_DEV'] : [
+                '#ifndef LANDLOCK_ACCESS_FS_IOCTL_DEV',
+                '#define LANDLOCK_ACCESS_FS_IOCTL_DEV (1ULL << 15)',
+                '#endif',
+                '_Static_assert(LANDLOCK_ACCESS_FS_IOCTL_DEV == (1ULL << 15), "Linux v6.10 UAPI value");'
+            ]),
+            ''
+        ].join('\n'));
+        const executable = path.join(directory, declaration + '-landlock');
+        const compiled = spawnSync('cc', ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+            '-I', include, '-o', executable, source], { encoding: 'utf8' });
+        assert.equal(compiled.status, 0, compiled.stderr);
+        const result = spawnSync(executable, ['--writable', allowed, '--writable-file', '/dev/null',
+            '--', process.execPath, '-e', [
+                "const fs = require('node:fs')",
+                `fs.writeFileSync(${JSON.stringify(path.join(allowed, declaration + '.txt'))}, 'allowed')`,
+                "fs.writeFileSync('/dev/null', 'allowed')",
+                `try { fs.writeFileSync(${JSON.stringify(denied)}, 'changed'); process.exit(2); } catch (error) { if (!['EACCES', 'EPERM'].includes(error.code)) throw error; }`,
+                "console.log('original-landlock-write-denial-confirmed')"
+            ].join(';')], { encoding: 'utf8' });
+        assert.equal(result.status, 0, result.stderr);
+        assert.equal(result.stdout.trim(), 'original-landlock-write-denial-confirmed');
+        assert.equal(fs.readFileSync(path.join(allowed, declaration + '.txt'), 'utf8'), 'allowed');
+        assert.equal(fs.readFileSync(denied, 'utf8'), 'unchanged');
+        executables.push(executable);
+    }
+    assert.deepEqual(fs.readFileSync(executables[0]), fs.readFileSync(executables[1]));
 });
 
 test('systemd address policy permits an exact current-run loopback service and denies other addresses', {
@@ -750,4 +799,114 @@ test('Landlock error text adapts GNU pointer and POSIX status results with one c
             assert.equal(result.stderr, `execution-envelope-landlock: adapter probe: ${diagnostic}\n`, resultType);
         }
     }
+});
+
+test('owned private /tmp capabilities refuse serialized, cross-owner, stale and altered inputs', (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-owned-tmp-capability-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const prepare = (attemptId) => prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'owned-tmp-run', producerId: 'producer', attemptId });
+    const owner = prepare('first');
+    const other = prepare('second');
+    const environment = { ...owner.environment, FSUSBLOG_TEST_RUN_ID: 'owned-tmp-run', PATH: process.env.PATH };
+    const readWritePaths = Object.values(owner.fragment.directories);
+    const binding = inspectOwnedPrivateTmp(owner.privateTmpCapability, { environment, readWritePaths });
+    assert.equal(binding.source, owner.fragment.directories.temp);
+    assert.equal(binding.destination, '/tmp');
+    assert.throws(() => inspectOwnedPrivateTmp(JSON.parse(JSON.stringify(owner.privateTmpCapability))), /capability/u);
+    assert.throws(() => inspectOwnedPrivateTmp(other.privateTmpCapability, { environment, readWritePaths }), /drifted/u);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability, {
+        environment: { ...environment, FSUSBLOG_TEST_RUN_ID: 'older-run' }, readWritePaths
+    }), /drifted/u);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability, { environment, readWritePaths: [] }), /drifted/u);
+    fs.chmodSync(binding.source, 0o755);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /drifted/u);
+    fs.chmodSync(binding.source, 0o700);
+    const retired = binding.source + '-retired';
+    fs.renameSync(binding.source, retired);
+    fs.mkdirSync(binding.source, { mode: 0o700 });
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /drifted/u);
+    fs.rmdirSync(binding.source);
+    fs.symlinkSync(other.fragment.directories.temp, binding.source);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /drifted/u);
+    fs.unlinkSync(binding.source);
+    assert.throws(() => inspectOwnedPrivateTmp(owner.privateTmpCapability), /ENOENT/u);
+});
+
+test('native owned private /tmp refuses absent binding before its command', { skip: process.platform !== 'linux' }, (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-owned-tmp-absent-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'owned-tmp-absent', producerId: 'producer', attemptId: 'attempt' });
+    const environment = { ...owner.environment, FSUSBLOG_TEST_RUN_ID: 'owned-tmp-absent', PATH: process.env.PATH };
+    const sentinel = path.join(owner.fragment.directories.temp, 'must-not-execute');
+    const sandbox = prepareNetworkSandbox({ command: [process.execPath, '-e',
+        `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'bad')`], cwd: root,
+        directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
+        writableRoots: owner.fragment.writableRoots, environment, policy });
+    const result = spawnSync(sandbox.command[0], sandbox.command.slice(1), { cwd: root, env: environment, encoding: 'utf8' });
+    assert.equal(result.status, 125, result.stderr);
+    assert.match(result.stderr, /owned temporary alias object identity mismatch/u);
+    assert.equal(fs.existsSync(sentinel), false);
+    assert.equal(finalizeNetworkSandbox(sandbox).admission, 'planned-actual-exact');
+    assert.equal(finalizeRunOwnedDirectories(owner).cleanup.status, 'complete');
+});
+
+test('original physical owner binds only current owned /tmp and retains external write denial', {
+    skip: process.platform !== 'linux'
+}, async (context) =>
+{
+    fs.mkdirSync(path.join(process.cwd(), '.tmp'), { recursive: true });
+    const root = fs.mkdtempSync(path.join(process.cwd(), '.tmp/fsusblog-owned-tmp-physical-'));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'owned-tmp-physical', producerId: 'producer', attemptId: 'attempt' });
+    let terminal;
+    let physicalStarted = false;
+    context.after(() =>
+    {
+        finalizeRunOwnedDirectoriesAfterPhysical(owner, { physicalStarted, physicalExecution: terminal });
+        fs.rmSync(root, { recursive: true, force: true });
+    });
+    const hostTmp = fs.statSync('/tmp', { bigint: true });
+    const hostNamespace = fs.readlinkSync('/proc/self/ns/mnt');
+    const name = `fsusblog-alias-${process.pid}-${path.basename(root)}`;
+    const external = path.join(root, 'read-only-source');
+    fs.writeFileSync(external, 'unchanged');
+    const source = owner.fragment.directories.temp;
+    const environment = { ...owner.environment, FSUSBLOG_TEST_RUN_ID: 'owned-tmp-physical', PATH: process.env.PATH,
+        LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' };
+    const sandbox = prepareNetworkSandbox({ command: [process.execPath, '-e', [
+        "const fs = require('node:fs')",
+        `fs.writeFileSync('/tmp/${name}', 'owned-alias')`,
+        `if (fs.readFileSync(${JSON.stringify(path.join(source, name))}, 'utf8') !== 'owned-alias') throw Error('wrong alias')`,
+        `try { fs.writeFileSync(${JSON.stringify(external)}, 'bad'); throw Error('external writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }`,
+        "try { fs.writeFileSync('/var/tmp/fsusblog-must-not-write', 'bad'); throw Error('var/tmp writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }"
+    ].join(';')], cwd: root, directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
+        writableRoots: owner.fragment.writableRoots, environment, policy });
+    assert.equal(sandbox.linuxReadWritePaths.includes('/tmp'), false);
+    assert.equal(sandbox.linuxReadWritePaths.includes('/var/tmp'), false);
+    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    try
+    {
+        physicalStarted = true;
+        terminal = await runPhysicalExecution({ command: sandbox.command, cwd: root, env: environment,
+            linuxNetworkPolicy: sandbox.linuxNetworkPolicy, linuxReadWritePaths: sandbox.linuxReadWritePaths,
+            linuxOwnedPrivateTmp: sandbox.linuxOwnedPrivateTmp, stdout: quiet, stderr: quiet });
+    }
+    catch (error) { terminal = error.physicalExecution; throw error; }
+    assert.equal(terminal.postObservation, 'zero-members');
+    const actual = terminal.executionAdmission.ownedPrivateTmp;
+    assert.equal(actual.sourceDevice, actual.aliasDevice);
+    assert.equal(actual.sourceInode, actual.aliasInode);
+    assert.notEqual(actual.mountNamespace, hostNamespace);
+    assert.equal(terminal.authority.filesystemIsolation.ownedPrivateTmp.bindPaths, `${source}:/tmp`);
+    assert.equal(fs.readFileSync(path.join(source, name), 'utf8'), 'owned-alias');
+    assert.equal(fs.existsSync(path.join('/tmp', name)), false);
+    assert.equal(fs.readFileSync(external, 'utf8'), 'unchanged');
+    const hostAfter = fs.statSync('/tmp', { bigint: true });
+    assert.deepEqual([hostAfter.dev, hostAfter.ino], [hostTmp.dev, hostTmp.ino]);
+    assert.equal(fs.readlinkSync('/proc/self/ns/mnt'), hostNamespace);
+    assert.equal(finalizeNetworkSandbox(sandbox).admission, 'planned-actual-exact');
 });

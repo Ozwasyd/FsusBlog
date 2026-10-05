@@ -23,6 +23,7 @@ import {
     sealExecutionEnvelopeReceipt,
     verifyExecutionEnvelopeReceipt
 } from './execution-envelope-receipt.mjs';
+import { formatExecutionFailure, selectExecutionFailure } from './execution-failure-diagnostic.mjs';
 import { runPhysicalExecution } from './physical-execution-process-tree.mjs';
 import {
     buildRunBoundConsumerEvidence,
@@ -409,6 +410,7 @@ async function main(argv)
             ],
             cwd,
             directories: directoryEnvelope.fragment.directories,
+            ownedDirectoryEnvelope: directoryEnvelope,
             writableRoots: directoryEnvelope.fragment.writableRoots,
             plannedEndpoints: projectPlannedEndpoints({
                 services: producerEnvelope.requiredServices,
@@ -450,6 +452,7 @@ async function main(argv)
         'tools/test/physical-execution-linux-systemd-adapter.mjs',
         'tools/test/physical-execution-linux-systemd-bootstrap.mjs',
         'tools/test/execution-envelope-receipt.mjs',
+        'tools/test/execution-failure-diagnostic.mjs',
         'tools/test/native/execution-envelope-landlock.c',
         'tools/test-matrix/execution-envelope-policy.mjs',
         'tools/test/temporal-context.mjs',
@@ -610,6 +613,7 @@ async function main(argv)
         };
         return executionEnvelopeBinding;
     };
+    let runnerError = null;
     try
     {
         const result = await runBoundExecution({
@@ -642,6 +646,7 @@ async function main(argv)
                         linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
                         linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
                         linuxReadWritePaths: networkSandbox.linuxReadWritePaths,
+                        linuxOwnedPrivateTmp: networkSandbox.linuxOwnedPrivateTmp,
                         privateDotnetScratch: networkSandbox.privateDotnetScratch
                             ? {
                                 schema: 'fsusblog.private-dotnet-scratch.v1',
@@ -665,15 +670,14 @@ async function main(argv)
             {
                 envelopeError = error;
             }
-            if (envelopeError)
+            const failure = selectExecutionFailure({
+                executionError,
+                finalizationError: envelopeError,
+                physicalExecution
+            });
+            if (failure)
             {
-                envelopeError.physicalExecution = physicalExecution;
-                envelopeError.cause = executionError;
-                throw envelopeError;
-            }
-            if (executionError)
-            {
-                throw executionError;
+                throw failure;
             }
             return physicalExecution;
         });
@@ -700,6 +704,11 @@ async function main(argv)
         });
         console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt} execution-envelope=${executionEnvelopeReceiptFile}`);
     }
+    catch (error)
+    {
+        runnerError = error;
+        throw error;
+    }
     finally
     {
         let finalizationError = null;
@@ -719,13 +728,17 @@ async function main(argv)
         if (finalizationError)
         {
             // eslint-disable-next-line no-unsafe-finally
-            throw finalizationError;
+            throw selectExecutionFailure({
+                executionError: runnerError,
+                finalizationError,
+                physicalExecution: runnerError?.physicalExecution ?? null
+            });
         }
     }
 }
 
 main(process.argv.slice(2)).catch((error) =>
 {
-    console.error(`[physical-execution] ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`[physical-execution] ${formatExecutionFailure(error)}`);
     process.exitCode = Number.isInteger(error?.exitCode) && error.exitCode > 0 ? error.exitCode : 1;
 });

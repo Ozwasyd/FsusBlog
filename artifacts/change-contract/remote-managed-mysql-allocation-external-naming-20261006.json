@@ -1,0 +1,47 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/physical-execution-process-policy.json",
+                "tests/governance/backend-production-build-consumers.json"
+            ],
+            "reason": "Preserve the registered environment and tool receipt keys, libc ABI, and current documented caller contracts of the original native allocation owners."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/issue-1069-run-bound-production-builds.md",
+                "docs/testing/issue-1072-production-resource-enforcement.md"
+            ],
+            "reason": "Preserve the registered environment and tool receipt keys, libc ABI, and current documented caller contracts of the original native allocation owners."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/production-build-layout.mjs",
+                "tools/test-matrix/production-build-lifecycle.mjs",
+                "tools/test-matrix/production-capacity-reservation.mjs",
+                "tools/test-matrix/production-resource-enforcement.mjs",
+                "tools/test-matrix/production-systemd-resource-boundary.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test-retention/audit.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
+                "tools/test/check-backend-production-build-authority.mjs",
+                "tools/test/execution-envelope-directories.mjs",
+                "tools/test/execution-envelope-network.mjs",
+                "tools/test/execution-failure-diagnostic.mjs",
+                "tools/test/mysql-fixture-admission.mjs",
+                "tools/test/physical-execution-linux-systemd-adapter.mjs",
+                "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
+                "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/physical-execution-systemd-sender.mjs",
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test/run-once.mjs"
+            ],
+            "reason": "Preserve the registered environment and tool receipt keys, libc ABI, and current documented caller contracts of the original native allocation owners."
+        }
+    ]
+}
