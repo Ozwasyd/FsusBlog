@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Migration.Catalogs;
+using FsusBlog.Migration.Definitions;
 
 using Xunit;
 
@@ -30,10 +31,53 @@ public sealed class MigrationAssemblyBoundaryTests
     {
         SchemaMigrationManifest manifest = SchemaMigrationManifest.Current;
 
-        Assert.Equal(146, manifest.Descriptors.Count);
+        Assert.Equal(148, manifest.Descriptors.Count);
+        ISchemaMigrationDescriptor[] addedDescriptors =
+        [
+            ArticlePropertyDefinitionAuthorityMigrationDefinitions.BuildMigration(),
+            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.BuildMigration()
+        ];
+        string[] addedIds = addedDescriptors.Select(static descriptor => descriptor.MigrationId).ToArray();
+        Assert.Equal(
+            [
+                "20260915-post-article-property-definition-authority",
+                "20261002-post-article-property-definition-command-history"
+            ],
+            addedIds);
+        Assert.Equal(2, manifest.Descriptors.Count(descriptor =>
+            addedIds.Contains(descriptor.MigrationId, StringComparer.Ordinal)));
+        foreach (ISchemaMigrationDescriptor expected in addedDescriptors)
+        {
+            ISchemaMigrationDescriptor actual = Assert.Single(
+                manifest.Descriptors,
+                descriptor => descriptor.MigrationId == expected.MigrationId);
+            Assert.Equal(expected.MigrationId, actual.MigrationId);
+            Assert.Equal(expected.Description, actual.Description);
+            Assert.Equal(SchemaMigrationPhase.PostCodeFirst, actual.Phase);
+            Assert.Equal(expected.Phase, actual.Phase);
+            Assert.True(actual.Transactional);
+            Assert.Equal(expected.Transactional, actual.Transactional);
+            Assert.Equal(expected.Checksum, actual.Checksum);
+            Assert.Equal(
+                expected.AcceptedChecksums.Order(StringComparer.Ordinal),
+                actual.AcceptedChecksums.Order(StringComparer.Ordinal));
+            Assert.Equal(expected.Steps.Count, actual.Steps.Count);
+            for (int index = 0; index < expected.Steps.Count; index++)
+            {
+                Assert.Equal(expected.Steps[index].GetType(), actual.Steps[index].GetType());
+                Assert.Equal(expected.Steps[index], actual.Steps[index]);
+                Assert.Equal(expected.Steps[index].Kind, actual.Steps[index].Kind);
+                Assert.Equal(expected.Steps[index].Fingerprint, actual.Steps[index].Fingerprint);
+            }
+        }
+
+        ISchemaMigrationDescriptor[] historicalDescriptors = manifest.Descriptors
+            .Where(descriptor => !addedIds.Contains(descriptor.MigrationId, StringComparer.Ordinal))
+            .ToArray();
+        Assert.Equal(146, historicalDescriptors.Length);
         Assert.Equal(
             "DB1EA11A52744CA7F95082059B4A50C1D44EB2A239034D0D834AA4658E590725",
-            ComputePlanFingerprint(manifest.Descriptors));
+            ComputePlanFingerprint(historicalDescriptors));
         Assert.Equal(
             manifest.Descriptors.Count,
             manifest.Descriptors.Select(static descriptor => descriptor.MigrationId)

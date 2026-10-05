@@ -336,7 +336,9 @@ public sealed class OnlineSchemaMigrationPolicyTests
             ContentAssetCutoverMigrationDefinitions.MigrationId,
             BanStateProjectionMigrationDefinitions.MigrationId,
             AdminSessionProjectionMigrationDefinitions.MigrationId,
-            AuthorRecentArticleHistoryMigrationDefinitions.MigrationId
+            AuthorRecentArticleHistoryMigrationDefinitions.MigrationId,
+            ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId,
+            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId
         };
         Assert.All(metadata.Values.Where(classification =>
             !onlineIds.Contains(classification.MigrationId)), classification =>
@@ -349,6 +351,61 @@ public sealed class OnlineSchemaMigrationPolicyTests
             Assert.NotNull(classification.ContractAfterCoordinate);
             Assert.True(classification.MinimumRetentionWindow > TimeSpan.Zero);
         });
+    }
+
+    [Fact]
+    public void ExistingSeptemberAuthorityMigrations_RetainExplicitAdditiveClassifications()
+    {
+        IReadOnlyDictionary<string, OnlineSchemaMigrationMetadata> catalog = new OnlineSchemaMigrationCatalog().GetMetadata();
+        string[] ids =
+        [
+            BanStateProjectionMigrationDefinitions.MigrationId,
+            AdminSessionProjectionMigrationDefinitions.MigrationId,
+            ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId
+        ];
+        Assert.All(ids, id =>
+        {
+            OnlineSchemaMigrationMetadata metadata = catalog[id];
+            Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+            Assert.False(metadata.Destructive);
+            Assert.False(metadata.RequiresExclusiveMode);
+            Assert.False(metadata.LegacyBootstrapOnly);
+            Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+            Assert.Null(metadata.BatchSize);
+            Assert.Null(metadata.ResumeTokenName);
+            Assert.Null(metadata.ContractAfterCoordinate);
+            Assert.Equal(TimeSpan.Zero, metadata.MinimumRetentionWindow);
+            Assert.Contains("descriptor_policy", metadata.Validators);
+            Assert.Contains("n_minus_one_read_write", metadata.Validators);
+        });
+        Assert.Equal(OnlineSchemaMigrationLockRisk.Medium, catalog[ids[0]].EstimatedLockRisk);
+        Assert.Equal(OnlineSchemaMigrationLockRisk.Medium, catalog[ids[1]].EstimatedLockRisk);
+        Assert.Equal(OnlineSchemaMigrationLockRisk.Medium, catalog[ids[2]].EstimatedLockRisk);
+    }
+
+    [Fact]
+    public void PropertyCommandHistory_IsExplicitExpandThatDeclaresRequiredWriterIsolation()
+    {
+        string id = ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId;
+        OnlineSchemaMigrationMetadata metadata = new OnlineSchemaMigrationCatalog().GetMetadata()[id];
+        OnlineSchemaMigrationPolicyReport report = OnlineSchemaMigrationPolicy.Validate(
+            new Dictionary<string, OnlineSchemaMigrationMetadata> { [id] = metadata });
+
+        Assert.True(report.Valid, string.Join(Environment.NewLine, report.Violations));
+        Assert.Equal(OnlineSchemaMigrationPhase.Expand, metadata.Phase);
+        Assert.False(metadata.Destructive);
+        Assert.False(metadata.RequiresExclusiveMode);
+        Assert.False(metadata.LegacyBootstrapOnly);
+        Assert.Equal(OnlineSchemaMigrationRollbackMode.CompatibleCode, metadata.RollbackMode);
+        Assert.Equal(OnlineSchemaMigrationLockRisk.Low, metadata.EstimatedLockRisk);
+        Assert.Null(metadata.BatchSize);
+        Assert.Null(metadata.ResumeTokenName);
+        Assert.Null(metadata.ContractAfterCoordinate);
+        Assert.Equal(TimeSpan.Zero, metadata.MinimumRetentionWindow);
+        Assert.Contains("article_property_definition_history_genesis_fail_closed", metadata.Validators);
+        Assert.Contains("article_property_definition_history_signed_audit_binding", metadata.Validators);
+        Assert.Contains("article_property_definition_authenticated_forward_replay", metadata.Validators);
+        Assert.Contains("article_property_definition_history_write_isolation", metadata.Validators);
     }
 
     [Fact]
