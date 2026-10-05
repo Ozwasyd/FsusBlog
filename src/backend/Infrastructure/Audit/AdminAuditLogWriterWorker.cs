@@ -1,61 +1,76 @@
 using FsusBlog.Server.Entities;
-using FsusBlog.Server.Infrastructure.Observability;
 
 namespace FsusBlog.Server.Infrastructure.Audit;
 
-public sealed class AdminAuditLogWriterWorker(
-    AdminAuditLogChannel channel,
-    IServiceScopeFactory scopeFactory,
-    ILogger<AdminAuditLogWriterWorker> logger) : BackgroundService
+public sealed class AdminAuditLogWriterWorker : BackgroundService
 {
-    private const int BatchSize = 128;
-    private static readonly TimeSpan s_flushWindow = TimeSpan.FromMilliseconds(250);
+    private static readonly TimeSpan s_replayWindow = TimeSpan.FromMilliseconds(250);
+    private readonly AdminAuditLogChannel _channel;
+    private readonly ILogger<AdminAuditLogWriterWorker> _logger;
 
-    private readonly AdminAuditLogChannel _channel = channel;
-    private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
-    private readonly ILogger<AdminAuditLogWriterWorker> _logger = logger;
+    public AdminAuditLogWriterWorker(
+        AdminAuditLogChannel channel, IServiceScopeFactory scopeFactory,
+        ILogger<AdminAuditLogWriterWorker> logger)
+    {
+        ArgumentNullException.ThrowIfNull(scopeFactory);
+        _channel = channel;
+        _logger = logger;
+    }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        var batch = new List<AdminAuditLog>(BatchSize);
-        bool persistenceStarted = false;
-
         while (!stoppingToken.IsCancellationRequested)
         {
             try
             {
-                if (!await _channel.WaitToReadAsync(stoppingToken))
+                // Startup and every later iteration observe the durable source,
+                // including events whose bounded wake hints did not survive restart.
+                await _channel.ReplayAsync(stoppingToken).ConfigureAwait(false);
+                using var wake = CancellationTokenSource.CreateLinkedTokenSource(stoppingToken);
+                wake.CancelAfter(s_replayWindow);
+                try
                 {
-                    continue;
+                    if (!await _channel.WaitToReadAsync(wake.Token).ConfigureAwait(false))
+                    {
+                        break;
+                    }
                 }
-
-                batch.Clear();
-                batch.Add(await _channel.ReadAsync(stoppingToken));
-                await FillBatchUntilFlushWindowAsync(batch, stoppingToken);
-                persistenceStarted = true;
-                await FlushPendingAsync(batch, stoppingToken);
-                persistenceStarted = false;
+                catch (OperationCanceledException) when (!stoppingToken.IsCancellationRequested)
+                {
+                    // The polling window is for disk-pending records without hints.
+                }
             }
             catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
             {
-                if (!persistenceStarted)
-                {
-                    RequeueOrTerminal(batch, "writer-cancelled");
-                }
                 break;
             }
             catch (Exception ex)
             {
-                if (!persistenceStarted)
+                _logger.LogError("admin-audit replay remains pending. FailureCategory={Category}", ex.GetType().Name);
+                try
                 {
-                    RequeueOrTerminal(batch, "worker-exception");
+                    await Task.Delay(s_replayWindow, stoppingToken).ConfigureAwait(false);
                 }
-                _logger.LogError(ex, "admin-audit writer loop recovered from an unexpected failure.");
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
             }
         }
 
-        using var drainCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
-        await DrainRemainingAsync(drainCts.Token);
+        using var drain = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try
+        {
+            await _channel.ReplayAsync(drain.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException) when (drain.IsCancellationRequested)
+        {
+            // Incomplete shutdown is still represented by the owned durable source.
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError("admin-audit shutdown replay remains pending. FailureCategory={Category}", ex.GetType().Name);
+        }
     }
 
     internal async Task FlushPendingAsync(IReadOnlyList<AdminAuditLog> batch, CancellationToken cancellationToken)
@@ -64,98 +79,16 @@ public sealed class AdminAuditLogWriterWorker(
         {
             return;
         }
-
+        await _channel.EnsureAdmittedAsync(batch).ConfigureAwait(false);
         try
         {
-            await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
-                _scopeFactory,
-                "admin_audit_flush");
-            IAdminAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAdminAuditLogStore>();
-            await store.WriteBatchAsync(batch, cancellationToken);
-            _channel.MarkCommitted(batch.Count);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            try
-            {
-                await _channel.WriteFallbackAsync(batch, CancellationToken.None);
-            }
-            catch (Exception ex) when (ex is not OperationCanceledException)
-            {
-                _channel.MarkTerminalFailure(batch.Count, ItemReference(batch[0]), $"writer-cancelled:fallback-failed:{ex.GetType().Name}");
-                _logger.LogError(ex, "admin-audit cancellation fallback failed. Count={Count}", batch.Count);
-            }
+            await _channel.ReplayAsync(cancellationToken).ConfigureAwait(false);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
-            _logger.LogWarning(ex, "admin-audit batch write failed; falling back to direct write. Count={Count}", batch.Count);
-            await _channel.WriteFallbackAsync(batch, CancellationToken.None);
+            _logger.LogWarning("admin-audit batch write failed; retrying the same durable source. FailureCategory={Category}",
+                ex.GetType().Name);
+            await _channel.WriteFallbackAsync(batch, cancellationToken).ConfigureAwait(false);
         }
     }
-
-    private async Task FillBatchUntilFlushWindowAsync(List<AdminAuditLog> batch, CancellationToken cancellationToken)
-    {
-        using var flushCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
-        flushCts.CancelAfter(s_flushWindow);
-
-        while (batch.Count < BatchSize)
-        {
-            while (batch.Count < BatchSize && _channel.TryRead(out AdminAuditLog? ready))
-            {
-                batch.Add(ready);
-            }
-
-            if (batch.Count >= BatchSize || flushCts.IsCancellationRequested)
-            {
-                return;
-            }
-
-            try
-            {
-                if (!await _channel.WaitToReadAsync(flushCts.Token))
-                {
-                    return;
-                }
-            }
-            catch (OperationCanceledException) when (flushCts.IsCancellationRequested && !cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-        }
-    }
-
-    private async Task DrainRemainingAsync(CancellationToken cancellationToken)
-    {
-        var batch = new List<AdminAuditLog>(BatchSize);
-        while (_channel.TryRead(out AdminAuditLog? audit))
-        {
-            batch.Add(audit);
-            if (batch.Count >= BatchSize)
-            {
-                await FlushPendingAsync(batch, cancellationToken);
-                batch.Clear();
-            }
-        }
-
-        if (batch.Count > 0)
-        {
-            await FlushPendingAsync(batch, cancellationToken);
-        }
-    }
-
-    private void RequeueOrTerminal(IReadOnlyList<AdminAuditLog> batch, string reason)
-    {
-        foreach (AdminAuditLog audit in batch)
-        {
-            if (!_channel.TryRequeue(audit))
-            {
-                _channel.MarkTerminalFailure(1, ItemReference(audit), reason);
-            }
-        }
-    }
-
-    private static string ItemReference(AdminAuditLog audit)
-        => audit.Id > 0
-            ? audit.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)
-            : $"{audit.AdminPrincipalId}:{audit.Action}:{audit.OccurredAtUtc.Ticks}:{audit.TargetId}";
 }

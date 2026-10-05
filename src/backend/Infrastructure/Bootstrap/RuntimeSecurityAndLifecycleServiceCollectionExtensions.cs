@@ -120,7 +120,15 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<ISecurityChallengeEnvelopeStateService, SecurityChallengeEnvelopeStateService>();
         services.AddScoped<ISecurityChallengeVerifyRateLimiter, SecurityChallengeVerifyRateLimiter>();
         services.Configure<ChallengeV2EventWriterOptions>(configuration.GetSection(ChallengeV2EventWriterOptions.SectionName));
-        services.AddSingleton<ChallengeV2AuditEventQueue>();
+        services.AddSingleton(sp =>
+        {
+            _ = ChallengeV2FallbackWriter.ValidateConfiguration(configuration);
+            return new ChallengeV2FallbackWriter(configuration, sp.GetRequiredService<IAuditRetentionEpochKeyStore>());
+        });
+        services.AddSingleton(sp => new ChallengeV2AuditEventQueue(
+            sp.GetRequiredService<Microsoft.Extensions.Options.IOptions<ChallengeV2EventWriterOptions>>(),
+            sp.GetRequiredService<ILogger<ChallengeV2AuditEventQueue>>(),
+            sp.GetRequiredService<ChallengeV2FallbackWriter>()));
         services.AddSingleton<IChallengeV2AuditEventWriter>(sp => sp.GetRequiredService<ChallengeV2AuditEventQueue>());
         services.Configure<PerceptionSealedTokenOptions>(configuration.GetSection(PerceptionSealedTokenOptions.SectionName));
         services.AddSingleton<IPerceptionSealedTokenService, PerceptionSealedTokenService>();

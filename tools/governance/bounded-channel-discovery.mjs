@@ -45,9 +45,24 @@ function matchingBrace(source, open)
     return source.length - 1;
 }
 
-function channelFactories(masked)
+function containingNamespace(masked, position)
 {
-    const signature = /\b(?:public|private|internal|protected)\s+(?:static\s+)?Channel\s*<[^>{};]+>\s+(?<name>[A-Za-z_]\w*)\s*\([^)]*\)\s*(?<body>=>|\{)/gu;
+    const namespaces = [];
+    for (const match of masked.matchAll(/\bnamespace\s+(?<name>[A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*(?<body>[;{])/gu))
+    {
+        const open = match.index + match[0].length - 1;
+        if (open <= position && (match.groups.body === ';' || matchingBrace(masked, open) >= position))
+        {
+            namespaces.push(match.groups.name);
+        }
+    }
+    return namespaces.join('.');
+}
+
+function channelFactories(document)
+{
+    const { masked } = document;
+    const signature = /\b(?:public|private|internal|protected)\s+(?:static\s+)?Channel\s*<[^>{};]+>\s+(?<name>[A-Za-z_]\w*)\s*(?:<[^<>;{}()]+>)?\s*\([^)]*\)\s*(?<body>=>|\{)/gu;
     const factories = [];
     for (const match of masked.matchAll(signature))
     {
@@ -55,27 +70,91 @@ function channelFactories(masked)
         const end = match.groups.body === '=>'
             ? masked.indexOf(';', bodyStart)
             : matchingBrace(masked, bodyStart - 1);
-        factories.push({ name: match.groups.name, start: match.index, end, body: masked.slice(bodyStart, end) });
+        const ownerType = containingType(masked, match.index);
+        if (!ownerType)
+        {
+            throw new Error(`${document.file}:${lineNumber(document.source, match.index)} channel factory has no containing type`);
+        }
+        factories.push({ document, ownerType, namespace: containingNamespace(masked, match.index), name: match.groups.name, start: match.index, bodyStart, end, body: masked.slice(bodyStart, end), proof: null });
+    }
+    return factories;
+}
+
+function factoryCalls(masked)
+{
+    return masked.matchAll(/\b(?<callee>[A-Za-z_]\w*(?:\s*\.\s*[A-Za-z_]\w*)*)\s*(?:<[^<>;{}()]+>)?\s*\(/gu);
+}
+
+function resolveFactoryCall(document, position, callee, factoriesByName)
+{
+    const parts = callee.replace(/\s/gu, '').split('.');
+    const name = parts.pop();
+    const qualifier = parts.join('.');
+    let candidates = factoriesByName.get(name) ?? [];
+    if (candidates.length === 0)
+    {
+        return null;
+    }
+    const namespace = containingNamespace(document.masked, position);
+    const ownerType = containingType(document.masked, position);
+    if (!qualifier || qualifier === 'this')
+    {
+        candidates = candidates.filter((factory) => factory.ownerType === ownerType && factory.namespace === namespace);
+    }
+    else
+    {
+        candidates = candidates.filter((factory) => qualifier === [factory.namespace, factory.ownerType].filter(Boolean).join('.') || qualifier === factory.ownerType);
+        const local = candidates.filter((factory) => factory.namespace === namespace);
+        if (local.length > 0 && !qualifier.includes('.'))
+        {
+            candidates = local;
+        }
+    }
+    if (candidates.length > 1)
+    {
+        throw new Error(`${document.file}:${lineNumber(document.source, position)} channel factory call ${callee} is ambiguous`);
+    }
+    return candidates[0] ?? null;
+}
+
+function bindBoundedFactories(factories)
+{
+    const factoriesByName = new Map();
+    for (const factory of factories)
+    {
+        const named = factoriesByName.get(factory.name) ?? [];
+        named.push(factory);
+        factoriesByName.set(factory.name, named);
+        if (/\bChannel\s*\.\s*CreateBounded\s*</u.test(factory.body))
+        {
+            factory.proof = [factory];
+        }
+    }
+    for (const factory of factories)
+    {
+        factory.dependencies = [...factoryCalls(factory.body)]
+            .map((call) => resolveFactoryCall(factory.document, factory.bodyStart + call.index, call.groups.callee, factoriesByName))
+            .filter(Boolean);
     }
     let changed = true;
-    const bounded = new Set(factories.filter((factory) => factory.body.includes('Channel.CreateBounded')).map((factory) => factory.name));
     while (changed)
     {
         changed = false;
         for (const factory of factories)
         {
-            if (bounded.has(factory.name))
+            if (factory.proof)
             {
                 continue;
             }
-            if ([...bounded].some((name) => new RegExp(`\\b${name}\\s*\\(`, 'u').test(factory.body)))
+            const bounded = factory.dependencies.find((dependency) => dependency.proof);
+            if (bounded)
             {
-                bounded.add(factory.name);
+                factory.proof = [factory, ...bounded.proof];
                 changed = true;
             }
         }
     }
-    return factories.filter((factory) => bounded.has(factory.name));
+    return factoriesByName;
 }
 
 function inside(position, ranges)
@@ -113,7 +192,7 @@ function lineNumber(source, position)
     return source.slice(0, position).split('\n').length;
 }
 
-function buildDiscovery(document, masked, position, target, creationKind, factory, creationSource)
+function buildDiscovery(document, masked, position, target, creationKind, factory, creationSource, factorySources = [])
 {
     const ownerType = containingType(masked, position);
     if (!ownerType)
@@ -127,6 +206,7 @@ function buildDiscovery(document, masked, position, target, creationKind, factor
         target,
         creationKind,
         factory,
+        factorySources,
         fullMode: creationSource.match(/FullMode\s*=\s*BoundedChannelFullMode\.(?<mode>[A-Za-z]+)/u)?.groups.mode ?? null,
         line: lineNumber(document.source, position)
     };
@@ -137,11 +217,17 @@ export function discoverBoundedChannels({ sourceRoot = path.join(root, 'src'), s
     const documents = sources instanceof Map
         ? [...sources.entries()].map(([file, source]) => ({ file, source }))
         : sourceFiles(sourceRoot).map((file) => ({ file: repositoryPath(file), source: fs.readFileSync(file, 'utf8') }));
-    const discovered = [];
-    for (const document of documents.sort((left, right) => left.file.localeCompare(right.file)))
+    documents.sort((left, right) => left.file.localeCompare(right.file));
+    for (const document of documents)
     {
-        const masked = maskCSharp(document.source);
-        const factories = channelFactories(masked);
+        document.masked = maskCSharp(document.source);
+        document.factories = channelFactories(document);
+    }
+    const factoriesByName = bindBoundedFactories(documents.flatMap((document) => document.factories));
+    const discovered = [];
+    for (const document of documents)
+    {
+        const { masked, factories } = document;
         for (const match of masked.matchAll(/\bChannel\s*\.\s*CreateBounded\s*</gu))
         {
             if (inside(match.index, factories))
@@ -155,22 +241,24 @@ export function discoverBoundedChannels({ sourceRoot = path.join(root, 'src'), s
             }
             discovered.push(buildDiscovery(document, masked, match.index, target, 'direct', null, masked.slice(match.index, match.index + 600)));
         }
-        for (const factory of factories)
+        for (const call of factoryCalls(masked))
         {
-            const callPattern = new RegExp(`\\b${factory.name}\\s*\\(`, 'gu');
-            for (const match of masked.matchAll(callPattern))
+            if (inside(call.index, factories))
             {
-                if (inside(match.index, factories))
-                {
-                    continue;
-                }
-                const target = assignmentTarget(masked, match.index);
-                if (!target)
-                {
-                    throw new Error(`${document.file}:${lineNumber(document.source, match.index)} bounded factory call has no stable assignment owner`);
-                }
-                discovered.push(buildDiscovery(document, masked, match.index, target, factory.body.includes('Channel.CreateBounded') ? 'wrapped' : 'indirect', factory.name, factory.body));
+                continue;
             }
+            const factory = resolveFactoryCall(document, call.index, call.groups.callee, factoriesByName);
+            if (!factory?.proof)
+            {
+                continue;
+            }
+            const target = assignmentTarget(masked, call.index);
+            if (!target)
+            {
+                throw new Error(`${document.file}:${lineNumber(document.source, call.index)} bounded factory call has no stable assignment owner`);
+            }
+            const factorySources = factory.proof.map((item) => ({ file: item.document.file, ownerType: item.ownerType, factory: item.name, line: lineNumber(item.document.source, item.start) }));
+            discovered.push(buildDiscovery(document, masked, call.index, target, factory.proof.length === 1 ? 'wrapped' : 'indirect', factory.name, factory.proof.at(-1).body, factorySources));
         }
     }
     return discovered.sort((left, right) => left.discoveryKey.localeCompare(right.discoveryKey));

@@ -183,6 +183,113 @@ public sealed class BoundedQueueDrainAggregatorTests
         Assert.Equal("drain_timeout", zeroTimeout.ErrorCode);
     }
 
+    [Theory]
+    [InlineData(1L, 4L, false)]
+    [InlineData(2L, 3L, false)]
+    [InlineData(2L, 4L, true)]
+    public void Observe_RejectedGenerationOrSequenceCannotBecomeAcceptedThroughRepeatedObservation(
+        long rejectedGeneration,
+        long rejectedSequence,
+        bool changesDigest)
+    {
+        var target = new TestParticipant("expected", "ExpectedAdapter");
+        var peer = new TestParticipant("peer", "PeerAdapter");
+        var catalog = new TestCatalog(
+        [
+            new("expected", "required", true, "ExpectedAdapter", "required"),
+            new("peer", "required", true, "PeerAdapter", "required")
+        ]);
+        var aggregator = new BoundedQueueDrainAggregator(catalog, [target, peer], TimeProvider.System);
+        target.Set(generation: 2, sequence: 4, queued: changesDigest ? 1 : 0);
+        peer.Set(generation: 3, sequence: 8);
+        BoundedQueueDrainAggregateReceipt baseline = aggregator.Observe();
+        BoundedQueueParticipantReceipt baselinePeer = Assert.Single(baseline.Participants, item => item.QueueId == "peer");
+
+        target.Set(generation: rejectedGeneration, sequence: rejectedSequence, queued: 0);
+        for (int observation = 0; observation < 3; observation++)
+        {
+            BoundedQueueDrainAggregateReceipt rejected = aggregator.Observe();
+            Assert.False(rejected.Complete);
+            Assert.Equal("generation_drift", rejected.ErrorCode);
+            Assert.Equal("failed", rejected.HealthStatus);
+            Assert.Equal(rejected.HealthStatus, rejected.ReadinessStatus);
+            Assert.Equal(rejected.HealthStatus, rejected.QualificationStatus);
+            Assert.Contains(rejected.Blockers, item => item.StartsWith(
+                changesDigest ? "sequence-collision=expected" : "generation-drift=expected",
+                StringComparison.Ordinal));
+            Assert.Equal(baselinePeer.ContentDigest,
+                Assert.Single(rejected.Participants, item => item.QueueId == "peer").ContentDigest);
+        }
+
+        target.Set(generation: 2, sequence: 5, queued: 0);
+        BoundedQueueDrainAggregateReceipt recovered = aggregator.Observe();
+        Assert.True(recovered.Complete);
+        Assert.Equal("ok", recovered.QualificationStatus);
+    }
+
+    [Theory]
+    [InlineData(2L, 5L, true)]
+    [InlineData(3L, 4L, true)]
+    [InlineData(2L, 5L, false)]
+    [InlineData(3L, 4L, false)]
+    public void Observe_InvalidHigherReceiptDoesNotPoisonValidRecovery(long generation, long sequence, bool tamperDigest)
+    {
+        var participant = new TestParticipant("expected", "ExpectedAdapter");
+        var aggregator = CreateAggregator(
+            new("expected", "required", true, "ExpectedAdapter", "required"),
+            participant);
+        participant.Set(generation: 2, sequence: 4);
+        Assert.True(aggregator.Observe().Complete);
+
+        participant.Set(generation: generation, sequence: sequence);
+        participant.TamperDigest = tamperDigest;
+        participant.ForcedRunId = tamperDigest ? null : "other-run";
+        BoundedQueueDrainAggregateReceipt invalid = aggregator.Observe();
+        Assert.False(invalid.Complete);
+        Assert.Equal(tamperDigest ? "content_digest_mismatch" : "participant_cross_run", invalid.ErrorCode);
+        Assert.Equal("failed", invalid.HealthStatus);
+        Assert.Equal(invalid.HealthStatus, invalid.ReadinessStatus);
+        Assert.Equal(invalid.HealthStatus, invalid.QualificationStatus);
+
+        participant.TamperDigest = false;
+        participant.ForcedRunId = null;
+        for (int observation = 0; observation < 3; observation++)
+        {
+            BoundedQueueDrainAggregateReceipt recovered = aggregator.Observe();
+            Assert.True(recovered.Complete);
+            Assert.Null(recovered.ErrorCode);
+            Assert.Equal("ok", recovered.HealthStatus);
+            Assert.Equal(recovered.HealthStatus, recovered.ReadinessStatus);
+            Assert.Equal(recovered.HealthStatus, recovered.QualificationStatus);
+        }
+    }
+
+    [Fact]
+    public void Observe_ValidPendingReceiptStillAdvancesTheWatermark()
+    {
+        var participant = new TestParticipant("expected", "ExpectedAdapter");
+        var aggregator = CreateAggregator(
+            new("expected", "required", true, "ExpectedAdapter", "required"),
+            participant);
+        participant.Set(generation: 2, sequence: 4);
+        Assert.True(aggregator.Observe().Complete);
+        participant.Set(generation: 2, sequence: 5, queued: 1);
+        BoundedQueueDrainAggregateReceipt pending = aggregator.Observe();
+        Assert.False(pending.Complete);
+        Assert.Null(pending.ErrorCode);
+
+        participant.Set(generation: 2, sequence: 4, queued: 0);
+        for (int observation = 0; observation < 3; observation++)
+        {
+            BoundedQueueDrainAggregateReceipt regressed = aggregator.Observe();
+            Assert.False(regressed.Complete);
+            Assert.Equal("generation_drift", regressed.ErrorCode);
+        }
+
+        participant.Set(generation: 2, sequence: 6, queued: 0);
+        Assert.True(aggregator.Observe().Complete);
+    }
+
     [Fact]
     public async Task WaitAsync_ConfirmsStableDigestAfterAConcurrentWrite()
     {

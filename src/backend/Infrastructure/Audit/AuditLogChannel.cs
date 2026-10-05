@@ -7,7 +7,8 @@ namespace FsusBlog.Server.Infrastructure.Audit;
 public sealed class AuditLogChannel
 {
     private readonly Channel<AuditRecord> _bestEffortChannel;
-    private readonly Channel<AuditRecord> _durableChannel;
+    private readonly Lazy<IAuditDurableJournal>? _durableJournal;
+    private readonly object _queueGate = new();
     private readonly IServiceScopeFactory? _scopeFactory;
     private readonly ILogger<AuditLogChannel>? _logger;
     private readonly ConcurrentDictionary<string, long> _droppedBySourceType = new(StringComparer.Ordinal);
@@ -57,42 +58,84 @@ public sealed class AuditLogChannel
         ILogger<AuditLogChannel>? logger)
     {
         _bestEffortChannel = Channel.CreateBounded<AuditRecord>(options);
-        _durableChannel = Channel.CreateUnbounded<AuditRecord>(new UnboundedChannelOptions
-        {
-            SingleReader = true,
-            SingleWriter = false
-        });
         _scopeFactory = scopeFactory;
         _logger = logger;
+        if (scopeFactory is not null)
+        {
+            _durableJournal = new Lazy<IAuditDurableJournal>(() =>
+            {
+                using IServiceScope scope = scopeFactory.CreateScope();
+                return scope.ServiceProvider.GetRequiredService<IAuditFallbackWriter>() as IAuditDurableJournal
+                    ?? throw new InvalidOperationException("audit_durable_journal_required");
+            });
+        }
     }
 
     public ChannelReader<AuditRecord> Reader => _bestEffortChannel.Reader;
 
     internal bool HasDurableFallback => _scopeFactory is not null;
 
+    internal IAuditDurableJournal? DurableJournal => _durableJournal?.Value;
+
     public bool TryWrite(AuditRecord record)
     {
+        if (_durableJournal is not null)
+        {
+            // All production admissions are required by the catalog, not only
+            // Critical/HighValue records. No successful return depends on RAM.
+            using var _ = AuditLogScope.SkipPersistence();
+            try
+            {
+                _durableJournal.Value.AdmitAsync(record, CancellationToken.None).GetAwaiter().GetResult();
+                lock (_queueGate)
+                {
+                    bool open = Volatile.Read(ref _completed) == 0;
+                    if (!open)
+                    {
+                        Interlocked.Increment(ref _rejectedCount);
+                    }
+                    SetDisposition("durable-accepted", ItemReference(record), open ? null : "closed:durable-accepted");
+                    return open;
+                }
+            }
+            catch (Exception ex)
+            {
+                lock (_queueGate)
+                {
+                    Interlocked.Increment(ref _rejectedCount);
+                    MarkTerminalFailure(1, ItemReference(record), $"admission-failed:{ex.GetType().Name}");
+                }
+                _logger?.LogError("audit-log durable admission failed. FailureCategory={Category}", ex.GetType().Name);
+                return false;
+            }
+        }
+        if (record.RequiresDurableWrite)
+        {
+            // A missing production owner cannot silently restore the old in-memory
+            // required lane. Parameterless fixtures retain only best-effort traffic.
+            return RejectAndFallback(record, "durable-owner-unavailable");
+        }
         if (Volatile.Read(ref _completed) != 0)
         {
             return RejectAndFallback(record, "closed");
         }
 
-        ChannelWriter<AuditRecord> writer = record.RequiresDurableWrite
-            ? _durableChannel.Writer
-            : _bestEffortChannel.Writer;
-        bool written = writer.TryWrite(record);
-        if (!written)
+        lock (_queueGate)
         {
-            return RejectAndFallback(record, "queue_full");
+            ChannelWriter<AuditRecord> writer = _bestEffortChannel.Writer;
+            bool written = writer.TryWrite(record);
+            if (!written)
+            {
+                return RejectAndFallback(record, "queue_full");
+            }
+            Interlocked.Increment(ref _queuedCount);
+            SetDisposition("queued", ItemReference(record));
+            return true;
         }
-
-        Interlocked.Increment(ref _queuedCount);
-        SetDisposition("queued", ItemReference(record));
-        return true;
     }
 
     /// <summary>
-    /// Closes both lanes. A subsequent admission is treated as a durable fallback
+    /// Closes the bounded lane. A subsequent admission is treated as a durable fallback
     /// rather than as a successful write or a warning-only drop.
     /// </summary>
     public void Complete(Exception? error = null)
@@ -102,7 +145,6 @@ public sealed class AuditLogChannel
             return;
         }
 
-        _durableChannel.Writer.TryComplete(error);
         _bestEffortChannel.Writer.TryComplete(error);
         SetDisposition("closed", error?.Message);
     }
@@ -111,73 +153,76 @@ public sealed class AuditLogChannel
         => Interlocked.Exchange(ref _droppedCount, 0);
 
     public AuditLogChannelSnapshot Snapshot()
-        => new(
+    {
+        lock (_queueGate)
+        {
+            return SnapshotCore();
+        }
+    }
+
+    private AuditLogChannelSnapshot SnapshotCore()
+    {
+        AuditDurableJournalSnapshot? journal = null;
+        try
+        {
+            journal = DurableJournal?.Snapshot();
+        }
+        catch (Exception ex)
+        {
+            // Unknown persistent state must block qualification, never read as zero.
+            Interlocked.CompareExchange(ref _terminalFailureCount, 1, 0);
+            SetDisposition("terminal-failed", null, $"journal-state-unavailable:{ex.GetType().Name}");
+        }
+        return new(
             Volatile.Read(ref _queuedCount),
             Volatile.Read(ref _droppedCount),
             _droppedBySourceType.ToDictionary(
                 static pair => pair.Key,
                 static pair => pair.Value,
                 StringComparer.Ordinal),
-            Volatile.Read(ref _inFlightCount),
-            Volatile.Read(ref _durablePendingCount),
-            Volatile.Read(ref _durableAcceptedCount),
-            Volatile.Read(ref _committedCount),
+            Volatile.Read(ref _inFlightCount) + (journal?.InFlightCount ?? 0),
+            Volatile.Read(ref _durablePendingCount) + (journal?.PendingCount ?? 0),
+            Volatile.Read(ref _durableAcceptedCount) + (journal?.AcceptedCount ?? 0),
+            Volatile.Read(ref _committedCount) + (journal?.CommittedCount ?? 0),
             Volatile.Read(ref _requeuedCount),
             Volatile.Read(ref _rejectedCount),
-            Volatile.Read(ref _terminalFailureCount),
-            Volatile.Read(ref _sequence),
-            Volatile.Read(ref _lastDisposition),
-            Volatile.Read(ref _lastFailureReason),
-            Volatile.Read(ref _lastItemReference));
+            Volatile.Read(ref _terminalFailureCount) + (journal?.TerminalFailureCount ?? 0),
+            Volatile.Read(ref _sequence) + (journal?.Sequence ?? 0),
+            Volatile.Read(ref _terminalFailureCount) + (journal?.TerminalFailureCount ?? 0) > 0 ? "terminal-failed"
+                : journal?.InFlightCount > 0 ? "in-flight" : journal?.PendingCount > 0 ? "durable-pending"
+                : journal?.CommittedCount > 0 ? "committed" : Volatile.Read(ref _lastDisposition),
+            Volatile.Read(ref _terminalFailureCount) > 0 ? Volatile.Read(ref _lastFailureReason)
+                : journal?.LastFailureReason ?? Volatile.Read(ref _lastFailureReason),
+            Volatile.Read(ref _terminalFailureCount) > 0 ? Volatile.Read(ref _lastItemReference)
+                : journal?.LastItemReference ?? Volatile.Read(ref _lastItemReference));
+    }
 
     internal async ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken)
     {
-        while (true)
-        {
-            if (_durableChannel.Reader.TryPeek(out _)
-                || _bestEffortChannel.Reader.TryPeek(out _))
-            {
-                return true;
-            }
-
-            Task<bool> durableTask = _durableChannel.Reader.WaitToReadAsync(cancellationToken).AsTask();
-            Task<bool> bestEffortTask = _bestEffortChannel.Reader.WaitToReadAsync(cancellationToken).AsTask();
-            Task<bool> completed = await Task.WhenAny(durableTask, bestEffortTask);
-            if (await completed)
-            {
-                return true;
-            }
-
-            if (!await durableTask && !await bestEffortTask)
-            {
-                return false;
-            }
-        }
+        return await _bestEffortChannel.Reader.WaitToReadAsync(cancellationToken);
     }
 
     internal async ValueTask<AuditRecord> ReadAsync(CancellationToken cancellationToken)
     {
-        if (_durableChannel.Reader.TryRead(out AuditRecord? durable))
+        AuditRecord record = await _bestEffortChannel.Reader.ReadAsync(cancellationToken);
+        lock (_queueGate)
         {
             MarkRead();
-            return durable;
         }
-
-        AuditRecord record = await _bestEffortChannel.Reader.ReadAsync(cancellationToken);
-        MarkRead();
         return record;
     }
 
     internal bool TryRead([NotNullWhen(true)] out AuditRecord? record)
     {
-        if (_durableChannel.Reader.TryRead(out record)
-            || _bestEffortChannel.Reader.TryRead(out record))
+        lock (_queueGate)
         {
-            MarkRead();
-            return true;
+            if (_bestEffortChannel.Reader.TryRead(out record))
+            {
+                MarkRead();
+                return true;
+            }
+            return false;
         }
-
-        return false;
     }
 
     internal void MarkRead()
@@ -264,17 +309,16 @@ public sealed class AuditLogChannel
 
     internal bool TryRequeue(AuditRecord record)
     {
-        ChannelWriter<AuditRecord> writer = record.RequiresDurableWrite
-            ? _durableChannel.Writer
-            : _bestEffortChannel.Writer;
-        if (!writer.TryWrite(record))
+        lock (_queueGate)
         {
-            return false;
+            if (!_bestEffortChannel.Writer.TryWrite(record))
+            {
+                return false;
+            }
+            Interlocked.Increment(ref _queuedCount);
+            MarkRequeued(1);
+            return true;
         }
-
-        Interlocked.Increment(ref _queuedCount);
-        MarkRequeued(1);
-        return true;
     }
 
     private bool RejectAndFallback(AuditRecord record, string reason)
@@ -317,8 +361,13 @@ public sealed class AuditLogChannel
     }
 
     private static string ItemReference(AuditRecord record)
-        => record.RecordHash
-            ?? $"{record.Source}:{record.Type}:{record.OccurredAtUtc.Ticks}:{record.EventInfo}";
+        => record.DurableDeliveryId ?? record.RecordHash
+            ?? AuditTamperEvidence.Sign(record with
+            {
+                RecordHash = null,
+                RecordMac = null,
+                PrevHash = null
+            }, key: null).RecordHash;
 
     private static void Decrement(ref long value, long count)
     {

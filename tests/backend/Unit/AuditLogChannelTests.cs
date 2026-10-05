@@ -29,7 +29,7 @@ public sealed class AuditLogChannelTests
     }
 
     [Fact]
-    public void TryWrite_DurableRecordUsesIndependentLaneWhenBestEffortChannelIsFull()
+    public void TryWrite_DurableRecordWithoutPersistentOwnerNeverUsesMemoryAsDurableAcceptance()
     {
         var channel = new AuditLogChannel(new BoundedChannelOptions(1)
         {
@@ -43,11 +43,13 @@ public sealed class AuditLogChannelTests
         bool overflow = channel.TryWrite(new AuditRecord("request", "business", DateTime.UtcNow, "overflow", null));
 
         Assert.True(bestEffort);
-        Assert.True(durable);
+        Assert.False(durable);
         Assert.False(overflow);
         AuditLogChannelSnapshot snapshot = channel.Snapshot();
-        Assert.Equal(2, snapshot.QueuedCount);
-        Assert.Equal(1, snapshot.DroppedCount);
+        Assert.Equal(1, snapshot.QueuedCount);
+        Assert.Equal(2, snapshot.DroppedCount);
+        Assert.Equal(2, snapshot.TerminalFailureCount);
+        Assert.Equal(1, snapshot.DroppedBySourceType["security:security"]);
         Assert.Equal(1, snapshot.DroppedBySourceType["request:business"]);
     }
 

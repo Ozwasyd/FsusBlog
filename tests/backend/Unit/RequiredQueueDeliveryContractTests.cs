@@ -23,55 +23,44 @@ public sealed class RequiredQueueDeliveryContractTests
     [Fact]
     public void AuditLog_QueueFullClosedAndCancelLeaveDurableOrTerminalDisposition()
     {
-        var fallback = new RecordingAuditFallbackWriter();
-        using ServiceProvider provider = CreateAuditServices(fallback);
-        var channel = new AuditLogChannel(
-            new BoundedChannelOptions(1)
-            {
-                SingleReader = true,
-                SingleWriter = false,
-                FullMode = BoundedChannelFullMode.Wait
-            },
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<AuditLogChannel>.Instance);
+        using var owner = new AuditDurableTestOwner();
+        AuditLogChannel channel = owner.Channel;
 
         Assert.True(channel.TryWrite(LowValue("queued")));
-        Assert.False(channel.TryWrite(LowValue("overflow")));
+        Assert.True(channel.TryWrite(LowValue("overflow")));
         AuditLogChannelSnapshot full = channel.Snapshot();
-        Assert.Equal(1, full.QueuedCount);
-        Assert.Equal(1, full.DurableAcceptedCount);
-        Assert.Equal("durable-accepted", full.LastDisposition);
-        Assert.Equal(["overflow"], fallback.Records.Select(static item => item.EventInfo).ToArray());
+        Assert.Equal(0, full.QueuedCount);
+        Assert.Equal(2, full.DurableAcceptedCount);
+        Assert.Equal(2, full.DurablePendingCount);
+        Assert.Equal("durable-pending", full.LastDisposition);
 
         channel.Complete();
         Assert.False(channel.TryWrite(LowValue("closed")));
         AuditLogChannelSnapshot closed = channel.Snapshot();
-        Assert.Equal(2, closed.DurableAcceptedCount);
+        Assert.Equal(3, closed.DurableAcceptedCount);
+        Assert.Equal(3, closed.DurablePendingCount);
         Assert.Equal(0, closed.TerminalFailureCount);
-        Assert.Equal(["overflow", "closed"], fallback.Records.Select(static item => item.EventInfo).ToArray());
+        Assert.Equal(1, closed.RejectedCount);
+        Assert.Equal("closed:durable-accepted", closed.LastFailureReason);
+        Assert.Equal(owner.Journal.Snapshot().LastItemReference, closed.LastItemReference);
+        Assert.Equal("pending", new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot().Status);
+        Assert.Equal(3, Directory.GetFiles(Path.Combine(owner.Root, "audit-fallback"), "critical-audit-*.jsonl").Length);
     }
 
     [Fact]
     public async Task AuditLog_DequeueKeepsInFlightUntilCommitOrFallback()
     {
-        var store = new RecordingAuditLogStore();
-        var fallback = new RecordingAuditFallbackWriter();
-        using ServiceProvider provider = CreateAuditServices(fallback, store);
-        var channel = new AuditLogChannel(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<AuditLogChannel>.Instance);
-        var worker = new AuditLogWriterWorker(
-            channel,
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new AuditLogRuntimeState(channel),
-            fallback,
-            NullLogger<AuditLogWriterWorker>.Instance);
+        using var owner = new AuditDurableTestOwner(store: new RecordingAuditLogStore());
+        AuditLogChannel channel = owner.Channel;
         Assert.True(channel.TryWrite(LowValue("in-flight")));
-        AuditRecord record = await channel.ReadAsync(CancellationToken.None);
-        AuditLogChannelSnapshot inFlight = channel.Snapshot();
-        Assert.Equal(0, inFlight.QueuedCount);
-        Assert.Equal(1, inFlight.InFlightCount);
-        Assert.Equal("in-flight", inFlight.LastDisposition);
-
-        await worker.WriteBatchOnceAsync([record], CancellationToken.None);
+        await owner.Journal.ReplayAsync(async (records, token) =>
+        {
+            AuditLogChannelSnapshot inFlight = channel.Snapshot();
+            Assert.Equal(0, inFlight.QueuedCount);
+            Assert.Equal(1, inFlight.InFlightCount);
+            Assert.Equal("in-flight", inFlight.LastDisposition);
+            await owner.Worker.WriteBatchOnceAsync(records, token);
+        }, CancellationToken.None);
         AuditLogChannelSnapshot committed = channel.Snapshot();
         Assert.Equal(0, committed.OutstandingCount);
         Assert.Equal(1, committed.CommittedCount);
@@ -81,25 +70,21 @@ public sealed class RequiredQueueDeliveryContractTests
     [Fact]
     public async Task AuditLog_WorkerFailureReplaysThroughDurableFallbackAndHealth()
     {
-        var fallback = new RecordingAuditFallbackWriter();
-        using ServiceProvider provider = CreateAuditServices(fallback, new ThrowingAuditLogStore());
-        var channel = new AuditLogChannel(provider.GetRequiredService<IServiceScopeFactory>(), NullLogger<AuditLogChannel>.Instance);
-        var worker = new AuditLogWriterWorker(
-            channel,
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            new AuditLogRuntimeState(channel),
-            fallback,
-            NullLogger<AuditLogWriterWorker>.Instance);
+        using var owner = new AuditDurableTestOwner(store: new ThrowingAuditLogStore());
+        AuditLogChannel channel = owner.Channel;
         Assert.True(channel.TryWrite(LowValue("persist-fail")));
-        AuditRecord record = await channel.ReadAsync(CancellationToken.None);
-        await worker.PersistSafelyAsync([record], CancellationToken.None);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => owner.Worker.ReplayPendingOnceAsync(CancellationToken.None));
 
         AuditLogChannelSnapshot snapshot = channel.Snapshot();
-        Assert.Equal(0, snapshot.OutstandingCount);
+        Assert.Equal(1, snapshot.OutstandingCount);
         Assert.Equal(1, snapshot.DurableAcceptedCount);
-        Assert.Equal("durable-accepted", snapshot.LastDisposition);
-        Assert.Equal("persist-fail", Assert.Single(fallback.Records).EventInfo);
-        Assert.Equal("drained", new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot().Status);
+        Assert.Equal("durable-pending", snapshot.LastDisposition);
+        Assert.Equal(1, snapshot.DurablePendingCount);
+        Assert.Equal(0, snapshot.CommittedCount);
+        Assert.Equal("pending", new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot().Status);
+        using var restarted = new AuditDurableTestOwner(owner.Root, deleteRoot: false, store: new RecordingAuditLogStore());
+        await restarted.Worker.ReplayPendingOnceAsync(CancellationToken.None);
+        Assert.Equal("drained", new AuditLogReleaseDrainParticipant(restarted.Channel, TimeProvider.System).Snapshot().Status);
     }
 
     [Fact]
@@ -154,22 +139,20 @@ public sealed class RequiredQueueDeliveryContractTests
     [Fact]
     public void AuditLog_UnknownDispositionAndTerminalFailureBlockHealth()
     {
-        using ServiceProvider provider = CreateAuditServices(new ThrowingAuditFallbackWriter());
-        var channel = new AuditLogChannel(
-            new BoundedChannelOptions(1)
-            {
-                SingleReader = true,
-                SingleWriter = false,
-                FullMode = BoundedChannelFullMode.Wait
-            },
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            NullLogger<AuditLogChannel>.Instance);
+        using var owner = new AuditDurableTestOwner();
+        AuditLogChannel channel = owner.Channel;
         Assert.True(channel.TryWrite(LowValue("first")));
-        Assert.False(channel.TryWrite(LowValue("terminal")));
+        string? previousAcceptedReference = owner.Journal.Snapshot().LastItemReference;
+        Assert.False(channel.TryWrite(LowValue("terminal") with
+        {
+            Action = "unknown.audit.action"
+        }));
         AuditLogChannelSnapshot snapshot = channel.Snapshot();
         Assert.Equal(1, snapshot.TerminalFailureCount);
         Assert.Equal("terminal-failed", snapshot.LastDisposition);
-        Assert.Contains("fallback-failed", snapshot.LastFailureReason, StringComparison.Ordinal);
+        Assert.Contains("admission-failed", snapshot.LastFailureReason, StringComparison.Ordinal);
+        Assert.NotNull(snapshot.LastItemReference);
+        Assert.NotEqual(previousAcceptedReference, snapshot.LastItemReference);
         ReleaseDrainParticipantSnapshot drain = new AuditLogReleaseDrainParticipant(channel, TimeProvider.System).Snapshot();
         Assert.Equal("terminal-failed", drain.Status);
         Assert.Equal("audit_log_terminal_failure", drain.ErrorCode);
@@ -223,93 +206,118 @@ public sealed class RequiredQueueDeliveryContractTests
     public async Task SecurityRisk_OverflowWritesDurableFallbackAndDuplicateIdempotency()
     {
         var store = new RecordingRiskStore();
-        using ServiceProvider provider = new ServiceCollection().AddSingleton<ISecurityRiskEventStore>(store).BuildServiceProvider();
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 1, BatchSize = 1, FlushWindowMs = 10 }),
-            NullLogger<SecurityRiskEventWriteQueue>.Instance,
-            provider.GetRequiredService<IServiceScopeFactory>());
+        using var owner = new SecurityRiskRequiredContractOwner(store,
+            new SecurityRiskEventWriterOptions { Capacity = 1, BatchSize = 1, FlushWindowMs = 10 });
+        SecurityRiskEventWriteQueue queue = owner.Queue;
         SecurityRiskEventWrite first = CreateRisk("risk-1");
         SecurityRiskEventWrite overflow = CreateRisk("risk-2");
         Assert.True(queue.TryWrite(first));
-        Assert.False(queue.TryWrite(overflow));
-        Assert.Equal("risk-2", Assert.Single(store.Writes).Id);
-        Assert.Equal(1, queue.Snapshot().DurableAcceptedCount);
-        Assert.Equal(1, queue.Snapshot().SyncFallbackCount);
+        Assert.True(queue.TryWrite(overflow));
+        Assert.Empty(store.Writes); // Admission never calls a SQL/store operation.
+        Assert.Equal(2, queue.Snapshot().DurableAcceptedCount);
+        Assert.Equal(1, queue.Snapshot().QueuedCount);
+        Assert.Equal(1, queue.Snapshot().DurablePendingCount);
+        Assert.Equal(2, queue.Snapshot().OutstandingCount);
+        Assert.Equal(0, queue.Snapshot().SyncFallbackCount);
         Assert.Equal(0, queue.Snapshot().ShedCount);
+        queue.Complete();
+        SecurityRiskEventWrite closed = CreateRisk("risk-closed");
+        Assert.True(queue.TryWrite(closed));
+        Assert.True(queue.TryWrite(overflow)); // Exact pending Id/payload does not publish a second source.
+        Assert.Empty(store.Writes);
+        Assert.Equal(3, queue.Snapshot().DurableAcceptedCount);
+        Assert.Equal(2, queue.Snapshot().DurablePendingCount);
+        Assert.Equal(3, queue.Snapshot().OutstandingCount);
+        Assert.Equal("durable-pending", queue.Snapshot().LastDisposition);
+        Assert.Equal(0, queue.Snapshot().SyncFallbackCount);
+        Assert.Equal(0, queue.Snapshot().DroppedCount);
+        Assert.Equal(3, Directory.GetFiles(owner.JournalRoot, "security-risk-*.json").Length);
+        Assert.Equal("pending", new SecurityRiskReleaseDrainParticipant(queue, TimeProvider.System).Snapshot().Status);
 
+        Assert.Equal(1, await owner.Worker.FlushOnceAsync(CancellationToken.None));
+        SecurityRiskRequiredContractOwner.AssertFullDelivery(first, Assert.Single(store.Writes));
+        Assert.Equal(1, await owner.Worker.FlushOnceAsync(CancellationToken.None));
+        SecurityRiskRequiredContractOwner.AssertFullDelivery(overflow, store.Writes[1]);
+        Assert.Equal(2, store.Writes.Count);
         store.FailDuplicates = true;
         await store.AppendAsync(overflow, CancellationToken.None);
-        Assert.Single(store.Writes);
-
-        queue.Complete();
-        Assert.False(queue.TryWrite(CreateRisk("risk-closed")));
         Assert.Equal(2, store.Writes.Count);
-        Assert.Equal("durable-accepted", queue.Snapshot().LastDisposition);
+        SecurityRiskRequiredContractOwner.AssertFullDelivery(overflow, store.Writes[1]);
+        Assert.Equal(1, await owner.Worker.FlushOnceAsync(CancellationToken.None));
+        Assert.Equal(3, store.Writes.Count);
+        SecurityRiskRequiredContractOwner.AssertFullDelivery(closed, store.Writes[2]);
+        Assert.Equal(0, queue.Snapshot().OutstandingCount);
+        Assert.Equal(3, queue.Snapshot().CommittedCount);
+        Assert.Equal("committed", queue.Snapshot().LastDisposition);
+        Assert.Empty(Directory.GetFiles(owner.JournalRoot, "security-risk-*.json"));
+        Assert.Empty(Directory.GetFiles(Path.Combine(owner.Root, "audit-retention", "epoch-keys")));
+        Assert.Equal("drained", new SecurityRiskReleaseDrainParticipant(queue, TimeProvider.System).Snapshot().Status);
     }
 
     [Fact]
     public async Task SecurityRisk_QueuedZeroInFlightAndWorkerExceptionHaveExactDisposition()
     {
         var store = new ThrowingRiskStore();
-        using ServiceProvider provider = new ServiceCollection().AddSingleton<ISecurityRiskEventStore>(store).BuildServiceProvider();
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
-            NullLogger<SecurityRiskEventWriteQueue>.Instance,
-            provider.GetRequiredService<IServiceScopeFactory>());
-        var worker = new SecurityRiskEventWriterWorker(
-            queue,
-            provider.GetRequiredService<IServiceScopeFactory>(),
-            Options.Create(new SecurityRiskEventWriterOptions { BatchSize = 2, FlushWindowMs = 10 }),
-            NullLogger<SecurityRiskEventWriterWorker>.Instance);
-        Assert.True(queue.TryWrite(CreateRisk("in-flight")));
+        using var owner = new SecurityRiskRequiredContractOwner(store,
+            new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 });
+        SecurityRiskEventWriteQueue queue = owner.Queue;
+        SecurityRiskEventWrite original = CreateRisk("in-flight");
+        Assert.True(queue.TryWrite(original));
         Assert.True(queue.TryRead(out SecurityRiskEventWrite write));
+        SecurityRiskRequiredContractOwner.AssertFullDelivery(original, write);
         Assert.Equal(0, queue.Snapshot().QueuedCount);
         Assert.Equal(1, queue.Snapshot().InFlightCount);
+        Assert.Equal(1, queue.Snapshot().OutstandingCount);
+        Assert.Single(Directory.GetFiles(owner.JournalRoot, "security-risk-*.json"));
 
-        await worker.PersistSafelyAsync([write], CancellationToken.None);
+        await owner.Worker.PersistSafelyAsync([write], CancellationToken.None);
         SecurityRiskEventWriteQueueSnapshot snapshot = queue.Snapshot();
         Assert.Equal(1, snapshot.TerminalFailureCount);
         Assert.Equal("terminal-failed", snapshot.LastDisposition);
         ReleaseDrainParticipantSnapshot drain = new SecurityRiskReleaseDrainParticipant(queue, TimeProvider.System).Snapshot();
         Assert.Equal("security_risk_terminal_failure", drain.ErrorCode);
         Assert.Equal(0, snapshot.InFlightCount);
+        Assert.Equal(0, snapshot.DurablePendingCount);
+        Assert.Equal(1, snapshot.OutstandingCount);
+        Assert.Equal(0, snapshot.CommittedCount);
+        Assert.Equal(0, snapshot.SyncFallbackCount);
+        Assert.Equal(0, snapshot.DroppedCount);
+        Assert.Equal("terminal-failed", drain.Status);
+        Assert.Contains("terminal-failed=1", drain.Blockers!);
+        Assert.Single(Directory.GetFiles(owner.JournalRoot, "security-risk-*.json"));
+        Assert.Single(Directory.GetFiles(owner.JournalRoot, "security-risk-*.json.failed"));
     }
 
     [Fact]
     public async Task ChallengeV2_OverflowUsesDurableAttemptIdentityInsteadOfWarningDrop()
     {
         var persistence = new RecordingChallengePersistence();
-        using ServiceProvider provider = new ServiceCollection()
-            .AddSingleton<ISecurityChallengePersistenceService>(persistence)
-            .BuildServiceProvider();
-        var queue = new ChallengeV2AuditEventQueue(
-            Options.Create(new ChallengeV2EventWriterOptions { Capacity = 1, HighValueCapacity = 1, BatchSize = 8, FlushWindowMs = 10 }),
-            NullLogger<ChallengeV2AuditEventQueue>.Instance,
-            provider.GetRequiredService<IServiceScopeFactory>());
+        using var owner = new ChallengeV2Issue2040Owner(capacity: 1, persistence: persistence);
+        ChallengeV2AuditEventQueue queue = owner.Queue;
 
         await queue.WriteAsync(CreateChallenge("queued", SecurityChallengeAttemptOutcomes.Verified), CancellationToken.None);
         await queue.WriteAsync(CreateChallenge("overflow", SecurityChallengeAttemptOutcomes.Verified), CancellationToken.None);
         ChallengeV2AuditEventQueueSnapshot snapshot = queue.Snapshot();
         Assert.Equal(1, snapshot.NormalQueuedCount);
         Assert.Equal(0, snapshot.DroppedLowValueCount);
-        Assert.Equal(1, snapshot.DurableAcceptedCount);
-        Assert.Equal("overflow", Assert.Single(persistence.Attempts).ChallengeId);
+        Assert.Equal(2, snapshot.DurableAcceptedCount);
+        Assert.Equal(1, snapshot.DurablePendingCount);
+        Assert.Empty(persistence.Attempts);
+        Assert.Equal(2, await owner.Worker.FlushOnceAsync(CancellationToken.None));
+        Assert.Equal(["queued", "overflow"], persistence.Attempts.Select(item => item.ChallengeId));
 
-        await persistence.RecordAttemptAsync(persistence.Attempts[0], CancellationToken.None);
-        Assert.Single(persistence.Attempts);
+        await persistence.RecordAttemptAsync(persistence.Attempts[1], CancellationToken.None);
+        Assert.Equal(2, persistence.Attempts.Count);
+        Assert.Equal(0, queue.Snapshot().OutstandingCount);
     }
 
     [Fact]
     public async Task ChallengeV2_HighValueWorkerFailureRequeuesOrGoesTerminal()
     {
         var persistence = new ThrowingChallengePersistence();
-        using ServiceProvider provider = new ServiceCollection()
-            .AddSingleton<ISecurityChallengePersistenceService>(persistence)
-            .BuildServiceProvider();
-        var queue = new ChallengeV2AuditEventQueue(
-            Options.Create(new ChallengeV2EventWriterOptions { Capacity = 1, HighValueCapacity = 1, BatchSize = 1, FlushWindowMs = 10 }),
-            NullLogger<ChallengeV2AuditEventQueue>.Instance,
-            provider.GetRequiredService<IServiceScopeFactory>());
+        using var owner = new ChallengeV2Issue2040Owner(capacity: 1, persistence: persistence);
+        ServiceProvider provider = owner.Provider;
+        ChallengeV2AuditEventQueue queue = owner.Queue;
         var worker = new ChallengeV2AuditEventWriterWorker(
             queue,
             provider.GetRequiredService<IServiceScopeFactory>(),
@@ -330,15 +338,18 @@ public sealed class RequiredQueueDeliveryContractTests
     public void RequiredQueues_AreIsolatedByOwnerSnapshots()
     {
         var audit = new AuditLogChannel(new BoundedChannelOptions(1) { FullMode = BoundedChannelFullMode.Wait });
-        var risk = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 1 }),
-            NullLogger<SecurityRiskEventWriteQueue>.Instance);
+        var store = new RecordingRiskStore();
+        using var owner = new SecurityRiskRequiredContractOwner(store,
+            new SecurityRiskEventWriterOptions { Capacity = 1 });
+        SecurityRiskEventWriteQueue risk = owner.Queue;
         Assert.True(audit.TryWrite(LowValue("audit-only")));
         Assert.True(risk.TryWrite(CreateRisk("risk-only")));
         Assert.Equal(1, audit.Snapshot().QueuedCount);
         Assert.Equal(0, audit.Snapshot().TerminalFailureCount);
         Assert.Equal(1, risk.Snapshot().QueuedCount);
         Assert.NotEqual(audit.Snapshot().LastItemReference, risk.Snapshot().LastItemReference);
+        Assert.Empty(store.Writes);
+        Assert.Single(Directory.GetFiles(owner.JournalRoot, "security-risk-*.json"));
     }
 
     private static ServiceProvider CreateAuditServices(
@@ -466,6 +477,85 @@ public sealed class RequiredQueueDeliveryContractTests
         }
     }
 
+    // This private fixture owns the SecurityRisk contract cases. Its
+    // recording store proves journal/worker behavior, not PostgreSQL qualification.
+    private sealed class SecurityRiskRequiredContractOwner : IDisposable
+    {
+        private readonly ServiceProvider _provider;
+        internal string Root
+        {
+            get;
+        }
+        internal string JournalRoot => Path.Combine(Root, "security-risk-fallback");
+        internal SecurityRiskEventWriteQueue Queue
+        {
+            get;
+        }
+        internal SecurityRiskEventWriterWorker Worker
+        {
+            get;
+        }
+
+        internal SecurityRiskRequiredContractOwner(ISecurityRiskEventStore store, SecurityRiskEventWriterOptions options)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException("Private Unix root evidence is required.");
+            }
+            Root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(),
+                "fsusblog-required-risk-2040-" + Guid.NewGuid().ToString("N"));
+            UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            Directory.CreateDirectory(Root, mode);
+            Assert.Equal(mode, File.GetUnixFileMode(Root));
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FSUSBLOG_DATA_ROOT"] = Root
+            }).Build();
+            _provider = new ServiceCollection().AddSingleton(configuration)
+                .AddSingleton<IAuditRetentionEpochKeyStore>(new LocalAuditRetentionEpochKeyStore(configuration))
+                .AddSingleton(store).BuildServiceProvider();
+            IOptions<SecurityRiskEventWriterOptions> configured = Options.Create(options);
+            Queue = new SecurityRiskEventWriteQueue(configured, NullLogger<SecurityRiskEventWriteQueue>.Instance,
+                _provider.GetRequiredService<IServiceScopeFactory>());
+            Worker = new SecurityRiskEventWriterWorker(Queue, _provider.GetRequiredService<IServiceScopeFactory>(), configured,
+                NullLogger<SecurityRiskEventWriterWorker>.Instance);
+        }
+
+        internal static void AssertFullDelivery(SecurityRiskEventWrite expected, SecurityRiskEventWrite actual)
+        {
+            Assert.Equal(expected.Id, actual.Id);
+            Assert.Equal(expected.OccurredAtUtc, actual.OccurredAtUtc);
+            Assert.Equal(expected.Source, actual.Source);
+            Assert.Equal(expected.Reason, actual.Reason);
+            Assert.Equal(expected.Action, actual.Action);
+            Assert.Equal(expected.ScoreDelta, actual.ScoreDelta);
+            Assert.Equal(expected.TotalScore, actual.TotalScore);
+            Assert.Equal(expected.TtlSeconds, actual.TtlSeconds);
+            Assert.Equal(expected.ExpiresAtUtc, actual.ExpiresAtUtc);
+            Assert.Equal(expected.SubjectHash, actual.SubjectHash);
+            Assert.Equal(expected.RouteKey, actual.RouteKey);
+            Assert.Equal(expected.ClientIpHash, actual.ClientIpHash);
+            Assert.Equal(expected.DeviceFpHash, actual.DeviceFpHash);
+            Assert.Null(actual.Path);
+            Assert.Equal(expected.Method, actual.Method);
+            Assert.Null(actual.UserAgent);
+            Assert.Equal(expected.Detail, actual.Detail);
+            Assert.Equal(expected.TraceId, actual.TraceId);
+            Assert.Equal(expected.PseudonymEpoch, actual.PseudonymEpoch);
+        }
+
+        public void Dispose()
+        {
+            Worker.Dispose();
+            Queue.Dispose();
+            _provider.Dispose();
+            if (Directory.Exists(Root))
+            {
+                Directory.Delete(Root, recursive: true);
+            }
+        }
+    }
+
     private sealed class RecordingRiskStore : ISecurityRiskEventStore
     {
         public List<SecurityRiskEventWrite> Writes { get; } = new();
@@ -535,9 +625,15 @@ public sealed class RequiredQueueDeliveryContractTests
 
         public Task<SecurityChallengeAttempt> RecordAttemptAsync(SecurityChallengeAttemptRequest request, CancellationToken cancellationToken = default)
         {
-            if (Attempts.Any(item => item.AttemptId == request.AttemptId && request.AttemptId is not null))
+            SecurityChallengeAttemptRequest? existing = Attempts.FirstOrDefault(item => item.AttemptId == request.AttemptId);
+            if (existing is not null)
             {
-                return Task.FromResult(ToAttempt(request));
+                SecurityChallengeAttempt stored = ToAttempt(existing);
+                if (!ChallengeV2DurableDelivery.MatchesStored(ChallengeV2DurableDelivery.GetRequired(request), stored))
+                {
+                    throw new InvalidOperationException("security_challenge_attempt_idempotency_conflict");
+                }
+                return Task.FromResult(stored);
             }
 
             Attempts.Add(request);
@@ -551,19 +647,7 @@ public sealed class RequiredQueueDeliveryContractTests
             => Task.FromResult(false);
 
         private static SecurityChallengeAttempt ToAttempt(SecurityChallengeAttemptRequest request)
-            => new()
-            {
-                AttemptId = request.AttemptId ?? Guid.NewGuid().ToString("N"),
-                ChallengeId = request.ChallengeId,
-                Outcome = request.Outcome,
-                Reason = request.Reason,
-                PayloadHash = request.PayloadHash,
-                ClientIpHash = request.ClientIpHash,
-                DeviceFpHash = request.DeviceFpHash,
-                TraceId = request.TraceId,
-                Traceparent = request.Traceparent,
-                AttemptedAtUtc = request.AttemptedAtUtc ?? DateTime.UtcNow
-            };
+            => ChallengeV2DurableDelivery.GetRequired(request).ToEntity();
     }
 
     private sealed class ThrowingChallengePersistence : ISecurityChallengePersistenceService

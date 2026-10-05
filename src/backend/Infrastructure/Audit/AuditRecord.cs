@@ -40,6 +40,12 @@ public sealed record AuditRecord(
     string? RecordHash = null,
     string? RecordMac = null)
 {
+    // Owner-local delivery identity; never part of the public audit DTO or business payload.
+    internal string? DurableDeliveryId
+    {
+        get; init;
+    }
+
     public bool RequiresDurableWrite
         => IsHighValue
            || string.Equals(Severity, AuditSeverityCatalog.Critical, StringComparison.Ordinal)

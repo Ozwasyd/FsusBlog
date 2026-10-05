@@ -59,6 +59,19 @@ public sealed class AdminAuditBoundedQueueDrainParticipant(
     public BoundedQueueParticipantReceipt Observe(string runId)
     {
         AdminAuditLogChannelSnapshot snapshot = channel.Snapshot();
+        IReadOnlyList<string>? blockers = null;
+        if (snapshot.TerminalFailureCount > 0)
+        {
+            // Diagnostics carry owner-generated opaque identities and categories,
+            // never payload, exception messages or absolute journal paths.
+            string itemReference = IsDiagnosticToken(snapshot.LastItemReference,
+                @"\A(?:[a-f0-9]{32}|admin-audit-[0-9]{19}-[a-f0-9]{32}\.json)\z")
+                ? snapshot.LastItemReference! : "unknown";
+            string reason = IsDiagnosticToken(snapshot.LastFailureReason,
+                @"\Aadmin-audit:(?:admission-failed|replay-failed|journal-state-unavailable):[A-Za-z][A-Za-z0-9]*Exception\z")
+                ? snapshot.LastFailureReason! : "admin-audit:terminal-failed";
+            blockers = [$"item={itemReference};reason={reason}"];
+        }
         return BoundedQueueParticipantReceipts.Counts(
             catalog,
             QueueId,
@@ -72,8 +85,14 @@ public sealed class AdminAuditBoundedQueueDrainParticipant(
                 ? BoundedQueueCommitPostcondition.Failed
                 : BoundedQueueCommitPostcondition.Success,
             snapshot.Sequence,
-            snapshot.Sequence);
+            snapshot.Sequence,
+            blockers: blockers);
     }
+
+    private static bool IsDiagnosticToken(string? value, string pattern)
+        => value is { Length: <= 128 }
+            && System.Text.RegularExpressions.Regex.IsMatch(value, pattern,
+                System.Text.RegularExpressions.RegexOptions.CultureInvariant);
 }
 
 public sealed class AdminSessionTouchBoundedQueueDrainParticipant(
@@ -221,13 +240,13 @@ public sealed class ChallengeAuditHighValueBoundedQueueDrainParticipant(
 
     public BoundedQueueParticipantReceipt Observe(string runId)
     {
-        ChallengeV2AuditEventQueueSnapshot snapshot = queue.Snapshot();
+        ChallengeV2LaneSnapshot snapshot = queue.LaneSnapshot(high: true);
         return BoundedQueueParticipantReceipts.Counts(
             catalog,
             QueueId,
             runId,
             timeProvider,
-            snapshot.HighValueQueuedCount,
+            snapshot.QueuedCount,
             snapshot.InFlightCount,
             snapshot.DurablePendingCount,
             snapshot.TerminalFailureCount,
@@ -235,7 +254,10 @@ public sealed class ChallengeAuditHighValueBoundedQueueDrainParticipant(
                 ? BoundedQueueCommitPostcondition.Failed
                 : BoundedQueueCommitPostcondition.Success,
             snapshot.Sequence,
-            snapshot.Sequence);
+            snapshot.Sequence,
+            blockers: snapshot.TerminalFailureCount > 0
+                ? [$"item={snapshot.LastItemReference ?? "unknown"};reason={snapshot.LastFailureReason ?? "challenge-audit-high-value:terminal-failed"}"]
+                : null);
     }
 }
 
@@ -248,13 +270,13 @@ public sealed class ChallengeAuditNormalBoundedQueueDrainParticipant(
 
     public BoundedQueueParticipantReceipt Observe(string runId)
     {
-        ChallengeV2AuditEventQueueSnapshot snapshot = queue.Snapshot();
+        ChallengeV2LaneSnapshot snapshot = queue.LaneSnapshot(high: false);
         return BoundedQueueParticipantReceipts.Counts(
             catalog,
             QueueId,
             runId,
             timeProvider,
-            snapshot.NormalQueuedCount,
+            snapshot.QueuedCount,
             snapshot.InFlightCount,
             snapshot.DurablePendingCount,
             snapshot.TerminalFailureCount,
@@ -262,7 +284,10 @@ public sealed class ChallengeAuditNormalBoundedQueueDrainParticipant(
                 ? BoundedQueueCommitPostcondition.Failed
                 : BoundedQueueCommitPostcondition.Success,
             snapshot.Sequence,
-            snapshot.Sequence);
+            snapshot.Sequence,
+            blockers: snapshot.TerminalFailureCount > 0
+                ? [$"item={snapshot.LastItemReference ?? "unknown"};reason={snapshot.LastFailureReason ?? "challenge-audit-normal:terminal-failed"}"]
+                : null);
     }
 }
 
@@ -660,8 +685,20 @@ public sealed class SecurityRiskEventBoundedQueueDrainParticipant(
                 ? BoundedQueueCommitPostcondition.Failed
                 : BoundedQueueCommitPostcondition.Success,
             snapshot.Sequence,
-            snapshot.Sequence);
+            snapshot.Sequence,
+            blockers: snapshot.TerminalFailureCount > 0
+                ? [$"item={SafeReference(snapshot.LastItemReference)};reason={SafeReason(snapshot.LastFailureReason)}"]
+                : null);
     }
+
+    private static string SafeReference(string? value)
+        => value is { Length: 64 } && value.All(character => character is >= 'a' and <= 'f' or >= '0' and <= '9')
+            ? value : "unknown";
+
+    private static string SafeReason(string? value)
+        => value is "security-risk:admission-failed" or "security-risk:replay-failed" or "security-risk:journal-unavailable"
+            or "security-risk:signal-preparation-failed" or "security-risk:replay-failure-budget-exhausted"
+            ? value : "security-risk:terminal-failed";
 }
 
 public sealed class UploadSessionCleanupBoundedQueueDrainParticipant(
