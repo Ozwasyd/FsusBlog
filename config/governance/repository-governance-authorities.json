@@ -144,6 +144,7 @@
                 ".github/workflows/**",
                 "tests/matrix.yml",
                 "tests/tools/change-contract.test.mjs",
+                "tests/tools/generated-output-history-repair-v3.test.mjs",
                 "tests/tools/production-build-workflow.test.mjs",
                 "tools/check-workflow-matrix-sync.mjs",
                 "tools/run-test-matrix.mjs",
@@ -185,10 +186,12 @@
                         "node",
                         "--test",
                         "tests/tools/change-contract.test.mjs",
+                        "tests/tools/generated-output-history-repair-v3.test.mjs",
                         "tests/tools/production-build-workflow.test.mjs"
                     ],
                     "checkerSources": [
                         "tests/tools/change-contract.test.mjs",
+                        "tests/tools/generated-output-history-repair-v3.test.mjs",
                         "tests/tools/production-build-workflow.test.mjs"
                     ],
                     "ruleIds": [

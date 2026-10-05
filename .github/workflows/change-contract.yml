@@ -134,3 +134,24 @@ jobs:
               if: github.event_name == 'workflow_dispatch'
               working-directory: candidate
               run: node --test tests/tools/change-contract.test.mjs
+
+    history-repair-regression:
+        name: History Repair Policy Regression
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout candidate with full review history
+              uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+                  path: candidate
+                  persist-credentials: false
+                  ref: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.sha || github.sha }}
+
+            - name: Set up Node.js
+              uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24
+
+            - name: Exercise candidate history repair regressions
+              working-directory: candidate
+              run: node --test tests/tools/generated-output-history-repair-v3.test.mjs
