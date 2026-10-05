@@ -70,6 +70,11 @@ that identity. Package identity also covers the signature, trust result,
 source/provenance references, manifest and contract identities, archive, payload,
 content, entrypoint, and schema declarations.
 
+Verification rechecks the trust interval and cancellation immediately before
+returning the sealed package after archive reading and validation. Expiry at the
+return boundary or a clock before the trust evaluation fails closed; the selected
+key's future revocation still caps the trust interval.
+
 Only opaque local approved-source identities enter the production composition.
 PAT/bearer markers, URLs, query/fragment syntax, traversal, dynamic downloads,
 post-install execution, and runtime self-update have no package authority. Staged

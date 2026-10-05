@@ -49,6 +49,70 @@ public sealed class AuthoringExtensionPackageTests
             await fixture.Verifier.VerifyAsync(fixture.Artifact, AuthoringHostPlatform.ServerLinux));
     }
 
+    [Theory]
+    [InlineData(-1, true)]
+    [InlineData(0, false)]
+    [InlineData(1, false)]
+    public async Task VerifyAsync_TrustExpiresDuringArchiveRead_RechecksReturnBoundary(
+        int completionOffsetTicks,
+        bool accepted)
+    {
+        var clock = new MutableTimeProvider(new DateTimeOffset(2026, 10, 3, 0, 0, 0, TimeSpan.Zero));
+        DateTimeOffset validUntil = clock.UtcNow.AddMinutes(5);
+        PackageFixture fixture = CreatePackage("1.0.0", "package", timeProvider: clock);
+        fixture.Reader.AfterRead = () => clock.UtcNow = validUntil.AddTicks(completionOffsetTicks);
+
+        if (accepted)
+        {
+            VerifiedAuthoringPackage verified = await fixture.Verifier.VerifyAsync(
+                fixture.Artifact,
+                AuthoringHostPlatform.ServerLinux);
+            Assert.Equal(AuthoringPackageTrustStatus.Trusted, verified.Trust.Status);
+            Assert.Equal(validUntil, verified.Trust.ValidUntil);
+            Assert.Equal(fixture.Artifact.ArchiveSha256, verified.Artifact.ArchiveSha256);
+        }
+        else
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await fixture.Verifier.VerifyAsync(fixture.Artifact, AuthoringHostPlatform.ServerLinux));
+        }
+
+        Assert.Equal(1, fixture.Reader.ReadCount);
+        Assert.Equal(validUntil.AddTicks(completionOffsetTicks), clock.UtcNow);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_ClockMovesBeforeTrustEvaluationDuringArchiveRead_FailsClosed()
+    {
+        var clock = new MutableTimeProvider(new DateTimeOffset(2026, 10, 3, 0, 0, 0, TimeSpan.Zero));
+        DateTimeOffset evaluatedAt = clock.UtcNow;
+        PackageFixture fixture = CreatePackage("1.0.0", "package", timeProvider: clock);
+        fixture.Reader.AfterRead = () => clock.UtcNow = evaluatedAt.AddTicks(-1);
+
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Verifier.VerifyAsync(fixture.Artifact, AuthoringHostPlatform.ServerLinux));
+
+        Assert.Equal(1, fixture.Reader.ReadCount);
+    }
+
+    [Fact]
+    public async Task VerifyAsync_CancelledAtCompletionClockRead_DoesNotReturnVerifiedPackage()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var clock = new MutableTimeProvider(new DateTimeOffset(2026, 10, 3, 0, 0, 0, TimeSpan.Zero));
+        PackageFixture fixture = CreatePackage("1.0.0", "package", timeProvider: clock);
+        fixture.Reader.AfterRead = () => clock.OnRead = cancellation.Cancel;
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await fixture.Verifier.VerifyAsync(
+                fixture.Artifact,
+                AuthoringHostPlatform.ServerLinux,
+                cancellation.Token));
+
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Equal(1, fixture.Reader.ReadCount);
+    }
+
     [Fact]
     public async Task VerifyAsync_CancelledAfterTrust_DoesNotParseOrStage()
     {
@@ -344,7 +408,8 @@ public sealed class AuthoringExtensionPackageTests
         string provenanceReference = "provenance/build-1",
         int minimumHostApi = 1,
         int stateSchemaVersion = 1,
-        int dataSchemaVersion = 1)
+        int dataSchemaVersion = 1,
+        TimeProvider? timeProvider = null)
     {
         byte[] archive = System.Text.Encoding.UTF8.GetBytes(archiveText);
         entries = entries.IsDefault ? [CreateEntry("worker/main.wasm", "wasm")] : entries;
@@ -374,7 +439,7 @@ public sealed class AuthoringExtensionPackageTests
             ImmutableArray.Create(JsonSerializer.SerializeToUtf8Bytes(manifest)),
             entries);
         var reader = new TestArchiveReader(contents);
-        DateTimeOffset now = DateTimeOffset.UtcNow;
+        DateTimeOffset now = timeProvider?.GetUtcNow() ?? DateTimeOffset.UtcNow;
         var verifier = new AuthoringPackageVerifier(
             new TestTrustVerifier(
                 trustStatus,
@@ -382,7 +447,7 @@ public sealed class AuthoringExtensionPackageTests
                 trustExpired ? now.AddMinutes(-1) : now.AddMinutes(5),
                 cancelAfterTrust),
             reader,
-            new FixedTimeProvider(now));
+            timeProvider ?? new FixedTimeProvider(now));
         var artifact = new AuthoringPackageArtifact(
             ImmutableArray.Create(archive),
             signature.IsDefault ? [1, 2, 3] : signature,
@@ -423,9 +488,24 @@ public sealed class AuthoringExtensionPackageTests
         public override DateTimeOffset GetUtcNow() => now;
     }
 
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = now;
+
+        public Action? OnRead { get; set; }
+
+        public override DateTimeOffset GetUtcNow()
+        {
+            OnRead?.Invoke();
+            return UtcNow;
+        }
+    }
+
     private sealed class TestArchiveReader(AuthoringPackageArchiveContents contents) : IAuthoringPackageArchiveReader
     {
         public AuthoringPackageArchiveContents Contents { get; set; } = contents;
+
+        public Action? AfterRead { get; set; }
 
         public int ReadCount
         {
@@ -437,6 +517,7 @@ public sealed class AuthoringExtensionPackageTests
             CancellationToken cancellationToken)
         {
             ReadCount++;
+            AfterRead?.Invoke();
             return ValueTask.FromResult(Contents);
         }
     }
