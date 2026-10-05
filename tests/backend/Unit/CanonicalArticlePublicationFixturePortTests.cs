@@ -250,6 +250,8 @@ public sealed class CanonicalArticlePublicationFixturePortTests
 
         Assert.Contains("ArticleRevision..ctor", declaredBody, StringComparison.Ordinal);
         Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoDirectArticleRevisionConstruction(portType));
+        string port = DescribeCompletePortType(portType);
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoDirectArticleRevisionConstruction(port));
     }
 
     [Fact]
@@ -263,6 +265,7 @@ public sealed class CanonicalArticlePublicationFixturePortTests
         Assert.Contains("System.Object..ctor", constructors, StringComparison.Ordinal);
 
         AssertNoDirectArticleRevisionConstruction(typeof(PortBenignNestedFixture));
+        AssertNoDirectArticleRevisionConstruction(DescribeCompletePortType(typeof(PortBenignNestedFixture)));
     }
 
     [Theory]
@@ -351,57 +354,6 @@ public sealed class CanonicalArticlePublicationFixturePortTests
     public void PortConstructionRule_AcceptsNonConstructionReferences(Type portType)
     {
         AssertNoDirectArticleRevisionConstruction(portType);
-    }
-
-    [Theory]
-    [InlineData(typeof(PortNestedMethodFixture), typeof(PortNestedMethodFixture.Nested), "Create")]
-    [InlineData(typeof(PortDeepNestedMethodFixture), typeof(PortDeepNestedMethodFixture.Nested.Deeper), "Create")]
-    [InlineData(typeof(PortNestedConstructorFixture), typeof(PortNestedConstructorFixture.Nested), ".ctor")]
-    [InlineData(typeof(PortNestedStaticConstructorFixture), typeof(PortNestedStaticConstructorFixture.Nested), ".cctor")]
-    public void PortConstructionRule_RejectsCompiledNestedArticleRevisionConstruction(
-        Type portType,
-        Type declaringType,
-        string memberName)
-    {
-        string declaredBody;
-        if (memberName is ".ctor" or ".cctor")
-        {
-            if (memberName == ".cctor")
-            {
-                Assert.NotNull(declaringType.TypeInitializer);
-            }
-            else
-            {
-                Assert.NotEmpty(declaringType.GetConstructors(
-                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
-            }
-            declaredBody = RuntimeMetadataInspection.DescribeConstructors(declaringType);
-        }
-        else
-        {
-            declaredBody = RuntimeMetadataInspection.DescribeMethods(declaringType, memberName);
-            string previousDescription = string.Join('\n',
-                RuntimeMetadataInspection.DescribeType(portType),
-                RuntimeMetadataInspection.DescribeConstructors(portType));
-            Assert.DoesNotContain("ArticleRevision..ctor", previousDescription, StringComparison.Ordinal);
-        }
-
-        Assert.Contains("ArticleRevision..ctor", declaredBody, StringComparison.Ordinal);
-        string port = DescribeCompletePortType(portType);
-        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoDirectArticleRevisionConstruction(port));
-    }
-
-    [Fact]
-    public void PortConstructionRule_AcceptsCompiledBenignNestedMembers()
-    {
-        Type nestedType = typeof(PortBenignNestedFixture.Nested);
-        Assert.NotNull(nestedType.TypeInitializer);
-        string method = RuntimeMetadataInspection.DescribeMethods(nestedType, "Create");
-        string constructors = RuntimeMetadataInspection.DescribeConstructors(nestedType);
-        Assert.Contains("System.Object..ctor", method, StringComparison.Ordinal);
-        Assert.Contains("System.Object..ctor", constructors, StringComparison.Ordinal);
-
-        AssertNoDirectArticleRevisionConstruction(DescribeCompletePortType(typeof(PortBenignNestedFixture)));
     }
 
     [Fact]
