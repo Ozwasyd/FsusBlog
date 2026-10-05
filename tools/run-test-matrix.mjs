@@ -16,6 +16,7 @@ import {
 import { sealSourceIdentity } from './fact-extractors/identity.mjs';
 import { requireCleanAttemptConsumerAdmission } from './release/browser-release-clean-attempt-consumers.mjs';
 import { validateCorrectnessAttemptMigration } from './test/correctness-attempt-migration.mjs';
+import { validateCurrentRunEvidenceContext } from './test/evidence-location-contract.mjs';
 import {
     loadExecutionNetworkPolicy,
     validateExecutionNetworkPolicy
@@ -6447,9 +6448,19 @@ async function main()
     validateCorrectnessAttemptMigration(root);
     if (consumesProductionCorrectness(command, args))
     {
+        const contextPath = process.env.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT;
+        if (!contextPath)
+        {
+            throw new Error('production correctness admission requires independent current-run context');
+        }
+        const context = validateCurrentRunEvidenceContext(JSON.parse(fs.readFileSync(path.resolve(root, contextPath), 'utf8')));
+        const source = sealSourceIdentity(root);
         requireCleanAttemptConsumerAdmission({
             consumerId: 'production-correctness',
-            repositoryRoot: root
+            repositoryRoot: root,
+            candidateBinding: { sourceCommit: source.sourceCommit,
+                worktreeFingerprint: `sha256:${source.worktreeFingerprint.replace(/^sha256:/u, '')}`,
+                schedulerRunId: context.schedulerRunId, buildIdentity: context.buildIdentity.digest }
         });
     }
     if (command === 'validate')

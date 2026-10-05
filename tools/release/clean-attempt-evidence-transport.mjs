@@ -4,7 +4,7 @@ import path from 'node:path';
 
 const {evidenceContentDigest, evidenceProducerReceiptDigest} = await import(new URL('../test/current-run-evidence-locator.mjs', import.meta.url));
 const {validateEvidenceTransportManifest} = await import(new URL('../test/current-run-evidence-transport.mjs', import.meta.url));
-const {aggregateAttemptReceiptSchema} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
+const {aggregateAttemptReceiptSchema, attemptReceiptSchema, digestCanonical} = await import(new URL('../test/attempt-provenance.mjs', import.meta.url));
 const referenceSchema = 'fsusblog.current-run-evidence-reference.v1';
 const digestPattern = /^sha256:[0-9a-f]{64}$/u;
 
@@ -90,7 +90,7 @@ function assertReference(reference, expectedIdentity = {})
     assert(digestPattern.test(String(reference.producerReceiptDigest ?? ''))
         && reference.producerReceiptDigest === evidenceProducerReceiptDigest(reference),
     'transport reference producerReceiptDigest mismatch');
-    for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint'])
+    for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint', 'producerId'])
     {
         if (expectedIdentity[field] !== undefined)
         {
@@ -191,6 +191,75 @@ export function resolveTransportedCleanAttemptEvidence({
             throw new Error(`transport aggregate ${field} mismatch`);
         }
     }
+    // Each object remains exactly one reference and one payload. Only explicit
+    // aggregate -> attempt -> artifact links may extend this consumer's allowlist.
+    // Unrelated manifest objects and unbound local files never become evidence.
+    assert(Array.isArray(payload.document.attempts), 'transport aggregate attempt references are required');
+    const graphEntries = [...entries];
+    const graphIdentity = Object.fromEntries(['schedulerRunId', 'attemptId', 'sourceCommit',
+        'worktreeFingerprint', 'producerId', 'candidateIdentity', 'buildIdentity']
+        .map((field) => [field, reference[field]]));
+    const bindPayload = (originalPath, expectedDigest, { json = false, contentDigest = false } = {}) =>
+    {
+        const relative = safeRelative(originalPath, 'transport graph payload');
+        const candidates = manifest.objects.filter((candidate) => candidate.archiveEntries.some((entry) =>
+            entry.role === 'payload' && entry.path === relative));
+        assert(candidates.length === 1, `transport graph requires exact-one payload mapping: ${relative}`, {}, 'attempt.transport-unbound');
+        const candidate = candidates[0];
+        const candidateReference = candidate.archiveEntries.find((entry) => entry.role === 'reference-receipt');
+        const candidatePayload = candidate.archiveEntries.find((entry) => entry.role === 'payload');
+        const linked = readJson(root, candidateReference.extractedPath, 'transport graph reference');
+        assertReference(linked.document, graphIdentity);
+        assert(linked.document.authorityId === candidate.authorityId
+            && linked.document.payload.path === relative
+            && linked.document.payload.digest === candidatePayload.digest
+            && linked.digest === candidateReference.digest
+            && linked.digest === candidate.objectDigest
+            && linked.digest === candidate.originalRef.inputDigest
+            && linked.document.contentDigest === candidate.contentDigest
+            && linked.document.contentDigest === candidate.originalRef.contentDigest
+            && linked.document.producerReceiptDigest === candidate.producerDigest
+            && linked.document.producerReceiptDigest === candidate.originalRef.producerReceiptDigest,
+        `transport graph reference binding mismatch: ${relative}`);
+        for (const field of ['attemptId', 'sourceCommit', 'worktreeFingerprint', 'producerId', 'candidateIdentity', 'buildIdentity'])
+        {
+            assert(sameIdentity(candidate[field], graphIdentity[field]), `transport graph object ${field} mismatch: ${relative}`);
+        }
+        assert(candidate.originRunId === graphIdentity.schedulerRunId,
+            `transport graph object originRunId mismatch: ${relative}`);
+        const resolved = regularFile(root, candidatePayload.extractedPath, 'transport graph payload');
+        const actualDigest = digestFile(resolved.file);
+        assert(actualDigest === candidatePayload.digest && (contentDigest || actualDigest === expectedDigest),
+            `transport extracted entry digest mismatch: ${candidatePayload.extractedPath}`, {}, 'attempt.transport-content-tamper');
+        const document = json ? readJson(root, candidatePayload.extractedPath, 'transport graph payload').document : null;
+        if (contentDigest)
+        {
+            const unsigned = { ...document };
+            delete unsigned.contentDigest;
+            assert(document?.schema === attemptReceiptSchema && document.contentDigest === expectedDigest
+                && digestCanonical(unsigned) === expectedDigest,
+            `transport attempt content digest mismatch: ${relative}`, {}, 'attempt.transport-content-tamper');
+        }
+        graphEntries.push(...candidate.archiveEntries.map(({ path: entryPath, extractedPath, digest }) =>
+            ({ path: entryPath, extractedPath, digest })));
+        return document;
+    };
+    const producerRoot = path.posix.dirname(payloadEntry.path);
+    for (const attemptReference of payload.document.attempts)
+    {
+        const rawAttemptPath = safeRelative(attemptReference.path, 'transport attempt reference');
+        const attempt = bindPayload(path.posix.join(producerRoot, rawAttemptPath), attemptReference.digest,
+            { json: true, contentDigest: true });
+        assert(Array.isArray(attempt.artifactPaths) && attempt.artifactDigests
+            && Number.isInteger(attempt.attemptNumber) && attempt.attemptNumber > 0,
+        'transport attempt artifact references are required');
+        for (const artifact of attempt.artifactPaths)
+        {
+            const rawArtifactPath = safeRelative(artifact, 'transport attempt artifact');
+            bindPayload(path.posix.join(producerRoot, `attempt-${attempt.attemptNumber}`, rawArtifactPath),
+                attempt.artifactDigests[artifact]);
+        }
+    }
     return Object.freeze({
         evidenceRoot: root,
         aggregateReference: Object.freeze({
@@ -198,7 +267,7 @@ export function resolveTransportedCleanAttemptEvidence({
             digest: payload.document.contentDigest,
             fileDigest: payload.digest
         }),
-        transportEntries: Object.freeze(entries.map((entry) => Object.freeze(entry))),
+        transportEntries: Object.freeze(graphEntries.map((entry) => Object.freeze(entry))),
         transportManifest: manifest,
         transportObject: object,
         reference: Object.freeze(reference),

@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/browser-contract/contract.mjs",
+        "tests/tools/release-reliability-receipt.test.mjs",
+        "tests/tools/support/clean-attempt-evidence-fixture.mjs",
+        "tools/fact-extractors/post-runtime/candidate.mjs",
+        "tools/operations/check-release-evidence-manifest.mjs",
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/browser-release-clean-attempt-consumers.mjs",
+        "tools/release/clean-attempt-evidence-source.mjs",
+        "tools/release/clean-attempt-evidence-transport.mjs",
+        "tools/release/clean-first-attempt-verifier.mjs",
+        "tools/release/release-clean-attempt-cohort.mjs",
+        "tools/release/release-reliability-qualified-receipt.mjs",
+        "tools/release/test-evidence-receipts-cli.mjs",
+        "tools/release/test-evidence-receipts.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/required-evidence-catalog.mjs",
+        "tools/test/release-reliability-receipt.mjs",
+        "tools/test/verify-release-reliability-receipt.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "45d0c1d6556c0794607e18c7985b5bb417fcdc66a1fcae252b0646435640cf7f"
+        }
+    ]
+}

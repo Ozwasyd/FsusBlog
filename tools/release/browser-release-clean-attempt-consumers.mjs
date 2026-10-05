@@ -4,7 +4,8 @@ import { fileURLToPath } from 'node:url';
 
 import { loadConfiguredCleanAttemptEvidence } from './clean-attempt-evidence-source.mjs';
 import { resolveTransportedCleanAttemptEvidence } from './clean-attempt-evidence-transport.mjs';
-import { cleanFirstAttemptVerdict, fileBackedCleanAttemptEvidence } from './clean-first-attempt-verifier.mjs';
+import { CleanFirstAttemptAdmissionError,
+    cleanFirstAttemptVerdict, fileBackedCleanAttemptEvidence } from './clean-first-attempt-verifier.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const inventoryFile = path.join(root, 'config/testing/clean-attempt-consumers.json');
@@ -116,7 +117,8 @@ export function admitBrowserReleaseCleanAttempt({
     consumerId,
     attemptEvidence,
     membership,
-    expected: suppliedExpected,
+    expectedCandidate = null,
+    candidateBinding = {},
     inventory = readCleanAttemptConsumerInventory()
 })
 {
@@ -147,7 +149,7 @@ export function admitBrowserReleaseCleanAttempt({
             })
         });
     }
-    const expectedIdentity = attemptEvidence?.expectedIdentity ?? {};
+    const expectedIdentity = expectedCandidate ?? {};
     let resolvedTransport = null;
     try
     {
@@ -169,7 +171,8 @@ export function admitBrowserReleaseCleanAttempt({
                 transportManifest: transport.manifest,
                 authorityId: transport.authorityId,
                 referencePath: transport.referencePath,
-                expectedIdentity
+                expectedIdentity: Object.fromEntries(['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'producerId']
+                    .map((field) => [field, expectedIdentity[field]]))
             });
         }
     }
@@ -204,7 +207,15 @@ export function admitBrowserReleaseCleanAttempt({
         loadAttempt: files.loadAttempt,
         verifyArtifact: files.verifyArtifact,
         verifyAuthority: attemptEvidence?.verifyAuthority,
-        expectedIdentity
+        expectedIdentity: Object.fromEntries(['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'producerId']
+            .map((field) => [field, expectedIdentity[field]])),
+        expectedAttemptIdentity: Object.fromEntries(['executionEnvelopeDigest', 'replayPlanDigest', 'temporalContextDigest']
+            .map((field) => [field, expectedIdentity[field]])),
+        expectedConsumerIdentity: expectedIdentity,
+        requiredConsumerIdentityFields: ['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'producerId',
+            'buildIdentity', 'executionEnvelopeDigest', 'replayPlanDigest', 'temporalContextDigest'],
+        candidateBindings: [{ expected: expectedIdentity, actual: { buildIdentity: attemptEvidence.buildIdentity } },
+            { expected: expectedIdentity, actual: candidateBinding }]
     });
     if (!attemptVerdict.eligible)
     {
@@ -216,31 +227,14 @@ export function admitBrowserReleaseCleanAttempt({
             attemptVerdict
         });
     }
-    const missingIdentity = ['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'producerId']
-        .find((field) => typeof expectedIdentity[field] !== 'string'
-            || !expectedIdentity[field].trim());
-    if (missingIdentity)
-    {
-        return Object.freeze({
-            schema: 'fsusblog.browser-release-clean-attempt-admission.v1',
-            consumerId,
-            eligible: false,
-            reasons: Object.freeze([Object.freeze({
-                code: 'attempt.consumer-identity-missing',
-                message: `consumer must supply the expected ${missingIdentity}`,
-                field: missingIdentity,
-                producerId: attemptVerdict.attempt.producerId,
-                schedulerRunId: attemptVerdict.attempt.schedulerRunId
-            })]),
-            attemptVerdict
-        });
-    }
     const domainReference = attemptEvidence?.domainReceiptReference;
     const attempt = attemptVerdict.attempt;
     if (typeof domainReference?.path !== 'string'
         || !attempt.artifactPaths.includes(domainReference.path)
         || !/^sha256:[0-9a-f]{64}$/u.test(String(domainReference?.digest ?? ''))
-        || attempt.artifactDigests[domainReference.path] !== domainReference.digest)
+        || attempt.artifactDigests[domainReference.path] !== domainReference.digest
+        || expectedCandidate.domainReceiptReference?.path !== domainReference.path
+        || expectedCandidate.domainReceiptReference?.digest !== domainReference.digest)
     {
         return Object.freeze({
             schema: 'fsusblog.browser-release-clean-attempt-admission.v1',
@@ -265,7 +259,7 @@ export function admitBrowserReleaseCleanAttempt({
     try
     {
         actual = canonicalMembership(membership, consumer.membershipFields, consumerId);
-        expected = expectedMembership(consumer, suppliedExpected);
+        expected = expectedMembership(consumer, expectedCandidate.membership);
     }
     catch (error)
     {
@@ -284,19 +278,27 @@ export function admitBrowserReleaseCleanAttempt({
         eligible: exact,
         reasons: Object.freeze(exact ? [] : [membershipReason(consumerId, expected, actual)]),
         attemptVerdict,
-        membership: actual
+        membership: actual,
+        candidate: Object.freeze({ ...expectedCandidate })
     });
 }
 
 export function requireCleanAttemptConsumerAdmission({
     consumerId,
     attemptEvidence = null,
+    expectedCandidate = null,
+    candidateBinding = {},
     repositoryRoot = root,
     environment = process.env
 } = {})
 {
     const evidence = attemptEvidence
         ?? loadConfiguredCleanAttemptEvidence({ repositoryRoot, environment });
+    if (!expectedCandidate && environment.FSUSBLOG_CLEAN_ATTEMPT_EXPECTED_CANDIDATE)
+    {
+        expectedCandidate = JSON.parse(fs.readFileSync(path.resolve(repositoryRoot,
+            environment.FSUSBLOG_CLEAN_ATTEMPT_EXPECTED_CANDIDATE), 'utf8'));
+    }
     if (evidence?.consumerId !== undefined && evidence.consumerId !== consumerId)
     {
         throw new Error(`${consumerId} attempt evidence is bound to another consumer`);
@@ -304,16 +306,14 @@ export function requireCleanAttemptConsumerAdmission({
     const admission = admitBrowserReleaseCleanAttempt({
         consumerId,
         attemptEvidence: evidence,
-        membership: evidence?.membership,
-        expected: evidence?.expected
+        expectedCandidate,
+        candidateBinding: { ...Object.fromEntries(['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'buildIdentity']
+            .map((field) => [field, candidateBinding[field]])), ...candidateBinding },
+        membership: evidence?.membership
     });
     if (!admission.eligible)
     {
-        throw new Error(
-            `${consumerId} clean-attempt admission failed: ${admission.reasons
-                .map((reason) => reason.code)
-                .join(', ')}`
-        );
+        throw new CleanFirstAttemptAdmissionError(admission);
     }
     return admission;
 }
