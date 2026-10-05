@@ -196,8 +196,15 @@ export async function createPublicShellFiniteInputOwner(root = defaultRoot)
     assert.ok(typeof root === 'string' && path.isAbsolute(root) && [path.resolve(root), path.resolve(root) + path.sep].includes(root), 'finite source root must be canonical');
     root = path.resolve(root);
     assert.equal(await realpath(root), root, 'finite source root cannot be a symlink alias');
+    assert.equal(root, path.resolve(defaultRoot), 'finite source root must equal the executing owner checkout');
     const authority = resolveGitRepositoryAuthority(root);
     const sourceCommit = resolveSourceCommit(root, authority);
+    const committed = new Map(runGitRepository(authority, ['ls-tree', '-r', '-z', sourceCommit, '--', 'src/frontend']).split('\0')
+        .filter(Boolean).map(row =>
+        {
+            const separator = row.indexOf('\t');
+            return [row.slice(separator + 1), row.slice(0, separator).split(' ')];
+        }));
     const indexed = new Map(runGitRepository(authority, ['ls-files', '--stage', '-z', '--', 'src/frontend']).split('\0')
         .filter(Boolean).map(row =>
         {
@@ -213,10 +220,18 @@ export async function createPublicShellFiniteInputOwner(root = defaultRoot)
     {
         const entry = indexed.get(relative);
         assert.ok(entry && ['100644', '100755'].includes(entry[0]) && entry[2] === '0', 'finite source lacks a regular tracked owner');
+        const head = committed.get(relative);
+        assert.ok(head && head[0] === entry[0] && head[1] === 'blob' && head[2] === entry[1],
+            'finite source index differs from its committed candidate blob');
         const current = runGitRepository(authority, ['ls-files', '--stage', '-z', '--', relative]).split('\0').filter(Boolean);
         assert.ok(current.length === 1 && /^(?:100644|100755) [a-f0-9]{40} 0\t/u.test(current[0])
             && current[0].slice(current[0].indexOf('\t') + 1) === relative, 'finite source current tracked owner changed');
+        assert.deepEqual(current[0].slice(0, current[0].indexOf('\t')).split(' '), entry, 'finite source index identity changed');
         const read = await readOwnedSource(root, relative);
+        const blob = createHash('sha1').update(`blob ${read.bytes.length}\0`).update(read.bytes).digest('hex');
+        assert.equal(blob, entry[1], 'finite source bytes differ from the captured Git index');
+        assert.equal(runGitRepository(authority, ['ls-files', '--stage', '-z', '--', relative]), current[0] + '\0',
+            'finite source index changed during descriptor read');
         refs.set(relative, Object.freeze({ path: relative, digest: sha256(read.bytes) }));
         return read;
     }
@@ -252,7 +267,7 @@ export async function createPublicShellFiniteInputOwner(root = defaultRoot)
         assert.ok(identity && Object.getPrototypeOf(identity) === Object.prototype, 'finite domain identity required');
         const descriptors = Object.getOwnPropertyDescriptors(identity);
         assert.ok(Object.values(descriptors).every(value => Object.hasOwn(value, 'value')), 'finite domain identity cannot contain accessors');
-        assert.ok(Object.keys(descriptors).every(key => ['kind', 'locale', 'domain', 'exportName', 'schemaDigest'].includes(key)), 'unknown finite domain identity field');
+        assert.ok(Reflect.ownKeys(descriptors).every(key => ['kind', 'locale', 'domain', 'exportName', 'schemaDigest'].includes(key)), 'unknown finite domain identity field');
         const catalog = await load('localeCatalog');
         const domains = await load('localeDomains');
         assert.equal(catalog.ENABLED_LOCALES.length, 10, 'finite domain requires ten enabled locales');
@@ -286,6 +301,7 @@ export async function createPublicShellFiniteInputOwner(root = defaultRoot)
         admittedDomainBindings.set(value, { assertDomain });
         return value;
     }
+    assertReplayRoot();
     return Object.freeze({ load, loadDomain, schemaBindings, sourceCommit, refs: () => Object.freeze([...refs.values()]),
         qualificationEligible: false, policyPromotion: false });
 }
