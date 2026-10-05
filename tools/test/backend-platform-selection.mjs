@@ -327,7 +327,7 @@ function parseRuntimeEvidence(body)
     }
 }
 
-export function parseBackendPlatformResultRows(xml)
+export function parseBackendPlatformResultRows(xml, { includeExecutionIdentity = false } = {})
 {
     return [...String(xml).matchAll(
         /<UnitTestResult\b([^>]*?)(?:\/>|>([\s\S]*?)<\/UnitTestResult>)/gu
@@ -338,9 +338,87 @@ export function parseBackendPlatformResultRows(xml)
             testId: trxAttribute(match[1], 'testId'),
             testName: trxAttribute(match[1], 'testName'),
             outcome: trxAttribute(match[1], 'outcome'),
+            ...(includeExecutionIdentity ? { executionId: trxAttribute(match[1], 'executionId') } : {}),
             ...(runtimeEvidence ? { runtimeEvidence } : {})
         };
     });
+}
+
+/**
+ * Read the TRX's own case/assembly/execution bindings. Callers still verify the
+ * expected assembly, adapter, run provenance and all-passed summary separately.
+ */
+export function parseBackendPlatformBoundExecution(xml)
+{
+    const text = String(xml);
+    const runs = [...text.matchAll(/<TestRun\b([^>]*)>/gu)];
+    const definitionContainers = [...text.matchAll(/<TestDefinitions>([\s\S]*?)<\/TestDefinitions>/gu)];
+    const entryContainers = [...text.matchAll(/<TestEntries>([\s\S]*?)<\/TestEntries>/gu)];
+    if (runs.length !== 1 || definitionContainers.length !== 1 || entryContainers.length !== 1)
+    {
+        throw new Error('bound TRX requires one run, definition set and execution entry set');
+    }
+    const runId = trxAttribute(runs[0][1], 'id');
+    const definitions = [...definitionContainers[0][1].matchAll(/<UnitTest\b([^>]*)>([\s\S]*?)<\/UnitTest>/gu)]
+        .map((match) =>
+        {
+            const methods = [...match[2].matchAll(/<TestMethod\b([^>]*)\/>/gu)];
+            const executions = [...match[2].matchAll(/<Execution\b([^>]*)\/>/gu)];
+            if (methods.length !== 1 || executions.length !== 1)
+            {
+                throw new Error('bound TRX definition requires one method and execution');
+            }
+            return {
+                testId: trxAttribute(match[1], 'id'),
+                testName: trxAttribute(match[1], 'name'),
+                storage: trxAttribute(match[1], 'storage'),
+                executionId: trxAttribute(executions[0][1], 'id'),
+                codeBase: trxAttribute(methods[0][1], 'codeBase'),
+                className: trxAttribute(methods[0][1], 'className'),
+                methodName: trxAttribute(methods[0][1], 'name'),
+                adapterTypeName: trxAttribute(methods[0][1], 'adapterTypeName')
+            };
+        });
+    const entries = [...entryContainers[0][1].matchAll(/<TestEntry\b([^>]*)\/>/gu)].map((match) => ({
+        testId: trxAttribute(match[1], 'testId'),
+        executionId: trxAttribute(match[1], 'executionId')
+    }));
+    const results = parseBackendPlatformResultRows(text, { includeExecutionIdentity: true });
+    const uuid = /^[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}$/iu;
+    if (!uuid.test(runId) || results.length === 0
+        || definitions.length !== results.length || entries.length !== results.length)
+    {
+        throw new Error('bound TRX run identity or case binding cardinality is invalid');
+    }
+    for (const records of [results, definitions, entries])
+    {
+        if (new Set(records.map((entry) => entry.testId)).size !== records.length
+            || new Set(records.map((entry) => entry.executionId)).size !== records.length
+            || records.some((entry) => !uuid.test(entry.testId) || !uuid.test(entry.executionId)))
+        {
+            throw new Error('bound TRX contains missing, invalid or duplicate case/execution identities');
+        }
+    }
+    if (definitions.some((entry) => Object.values(entry).some((value) => !value.trim())))
+    {
+        throw new Error('bound TRX definition has missing assembly, method or adapter identity');
+    }
+    const definitionMap = new Map(definitions.map((entry) => [entry.testId, entry]));
+    const entryMap = new Map(entries.map((entry) => [entry.testId, entry]));
+    return {
+        runId,
+        records: results.map((result) =>
+        {
+            const definition = definitionMap.get(result.testId);
+            const entry = entryMap.get(result.testId);
+            if (!definition || !entry || result.testName !== definition.testName
+                || result.executionId !== definition.executionId || result.executionId !== entry.executionId)
+            {
+                throw new Error('bound TRX result, definition and execution entry disagree');
+            }
+            return { ...definition, ...result };
+        })
+    };
 }
 
 export function parseBackendPlatformTrx(xml)

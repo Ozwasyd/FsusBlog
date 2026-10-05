@@ -7,6 +7,11 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
+import {
+    tmpIdentity,
+    verifyPrivateDotnetScratchBinding,
+    verifyPrivateTmpNamespace
+} from './physical-execution-private-dotnet-scratch.mjs';
 import { createPhysicalExecutionOutputTracker } from './physical-execution-process-tree.mjs';
 import {
     collectProcessGroupOrJobIdentity,
@@ -430,6 +435,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             linuxPrivateNetwork = false,
             linuxNetworkPolicy = null,
             linuxReadWritePaths = [],
+            privateDotnetScratch = null,
             signal,
             policy,
             stdout,
@@ -443,6 +449,9 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             const { privateKey, publicKey } = generateKeyPairSync('ed25519');
             let python;
             const unitName = `fsusblog-physical-${authorityId.replaceAll('-', '')}`;
+            const hostMountNamespace = privateDotnetScratch
+                ? fs.readlinkSync('/proc/self/ns/mnt') : null;
+            const hostTmpIdentity = privateDotnetScratch ? tmpIdentity('/tmp') : null;
             const controlRoot = createControlRoot({
                 env,
                 linuxReadWritePaths
@@ -452,6 +461,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             const childFile = path.join(controlRoot, 'child.json');
             const resultFile = path.join(controlRoot, 'result.json');
             const finalizeFile = path.join(controlRoot, 'finalize');
+            let privateDotnetScratchReceipt = null;
+            let privateTmpMountNamespace = null;
             const removeUnestablishedRoot = (primaryError) =>
             {
                 try
@@ -475,13 +486,26 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             };
             try
             {
+                if (privateDotnetScratch)
+                {
+                    if (linuxReadWritePaths.length === 0)
+                    {
+                        throw new Error('private .NET scratch requires protected filesystem execution');
+                    }
+                    verifyPrivateDotnetScratchBinding(privateDotnetScratch, {
+                        environment: env, cwd, controlRoot
+                    });
+                }
                 writePrivateJsonFile(controlRoot, 'command.json', command);
                 writePrivateJsonFile(controlRoot, 'environment.json', env);
                 python = resolvePython(controlEnv);
                 writePrivateJsonFile(controlRoot, 'admission.json', {
                     authorityId,
                     publicKey: publicKey.export({ type: 'spki', format: 'pem' }),
-                    python
+                    python,
+                    privateDotnetScratch: privateDotnetScratch
+                        ? { ...privateDotnetScratch, unitName, hostMountNamespace, hostTmpIdentity }
+                        : null
                 });
             }
             catch (error)
@@ -838,6 +862,17 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 authorityEstablished = true;
                 supervisorPid = Number(fs.readFileSync(readyFile, 'utf8').trim());
                 controlGroup = properties.values.ControlGroup;
+                if (privateDotnetScratch)
+                {
+                    privateTmpMountNamespace = fs.readlinkSync(`/proc/${supervisorPid}/ns/mnt`);
+                    verifyPrivateTmpNamespace({
+                        hostNamespace: hostMountNamespace,
+                        unitNamespace: privateTmpMountNamespace,
+                        hostTmpIdentity,
+                        unitTmpIdentity: tmpIdentity(`/proc/${supervisorPid}/root/tmp`),
+                        privateTmp: properties.values.PrivateTmp
+                    });
+                }
                 const supervisorIdentity = readProcessIdentity(supervisorPid);
                 if (supervisorIdentity.status !== 'verified')
                 {
@@ -1039,6 +1074,46 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             }
             let cleanupVerified = cleanup.status === 'verified';
             let confirmedNotEstablished = false;
+            if (privateDotnetScratch && cleanupVerified && !fs.existsSync(startFile))
+            {
+                privateDotnetScratchReceipt = {
+                    path: privateDotnetScratch.path,
+                    binding: privateDotnetScratch,
+                    authorityId,
+                    unitName,
+                    cleanup: 'not-started'
+                };
+            }
+            else if (privateDotnetScratch && cleanupVerified)
+            {
+                try
+                {
+                    privateDotnetScratchReceipt = JSON.parse(fs.readFileSync(
+                        path.join(controlRoot, 'private-dotnet-scratch-finalized.json'), 'utf8'
+                    ));
+                    if (!['removed', 'not-prepared'].includes(privateDotnetScratchReceipt.cleanup)
+                        || (privateDotnetScratchReceipt.cleanup === 'not-prepared' && !primaryError)
+                        || privateDotnetScratchReceipt.path !== privateDotnetScratch.path
+                        || privateDotnetScratchReceipt.unitName !== unitName
+                        || privateDotnetScratchReceipt.authorityId !== authorityId
+                        || (privateDotnetScratchReceipt.cleanup === 'removed'
+                            && privateDotnetScratchReceipt.mountNamespace !== privateTmpMountNamespace)
+                        || JSON.stringify(privateDotnetScratchReceipt.binding)
+                            !== JSON.stringify(privateDotnetScratch))
+                    {
+                        throw new Error('private .NET scratch cleanup receipt binding drift');
+                    }
+                }
+                catch (error)
+                {
+                    cleanup = {
+                        ...cleanup,
+                        status: 'unverifiable',
+                        reason: `private .NET scratch cleanup is unverifiable: ${error.message}`
+                    };
+                    cleanupVerified = false;
+                }
+            }
             if (cleanupVerified)
             {
                 lifecycle.push('post-observe-zero-members');
@@ -1124,6 +1199,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         readWritePaths: [...linuxReadWritePaths]
                     }
                     : null,
+                privateDotnetScratch: privateDotnetScratchReceipt,
                 established: establishedState,
                 attemptedUnitName: establishedState === true ? null : unitName
             };

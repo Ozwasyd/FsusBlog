@@ -1437,6 +1437,7 @@ tiers:
               tools/test/execution-envelope-directories.mjs,
               tools/test/execution-envelope-environment.mjs,
               tools/test/execution-envelope-network.mjs,
+              tools/test/physical-execution-private-dotnet-scratch.mjs,
               tools/test/execution-envelope-receipt.mjs,
               tools/test/execution-envelope-services.mjs,
               tools/test/native/execution-envelope-landlock.c,
@@ -3362,6 +3363,7 @@ tiers:
           - tools/test/physical-execution-process-tree.mjs
           - tools/test/physical-execution-linux-systemd-adapter.mjs
           - tools/test/physical-execution-linux-systemd-bootstrap.mjs
+          - tools/test/physical-execution-private-dotnet-scratch.mjs
           - tools/test/physical-execution-unix-bootstrap.mjs
           - tools/test/physical-execution-windows-job-adapter.mjs
           - tools/test/physical-execution-windows-job.ps1
@@ -9732,6 +9734,7 @@ tiers:
               tools/test/physical-execution-process-tree.mjs,
               tools/test/physical-execution-linux-systemd-adapter.mjs,
               tools/test/physical-execution-linux-systemd-bootstrap.mjs,
+              tools/test/physical-execution-private-dotnet-scratch.mjs,
               tools/test/physical-execution-unix-bootstrap.mjs,
               tools/test/physical-execution-windows-job-adapter.mjs,
               tools/test/physical-execution-windows-job.ps1,
