@@ -1,0 +1,81 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "title": "Historical source preservation manual review artifact, not current repository norm",
+    "type": "object",
+    "required": [
+        "schema",
+        "documentRole",
+        "generated",
+        "auditedMaster",
+        "currentAcceptanceClaim",
+        "issueClosureClaim",
+        "rows"
+    ],
+    "properties": {
+        "schema": {
+            "const": "fsusblog.historical-remote-source-preservation.v1"
+        },
+        "documentRole": {
+            "type": "string"
+        },
+        "generated": {
+            "const": false
+        },
+        "auditedMaster": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{40}$"
+        },
+        "currentAcceptanceClaim": {
+            "const": false
+        },
+        "issueClosureClaim": {
+            "const": false
+        },
+        "rows": {
+            "type": "array",
+            "minItems": 14,
+            "maxItems": 14,
+            "items": {
+                "type": "object",
+                "required": [
+                    "ref",
+                    "expectedRemoteHead",
+                    "sourceHead",
+                    "pr",
+                    "mergeSha",
+                    "mergeBase",
+                    "ownedPaths",
+                    "originalIssues",
+                    "currentWIPIssueCommentLinks",
+                    "originalAcceptance"
+                ],
+                "properties": {
+                    "ref": {
+                        "type": "string",
+                        "pattern": "^refs/heads/"
+                    },
+                    "ownedPaths": {
+                        "type": "array",
+                        "minItems": 1,
+                        "items": {
+                            "type": "object",
+                            "required": [
+                                "path",
+                                "source",
+                                "remoteHead",
+                                "merge",
+                                "currentMaster",
+                                "mappingKind",
+                                "preservation",
+                                "sourceToCurrentDiff",
+                                "originalOwnedIncrement",
+                                "sourceToCurrentDiffSha256",
+                                "originalOwnedIncrementSha256"
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
