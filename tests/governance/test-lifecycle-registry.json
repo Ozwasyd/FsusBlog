@@ -1333,6 +1333,24 @@
             }
         },
         {
+            "file": "tests/tools/frontend-local-install.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "behavior",
+                "source-text"
+            ],
+            "staticGovernance": {
+                "id": "frontend-local-install",
+                "category": "isolated-temporary-repository-fixture",
+                "physicalOwner": "host:temporary-repository",
+                "temporaryRoot": ".tmp/test-governance/fixtures/{checkId}/frontend-local-install",
+                "output": ".tmp/test-governance/results/{checkId}/frontend-local-install.json"
+            }
+        },
+        {
             "file": "tests/tools/fixture-catalog.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
