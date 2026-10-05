@@ -226,16 +226,26 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
             'Git history exceeds its bound or contains invalid revisions');
         return entries;
     };
-    const blob = (revision, file) =>
+    const optionalBlob = (revision, file) =>
     {
         exactRevision(revision);
         exactPath(file);
         const listing = git(['ls-tree', '-z', '--full-tree', revision, '--', file]).toString('utf8');
+        if (listing === '')
+        {
+            return null;
+        }
         const entry = listing.match(/^(?<mode>\d{6}) blob (?<object>[a-f0-9]{40})\t(?<file>[^\0]+)\0$/u)?.groups;
         requireValue(entry && entry.file === file && regularModes.has(entry.mode), 'Git path is not one exact regular blob');
         // Reuse the current contract's bounded exact-blob reader. It also
         // disables replacement objects and verifies declared/read byte lengths.
         return { mode: entry.mode, object: entry.object, bytes: readFileAtRevision(repositoryRoot, revision, file) };
+    };
+    const blob = (revision, file) =>
+    {
+        const value = optionalBlob(revision, file);
+        requireValue(value !== null, 'Git path is not one exact regular blob');
+        return value;
     };
     let runtime = null;
     const loadRuntime = () =>
@@ -380,6 +390,7 @@ export function createGeneratedOutputDigestRepairRepository({ root, authorityRoo
     return {
         authorityRevision: base,
         blob,
+        optionalBlob,
         commit(revision)
         {
             exactRevision(revision);

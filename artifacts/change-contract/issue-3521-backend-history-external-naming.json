@@ -1,0 +1,39 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/repository-layout.md",
+                "docs/development/change-contract.md"
+            ],
+            "reason": "preserve documented caller-visible command, path and schema spellings while defining independently reviewed backend history repair"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/governance/generate-generated-output-history-repair-manifest.mjs",
+                "tools/governance/generated-output-digest-repair-repository.mjs",
+                "tools/governance/generated-output-history-repair-v3.mjs"
+            ],
+            "reason": "preserve Git process environment, canonical CLI and repair protocol spellings at the existing tooling boundary without changing their naming authority"
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/change-contract.yml"
+            ],
+            "reason": "preserve GitHub Actions workflow keys while adding the backend history verifier tests to their trusted canonical execution owner"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/governance/repository-governance-authorities.json",
+                "config/schemas/post-merge-generated-output-history-repair.schema.json"
+            ],
+            "reason": "preserve serialized governance ownership and JSON Schema field names while registering the explicitly versioned backend-only repair contract"
+        }
+    ]
+}

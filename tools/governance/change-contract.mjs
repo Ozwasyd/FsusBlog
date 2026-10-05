@@ -4,12 +4,13 @@ import { appendFileSync, existsSync, lstatSync, mkdtempSync, readFileSync, realp
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 
-import commitlintConfig from '../../commitlint.config.mjs';
-
 import { changeContract } from './change-contract-registry.mjs';
 import { createGeneratedOutputDigestRepairRepository } from './generated-output-digest-repair-repository.mjs';
 import { verifyGeneratedOutputDigestRepairV2 } from './generated-output-digest-repair-v2.mjs';
+import { verifyGeneratedOutputHistoryRepairV3 } from './generated-output-history-repair-v3.mjs';
 import { javascriptFormatFingerprint } from './javascript-format-equivalence.mjs';
+
+const { default: commitlintConfig } = await import(new URL('../../commitlint.config.mjs', import.meta.url));
 
 export { javascriptFormatFingerprint };
 
@@ -28,7 +29,7 @@ const securityDetailPattern = /\b(?:CVE-\d{4}-\d+|authentication bypass|credenti
 const refactorClaimPattern = /\b(?:faster|latency|performance|throughput|speedup|behaviou?r change|bug fix)\b/iu;
 const fullShaPattern = /^[0-9a-f]{40}$/u;
 const sha256Pattern = /^[0-9a-f]{64}$/u;
-const repositoryPathPattern = /^(?![/\\])(?!.*(?:^|[/\\])\.\.(?:[/\\]|$))[A-Za-z0-9._/\-]+$/u;
+const repositoryPathPattern = /^(?![/\\])(?!.*(?:^|[/\\])\.\.(?:[/\\]|$))[A-Za-z0-9._/-]+$/u;
 const revisionBlobMaximumBytes = 16 * 1024 * 1024;
 const generatedOutputRepairDagMaximumRevisions = 128;
 const generatedOutputRepairDagMaximumExecutions = 1536;
@@ -445,10 +446,11 @@ function resolveRevisionBlob(root, revision, path)
         ['ls-tree', '-z', '--full-tree', commit, '--', path],
         exactRevisionGitOptions(root)
     );
-    const treeEntry = treeOutput.toString('utf8').match(
-        /^(?<mode>\d{6}) (?<type>[a-z]+) (?<object>[0-9a-f]{40})\t(?<path>[^\x00]+)\x00$/u
+    const treeRecords = treeOutput.toString('utf8').split('\0');
+    const treeEntry = treeRecords[0].match(
+        /^(?<mode>\d{6}) (?<type>[a-z]+) (?<object>[0-9a-f]{40})\t(?<path>[\s\S]+)$/u
     )?.groups;
-    if (!treeEntry || treeEntry.path !== path)
+    if (treeRecords.length !== 2 || treeRecords[1] !== '' || !treeEntry || treeEntry.path !== path)
     {
         throw new Error(`repository path does not resolve to one exact Git object at ${commit}: ${path}`);
     }
@@ -640,6 +642,31 @@ function mergeCommitNamesPullRequest(root, revision, pullRequest)
         || new RegExp(`\\(#${pullRequest}\\)$`, 'u').test(subject);
 }
 
+function removeReplayWorktree(root, worktree, temporaryRoot)
+{
+    let cleanupError = null;
+    if (existsSync(worktree))
+    {
+        try
+        {
+            execFileSync(
+                'git',
+                ['worktree', 'remove', '--force', worktree],
+                exactRevisionGitOptions(root, { stdio: 'ignore' })
+            );
+        }
+        catch (error)
+        {
+            cleanupError = error;
+        }
+    }
+    rmSync(temporaryRoot, { recursive: true, force: true });
+    if (cleanupError)
+    {
+        throw cleanupError;
+    }
+}
+
 function replayGeneratedOutput(root, revision, producer)
 {
     const temporaryRoot = mkdtempSync(join(tmpdir(), 'fsusblog-generated-output-repair-'));
@@ -692,27 +719,7 @@ function replayGeneratedOutput(root, revision, producer)
     }
     finally
     {
-        let cleanupError = null;
-        if (existsSync(worktree))
-        {
-            try
-            {
-                execFileSync(
-                    'git',
-                    ['worktree', 'remove', '--force', worktree],
-                    exactRevisionGitOptions(root, { stdio: 'ignore' })
-                );
-            }
-            catch (error)
-            {
-                cleanupError = error;
-            }
-        }
-        rmSync(temporaryRoot, { recursive: true, force: true });
-        if (cleanupError)
-        {
-            throw cleanupError;
-        }
+        removeReplayWorktree(root, worktree, temporaryRoot);
     }
 }
 
@@ -955,27 +962,7 @@ function replayGeneratedOutputDag(root, revision, graph, guard)
     }
     finally
     {
-        let cleanupError = null;
-        if (existsSync(worktree))
-        {
-            try
-            {
-                execFileSync(
-                    'git',
-                    ['worktree', 'remove', '--force', worktree],
-                    exactRevisionGitOptions(root, { stdio: 'ignore' })
-                );
-            }
-            catch (error)
-            {
-                cleanupError = error;
-            }
-        }
-        rmSync(temporaryRoot, { recursive: true, force: true });
-        if (cleanupError)
-        {
-            throw cleanupError;
-        }
+        removeReplayWorktree(root, worktree, temporaryRoot);
     }
 }
 
@@ -1089,27 +1076,7 @@ function verifyDagStepConsumption(root, revision, graph, guard)
             }
             finally
             {
-                let cleanupError = null;
-                if (existsSync(worktree))
-                {
-                    try
-                    {
-                        execFileSync(
-                            'git',
-                            ['worktree', 'remove', '--force', worktree],
-                            exactRevisionGitOptions(root, { stdio: 'ignore' })
-                        );
-                    }
-                    catch (error)
-                    {
-                        cleanupError = error;
-                    }
-                }
-                rmSync(temporaryRoot, { recursive: true, force: true });
-                if (cleanupError)
-                {
-                    throw cleanupError;
-                }
+                removeReplayWorktree(root, worktree, temporaryRoot);
             }
         }
     }
@@ -2753,6 +2720,50 @@ export function validatePostMergeGeneratedOutputDigestRepair(
     }
 }
 
+export function validatePostMergeGeneratedOutputHistoryRepair(
+    parsedBody,
+    evidence,
+    { root, base, head, changedFiles, authorityRoot, repository = null },
+    errors
+)
+{
+    const producer = changeContract.generatedOutputHistoryRepairProducers.find((entry) => entry.id === evidence.producerId);
+    if (!producer)
+    {
+        errors.push('Post-merge generated history repair producer is not trusted');
+        return;
+    }
+    if (parsedBody.generatedDigest !== producer.manifest
+        || !sameStrings(repositoryPaths(parsedBody.generatorSource), producer.closure)
+        || !sameStrings(repositoryPaths(parsedBody.generatedOutputs), [producer.output]))
+    {
+        errors.push('Post-merge generated history repair metadata must match the exact trusted manifest, closure and output');
+        return;
+    }
+    if (!root || !fullShaPattern.test(base ?? '') || !fullShaPattern.test(head ?? ''))
+    {
+        errors.push('Post-merge generated history repair requires exact candidate and base identities');
+        return;
+    }
+    let authority = null;
+    try
+    {
+        authority = repository ? { path: null, cleanup: null } : authorityCheckoutForGeneratedDigestRepair(root, base, authorityRoot);
+        const trustedRepository = repository ?? createGeneratedOutputDigestRepairRepository({
+            root, authorityRoot: authority.path, base, producer
+        });
+        verifyGeneratedOutputHistoryRepairV3({ evidence, producer, repository: trustedRepository, base, head, changedFiles });
+    }
+    catch (error)
+    {
+        errors.push(`Post-merge generated history repair cannot verify sealed history and isolated replays: ${error instanceof Error ? error.message : String(error)}`);
+    }
+    finally
+    {
+        authority?.cleanup?.();
+    }
+}
+
 export function validatePostMergeGeneratedOutputRepair(
     parsedBody,
     evidence,
@@ -3112,7 +3123,8 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles,
     const repairSchemas = new Set([
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
         changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag,
-        changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
+        changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair,
+        changeContract.evidenceSchemas.postMergeGeneratedOutputHistoryRepair
     ]);
     const expectedSchema = repairSchemas.has(evidenceSchema)
         ? evidenceSchema
@@ -3153,6 +3165,16 @@ function validateGeneratedEvidence(parsedBody, { root, base, head, changedFiles,
     if (evidence.schema === changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair)
     {
         validatePostMergeGeneratedOutputDigestRepair(
+            parsedBody,
+            evidence,
+            { root, base, head, changedFiles, authorityRoot, repository },
+            errors
+        );
+        return;
+    }
+    if (evidence.schema === changeContract.evidenceSchemas.postMergeGeneratedOutputHistoryRepair)
+    {
+        validatePostMergeGeneratedOutputHistoryRepair(
             parsedBody,
             evidence,
             { root, base, head, changedFiles, authorityRoot, repository },
@@ -3916,7 +3938,8 @@ function validateChangedPaths(parsedTitle, parsedBody, changedFiles, context, er
         const repair = [
             changeContract.evidenceSchemas.postMergeGeneratedOutputRepair,
             changeContract.evidenceSchemas.postMergeGeneratedOutputRepairDag,
-            changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair
+            changeContract.evidenceSchemas.postMergeGeneratedOutputDigestRepair,
+            changeContract.evidenceSchemas.postMergeGeneratedOutputHistoryRepair
         ].includes(evidenceSchema);
         if (sources.length === 0)
         {
@@ -3971,7 +3994,8 @@ function validateTrustedPolicyFiles({ root, head, authorityRoot, changedFiles },
     {
         return;
     }
-    const policyChanges = changeContract.trustedPolicyFiles.filter((path) => changedFiles.includes(path));
+    const policyChanges = [...changeContract.trustedPolicyFiles, ...changeContract.generatedOutputHistoryRepairPolicyFiles]
+        .filter((path) => changedFiles.includes(path));
     for (const path of policyChanges)
     {
         try
@@ -4824,6 +4848,7 @@ export function validateRepositorySources(root)
     const errors = [];
     const requiredFiles = [...new Set([
         ...changeContract.trustedPolicyFiles,
+        ...changeContract.generatedOutputHistoryRepairPolicyFiles,
         '.git-blame-ignore-revs',
         'config/development/authoritative-development-docs.json',
         'config/schemas/external-naming-exceptions.schema.json',
@@ -4885,6 +4910,7 @@ export function validateRepositorySources(root)
         ...changeContract.releaseNoteCategories.map((entry) => entry.label),
         ...changeContract.reviewedLegacyFormatRevisions,
         ...changeContract.trustedPolicyFiles,
+        ...changeContract.generatedOutputHistoryRepairPolicyFiles,
         ...Object.values(changeContract.evidenceSchemas),
         ...changeContract.generatedOutputRepairProducers.flatMap((entry) => [
             entry.id,
@@ -4923,6 +4949,19 @@ export function validateRepositorySources(root)
             producer.outputSchema,
             ...producer.protectedPolicyPaths,
             ...Object.values(producer.qualification).filter((value) => typeof value === 'string')
+        ]),
+        ...changeContract.generatedOutputHistoryRepairProducers.flatMap((producer) => [
+            producer.id,
+            producer.repairClass,
+            producer.manifest,
+            producer.command.executable,
+            ...producer.command.arguments,
+            ...producer.closure,
+            producer.output,
+            producer.outputSchema,
+            ...producer.historicalPolicyPaths,
+            ...producer.protectedPolicyPaths,
+            ...Object.values(producer.qualification).flatMap((value) => Array.isArray(value) ? value : [value])
         ])
     ])
     {

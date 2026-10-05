@@ -382,6 +382,66 @@ export const trustedPolicyFiles = Object.freeze([
     'tools/governance/javascript-format-parser/package-lock.json'
 ]);
 
+// Keep the historical policy roster stable: old DAG seals include its absent
+// entries too. These additional files are protected by the shared PR gate.
+export const generatedOutputHistoryRepairPolicyFiles = Object.freeze([
+    'config/schemas/post-merge-generated-output-history-repair.schema.json',
+    'tools/governance/generate-generated-output-history-repair-manifest.mjs',
+    'tools/governance/generated-output-history-repair-v3.mjs'
+]);
+
+// This tuple becomes repair authority only after independent bootstrap review
+// and promotion. Reachability on master is not a fabricated merged-PR identity.
+export const generatedOutputHistoryRepairProducers = Object.freeze([
+    Object.freeze({
+        id: 'backend-evidence-path-authority',
+        repairClass: 'sealed-history-digest-refresh',
+        manifest: 'artifacts/change-contract/backend-evidence-history-repair.json',
+        command: Object.freeze({ executable: 'node', arguments: Object.freeze([
+            'tools/test/generate-backend-evidence-path-authority.mjs', '--write'
+        ]) }),
+        closure: Object.freeze([
+            'tests/backend/Fixtures/backend-test-requirements.json',
+            'tests/matrix.yml',
+            'tools/test-matrix/parse-matrix.mjs',
+            'tools/test/backend-evidence-path-authority.mjs',
+            'tools/test/generate-backend-evidence-path-authority.mjs',
+            'tools/yaml/parse-document.mjs'
+        ]),
+        output: 'tests/backend/Fixtures/backend-evidence-path-authority.generated.json',
+        outputSchema: 'fsusblog.backend-evidence-path-authority.v1',
+        historicalPolicyPaths: Object.freeze([
+            '.github/PULL_REQUEST_TEMPLATE.md',
+            '.github/release.yml',
+            '.github/workflows/change-contract.yml',
+            'commitlint.config.mjs',
+            'config/schemas/post-merge-generated-output-digest-repair.schema.json',
+            'config/schemas/post-merge-generated-output-repair-dag.schema.json',
+            'tools/governance/change-contract-registry.mjs',
+            'tools/governance/change-contract.mjs',
+            'tools/governance/check-change-contract.mjs',
+            'tools/governance/generate-generated-output-digest-repair-manifest.mjs',
+            'tools/governance/generated-output-digest-repair-repository.mjs',
+            'tools/governance/generated-output-digest-repair-v2.mjs',
+            'tools/governance/javascript-format-equivalence.mjs',
+            'tools/governance/javascript-format-parser/package-lock.json',
+            'tools/governance/javascript-format-parser/package.json'
+        ]),
+        protectedPolicyPaths: Object.freeze([...trustedPolicyFiles, ...generatedOutputHistoryRepairPolicyFiles].sort()),
+        qualification: Object.freeze({
+            kind: 'reviewed-mainline-history',
+            anchor: '0d8631114d95de7b8d8a13cc7b00d98c9d8c13d2',
+            frontier: 'd653afbde02b75814d8384777886b10419fb38a1',
+            sourceEvents: Object.freeze([
+                '1e95f95fe21bb8a0da4a71689df0c64ed5a2879d',
+                'fb7d55b8a9807fe1f86006522c09b3c4632792b3',
+                '98e490f6d03bafa254b66a9ccb03ee453a012b1a'
+            ]),
+            historySha256: 'cc950efb28b4d88645bab5e8fd9c71a4f4db8f8a0861a7bed3c7b028557eb37b'
+        })
+    })
+]);
+
 export const changeContract = Object.freeze({
     schema: 'fsusblog.change-contract.v1',
     repository: 'Ozwasyd/FsusBlog',
@@ -397,6 +457,8 @@ export const changeContract = Object.freeze({
     generatedOutputRepairDags,
     generatedOutputRepairDagReviewedHistories,
     generatedOutputDigestRepairProducers,
+    generatedOutputHistoryRepairProducers,
+    generatedOutputHistoryRepairPolicyFiles,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
@@ -404,6 +466,7 @@ export const changeContract = Object.freeze({
         generatedOutput: 'fsusblog.generated-output-binding.v1',
         postMergeGeneratedOutputRepair: 'fsusblog.post-merge-generated-output-repair.v1',
         postMergeGeneratedOutputDigestRepair: 'fsusblog.post-merge-generated-output-repair.v2',
+        postMergeGeneratedOutputHistoryRepair: 'fsusblog.post-merge-generated-output-repair.v3',
         postMergeGeneratedOutputRepairDag: 'fsusblog.post-merge-generated-output-repair-dag.v2',
         postMergeExternalNamingEvidenceRepair: 'fsusblog.post-merge-external-naming-evidence-repair.v1',
         performanceClaim: 'fsusblog.performance-claim-evidence.v1'

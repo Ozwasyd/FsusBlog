@@ -238,6 +238,21 @@
             "status": "manual"
         },
         {
+            "id": "post-merge-generated-output-history-repair-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-generated-output-history-repair.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/generated-output-history-repair-v3.mjs",
+                "tests/tools/generated-output-history-repair-v3.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/generated-output-history-repair-v3.test.mjs",
+            "changePolicy": "manual-update-with-independent-history-review-and-isolated-replay-validation",
+            "status": "manual"
+        },
+        {
             "id": "post-merge-external-naming-evidence-repair-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/post-merge-external-naming-evidence-repair.schema.json",
