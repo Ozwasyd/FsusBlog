@@ -6400,6 +6400,9 @@ export async function runDag(options)
     });
     const schedulerFinalizers = [];
     let schedulerOwnerTerminalState = 'failed';
+    let schedulerFailure = null;
+    let schedulerResult;
+    const finalizationFailures = [];
     try
     {
         releaseLock.markRunning();
@@ -6420,14 +6423,14 @@ export async function runDag(options)
             }
         });
         schedulerOwnerTerminalState = result.status === 'success' ? 'complete' : 'failed';
-        return result;
+        schedulerResult = result;
     }
     catch (error)
     {
+        schedulerFailure = { error };
         schedulerOwnerTerminalState = ['AbortError', 'CancellationError'].includes(error?.name)
             ? 'cancelled'
             : 'failed';
-        throw error;
     }
     finally
     {
@@ -6438,11 +6441,36 @@ export async function runDag(options)
             {
                 await finalizer();
             }
-            catch
+            catch (error)
             {
-                // Finalizers are best-effort; the scheduler owner state remains authoritative.
+                finalizationFailures.push(error);
+            }
+        }
+        if (finalizationFailures.length > 0)
+        {
+            schedulerOwnerTerminalState = 'failed';
+            if (schedulerFailure)
+            {
+                // Preserve the execution failure; cleanup failure is additional evidence, never a pass.
+                try
+                {
+                    schedulerFailure.error.schedulerFinalizationFailures = finalizationFailures;
+                }
+                catch
+                {
+                    // A frozen or primitive original failure must not be replaced by an attachment error.
+                }
             }
         }
         releaseLock(schedulerOwnerTerminalState);
     }
+    if (schedulerFailure)
+    {
+        throw schedulerFailure.error;
+    }
+    if (finalizationFailures.length > 0)
+    {
+        throw new AggregateError(finalizationFailures, 'scheduler finalization failed');
+    }
+    return schedulerResult;
 }

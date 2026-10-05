@@ -1028,6 +1028,13 @@ remain unchanged. This requirement projection does not create or admit a MySQL
 service, and still requires the scheduler's independent allocation, preparation
 and cleanup boundaries.
 
+The backend unit cache inputs retain all existing Redis and affected-test owners
+and additionally bind the independent Migration builder, reader, fixture catalog,
+admission/recovery owners, inventory adapter and split regression sources. The
+backend fast lane binds its actual Node receipt reader and requires Node, but
+still requires no .NET host and declares no service of its own. Cache membership
+cannot substitute for actual build, service or execution evidence.
+
 Release qualification tool tests run in parallel with separate temporary directories and loopback ephemeral ports:
 
 - `release-rollout-state.test.mjs`: 15-stage sequence, rollout identity, failed-stage recovery and resume.

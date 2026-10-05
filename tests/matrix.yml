@@ -2661,11 +2661,30 @@ tiers:
               src/shared,
               tests/backend,
               tests/migration,
+              config/testing/test-execution-service-catalog.json,
+              config/schemas/test-execution-service-catalog.schema.json,
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
               tools/test/perception-redis-producer.mjs,
               tools/dotnet-affected-tests.sh,
               tools/test/run-backend-production-shards.mjs,
+              tools/test/build-migration-tests.mjs,
+              tools/test/run-migration-tests.mjs,
+              tools/test-fixtures/services/mysql.mjs,
+              tools/test/mysql-fixture-admission.mjs,
+              tools/test-matrix/mysql-fixture-recovery.mjs,
+              tools/test/execution-envelope-services.mjs,
+              tools/test/migration-build-binding.mjs,
+              tools/test/migration-execution-evidence.mjs,
+              tools/test/vstest-discovery-diagnostic.mjs,
+              tools/test/execution-envelope-environment.mjs,
+              tools/test-inventory,
+              tests/tools/migration-build-binding.test.mjs,
+              tests/tools/migration-discovery-evidence.test.mjs,
+              tests/tools/migration-operational-execution.test.mjs,
+              tests/tools/migration-lane-consumption.test.mjs,
+              tests/tools/migration-production-producer.test.mjs,
+              tests/tools/migration-cache-closure.test.mjs,
               tools/check-backend-test-governance.mjs,
               tools/test/lanes/backend-unit.sh,
               tools/test/lanes,
@@ -3048,9 +3067,21 @@ tiers:
       minCpuUnits: 1
       executionKey: backend-fast-summary
       executionVariant: ordinary
-      cacheInputs: [tests/matrix.yml, tools/test/lanes/backend-fast.sh]
+      cacheInputs:
+          [
+              tests/matrix.yml,
+              tools/test/lanes/backend-fast.sh,
+              tools/test/lanes/_suite-support.sh,
+              tools/test/run-migration-tests.mjs,
+              tools/test/mysql-fixture-admission.mjs,
+              tools/test/migration-build-binding.mjs,
+              tools/test/migration-execution-evidence.mjs,
+              tools/test-inventory,
+              tests/tools/migration-lane-consumption.test.mjs,
+              tests/tools/migration-cache-closure.test.mjs,
+          ]
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: none
