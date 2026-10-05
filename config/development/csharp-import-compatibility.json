@@ -1,0 +1,10 @@
+{
+    "schema": "fsusblog.csharp-import-compatibility.v1",
+    "entries": [
+        {
+            "path": "tests/backend/Unit/RedisOperationExecutorTests.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Keep this exact diagnostic unit owner aligned with the current coding-conventions System, third-party, then FsusBlog order without changing the repository-wide migration comparator or historical baseline."
+        }
+    ]
+}

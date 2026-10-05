@@ -560,13 +560,13 @@ expectMatrixValidateFailure(
 
 expectMatrixValidateFailure(
     replaceTierField(matrixSourceText, 'release-final', 'requiresEvidenceFrom', '[missing-evidence-producer]'),
-    'release-final requires evidence from missing tier missing-evidence-producer',
+    'release-final.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer',
     'release-final must reject missing evidence producers'
 );
 
 expectMatrixValidateFailure(
     removeTier(matrixSourceText, 'frontend-build'),
-    'frontend fast split missing tier frontend-build',
+    'finite execution target tools/test/lanes/frontend-build.sh is missing',
     'validate must reject missing frontend-fast split tiers'
 );
 

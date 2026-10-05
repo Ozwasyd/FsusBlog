@@ -9,9 +9,9 @@ import { fileURLToPath } from 'node:url';
 
 const repositoryRoot = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const [
-    { ADAPTERS, classifyFile },
+    { ADAPTERS, classifyFile, xunitTestProjects },
     { computeInventoryDigest, isInventoryStale, loadCanonicalInventory },
-    { canonicalStringify, discoverTestInventory },
+    { canonicalStringify, discoverTestInventory, mergeXunitProjectResults },
     { INVENTORY_SCHEMA, validateInventoryArtifact }
 ] = await Promise.all([
     import(new URL('../../tools/test-inventory/adapters.mjs', import.meta.url)),
@@ -246,6 +246,61 @@ test('duplicate adapter ownership fails closed', () =>
     }
 });
 
+test('the shared xunit project table closes backend and migration directories without promoting support files', () =>
+{
+    assert.deepEqual(xunitTestProjects, [
+        { directory: 'tests/backend', project: 'tests/backend/FsusBlog.Server.Tests.csproj' },
+        { directory: 'tests/migration', project: 'tests/migration/FsusBlog.Migration.Tests.csproj' }
+    ]);
+    const root = createFixtureRoot();
+    try
+    {
+        writeFullSurfaceFixture(root);
+        writeFile(root, 'tests/migration/SchemaMigrationDdlPrimitivesTests.cs', 'public class SchemaMigrationDdlPrimitivesTests { }\n');
+        writeFile(root, 'tests/migration/MigrationHelpers.cs', 'public class MigrationHelpers { }\n');
+        const artifact = discoverTestInventory(root, { runAdapters: false });
+        assert.equal(artifact.sourceFiles.find((file) => file.path === 'tests/backend/Unit/FooTests.cs').adapter, 'xunit');
+        assert.equal(artifact.sourceFiles.find((file) => file.path === 'tests/migration/SchemaMigrationDdlPrimitivesTests.cs').adapter, 'xunit');
+        assert.equal(artifact.sourceFiles.find((file) => file.path === 'tests/migration/MigrationHelpers.cs').kind, 'support');
+    }
+    finally
+    {
+        removeFixture(root);
+    }
+});
+
+test('xunit project union rejects duplicate compiled sources, duplicate cases and mismatched project ownership', () =>
+{
+    const paths = ['tests/backend/Unit/FooTests.cs', 'tests/migration/SchemaMigrationDdlPrimitivesTests.cs'];
+    const sourceFiles = paths.map((file) => ({ path: file, adapter: 'xunit' }));
+    const results = xunitTestProjects.map((project, index) => ({
+        project,
+        sources: [paths[index]],
+        report: {
+            schema: 'fsusblog.test-inventory.xunit-roslyn.v1',
+            testCases: [{ id: `fixture-case-${index}`, ownerFile: paths[index] }],
+            diagnostics: []
+        }
+    }));
+    assert.deepEqual(mergeXunitProjectResults(results, sourceFiles).testCases.map((entry) => entry.id), ['fixture-case-0', 'fixture-case-1']);
+
+    const duplicateSource = structuredClone(results);
+    duplicateSource[1].sources.push(paths[0]);
+    assert.throws(() => mergeXunitProjectResults(duplicateSource, sourceFiles), /duplicate source ownership/u);
+    const duplicateCase = structuredClone(results);
+    duplicateCase[1].report.testCases[0].id = 'fixture-case-0';
+    assert.throws(() => mergeXunitProjectResults(duplicateCase, sourceFiles), /duplicate case identity/u);
+    const wrongProject = structuredClone(results);
+    wrongProject[1].report.testCases[0].ownerFile = paths[0];
+    assert.throws(() => mergeXunitProjectResults(wrongProject, sourceFiles), /case source is not owned/u);
+    const semanticFailure = structuredClone(results);
+    semanticFailure[1].report.diagnostics.push({ severity: 'error', code: 'fixture-missing-reference', message: 'missing reference' });
+    assert.throws(() => mergeXunitProjectResults(semanticFailure, sourceFiles), /project semantic context failed/u);
+    const invalidReport = structuredClone(results);
+    invalidReport[1].report.schema = 'invalid';
+    assert.throws(() => mergeXunitProjectResults(invalidReport, sourceFiles), /invalid project report/u);
+});
+
 test('source, path and adapter changes make a stored inventory stale', () =>
 {
     const root = createFixtureRoot();
@@ -298,7 +353,7 @@ test('quality and retention consumers no longer own private walk or file-discove
     const retentionSource = readFileSync(path.join(repositoryRoot, 'tools/check-test-retention.mjs'), 'utf8');
     assert.match(retentionSource, /inventorySourceFiles\(root\)/u);
     const auditSource = readFileSync(path.join(repositoryRoot, 'tools/test-retention/audit.mjs'), 'utf8');
-    assert.match(auditSource, /import\s*\{[^}]*isInventoryPath[^}]*\}\s*from\s*'\.\.\/test-inventory\/adapters\.mjs'/u);
+    assert.match(auditSource, /const\s*\{\s*isInventoryPath\s*\}\s*=\s*await import\(new URL\('\.\.\/test-inventory\/adapters\.mjs', import\.meta\.url\)\)/u);
     assert.match(auditSource, /return isInventoryPath\(file\)/u);
 });
 
@@ -321,6 +376,14 @@ test('identical inputs produce byte-stable inventory artifacts', () =>
         assert.equal(artifact.schema, INVENTORY_SCHEMA);
         validateInventoryArtifact(artifact);
         assert.ok(artifact.inventoryDigest.startsWith('sha256:'));
+        for (const { directory } of xunitTestProjects)
+        {
+            assert.ok(artifact.testCases.some((entry) => entry.ownerFile.startsWith(`${directory}/`)));
+        }
+        const ddlCases = artifact.testCases.filter((entry) => entry.ownerFile === 'tests/migration/SchemaMigrationDdlPrimitivesTests.cs');
+        assert.equal(ddlCases.length, 22, 'the actual migration Roslyn report must contribute all DDL cases');
+        assert.ok(ddlCases.every((entry) => entry.ownerSuite.startsWith('FsusBlog.Migration.Tests.')));
+        assert.equal(new Set(artifact.testCases.map((entry) => entry.id)).size, artifact.testCases.length);
     }
     finally
     {
@@ -430,13 +493,13 @@ test('CI produces one sealed inventory and static governance only consumes it', 
     const producer = readFileSync(path.join(repositoryRoot, 'tools/test-inventory/produce.mjs'), 'utf8');
     assert.match(
         producer,
-        /const backendTestProject = 'tests\/backend\/FsusBlog\.Server\.Tests\.csproj'/u,
-        'the canonical producer must own the backend test project'
+        /import\s*\{\s*xunitTestProjects\s*\}\s*from\s*'\.\/adapters\.mjs'/u,
+        'the canonical producer must consume the shared backend and migration project authority'
     );
     assert.match(
         producer,
-        /spawnSync\(\s*'dotnet',\s*\[\s*'build',\s*path\.join\(root,\s*backendTestProject\)/u,
-        'the canonical producer must create the xUnit compile context'
+        /for \(const \{ project \} of xunitTestProjects\)[\s\S]*?spawnSync\(\s*'dotnet',\s*\[\s*'build',\s*path\.join\(root,\s*project\)/u,
+        'the canonical producer must build each actual xUnit compile context'
     );
 
     const governanceRunner = readFileSync(

@@ -326,7 +326,7 @@ public static class JwtServiceExtensions
                         string accessToken = context.SecurityToken switch
                         {
                             JwtSecurityToken jwtToken => jwtToken.RawData,
-                            JsonWebToken jsonWebToken => jsonWebToken.EncodedToken,
+                            JsonWebToken jsonToken => jsonToken.EncodedToken,
                             _ => string.Empty
                         };
                         if (string.IsNullOrWhiteSpace(accessToken) &&

@@ -44,6 +44,23 @@ export function publicShellLocaleContentDigest(value)
     return digest(JSON.stringify(canonical(value)));
 }
 
+/** Keep the required ja → de → ru race, then make this scene's target the latest selection. */
+export function publicShellLocaleRapidTargets(descriptors, target)
+{
+    assert.ok(descriptors.some((item) => item.code === target), 'rapid target must belong to the enabled catalog');
+    const targets = ['ja', 'de', 'ru'].map((alias) =>
+    {
+        const matches = descriptors.filter((item) => item.aliases.includes(alias));
+        assert.equal(matches.length, 1, `rapid transition alias ${alias} must resolve exactly once`);
+        return matches[0].code;
+    });
+    if (targets.at(-1) !== target)
+    {
+        targets.push(target);
+    }
+    return targets;
+}
+
 /** Load only the pure catalog projections and typed artifacts, never the app runtime. */
 async function loadAuthorities(root)
 {
@@ -236,7 +253,7 @@ export async function createPublicShellLocaleMatrix(root = defaultRoot)
                     expectedUiLocale,
                     driver: 'selector-ui',
                     rapidTargets: stage === 'latest-wins' || stage === 'superseded-failure'
-                        ? ['ja', 'de', 'ru'].map((alias) => descriptors.find((item) => item.aliases.includes(alias)).code)
+                        ? publicShellLocaleRapidTargets(descriptors, locale)
                         : [],
                     failureMode,
                     injectionBoundary: failureMode ? 'http-resource' : null

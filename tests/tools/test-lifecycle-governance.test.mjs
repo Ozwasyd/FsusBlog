@@ -79,6 +79,104 @@ test('unowned and duplicate physical execution fail closed', () =>
     assert.match(validateLifecycleRegistry({ audit, registry: registry({ physicalExecutionCount: 2 }) }).join('\n'), /exactly one physical owner/u);
 });
 
+test('mixed xunit files preserve the resolved singleton case owner instead of the file first tier', () =>
+{
+    const file = 'tests/backend/Unit/RedisCases.cs';
+    const ordinaryTiers = ['backend-unit', 'coverage-backend'];
+    const producerTier = 'perception-character-v3-release-gate';
+    const mixedAudit = {
+        sourceState: audit.sourceState,
+        files: [{
+            path: file,
+            retentionClass: 'must-keep',
+            tierIds: [...ordinaryTiers, producerTier],
+            referencedBy: [],
+            coverageIds: ['ordinary', 'local-redis']
+        }],
+        testRecords: [
+            {
+                id: 'xunit:ordinary',
+                path: file,
+                assertionTargets: ['behavior:ordinary'],
+                tierIds: ordinaryTiers,
+                tierInvocationCount: 2,
+                coverageIds: ['ordinary'],
+                failureHistory: { failures: 0 }
+            },
+            {
+                id: 'xunit:local-redis',
+                path: file,
+                assertionTargets: ['behavior:budget'],
+                tierIds: [producerTier],
+                tierInvocationCount: 1,
+                coverageIds: ['local-redis'],
+                failureHistory: { failures: 0 }
+            }
+        ]
+    };
+    const before = structuredClone(mixedAudit);
+    const result = buildLifecycleReport({
+        audit: mixedAudit,
+        registry: { schema: 'fsusblog.test-lifecycle-registry.v1', nodeTests: [] }
+    });
+    assert.deepEqual(result.errors, []);
+    assert.deepEqual(mixedAudit, before);
+    assert.equal(result.report.files[0].canonicalOwner, 'matrix:backend-unit');
+    assert.equal(result.report.testRecords[0].canonicalOwner, 'matrix:backend-unit');
+    assert.equal(result.report.testRecords[1].canonicalOwner, `matrix:${producerTier}`);
+    assert.deepEqual(result.report.testRecords[1].coverageIds, ['local-redis']);
+    assert.equal(result.report.testRecords[1].physicalExecutionCount, 1);
+    assert.equal(result.report.testRecords[1].observedTierInvocationCount, 1);
+    assert.deepEqual(result.report.duplicatePhysicalExecutions.map(({ id }) => id), ['xunit:ordinary']);
+});
+
+test('case tiers cannot replace explicit Node canonical or projection owners', () =>
+{
+    const nodeAudit = structuredClone(audit);
+    nodeAudit.testRecords[0].tierIds = ['perception-character-v3-release-gate'];
+    assert.equal(buildLifecycleReport({ audit: nodeAudit, registry: registry() })
+        .report.testRecords[0].canonicalOwner, 'repository-governance:test-assets');
+    const projected = buildLifecycleReport({
+        audit: nodeAudit,
+        registry: registry({
+            owner: 'projection:current-source',
+            lifecycle: 'projection',
+            executionCategory: 'projection-contract',
+            physicalExecutionCount: 0
+        })
+    });
+    assert.deepEqual(projected.errors, []);
+    assert.equal(projected.report.testRecords[0].canonicalOwner, 'projection:current-source');
+    assert.equal(projected.report.testRecords[0].physicalExecutionCount, 0);
+});
+
+test('singleton case owners reject malformed and unregistered tiers without forging matrix identities', () =>
+{
+    const file = 'tests/backend/Unit/RedisCases.cs';
+    const original = {
+        sourceState: audit.sourceState,
+        files: [{ path: file, retentionClass: 'must-keep', tierIds: ['backend-unit'], referencedBy: [], coverageIds: ['ordinary'] }],
+        testRecords: [{ id: 'xunit:case', path: file, assertionTargets: ['behavior:case'], tierIds: ['backend-unit'], tierInvocationCount: 1, coverageIds: ['ordinary'], failureHistory: { failures: 0 } }]
+    };
+    const emptyRegistry = { schema: 'fsusblog.test-lifecycle-registry.v1', nodeTests: [] };
+    for (const invalid of ['x', null, [7], [''], [' '], [' backend-unit'], ['unknown-tier']])
+    {
+        const candidate = structuredClone(original);
+        candidate.testRecords[0].tierIds = invalid;
+        const result = buildLifecycleReport({ audit: candidate, registry: emptyRegistry });
+        assert.match(result.errors.join('\n'), /case tier owner/u);
+        assert.equal(result.report, null);
+    }
+    for (const legacy of [[], undefined])
+    {
+        const candidate = structuredClone(original);
+        candidate.testRecords[0].tierIds = legacy;
+        const result = buildLifecycleReport({ audit: candidate, registry: emptyRegistry });
+        assert.deepEqual(result.errors, []);
+        assert.equal(result.report.testRecords[0].canonicalOwner, 'matrix:backend-unit');
+    }
+});
+
 test('static governance metadata requires the canonical lifecycle owner', () =>
 {
     const staticGovernance = {

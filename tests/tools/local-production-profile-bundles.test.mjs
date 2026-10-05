@@ -48,7 +48,29 @@ const frontendBundleRunner = localBundleRunner.slice(
     localBundleRunner.indexOf('\nasync function run()')
 );
 
+const runtimeDispatchPattern = new RegExp([
+    String.raw`await executeBundleStepDag\(\s*steps,\s*`,
+    String.raw`\(\) => bundleDagCapacityForSteps\(steps\),\s*`,
+    String.raw`bundleId === 'runtime-browser'\s*\? async \(step\) =>\s*\{\s*`,
+    String.raw`actualStepOrder\.push\(step\.id\);\s*`,
+    String.raw`return executeRuntimeStep\(step\);\s*\}\s*`,
+    String.raw`: executePerformanceStep\s*\);`
+].join(''), 'u');
 
+function assertRuntimeDispatch(source)
+{
+    assert.match(source, runtimeDispatchPattern);
+}
+
+function mutateRuntimeDispatch(original, replacement)
+{
+    const dispatch = localBundleRunner.match(runtimeDispatchPattern)?.[0];
+    assert.ok(dispatch, 'the real runtime dispatch must exist before mutation');
+    assert.ok(dispatch.includes(original), 'the mutation must change the selected dispatch');
+    const mutated = localBundleRunner.replace(dispatch, dispatch.replace(original, replacement));
+    assert.notEqual(mutated, localBundleRunner);
+    return mutated;
+}
 
 test('backend bundle exposes run-bound readiness and exact-union contracts', () =>
 {
@@ -182,7 +204,46 @@ test('runtime early start is guarded by run-bound backend frontend and productio
     );
     assert.ok(backendBuildWait.indexOf('if (fs.existsSync(markerFile))') < backendBuildWait.indexOf("producerFailure('backend-tests')"));
     assert.match(localBundleRunner, /async function executeRuntimeStep[\s\S]*?backend-build-ready[\s\S]*?waitForBackendBuildReady[\s\S]*?frontend-build-ready[\s\S]*?waitForFrontendBuildReady/u);
-    assert.match(localBundleRunner, /bundleId === 'runtime-browser' \? executeRuntimeStep : executePerformanceStep/u);
+    assertRuntimeDispatch(localBundleRunner);
+});
+
+test('runtime dispatch guard rejects a missing step order record', () =>
+{
+    const mutated = mutateRuntimeDispatch('actualStepOrder.push(step.id);', '');
+    assert.throws(() => assertRuntimeDispatch(mutated), { code: 'ERR_ASSERTION' });
+});
+
+test('runtime dispatch guard rejects recording a different step identity', () =>
+{
+    const mutated = mutateRuntimeDispatch('actualStepOrder.push(step.id);', 'actualStepOrder.push(otherStep.id);');
+    assert.throws(() => assertRuntimeDispatch(mutated), { code: 'ERR_ASSERTION' });
+});
+
+test('runtime dispatch guard rejects recording order after the runtime call', () =>
+{
+    const mutated = mutateRuntimeDispatch(
+        'actualStepOrder.push(step.id);',
+        'return executeRuntimeStep(step); actualStepOrder.push(step.id);'
+    );
+    assert.throws(() => assertRuntimeDispatch(mutated), { code: 'ERR_ASSERTION' });
+});
+
+test('runtime dispatch guard rejects invoking runtime with a different step', () =>
+{
+    const mutated = mutateRuntimeDispatch('return executeRuntimeStep(step);', 'return executeRuntimeStep(otherStep);');
+    assert.throws(() => assertRuntimeDispatch(mutated), { code: 'ERR_ASSERTION' });
+});
+
+test('runtime dispatch guard rejects changing the runtime executor', () =>
+{
+    const mutated = mutateRuntimeDispatch('return executeRuntimeStep(step);', 'return executeOtherRuntimeStep(step);');
+    assert.throws(() => assertRuntimeDispatch(mutated), { code: 'ERR_ASSERTION' });
+});
+
+test('runtime dispatch guard rejects changing the performance branch', () =>
+{
+    const mutated = mutateRuntimeDispatch(': executePerformanceStep', ': executeRuntimeStep');
+    assert.throws(() => assertRuntimeDispatch(mutated), { code: 'ERR_ASSERTION' });
 });
 
 test('performance marker producers are exact and quiet markers publish only after bundle finalization', () =>

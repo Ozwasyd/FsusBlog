@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v1",
+    "issue": 2348,
+    "sourceCommit": "865dc18c29c208d3be0dcab6442f00864e7583f2",
+    "expectedRecords": 2,
+    "expectedMigrated": 2,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#FsusBlog.Server.Tests.Unit.BackendAuthStateMachineTests.LoginWithMfa_RequiresPartialAuthBeforeFullSession#case-0000",
+            "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BackendAuthStateMachineTests.cs#FsusBlog.Server.Tests.Unit.BackendAuthStateMachineTests.IllegalTransitions_AreRejected#case-0000",
+            "path": "tests/backend/Unit/BackendAuthStateMachineTests.cs",
+            "disposition": "migrated"
+        }
+    ]
+}

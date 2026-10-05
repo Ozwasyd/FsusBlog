@@ -8,6 +8,12 @@ The TypeScript AST adapter follows local helper calls to retain production-owner
 
 Lifecycle joins the registry and complete retention audit into `.tmp/release-evidence/test-lifecycle-report.json`, including every discovered test/assertion ID, semantic assertion target, coverage ID, replacement ID, current source identity, and physical owner. It also writes `.tmp/release-evidence/test-lifecycle-candidate-matrix.md` with actions retain, project, merge, move-layer, or delete.
 
+For non-Node cases with exactly one resolved retention tier, the report uses that
+case's matrix owner rather than the first tier in its file's aggregate tier list.
+Explicit Node registry owners remain authoritative, including zero-execution
+projection and summary owners. These ownership counts are governance projections,
+not evidence that a test was executed in the audit run.
+
 Decisions never use elapsed time, file age, or recent-failure age. `migration-bound` requires a structured product or compatibility condition; `replacement-ready` and `obsolete` require exact replacement IDs or explicit proof that the assertion is outside the supported contract. Projection and summary owners cannot execute their producer; canonical execution owners require exactly one physical execution.
 
 Update the inventory after intentionally adding, moving, or deleting a Node test:

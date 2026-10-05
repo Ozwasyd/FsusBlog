@@ -3,7 +3,7 @@
  * Canonical test-surface discovery for the repository test inventory.
  *
  * Membership is projected from four authorities:
- *   1. directory closure (tests/backend, tests/frontend, tests/tools,
+ *   1. directory closure (tests/backend, tests/migration, tests/frontend, tests/tools,
  *      tests/native, tests/security);
  *   2. matrix tier commands, evidence and artifacts;
  *   3. the coverage registry evidence paths;
@@ -18,13 +18,13 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { ADAPTER_VERSION, SUPPORT_CLASSIFICATION, classifyFile } from './adapters.mjs';
+import { ADAPTER_VERSION, SUPPORT_CLASSIFICATION, classifyFile, xunitTestProjects } from './adapters.mjs';
 import { INVENTORY_SCHEMA, validateInventoryArtifact } from './schema.mjs';
 
 const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
 
 export const DIRECTORY_CLOSURE = [
-    'tests/backend',
+    ...xunitTestProjects.map(({ directory }) => directory),
     'tests/frontend',
     'tests/tools',
     'tests/native',
@@ -359,8 +359,97 @@ export function collectClosureCandidates(root, matrix, coverageRegistry, require
  * Compute the canonical inventory artifact for a repository root.
  * Deterministic for identical source, matrix and catalog inputs.
  */
-const XUNIT_TEST_PROJECT = 'tests/backend/FsusBlog.Server.Tests.csproj';
 const XUNIT_ADAPTER_PROJECT = 'tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj';
+
+export function readXunitProjectContext(root, project)
+{
+    const evaluation = spawnSync('dotnet', [
+        'msbuild', path.join(root, project.project), '--nologo', '-verbosity:quiet',
+        '-property:Configuration=Debug', '-getProperty:TargetPath', '-getItem:Compile'
+    ], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+    if (evaluation.status !== 0)
+    {
+        throw new Error(`xunit project context failed for ${project.project}: ${evaluation.stderr || evaluation.stdout || evaluation.error?.message}`);
+    }
+    const context = JSON.parse(evaluation.stdout);
+    const output = context.Properties?.TargetPath;
+    if (typeof output !== 'string' || !existsSync(output) || !statSync(output).isFile())
+    {
+        throw new Error(`xunit project build output is missing for ${project.project}: ${output ?? '<missing TargetPath>'}; run dotnet build --configuration Debug`);
+    }
+    if (!Array.isArray(context.Items?.Compile))
+    {
+        throw new Error(`xunit project compile items are missing for ${project.project}`);
+    }
+    const sources = context.Items.Compile.map((item) =>
+    {
+        if (typeof item.FullPath !== 'string' || !existsSync(item.FullPath) || !statSync(item.FullPath).isFile())
+        {
+            throw new Error(`xunit compiled source is missing for ${project.project}: ${item.FullPath ?? '<missing FullPath>'}`);
+        }
+        return path.relative(root, item.FullPath).split(path.sep).join('/');
+    });
+    if (new Set(sources).size !== sources.length)
+    {
+        throw new Error(`xunit duplicate compiled source in ${project.project}`);
+    }
+    return { project, sources, output };
+}
+
+export function mergeXunitProjectResults(results, sourceFiles)
+{
+    const ownedFiles = new Set(sourceFiles.filter((file) => file.adapter === 'xunit').map((file) => file.path));
+    const sourceOwners = new Map();
+    const caseOwners = new Set();
+    const testCases = [];
+    const diagnostics = [];
+    for (const { project, sources, report } of results)
+    {
+        for (const file of sources)
+        {
+            if (sourceOwners.has(file))
+            {
+                throw new Error(`xunit duplicate source ownership for ${file}: ${sourceOwners.get(file)} and ${project.project}`);
+            }
+            sourceOwners.set(file, project.project);
+        }
+        if (report.schema !== 'fsusblog.test-inventory.xunit-roslyn.v1' || !Array.isArray(report.testCases) || !Array.isArray(report.diagnostics))
+        {
+            throw new Error(`xunit invalid project report for ${project.project}`);
+        }
+        if (report.diagnostics.some((entry) => entry.severity === 'error'))
+        {
+            throw new Error(`xunit project semantic context failed for ${project.project}: ${JSON.stringify(report.diagnostics)}`);
+        }
+        for (const testCase of report.testCases)
+        {
+            if (caseOwners.has(testCase.id))
+            {
+                throw new Error(`xunit duplicate case identity: ${testCase.id}`);
+            }
+            caseOwners.add(testCase.id);
+            if (!ownedFiles.has(testCase.ownerFile))
+            {
+                continue;
+            }
+            // Preserve the existing Roslyn source catalog, including historical
+            // backend Compile Remove surfaces. Catalog presence is not execution
+            // evidence; the actual build output and references are checked above.
+            if (!testCase.ownerFile.startsWith(`${project.directory}/`))
+            {
+                throw new Error(`xunit case source is not owned by ${project.project}: ${testCase.ownerFile}`);
+            }
+            testCases.push(testCase);
+        }
+        diagnostics.push(...report.diagnostics.map((diagnostic) => ({
+            severity: diagnostic.severity === 'error' ? 'error' : 'warning',
+            code: diagnostic.code,
+            file: diagnostic.file ?? null,
+            message: diagnostic.message
+        })));
+    }
+    return { testCases, diagnostics };
+}
 
 function runXunitRoslynAdapter(root, projectPath, sourceFiles)
 {
@@ -372,15 +461,7 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
     const adapterProject = path.join(root, XUNIT_ADAPTER_PROJECT);
     if (!existsSync(adapterProject))
     {
-        return {
-            testCases: [],
-            diagnostics: [{
-                severity: 'warning',
-                code: 'xunit-roslyn-adapter-unavailable',
-                file: null,
-                message: `xunit adapter project is not present at ${XUNIT_ADAPTER_PROJECT}; xunit cases were not extracted`
-            }]
-        };
+        throw new Error(`xunit adapter project is not present at ${XUNIT_ADAPTER_PROJECT}; cannot extract ${projectPath}`);
     }
     const build = spawnSync(
         'dotnet',
@@ -417,7 +498,7 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
             .split(/\r?\n/u)
             .slice(-12)
             .join('\n');
-        throw new Error(`xunit roslyn adapter failed (exit ${result.status}): ${detail}`);
+        throw new Error(`xunit roslyn adapter failed for ${projectPath} (exit ${result.status}): ${detail}`);
     }
     let report;
     try
@@ -431,15 +512,7 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
             { cause: error }
         );
     }
-    const ownedFiles = new Set(xunitFiles.map((file) => file.path));
-    const testCases = (report.testCases ?? []).filter((testCase) => ownedFiles.has(testCase.ownerFile));
-    const diagnostics = (report.diagnostics ?? []).map((diagnostic) => ({
-        severity: diagnostic.severity === 'error' ? 'error' : 'warning',
-        code: diagnostic.code,
-        file: diagnostic.file ?? null,
-        message: diagnostic.message
-    }));
-    return { testCases, diagnostics };
+    return report;
 }
 
 const TS_ADAPTER_ENTRY = 'tools/test-inventory/ts-ast-adapter/index.mjs';
@@ -683,7 +756,13 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
     let adapterDiagnostics = [];
     if (runAdapters)
     {
-        const xunitResult = runXunitRoslynAdapter(root, XUNIT_TEST_PROJECT, sourceFiles);
+        const projectResults = xunitTestProjects
+            .filter(({ directory }) => sourceFiles.some((file) => file.adapter === 'xunit' && file.path.startsWith(`${directory}/`)))
+            .map((project) => ({
+                ...readXunitProjectContext(root, project),
+                report: runXunitRoslynAdapter(root, project.project, sourceFiles)
+            }));
+        const xunitResult = mergeXunitProjectResults(projectResults, sourceFiles);
         adapterCases = xunitResult.testCases;
         adapterDiagnostics = xunitResult.diagnostics;
         const tsResult = runTsAstAdapter(root, sourceFiles);
