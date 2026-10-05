@@ -658,6 +658,44 @@ function verifyLifecycleTransition(id, expectedOperations, minimumRevisions, min
     };
 }
 
+function verifyPublishedScheduledUpdate(ctx)
+{
+    const id = 'article-published-scheduled-update';
+    const utcInstant = (value) => typeof value === 'string' && /(?:Z|\+00:00)$/u.test(value)
+        ? Date.parse(value) : Number.NaN;
+    const lifecycle = verifyLifecycleTransition(id, ['create', 'scheduled-update'], 2, 1)(ctx);
+    if (!lifecycle.ok)
+    {
+        return lifecycle;
+    }
+    const articleIds = new Set(lifecycle.detail.articleIds);
+    for (const article of entitiesOf(ctx.observations.database, 'article').filter((item) => articleIds.has(String(item.id))))
+    {
+        const fields = article.fields ?? {};
+        const schedule = fields.scheduledUpdate ?? {};
+        const due = utcInstant(schedule.scheduledPublishAt);
+        const transitioned = utcInstant(schedule.transitionedAtUtc);
+        const observed = utcInstant(schedule.observedBusinessTimeUtc);
+        const oldPublication = String(fields.publicationIds?.[0] ?? '');
+        if (fields.operations.length !== 2
+            || fields.operations[0] !== 'create' || fields.operations[1] !== 'scheduled-update'
+            || fields.publicationIds.length !== 1 || !/^[1-9][0-9]*$/u.test(oldPublication)
+            || String(fields.currentPublicationId) !== oldPublication
+            || String(schedule.beforePublicationId) !== oldPublication
+            || String(schedule.afterPublicationId) !== oldPublication
+            || fields.revisionIds.length !== 2
+            || String(fields.currentRevisionId) !== String(fields.revisionIds[1])
+            || String(fields.revisionIds[0]) === String(fields.revisionIds[1])
+            || !Number.isFinite(due) || !Number.isFinite(transitioned) || !Number.isFinite(observed)
+            || transitioned > observed || due <= observed
+            || utcInstant(fields.pendingPublicationAt) !== due)
+        {
+            return fail(id, `article ${article.id} does not preserve the old publication before the business-clock due time`);
+        }
+    }
+    return lifecycle;
+}
+
 function verifyTaxonomyCategoryTag(ctx)
 {
     const id = 'taxonomy-category-tag';
@@ -1341,8 +1379,7 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
     'article-revision-history': verifyRevisionHistory,
     'article-multiple-revisions': verifyMultipleRevisions,
     'article-multiple-publications': verifyMultiplePublications,
-    'article-published-scheduled-update': verifyLifecycleTransition(
-        'article-published-scheduled-update', ['create', 'scheduled-update', 'scheduled-publish'], 2, 2),
+    'article-published-scheduled-update': verifyPublishedScheduledUpdate,
     'article-restore': verifyLifecycleTransition('article-restore', ['create', 'delete', 'restore'], 2, 2),
     'article-rollback': verifyLifecycleTransition('article-rollback', ['create', 'update', 'rollback'], 3, 2),
     'taxonomy-category-tag': verifyTaxonomyCategoryTag,

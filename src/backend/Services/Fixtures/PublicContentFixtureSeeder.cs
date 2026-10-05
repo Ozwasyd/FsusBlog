@@ -1545,6 +1545,20 @@ public sealed partial class PublicContentFixtureSeeder(
             .All(static operation => operation.RightsSnapshotId is > 0 && operation.ResponsibilitySnapshotId is > 0);
         entity.Fields["immutableHistoryVerified"] = result.Verification.IsValid;
         _verificationLifecycleReceipts.Add(result.Receipt);
+        if (variant == CanonicalArticleLifecycleVariants.PublishedScheduledUpdate)
+        {
+            CanonicalArticleLifecycleOperationReceipt scheduled = result.Receipt.Operations[^1];
+            entity.Fields["scheduledUpdate"] = new
+            {
+                beforePublicationId = scheduled.BeforePublicationId,
+                afterPublicationId = scheduled.AfterPublicationId,
+                transitionedAtUtc = scheduled.TransitionedAtUtc,
+                scheduledPublishAt = scheduled.ScheduledPublishAt is DateTime dueAt
+                    ? DateTime.SpecifyKind(dueAt, DateTimeKind.Utc)
+                    : (DateTime?)null,
+                observedBusinessTimeUtc = timeProvider.GetUtcNow().UtcDateTime
+            };
+        }
         if (variant == CanonicalArticleLifecycleVariants.MultipleRevisions)
         {
             entity.Fields["revisionCount"] = result.Receipt.RevisionIds.Count;
@@ -1674,6 +1688,9 @@ public sealed partial class PublicContentFixtureSeeder(
                 ["currentPublicationId"] = row.CurrentPublicationId,
                 ["currentRevisionId"] = row.CurrentRevisionId,
                 ["scheduledPublishAt"] = row.ScheduledPublishAt,
+                ["pendingPublicationAt"] = row.PendingPublicationAt is DateTime pendingAt
+                    ? DateTime.SpecifyKind(pendingAt, DateTimeKind.Utc)
+                    : null,
                 ["archivedAt"] = row.ArchivedAt,
                 ["revisionIds"] = revisionIds.Select(static revisionId => revisionId.ToString(System.Globalization.CultureInfo.InvariantCulture)).ToArray()
             }

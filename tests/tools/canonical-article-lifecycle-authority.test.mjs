@@ -47,6 +47,22 @@ test("governance rejects lifecycle fixture direct article SQL", () =>
     assert.ok(checkCanonicalArticleLifecycleAuthority(target).some((item) => item.includes("directly mutate article lifecycle tables")));
 });
 
+test("governance rejects scheduled completion using the future due time as now", () =>
+{
+    const target = fixture();
+    mutate(target, "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs", (source) =>
+        source.replace(/(scheduledReceipt\.CurrentRevisionId,\s*)now,/u, "$1dueAt,"));
+    assert.ok(checkCanonicalArticleLifecycleAuthority(target).some((item) => item.includes("observed business clock")));
+});
+
+test("governance rejects a verifier that trusts future transition timestamps", () =>
+{
+    const target = fixture();
+    mutate(target, "src/backend/Services/Fixtures/CanonicalArticleLifecycleVerifier.cs", (source) =>
+        source.replace("operation.TransitionedAtUtc > now", "false"));
+    assert.ok(checkCanonicalArticleLifecycleAuthority(target).some((item) => item.includes("future authority facts")));
+});
+
 test("governance rejects lifecycle port without rollback history", () =>
 {
     const target = fixture();
