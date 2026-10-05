@@ -531,7 +531,7 @@
                 ],
                 "policy": {
                     "path": "docs/performance-aeds-cache-miss-owned-frame.md",
-                    "anchor": "选择规则"
+                    "anchor": "The cache-owned strategy is selected only when most real scenarios have allocation no higher than exact and p95 no higher than 110% of exact."
                 },
                 "authority": {
                     "requiresCurrentCommit": true,
