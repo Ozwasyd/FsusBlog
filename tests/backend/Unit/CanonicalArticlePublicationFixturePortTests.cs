@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -8,11 +9,10 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
+using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
-using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.Extensions.Configuration;
 
@@ -183,29 +183,37 @@ public sealed class CanonicalArticlePublicationFixturePortTests
     [Fact]
     public void ArticleService_SharedSeams_AreReferencedByProductionSources()
     {
-        string service = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "ArticleService.cs");
-        string mutations = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "ArticleService.Mutations.cs");
-        string cache = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "ArticleService.CacheAndInvalidation.cs");
-        string responsibility = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Infrastructure", "Integrity", "ArticleResponsibilityManifest.cs");
+        string service = string.Join('\n',
+            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "NormalizeArticleRights"),
+            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "SaveArticleRightsAsync"),
+            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "EnsureArticleRightsPolicyAsync"),
+            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "CreateMutationAsync"),
+            RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), "SaveArticleRevisionAsync"));
+        string mutations = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleService), "ResolveUpdateArticleRightsAsync", "ToRightsWriteModel");
+        string cache = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleService), "NormalizeText", "NormalizeTagIds");
+        string responsibility = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleResponsibilityAuthoringService), nameof(ArticleResponsibilityAuthoringService.SaveAsync));
+        string publish = RuntimeMetadataInspection.DescribeMethods(
+            typeof(CanonicalArticlePublicationFixturePort), nameof(CanonicalArticlePublicationFixturePort.PublishAsync));
+        string port = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(typeof(CanonicalArticlePublicationFixturePort)),
+            RuntimeMetadataInspection.DescribeConstructors(typeof(CanonicalArticlePublicationFixturePort)));
 
         Assert.Contains("ArticleProductionNormalizers.NormalizeArticleRights", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsSnapshotBuilder.Build", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRightsPolicyPersistence.UpsertAsync", service, StringComparison.Ordinal);
         Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", service, StringComparison.Ordinal);
         Assert.Contains("ArticleRevisionPersistence.SaveAsync", service, StringComparison.Ordinal);
-        string port = BackendTestPaths.ReadAllTextFromRoot(
-            "src", "backend", "Services", "Fixtures", "CanonicalArticlePublicationFixturePort.cs");
-        Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", port, StringComparison.Ordinal);
-        Assert.Contains("BeginPublicMutationFenceAsync", port, StringComparison.Ordinal);
-        Assert.DoesNotContain("new ArticleRevision", port, StringComparison.Ordinal);
+        Assert.Contains("ArticleCreateMutationAuthority.ExecuteAsync", publish, StringComparison.Ordinal);
+        Assert.Contains("BeginPublicMutationFenceAsync", publish, StringComparison.Ordinal);
+        Assert.DoesNotContain("ArticleRevision..ctor", port, StringComparison.Ordinal);
         Assert.Contains("ArticleProductionNormalizers.NormalizeText", cache, StringComparison.Ordinal);
         Assert.Contains("ArticleProductionNormalizers.NormalizeTagIds", cache, StringComparison.Ordinal);
         Assert.Contains("ArticleResponsibilitySnapshotBuilder.Build", responsibility, StringComparison.Ordinal);
-        Assert.DoesNotContain("private sealed record ArticleRightsWriteModel", service, StringComparison.Ordinal);
+        Assert.Null(typeof(ArticleService).GetNestedType("ArticleRightsWriteModel",
+            BindingFlags.Public | BindingFlags.NonPublic));
         Assert.Contains("ArticleRightsNormalizedModel", mutations, StringComparison.Ordinal);
     }
 
