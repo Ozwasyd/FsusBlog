@@ -6,7 +6,13 @@ import path from 'node:path';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Reuse the immutable production build admission authority.
 import { verifyProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
 
-import { loadBrowserContractFixture } from './fixture.mjs';
+import {
+    consumePublicShellLocaleScene,
+    finishPublicShellLocaleScene,
+    loadBrowserContractFixture,
+    preparePublicShellLocaleScene,
+    readPublicShellLocaleScenePublishedArtifact
+} from './fixture.mjs';
 import { validatePublicShellLocaleMatrix } from './public-shell-locale-matrix.mjs';
 
 /** Consume the existing runner's prepared host; this facade never starts another lifecycle. */
@@ -23,7 +29,8 @@ export async function admitPublicShellLocaleHarness({ root, matrix, prepared, bu
     const verified = verifyProductionBuildReceipt({
         artifactRoot: path.dirname(buildReceiptFile),
         receiptFile: path.basename(buildReceiptFile),
-        expectedSourceState: sourceState
+        expectedSourceState: sourceState,
+        repairReadOnlySeal: false
     });
     for (const domain of ['backend-runtime', 'frontend-dist', 'generated-contracts', 'wasm'])
     {
@@ -39,6 +46,9 @@ export async function admitPublicShellLocaleHarness({ root, matrix, prepared, bu
     });
     assert.equal(fixture.testSession, null, 'locale harness cannot send a test-session header');
     let active = false;
+    let boundBrowser = null;
+    let boundFactory = null;
+    let expectedHandle = null;
     const visited = new Set();
     return Object.freeze({
         identity: Object.freeze({
@@ -49,54 +59,88 @@ export async function admitPublicShellLocaleHarness({ root, matrix, prepared, bu
             preparationId: prepared.lifecycle.preparation.id
         }),
         fixture,
-        /** The runner supplies its single browser context factory, preserving launch ownership. */
+        /** Bind the runner's existing Browser; the fixture owner creates each leased context. */
+        contextFactory(browser)
+        {
+            assert.equal(active, false, 'cannot bind a Browser during an active locale scene');
+            assert.equal(boundBrowser, null, 'locale Browser owner is already bound');
+            assert.equal(typeof browser?.newContext, 'function', 'canonical Browser owner required');
+            assert.equal(typeof browser?.contexts, 'function', 'canonical Browser context inventory required');
+            boundBrowser = browser;
+            boundFactory = async (handle) =>
+            {
+                assert.ok(expectedHandle && handle === expectedHandle, 'context creation requires the current scene lease');
+                expectedHandle = null;
+                return await consumePublicShellLocaleScene(prepared, handle, boundBrowser);
+            };
+            return boundFactory;
+        },
+        /** Reuse the formal scene lease; never copy fixed user/admin preference state. */
         async withScene(sceneId, createContext, observe)
         {
             assert.equal(active, false, 'locale scenes must run serially');
             assert.equal(visited.has(sceneId), false, 'locale scene retry is forbidden');
+            assert.ok(boundFactory && createContext === boundFactory, 'canonical leased context factory required');
+            assert.equal(typeof observe, 'function', 'locale scene observer required');
             const scene = matrix.scenes.find((item) => item.id === sceneId);
             assert.ok(scene, 'unknown locale scene');
             const negotiation = matrix.negotiationCases.find((item) => item.id === scene.negotiationId);
             assert.ok(negotiation, 'missing negotiation case');
-            const storageState = scene.authActionContext === 'anonymous'
-                ? { cookies: [], origins: [] }
-                : structuredClone(scene.authActionContext === 'admin' ? fixture.admin.storageState : fixture.user.storageState);
-            storageState.cookies = storageState.cookies.filter((item) => item.name !== 'fsusblog.locale');
-            if (negotiation.cookie !== null)
-            {
-                storageState.cookies.push({
-                    name: 'fsusblog.locale', value: negotiation.cookie, url: fixture.baseUrl,
-                    httpOnly: true, secure: fixture.baseUrl.startsWith('https:'), sameSite: 'Lax'
-                });
-            }
-            const options = {
-                viewport: scene.viewport,
-                storageState,
-                serviceWorkers: 'block',
-                extraHTTPHeaders: negotiation.header === null ? {} : { 'Accept-Language': negotiation.header }
-            };
             active = true;
             visited.add(sceneId);
+            let handle;
             let context;
+            let firstError;
+            let result;
             try
             {
-                context = await createContext(options);
-                return await observe({ context, fixture, scene, negotiation });
+                handle = await preparePublicShellLocaleScene(prepared, { matrix, sceneId });
+                if (handle.status === 'blocked')
+                {
+                    const error = new Error(`locale scene actor is blocked: ${handle.reason}`);
+                    error.sceneBlocker = handle;
+                    throw error;
+                }
+                expectedHandle = handle;
+                context = await createContext(handle);
+                result = await observe({ context, fixture, scene, negotiation, lease: handle,
+                    readPublishedArtifact: (selectedPath) => readPublicShellLocaleScenePublishedArtifact(
+                        prepared, handle, context, selectedPath) });
             }
-            finally
+            catch (error)
+            {
+                firstError = error;
+            }
+            expectedHandle = null;
+            if (context)
             {
                 try
                 {
-                    if (context)
-                    {
-                        await context.close();
-                    }
-                }
-                finally
-                {
+                    await finishPublicShellLocaleScene(prepared, handle, context, firstError);
                     active = false;
                 }
+                catch (error)
+                {
+                    if (firstError)
+                    {
+                        firstError.sceneCleanupError = error;
+                    }
+                    else
+                    {
+                        firstError = error;
+                    }
+                }
             }
+            else if (!handle || handle.status === 'blocked')
+            {
+                active = false;
+            }
+            // Failed creation/close retains the active owner; never admit a later scene over it.
+            if (firstError)
+            {
+                throw firstError;
+            }
+            return result;
         }
     });
 }
@@ -157,7 +201,8 @@ export async function bindPublicShellLocaleResourceBarrier(context, resourceUrl,
         const action = await barrier.wait();
         if (action.kind === 'continue')
         {
-            await route.continue();
+            // Preserve earlier context routes, including actual missing Accept-Language removal.
+            await route.fallback();
         }
         else if (action.kind === 'abort')
         {
@@ -181,14 +226,18 @@ export async function bindPublicShellLocaleResourceBarrier(context, resourceUrl,
 }
 
 /** Observe the runner's real anonymous scenario without creating a page or advancing product state. */
-export function observePublicShellLocaleProbe(page, identity, { signal, matrix } = {})
+export function observePublicShellLocaleProbe(page, identity, { signal, matrix, saveOriginalResponse = null } = {})
 {
     assert.equal(signal?.aborted === true, false, 'locale probe cannot start after abort');
+    assert.ok(saveOriginalResponse === null || typeof saveOriginalResponse === 'function', 'private probe sink required');
     const sha256 = (value) => createHash('sha256').update(value).digest('hex');
     const requests = [];
     const issues = [];
     let firstDocument = null;
+    let capturedDocument = null;
+    let originalPublication = null;
     let disposed = false;
+    let finished = false;
     const onRequest = (request) =>
     {
         requests.push({
@@ -204,13 +253,43 @@ export function observePublicShellLocaleProbe(page, identity, { signal, matrix }
         {
             return;
         }
-        firstDocument = Promise.all([response.body(), response.allHeaders()]).then(([body, headers]) => ({
-            status: response.status(),
-            contentType: headers['content-type'] ?? null,
-            contentLanguage: headers['content-language'] ?? null,
-            bodyDigest: sha256(body),
-            bodyBytes: body.length
-        }), (error) => ({ errorDigest: sha256(String(error)) }));
+        firstDocument = Promise.allSettled([
+            Promise.resolve().then(() => response.body()),
+            Promise.resolve().then(() => response.headersArray())
+        ]).then(([bodyResult, headersResult]) =>
+        {
+            const body = bodyResult.status === 'fulfilled' && Buffer.isBuffer(bodyResult.value)
+                ? bodyResult.value : null;
+            const headersArray = headersResult.status === 'fulfilled' && Array.isArray(headersResult.value)
+                ? headersResult.value : null;
+            const withinBodyBound = body !== null && body.length <= 4 * 1024 * 1024;
+            const withinHeaderBound = headersArray !== null && headersArray.length <= 128
+                && headersArray.every((item) => typeof item?.name === 'string' && typeof item.value === 'string'
+                    && Buffer.byteLength(item.name) <= 8192 && Buffer.byteLength(item.value) <= 8192)
+                && headersArray.reduce((count, item) => count + Buffer.byteLength(item.name) + Buffer.byteLength(item.value), 0) <= 65536;
+            const originals = {
+                identity: structuredClone(identity),
+                status: response.status(),
+                representation: 'playwright-response-body',
+                bodyEncoding: 'base64',
+                bodyBase64: withinBodyBound ? body.toString('base64') : null,
+                bodyBytes: body?.length ?? null,
+                bodyDigest: body ? sha256(body) : null,
+                headersArray: withinHeaderBound ? structuredClone(headersArray) : null,
+                failures: [
+                    ...(!withinBodyBound ? [body ? 'body-overflow' : 'body-unavailable'] : []),
+                    ...(!withinHeaderBound ? [headersArray ? 'headers-invalid-or-overflow' : 'headers-unavailable'] : [])
+                ]
+            };
+            const header = (name) => withinHeaderBound
+                ? headersArray.filter((item) => item.name.toLowerCase() === name).map((item) => item.value).join(', ') || null
+                : null;
+            capturedDocument = { originals, firstResponse: {
+                status: originals.status, contentType: header('content-type'), contentLanguage: header('content-language'),
+                bodyDigest: originals.bodyDigest, bodyBytes: withinBodyBound ? originals.bodyBytes : null
+            } };
+            return capturedDocument;
+        });
     };
     const onConsole = (message) =>
     {
@@ -243,14 +322,52 @@ export function observePublicShellLocaleProbe(page, identity, { signal, matrix }
         page.on(event, listener);
     }
     signal?.addEventListener('abort', dispose, { once: true });
+    async function saveAvailableOriginal()
+    {
+        // Failure cleanup must not wait for a still-pending transport body or evaluate a closed page.
+        if (!capturedDocument || !saveOriginalResponse)
+        {
+            return false;
+        }
+        originalPublication ??= Promise.resolve().then(() => saveOriginalResponse(capturedDocument.originals));
+        await originalPublication;
+        return true;
+    }
     return {
+        saveAvailableOriginal,
         async finish()
         {
             assert.equal(disposed, false, 'locale probe is already disposed');
+            assert.equal(finished, false, 'locale probe cannot repeat its observation');
+            finished = true;
             // #2082 requires a real document/selector probe, independently of later qualification.
             assert.ok(firstDocument, 'locale probe did not observe a real document response');
-            const firstResponse = await firstDocument;
+            const { firstResponse, originals } = await firstDocument;
+            const captureError = originals.failures.length > 0
+                ? new Error('locale probe original response capture is incomplete') : null;
+            // Preserve available original bytes before an assertion or decoder rejects the response.
+            if (saveOriginalResponse)
+            {
+                try
+                {
+                    await saveAvailableOriginal();
+                }
+                catch (error)
+                {
+                    if (captureError)
+                    {
+                        captureError.privateSinkError = error;
+                        throw captureError;
+                    }
+                    throw error;
+                }
+            }
+            if (captureError)
+            {
+                throw captureError;
+            }
             assert.ok(firstResponse.bodyBytes > 0, 'locale probe could not read the document response');
+            assert.equal(disposed, false, 'locale probe was disposed during response capture');
             const observed = await page.evaluate(() => ({
                 language: document.documentElement.lang,
                 title: document.title,
