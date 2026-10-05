@@ -17,7 +17,8 @@ const {
     loadEnabledLocales,
     loadLocaleDomains,
     parseDomainTree,
-    validateDomainArtifact
+    validateDomainArtifact,
+    validateLocaleDomainLoaderMap
 } = await import(checker);
 
 function cloneRepoSubset()
@@ -371,6 +372,107 @@ test('artifact set grows and shrinks with catalog × domain union', () =>
     });
     assert.equal(minusDomain.length, 90);
 });
+
+// Pure source mutations exercise the admission parser without changing product
+// files. Authorities remain the existing catalog and domain union.
+const loaderLocales = loadEnabledLocales(root).locales;
+const loaderDomains = loadLocaleDomains(root);
+const loaderSource = readFileSync(path.join(root, 'src/frontend/src/locales/localeDomainBundleStore.ts'), 'utf8');
+
+function loaderFixture({ indent = '    ', quote = "'", newline = '\n', gap = ' ', trailing = true } = {})
+{
+    const literal = (value) => `${quote}${value}${quote}`;
+    const blocks = loaderLocales.map((locale) =>
+    {
+        const imports = loaderDomains.map((domain) =>
+            `${indent}${indent}${literal(domain)}:${gap}()${gap}=>${gap}import(${gap}${literal(`./${locale}/${domain}`)}${gap})`);
+        return `${indent}${literal(locale)}:${gap}loadersFor(${gap}${literal(locale)},${gap}{${newline}`
+            + imports.join(`,${newline}`) + (trailing ? ',' : '') + `${newline}${indent}}${gap})`;
+    });
+    return 'export const LOCALE_DOMAIN_LOADERS: LocaleDomainLoaderRegistry = Object.freeze({' + newline
+        + blocks.join(`,${newline}`) + (trailing ? ',' : '') + newline + '});';
+}
+
+const fixture = loaderFixture().replaceAll('( ', '(').replaceAll(' )', ')');
+
+for (const [name, source] of [
+    ['current production 4/8-space TypeScript', loaderSource],
+    ['2/4 spaces', loaderFixture({ indent: '  ' })],
+    ['4/8 spaces', loaderFixture()],
+    ['8/16 spaces', loaderFixture({ indent: '        ' })],
+    ['without a type annotation', fixture.replace(': LocaleDomainLoaderRegistry', '')],
+    ['line comments between entries', fixture.replaceAll(',\n', ', // misleading }), import("./fake")\n')],
+    ['escaped literal identity', fixture.replaceAll('zh-CN', 'zh\\u002dCN')],
+    ['tabs and double quoted keys/imports', loaderFixture({ indent: '\t', quote: '"' })],
+    ['single line without whitespace or trailing commas', loaderFixture({ indent: '', newline: '', gap: '', trailing: false })],
+    ['CRLF and multiline expressions', loaderFixture({ newline: '\r\n', gap: '\r\n' })],
+    ['comments between expression tokens', loaderFixture({ gap: '/* misleading }), import(\'./fake\') */' })],
+    ['parenthesized initializer and importer bodies', fixture
+        .replace('= Object.freeze({', '= (Object.freeze({').replace('});', '}));')
+        .replaceAll("=> import('", "=> (import('").replaceAll("'),", "')),")],
+    ['comment/string/template-text decoys are not declarations/imports', loaderFixture()
+        + '\n// export const LOCALE_DOMAIN_LOADERS = {}; import("./fake")\n'
+        + 'const decoy = ' + JSON.stringify('export const LOCALE_DOMAIN_LOADERS = {}; import("./fake")') + ';\n'
+        + 'const text = `import("./fake") { [ ] }`;'],
+    ['nested type annotation', loaderFixture().replace(': LocaleDomainLoaderRegistry =', ': Readonly<{ type: (x: string) => Record<string, unknown> }> =')]
+])
+{
+    test(`loader structure accepts ${name} with the exact ten × ten registry`, () =>
+    {
+        const errors = validateLocaleDomainLoaderMap(source, loaderLocales, loaderDomains);
+        assert.deepEqual(errors, [], errors.map(formatDiagnostic).join('\n'));
+    });
+}
+
+const firstDomain = "'common': () => import('./zh-CN/common')";
+const firstLocaleStart = "    'zh-CN': loadersFor('zh-CN', {";
+const firstLocaleEnd = fixture.indexOf("    'en-US':");
+const firstLocaleBlock = fixture.slice(fixture.indexOf(firstLocaleStart), firstLocaleEnd);
+for (const [name, mutate, rule, actual] of [
+    ['missing locale', (source) => source.replace(firstLocaleBlock, ''), 'loader-map-keyset', /missing/u],
+    ['duplicate locale', (source) => source.replace(firstLocaleBlock, firstLocaleBlock.repeat(2)), 'loader-map-keyset', /duplicate zh-CN/u],
+    ['extra locale', (source) => source.replace(firstLocaleStart, "    'x-extra': loadersFor('x-extra', {"), 'loader-map-keyset', /extra x-extra/u],
+    ['missing domain', (source) => source.replace(`        ${firstDomain},\n`, ''), 'loader-map-keyset', /missing/u],
+    ['duplicate domain', (source) => source.replace(firstDomain, `${firstDomain}, ${firstDomain}`), 'loader-map-keyset', /duplicate common/u],
+    ['escaped duplicate domain', (source) => source.replace(firstDomain, `${firstDomain}, 'c\\u006fmmon': () => import('./zh-CN/common')`), 'loader-map-keyset', /duplicate common/u],
+    ['extra domain', (source) => source.replace(firstDomain, `${firstDomain}, 'future': () => import('./zh-CN/future')`), 'loader-map-keyset', /extra future/u],
+    ['wrong loadersFor locale', (source) => source.replace("loadersFor('zh-CN'", "loadersFor('en-US'"), 'loader-import-identity', /en-US/u],
+    ['wrong import locale', (source) => source.replace('./zh-CN/common', './en-US/common'), 'loader-import-identity', /en-US\/common/u],
+    ['wrong import domain', (source) => source.replace('./zh-CN/common', './zh-CN/admin'), 'loader-import-identity', /zh-CN\/admin/u],
+    ['wrong import extension', (source) => source.replace('./zh-CN/common', './zh-CN/common.ts'), 'loader-import-identity', /common\.ts/u],
+    ['whole-locale import', (source) => source.replace('./zh-CN/common', './zh-CN'), 'whole-bundle-forbidden', /whole-locale/u],
+    ['extra import outside registry', (source) => source + "\nconst leak = () => import('./zh-CN/admin');", 'loader-import-identity', /extra import/u],
+    ['extra static value import', (source) => "import { admin } from './zh-CN/admin';\n" + source, 'loader-import-identity', /extra static import/u],
+    ['extra static side-effect import', (source) => "import './zh-CN/admin';\n" + source, 'loader-import-identity', /extra static import/u],
+    ['extra static type import', (source) => "import type { admin } from './zh-CN/admin';\n" + source, 'loader-import-identity', /extra static import/u],
+    ['extra import in template interpolation', (source) => source + "\nconst leak = `text ${import('./zh-CN/admin')}`;", 'loader-import-identity', /extra import/u],
+    ['extra import inside importer', (source) => source.replace(firstDomain, "'common': () => (import('./zh-CN/common'), import('./zh-CN/admin'))"), 'loader-map-keyset', /expected \)/u],
+    ['block importer hiding an extra import', (source) => source.replace(firstDomain, "'common': () => { import('./zh-CN/admin'); return import('./zh-CN/common'); }"), 'loader-map-keyset', /expected/u],
+    ['computed key', (source) => source.replace("'common':", "['common']:"), 'loader-map-keyset', /literal property key/u],
+    ['spread keys', (source) => source.replace(firstDomain, `...hidden, ${firstDomain}`), 'loader-map-keyset', /literal property key/u],
+    ['nonliteral importer path', (source) => source.replace("import('./zh-CN/common')", 'import(path)'), 'loader-map-keyset', /expected \(/u],
+    ['interpolated importer path', (source) => source.replace("import('./zh-CN/common')", 'import(`./${locale}/common`)'), 'loader-map-keyset', /unsupported/u],
+    ['eager import instead of arrow', (source) => source.replace(firstDomain, "'common': import('./zh-CN/common')"), 'loader-map-keyset', /expected \(\) => import/u],
+    ['import options/extra argument', (source) => source.replace("import('./zh-CN/common')", "import('./zh-CN/common', {})"), 'loader-map-keyset', /expected \(\) => import/u],
+    ['extra loadersFor argument', (source) => source.replace("'zh-CN', {", "'zh-CN', 'extra', {"), 'loader-map-keyset', /expected loadersFor/u],
+    ['duplicate exported registry', (source) => source + '\n' + source, 'loader-map-keyset', /found 2/u],
+    ['missing exported registry with a comment decoy', (source) => '// ' + source.replaceAll('\n', '\n// '), 'loader-map-keyset', /found 0/u],
+    ['malformed close delimiter', (source) => source.replace('});', ']);'), 'loader-map-keyset', /unmatched/u],
+    ['unterminated comment', (source) => source + '\n/*', 'loader-map-keyset', /unterminated comment/u],
+    ['unterminated string', (source) => source + "\nconst text = '", 'loader-map-keyset', /unterminated string/u],
+    ['non-frozen object', (source) => source.replace('Object.freeze({', 'other({'), 'loader-map-keyset', /Object.freeze/u]
+])
+{
+    test(`loader structure fails closed on ${name}`, () =>
+    {
+        const changed = mutate(fixture);
+        assert.ok(changed !== fixture, 'counterexample must change actual source syntax');
+        const errors = validateLocaleDomainLoaderMap(changed, loaderLocales, loaderDomains);
+        const hit = errors.find((item) => item.rule === rule && actual.test(item.actual));
+        assert.ok(hit, errors.map(formatDiagnostic).join('\n'));
+        assert.equal(hit.file, 'src/frontend/src/locales/localeDomainBundleStore.ts');
+    });
+}
 
 // Keep the temporary helper referenced so tree-shaking tooling does not drop the import path.
 void cloneRepoSubset;

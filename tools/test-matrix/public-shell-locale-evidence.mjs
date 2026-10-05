@@ -10,6 +10,11 @@ import {
     sortedUnique
 } from './public-shell-locale-gate.mjs';
 
+const {
+    assertBrowserPlanActualMatch,
+    assertBrowserRenderingObservation
+} = await import(new URL('../test/playwright-browser-identity.mjs', import.meta.url));
+
 export class PublicShellLocaleEvidenceError extends Error
 {
     constructor(message, details = {})
@@ -131,6 +136,192 @@ export function publicShellLocaleIdentity(matrix, buildDigest, dynamic = null)
     return identity;
 }
 
+function rootBindingKeys(value, fields, label)
+{
+    if (!value || typeof value !== 'object' || Array.isArray(value)
+        || ![Object.prototype, null].includes(Object.getPrototypeOf(value)))
+    {
+        reject(`root binding ${label} must be a JSON object`, { code: 'root-binding' });
+    }
+    exactKeys(value, fields, `root binding ${label}`, { code: 'root-binding' });
+}
+
+function rootBindingJson(value, ancestors = new Set())
+{
+    if (value === null || ['string', 'boolean'].includes(typeof value))
+    {
+        return;
+    }
+    if (typeof value === 'number' && Number.isFinite(value))
+    {
+        return;
+    }
+    if (!value || typeof value !== 'object' || ancestors.has(value)
+        || (!Array.isArray(value) && ![Object.prototype, null].includes(Object.getPrototypeOf(value))))
+    {
+        reject('root binding must contain only serializable JSON values', { code: 'root-binding' });
+    }
+    const descriptors = Object.getOwnPropertyDescriptors(value);
+    const keys = Reflect.ownKeys(value).filter((key) => !(Array.isArray(value) && key === 'length'));
+    if ((Array.isArray(value) && keys.length !== value.length)
+        || keys.some((key) => typeof key !== 'string' || !descriptors[key].enumerable
+            || !Object.hasOwn(descriptors[key], 'value')))
+    {
+        reject('root binding cannot contain hidden fields or accessors', { code: 'root-binding' });
+    }
+    ancestors.add(value);
+    for (const key of keys)
+    {
+        rootBindingJson(descriptors[key].value, ancestors);
+    }
+    ancestors.delete(value);
+}
+
+function rootBindingBrowser(plan, actual)
+{
+    const fields = ['schema', 'executionClass', 'evidenceClass', 'qualificationEligible', 'managedExecutable',
+        'browserName', 'browserVersion', 'revision', 'executablePath', 'executableSha256',
+        'playwright', 'launchOptions', 'rendering', 'contentDigest'];
+    rootBindingKeys(plan, fields, 'plan');
+    rootBindingKeys(actual, [...fields, 'planDigest', 'renderingObservation'], 'actual');
+    rootBindingKeys(plan.playwright, ['package', 'version', 'packageDigest', 'browserCatalogDigest'], 'playwright');
+    for (const field of ['browserVersion', 'revision', 'executablePath', 'executableSha256'])
+    {
+        nonEmptyString(plan[field], `root binding plan.${field}`);
+    }
+    for (const field of ['package', 'version'])
+    {
+        nonEmptyString(plan.playwright[field], `root binding playwright.${field}`);
+    }
+    for (const field of ['packageDigest', 'browserCatalogDigest'])
+    {
+        digest(plan.playwright[field], `root binding playwright.${field}`);
+    }
+    rootBindingKeys(plan.launchOptions, ['headless', 'executablePath', 'args'], 'launch options');
+    rootBindingKeys(plan.rendering, ['fontSetDigest', 'localeDataDigest', 'locale', 'deviceScaleFactor',
+        'renderingMode', 'colorScheme', 'gpuMode'], 'rendering');
+    rootBindingKeys(actual.renderingObservation, ['locale', 'deviceScaleFactor', 'colorScheme', 'renderer'], 'rendering observation');
+    if (plan.browserName !== 'chromium' || plan.evidenceClass !== 'browser-contract'
+        || actual.schema !== 'fsusblog.playwright-browser-actual.v1'
+        || plan.playwright.package !== '@playwright/test' || plan.launchOptions.headless !== true
+        || plan.launchOptions.executablePath !== plan.executablePath
+        || !Array.isArray(plan.launchOptions.args)
+        || plan.launchOptions.args.some((arg) => typeof arg !== 'string' || !arg.trim())
+        || new Set(plan.launchOptions.args).size !== plan.launchOptions.args.length)
+    {
+        reject('root binding browser plan or actual is invalid', { code: 'root-binding' });
+    }
+    const { contentDigest, ...body } = actual;
+    if (contentDigest !== `sha256:${gateDigest(body)}`)
+    {
+        reject('root binding actual digest mismatch', { code: 'root-binding' });
+    }
+    try
+    {
+        // These existing validators are pure. Managed policy/catalog/binary I/O
+        // and the actual launch remain with the Root browser owner.
+        assertBrowserPlanActualMatch(plan, actual);
+        assertBrowserRenderingObservation(plan, actual.renderingObservation);
+    }
+    catch (error)
+    {
+        reject(`root binding browser identity is invalid: ${error.message}`, { code: 'root-binding' });
+    }
+}
+
+/**
+ * Derive caller-owned identity from a closed, serializable Root binding.
+ * This pure mapping neither reopens refs nor proves a launch or raw qualification.
+ * Root supplies it only after the owned launch and rendering observation resolve.
+ */
+export function derivePublicShellLocaleRootIdentity(matrix, binding)
+{
+    rootBindingJson(binding);
+    rootBindingKeys(binding, ['schema', 'matrixDigest', 'sourceState', 'buildDigest', 'identity', 'preparation',
+        'resources', 'runtimeId', 'fixtureReceiptDigest', 'plan', 'actual', 'launchOrdinal', 'refs'], 'body');
+    rootBindingKeys(binding.sourceState, ['commit', 'worktreeFingerprint'], 'source');
+    rootBindingKeys(binding.identity, ['commit', 'runId', 'laneId', 'namespace'], 'identity');
+    rootBindingKeys(binding.preparation, ['id', 'startedAt'], 'preparation');
+    rootBindingKeys(binding.resources, ['fixtureRoot', 'databaseInstance', 'databaseSchema', 'redisInstance', 'redisNamespace'], 'resources');
+    digest(binding.matrixDigest, 'root binding matrixDigest');
+    digest(binding.buildDigest, 'root binding buildDigest');
+    digest(binding.fixtureReceiptDigest, 'root binding fixtureReceiptDigest');
+    digest(binding.sourceState.worktreeFingerprint, 'root binding source fingerprint');
+    if (binding.schema !== 'fsusblog.public-shell-locale-root-binding.v1'
+        || matrix?.schema !== 'fsusblog.public-shell-locale-matrix.v1'
+        || binding.matrixDigest !== matrix.contentDigest
+        || typeof binding.sourceState.commit !== 'string' || !/^[a-f0-9]{40}$/u.test(binding.sourceState.commit)
+        || binding.sourceState.commit !== matrix.identity?.sourceCommit
+        || binding.sourceState.worktreeFingerprint !== matrix.identity?.worktreeFingerprint
+        || binding.identity.commit !== binding.sourceState.commit || binding.launchOrdinal !== 1)
+    {
+        reject('root binding schema, matrix, source or launch ordinal mismatch', { code: 'root-binding' });
+    }
+    for (const field of ['runId', 'laneId', 'namespace'])
+    {
+        if (typeof binding.identity[field] !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(binding.identity[field]))
+        {
+            reject(`root binding identity.${field} is invalid`, { code: 'root-binding' });
+        }
+    }
+    nonEmptyString(binding.runtimeId, 'root binding runtimeId');
+    if (!/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(binding.runtimeId))
+    {
+        reject('root binding runtimeId is not a canonical runtime run ID', { code: 'root-binding' });
+    }
+    if (typeof binding.preparation.id !== 'string'
+        || !/^[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}$/u.test(binding.preparation.id)
+        || typeof binding.preparation.startedAt !== 'string' || !Number.isFinite(Date.parse(binding.preparation.startedAt))
+        || new Date(binding.preparation.startedAt).toISOString() !== binding.preparation.startedAt)
+    {
+        reject('root binding preparation is invalid', { code: 'root-binding' });
+    }
+    for (const [field, value] of Object.entries(binding.resources))
+    {
+        nonEmptyString(value, `root binding resources.${field}`);
+    }
+    if (!path.isAbsolute(binding.resources.fixtureRoot) || path.resolve(binding.resources.fixtureRoot) !== binding.resources.fixtureRoot)
+    {
+        reject('root binding fixture root must be an absolute normalized path', { code: 'root-binding' });
+    }
+    const roles = ['provider-state', 'fixture-manifest', 'prepare-state', 'fixture-receipt',
+        'build-receipt', 'browser-plan', 'browser-actual', 'cookie-source'];
+    if (!Array.isArray(binding.refs) || binding.refs.length !== roles.length)
+    {
+        reject('root binding requires exactly eight authority refs', { code: 'root-binding' });
+    }
+    const seenRoles = new Set();
+    const seenPaths = new Set();
+    const prefix = `.tmp/browser-contract/runs/${binding.identity.namespace}/bindings/${binding.preparation.id}/`;
+    for (const ref of binding.refs)
+    {
+        rootBindingKeys(ref, ['role', 'path', 'digest'], 'ref');
+        if (!roles.includes(ref.role) || seenRoles.has(ref.role) || typeof ref.path !== 'string'
+            || !ref.path.startsWith(prefix) || ref.path.length === prefix.length
+            || ref.path.includes('\\') || ref.path.includes('\0')
+            || ref.path.split('/').some((segment) => !segment || segment === '.' || segment === '..')
+            || seenPaths.has(ref.path))
+        {
+            reject('root binding ref role or path is invalid or duplicate', { code: 'root-binding' });
+        }
+        digest(ref.digest, 'root binding ref digest');
+        seenRoles.add(ref.role);
+        seenPaths.add(ref.path);
+    }
+    rootBindingBrowser(binding.plan, binding.actual);
+    const fixtureId = gateDigest({
+        fixtureReceiptDigest: binding.fixtureReceiptDigest, preparation: binding.preparation,
+        sourceState: binding.sourceState, buildDigest: binding.buildDigest, runtimeId: binding.runtimeId,
+        identity: binding.identity, resources: binding.resources
+    });
+    const browserId = gateDigest({
+        fixtureId, runtimeId: binding.runtimeId, preparation: binding.preparation,
+        sourceState: binding.sourceState, buildDigest: binding.buildDigest,
+        planDigest: binding.plan.contentDigest, actualDigest: binding.actual.contentDigest, ordinal: binding.launchOrdinal
+    });
+    return publicShellLocaleIdentity(matrix, binding.buildDigest, { runtimeId: binding.runtimeId, fixtureId, browserId });
+}
+
 function validateIdentity(identity, expected, sceneId)
 {
     if (!identity || typeof identity !== 'object' || Array.isArray(identity))
@@ -173,28 +364,35 @@ function validateRefs(refs, sceneId)
     }
 }
 
-function validateObserved(scene, observed, sceneId, localeCodes)
-{
-    if (!observed || typeof observed !== 'object' || Array.isArray(observed))
-    {
-        reject('sub-result observed evidence is missing', { code: 'observed-missing', sceneId });
-    }
-    exactKeys(observed, [
-        'locale', 'uiLocale', 'source', 'route', 'stage', 'copyKeys', 'requiredDomains', 'fontFaceIds',
-        'selectorLocales', 'network', 'commitGenerations', 'geometry', 'preference', 'failureRecovery',
-        'consoleErrors', 'warnings', 'notObserved', 'issues'
-    ], 'sub-result observed evidence', { code: 'unsupported-observation', sceneId });
-    equal(observed.locale, scene.locale, 'observed.locale', { code: 'observed-locale', sceneId });
-    equal(observed.uiLocale, scene.transition?.expectedUiLocale ?? scene.locale, 'observed.uiLocale', { code: 'observed-ui-locale', sceneId });
-    equal(observed.source, scene.source, 'observed.source', { code: 'observed-source', sceneId });
-    equal(observed.route, scene.route, 'observed.route', { code: 'observed-route', sceneId });
-    equal(observed.stage, scene.stage, 'observed.stage', { code: 'observed-stage', sceneId });
-    equal(observed.copyKeys, scene.expectedKeys, 'observed.copyKeys', { code: 'copy-key-mismatch', sceneId });
-    equal(observed.requiredDomains, scene.requiredDomains, 'observed.requiredDomains', { code: 'domain-mismatch', sceneId });
-    equal(observed.fontFaceIds, scene.requiredFont.faceIds, 'observed.fontFaceIds', { code: 'font-mismatch', sceneId });
-    equal(observed.selectorLocales, localeCodes, 'observed.selectorLocales', { code: 'selector-mismatch', sceneId });
+const notApplicableEvidence = Object.freeze({ applicable: false, reason: 'not-required-by-canonical-scene' });
+const firstResponseApplicability = Object.freeze({
+    network: false, commitGenerations: false, geometry: false, preference: false, failureRecovery: false
+});
+const sceneStageContracts = Object.freeze([
+    { issue: 2083, stages: ['first-response'], applicability: firstResponseApplicability },
+    { issue: 2084, stages: ['first-html', 'hydration-start', 'interactive-ready', 'selector-open'],
+        applicability: Object.freeze({ ...firstResponseApplicability, geometry: true }) },
+    { issue: 2085, stages: ['initial-network'],
+        applicability: Object.freeze({ ...firstResponseApplicability, network: true }) },
+    { issue: 2086, stages: ['preparing', 'commit', 'post-commit', 'spa-navigation', 'refresh', 'back-forward', 'latest-wins'],
+        applicability: Object.freeze({ network: true, commitGenerations: true, geometry: true, preference: true, failureRecovery: false }) },
+    { issue: 2087, stages: ['domain-failure', 'font-failure', 'preference-failure', 'revision-conflict', 'artifact-invalid', 'superseded-failure', 'retry'],
+        applicability: Object.freeze({ network: true, commitGenerations: true, geometry: true, preference: true, failureRecovery: true }) }
+]);
 
-    const network = observed.network;
+/** Applicability is derived from the canonical scene, never an observation's opt-out flag. */
+export function publicShellLocaleStageApplicability(scene)
+{
+    const contract = sceneStageContracts.find((item) => item.issue === scene?.issue && item.stages.includes(scene?.stage));
+    if (!contract)
+    {
+        reject('canonical scene has an unsupported issue/stage combination', { code: 'unsupported-stage', sceneId: scene?.id });
+    }
+    return contract.applicability;
+}
+
+function validateNetworkEvidence(scene, network, sceneId)
+{
     exactKeys(network, [
         'checked', 'domainSet', 'fontSet', 'localeSet', 'includeCacheAndPreload',
         'businessDataReRequests', 'requestCounts'
@@ -218,8 +416,10 @@ function validateObserved(scene, observed, sceneId, localeCodes)
     {
         integer(value, `network.requestCounts.${key}`, { code: 'request-counts-invalid', sceneId });
     }
+}
 
-    const generations = observed.commitGenerations;
+function validateGenerationEvidence(_scene, generations, sceneId)
+{
     exactKeys(generations, ['sameRun', 'document', 'locale', 'font', 'preference'],
         'sub-result commit generation evidence', { code: 'unsupported-generation-field', sceneId });
     if (!generations || generations.sameRun !== true)
@@ -230,25 +430,75 @@ function validateObserved(scene, observed, sceneId, localeCodes)
     {
         integer(generations[key], `commitGenerations.${key}`, { code: 'generation-invalid', sceneId });
     }
+}
 
-    exactKeys(observed.geometry, ['inspected', 'ref', 'viewport', 'layoutStable'],
+function validateGeometryEvidence(scene, geometry, sceneId)
+{
+    exactKeys(geometry, ['inspected', 'ref', 'viewport', 'layoutStable'],
         'sub-result geometry evidence', { code: 'unsupported-geometry-field', sceneId });
-    if (observed.geometry?.inspected !== true || observed.geometry.ref !== scene.geometryRef)
+    if (geometry?.inspected !== true || geometry.ref !== scene.geometryRef)
     {
         reject('geometry evidence is missing or not bound to the matrix', { code: 'geometry-not-observed', sceneId });
     }
-    equal(observed.geometry.viewport, scene.viewport, 'observed.geometry.viewport', { code: 'geometry-mismatch', sceneId });
-    exactKeys(observed.preference, ['checked', 'persistenceChecked', 'state'],
+    equal(geometry.viewport, scene.viewport, 'observed.geometry.viewport', { code: 'geometry-mismatch', sceneId });
+}
+
+function validatePreferenceEvidence(_scene, preference, sceneId)
+{
+    exactKeys(preference, ['checked', 'persistenceChecked', 'state'],
         'sub-result preference evidence', { code: 'unsupported-preference-field', sceneId });
-    if (observed.preference?.checked !== true || observed.preference.persistenceChecked !== true)
+    if (preference?.checked !== true || preference.persistenceChecked !== true)
     {
         reject('preference/persistence evidence is missing', { code: 'preference-not-observed', sceneId });
     }
-    exactKeys(observed.failureRecovery, ['checked', 'recoveryObserved', 'state'],
+}
+
+function validateFailureRecoveryEvidence(_scene, failureRecovery, sceneId)
+{
+    exactKeys(failureRecovery, ['checked', 'recoveryObserved', 'state'],
         'sub-result failure/recovery evidence', { code: 'unsupported-failure-field', sceneId });
-    if (observed.failureRecovery?.checked !== true || observed.failureRecovery.recoveryObserved !== true)
+    if (failureRecovery?.checked !== true || failureRecovery.recoveryObserved !== true)
     {
         reject('failure/recovery evidence is missing', { code: 'failure-recovery-not-observed', sceneId });
+    }
+}
+
+function validateObserved(scene, observed, sceneId, localeCodes)
+{
+    const applicability = publicShellLocaleStageApplicability(scene);
+    if (!observed || typeof observed !== 'object' || Array.isArray(observed))
+    {
+        reject('sub-result observed evidence is missing', { code: 'observed-missing', sceneId });
+    }
+    exactKeys(observed, [
+        'locale', 'uiLocale', 'source', 'route', 'stage', 'copyKeys', 'requiredDomains', 'fontFaceIds',
+        'selectorLocales', 'network', 'commitGenerations', 'geometry', 'preference', 'failureRecovery',
+        'consoleErrors', 'warnings', 'notObserved', 'issues'
+    ], 'sub-result observed evidence', { code: 'unsupported-observation', sceneId });
+    equal(observed.locale, scene.locale, 'observed.locale', { code: 'observed-locale', sceneId });
+    equal(observed.uiLocale, scene.transition?.expectedUiLocale ?? scene.locale, 'observed.uiLocale', { code: 'observed-ui-locale', sceneId });
+    equal(observed.source, scene.source, 'observed.source', { code: 'observed-source', sceneId });
+    equal(observed.route, scene.route, 'observed.route', { code: 'observed-route', sceneId });
+    equal(observed.stage, scene.stage, 'observed.stage', { code: 'observed-stage', sceneId });
+    equal(observed.copyKeys, scene.expectedKeys, 'observed.copyKeys', { code: 'copy-key-mismatch', sceneId });
+    equal(observed.requiredDomains, scene.requiredDomains, 'observed.requiredDomains', { code: 'domain-mismatch', sceneId });
+    equal(observed.fontFaceIds, scene.requiredFont.faceIds, 'observed.fontFaceIds', { code: 'font-mismatch', sceneId });
+    equal(observed.selectorLocales, localeCodes, 'observed.selectorLocales', { code: 'selector-mismatch', sceneId });
+    for (const [field, validate] of [
+        ['network', validateNetworkEvidence], ['commitGenerations', validateGenerationEvidence],
+        ['geometry', validateGeometryEvidence], ['preference', validatePreferenceEvidence],
+        ['failureRecovery', validateFailureRecoveryEvidence]
+    ])
+    {
+        if (applicability[field])
+        {
+            validate(scene, observed[field], sceneId);
+        }
+        else
+        {
+            equal(observed[field], notApplicableEvidence, `observed.${field} non-applicable evidence`,
+                { code: 'non-applicable-evidence', sceneId });
+        }
     }
     if (!Array.isArray(observed.consoleErrors) || observed.consoleErrors.length !== 0)
     {
@@ -268,8 +518,14 @@ function validateObserved(scene, observed, sceneId, localeCodes)
     }
 }
 
-export function validatePublicShellLocaleSubResults({ matrix, results, buildDigest })
+export function validatePublicShellLocaleSubResults({ matrix, results, buildDigest, identity })
 {
+    if (!identity)
+    {
+        reject('current caller expected identity is required', { code: 'caller-identity-missing' });
+    }
+    const expectedIdentity = publicShellLocaleIdentity(matrix, buildDigest, identity);
+    equal(identity, expectedIdentity, 'caller identity', { code: 'caller-identity-invalid' });
     if (!Array.isArray(results))
     {
         reject('sub-results must be an array', { code: 'results-missing' });
@@ -277,7 +533,6 @@ export function validatePublicShellLocaleSubResults({ matrix, results, buildDige
     const required = new Map(matrix.scenes.map((scene) => [scene.id, scene]));
     const seen = new Set();
     const localeCodes = matrix.locales.map((locale) => locale.code);
-    let identity = null;
     for (const result of results)
     {
         const sceneId = result?.scene?.id ?? null;
@@ -315,12 +570,7 @@ export function validatePublicShellLocaleSubResults({ matrix, results, buildDige
         {
             reject('sub-result content digest mismatch', { code: 'sub-result-digest', sceneId, rawRefs: result.refs });
         }
-        const expectedIdentity = publicShellLocaleIdentity(matrix, buildDigest, identity ?? result.identity);
         validateIdentity(result.identity, expectedIdentity, sceneId);
-        if (identity === null)
-        {
-            identity = result.identity;
-        }
         validateObserved(scene, result.observed, sceneId, localeCodes);
     }
     const requiredIds = [...required.keys()].sort();

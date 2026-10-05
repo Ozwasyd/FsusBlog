@@ -14,38 +14,41 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { xunitTestProjects } from './adapters.mjs';
 import { DEFAULT_ARTIFACT_PATH, isInventoryStale } from './api.mjs';
 import { canonicalStringify, discoverTestInventory } from './discovery.mjs';
 import { validateInventoryArtifact } from './schema.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
-const backendTestProject = 'tests/backend/FsusBlog.Server.Tests.csproj';
 
 function prepareXunitCompileContext()
 {
-    const result = spawnSync(
-        'dotnet',
-        [
-            'build',
-            path.join(root, backendTestProject),
-            '--configuration',
-            'Debug',
-            '--nologo',
-            '--verbosity',
-            'quiet'
-        ],
-        { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
-    );
-    if (result.status !== 0)
+    for (const { project } of xunitTestProjects)
     {
-        const detail = String(result.stderr || result.stdout || result.error?.message || '')
-            .trim()
-            .split(/\r?\n/u)
-            .slice(-20)
-            .join('\n');
-        throw new Error(
-            `canonical xUnit compile context build failed (exit ${result.status ?? 'spawn'}): ${detail}`
+        const result = spawnSync(
+            'dotnet',
+            [
+                'build',
+                path.join(root, project),
+                '--configuration',
+                'Debug',
+                '--nologo',
+                '--verbosity',
+                'quiet'
+            ],
+            { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
         );
+        if (result.status !== 0)
+        {
+            const detail = String(result.stderr || result.stdout || result.error?.message || '')
+                .trim()
+                .split(/\r?\n/u)
+                .slice(-20)
+                .join('\n');
+            throw new Error(
+                `canonical xUnit compile context build failed for ${project} (exit ${result.status ?? 'spawn'}): ${detail}`
+            );
+        }
     }
 }
 

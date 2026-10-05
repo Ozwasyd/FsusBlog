@@ -80,7 +80,7 @@ for (const [label, mutate] of [
     ['auth action language', (value) => ({ ...value, authAction: { ...value.authAction, text: 'wrong-auth' } })],
     ['390 overlap', (value) => ({
         ...value,
-        geometry: { ...value.geometry, brand: { ...value.geometry.brand, x: 0 } }
+        geometry: { ...value.geometry, brand: { ...value.geometry.brand, x: 96 } }
     })],
     ['geometry shift', (value) => ({
         ...value,

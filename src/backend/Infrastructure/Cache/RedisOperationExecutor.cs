@@ -64,6 +64,8 @@ public sealed class RedisOperationExecutor(
 
     private readonly int[] _consecutiveFailures = new int[Enum.GetValues<RedisOperationClass>().Length];
     private readonly long[] _openUntilTimestamp = new long[Enum.GetValues<RedisOperationClass>().Length];
+    private long _diagnosticIdentity;
+    internal long DiagnosticIdentity => Volatile.Read(ref _diagnosticIdentity);
     private readonly SemaphoreSlim[] _operationSlots = Enum.GetValues<RedisOperationClass>()
         .Select(operationClass =>
         {
@@ -93,9 +95,12 @@ public sealed class RedisOperationExecutor(
         int circuitIndex = (int)definition.OperationClass;
         long startedAt = Stopwatch.GetTimestamp();
         TagList tags = CreateTags(definition, budget);
+        RedisOperationDiagnosticCall diagnosticCall = RedisOperationFailureDiagnostics.Begin(ref _diagnosticIdentity, startedAt);
 
         if (IsCircuitOpen(circuitIndex))
         {
+            ObserveFailure(diagnosticCall, definition, budget, RedisOperationDiagnosticStage.CircuitEntry,
+                0, RedisOperationFailureKind.CircuitOpen, RedisOperationDiagnosticDisposition.Rejected, null);
             s_circuitState.Record(1, tags);
             s_fallbackCount.Add(1, tags);
             throw CreateUnavailableException(
@@ -118,14 +123,18 @@ public sealed class RedisOperationExecutor(
                 await operationSlots.WaitAsync(deadline.Token).ConfigureAwait(false);
                 slotAcquired = true;
             }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
             {
+                ObserveFailure(diagnosticCall, definition, budget, RedisOperationDiagnosticStage.Queue,
+                    0, null, RedisOperationDiagnosticDisposition.CallerCancellation, exception);
                 s_cancelCount.Add(1, tags);
                 s_endToEndTime.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds, tags);
                 throw;
             }
             catch (OperationCanceledException exception) when (deadline.IsCancellationRequested)
             {
+                ObserveFailure(diagnosticCall, definition, budget, RedisOperationDiagnosticStage.Queue,
+                    0, RedisOperationFailureKind.CommandTimeout, RedisOperationDiagnosticDisposition.Terminal, exception);
                 s_queueTime.Record(Stopwatch.GetElapsedTime(queueStartedAt).TotalMilliseconds, tags);
                 s_timeoutCount.Add(1, tags);
                 OpenCircuitAfterFailure(circuitIndex, budget);
@@ -141,6 +150,8 @@ public sealed class RedisOperationExecutor(
             s_queueTime.Record(Stopwatch.GetElapsedTime(queueStartedAt).TotalMilliseconds, tags);
             if (IsCircuitOpen(circuitIndex))
             {
+                ObserveFailure(diagnosticCall, definition, budget, RedisOperationDiagnosticStage.CircuitAfterQueue,
+                    0, RedisOperationFailureKind.CircuitOpen, RedisOperationDiagnosticDisposition.Rejected, null);
                 s_circuitState.Record(1, tags);
                 s_fallbackCount.Add(1, tags);
                 throw CreateUnavailableException(
@@ -154,6 +165,7 @@ public sealed class RedisOperationExecutor(
             for (int attempt = 0; attempt < attempts; attempt++)
             {
                 cancellationToken.ThrowIfCancellationRequested();
+                RedisOperationDiagnosticStage diagnosticStage = RedisOperationDiagnosticStage.Connection;
                 try
                 {
                     IConnectionMultiplexer multiplexer = await connectionProvider
@@ -162,6 +174,7 @@ public sealed class RedisOperationExecutor(
                         .ConfigureAwait(false);
 
                     long commandStartedAt = Stopwatch.GetTimestamp();
+                    diagnosticStage = RedisOperationDiagnosticStage.Command;
                     s_commandCount.Add(1, tags);
                     Task<T> pending = command(multiplexer, deadline.Token);
                     T result = await pending
@@ -172,8 +185,10 @@ public sealed class RedisOperationExecutor(
                     Interlocked.Exchange(ref _consecutiveFailures[circuitIndex], 0);
                     return result;
                 }
-                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                catch (OperationCanceledException exception) when (cancellationToken.IsCancellationRequested)
                 {
+                    ObserveFailure(diagnosticCall, definition, budget, diagnosticStage,
+                        attempt + 1, null, RedisOperationDiagnosticDisposition.CallerCancellation, exception);
                     s_cancelCount.Add(1, tags);
                     s_endToEndTime.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds, tags);
                     throw;
@@ -191,9 +206,15 @@ public sealed class RedisOperationExecutor(
 
                     if (attempt + 1 < attempts && IsRetryable(exception))
                     {
+                        ObserveFailure(diagnosticCall, definition, budget, diagnosticStage,
+                            attempt + 1, timedOut ? RedisOperationFailureKind.CommandTimeout : null,
+                            RedisOperationDiagnosticDisposition.Retry, exception);
                         continue;
                     }
 
+                    ObserveFailure(diagnosticCall, definition, budget, diagnosticStage,
+                        attempt + 1, timedOut ? RedisOperationFailureKind.CommandTimeout : null,
+                        RedisOperationDiagnosticDisposition.Terminal, exception);
                     OpenCircuitAfterFailure(circuitIndex, budget);
                     s_fallbackCount.Add(1, tags);
                     s_endToEndTime.Record(Stopwatch.GetElapsedTime(startedAt).TotalMilliseconds, tags);
@@ -288,6 +309,49 @@ public sealed class RedisOperationExecutor(
                 && (serverException.Message.StartsWith("READONLY", StringComparison.OrdinalIgnoreCase)
                     || serverException.Message.StartsWith("MOVED", StringComparison.OrdinalIgnoreCase));
 
+    private static void ObserveFailure(
+        RedisOperationDiagnosticCall call,
+        RedisOperationPortDefinition definition,
+        RedisOperationBudget budget,
+        RedisOperationDiagnosticStage stage,
+        int attempt,
+        RedisOperationFailureKind? failureKind,
+        RedisOperationDiagnosticDisposition disposition,
+        Exception? exception)
+    {
+        // Only closed categories leave this boundary, never exception text or transport identities.
+        if (call.CallIdentity == 0 || !RedisOperationFailureDiagnostics.HasSubscribers)
+        {
+            return;
+        }
+
+        if (failureKind is null && disposition != RedisOperationDiagnosticDisposition.CallerCancellation)
+        {
+            // The original failure filter has already admitted provider InvalidOperationException values.
+            failureKind = exception is InvalidOperationException
+                ? RedisOperationFailureKind.ConnectionUnavailable : RedisOperationFailureKind.RedisFailure;
+        }
+
+        string category = exception switch
+        {
+            null => "none",
+            RedisTimeoutException => "redis-timeout",
+            RedisConnectionException => "redis-connection",
+            RedisServerException server when server.Message.StartsWith("READONLY", StringComparison.OrdinalIgnoreCase) => "redis-readonly",
+            RedisServerException server when server.Message.StartsWith("MOVED", StringComparison.OrdinalIgnoreCase) => "redis-moved",
+            RedisServerException => "redis-server",
+            TimeoutException => "timeout",
+            OperationCanceledException => "cancellation",
+            _ when failureKind == RedisOperationFailureKind.ConnectionUnavailable => "connection-provider-unavailable",
+            RedisException => "redis-other",
+            _ => "other"
+        };
+        ConnectionFailureType? connectionFailure = exception is RedisConnectionException connection
+            && Enum.IsDefined(connection.FailureType) ? connection.FailureType : null;
+        RedisOperationFailureDiagnostics.Publish(call, definition, budget, stage, attempt,
+            failureKind, disposition, category, connectionFailure);
+    }
+
     private static TagList CreateTags(
         RedisOperationPortDefinition definition,
         RedisOperationBudget budget)
@@ -315,5 +379,140 @@ public sealed class RedisOperationExecutor(
     private sealed class ImmediateConnectionProvider(IConnectionMultiplexer connection) : IRedisConnectionProvider
     {
         public Task<IConnectionMultiplexer> WaitAsync() => Task.FromResult(connection);
+    }
+}
+
+internal enum RedisOperationDiagnosticStage : byte
+{
+    Queue,
+    Connection,
+    Command,
+    CircuitEntry,
+    CircuitAfterQueue
+}
+
+internal enum RedisOperationDiagnosticDisposition : byte
+{
+    Retry,
+    Terminal,
+    CallerCancellation,
+    Rejected
+}
+
+internal readonly record struct RedisOperationDiagnosticCall(long ExecutorIdentity, long CallIdentity, long StartedTimestamp);
+
+internal sealed record RedisOperationFailureDiagnostic(
+    long Sequence,
+    long ObservedTimestamp,
+    double ElapsedMilliseconds,
+    long ExecutorIdentity,
+    long CallIdentity,
+    RedisOperationPort Port,
+    RedisOperationClass OperationClass,
+    string FailAction,
+    RedisOperationDiagnosticStage Stage,
+    int Attempt,
+    RedisOperationFailureKind? FailureKind,
+    RedisOperationDiagnosticDisposition Disposition,
+    string ExceptionCategory,
+    ConnectionFailureType? ConnectionFailure);
+
+// Internal diagnostic emission is independent of HTTP observations and cannot change execution decisions.
+internal static class RedisOperationFailureDiagnostics
+{
+    private const int MaximumSubscribers = 8;
+    private static readonly object s_gate = new();
+    private static Action<RedisOperationFailureDiagnostic>[] s_subscribers = [];
+    private static long s_executorIdentity;
+    private static long s_callIdentity;
+    private static long s_sequence;
+
+    internal static bool HasSubscribers => Volatile.Read(ref s_subscribers).Length != 0;
+
+    internal static RedisOperationDiagnosticCall Begin(ref long executorIdentity, long startedTimestamp)
+    {
+        if (!HasSubscribers)
+        {
+            return default;
+        }
+
+        if (Volatile.Read(ref executorIdentity) == 0)
+        {
+            Interlocked.CompareExchange(ref executorIdentity, Interlocked.Increment(ref s_executorIdentity), 0);
+        }
+
+        return new(executorIdentity, Interlocked.Increment(ref s_callIdentity), startedTimestamp);
+    }
+
+    internal static IDisposable Subscribe(Action<RedisOperationFailureDiagnostic> subscriber)
+    {
+        ArgumentNullException.ThrowIfNull(subscriber);
+        lock (s_gate)
+        {
+            if (s_subscribers.Length == MaximumSubscribers)
+            {
+                throw new InvalidOperationException("redis_diagnostic_subscriber_capacity");
+            }
+
+            Volatile.Write(ref s_subscribers, [.. s_subscribers, subscriber]);
+        }
+
+        return new Subscription(subscriber);
+    }
+
+    internal static void Publish(
+        RedisOperationDiagnosticCall call,
+        RedisOperationPortDefinition definition,
+        RedisOperationBudget budget,
+        RedisOperationDiagnosticStage stage,
+        int attempt,
+        RedisOperationFailureKind? failureKind,
+        RedisOperationDiagnosticDisposition disposition,
+        string category,
+        ConnectionFailureType? connectionFailure)
+    {
+        Action<RedisOperationFailureDiagnostic>[] subscribers = Volatile.Read(ref s_subscribers);
+        if (subscribers.Length == 0)
+        {
+            return;
+        }
+
+        long observedTimestamp = Stopwatch.GetTimestamp();
+        var observation = new RedisOperationFailureDiagnostic(
+            Interlocked.Increment(ref s_sequence), observedTimestamp,
+            Stopwatch.GetElapsedTime(call.StartedTimestamp, observedTimestamp).TotalMilliseconds,
+            call.ExecutorIdentity, call.CallIdentity, definition.Port, definition.OperationClass,
+            budget.FailAction, stage, attempt, failureKind, disposition, category, connectionFailure);
+        foreach (Action<RedisOperationFailureDiagnostic> subscriber in subscribers)
+        {
+            try
+            {
+                subscriber(observation);
+            }
+            catch (Exception)
+            {
+                // A diagnostic subscriber is not a business owner; its failure cannot replace the original result.
+            }
+        }
+    }
+
+    private sealed class Subscription(Action<RedisOperationFailureDiagnostic> subscriber) : IDisposable
+    {
+        private int _disposed;
+
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _disposed, 1) != 0)
+            {
+                return;
+            }
+
+            lock (s_gate)
+            {
+                var remaining = s_subscribers.ToList();
+                remaining.Remove(subscriber);
+                Volatile.Write(ref s_subscribers, remaining.ToArray());
+            }
+        }
     }
 }

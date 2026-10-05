@@ -13,11 +13,15 @@ const defaultPolicyPath = 'config/development/csharp-style-policy.json';
 const policySchema = 'fsusblog.csharp-style-policy.v1';
 const baselineSchema = 'fsusblog.csharp-style-baseline.v1';
 const validModes = new Set(['changed', 'full', 'strict-full']);
+const importCompatibilityFile = 'config/development/csharp-import-compatibility.json';
+const importCompatibilitySchema = 'fsusblog.csharp-import-compatibility.v1';
+const importCompatibilityOwner = 'tests/backend/Unit/RedisOperationExecutorTests.cs';
 
 let root = defaultRoot;
 let policy = null;
 let policyFile = null;
 let baseline = new Map();
+let importCompatibility = new Set();
 const failures = [];
 
 function fail(message)
@@ -594,15 +598,62 @@ function parseUsingDirective(value)
     return { namespace, sortKey: alias ?? namespace, rank, groupKey, rendered: value.trim() };
 }
 
-function compareUsingDirectives(left, right)
+function loadImportCompatibility()
 {
-    return left.rank - right.rank
+    const document = readJson(path.join(root, importCompatibilityFile), 'import compatibility declaration');
+    const exactKeys = (value, keys) => value !== null && typeof value === 'object'
+        && !Array.isArray(value) && Object.keys(value).sort().join('|') === keys.sort().join('|');
+    const entry = document?.entries?.[0];
+    if (!exactKeys(document, ['schema', 'entries']) || document.schema !== importCompatibilitySchema
+        || !Array.isArray(document.entries) || document.entries.length !== 1
+        || !exactKeys(entry, ['path', 'order', 'reason']) || entry.path !== importCompatibilityOwner
+        || entry.order !== 'system-third-party-fsusblog'
+        || typeof entry.reason !== 'string' || entry.reason.trim().length < 20)
+    {
+        throw new Error('import compatibility requires the sole exact owner, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
+    }
+    return new Set([entry.path]);
+}
+
+function usesImportCompatibility(file)
+{
+    if (!importCompatibility.has(file))
+    {
+        return false;
+    }
+    let directory = root;
+    const parts = file.split('/');
+    for (let index = 0; index < parts.length; index += 1)
+    {
+        const component = parts[index];
+        if (!fs.readdirSync(directory).includes(component))
+        {
+            throw new Error('import compatibility requires a regular canonical source with exact path spelling');
+        }
+        const target = path.join(directory, component);
+        const stat = fs.lstatSync(target);
+        if (stat.isSymbolicLink() || (index === parts.length - 1 ? !stat.isFile() : !stat.isDirectory()))
+        {
+            throw new Error('import compatibility requires a regular canonical source without symlink aliases');
+        }
+        directory = target;
+    }
+    return true;
+}
+
+function compareUsingDirectives(left, right, repositoryLast = false)
+{
+    // This exact-file compatibility changes only ordinary FsusBlog imports, not alias/static groups or other files.
+    const rank = (directive) => repositoryLast && directive.rank === 1 && directive.groupKey === 'FsusBlog'
+        ? 1.5 : directive.rank;
+    return rank(left) - rank(right)
     || left.groupKey.localeCompare(right.groupKey)
     || left.sortKey.localeCompare(right.sortKey);
 }
 
 function normalizeUsingDirectives(file)
 {
+    const repositoryLast = usesImportCompatibility(file);
     const absolute = path.join(root, file);
     const text = fs.readFileSync(absolute, 'utf8');
     const lines = text.split('\n');
@@ -626,7 +677,7 @@ function normalizeUsingDirectives(file)
     }
 
     const directives = indexes.map((index) => parseUsingDirective(lines[index]))
-        .sort(compareUsingDirectives);
+        .sort((left, right) => compareUsingDirectives(left, right, repositoryLast));
     const replacement = [];
     for (let index = 0; index < directives.length; index += 1)
     {
@@ -988,6 +1039,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         violations.push(makeViolation(file, 0, 'file-exists', file, 'selected C# file does not exist'));
         return violations;
     }
+    const repositoryLast = usesImportCompatibility(file);
     const buffer = fs.readFileSync(absolute);
     if (!isUtf8(buffer))
     {
@@ -1187,7 +1239,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
     {
         const previous = usings[index - 1];
         const current = usings[index];
-        if (compareUsingDirectives(current, previous) < 0)
+        if (compareUsingDirectives(current, previous, repositoryLast) < 0)
         {
             violations.push(makeViolation(file, current.line, 'using-order', current.namespace, 'using directives must place System first and sort namespaces within a group'));
         }
@@ -1406,6 +1458,7 @@ function main()
         return null;
     }
     validatePolicy();
+    importCompatibility = loadImportCompatibility();
 
     const exclusions = (policy.excludedPaths ?? []).map(globToRegExp);
     const xmlScopes = (policy.xmlDocumentation?.scopes ?? []).map(globToRegExp);

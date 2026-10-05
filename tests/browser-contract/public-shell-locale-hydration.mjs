@@ -20,6 +20,7 @@ function box(value, label)
     for (const key of ['x', 'y', 'width', 'height'])
     {
         assert.equal(typeof value[key], 'number', `hydration ${label}.${key} must be a number`);
+        assert.ok(Number.isFinite(value[key]), `hydration ${label}.${key} must be finite`);
     }
     assert.equal(typeof value.overflow, 'boolean', `hydration ${label}.overflow must be boolean`);
     assert.equal(value.overflow, false, `hydration ${label} overflowed`);
@@ -86,11 +87,13 @@ export function assertPublicShellLocaleHydration({ scene, copy, snapshots, conso
         equal(snapshot.authAction.key, `public.shell.${authKey}`, `${stage} auth action key`);
         equal(snapshot.authAction.text, copy[`public.shell.${authKey}`], `${stage} auth action copy`);
         exactKeys(snapshot.geometry, ['header', 'brand', 'nav', 'auth', 'selector', 'hitTargets'], `${stage} geometry`);
-        const boxes = ['header', 'brand', 'nav', 'auth', 'selector'].map((name) =>
+        for (const name of ['header', 'brand', 'nav', 'auth', 'selector'])
         {
             box(snapshot.geometry[name], `${stage}.${name}`);
-            return snapshot.geometry[name];
-        });
+        }
+        // Header is the enclosing layout, not a sibling control. Its legitimate
+        // intersection with descendants cannot establish a collision (#2084).
+        const boxes = ['brand', 'nav', 'auth', 'selector'].map((name) => snapshot.geometry[name]);
         for (let index = 0; index < boxes.length; index += 1)
         {
             for (let other = index + 1; other < boxes.length; other += 1)

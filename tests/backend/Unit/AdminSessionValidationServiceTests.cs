@@ -70,6 +70,32 @@ public sealed class AdminSessionValidationServiceTests
     }
 
     [Fact]
+    public async Task ValidateAsync_RejectsNonAdminPrincipalWhenInvoked()
+    {
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        var clock = new ManualTimeProvider(now);
+        AdminSessionProjection projection = CreateProjection(clock);
+        ApplyActive(projection, "sid", "token", now);
+        Assert.True(projection.MarkReady(1));
+        using AdminSessionTouchScheduler touches = CreateTouchScheduler(clock, capacity: 8, tracking: 8);
+        var service = new AdminSessionValidationService(projection, touches);
+        var principal = new ClaimsPrincipal(new ClaimsIdentity(
+            [new Claim(ClaimTypes.NameIdentifier, "1")], "test"));
+        AdminSessionProjectionSnapshot projectionBefore = projection.Snapshot();
+        AdminSessionTouchRuntimeSnapshot touchBefore = touches.Snapshot();
+
+        AdminSessionValidationResult result = await service.ValidateAsync(principal, "token", default);
+
+        Assert.False(result.IsValid);
+        Assert.Equal("admin_principal_required", result.Reason);
+        Assert.Equal(projectionBefore, projection.Snapshot());
+        Assert.Equal(touchBefore, touches.Snapshot());
+        Assert.Equal(0, touches.Snapshot().EnqueuedCount);
+        Assert.Equal(0, touches.Snapshot().QueueEntries);
+        Assert.Equal(0, touches.Snapshot().DbCommandCount);
+    }
+
+    [Fact]
     public async Task ValidateAsync_PreservesTokenExpiryAndPrincipalChecks()
     {
         DateTimeOffset now = DateTimeOffset.UtcNow;

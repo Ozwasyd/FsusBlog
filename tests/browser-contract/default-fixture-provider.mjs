@@ -8,12 +8,22 @@ import { chmod, copyFile, lstat, mkdir, readFile, rename, rm, writeFile } from '
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
+
+import {
+    closePublicShellLocaleSceneBindings,
+    preparePublicShellLocaleSceneBinding,
+    transitionPublicShellLocaleSceneBinding
+} from './fixture-lifecycle.mjs';
+import { originalCaptureLimits } from './public-shell-locale-lifecycle-evidence.mjs';
+import { createPublicShellLocaleMatrix } from './public-shell-locale-matrix.mjs';
 
 const { releaseProductionBuildConsumer } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
 const { executionServiceImageReference } = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
 const { loadTemporalContext } = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
 const { cleanupLocalRuntime } = await import(new URL('../../tools/test-matrix/local-runtime-cleanup.mjs', import.meta.url));
 const { readFixtureReceipt } = await import(new URL('../../tools/test-fixtures/receipt/fixture-receipt.mjs', import.meta.url));
+const { readPrivateJson, writePrivateJson: retainPrivateJson } = await import(new URL('../../tools/test-fixtures/receipt/private-io.mjs', import.meta.url));
 const responseSchema = 'fsusblog.browser-contract-fixture-provider-response.v1';
 const requestSchema = 'fsusblog.browser-contract-fixture-provider-request.v1';
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -87,19 +97,6 @@ function parseEnvFile(file)
             return separator > 0 ? [line.slice(0, separator), line.slice(separator + 1)] : null;
         })
         .filter(Boolean)));
-}
-
-function decodePublicFixture(raw)
-{
-    return Object.fromEntries(raw.split(/\r?\n/u).map((line) =>
-    {
-        const separator = line.indexOf('\t');
-        if (separator < 1)
-        {
-            return null;
-        }
-        return [line.slice(0, separator), Buffer.from(line.slice(separator + 1), 'base64url').toString('utf8')];
-    }).filter(Boolean));
 }
 
 async function readRequest()
@@ -1198,6 +1195,204 @@ async function pendingComment(request)
     };
 }
 
+/** Resolve scene inputs only from the current matrix and already verified official preparation. */
+export async function resolvePublicShellLocaleSceneAuthority(request)
+{
+    const state = await readPreparedProviderState(request);
+    const matrix = await createPublicShellLocaleMatrix(repoRoot);
+    const scene = matrix.scenes.find((item) => item.id === request.sceneId);
+    if (!scene || matrix.identity.sourceCommit !== request.sourceState?.commit
+        || matrix.identity.worktreeFingerprint !== request.sourceState?.worktreeFingerprint)
+    {
+        fail('PublicShell scene is absent from the current matrix or source identity is stale');
+    }
+    const root = request.resources.fixtureRoot;
+    const rawRefs = ['provider-state.json', 'contract-fixture.json', 'prepare-state.json', 'fixture-receipt.json']
+        .map((name) =>
+        {
+            const loaded = readPrivateJson(path.join(root, name), { label: `PublicShell ${name}` });
+            return { path: name, digest: loaded.contentDigest, document: loaded.document };
+        });
+    const manifest = rawRefs.find((item) => item.path === 'contract-fixture.json').document;
+    const receipt = readFixtureReceipt(path.join(root, 'fixture-receipt.json'), { requireVerified: true });
+    if (manifest.sealed !== true || manifest.schema !== 'fsusblog.browser-contract-fixture.v2'
+        || !isDeepStrictEqual(manifest.identity, request.identity)
+        || !isDeepStrictEqual(manifest.preparation, request.preparation)
+        || !isDeepStrictEqual(manifest.sourceState, request.sourceState)
+        || manifest.buildIdentity?.receiptContentDigest !== request.build?.receiptContentDigest
+        || !/^(?:sha256:)?[a-f0-9]{64}$/u.test(String(request.build?.receiptContentDigest ?? ''))
+        || manifest.baseUrl !== state.runtime.frontendUrl || manifest.backendUrl !== state.runtime.backendUrl
+        || manifest.transport?.testSessionHeader !== false
+        || receipt.executionIdentity?.runId !== state.runtimeRunId
+        || receipt.executionIdentity?.namespace !== request.identity.namespace
+        || !isDeepStrictEqual(receipt.executionIdentity?.source, request.sourceState)
+        || receipt.serviceIdentity?.databaseInstance !== request.resources.databaseInstance
+        || receipt.serviceIdentity?.redisInstance !== request.resources.redisInstance
+        || receipt.serviceIdentity?.redisNamespace !== request.resources.redisNamespace)
+    {
+        fail('PublicShell scene official fixture receipt/source/build/runtime owner mismatch');
+    }
+    for (const value of [state.runtime.frontendUrl, state.runtime.backendUrl])
+    {
+        if (!/^http:\/\/127\.0\.0\.1:[1-9][0-9]*$/u.test(value))
+        {
+            fail('PublicShell scene requires the dedicated canonical runtime URLs');
+        }
+    }
+    const cookieRef = 'src/backend/Infrastructure/PublicAot/LocalePreferenceCookieService.cs';
+    const cookieBytes = await readFile(path.join(repoRoot, cookieRef));
+    const cookieNames = [...cookieBytes.toString('utf8').matchAll(/public const string CookieName = "([^"]+)";/gu)];
+    const negotiation = matrix.negotiationCases.find((item) => item.id === scene.negotiationId);
+    if (cookieNames.length !== 1 || !negotiation)
+    {
+        fail('PublicShell scene negotiation/cookie production authority is ambiguous');
+    }
+    return {
+        scene,
+        authority: {
+            matrixDigest: matrix.contentDigest,
+            runtimeRunId: state.runtimeRunId,
+            runtime: { frontendUrl: state.runtime.frontendUrl, backendUrl: state.runtime.backendUrl },
+            fixtureReceiptDigest: receipt.receiptDigest,
+            inputs: {
+                viewport: scene.viewport, javaScriptEnabled: scene.issue !== 2083,
+                acceptLanguage: negotiation.header, cookie: negotiation.cookie,
+                cookieName: cookieNames[0][1]
+            },
+            rawRefs: [
+                ...rawRefs.map(({ path: refPath, digest }) => ({ path: refPath, digest })),
+                { path: cookieRef, digest: `sha256:${createHash('sha256').update(cookieBytes).digest('hex')}` }
+            ]
+        }
+    };
+}
+
+/** Build the local read request from already-verified fixture authority, not an observed response. */
+export function publicShellLocalePublishedArtifactRequest(request, authority)
+{
+    let base;
+    let selected;
+    try
+    {
+        base = new URL(authority.runtime.backendUrl);
+        selected = new URL(request.path, authority.runtime.frontendUrl);
+    }
+    catch
+    {
+        fail('published artifact read requires canonical owned runtime and route');
+    }
+    if (base.protocol !== 'http:' || base.hostname !== '127.0.0.1' || !base.port
+        || base.username || base.password || base.pathname !== '/' || base.search || base.hash
+        || typeof request.path !== 'string' || !request.path.startsWith('/')
+        || request.path !== selected.pathname || selected.origin !== authority.runtime.frontendUrl)
+    {
+        fail('published artifact read requires canonical owned runtime and route');
+    }
+    return {
+        url: new URL('/__local/public-content-fixture/published-artifact', base).href,
+        body: {
+            namespace: request.identity.namespace, runtimeRunId: authority.runtimeRunId,
+            sourceCommit: request.sourceState.commit, worktreeFingerprint: request.sourceState.worktreeFingerprint,
+            buildDigest: request.build.receiptContentDigest, path: request.path, locale: request.locale
+        },
+        headers: {
+            'Content-Type': 'application/json',
+            'X-Fsus-Local-Public-Content-Fixture-Secret': deriveLocalPublicContentFixtureSecret(request, authority.runtimeRunId),
+            'X-Fsus-Test-Namespace': request.identity.namespace,
+            'X-Fsus-Test-Run-Id': authority.runtimeRunId
+        }
+    };
+}
+
+/** Check this local producer's exact embedded JSON bytes; never reserialize the digest input. */
+export function validatePublicShellLocalePublishedArtifactResponse(bytes, selection, scene)
+{
+    if (!Buffer.isBuffer(bytes) || bytes.length > originalCaptureLimits.totalBytes)
+    {
+        fail('published artifact response exceeds original capture budget');
+    }
+    const raw = bytes.toString('utf8');
+    const marker = ',"contentDigest":"';
+    const boundary = raw.lastIndexOf(marker);
+    if (!Buffer.from(raw).equals(bytes) || !raw.startsWith('{"observation":') || boundary < 15)
+    {
+        fail('published artifact response differs from producer encoding');
+    }
+    const embedded = raw.slice('{"observation":'.length, boundary);
+    const digest = createHash('sha256').update(embedded).digest('hex');
+    if (raw.slice(boundary) !== `${marker}${digest}"}`)
+    {
+        fail('published artifact response embedded digest mismatch');
+    }
+    const observation = JSON.parse(embedded);
+    const owner = observation?.owner;
+    if (observation?.schema !== 'fsusblog.public-content-published-artifact-observation.v1'
+        || !owner || ['namespace', 'runtimeRunId', 'sourceCommit', 'worktreeFingerprint', 'buildDigest']
+        .some((key) => owner[key] !== selection.body[key])
+        || observation.route?.path !== selection.body.path || observation.route?.locale !== scene.locale
+        || observation.route?.kind !== scene.route || selection.body.locale !== scene.locale
+        || observation.publication?.source !== 'server-ssr'
+        || !Number.isSafeInteger(observation.publication?.generation) || observation.publication.generation < 0
+        || observation.originals?.length !== 1)
+    {
+        fail('published artifact response does not bind the selected current fixture');
+    }
+    const original = observation.originals[0];
+    if (original?.role !== 'published-artifact' || original.encoding !== 'base64'
+        || typeof original.content !== 'string' || !Number.isSafeInteger(original.bytes)
+        || original.bytes <= 0 || original.bytes > originalCaptureLimits.totalBytes)
+    {
+        fail('published artifact original is unavailable');
+    }
+    const body = Buffer.from(original.content, 'base64');
+    if (body.toString('base64') !== original.content || body.length !== original.bytes
+        || createHash('sha256').update(body).digest('hex') !== original.sha256)
+    {
+        fail('published artifact original bytes mismatch');
+    }
+    return observation;
+}
+
+/** Retain the independent cache read privately; provider stdout carries only its byte ref. */
+export async function readPublicShellLocalePublishedArtifact(request)
+{
+    const { scene, authority } = await resolvePublicShellLocaleSceneAuthority(request);
+    if (scene.issue !== 2083 || scene.stage !== 'first-response')
+    {
+        fail('published artifact read requires a current first-response scene');
+    }
+    const selection = publicShellLocalePublishedArtifactRequest({ ...request, locale: scene.locale }, authority);
+    const response = await fetch(selection.url, {
+        method: 'POST', headers: selection.headers, body: JSON.stringify(selection.body), redirect: 'error'
+    });
+    if (!response.ok || response.headers.get('content-type')?.split(';')[0].trim() !== 'application/json'
+        || response.headers.get('cache-control') !== 'private,no-store')
+    {
+        fail('published artifact local read was unavailable');
+    }
+    const chunks = [];
+    let byteLength = 0;
+    for await (const chunk of response.body)
+    {
+        byteLength += chunk.length;
+        if (byteLength > originalCaptureLimits.totalBytes)
+        {
+            fail('published artifact response exceeds original capture budget');
+        }
+        chunks.push(chunk);
+    }
+    const bytes = Buffer.concat(chunks, byteLength);
+    validatePublicShellLocalePublishedArtifactResponse(bytes, selection, scene);
+    const name = `published-artifact-${randomUUID()}.json`;
+    const retained = retainPrivateJson(path.join(request.resources.fixtureRoot, name), bytes.toString('utf8'), {
+        overwrite: false, label: 'published artifact original'
+    });
+    return {
+        sceneId: scene.id, matrixDigest: authority.matrixDigest, runtimeRunId: authority.runtimeRunId,
+        artifact: { path: name, digest: retained.contentDigest }
+    };
+}
+
 export async function retryVerifiedCleanup(operation, {
     attempts = 4,
     delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds))
@@ -1235,6 +1430,7 @@ async function respond(request)
             }
             if (request.phase === 'cleanup')
             {
+                await closePublicShellLocaleSceneBindings(request.resources.fixtureRoot, request);
                 return {
                     cleanup: await retryVerifiedCleanup(async () =>
                     {
@@ -1254,6 +1450,20 @@ async function respond(request)
             return { entity: await sessionEntity(request, 'user') };
         case 'createAdminSession':
             return { entity: await sessionEntity(request, 'admin') };
+        case 'preparePublicShellLocaleScene': {
+            const { scene, authority } = await resolvePublicShellLocaleSceneAuthority(request);
+            return { entity: await preparePublicShellLocaleSceneBinding(request, scene, authority) };
+        }
+        case 'readPublicShellLocaleAuthority': {
+            const { authority } = await resolvePublicShellLocaleSceneAuthority(request);
+            return { entity: authority };
+        }
+        case 'readPublicShellLocalePublishedArtifact':
+            return { entity: await readPublicShellLocalePublishedArtifact(request) };
+        case 'transitionPublicShellLocaleScene': {
+            const { authority } = await resolvePublicShellLocaleSceneAuthority(request);
+            return { entity: await transitionPublicShellLocaleSceneBinding(request, authority) };
+        }
         default:
             fail('fixture provider operation is unsupported');
     }
