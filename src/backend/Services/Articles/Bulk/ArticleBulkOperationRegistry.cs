@@ -287,13 +287,13 @@ internal static partial class ArticleBulkOperationRegistry
             resultKind,
             mutates);
 
-    [GeneratedRegex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[a-z][a-z0-9]*(?:[.-][a-z0-9]+)*\\z", RegexOptions.CultureInvariant)]
     private static partial Regex StableIdRegex();
 
-    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^[A-Za-z0-9][A-Za-z0-9._:-]{0,255}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex OpaqueIdRegex();
 
-    [GeneratedRegex("^sha256:[0-9a-f]{64}$", RegexOptions.CultureInvariant)]
+    [GeneratedRegex("^sha256:[0-9a-f]{64}\\z", RegexOptions.CultureInvariant)]
     private static partial Regex DigestRegex();
 }
 
