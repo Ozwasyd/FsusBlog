@@ -1,0 +1,49 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/api/schemas-and-errors.md"
+      ],
+      "reason": "Preserve caller-visible AEDS route, status, error-code, and wire-field spellings in canonical generated API facts."
+    },
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/backend/Infrastructure/Binary/BinaryEnvelopePolicy.cs",
+        "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs",
+        "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",
+        "src/backend/Infrastructure/Middlewares/ApiBinaryResponseMiddleware.cs",
+        "src/backend/Infrastructure/Middlewares/GlobalExceptionMiddleware.cs",
+        "src/backend/Infrastructure/NotificationStream/NotificationStreamHandler.cs",
+        "src/backend/Infrastructure/Results/AedsJsonResults.cs",
+        "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+        "src/backend/Infrastructure/Results/BinaryResults.cs",
+        "src/backend/Infrastructure/Results/EndpointFilterResults.cs",
+        "src/backend/Infrastructure/Results/MiddlewareResults.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.OperationsRoutes.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.WorkflowRoutes.cs",
+        "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AdminUsers.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousCredential.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.AnonymousGovernance.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Messages.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Subscriptions.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.System.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Telemetry.cs",
+        "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Uploads.cs",
+        "src/backend/Modules/Endpoints/ClusterMembershipEndpoints.cs",
+        "src/backend/Modules/Endpoints/SecurityEndpoints.cs",
+        "tools/contracts/lib/config-error-security-observation.mjs",
+        "tools/fact-extractors/config-error-security-policy/extract.mjs"
+      ],
+      "reason": "Preserve public HTTP, AEDS metadata, and process environment spellings while typed C# and JavaScript identifiers remain repository-style."
+    }
+  ]
+}

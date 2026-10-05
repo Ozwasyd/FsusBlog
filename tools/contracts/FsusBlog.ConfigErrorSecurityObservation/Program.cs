@@ -124,6 +124,7 @@ internal static class ConfigErrorSecurityObservationHost
                 ["configuration.allowed-values"] = configurationFacts["configuration.allowed-values"]!.DeepClone(),
                 ["configuration.required-production-values"] = configurationFacts["configuration.required-production-values"]!.DeepClone(),
                 ["error-codes.public"] = errorFacts["error-codes.public"]!.DeepClone(),
+                ["error-codes.status-mapping-keys"] = errorFacts["error-codes.status-mapping-keys"]!.DeepClone(),
                 ["error-codes.transport-mapping"] = errorFacts["error-codes.transport-mapping"]!.DeepClone(),
                 ["error-codes.domain"] = errorFacts["error-codes.domain"]!.DeepClone(),
                 ["security.challenge-kinds"] = securityFacts["security.challenge-kinds"]!.DeepClone(),
@@ -422,36 +423,60 @@ internal static class ConfigErrorSecurityObservationHost
         }
 
         var transport = new JsonObject();
-        // Status → ErrorCode authority from ApiErrorSemanticMapper (production mapper).
-        foreach ((int status, string label) in new (int, string)[]
-                 {
-                     (400, "400"),
-                     (401, "401"),
-                     (403, "403"),
-                     (404, "404"),
-                     (409, "409"),
-                     (423, "423"),
-                     (500, "500")
-                 })
+        IReadOnlyList<ApiErrorSemanticMapper.TransportMapping> mappings = ApiErrorSemanticMapper.TransportMappings;
+        IReadOnlyList<int> statusMappingKeys = ApiErrorSemanticMapper.StatusMappingKeys;
+        if (mappings.Count == 0)
         {
-            ErrorCode mapped = ApiErrorSemanticMapper.MapErrorCode(status);
-            transport[label] = new JsonObject
-            {
-                ["httpStatus"] = status,
-                ["errorCode"] = mapped.ToString(),
-                ["direction"] = "status-to-error-code"
-            };
+            failures.Add("public transport mappings must not be empty");
+        }
+        if (mappings.Select(static mapping => mapping.Id).Distinct().Count() != mappings.Count)
+        {
+            failures.Add("public transport mappings contain duplicate stable IDs");
+        }
+        if (mappings.Select(static mapping => (mapping.Kind, mapping.HttpStatus, mapping.ErrorCode)).Distinct().Count() != mappings.Count)
+        {
+            failures.Add("public transport mappings contain duplicate typed tuples");
+        }
+        int[] observedStatusKeys = mappings
+            .Select(static mapping => mapping.HttpStatus)
+            .Distinct()
+            .Order()
+            .ToArray();
+        if (!statusMappingKeys.SequenceEqual(observedStatusKeys))
+        {
+            failures.Add("public status mapping keys drift from transport mappings");
         }
 
-        // ErrorCode → Status authority.
-        foreach (ErrorCode code in Enum.GetValues<ErrorCode>().Where(static c => c != ErrorCode.None && c != ErrorCode.Unknown))
+        foreach (ApiErrorSemanticMapper.TransportMapping mapping in mappings)
         {
-            int status = ApiErrorSemanticMapper.MapStatusCode(ErrorDetail.Create(code, code.ToString()));
-            transport[$"code:{code}"] = new JsonObject
+            string mappingId = mapping.Id.ToString();
+            ApiErrorSemanticMapper.TransportMapping runtimeMapping = ApiErrorSemanticMapper.GetMapping(mapping.Id);
+            if (runtimeMapping != mapping)
             {
-                ["errorCode"] = code.ToString(),
-                ["httpStatus"] = status,
-                ["direction"] = "error-code-to-status"
+                failures.Add($"public transport mapping drift for {mappingId}");
+            }
+            string direction = mapping.Kind switch
+            {
+                ApiErrorTransportMappingKind.GenericStatusDefault => "status-to-error-code",
+                ApiErrorTransportMappingKind.ErrorCodeDefaultStatus => "error-code-to-status",
+                ApiErrorTransportMappingKind.OperationStatusPair => "operation-status-pair",
+                _ => throw new InvalidOperationException($"Unknown transport mapping kind {mapping.Kind}.")
+            };
+            string mappingKind = mapping.Kind switch
+            {
+                ApiErrorTransportMappingKind.GenericStatusDefault => "generic-status-default",
+                ApiErrorTransportMappingKind.ErrorCodeDefaultStatus => "error-code-default-status",
+                ApiErrorTransportMappingKind.OperationStatusPair => "operation-status-pair",
+                _ => throw new InvalidOperationException($"Unknown transport mapping kind {mapping.Kind}.")
+            };
+            transport[mappingId] = new JsonObject
+            {
+                ["mappingId"] = mappingId,
+                ["httpStatus"] = mapping.HttpStatus,
+                ["errorCode"] = mapping.ErrorCode.ToString(),
+                ["defaultMessage"] = mapping.DefaultMessage,
+                ["direction"] = direction,
+                ["mappingKind"] = mappingKind
             };
         }
 
@@ -481,6 +506,7 @@ internal static class ConfigErrorSecurityObservationHost
         return new JsonObject
         {
             ["error-codes.public"] = ToJsonArray(publicCodes),
+            ["error-codes.status-mapping-keys"] = ToJsonArray(statusMappingKeys),
             ["error-codes.transport-mapping"] = SortObject(transport),
             ["error-codes.domain"] = new JsonObject
             {
@@ -985,6 +1011,17 @@ internal static class ConfigErrorSecurityObservationHost
     {
         var array = new JsonArray();
         foreach (string value in values)
+        {
+            array.Add(value);
+        }
+
+        return array;
+    }
+
+    private static JsonArray ToJsonArray(IReadOnlyList<int> values)
+    {
+        var array = new JsonArray();
+        foreach (int value in values)
         {
             array.Add(value);
         }

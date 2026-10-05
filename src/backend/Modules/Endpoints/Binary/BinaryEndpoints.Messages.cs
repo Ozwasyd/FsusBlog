@@ -49,8 +49,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_cursor_pagination_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             MessageConversationCursor? position = null;
             if (!string.IsNullOrWhiteSpace(cursor))
@@ -83,8 +82,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_thread_pagination_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             if (beforeMessageId <= 0 || afterMessageId <= 0 || (beforeMessageId.HasValue && afterMessageId.HasValue))
             {
@@ -112,8 +110,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(
@@ -158,24 +155,21 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_reply_writes_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             if (!IsMessageMutationIdempotencyEnabled(configuration))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             if (!IsPreciseMessageReadCursorEnabled(configuration))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_read_cursor_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(
@@ -220,8 +214,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_read_cursor_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationReadRequest, cancellationToken);
@@ -255,22 +248,19 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_cursor_pagination_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             if (!IsAdminQueueProjectionEnabled(configuration))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_queue_projection_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             if (!IsAdminAccountProjectionEnabled(configuration))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_account_projection_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             MessageConversationCursor? position = null;
@@ -302,22 +292,19 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_thread_pagination_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             if (!IsAdminQueueProjectionEnabled(configuration))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_queue_projection_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             if (!IsAdminAccountProjectionEnabled(configuration))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_admin_account_projection_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             if (beforeMessageId <= 0)
@@ -344,21 +331,19 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_reply_writes_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             if (!IsMessageMutationIdempotencyEnabled(configuration))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(
@@ -402,13 +387,12 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_status_mutations_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.ConversationStatusRequest, cancellationToken);
@@ -444,13 +428,12 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "message_mutation_idempotency_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
 
             if (!TryResolveAdminMessageActor(httpContext, out AdminMessageActor adminActor))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "admin_session_missing"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(

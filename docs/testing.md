@@ -1313,6 +1313,8 @@ node --test tests/tools/evidence-location-contract.test.mjs tests/tools/evidence
 
 ## Node governance canonical suites
 
+Linux process-group observation may classify a missing PID as `dead` only after reading a nonempty boot identity and then listing the readable proc root without that PID. A PID that reappears during those reads, unreadable authority, or a stat error other than `ENOENT` remains `unverifiable`; this bounded observation is not an atomic reservation or proof of durable containment. `tests/tools/run-once-process-identity.test.mjs` retains the corresponding race and permission-refusal cases. These model cases do not replace the Linux real-child or canonical execution-envelope gates.
+
 ### First-attempt release admission
 
 Browser Contract stops at the first scenario failure, completes cleanup, and seals a failed run as `failed-no-retry`; later scenarios remain unexecuted. Receipt persistence/cleanup recovery is not a correctness execution retry. The scenario assertions, projects, workers, timeouts and retry policies are unchanged.

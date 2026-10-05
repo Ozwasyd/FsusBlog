@@ -1668,7 +1668,7 @@ public static class SecurityEndpoints
         string adminSessionId = context.User.GetAdminSessionId()!;
         if (!TrustedRequestOrigin.RequireTrustedOriginOrReferer(context))
         {
-            return AedsJsonResults.Error(aeds, ErrorCode.Forbidden, "ORIGIN_NOT_ALLOWED", StatusCodes.Status403Forbidden);
+            return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default403Forbidden, "ORIGIN_NOT_ALLOWED");
         }
 
         string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)

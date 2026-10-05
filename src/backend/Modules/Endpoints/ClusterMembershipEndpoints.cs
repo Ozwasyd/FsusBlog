@@ -184,7 +184,7 @@ public static class ClusterMembershipEndpoints
         }
         catch (InvalidOperationException exception)
         {
-            return AedsJsonResults.Error(aeds, ErrorCode.Conflict, exception.Message, StatusCodes.Status409Conflict);
+            return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default409Conflict, exception.Message);
         }
     }
 
@@ -283,7 +283,7 @@ public static class ClusterMembershipEndpoints
         }
         if (!TrustedRequestOrigin.RequireTrustedOriginOrReferer(context))
         {
-            return AedsJsonResults.Error(aeds, ErrorCode.Forbidden, "origin_not_allowed", StatusCodes.Status403Forbidden);
+            return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default403Forbidden, "origin_not_allowed");
         }
         string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)
             ? values.ToString().Trim()

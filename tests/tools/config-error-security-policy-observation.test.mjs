@@ -7,6 +7,8 @@ import test from 'node:test';
 const {loadRegistry, validateOwnershipAgainstBehaviorCatalog, root} = await import(new URL('../../tools/fact-extractors/registry.mjs', import.meta.url));
 const {loadCatalog} = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const {extract: extractConfigErrorSecurity} = await import(new URL('../../tools/fact-extractors/config-error-security-policy/extract.mjs', import.meta.url));
+const {observationAuthoritySourcePaths} = await import(new URL('../../tools/contracts/lib/config-error-security-observation.mjs', import.meta.url));
+const {digestValue} = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const {validateObservations} = await import(new URL('../../tools/fact-extractors/receipt.mjs', import.meta.url));
 const observationRelative = '.tmp/contracts/config-error-security/config-error-security-policy-observation.json';
 const activeChallengeKinds = [
@@ -21,6 +23,9 @@ const activeChallengeKinds = [
     'recoveryKeyProofV1',
     'sha256PowV1',
     'zkAnonymousCommentProofV1'
+];
+const currentStatusMappingKeys = [
+    400, 401, 403, 404, 405, 406, 409, 410, 411, 413, 415, 422, 423, 426, 428, 429, 500, 501, 503
 ];
 
 function sha256(buffer)
@@ -129,6 +134,55 @@ function sampleChallengeWindow()
     };
 }
 
+function transportMapping(mappingId, httpStatus, errorCode, direction, mappingKind)
+{
+    return {
+        mappingId,
+        httpStatus,
+        errorCode,
+        defaultMessage: 'Request failed',
+        direction,
+        mappingKind
+    };
+}
+
+const genericStatusMapping = (mappingId, httpStatus, errorCode) =>
+    transportMapping(mappingId, httpStatus, errorCode, 'status-to-error-code', 'generic-status-default');
+
+const errorCodeDefaultStatus = (mappingId, errorCode, httpStatus) =>
+    transportMapping(mappingId, httpStatus, errorCode, 'error-code-to-status', 'error-code-default-status');
+
+const operationStatusPair = (mappingId, httpStatus, errorCode) =>
+    transportMapping(mappingId, httpStatus, errorCode, 'operation-status-pair', 'operation-status-pair');
+
+function sampleTransportMappings()
+{
+    const genericCodes = new Map([
+        [400, 'Validation'],
+        [401, 'Unauthorized'],
+        [403, 'Forbidden'],
+        [404, 'NotFound'],
+        [409, 'Conflict'],
+        [423, 'Forbidden']
+    ]);
+    const generic = Object.fromEntries(currentStatusMappingKeys.map((status) =>
+    {
+        const errorCode = genericCodes.get(status) ?? 'InfraFailure';
+        return [`Generic${status}${errorCode}`, genericStatusMapping(`Generic${status}${errorCode}`, status, errorCode)];
+    }));
+    return {
+        ...generic,
+        Default400Validation: errorCodeDefaultStatus('Default400Validation', 'Validation', 400),
+        Default401Unauthorized: errorCodeDefaultStatus('Default401Unauthorized', 'Unauthorized', 401),
+        Default403Forbidden: errorCodeDefaultStatus('Default403Forbidden', 'Forbidden', 403),
+        Default404NotFound: errorCodeDefaultStatus('Default404NotFound', 'NotFound', 404),
+        Default409Conflict: errorCodeDefaultStatus('Default409Conflict', 'Conflict', 409),
+        Default500InfraFailure: errorCodeDefaultStatus('Default500InfraFailure', 'InfraFailure', 500),
+        Default500Unknown: errorCodeDefaultStatus('Default500Unknown', 'Unknown', 500),
+        Operation428Forbidden: operationStatusPair('Operation428Forbidden', 428, 'Forbidden')
+    };
+}
+
 function sampleObservation(overrides = {})
 {
     const { facts: factOverrides, ...rest } = overrides;
@@ -211,15 +265,8 @@ function sampleObservation(overrides = {})
                 'Unknown',
                 'Validation'
             ],
-            'error-codes.transport-mapping': {
-                '400': { httpStatus: 400, errorCode: 'Validation', direction: 'status-to-error-code' },
-                '401': { httpStatus: 401, errorCode: 'Unauthorized', direction: 'status-to-error-code' },
-                'code:Conflict': { errorCode: 'Conflict', httpStatus: 409, direction: 'error-code-to-status' },
-                'code:Forbidden': { errorCode: 'Forbidden', httpStatus: 403, direction: 'error-code-to-status' },
-                'code:InfraFailure': { errorCode: 'InfraFailure', httpStatus: 500, direction: 'error-code-to-status' },
-                'code:Unauthorized': { errorCode: 'Unauthorized', httpStatus: 401, direction: 'error-code-to-status' },
-                'code:Validation': { errorCode: 'Validation', httpStatus: 400, direction: 'error-code-to-status' }
-            },
+            'error-codes.status-mapping-keys': currentStatusMappingKeys,
+            'error-codes.transport-mapping': sampleTransportMappings(),
             'error-codes.domain': sampleDomainErrors(),
             'security.challenge-kinds': {
                 active: activeChallengeKinds,
@@ -317,15 +364,86 @@ function sampleObservation(overrides = {})
 function runExtract(repositoryRoot, observation, buildIdentityOverrides = {})
 {
     const written = writeObservation(repositoryRoot, observation);
+    const sourceDigests = observationAuthoritySourcePaths.map((relative) =>
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        if (!readFileIfPresent(absolute))
+        {
+            writeFileSync(absolute, '// production authority fixture\n');
+        }
+        return { path: relative, digest: sha256(readFileSync(absolute)) };
+    });
     return extractConfigErrorSecurity({
         repositoryRoot,
+        canonicalDigest: digestValue,
+        observationAuthoritySourcePaths,
         buildIdentity: {
+            schema: 'fsusblog.build-identity.v1',
             artifactId: 'config-error-security-policy-observation',
             artifactDigest: written.artifactDigest,
             receiptDigest: 'b'.repeat(64),
+            sourceDigests,
+            sourceDigest: digestValue(sourceDigests),
             ...buildIdentityOverrides
         }
     });
+}
+
+function runStandaloneExtract(repositoryRoot, observation, sourceDigests)
+{
+    const written = writeObservation(repositoryRoot, observation);
+    const sourceDigest = digestValue(sourceDigests);
+    const receiptBody = {
+        schema: 'fsusblog.config-error-security-observation-build-receipt.v1',
+        artifactId: 'config-error-security-policy-observation',
+        observationPath: observationRelative,
+        observationDigest: observation.observationDigest,
+        artifactDigest: written.artifactDigest,
+        sourceDigests,
+        sourceDigest,
+        configuration: 'Release'
+    };
+    const buildIdentity = {
+        artifactId: receiptBody.artifactId,
+        receiptDigest: digestValue(receiptBody),
+        artifactDigest: written.artifactDigest,
+        sourceDigests,
+        sourceDigest
+    };
+    const receiptPath = path.join(
+        repositoryRoot,
+        '.tmp/contracts/config-error-security/build-receipt.json'
+    );
+    mkdirSync(path.dirname(receiptPath), { recursive: true });
+    writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`);
+
+    return extractConfigErrorSecurity({
+        repositoryRoot,
+        canonicalDigest: digestValue,
+        observationAuthoritySourcePaths,
+        buildIdentity: {
+            artifactId: buildIdentity.artifactId,
+            receiptDigest: buildIdentity.receiptDigest,
+            artifactDigest: buildIdentity.artifactDigest
+        }
+    });
+}
+
+function readFileIfPresent(absolute)
+{
+    try
+    {
+        return readFileSync(absolute);
+    }
+    catch (error)
+    {
+        if (error?.code === 'ENOENT')
+        {
+            return null;
+        }
+        throw error;
+    }
 }
 
 function writeFrontendProjection(repositoryRoot, {
@@ -408,6 +526,20 @@ test('positive sample observation extracts typed config/error/security facts', (
         assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
         validateObservations(result.observations);
         assert.ok(observationFact(result, 'error-codes.public').includes('Validation'));
+        assert.equal(
+            observationMapEntry(
+                observationFact(result, 'error-codes.transport-mapping'),
+                'Operation428Forbidden'
+            ).errorCode,
+            'Forbidden'
+        );
+        assert.equal(
+            observationMapEntry(
+                observationFact(result, 'error-codes.transport-mapping'),
+                'Generic501InfraFailure'
+            ).httpStatus,
+            501
+        );
         assert.equal(observationFact(result, 'security.rate-limit-policies').fixed_ip.window.unit, 'minutes');
         assert.equal(observationFact(result, 'frontend.projection')['error-codes'].status, 'exact');
         assert.equal(observationFact(result, 'frontend.projection')['challenge-kinds'].status, 'exact');
@@ -417,6 +549,153 @@ test('positive sample observation extracts typed config/error/security facts', (
             observationFact(result, 'security.challenge-verification-window').factId,
             observationFact(result, 'security.challenge-verification-window').cacheExpiryFactId
         );
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('config/error extraction refuses missing runner-owned capabilities', () =>
+{
+    for (const capabilities of [
+        {},
+        { canonicalDigest: digestValue },
+        { observationAuthoritySourcePaths },
+        { canonicalDigest: digestValue, observationAuthoritySourcePaths: [] }
+    ])
+    {
+        const result = extractConfigErrorSecurity({ repositoryRoot: root, ...capabilities });
+        assert.equal(result.status, 'failed');
+        assert.match(result.failureReasons.join('; '), /runner-owned digest and authority-source capabilities/u);
+    }
+});
+
+test('transport mapping rejects malformed, duplicate-shape and wildcard status authority', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'));
+    try
+    {
+        writeFrontendProjection(directory);
+
+        const duplicateShape = sampleObservation();
+        duplicateShape.facts['error-codes.transport-mapping'].Generic501Duplicate =
+            genericStatusMapping('Generic501Duplicate', 501, 'InfraFailure');
+        assert.ok(runExtract(directory, duplicateShape).failureReasons.some((reason) => /duplicate generic status|duplicate typed transport tuple/iu.test(reason)));
+
+        const wildcard = sampleObservation();
+        wildcard.facts['error-codes.transport-mapping']['*'] = {
+            mappingId: '*',
+            httpStatus: 0,
+            errorCode: 'InfraFailure',
+            defaultMessage: 'Request failed',
+            direction: 'status-to-error-code',
+            mappingKind: 'generic-status-default'
+        };
+        assert.ok(runExtract(directory, wildcard).failureReasons.some((reason) => /stable mappingId|invalid status/iu.test(reason)));
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('status mapping keys fail closed on missing, extra, unsorted, duplicate and every public status omission', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'));
+    try
+    {
+        writeFrontendProjection(directory);
+
+        const missing = sampleObservation();
+        delete missing.facts['error-codes.status-mapping-keys'];
+        assert.ok(runExtract(directory, missing).failureReasons.some((reason) => /missing required fact.*status-mapping-keys/iu.test(reason)));
+
+        const extra = sampleObservation();
+        extra.facts['error-codes.status-mapping-keys'] = [...currentStatusMappingKeys, 504];
+        assert.ok(runExtract(directory, extra).failureReasons.some((reason) => /504.*no transport mapping/iu.test(reason)));
+
+        const unsorted = sampleObservation();
+        unsorted.facts['error-codes.status-mapping-keys'] = [401, 400, ...currentStatusMappingKeys.slice(2)];
+        assert.ok(runExtract(directory, unsorted).failureReasons.some((reason) => /strictly ascending and unique/iu.test(reason)));
+
+        const duplicate = sampleObservation();
+        duplicate.facts['error-codes.status-mapping-keys'] = [400, 400, ...currentStatusMappingKeys.slice(1)];
+        assert.ok(runExtract(directory, duplicate).failureReasons.some((reason) => /strictly ascending and unique/iu.test(reason)));
+
+        for (const status of currentStatusMappingKeys)
+        {
+            const omitted = sampleObservation();
+            omitted.facts['error-codes.transport-mapping'] = Object.fromEntries(
+                Object.entries(omitted.facts['error-codes.transport-mapping'])
+                    .filter(([, mapping]) => mapping.httpStatus !== status)
+            );
+            const result = runExtract(directory, omitted);
+            assert.equal(result.status, 'failed', `HTTP ${status} omission must fail closed`);
+            assert.ok(
+                result.failureReasons.some((reason) => reason.includes(`status mapping key ${status} has no transport mapping`)),
+                `HTTP ${status} omission needs an exact failure reason: ${result.failureReasons.join('; ')}`
+            );
+        }
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('canonical build identity fail-closes missing and tampered mapper source digests', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'));
+    try
+    {
+        writeFrontendProjection(directory);
+        const sourcePath = observationAuthoritySourcePaths[0];
+        assert.ok(runExtract(directory, sampleObservation(), { sourceDigests: undefined })
+            .failureReasons.some((reason) => /sourceDigests must exactly bind/iu.test(reason)));
+
+        const tamperedSourceDigests = [{ path: sourcePath, digest: '0'.repeat(64) }];
+        assert.ok(runExtract(directory, sampleObservation(), {
+            sourceDigests: tamperedSourceDigests,
+            sourceDigest: digestValue(tamperedSourceDigests)
+        }).failureReasons.some((reason) => /authority source digest mismatch/iu.test(reason)));
+
+        assert.ok(runExtract(directory, sampleObservation(), { sourceDigest: '0'.repeat(64) })
+            .failureReasons.some((reason) => /sourceDigest does not match/iu.test(reason)));
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('standalone build receipt rejects extra and tampered mapper source digests', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'config-error-sec-obs-'));
+    try
+    {
+        writeFrontendProjection(directory);
+        const sourcePath = observationAuthoritySourcePaths[0];
+        const sourceFile = path.join(directory, sourcePath);
+        mkdirSync(path.dirname(sourceFile), { recursive: true });
+        writeFileSync(sourceFile, '// production authority fixture\n');
+        const validSourceDigests = {
+            [sourcePath]: sha256(readFileSync(sourceFile))
+        };
+
+        const valid = runStandaloneExtract(directory, sampleObservation(), validSourceDigests);
+        assert.equal(valid.status, 'ok', valid.failureReasons?.join('\n'));
+
+        const extra = runStandaloneExtract(directory, sampleObservation(), {
+            ...validSourceDigests,
+            'src/backend/ExtraAuthority.cs': '0'.repeat(64)
+        });
+        assert.ok(extra.failureReasons.some((reason) => /shape\/path\/source set is invalid/iu.test(reason)));
+
+        const tampered = runStandaloneExtract(directory, sampleObservation(), {
+            [sourcePath]: '0'.repeat(64)
+        });
+        assert.ok(tampered.failureReasons.some((reason) => /source digest mismatch/iu.test(reason)));
     }
     finally
     {
@@ -761,6 +1040,8 @@ test('ambient bin/Debug build identity is refused', () =>
         const written = writeObservation(directory, observation);
         const result = extractConfigErrorSecurity({
             repositoryRoot: directory,
+            canonicalDigest: digestValue,
+            observationAuthoritySourcePaths,
             buildIdentity: {
                 artifactId: 'config-error-security-policy-observation',
                 artifactDigest: written.artifactDigest,

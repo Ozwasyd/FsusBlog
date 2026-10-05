@@ -85,8 +85,7 @@ public static partial class AuthoringEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Validation, "expected_server_revision_required"),
-                    aeds,
-                    StatusCodes.Status400BadRequest);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status400BadRequest, ErrorCode.Validation));
             }
 
             try
@@ -268,9 +267,8 @@ public static partial class AuthoringEndpoints
                 : response.VersionConflict
                     ? AedsJsonResults.Error(
                         aeds,
-                        ErrorCode.Conflict,
-                        "article_responsibility_version_conflict",
-                        StatusCodes.Status409Conflict)
+                        ApiErrorTransportMappingId.Default409Conflict,
+                        "article_responsibility_version_conflict")
                 : Ok(context, aeds, response);
         })
         .RequireAdminPermission(AdminPermissions.ArticleWrite);
@@ -335,6 +333,5 @@ public static partial class AuthoringEndpoints
                 ErrorCode.Conflict,
                 "draft_conflict",
                 JsonSerializer.Serialize(conflict.Conflict, s_draftConflictJsonOptions)),
-            aeds,
-            StatusCodes.Status409Conflict);
+            aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status409Conflict, ErrorCode.Conflict));
 }

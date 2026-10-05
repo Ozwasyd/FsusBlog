@@ -271,6 +271,64 @@ test('Linux group observation requires healthy proc authority before classifying
     }
 });
 
+test('Linux group observation rejects a PID that reappears while boot identity is collected', (t) =>
+{
+    const procRoot = fixture(t);
+    fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+    const bootId = path.join(procRoot, 'sys/kernel/random/boot_id');
+    fs.writeFileSync(bootId, 'fixture-boot-id\n');
+    const read = fs.readFileSync.bind(fs);
+    let initialStatMissing = false;
+    t.mock.method(fs, 'readFileSync', (file, ...args) =>
+    {
+        if (file === path.join(procRoot, '123/stat'))
+        {
+            initialStatMissing = true;
+        }
+        if (file === bootId)
+        {
+            assert.equal(initialStatMissing, true);
+            fs.mkdirSync(path.join(procRoot, '123'));
+            fs.writeFileSync(path.join(procRoot, '123/stat'), 'replacement-pid');
+        }
+        return read(file, ...args);
+    });
+    const observed = collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot });
+    assert.equal(observed.status, 'unverifiable');
+    assert.equal(fs.existsSync(path.join(procRoot, '123/stat')), true);
+    assert.equal(Object.hasOwn(observed, 'value'), false);
+});
+
+test('Linux group observation refuses unreadable boot identity or proc root', (t) =>
+{
+    const procRoot = fixture(t);
+    fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+    const bootId = path.join(procRoot, 'sys/kernel/random/boot_id');
+    fs.writeFileSync(bootId, 'fixture-boot-id\n');
+    const read = fs.readFileSync.bind(fs);
+    const list = fs.readdirSync.bind(fs);
+    let denied = 'boot';
+    t.mock.method(fs, 'readFileSync', (file, ...args) =>
+    {
+        if (denied === 'boot' && file === bootId)
+        {
+            throw Object.assign(new Error('boot identity permission denied'), { code: 'EACCES' });
+        }
+        return read(file, ...args);
+    });
+    t.mock.method(fs, 'readdirSync', (directory, ...args) =>
+    {
+        if (denied === 'root' && directory === procRoot)
+        {
+            throw Object.assign(new Error('proc root permission denied'), { code: 'EACCES' });
+        }
+        return list(directory, ...args);
+    });
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+    denied = 'root';
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+});
+
 test('Linux group stat permission errors remain unverifiable even when the PID directory is absent', (t) =>
 {
     const procRoot = fixture(t);

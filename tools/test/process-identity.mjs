@@ -286,8 +286,8 @@ export function collectProcessGroupOrJobIdentity(
             {
                 if (error.code === 'ENOENT' && Number.isInteger(pid) && pid > 0)
                 {
-                    const entries = fs.readdirSync(procRoot);
                     const bootId = fs.readFileSync(path.join(procRoot, 'sys/kernel/random/boot_id'), 'utf8').trim();
+                    const entries = fs.readdirSync(procRoot);
                     if (bootId && !entries.includes(String(pid)))
                     {
                         return { status: 'dead', reason: 'process exited while process-group identity was collected' };

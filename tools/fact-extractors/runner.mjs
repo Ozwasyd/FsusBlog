@@ -25,6 +25,10 @@ import {
     validateRegistry
 } from './registry.mjs';
 
+const { observationAuthoritySourcePaths } = await import(
+    new URL('../contracts/lib/config-error-security-observation.mjs', import.meta.url)
+);
+
 const fail = (message) =>
 {
     throw new Error(`[fact-extractor-runner] ${message}`);
@@ -209,6 +213,7 @@ export async function runExtractor({
         sourceCommit: identity.sourceCommit,
         worktreeFingerprint: identity.worktreeFingerprint,
         canonicalDigest: digestValue,
+        observationAuthoritySourcePaths,
         minimalBuildServices: {
             buildIdentitySchema,
             digestPath,
