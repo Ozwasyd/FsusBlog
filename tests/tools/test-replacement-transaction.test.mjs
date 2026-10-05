@@ -371,6 +371,247 @@ test('atomic apply deletes and writes as one unit and rolls everything back on v
     }
 });
 
+test('diff checker uses exact AST case identities for JS rewrites and fails closed on removal or discovery errors', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-identity-git-'));
+    const file = path.join(root, 'tests/tools/Example.test.mjs');
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+
+        writeFileSync(file, "import test from 'node:test';\ntest('first', () =>\n{\n});\ntest('second', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'format'], { cwd: root });
+        assert.deepEqual(detectReplacementRequiredChanges({ root, base: 'HEAD^' }), []);
+        assert.deepEqual(verifyDiffHasTransaction({ root, base: 'HEAD^' }), []);
+
+        writeFileSync(file, "import test from 'node:test';\ntest('first', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+        assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /unregistered test source change/u);
+
+        writeFileSync(file, "import test from 'node:test';\ntest('renamed', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'rename first'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+
+        writeFileSync(file, "import test from 'node:test';\ntest('renamed', () => {\n");
+        execFileSync('git', ['commit', '-qam', 'malformed'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+
+        writeFileSync(file, "import test from 'node:test';\ntest('restored', () => {});\n");
+        execFileSync('git', ['commit', '-qam', 'restore'], { cwd: root });
+        writeFileSync(file, "import test from 'node:test';\nconst helper = () => {};\n");
+        execFileSync('git', ['commit', '-qam', 'undiscoverable'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /no unique cases/u);
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('a renamed source cannot mask a separate JS case removal', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-mixed-git-'));
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.join(root, 'tests/tools'), { recursive: true });
+        writeFileSync(path.join(root, 'tests/tools/Old.test.mjs'), "import test from 'node:test';\ntest('old', () => {});\n");
+        writeFileSync(path.join(root, 'tests/tools/Keep.test.mjs'), "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+        execFileSync('git', ['mv', 'tests/tools/Old.test.mjs', 'tests/tools/New.test.mjs'], { cwd: root });
+        writeFileSync(path.join(root, 'tests/tools/Keep.test.mjs'), "import test from 'node:test';\ntest('first', () => {});\n");
+        execFileSync('git', ['commit', '-qam', 'after'], { cwd: root });
+        const changes = detectReplacementRequiredChanges({ root, base: 'HEAD^' });
+        assert.ok(changes.some((change) => change.reason === 'test-source-delete-or-rename'));
+        assert.ok(changes.some((change) => change.path === 'tests/tools/Keep.test.mjs'
+            && change.reason === 'discoverable-test-or-case-removal'));
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('diff checker binds multiline JS case identities without relying on removed call text', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-multiline-git-'));
+    const file = path.join(root, 'tests/tools/Multiline.test.mjs');
+    const first = "test\n(\n    'first',\n    () => {}\n);\n";
+    const renamed = "test\n(\n    'renamed',\n    () => {}\n);\n";
+    const second = "test\n(\n    'second',\n    () => {}\n);\n";
+    const third = "test\n(\n    'third',\n    () => {}\n);\n";
+    const source = (body, includeImport = true) => `${includeImport ? "import test from 'node:test';\n" : ''}${body}`;
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.dirname(file), { recursive: true });
+        writeFileSync(file, source(first + second));
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+
+        writeFileSync(file, source(renamed + second));
+        execFileSync('git', ['commit', '-qam', 'rename title'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+        assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /unregistered test source change/u);
+
+        writeFileSync(file, source(renamed + second + third));
+        execFileSync('git', ['commit', '-qam', 'add case'], { cwd: root });
+        assert.deepEqual(detectReplacementRequiredChanges({ root, base: 'HEAD^' }), []);
+
+        writeFileSync(file, source(renamed + third));
+        execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'discoverable-test-or-case-removal'));
+
+        writeFileSync(file, source(renamed + third, false));
+        execFileSync('git', ['commit', '-qam', 'remove owner import'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+
+        writeFileSync(file, source(renamed + third));
+        execFileSync('git', ['commit', '-qam', 'restore owner import'], { cwd: root });
+        writeFileSync(file, source(renamed + third.slice(0, -3)));
+        execFileSync('git', ['commit', '-qam', 'malformed case'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+
+        writeFileSync(file, source(renamed + third));
+        execFileSync('git', ['commit', '-qam', 'restore syntax'], { cwd: root });
+        writeFileSync(file, Buffer.concat([
+            Buffer.from(`${source(renamed + third)}// `),
+            Buffer.from([0xff, 0x0a])
+        ]));
+        execFileSync('git', ['commit', '-qam', 'invalid encoding'], { cwd: root });
+        assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /UTF-8/u);
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+test('diff checker binds exact NUL-delimited Git paths without quoted-display false removals', () =>
+{
+    for (const name of ['中文', 'tab\tname', 'quote"name', 'line\nname', '[ab]', '*'])
+    {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-exact-path-git-'));
+        const file = `tests/tools/${name}.test.mjs`;
+        try
+        {
+            execFileSync('git', ['init', '-q'], { cwd: root });
+            execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+            execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+            mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+            writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+            execFileSync('git', ['add', '.'], { cwd: root });
+            execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+            writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\ntest('second', () =>\n{\n});\n");
+            execFileSync('git', ['commit', '-qam', 'format'], { cwd: root });
+            assert.deepEqual(verifyDiffHasTransaction({ root, base: 'HEAD^' }), [], name);
+            writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\n");
+            execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+            assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /unregistered test source change/u, name);
+        }
+        finally
+        {
+            rmSync(root, { recursive: true, force: true });
+        }
+    }
+});
+
+test('diff checker rejects dynamic case placeholders that can conceal changed runtime cases', () =>
+{
+    const pairs = [
+        [
+            "import test from 'node:test'; const name = 'old'; test(name, () => {});\n",
+            "import test from 'node:test'; const name = 'new'; test(name, () => {});\n"
+        ],
+        [
+            "import { test } from 'vitest'; for (const name of ['first', 'second']) test(name, () => {});\n",
+            "import { test } from 'vitest'; for (const name of ['first']) test(name, () => {});\n"
+        ],
+        [
+            "import { test } from 'vitest'; const rows = [[1], [2]]; test.each(rows)('row %i', () => {});\n",
+            "import { test } from 'vitest'; const rows = [[1]]; test.each(rows)('row %i', () => {});\n"
+        ]
+    ];
+    for (const [before, after] of pairs)
+    {
+        const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-dynamic-git-'));
+        const file = path.join(root, 'tests/tools/Dynamic.test.mjs');
+        try
+        {
+            execFileSync('git', ['init', '-q'], { cwd: root });
+            execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+            execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+            mkdirSync(path.dirname(file), { recursive: true });
+            writeFileSync(file, before);
+            execFileSync('git', ['add', '.'], { cwd: root });
+            execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+            writeFileSync(file, after);
+            execFileSync('git', ['commit', '-qam', 'change runtime cases'], { cwd: root });
+            assert.throws(() => detectReplacementRequiredChanges({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+            assert.throws(() => verifyDiffHasTransaction({ root, base: 'HEAD^' }), /AST identity extraction is incomplete/u);
+        }
+        finally
+        {
+            rmSync(root, { recursive: true, force: true });
+        }
+    }
+});
+
+test('tool-owned JS test cases require the same exact replacement transaction', () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-tool-owner-git-'));
+    const file = 'tools/frontend/Owner.test.mjs';
+    try
+    {
+        execFileSync('git', ['init', '-q'], { cwd: root });
+        execFileSync('git', ['config', 'user.name', 'Fixture'], { cwd: root });
+        execFileSync('git', ['config', 'user.email', 'fixture@example.invalid'], { cwd: root });
+        mkdirSync(path.join(root, 'tools/frontend'), { recursive: true });
+        writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () => {});\ntest('second', () => {});\n");
+        execFileSync('git', ['add', '.'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'before'], { cwd: root });
+
+        writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\ntest('second', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'format'], { cwd: root });
+        assert.deepEqual(detectReplacementRequiredChanges({ root, base: 'HEAD^' }), []);
+
+        writeFileSync(path.join(root, file), "import test from 'node:test';\ntest('first', () =>\n{\n});\n");
+        execFileSync('git', ['commit', '-qam', 'remove second'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.path === file && change.reason === 'discoverable-test-or-case-removal'));
+
+        execFileSync('git', ['mv', file, 'tools/frontend/Renamed.test.mjs'], { cwd: root });
+        execFileSync('git', ['commit', '-qam', 'rename owner'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'test-source-delete-or-rename'));
+
+        execFileSync('git', ['rm', 'tools/frontend/Renamed.test.mjs'], { cwd: root });
+        execFileSync('git', ['commit', '-qm', 'delete owner'], { cwd: root });
+        assert.ok(detectReplacementRequiredChanges({ root, base: 'HEAD^' })
+            .some((change) => change.reason === 'test-source-delete-or-rename'));
+    }
+    finally
+    {
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
 function receiptFixture(run)
 {
     const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-replacement-receipt-'));

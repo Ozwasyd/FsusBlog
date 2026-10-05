@@ -46,6 +46,7 @@ jobs:
                   path: ~/.nuget/packages
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
+            - run: npm --prefix tests/tools ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh ci-tier validate-matrix --no-deps
             - run: ./tools/test.sh ci-tier test-inventory --no-deps
             - run: node tools/test/check-physical-execution-consumer-evidence.mjs .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
@@ -728,6 +729,8 @@ jobs:
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: node --test tests/tools/migration-doc-lint.test.mjs
             - run: node tools/db/migration-doc-lint.mjs
+            - run: npm --prefix tools/test-inventory/ts-ast-adapter ci --ignore-scripts --no-audit --progress=false
+            - run: npm --prefix tools/test-replacement ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh static-governance --no-deps
             - run: ./tools/test.sh app-config-local-tuning --no-deps
             - run: ./tools/test.sh public-hydration-fast --no-deps

@@ -1,0 +1,11 @@
+{
+    "name": "@fsusblog/governance-tools",
+    "version": "0.0.0",
+    "private": true,
+    "exports": {
+        "./test-convergence/audit": "./test-convergence/audit.mjs",
+        "./test-convergence/post-baseline-history": "./test-convergence/post-baseline-history.mjs",
+        "./test-retention/audit": "./test-retention/audit.mjs",
+        "./test-matrix/parse-matrix": "./test-matrix/parse-matrix.mjs"
+    }
+}
