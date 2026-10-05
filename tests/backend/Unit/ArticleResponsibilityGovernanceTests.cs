@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Infrastructure.Integrity;
 
 namespace FsusBlog.Tests.Unit;
@@ -67,7 +68,7 @@ public sealed class ArticleResponsibilityGovernanceTests
     [InlineData("/relative", false)]
     public void PublicUrl_OnlyAcceptsSafeAbsoluteHttpLinks(string value, bool accepted)
     {
-        Assert.Equal(accepted, ArticleResponsibilityManifestService.PublicUrl(value) is not null);
+        Assert.Equal(accepted, ArticleResponsibilityGovernance.PublicUrl(value) is not null);
     }
 
     [Theory]

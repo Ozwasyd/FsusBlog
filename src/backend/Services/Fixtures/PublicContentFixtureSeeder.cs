@@ -7,6 +7,7 @@ using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
 using FsusBlog.Core.Cache;
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;

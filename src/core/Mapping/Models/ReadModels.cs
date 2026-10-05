@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Shared.Contracts.Models;
 using FsusBlog.Shared.Contracts.Outputs;
 
@@ -410,19 +411,6 @@ public sealed record class PasskeyLoginCompleteCoreModel
         get; init;
     }
 }
-
-public readonly record struct ArticleRightsRequestCoreModel(
-    bool Enabled,
-    string LicenseType,
-    string? CopyrightHolder,
-    int? CopyrightYear,
-    string? RightsStatement,
-    string? AttributionTemplate,
-    string CopyPolicy,
-    int MaxExcerptChars,
-    bool AllowCodeCopy,
-    bool ShowPublicBadge,
-    bool ProofBindingEnabled);
 
 public enum ArticleRightsMutationMode
 {

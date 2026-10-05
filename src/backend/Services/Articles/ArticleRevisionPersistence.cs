@@ -1,5 +1,6 @@
 using System.Data.Common;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Infrastructure.Data;
 
 using Microsoft.Extensions.Logging;
@@ -44,7 +45,7 @@ public static class ArticleRevisionPersistence
             "SELECT pg_advisory_xact_lock(hashtext('article_revision'), @articleId);",
             new SugarParameter[] { new("@articleId", articleId) }).ConfigureAwait(false);
 
-        string orderedTagIds = string.Join(',', tagIds.OrderBy(static id => id));
+        string orderedTagIds = ArticleRevisionStorageEncoding.EncodeTagIds(tagIds);
         long contentBlockId = await ArticleRevisionContentBlockStore.GetOrCreateAsync(
             db,
             content,
