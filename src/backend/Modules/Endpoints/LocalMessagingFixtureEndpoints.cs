@@ -5,6 +5,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
+using FsusBlog.Core.Algorithms;
 using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Services.Fixtures;
 
@@ -81,6 +82,53 @@ public static class LocalMessagingFixtureEndpoints
                         detail: ex.Message,
                         statusCode: StatusCodes.Status500InternalServerError,
                         title: "messaging fixture prepare failed");
+                }
+            })
+            .AllowAnonymous()
+            .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(
+                SecretHeaderName,
+                LocalPublicContentFixtureEndpoints.TestNamespaceHeaderName,
+                LocalPublicContentFixtureEndpoints.TestRunIdHeaderName))
+            .AddEndpointFilter(RequireSecret)
+            .AddEndpointFilter(RequireLoopback);
+
+        app.MapPost("/api/local/messaging-fixture/verify", async (
+                HttpContext context,
+                [FromServices] IMessagingFixtureSeeder seeder,
+                [FromServices] IAedsEncoder decoder,
+                CancellationToken cancellationToken) =>
+            {
+                context.Response.Headers.CacheControl = "no-store";
+                try
+                {
+                    MessagingFixtureVerificationRequest? request = await JsonSerializer.DeserializeAsync<MessagingFixtureVerificationRequest>(
+                        context.Request.Body, s_json, cancellationToken).ConfigureAwait(false);
+                    if (request?.Plan is null)
+                    {
+                        return Results.BadRequest(new
+                        {
+                            message = "messaging verification binding is required"
+                        });
+                    }
+                    RequireHeaderIdentity(context, request.Plan.Namespace, request.Plan.RunId);
+                    IAuthFixtureSeeder authVerifier = context.RequestServices.GetService<IAuthFixtureSeeder>()
+                        ?? throw new InvalidOperationException("Official auth fixture verifier is unavailable.");
+                    MessagingFixtureVerificationResult result = await seeder.VerifyAsync(request, authVerifier, decoder, cancellationToken)
+                        .ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+                    return Results.Json(result);
+                }
+                catch (OperationCanceledException)
+                {
+                    throw;
+                }
+                catch (Exception ex) when (ex is JsonException or InvalidOperationException or ArgumentException or KeyNotFoundException)
+                {
+                    // Do not publish private request bodies, auth references, or storage diagnostics.
+                    return Results.BadRequest(new
+                    {
+                        message = "messaging independent verification failed"
+                    });
                 }
             })
             .AllowAnonymous()

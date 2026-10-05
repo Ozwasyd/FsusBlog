@@ -30,7 +30,9 @@ public static class RuntimeSecurityAndLifecycleServiceCollectionExtensions
         services.AddScoped<IPasskeyService, PasskeyService>();
         services.AddScoped<IPasskeyProjectionConsistencyService, PasskeyProjectionConsistencyService>();
         services.AddScoped<IUserSecurityStepUpService, UserSecurityStepUpService>();
-        services.AddScoped<IAdminPrincipalService, AdminPrincipalService>();
+        services.AddScoped<AdminPrincipalService>();
+        services.AddScoped<IAdminPrincipalService>(provider => provider.GetRequiredService<AdminPrincipalService>());
+        services.AddScoped<IAdminSessionIssuancePort>(provider => provider.GetRequiredService<AdminPrincipalService>());
         AdminSessionProjectionRuntimeOptions adminSessionProjectionOptions =
             AdminSessionProjectionRuntimeOptions.FromConfiguration(configuration);
         services.AddSingleton(adminSessionProjectionOptions);

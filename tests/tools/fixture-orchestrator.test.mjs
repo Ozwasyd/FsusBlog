@@ -12,12 +12,16 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+const fs = await import('node:fs');
+const { createFixtureArtifactOutlet, readPrivateJson } = await import(new URL('../../tools/test-fixtures/receipt/private-io.mjs', import.meta.url));
 
 const {classifyDevFixtureReceiptTransition} = await import(new URL('../../tools/test-fixtures/cli.mjs', import.meta.url));
 const {buildProducerDag} = await import(new URL('../../tools/test-fixtures/dag.mjs', import.meta.url));
 const {cleanup, createProducerContext, plan, prepare, verify} = await import(new URL('../../tools/test-fixtures/orchestrator.mjs', import.meta.url));
 const {createTerminalState} = await import(new URL('../../tools/test-fixtures/terminal-state.mjs', import.meta.url));
 const {fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
+const {validateFixtureReceipt} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
+const {currentSourceState} = await import(new URL('../../tools/test/runtime-cache-evidence-contract.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 
 function fixtureCliBoundaryStub(context)
@@ -26,6 +30,8 @@ function fixtureCliBoundaryStub(context)
     context.after(() => rmSync(directory, { recursive: true, force: true }));
     const executable = path.join(directory, 'node-stub');
     const capture = path.join(directory, 'invocation.json');
+    const executionCapture = path.join(directory, 'execution-identity.json');
+    const cliCallCapture = path.join(directory, 'cli-called');
     writeFileSync(executable, `#!/usr/bin/env node
 const fs = require('node:fs')
 const path = require('node:path')
@@ -50,6 +56,9 @@ if (entry === '-e' || entry === '-' || entry === '--input-type=module') {
   process.exit(result.status ?? 1)
 }
 if (!String(entry).endsWith('/tools/test-fixtures/cli.mjs')) fail('unexpected node entry: ' + entry)
+if (process.env.FSUSBLOG_TEST_STUB_CLI_CALL_CAPTURE) {
+  fs.writeFileSync(process.env.FSUSBLOG_TEST_STUB_CLI_CALL_CAPTURE, 'fixture-cli-called')
+}
 const options = { _: [] }
 for (let index = 0; index < args.length; index += 1) {
   const argument = args[index]
@@ -71,7 +80,36 @@ for (let index = 0; index < args.length; index += 1) {
     options[key] = true
   }
 }
+if (process.env.FSUSBLOG_TEST_STUB_VERIFIED_PRIMARY === '1') {
+  // Shell argument/path contract only: these markers are deliberately not production receipts.
+  const command = options._[0]
+  fs.appendFileSync(process.env.FSUSBLOG_TEST_STUB_CAPTURE, JSON.stringify(options) + '\\n')
+  const write = (file, document) => {
+    fs.mkdirSync(path.dirname(file), { recursive: true, mode: 0o700 })
+    fs.writeFileSync(file, JSON.stringify(document), { mode: 0o600, flag: 'wx' })
+  }
+  if (command === 'run') {
+    if (!options['artifact-dir'] || options['artifact-consumer-id'] !== options['runtime-cache-consumer-id']) fail('sealed artifact args missing')
+    if (options['skip-verify'] || !options['fixture-receipt']) fail('verified primary marker required')
+    fs.mkdirSync(options['artifact-dir'], { mode: 0o700 })
+    write(options['prepare-state'], { unitModel: true, schema: 'fsusblog.fixture-prepare-state.v1' })
+    write(options['fixture-receipt'], { unitModel: true, schema: 'fsusblog.fixture-receipt.v2' })
+    if (options['runtime-cache-consumer-id'] === 'runtime-cache-hot-featured-frame') {
+      write(path.join(options['runtime-cache-input-dir'], 'prerequisite-inputs.json'), { unitModel: true })
+    }
+    if (process.env.FSUSBLOG_TEST_STUB_FAIL_AFTER_PRIMARY === '1') fail('original primary boundary failure')
+  } else if (command === 'project-verified') {
+    write(options.out, { unitModel: true })
+  } else if (command === 'receipt-digest') {
+    process.stdout.write('sha256:' + 'f'.repeat(64))
+  } else if (command === 'project-runtime-cache-input') {
+    write(options.out, { unitModel: true, receipt: options.receipt, prepareState: options['prepare-state'],
+      publicProjection: options['public-projection'], consumerId: options['consumer-id'] })
+  } else fail('unexpected verified primary command: ' + command)
+  process.exit(0)
+}
 if (options._[0] !== 'run') fail('fixture CLI run command is required')
+if (Object.hasOwn(options, 'artifact-dir') || Object.hasOwn(options, 'artifact-consumer-id')) fail('prepared-only boundary must not enable outlet')
 if (!options.profile || options.profile === 'none') fail('non-none profile is required')
 if (options['skip-verify'] !== true) fail('--skip-verify is required')
 if (Object.hasOwn(options, 'out')) fail('--out incorrectly requests a FixtureReceipt')
@@ -95,10 +133,19 @@ fs.writeFileSync(process.env.FSUSBLOG_TEST_STUB_CAPTURE, JSON.stringify({
   publicContentSecret: process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET,
   authSecret: process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
 }))
+if (process.env.FSUSBLOG_TEST_STUB_EXECUTION_CAPTURE) {
+  fs.writeFileSync(process.env.FSUSBLOG_TEST_STUB_EXECUTION_CAPTURE, JSON.stringify({
+    namespace: options.namespace,
+    runId: options['run-id'],
+    sourceCommit: options['source-commit'],
+    sourceFingerprint: options['source-fingerprint'],
+    serviceGeneration: options['service-generation']
+  }))
+}
 process.stdout.write(JSON.stringify(prepareState) + '\\n')
 `);
     chmodSync(executable, 0o755);
-    return { capture, directory, executable };
+    return { capture, executionCapture, cliCallCapture, directory, executable };
 }
 
 function mockPort(spec, hooks = {})
@@ -161,6 +208,51 @@ function mockPort(spec, hooks = {})
 function portsForPlan(planDocument, hookMap = {})
 {
     return planDocument.producerSpecs.map((spec) => mockPort(spec, hookMap[spec.id]));
+}
+
+for (const cooperative of [true, false])
+{
+    test(`canonical verify passes the original signal and retains cancellation recovery (cooperative=${cooperative})`, async () =>
+    {
+        const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' });
+        const ports = portsForPlan(planned);
+        const prepared = await prepare(planned, ports);
+        const originalState = JSON.stringify(prepared);
+        const controller = new AbortController();
+        const reason = new Error('cancel-during-canonical-verify');
+        let verifies = 0;
+        ports[0].verify = async (_context, _result, signal) =>
+        {
+            verifies += 1;
+            if (cooperative)
+            {
+                assert.equal(signal, controller.signal);
+            }
+            queueMicrotask(() => controller.abort(reason));
+            await new Promise((resolve) => controller.signal.addEventListener('abort', resolve, { once: true }));
+            if (cooperative)
+            {
+                signal.throwIfAborted();
+            }
+            return { ok: true, producerId: 'auth-session' };
+        };
+        await assert.rejects(verify(prepared, ports, { signal: controller.signal }), (error) =>
+        {
+            assert.equal(error.cause, reason);
+            assert.equal(error.receipt.schema, 'fsusblog.fixture-prepare-state.v1');
+            assert.equal(error.receipt.terminalState, 'failed');
+            assert.equal(error.receipt.primaryFailure.message, reason.message);
+            assert.deepEqual(error.receipt.producerReceipts, []);
+            const failureReceipt = validateFixtureReceipt(error.fixtureReceipt);
+            assert.equal(failureReceipt.terminalStatus, 'failed');
+            assert.equal(failureReceipt.primaryFailure.message, reason.message);
+            assert.deepEqual(failureReceipt.producerReceipts, []);
+            return true;
+        });
+        assert.equal(verifies, 1);
+        assert.equal(ports[0].calls.cleanup, 0);
+        assert.equal(JSON.stringify(prepared), originalState);
+    });
 }
 
 test('none plan has empty DAG and prepare is zero-mutation', async () =>
@@ -696,10 +788,108 @@ InvokeFixtureOrchestrator
     });
 });
 
+for (const [boundary, consumerId, profileId] of [
+    ['bootstrap', 'runtime-cache-pagination', 'runtime-cache-pagination'],
+    ['lane', 'runtime-cache-pagination', 'runtime-cache-pagination'],
+    ['bootstrap', 'runtime-cache-hot-featured-frame', 'public-content-lifecycle'],
+    ['lane', 'runtime-cache-hot-featured-frame', 'public-content-lifecycle']
+])
+{
+    test(`${boundary} ${consumerId} sealed primary boundary owns fresh invocation markers and exact typed consumer paths`, (context) =>
+    {
+        const stub = fixtureCliBoundaryStub(context);
+        const fixtureRoot = path.join(stub.directory, 'primary-fixtures');
+        const env = { ...process.env, FSUSBLOG_TEST_STUB_CAPTURE: stub.capture, FSUSBLOG_TEST_STUB_NODE: stub.executable,
+            FSUSBLOG_TEST_STUB_ROOT: stub.directory, FSUSBLOG_TEST_STUB_FIXTURE_ROOT: fixtureRoot,
+            FSUSBLOG_TEST_STUB_VERIFIED_PRIMARY: '1', FSUSBLOG_NODE: stub.executable,
+            FSUSBLOG_TEST_NAMESPACE: 'primary-boundary', FSUSBLOG_TEST_RUN_ID: 'primary-boundary-unit-model',
+            FSUSBLOG_TEST_SOURCE_COMMIT: 'a'.repeat(40), FSUSBLOG_TEST_SOURCE_FINGERPRINT: `sha256:${'b'.repeat(64)}`,
+            FSUSBLOG_FIXTURE_SERVICE_GENERATION: 'c'.repeat(64), FSUSBLOG_TEST_SESSION_ISOLATION: '0',
+            FSUSBLOG_SEALED_FIXTURE_PROFILE_ID: profileId,
+            FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID: consumerId, FSUSBLOG_FIXTURE_PROFILE_SOURCE: 'matrix',
+            FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST: `sha256:${'d'.repeat(64)}`,
+            FSUSBLOG_SEALED_EXPANDED_CAPABILITY_DIGEST: `sha256:${'e'.repeat(64)}`,
+            FSUSBLOG_SEALED_FIXTURE_PREREQUISITES: consumerId === 'runtime-cache-pagination' ? '[]'
+                : JSON.stringify([{ id: 'typed-admin-session', profileId: 'auth-basic', producerId: 'auth-session',
+                    capabilityId: 'auth.admin.full-permission', semanticRole: 'admin.full-permission', consumerId }]),
+            FSUSBLOG_BOOTSTRAP_SOURCE_ONLY: '1', FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME: '1',
+            FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT: path.join(stub.directory, 'acceptance'),
+            FSUSBLOG_ACCEPTANCE_ENV_ROOT: path.join(stub.directory, 'env'),
+            FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT: fixtureRoot, FSUSBLOG_RELEASE_ID: '20260826000000-aaaaaaaaaaaa',
+            FSUSBLOG_TEST_HUMAN_READ_PROOF_SIGNING_KEY: `${'A'.repeat(43)}=`,
+            FSUSBLOG_TEST_HUMAN_READ_PROOF_DEDUP_KEY: `${'B'.repeat(43)}=`,
+            FSUSBLOG_TEST_READ_ANALYTICS_NOISE_KEY: `${'C'.repeat(43)}=`,
+            FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET: 'unit-public-secret', FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET: 'unit-auth-secret' };
+        const setup = boundary === 'bootstrap'
+            ? `source ./tools/bootstrap-acceptance-env.sh
+FIXTURE_PROFILE_ID=${profileId}
+FIXTURE_PROFILE_SOURCE=matrix
+FIXTURE_PRODUCER_IDS=public-content
+FIXTURE_REQUIRES_DEMO=0
+FIXTURE_REQUIRES_PUBLIC=1
+FIXTURE_REQUIRES_SECURITY_RESET=0`
+            : 'source ./tools/test/lanes/_suite-support.sh';
+        const command = boundary === 'bootstrap' ? 'InvokeFixtureOrchestrator' : 'InvokeLaneFixtureOrchestrator';
+        const result = spawnSync('bash', ['-c', `${setup}\n${command}\n${command}\nprintf '%s\\n%s' "$FSUSBLOG_FIXTURE_ROOT" "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR"`],
+            { cwd: root, encoding: 'utf8', timeout: 15_000, env });
+        assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
+        const calls = readFileSync(stub.capture, 'utf8').trim().split('\n').map((line) => JSON.parse(line));
+        const runs = calls.filter((call) => call._[0] === 'run');
+        const projections = calls.filter((call) => call._[0] === 'project-runtime-cache-input');
+        assert.equal(runs.length, 2);
+        assert.equal(projections.length, 2);
+        assert.notEqual(runs[0]['fixture-receipt'], runs[1]['fixture-receipt']);
+        assert.notEqual(runs[0]['artifact-dir'], runs[1]['artifact-dir']);
+        for (const [index, call] of runs.entries())
+        {
+            const invocation = path.dirname(call['fixture-receipt']);
+            assert.equal(fs.statSync(invocation).mode & 0o777, 0o700);
+            assert.equal(fs.statSync(call['artifact-dir']).mode & 0o777, 0o700);
+            assert.equal(call['artifact-dir'], path.join(invocation, 'artifacts'));
+            assert.equal(call['artifact-consumer-id'], env.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID);
+            assert.equal(call['runtime-cache-consumer-id'], env.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID);
+            assert.equal(call['prepare-state'], path.join(invocation, 'prepare-state.json'));
+            assert.equal(call['private-carrier-dir'], path.join(invocation, 'auth-private-carriers'));
+            assert.equal(call['public-projection'], path.join(invocation, 'public-content-projection.json'));
+            assert.equal(projections[index].receipt, call['fixture-receipt']);
+            assert.equal(projections[index]['prepare-state'], call['prepare-state']);
+            assert.equal(projections[index]['public-projection'], call['public-projection']);
+            assert.equal(projections[index]['consumer-id'], call['artifact-consumer-id']);
+            assert.equal(Object.hasOwn(projections[index], 'prerequisite-inputs'), consumerId === 'runtime-cache-hot-featured-frame');
+            if (consumerId === 'runtime-cache-hot-featured-frame')
+            {
+                assert.equal(projections[index]['prerequisite-inputs'], path.join(call['runtime-cache-input-dir'], 'prerequisite-inputs.json'));
+                assert.equal(JSON.parse(readFileSync(projections[index]['prerequisite-inputs'])).unitModel, true);
+            }
+            assert.equal(projections[index].out, path.join(call['runtime-cache-input-dir'], `${call['artifact-consumer-id']}.json`));
+            assert.equal(JSON.parse(readFileSync(call['fixture-receipt'])).unitModel, true);
+        }
+        if (boundary === 'bootstrap')
+        {
+            const writtenEnv = readFileSync(path.join(stub.directory, 'env', 'primary-boundary.env'), 'utf8');
+            assert.ok(writtenEnv.includes(`FSUSBLOG_FIXTURE_ROOT=${path.dirname(runs[1]['fixture-receipt'])}\n`));
+            assert.ok(writtenEnv.includes(`FSUSBLOG_PUBLIC_ID_PROJECTION_FILE=${runs[1]['public-projection']}\n`));
+            assert.ok(writtenEnv.includes(`FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR=${runs[1]['runtime-cache-input-dir']}\n`));
+        }
+        const failed = spawnSync('bash', ['-c', `${setup}\n${command}`], { cwd: root, encoding: 'utf8', timeout: 15_000,
+            env: { ...env, FSUSBLOG_TEST_STUB_FAIL_AFTER_PRIMARY: '1' } });
+        assert.notEqual(failed.status, 0);
+        assert.match(failed.stderr, /original primary boundary failure/u);
+        const last = readFileSync(stub.capture, 'utf8').trim().split('\n').map((line) => JSON.parse(line)).at(-1);
+        assert.equal(last._[0], 'run');
+        assert.notEqual(last['prepare-state'], runs[0]['prepare-state']);
+        assert.equal(existsSync(last['prepare-state']), true);
+        assert.equal(JSON.parse(readFileSync(runs[0]['fixture-receipt'])).unitModel, true);
+    });
+}
+
 test('shared lane non-none boundary writes prepare-state without requesting FixtureReceipt', (context) =>
 {
     const stub = fixtureCliBoundaryStub(context);
     const fixtureRoot = path.join(stub.directory, 'lane-fixtures');
+    const source = currentSourceState(root);
+    // Read the real source owner; service generation remains an explicit unit model, not runtime authority.
+    const serviceGeneration = `sha256:${'c'.repeat(64)}`;
     const result = spawnSync('bash', ['-c', `
 export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
 export FSUSBLOG_TEST_NAMESPACE=lane-fixture-boundary
@@ -717,7 +907,12 @@ InvokeLaneFixtureOrchestrator
             ...process.env,
             FSUSBLOG_TEST_STUB_CAPTURE: stub.capture,
             FSUSBLOG_TEST_STUB_FIXTURE_ROOT: fixtureRoot,
-            FSUSBLOG_TEST_STUB_NODE: stub.executable
+            FSUSBLOG_TEST_STUB_NODE: stub.executable,
+            FSUSBLOG_TEST_STUB_EXECUTION_CAPTURE: stub.executionCapture,
+            FSUSBLOG_TEST_STUB_CLI_CALL_CAPTURE: stub.cliCallCapture,
+            FSUSBLOG_TEST_SOURCE_COMMIT: source.commit,
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint,
+            FSUSBLOG_FIXTURE_SERVICE_GENERATION: serviceGeneration
         }
     });
     assert.equal(result.status, 0, `${result.stdout}\n${result.stderr}`);
@@ -737,6 +932,53 @@ InvokeLaneFixtureOrchestrator
         outputRequested: false,
         publicContentSecret: 'fsusblog-local-public-content-fixture-secret-lane-fixture-boundary-lane-fixture-boundary-run'
     });
+    assert.equal(readFileSync(stub.cliCallCapture, 'utf8'), 'fixture-cli-called');
+    assert.deepEqual(JSON.parse(readFileSync(stub.executionCapture, 'utf8')), {
+        namespace: 'lane-fixture-boundary',
+        runId: 'lane-fixture-boundary-run',
+        sourceCommit: source.commit,
+        sourceFingerprint: source.worktreeFingerprint,
+        serviceGeneration
+    });
+});
+
+test('shared lane missing source commit fails before fixture CLI invocation', (context) =>
+{
+    const stub = fixtureCliBoundaryStub(context);
+    const fixtureRoot = path.join(stub.directory, 'missing-source-lane-fixtures');
+    const source = currentSourceState(root);
+    const result = spawnSync('bash', ['-c', `
+export FSUSBLOG_NODE="$FSUSBLOG_TEST_STUB_NODE"
+export FSUSBLOG_TEST_NAMESPACE=lane-missing-source-boundary
+export FSUSBLOG_TEST_RUN_ID=lane-missing-source-boundary-run
+export FSUSBLOG_TEST_SESSION_ISOLATION=0
+export FSUSBLOG_SEALED_FIXTURE_PROFILE_ID=acceptance-representative
+export FSUSBLOG_FIXTURE_PROFILE_SOURCE=dev-cli
+source ./tools/test/lanes/_suite-support.sh
+unset FSUSBLOG_TEST_SOURCE_COMMIT
+InvokeLaneFixtureOrchestrator
+`], {
+        cwd: root,
+        encoding: 'utf8',
+        timeout: 10_000,
+        env: {
+            ...process.env,
+            FSUSBLOG_TEST_STUB_CAPTURE: stub.capture,
+            FSUSBLOG_TEST_STUB_FIXTURE_ROOT: fixtureRoot,
+            FSUSBLOG_TEST_STUB_NODE: stub.executable,
+            FSUSBLOG_TEST_STUB_EXECUTION_CAPTURE: stub.executionCapture,
+            FSUSBLOG_TEST_STUB_CLI_CALL_CAPTURE: stub.cliCallCapture,
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: source.worktreeFingerprint,
+            FSUSBLOG_FIXTURE_SERVICE_GENERATION: `sha256:${'c'.repeat(64)}`
+        }
+    });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /fixture source commit is required/u);
+    assert.equal(existsSync(stub.cliCallCapture), false);
+    assert.equal(existsSync(stub.capture), false);
+    assert.equal(existsSync(stub.executionCapture), false);
+    assert.equal(existsSync(path.join(fixtureRoot, 'prepare-state.json')), false);
+    assert.equal(existsSync(path.join(fixtureRoot, 'fixture-receipt.json')), false);
 });
 
 test('dev receipt transition reuses only the exact run and cleans profile or service drift', () =>
@@ -919,4 +1161,417 @@ test('prepare passes only a verified exact-run prior FixtureReceipt to its produ
         /execution identity mismatch|cross-run/
     );
     assert.equal(crossRunPorts[0].calls.prepare, 0);
+});
+
+test('outlet: late ignored cleanup cancellation retains first reason, never publishes cleaned or calls cleanup twice', async () =>
+{
+    const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' });
+    const controller = new AbortController();
+    const reason = new Error('late-cleanup-outlet-abort');
+    let records = 0;
+    const ports = portsForPlan(planned, { 'auth-session': { onCleanup: async (_, __, signal) =>
+    {
+        assert.equal(signal, controller.signal);
+        controller.abort(reason);
+        return { exact: true };
+    } } });
+    const prepared = await prepare(planned, ports);
+    await assert.rejects(cleanup(prepared, ports, controller.signal, { artifactOutlet: { recordPort: () =>
+    {
+        records++;
+    } } }), (error) =>
+    {
+        assert.equal(error.cause, reason);
+        assert.equal(error.receipt.terminalState, 'cleanup-failed');
+        return true;
+    });
+    assert.equal(records, 0);
+    assert.equal(ports[0].calls.cleanup, 1);
+});
+
+test('outlet: canonical orchestration retains checked postconditions and pure receipt digest with actual file refs', async (t) =>
+{
+    // Injected observation model only; no PG/Redis/runtime qualification.
+    const directory = fs.realpathSync(mkdtempSync(path.join(tmpdir(), 'orchestrator-outlet-model-')));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const planned = plan({ profileId: 'public-empty', profileSource: 'dev-cli' }, {
+        runId: 'outlet-positive-unit', namespace: 'outlet-positive-unit',
+        sourceIdentity: { commit: 'a'.repeat(40), worktreeFingerprint: `sha256:${'b'.repeat(64)}` },
+        handles: { serviceGeneration: `sha256:${'c'.repeat(64)}` }
+    });
+    const ports = portsForPlan(planned, { 'public-content': { onPrepare: async (context) =>
+    {
+        const entity = { kind: 'namespace', id: context.namespace, variantId: context.variantPlan.variants[0].id };
+        return { ok: true, entityIdentities: [entity], observations: {
+            database: { namespace: context.namespace, schemaIdentity: 'unit-model', entities: [{ ...entity, fields: { articleCount: 0, taxonomyCount: 0 } }] },
+            redis: { namespace: context.namespace, keys: [] }, cache: { namespace: context.namespace, entries: [] }
+        } };
+    } } });
+    const outlet = createFixtureArtifactOutlet(path.join(directory, 'artifacts'), { plan: planned, consumerId: 'unit-contract-consumer' });
+    const prepared = await prepare(planned, ports, undefined, { artifactOutlet: outlet });
+    const withoutOutlet = await verify(prepared, ports);
+    const withOutlet = await verify(prepared, ports, { artifactOutlet: outlet });
+    validateFixtureReceipt(withOutlet, { requireVerified: true });
+    assert.deepEqual(withOutlet.producerReceipts, withoutOutlet.producerReceipts);
+    assert.equal(withOutlet.outputArtifacts.length, 2);
+    for (const ref of withOutlet.outputArtifacts)
+    {
+        assert.equal(readPrivateJson(ref.path).contentDigest, ref.digest);
+    }
+    const checked = readPrivateJson(withOutlet.outputArtifacts.find((item) => item.role === 'fixture-verify-port-result').path).document.checkedPostconditions;
+    assert.deepEqual(checked, [{ capabilityId: 'public.empty', postconditionId: 'public-empty', ok: true, detail: null }]);
+    assert.deepEqual(withOutlet.producerReceipts[0].postconditionObservations,
+        [{ capabilityId: 'public.empty', postconditionId: 'public-empty', ok: true, detail: null, reason: null }]);
+    assert.equal('portPostconditions' in withOutlet, false);
+});
+
+test('outlet: late ignored verify cancellation prevents both artifact and verified publication', async () =>
+{
+    const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' });
+    const controller = new AbortController();
+    const reason = new Error('late-verify-outlet-abort');
+    const ports = portsForPlan(planned);
+    const prepared = await prepare(planned, ports);
+    let records = 0;
+    let publications = 0;
+    ports[0].verify = async (_, __, signal) =>
+    {
+        assert.equal(signal, controller.signal);
+        controller.abort(reason);
+        await Promise.resolve();
+        return { ok: true };
+    };
+    await assert.rejects(verify(prepared, ports, { signal: controller.signal, artifactOutlet: {
+        recordPort: () =>
+        {
+            records++;
+        }, publish: () =>
+        {
+            publications++;
+            return [];
+        }
+    } }), (error) => error.cause === reason);
+    assert.equal(records, 0);
+    assert.equal(publications, 0);
+    assert.equal(ports[0].calls.cleanup, 0);
+});
+
+test('outlet: structural verify preserves rejected result and original failure, never invokes success publisher', async () =>
+{
+    const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' });
+    let publications = 0;
+    let rejected;
+    const ports = portsForPlan(planned, { 'auth-session': { onVerify: async () => ({ ok: true, structuralOnly: true }) } });
+    const prepared = await prepare(planned, ports);
+    await assert.rejects(verify(prepared, ports, { artifactOutlet: {
+        recordRejectedPort: (_, result) =>
+        {
+            rejected = result;
+        },
+        publish: () =>
+        {
+            publications++;
+            return [];
+        }
+    } }), /structural-only/);
+    assert.deepEqual(rejected, { ok: true, structuralOnly: true });
+    assert.equal(publications, 0);
+    assert.equal(ports[0].calls.cleanup, 0);
+});
+
+test('outlet: prepare outlet rejection cleans the actual success once and preserves primary over cleanup failure', async () =>
+{
+    const planned = plan({ profileId: 'auth-basic', profileSource: 'dev-cli' });
+    const ports = portsForPlan(planned, { 'auth-session': { onCleanup: async () =>
+    {
+        throw new Error('cleanup-second-error');
+    } } });
+    const reason = new Error('outlet-primary-error');
+    await assert.rejects(prepare(planned, ports, undefined, { artifactOutlet: {
+        recordPort: () =>
+        {
+            throw reason;
+        }
+    } }), (error) =>
+    {
+        assert.equal(error.cause, reason);
+        assert.equal(error.receipt.primaryFailure.message, reason.message);
+        assert.equal(error.receipt.cleanupFailure.message, 'cleanup-second-error');
+        return true;
+    });
+    assert.equal(ports[0].calls.prepare, 1);
+    assert.equal(ports[0].calls.cleanup, 1);
+});
+
+test('outlet: canonical CLI keeps none artifacts empty and rejects wrong actual consumer before business mutation', (t) =>
+{
+    const directory = fs.realpathSync(mkdtempSync(path.join(tmpdir(), 'fixture-cli-outlet-')));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const source = currentSourceState(root);
+    const args = [path.join(root, 'tools/test-fixtures/cli.mjs'), 'run', '--profile', 'none',
+        '--run-id', 'none-outlet-model', '--namespace', 'none-outlet-model', '--source-commit', source.commit,
+        '--source-fingerprint', source.worktreeFingerprint, '--service-generation', `sha256:${'c'.repeat(64)}`,
+        '--artifact-dir', path.join(directory, 'artifacts'), '--artifact-consumer-id', 'fixture-cli:run',
+        '--out', path.join(directory, 'receipt.json')];
+    const valid = spawnSync(process.execPath, args, { encoding: 'utf8' });
+    assert.equal(valid.status, 0, valid.stderr);
+    const receipt = JSON.parse(valid.stdout);
+    assert.deepEqual(receipt.outputArtifacts, []);
+    assert.equal(receipt.terminalStatus, 'verified');
+    assert.deepEqual(fs.readdirSync(path.join(directory, 'artifacts')), []);
+    const wrongArgs = [...args];
+    wrongArgs[wrongArgs.indexOf('fixture-cli:run')] = 'foreign-consumer';
+    const wrong = spawnSync(process.execPath, wrongArgs, { encoding: 'utf8' });
+    assert.equal(wrong.status, 1);
+    assert.equal(wrong.stdout, '');
+    assert.match(wrong.stderr, /actual CLI command|consumer/);
+    assert.deepEqual(readPrivateJson(path.join(directory, 'receipt.json')).document, receipt);
+});
+
+function shellClosureFunction(file, name, nextName)
+{
+    const source = readFileSync(path.join(root, file), 'utf8');
+    const start = source.indexOf(`${name}() {`);
+    const end = source.indexOf(`\n${nextName}() {`, start);
+    assert.ok(start >= 0 && end > start, `actual Shell owner function ${name} is required`);
+    return source.slice(start, end);
+}
+
+test('Shell closure: bootstrap PATH resolution preserves the original command failure', () =>
+{
+    const source = readFileSync(path.join(root, 'tools/bootstrap-acceptance-env.sh'), 'utf8');
+    const prefix = source.slice(0, source.indexOf('set -euo pipefail\n'));
+    const result = spawnSync('bash', ['-c', `
+set -e
+dirname() { return 41; }
+${prefix}
+printf 'unexpected continuation\\n'
+`], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.status, 41, result.stderr);
+    assert.equal(result.stdout, '');
+});
+
+test('Shell closure: FsusUI resolver failure cannot invoke identity verification', () =>
+{
+    const result = spawnSync('bash', ['-c', `
+source ./tools/test/lanes/_suite-support.sh
+ResolverPort() { printf 'unit resolver failed\\n' >&2; return 43; }
+Run() { printf 'unexpected identity verification\\n'; }
+FSUSBLOG_NODE=ResolverPort
+EnsureFrontendFsusUiBaseline
+printf 'unexpected continuation\\n'
+`], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.status, 43, result.stderr);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /unit resolver failed/u);
+});
+
+test('Shell closure: current-schema digest failure retains its status before admission', () =>
+{
+    const body = shellClosureFunction('tools/bootstrap-acceptance-env.sh',
+        'RequireCurrentSchemaRuntimeReady', 'EnsureAntiSpamModelRuntime');
+    const result = spawnSync('bash', ['-c', `
+set -euo pipefail
+${body}
+ROOT_DIR=/unit-model
+TMP_DIR=/unit-model/runtime
+FSUSBLOG_TEST_RUN_ID=unit-digest-failure
+FSUSBLOG_TEST_SOURCE_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+CurrentSchemaRunDigest() { return 44; }
+Log() { printf 'unexpected admission branch\\n'; }
+RequireCurrentSchemaRuntimeReady
+printf 'unexpected continuation\\n'
+`], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.status, 44, result.stderr);
+    assert.equal(result.stdout, '');
+});
+
+test('Shell closure: malformed planned JSON fails before fixture mutation', () =>
+{
+    const body = shellClosureFunction('tools/bootstrap-acceptance-env.sh',
+        'ResolveFixtureProfilePlan', 'InvokeFixtureOrchestrator');
+    const result = spawnSync('bash', ['-c', `
+set -euo pipefail
+${body}
+ROOT_DIR=/unit-model
+FIXTURE_DIR=/unit-model/fixtures
+FSUSBLOG_FIXTURE_PROFILE_SOURCE=dev-cli
+FSUSBLOG_SEALED_FIXTURE_PROFILE_ID=auth-basic
+unset FSUSBLOG_FIXTURE_PROFILE FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS
+MalformedPlanPort() {
+    if [[ "$1" == '-e' ]]; then
+        "${process.execPath}" "$@"
+    else
+        printf '{malformed'
+    fi
+}
+FSUSBLOG_NODE=MalformedPlanPort
+Log() { printf '%s\\n' "$*"; }
+ResolveFixtureProfilePlan full
+printf 'unexpected mutation boundary\\n'
+`], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.status, 1);
+    assert.equal(result.stdout, '');
+    assert.match(result.stderr, /SyntaxError|JSON/u);
+});
+
+test('Shell closure: fixture CLI secrets are process-local and parent enable-disable lifecycle is retained', (context) =>
+{
+    const stub = fixtureCliBoundaryStub(context);
+    const invoke = shellClosureFunction('tools/bootstrap-acceptance-env.sh',
+        'InvokeFixtureOrchestrator', 'EnsureFixtureTemporalContext');
+    const configurePublic = shellClosureFunction('tools/bootstrap-acceptance-env.sh',
+        'ConfigureLocalPublicContentFixture', 'ConfigureLocalAuthFixture');
+    const configureAuth = shellClosureFunction('tools/bootstrap-acceptance-env.sh',
+        'ConfigureLocalAuthFixture', 'ConfigureAccountProfilePreferenceFixture');
+    const result = spawnSync('bash', ['-c', `
+set -euo pipefail
+${invoke}
+${configurePublic}
+${configureAuth}
+ROOT_DIR="$FSUSBLOG_UNIT_REPOSITORY_ROOT"
+FIXTURE_DIR="$FSUSBLOG_TEST_STUB_ROOT/fixtures"
+FIXTURE_RECEIPT_FILE="$FIXTURE_DIR/fixture-receipt.json"
+PUBLIC_ID_PROJECTION_FILE="$FIXTURE_DIR/public-content-projection.json"
+FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR="$FIXTURE_DIR/runtime-cache-inputs/unit-model"
+FIXTURE_PROFILE_ID=acceptance-representative
+FIXTURE_PROFILE_SOURCE=dev-cli
+FIXTURE_PRODUCER_IDS=auth-session
+FIXTURE_REQUIRES_DEMO=0
+FSUSBLOG_TEST_NAMESPACE=unit-secret-lifecycle
+FSUSBLOG_TEST_RUN_ID=unit-secret-lifecycle
+FSUSBLOG_TEST_SOURCE_COMMIT=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+FSUSBLOG_TEST_SOURCE_FINGERPRINT=sha256:bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+FSUSBLOG_FIXTURE_SERVICE_GENERATION=cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc
+DEBUG_BACKEND_URL=http://127.0.0.1:1
+DEBUG_FRONTEND_URL=http://127.0.0.1:2
+POSTGRES_CONTAINER=unit-postgres-not-running
+REDIS_CONTAINER=unit-redis-not-running
+LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET=unit-public-value
+LOCAL_AUTH_FIXTURE_SECRET=unit-auth-value
+JWT_KEY_VERSION=unit-model
+JWT_SECRET=unit-model
+JWT_ISSUER=unit-model
+JWT_AUDIENCE=unit-model
+JWT_ACCESS_TOKEN_EXPIRES_MINUTES=1
+JWT_ROTATION_WINDOW_DAYS=1
+ANONYMOUS_SUBJECT_HASH_PEPPER=unit-model
+unset FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID FSUSBLOG_SEALED_FIXTURE_PREREQUISITES
+Log() { :; }
+WriteEnvFile() { :; }
+FIXTURE_REQUIRES_PUBLIC=0
+FIXTURE_REQUIRES_LOCAL_AUTH=0
+ConfigureLocalPublicContentFixture
+ConfigureLocalAuthFixture
+InvokeFixtureOrchestrator
+[[ ! -v FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET && ! -v FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET ]]
+[[ ! -v fsus__allowLocalPublicContentFixture && ! -v fsus__allowLocalAuthFixture ]]
+printf 'disabled-parent-clean\\n'
+FIXTURE_REQUIRES_PUBLIC=1
+FIXTURE_REQUIRES_LOCAL_AUTH=1
+ConfigureLocalPublicContentFixture
+ConfigureLocalAuthFixture
+InvokeFixtureOrchestrator
+[[ "$FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET" == "$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET" ]]
+[[ "$FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET" == "$LOCAL_AUTH_FIXTURE_SECRET" ]]
+[[ "$fsus__allowLocalPublicContentFixture" == true && "$fsus__allowLocalAuthFixture" == true ]]
+printf 'enabled-parent-retained\\n'
+FIXTURE_REQUIRES_PUBLIC=0
+FIXTURE_REQUIRES_LOCAL_AUTH=0
+ConfigureLocalPublicContentFixture
+ConfigureLocalAuthFixture
+[[ ! -v FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET && ! -v FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET ]]
+[[ ! -v fsus__allowLocalPublicContentFixture && ! -v fsus__allowLocalAuthFixture ]]
+printf 'disabled-again-clean\\n'
+`], { cwd: root, encoding: 'utf8', timeout: 10_000, env: {
+        ...process.env, FSUSBLOG_NODE: stub.executable, FSUSBLOG_TEST_STUB_ROOT: stub.directory,
+        FSUSBLOG_TEST_STUB_CAPTURE: stub.capture, FSUSBLOG_UNIT_REPOSITORY_ROOT: root
+    } });
+    assert.equal(result.status, 0, result.stderr);
+    const prepared = `${JSON.stringify({ schema: 'fsusblog.fixture-prepare-state.v1',
+        terminalState: 'prepared', profileId: 'acceptance-representative' })}\n`;
+    assert.equal(result.stdout, `${prepared}disabled-parent-clean\n${prepared}enabled-parent-retained\ndisabled-again-clean\n`);
+    assert.doesNotMatch(`${result.stdout}\n${result.stderr}`, /unit-public-value|unit-auth-value/u);
+    const captured = JSON.parse(readFileSync(stub.capture, 'utf8'));
+    assert.equal(captured.publicContentSecret, 'unit-public-value');
+    assert.equal(captured.authSecret, 'unit-auth-value');
+    assert.equal(captured.skipVerify, true);
+    assert.equal(captured.fixtureReceiptRequested, false);
+});
+
+test('Shell closure: security stages retain three callee arguments, nonzero aggregation and parent isolation', () =>
+{
+    const result = spawnSync('bash', ['-c', `
+source ./tools/test/lanes/_suite-support.sh
+ROOT_DIR='/unit root'
+FSUSBLOG_NODE=node-unit-port
+FSUSBLOG_RUNTIME_SCENARIO_HOST=0
+FSUSBLOG_LOCAL_RUNTIME_EXPOSURE_IN_DAG=1
+FSUSBLOG_SKIP_ZAP=1
+FSUSBLOG_FIREWALL_POLICY_EVIDENCE='/unit evidence/firewall.json'
+FSUSBLOG_RUN_PRODUCTION_EXPOSURE_LIVE=1
+FSUSBLOG_PRODUCTION_EXPOSURE_EVIDENCE='/unit evidence/exposure.json'
+FSUSBLOG_USER_USERNAME=unit-user
+FSUSBLOG_ADMIN_USERNAME=unit-admin
+FSUSBLOG_DEVICE_FP=unit-device
+leak=parent-value
+label=parent-label
+status=parent-status
+suffix=parent-suffix
+securityFailures=(parent-failures)
+Log() { printf 'log|%s\\n' "$*"; }
+Fail() { printf 'failure|%s\\n' "$*"; return 29; }
+RequireDebugStack() { :; }
+NamespaceSlug() { printf '%s' "$1"; }
+BeginLegacyRuntimeScenarioObservation() { printf 'begin|%s\\n' "$*"; }
+EndLegacyRuntimeScenarioObservation() { printf 'end|%s\\n' "$*"; }
+InvokeLaneFixtureOrchestrator() { leak=child-fixture; printf 'default|fixture-port\\n'; return 13; }
+RunInClient() {
+    leak=child-client
+    printf 'client|%s|%s|%s' "$FSUSBLOG_USER_USERNAME" "$FSUSBLOG_ADMIN_USERNAME" "$FSUSBLOG_DEVICE_FP"
+    printf '|<%s>' "$@"
+    printf '\\n'
+    if [[ "$*" == *auth-session-smoke.mjs* ]]; then return 17; fi
+}
+Run() {
+    leak=child-run
+    printf 'run'
+    printf '|<%s>' "$@"
+    printf '\\n'
+    case "$1" in
+        */verify-production-firewall-policy-evidence.sh) return 19 ;;
+        */check-production-exposure-live.sh) return 23 ;;
+        */verify-production-exposure-evidence.sh) return 0 ;;
+        *) printf 'unexpected product port\\n' >&2; return 97 ;;
+    esac
+}
+ParentProof() {
+    [[ "$leak" == parent-value && "$label" == parent-label && "$status" == parent-status && "$suffix" == parent-suffix ]] || return 98
+    [[ "\${securityFailures[*]}" == parent-failures ]] || return 98
+    [[ "$FSUSBLOG_USER_USERNAME" == unit-user && "$FSUSBLOG_ADMIN_USERNAME" == unit-admin && "$FSUSBLOG_DEVICE_FP" == unit-device ]] || return 98
+    for functionName in RunSecurityStage RunSecurityLegacyIsolatedClientCheck CheckSecurityFirewallEvidence CheckExternalProductionExposure; do
+        if declare -F "$functionName" >/dev/null; then return 98; fi
+    done
+    printf 'parent|isolated-and-functions-removed\\n'
+}
+if RunSecurityRuntimeCoreOnly; then
+    resultStatus=0
+else
+    resultStatus=$?
+fi
+ParentProof
+exit "$resultStatus"
+`], { cwd: root, encoding: 'utf8', timeout: 10_000 });
+    assert.equal(result.status, 29, result.stderr);
+    assert.equal(result.stderr, '[test:security] production exposure failures: live-check\n');
+    assert.match(result.stdout, /default\|fixture-port/u);
+    assert.match(result.stdout, /client\|unit-user-security-auth-session\|unit-admin-security-auth-session\|unit-device-security-auth-session\|<node-unit-port>\|<\.\.\/\.\.\/tests\/frontend\/checks\/runtime\/auth-session-smoke\.mjs>/u);
+    assert.match(result.stdout, /client\|unit-user-security-auth-mfa[^\n]*\|<npm>\|<run>\|<check:security:auth-mfa>/u);
+    assert.match(result.stdout, /client\|unit-user-security-auth-passkey[^\n]*\|<npm>\|<run>\|<check:security:auth-passkey>/u);
+    assert.match(result.stdout, /run\|<\/unit root\/tools\/security\/verify-production-firewall-policy-evidence\.sh>\|<\/unit evidence\/firewall\.json>/u);
+    assert.match(result.stdout, /run\|<\/unit root\/tools\/security\/check-production-exposure-live\.sh>/u);
+    assert.match(result.stdout, /run\|<\/unit root\/tools\/security\/verify-production-exposure-evidence\.sh>\|<\/unit evidence\/exposure\.json>/u);
+    assert.match(result.stdout, /end\|failure/u);
+    assert.match(result.stdout, /failure\|security runtime failures \(prepare-runtime-fixtures:13 auth-session:17 firewall-evidence:19 external-production-exposure:1\)/u);
+    assert.match(result.stdout, /parent\|isolated-and-functions-removed\n$/u);
 });

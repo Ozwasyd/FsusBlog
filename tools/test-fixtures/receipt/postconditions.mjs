@@ -230,7 +230,8 @@ function verifyHomeFeaturedHot(ctx)
     }
 
     const hotKeys = (redis.keys ?? []).filter((item) => item.present === true
-    && (/hot|featured/i.test(String(item.key ?? '')) || /hot|featured/i.test(String(item.domain ?? ''))));
+    && (item.key === 'blog:top_articles'
+        || /hot|featured/i.test(String(item.key ?? '')) || /hot|featured/i.test(String(item.domain ?? ''))));
     if (hotKeys.length === 0)
     {
         return fail(id, 'Redis hot/featured keys missing');
@@ -798,7 +799,7 @@ function verifyCommentMatrix(id)
         const one = (role) => comments.filter((item) => item.fields?.semanticRole === role);
         if (id === 'comment-moderation-matrix')
         {
-                const expected = {
+            const expected = {
                 'approved-root': { status: 'approved', runtimeStatus: 'approved', publicVisible: true, queueMember: false, queueBucket: 'approved', queueOrder: -1 },
                 pending: { status: 'pending', runtimeStatus: 'pending', publicVisible: false, queueMember: true, queueBucket: 'pending' },
                 rejected: { status: 'rejected', runtimeStatus: 'rejected', publicVisible: false, queueMember: true, queueBucket: 'rejected' },
@@ -874,7 +875,7 @@ function verifyCommentMatrix(id)
                 }
             }
             const spam = one('spam')[0]?.fields ?? {};
-                if (!Array.isArray(spam.signalEvidence) || spam.signalEvidence.length === 0
+            if (!Array.isArray(spam.signalEvidence) || spam.signalEvidence.length === 0
         || spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)
           || !/^[1-9][0-9]*$/u.test(String(evidence?.signalId ?? ''))
           || typeof evidence?.provider !== 'string' || evidence.provider.length === 0

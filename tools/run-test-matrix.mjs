@@ -71,9 +71,6 @@ import {
 import { runLocalWorkflow } from './test-matrix/local-workflow-runner.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
-    validateReleaseFinalStaticBoundary
-} from './test-matrix/release-final-static-boundary.mjs';
-import {
     bindProductionBuildLayoutSource,
     productionBuildEnvironment,
     registerProductionBuildCompiler
@@ -112,6 +109,9 @@ import {
 } from './test-matrix/production-fresh-runtime-evidence.mjs';
 import { validateEvidenceExecutionDeclaration, validateReleaseDomainMatrix } from './test-matrix/projection-declaration.mjs';
 import { buildReleaseFinalizerPlan } from './test-matrix/release-final-evidence-contract.mjs';
+import {
+    validateReleaseFinalStaticBoundary
+} from './test-matrix/release-final-static-boundary.mjs';
 import {
     loadReleaseReliabilityCatalog,
     validateReleaseReliabilitySchedulerMatrix
@@ -1873,6 +1873,8 @@ function applyMatrixFixtureProfileEnvironment(tier, env)
     {
     // Clear any ambient free-profile env so non-consumer tiers cannot smuggle overrides.
         env.FSUSBLOG_FIXTURE_PROFILE = '';
+        env.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID = '';
+        env.FSUSBLOG_SEALED_FIXTURE_PREREQUISITES = '[]';
         return env;
     }
     const sealed = sealMatrixFixtureProfile(tier);

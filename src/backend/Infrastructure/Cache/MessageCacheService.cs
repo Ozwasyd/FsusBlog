@@ -37,6 +37,19 @@ public sealed class MessageCacheService(
         return Math.Max(0, await loadUnreadAsync());
     }
 
+    /// <summary>Observe the existing unread projection without recovering or publishing it.</summary>
+    public async ValueTask<int> ReadUnreadAsync(long accountId, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        string? cached = await stringReader.GetStringAsync(CachePolicyId.MessageUnread, BuildAccountIdentity(accountId), cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!int.TryParse(cached, NumberStyles.None, CultureInfo.InvariantCulture, out int unread) || unread < 0)
+        {
+            throw new InvalidOperationException("Message unread projection is missing or invalid.");
+        }
+        return unread;
+    }
+
     public async ValueTask<int> GetUnreadOrRecoverAsync(long accountId, Func<Task<int>> loadUnreadAsync)
     {
         string? cached = null;

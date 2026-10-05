@@ -9,7 +9,8 @@ if ((BASH_VERSINFO[0] < 4)); then
     printf '%s\n' 'acceptance bootstrap requires Bash 4 or newer' >&2
     exit 1
 fi
-export PATH="$(dirname "$BASH"):$PATH"
+PATH="$(dirname "$BASH"):$PATH"
+export PATH
 set -euo pipefail
 umask 077
 
@@ -35,6 +36,7 @@ TMP_DIR="${FSUSBLOG_ACCEPTANCE_OUTPUT_ROOT:-$ROOT_DIR/.tmp/acceptance}/$NS_SLUG"
 ENV_DIR="${FSUSBLOG_ACCEPTANCE_ENV_ROOT:-$ROOT_DIR/.tmp/env}"
 FIXTURE_DIR="${FSUSBLOG_ACCEPTANCE_FIXTURE_ROOT:-$ROOT_DIR/.tmp/fixtures}/$NS_SLUG"
 PUBLIC_ID_PROJECTION_FILE="$FIXTURE_DIR/public-content-projection.json"
+FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR="$FIXTURE_DIR/runtime-cache-inputs/${FSUSBLOG_TEST_RUN_ID:-uninitialized}"
 mkdir -p "$TMP_DIR"
 mkdir -p "$ENV_DIR" "$FIXTURE_DIR"
 
@@ -390,7 +392,6 @@ if [[ -f "$ENV_FILE" ]]; then
             FSUSBLOG_DATA_ROOT) FSUSBLOG_DATA_ROOT="$value" ;;
             FSUSBLOG_RELEASE_DERIVED_ROOT) FSUSBLOG_RELEASE_DERIVED_ROOT="$value" ;;
             FSUSBLOG_RELEASE_ID) FSUSBLOG_RELEASE_ID="$value" ;;
-            FSUSBLOG_PUBLIC_ID_PROJECTION_FILE) FSUSBLOG_PUBLIC_ID_PROJECTION_FILE="$value" ;;
             FSUSBLOG_PORT_LEASED_ROLES) FSUSBLOG_PORT_LEASED_ROLES="$value" ;;
             FSUSBLOG_PORT_LEASE_DAEMON_PID) FSUSBLOG_PORT_LEASE_DAEMON_PID="$value" ;;
             HumanReadProof__SigningKey) HUMAN_READ_PROOF_SIGNING_KEY="$value" ;;
@@ -443,7 +444,8 @@ TEST_DATA_ROOT="${FSUSBLOG_DATA_ROOT:-$ROOT_DIR/.tmp/data/$NS_SLUG}"
 if [[ -z "${FSUSBLOG_RELEASE_ID:-}" ]]; then
     TEST_RELEASE_COMMIT="$(git -C "$ROOT_DIR" rev-parse HEAD)"
     TEST_RELEASE_COMMIT_EPOCH="$(git -C "$ROOT_DIR" show -s --format=%ct "$TEST_RELEASE_COMMIT")"
-    FSUSBLOG_RELEASE_ID="$("${FSUSBLOG_NODE:-node}" - "$TEST_RELEASE_COMMIT_EPOCH" "$TEST_RELEASE_COMMIT" <<'NODE'
+    FSUSBLOG_RELEASE_ID="$(
+        "${FSUSBLOG_NODE:-node}" - "$TEST_RELEASE_COMMIT_EPOCH" "$TEST_RELEASE_COMMIT" <<'NODE'
 const epoch = Number.parseInt(process.argv[2], 10)
 const commit = process.argv[3]
 if (!Number.isSafeInteger(epoch) || epoch < 0 || !/^[0-9a-f]{40}$/u.test(commit)) {
@@ -452,7 +454,7 @@ if (!Number.isSafeInteger(epoch) || epoch < 0 || !/^[0-9a-f]{40}$/u.test(commit)
 const timestamp = new Date(epoch * 1000).toISOString().replace(/\D/gu, '').slice(0, 14)
 process.stdout.write(`${timestamp}-${commit.slice(0, 12)}`)
 NODE
-)"
+    )"
 fi
 FSUSBLOG_RELEASE_DERIVED_ROOT="${FSUSBLOG_RELEASE_DERIVED_ROOT:-$TEST_DATA_ROOT/release-derived}"
 export FSUSBLOG_RELEASE_DERIVED_ROOT FSUSBLOG_RELEASE_ID
@@ -507,7 +509,6 @@ FIXTURE_CAPABILITY_DIGEST=""
 FIXTURE_MUTATION_POLICY=""
 FIXTURE_CAPABILITY_IDS=""
 FIXTURE_PRODUCER_IDS=""
-FIXTURE_REQUIRES_AUTH=0
 FIXTURE_REQUIRES_PUBLIC=0
 FIXTURE_REQUIRES_DEMO=0
 FIXTURE_REQUIRES_LOCAL_AUTH=0
@@ -610,6 +611,8 @@ FSUSBLOG_DATA_ROOT=$TEST_DATA_ROOT
 FSUSBLOG_RELEASE_DERIVED_ROOT=$FSUSBLOG_RELEASE_DERIVED_ROOT
 FSUSBLOG_RELEASE_ID=$FSUSBLOG_RELEASE_ID
 FSUSBLOG_PUBLIC_ID_PROJECTION_FILE=$PUBLIC_ID_PROJECTION_FILE
+FSUSBLOG_FIXTURE_ROOT=${FSUSBLOG_FIXTURE_ROOT:-$FIXTURE_DIR}
+FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR=$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR
 FSUSBLOG_FIXTURE_SERVICE_GENERATION=${FSUSBLOG_FIXTURE_SERVICE_GENERATION:-uninitialized}
 FSUSBLOG_RUNTIME_CONFIGURATION=${FSUSBLOG_RUNTIME_CONFIGURATION:-}
 FSUSBLOG_RUNTIME_NO_BUILD=${FSUSBLOG_RUNTIME_NO_BUILD:-0}
@@ -2101,10 +2104,14 @@ ResolveFixtureProfilePlan() {
     FIXTURE_MUTATION_POLICY="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.mutationPolicy)})')"
     FIXTURE_CAPABILITY_IDS="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write((p.capabilities||[]).join(","))})')"
     FIXTURE_PRODUCER_IDS="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write((p.producers||[]).join(","))})')"
-    FIXTURE_REQUIRES_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresAuthFixtures?"1":"0")})')"
+    printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresAuthFixtures?"1":"0")})' >/dev/null
     FIXTURE_REQUIRES_PUBLIC="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresPublicFixtures?"1":"0")})')"
     FIXTURE_REQUIRES_DEMO="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresDemoSeed?"1":"0")})')"
     FIXTURE_REQUIRES_LOCAL_AUTH="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write(p.requiresLocalAuthBypass?"1":"0")})')"
+    if [[ "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" == "runtime-cache-hot-featured-frame" ]]; then
+        # resolve above has independently checked all six declaration fields and both seals.
+        FIXTURE_REQUIRES_LOCAL_AUTH=1
+    fi
     FIXTURE_REQUIRES_ZK_ANONYMOUS="$(printf '%s' "$planJson" | "${FSUSBLOG_NODE:-node}" -e 'let s="";process.stdin.on("data",d=>s+=d);process.stdin.on("end",()=>{const p=JSON.parse(s);process.stdout.write((p.producers||[]).includes("comment-moderation")?"1":"0")})')"
     FIXTURE_REQUIRES_ANTI_SPAM_MODEL="$FIXTURE_REQUIRES_ZK_ANONYMOUS"
 
@@ -2117,14 +2124,32 @@ InvokeFixtureOrchestrator() {
     # Unique FixtureOrchestrator entry (#1709 + #1710 FixtureReceipt).
     # Comment correctness and none publish FixtureReceipt v2; unrelated incomplete
     # profiles remain explicit prepared-only evidence.
-    local orchestratorPlan="$FIXTURE_DIR/orchestrator-plan.json"
-    local prepareStateFile="$FIXTURE_DIR/prepare-state.json"
+    local invocationRoot="$FIXTURE_DIR"
+    local artifactDirectory=""
+    if [[ "$FIXTURE_PROFILE_SOURCE" == "matrix" && -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" &&
+        ("$FIXTURE_PROFILE_ID" == "public-content-lifecycle" || "$FIXTURE_PROFILE_ID" == "runtime-cache-pagination") &&
+        "$FIXTURE_PRODUCER_IDS" == "public-content" ]]; then
+        # Persist this invocation for exact cleanup; never overwrite a prior success marker.
+        invocationRoot="$(
+            umask 077
+            mktemp -d "$FIXTURE_DIR/runtime-cache-invocation.XXXXXXXX"
+        )"
+        artifactDirectory="$invocationRoot/artifacts"
+        FIXTURE_RECEIPT_FILE="$invocationRoot/fixture-receipt.json"
+        PUBLIC_ID_PROJECTION_FILE="$invocationRoot/public-content-projection.json"
+        FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR="$invocationRoot/runtime-cache-inputs/${FSUSBLOG_TEST_RUN_ID:?}"
+        export FSUSBLOG_FIXTURE_ROOT="$invocationRoot"
+    fi
+    local orchestratorPlan="$invocationRoot/orchestrator-plan.json"
+    local prepareStateFile="$invocationRoot/prepare-state.json"
+    local requestVerified=0
     local -a runArgs=(
         "$ROOT_DIR/tools/test-fixtures/cli.mjs" run
         --profile "$FIXTURE_PROFILE_ID"
         --source "$FIXTURE_PROFILE_SOURCE"
         --plan-out "$orchestratorPlan"
         --prepare-state "$prepareStateFile"
+        --private-carrier-dir "$invocationRoot/auth-private-carriers"
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
         --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture orchestrator source commit is required}"
@@ -2136,10 +2161,23 @@ InvokeFixtureOrchestrator() {
         --pg-container "$POSTGRES_CONTAINER"
         --redis-container "$REDIS_CONTAINER"
     )
+    if [[ -n "$artifactDirectory" ]]; then
+        runArgs+=(--artifact-dir "$artifactDirectory"
+            --artifact-consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID")
+    fi
+    if [[ -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" ]]; then
+        runArgs+=(--runtime-cache-consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID"
+            --runtime-cache-input-dir "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR"
+            --public-projection "$PUBLIC_ID_PROJECTION_FILE")
+    fi
     # FixtureReceipt is the sole authority. Comment correctness consumers require
     # the fully verified producer receipt; unrelated incomplete profiles remain prepared-only.
-    if [[ "$FIXTURE_PROFILE_ID" == "none" || ",${FIXTURE_PRODUCER_IDS}," == *",comment-moderation,"* ]]; then
+    if [[ ",${FIXTURE_PRODUCER_IDS}," == *",account-messaging,"* || ",${FIXTURE_PRODUCER_IDS}," == *",security-state,"* ]]; then
+        # Complete-profile runtime qualification is unavailable from these owners.
+        runArgs+=(--skip-verify)
+    elif [[ "$FIXTURE_PROFILE_ID" == "none" || "$FIXTURE_PROFILE_ID" == "auth-basic" || "$FIXTURE_PROFILE_ID" == "public-content-lifecycle" || "$FIXTURE_PROFILE_ID" == "runtime-cache-pagination" || ",${FIXTURE_PRODUCER_IDS}," == *",comment-moderation,"* ]]; then
         runArgs+=(--fixture-receipt "$FIXTURE_RECEIPT_FILE")
+        requestVerified=1
     else
         runArgs+=(--skip-verify)
     fi
@@ -2161,6 +2199,9 @@ InvokeFixtureOrchestrator() {
         exit 1
     fi
     Log "invoking unique fixture orchestrator profile=${FIXTURE_PROFILE_ID} producers=${FIXTURE_PRODUCER_IDS:-<none>}"
+    if [[ -n "$artifactDirectory" ]]; then
+        Log "owned fixture recovery state: ${prepareStateFile}"
+    fi
     (
         export FSUSBLOG_BASE_URL="$DEBUG_BACKEND_URL"
         export PLAYWRIGHT_BASE_URL="$DEBUG_FRONTEND_URL"
@@ -2169,8 +2210,6 @@ InvokeFixtureOrchestrator() {
         export FSUSBLOG_PG_CONTAINER="$POSTGRES_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER="$REDIS_CONTAINER"
         export FSUSBLOG_REDIS_CONTAINER_NAME="$REDIS_CONTAINER"
-        export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET"
-        export FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET"
         if [[ -n "${FSUSBLOG_TEMPORAL_CONTEXT_FILE:-}" ]]; then
             unset FSUSBLOG_TEMPORAL_CONTEXT_JSON
         fi
@@ -2181,28 +2220,56 @@ InvokeFixtureOrchestrator() {
         export Jwt__AccessTokenExpiresMinutes="$JWT_ACCESS_TOKEN_EXPIRES_MINUTES"
         export Jwt__RotationWindowDays="$JWT_ROTATION_WINDOW_DAYS"
         export AnonymousCredentialIssuer__SubjectHashPepper="$ANONYMOUS_SUBJECT_HASH_PEPPER"
-        "${FSUSBLOG_NODE:-node}" "${runArgs[@]}"
+        FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="$LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET" \
+            FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET="$LOCAL_AUTH_FIXTURE_SECRET" \
+            "${FSUSBLOG_NODE:-node}" "${runArgs[@]}"
     ) || {
         Log 'fixture orchestrator prepare failed'
         exit 1
     }
     if [[ "$FIXTURE_REQUIRES_PUBLIC" == "1" ]]; then
-        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
-            project-prepared-public \
-            --prepare-state "$prepareStateFile" \
-            --out "$PUBLIC_ID_PROJECTION_FILE" >/dev/null
-        Log "public fixture navigation projection: ${PUBLIC_ID_PROJECTION_FILE}"
+        if [[ "$requestVerified" == "1" && -f "$FIXTURE_RECEIPT_FILE" ]]; then
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+                project-verified --receipt "$FIXTURE_RECEIPT_FILE" \
+                --out "$PUBLIC_ID_PROJECTION_FILE" >/dev/null
+            Log "verified public fixture navigation projection: ${PUBLIC_ID_PROJECTION_FILE}"
+        else
+            Log "public projection blocked: profile ${FIXTURE_PROFILE_ID} has no independently verified receipt"
+        fi
     fi
-    if [[ -f "$FIXTURE_RECEIPT_FILE" ]]; then
+    if [[ "$requestVerified" == "1" && -f "$FIXTURE_RECEIPT_FILE" ]]; then
         FIXTURE_RECEIPT_DIGEST="$("${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" receipt-digest --file "$FIXTURE_RECEIPT_FILE")"
         FIXTURE_RECEIPT_TERMINAL_STATUS="verified"
         Log "fixture receipt (verified): ${FIXTURE_RECEIPT_FILE} digest=${FIXTURE_RECEIPT_DIGEST}"
+        if [[ "$FIXTURE_PROFILE_SOURCE" == "matrix" && ("$FIXTURE_PROFILE_ID" == "public-content-lifecycle" || "$FIXTURE_PROFILE_ID" == "runtime-cache-pagination") ]]; then
+            FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR="$invocationRoot/runtime-cache-inputs/${FSUSBLOG_TEST_RUN_ID:?}"
+            export FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR
+            local -a prerequisiteArgs=()
+            if [[ -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" &&
+                "${FSUSBLOG_SEALED_FIXTURE_PREREQUISITES:-[]}" != "[]" ]]; then
+                prerequisiteArgs+=(--prerequisite-inputs "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR/prerequisite-inputs.json")
+            fi
+            if [[ -n "$artifactDirectory" ]]; then
+                "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+                    project-runtime-cache-input --receipt "$FIXTURE_RECEIPT_FILE" \
+                    --prepare-state "$prepareStateFile" --public-projection "$PUBLIC_ID_PROJECTION_FILE" \
+                    --consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID" \
+                    --out "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR/$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID.json" \
+                    "${prerequisiteArgs[@]}"
+            else
+                "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+                    project-runtime-cache-profile-inputs --receipt "$FIXTURE_RECEIPT_FILE" \
+                    --prepare-state "$prepareStateFile" --public-projection "$PUBLIC_ID_PROJECTION_FILE" \
+                    --out-dir "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR" "${prerequisiteArgs[@]}"
+            fi
+        fi
     else
         # Honest partial land: prepare-state exists; FixtureReceipt verified deferred to producers (#1712+).
         FIXTURE_RECEIPT_DIGEST=""
         FIXTURE_RECEIPT_TERMINAL_STATUS="prepared-unverified"
         Log "fixture prepare-state: ${prepareStateFile} (FixtureReceipt verified deferred; profile=${FIXTURE_PROFILE_ID})"
     fi
+    WriteEnvFile
 }
 
 EnsureFixtureTemporalContext() {
@@ -2283,7 +2350,7 @@ PublishEnvironmentReadyReceipt() {
         --runtime-topology-input "$RUNTIME_TOPOLOGY_INPUT_FILE"
         --environment-ready "$ENVIRONMENT_READY_RECEIPT_FILE"
     )
-    if [[ -n "${FIXTURE_RECEIPT_FILE:-}" && -f "${FIXTURE_RECEIPT_FILE:-}" ]]; then
+    if [[ "${FIXTURE_RECEIPT_TERMINAL_STATUS:-}" == "verified" && -n "${FIXTURE_RECEIPT_FILE:-}" && -f "${FIXTURE_RECEIPT_FILE:-}" ]]; then
         readyArgs+=(--fixture-receipt "$FIXTURE_RECEIPT_FILE")
     fi
     if [[ -n "${FIXTURE_RECEIPT_TERMINAL_STATUS:-}" ]]; then
@@ -2429,9 +2496,9 @@ ResolveCurrentSchemaCandidateAssembly() {
         Log 'current schema production build root physical path is unavailable'
         return 2
     }
-    if [[ "$physicalBuildRoot" != "$buildRoot" \
-        || "$buildRoot" == "$ROOT_DIR" \
-        || "$buildRoot" != "$ROOT_DIR/"* ]]; then
+    if [[ "$physicalBuildRoot" != "$buildRoot" ||
+        "$buildRoot" == "$ROOT_DIR" ||
+        "$buildRoot" != "$ROOT_DIR/"* ]]; then
         Log 'current schema production build root is not a canonical repository consumer path'
         return 2
     fi
@@ -2460,7 +2527,7 @@ ResolveCurrentSchemaCandidateAssembly() {
             "$candidateAssembly" \
             "${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema candidate source commit is required}" \
             "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:?current schema candidate source fingerprint is required}" \
-            "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?current schema candidate receipt digest is required}" <<'NODE'
+            "${FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST:?current schema candidate receipt digest is required}" <<'NODE'; then
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -2491,13 +2558,12 @@ verifyProductionBuildConsumerMaterialization({
     }
 });
 NODE
-        then
             Log 'current schema CI candidate is not bound to the current verified consumer materialization'
             return 2
         fi
     else
         if ! "${FSUSBLOG_NODE:-node}" --input-type=module - \
-            "$ROOT_DIR" "$runId" "$buildRoot" "$candidateAssembly" <<'NODE'
+            "$ROOT_DIR" "$runId" "$buildRoot" "$candidateAssembly" <<'NODE'; then
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
 
@@ -2512,7 +2578,6 @@ if (environment.FSUSBLOG_PRODUCTION_BUILD_ROOT !== buildRoot
     throw new Error('candidate layout does not match the current production build run');
 }
 NODE
-        then
             Log 'current schema candidate does not match the current production build run'
             return 2
         fi
@@ -2551,11 +2616,11 @@ MaterializeCurrentSchemaForTestRuntime() {
         FSUSBLOG_CURRENT_SCHEMA_TEST_RECEIPT_ROOT="$TMP_DIR" \
         ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
         ./tools/build-with-data-env.sh dotnet "$CURRENT_SCHEMA_CANDIDATE_ASSEMBLY" \
-            materialize-current-schema-test \
-            --run-id "$runId" \
-            --source-commit "$sourceCommit" \
-            --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
-            --service-catalog "$serviceCatalogFile"
+        materialize-current-schema-test \
+        --run-id "$runId" \
+        --source-commit "$sourceCommit" \
+        --service-envelope "$EXECUTION_SERVICE_ENVELOPE_FILE" \
+        --service-catalog "$serviceCatalogFile"
     ConnectionStrings__DefaultConnection="${POSTGRES_CONNECTION};Search Path=public" \
         "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/verify-current-schema-test-materialization-receipt.mjs" \
         --receipt-root "$TMP_DIR" \
@@ -2587,8 +2652,10 @@ RequireCurrentSchemaRuntimeReady() {
     local sourceCommit="${FSUSBLOG_TEST_SOURCE_COMMIT:?current schema runtime-ready source commit is required}"
     local runtimeConfiguration="${FSUSBLOG_RUNTIME_CONFIGURATION:-Release}"
     local serviceCatalogFile="$ROOT_DIR/config/testing/test-execution-service-catalog.json"
-    local expectedRuntimeReadyFile="$TMP_DIR/current-schema-runtime-ready-$(CurrentSchemaRunDigest "$runId").json"
-    local expectedAdmissionFile="$TMP_DIR/current-schema-runtime-topology-admission-$(CurrentSchemaRunDigest "$runId").json"
+    local expectedRuntimeReadyFile
+    expectedRuntimeReadyFile="$TMP_DIR/current-schema-runtime-ready-$(CurrentSchemaRunDigest "$runId").json"
+    local expectedAdmissionFile
+    expectedAdmissionFile="$TMP_DIR/current-schema-runtime-topology-admission-$(CurrentSchemaRunDigest "$runId").json"
     if [[ "${FSUSBLOG_CURRENT_SCHEMA_TEST_RUNTIME_READY_RECEIPT:-}" != "$expectedRuntimeReadyFile" ]]; then
         Log 'current schema runtime-ready receipt path is missing or not the canonical run-derived path'
         return 2

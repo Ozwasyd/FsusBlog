@@ -1517,18 +1517,20 @@
             "status": "manual"
         },
         {
-            "id": "backend-qps-scenario-catalog",
+            "id": "runtime-cache-evidence-catalog",
             "owner": "backend-performance-governance",
-            "canonicalPath": "config/testing/backend-qps-scenario-catalog.json",
+            "canonicalPath": "config/testing/runtime-cache-evidence-catalog.json",
             "pathType": "file",
-            "purpose": "Canonical authority for 13 backend QPS scenarios and static invariant definitions",
+            "purpose": "Canonical authority for 13 runtime cache scenarios and current-schema dynamic evidence budgets",
             "consumers": [
-                "tools/test/run-backend-qps-scenarios.mjs",
-                "tools/test/lanes/backend-qps.sh",
-                "docs/testing/backend-qps-driver-migration-ledger.md"
+                "tools/test/runtime-cache-evidence-contract.mjs",
+                "tools/test/run-runtime-cache-evidence.mjs",
+                "tools/test/check-runtime-cache-evidence.mjs",
+                "tools/test/lanes/runtime-cache-evidence.sh",
+                "docs/testing.md"
             ],
-            "validationCommand": "node tools/test/run-backend-qps-scenarios.mjs --validate-catalog",
-            "changePolicy": "manual-update-with-qps-matrix-validation",
+            "validationCommand": "node --test tests/tools/runtime-cache-evidence-contract.test.mjs tests/tools/runtime-cache-matrix-workflow.test.mjs",
+            "changePolicy": "manual-update-with-runtime-cache-matrix-validation",
             "status": "manual"
         },
         {

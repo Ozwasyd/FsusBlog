@@ -1,6 +1,6 @@
 {
   "schema": "fsusblog.bounded-channel-delivery-contracts.v1",
-  "digest": "sha256:5308e85bab14631d57de86cd7310294212ad9112410df4dbaaa2390baf477cf1",
+  "digest": "sha256:849c5b77f7bf0676d7f974f6dfb8393416c70ee94e41420f99ec417250c8b345",
   "queues": [
     {
       "queueId": "admin-audit",
@@ -66,7 +66,7 @@
       "deliveryClass": "coalescible",
       "drainParticipant": true,
       "participantAdapter": { "file": "src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs", "token": "ArticleBodyRepairBoundedQueueDrainParticipant" },
-      "channelBehavior": { "fullMode": "DropWrite", "writerPrimitive": "TryWrite" },
+      "channelBehavior": { "fullMode": "Wait", "writerPrimitive": "TryWrite", "waitTryWriteDisposition": "Full admission returns false and atomically releases the pending article reservation; producers never wait for channel capacity." },
       "writerCallsites": [{ "file": "src/backend/Services/Background/ArticleBodyRepairWorker.cs", "token": "_channel.Writer.TryWrite(request)" }],
       "readerCallsites": [{ "file": "src/backend/Services/Background/ArticleBodyRepairWorker.cs", "token": "_channel.Reader.ReadAllAsync(cancellationToken)" }],
       "drain": { "status": "implemented", "rationale": "The catalog participant reports the queue-owned pending repair set to aggregate drain.", "callsites": [{ "file": "src/backend/Infrastructure/Operations/BoundedQueueDrainParticipants.cs", "token": "ArticleBodyRepairBoundedQueueDrainParticipant" }] },

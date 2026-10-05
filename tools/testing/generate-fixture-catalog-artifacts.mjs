@@ -2,12 +2,13 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     buildFixtureProfileMatrixInventory,
     FIXTURE_PROFILE_MATRIX_FILE,
-    FIXTURE_PROFILE_MATRIX_SCHEMA
-} from '../test-matrix/fixture-profile-contract.mjs';
-import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+    FIXTURE_PROFILE_MATRIX_SCHEMA,
+    matrixFixturePrerequisites
+} = await import(new URL('../test-matrix/fixture-profile-contract.mjs', import.meta.url));
+const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
 
 import {
     expandFixtureProfile,
@@ -72,7 +73,8 @@ export function generateFixtureInventory({ repositoryRoot = root } = {})
             profileIds: [tier.fixtureProfile],
             requiredCapabilities,
             requiredVariantIds: resolveFixtureVariants(requiredCapabilities, tier.executionClass ?? executionClass(tier), catalogs),
-            producerOwners: [...new Set(requiredCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort()
+            producerOwners: [...new Set(requiredCapabilities.map((id) => ownerByCapability.get(id)))].filter(Boolean).sort(),
+            ...(Object.hasOwn(tier, 'fixturePrerequisites') ? { fixturePrerequisites: matrixFixturePrerequisites(tier) } : {})
         };
     });
     const sourceConsumers = declarations.consumers.map((declaration) =>

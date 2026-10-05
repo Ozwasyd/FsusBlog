@@ -5,6 +5,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const {parseMatrix} = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
+const { matrixFixturePrerequisites } = await import(new URL('../test-matrix/fixture-profile-contract.mjs', import.meta.url));
 const {canonicalDigest: currentSchemaCanonicalDigest, runtimeReadyReceiptPath, runtimeReadySchema, verifyCurrentSchemaRuntimeReadyReceipt} = await import(new URL('../db/verify-current-schema-test-materialization-receipt.mjs', import.meta.url));
 import {
     contentShapeCatalogDigest,
@@ -1120,7 +1121,7 @@ export function matrixConsumerObservationContent(tier, { repositoryRoot = root }
         chunks.push(readOptionalSource(repositoryRoot, 'tests/browser-contract/fixture.mjs'));
         chunks.push(readOptionalSource(repositoryRoot, 'tests/browser-contract/default-fixture-provider.mjs'));
     }
-    if (/data-scale|load-smoke|load-profile|backend-qps/u.test(`${tier.id} ${tier.command ?? ''}`))
+    if (/data-scale|load-smoke|load-profile/u.test(`${tier.id} ${tier.command ?? ''}`))
     {
         chunks.push(readOptionalSource(repositoryRoot, 'tools/data-scale/seed.sh'));
         chunks.push(readOptionalSource(repositoryRoot, 'tools/test/lanes/data-scale.sh'));
@@ -1219,8 +1220,7 @@ export function isFixtureMatrixConsumer(tier)
         return false;
     }
     return tier.requiresBootstrap !== 'none'
-    || (/tools\/test\/lanes\/(?:backend-qps|data-scale|load-profile|load-smoke)\.sh/u.test(String(tier.command ?? ''))
-      && !/\saggregate$/u.test(String(tier.command ?? '')));
+    || /tools\/test\/lanes\/(?:runtime-cache-evidence|data-scale|load-profile|load-smoke)\.sh/u.test(String(tier.command ?? ''));
 }
 
 export function validateNoneFixtureTier(tier, {
@@ -1621,7 +1621,7 @@ export function inferFixtureExecutionClass(tier, catalogs = readFixtureCatalogs(
     {
         candidates.push('browser');
     }
-    if (/^(?:backend-qps|data-scale|load|soak)/u.test(String(tier?.id ?? '')))
+    if (/^(?:runtime-cache|data-scale|load|soak)/u.test(String(tier?.id ?? '')))
     {
         candidates.push('load');
     }
@@ -1650,7 +1650,7 @@ export function sealMatrixFixtureProfile(tier, catalogs = readFixtureCatalogs())
     {
         throw new Error('matrix tier is missing fixtureProfile');
     }
-    const executionClass = inferFixtureExecutionClass(tier, catalogs);
+    const executionClass = tier.executionClass ?? inferFixtureExecutionClass(tier, catalogs);
     const plan = planFixtureMutation(tier.fixtureProfile, catalogs);
     if (executionClass != null && !plan.allowedExecutionClasses.includes(executionClass))
     {
@@ -1660,7 +1660,7 @@ export function sealMatrixFixtureProfile(tier, catalogs = readFixtureCatalogs())
     const capabilityDigest = expandedCapabilityDigest(plan.capabilities);
     const variantIds = resolveFixtureVariants(plan.capabilities, executionClass, catalogs);
     const variantPlan = buildFixtureVariantPlan(variantIds, catalogs);
-    return resolveFixtureProfile({
+    const resolved = resolveFixtureProfile({
         profileId: tier.fixtureProfile,
         profileSource: 'matrix',
         executionClass,
@@ -1677,6 +1677,22 @@ export function sealMatrixFixtureProfile(tier, catalogs = readFixtureCatalogs())
         allowFreeProfileEnv: true,
         freeProfileEnv: ''
     });
+    const prerequisites = matrixFixturePrerequisites(tier).map((declaration) =>
+    {
+        const prerequisite = sealMatrixFixtureProfile({ fixtureProfile: declaration.profileId, executionClass }, catalogs);
+        const capability = catalogs.capability.capabilities.find((item) => item.id === declaration.capabilityId);
+        if (capability?.ownerProducerId !== declaration.producerId
+            || !prerequisite.capabilities.includes(declaration.capabilityId)
+            || !prerequisite.producers.includes(declaration.producerId))
+        {
+            throw new Error('fixture prerequisite capability/producer owner mismatch');
+        }
+        return { ...declaration, executionClass, catalogDigest: prerequisite.catalogDigest,
+            expandedCapabilityDigest: prerequisite.expandedCapabilityDigest,
+            variantIds: prerequisite.variantIds, variantPlanDigest: prerequisite.variantPlanDigest,
+            capabilityIds: prerequisite.capabilities, producerIds: prerequisite.producers };
+    });
+    return prerequisites.length ? Object.freeze({ ...resolved, consumerId: tier.id, prerequisites }) : resolved;
 }
 
 export function writeFixtureProfileReceipt(file, plan, {
@@ -1878,7 +1894,37 @@ export function applySealedFixtureProfileEnvironment(env, plan)
     next.FSUSBLOG_FIXTURE_PROFILE_SOURCE = plan.profileSource;
     // Overwrite ambient free-profile env so process.env inheritance cannot smuggle overrides.
     next.FSUSBLOG_FIXTURE_PROFILE = '';
+    next.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID = plan.consumerId ?? '';
+    next.FSUSBLOG_SEALED_FIXTURE_PREREQUISITES = JSON.stringify(plan.prerequisites ?? []);
     return next;
+}
+
+export function resolveMatrixFixturePrerequisiteEnvironment(env, primaryPlan, catalogs = readFixtureCatalogs())
+{
+    const consumerId = env.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID ?? '';
+    const prerequisites = JSON.parse(env.FSUSBLOG_SEALED_FIXTURE_PREREQUISITES ?? '[]');
+    if (!consumerId)
+    {
+        if (!Array.isArray(prerequisites) || prerequisites.length)
+        {
+            throw new Error('fixture prerequisite requires its sealed matrix consumer');
+        }
+        return [];
+    }
+    const tier = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')).tiers
+        .find((item) => item.id === consumerId);
+    const sealed = sealMatrixFixtureProfile(tier, catalogs);
+    if (!sealed.prerequisites?.length || primaryPlan.profileSource !== 'matrix'
+        || primaryPlan.profileId !== sealed.profileId || primaryPlan.executionClass !== sealed.executionClass
+        || primaryPlan.catalogDigest !== sealed.catalogDigest
+        || primaryPlan.expandedCapabilityDigest !== sealed.expandedCapabilityDigest
+        || primaryPlan.variantPlanDigest !== sealed.variantPlanDigest
+        || stableStringify(primaryPlan.variantIds) !== stableStringify(sealed.variantIds)
+        || stableStringify(prerequisites) !== stableStringify(sealed.prerequisites))
+    {
+        throw new Error('fixture prerequisite sealed consumer/profile/catalog/variant binding mismatch');
+    }
+    return sealed.prerequisites;
 }
 
 function validateInventoryTruthfulness(consumer, content, errors)
@@ -2260,6 +2306,12 @@ export function validateFixtureCatalogs({
         for (const tier of expectedMatrixConsumers)
         {
             const entry = inventoryById.get(`matrix:${tier.id}`);
+            const prerequisites = matrixFixturePrerequisites(tier);
+            if (stableStringify(entry?.fixturePrerequisites ?? []) !== stableStringify(prerequisites)
+                || (!prerequisites.length && Object.hasOwn(entry ?? {}, 'fixturePrerequisites')))
+            {
+                errors.push(`matrix tier ${tier.id} generated prerequisite declaration differs`);
+            }
             let requiredCapabilities;
             try
             {
@@ -3275,11 +3327,12 @@ async function runCli(argv = process.argv.slice(2))
             allowFreeProfileEnv: profileSource === 'dev-cli',
             freeProfileEnv: profileSource === 'dev-cli' ? '' : process.env.FSUSBLOG_FIXTURE_PROFILE
         });
+        const prerequisites = resolveMatrixFixturePrerequisiteEnvironment(process.env, plan);
         if (out)
         {
             writeFixtureProfileReceipt(out, plan, { kind });
         }
-        process.stdout.write(`${JSON.stringify(plan)}\n`);
+        process.stdout.write(`${JSON.stringify({ ...plan, prerequisites })}\n`);
         return;
     }
     if (command === 'digest')

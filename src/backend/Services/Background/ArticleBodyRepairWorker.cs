@@ -16,16 +16,28 @@ public sealed record ArticleBodyRepairRequest(int ArticleId, string Source, int 
 public sealed class ArticleBodyRepairQueue
 {
     private const int Capacity = 256;
+    private readonly Lock _admissionGate = new();
     private readonly ConcurrentDictionary<int, byte> _pending = new();
     private readonly Channel<ArticleBodyRepairRequest> _channel = Channel.CreateBounded<ArticleBodyRepairRequest>(
         new BoundedChannelOptions(Capacity)
         {
-            FullMode = BoundedChannelFullMode.DropWrite,
+            // TryWrite must reject a full queue so failed admission releases the pending ID.
+            // DropWrite reports success even when it discards the request; Wait never blocks TryWrite.
+            FullMode = BoundedChannelFullMode.Wait,
             SingleReader = true,
             SingleWriter = false
         });
 
-    public int PendingCount => _pending.Count;
+    public int PendingCount
+    {
+        get
+        {
+            lock (_admissionGate)
+            {
+                return _pending.Count;
+            }
+        }
+    }
 
     public bool TrySchedule(int articleId, string source)
         => TrySchedule(new ArticleBodyRepairRequest(articleId, NormalizeSource(source)));
@@ -33,7 +45,13 @@ public sealed class ArticleBodyRepairQueue
     internal IAsyncEnumerable<ArticleBodyRepairRequest> ReadAllAsync(CancellationToken cancellationToken)
         => _channel.Reader.ReadAllAsync(cancellationToken);
 
-    internal void Complete(int articleId) => _pending.TryRemove(articleId, out _);
+    internal void Complete(int articleId)
+    {
+        lock (_admissionGate)
+        {
+            _pending.TryRemove(articleId, out _);
+        }
+    }
 
     internal bool TryRetry(ArticleBodyRepairRequest request)
         => TrySchedule(request with
@@ -48,20 +66,24 @@ public sealed class ArticleBodyRepairQueue
             return false;
         }
 
-        if (!_pending.TryAdd(request.ArticleId, 0))
+        bool admitted;
+        // Deduplication must not observe an admission that will subsequently be rejected.
+        lock (_admissionGate)
         {
-            return true;
+            if (!_pending.TryAdd(request.ArticleId, 0))
+            {
+                return true;
+            }
+
+            admitted = _channel.Writer.TryWrite(request);
+            if (!admitted)
+            {
+                _pending.TryRemove(request.ArticleId, out _);
+            }
         }
 
-        if (_channel.Writer.TryWrite(request))
-        {
-            FsusObservability.RecordOperation("article_body", "repair_queue", "queued", TimeSpan.Zero);
-            return true;
-        }
-
-        _pending.TryRemove(request.ArticleId, out _);
-        FsusObservability.RecordOperation("article_body", "repair_queue", "full", TimeSpan.Zero);
-        return false;
+        FsusObservability.RecordOperation("article_body", "repair_queue", admitted ? "queued" : "full", TimeSpan.Zero);
+        return admitted;
     }
 
     private static string NormalizeSource(string source)
