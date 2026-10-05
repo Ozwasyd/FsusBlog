@@ -817,6 +817,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 providedCapabilities,
                 observations,
                 entityIdentities: rawResult.entityIdentities ?? portVerify?.entityIdentities ?? [],
+                runId: planDocument.executionIdentity?.runId ?? null,
+                namespace: planDocument.executionIdentity?.namespace ?? null,
                 catalogs
             });
             const temporalBinding = verifyProducerResultTemporalArtifacts(producerId, rawResult);

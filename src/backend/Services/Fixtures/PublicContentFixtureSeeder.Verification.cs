@@ -213,6 +213,19 @@ public sealed partial class PublicContentFixtureSeeder
                 }
                 RequireVerificationEquality(original.Fields, fields,
                     "status", "deleted", "currentPublicationId", "currentRevisionId", "revisionIds", "publicDetailReadable");
+                CanonicalArticleLifecycleReceipt? lifecycle = snapshot.Lifecycles
+                    .SingleOrDefault(item => item.ArticleId == id);
+                if (lifecycle is not null)
+                {
+                    CanonicalArticleProjectionVerifier projectionVerifier = serviceProvider
+                        .GetService<CanonicalArticleProjectionVerifier>()
+                        ?? throw new InvalidOperationException("canonical article independent projection verifier unavailable");
+                    fields["projectionAggregate"] = await projectionVerifier.VerifyAsync(lifecycle, cancellationToken)
+                        .ConfigureAwait(false);
+                    fields["requiredProjectionEdgesVerified"] = true;
+                    RequireVerificationEquality(original.Fields, fields,
+                        "projectionAggregate", "requiredProjectionEdgesVerified");
+                }
             }
             else if (original.Kind is "category" or "tag")
             {

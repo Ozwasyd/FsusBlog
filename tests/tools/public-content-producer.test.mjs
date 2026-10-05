@@ -15,6 +15,8 @@ const {
 } = await import(new URL('../../tools/test-fixtures/producers/public-content-producer.mjs', import.meta.url));
 const {
     runPostcondition,
+    computeProjectionTerminalDigest,
+    computeProjectionAggregateDigest,
     assertPostconditionRegistryComplete
 } = await import(new URL('../../tools/test-fixtures/receipt/postconditions.mjs', import.meta.url));
 const {
@@ -25,6 +27,91 @@ const {
 } = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 
 const catalogs = readFixtureCatalogs();
+
+const { freezeDeep, sha256Text } = await import(new URL('../../tools/test-fixtures/receipt/canonical.mjs', import.meta.url));
+
+const digest = `sha256:${'a'.repeat(64)}`;
+
+function projectionAggregate(articleId, publiclyVisible = true, coordinateOverrides = {})
+{
+    const requiredEdges = [
+        'article-detail-aeds',
+        'http-cache-invalidation',
+        'public-aot-invalidation',
+        'public-artifact-revocation',
+        'public-hot-read',
+        'search-projection',
+        'taxonomy-projection'
+    ];
+    const currentCoordinates = {
+        articleId: Number(articleId),
+        revisionId: 601,
+        revisionNo: 1,
+        publicationId: publiclyVisible ? 501 : null,
+        publicationNo: publiclyVisible ? 1 : null,
+        rightsSnapshotId: 701,
+        responsibilitySnapshotId: 801,
+        responsibilityVersion: 1,
+        ...coordinateOverrides
+    };
+    const aggregate = {
+        schema: 'fsusblog.canonical-article-projection-aggregate.v1',
+        runId: 'run-2175',
+        namespace: 'ns',
+        authorityReceiptDigest: digest,
+        requiredEdgeContractId: 'fsusblog.article-mutation-replay-edges.v1',
+        requiredEdges,
+        currentCoordinates,
+        publiclyVisible,
+        contentDigest: digest,
+        searchDigest: digest,
+        aotDigest: digest,
+        revocationDigest: digest,
+        aedsDigest: digest,
+        hotReadDigest: digest,
+        publicListDigest: digest,
+        publicDetailDigest: digest,
+        cacheDigest: digest,
+        edges: requiredEdges.map((edgeName) => ({
+            eventId: 'event-2175',
+            eventVersion: 2,
+            edgeName,
+            owner: `production-outbox:${edgeName}`,
+            status: 'completed',
+            attemptCount: 1,
+            generation: 1,
+            deliveryKey: sha256Text(`event-2175:${edgeName}`).slice(7),
+            inputDigest: digest,
+            outputDigest: digest,
+            coordinates: currentCoordinates,
+            terminalReceiptDigest: digest
+        })),
+        failures: [],
+        aggregateDigest: digest
+    };
+    for (const edge of aggregate.edges)
+    {
+        edge.terminalReceiptDigest = computeProjectionTerminalDigest(edge);
+    }
+    aggregate.aggregateDigest = computeProjectionAggregateDigest(aggregate);
+    return aggregate;
+}
+
+test('projection receipt digests match C# golden envelope including escaped identifiers', () =>
+{
+    const coordinates = { articleId: 1215, revisionId: 1501, revisionNo: 15, publicationId: 1801,
+        publicationNo: 18, rightsSnapshotId: 1601, responsibilitySnapshotId: 1701, responsibilityVersion: 7 };
+    const edge = { eventId: 'event-中文+"\\\n😀', eventVersion: 2, edgeName: 'search-projection',
+        owner: 'production-outbox:search-projection', status: 'completed', attemptCount: 1, generation: 23,
+        deliveryKey: 'b'.repeat(64), inputDigest: digest, outputDigest: digest, coordinates };
+    edge.terminalReceiptDigest = computeProjectionTerminalDigest(edge);
+    assert.equal(edge.terminalReceiptDigest, 'sha256:b0741ceea3ac62eb4e3c548b14b47df32e96320d8b51e9e110ea4ad1018e1d8d');
+    const aggregate = { ...projectionAggregate(1215), runId: 'run-中文+"\\\n😀',
+        requiredEdges: ['search-projection'], currentCoordinates: coordinates, edges: [edge] };
+    assert.equal(computeProjectionAggregateDigest(aggregate), 'sha256:d06e3e08780c2f137db42ee431d626366313e73dcbe36af34a742d4b86dd7bb6');
+    // Outer receipt canonicalization changes object key order, not this digest.
+    assert.equal(computeProjectionAggregateDigest(freezeDeep(aggregate)), computeProjectionAggregateDigest(aggregate));
+});
 
 function independentVerification(context, result)
 {
@@ -328,6 +415,86 @@ test('public-content-lifecycle plan exposes all formal lifecycle transition vari
     assert.equal(planDocument.lifecycle.rollback, true);
 });
 
+test('published scheduled fixture preserves the old publication until the observed clock reaches due', () =>
+{
+    const id = 'article-published-scheduled-update';
+    const article = {
+        kind: 'article', id: '1', capabilityHint: id,
+        fields: {
+            status: 'published', deleted: false, isDeleted: false,
+            operations: ['create', 'scheduled-update'], revisionIds: ['10', '11'],
+            publicationIds: [20], currentPublicationId: 20, currentRevisionId: 11,
+            rightsResponsibilityBound: true, immutableHistoryVerified: true,
+            requiredProjectionEdgesVerified: true,
+            projectionAggregate: projectionAggregate(1, true, { revisionId: 11, revisionNo: 2, publicationId: 20 }),
+            pendingPublicationAt: '2026-09-15T12:01:00.000Z',
+            scheduledUpdate: {
+                beforePublicationId: 20, afterPublicationId: 20,
+                transitionedAtUtc: '2026-09-15T12:00:00.000Z',
+                scheduledPublishAt: '2026-09-15T12:01:00.000Z',
+                observedBusinessTimeUtc: '2026-09-15T12:00:00.000Z'
+            }
+        }
+    };
+    const check = (entity) => runPostcondition(id, { observations: { database: { entities: [entity] } } });
+    assert.equal(check(article).ok, true);
+    for (const mutate of [
+        (fields) =>
+        {
+            fields.currentPublicationId = 21;
+        },
+        (fields) =>
+        {
+            fields.publicationIds.push(21);
+        },
+        (fields) =>
+        {
+            fields.operations.push('scheduled-publish');
+        },
+        (fields) =>
+        {
+            fields.scheduledUpdate.afterPublicationId = 21;
+        },
+        (fields) =>
+        {
+            fields.scheduledUpdate.observedBusinessTimeUtc = fields.pendingPublicationAt;
+        },
+        (fields) =>
+        {
+            fields.scheduledUpdate.observedBusinessTimeUtc = '2026-09-15T12:01:00.001Z';
+        },
+        (fields) =>
+        {
+            fields.scheduledUpdate.transitionedAtUtc = '2026-09-15T12:00:00.001Z';
+        },
+        (fields) =>
+        {
+            fields.pendingPublicationAt = null;
+        },
+        (fields) =>
+        {
+            fields.scheduledUpdate.scheduledPublishAt = '2026-09-15T12:01:00.000';
+        },
+        (fields) =>
+        {
+            fields.pendingPublicationAt = '2026-09-15T12:01:00.000';
+        },
+        (fields) =>
+        {
+            fields.currentRevisionId = 10;
+        },
+        (fields) =>
+        {
+            delete fields.scheduledUpdate;
+        }
+    ])
+    {
+        const invalid = structuredClone(article);
+        mutate(invalid.fields);
+        assert.equal(check(invalid).ok, false);
+    }
+});
+
 test('public-empty plan is exclusive and zero published', () =>
 {
     const planDocument = buildPublicContentPlan(['public.empty']);
@@ -602,16 +769,55 @@ test('postconditions: published, taxonomy, search, empty, multi rev/pub', () =>
         kind: 'article',
         id: '101',
         capabilityHint: 'article-multiple-revisions',
-        fields: { multipleRevisions: true, revisionCount: 2, revisionIds: ['1', '2'], status: 'published' }
+        fields: {
+            multipleRevisions: true,
+            revisionCount: 2,
+            revisionIds: ['1', '2'],
+            status: 'published',
+            requiredProjectionEdgesVerified: true,
+            projectionAggregate: projectionAggregate(101)
+        }
     });
     multi.database.entities.push({
         kind: 'article',
         id: '102',
         capabilityHint: 'article-multiple-publications',
-        fields: { multiplePublications: true, publicationCount: 2, status: 'published' }
+        fields: {
+            multiplePublications: true,
+            publicationCount: 2,
+            status: 'published',
+            requiredProjectionEdgesVerified: true,
+            projectionAggregate: projectionAggregate(102)
+        }
     });
     assert.equal(runPostcondition('article-multiple-revisions', { observations: multi }).ok, true);
     assert.equal(runPostcondition('article-multiple-publications', { observations: multi }).ok, true);
+
+    const tamperedProjection = structuredClone(multi);
+    tamperedProjection.database.entities.at(-1).fields.projectionAggregate.edges[0].status = 'failed';
+    assert.equal(runPostcondition('article-multiple-publications', {
+        observations: tamperedProjection
+    }).ok, false);
+
+    for (const field of ['searchDigest', 'aggregateDigest'])
+    {
+        const digestTamper = structuredClone(multi);
+        digestTamper.database.entities.at(-1).fields.projectionAggregate[field] = `sha256:${'f'.repeat(64)}`;
+        assert.equal(runPostcondition('article-multiple-publications', { observations: digestTamper }).ok, false);
+    }
+    const terminalTamper = structuredClone(multi);
+    const aggregate = terminalTamper.database.entities.at(-1).fields.projectionAggregate;
+    aggregate.edges[0].generation += 1;
+    aggregate.aggregateDigest = computeProjectionAggregateDigest(aggregate);
+    assert.equal(runPostcondition('article-multiple-publications', { observations: terminalTamper }).ok, false);
+
+    const crossRunProjection = structuredClone(multi);
+    crossRunProjection.database.entities.at(-1).fields.projectionAggregate.runId = 'stale-run';
+    assert.equal(runPostcondition('article-multiple-publications', {
+        observations: crossRunProjection,
+        runId: 'run-2175',
+        namespace: 'ns'
+    }).ok, false);
 
     const emptyObs = minimalObservations({ empty: true });
     assert.equal(runPostcondition('public-empty', { observations: emptyObs }).ok, true);

@@ -360,6 +360,8 @@ export async function verifyFixtureReusableState(state, context = {}, options = 
           cache: cacheObservation
         },
         entityIdentities: producerReceipt.entityIdentities ?? [],
+                runId: receipt.runId ?? null,
+                namespace: receipt.namespace ?? null,
         catalogs
       })
     }

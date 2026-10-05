@@ -4005,6 +4005,15 @@ tiers:
           - tests/tools/content-lifecycle-observation.test.mjs
           - tools/docs/content-doc-exactness.mjs
           - tests/tools/content-doc-exactness.test.mjs
+          - tests/tools/canonical-article-lifecycle-authority.test.mjs
+          - tests/tools/public-content-producer.test.mjs
+          - tools/governance/check-canonical-article-lifecycle-authority.mjs
+          - tools/test-fixtures/receipt/postconditions.mjs
+          - tools/test-fixtures/orchestrator.mjs
+          - tools/test-fixtures/receipt/reuse-verifier.mjs
+          - src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs
+          - src/backend/Services/SearchIndexService.ProjectionEvidence.cs
+          - tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
       ciJob: fast-static-governance
       localOnly: false
       nightlyOnly: false

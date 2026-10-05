@@ -97,6 +97,21 @@ Static source-bound receipt output does not establish that these runtime tests,
 the catalog drain matrix, or independent acceptance ran. See the current
 [audit admission/recovery contract](security/audit-retention-cryptographic-erasure.md#required-channel-admission-and-recovery).
 
+## Canonical article required-projection verification
+
+The independent public-content verify port rereads lifecycle projection edges through the same read-only verifier and compares the resulting aggregate with its original sealed preparation facts. It cannot qualify stale copied preparation aggregates or refresh a drifted aggregate into a successful original receipt.
+
+The `public-content-lifecycle` fixture accepts a canonical article lifecycle result only after the production article mutation outbox has reached its terminal state and `CanonicalArticleProjectionVerifier` has independently reread the current output of every edge in `ArticleMutationReplayEdges.Required`. The fixture does not own another required-edge list and cannot invoke search, PublicHot, cache, AEDS, AOT, revocation, list, or detail repair/rebuild paths to manufacture acceptance.
+
+The verifier consumes either a canonical publication receipt or a canonical lifecycle receipt, verifies its existing digest, and preserves that receipt's identity. The projection aggregate binds run, namespace, receipt digest, article/version/publication/rights/responsibility coordinates, current outbox event and schema version, payload digest, delivery keys, attempt counts, output generations, output digests, and per-edge terminal receipt digests. Search evidence comes from the published manifest and core shard bytes rather than the database fallback of the query API. AEDS bytes are decoded through the production v2 and ArticleDetail POD decoders and compared with the sealed coordinates, content, and rights; equal stale frame digests alone cannot qualify. Superseded operations may retain a production `skipped` edge, but every required edge for the current operation must be `completed`; production optional edges do not become required. Missing, duplicate, failed, poisoned, recovered, timed-out, canceled, cross-run, unsealed, or tampered required evidence is non-qualifying.
+
+The verifier rereads metadata from the sealed immutable revision rather than accepting mutable latest article metadata, uses the normal public list source-cache read, and checks the article-specific AOT invalidation generation. Superseded terminal reasons must identify a later operation in the bound authority receipt. The Node receipt postconditions recompute the serialized aggregate and per-edge digests, validate production delivery keys, and reject unsafe numeric coordinates before a lifecycle capability is exposed to consumers. A shared C#/Node golden envelope covers identifier escaping and object-key reordering. The direct `VerifyAsync` tests simulate read ports locally while using the real v2/POD decoder, HotRead snapshot and receipt digest code; these tests do not claim that a production worker or an AOT renderer ran. Focused checks are:
+
+```bash
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter "FullyQualifiedName~CanonicalArticleProjectionVerifierTests"
+node --test tests/tools/canonical-article-lifecycle-authority.test.mjs tests/tools/public-content-producer.test.mjs
+```
+
 ## Media shape authority
 
 `config/testing/media-shape-catalog.json` is the only closed/versioned MediaShapeCatalog. It registers MIME, extension, magic and independent codec fact owners of JPEG, PNG, SVG and WebP respectively, and fixes six aspect contracts, ten types of consumer applicability, ten canonical positive shapes and eight single-fault negative shapes. The catalog only saves AssetId-compatible generator digest refs and does not save absolute path, public URL, storage path or second asset ledger; `no-cover` explicitly does not generate bytes, URL or default images. `tools/test-fixtures/media-shape-catalog.mjs` performs independent fail-closed verification of the catalog and each shape's content digest, matrix integrity, format/MIME/extension, orientation/alpha/dimensions, single-fault, consumer isolation, and unique authority.
@@ -148,6 +163,16 @@ Scheduler establishes a read-only empty guard for the historical global correctn
 See [`testing/static-governance-resident-hosts.md`](testing/static-governance-resident-hosts.md) for the resident host isolation classification and frontend structure producer-receipt join of the Static governance Node contract. Pure/file checks the shared host, lifecycle and destructive rehearsal to maintain independent processes; the final performance conclusion must still come from three rounds of Production fresh from the same source and cannot be replaced by local acceptance.
 
 For the source/run-bound scenario catalog, resident Node host, identity/reset barrier, independent result, cancellation of partial evidence, three-round before/after indicators and instant per-CLI fallback of the Browserless integration/security/resilience runtime probe, see [`testing/runtime-scenario-host.md`](testing/runtime-scenario-host.md). Wall time, CPU, Node process and connection setup are only used for performance observation and will never be involved in correctness.
+
+## Canonical article scheduled lifecycle
+
+`CanonicalArticleLifecycleFixturePort.ExecuteAsync` creates scheduled fixtures at a strictly future injected business-clock time. A published scheduled update returns a pending receipt: its new authoring revision exists, but the old immutable publication remains the public pointer. Preparation never substitutes the planned due time for the current business clock and never advances the shared clock implicitly.
+
+After the caller explicitly advances the injected clock, `PublishScheduledAsync` consumes that original receipt and the same run/namespace/profile/admin/writer/temporal binding. Under the article transaction lock it independently rechecks persisted authority, then calls the formal scheduled transition with the observed current time. Early, stale, altered or unauthorized requests fail without partial lifecycle facts. The returned receipt appends the due operation and its new publication/outbox/audit coordinates; it does not repair or reseal the original preparation receipt. The independent verifier rejects operations ahead of its observer clock and mismatched stored pending times.
+
+If scheduled completion fails after establishing its fence, abort recovery uses the original fence owner and caller cancellation token. A recovery fault cannot replace the first exception, its code or cancellation classification; it is retained separately in that exception's diagnostic data. Recovery-call completion and recovery qualification are distinct: neither a completed call nor a cancellation proves durable release or physical cleanup, and failed completion never returns an accepted lifecycle receipt. This does not change product fence behavior or the preparation entry's recovery path.
+
+The `article-published-scheduled-update` preparation postcondition requires exactly the create/scheduled-update chain, two revisions, one unchanged publication, and a stored due time still later than the observed business clock. Completion is a separate scenario-owned transition, not an already-completed fixture at a future timestamp. Real PostgreSQL tests cover one millisecond before due, exactly due and after due, immutable old publication, clock/source/permission drift and zero partial facts. Derived projections, rerun repair and legacy seed removal remain separate owners.
 
 ## Executable data test governance
 
