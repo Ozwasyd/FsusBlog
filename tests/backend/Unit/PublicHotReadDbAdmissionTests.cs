@@ -1,5 +1,9 @@
+using System.Reflection;
+
 using FsusBlog.Server.Infrastructure.Execution;
+using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services;
+using FsusBlog.Server.Services.ArticleVault;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
@@ -149,23 +153,21 @@ public sealed class PublicHotReadDbAdmissionTests
             nameof(ArticleService.GetByIdAsync),
             "LoadArticleDetailFromDbAsync",
             "TryReadArticleDetailCacheAsync");
-        string binaryArticles = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Modules",
-            "Endpoints",
-            "Binary",
-            "BinaryEndpoints.Articles.cs"));
-        string vaultWriter = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Services",
-            "ArticleService.ArticleVaultWriter.cs"));
-        string vaultTransaction = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Services",
-            "ArticleService.ArticleVaultTransaction.cs"));
+        IReadOnlyList<string> detailCalls = RuntimeMetadataInspection.DescribeDeclaredMemberReferencesInOrderContaining(
+            typeof(BinaryEndpoints),
+            nameof(IArticleEndpointService.GetPublicArtifactBackedDetailAsync),
+            nameof(IArticleEndpointService.GetByIdAsync));
+        string binaryArticles = string.Join('\n', detailCalls);
+        string vaultWriter = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleService),
+            typeof(ArticleService).GetInterfaceMap(typeof(IArticleVaultCanonicalGroupWriter)).TargetMethods.Single().Name);
+        string vaultTransaction = RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleService),
+            "ExecuteArticleMutationTransactionAsync",
+            "ExecuteForegroundWriteAsync");
+        MethodInfo gateMethod = Assert.IsAssignableFrom<MethodInfo>(typeof(ArticleService).GetMethod(
+            "ExecuteForegroundWriteAsync",
+            BindingFlags.Instance | BindingFlags.NonPublic));
 
         Assert.Contains("IDbConcurrencyGate.ExecuteAsync", getById, StringComparison.Ordinal);
         Assert.Contains("article-detail", getById, StringComparison.Ordinal);
@@ -176,14 +178,26 @@ public sealed class PublicHotReadDbAdmissionTests
 
         Assert.Contains("GetPublicArtifactBackedDetailAsync", binaryArticles, StringComparison.Ordinal);
         Assert.Contains("GetByIdAsync", binaryArticles, StringComparison.Ordinal);
+        Assert.True(
+            Array.FindIndex(detailCalls.ToArray(), static call => call.Contains(
+                nameof(IArticleEndpointService.GetPublicArtifactBackedDetailAsync),
+                StringComparison.Ordinal))
+            < Array.FindIndex(detailCalls.ToArray(), static call => call.Contains(
+                nameof(IArticleEndpointService.GetByIdAsync),
+                StringComparison.Ordinal)),
+            "The compiled article route must try the public artifact before its database fallback.");
         Assert.DoesNotContain("compat", binaryArticles, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("LoadArticleDetailFromDbAsync", binaryArticles, StringComparison.Ordinal);
 
         Assert.Contains("ExecuteForegroundWriteAsync", vaultWriter, StringComparison.Ordinal);
         Assert.Contains("article-vault-write", vaultWriter, StringComparison.Ordinal);
         Assert.Contains("UseTranAsync", vaultWriter, StringComparison.Ordinal);
-        Assert.Contains("DbWorkloadClass.ForegroundWrite", vaultTransaction, StringComparison.Ordinal);
+        Assert.Contains("ExecuteClassifiedAsync", vaultTransaction, StringComparison.Ordinal);
+        Assert.Contains(
+            (int)DbWorkloadClass.ForegroundWrite,
+            RuntimeMetadataInspection.DescribeInt32Constants(gateMethod));
         Assert.Contains("article-publication-write", vaultTransaction, StringComparison.Ordinal);
+        Assert.Contains("UseTranAsync", vaultTransaction, StringComparison.Ordinal);
         Assert.DoesNotContain("compat", vaultWriter, StringComparison.OrdinalIgnoreCase);
         Assert.DoesNotContain("compat", vaultTransaction, StringComparison.OrdinalIgnoreCase);
     }
