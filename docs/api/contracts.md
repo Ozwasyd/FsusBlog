@@ -929,6 +929,12 @@ obligations。index/query/ignore/prepublish/inspector receipts 绑定 worktree/b
 article/schema/permission policy、contract coordinate 与 content digest，只记录 identities/statuses/
 digests，不携带 content。
 
+unlinked-mention candidate 的 `Visibility.SourceActor` 必须与 `Source.SourceActor` 的完整
+actor/site/permission context 相等；`QueryActor` 仍是独立查询身份，重新计算 candidate identity
+与 digest 不能解除 source-actor 绑定。lifecycle `Changes` 只接受 `Slug`、`Title`、
+`HeadingIdentity` 的闭合位域：rename 必须是七种非空组合之一，其他事件必须为 `None`。
+未知位即使重新 seal 也拒绝；包含 heading 变更时仍必须同时履行 rebuild/invalidate/reresolve。
+
 `ArticleRelationContractValidator` 与 `ArticleRelationDigest` 是独立的 fail-closed validation/sealing
 authority；本 slice 不实现 Markdown parser、relation producer/rebuild、index/query、prepublish/inspector
 或 UI 行为。后续实现必须消费这些 closed contracts，并在上游 source/editor 与 relation lifecycle

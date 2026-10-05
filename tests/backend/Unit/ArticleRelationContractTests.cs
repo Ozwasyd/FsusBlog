@@ -232,6 +232,66 @@ public sealed class ArticleRelationContractTests
         Assert.True(ArticleRelationContractValidator.Validate(ambiguous).IsValid);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(2)]
+    public void UnlinkedMention_RejectsResealedSourceActorContextMismatch(int changedField)
+    {
+        ArticleRelationUnlinkedMentionCandidate valid = ArticleRelationContractValidator.Seal(
+            new ArticleRelationUnlinkedMentionCandidate(
+                ArticleRelationSchemas.MentionCandidate,
+                ArticleRelationSchemas.Version,
+                string.Empty,
+                Source(),
+                AuthoringVisibility(),
+                new(100, 111, "Article B"),
+                [Target(ArticleB)],
+                ArticleRelationMentionMatchRule.ExactTitle,
+                ArticleRelationMentionMatchReason.ExactText,
+                ArticleRelationMentionConfidence.Certain,
+                ArticleRelationMentionAmbiguity.Unique,
+                null,
+                false,
+                s_coordinate,
+                string.Empty));
+        Assert.True(ArticleRelationContractValidator.Validate(valid).IsValid);
+        Assert.NotEqual(valid.Source.SourceActor, valid.Visibility.QueryActor);
+
+        ArticleRelationUnlinkedMentionCandidate equalSourceContext = ArticleRelationContractValidator.Seal(valid with
+        {
+            Visibility = valid.Visibility with
+            {
+                SourceActor = valid.Source.SourceActor with
+                {
+                }
+            }
+        });
+        Assert.True(ArticleRelationContractValidator.Validate(equalSourceContext).IsValid);
+
+        ArticleRelationActorContext mismatchedSource = changedField switch
+        {
+            0 => s_sourceActor with { ActorIdentity = s_queryActor.ActorIdentity },
+            1 => s_sourceActor with { SiteIdentity = "site:secondary" },
+            _ => s_sourceActor with { PermissionContextDigest = DigestD }
+        };
+        ArticleRelationUnlinkedMentionCandidate mismatch = ArticleRelationContractValidator.Seal(valid with
+        {
+            Visibility = valid.Visibility with
+            {
+                SourceActor = mismatchedSource
+            }
+        });
+        Assert.True(ArticleRelationContractValidator.Validate(mismatch.Source).IsValid);
+        Assert.True(ArticleRelationContractValidator.Validate(mismatch.Visibility).IsValid);
+        Assert.NotEqual(mismatch.Source.SourceActor, mismatch.Visibility.SourceActor);
+        Assert.Equal(ArticleRelationDigest.ComputeCandidateIdentity(mismatch), mismatch.CandidateIdentity);
+        Assert.Equal(ArticleRelationDigest.ComputeCandidate(mismatch), mismatch.CandidateDigest);
+        Assert.Equal(
+            "article_relation_source_actor_binding_mismatch",
+            ArticleRelationContractValidator.Validate(mismatch).ReasonCode);
+    }
+
     [Fact]
     public void LifecycleEvents_RequireOwnedClosedObligations()
     {
@@ -274,6 +334,76 @@ public sealed class ArticleRelationContractTests
             {
                 Obligations = ArticleRelationLifecycleObligations.None
             }).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData((ArticleRelationLifecycleChanges)8, ArticleRelationLifecycleObligations.Invalidate)]
+    [InlineData((ArticleRelationLifecycleChanges)128, ArticleRelationLifecycleObligations.Invalidate)]
+    [InlineData((ArticleRelationLifecycleChanges)129, ArticleRelationLifecycleObligations.Invalidate)]
+    [InlineData((ArticleRelationLifecycleChanges)132, ArticleRelationLifecycleObligations.Rebuild
+        | ArticleRelationLifecycleObligations.Invalidate | ArticleRelationLifecycleObligations.Reresolve)]
+    public void LifecycleEvents_RejectFullySealedUnknownChangeBits(
+        ArticleRelationLifecycleChanges changes,
+        ArticleRelationLifecycleObligations obligations)
+    {
+        ArticleRelationLifecycleEvent valid = RenameLifecycle(
+            ArticleRelationLifecycleChanges.HeadingIdentity,
+            ArticleRelationLifecycleObligations.Rebuild
+                | ArticleRelationLifecycleObligations.Invalidate
+                | ArticleRelationLifecycleObligations.Reresolve);
+        Assert.True(ArticleRelationContractValidator.Validate(valid).IsValid);
+
+        ArticleRelationLifecycleEvent unknown = ArticleRelationContractValidator.Seal(valid with
+        {
+            Changes = changes,
+            Obligations = obligations
+        });
+        Assert.Equal(ArticleRelationDigest.ComputeLifecycleIdentity(unknown), unknown.EventIdentity);
+        Assert.Equal(ArticleRelationDigest.ComputeLifecycle(unknown), unknown.EventDigest);
+        Assert.True(ArticleRelationContractValidator.Validate(unknown.Coordinate).IsValid);
+        Assert.Equal(
+            "article_relation_lifecycle_event_invalid",
+            ArticleRelationContractValidator.Validate(unknown).ReasonCode);
+    }
+
+    [Theory]
+    [InlineData(ArticleRelationLifecycleChanges.Slug, ArticleRelationLifecycleObligations.Invalidate)]
+    [InlineData(ArticleRelationLifecycleChanges.Title, ArticleRelationLifecycleObligations.Invalidate)]
+    [InlineData(ArticleRelationLifecycleChanges.Slug | ArticleRelationLifecycleChanges.Title,
+        ArticleRelationLifecycleObligations.Invalidate)]
+    [InlineData(ArticleRelationLifecycleChanges.HeadingIdentity, ArticleRelationLifecycleObligations.Rebuild
+        | ArticleRelationLifecycleObligations.Invalidate | ArticleRelationLifecycleObligations.Reresolve)]
+    [InlineData(ArticleRelationLifecycleChanges.Slug | ArticleRelationLifecycleChanges.HeadingIdentity,
+        ArticleRelationLifecycleObligations.Rebuild | ArticleRelationLifecycleObligations.Invalidate
+        | ArticleRelationLifecycleObligations.Reresolve)]
+    [InlineData(ArticleRelationLifecycleChanges.Title | ArticleRelationLifecycleChanges.HeadingIdentity,
+        ArticleRelationLifecycleObligations.Rebuild | ArticleRelationLifecycleObligations.Invalidate
+        | ArticleRelationLifecycleObligations.Reresolve)]
+    [InlineData(ArticleRelationLifecycleChanges.Slug | ArticleRelationLifecycleChanges.Title
+        | ArticleRelationLifecycleChanges.HeadingIdentity, ArticleRelationLifecycleObligations.Rebuild
+        | ArticleRelationLifecycleObligations.Invalidate | ArticleRelationLifecycleObligations.Reresolve)]
+    public void LifecycleEvents_AcceptEveryClosedChangeCombinationAndRequireHeadingObligations(
+        ArticleRelationLifecycleChanges changes,
+        ArticleRelationLifecycleObligations obligations)
+    {
+        ArticleRelationLifecycleEvent rename = RenameLifecycle(changes, obligations);
+        Assert.Equal(ArticleRelationDigest.ComputeLifecycleIdentity(rename), rename.EventIdentity);
+        Assert.Equal(ArticleRelationDigest.ComputeLifecycle(rename), rename.EventDigest);
+        Assert.True(ArticleRelationContractValidator.Validate(rename).IsValid);
+        if (changes.HasFlag(ArticleRelationLifecycleChanges.HeadingIdentity))
+        {
+            ArticleRelationLifecycleEvent missingHeadingWork = ArticleRelationContractValidator.Seal(rename with
+            {
+                Obligations = ArticleRelationLifecycleObligations.Invalidate
+            });
+            Assert.Equal(ArticleRelationDigest.ComputeLifecycleIdentity(missingHeadingWork),
+                missingHeadingWork.EventIdentity);
+            Assert.Equal(ArticleRelationDigest.ComputeLifecycle(missingHeadingWork),
+                missingHeadingWork.EventDigest);
+            Assert.Equal(
+                "article_relation_lifecycle_obligations_invalid",
+                ArticleRelationContractValidator.Validate(missingHeadingWork).ReasonCode);
+        }
     }
 
     [Fact]
@@ -327,6 +457,23 @@ public sealed class ArticleRelationContractTests
                 }
             }).ReasonCode);
     }
+
+    private static ArticleRelationLifecycleEvent RenameLifecycle(
+        ArticleRelationLifecycleChanges changes,
+        ArticleRelationLifecycleObligations obligations)
+        => ArticleRelationContractValidator.Seal(new ArticleRelationLifecycleEvent(
+            ArticleRelationSchemas.LifecycleEvent,
+            ArticleRelationSchemas.Version,
+            string.Empty,
+            ArticleRelationLifecycleEventKind.SlugTitleHeadingRename,
+            ArticleRelationLifecycleOwner.ArticleIdentityAuthority,
+            ArticleA,
+            RevisionA,
+            2,
+            changes,
+            obligations,
+            s_coordinate,
+            string.Empty));
 
     private static ArticleRelationRecord Outgoing(
         ArticleRelationSourceFacts? source = null,
