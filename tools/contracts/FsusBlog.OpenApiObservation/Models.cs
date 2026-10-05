@@ -466,6 +466,16 @@ internal sealed record RequestPropertyContract(
     string? SchemaRef,
     string? ItemType,
     string? ItemSchemaRef,
+    RequestValueContract? Item,
+    IReadOnlyList<string> EnumValues,
+    RequestBoundContract Bounds);
+
+internal sealed record RequestValueContract(
+    string Type,
+    bool Nullable,
+    string? Format,
+    string? SchemaRef,
+    RequestValueContract? Item,
     IReadOnlyList<string> EnumValues,
     RequestBoundContract Bounds);
 
@@ -658,7 +668,7 @@ internal static class ObservationMerger
 
         var document = new ObservationDocument
         {
-            Schema = "fsusblog.api-aeds-observation.v4",
+            Schema = "fsusblog.api-aeds-observation.v5",
             Protocol = contracts.Protocol,
             AedsVersion = contracts.AedsVersion,
             OperationCount = operations.Count,

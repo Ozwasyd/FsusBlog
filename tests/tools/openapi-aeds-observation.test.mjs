@@ -510,11 +510,11 @@ function sampleObservation(overrides = {})
                 metadata: {
                     name: 'metadata', type: 'object', required: false, nullable: true,
                     format: null, schemaRef: 'clr://FsusBlog.Shared.Contracts.ArticleMetadata',
-                    itemType: null, itemSchemaRef: null, enumValues: [], bounds: emptyBounds()
+                    itemType: null, itemSchemaRef: null, item: null, enumValues: [], bounds: emptyBounds()
                 },
                 title: {
                     name: 'title', type: 'string', required: true, nullable: false,
-                    format: null, schemaRef: null, itemType: null, itemSchemaRef: null,
+                    format: null, schemaRef: null, itemType: null, itemSchemaRef: null, item: null,
                     enumValues: [], bounds: { ...emptyBounds(), minLength: 1, maxLength: 200 }
                 }
             }
@@ -527,7 +527,7 @@ function sampleObservation(overrides = {})
                     properties: {
                         category: {
                             name: 'category', type: 'string', required: true, nullable: false,
-                            format: null, schemaRef: null, itemType: null, itemSchemaRef: null,
+                            format: null, schemaRef: null, itemType: null, itemSchemaRef: null, item: null,
                             enumValues: [], bounds: emptyBounds()
                         }
                     },
@@ -619,7 +619,7 @@ function sampleObservation(overrides = {})
         };
     };
     return {
-        schema: 'fsusblog.api-aeds-observation.v4',
+        schema: 'fsusblog.api-aeds-observation.v5',
         protocol: 'AEDS',
         aedsVersion: 2,
         operationCount: 2,
@@ -1328,6 +1328,219 @@ test('typed request, response, protocol, and error authority counterexamples fai
         finally
         {
             rmSync(canonicalDirectory, { recursive: true, force: true });
+        }
+    }
+});
+
+function resealRequestFixture(operation)
+{
+    const request = operation.request;
+    request.schemaDigest = sha256(Buffer.from(JSON.stringify({
+        direction: request.direction,
+        schemaRef: request.schemaRef,
+        requestFrame: operation.requestFrame,
+        encoding: request.encoding,
+        parameters: request.parameters,
+        requiredFields: request.requiredFields,
+        properties: request.properties,
+        definitions: request.definitions,
+        oneOf: request.oneOf,
+        discriminator: request.discriminator,
+        bounds: request.bounds,
+        sourceTypes: request.sourceTypes,
+        readerIdentities: request.readerIdentities
+    })));
+}
+
+function sampleContainerObservation()
+{
+    const observation = sampleObservation();
+    const bounds = () => ({
+        minimum: null, maximum: null, minLength: null, maxLength: null,
+        minItems: null, maxItems: null, minProperties: null, maxProperties: null
+    });
+    const value = (type, nullable, overrides = {}) => ({
+        type, nullable, format: null, schemaRef: null, item: null, enumValues: [], bounds: bounds(), ...overrides
+    });
+    const container = (name, type, item, format = null) => ({
+        name, type, required: true, nullable: false, format, schemaRef: null,
+        itemType: item.type, itemSchemaRef: item.schemaRef, item, enumValues: [], bounds: bounds()
+    });
+    const request = observation.operations[1].request;
+    request.properties = {
+        ...request.properties,
+        commentIds: container('commentIds', 'array', value('string', false)),
+        choices: container('choices', 'array', value('enum', false, { enumValues: ['First', 'Second'] })),
+        map: container('map', 'object', value('array', false, { item: value('string', true) }), 'string-keyed-map'),
+        objects: container('objects', 'array', value('object', true, {
+            schemaRef: 'clr://FsusBlog.Shared.Contracts.ArticleMetadata'
+        })),
+        tagIds: container('tagIds', 'array', value('integer', false, {
+            bounds: { ...bounds(), minimum: '-2147483648', maximum: '2147483647' }
+        }))
+    };
+    request.properties = Object.fromEntries(Object.entries(request.properties).sort(([left], [right]) => left.localeCompare(right)));
+    request.requiredFields = Object.values(request.properties).filter((property) => property.required)
+        .map((property) => property.name).sort();
+    resealRequestFixture(observation.operations[1]);
+    return observation;
+}
+
+test('v5 retains recursive element nullability, primitive bounds, enums, and object refs in fact projection', () =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-container-positive-'));
+    try
+    {
+        const observation = sampleContainerObservation();
+        const sealed = writeObservation(directory, observation);
+        const protocol = readJson(path.join(directory, 'src/shared/Contracts/Validation/aeds-protocol.json'));
+        assert.deepEqual(validateObservationAgainstProtocol(observation, protocol), []);
+        const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: sealed.buildIdentity, canonicalDigest: digestValue });
+        assert.equal(result.status, 'ok', result.failureReasons?.join('\n'));
+        const properties = result.observations.operations.binary_post_admin_article.request.properties;
+        const field = (name) => properties[`field_${Buffer.from(name).toString('hex')}`];
+        assert.deepEqual(field('tagIds').item, {
+            type: 'integer', nullable: false, bounds: { minimum: '-2147483648', maximum: '2147483647' }
+        });
+        assert.deepEqual(field('commentIds').item, { type: 'string', nullable: false });
+        assert.deepEqual(field('map').item, { type: 'array', nullable: false, item: { type: 'string', nullable: true } });
+        assert.deepEqual(field('choices').item.enumValues, ['First', 'Second']);
+        assert.equal(field('objects').item.schemaRef, 'clr://FsusBlog.Shared.Contracts.ArticleMetadata');
+        assert.equal(field('objects').item.nullable, true);
+        const originalDigest = observationContentDigest(observation);
+        observation.operations[1].request.properties.map.item.item.nullable = false;
+        assert.notEqual(observationContentDigest(observation), originalDigest, 'recursive nullable is inside observation identity');
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('v5 refuses legacy or incomplete and conflicting element facts even with resealed outer receipts', () =>
+{
+    const cases = [
+        ['legacy v4', (value) =>
+        {
+            value.schema = 'fsusblog.api-aeds-observation.v4';
+        }],
+        ['missing item', (_value, properties) =>
+        {
+            delete properties.tagIds.item;
+        }],
+        ['unknown nullable', (_value, properties) =>
+        {
+            properties.commentIds.item.nullable = 'unknown';
+        }],
+        ['missing nullable', (_value, properties) =>
+        {
+            delete properties.commentIds.item.nullable;
+        }],
+        ['missing bounds', (_value, properties) =>
+        {
+            delete properties.tagIds.item.bounds;
+        }],
+        ['missing range member', (_value, properties) =>
+        {
+            delete properties.tagIds.item.bounds.maximum;
+        }],
+        ['unknown range member', (_value, properties) =>
+        {
+            properties.tagIds.item.bounds.invented = 1;
+        }],
+        ['item type conflict', (_value, properties) =>
+        {
+            properties.tagIds.itemType = 'string';
+        }],
+        ['item ref conflict', (_value, properties) =>
+        {
+            properties.objects.itemSchemaRef = null;
+        }],
+        ['missing definition', (value) =>
+        {
+            delete value.operations[1].request.definitions['FsusBlog.Shared.Contracts.ArticleMetadata'];
+        }],
+        ['primitive schema ref', (_value, properties) =>
+        {
+            properties.tagIds.item.schemaRef = properties.objects.item.schemaRef;
+        }],
+        ['missing nested item', (_value, properties) =>
+        {
+            properties.map.item.item = null;
+        }],
+        ['unknown nested nullable', (_value, properties) =>
+        {
+            properties.map.item.item.nullable = null;
+        }],
+        ['primitive with item', (_value, properties) =>
+        {
+            properties.commentIds.item.item = properties.tagIds.item;
+        }],
+        ['empty enum values', (_value, properties) =>
+        {
+            properties.choices.item.enumValues = [];
+        }],
+        ['duplicate enum value', (_value, properties) =>
+        {
+            properties.choices.item.enumValues.push('Second');
+        }],
+        ['extra element key', (_value, properties) =>
+        {
+            properties.tagIds.item.required = true;
+        }],
+        ['unknown element type', (_value, properties) =>
+        {
+            properties.tagIds.item.type = 'opaque';
+        }]
+    ];
+    for (const [name, mutate] of cases)
+    {
+        const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-container-negative-'));
+        try
+        {
+            const observation = sampleContainerObservation();
+            mutate(observation, observation.operations[1].request.properties);
+            resealRequestFixture(observation.operations[1]);
+            const sealed = writeObservation(directory, observation);
+            const protocol = readJson(path.join(directory, 'src/shared/Contracts/Validation/aeds-protocol.json'));
+            assert.ok(validateObservationAgainstProtocol(observation, protocol).length > 0, name);
+            const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: sealed.buildIdentity, canonicalDigest: digestValue });
+            assert.equal(result.status, 'failed', name);
+            assert.match(result.failureReasons.join('\n'), /request contract|observation schema/iu, name);
+        }
+        finally
+        {
+            rmSync(directory, { recursive: true, force: true });
+        }
+    }
+});
+
+test('element nullable and numeric bounds drift invalidates the original request schema seal', () =>
+{
+    for (const mutate of [
+        (properties) =>
+        {
+            properties.commentIds.item.nullable = true;
+        },
+        (properties) =>
+        {
+            properties.tagIds.item.bounds.maximum = null;
+        }
+    ])
+    {
+        const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-element-seal-negative-'));
+        try
+        {
+            const observation = sampleContainerObservation();
+            mutate(observation.operations[1].request.properties);
+            const sealed = writeObservation(directory, observation);
+            const result = extractOpenApi({ repositoryRoot: directory, buildIdentity: sealed.buildIdentity, canonicalDigest: digestValue });
+            assert.equal(result.status, 'failed');
+            assert.match(result.failureReasons.join('\n'), /request contract/iu);
+        }
+        finally
+        {
+            rmSync(directory, { recursive: true, force: true });
         }
     }
 });

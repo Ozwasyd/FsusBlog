@@ -189,6 +189,7 @@ internal static partial class RequestContractObserver
             null,
             null,
             null,
+            null,
             [],
             packageBounds);
         var properties = new SortedDictionary<string, RequestPropertyContract>(StringComparer.Ordinal)
@@ -298,21 +299,31 @@ internal static partial class RequestContractObserver
             .Where(static property => property.GetIndexParameters().Length == 0)
             .Where(static property => property.GetCustomAttribute<JsonIgnoreAttribute>() is null))
         {
-            Type actual = Nullable.GetUnderlyingType(property.PropertyType) ?? property.PropertyType;
-            Type? itemType = DictionaryValue(actual) ?? CollectionItem(actual);
-            if (itemType is not null)
-            {
-                yield return Nullable.GetUnderlyingType(itemType) ?? itemType;
-            }
-            else
-            {
-                yield return actual;
-            }
+            yield return ReferencedValueType(property.PropertyType);
+        }
+        foreach (FieldInfo field in type.GetFields(BindingFlags.Instance | BindingFlags.Public))
+        {
+            yield return ReferencedValueType(field.FieldType);
         }
         foreach (JsonDerivedTypeAttribute derived in type.GetCustomAttributes<JsonDerivedTypeAttribute>())
         {
             yield return derived.DerivedType;
         }
+    }
+
+    private static Type ReferencedValueType(Type declaredType)
+    {
+        Type type = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
+        var containers = new HashSet<Type>();
+        while ((DictionaryValue(type) ?? CollectionItem(type)) is Type itemType)
+        {
+            if (!containers.Add(type))
+            {
+                throw new InvalidOperationException($"recursive container type {TypeIdentity(type)}");
+            }
+            type = Nullable.GetUnderlyingType(itemType) ?? itemType;
+        }
+        return type;
     }
 
     private static bool IsDefinitionType(Type type)
@@ -356,7 +367,7 @@ internal static partial class RequestContractObserver
             return new SortedDictionary<string, RequestPropertyContract>(StringComparer.Ordinal)
             {
                 ["value"] = new RequestPropertyContract(
-                    "value", "string", true, false, "utf8", null, null, null, [], s_unbounded)
+                    "value", "string", true, false, "utf8", null, null, null, null, [], s_unbounded)
             };
         }
 
@@ -376,9 +387,10 @@ internal static partial class RequestContractObserver
             string name = property.GetCustomAttribute<JsonPropertyNameAttribute>()?.Name
                 ?? JsonNamingPolicy.CamelCase.ConvertName(property.Name);
             parameters.TryGetValue(property.Name, out ParameterInfo? parameter);
-            bool nullable = IsNullable(property.PropertyType, s_nullability.Create(property).ReadState);
+            NullabilityInfo nullability = s_nullability.Create(property);
+            bool nullable = IsNullable(property.PropertyType, nullability.ReadState);
             bool required = IsRequired(property, parameter, nullable, encoding);
-            properties[name] = Describe(name, property.PropertyType, required, nullable, property.GetCustomAttributes());
+            properties[name] = Describe(name, property.PropertyType, required, nullability, property.GetCustomAttributes());
         }
 
         if (properties.Count == 0)
@@ -387,12 +399,11 @@ internal static partial class RequestContractObserver
                 .OrderBy(static field => field.Name, StringComparer.Ordinal))
             {
                 string name = JsonNamingPolicy.CamelCase.ConvertName(field.Name);
-                bool nullable = IsNullable(field.FieldType, s_nullability.Create(field).ReadState);
                 properties[name] = Describe(
                     name,
                     field.FieldType,
                     required: true,
-                    nullable,
+                    s_nullability.Create(field),
                     field.GetCustomAttributes());
             }
         }
@@ -420,7 +431,27 @@ internal static partial class RequestContractObserver
         string name,
         Type declaredType,
         bool required,
-        bool nullable,
+        NullabilityInfo nullability,
+        IEnumerable<Attribute> attributes)
+    {
+        RequestValueContract value = DescribeValue(declaredType, nullability, attributes);
+        return new RequestPropertyContract(
+            name,
+            value.Type,
+            required,
+            value.Nullable,
+            value.Format,
+            value.SchemaRef,
+            value.Item?.Type,
+            value.Item?.SchemaRef,
+            value.Item,
+            value.EnumValues,
+            value.Bounds);
+    }
+
+    private static RequestValueContract DescribeValue(
+        Type declaredType,
+        NullabilityInfo nullability,
         IEnumerable<Attribute> attributes)
     {
         Type type = Nullable.GetUnderlyingType(declaredType) ?? declaredType;
@@ -429,24 +460,45 @@ internal static partial class RequestContractObserver
         string? format = Format(type);
         Type? itemType = DictionaryValue(type) ?? CollectionItem(type);
         string? schemaRef = IsDefinitionType(type) ? $"clr://{TypeIdentity(type)}" : null;
-        string? itemSchemaRef = itemType is not null && IsDefinitionType(itemType)
-            ? $"clr://{TypeIdentity(itemType)}"
-            : null;
         string[] enumValues = type.IsEnum
             ? Enum.GetNames(type).OrderBy(static value => value, StringComparer.Ordinal).ToArray()
             : [];
         RequestBoundContract bounds = Bounds(type, attributeArray);
-        return new RequestPropertyContract(
-            name,
+        return new RequestValueContract(
             valueType,
-            required,
-            nullable,
+            IsNullable(declaredType, nullability.ReadState),
             format,
             schemaRef,
-            itemType is null ? null : JsonType(itemType),
-            itemSchemaRef,
+            itemType is null ? null : DescribeValue(itemType, ItemNullability(type, itemType, nullability), []),
             enumValues,
             bounds);
+    }
+
+    private static NullabilityInfo ItemNullability(Type type, Type itemType, NullabilityInfo nullability)
+    {
+        if (type.IsArray && nullability.ElementType is { } element && element.Type == itemType)
+        {
+            return element;
+        }
+        Type[] arguments = type.GetGenericArguments();
+        NullabilityInfo[] annotations = nullability.GenericTypeArguments;
+        if (arguments.Length != annotations.Length)
+        {
+            throw new InvalidOperationException($"container item nullability is unavailable for {TypeIdentity(type)}");
+        }
+        Type? generic = type.IsGenericType ? type.GetGenericTypeDefinition() : null;
+        if ((generic == typeof(IReadOnlyDictionary<,>) || generic == typeof(IDictionary<,>)
+                || generic == typeof(Dictionary<,>)) && arguments.Length == 2 && arguments[0] == typeof(string)
+            && arguments[1] == itemType && annotations[1].Type == itemType)
+        {
+            return annotations[1];
+        }
+        NullabilityInfo[] matches = annotations.Where(item => item.Type == itemType).ToArray();
+        if (matches.Length != 1)
+        {
+            throw new InvalidOperationException($"container item nullability is ambiguous for {TypeIdentity(type)}");
+        }
+        return matches[0];
     }
 
     private static RequestBoundContract Bounds(Type type, IReadOnlyList<Attribute> attributes)
@@ -508,8 +560,18 @@ internal static partial class RequestContractObserver
         => value is null ? null : Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture);
 
     private static bool IsNullable(Type type, NullabilityState state)
-        => Nullable.GetUnderlyingType(type) is not null
-            || (!type.IsValueType && state != NullabilityState.NotNull);
+    {
+        if (type.IsValueType)
+        {
+            return Nullable.GetUnderlyingType(type) is not null;
+        }
+        return state switch
+        {
+            NullabilityState.NotNull => false,
+            NullabilityState.Nullable => true,
+            _ => throw new InvalidOperationException($"unknown reference nullability for {TypeIdentity(type)}")
+        };
+    }
 
     private static string JsonType(Type type)
     {

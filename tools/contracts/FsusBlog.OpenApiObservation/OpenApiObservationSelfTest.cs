@@ -13,6 +13,7 @@ internal static class OpenApiObservationSelfTest
         var completed = new List<string>();
         TestCatalogLoader(repositoryRoot, completed);
         TestRequestObserver(completed);
+        TestContainerRequestObserver(repositoryRoot, completed);
         TestStatusObserver(completed);
         TestMerger(completed);
         TestCensus(completed);
@@ -136,6 +137,92 @@ internal static class OpenApiObservationSelfTest
             app.DisposeAsync().AsTask().GetAwaiter().GetResult();
         }
         completed.Add("request");
+    }
+
+    private static void TestContainerRequestObserver(string repositoryRoot, ICollection<string> completed)
+    {
+        AedsEndpointContractCatalog catalog = AedsEndpointContractCatalog.Load(Path.Combine(
+            repositoryRoot, "src", "shared", "Contracts", "Validation", "aeds-endpoint-contracts.json"));
+        WebApplication app = OpenApiObservationHost.CreateApplication();
+        try
+        {
+            OperationRequestContract ProductionRequest(string path, Type expectedType)
+            {
+                AedsEndpointContract canonical = catalog.Operations.Single(item => item.Path == path);
+                RouteEndpoint endpoint = ((IEndpointRouteBuilder)app).DataSources
+                    .SelectMany(static source => source.Endpoints).OfType<RouteEndpoint>()
+                    .Single(item => item.RoutePattern.RawText?.TrimStart('/') == path.TrimStart('/'));
+                CompiledEndpointContract compiled = CompiledEndpointContractObserver.Observe(
+                    endpoint, canonical.Method, canonical.Path);
+                IReadOnlyList<ObservedRequestType> types = CompiledRequestTypeObserver.Observe(endpoint);
+                Assert(types.Any(item => item.Type == expectedType), "production reader precondition is missing");
+                Assert(canonical.RequestType == expectedType.FullName && canonical.RequestFrame == compiled.RequestFrame,
+                    "production request differs from canonical catalog");
+                OperationRequestContract request = RequestContractObserver.Build(compiled.RequestFrame,
+                    canonical.OperationId, CompiledRequestParameterObserver.Observe(endpoint), types);
+                Assert(request.Encoding == canonical.RequestEncoding && request.SourceTypes.Contains(canonical.RequestType!),
+                    "production root type/encoding binding changed");
+                return request;
+            }
+
+            RequestPropertyContract tags = ProductionRequest("/api/binary/author/drafts",
+                typeof(FsusBlog.Server.Models.Dtos.ServerDraftSaveRequest)).Properties["tagIds"];
+            Assert(tags.Type == "array" && !tags.Nullable && tags.Required && tags.Item is not null,
+                "TagIds container contract is missing");
+            Assert(tags.Item is { Type: "integer", Nullable: false, Item: null, SchemaRef: null }
+                && tags.Item.Bounds.Minimum == "-2147483648" && tags.Item.Bounds.Maximum == "2147483647",
+                "TagIds lost canonical Int32 element range");
+            RequestPropertyContract comments = ProductionRequest("/api/binary/author/comments/moderation/bulk",
+                typeof(FsusBlog.Server.Models.Dtos.CommentModerationBulkRequest)).Properties["commentIds"];
+            Assert(comments.Type == "array" && !comments.Nullable && comments.Required
+                && comments.Item is { Type: "string", Nullable: false, Item: null, SchemaRef: null },
+                "CommentIds lost nonnullable string element contract");
+        }
+        finally
+        {
+            app.DisposeAsync().AsTask().GetAwaiter().GetResult();
+        }
+
+        OperationRequestContract Containers(Type type) => RequestContractObserver.Build(
+            "SelfTestRequest", "self_test_containers", [], [new(type, "utf8-json", "self-test-container-reader")]);
+        OperationRequestContract observed = Containers(typeof(SelfTestContainerRequest));
+        Assert(observed.Properties["nullableItems"] is { Nullable: true, Required: false,
+            Item: { Type: "string", Nullable: true } }, "container and item nullability must remain separate");
+        Assert(observed.Properties["arrayItems"].Item is { Type: "string", Nullable: true },
+            "array ElementType annotation is missing");
+        Assert(observed.Properties["map"] is { Type: "object", Format: "string-keyed-map",
+            Item: { Type: "array", Nullable: false, Item: { Type: "integer", Nullable: true } } },
+            "dictionary/nested nullable value tree is missing");
+        Assert(observed.Properties["map"].Item!.Item!.Bounds.Maximum == "2147483647",
+            "nested nullable Int32 range is missing");
+        Assert(observed.Properties["objects"].Item?.SchemaRef == $"clr://{typeof(SelfTestRequestA).FullName}"
+            && observed.Definitions.ContainsKey(typeof(SelfTestRequestA).FullName!), "object element definition is missing");
+        Assert(observed.Properties["choices"].Item!.EnumValues.SequenceEqual(new[] { "First", "Second" }),
+            "enum element values are missing");
+        OperationRequestContract nestedObjects = Containers(typeof(SelfTestNestedObjectsRequest));
+        Assert(nestedObjects.Properties["values"].Item?.Item is { Nullable: true }
+            && nestedObjects.Properties["values"].Item!.Item!.SchemaRef == $"clr://{typeof(SelfTestRequestA).FullName}"
+            && nestedObjects.Definitions.ContainsKey(typeof(SelfTestRequestA).FullName!),
+            "nested containers must retain their leaf object definition");
+        Assert(Containers(typeof(SelfTestDictionaryRequest)).Properties["values"].Item is { Type: "string", Nullable: true },
+            "dictionary key annotation must not replace its nullable string value annotation");
+        AssertThrows("unavailable inherited item annotation", () => Containers(typeof(SelfTestInheritedItemsRequest)),
+            "container item nullability is ambiguous");
+        Assert(Containers(typeof(SelfTestIntrinsicRequest)).Properties["value"].Nullable == false,
+            "intrinsic value type must not require reference annotations");
+        Assert(new System.Reflection.NullabilityInfoContext().Create(typeof(SelfTestObliviousRequest)
+            .GetProperty("Value")!).ReadState == System.Reflection.NullabilityState.Unknown,
+            "oblivious-reference negative precondition changed");
+        AssertThrows("unknown reference annotation", () => Containers(typeof(SelfTestObliviousRequest)),
+            "unknown reference nullability");
+        System.Reflection.NullabilityInfo obliviousItems = new System.Reflection.NullabilityInfoContext()
+            .Create(typeof(SelfTestObliviousItemsRequest).GetField("Values")!);
+        Assert(obliviousItems.ReadState == System.Reflection.NullabilityState.NotNull
+            && obliviousItems.GenericTypeArguments[0].ReadState == System.Reflection.NullabilityState.Unknown,
+            "oblivious-element negative precondition changed");
+        AssertThrows("unknown element annotation", () => Containers(typeof(SelfTestObliviousItemsRequest)),
+            "unknown reference nullability");
+        completed.Add("container-request");
     }
 
     private static void TestStatusObserver(ICollection<string> completed)
@@ -314,4 +401,39 @@ internal static class OpenApiObservationSelfTest
     private sealed record SelfTestRequestA(string Value);
 
     private sealed record SelfTestRequestB(string Value);
+
+    private sealed record SelfTestContainerRequest(
+        IReadOnlyList<string?>? NullableItems,
+        string?[] ArrayItems,
+        IReadOnlyDictionary<string, IReadOnlyList<int?>> Map,
+        IReadOnlyList<SelfTestRequestA> Objects,
+        IReadOnlyList<SelfTestChoice> Choices);
+
+    private enum SelfTestChoice
+    {
+        First,
+        Second
+    }
+
+    private sealed record SelfTestNestedObjectsRequest(IReadOnlyDictionary<string, IReadOnlyList<SelfTestRequestA?>> Values);
+
+    private sealed record SelfTestDictionaryRequest(IReadOnlyDictionary<string, string?> Values);
+
+    private sealed class SelfTestInheritedItems : List<string>
+    {
+    }
+
+    private sealed record SelfTestInheritedItemsRequest(SelfTestInheritedItems Values);
+
+#nullable disable
+    private sealed record SelfTestObliviousRequest(string Value);
+
+    private sealed class SelfTestObliviousItemsRequest
+    {
+        [System.Diagnostics.CodeAnalysis.NotNull]
+        public IReadOnlyList<string> Values = Array.Empty<string>();
+    }
+
+    private sealed record SelfTestIntrinsicRequest(int Value);
+#nullable restore
 }
