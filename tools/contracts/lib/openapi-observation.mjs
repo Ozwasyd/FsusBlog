@@ -57,7 +57,8 @@ const isSortedUnique = (values) => Array.isArray(values)
     && JSON.stringify(values) === JSON.stringify([...new Set(values)].sort((left, right) =>
         typeof left === 'number' ? left - right : String(left).localeCompare(String(right))));
 const boundKeys = ['minimum', 'maximum', 'minLength', 'maxLength', 'minItems', 'maxItems', 'minProperties', 'maxProperties'];
-const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'enumValues', 'bounds'];
+const propertyKeys = ['name', 'type', 'required', 'nullable', 'format', 'schemaRef', 'itemType', 'itemSchemaRef', 'item', 'enumValues', 'bounds'];
+const valueKeys = ['type', 'nullable', 'format', 'schemaRef', 'item', 'enumValues', 'bounds'];
 const definitionKeys = ['typeIdentity', 'requiredFields', 'properties', 'oneOf', 'discriminator', 'bounds'];
 const requestKeys = ['direction', 'source', 'schemaRef', 'encoding', 'required', 'nullable', 'requiredFields', 'parameters', 'properties', 'definitions', 'oneOf', 'discriminator', 'bounds', 'fieldSetState', 'boundsState', 'unionState', 'schemaDigest', 'sourceTypes', 'readerIdentities'];
 const parameterKeys = ['name', 'direction', 'source', 'schemaRef', 'required', 'nullable', 'bounds', 'evidence'];
@@ -75,6 +76,28 @@ const boundedProperties = (properties) => Object.fromEntries(Object.entries(prop
     .filter(([, property]) => hasBound(property.bounds))
     .map(([name, property]) => [name, property.bounds]));
 
+function validateValue(value, definitions)
+{
+    if (!exactKeys(value, valueKeys)
+        || !['string', 'boolean', 'binary', 'enum', 'number', 'integer', 'array', 'object'].includes(value.type)
+        || typeof value.nullable !== 'boolean'
+        || (value.format != null && (typeof value.format !== 'string' || value.format.length === 0))
+        || !Array.isArray(value.enumValues) || !isSortedUnique(value.enumValues)
+        || (value.type === 'enum') !== (value.enumValues.length > 0)
+        || !validateBound(value.bounds))
+    {
+        return false;
+    }
+    if (value.schemaRef !== null && (value.type !== 'object' || typeof value.schemaRef !== 'string'
+        || !value.schemaRef.startsWith('clr://')
+        || !Object.hasOwn(definitions, value.schemaRef.slice('clr://'.length))))
+    {
+        return false;
+    }
+    const container = value.type === 'array' || (value.type === 'object' && value.format === 'string-keyed-map');
+    return container ? validateValue(value.item, definitions) : value.item === null;
+}
+
 function validateProperties(properties, definitions)
 {
     if (!isObject(properties))
@@ -91,6 +114,11 @@ function validateProperties(properties, definitions)
             || (property.itemType != null && !['array', 'object'].includes(property.type))
             || (property.itemSchemaRef != null && !['array', 'object'].includes(property.type))
             || (property.type === 'array' && property.itemType == null)
+            || (property.itemType === null
+                ? property.item !== null || property.itemSchemaRef !== null
+                : !validateValue(property.item, definitions)
+                    || property.itemType !== property.item.type || property.itemSchemaRef !== property.item.schemaRef)
+            || ((property.type === 'array' || property.format === 'string-keyed-map') !== (property.item !== null))
             || !Array.isArray(property.enumValues)
             || (property.type === 'enum') !== (property.enumValues.length > 0)
             || !isSortedUnique(property.enumValues) || !validateBound(property.bounds))
@@ -303,8 +331,14 @@ export function observationContentDigest(observation)
         ...pascalRecord(value),
         Bounds: pascalRecord(value?.bounds)
     });
+    const itemContract = (value) => value == null ? value : ({
+        ...pascalRecord(value),
+        Item: itemContract(value.item),
+        Bounds: pascalRecord(value.bounds)
+    });
     const properties = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
         ...pascalRecord(item),
+        Item: itemContract(item.item),
         Bounds: pascalRecord(item.bounds)
     }]));
     const definitions = (value) => !isObject(value) ? {} : Object.fromEntries(Object.entries(value).map(([key, item]) => [key, {
@@ -535,9 +569,9 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
     const operationIds = new Set();
     const methodPaths = new Set();
 
-    if (!observation || observation.schema !== 'fsusblog.api-aeds-observation.v4')
+    if (!observation || observation.schema !== 'fsusblog.api-aeds-observation.v5')
     {
-        errors.push('observation schema must be fsusblog.api-aeds-observation.v4');
+        errors.push('observation schema must be fsusblog.api-aeds-observation.v5');
         return errors;
     }
     if (observation.protocol !== 'AEDS')
