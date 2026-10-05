@@ -1874,6 +1874,8 @@ function applyMatrixFixtureProfileEnvironment(tier, env)
     {
     // Clear any ambient free-profile env so non-consumer tiers cannot smuggle overrides.
         env.FSUSBLOG_FIXTURE_PROFILE = '';
+        env.FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID = '';
+        env.FSUSBLOG_SEALED_FIXTURE_PREREQUISITES = '[]';
         return env;
     }
     const sealed = sealMatrixFixtureProfile(tier);

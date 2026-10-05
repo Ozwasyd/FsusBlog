@@ -996,9 +996,79 @@
                     },
                     "fixtureMutatorAllowed": {
                         "type": "boolean"
+                    },
+                    "fixturePrerequisites": {
+                        "type": "array",
+                        "minItems": 1,
+                        "maxItems": 1,
+                        "uniqueItems": true,
+                        "items": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "id",
+                                "profileId",
+                                "producerId",
+                                "capabilityId",
+                                "semanticRole",
+                                "consumerId"
+                            ],
+                            "properties": {
+                                "id": {
+                                    "const": "typed-admin-session"
+                                },
+                                "profileId": {
+                                    "const": "auth-basic"
+                                },
+                                "producerId": {
+                                    "const": "auth-session"
+                                },
+                                "capabilityId": {
+                                    "const": "auth.admin.full-permission"
+                                },
+                                "semanticRole": {
+                                    "const": "admin.full-permission"
+                                },
+                                "consumerId": {
+                                    "const": "runtime-cache-hot-featured-frame"
+                                }
+                            }
+                        }
                     }
                 },
                 "allOf": [
+                    {
+                        "if": {
+                            "properties": {
+                                "id": {
+                                    "const": "runtime-cache-hot-featured-frame"
+                                }
+                            },
+                            "required": [
+                                "id"
+                            ]
+                        },
+                        "then": {
+                            "required": [
+                                "fixturePrerequisites"
+                            ],
+                            "properties": {
+                                "fixtureProfile": {
+                                    "const": "public-content-lifecycle"
+                                },
+                                "executionClass": {
+                                    "const": "runtime"
+                                }
+                            }
+                        },
+                        "else": {
+                            "not": {
+                                "required": [
+                                    "fixturePrerequisites"
+                                ]
+                            }
+                        }
+                    },
                     {
                         "if": {
                             "properties": {
