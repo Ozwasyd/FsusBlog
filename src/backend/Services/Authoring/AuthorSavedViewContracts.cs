@@ -800,6 +800,11 @@ public sealed class AuthorSavedViewQueryValidator(
             throw new AuthorSavedViewValidationException("saved_view_dependency_values_tampered");
         }
 
+        ValidateResolution(condition with
+        {
+            Values = Array.AsReadOnly(values)
+        }, resolution);
+
         return resolution.Operator.Cardinality == AuthorSavedViewOperatorCardinality.MultipleSet
             ? Array.AsReadOnly(values.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray())
             : Array.AsReadOnly(values);

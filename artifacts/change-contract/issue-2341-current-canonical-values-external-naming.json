@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorSavedViewContracts.cs"
+            ],
+            "reason": "Preserve the existing registered C# process-environment naming surface while revalidating detached saved-view canonical values; this repair introduces no environment keys, renames, defaults, or second query authority."
+        }
+    ]
+}
