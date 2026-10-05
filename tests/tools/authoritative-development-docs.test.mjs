@@ -85,14 +85,16 @@ test('authoritative development documentation authoritative development document
     });
 });
 
-test('authoritative development documentation assigns only the sealed FsusUI migration archive to its generated owner', () =>
+test('authoritative development documentation assigns only the sealed FsusUI migration archive to its dependency owner', () =>
 {
     const archivePath = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
     const manifest = readManifest();
-    const generated = manifest.pathClassifications.find((entry) => entry.id === 'generated');
-    assert.ok(generated.patterns.includes(archivePath));
+    const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+    assert.ok(vendor.patterns.includes(archivePath));
+    assert.deepEqual(manifest.pathClassifications.filter((entry) => entry.patterns.includes(archivePath))
+        .map((entry) => ({ id: entry.id, owner: entry.owner })), [{ id: 'vendor', owner: 'DependencyOwner' }]);
     assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
-    assert.ok(!generated.patterns.includes('config/dependencies/**'));
+    assert.ok(!vendor.patterns.includes('config/dependencies/**'));
 
     const archive = readFileSync(path.join(root, archivePath));
     const owner = read('tools/dependencies/migrate-fsusui-public-npm.mjs');
@@ -102,19 +104,46 @@ test('authoritative development documentation assigns only the sealed FsusUI mig
     assert.match(gunzipSync(archive).toString('utf8'), /^diff --git /u);
 });
 
-test('authoritative development documentation rejects the FsusUI migration archive without its exact generated ownership', () =>
+test('authoritative development documentation rejects the FsusUI migration archive without its exact dependency ownership', () =>
 {
     withOverlay((overlay) =>
     {
         const manifest = readManifest();
-        const generated = manifest.pathClassifications.find((entry) => entry.id === 'generated');
-        generated.patterns = generated.patterns.filter((pattern) =>
+        const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+        vendor.patterns = vendor.patterns.filter((pattern) =>
             pattern !== 'config/dependencies/fsusui-public-npm-migration.patch.gz');
         writeManifest(overlay, manifest);
 
         const result = runChecker(overlay);
         assert.notEqual(result.status, 0);
         assert.match(output(result), /config\/dependencies\/fsusui-public-npm-migration\.patch\.gz has no style owner or non-source classification/u);
+    });
+});
+
+test('authoritative development documentation rejects neighboring unowned archives without widening the exact dependency overlay scope', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const neighboringPaths = [
+            'config/dependencies/fsusui-public-npm-migration-copy.patch.gz',
+            'config/dependencies/overlays/fsusui-public-npm-migration.patch.gz',
+            'config/dependencies/unregistered-migration.tar.gz'
+        ];
+        const archive = readFileSync(path.join(root, 'config/dependencies/fsusui-public-npm-migration.patch.gz'));
+        for (const relativePath of neighboringPaths)
+        {
+            const target = path.join(overlay, relativePath);
+            mkdirSync(path.dirname(target), { recursive: true });
+            writeFileSync(target, archive);
+        }
+        const result = runChecker(overlay);
+        assert.notEqual(result.status, 0);
+        const combined = output(result);
+        for (const relativePath of neighboringPaths)
+        {
+            assert.ok(combined.includes(`${relativePath} has no style owner or non-source classification`));
+        }
+        assert.ok(!combined.includes(`${'config/dependencies/fsusui-public-npm-migration.patch.gz'} has no style owner or non-source classification`));
     });
 });
 
