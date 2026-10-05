@@ -359,6 +359,139 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
     [Fact]
     [SupportedOSPlatform("linux")]
+    public async Task IoBroker_ExistingProposalCollisionPreservesOriginalArtifactAndReceipt()
+    {
+        Assert.True(OperatingSystem.IsLinux(), "The production file path verifier is Linux-only.");
+        using var directory = new IoStageDirectory();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        AuthoringFileGrant grant = directory.CreateGrant(now);
+        var validator = new AuthoringServiceGrantValidator(
+            new AddressResolver([]),
+            new LinuxAuthoringFilePathVerifier(),
+            new FixedTimeProvider(now),
+            ImmutableHashSet.Create(StringComparer.Ordinal, directory.Owned));
+        var broker = new AuthoringExtensionServiceIoBroker(validator, new NetworkTransport([]), directory.Staging);
+        ImmutableArray<byte> payload = [4, 5, 6];
+        AuthoringServiceIoReceipt original = await broker.StageProposedWriteAsync(
+            grant, grant.RuntimeIdentity, grant.Purpose, payload);
+        string artifactPath = Path.Combine(directory.Staging, original.ArtifactReference!);
+        Assert.Equal(payload.ToArray(), await File.ReadAllBytesAsync(artifactPath));
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await broker.StageProposedWriteAsync(grant, grant.RuntimeIdentity, grant.Purpose, payload));
+
+        Assert.Equal(payload.ToArray(), await File.ReadAllBytesAsync(artifactPath));
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(payload.AsSpan())), original.ContentSha256);
+        Assert.Equal("write-staged-for-host-approval", original.Outcome);
+        Assert.Single(Directory.EnumerateFiles(directory.Staging));
+        Assert.False(File.Exists(Path.Combine(directory.Owned, grant.RelativePath)));
+        await broker.RevokeStagedWriteAsync(original);
+        Assert.Empty(Directory.EnumerateFiles(directory.Staging));
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public async Task IoBroker_CancelledOwnedWriteIsReleasedAndRemovedWithoutTargetWrite()
+    {
+        Assert.True(OperatingSystem.IsLinux(), "The production file path verifier is Linux-only.");
+        using var directory = new IoStageDirectory();
+        using var cancellation = new CancellationTokenSource();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        AuthoringFileGrant grant = directory.CreateGrant(now);
+        var validator = new AuthoringServiceGrantValidator(
+            new AddressResolver([]),
+            new CancelAfterPathResolutionVerifier(cancellation),
+            new FixedTimeProvider(now),
+            ImmutableHashSet.Create(StringComparer.Ordinal, directory.Owned));
+        var broker = new AuthoringExtensionServiceIoBroker(validator, new NetworkTransport([]), directory.Staging);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await broker.StageProposedWriteAsync(
+                grant, grant.RuntimeIdentity, grant.Purpose, [4, 5, 6], cancellation.Token));
+
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Empty(Directory.EnumerateFiles(directory.Staging));
+        Assert.False(File.Exists(Path.Combine(directory.Owned, grant.RelativePath)));
+    }
+
+    [Fact]
+    public async Task IoStage_PermissionFailureCleansOnlySuccessfullyCreatedFileAndKeepsFirstCause()
+    {
+        using var directory = new IoStageDirectory();
+        string path = Path.Combine(directory.Staging, "permission-failure");
+        var first = new IOException("injected stage permission failure");
+
+        IOException observed = await Assert.ThrowsAsync<IOException>(async () =>
+            await AuthoringExtensionServiceIoBroker.WriteOwnedProposalAsync(
+                path,
+                new byte[] { 4, 5, 6 },
+                created =>
+                {
+                    Assert.Equal(new byte[] { 4, 5, 6 }, File.ReadAllBytes(created));
+                    throw first;
+                },
+                File.Delete,
+                default));
+
+        Assert.Same(first, observed);
+        Assert.False(File.Exists(path));
+        Assert.False(observed.Data.Contains(AuthoringExtensionServiceIoBroker.StagedWriteCleanupFailuresKey));
+    }
+
+    [Fact]
+    public async Task IoStage_CreateNewFailureNeverInvokesPermissionsOrDeletesPreexistingFile()
+    {
+        using var directory = new IoStageDirectory();
+        string path = Path.Combine(directory.Staging, "existing-proposal");
+        byte[] original = [7, 8, 9];
+        await File.WriteAllBytesAsync(path, original);
+        int permissionCalls = 0;
+        int deleteCalls = 0;
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await AuthoringExtensionServiceIoBroker.WriteOwnedProposalAsync(
+                path,
+                new byte[] { 4, 5, 6 },
+                _ => permissionCalls++,
+                _ => deleteCalls++,
+                default));
+
+        Assert.Equal(0, permissionCalls);
+        Assert.Equal(0, deleteCalls);
+        Assert.Equal(original, await File.ReadAllBytesAsync(path));
+    }
+
+    [Fact]
+    public async Task IoStage_CancelledWriteKeepsPrimaryFailureAndRecordsCleanupFailureAfterRelease()
+    {
+        using var directory = new IoStageDirectory();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        string path = Path.Combine(directory.Staging, "cancelled-owned-proposal");
+        var cleanupFailure = new IOException("injected stage delete failure");
+        int permissionCalls = 0;
+        OperationCanceledException observed = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await AuthoringExtensionServiceIoBroker.WriteOwnedProposalAsync(
+                path,
+                new byte[] { 4, 5, 6 },
+                _ => permissionCalls++,
+                created =>
+                {
+                    using var released = new FileStream(created, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    throw cleanupFailure;
+                },
+                cancellation.Token));
+
+        Assert.Equal(cancellation.Token, observed.CancellationToken);
+        Assert.Equal(0, permissionCalls);
+        Assert.True(File.Exists(path));
+        ImmutableArray<Exception> secondary = Assert.IsType<ImmutableArray<Exception>>(
+            observed.Data[AuthoringExtensionServiceIoBroker.StagedWriteCleanupFailuresKey]);
+        Assert.Same(cleanupFailure, Assert.Single(secondary));
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
     public async Task LinuxPathVerifier_RejectsBenignSymlinkBoundary()
     {
         Assert.True(OperatingSystem.IsLinux(), "The production file path verifier is Linux-only.");
@@ -811,6 +944,50 @@ public sealed class AuthoringExtensionServiceBrokerTests
             CallCount++;
             LastRequest = request;
             return ValueTask.FromResult(new AuthoringPinnedNetworkResponse(200, "application/octet-stream", response));
+        }
+    }
+
+    private sealed class IoStageDirectory : IDisposable
+    {
+        private readonly string _root = Path.Combine(Path.GetTempPath(), $"fsusblog-io-stage-{Guid.NewGuid():N}");
+
+        public IoStageDirectory()
+        {
+            Owned = Path.Combine(_root, "owned");
+            Staging = Path.Combine(_root, "stage");
+            Directory.CreateDirectory(Owned);
+            Directory.CreateDirectory(Staging);
+        }
+
+        public string Owned { get; }
+
+        public string Staging { get; }
+
+        public AuthoringFileGrant CreateGrant(DateTimeOffset now) => new(
+            new string('a', 64),
+            new string('b', 64),
+            Owned,
+            "output.bin",
+            AuthoringFileGrantOperation.ProposeWrite,
+            "export",
+            1024,
+            now.AddMinutes(1));
+
+        public void Dispose() => Directory.Delete(_root, true);
+    }
+
+    [SupportedOSPlatform("linux")]
+    private sealed class CancelAfterPathResolutionVerifier(CancellationTokenSource cancellation) : IAuthoringFilePathVerifier
+    {
+        public async ValueTask<(string CanonicalPath, bool HasReparseBoundary)> ResolveAsync(
+            string canonicalRoot,
+            string relativePath,
+            CancellationToken cancellationToken)
+        {
+            (string path, bool reparse) = await new LinuxAuthoringFilePathVerifier().ResolveAsync(
+                canonicalRoot, relativePath, cancellationToken);
+            cancellation.Cancel();
+            return (path, reparse);
         }
     }
 

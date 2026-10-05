@@ -194,6 +194,14 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
     IAuthoringPackageKeyset keyset,
     TimeProvider timeProvider) : IAuthoringPackageTrustVerifier
 {
+    internal void RequireImmutableReadScopeTrust()
+    {
+        if (keyset is not LocalAuthoringPackageKeyset)
+        {
+            throw new AuthoringExtensionContractException("Read scope requires the original owned immutable publisher keyset.");
+        }
+    }
+
     public async ValueTask<AuthoringPackageTrustDecision> VerifyAsync(
         string publisher,
         string keyId,
@@ -407,6 +415,16 @@ public sealed class AuthoringPackageVerifier(
     IAuthoringPackageArchiveReader archiveReader,
     TimeProvider timeProvider)
 {
+    internal void RequireReadScopeVerificationOwners()
+    {
+        if (trustVerifier is not EcdsaAuthoringPackageTrustVerifier trust ||
+            archiveReader is not ZipAuthoringPackageArchiveReader)
+        {
+            throw new AuthoringExtensionContractException("Read scope requires the original signature and archive verification owners.");
+        }
+        trust.RequireImmutableReadScopeTrust();
+    }
+
     public async ValueTask<VerifiedAuthoringPackage> VerifyAsync(
         AuthoringPackageArtifact package,
         AuthoringHostPlatform targetPlatform,
