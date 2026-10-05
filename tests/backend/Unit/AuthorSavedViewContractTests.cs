@@ -150,6 +150,30 @@ public sealed class AuthorSavedViewContractTests
             () => validator.ValidateAsync(s_owner, query));
     }
 
+    [Theory]
+    [InlineData(null)]
+    [InlineData("")]
+    [InlineData(" \t")]
+    [InlineData("tag:\u0000invalid")]
+    public async Task CanonicalValues_RejectMalformedProviderValueWithValidationCode(string? malformedValue)
+    {
+        AuthorSavedViewCondition condition = Condition(
+            AuthorSavedViewFieldKind.Tag,
+            "tag:stable",
+            "identity.equals",
+            "tag:stable");
+        AuthorSavedViewQuery query = Query([condition]);
+        AuthorSavedViewContract.ValidateQueryShape(query);
+        var provider = new TestDependencyProvider { ReuseMutableCanonicalBuffer = true };
+        provider.MutableCanonicalBuffer.Clear();
+        provider.MutableCanonicalBuffer.Add(malformedValue!);
+        var validator = new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([provider]));
+
+        await AssertValidationCode(
+            "saved_view_condition_value_invalid",
+            () => validator.ValidateAsync(s_owner, query));
+    }
+
     [Fact]
     public async Task CanonicalValues_AcceptBenignSameCountReorderingBeforeSetNormalization()
     {

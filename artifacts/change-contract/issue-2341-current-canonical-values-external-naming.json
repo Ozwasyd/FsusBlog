@@ -4,9 +4,11 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionBudgets.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationEngine.cs",
                 "src/backend/Services/Authoring/AuthorSavedViewContracts.cs"
             ],
-            "reason": "Preserve the existing registered C# process-environment naming surface while revalidating detached saved-view canonical values; this repair introduces no environment keys, renames, defaults, or second query authority."
+            "reason": "Preserve the registered C# process-environment naming surface while enforcing cancellation, closed canvas command state and detached saved-view value validation through their existing owners. These changes introduce no environment keys, renames, defaults or parallel authority."
         }
     ]
 }
