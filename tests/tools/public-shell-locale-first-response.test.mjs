@@ -1,6 +1,9 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
+// eslint-disable-next-line import-x/no-relative-parent-imports -- Exercise published fixture bytes through the existing consumer owner.
+import * as firstResponseOwner from '../browser-contract/public-shell-locale-first-response.mjs';
 import {
     assertPublicShellLocaleFirstResponse,
     loadPublicShellFirstResponseCodec
@@ -207,3 +210,273 @@ test('first navigation rejects identity and cache/build receipt drift before par
         /first response (?:buildDigest|cache policy) mismatch/u
     );
 });
+
+// Published-artifact Node models: independent fixture bytes, not a browser/Root qualification.
+const publishedSceneModel = {
+    issue: 2083, stage: 'first-response', route: 'Home', locale: 'zh-CN',
+    document: { language: 'zh-CN', direction: 'ltr', openGraphLocale: 'zh_CN' }
+};
+const publishedOwnerModel = {
+    namespace: 'published-node-model', runtimeRunId: 'published-model-run',
+    sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64),
+    buildDigest: 'c'.repeat(64), runtimeScope: 'node-model-runtime'
+};
+const publishedRouteModel = { path: '/', routeKey: 'home' };
+const originalDigest = bytes => createHash('sha256').update(bytes).digest('hex');
+
+async function publishedModel()
+{
+    const seoOwner = await firstResponseOwner.loadPublicShellFirstResponseSeoHead();
+    const codec = await firstResponseOwner.loadPublicShellFirstResponseCodec();
+    const seoHead = {
+        schema: 'fsusblog.public-seo-head', version: 1, digest: '',
+        documentTitle: 'Published model title', description: 'Published model description',
+        canonicalUrl: 'https://published.example.invalid/', publicOrigin: 'https://published.example.invalid',
+        robots: 'index,follow', locale: 'zh-CN', pageType: 'Home',
+        pageEntityId: 'https://published.example.invalid/',
+        openGraph: { title: 'Published model title', description: 'Published model description',
+            type: 'website', url: 'https://published.example.invalid/', locale: 'zh_CN', imageUrl: null },
+        twitter: { card: 'summary_large_image', title: 'Published model title',
+            description: 'Published model description', imageUrl: null },
+        jsonLdGraph: JSON.stringify({ '@graph': [{ '@id': 'https://published.example.invalid/' }] }),
+        articlePublishedAtUtc: null, articleModifiedAtUtc: null, articleAuthor: null, articleImageUrl: null
+    };
+    seoHead.digest = await seoOwner.computePublicSeoHeadDigest(seoHead);
+    const bootstrap = {
+        renderLocale: 'zh-CN', kind: 'Home', rendererVersion: 'published-model-renderer',
+        localeCatalogDigest: 'published-model-catalog', routeKey: 'home',
+        renderTimestamp: '2026-10-05T01:02:03.1234567Z'
+    };
+    const bootConfig = {
+        schema: 'fsusblog.public-boot-config.v1', frontendBuildIdentity: 'published-model-release',
+        entryUrl: '/assets/fsus-spa-entry.js', coreModulePreloads: ['/assets/core-model.js'], takeoverStylesheets: []
+    };
+    const publishedArtifact = {
+        schema: 'fsusblog.public-content-published-artifact-observation.v1', owner: { ...publishedOwnerModel },
+        route: { ...publishedRouteModel, locale: 'zh-CN', kind: 'Home', pageId: '1' },
+        publication: { source: 'server-ssr', rendererVersion: bootstrap.rendererVersion,
+            generatedAtUtc: '2026-10-05T01:02:03.1234567+00:00', contentType: 'text/html; charset=utf-8' },
+        runtimeAssets: { frontendBuildIdentity: 'different-current-model-release' }, originals: []
+    };
+    function seal(html)
+    {
+        const bytes = Buffer.isBuffer(html) ? html : Buffer.from(html);
+        publishedArtifact.originals = [{ role: 'published-artifact', encoding: 'base64',
+            sha256: originalDigest(bytes), bytes: bytes.length, content: bytes.toString('base64') }];
+    }
+    function markup()
+    {
+        return '<!doctype html><html><head>'
+            + `<script type="application/json" data-fsus-seo-head-model>${JSON.stringify(seoHead)}</script>`
+            + '</head><body>'
+            + `<script id="fsus-aot-bootstrap" type="application/octet-stream">${codec.encodePublicAotPayload(bootstrap)}</script>`
+            + `<script id="fsus-public-boot-config" type="application/json">${JSON.stringify(bootConfig)}</script>`
+            + '</body></html>';
+    }
+    seal(markup());
+    return { publishedArtifact, seoHead, bootstrap, bootConfig, seoOwner, markup, seal,
+        args: { publishedArtifact, scene: publishedSceneModel, expectedOwner: publishedOwnerModel, expectedRoute: publishedRouteModel } };
+}
+
+test('published-artifact Node getter exists independently of measured first response', () =>
+{
+    assert.equal(typeof firstResponseOwner.readPublicShellLocalePublishedArtifact, 'function');
+});
+
+test('published-artifact Node getter returns only production-validated published typed carriers', async () =>
+{
+    const model = await publishedModel();
+    const result = await firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args);
+    assert.deepEqual(result, { seoHead: model.seoHead, bootstrap: model.bootstrap, bootConfig: model.bootConfig });
+    assert.deepEqual(Object.keys(result).sort(), ['bootConfig', 'bootstrap', 'seoHead']);
+    assert.notEqual(result.bootConfig.frontendBuildIdentity, model.publishedArtifact.runtimeAssets.frontendBuildIdentity);
+    assert.equal(Object.hasOwn(result, 'currentRuntimeRelease'), false);
+    assert.equal(Object.hasOwn(result, 'cacheControl'), false);
+    assert.equal(Object.hasOwn(result, 'qualificationEligible'), false);
+});
+
+for (const [label, mutate] of [
+    ['missing SEO', model => model.seal(model.markup().replace(/<script type="application\/json" data-fsus-seo-head-model>[^<]*<\/script>/u, ''))],
+    ['duplicate SEO', model => model.seal(model.markup().replace('</head>', '<script type="application/json" data-fsus-seo-head-model>{}</script></head>'))],
+    ['wrong SEO tag', model => model.seal(model.markup().replace('script type="application/json" data-fsus-seo-head-model', 'div type="application/json" data-fsus-seo-head-model'))],
+    ['wrong SEO type', model => model.seal(model.markup().replace('type="application/json" data-fsus-seo-head-model', 'type="text/javascript" data-fsus-seo-head-model'))],
+    ['missing bootstrap', model => model.seal(model.markup().replace(/<script id="fsus-aot-bootstrap"[^>]*>[^<]*<\/script>/u, ''))],
+    ['duplicate bootstrap', model => model.seal(model.markup().replace('</body>', '<script id="fsus-aot-bootstrap" type="application/octet-stream">x</script></body>'))],
+    ['wrong bootstrap type', model => model.seal(model.markup().replace('type="application/octet-stream"', 'type="application/json"'))],
+    ['corrupt AEDS', model => model.seal(model.markup().replace(/(id="fsus-aot-bootstrap"[^>]*>)[^<]*/u, '$1bad-frame'))],
+    ['missing config', model => model.seal(model.markup().replace(/<script id="fsus-public-boot-config"[^>]*>[^<]*<\/script>/u, ''))],
+    ['duplicate config', model => model.seal(model.markup().replace('</body>', '<script id="fsus-public-boot-config" type="application/json">{}</script></body>'))],
+    ['wrong config type', model => model.seal(model.markup().replace('id="fsus-public-boot-config" type="application/json"', 'id="fsus-public-boot-config" type="text/javascript"'))],
+    ['malformed JSON', model => model.seal(model.markup().replace('data-fsus-seo-head-model>', 'data-fsus-seo-head-model>{'))],
+    ['damaged UTF8', model => model.seal(Buffer.concat([Buffer.from(model.markup()), Buffer.from([0xc3, 0x28])]))],
+    ['SEO digest drift', model =>
+    {
+        model.seoHead.documentTitle = 'not published';
+        model.seal(model.markup());
+    }],
+    ['SEO schema', model =>
+    {
+        model.seoHead.version = 2;
+        model.seal(model.markup());
+    }],
+    ['SEO locale', async model =>
+    {
+        model.seoHead.locale = 'en-US';
+        model.seoHead.digest = await model.seoOwner.computePublicSeoHeadDigest(model.seoHead);
+        model.seal(model.markup());
+    }],
+    ['SEO canonical route', async model =>
+    {
+        model.seoHead.canonicalUrl += 'other';
+        model.seoHead.digest = await model.seoOwner.computePublicSeoHeadDigest(model.seoHead);
+        model.seal(model.markup());
+    }],
+    ['SEO wrong optional type', model =>
+    {
+        model.seoHead.articleAuthor = {};
+        model.seal(model.markup());
+    }],
+    ['bootstrap locale', model =>
+    {
+        model.bootstrap.renderLocale = 'en-US';
+        model.seal(model.markup());
+    }],
+    ['bootstrap route', model =>
+    {
+        model.bootstrap.kind = 'About';
+        model.seal(model.markup());
+    }],
+    ['bootstrap route key', model =>
+    {
+        model.bootstrap.routeKey = 'other';
+        model.seal(model.markup());
+    }],
+    ['bootstrap renderer', model =>
+    {
+        model.bootstrap.rendererVersion = 'other';
+        model.seal(model.markup());
+    }],
+    ['bootstrap publication time', model =>
+    {
+        model.bootstrap.renderTimestamp = '2026-10-05T01:02:03.1234568Z';
+        model.seal(model.markup());
+    }],
+    ['config schema', model =>
+    {
+        model.bootConfig.schema = 'legacy';
+        model.seal(model.markup());
+    }],
+    ['config release type', model =>
+    {
+        model.bootConfig.frontendBuildIdentity = {};
+        model.seal(model.markup());
+    }],
+    ['config asset type', model =>
+    {
+        model.bootConfig.coreModulePreloads = {};
+        model.seal(model.markup());
+    }],
+    ['config cross origin', model =>
+    {
+        model.bootConfig.entryUrl = 'https://foreign.example.invalid/entry.js';
+        model.seal(model.markup());
+    }],
+    ['original role', model =>
+    {
+        model.publishedArtifact.originals[0].role = 'measured-response';
+    }],
+    ['original hash', model =>
+    {
+        model.publishedArtifact.originals[0].sha256 = '0'.repeat(64);
+    }],
+    ['original length', model =>
+    {
+        model.publishedArtifact.originals[0].bytes++;
+    }],
+    ['original base64', model =>
+    {
+        model.publishedArtifact.originals[0].content += '\n';
+    }],
+    ['duplicate originals', model =>
+    {
+        model.publishedArtifact.originals.push(model.publishedArtifact.originals[0]);
+    }],
+    ['publication source', model =>
+    {
+        model.publishedArtifact.publication.source = 'other';
+    }],
+    ['fixture route', model =>
+    {
+        model.publishedArtifact.route.path = '/other';
+    }]
+])
+{
+    test(`published-artifact Node getter rejects ${label}`, async () =>
+    {
+        const model = await publishedModel();
+        await mutate(model);
+        await assert.rejects(firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args));
+    });
+}
+
+for (const field of Object.keys(publishedOwnerModel))
+{
+    test(`published-artifact Node getter rejects expected owner drift: ${field}`, async () =>
+    {
+        const model = await publishedModel();
+        model.publishedArtifact.owner[field] = 'wrong-owner';
+        await assert.rejects(firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args));
+        model.args.expectedOwner = { ...publishedOwnerModel, [field]: '' };
+        await assert.rejects(firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args));
+    });
+}
+
+test('published-artifact Node getter accepts the empty runtimeScope supported by the fixture owner', async () =>
+{
+    const model = await publishedModel();
+    model.args.expectedOwner = { ...publishedOwnerModel, runtimeScope: '' };
+    model.publishedArtifact.owner.runtimeScope = '';
+    assert.deepEqual(await firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args),
+        { seoHead: model.seoHead, bootstrap: model.bootstrap, bootConfig: model.bootConfig });
+});
+
+for (const side of ['expected', 'observed', 'both'])
+{
+    test(`published-artifact Node getter rejects omitted runtimeScope: ${side}`, async () =>
+    {
+        const model = await publishedModel();
+        model.args.expectedOwner = { ...publishedOwnerModel, runtimeScope: '' };
+        model.publishedArtifact.owner.runtimeScope = '';
+        if (side !== 'observed')
+        {
+            delete model.args.expectedOwner.runtimeScope;
+        }
+        if (side !== 'expected')
+        {
+            delete model.publishedArtifact.owner.runtimeScope;
+        }
+        await assert.rejects(firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args));
+    });
+}
+
+for (const [label, value] of [['undefined', undefined], ['null', null], ['number', 0], ['boolean', false], ['object', {}], ['array', []]])
+{
+    test(`published-artifact Node getter rejects equal nonstring runtimeScope: ${label}`, async () =>
+    {
+        const model = await publishedModel();
+        model.args.expectedOwner = { ...publishedOwnerModel, runtimeScope: value };
+        model.publishedArtifact.owner.runtimeScope = value;
+        await assert.rejects(firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args));
+    });
+}
+
+for (const [expected, observed] of [['', 'nonempty-scope'], ['nonempty-scope', '']])
+{
+    test(`published-artifact Node getter rejects runtimeScope empty/nonempty drift: ${expected === '' ? 'expected' : 'observed'} empty`, async () =>
+    {
+        const model = await publishedModel();
+        model.args.expectedOwner = { ...publishedOwnerModel, runtimeScope: expected };
+        model.publishedArtifact.owner.runtimeScope = observed;
+        await assert.rejects(firstResponseOwner.readPublicShellLocalePublishedArtifact(model.args));
+    });
+}

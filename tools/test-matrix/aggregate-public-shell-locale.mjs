@@ -17,6 +17,11 @@ import {
     publicShellLocaleSubResultsSchema,
     verifyPublicShellLocaleBuild
 } from './public-shell-locale-gate.mjs';
+import {
+    readPublicShellLocaleCallerRoot,
+    requirePublicShellLocaleCausalVerification,
+    verifyPublicShellLocaleRawRefs
+} from './verify-public-shell-locale.mjs';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const defaultInput = '.tmp/browser-evidence/public-shell-locale-sub-results.json';
@@ -50,7 +55,7 @@ function parseArgs(argv)
 
 function usage()
 {
-    return 'node tools/test-matrix/aggregate-public-shell-locale.mjs [--root <repo>] [--input <sub-results>] [--out <receipt>] [--build-receipt <receipt>]';
+    return 'node tools/test-matrix/aggregate-public-shell-locale.mjs [--root <repo>] [--input <sub-results>] [--out <receipt>] [--build-receipt <receipt>] [--browser-receipt <current-parent>]';
 }
 
 function canonicalInput(value)
@@ -72,7 +77,11 @@ export async function aggregatePublicShellLocale({
     root = defaultRoot,
     inputFile = null,
     outputFile = null,
-    buildReceiptFile = null
+    buildReceiptFile = null,
+    callerRootRef = null,
+    callerOwner = null,
+    browserReceiptFile = null,
+    fixtureProviderFile = process.env.FSUSBLOG_BROWSER_CONTRACT_FIXTURE_PROVIDER
 } = {})
 {
     root = path.resolve(root);
@@ -97,11 +106,18 @@ export async function aggregatePublicShellLocale({
             throw new Error(`sub-results schema mismatch: ${input?.schema ?? '<missing>'}`);
         }
         const digestInput = gateDigest(canonicalInput(input));
+        verifyPublicShellLocaleRawRefs({ root, results });
+        const caller = await readPublicShellLocaleCallerRoot({
+            root, matrix: gate.matrix, buildDigest: build.digest, buildReceiptFile: gate.receiptFile,
+            callerRootRef, callerOwner, browserReceiptFile, fixtureProviderFile
+        });
         const validated = validatePublicShellLocaleSubResults({
             matrix: gate.matrix,
             results,
-            buildDigest: build.digest
+            buildDigest: build.digest,
+            identity: caller.identity
         });
+        requirePublicShellLocaleCausalVerification();
         const receipt = createPublicShellLocaleQualification({
             gate,
             build,
@@ -143,7 +159,9 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
                 root: options.root ?? defaultRoot,
                 inputFile: options.input ?? null,
                 outputFile: options.out ?? options.output ?? null,
-                buildReceiptFile: options['build-receipt'] ?? null
+                buildReceiptFile: options['build-receipt'] ?? null,
+                browserReceiptFile: options['browser-receipt'] ?? process.env.FSUSBLOG_BROWSER_CONTRACT_RECEIPT
+                    ?? '.tmp/browser-contract/receipt.json'
             });
             process.stdout.write(`${JSON.stringify({ status: receipt.status, receipt: options.out ?? '.tmp/browser-evidence/public-shell-locale.json', sceneCount: receipt.matrix.sceneCount })}\n`);
         }

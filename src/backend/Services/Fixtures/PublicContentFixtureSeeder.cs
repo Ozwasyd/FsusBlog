@@ -1,21 +1,30 @@
 // fixture-catalog: producer public-content
+using System.Globalization;
+using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 using System.Text.Json.Serialization;
+using System.Text.RegularExpressions;
 
+using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Infrastructure.Pagination;
+using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Spa;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
+using FsusBlog.Shared.Contracts.Localization;
 
 using Microsoft.Extensions.DependencyInjection;
 
@@ -35,7 +44,25 @@ public interface IPublicContentFixtureSeeder
     Task<PublicContentFixtureResult> PrepareAsync(
         PublicContentFixtureRequest request,
         CancellationToken cancellationToken = default);
+
+    Task<JsonElement> ObservePublishedArtifactAsync(
+        HttpContext context,
+        PublicContentPublishedArtifactRequest request,
+        CancellationToken cancellationToken = default);
 }
+
+/// <summary>
+/// Selects an already-published artifact in the dedicated fixture runtime.
+/// These coordinates must match its admitted environment, not just the caller.
+/// </summary>
+public sealed record PublicContentPublishedArtifactRequest(
+    string Namespace,
+    string RuntimeRunId,
+    string SourceCommit,
+    string WorktreeFingerprint,
+    string BuildDigest,
+    string Path,
+    string Locale);
 
 public sealed record PublicContentFixtureRequest(
     IReadOnlyList<string> Capabilities,
@@ -307,6 +334,7 @@ public sealed class PublicContentFixtureSeeder(
     IServiceProvider serviceProvider) : IPublicContentFixtureSeeder
 {
     private const string Strategy = "transaction-fixture";
+    private const int MaxPublishedArtifactBytes = 8 * 1024 * 1024;
     internal const int PaginationArticleCount = 10_020;
     internal const int PaginationPageSize = 10;
     private static readonly int[] s_paginationLogicalPages = [10, 100, 1_000];
@@ -2223,6 +2251,371 @@ public sealed class PublicContentFixtureSeeder(
 
         return articleIds.All(articlesWithEvents.Contains);
     }
+
+    /// <summary>
+    /// Reads a current published artifact only. Never renders, warms, seeds,
+    /// schedules backfill, changes generations, or derives expected values from HTML.
+    /// The caller must privately retain the complete observation and original bytes.
+    /// </summary>
+    public async Task<JsonElement> ObservePublishedArtifactAsync(
+        HttpContext context,
+        PublicContentPublishedArtifactRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        RequirePublishedArtifactOwner(request, configuration);
+        cancellationToken.ThrowIfCancellationRequested();
+        var routeContext = new DefaultHttpContext
+        {
+            RequestServices = context.RequestServices
+        };
+        routeContext.Request.Path = request.Path;
+        routeContext.Request.Host = context.Request.Host;
+        routeContext.Request.Scheme = context.Request.Scheme;
+        IPublicAotRouteRegistry routes = serviceProvider.GetRequiredService<IPublicAotRouteRegistry>();
+        if (!routes.TryResolve(routeContext, out PublicAotRouteMatch match)
+            || !PublicRouteIdentity.AllowsStaticArtifact(match)
+            || !PublicAotPageIdentity.GetSeoEligibleKinds().Contains(match.Kind)
+            || match.RequiresPaginationRedirect
+            || !string.Equals(match.Path, match.CanonicalPath, StringComparison.Ordinal)
+            || !LocaleCatalog.TryParse(request.Locale, out LocaleDescriptor locale)
+            || !string.Equals(locale.Code, request.Locale, StringComparison.Ordinal))
+        {
+            throw new InvalidOperationException("published artifact observation route or locale is invalid");
+        }
+
+        match = match with
+        {
+            LocaleResolution = new LocaleResolutionResult(
+                locale,
+                LocaleResolutionSource.Default,
+                string.Empty,
+                LocaleCatalog.Digest)
+        };
+        await RequireOwnedPublishedRouteAsync(request, match, cancellationToken).ConfigureAwait(false);
+        IPublicAotArtifactStore artifacts = serviceProvider.GetRequiredService<IPublicAotArtifactStore>();
+        ISpaAssetManifestService manifest = serviceProvider.GetRequiredService<ISpaAssetManifestService>();
+        IRuntimeKeyScope scope = serviceProvider.GetRequiredService<IRuntimeKeyScope>();
+        PublicAotInvalidationTracker generations = serviceProvider.GetRequiredService<PublicAotInvalidationTracker>();
+        string invalidationKey = scope.PrefixKey(CacheKeyBuilder.PublicAotDocument(match.PageId, match.RouteKey));
+        PublicAotArtifactLookup lookup = artifacts.CreateLookup(routeContext, match);
+        long generationBefore = generations.GetCurrentVersion(invalidationKey, lookup.PagePrefixKey);
+        if (!generations.TryGetCommitReceipt(lookup.DocumentCacheKey, out PublicAotBackfillCommitReceipt? commitBefore))
+        {
+            throw new InvalidOperationException("published artifact observation requires an existing commit receipt");
+        }
+        PublicAotCacheEntry? entry = await artifacts.TryGetEntryAsync(lookup, cancellationToken).ConfigureAwait(false);
+        if (!artifacts.IsRenderable(entry, lookup))
+        {
+            throw new InvalidOperationException("published artifact observation requires an existing renderable artifact");
+        }
+
+        SpaAssetSet assets = manifest.GetPublicAssetSet(routeContext, match.PageId);
+        PublicAotArtifactLookup lookupAfter = artifacts.CreateLookup(routeContext, match);
+        long generationAfter = generations.GetCurrentVersion(invalidationKey, lookup.PagePrefixKey);
+        if (lookupAfter != lookup)
+        {
+            throw new InvalidOperationException("published artifact observation lookup changed during the read");
+        }
+
+        JsonElement observation = ProjectPublishedArtifact(
+            request,
+            match,
+            lookup,
+            entry!,
+            assets,
+            scope.ScopeToken,
+            generationBefore,
+            generationAfter);
+        // Hash the exact privately copied bytes retained by the existing projection,
+        // not a second read of potentially replaced cache memory or caller metadata.
+        string originalDigest = observation.GetProperty("observation")
+            .GetProperty("originals")[0].GetProperty("sha256").GetString()!;
+        if (!generations.TryGetCommitReceipt(lookup.DocumentCacheKey, out PublicAotBackfillCommitReceipt? commitAfter)
+            || artifacts.CreateLookup(routeContext, match) != lookup)
+        {
+            throw new InvalidOperationException("published artifact observation commit or lookup changed during the read");
+        }
+        long generationFinal = generations.GetCurrentVersion(invalidationKey, lookup.PagePrefixKey);
+        RequirePublishedArtifactCommit(
+            lookup,
+            entry!,
+            commitBefore,
+            commitAfter,
+            originalDigest,
+            generationBefore,
+            generationFinal);
+        return observation;
+    }
+
+    internal static void RequirePublishedArtifactCommit(
+        PublicAotArtifactLookup lookup,
+        PublicAotCacheEntry entry,
+        PublicAotBackfillCommitReceipt? before,
+        PublicAotBackfillCommitReceipt? after,
+        string originalDigest,
+        long generationBefore,
+        long generationAfter)
+    {
+        // The existing tracker returns its immutable dictionary-held record,
+        // not a deserialized copy. Reject even an equal-content replacement
+        // observed during this read, as well as all field mismatches below.
+        if (before is null || after is null || !ReferenceEquals(before, after) || before != after
+            || generationBefore < 0 || generationBefore != generationAfter
+            || !IsObservationHex(originalDigest, 64)
+            || before.CacheKey != lookup.DocumentCacheKey || entry.CacheKey != lookup.DocumentCacheKey
+            || before.PagePrefixKey != lookup.PagePrefixKey
+            || before.ScheduledInvalidationVersion != generationBefore
+            || before.CurrentInvalidationVersion != generationBefore
+            || before.PublishedInvalidationVersion != generationBefore
+            || before.RendererVersion != entry.RendererVersion
+            || before.FrontendAssetVersion != lookup.FrontendAssetVersion
+            || before.FrontendAssetVersion != entry.FrontendAssetVersion
+            || entry.Source != PublicAotWriteSource.ServerSsrBackfill
+            || before.PayloadDigest != originalDigest || before.ArtifactDigest != originalDigest)
+        {
+            throw new InvalidOperationException("published artifact observation commit binding is invalid");
+        }
+    }
+
+    internal static void RequirePublishedArtifactOwner(
+        PublicContentPublishedArtifactRequest request,
+        IConfiguration runtimeConfiguration)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        if (runtimeConfiguration["FSUSBLOG_BROWSER_CONTRACT_DEDICATED_RUNTIME"] != "1"
+            || !IsObservationHex(request.SourceCommit, 40)
+            || !IsObservationDigest(request.WorktreeFingerprint)
+            || !IsObservationDigest(request.BuildDigest)
+            || string.IsNullOrWhiteSpace(request.Namespace)
+            || string.IsNullOrWhiteSpace(request.RuntimeRunId)
+            || runtimeConfiguration["FSUSBLOG_TEST_NAMESPACE"] != request.Namespace
+            || runtimeConfiguration["FSUSBLOG_TEST_RUN_ID"] != request.RuntimeRunId
+            || runtimeConfiguration["FSUSBLOG_TEST_SOURCE_COMMIT"] != request.SourceCommit
+            || runtimeConfiguration["FSUSBLOG_TEST_SOURCE_FINGERPRINT"] != request.WorktreeFingerprint
+            || runtimeConfiguration["FSUSBLOG_CI_PRODUCTION_RECEIPT_DIGEST"] != request.BuildDigest
+            || string.IsNullOrWhiteSpace(request.Path)
+            || request.Path.Length > 256
+            || !request.Path.StartsWith("/", StringComparison.Ordinal)
+            || request.Path.StartsWith("//", StringComparison.Ordinal)
+            || request.Path.IndexOfAny(['?', '#', '\\']) >= 0)
+        {
+            throw new InvalidOperationException("published artifact observation current owner is invalid");
+        }
+    }
+
+    private async Task RequireOwnedPublishedRouteAsync(
+        PublicContentPublishedArtifactRequest request,
+        PublicAotRouteMatch match,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        // Exact same ownership prefix as PrepareAsync; never select the first DB row.
+        string runToken = new(request.RuntimeRunId
+            .Where(static ch => char.IsAsciiLetterOrDigit(ch) || ch is '-' or '_').Take(24).ToArray());
+        string ownerPrefix = $"fxpc:{request.Namespace}:{runToken}:";
+        bool owned = true;
+        if (match.Kind == PublicPageKind.ArticleDetail)
+        {
+            int id = PublicRouteIdentity.ParseArticleRouteKey(match.RouteKey);
+            owned = await db.Queryable<Article>()
+                .Where(item => item.Id == id && item.Title.StartsWith(ownerPrefix)
+                    && item.Status == ArticleStatus.Published && !item.IsDeleted)
+                .AnyAsync().ConfigureAwait(false);
+        }
+        else if (match.Kind == PublicPageKind.Filter)
+        {
+            PublicRouteIdentity.ParsedFilterRouteIdentity filter = PublicRouteIdentity.ParseFilterRouteKey(match.RouteKey);
+            if (filter.CategoryId is int categoryId)
+            {
+                owned = await db.Queryable<Category>()
+                    .Where(item => item.Id == categoryId && item.Name.StartsWith(ownerPrefix))
+                    .AnyAsync().ConfigureAwait(false);
+            }
+            else if (filter.TagId is int tagId)
+            {
+                owned = await db.Queryable<Tag>()
+                    .Where(item => item.Id == tagId && item.Name.StartsWith(ownerPrefix))
+                    .AnyAsync().ConfigureAwait(false);
+            }
+            else
+            {
+                owned = false;
+            }
+        }
+
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!owned)
+        {
+            throw new InvalidOperationException("published artifact observation route is not fixture owned");
+        }
+    }
+
+    internal static JsonElement ProjectPublishedArtifact(
+        PublicContentPublishedArtifactRequest request,
+        PublicAotRouteMatch match,
+        PublicAotArtifactLookup lookup,
+        PublicAotCacheEntry entry,
+        SpaAssetSet assets,
+        string runtimeScope,
+        long generationBefore,
+        long generationAfter)
+    {
+        if (lookup.UsesDevelopmentSourceAssets || assets.UsesSourceAssets
+            || match.Path != request.Path || lookup.ExpectedLocale != request.Locale
+            || generationBefore < 0 || generationBefore != generationAfter
+            || entry.CacheKey != lookup.DocumentCacheKey
+            || !entry.CacheKey.EndsWith(":iv:" + generationBefore.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
+            || entry.RouteKey != match.RouteKey || entry.PageId != match.PageId
+            || entry.Locale != request.Locale || entry.RendererVersion != PublicAotConstants.RendererVersion
+            || entry.FrontendAssetVersion != lookup.FrontendAssetVersion
+            || assets.FrontendAssetVersion != lookup.FrontendAssetVersion
+            || entry.Source != PublicAotWriteSource.ServerSsrBackfill
+            || entry.Document is not { IsEmpty: false } document
+            || document.RendererVersion != entry.RendererVersion
+            || document.FrontendAssetVersion != entry.FrontendAssetVersion
+            || string.IsNullOrWhiteSpace(document.CacheControl)
+            || string.IsNullOrWhiteSpace(assets.FrontendBuildIdentity)
+            || assets.FrontendBuildIdentity == "missing-manifest")
+        {
+            throw new InvalidOperationException("published artifact observation identity or generation is invalid");
+        }
+
+        if (document.Utf8Bytes.Length > MaxPublishedArtifactBytes)
+        {
+            throw new InvalidOperationException("published artifact observation exceeds the private byte bound");
+        }
+        byte[] original = document.Utf8Bytes.ToArray();
+
+        // Opaque publication bytes, not a new HTML/SEO/payload expectation parser.
+        var body = new
+        {
+            schema = "fsusblog.public-content-published-artifact-observation.v1",
+            owner = new
+            {
+                request.Namespace,
+                request.RuntimeRunId,
+                request.SourceCommit,
+                request.WorktreeFingerprint,
+                request.BuildDigest,
+                runtimeScope
+            },
+            route = new
+            {
+                request.Path,
+                request.Locale,
+                kind = match.Kind.ToString(),
+                pageId = match.PageId.ToString(),
+                match.RouteKey
+            },
+            publication = new
+            {
+                entry.CacheKey,
+                source = entry.Source.ToHeaderValue(),
+                generation = generationBefore,
+                entry.GeneratedAtUtc,
+                entry.ExpiresAtUtc,
+                entry.RendererVersion,
+                entry.FrontendAssetVersion,
+                document.ContentType,
+                artifactCacheControl = document.CacheControl,
+                effectiveCacheControl = ObservePublishedArtifactCacheControl(entry, document),
+                document.RequiresCspNonceMutation,
+                entry.HydrationSidecar
+            },
+            // This is the CURRENT runtime manifest identity, not a claim that it
+            // equals the boot-config value embedded in the published artifact.
+            runtimeAssets = new
+            {
+                assets.FrontendBuildIdentity,
+                assets.AssetSetDigest
+            },
+            originals = new[]
+            {
+                new
+                {
+                    role = "published-artifact",
+                    encoding = "base64",
+                    sha256 = Convert.ToHexStringLower(SHA256.HashData(original)),
+                    bytes = original.Length,
+                    content = Convert.ToBase64String(original)
+                }
+            }
+        };
+        // Hash the embedded JSON encoding, not typed values before their strings
+        // are re-escaped when JsonElement is written into the response envelope.
+        JsonElement observation = JsonSerializer.SerializeToElement(body, s_json);
+        byte[] snapshot = JsonSerializer.SerializeToUtf8Bytes(observation, s_json);
+        using JsonDocument parsed = JsonDocument.Parse(snapshot);
+        return JsonSerializer.SerializeToElement(new
+        {
+            observation = parsed.RootElement.Clone(),
+            contentDigest = Convert.ToHexStringLower(SHA256.HashData(snapshot))
+        }, s_json);
+    }
+
+    private static string ObservePublishedArtifactCacheControl(
+        PublicAotCacheEntry entry,
+        PublicAotHtmlArtifact document)
+    {
+        // Read the unmodified serving owner, not a fixture copy of its policy.
+        // Only HEAD/identity is admitted; the existing compiled template is
+        // never rendered and any response body write would fail immediately.
+        var context = new DefaultHttpContext();
+        context.Request.Method = HttpMethods.Head;
+        context.Request.Headers.AcceptEncoding = "identity";
+        using var body = new MemoryStream(Array.Empty<byte>(), writable: false);
+        context.Response.Body = body;
+
+        MethodInfo headers = typeof(PublicWebRuntime).GetMethod(
+            "SetPublicAotHtmlHeaders",
+            BindingFlags.NonPublic | BindingFlags.Static,
+            binder: null,
+            types: [typeof(HttpContext), typeof(PublicAotHtmlArtifact), typeof(string), typeof(string),
+                typeof(string), typeof(string), typeof(string), typeof(string)],
+            modifiers: null)
+            ?? throw new InvalidOperationException("published artifact serving header owner is unavailable");
+        if (headers.ReturnType != typeof(void))
+        {
+            throw new InvalidOperationException("published artifact serving header signature is invalid");
+        }
+        // The last three diagnostic labels do not select cache policy and are
+        // not retained in this observation; publication identity stays typed.
+        headers.Invoke(null, [context, document, entry.Locale, entry.Source.ToHeaderValue(),
+            entry.RendererVersion, string.Empty, string.Empty, string.Empty]);
+
+        if (document.CspNonceTemplate is { } template)
+        {
+            MethodInfo nonceHeaders = typeof(PublicWebRuntime).GetMethod(
+                "WritePublicAotHtmlNonceTemplateAsync",
+                BindingFlags.NonPublic | BindingFlags.Static,
+                binder: null,
+                types: [typeof(HttpContext), typeof(CspNonceUtf8Template), typeof(CancellationToken)],
+                modifiers: null)
+                ?? throw new InvalidOperationException("published artifact nonce header owner is unavailable");
+            if (nonceHeaders.ReturnType != typeof(Task)
+                || nonceHeaders.Invoke(null, [context, template, CancellationToken.None]) is not Task operation
+                || !operation.IsCompletedSuccessfully
+                || context.Response.StatusCode != StatusCodes.Status200OK)
+            {
+                throw new InvalidOperationException("published artifact HEAD header observation did not complete synchronously");
+            }
+        }
+
+        string cacheControl = context.Response.Headers.CacheControl.ToString();
+        context.Items.Clear(); // Discard the temporary nonce; it is never an oracle or receipt input.
+        if (string.IsNullOrWhiteSpace(cacheControl) || body.Length != 0)
+        {
+            throw new InvalidOperationException("published artifact HEAD header observation is invalid");
+        }
+        return cacheControl;
+    }
+
+    private static bool IsObservationHex(string? value, int length)
+        => value is not null && value.Length == length && value.All(static character => character is >= '0' and <= '9' or >= 'a' and <= 'f');
+
+    private static bool IsObservationDigest(string? value)
+        => value is not null && value.Length is 64 or 71
+            && Regex.IsMatch(value, "^(?:sha256:)?[a-f0-9]{64}$", RegexOptions.CultureInvariant);
 
     public static string SerializeResult(PublicContentFixtureResult result)
         => JsonSerializer.Serialize(result, s_json);
