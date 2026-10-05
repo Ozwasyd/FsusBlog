@@ -6,8 +6,8 @@ using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 
-using FsusBlog.Core.Cache;
 using FsusBlog.Contracts.Articles;
+using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Core.Services.Gateways;
@@ -354,6 +354,7 @@ public sealed partial class PublicContentFixtureSeeder(
     internal const int PaginationArticleCount = 10_020;
     internal const int PaginationPageSize = 10;
     private static readonly int[] s_paginationLogicalPages = [10, 100, 1_000];
+    internal static readonly TimeSpan s_projectionConvergencePollInterval = TimeSpan.FromMilliseconds(100);
     private const int MaxOutboxDrainPasses = 16;
     private static readonly TimeSpan s_outboxDrainPassDelay = TimeSpan.FromMilliseconds(200);
     private static readonly TimeSpan s_securityMatrixConvergenceTimeout = TimeSpan.FromMinutes(6);
@@ -373,6 +374,8 @@ public sealed partial class PublicContentFixtureSeeder(
         ArgumentNullException.ThrowIfNull(request);
         _verificationPublicationReceipts.Clear();
         _verificationLifecycleReceipts.Clear();
+        _verificationPublicationInvocations.Clear();
+        _verificationLifecycleInvocations.Clear();
         IReadOnlyList<string> capabilities = (request.Capabilities ?? [])
             .Select(static item => item.Trim())
             .Where(static item => item.Length > 0)
@@ -526,22 +529,26 @@ public sealed partial class PublicContentFixtureSeeder(
         string searchToken = "FXPC_PRIMARY_BODY";
         foreach (SeedArticlePlan plan in publishedPlan)
         {
+            CanonicalArticlePublicationRequest currentPublication = BuildPublishedArticleRequest(
+                publicationBinding, plan.Role, plan.Title, plan.Markdown, plan.Summary,
+                plan.CoverImageUrl, category.Id, tag.Id);
+            CanonicalArticlePublicationRequest publicationRequest = lifecycleBinding is null
+                ? currentPublication
+                : BuildCanonicalPublicationRequest(lifecycleBinding, currentPublication.Plan);
             CanonicalArticlePublicationResult publication = await publicationPort.PublishAsync(
-                BuildPublishedArticleRequest(
-                    publicationBinding, plan.Role, plan.Title, plan.Markdown, plan.Summary,
-                    plan.CoverImageUrl, category.Id, tag.Id),
-                cancellationToken).ConfigureAwait(false);
+                publicationRequest, cancellationToken).ConfigureAwait(false);
             (await CanonicalArticlePublicationVerifier.VerifyAsync(
                 db, publication.Receipt, cancellationToken).ConfigureAwait(false)).ThrowIfInvalid();
             int articleId = publication.Receipt.ArticleId;
             _verificationPublicationReceipts.Add(publication.Receipt);
+            _verificationPublicationInvocations.Add(new(publication.Receipt.ArticleId, publicationRequest));
             await SetViewsAsync(articleId, plan.Views, cancellationToken).ConfigureAwait(false);
             publishedIds.Add(articleId);
             entityIdentities.Add(new("article", articleId.ToString(System.Globalization.CultureInfo.InvariantCulture), plan.Title, "article-published"));
             Article? row = await LoadArticleAsync(articleId, cancellationToken).ConfigureAwait(false)
                 ?? throw new InvalidOperationException($"owned article {articleId} missing after create");
             List<long> revisionIds = await LoadRevisionIdsAsync(articleId, cancellationToken).ConfigureAwait(false);
-            observed.Add(new PublicContentObservedEntity
+            var entity = new PublicContentObservedEntity
             {
                 Kind = "article",
                 Id = articleId.ToString(System.Globalization.CultureInfo.InvariantCulture),
@@ -565,7 +572,22 @@ public sealed partial class PublicContentFixtureSeeder(
                     ["title"] = plan.Title,
                     ["hasCover"] = plan.CoverImageUrl is not null
                 }
-            });
+            };
+            if (lifecycleBinding is not null)
+            {
+                await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
+                CanonicalArticleProjectionVerifier projectionVerifier = serviceProvider
+                    .GetService<CanonicalArticleProjectionVerifier>()
+                    ?? throw new InvalidOperationException(
+                        "canonical article projection verifier is only available when local fixture services are enabled");
+                CanonicalArticleProjectionOutputAggregate projectionAggregate = await AwaitCanonicalArticleProjectionAsync(
+                    token => projectionVerifier.VerifyAsync(publication.Receipt, publicationRequest, token),
+                    cancellationToken).ConfigureAwait(false);
+                entity.Fields["publicationReceipt"] = publication.Receipt;
+                entity.Fields["projectionAggregate"] = projectionAggregate;
+                entity.Fields["requiredProjectionEdgesVerified"] = true;
+            }
+            observed.Add(entity);
         }
 
         if (requiresDeepPagination)
@@ -1552,6 +1574,7 @@ public sealed partial class PublicContentFixtureSeeder(
             .All(static operation => operation.RightsSnapshotId is > 0 && operation.ResponsibilitySnapshotId is > 0);
         entity.Fields["immutableHistoryVerified"] = result.Verification.IsValid;
         _verificationLifecycleReceipts.Add(result.Receipt);
+        _verificationLifecycleInvocations.Add(new(result.Receipt.ArticleId, lifecycleBinding));
         if (variant == CanonicalArticleLifecycleVariants.PublishedScheduledUpdate)
         {
             CanonicalArticleLifecycleOperationReceipt scheduled = result.Receipt.Operations[^1];
@@ -1567,14 +1590,13 @@ public sealed partial class PublicContentFixtureSeeder(
             };
         }
         await DrainArticleMutationOutboxAsync(cancellationToken).ConfigureAwait(false);
-        await AwaitPublicHotProjectionAsync(cancellationToken).ConfigureAwait(false);
         CanonicalArticleProjectionVerifier projectionVerifier = serviceProvider
             .GetService<CanonicalArticleProjectionVerifier>()
             ?? throw new InvalidOperationException(
                 "canonical article projection verifier is only available when local fixture services are enabled");
-        CanonicalArticleProjectionOutputAggregate projectionAggregate = await projectionVerifier
-            .VerifyAsync(result.Receipt, cancellationToken)
-            .ConfigureAwait(false);
+        CanonicalArticleProjectionOutputAggregate projectionAggregate = await AwaitCanonicalArticleProjectionAsync(
+            token => projectionVerifier.VerifyAsync(result.Receipt, lifecycleBinding, token),
+            cancellationToken).ConfigureAwait(false);
         entity.Fields["projectionAggregate"] = projectionAggregate;
         entity.Fields["requiredProjectionEdgesVerified"] = true;
         if (variant == CanonicalArticleLifecycleVariants.MultipleRevisions)
@@ -1588,6 +1610,25 @@ public sealed partial class PublicContentFixtureSeeder(
             entity.Fields["multiplePublications"] = result.Receipt.PublicationIds.Count >= 2;
         }
         observed.Add(entity);
+    }
+
+    internal static CanonicalArticlePublicationRequest BuildCanonicalPublicationRequest(
+        CanonicalArticleLifecycleFixtureBinding currentInvocation,
+        CanonicalArticlePublicationPlan plan)
+    {
+        ArgumentNullException.ThrowIfNull(currentInvocation);
+        ArgumentNullException.ThrowIfNull(plan);
+        currentInvocation.Validate();
+        var binding = new CanonicalArticlePublicationFixtureBinding(
+            currentInvocation.RunId,
+            currentInvocation.Namespace,
+            currentInvocation.ProfileId,
+            currentInvocation.Capabilities,
+            currentInvocation.AdminPrincipalId,
+            ComputeDigest(CanonicalArticlePublicationFixturePort.DefaultWriterContract),
+            currentInvocation.TemporalContextDigest);
+        binding.Validate();
+        return new CanonicalArticlePublicationRequest(binding, plan);
     }
 
     private static ArticleResponsibilityDraft BuildLifecycleResponsibility(
@@ -1741,11 +1782,41 @@ public sealed partial class PublicContentFixtureSeeder(
     }
 
     private Task AwaitPublicHotProjectionAsync(CancellationToken cancellationToken)
-        => AwaitPublicHotProjectionAsync(publicHotObligations, TimeSpan.FromSeconds(
-            Math.Clamp(
-                configuration.GetValue<int?>("PublicContentFixture:ProjectionConvergenceTimeoutSeconds") ?? 30,
-                1,
-                360)), cancellationToken);
+        => AwaitPublicHotProjectionAsync(publicHotObligations, ProjectionConvergenceTimeout, cancellationToken);
+
+    private TimeSpan ProjectionConvergenceTimeout => TimeSpan.FromSeconds(
+        Math.Clamp(
+            configuration.GetValue<int?>("PublicContentFixture:ProjectionConvergenceTimeoutSeconds") ?? 30,
+            1,
+            360));
+
+    private Task<CanonicalArticleProjectionOutputAggregate> AwaitCanonicalArticleProjectionAsync(
+        Func<CancellationToken, Task<CanonicalArticleProjectionOutputAggregate>> observe,
+        CancellationToken cancellationToken)
+        => AwaitCanonicalArticleProjectionAsync(
+            publicHotObligations, observe, ProjectionConvergenceTimeout, cancellationToken);
+
+    internal static async Task<CanonicalArticleProjectionOutputAggregate> AwaitCanonicalArticleProjectionAsync(
+        IPublicHotArtifactObligationStore obligations,
+        Func<CancellationToken, Task<CanonicalArticleProjectionOutputAggregate>> observe,
+        TimeSpan timeout,
+        CancellationToken cancellationToken)
+    {
+        // Share the original convergence bound between the existing HotRead obligation
+        // and read-only AOT observation rather than granting each a fresh timeout.
+        using var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+        deadline.CancelAfter(timeout);
+        try
+        {
+            await AwaitPublicHotProjectionUntilDeadlineAsync(obligations, deadline.Token).ConfigureAwait(false);
+            return await CanonicalArticleProjectionVerifier.AwaitCurrentOutputAsync(
+                observe, s_projectionConvergencePollInterval, deadline.Token).ConfigureAwait(false);
+        }
+        catch (OperationCanceledException error) when (!cancellationToken.IsCancellationRequested)
+        {
+            throw new TimeoutException("canonical article projection convergence timed out; current output was not verified", error);
+        }
+    }
 
     internal static async Task AwaitPublicHotProjectionAsync(
         IPublicHotArtifactObligationStore obligations,
@@ -1759,43 +1830,51 @@ public sealed partial class PublicContentFixtureSeeder(
         CancellationToken token = deadline.Token;
         try
         {
-            while (true)
-            {
-                token.ThrowIfCancellationRequested();
-                if (await obligations.HasTerminalFailureAsync(token).WaitAsync(token).ConfigureAwait(false))
-                {
-                    throw new InvalidOperationException("canonical article public-hot projection reached terminal failure");
-                }
-
-                PublicHotArtifactObligation? obligation = await obligations
-                    .GetActiveAsync(token).WaitAsync(token).ConfigureAwait(false);
-                if (obligation is null)
-                {
-                    throw new InvalidOperationException(
-                        "canonical article public-hot projection has no durable current-run obligation");
-                }
-                if (obligation.Recovered)
-                {
-                    throw new InvalidOperationException(
-                        $"canonical article public-hot projection required recovery:{obligation.ObligationId}");
-                }
-                if (obligation.State == PublicHotArtifactObligationState.Published
-                    && obligation.PublishedGeneration >= obligation.TargetGeneration)
-                {
-                    return;
-                }
-                if (obligation.State == PublicHotArtifactObligationState.FailedTerminal)
-                {
-                    throw new InvalidOperationException(
-                        $"canonical article public-hot projection failed:{obligation.ObligationId}");
-                }
-
-                await Task.Delay(TimeSpan.FromMilliseconds(100), token).ConfigureAwait(false);
-            }
+            await AwaitPublicHotProjectionUntilDeadlineAsync(obligations, token).ConfigureAwait(false);
         }
         catch (OperationCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             throw new TimeoutException("canonical article public-hot projection convergence timed out");
+        }
+    }
+
+    private static async Task AwaitPublicHotProjectionUntilDeadlineAsync(
+        IPublicHotArtifactObligationStore obligations,
+        CancellationToken token)
+    {
+        while (true)
+        {
+            token.ThrowIfCancellationRequested();
+            if (await obligations.HasTerminalFailureAsync(token).WaitAsync(token).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("canonical article public-hot projection reached terminal failure");
+            }
+
+            PublicHotArtifactObligation? obligation = await obligations
+                .GetActiveAsync(token).WaitAsync(token).ConfigureAwait(false);
+            if (obligation is null)
+            {
+                throw new InvalidOperationException(
+                    "canonical article public-hot projection has no durable current-run obligation");
+            }
+            if (obligation.Recovered)
+            {
+                throw new InvalidOperationException(
+                    $"canonical article public-hot projection required recovery:{obligation.ObligationId}");
+            }
+            if (obligation.State == PublicHotArtifactObligationState.Published
+                && obligation.PublishedGeneration >= obligation.TargetGeneration)
+            {
+                token.ThrowIfCancellationRequested();
+                return;
+            }
+            if (obligation.State == PublicHotArtifactObligationState.FailedTerminal)
+            {
+                throw new InvalidOperationException(
+                    $"canonical article public-hot projection failed:{obligation.ObligationId}");
+            }
+
+            await Task.Delay(s_projectionConvergencePollInterval, token).ConfigureAwait(false);
         }
     }
 

@@ -6,9 +6,62 @@
  * HTTP 200 only, file exists) fail closed.
  */
 
+import { readFileSync } from 'node:fs';
+
+import { maskCSharpTrivia } from '../../test/csharp-source-mask.mjs';
+
 const { readFixtureCatalogs } = await import(new URL('../../testing/fixture-catalog.mjs', import.meta.url));
 import { freezeDeep, plainObject, sha256Text } from './canonical.mjs';
 import { securityPostconditionVerifiers } from './security-postconditions.mjs';
+
+/** Read the production owner's closed constant/set declaration, never receipt-selected names. */
+export function readProductionProjectionEdgeContract()
+{
+    const source = readFileSync(new URL('../../../src/backend/Services/ArticleMutationSideEffects.cs', import.meta.url), 'utf8');
+    const masked = maskCSharpTrivia(source);
+    const owners = [...masked.matchAll(/public static class ArticleMutationReplayEdges\s*\{/gu)];
+    if (owners.length !== 1)
+    {
+        throw new Error('production required projection edge owner is not exact');
+    }
+    const start = owners[0].index + owners[0][0].length;
+    let depth = 1;
+    let end = start;
+    while (end < masked.length && depth > 0)
+    {
+        if (masked[end] === '{') depth += 1;
+        if (masked[end] === '}') depth -= 1;
+        end += 1;
+    }
+    const owner = masked.slice(start, end - 1);
+    const constants = new Map();
+    for (const match of owner.matchAll(/public const string (\w+)\s*=\s*;/gu))
+    {
+        const literal = source.slice(start + match.index, start + match.index + match[0].length)
+            .match(/=\s*"([^"\\]+)"\s*;/u)?.[1];
+        if (!literal || constants.has(match[1]))
+        {
+            throw new Error('production projection edge constant is not exact');
+        }
+        constants.set(match[1], literal);
+    }
+    const declarations = [...owner.matchAll(/public static readonly IReadOnlySet<string> Required = new HashSet<string>\(StringComparer\.Ordinal\)\s*\{([^{}]*)\};/gu)];
+    const declaration = declarations.length === 1 ? declarations[0][1] : null;
+    const symbols = String(declaration ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+    if (depth !== 0 || !constants.has('ContractId') || symbols.length === 0
+        || symbols.some((symbol) => !/^\w+$/u.test(symbol) || !constants.has(symbol))
+        || new Set(symbols).size !== symbols.length)
+    {
+        throw new Error('production required projection edge contract cannot be derived exactly');
+    }
+    const requiredEdges = symbols.map((symbol) => constants.get(symbol)).sort();
+    if (new Set(requiredEdges).size !== requiredEdges.length)
+    {
+        throw new Error('production required projection edge contract contains duplicate names');
+    }
+    return Object.freeze({ contractId: constants.get('ContractId'), requiredEdges: Object.freeze(requiredEdges) });
+}
+
 
 function fail(id, reason)
 {
@@ -287,18 +340,28 @@ function verifyRequiredProjectionAggregate(article, postconditionId, ctx)
     const terminalEdges = Array.isArray(aggregate.edges) ? aggregate.edges : [];
     const requiredNames = [...new Set(requiredEdges.map(String))].sort();
     const terminalNames = terminalEdges.map((edge) => String(edge?.edgeName ?? '')).sort();
+    let productionContract;
+    try
+    {
+        productionContract = readProductionProjectionEdgeContract();
+    }
+    catch
+    {
+        return fail(postconditionId, `article ${article.id} production required projection contract unavailable`);
+    }
     const expectedNamespace = String(
         ctx?.namespace ?? ctx?.observations?.database?.namespace ?? ''
     ).trim();
     const expectedRunId = String(ctx?.runId ?? '').trim();
     if (aggregate.schema !== 'fsusblog.canonical-article-projection-aggregate.v1'
-      || aggregate.requiredEdgeContractId !== 'fsusblog.article-mutation-replay-edges.v1'
+      || aggregate.requiredEdgeContractId !== productionContract.contractId
       || !String(aggregate.runId ?? '').trim()
       || !String(aggregate.namespace ?? '').trim()
       || (expectedRunId && aggregate.runId !== expectedRunId)
       || (expectedNamespace && aggregate.namespace !== expectedNamespace)
       || requiredNames.length === 0
       || requiredNames.length !== requiredEdges.length
+      || JSON.stringify(requiredNames) !== JSON.stringify(productionContract.requiredEdges)
       || JSON.stringify(requiredNames) !== JSON.stringify(terminalNames)
       || !Array.isArray(aggregate.failures)
       || aggregate.failures.length !== 0)

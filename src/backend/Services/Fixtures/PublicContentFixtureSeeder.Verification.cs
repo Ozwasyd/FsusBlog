@@ -32,13 +32,23 @@ public sealed record PublicContentVerificationResult(
 internal sealed record PublicContentVerificationSnapshot(
     PublicContentVerificationIdentity Identity, PublicContentFixtureResult Result,
     IReadOnlyList<CanonicalArticlePublicationReceipt> Publications,
-    IReadOnlyList<CanonicalArticleLifecycleReceipt> Lifecycles);
+    IReadOnlyList<CanonicalArticleLifecycleReceipt> Lifecycles,
+    IReadOnlyList<PublicContentPublicationInvocation>? PublicationInvocations = null,
+    IReadOnlyList<PublicContentLifecycleInvocation>? LifecycleInvocations = null);
+
+internal sealed record PublicContentPublicationInvocation(
+    int ArticleId, CanonicalArticlePublicationRequest Request);
+
+internal sealed record PublicContentLifecycleInvocation(
+    int ArticleId, CanonicalArticleLifecycleFixtureBinding Binding);
 
 /// <summary>Read-only, prepare-bound verification in the existing public fixture owner.</summary>
 public sealed partial class PublicContentFixtureSeeder
 {
     private readonly List<CanonicalArticlePublicationReceipt> _verificationPublicationReceipts = [];
     private readonly List<CanonicalArticleLifecycleReceipt> _verificationLifecycleReceipts = [];
+    private readonly List<PublicContentPublicationInvocation> _verificationPublicationInvocations = [];
+    private readonly List<PublicContentLifecycleInvocation> _verificationLifecycleInvocations = [];
 
     public void ValidateVerificationIdentity(PublicContentVerificationIdentity identity)
     {
@@ -63,7 +73,8 @@ public sealed partial class PublicContentFixtureSeeder
         ValidateVerificationIdentity(identity);
         string payload = JsonSerializer.Serialize(new PublicContentVerificationSnapshot(
             identity, result, _verificationPublicationReceipts.ToArray(),
-            _verificationLifecycleReceipts.ToArray()), s_json);
+            _verificationLifecycleReceipts.ToArray(), _verificationPublicationInvocations.ToArray(),
+            _verificationLifecycleInvocations.ToArray()), s_json);
         return new(payload, ComputeVerificationMac(payload, VerificationKey()));
     }
 
@@ -102,6 +113,38 @@ public sealed partial class PublicContentFixtureSeeder
             throw new InvalidOperationException("public fixture run/profile/source/variant identity mismatch");
         }
         return snapshot;
+    }
+
+    internal static PublicContentPublicationInvocation RequirePublicationInvocation(
+        PublicContentVerificationSnapshot snapshot, int articleId)
+    {
+        IReadOnlyList<PublicContentPublicationInvocation> invocations = snapshot.PublicationInvocations
+            ?? throw new InvalidOperationException("public fixture original publication invocations missing");
+        if (invocations.Count != snapshot.Publications.Count
+            || invocations.Select(static item => item.ArticleId).Distinct().Count() != invocations.Count
+            || !invocations.Select(static item => item.ArticleId).Order().SequenceEqual(
+                snapshot.Publications.Select(static item => item.ArticleId).Order()))
+        {
+            throw new InvalidOperationException("public fixture publication invocation roster mismatch");
+        }
+        return invocations.SingleOrDefault(item => item.ArticleId == articleId)
+            ?? throw new InvalidOperationException("public fixture original publication invocation missing");
+    }
+
+    internal static PublicContentLifecycleInvocation RequireLifecycleInvocation(
+        PublicContentVerificationSnapshot snapshot, int articleId)
+    {
+        IReadOnlyList<PublicContentLifecycleInvocation> invocations = snapshot.LifecycleInvocations
+            ?? throw new InvalidOperationException("public fixture original lifecycle invocations missing");
+        if (invocations.Count != snapshot.Lifecycles.Count
+            || invocations.Select(static item => item.ArticleId).Distinct().Count() != invocations.Count
+            || !invocations.Select(static item => item.ArticleId).Order().SequenceEqual(
+                snapshot.Lifecycles.Select(static item => item.ArticleId).Order()))
+        {
+            throw new InvalidOperationException("public fixture lifecycle invocation roster mismatch");
+        }
+        return invocations.SingleOrDefault(item => item.ArticleId == articleId)
+            ?? throw new InvalidOperationException("public fixture original lifecycle invocation missing");
     }
 
     private async Task<long> ReadVerificationGenerationAsync(CancellationToken cancellationToken, bool allowAbsent = false)
@@ -157,6 +200,12 @@ public sealed partial class PublicContentFixtureSeeder
         }
         foreach (CanonicalArticlePublicationReceipt publication in snapshot.Publications)
         {
+            PublicContentPublicationInvocation invocation = RequirePublicationInvocation(snapshot, publication.ArticleId);
+            CanonicalArticleProjectionVerifier invocationVerifier = serviceProvider
+                .GetService<CanonicalArticleProjectionVerifier>()
+                ?? throw new InvalidOperationException("canonical article independent invocation verifier unavailable");
+            await invocationVerifier.VerifyPublicationInvocationAsync(
+                publication, invocation.Request, cancellationToken).ConfigureAwait(false);
             (await CanonicalArticlePublicationVerifier.VerifyAsync(db, publication, cancellationToken)
                 .ConfigureAwait(false)).ThrowIfInvalid();
         }
@@ -220,8 +269,24 @@ public sealed partial class PublicContentFixtureSeeder
                     CanonicalArticleProjectionVerifier projectionVerifier = serviceProvider
                         .GetService<CanonicalArticleProjectionVerifier>()
                         ?? throw new InvalidOperationException("canonical article independent projection verifier unavailable");
-                    fields["projectionAggregate"] = await projectionVerifier.VerifyAsync(lifecycle, cancellationToken)
-                        .ConfigureAwait(false);
+                    PublicContentLifecycleInvocation invocation = RequireLifecycleInvocation(snapshot, id);
+                    fields["projectionAggregate"] = await projectionVerifier.VerifyAsync(
+                        lifecycle, invocation.Binding, cancellationToken).ConfigureAwait(false);
+                    fields["requiredProjectionEdgesVerified"] = true;
+                    RequireVerificationEquality(original.Fields, fields,
+                        "projectionAggregate", "requiredProjectionEdgesVerified");
+                }
+                else if (original.Fields.ContainsKey("projectionAggregate"))
+                {
+                    CanonicalArticlePublicationReceipt preparedPublication = snapshot.Publications
+                        .SingleOrDefault(item => item.ArticleId == id)
+                        ?? throw new InvalidOperationException("public fixture prepared publication projection missing");
+                    PublicContentPublicationInvocation invocation = RequirePublicationInvocation(snapshot, id);
+                    CanonicalArticleProjectionVerifier projectionVerifier = serviceProvider
+                        .GetService<CanonicalArticleProjectionVerifier>()
+                        ?? throw new InvalidOperationException("canonical article independent projection verifier unavailable");
+                    fields["projectionAggregate"] = await projectionVerifier.VerifyAsync(
+                        preparedPublication, invocation.Request, cancellationToken).ConfigureAwait(false);
                     fields["requiredProjectionEdgesVerified"] = true;
                     RequireVerificationEquality(original.Fields, fields,
                         "projectionAggregate", "requiredProjectionEdgesVerified");
