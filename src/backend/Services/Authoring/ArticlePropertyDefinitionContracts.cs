@@ -80,6 +80,21 @@ public static partial class ArticlePropertyDefinitionContract
     [GeneratedRegex("^[a-z][a-z0-9]*(?:[-_][a-z0-9]+)*$", RegexOptions.CultureInvariant)]
     private static partial Regex MachineKeyPattern();
 
+    private const string CalendarMonthToken = "(?:January|Jan\\.?|February|Feb\\.?|March|Mar\\.?|April|Apr\\.?|May|June|Jun\\.?|July|Jul\\.?|August|Aug\\.?|September|Sep\\.?|October|Oct\\.?|November|Nov\\.?|December|Dec\\.?)";
+
+    [GeneratedRegex(
+        "(?:^|[\\s,])(?:"
+        + "\\d{4}[\\s./-]+\\d{1,2}(?:[\\s./-]+\\d{1,2})?"
+        + "|\\d{1,2}[\\s./-]+\\d{1,2}[\\s./-]+(?:\\d{4}|\\d{2})"
+        + "|\\d{1,2}[\\s./-]+\\d{4}"
+        + "|" + CalendarMonthToken + "[\\s,./-]*(?:\\d{1,2}[\\s,./-]+)?\\d{4}"
+        + "|" + CalendarMonthToken + "[\\s,./-]*\\d{1,2}[\\s,./-]+\\d{2}"
+        + "|\\d{1,2}[\\s,./-]*" + CalendarMonthToken + "[\\s,./-]*(?:\\d{4}|\\d{2})"
+        + "|\\d{4}[\\s,./-]*" + CalendarMonthToken + "(?:[\\s,./-]*\\d{1,2})?"
+        + ")(?=$|[\\s,TZ+-])",
+        RegexOptions.CultureInvariant | RegexOptions.IgnoreCase)]
+    private static partial Regex SuppliedCalendarYearPattern();
+
     public static IReadOnlyDictionary<ArticlePropertyValueType, string> TypeNames => s_typeNames;
 
     public static IReadOnlyDictionary<string, ArticlePropertyOperatorDescriptor> Operators => s_operators;
@@ -384,14 +399,14 @@ public static partial class ArticlePropertyDefinitionContract
                 NumberStyles.Number,
                 CultureInfo.InvariantCulture,
                 out decimal number):
-                return number.ToString("G29", CultureInfo.InvariantCulture);
+                return number.ToString("0.############################", CultureInfo.InvariantCulture);
             case ArticlePropertyValueType.Boolean when bool.TryParse(value, out bool boolean):
                 return boolean ? "true" : "false";
             case ArticlePropertyValueType.Date when DateTimeOffset.TryParse(
                 value,
                 CultureInfo.InvariantCulture,
-                DateTimeStyles.RoundtripKind,
-                out DateTimeOffset date):
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out DateTimeOffset date) && SuppliedCalendarYearPattern().IsMatch(value):
                 return date.UtcDateTime.ToString("O", CultureInfo.InvariantCulture);
             case ArticlePropertyValueType.Url:
                 throw new ArticlePropertyDefinitionValidationException("article_property_url_requires_policy");

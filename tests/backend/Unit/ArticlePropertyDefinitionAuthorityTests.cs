@@ -1317,6 +1317,231 @@ public sealed class ArticlePropertyDefinitionAuthorityTests
         Assert.True(verified.Valid, string.Join(',', verified.Violations.Select(static violation => violation.Code)));
     }
 
+    [Theory]
+    [InlineData("change-settings")]
+    [InlineData("rename")]
+    [InlineData("deprecate")]
+    [InlineData("delete")]
+    public async Task Management_Idempotent_Replay_Rejects_Revoked_System_Config(string kind)
+    {
+        var persistence = new MemoryPersistence();
+        ArticlePropertyDefinitionStore store = CreateStore(persistence);
+        ArticlePropertyDefinitionOwner owner = ArticlePropertyDefinitionOwner.Site("revoked-replay-" + kind);
+        ArticlePropertyDefinitionWriteReceipt created = await store.CreateAsync(CreateCommand(owner, ArticlePropertyValueType.Text, 0, 0));
+        long previousRevision = 1;
+        if (kind == "delete")
+        {
+            await store.DeprecateAsync(new(s_actor, owner, created.DefinitionId, Guid.CreateVersion7(), 1, 1));
+            previousRevision = 2;
+        }
+        ArticlePropertyDefinition definition = (await store.GetAsync(s_actor, owner, created.DefinitionId))!;
+        Guid requestId = Guid.CreateVersion7();
+        var revoked = new ArticlePropertyDefinitionActor(s_actor.AdminPrincipalId, [AdminPermissions.ArticleWrite]);
+        Task<ArticlePropertyDefinitionWriteReceipt> Execute(ArticlePropertyDefinitionActor actor)
+            => kind switch
+            {
+                "change-settings" => store.UpdateAsync(UpdateCommandFor(definition, previousRevision, previousRevision) with { Actor = actor, RequestId = requestId }),
+                "rename" => store.RenameAsync(new(actor, owner, definition.DefinitionId, requestId, previousRevision, previousRevision, [new("en", "Renamed")])),
+                "deprecate" => store.DeprecateAsync(new(actor, owner, definition.DefinitionId, requestId, previousRevision, previousRevision)),
+                _ => store.DeleteAsync(new(actor, owner, definition.DefinitionId, requestId, previousRevision, previousRevision))
+            };
+
+        ArticlePropertyDefinitionWriteReceipt applied = await Execute(s_actor);
+        Assert.True((await Execute(s_actor)).IsIdempotentReplay);
+        await Assert.ThrowsAsync<ArticlePropertyDefinitionAccessDeniedException>(() => Execute(revoked));
+        Assert.Equal(previousRevision + 1, persistence.Receipts.Count);
+        Assert.Equal(applied.ReceiptId, persistence.Receipts[^1].ReceiptId);
+        Assert.Equal(previousRevision + 1, (await store.ListAsync(revoked, owner, null, 100)).OwnerRevision);
+    }
+
+    [Theory]
+    [InlineData("0.00001")]
+    [InlineData("-0.00001")]
+    [InlineData("0.0000000000000000000000000001")]
+    [InlineData("-0.0000000000000000000000000001")]
+    public async Task Decimal_Canonical_Default_Round_Trips_Without_Exponent(string raw)
+    {
+        string normalized = ArticlePropertyDefinitionContract.NormalizeScalar(ArticlePropertyValueType.Number, raw);
+        Assert.DoesNotContain('E', normalized);
+        Assert.Equal(normalized, ArticlePropertyDefinitionContract.NormalizeScalar(ArticlePropertyValueType.Number, normalized));
+        Assert.Equal(decimal.Parse(raw, CultureInfo.InvariantCulture), decimal.Parse(normalized, CultureInfo.InvariantCulture));
+        var persistence = new MemoryPersistence();
+        ArticlePropertyDefinitionStore store = CreateStore(persistence);
+        ArticlePropertyDefinitionOwner owner = ArticlePropertyDefinitionOwner.User(42, "decimal-round-trip");
+        ArticlePropertyDefinitionWriteReceipt receipt = await store.CreateAsync(CreateCommand(owner, ArticlePropertyValueType.Number, 0, 0,
+            defaultValue: new(ArticlePropertyDefaultKind.Scalar, raw)));
+        ArticlePropertyDefinition definition = (await store.GetAsync(s_actor, owner, receipt.DefinitionId))!;
+        Assert.Equal(normalized, definition.DefaultValue!.Scalar);
+        Assert.True((await store.VerifyAsync(s_actor, owner, receipt.DefinitionId)).Valid);
+        Assert.True((await store.UpdateAsync(UpdateCommandFor(definition, 1, 1))).OwnerRevision == 2);
+    }
+
+    [Fact]
+    public async Task None_Default_Normalizes_To_Absent_And_Preserves_Raw_Command()
+    {
+        var persistence = new MemoryPersistence();
+        ArticlePropertyDefinitionStore store = CreateStore(persistence);
+        ArticlePropertyDefinitionOwner owner = ArticlePropertyDefinitionOwner.User(42, "none-default-round-trip");
+        CreateArticlePropertyDefinitionCommand command = CreateCommand(owner, ArticlePropertyValueType.Text, 0, 0,
+            defaultValue: new(ArticlePropertyDefaultKind.None)) with
+        {
+            Presence = new(ArticlePropertyMissingBehavior.PreserveMissing, ArticlePropertyNullBehavior.AllowNull,
+                ArticlePropertyEmptyBehavior.PreserveEmpty)
+        };
+        ArticlePropertyDefinitionWriteReceipt receipt = await store.CreateAsync(command);
+        ArticlePropertyDefinition definition = (await store.GetAsync(s_actor, owner, receipt.DefinitionId))!;
+        Assert.Null(definition.DefaultValue);
+        var parameters = DefinitionParameters(definition);
+        Assert.Equal((short)ArticlePropertyDefaultKind.None, parameters["@DefaultKind"]);
+        ArticlePropertyDefaultValue? hydrated = ReadStoredDefault(parameters);
+        Assert.Null(hydrated);
+        ArticlePropertyDefinition rehydrated = definition with
+        {
+            DefaultValue = hydrated
+        };
+        Assert.Equal(definition.ContentDigest, ArticlePropertyDefinitionContract.ComputeDefinitionDigest(rehydrated));
+        ArticlePropertyDefinitionContract.ValidateDefinition(rehydrated);
+        ArticlePropertyDefinitionVerificationSnapshot snapshot = (await persistence.ReadVerificationSnapshotAsync(owner, receipt.DefinitionId, 10_000))!;
+        Assert.Equal(ArticlePropertyDefaultKind.None, snapshot.Replay!.Entries[0].Command.Create!.DefaultValue!.Kind);
+        Assert.True((await store.VerifyAsync(s_actor, owner, receipt.DefinitionId)).Valid);
+        Assert.True((await store.CreateAsync(command)).IsIdempotentReplay);
+        await store.UpdateAsync(UpdateCommandFor(definition, 1, 1) with
+        {
+            DefaultValue = new(ArticlePropertyDefaultKind.None)
+        });
+        Assert.Null((await store.GetAsync(s_actor, owner, receipt.DefinitionId))!.DefaultValue);
+        Assert.True((await store.VerifyAsync(s_actor, owner, receipt.DefinitionId)).Valid);
+    }
+
+    [Theory]
+    [InlineData(886)]
+    [InlineData(1000)]
+    public async Task Option_Default_Storage_Capacity_Preserves_Complete_Accepted_Ids(int count)
+    {
+        var persistence = new MemoryPersistence();
+        ArticlePropertyDefinitionStore store = CreateStore(persistence);
+        ArticlePropertyDefinitionOwner owner = ArticlePropertyDefinitionOwner.User(42, "option-capacity-" + count);
+        ArticlePropertyOption[] options = Enumerable.Range(0, count)
+            .Select(index => new ArticlePropertyOption(Guid.CreateVersion7(), "Option " + index, index, ArticlePropertyOptionStatus.Active))
+            .ToArray();
+        ArticlePropertyDefinitionWriteReceipt receipt = await store.CreateAsync(CreateCommand(owner, ArticlePropertyValueType.MultiSelect, 0, 0,
+            options, new(ArticlePropertyDefaultKind.OptionIds, OptionIds: options.Select(static option => option.OptionId).ToArray())) with
+        {
+            Constraints = new(MinItems: 0, MaxItems: ArticlePropertyDefinitionContract.MaxOptionsPerDefinition)
+        });
+        ArticlePropertyDefinition definition = (await store.GetAsync(s_actor, owner, receipt.DefinitionId))!;
+        var parameters = DefinitionParameters(definition);
+        string serialized = Assert.IsType<string>(parameters["@DefaultOptionIds"]);
+        Assert.Equal(count * 37 - 1, serialized.Length);
+        Assert.Equal(string.Join(',', definition.DefaultValue!.OptionIds.Select(static id => id.ToString("D"))), serialized);
+        ArticlePropertyDefaultValue hydrated = Assert.IsType<ArticlePropertyDefaultValue>(ReadStoredDefault(parameters));
+        Assert.Equal<Guid>(definition.DefaultValue.OptionIds, hydrated.OptionIds);
+        Assert.Equal(count, hydrated.OptionIds.Count);
+        Assert.Equal(definition.ContentDigest, ArticlePropertyDefinitionContract.ComputeDefinitionDigest(definition with
+        {
+            DefaultValue = hydrated
+        }));
+        string root = AppContext.BaseDirectory;
+        while (!File.Exists(Path.Combine(root, "FsusBlog.slnx")))
+        {
+            root = Directory.GetParent(root)?.FullName ?? throw new InvalidOperationException("repository root missing");
+        }
+        string[] owners = ["src/migration/Definitions/ArticlePropertyDefinitionAuthorityMigrationDefinitions.cs",
+            "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs"];
+        Assert.All(owners, path =>
+        {
+            string source = File.ReadAllText(Path.Combine(root, path));
+            var match = System.Text.RegularExpressions.Regex.Match(source, @"default_option_ids varchar\((\d+)\)");
+            Assert.True(match.Success, path);
+            int capacity = int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture);
+            Assert.True(capacity >= serialized.Length, $"{path}: {capacity} < {serialized.Length}");
+        });
+        Assert.True((await store.VerifyAsync(s_actor, owner, receipt.DefinitionId)).Valid);
+    }
+
+    [Theory]
+    [InlineData("2024-01-01", "2024-01-01T00:00:00.0000000Z")]
+    [InlineData("2024-01-01T12:34:56", "2024-01-01T12:34:56.0000000Z")]
+    [InlineData("2024-01-01T12:34:56+08:00", "2024-01-01T04:34:56.0000000Z")]
+    [InlineData("2024-01-01T12:34:56Z", "2024-01-01T12:34:56.0000000Z")]
+    [InlineData("2024-01", "2024-01-01T00:00:00.0000000Z")]
+    [InlineData("January 2024", "2024-01-01T00:00:00.0000000Z")]
+    [InlineData("January2024", "2024-01-01T00:00:00.0000000Z")]
+    [InlineData("2024Jan1", "2024-01-01T00:00:00.0000000Z")]
+    [InlineData("01/02/2024", "2024-01-02T00:00:00.0000000Z")]
+    [InlineData("June 1, 2024", "2024-06-01T00:00:00.0000000Z")]
+    [InlineData("01/02/24", "2024-01-02T00:00:00.0000000Z")]
+    [InlineData("1 Jun 24", "2024-06-01T00:00:00.0000000Z")]
+    [InlineData("01-2024", "2024-01-01T00:00:00.0000000Z")]
+    [InlineData("2024 Jan 1", "2024-01-01T00:00:00.0000000Z")]
+    [InlineData("Mon, 01 Jan 2024 12:34:56 GMT", "2024-01-01T12:34:56.0000000Z")]
+    [InlineData("12:34:56 2024-01-01", "2024-01-01T12:34:56.0000000Z")]
+    public async Task Date_Default_Uses_Utc_And_Retains_Original_Complete_Calendar(string raw, string expected)
+    {
+        Assert.Equal(expected, ArticlePropertyDefinitionContract.NormalizeScalar(ArticlePropertyValueType.Date, raw));
+        Assert.Equal(expected, ArticlePropertyDefinitionContract.NormalizeScalar(ArticlePropertyValueType.Date, expected));
+        var persistence = new MemoryPersistence();
+        ArticlePropertyDefinitionStore store = CreateStore(persistence);
+        ArticlePropertyDefinitionOwner owner = ArticlePropertyDefinitionOwner.User(42, "date-default-round-trip");
+        CreateArticlePropertyDefinitionCommand command = CreateCommand(owner, ArticlePropertyValueType.Date, 0, 0,
+            defaultValue: new(ArticlePropertyDefaultKind.Scalar, raw));
+        ArticlePropertyDefinitionWriteReceipt receipt = await store.CreateAsync(command);
+        ArticlePropertyDefinition definition = (await store.GetAsync(s_actor, owner, receipt.DefinitionId))!;
+        Assert.Equal(expected, definition.DefaultValue!.Scalar);
+        ArticlePropertyDefinitionVerificationSnapshot snapshot = (await persistence.ReadVerificationSnapshotAsync(owner, receipt.DefinitionId, 10_000))!;
+        Assert.Equal(raw, snapshot.Replay!.Entries[0].Command.Create!.DefaultValue!.Scalar);
+        Assert.True((await store.VerifyAsync(s_actor, owner, receipt.DefinitionId)).Valid);
+    }
+
+    [Theory]
+    [InlineData("12:34:56")]
+    [InlineData("12:34:56.2026")]
+    [InlineData("12:34:56.2026-01")]
+    [InlineData("12:34:56.20260101")]
+    [InlineData("12:34:56.2026 01/02")]
+    [InlineData("12:34:56+08:00")]
+    [InlineData("01/02")]
+    [InlineData("June 1")]
+    [InlineData("January 24")]
+    public void Date_Default_Refuses_Implicit_Current_Calendar_And_Fractional_Year(string raw)
+    {
+        ArticlePropertyDefinitionValidationException exception = Assert.Throws<ArticlePropertyDefinitionValidationException>(
+            () => ArticlePropertyDefinitionContract.NormalizeScalar(ArticlePropertyValueType.Date, raw));
+        Assert.Equal("article_property_scalar_type_mismatch", exception.Code);
+    }
+
+    [Theory]
+    [InlineData("1E-28")]
+    [InlineData("NaN")]
+    [InlineData("Infinity")]
+    public void Decimal_Canonicalization_Preserves_Original_Input_Rejections(string raw)
+    {
+        ArticlePropertyDefinitionValidationException exception = Assert.Throws<ArticlePropertyDefinitionValidationException>(
+            () => ArticlePropertyDefinitionContract.NormalizeScalar(ArticlePropertyValueType.Number, raw));
+        Assert.Equal("article_property_scalar_type_mismatch", exception.Code);
+    }
+
+    private static Dictionary<string, object?> DefinitionParameters(ArticlePropertyDefinition definition)
+    {
+        var method = typeof(PostgresArticlePropertyDefinitionPersistence).GetMethod("DefinitionWriteParameters",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!;
+        var parameters = (SqlSugar.SugarParameter[])method.Invoke(null, [definition])!;
+        return parameters.ToDictionary(static parameter => parameter.ParameterName, static parameter => (object?)parameter.Value);
+    }
+
+    private static ArticlePropertyDefaultValue? ReadStoredDefault(Dictionary<string, object?> parameters)
+    {
+        Type owner = typeof(PostgresArticlePropertyDefinitionPersistence);
+        Type rowType = owner.GetNestedType("DefinitionRow", System.Reflection.BindingFlags.NonPublic)!;
+        object row = Activator.CreateInstance(rowType, nonPublic: true)!;
+        rowType.GetProperty("DefaultKind")!.SetValue(row, (ArticlePropertyDefaultKind)(short)parameters["@DefaultKind"]!);
+        rowType.GetProperty("DefaultScalar")!.SetValue(row, parameters["@DefaultScalar"] is DBNull ? null : parameters["@DefaultScalar"]);
+        rowType.GetProperty("DefaultOptionIds")!.SetValue(row, parameters["@DefaultOptionIds"]);
+        rowType.GetProperty("DefaultArticleIds")!.SetValue(row, parameters["@DefaultArticleIds"]);
+        return (ArticlePropertyDefaultValue?)owner.GetMethod("ReadDefault",
+            System.Reflection.BindingFlags.Static | System.Reflection.BindingFlags.NonPublic)!.Invoke(null, [row]);
+    }
+
     private static ArticlePropertyDefinitionStore CreateStore(MemoryPersistence persistence)
         => new(
             persistence,

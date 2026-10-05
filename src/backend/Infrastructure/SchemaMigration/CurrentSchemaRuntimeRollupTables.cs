@@ -1966,7 +1966,7 @@ internal static class CurrentSchemaRuntimeRollupTables
                 empty_behavior smallint NOT NULL,
                 default_kind smallint NOT NULL,
                 default_scalar varchar(16384) NULL,
-                default_option_ids varchar(32768) NOT NULL DEFAULT '',
+                default_option_ids varchar(37000) NOT NULL DEFAULT '',
                 default_article_ids varchar(32768) NOT NULL DEFAULT '',
                 min_length integer NULL,
                 max_length integer NULL,

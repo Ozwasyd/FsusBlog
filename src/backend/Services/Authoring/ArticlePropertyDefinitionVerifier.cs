@@ -648,6 +648,10 @@ public sealed class ArticlePropertyDefinitionVerifier(IConfiguration? configurat
             throw new ArticlePropertyDefinitionValidationException("article_property_history_url_policy_missing");
         }
         ArticlePropertyDefaultValue? value = definition.DefaultValue;
+        if (value?.Kind == ArticlePropertyDefaultKind.None)
+        {
+            value = null;
+        }
         if (value is not null)
         {
             value = value.Kind == ArticlePropertyDefaultKind.Scalar && value.Scalar is not null

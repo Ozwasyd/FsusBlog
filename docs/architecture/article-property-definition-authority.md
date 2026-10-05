@@ -21,6 +21,37 @@ Unknown types, operators, constraints, executable expressions, raw JSON, HTML, s
 
 Missing, null, empty, required, and default behavior is represented by `ArticlePropertyPresencePolicy` and `ArticlePropertyDefaultValue`. Defaults are type-checked and normalized before persistence. Definition content digests include the complete schema facts, policies, options, display names, flags, lifecycle status, and revision.
 
+The scalar number normalizer retains the invariant `NumberStyles.Number` input
+grammar and emits fixed decimal notation with up to 28 fractional digits. Its own
+output is accepted again without exponent syntax or floating-point conversion.
+Valid `defaultKind=None` is normalized to an absent default only after the complete
+union payload is validated; raw accepted command history still records `None`.
+PostgreSQL write parameters and hydration therefore preserve the same definition
+and default digests. The candidate authority and runtime DDL reserve 37,000
+characters for the complete 1,000-option GUID default (36,999 characters), without
+reducing the option or schema budgets.
+
+Date canonicalization keeps the invariant parser's calendar and offset semantics,
+but requires an explicitly supplied calendar year. The year gate recognizes
+bounded numeric calendar tokens and invariant English month tokens; it cannot
+start inside a clock, fractional seconds or a numeric offset. Complete calendar
+dates, full English dates, two-digit years in complete dates and stable year-month
+forms remain accepted by the original parser. Time-only and month/day inputs that
+borrow the current date or year fail closed. A timestamp without an offset is
+interpreted as UTC; an explicit offset retains its actual instant. Every accepted
+default emits a UTC round-trip timestamp, so replay never depends on the host time
+zone or current date. This repairs replay interpretation, not only presentation.
+Raw accepted command payloads remain unchanged. Older prototype history whose
+unqualified scalar was interpreted using a local time zone must not be rewritten
+or re-signed to claim that it originally used UTC; preserve it and keep any replay
+mismatch invalid. No published 145/146 descriptor or checksum algorithm changes.
+
+Management permission is checked before entering persistence for change-settings,
+rename, deprecate and delete, including exact idempotent replay. A site administrator
+whose `system.config` permission has been revoked cannot retrieve a successful old
+management receipt using only `article.write`; existing read permission and
+user-owner permission rules remain unchanged.
+
 ## Mutation and evidence boundary
 
 Numeric constraints use typed PostgreSQL `numeric` without a fixed precision or

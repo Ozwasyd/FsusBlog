@@ -531,7 +531,7 @@ public sealed class ArticlePropertyDefinitionStore(
                 ArticlePropertyDefinitionImpact Impact)>> planner)
     {
         ArticlePropertyDefinitionContract.ValidateOwner(owner);
-        permissionAuthority.EnsureAllowed(actor, owner, manage: false);
+        permissionAuthority.EnsureAllowed(actor, owner, manage: true);
         return await persistence.ExecuteAsync(
             owner,
             actor.AdminPrincipalId,
@@ -680,7 +680,7 @@ public sealed class ArticlePropertyDefinitionStore(
         ArticlePropertyValueType valueType,
         ArticlePropertyUrlPolicy? urlPolicy)
     {
-        if (value is null)
+        if (value is null || value.Kind == ArticlePropertyDefaultKind.None)
         {
             return null;
         }
