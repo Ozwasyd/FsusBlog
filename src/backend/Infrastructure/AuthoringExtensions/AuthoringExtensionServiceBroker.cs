@@ -393,6 +393,17 @@ public sealed class AuthoringExtensionServiceBroker(
                 return Rejected(AuthoringServiceResultStatus.Crashed, "service-crashed");
             }
 
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                await process.TerminateTreeAsync("cancelled-or-timeout", CancellationToken.None);
+                return Rejected(
+                    cancellationToken.IsCancellationRequested
+                        ? AuthoringServiceResultStatus.Cancelled
+                        : AuthoringServiceResultStatus.TimedOut,
+                    "cancelled-or-timeout");
+            }
+
             if (response is null || response.SchemaVersion != request.SchemaVersion ||
                 !string.Equals(response.RuntimeIdentity, request.RuntimeIdentity, StringComparison.Ordinal) ||
                 !string.Equals(response.RequestId, request.RequestId, StringComparison.Ordinal) ||
@@ -403,11 +414,37 @@ public sealed class AuthoringExtensionServiceBroker(
                 return Rejected(AuthoringServiceResultStatus.Rejected, "response-rejected");
             }
 
-            if (!await revisionGate.IsCurrentAsync(
+            bool currentRevision;
+            try
+            {
+                currentRevision = await revisionGate.IsCurrentAsync(
                     request.DocumentId,
                     request.DocumentEpoch,
                     request.SourceRevision,
-                    cancellationToken))
+                    deadline.Token);
+            }
+            catch (OperationCanceledException) when (deadline.IsCancellationRequested)
+            {
+                await process.TerminateTreeAsync("cancelled-or-timeout", CancellationToken.None);
+                return Rejected(
+                    cancellationToken.IsCancellationRequested
+                        ? AuthoringServiceResultStatus.Cancelled
+                        : AuthoringServiceResultStatus.TimedOut,
+                    "cancelled-or-timeout");
+            }
+
+            if (cancellationToken.IsCancellationRequested || deadline.IsCancellationRequested ||
+                timeProvider.GetUtcNow() >= request.Deadline)
+            {
+                await process.TerminateTreeAsync("cancelled-or-timeout", CancellationToken.None);
+                return Rejected(
+                    cancellationToken.IsCancellationRequested
+                        ? AuthoringServiceResultStatus.Cancelled
+                        : AuthoringServiceResultStatus.TimedOut,
+                    "cancelled-or-timeout");
+            }
+
+            if (!currentRevision)
             {
                 await process.TerminateTreeAsync("stale-document", CancellationToken.None);
                 return Rejected(AuthoringServiceResultStatus.Stale, "stale-document");

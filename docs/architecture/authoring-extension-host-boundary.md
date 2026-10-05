@@ -159,6 +159,13 @@ an open port. Cancellation, deadline, malformed response, crash, and stale docum
 terminate the complete process tree; the production test includes a child that
 creates a new session and ignores `SIGHUP` to verify the host boundary catches it.
 
+The broker rechecks caller cancellation and the exclusive request deadline after
+the service returns and after the document revision gate returns, including
+non-cooperative successful returns. The revision gate receives the same linked
+deadline token as the service execution. Expired or cancelled results carry no
+response; the broker awaits complete owned-tree termination with a non-cancelable
+cleanup token before releasing lifecycle ownership or returning the rejection.
+
 The process receives only opaque, short-lived grant IDs. Network access stays in a
 host broker that resolves twice, rejects private/metadata/loopback destinations,
 pins the accepted IP set, requires TLS, disables redirects/cookies/decompression,

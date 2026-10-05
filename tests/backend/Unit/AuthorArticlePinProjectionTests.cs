@@ -501,6 +501,62 @@ public sealed class AuthorArticlePinProjectionTests
         Assert.Contains($"projection_article_shape_invalid:{invalidFact.ArticleId}", invalidSource.Reasons);
     }
 
+    [Theory]
+    [InlineData("invalid-principal")]
+    [InlineData("empty-site")]
+    [InlineData("padded-site")]
+    [InlineData("control-site")]
+    [InlineData("oversized-site")]
+    [InlineData("empty-request-id")]
+    [InlineData("zero-limit")]
+    [InlineData("negative-revision")]
+    public async Task IndependentVerifierRejectsClosedRequestValidationFailures(string refusal)
+    {
+        AuthorArticlePinCollectionSnapshot collection = Collection(s_owner, [1]);
+        var articles = new RecordingArticleSource(articleId => Fact(
+            articleId,
+            "title",
+            ArticleStatus.Published,
+            101,
+            1));
+        RecordingPermissionProvider permissions = PermissionProvider();
+        AuthorArticlePinProjectionService service = Service(
+            collection,
+            permissions,
+            articles,
+            new DirectAuthorArticlePinProjectionCache(),
+            new RecordingReconciliationSink());
+        AuthorArticlePinProjectionRequest request = new(s_owner, Guid.CreateVersion7());
+        AuthorArticlePinProjectionPage page = await service.ReadAsync(request);
+        AuthorArticlePinProjectionVerificationInput evidence = new(
+            collection,
+            permissions.LastSnapshot!,
+            articles.LastFacts,
+            request,
+            page);
+        Assert.Equal(AuthorArticlePinProjectionStatus.Current, page.Status);
+        Assert.True(AuthorArticlePinProjectionVerifier.Verify(evidence).Valid);
+
+        AuthorArticlePinProjectionRequest invalidRequest = refusal switch
+        {
+            "invalid-principal" => request with { Owner = new(0, s_owner.SiteScope) },
+            "empty-site" => request with { Owner = new(s_owner.AdminPrincipalId, string.Empty) },
+            "padded-site" => request with { Owner = new(s_owner.AdminPrincipalId, $"{s_owner.SiteScope} ") },
+            "control-site" => request with { Owner = new(s_owner.AdminPrincipalId, $"site{(char)10}name") },
+            "oversized-site" => request with { Owner = new(s_owner.AdminPrincipalId, new string('s', AuthorArticlePinContract.MaxSiteScopeLength + 1)) },
+            "empty-request-id" => request with { RequestId = Guid.Empty },
+            "zero-limit" => request with { Limit = 0 },
+            "negative-revision" => request with { ExpectedCollectionRevision = -1 },
+            _ => throw new ArgumentOutOfRangeException(nameof(refusal))
+        };
+        AuthorArticlePinProjectionVerificationResult refused = AuthorArticlePinProjectionVerifier.Verify(
+            evidence with { Request = invalidRequest });
+
+        Assert.False(refused.Valid);
+        Assert.Equal("projection_request_invalid", Assert.Single(refused.Reasons));
+        Assert.True(AuthorArticlePinProjectionVerifier.Verify(evidence).Valid);
+    }
+
     private static AuthorArticlePinProjectionService Service(
         AuthorArticlePinCollectionSnapshot collection,
         IAuthorArticlePinPermissionProjectionProvider permissionProvider,

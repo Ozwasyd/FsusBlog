@@ -100,6 +100,172 @@ public sealed class AuthoringExtensionServiceBrokerTests
         Assert.Equal("stale-document", process.TerminationReason);
     }
 
+    [Theory]
+    [InlineData(false, -1, AuthoringServiceResultStatus.Completed)]
+    [InlineData(false, 0, AuthoringServiceResultStatus.TimedOut)]
+    [InlineData(false, 1, AuthoringServiceResultStatus.TimedOut)]
+    [InlineData(true, -1, AuthoringServiceResultStatus.Completed)]
+    [InlineData(true, 0, AuthoringServiceResultStatus.TimedOut)]
+    [InlineData(true, 1, AuthoringServiceResultStatus.TimedOut)]
+    public async Task ExecuteAsync_ReturnBoundaryDeadline_IsExclusive(
+        bool advanceAtRevisionGate,
+        long deadlineOffsetTicks,
+        AuthoringServiceResultStatus expectedStatus)
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        DateTimeOffset boundary = default;
+        Action advance = () => clock.UtcNow = boundary.AddTicks(deadlineOffsetTicks);
+        var process = new TestProcess { ResponseBoundary = advanceAtRevisionGate ? null : advance };
+        var gate = new CallbackRevisionGate(_ =>
+        {
+            if (advanceAtRevisionGate)
+            {
+                advance();
+            }
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, brokerTimeProvider: clock, revisionGate: gate);
+        boundary = fixture.Request.Deadline;
+        clock.UtcNow = boundary.AddSeconds(-1);
+
+        AuthoringServiceExecutionResult result = await fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1);
+
+        Assert.Equal(expectedStatus, result.Status);
+        if (expectedStatus == AuthoringServiceResultStatus.Completed)
+        {
+            Assert.Equal([4, 5], result.Response?.Payload);
+            Assert.Null(process.TerminationReason);
+        }
+        else
+        {
+            Assert.Null(result.Response);
+            Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+            Assert.False(process.TerminationTokenWasCancelable);
+        }
+
+        Assert.Equal(!advanceAtRevisionGate && deadlineOffsetTicks >= 0 ? 0 : 1, gate.CallCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_NonCooperativeReturnAfterCallerCancellation_CannotComplete(bool cancelAtRevisionGate)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var process = new TestProcess { ResponseBoundary = cancelAtRevisionGate ? null : cancellation.Cancel };
+        var gate = new CallbackRevisionGate(_ =>
+        {
+            if (cancelAtRevisionGate)
+            {
+                cancellation.Cancel();
+            }
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, revisionGate: gate);
+
+        AuthoringServiceExecutionResult result = await fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1, cancellation.Token);
+
+        Assert.Equal(AuthoringServiceResultStatus.Cancelled, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+        Assert.False(process.TerminationTokenWasCancelable);
+        Assert.Equal(cancelAtRevisionGate ? 1 : 0, gate.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RevisionGateCancellation_AwaitsOwnedTermination()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var terminationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowTermination = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var process = new TestProcess
+        {
+            Termination = async () =>
+            {
+                terminationStarted.SetResult(true);
+                await allowTermination.Task;
+            }
+        };
+        var gate = new CallbackRevisionGate(token =>
+        {
+            cancellation.Cancel();
+            token.ThrowIfCancellationRequested();
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, revisionGate: gate);
+
+        Task<AuthoringServiceExecutionResult> execution = fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1, cancellation.Token).AsTask();
+        try
+        {
+            await terminationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(execution.IsCompleted);
+            Assert.Equal(0, process.DisposeCount);
+        }
+        finally
+        {
+            allowTermination.TrySetResult(true);
+        }
+
+        AuthoringServiceExecutionResult result = await execution;
+
+        Assert.Equal(AuthoringServiceResultStatus.Cancelled, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+        Assert.False(process.TerminationTokenWasCancelable);
+        Assert.Equal(1, process.DisposeCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_ExpiredReturnBoundary_AwaitsOwnedTermination(bool expireAtRevisionGate)
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        DateTimeOffset boundary = default;
+        Action expire = () => clock.UtcNow = boundary;
+        var terminationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowTermination = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var process = new TestProcess
+        {
+            ResponseBoundary = expireAtRevisionGate ? null : expire,
+            Termination = async () =>
+            {
+                terminationStarted.SetResult(true);
+                await allowTermination.Task;
+            }
+        };
+        var gate = new CallbackRevisionGate(_ =>
+        {
+            if (expireAtRevisionGate)
+            {
+                expire();
+            }
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, brokerTimeProvider: clock, revisionGate: gate);
+        boundary = fixture.Request.Deadline;
+        clock.UtcNow = boundary.AddSeconds(-1);
+
+        Task<AuthoringServiceExecutionResult> execution = fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1).AsTask();
+        try
+        {
+            await terminationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(execution.IsCompleted);
+            Assert.Equal(0, process.DisposeCount);
+        }
+        finally
+        {
+            allowTermination.TrySetResult(true);
+        }
+
+        AuthoringServiceExecutionResult result = await execution;
+        Assert.Equal(AuthoringServiceResultStatus.TimedOut, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+        Assert.False(process.TerminationTokenWasCancelable);
+        Assert.Equal(1, process.DisposeCount);
+    }
+
     [Fact]
     public async Task ExecuteAsync_TargetOrClosedRequestDrift_FailsBeforeProcessStart()
     {
@@ -910,7 +1076,9 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
     private static async ValueTask<ServiceFixture> CreateFixtureAsync(
         TestProcess? process = null,
-        bool currentRevision = true)
+        bool currentRevision = true,
+        TimeProvider? brokerTimeProvider = null,
+        IAuthoringDocumentRevisionGate? revisionGate = null)
     {
         byte[] archive = "archive"u8.ToArray();
         byte[] executable = "service"u8.ToArray();
@@ -981,9 +1149,9 @@ public sealed class AuthoringExtensionServiceBrokerTests
         await lifecycleResources.ActivateAtomicallyAsync(package, [target], 1, CancellationToken.None);
         var broker = new AuthoringExtensionServiceBroker(
             new TestRuntime(process),
-            new RevisionGate(currentRevision),
+            revisionGate ?? new RevisionGate(currentRevision),
             lifecycleResources,
-            new FixedTimeProvider(now));
+            brokerTimeProvider ?? new FixedTimeProvider(now));
         return new ServiceFixture(package, target, request, broker);
     }
 
@@ -1037,6 +1205,14 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
         public string ExecutableSha256 { get; set; } = string.Empty;
 
+        public Action? ResponseBoundary { get; init; }
+
+        public Func<ValueTask>? Termination { get; init; }
+
+        public bool TerminationTokenWasCancelable { get; private set; }
+
+        public int DisposeCount { get; private set; }
+
         public string? TerminationReason
         {
             get; private set;
@@ -1058,16 +1234,22 @@ public sealed class AuthoringExtensionServiceBrokerTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             }
 
+            ResponseBoundary?.Invoke();
             return new AuthoringServiceResponse(request.SchemaVersion, request.RuntimeIdentity, request.RequestId, [4, 5]);
         }
 
         public ValueTask TerminateTreeAsync(string reason, CancellationToken cancellationToken)
         {
             TerminationReason = reason;
-            return ValueTask.CompletedTask;
+            TerminationTokenWasCancelable = cancellationToken.CanBeCanceled;
+            return Termination?.Invoke() ?? ValueTask.CompletedTask;
         }
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class RevisionGate(bool current) : IAuthoringDocumentRevisionGate
@@ -1077,6 +1259,29 @@ public sealed class AuthoringExtensionServiceBrokerTests
             long documentEpoch,
             long sourceRevision,
             CancellationToken cancellationToken) => ValueTask.FromResult(current);
+    }
+
+    private sealed class CallbackRevisionGate(Action<CancellationToken> callback) : IAuthoringDocumentRevisionGate
+    {
+        public int CallCount { get; private set; }
+
+        public ValueTask<bool> IsCurrentAsync(
+            string documentId,
+            long documentEpoch,
+            long sourceRevision,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            callback(cancellationToken);
+            return ValueTask.FromResult(true);
+        }
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 
     private sealed class AddressResolver(ImmutableArray<IPAddress> addresses) : IAuthoringNetworkAddressResolver
