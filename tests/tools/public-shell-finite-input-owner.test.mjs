@@ -89,6 +89,8 @@ test('closed IDs load all actual TS projections and all hundred locale/domain so
     }
     const catalog = await owner.load('localeCatalog');
     const domains = await owner.load('localeDomains');
+    assert.throws(() => catalog.ENABLED_LOCALES[0].code = 'unknown', TypeError);
+    assert.throws(() => domains.LOCALE_DOMAINS.push('unknown'), TypeError);
     for (const locale of catalog.ENABLED_LOCALES)
     {
         for (const domain of domains.LOCALE_DOMAINS)

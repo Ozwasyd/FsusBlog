@@ -161,6 +161,24 @@ function schemaProjection(source)
 export const schemaDigests = ${schemas[0].initializer.getText(ast)};`);
 }
 
+function freezeExportedData(value, seen = new WeakSet())
+{
+    if (!value || typeof value !== 'object' || seen.has(value)
+        || (!Array.isArray(value) && ![null, Object.prototype].includes(Object.getPrototypeOf(value))))
+    {
+        return;
+    }
+    seen.add(value);
+    for (const descriptor of Object.values(Object.getOwnPropertyDescriptors(value)))
+    {
+        if (Object.hasOwn(descriptor, 'value'))
+        {
+            freezeExportedData(descriptor.value, seen);
+        }
+    }
+    Object.freeze(value);
+}
+
 // Only the closed source graph and this owner's validated original/fixed-recipe bytes reach this sink.
 // Its existence is deliberately not admitted by an execution index in the source proposal.
 async function importOwnedModule(source)
@@ -170,7 +188,12 @@ async function importOwnedModule(source)
     {
         moduleUrls.set(identity, `data:text/javascript;base64,${Buffer.from(source).toString('base64')}`);
     }
-    return import(moduleUrls.get(identity));
+    const module = await import(moduleUrls.get(identity));
+    for (const value of Object.values(module))
+    {
+        freezeExportedData(value);
+    }
+    return module;
 }
 
 function prepareSource(original, descriptor, schema = false)
@@ -212,6 +235,7 @@ export async function createPublicShellFiniteInputOwner(root = defaultRoot)
             return [row.slice(separator + 1), row.slice(0, separator).split(' ')];
         }));
     const refs = new Map();
+    const committedBytes = new Map();
     function assertReplayRoot()
     {
         assert.equal(resolveSourceCommit(root, authority), sourceCommit, 'finite source root replay identity changed');
@@ -228,8 +252,11 @@ export async function createPublicShellFiniteInputOwner(root = defaultRoot)
             && current[0].slice(current[0].indexOf('\t') + 1) === relative, 'finite source current tracked owner changed');
         assert.deepEqual(current[0].slice(0, current[0].indexOf('\t')).split(' '), entry, 'finite source index identity changed');
         const read = await readOwnedSource(root, relative);
-        const blob = createHash('sha1').update(`blob ${read.bytes.length}\0`).update(read.bytes).digest('hex');
-        assert.equal(blob, entry[1], 'finite source bytes differ from the captured Git index');
+        if (!committedBytes.has(head[2]))
+        {
+            committedBytes.set(head[2], runGitRepository(authority, ['cat-file', 'blob', head[2]], { encoding: null }));
+        }
+        assert.ok(read.bytes.equals(committedBytes.get(head[2])), 'finite source bytes differ from the captured Git index');
         assert.equal(runGitRepository(authority, ['ls-files', '--stage', '-z', '--', relative]), current[0] + '\0',
             'finite source index changed during descriptor read');
         refs.set(relative, Object.freeze({ path: relative, digest: sha256(read.bytes) }));
