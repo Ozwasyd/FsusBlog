@@ -169,6 +169,33 @@ public sealed class SchemaMigrationCatalogTests
                 Assert.Contains(
                     catalog.Descriptors,
                     descriptor => descriptor.MigrationId == AdminSessionProjectionMigrationDefinitions.MigrationId);
+                Assert.Equal(SchemaMigrationGapPolicy.AllowSparseVersions, catalog.GapPolicy);
+                Assert.Collection(
+                    catalog.Dependencies,
+                    dependency =>
+                    {
+                        Assert.Equal(ContentAssetCutoverMigrationDefinitions.PrototypeShapeMigrationId, dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, dependency.Phase);
+                    },
+                    dependency =>
+                    {
+                        Assert.Equal(ArticleCreateAuthorityMigrationDefinitions.MigrationId, dependency.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+                    });
+                Assert.Collection(
+                    catalog.Descriptors,
+                    descriptor =>
+                    {
+                        Assert.Equal("20260913-pre-ban-state-generation", descriptor.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PreCodeFirst, descriptor.Phase);
+                        Assert.True(descriptor.Transactional);
+                    },
+                    descriptor =>
+                    {
+                        Assert.Equal("20260913-post-admin-session-validation-projection", descriptor.MigrationId);
+                        Assert.Equal(SchemaMigrationPhase.PostCodeFirst, descriptor.Phase);
+                        Assert.True(descriptor.Transactional);
+                    });
             },
             catalog =>
             {

@@ -187,6 +187,8 @@ public static class OfflineMigrationHost
             }
 
             string releaseId = ResolveReleaseId(parsed);
+            using IDisposable storageScope = ContentAssetCutoverBackfillContext.Push(
+                ResolvePublicAssetRoot(parsed));
             var result = await OfflineMigrationExecutor.RunAsync(
                 parsed,
                 connectionString,
@@ -639,6 +641,35 @@ public static class OfflineMigrationHost
         return Environment.GetEnvironmentVariable("FSUSBLOG_RELEASE_ID")
             ?? "dev-offline";
     }
+
+    private static string? ResolvePublicAssetRoot(OfflineMigrationCommandOptions parsed)
+    {
+        Dictionary<string, string> fileValues = parsed.EnvironmentFilePath is null
+            ? new Dictionary<string, string>(StringComparer.Ordinal)
+            : ReadEnvironmentFile(parsed.EnvironmentFilePath);
+
+        string? explicitRoot = FirstNonEmpty(
+            fileValues.GetValueOrDefault("FSUSBLOG_PUBLIC_ASSET_ROOT"),
+            fileValues.GetValueOrDefault("ReleaseStorage__PublicAssetRoot"),
+            Environment.GetEnvironmentVariable("FSUSBLOG_PUBLIC_ASSET_ROOT"),
+            Environment.GetEnvironmentVariable("ReleaseStorage__PublicAssetRoot"));
+        if (!string.IsNullOrWhiteSpace(explicitRoot))
+        {
+            return explicitRoot;
+        }
+
+        string? sharedRoot = FirstNonEmpty(
+            fileValues.GetValueOrDefault("FSUSBLOG_SHARED_STORAGE_ROOT"),
+            fileValues.GetValueOrDefault("ReleaseStorage__SharedRoot"),
+            Environment.GetEnvironmentVariable("FSUSBLOG_SHARED_STORAGE_ROOT"),
+            Environment.GetEnvironmentVariable("ReleaseStorage__SharedRoot"));
+        return string.IsNullOrWhiteSpace(sharedRoot)
+            ? null
+            : Path.Combine(sharedRoot, "assets", "public");
+    }
+
+    private static string? FirstNonEmpty(params string?[] values)
+        => values.FirstOrDefault(static value => !string.IsNullOrWhiteSpace(value));
 
     private static Dictionary<string, string> ReadEnvironmentFile(string path)
         => ParseEnvironmentLines(File.ReadAllLines(path));
