@@ -12,8 +12,11 @@ namespace FsusBlog.Server.Infrastructure.Security;
 public sealed class SecurityRiskEventWriterOptions
 {
     public const string SectionName = "Security:RiskEventWriter";
+    /// <summary>Gets or sets the scheduling-hint capacity before runtime clamping; the journal owns retained event bytes.</summary>
     public int Capacity { get; set; } = 20_000;
+    /// <summary>Gets or sets the maximum leased persistence batch size before runtime clamping.</summary>
     public int BatchSize { get; set; } = 256;
+    /// <summary>Gets or sets the worker delay between flush attempts before runtime clamping.</summary>
     public int FlushWindowMs { get; set; } = 500;
 }
 
@@ -24,6 +27,8 @@ public sealed record SecurityRiskEventWriteQueueSnapshot(
     long TerminalFailureCount = 0, long Sequence = 0, string? LastDisposition = null,
     string? LastFailureReason = null, string? LastItemReference = null, long ShedCount = 0, long SyncFallbackCount = 0)
 {
+    /// <summary>Aggregates unresolved queued, in-flight, durable-pending and terminal-failure dispositions.</summary>
+    /// <value>The sum of nonnegative counts, including opaque terminal-failure guards; it is neither an exact event count nor a count of successfully persisted events.</value>
     public long OutstandingCount => Math.Max(0, QueuedCount) + Math.Max(0, InFlightCount)
         + Math.Max(0, DurablePendingCount) + Math.Max(0, TerminalFailureCount);
 }
@@ -54,6 +59,12 @@ public sealed class SecurityRiskEventWriteQueue : IDisposable
     private string? _lastReference;
     private string? _lastDisposition;
 
+    /// <summary>Creates bounded scheduling hints and defers protected journal creation until its first use.</summary>
+    /// <param name="options">Hint capacity, failure-bookkeeping bound and journal batch settings.</param>
+    /// <param name="logger">Logger for fixed-category delivery failures.</param>
+    /// <param name="scopeFactory">Optional source of scoped configuration and retention keys when not supplied directly.</param>
+    /// <param name="configuration">Optional explicit journal configuration; admission fails closed if no configuration can be resolved.</param>
+    /// <param name="keys">Optional explicit retention key authority for the protected journal.</param>
     public SecurityRiskEventWriteQueue(
         IOptions<SecurityRiskEventWriterOptions> options,
         ILogger<SecurityRiskEventWriteQueue> logger,
@@ -131,6 +142,10 @@ public sealed class SecurityRiskEventWriteQueue : IDisposable
         }
     }
 
+    /// <summary>Leases one retained journal event and consumes an optional scheduling hint.</summary>
+    /// <param name="write">The exact leased payload on success; otherwise the default value.</param>
+    /// <returns>True when a journal lease is obtained; a missing hint does not suppress retained work.</returns>
+    /// <remarks>Journal failures propagate. A successful lease requires a later acknowledgement or pending/terminal disposition.</remarks>
     public bool TryRead(out SecurityRiskEventWrite write)
     {
         try
@@ -154,6 +169,8 @@ public sealed class SecurityRiskEventWriteQueue : IDisposable
         }
     }
 
+    /// <summary>Combines journal dispositions, bounded admission-failure bookkeeping and historical counters.</summary>
+    /// <returns>A local diagnostic snapshot; journal observation failure remains terminal and opaque guards are not exact event counts.</returns>
     public SecurityRiskEventWriteQueueSnapshot Snapshot()
     {
         (long failures, string? failureReason, string? failureReference) = AdmissionFailureSnapshot();
@@ -176,6 +193,9 @@ public sealed class SecurityRiskEventWriteQueue : IDisposable
         }
     }
 
+    /// <summary>Completes the in-memory scheduling-hint channel and records a closed disposition.</summary>
+    /// <param name="error">The optional error supplied to channel completion.</param>
+    /// <remarks>Completion does not close protected journal admission, wait for retained work to drain, resolve terminal failures or acknowledge durable persistence.</remarks>
     public void Complete(Exception? error = null)
     {
         _channel.Writer.TryComplete(error);
@@ -259,6 +279,7 @@ public sealed class SecurityRiskEventWriteQueue : IDisposable
         Interlocked.Increment(ref _sequence);
     }
 
+    /// <summary>Disposes the journal if it was created, without draining or acknowledging retained deliveries.</summary>
     public void Dispose()
     {
         if (_journal.IsValueCreated)
@@ -299,6 +320,10 @@ public sealed class SecurityRiskEventWriterWorker(
         }
     }
 
+    /// <summary>Cleans acknowledged journal entries and attempts one bounded batch of leased deliveries.</summary>
+    /// <param name="cancellationToken">Cancellation for store persistence; retained journal leases still require a disposition.</param>
+    /// <returns>The number of deliveries leased for the attempt, which is not a count of confirmed database writes.</returns>
+    /// <remarks>Lease failures return already collected deliveries to pending before propagating; persistence owns commit acknowledgement and failure disposition.</remarks>
     public async Task<int> FlushOnceAsync(CancellationToken cancellationToken)
     {
         await queue.CleanupAcknowledgedAsync().ConfigureAwait(false);
