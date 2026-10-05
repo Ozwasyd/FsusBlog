@@ -451,6 +451,8 @@ internal sealed class ArticleBulkPlanAuthority(
                 || item.Lifecycle is not null && !IsBoundedOpaqueValue(item.Lifecycle, 64)
                 || item.PermissionDigest is not null && !IsDigest(item.PermissionDigest)
                 || item.StateDigest is not null && !IsDigest(item.StateDigest)
+                || item.Status == ArticleBulkPlanItemStatus.Eligible
+                    && (!IsDigest(item.PermissionDigest) || !IsDigest(item.StateDigest))
                 || item.DependencyDigests.IsDefault
                 || item.DependencyDigests.Length > 64
                 || item.DependencyDigests.Any(static digest => !IsDigest(digest))
@@ -534,6 +536,10 @@ internal sealed class ArticleBulkPlanAuthority(
         }
         else
         {
+            if (!IsDigest(observation.PermissionDigest) || !IsDigest(observation.StateDigest))
+            {
+                throw new ArticleBulkContractException("article-bulk.preflight-observation-invalid");
+            }
             reason = "eligible";
             eligible = true;
         }
@@ -552,7 +558,8 @@ internal sealed class ArticleBulkPlanAuthority(
                 operation.Id,
                 Parameters = parameters.OrderBy(static pair => pair.Key),
                 observation.ArticleId,
-                observation.StateDigest
+                // Even a digest must not distinguish a denied identity from an absent one.
+                StateDigest = reason == "article-inaccessible" ? null : observation.StateDigest
             }),
             string.Empty);
         return unsigned with

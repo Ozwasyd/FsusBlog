@@ -28,6 +28,24 @@ transaction uses the same fail-closed promotion path. Required outbox edges
 remain individually replayable, while notification and integrity delivery keep
 their existing idempotency and optional-failure semantics. Endpoint, AEDS,
 authorization, transaction, and cache-visibility contracts are unchanged.
+
+## Bulk plan facts and admission
+
+`ArticleBulkPlanAuthority` freezes the exact selection before execution. Eligible
+items require complete permission and state digests both at preflight and during
+integrity verification, even when an adversarial plan has been independently
+resealed. An inaccessible article has the same persisted facts and proposed-change
+digest whether it is absent, belongs to another site, or is permission-denied;
+private state cannot distinguish these cases through a digest. Authorized state
+changes still invalidate the frozen plan, including authorized blocked items.
+
+`ArticleBulkExecutionFramework` resolves an existing exact idempotency result
+before new admission. For a new attempt it rechecks the original exclusive expiry
+after awaited current-authority and article preflight, before creating the first
+journal entry. At or beyond expiry no new admission request, journal head, or
+planned event is created. It does not refresh the plan, rerun dynamic selection,
+alter the operation strategy, or relax authorization and side-effect ownership.
+
 ## Current optional outbox edges
 
 <!-- fsus-doc-claim
