@@ -113,6 +113,50 @@
             "configuration": ".markdownlint-cli2.jsonc"
         }
     },
+    "markdownCompatibilityAnchors": [
+        {
+            "documentPath": "docs/api/schemas-and-errors.md",
+            "sourceRevision": "fdc2414d10cf3b211b7427a1d04be5d4af6cfd49",
+            "anchors": [
+                {
+                    "id": "生产就绪详情",
+                    "heading": "## Production-readiness details"
+                },
+                {
+                    "id": "错误码枚举",
+                    "heading": "## Error-code enum"
+                },
+                {
+                    "id": "notification-stream-握手失败码",
+                    "heading": "### Notification Stream handshake-failure codes"
+                },
+                {
+                    "id": "负响应",
+                    "heading": "## Negative responses"
+                },
+                {
+                    "id": "aeds-v2-帧格式",
+                    "heading": "## AEDS v2 frame format"
+                },
+                {
+                    "id": "flags-登记",
+                    "heading": "### Flags registry"
+                },
+                {
+                    "id": "aedsframetype-枚举",
+                    "heading": "## AedsFrameType enum"
+                },
+                {
+                    "id": "pod-大小目录",
+                    "heading": "## POD size catalog"
+                },
+                {
+                    "id": "c-pod-对齐规则",
+                    "heading": "## C++ POD alignment rules"
+                }
+            ]
+        }
+    ],
     "jsonSchemas": [
         {
             "pattern": ".github/workflows/*.yml",
