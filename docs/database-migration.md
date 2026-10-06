@@ -151,6 +151,18 @@ destructive work unguarded. `backfill-resume` executes resumable handlers
 declared in the migration assembly (for example
 `AccountSubjectHashOnlineBackfillHandler`).
 
+The existing offline Expand preflight retains the original conservative destructive
+predicate: typed column/table/index drops and column/table renames, plus the full
+whitespace-normalized fingerprint of `RawSqlStep`, `BackfillSqlStep` and
+`AssertSqlStep` for DROP COLUMN/TABLE/INDEX, RENAME COLUMN/TO, SET NOT NULL,
+ALTER COLUMN, TRUNCATE and DELETE FROM. It rejects selected unapplied Expand work
+before dry-run output or descriptor execution. The original legacy-bootstrap gate
+still runs first; applied and Contract-classified descriptors are not selected.
+This predicate does not rewrite SQL, change historical classification or grant a
+rollback proof. The existing shared drop-proof requirements and closed Contract
+phase remain unchanged; native execution and backup admission still require their
+original owners.
+
 ### Immutable offline planning boundary
 
 The separate `plan` command parses an explicit provider, observed instance/database
