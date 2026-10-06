@@ -130,6 +130,19 @@ function createRuntimeRoleAdmission(sourceState)
         const output = writeJson(artifact.path, value);
         artifact.artifactDigest = fileDigestHex(output);
         artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+        if (artifactId === 'openapi-aeds-observation')
+        {
+            const projection = artifact.buildReceipt;
+            const observed = writeJson(projection.openapiPath, {
+                openapi: '3.0.1',
+                info: { title: 'Synthetic post-runtime fixture', version: '1' },
+                paths: {}
+            });
+            const published = path.join(receiptRepositoryRoot, projection.openapiArtifactPath);
+            fs.mkdirSync(path.dirname(published), { recursive: true });
+            fs.copyFileSync(observed, published);
+            projection.openapiDigest = fileDigestHex(observed);
+        }
     }
     const assembly = path.join(receiptRepositoryRoot, runtimeArtifact.assemblyPath);
     fs.mkdirSync(path.dirname(assembly), { recursive: true });
