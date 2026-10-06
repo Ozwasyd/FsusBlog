@@ -158,3 +158,8 @@ factPath: facts.article.restore.causal
 render: relation-subject-predicate-object
 -->
 Restore creates a new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision.
+
+
+## Current publication projection invocation
+
+Canonical fixture projection verification binds the independently retained original publication request to its exact persisted mutation command and immutable publication, rights, responsibility, and audit references. A receipt digest or relabeled run/namespace cannot replace that invocation. The existing canonical writer remains the sole publication owner; the projection verifier only observes its outputs and never writes or schedules repair. The prepare-bound public-content proof separately seals the original invocation for independent rereading. Current AOT document and hydration sidecar bytes must agree with the sealed version and rights under the existing bounded convergence deadline. Source integration for #2175 retains unresolved canonical runtime and release acceptance gates described in [Testing](../testing.md).
