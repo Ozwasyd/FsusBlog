@@ -63,6 +63,16 @@ its history or payload. The persistent journal is part of the versioned current
 physical closure, not a terminal cleanup exception; complete chain/resume remain
 offline-only. Native qualification is still separate pending work.
 
+`src/shared/Algorithms/IO/NativeRegularFileGuard.cs` owns the single Linux
+x64/arm64 original regular-file and held-FD identity primitive. Server receipt
+admission and Migration's original artifact-reader facade consume it through their
+existing Shared references; the Server graph has no Migration dependency. Each
+consumer retains its own byte/hash limits. The shared owner contains no receipt
+codec, migration history, database qualification or readiness publication. Held
+database descriptors remain non-owning and the guard never reopens/closes their
+leaf, preserving SQLite's process-wide record locks. Original file controls and
+native provider acceptance remain distinct from this source ownership move.
+
 ## Configuration ownership
 
 Shared runtime, test, and observability configuration belongs in `config/`; only the .NET framework tool manifest uses `.config/`. Project-specific `appsettings*.json` and `Properties/launchSettings.json` stay with their owning project, so Docker Compose launch profiles live in `ops/docker/Properties/`. Root `configs/`, ownerless `Properties/`, and scattered JSON configuration are rejected by `tools/configuration/check-configuration-layout.mjs`. See [`docs/configuration-layout.md`](../configuration-layout.md) for the complete ownership table.
