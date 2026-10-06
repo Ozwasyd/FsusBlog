@@ -91,6 +91,48 @@ fixture Git projection; positive wrapper admission remains unverified in that
 environment. Lease, VM, SSH and original guest execution require their actual
 owner's native acceptance; pure controls never replace those lanes.
 
+## Historical source preservation verification
+
+`tools/operations/verify-historical-preservation.py` is the maintained read-only
+owner for historical remote-source provenance. It checks the complete committed
+manifest roster, every owned path and permitted WIP metadata identity, PR
+number/source/merge binding, merge ancestry, source-at-merge mode/blob equality,
+and the whole original/current diff witnesses. A reviewed-current-owner mapping
+still needs independent semantic review. Squash/cherry-pick source history is not
+certified as commit ancestry. These checks do not qualify current integration,
+CI, runtime, issue acceptance or ref deletion.
+
+The manifest is an explicit historical input, not a generated current authority.
+The original source is the fourteen-row data at
+`90e2ae9b1d4701815d4ec91baa5948a009ed27c7`, path
+`artifacts/change-contract/remote-source-preservation-20261006/historical-preservation.json`.
+The physical `--manifest` bytes must equal that whole regular Git blob. Recorded
+bindings JSON must explicitly contain `remote` (ref-to-OID map) and `pullRequests`
+(PR-number-to-object map with `number`, `state`, `headRefOid`, `mergeCommit.oid`).
+They record a historical observation; deleted historical refs need not exist now,
+and the verifier never presents these inputs as current remote CAS or grants.
+
+```sh
+python3 tools/operations/verify-historical-preservation.py --repository /path/to/source --expected-head CURRENT_EXACT_HEAD --manifest /path/to/whole-historical-preservation.json --manifest-revision 90e2ae9b1d4701815d4ec91baa5948a009ed27c7 --manifest-path artifacts/change-contract/remote-source-preservation-20261006/historical-preservation.json --historical-bindings /path/to/recorded-remote-pr-bindings.json
+```
+
+`--live-bindings` explicitly selects read-only `origin`/GitHub observations instead
+of recorded bindings. It refuses if the historical audited master or selected refs
+have moved/disappeared. Neither mode fetches objects or writes refs. The required
+`--expected-head` binds the current local repository separately from the manifest's
+historical `auditedMaster`. The explicit manifest revision is a historical object,
+even if it is not an ancestor of the local HEAD; it grants no current authority.
+HEAD, index bytes and physical identity, local refs and tracked worktree
+status/diff must remain identical before and after verification; changed, missing,
+unsafe or unreadable inputs refuse. The report always leaves qualification,
+current remote-presence certification and deletion authorization false.
+
+Focused source controls run only in the task-owned scratch root:
+
+```sh
+FSUSBLOG_OPERATIONS_FIXTURE_ROOT=/path/to/owned/scratch python3 tests/tools/historical-preservation.test.py
+```
+
 ## Adaptive responsibility scheduling
 
 Inspect `GET /api/ops/cluster/nodes` with an independent admin principal carrying
