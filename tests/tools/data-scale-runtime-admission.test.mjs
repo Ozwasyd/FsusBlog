@@ -10,7 +10,7 @@ const { createDataScaleRuntimeAdmission } = await import(new URL('../../tools/te
 const { productionCapacityReservationSchema } = await import(new URL('../../tools/test-matrix/production-capacity-reservation.mjs', import.meta.url));
 const { productionDiskDemandDigest } = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
 
-// Capacity and Docker doubles below cover API controls only. They are never
+// Capacity, native-pool and Docker doubles below cover API controls only. They are never
 // native capacity admission, runtime qualification or physical Docker evidence.
 function fixture()
 {
@@ -34,24 +34,41 @@ function fixture()
             assert.equal(value, productionCapacityPlan);
             events.push('assert');
         },
-        guardProducer(value)
+        guardProducer()
         {
-            assert.equal(value, 'unit-producer');
-            events.push('guard');
+            throw new Error('the parent manager exclusively guards the producer');
         },
-        completeProducer(value)
+        completeProducer()
         {
-            assert.equal(value, 'unit-producer');
-            events.push('complete');
+            throw new Error('the parent manager exclusively completes the producer');
         },
         heartbeat()
         {
             events.push('heartbeat');
         }
     };
+    const nativeContainerContext = { root: repositoryRoot, runId: plan.parentSchedulerRunId,
+        namespace: 'original-scheduler-namespace', bundleId: 'unit-bundle', stepId: 'unit-producer',
+        sourceState: { commit: plan.sourceCommit, worktreeFingerprint: 'c'.repeat(64) },
+        resourceGrant: { cpuUnits: 1.2, memoryHighBytes: 0.25 * 1024 ** 3,
+            memoryMaxBytes: 0.25 * 1024 ** 3, pidsMax: 192 } };
+    let nativeHeld = true;
+    const nativeContainerReservation = {
+        assertHeld(context)
+        {
+            if (!nativeHeld)
+            {
+                throw new Error('unit native reservation is no longer held');
+            }
+            assert.deepEqual(context, nativeContainerContext);
+            return { runId: context.runId, bundleId: context.bundleId,
+                reservation: { id: 'unit-native-reservation', identity: context, limits: context.resourceGrant } };
+        }
+    };
     const options = { repositoryRoot, plan, productionCapacityPlan, productionCapacityReservation,
         candidateIdentityDigest, capacityProducerId: 'unit-producer', ownerBundleId: 'unit-bundle',
-        resourceGrant: { cpuUnits: 1, memoryGiB: 0.25 }, schedulerResourceGrant: { cpuUnits: 1, memoryGiB: 0.25 },
+        resourceGrant: { cpuUnits: 1.2, memoryGiB: 0.25 }, schedulerResourceGrant: { cpuUnits: 1.2, memoryGiB: 0.25 },
+        nativeContainerContext, nativeContainerReservation,
         checkpointFile: path.join(repositoryRoot, 'unit-checkpoint.json'),
         checkpointAuthority()
         {
@@ -61,7 +78,8 @@ function fixture()
         {
             throw new Error('unit refusal must not execute physical commands');
         } };
-    return { options, events, remove: () => fs.rmSync(repositoryRoot, { recursive: true, force: true }) };
+    return { options, events, setNativeHeld: (value) => { nativeHeld = value; },
+        remove: () => fs.rmSync(repositoryRoot, { recursive: true, force: true }) };
 }
 
 test('DataScale admission refuses missing live scheduler capabilities before any resource mutation', async () =>
@@ -73,6 +91,9 @@ test('DataScale admission refuses missing live scheduler capabilities before any
         await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options, productionCapacityReservation: {
             receipt: unit.options.productionCapacityReservation.receipt } }), /live capacity capability/u);
         await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options, capacityProducerId: undefined }), /capacityProducerId/u);
+        await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options, nativeContainerReservation: undefined }), /live native container/u);
+        await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options,
+            nativeContainerReservation: { limits: unit.options.nativeContainerContext.resourceGrant } }), /live native container/u);
         assert.deepEqual(unit.events, []);
         assert.equal(fs.existsSync(path.join(unit.options.repositoryRoot, '.tmp')), false);
     }
@@ -92,7 +113,7 @@ test('DataScale admission binds source, candidate, declared producer and schedul
         await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options,
             candidateIdentityDigest: `sha256:${'f'.repeat(64)}` }), /binding mismatch/u);
         await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options,
-            capacityProducerId: 'undeclared-data-scale-owner' }), /declaration is missing/u);
+            productionCapacityPlan: { ...unit.options.productionCapacityPlan, producerDeclarations: [] } }), /declaration is missing/u);
         await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options,
             resourceGrant: { cpuUnits: 2, memoryGiB: 1 } }), /exceeds scheduler grant/u);
         await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options,
@@ -123,13 +144,18 @@ test('DataScale unit capacity seam owns real loopback reservations and writes on
     try
     {
         admission = await createDataScaleRuntimeAdmission(unit.options);
-        assert.deepEqual(unit.events, ['assert', 'guard']);
+        assert.deepEqual(unit.events, ['assert', 'heartbeat']);
         for (const [role, minimum, maximum] of [['postgres', 20000, 21999], ['redis', 22000, 23999], ['debug-backend', 24000, 25999]])
         {
             assert.ok(admission.port(role) >= minimum && admission.port(role) <= maximum);
             await assert.rejects(attemptBind(admission.port(role)), { code: 'EADDRINUSE' });
             assert.ok(admission.dockerArguments(role).includes('--cpus'));
         }
+        const limits = ['postgres', 'redis', 'debug-backend'].map((role) => admission.limits(role));
+        assert.ok(limits.every((limit) => Number.isInteger(limit.cpuUnits * 1e9)));
+        assert.ok(limits.reduce((sum, limit) => sum + limit.cpuUnits, 0) <= unit.options.nativeContainerContext.resourceGrant.cpuUnits + 1e-9);
+        assert.ok(limits.reduce((sum, limit) => sum + Math.round(limit.memoryGiB * 1024 ** 3), 0) <= unit.options.nativeContainerContext.resourceGrant.memoryMaxBytes);
+        assert.ok(limits.reduce((sum, limit) => sum + limit.pidsMax, 0) <= unit.options.nativeContainerContext.resourceGrant.pidsMax);
         const manifest = JSON.parse(fs.readFileSync(admission.manifestFile, 'utf8'));
         const { contentDigest, ...unsigned } = manifest;
         assert.equal(contentDigest, productionDiskDemandDigest(unsigned));
@@ -153,7 +179,7 @@ test('DataScale unit capacity seam owns real loopback reservations and writes on
         assert.equal(released.status, 'complete');
         assert.equal(released.leaseObservations.length, 3);
         assert.ok(released.leaseObservations.every((observation) => observation.postStatus === 'released'));
-        assert.deepEqual(unit.events, ['assert', 'guard', 'complete']);
+        assert.deepEqual(unit.events, ['assert', 'heartbeat']);
         for (const role of ['postgres', 'redis', 'debug-backend'])
         {
             await attemptBind(admission.port(role));
@@ -162,6 +188,42 @@ test('DataScale unit capacity seam owns real loopback reservations and writes on
     }
     finally
     {
+        if (admission)
+        {
+            await admission.release({ cleanup: { status: 'complete' } });
+        }
+        unit.remove();
+    }
+});
+
+test('DataScale admission refuses missing original native context and rechecks held capabilities before every mutation', async () =>
+{
+    const unit = fixture();
+    let admission;
+    try
+    {
+        await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options,
+            nativeContainerContext: { ...unit.options.nativeContainerContext, root: path.dirname(unit.options.repositoryRoot) } }), /original scheduler context/u);
+        await assert.rejects(createDataScaleRuntimeAdmission({ ...unit.options,
+            resourceGrant: { cpuUnits: 1.1, memoryGiB: 0.25 }, schedulerResourceGrant: { cpuUnits: 1.1, memoryGiB: 0.25 } }), /held native CPU\/memory envelope/u);
+        unit.setNativeHeld(false);
+        await assert.rejects(createDataScaleRuntimeAdmission(unit.options), /no longer held/u);
+        assert.equal(fs.existsSync(path.join(unit.options.repositoryRoot, '.tmp')), false);
+        unit.setNativeHeld(true);
+        admission = await createDataScaleRuntimeAdmission(unit.options);
+        unit.setNativeHeld(false);
+        assert.throws(() => admission.assertHeld(), /no longer held/u);
+        assert.throws(() => admission.labels('postgres'), /no longer held/u);
+        assert.throws(() => admission.dockerArguments('postgres'), /no longer held/u);
+        await assert.rejects(admission.beginHandoff('postgres'), /no longer held/u);
+        await assert.rejects(admission.completeHandoff('postgres', '1'.repeat(64)), /no longer held/u);
+        await assert.rejects(admission.publishResident({ services: [] }), /no longer held/u);
+        await assert.rejects(admission.release({ cleanup: { status: 'complete' } }), /no longer held/u);
+        assert.equal(fs.existsSync(admission.terminalReceiptFile), false);
+    }
+    finally
+    {
+        unit.setNativeHeld(true);
         if (admission)
         {
             await admission.release({ cleanup: { status: 'complete' } });
@@ -281,7 +343,7 @@ test('DataScale unit Docker seam binds enforced resident inventory and refuses f
         assert.equal(inventory.enforcement.mode, 'enforced');
         assert.equal(inventory.services.length, 3);
         assert.equal(checkpoint.residentResourceLeases.status, 'acquired');
-        assert.equal(unit.events.filter((event) => event === 'complete').length, 1);
+        assert.equal(unit.events.filter((event) => event === 'complete').length, 0);
         const live = await admission.release({ cleanup: { status: 'complete' } });
         assert.equal(live.status, 'blocked');
         assert.equal(fs.existsSync(admission.terminalReceiptFile), false);
@@ -296,7 +358,7 @@ test('DataScale unit Docker seam binds enforced resident inventory and refuses f
         assert.equal(released.leaseObservations.length, 4);
         assert.equal(checkpoint.residentResourceLeases.status, 'released');
         assert.equal(checkpoint.residentResourceLeases.reservation.cpuUnits, 0);
-        assert.equal(unit.events.filter((event) => event === 'complete').length, 1);
+        assert.equal(unit.events.filter((event) => event === 'complete').length, 0);
     }
     finally
     {

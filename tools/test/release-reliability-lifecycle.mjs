@@ -1139,6 +1139,8 @@ export async function runLifecycleAction({
             runtimeReceipt: JSON.parse(
                 fs.readFileSync(runtimePath.absolute, 'utf8')
             ),
+            identity: context.identity,
+            environment: context.environment,
             execute: dependencies.spawnProcess,
             now: dependencies.now
         });

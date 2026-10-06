@@ -846,7 +846,8 @@ test('data-scale owner inputs reach lifecycle actions but not the workload', asy
     {
         const ownerInputs = {
             FSUSBLOG_RELEASE_RUNTIME_IMAGE: `sha256:${'3'.repeat(64)}`,
-            FSUSBLOG_TEST_FIXTURE_CONFIG: 'config/testing/fixture.json'
+            FSUSBLOG_TEST_FIXTURE_CONFIG: 'config/testing/fixture.json',
+            FSUSBLOG_DATA_SCALE_CALLER_JOURNAL: path.join(fixture.root, 'parent-caller-journal.json')
         };
         const observed = new Map();
         const result = await executeFixtureScenario(fixture, catalogFor(fixture), {

@@ -803,11 +803,60 @@ async function waitUntilReady(check, {
     throw lastFailure ?? new Error('runtime readiness did not complete');
 }
 
+async function delegatedOwnerResult({ operation, repositoryRoot, identity, environment })
+{
+    const { delegateDataScaleRuntimeOperation } = await import('./data-scale-runtime-caller.mjs');
+    const snapshot = await delegateDataScaleRuntimeOperation({
+        operation, repositoryRoot, identity, environment
+    });
+    const documents = {};
+    for (const kind of operation === 'provision' ? ['plan', 'receipt'] : ['receipt'])
+    {
+        const relative = snapshot[`${kind}Path`];
+        const resolved = path.resolve(repositoryRoot, relative);
+        const ownerDirectory = path.join(repositoryRoot, '.tmp/release-reliability', identity.invocationId, 'data-scale-owner');
+        requireDirectoryAncestry(repositoryRoot, ownerDirectory);
+        if (path.dirname(resolved) !== ownerDirectory
+            || !fs.lstatSync(resolved).isFile() || fs.lstatSync(resolved).isSymbolicLink())
+        {
+            throw new Error('delegated data-scale owner locator is unsafe');
+        }
+        const bytes = fs.readFileSync(resolved);
+        if (rawDigest(bytes) !== snapshot[`${kind}BytesDigest`])
+        {
+            throw new Error('delegated data-scale owner bytes changed');
+        }
+        const document = JSON.parse(bytes);
+        if (document.contentDigest !== digestValue(document)
+            || document.parentSchedulerRunId !== identity.runId
+            || document.invocationId !== identity.invocationId
+            || document.attemptId !== environment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID
+            || document.sourceCommit !== identity.sourceState.commit
+            || (kind === 'plan' && document.worktreeFingerprint !== identity.sourceState.worktreeFingerprint))
+        {
+            throw new Error('delegated data-scale owner identity changed');
+        }
+        if (kind === 'plan') validateDataScaleRuntimePlan(repositoryRoot, document);
+        else if (document.schema !== (operation === 'provision' ? DATA_SCALE_RUNTIME_SCHEMA : DATA_SCALE_TEARDOWN_SCHEMA))
+        {
+            throw new Error('delegated data-scale owner receipt schema is invalid');
+        }
+        const suffix = kind === 'plan' ? 'plan' : operation === 'provision' ? 'runtime' : 'teardown';
+        if (path.basename(resolved) !== `${document.dataScaleRunId}.${suffix}.json`)
+        {
+            throw new Error('delegated data-scale owner locator does not bind the actual run');
+        }
+        documents[kind] = document;
+    }
+    return { ...snapshot, ...documents };
+}
+
 export async function provisionDataScaleRuntime({
     repositoryRoot,
     identity,
     environment,
     runtimeAdmission,
+    onPlan,
     createAdmission = createDataScaleRuntimeAdmission,
     execute = spawnSync,
     fetchImpl = fetch,
@@ -816,6 +865,12 @@ export async function provisionDataScaleRuntime({
 })
 {
     const resolvedRoot = path.resolve(repositoryRoot);
+    if (runtimeAdmission === undefined && environment?.FSUSBLOG_DATA_SCALE_CALLER_JOURNAL)
+    {
+        return delegatedOwnerResult({
+            operation: 'provision', repositoryRoot: resolvedRoot, identity, environment
+        });
+    }
     const inputs = runtimeInputs(resolvedRoot, identity, environment);
     const commandOptions = { repositoryRoot: resolvedRoot, execute };
     const runtimeImage = inspectImage(inputs.runtimeImageReference, commandOptions);
@@ -890,6 +945,7 @@ export async function provisionDataScaleRuntime({
     const labels = [...ownerLabels(plan), ...admission.labels()];
     try
     {
+        await onPlan?.({ plan, planPath: relativeTo(resolvedRoot, files.plan) });
         for (const relative of Object.values(plan.roots))
         {
             fs.mkdirSync(path.join(resolvedRoot, relative), { recursive: true, mode: 0o700 });
@@ -1269,6 +1325,10 @@ export async function provisionDataScaleRuntime({
             {
                 throw new Error('data-scale runtime cleanup remains incomplete', { cause: error });
             }
+            if (error instanceof Error)
+            {
+                Object.defineProperty(error, 'dataScaleCleanup', { value: cleanup });
+            }
         }
         catch (cleanupError)
         {
@@ -1389,11 +1449,19 @@ export async function teardownDataScaleRuntime({
     repositoryRoot,
     plan,
     runtimeReceipt,
+    identity,
+    environment,
     execute = spawnSync,
     now = () => new Date().toISOString()
 })
 {
     const resolvedRoot = path.resolve(repositoryRoot);
+    if (environment?.FSUSBLOG_DATA_SCALE_CALLER_JOURNAL && !activeAdmissions.has(plan.contentDigest))
+    {
+        return delegatedOwnerResult({
+            operation: 'teardown', repositoryRoot: resolvedRoot, identity, environment
+        });
+    }
     plan = validateDataScaleRuntimePlan(resolvedRoot, plan);
     verifyOwnerMarker(resolvedRoot, plan);
     if (runtimeReceipt !== null

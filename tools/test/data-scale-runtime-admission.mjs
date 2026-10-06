@@ -37,12 +37,49 @@ function checkedGrant(value, label)
     return grant;
 }
 
+function sourceFingerprint(value)
+{
+    if (!/^(?:sha256:)?[a-f0-9]{64}$/u.test(String(value ?? '')))
+    {
+        throw new Error('DataScale native container source fingerprint is invalid');
+    }
+    return value.startsWith('sha256:') ? value : `sha256:${value}`;
+}
+
+function checkedNativeLimits(value)
+{
+    const fields = ['cpuUnits', 'memoryHighBytes', 'memoryMaxBytes', 'pidsMax'];
+    if (!value || fields.some((field) => !Number.isFinite(value[field]) || value[field] <= 0)
+    || !Number.isInteger(value.cpuUnits * 1000) || value.cpuUnits * 1000 < 3
+    || !Number.isSafeInteger(value.memoryHighBytes) || value.memoryHighBytes % 4096 !== 0
+    || !Number.isSafeInteger(value.memoryMaxBytes) || value.memoryMaxBytes % 4096 !== 0
+    || value.memoryHighBytes > value.memoryMaxBytes
+    || Math.floor(value.memoryHighBytes / 3 / 4096) * 4096 < 16 * 1024 ** 2
+    || !Number.isSafeInteger(value.pidsMax) || value.pidsMax < 3)
+    {
+        throw new Error('DataScale native container grant requires bounded CPU, page-aligned memory and PID limits');
+    }
+    return Object.fromEntries(fields.map((field) => [field, value[field]]));
+}
+
+function nativeCpuUnits(value)
+{
+    const nanos = Math.floor(value * 1e9);
+    const units = nanos / 1e9;
+    if (!Number.isSafeInteger(nanos) || nanos < 1 || !Number.isInteger(units * 1e9))
+    {
+        throw new Error('DataScale role CPU grant cannot be represented by exact OCI nanocpus');
+    }
+    return { units, nanos };
+}
+
 // This API accepts the scheduler's live capabilities, never serialized substitutes.
 // The scheduler retains ownership of its shared capacity reservation and checkpoint.
 export async function createDataScaleRuntimeAdmission({
     repositoryRoot, plan, productionCapacityReservation, productionCapacityPlan,
     capacityProducerId, candidateIdentityDigest, resourceGrant, schedulerResourceGrant,
-    ownerBundleId, checkpointAuthority, checkpointFile, execute = spawnSync
+    ownerBundleId, checkpointAuthority, checkpointFile, nativeContainerReservation,
+    nativeContainerContext, execute = spawnSync
 })
 {
     const repository = canonicalRepositoryIdentity(repositoryRoot);
@@ -62,12 +99,39 @@ export async function createDataScaleRuntimeAdmission({
     requiredText(ownerBundleId, 'ownerBundleId');
     requiredText(checkpointFile, 'checkpointFile');
     requiredText(capacityProducerId, 'capacityProducerId');
+    if (typeof nativeContainerReservation?.assertHeld !== 'function')
+    {
+        throw new Error('DataScale admission requires the live native container reservation capability');
+    }
+    if (nativeContainerContext?.root !== root || nativeContainerContext.runId !== plan.parentSchedulerRunId
+    || nativeContainerContext.bundleId !== ownerBundleId || nativeContainerContext.stepId !== capacityProducerId
+    || !String(nativeContainerContext.namespace ?? '').trim()
+    || nativeContainerContext.sourceState?.commit !== plan.sourceCommit
+    || sourceFingerprint(nativeContainerContext.sourceState?.worktreeFingerprint) !== sourceFingerprint(plan.worktreeFingerprint))
+    {
+        throw new Error('DataScale admission native container original scheduler context mismatch');
+    }
+    const originalNativeContext = structuredClone(nativeContainerContext);
+    let nativeLimits = null;
+    function assertNativeHeld()
+    {
+        const held = nativeContainerReservation.assertHeld(originalNativeContext);
+        const limits = checkedNativeLimits(held?.reservation?.limits);
+        if (held.runId !== originalNativeContext.runId || held.bundleId !== originalNativeContext.bundleId
+        || productionDiskDemandDigest(limits) !== productionDiskDemandDigest(originalNativeContext.resourceGrant)
+        || (nativeLimits !== null && productionDiskDemandDigest(limits) !== productionDiskDemandDigest(nativeLimits)))
+        {
+            throw new Error('DataScale admission held native container grant/context drift');
+        }
+        return limits;
+    }
+    nativeLimits = assertNativeHeld();
     if (typeof checkpointAuthority !== 'function')
     {
         throw new Error('DataScale admission requires scheduler checkpoint authority');
     }
     const capacity = productionCapacityReservation;
-    for (const method of ['assertPlan', 'guardProducer', 'completeProducer', 'heartbeat'])
+    for (const method of ['assertPlan', 'heartbeat'])
     {
         if (typeof capacity?.[method] !== 'function')
         {
@@ -87,6 +151,11 @@ export async function createDataScaleRuntimeAdmission({
         // a larger parent budget here would exceed this step's admitted envelope.
         throw new Error('DataScale resident owner requires a dedicated scheduler grant equal to the step grant');
     }
+    if (grant.cpuUnits !== nativeLimits.cpuUnits || grant.memoryGiB * bytesPerGiB !== nativeLimits.memoryHighBytes
+    || nativeLimits.memoryMaxBytes !== nativeLimits.memoryHighBytes)
+    {
+        throw new Error('DataScale admission resource grant must match the held native CPU/memory envelope');
+    }
     const receipt = capacity.receipt;
     if (receipt?.schema !== productionCapacityReservationSchema || receipt.state !== 'active'
     || receipt.runId !== plan.parentSchedulerRunId
@@ -100,7 +169,8 @@ export async function createDataScaleRuntimeAdmission({
     }
     producerRemainingDiskDemand(productionCapacityPlan, capacityProducerId);
     capacity.assertPlan(productionCapacityPlan);
-    capacity.guardProducer(capacityProducerId);
+    capacity.heartbeat();
+    assertNativeHeld();
 
     const directory = path.join(root, '.tmp', 'data-scale-admissions', plan.dataScaleRunId);
     // Reject symlink ancestry before creating task-owned evidence.
@@ -126,14 +196,17 @@ export async function createDataScaleRuntimeAdmission({
         runId: plan.parentSchedulerRunId, namespace: plan.namespace,
         roles: defaultRoleCatalog().filter((role) => roles.includes(role.role))
     });
+    assertNativeHeld();
     await allocator.allocate();
     const containers = new Map();
     let inventory = null;
-    let completed = false;
     let terminal = null;
 
     function command(program, args)
     {
+        assertNativeHeld();
+        capacity.assertPlan(productionCapacityPlan);
+        capacity.heartbeat();
         const result = execute(program, args, { encoding: 'utf8', timeout: 10000, maxBuffer: 1024 ** 2 });
         if (result.error || result.status !== 0)
         {
@@ -144,6 +217,7 @@ export async function createDataScaleRuntimeAdmission({
 
     function persistPorts()
     {
+        assertNativeHeld();
         // The allocator is held by this process's live capability. Do not declare
         // daemon/socket/token paths that this admission does not actually own.
         const payload = {
@@ -195,6 +269,7 @@ export async function createDataScaleRuntimeAdmission({
 
     function labels(role)
     {
+        assertNativeHeld();
         return Object.entries(labelValues(role)).flatMap(([key, value]) => ['--label', `${key}=${value}`]);
     }
 
@@ -234,15 +309,16 @@ export async function createDataScaleRuntimeAdmission({
 
     function initialLimits(role)
     {
+        assertNativeHeld();
         if (![...roles, 'helper'].includes(role))
         {
             throw new Error(`DataScale admission unknown resource role: ${role}`);
         }
         return {
-            cpuUnits: grant.cpuUnits / 3,
-            memoryGiB: grant.memoryGiB / 3,
-            memoryHighBytes: Math.round(grant.memoryGiB / 3 * bytesPerGiB),
-            pidsMax: Math.max(64, Math.ceil(grant.cpuUnits / 3 * 128))
+            cpuUnits: nativeCpuUnits(Math.floor(nativeLimits.cpuUnits * 1e9 / 3) / 1e9).units,
+            memoryGiB: Math.floor(nativeLimits.memoryMaxBytes / 3 / 4096) * 4096 / bytesPerGiB,
+            memoryHighBytes: Math.floor(nativeLimits.memoryHighBytes / 3 / 4096) * 4096,
+            pidsMax: Math.floor(nativeLimits.pidsMax / 3)
         };
     }
 
@@ -297,9 +373,11 @@ export async function createDataScaleRuntimeAdmission({
 
     return {
         port, labels, owns, dockerArguments, limits: initialLimits,
+        assertHeld: assertNativeHeld,
         manifestFile, inventoryFile, terminalReceiptFile,
         async beginHandoff(role)
         {
+            assertNativeHeld();
             if (terminal)
             {
                 throw new Error('DataScale admission is terminal');
@@ -311,6 +389,7 @@ export async function createDataScaleRuntimeAdmission({
         },
         async completeHandoff(role, containerId)
         {
+            assertNativeHeld();
             if (allocator.snapshot().find((lease) => lease.role === role)?.handoffState !== 'handing-off')
             {
                 throw new Error('DataScale container handoff must begin before binding');
@@ -323,6 +402,7 @@ export async function createDataScaleRuntimeAdmission({
         },
         async publishResident({ services })
         {
+            assertNativeHeld();
             if (inventory)
             {
                 throw new Error('DataScale resident inventory is already published');
@@ -360,18 +440,24 @@ export async function createDataScaleRuntimeAdmission({
                 ownerBundleId, sourceState: { commit: plan.sourceCommit, worktreeFingerprint: plan.worktreeFingerprint },
                 resourceGrant: grant, schedulerResourceGrant: schedulerGrant, resourceBudget: grant, services: observed });
             const limits = residentEnforcementScopeLimits(next).containers;
+            if (Object.values(limits).reduce((sum, limit) => sum + Math.round(limit.memoryGiB * bytesPerGiB), 0) > nativeLimits.memoryMaxBytes
+            || Object.values(limits).reduce((sum, limit) => sum + limit.cpuUnits, 0) > nativeLimits.cpuUnits + 1e-9)
+            {
+                throw new Error('DataScale resident hard limits exceed the held aggregate native grant');
+            }
             const evidence = {};
             for (const service of next.services)
             {
                 const limit = limits[service.id];
+                const roleCpu = nativeCpuUnits(limit.cpuUnits);
                 const high = Math.round(service.reservation.memoryGiB * bytesPerGiB);
                 const max = Math.round(limit.memoryGiB * bytesPerGiB);
-                command('docker', ['update', '--cpus', String(limit.cpuUnits), '--memory-reservation', String(high),
+                command('docker', ['update', '--cpus', String(roleCpu.units), '--memory-reservation', String(high),
                     '--memory', String(max), '--memory-swap', String(max), service.identity.containerId]);
                 const document = inspect(service.id, service.identity.containerId);
                 const config = document.HostConfig ?? {};
                 const cpu = Number(config.NanoCpus) / 1e9;
-                if (Math.abs(cpu - limit.cpuUnits) > 1e-6 || config.MemoryReservation !== high || config.Memory !== max)
+                if (config.NanoCpus !== roleCpu.nanos || config.MemoryReservation !== high || config.Memory !== max)
                 {
                     throw new Error('DataScale observed OCI limits do not match the resident grant');
                 }
@@ -380,6 +466,7 @@ export async function createDataScaleRuntimeAdmission({
             }
             const bound = bindResidentLeaseEnforcement(next, { mode: 'enforced', containers: evidence, boundAt: new Date().toISOString() });
             writeResidentLeaseDocument(inventoryFile, bound);
+            assertNativeHeld();
             await checkpointAuthority(checkpointFile, (checkpoint) =>
             {
                 if (checkpoint.runId !== plan.parentSchedulerRunId)
@@ -395,12 +482,11 @@ export async function createDataScaleRuntimeAdmission({
                 return checkpoint;
             });
             inventory = bound;
-            capacity.completeProducer(capacityProducerId);
-            completed = true;
             return inventory;
         },
         async release({ cleanup })
         {
+            assertNativeHeld();
             if (terminal)
             {
                 return terminal;
@@ -475,10 +561,6 @@ export async function createDataScaleRuntimeAdmission({
             {
                 leaseObservations.push({ id: lease.portLeaseId, role: lease.role, postStatus: portTerminal.terminalState,
                     receiptFile: terminalReceiptFile });
-            }
-            if (!completed)
-            {
-                capacity.completeProducer(capacityProducerId);
             }
             terminal = { status: 'complete', failures, leaseObservations };
             return terminal;

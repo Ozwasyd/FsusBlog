@@ -4362,7 +4362,7 @@ async function runDagUnlocked(options)
         runId,
         bundleIds: tiers.map((tier) => tier.physicalBundleId ?? tier.id),
         machine: { cpuUnits: budget.cpuUnits, memoryGiB: budget.memoryGiB },
-        mode: options.resourceEnforcementMode ?? 'advisory'
+        mode: options.resourceEnforcementMode ?? (tiers.some((tier) => tier.id === 'release-reliability-fresh') ? 'auto' : 'advisory')
     });
     let resourceEnforcerFinalized = false;
     const finalizeResourceEnforcer = () =>
@@ -5317,6 +5317,7 @@ async function runDagUnlocked(options)
         return true;
     };
 
+    const dataScaleRuntimeOwners = new Map();
     const startTier = async (tier) =>
     {
         schedulerWaitLedger.observe(tier.id, null);
@@ -5469,6 +5470,38 @@ async function runDagUnlocked(options)
                 sourceState,
                 activeTierIds: [...active.keys()].sort()
             });
+            if (tier.id === 'release-reliability-fresh')
+            {
+                const { createDataScaleRuntimeSchedulerOwner } = await import(new URL('../test/data-scale-runtime-scheduler-owner.mjs', import.meta.url));
+                const owner = await createDataScaleRuntimeSchedulerOwner({
+                    root, runsRoot, admission, admissionReference: schedulerAdmissionReference,
+                    environment: tierEnvironment, resourceEnforcer,
+                    resourceGrant: effectiveEnforcement.totalGrant ?? effectiveEnforcement,
+                    registerRetainedFinalizer: options.registerSchedulerFinalizer,
+                    checkpointFile,
+                    checkpointAuthority(file, update)
+                    {
+                        if (file !== checkpointFile || checkpoint.runId !== admission.runId)
+                        {
+                            throw new Error('DataScale checkpoint authority is bound to the current scheduler run');
+                        }
+                        // Preserve the canonical five-service resident owner. The
+                        // DataScale inventory is a distinct entry in this same
+                        // authoritative checkpoint and evidence journal.
+                        const view = { ...checkpoint, residentResourceLeases: checkpoint.dataScaleResourceLeases ?? { status: 'not-acquired' } };
+                        const next = update(view);
+                        checkpoint.dataScaleResourceLeases = next.residentResourceLeases;
+                        writeCheckpoint(checkpointFile, checkpoint, {
+                            boundary: true, eventType: 'data-scale-resident-state-updated',
+                            tier: tier.id, step: 'data-scale-runtime-owner'
+                        });
+                        return next;
+                    }
+                });
+                dataScaleRuntimeOwners.set(tier.id, owner);
+                Object.assign(tierEnvironment, owner.environment);
+                options.registerSchedulerFinalizer?.(() => owner.dispose());
+            }
         }
         catch (error)
         {
@@ -5622,7 +5655,7 @@ async function runDagUnlocked(options)
             try
             {
                 options.registerManagedProcess?.(identity, tier, execution.containmentAuthority);
-                resourceEnforcer.attach(enforcementBundleId, execution.child.pid);
+                await resourceEnforcer.attach(enforcementBundleId, execution.child.pid);
                 execution.resume?.();
             }
             catch (error)
@@ -6151,6 +6184,9 @@ async function runDagUnlocked(options)
         active.delete(tierId);
         try
         {
+            await dataScaleRuntimeOwners.get(entry.tier.id)?.dispose({
+                success: settled.executionResult?.code === 0
+            });
             await options.afterTierSettled?.(entry.tier, settled);
         }
         catch (error)

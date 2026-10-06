@@ -865,7 +865,8 @@ export async function executeScenario({
                     `${invocationId}.attempt-1`,
                 ...Object.fromEntries([
                     'FSUSBLOG_RELEASE_RUNTIME_IMAGE',
-                    'FSUSBLOG_TEST_FIXTURE_CONFIG'
+                    'FSUSBLOG_TEST_FIXTURE_CONFIG',
+                    'FSUSBLOG_DATA_SCALE_CALLER_JOURNAL'
                 ].filter((key) => ambientEnvironment[key]).map((key) => [
                     key,
                     String(ambientEnvironment[key])

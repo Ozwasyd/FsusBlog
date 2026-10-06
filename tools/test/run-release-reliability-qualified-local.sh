@@ -256,6 +256,27 @@ CleanupQualifiedRuntimeResources() {
     if [[ -n "$container_env_file" ]]; then
         rm -f -- "$container_env_file"
     fi
+    if [[ -n "${FSUSBLOG_DATA_SCALE_CALLER_JOURNAL:-}" && -f "$root/.tmp/env/${namespace}.env" ]]; then
+        # Remove only the namespace environment attested by its maintained owner.
+        # A different run, unsafe path, or invalid document retains custody.
+        node --input-type=module - "$root" "$namespace" "$run_id" <<'NODE' || cleanupStatus=1
+import fs from 'node:fs';
+import path from 'node:path';
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+const [root, namespace, runId] = process.argv.slice(2);
+const { readQualifiedRuntimeEnvironment } = await import(pathToFileURL(`${root}/tools/test/release-reliability-runtime-environment.mjs`));
+readQualifiedRuntimeEnvironment({ repositoryRoot: root, namespace, runId });
+const file = path.join(root, '.tmp', 'env', `${namespace}.env`);
+const metadata = fs.lstatSync(file);
+if (metadata.isSymbolicLink() || !metadata.isFile() || fs.realpathSync(file) !== file
+    || metadata.nlink !== 1 || (typeof process.getuid === 'function' && metadata.uid !== process.getuid()))
+{
+    throw new Error('qualified baseline credential custody is unsafe');
+}
+fs.unlinkSync(file);
+NODE
+    fi
     set -e
     return "$cleanupStatus"
 }
@@ -574,7 +595,33 @@ if docker inspect "$backend_container" >/dev/null 2>&1; then
     printf 'backend app container already exists: %s\n' "$backend_container" >&2
     exit 1
 fi
+backend_resource_arguments=()
+if [[ -n "${FSUSBLOG_DATA_SCALE_CALLER_JOURNAL:-}" ]]; then
+    mapfile -d '' -t backend_resource_arguments < <(node --input-type=module - "$root" <<'NODE'
+import process from 'node:process';
+import { pathToFileURL } from 'node:url';
+const root = process.argv[2];
+const { readDataScaleBaselineContainerControls } = await import(pathToFileURL(`${root}/tools/test/data-scale-runtime-caller.mjs`));
+const { dockerResourceArguments } = await import(pathToFileURL(`${root}/tools/test-matrix/production-resource-enforcement.mjs`));
+const controls = await readDataScaleBaselineContainerControls({ repositoryRoot: root, environment: process.env });
+const role = controls.roles.backend;
+const argumentsList = dockerResourceArguments({
+    FSUSBLOG_DOCKER_CPU_UNITS: role.cpuUnits,
+    FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES: role.memoryHighBytes,
+    FSUSBLOG_DOCKER_MEMORY_MAX_BYTES: role.memoryMaxBytes,
+    FSUSBLOG_DOCKER_PIDS_MAX: role.pidsMax,
+    FSUSBLOG_TEST_RUN_ID: controls.runId,
+    FSUSBLOG_PHYSICAL_BUNDLE_ID: 'release-reliability-fresh',
+    FSUSBLOG_STEP_ID: 'release-reliability-fresh'
+});
+for (const argument of argumentsList) process.stdout.write(`${argument}\0`);
+NODE
+    )
+    ((${#backend_resource_arguments[@]} >= 10)) \
+        || { printf '%s\n' 'baseline backend lacks the live scheduler container reservation controls' >&2; exit 1; }
+fi
 backend_container_id="$(docker run -d --name "$backend_container" --network "$backend_network" \
+    "${backend_resource_arguments[@]}" \
     -p "127.0.0.1:${backend_host_port}:8080" --env-file "$container_env_file" \
     --tmpfs /app/data:uid=1654,gid=1654,mode=0700 \
     --tmpfs /app/.upload-sessions:uid=1654,gid=1654,mode=0700 \
@@ -714,7 +761,8 @@ for inherited_key in \
     FSUSBLOG_AOT_CACHE_DIR FSUSBLOG_BACKEND_TEST_BIN_DIR FSUSBLOG_BACKEND_TEST_DLL \
     FSUSBLOG_BACKEND_TEST_OBJ_DIR FSUSBLOG_BACKEND_WEBROOT FSUSBLOG_PRODUCTION_BUILD_ROOT \
     FSUSBLOG_PUBLIC_AOT_CACHE_DIR FSUSBLOG_SEARCH_DIR FSUSBLOG_SEARCH_INDEX_DIR FSUSBLOG_WEB_ROOT \
-    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID
+    FSUSBLOG_SCHEDULER_RESOURCE_GRANT_FILE FSUSBLOG_SCHEDULER_RESOURCE_GRANT_RUN_ID FSUSBLOG_SCHEDULER_RESOURCE_GRANT_TIER_ID \
+    FSUSBLOG_DATA_SCALE_CALLER_JOURNAL
 do
     if [[ -n "${!inherited_key:-}" ]]; then
         qualified_executor_environment+=("$inherited_key=${!inherited_key}")

@@ -19,6 +19,7 @@ test('catalog exactly covers Production pre-admission and physical disk owners',
         'behavior-doc-static-admission',
         'logical-projection-resume',
         ...matrix.localProfiles.production.bundles.map((producer) => producer.id),
+        ...matrix.tiers.filter((tier) => tier.id === 'release-reliability-fresh').map((tier) => tier.id),
         'managed-production-build-gc'
     ].sort();
     assert.deepEqual(
