@@ -36,7 +36,7 @@ test("governance rejects copying preparation projection facts during independent
 {
     const target = fixture();
     mutate(target, "src/backend/Services/Fixtures/PublicContentFixtureSeeder.Verification.cs", source =>
-        source.replace("projectionVerifier.VerifyAsync(lifecycle, cancellationToken)", "projectionVerifier.PrepareAsync(lifecycle, cancellationToken)"));
+        source.replace("projectionVerifier.VerifyAsync(\n                        lifecycle, invocation.Binding, cancellationToken)", "projectionVerifier.PrepareAsync(lifecycle, invocation.Binding, cancellationToken)"));
     assert.ok(checkCanonicalArticleLifecycleAuthority(target).some(item => item.includes("reread and match the sealed projection aggregate")));
 });
 

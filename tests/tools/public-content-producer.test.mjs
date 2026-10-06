@@ -819,6 +819,15 @@ test('postconditions: published, taxonomy, search, empty, multi rev/pub', () =>
         namespace: 'ns'
     }).ok, false);
 
+    const shortenedProjection = structuredClone(multi);
+    const shortened = shortenedProjection.database.entities.at(-1).fields.projectionAggregate;
+    shortened.requiredEdges = shortened.requiredEdges.slice(1);
+    shortened.edges = shortened.edges.slice(1);
+    shortened.aggregateDigest = computeProjectionAggregateDigest(shortened);
+    assert.equal(runPostcondition('article-multiple-publications', {
+        observations: shortenedProjection
+    }).ok, false);
+
     const emptyObs = minimalObservations({ empty: true });
     assert.equal(runPostcondition('public-empty', { observations: emptyObs }).ok, true);
     assert.equal(runPostcondition('public-empty', { observations: publishedObs }).ok, false);

@@ -23,6 +23,62 @@ namespace FsusBlog.Server.Tests;
 public sealed class PublicContentFixtureSeederTests
 {
     [Fact]
+    public void CanonicalPublicationRequest_PreservesIndependentInvocationAndOriginalWriterContract()
+    {
+        var currentInvocation = new CanonicalArticleLifecycleFixtureBinding(
+            "current-run", "owned-namespace", "public-content-lifecycle",
+            ["public.article.published", "public.article.draft"], 41,
+            CanonicalArticleLifecycleFixturePort.CurrentWriterContractDigest,
+            "sha256:" + new string('a', 64));
+        var plan = new CanonicalArticlePublicationPlan(
+            "published-primary", "Owned Title", "Original markdown", CategoryId: 7, TagIds: [8]);
+
+        CanonicalArticlePublicationRequest request = PublicContentFixtureSeeder.BuildCanonicalPublicationRequest(
+            currentInvocation, plan);
+
+        Assert.Same(plan, request.Plan);
+        Assert.Equal(currentInvocation.RunId, request.Binding.RunId);
+        Assert.Equal(currentInvocation.Namespace, request.Binding.Namespace);
+        Assert.Equal(currentInvocation.ProfileId, request.Binding.ProfileId);
+        Assert.Same(currentInvocation.Capabilities, request.Binding.Capabilities);
+        Assert.Equal(currentInvocation.AdminPrincipalId, request.Binding.AdminPrincipalId);
+        Assert.Equal(currentInvocation.TemporalContextDigest, request.Binding.TemporalContextDigest);
+        Assert.Equal("sha256:" + Convert.ToHexString(SHA256.HashData(
+            Encoding.UTF8.GetBytes(CanonicalArticlePublicationFixturePort.DefaultWriterContract))).ToLowerInvariant(),
+            request.Binding.WriterContractDigest);
+        Assert.NotEqual(currentInvocation.WriterContractDigest, request.Binding.WriterContractDigest);
+        Assert.Null(request.RequestId);
+        request.Binding.Validate();
+    }
+
+    [Theory]
+    [InlineData("run")]
+    [InlineData("namespace")]
+    [InlineData("admin")]
+    [InlineData("writer")]
+    [InlineData("temporal")]
+    public void CanonicalPublicationRequest_RejectsInvalidIndependentInvocation(string field)
+    {
+        var invocation = new CanonicalArticleLifecycleFixtureBinding(
+            "current-run", "owned-namespace", "public-content-lifecycle", ["public.article.published"], 41,
+            CanonicalArticleLifecycleFixturePort.CurrentWriterContractDigest, "sha256:" + new string('a', 64));
+        invocation = field switch
+        {
+            "run" => invocation with { RunId = string.Empty },
+            "namespace" => invocation with { Namespace = string.Empty },
+            "admin" => invocation with { AdminPrincipalId = 0 },
+            "writer" => invocation with { WriterContractDigest = "sha256:" + new string('f', 64) },
+            "temporal" => invocation with { TemporalContextDigest = string.Empty },
+            _ => throw new InvalidOperationException("unregistered test field")
+        };
+
+        Assert.Throws<CanonicalArticleLifecycleValidationException>(() =>
+            PublicContentFixtureSeeder.BuildCanonicalPublicationRequest(invocation,
+                new CanonicalArticlePublicationPlan("published-primary", "Owned Title", "Original markdown")));
+    }
+
+
+    [Fact]
     public void BuildPaginationProjection_UsesProductionCodecWithOneGenerationAndPageSize()
     {
         DateTime createdAtUtc = new(2026, 9, 14, 8, 0, 0, DateTimeKind.Utc);
