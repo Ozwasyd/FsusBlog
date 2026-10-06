@@ -158,7 +158,15 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
             'tools/test/physical-execution-unix-bootstrap.mjs',
             'tools/test/physical-execution-linux-systemd-bootstrap.mjs'
         ],
+        // Entry-owned files read at runtime instead of imported as ESM.
         assets: [
+            'tools/test/native/execution-envelope-landlock.c',
+            'tools/test-fixtures/producers/temporal-child-handshake.bash',
+            'tools/test-fixtures/producers/temporal-child-handshake.cjs',
+            'tools/test-fixtures/producers/temporal-child-handshake-emitter.cjs',
+            'tools/test-fixtures/producers/temporal-child-observer.mjs',
+            'tools/test/physical-execution-nested-socket.py',
+            'src/shared/Contracts/Localization/locale-catalog.json',
             'tools/test/physical-execution-linux-preexec.py',
             'tools/test/physical-execution-windows-job.ps1',
             'tools/test-matrix/windows-job-members.ps1',
@@ -167,6 +175,7 @@ export function materializeTestMatrixRunner(repositoryRoot, fixtureRoot)
             'tests/fixtures/test-matrix/release-final-evidence-inputs.json'
         ],
         allowedRoots: ['tools', 'src/frontend/scripts/fsusui-root.mjs',
+            'src/shared/Contracts/Localization/locale-catalog.json',
             'tests/fixtures/test-matrix/release-final-evidence-inputs.json']
     });
     fs.copyFileSync(
