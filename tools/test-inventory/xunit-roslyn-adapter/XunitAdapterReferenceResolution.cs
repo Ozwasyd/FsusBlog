@@ -1,21 +1,40 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 
 internal static partial class XunitAdapterProgram
 {
     private sealed record ResolvedReferenceContext(
         List<MetadataReference> References,
         string TargetFramework,
-        string NetCoreReferencePack);
+        string NetCoreReferencePack,
+        string IntermediateOutputPath,
+        string[] SourceFiles,
+        CSharpParseOptions ParseOptions,
+        bool AllowUnsafeBlocks);
 
     private static ResolvedReferenceContext BuildReferences(
         string projectDir,
-        string projectPath)
+        string projectPath,
+        string configuration)
     {
-        using JsonDocument evaluation = EvaluateCompileReferences(projectDir, projectPath);
+        // Inspect the previously built context before any target can recreate it.
+        // This keeps a missing build/intermediate assembly a refusal, not a rebuild.
+        using JsonDocument initial = EvaluateCompileReferences(projectDir, projectPath, configuration, compile: false);
+        JsonElement initialProperties = initial.RootElement.GetProperty("Properties");
+        string priorTargetPath = ResolveEvaluatedPath(initialProperties, "TargetPath", projectDir);
+        string priorIntermediatePath = ResolveEvaluatedPath(initialProperties, "IntermediateOutputPath", projectDir);
+        RequireBuiltCompileContext(configuration, priorTargetPath, priorIntermediatePath);
+        string priorTargetDigest = BuiltAssemblyDigest(priorTargetPath);
+        string priorIntermediateDigest = BuiltAssemblyDigest(Path.Combine(priorIntermediatePath, Path.GetFileName(priorTargetPath)));
+        // Execute the SDK/imported Compile input graph without invoking Csc.
+        // The existing Roslyn compilation below remains the semantic error owner;
+        // evaluation alone or ResolveReferences misses target-added Compile items.
+        using JsonDocument evaluation = EvaluateCompileReferences(projectDir, projectPath, configuration, compile: true);
         JsonElement root = evaluation.RootElement;
         JsonElement properties = root.GetProperty("Properties");
         string targetFramework = properties.GetProperty("TargetFramework").GetString()?.Trim() ?? "";
@@ -24,6 +43,38 @@ internal static partial class XunitAdapterProgram
         {
             throw new InvalidOperationException(
                 "MSBuild ResolveReferences did not return TargetFramework and NetCoreTargetingPackRoot");
+        }
+        if (properties.GetProperty("Configuration").GetString() != configuration)
+        {
+            throw new InvalidOperationException("MSBuild compile configuration differs from the requested configuration");
+        }
+        string targetPath = ResolveEvaluatedPath(properties, "TargetPath", projectDir);
+        string intermediateOutputPath = ResolveEvaluatedPath(properties, "IntermediateOutputPath", projectDir);
+        if (targetPath != priorTargetPath || intermediateOutputPath != priorIntermediatePath)
+        {
+            throw new InvalidOperationException("MSBuild Compile changed its previously built output context");
+        }
+        RequireBuiltCompileContext(configuration, targetPath, intermediateOutputPath);
+        if (BuiltAssemblyDigest(targetPath) != priorTargetDigest
+            || BuiltAssemblyDigest(Path.Combine(intermediateOutputPath, Path.GetFileName(targetPath))) != priorIntermediateDigest)
+        {
+            throw new InvalidOperationException("MSBuild Compile changed its previously built assembly bytes");
+        }
+        string[] sourceFiles = CollectSourceFiles(projectDir, root.GetProperty("Items").GetProperty("Compile"));
+        string languageVersion = properties.GetProperty("LangVersion").GetString() ?? "";
+        if (languageVersion.Length == 0 || !LanguageVersionFacts.TryParse(languageVersion, out LanguageVersion parsedLanguageVersion))
+        {
+            throw new InvalidOperationException($"MSBuild returned an unsupported LangVersion: {languageVersion}");
+        }
+        string[] symbols = (properties.GetProperty("DefineConstants").GetString() ?? "")
+            .Split([';', ','], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Distinct(StringComparer.Ordinal)
+            .OrderBy(symbol => symbol, StringComparer.Ordinal)
+            .ToArray();
+        var parseOptions = new CSharpParseOptions(parsedLanguageVersion, preprocessorSymbols: symbols);
+        if (!bool.TryParse(properties.GetProperty("AllowUnsafeBlocks").GetString(), out bool allowUnsafeBlocks))
+        {
+            throw new InvalidOperationException("MSBuild did not return a valid AllowUnsafeBlocks value");
         }
 
         JsonElement referenceItems = root.GetProperty("Items").GetProperty("ReferencePath");
@@ -83,11 +134,39 @@ internal static partial class XunitAdapterProgram
                 $"MSBuild System.Text.RegularExpressions reference is outside its exact targeting pack: {regularExpressionsPath}");
         }
 
-        RejectOutputFrameworkShadows(projectDir, projectPath, frameworkNames);
-        return new ResolvedReferenceContext(references, targetFramework, exactReferencePack);
+        RejectOutputFrameworkShadows(Path.GetDirectoryName(targetPath)!, frameworkNames);
+        return new ResolvedReferenceContext(
+            references, targetFramework, exactReferencePack, intermediateOutputPath, sourceFiles, parseOptions, allowUnsafeBlocks);
     }
 
-    private static JsonDocument EvaluateCompileReferences(string projectDir, string projectPath)
+    private static void RequireBuiltCompileContext(string configuration, string targetPath, string intermediateOutputPath)
+    {
+        string intermediateAssemblyPath = Path.Combine(intermediateOutputPath, Path.GetFileName(targetPath));
+        if (!File.Exists(targetPath) || !File.Exists(intermediateAssemblyPath))
+        {
+            throw new InvalidOperationException(
+                $"test project {configuration} build output or intermediate context is missing at {targetPath} / {intermediateOutputPath}; run dotnet build with the requested configuration first");
+        }
+    }
+
+    private static string BuiltAssemblyDigest(string file)
+    {
+        _ = ReadAssemblySimpleName(file);
+        using FileStream stream = File.OpenRead(file);
+        return Convert.ToHexString(SHA256.HashData(stream));
+    }
+
+    private static string ResolveEvaluatedPath(JsonElement properties, string name, string projectDir)
+    {
+        string value = properties.GetProperty(name).GetString()?.Trim() ?? "";
+        if (value.Length == 0)
+        {
+            throw new InvalidOperationException($"MSBuild did not return {name}");
+        }
+        return Path.GetFullPath(value, projectDir);
+    }
+
+    private static JsonDocument EvaluateCompileReferences(string projectDir, string projectPath, string configuration, bool compile)
     {
         var startInfo = new ProcessStartInfo("dotnet")
         {
@@ -100,18 +179,25 @@ internal static partial class XunitAdapterProgram
         {
             "msbuild",
             projectPath,
-            "-target:ResolveReferences",
             "-getProperty:TargetFramework",
             "-getProperty:NetCoreTargetingPackRoot",
-            "-getItem:ReferencePath",
+            "-getProperty:Configuration,TargetPath,IntermediateOutputPath,DefineConstants,LangVersion,AllowUnsafeBlocks",
+            "-getItem:ReferencePath,Compile",
             "-verbosity:quiet",
+            $"/p:Configuration={configuration}",
             "/p:BuildProjectReferences=false"
         })
         {
             startInfo.ArgumentList.Add(argument);
         }
+        if (compile)
+        {
+            startInfo.ArgumentList.Add("-target:Compile");
+            startInfo.ArgumentList.Add("/p:SkipCompilerExecution=true");
+            startInfo.ArgumentList.Add("/p:UseSharedCompilation=false");
+        }
         using Process process = Process.Start(startInfo)
-            ?? throw new InvalidOperationException("failed to start dotnet msbuild ResolveReferences");
+            ?? throw new InvalidOperationException("failed to start dotnet msbuild compile-context observation");
         Task<string> stdout = process.StandardOutput.ReadToEndAsync();
         Task<string> stderr = process.StandardError.ReadToEndAsync();
         process.WaitForExit();
@@ -119,7 +205,7 @@ internal static partial class XunitAdapterProgram
         if (process.ExitCode != 0)
         {
             throw new InvalidOperationException(
-                $"dotnet msbuild ResolveReferences failed ({process.ExitCode}): {stderr.Result.Trim()}");
+                $"dotnet msbuild compile-context observation failed ({process.ExitCode}): {stderr.Result.Trim()} {stdout.Result.Trim()}");
         }
         try
         {
@@ -128,22 +214,15 @@ internal static partial class XunitAdapterProgram
         catch (JsonException error)
         {
             throw new InvalidOperationException(
-                $"dotnet msbuild ResolveReferences returned invalid JSON: {stdout.Result.Trim()}",
+                $"dotnet msbuild compile-context observation returned invalid JSON: {stdout.Result.Trim()}",
                 error);
         }
     }
 
     private static void RejectOutputFrameworkShadows(
-        string projectDir,
-        string projectPath,
+        string output,
         HashSet<string> frameworkNames)
     {
-        string? output = FindOutputDirectory(projectDir, projectPath);
-        if (output is null)
-        {
-            throw new InvalidOperationException(
-                $"test project build output is missing under {ResolveProjectBuildDirectory(projectDir, projectPath, "bin")}; run dotnet build first");
-        }
         foreach (string dll in Directory.EnumerateFiles(output, "*.dll").OrderBy(file => file, StringComparer.Ordinal))
         {
             string simpleName = ReadAssemblySimpleName(dll);

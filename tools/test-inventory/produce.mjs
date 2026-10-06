@@ -16,12 +16,12 @@ import { fileURLToPath } from 'node:url';
 
 import { xunitTestProjects } from './adapters.mjs';
 import { DEFAULT_ARTIFACT_PATH, isInventoryStale } from './api.mjs';
-import { canonicalStringify, discoverTestInventory } from './discovery.mjs';
+import { canonicalStringify, discoverTestInventory, requireXunitConfiguration } from './discovery.mjs';
 import { validateInventoryArtifact } from './schema.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
-function prepareXunitCompileContext()
+function prepareXunitCompileContext(configuration)
 {
     for (const { project } of xunitTestProjects)
     {
@@ -31,7 +31,7 @@ function prepareXunitCompileContext()
                 'build',
                 path.join(root, project),
                 '--configuration',
-                'Debug',
+                configuration,
                 '--nologo',
                 '--verbosity',
                 'quiet'
@@ -52,15 +52,26 @@ function prepareXunitCompileContext()
     }
 }
 
-function parseArgs(argv)
+export function parseInventoryArguments(argv)
 {
-    const options = { check: false, out: path.join(root, DEFAULT_ARTIFACT_PATH) };
+    const options = { check: false, out: path.join(root, DEFAULT_ARTIFACT_PATH), configuration: 'Debug', help: false };
+    let configurationSeen = false;
     for (let index = 0; index < argv.length; index += 1)
     {
         const arg = argv[index];
         if (arg === '--check')
         {
             options.check = true;
+        }
+        else if (arg === '--configuration')
+        {
+            if (configurationSeen)
+            {
+                throw new Error('duplicate --configuration argument');
+            }
+            configurationSeen = true;
+            options.configuration = requireXunitConfiguration(argv[index + 1] ?? '');
+            index += 1;
         }
         else if (arg === '--out')
         {
@@ -69,8 +80,7 @@ function parseArgs(argv)
         }
         else if (arg === '--help' || arg === '-h')
         {
-            console.log('Usage: node tools/test-inventory/produce.mjs [--check] [--out <path>]');
-            process.exit(0);
+            options.help = true;
         }
         else
         {
@@ -88,9 +98,14 @@ function writeArtifact(artifact, out)
 
 function run()
 {
-    const options = parseArgs(process.argv.slice(2));
-    prepareXunitCompileContext();
-    const artifact = discoverTestInventory(root);
+    const options = parseInventoryArguments(process.argv.slice(2));
+    if (options.help)
+    {
+        console.log('Usage: node tools/test-inventory/produce.mjs [--check] [--out <path>] [--configuration Debug|Release]');
+        return;
+    }
+    prepareXunitCompileContext(options.configuration);
+    const artifact = discoverTestInventory(root, { configuration: options.configuration });
     validateInventoryArtifact(artifact);
 
     if (options.check)
@@ -101,7 +116,7 @@ function run()
         }
         const stored = JSON.parse(readFileSync(options.out, 'utf8'));
         validateInventoryArtifact(stored);
-        const stale = isInventoryStale(root, stored);
+        const stale = isInventoryStale(root, stored, { configuration: options.configuration });
         if (stale.stale)
         {
             throw new Error(`test inventory --check failed: ${stale.reason}`);
@@ -120,12 +135,15 @@ function run()
     console.log(`[test-inventory] wrote ${options.out} files=${artifact.sourceFiles.length} cases=${artifact.testCases.length} digest=${artifact.inventoryDigest}`);
 }
 
-try
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    run();
-}
-catch (error)
-{
-    console.error(`[test-inventory] ${error.message}`);
-    process.exit(1);
+    try
+    {
+        run();
+    }
+    catch (error)
+    {
+        console.error(`[test-inventory] ${error.message}`);
+        process.exit(1);
+    }
 }
