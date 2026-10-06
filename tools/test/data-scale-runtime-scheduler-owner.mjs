@@ -105,7 +105,10 @@ export async function createDataScaleRuntimeSchedulerOwner({
                 FSUSBLOG_RELEASE_RUN_ID: admission.runId },
             async dispose({ success = false } = {})
             {
-                if (disposed) return;
+                if (disposed)
+                {
+                    return;
+                }
                 // A failed cleanup retains the live native/capacity/repository
                 // owners; it cannot mint a released receipt or retire custody.
                 await caller.dispose();

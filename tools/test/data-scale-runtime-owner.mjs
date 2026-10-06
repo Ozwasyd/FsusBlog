@@ -839,7 +839,10 @@ async function delegatedOwnerResult({ operation, repositoryRoot, identity, envir
         {
             throw new Error('delegated data-scale owner identity changed');
         }
-        if (kind === 'plan') validateDataScaleRuntimePlan(repositoryRoot, document);
+        if (kind === 'plan')
+        {
+            validateDataScaleRuntimePlan(repositoryRoot, document);
+        }
         else if (document.schema !== (operation === 'provision' ? DATA_SCALE_RUNTIME_SCHEMA : DATA_SCALE_TEARDOWN_SCHEMA))
         {
             throw new Error('delegated data-scale owner receipt schema is invalid');

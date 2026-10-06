@@ -123,7 +123,10 @@ function fixture()
             fs.mkdirSync(path.dirname(path.join(root, planPath)), { recursive: true });
             fs.writeFileSync(path.join(root, planPath), JSON.stringify(plan));
             events.push('provision');
-            if (provisionFailure) throw new Error('unit owner provision failure after preparation');
+            if (provisionFailure)
+            {
+                throw new Error('unit owner provision failure after preparation');
+            }
             const receipt = seal({ schema: 'fsusblog.data-scale-runtime.v2', status: 'complete',
                 parentSchedulerRunId: request.runId, invocationId: request.invocationId, attemptId: plan.attemptId,
                 sourceCommit: plan.sourceCommit, dataScaleRunId: plan.dataScaleRunId });
@@ -145,7 +148,13 @@ function fixture()
     };
     return { root, parent, ownerFile, admissionFile: published.file, identityFile, artifactRoot, assembly,
         identity, environment, events,
-        setCleanupStatus: (value) => { cleanupStatus = value; }, setProvisionFailure: () => { provisionFailure = true; },
+        setCleanupStatus: (value) =>
+        {
+            cleanupStatus = value;
+        }, setProvisionFailure: () =>
+        {
+            provisionFailure = true;
+        },
         remove: () => fs.rmSync(root, { recursive: true, force: true }) };
 }
 
@@ -182,7 +191,14 @@ test('DataScale caller performs authenticated real RPC while parent retains capa
         await server.dispose();
         assert.equal(fs.existsSync(journalFile), false);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 test('DataScale caller consumes the original sealed production Server domain without an acceptance rebuild', async () =>
@@ -200,7 +216,14 @@ test('DataScale caller consumes the original sealed production Server domain wit
         await delegate(unit, server, 'teardown');
         assert.deepEqual(unit.events, ['provision', 'teardown']);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 test('DataScale caller refuses missing, unsafe, tampered and stale scheduler authority before callbacks', async () =>
@@ -236,7 +259,14 @@ test('DataScale caller refuses missing, unsafe, tampered and stale scheduler aut
             contentDigest: undefined, sourceState: { ...unit.identity.sourceState, worktreeFingerprint: `sha256:${'f'.repeat(64)}` } }) }), /identity mismatch/u);
         assert.deepEqual(unit.events, []);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 test('DataScale parent refuses artifact environment overrides and self-sealed identities before owner callbacks', async () =>
@@ -276,7 +306,14 @@ test('DataScale parent refuses artifact environment overrides and self-sealed id
         await assert.rejects(delegate(unit, server, 'provision', { identity: forged }), /producer output/u);
         assert.deepEqual(unit.events, []);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 test('DataScale parent freezes original artifact locators before child requests arrive', async () =>
@@ -300,10 +337,20 @@ test('DataScale parent freezes original artifact locators before child requests 
             unit.parent.environment[key] = 'changed-after-parent-start';
         }
         await delegate(unit, server);
-        for (const [key, value] of Object.entries(fixed)) assert.equal(captured[key], value);
+        for (const [key, value] of Object.entries(fixed))
+        {
+            assert.equal(captured[key], value);
+        }
         await delegate(unit, server, 'teardown');
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 test('DataScale parent re-observes original receipt, fixture and complete candidate bytes before provisioning', async () =>
@@ -344,7 +391,14 @@ test('DataScale parent re-observes original receipt, fixture and complete candid
         await delegate(unit, server, 'teardown');
         assert.deepEqual(unit.events, ['provision', 'teardown']);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 function rawRequest(socketPath, request)
@@ -359,7 +413,10 @@ function rawRequest(socketPath, request)
         socket.on('data', (chunk) =>
         {
             buffer += chunk;
-            if (!buffer.includes('\n')) return;
+            if (!buffer.includes('\n'))
+            {
+                return;
+            }
             socket.end();
             resolve(JSON.parse(buffer.slice(0, buffer.indexOf('\n'))));
         });
@@ -378,7 +435,10 @@ test('DataScale baseline control observation requires the live parent reservatio
         roles: Object.fromEntries(['postgres', 'redis', 'backend'].map((role) => [role, { ...grant }])) };
     unit.parent.baselineContainerControls = () =>
     {
-        if (!held) throw new Error('original baseline reservation is no longer held');
+        if (!held)
+        {
+            throw new Error('original baseline reservation is no longer held');
+        }
         return structuredClone(controls);
     };
     try
@@ -401,7 +461,14 @@ test('DataScale baseline control observation requires the live parent reservatio
             identity: unit.identity, environment: {} });
         assert.equal(refused.ok, false);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 test('DataScale parent socket refuses wrong token and operation roster; failed provision retains real teardown custody', async () =>
@@ -435,7 +502,14 @@ test('DataScale parent socket refuses wrong token and operation roster; failed p
         await server.dispose();
         assert.equal(fs.existsSync(file), false);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });
 
 test('DataScale caller accepts only observed sealed cleanup receipts attached by the failed owner', async () =>
@@ -446,7 +520,10 @@ test('DataScale caller accepts only observed sealed cleanup receipts attached by
     unit.setProvisionFailure();
     unit.parent.provision = async (inputs) =>
     {
-        try { return await provision(inputs); }
+        try
+        {
+            return await provision(inputs);
+        }
         catch (error)
         {
             const relative = `.tmp/release-reliability/unit-invocation/data-scale-owner/data-scale-${'d'.repeat(20)}.plan.json`;
@@ -467,5 +544,12 @@ test('DataScale caller accepts only observed sealed cleanup receipts attached by
         await server.dispose();
         assert.equal(fs.existsSync(file), false);
     }
-    finally { if (server) await server.dispose(); unit.remove(); }
+    finally
+    {
+        if (server)
+        {
+            await server.dispose();
+        }
+        unit.remove();
+    }
 });

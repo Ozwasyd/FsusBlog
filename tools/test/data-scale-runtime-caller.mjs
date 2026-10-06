@@ -99,7 +99,10 @@ function parentRuntimeArtifacts(root, admission, environment)
                 throw new Error('DataScale caller assembly escapes the parent-frozen build root');
             }
             const domain = receipt.domains.filter((value) => value.name === 'backend-runtime');
-            if (domain.length !== 1) throw new Error('DataScale caller requires the original backend-runtime artifact domain');
+            if (domain.length !== 1)
+            {
+                throw new Error('DataScale caller requires the original backend-runtime artifact domain');
+            }
             const assemblyRoot = path.dirname(assembly);
             const roster = receipt.artifacts.filter((record) => record.path.startsWith(`${domain[0].path}/`));
             if (!roster.some((record) => record.path === `${domain[0].path}/FsusBlog.Server.dll`))
@@ -122,9 +125,18 @@ function parentRuntimeArtifacts(root, admission, environment)
                 for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
                 {
                     const file = path.join(directory, entry.name);
-                    if (entry.isDirectory()) visit(file);
-                    else if (entry.isFile()) actual.push(relative(file));
-                    else throw new Error('DataScale caller candidate assembly closure contains an unsafe entry');
+                    if (entry.isDirectory())
+                    {
+                        visit(file);
+                    }
+                    else if (entry.isFile())
+                    {
+                        actual.push(relative(file));
+                    }
+                    else
+                    {
+                        throw new Error('DataScale caller candidate assembly closure contains an unsafe entry');
+                    }
                 }
             };
             visit(assemblyRoot);
@@ -255,7 +267,10 @@ function readJournal(file, repositoryRoot)
     const absolute = ownPrivate(file, 'file', 0o600);
     const directory = ownPrivate(path.dirname(absolute), 'directory', 0o700);
     const bytes = fs.readFileSync(absolute);
-    if (bytes.length > maximumBytes) throw new Error('DataScale caller journal exceeds its bound');
+    if (bytes.length > maximumBytes)
+    {
+        throw new Error('DataScale caller journal exceeds its bound');
+    }
     const journal = JSON.parse(bytes);
     if (journal.schema !== schema || documentDigest(journal) !== journal.contentDigest
     || journal.repositoryRoot !== fs.realpathSync(repositoryRoot)
@@ -344,7 +359,10 @@ function transportEnvironment(environment)
 
 function observeFile(root, relative)
 {
-    if (typeof relative !== 'string' || path.isAbsolute(relative)) throw new Error('DataScale caller receipt path must be relative');
+    if (typeof relative !== 'string' || path.isAbsolute(relative))
+    {
+        throw new Error('DataScale caller receipt path must be relative');
+    }
     const absolute = path.resolve(root, relative);
     if (!absolute.startsWith(`${root}${path.sep}`)
     || !/^\.tmp\/release-reliability\/[A-Za-z0-9][A-Za-z0-9_.-]*\/data-scale-owner\/data-scale-[a-f0-9]{20}\.(?:plan|runtime|teardown)\.json$/u.test(relative)
@@ -354,7 +372,10 @@ function observeFile(root, relative)
         throw new Error('DataScale caller receipt path must belong to the current runtime owner');
     }
     const bytes = fs.readFileSync(absolute);
-    if (bytes.length > maximumBytes) throw new Error('DataScale caller receipt exceeds its bound');
+    if (bytes.length > maximumBytes)
+    {
+        throw new Error('DataScale caller receipt exceeds its bound');
+    }
     return { path: relative, bytesDigest: byteDigest(bytes), document: JSON.parse(bytes) };
 }
 
@@ -448,8 +469,14 @@ export async function startDataScaleRuntimeCaller({
         if (operation === 'provision')
         {
             artifacts.validate(identity);
-            if (attempt?.status === 'provisioned') return inspectProduced(repositoryRoot, attempt.produced, operation, binding);
-            if (attempt) throw new Error('DataScale caller attempt requires teardown before another provision');
+            if (attempt?.status === 'provisioned')
+            {
+                return inspectProduced(repositoryRoot, attempt.produced, operation, binding);
+            }
+            if (attempt)
+            {
+                throw new Error('DataScale caller attempt requires teardown before another provision');
+            }
             attempt = { binding, identity: structuredClone(identity), environment: { ...parentEnvironment, ...requestedEnvironment },
                 status: 'provisioning', plan: null, planPath: null, runtimeReceipt: null };
             try
@@ -469,7 +496,10 @@ export async function startDataScaleRuntimeCaller({
                         attempt.planPath = planPath;
                     }
                 });
-                if (!attempt.plan) throw new Error('DataScale caller requires the owner onPlan custody hook');
+                if (!attempt.plan)
+                {
+                    throw new Error('DataScale caller requires the owner onPlan custody hook');
+                }
                 if (produced.plan?.contentDigest !== attempt.plan.contentDigest)
                 {
                     throw new Error('DataScale caller owner plan drift after preparation');
@@ -498,8 +528,14 @@ export async function startDataScaleRuntimeCaller({
                 throw error;
             }
         }
-        if (!attempt?.plan) throw new Error('DataScale caller has no prepared owner plan for teardown');
-        if (attempt.status === 'released') return inspectProduced(repositoryRoot, attempt.teardown, operation, binding, attempt.plan);
+        if (!attempt?.plan)
+        {
+            throw new Error('DataScale caller has no prepared owner plan for teardown');
+        }
+        if (attempt.status === 'released')
+        {
+            return inspectProduced(repositoryRoot, attempt.teardown, operation, binding, attempt.plan);
+        }
         const produced = await teardown({ plan: attempt.plan, runtimeReceipt: attempt.runtimeReceipt,
             identity: attempt.identity, environment: attempt.environment, runtimeAdmission });
         const result = inspectProduced(repositoryRoot, produced, operation, binding, attempt.plan);
@@ -549,7 +585,8 @@ export async function startDataScaleRuntimeCaller({
             }
             return perform(request.operation, request.identity, requested);
         });
-        queue = task.catch(() => {});
+        queue = task.catch(() =>
+        {});
         return task;
     }
 
@@ -560,20 +597,39 @@ export async function startDataScaleRuntimeCaller({
         let submitted = false;
         socket.setEncoding('utf8');
         socket.setTimeout(10000);
-        socket.on('timeout', () => { if (!submitted) socket.destroy(); });
+        socket.on('timeout', () =>
+        {
+            if (!submitted)
+            {
+                socket.destroy();
+            }
+        });
         socket.on('error', () => socket.destroy());
         socket.on('data', (chunk) =>
         {
             bytes += Buffer.byteLength(chunk);
-            if (submitted || bytes > maximumBytes) return socket.destroy();
+            if (submitted || bytes > maximumBytes)
+            {
+                return socket.destroy();
+            }
             buffer += chunk;
             const newline = buffer.indexOf('\n');
-            if (newline < 0) return;
+            if (newline < 0)
+            {
+                return;
+            }
             submitted = true;
             socket.setTimeout(0);
             let request;
-            try { request = JSON.parse(buffer.slice(0, newline)); }
-            catch { socket.end(`${JSON.stringify({ ok: false, error: 'DataScale caller request JSON is invalid' })}\n`); return; }
+            try
+            {
+                request = JSON.parse(buffer.slice(0, newline));
+            }
+            catch
+            {
+                socket.end(`${JSON.stringify({ ok: false, error: 'DataScale caller request JSON is invalid' })}\n`);
+                return;
+            }
             handle(request).then((result) => socket.end(`${JSON.stringify({ ok: true, result })}\n`),
                 (error) => socket.end(`${JSON.stringify({ ok: false, error: String(error.message).slice(0, 16384) })}\n`));
         });
@@ -598,8 +654,14 @@ export async function startDataScaleRuntimeCaller({
         environment: { FSUSBLOG_DATA_SCALE_CALLER_JOURNAL: journalFile },
         async dispose()
         {
-            if (disposed) return;
-            if (closing) throw new Error('DataScale caller disposal is already in progress');
+            if (disposed)
+            {
+                return;
+            }
+            if (closing)
+            {
+                throw new Error('DataScale caller disposal is already in progress');
+            }
             closing = true;
             try
             {
@@ -607,7 +669,10 @@ export async function startDataScaleRuntimeCaller({
                 if (attempt?.plan && attempt.status !== 'released')
                 {
                     await perform('teardown', attempt.identity, attempt.environment);
-                    if (attempt.status !== 'released') throw new Error('DataScale caller cleanup remains pending; custody is retained');
+                    if (attempt.status !== 'released')
+                    {
+                        throw new Error('DataScale caller cleanup remains pending; custody is retained');
+                    }
                 }
                 disposed = true;
                 await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
@@ -624,9 +689,15 @@ export async function startDataScaleRuntimeCaller({
 
 async function requestDataScaleCaller({ operation, repositoryRoot, identity, environment, timeoutMs = 300000 })
 {
-    if (!operations.includes(operation)) throw new Error('DataScale caller operation is outside the closed roster');
+    if (!operations.includes(operation))
+    {
+        throw new Error('DataScale caller operation is outside the closed roster');
+    }
     const configured = environment?.FSUSBLOG_DATA_SCALE_CALLER_JOURNAL;
-    if (!configured) throw new Error('DataScale caller journal is required; live scheduler capabilities cannot be serialized');
+    if (!configured)
+    {
+        throw new Error('DataScale caller journal is required; live scheduler capabilities cannot be serialized');
+    }
     if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 24 * 60 * 60 * 1000)
     {
         throw new Error('DataScale caller timeout is invalid');
@@ -638,14 +709,20 @@ async function requestDataScaleCaller({ operation, repositoryRoot, identity, env
         throw new Error('DataScale caller request contains an unapproved environment key; artifact locators belong to the parent');
     }
     const requested = operation === 'baseline-container-controls' ? {} : transportEnvironment(environment);
-    if (operation !== 'baseline-container-controls') attemptIdentity(identity, requested, journal);
+    if (operation !== 'baseline-container-controls')
+    {
+        attemptIdentity(identity, requested, journal);
+    }
     const token = fs.readFileSync(journal.tokenFile, 'utf8').trim();
     if (!/^[a-f0-9]{64}$/u.test(token) || byteDigest(token) !== journal.tokenDigest)
     {
         throw new Error('DataScale caller authentication token binding mismatch');
     }
     const request = { schema, token, journalDigest: journal.contentDigest, operation, identity, environment: requested };
-    if (Buffer.byteLength(JSON.stringify(request)) > maximumBytes) throw new Error('DataScale caller request exceeds its bound');
+    if (Buffer.byteLength(JSON.stringify(request)) > maximumBytes)
+    {
+        throw new Error('DataScale caller request exceeds its bound');
+    }
     const result = await new Promise((resolve, reject) =>
     {
         const socket = net.connect(journal.socketPath);
@@ -653,23 +730,42 @@ async function requestDataScaleCaller({ operation, repositoryRoot, identity, env
         const timer = setTimeout(() => socket.destroy(new Error('DataScale caller request timed out')), timeoutMs);
         socket.setEncoding('utf8');
         socket.once('error', reject);
-        socket.once('close', () => { clearTimeout(timer); if (!buffer.includes('\n')) reject(new Error('DataScale caller closed without a response')); });
+        socket.once('close', () =>
+        {
+            clearTimeout(timer);
+            if (!buffer.includes('\n'))
+            {
+                reject(new Error('DataScale caller closed without a response'));
+            }
+        });
         socket.on('connect', () => socket.write(`${JSON.stringify(request)}\n`));
         socket.on('data', (chunk) =>
         {
             buffer += chunk;
-            if (Buffer.byteLength(buffer) > maximumBytes) return socket.destroy(new Error('DataScale caller response exceeds its bound'));
+            if (Buffer.byteLength(buffer) > maximumBytes)
+            {
+                return socket.destroy(new Error('DataScale caller response exceeds its bound'));
+            }
             const newline = buffer.indexOf('\n');
-            if (newline < 0) return;
+            if (newline < 0)
+            {
+                return;
+            }
             clearTimeout(timer);
             socket.end();
             try
             {
                 const response = JSON.parse(buffer.slice(0, newline));
-                if (!response.ok) throw new Error(response.error ?? 'DataScale caller operation failed');
+                if (!response.ok)
+                {
+                    throw new Error(response.error ?? 'DataScale caller operation failed');
+                }
                 resolve(response.result);
             }
-            catch (error) { reject(error); }
+            catch (error)
+            {
+                reject(error);
+            }
         });
     });
     immutableAdmission(journal);
@@ -696,7 +792,10 @@ export async function delegateDataScaleRuntimeOperation(options)
     if (operation === 'provision')
     {
         const plan = observeFile(journal.repositoryRoot, result.planPath);
-        if (plan.bytesDigest !== result.planBytesDigest) throw new Error('DataScale caller returned plan observation mismatch');
+        if (plan.bytesDigest !== result.planBytesDigest)
+        {
+            throw new Error('DataScale caller returned plan observation mismatch');
+        }
     }
     return result;
 }

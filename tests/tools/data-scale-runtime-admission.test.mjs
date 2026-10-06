@@ -78,8 +78,11 @@ function fixture()
         {
             throw new Error('unit refusal must not execute physical commands');
         } };
-    return { options, events, setNativeHeld: (value) => { nativeHeld = value; },
-        remove: () => fs.rmSync(repositoryRoot, { recursive: true, force: true }) };
+    return { options, events, setNativeHeld: (value) =>
+    {
+        nativeHeld = value;
+    },
+    remove: () => fs.rmSync(repositoryRoot, { recursive: true, force: true }) };
 }
 
 test('DataScale admission refuses missing live scheduler capabilities before any resource mutation', async () =>
