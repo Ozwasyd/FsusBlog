@@ -594,6 +594,9 @@ test('canonical retired Fact identity is bound to the exact archived owner and s
     assert.equal(matches({ source: source.replace('class OldTests', 'class OldTests : BaseTests') }), false);
     assert.equal(matches({ source: source.replace('    public void Removed() {}', '    public void Removed() {}\n    public static int Removed(int value) => value;') }), false);
     assert.equal(matches({ source: source.replace('Removed()', 'Removed(int value)') }), false);
+    assert.equal(matches({ source: source.replace('Removed() {}', 'Removed();') }), false);
+    assert.equal(matches({ source: source.replace('Removed() {}', 'Removed() INVALID {}') }), false);
+    assert.equal(matches({ source: source.replace('Removed() {}', 'Removed() => System.Console.WriteLine();') }), true);
     assert.equal(matches({ source: source.replace('class OldTests', 'class OldTests<T>') }), false);
     assert.equal(matches({ source: source.replace('namespace Example.Tests;', 'namespace Example.Tests {') + '}' }), false);
     assert.equal(matches({ source: '#if SYMBOL\n' + source + '\n#endif' }), false);

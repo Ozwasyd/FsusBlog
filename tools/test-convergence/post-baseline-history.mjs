@@ -297,7 +297,7 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             {
                 continue;
             }
-            if (requireFact && !/^\s*\)/u.test(masked.slice(methodOffset + methodMatch[0].length)))
+            if (requireFact && !/^\s*\)\s*(?:\{|=>)/u.test(masked.slice(methodOffset + methodMatch[0].length)))
             {
                 continue;
             }
