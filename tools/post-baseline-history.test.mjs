@@ -581,6 +581,18 @@ test('canonical retired Fact identity is bound to the exact archived owner and s
     }
     assert.equal(matches({ historicalId: historicalId.replace('.Removed', '.Other') }), false);
     assert.equal(matches({ source: source.replace('[Fact]', '[Theory]') }), false);
+    assert.equal(matches({ source: source + '}' }), false);
+    assert.equal(matches({ source: source.slice(0, -1) }), false);
+    for (const attributes of ['[Fact]\n    [Theory]', '[Theory]\n    [Fact]', '[Fact, Theory]', '[Fact]\n    [Fact]'])
+    {
+        assert.equal(matches({ source: source.replace('[Fact]', attributes) }), false);
+    }
+    assert.equal(matches({ source: source.replace('class OldTests', 'class OldTests;\npublic class OtherTests') }), false);
+    assert.equal(matches({ source: source + '\npublic class OldTests {}' }), false);
+    assert.equal(matches({ source: source.replace('namespace Example.Tests;', 'public class Container { namespace Example.Tests; }') }), false);
+    assert.equal(matches({ source: source.replace('    public void Removed() {}', '    public void Removed() {}\n    [Fact]\n    public void Removed(int value) {}') }), false);
+    assert.equal(matches({ source: source.replace('class OldTests', 'class OldTests : BaseTests') }), false);
+    assert.equal(matches({ source: source.replace('    public void Removed() {}', '    public void Removed() {}\n    public static int Removed(int value) => value;') }), false);
     assert.equal(matches({ source: source.replace('Removed()', 'Removed(int value)') }), false);
     assert.equal(matches({ source: source.replace('class OldTests', 'class OldTests<T>') }), false);
     assert.equal(matches({ source: source.replace('namespace Example.Tests;', 'namespace Example.Tests {') + '}' }), false);

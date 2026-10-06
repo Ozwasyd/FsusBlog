@@ -231,7 +231,12 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
         `^[ \\t]*public[ \\t]+(?:async[ \\t]+)?(?:void|Task(?:<[^>\\n]+>)?|ValueTask(?:<[^>\\n]+>)?)[ \\t]+${methodName}[ \\t]*\\(`,
         'gmu'
     ) : new RegExp(`\\b${methodName}\\s*(?:<[^;{}()]*>)?\\s*\\(`, 'gu');
-    for (const classMatch of masked.matchAll(classDeclaration))
+    const classMatches = [...masked.matchAll(classDeclaration)];
+    if (requireFact && [...masked.matchAll(new RegExp(`\\b(?:class|struct|record(?:\\s+(?:class|struct))?)\\s+@?${className}\\b`, 'gu'))].length !== 1)
+    {
+        return false;
+    }
+    for (const classMatch of classMatches)
     {
         if (classMatch[1] !== className)
         {
@@ -256,7 +261,7 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             continue;
         }
         if (requireFact && (depths[classMatch.index] !== 0
-            || /^\s*</u.test(masked.slice(classMatch.index + classMatch[0].length))))
+            || !/^\s*\{/u.test(masked.slice(classMatch.index + classMatch[0].length))))
         {
             continue;
         }
@@ -279,7 +284,13 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             continue;
         }
         const body = masked.slice(opening + 1, closing);
-        for (const methodMatch of body.matchAll(declaration))
+        const methodMatches = [...body.matchAll(declaration)];
+        if (requireFact && [...body.matchAll(new RegExp(`\\b${methodName}\\s*(?:<[^;{}()]*>)?\\s*\\(`, 'gu'))]
+            .filter((match) => depths[opening + 1 + match.index] === bodyDepth).length !== 1)
+        {
+            return false;
+        }
+        for (const methodMatch of methodMatches)
         {
             const methodOffset = opening + 1 + methodMatch.index;
             if (depths[methodOffset] !== bodyDepth)
@@ -296,9 +307,14 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             {
                 continue;
             }
-            if (!proveXunit || precedingAttributeNames(masked, opening, methodOffset)
-                .some((name) => unambiguousTestAttribute(masked, name, attributeContext)
-                    && (!requireFact || /^(?:Fact|FactAttribute)$/u.test(name.split('.').at(-1)))))
+            const attributes = proveXunit ? precedingAttributeNames(masked, opening, methodOffset) : [];
+            const testAttributes = attributes.filter((name) => /^(?:Fact|Theory)(?:Attribute)?$/u.test(name.split('.').at(-1)));
+            if (requireFact && (testAttributes.length !== 1
+                || !/^(?:Fact|FactAttribute)$/u.test(testAttributes[0].split('.').at(-1))))
+            {
+                continue;
+            }
+            if (!proveXunit || attributes.some((name) => unambiguousTestAttribute(masked, name, attributeContext)))
             {
                 return true;
             }
@@ -377,6 +393,24 @@ export function canonicalFactMatchesHistoricalOwner({ source, id, historicalId, 
     }
     const namespaces = [...masked.matchAll(/\bnamespace\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*([;{])/gu)];
     if (namespaces.length !== 1 || namespaces[0][2] !== ';')
+    {
+        return false;
+    }
+    const prefix = masked.slice(0, namespaces[0].index);
+    let depth = 0;
+    for (let index = 0; index < masked.length; index += 1)
+    {
+        if (index === namespaces[0].index && depth !== 0)
+        {
+            return false;
+        }
+        depth += masked[index] === '{' ? 1 : masked[index] === '}' ? -1 : 0;
+        if (depth < 0)
+        {
+            return false;
+        }
+    }
+    if (depth !== 0 || /\b(?:class|struct|record|interface|enum)\b/u.test(prefix))
     {
         return false;
     }
