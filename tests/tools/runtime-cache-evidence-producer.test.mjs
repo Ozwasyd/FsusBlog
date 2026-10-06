@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import http from 'node:http';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
@@ -128,7 +128,7 @@ test('keeps a matching backend pid file binding', () =>
     }), 67890);
 });
 
-async function startObservationServer({ redisCommands = [], redisFailureEvents = [], paginationDatabaseCommandCounts = {} } = {})
+async function startObservationServer({ redisCommands = [], redisFailureEvents = [], paginationDatabaseCommandCounts = {}, hotResponse = {} } = {})
 {
     const observations = new Map();
     const calls = [];
@@ -150,14 +150,16 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
         calls.push(call);
         if (url.pathname === '/api/binary/system/seo' || url.pathname === '/api/binary/article/hot/10.aeds')
         {
-            const body = Buffer.from('qualified-runtime-payload');
+            const body = url.pathname === '/api/binary/article/hot/10.aeds' && hotResponse.body
+                ? hotResponse.body : Buffer.from(encodeAedsFrame(url.pathname === '/api/binary/system/seo' ? 13 : 3, Buffer.alloc(12)));
+            const actualStatus = url.pathname === '/api/binary/article/hot/10.aeds' ? (hotResponse.status ?? 200) : 200;
             const requestId = request.headers['x-fsus-runtime-evidence-request'];
             assert.equal(request.headers['x-fsus-runtime-evidence-secret'], secret);
             observations.set(requestId, {
                 requestId,
                 method: 'GET',
                 path: `${url.pathname}${url.search}`,
-                status: 200,
+                status: actualStatus,
                 payloadDigest: sha256(body),
                 layerSource: 'l0-allow',
                 latencyMs: 1.5,
@@ -172,13 +174,14 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
                 databaseObservationStatus: 'complete',
                 databaseAttributionComplete: true
             });
-            response.writeHead(200, { 'content-type': 'application/octet-stream' });
+            response.writeHead(actualStatus, { 'content-type': hotResponse.contentType ?? 'application/octet-stream',
+                ...(actualStatus === 302 ? { location: '/api/binary/system/seo' } : {}) });
             response.end(body);
             return;
         }
         if (url.pathname === '/api/binary/article/17.aeds')
         {
-            const body = Buffer.from('qualified-article-detail-frame');
+            const body = Buffer.from(encodeAedsFrame(2, Buffer.alloc(12)));
             const requestId = request.headers['x-fsus-runtime-evidence-request'];
             observations.set(requestId, {
                 requestId,
@@ -244,7 +247,10 @@ async function startObservationServer({ redisCommands = [], redisFailureEvents =
             const cursor = url.searchParams.get('cursor');
             const cursorlessDeep = page > 1 && !cursor;
             const paginationDatabaseCommandCount = cursorlessDeep ? 0 : (paginationDatabaseCommandCounts[page] ?? 1);
-            const body = Buffer.from(cursorlessDeep ? 'cursor-required' : `qualified-page-${page}`);
+            const errorPayload = Buffer.alloc(584);
+            errorPayload[0] = 1;
+            errorPayload.writeInt32LE(400, 4);
+            const body = Buffer.from(encodeAedsFrame(cursorlessDeep ? 251 : 1, cursorlessDeep ? errorPayload : Buffer.from(`qualified-page-${page}`)));
             const requestId = request.headers['x-fsus-runtime-evidence-request'];
             observations.set(requestId, {
                 requestId,
@@ -445,7 +451,9 @@ test('request collector binds response bytes to the authenticated server observa
             spec: { method: 'GET', path: '/api/binary/system/seo', subcaseId: 'fixed-ip', parityGroup: 'fixed-ip', headers: {} }
         });
         assert.equal(request.layerSource, 'l0-allow');
-        assert.equal(request.payloadDigest, sha256(Buffer.from('qualified-runtime-payload')));
+        assert.equal(request.payloadDigest, sha256(Buffer.from(encodeAedsFrame(13, Buffer.alloc(12)))));
+        assert.equal(request.responseContentType, 'application/octet-stream');
+        assert.equal(request.responseBodyBase64, Buffer.from(encodeAedsFrame(13, Buffer.alloc(12))).toString('base64'));
         assert.deepEqual(request.redisCommands, []);
         assert.deepEqual(request.redisFailureEvents, [{
             sequence: 1,
@@ -825,6 +833,121 @@ test('pagination command evaluator rejects database work that grows with logical
         positive: true
     });
 });
+
+for (const [name, hotResponse, expected] of [
+    ['HTTP failure', { status: 503 }, /HTTP 503/u],
+    ['redirect', { status: 302 }, /HTTP 302/u],
+    ['foreign valid frame', { body: Buffer.from(encodeAedsFrame(2, Buffer.alloc(12))) }, /wrong AEDS frame type/u],
+    ['malformed frame', { body: Buffer.from('not an AEDS frame') }, /aeds_/u],
+    ['wrong content type', { contentType: 'application/json' }, /Content-Type/u]
+])
+{
+    test(`producer preserves raw observations and first failure for ${name}`, async () =>
+    {
+        const runtime = await startObservationServer({ hotResponse });
+        const directory = temporaryDirectory('runtime-cache-http-failure-');
+        const outputFile = path.join(directory, '.tmp/perf/runtime-cache/receipts/public-hot-read.json');
+        const currentCatalog = catalog(scenario({ warmupRequests: 0 }));
+        let cleaned = false;
+        try
+        {
+            await assert.rejects(() => producePublicHotReadReceipt({
+                repositoryRoot: directory, catalog: currentCatalog, scenario: currentCatalog.scenarios[0],
+                identity: { ...identity, runtime: { ...identity.runtime, kestrelUrl: runtime.baseUrl } },
+                baseUrl: runtime.baseUrl, secret, outputFile, runId: 'http-oracle-failure',
+                collectMemory: async () => memory(), captureSource: () => source,
+                collectCleanup: async () => { cleaned = true; return cleanup(); }
+            }), expected);
+            const receipt = JSON.parse(readFileSync(outputFile, 'utf8'));
+            const raw = JSON.parse(readFileSync(path.join(directory, receipt.rawEvidence.path), 'utf8'));
+            assert.equal(cleaned, true);
+            assert.equal(receipt.status, 'failed');
+            assert.equal(receipt.requests.length, 4);
+            assert.deepEqual(receipt.requests, raw.requests);
+            assert.ok(receipt.requests.every((request) => request.responseBodyBase64 && request.responseContentType));
+            assert.equal(raw.redisCommands.length, 0);
+            assert.equal(raw.databaseCommands.length, 0);
+            assert.deepEqual(receipt.firstFailure, JSON.parse(readFileSync(path.join(path.dirname(outputFile), 'first-failure.json'), 'utf8')));
+            assert.match(validateRuntimeCacheReceipt(receipt, { catalog: currentCatalog, repositoryRoot: directory, expectedSource: source }).join('\n'), expected);
+            if (hotResponse.status === 302) assert.equal(runtime.calls.some((call) => call.path === '/api/binary/system/seo'), false);
+            if (!hotResponse.status) assert.equal(receipt.firstFailure.assertionId, 'http-aeds-response');
+        }
+        finally
+        {
+            await runtime.close();
+        }
+    });
+}
+
+for (const [name, hotResponse, blockRawWrite, failCleanup, failedProof] of [
+    ['bad frame', { body: Buffer.from('bad warmup frame') }, false, false],
+    ['wrong Content-Type', { contentType: 'application/json' }, false, false],
+    ['raw-write failure', { body: Buffer.from('bad warmup frame') }, true, false],
+    ['cleanup failure', { body: Buffer.from('bad warmup frame') }, false, true],
+    ['failed cleanup proof', { body: Buffer.from('bad warmup frame') }, false, false, true]
+])
+{
+    test(`bad warmup ${name} joins workers before original cleanup and never samples`, async () =>
+    {
+        const runtime = await startObservationServer({ hotResponse });
+        const directory = temporaryDirectory('runtime-cache-warmup-failure-');
+        const outputFile = path.join(directory, '.tmp/perf/runtime-cache/receipts/public-hot-read.json');
+        const currentCatalog = catalog(scenario({ warmupRequests: 4, concurrency: 2 }));
+        let cleaned = false;
+        if (blockRawWrite)
+        {
+            mkdirSync(path.join(directory, '.tmp/perf/runtime-cache/raw'), { recursive: true });
+            writeFileSync(path.join(directory, '.tmp/perf/runtime-cache/raw/public-hot-read'), 'block diagnostic write');
+        }
+        try
+        {
+            await assert.rejects(() => producePublicHotReadReceipt({
+                repositoryRoot: directory, catalog: currentCatalog, scenario: currentCatalog.scenarios[0],
+                identity: { ...identity, runtime: { ...identity.runtime, kestrelUrl: runtime.baseUrl } },
+                baseUrl: runtime.baseUrl, secret, outputFile, runId: 'warmup-oracle-failure',
+                collectMemory: async () => { assert.fail('sample memory must not be measured'); }, captureSource: () => source,
+                collectCleanup: async (context) => {
+                    assert.equal(context.runId, 'warmup-oracle-failure');
+                    assert.equal(context.identity.runtime.kestrelUrl, runtime.baseUrl);
+                    assert.equal(runtime.calls.filter((call) => call.path === '/api/binary/article/hot/10.aeds').length, 4);
+                    assert.equal(runtime.calls.filter((call) => call.path.startsWith('/_fsus/testing/runtime-cache/observations/')).length, 4);
+                    assert.ok(runtime.calls.filter((call) => call.requestId).every((call) => call.requestId.includes('-warmup-')));
+                    cleaned = true;
+                    if (failCleanup) throw new Error('original cleanup fixture failure');
+                    return failedProof ? { ...cleanup(), status: 'failed', namespaceRemoved: false, activeKeyedEntries: 1, durableRowsAfter: 1 } : cleanup();
+                }
+            }), (error) => {
+                assert.match(error.message, /warmup HTTP\/AEDS response/u);
+                if (blockRawWrite || failCleanup || failedProof)
+                {
+                    assert.ok(error instanceof AggregateError);
+                    assert.match(error.errors[0].message, /warmup HTTP\/AEDS response/u);
+                    if (failCleanup) assert.match(error.errors[1].message, /original cleanup fixture failure/u);
+                    if (failedProof)
+                    {
+                        assert.match(error.errors[1].message, /original cleanup proof is incomplete/u);
+                        assert.match(error.message, /"durableRowsAfter":1/u);
+                    }
+                }
+                return true;
+            });
+            assert.equal(cleaned, true);
+            assert.equal(existsSync(outputFile), false);
+            if (!blockRawWrite)
+            {
+                const raw = JSON.parse(readFileSync(path.join(directory, '.tmp/perf/runtime-cache/raw/public-hot-read/warmup-oracle-failure.attempt-1.warmup.json'), 'utf8'));
+                assert.equal(raw.requests.length, 4);
+                assert.ok(raw.requests.every((request) => request.id.includes('-warmup-') && request.responseBodyBase64));
+                assert.equal(raw.redisCommands.length, 0);
+                assert.equal(raw.databaseCommands.length, 0);
+            }
+        }
+        finally
+        {
+            await runtime.close();
+        }
+    });
+}
 
 test('first command-budget failure remains authoritative after a later clean run', async () =>
 {

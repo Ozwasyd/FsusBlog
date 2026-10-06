@@ -224,6 +224,19 @@
             "status": "manual"
         },
         {
+            "id": "fact-section-repair-history-preflight-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/fact-section-repair-history-preflight.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/fact-section-repair-history.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-finite-history-refusal-validation-without-production-admission",
+            "status": "manual"
+        },
+        {
             "id": "post-merge-generated-output-repair-dag-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/post-merge-generated-output-repair-dag.schema.json",

@@ -308,6 +308,70 @@ control/bootstrap postconditions remain unavailable, so these commands cannot
 qualify a complete current bootstrap. Existing narrowly supported literal default
 syntax remains a subset compiler capability, not a new typed-expression authority.
 
+The migration-owned `SqliteCurrentSchemaCatalogObserver` is a read-only SQLite
+bootstrap prerequisite, not an approved bootstrap operation. It measures the
+caller's original native `Serializable` transaction: main schema SQL (including
+checks, views and trigger bodies), generated columns, strict/without-rowid flags,
+complete index key/auxiliary facts, foreign keys and violations, and actual
+`sqlite_sequence` watermarks. It preserves declared provider types without
+inventing a second current entity mapping, changes no pragma and commits nothing.
+Attached/temp namespaces, virtual/shadow-table capabilities and incomplete or
+oversized metadata are refused, not omitted. Its limits are the original source
+observer metadata limits. Native filename is only a namespace observation, never
+a database incarnation. The unique current owner still must supply the complete
+legal SQLite recipe projection and expected effects; original native incarnation,
+apply/DAG registration, backup admission and all-three-provider execution gates
+remain required. This component does not admit a legacy database as empty, issue a
+current receipt, or qualify a full bootstrap. Cancellation/physical interrupt and
+cleanup deadlines remain owned by the caller's native session, not this reader.
+
+`SqliteCurrentSchemaEffectObserver` reuses that same native catalog and the single
+`Shared.Algorithms.SqliteImmutableTriggerObserver` decoder. It records the actual
+unconditional `BEFORE UPDATE` or `BEFORE DELETE` event, `RAISE` action and exact
+literal message; it does not equate `ABORT`, `ROLLBACK`, `FAIL` and `IGNORE`, invent
+a two-event trigger, or choose a SQLite policy for the original PostgreSQL guard.
+Conditional/narrow events, extra statements and unsupported bodies fail closed.
+These are measured effects, not an expected current mapping or a bootstrap grant.
+Complete provider recipes, independent sequence semantics and target/DAG admission
+remain with their original owners; an empty observed effect vector is not success.
+
+The same closed decoder also renders explicit native trigger facts, escaping names
+and literal messages without inventing an action or merging update/delete events.
+`ReadAndMatchTriggerFactsAsync` freezes the supplied vector before observation and
+compares every actual name, table, event, action and message, rejecting missing,
+additional, conditional or different effects in the caller's original transaction.
+Duplicate-name admission uses SQLite's ASCII-only case fold; distinct Unicode
+case pairs remain separate native names, without normalizing event/action/message.
+This comparison does not authenticate expected facts: only the complete original
+current provider projection may supply production expectations. The original
+PostgreSQL exception does not by itself choose SQLite `ABORT` versus `ROLLBACK`;
+no such provider policy, independent allocator, full target or step registration
+is granted by this rendering/measurement adapter.
+
+The remote source integration retains the complete catalog/effect SOURCE controls
+from #1761 and #2217 under the bounded #3705 integration and the last source commit
+`c85ceb9004cbafc545b12c8deb7360fa0a4194a7`. The original strict SQLite sequence storage-type checks remain unchanged; the
+shared decoder uses the current `FsusBlog.Shared.Algorithms` owner. Real native
+SOURCE controls exposed an existing catalog defect: SQLite 3.49.1 returns NULL
+from `SUBSTR` of an empty BLOB, so the original bounded text projection lost the
+legitimate empty namespace filename before `RequiredText` could observe it. The
+projection now preserves a zero-byte non-NULL value as empty text before taking
+the original byte prefix. Actual NULL still remains NULL and is refused by the
+original required-field check. The `(MaximumCellCharacters + 1) * 4` byte prefix,
+row/character budgets, embedded-NUL refusal, strict sequence checks, original
+native connection/transaction and namespace admission remain unchanged.
+
+The supplementary combination of these complete production/control sources and
+prebuilt Migration prerequisite dependencies executed all 72 original controls
+and seven additional empty/NULL, Unicode, oversized-byte and NUL controls with
+79 passes and no skips. The original 57 failures before this fix remain recorded;
+no expected result or native fixture was weakened. This source combination does
+not prove the canonical candidate Migration assembly/build or required matrix.
+Those gates and independent full-provider bootstrap/admission remain separate. No task
+service, production receipt or approved SQLite action policy is implied. Rollback
+removes this isolated decoder/effect integration and its controls while preserving
+the existing catalog reader, owned-domain observer and shared PostgreSQL owners.
+
 The same source assembly also contains the original SQLite owned-domain observer.
 It measures the complete catalog on the borrowed original connection/transaction;
 only the sole apply control and its native indexes are excluded after the original

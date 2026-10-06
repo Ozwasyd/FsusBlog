@@ -3949,3 +3949,266 @@ test('repository contract sources, generated release categories, and current bla
     assert.deepEqual(validateRepositorySources(root), []);
     assert.deepEqual(validateRepositoryBlameIgnore(root), []);
 });
+
+const factHistory = await import(new URL('../../tools/governance/fact-section-repair-history.mjs', import.meta.url));
+const historyReadCache = new Map();
+function finiteHistoryFixture()
+{
+    const base = factHistory.releaseFactSectionRepairHistory.frontier;
+    const head = 'b8f3cd2a999e9e6243109d07700c411c9c06c4ed';
+    const original = factHistory.createFactSectionHistoryRepository(root);
+    const repository = Object.fromEntries(['blob', 'commit', 'revisionsBetween', 'changedPaths'].map((method) => [method, (...args) =>
+    {
+        const key = JSON.stringify([method, ...args]);
+        if (!historyReadCache.has(key))
+        {
+            // A synthetic expected head keeps this component fixture runnable
+            // without an unmerged local branch. It is not a producer replay.
+            let value;
+            if (args.includes(head))
+            {
+                if (method === 'revisionsBetween')
+                {
+                    value = [head];
+                }
+                else if (method === 'commit')
+                {
+                    value = { commit: head, parents: [base], tree: 'f'.repeat(40) };
+                }
+                else if (method === 'changedPaths')
+                {
+                    value = [factHistory.releaseFactSectionRepairHistory.document];
+                }
+                else
+                {
+                    const source = original.blob(base, args[1]);
+                    const text = source.bytes.toString('utf8')
+                        .replace('68e30ca22be4f9d0d7a5ee1d7e26cb18a3740246a8f426865b7e59ad8783b79f',
+                            'de814266fc58064e3d824e5c298d9d3e1ba2c4ba8abeb420dfca9071b8e3fd03')
+                        .replace('4e0b8a954eb47e6487270ec9d9ddde416f58f143072463fa9575bbd7d0341e01',
+                            'e79612098d4d345344f7de0bf28011e81e0311194275253f7372071d5ddaeb74');
+                    const bytes = Buffer.from(text);
+                    value = { mode: source.mode, object: createHash('sha1')
+                        .update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), bytes };
+                }
+            }
+            else
+            {
+                value = original[method](...args);
+            }
+            historyReadCache.set(key, value);
+        }
+        const value = historyReadCache.get(key);
+        return method === 'blob' ? { ...value, bytes: Buffer.from(value.bytes) } : structuredClone(value);
+    }]));
+    return { base, head, repository, evidence: {
+        schema: factHistory.factSectionRepairHistorySchema,
+        historyId: factHistory.releaseFactSectionRepairHistory.id,
+        frontierCommit: base,
+        candidateCommit: head
+    } };
+}
+
+test('finite fact-section Git adapter verifies actual objects and retains finite read boundaries', () =>
+{
+    const temporary = mkdtempSync(join(tmpdir(), 'fsusblog-finite-history-native-'));
+    const env = {
+        ...process.env, GIT_NO_REPLACE_OBJECTS: '1', GIT_GRAFT_FILE: '/dev/null',
+        GIT_AUTHOR_NAME: 'Fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+        GIT_COMMITTER_NAME: 'Fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid'
+    };
+    const git = (args, input) => execFileSync('git', ['--no-replace-objects', '-c', 'advice.graftFileDeprecated=false', ...args], {
+        cwd: temporary, env, input, encoding: 'utf8', maxBuffer: 18 * 1024 * 1024
+    }).trim();
+    try
+    {
+        git(['init', '--quiet']);
+        const objects = execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-path', 'objects'], {
+            cwd: root, encoding: 'utf8'
+        }).trim();
+        mkdirSync(join(temporary, '.git/objects/info'), { recursive: true });
+        writeFileSync(join(temporary, '.git/objects/info/alternates'), `${objects}\n`);
+        const registration = factHistory.releaseFactSectionRepairHistory;
+        const repository = factHistory.createFactSectionHistoryRepository(temporary);
+        const fixture = finiteHistoryFixture();
+        const expected = fixture.repository.blob(fixture.head, registration.document);
+        git(['read-tree', registration.frontier]);
+        const object = git(['hash-object', '-w', '--stdin'], expected.bytes);
+        assert.equal(object, registration.expected.object);
+        git(['update-index', '--cacheinfo', `100644,${object},${registration.document}`]);
+        const tree = git(['write-tree']);
+        const head = git(['commit-tree', tree, '-p', registration.frontier,
+            '-m', 'fix(governance): bind finite history fixture']);
+        const result = factHistory.verifyFactSectionRepairHistoryPreflight({
+            base: registration.frontier, head, repository,
+            evidence: { ...fixture.evidence, candidateCommit: head }
+        });
+        assert.equal(result.candidateCommit, head);
+        assert.equal(result.status, 'preflight-only');
+        assert.equal(result.qualification, false);
+        assert.throws(() => repository.commit(head.slice(0, 8)), /complete revision/u);
+        assert.throws(() => repository.blob(head, '../docs/releases/release-identity.md'), /exact repository file path/u);
+        const child = join(temporary, 'child');
+        mkdirSync(child);
+        assert.throws(() => factHistory.createFactSectionHistoryRepository(child), /canonical Git checkout root/u);
+
+        let excessive = registration.frontier;
+        for (let index = 0; index < 129; index += 1)
+        {
+            excessive = git(['commit-tree', tree, '-p', excessive,
+                '-m', `fix(governance): bind bounded fixture ${index}`]);
+        }
+        assert.throws(() => repository.revisionsBetween(registration.frontier, excessive), /finite replay bound/u);
+        const oversized = git(['hash-object', '-w', '--stdin'], Buffer.alloc(16 * 1024 * 1024 + 1, 65));
+        git(['update-index', '--cacheinfo', `100644,${oversized},${registration.document}`]);
+        const oversizedHead = git(['commit-tree', git(['write-tree']), '-p', registration.frontier,
+            '-m', 'fix(governance): bind oversized fixture']);
+        assert.throws(() => repository.blob(oversizedHead, registration.document), /blob exceeds its byte bound/u);
+        git(['update-ref', `refs/replace/${head}`, oversizedHead]);
+        mkdirSync(join(temporary, '.git/info'), { recursive: true });
+        writeFileSync(join(temporary, '.git/info/grafts'), `${head} ${excessive}\n`);
+        assert.deepEqual(repository.commit(head).parents, [registration.frontier]);
+        assert.equal(repository.blob(head, registration.document).object, registration.expected.object);
+        assert.equal(factHistory.verifyFactSectionRepairHistoryPreflight({
+            base: registration.frontier, head, repository,
+            evidence: { ...fixture.evidence, candidateCommit: head }
+        }).qualification, false);
+        for (const mode of ['100755', '120000'])
+        {
+            git(['update-index', '--cacheinfo', `${mode},${object},${registration.document}`]);
+            const modeHead = git(['commit-tree', git(['write-tree']), '-p', registration.frontier,
+                '-m', 'fix(governance): bind nonregular fixture']);
+            assert.throws(() => repository.blob(modeHead, registration.document), /non-executable regular blob/u);
+        }
+        writeFileSync(join(temporary, '.git/shallow'), `${registration.anchor}\n`);
+        assert.throws(() => factHistory.createFactSectionHistoryRepository(temporary), /shallow history/u);
+    }
+    finally
+    {
+        rmSync(temporary, { recursive: true, force: true });
+    }
+});
+
+test('finite fact-section history preflight binds original two-event ancestry without conferring trust', () =>
+{
+    const schema = JSON.parse(readFileSync(resolve(root, 'config/schemas/fact-section-repair-history-preflight.schema.json'), 'utf8'));
+    assert.equal(schema.$id, factHistory.factSectionRepairHistorySchema);
+    assert.equal(schema.additionalProperties, false);
+    assert.deepEqual(schema.required, ['schema', 'historyId', 'frontierCommit', 'candidateCommit']);
+    const result = factHistory.verifyFactSectionRepairHistoryPreflight(finiteHistoryFixture());
+    assert.equal(result.status, 'preflight-only');
+    assert.equal(result.qualification, false);
+    assert.equal(result.graphCount, 22);
+    assert.match(result.requiredNextStage, /fresh current-source canonical execution/u);
+});
+
+for (const [label, change] of [
+    ['unknown schema', (fixture) =>
+    {
+        fixture.evidence.schema = 'fsusblog.generated-output-binding.v1';
+    }],
+    ['unregistered history', (fixture) =>
+    {
+        fixture.evidence.historyId = 'arbitrary-history';
+    }],
+    ['candidate chooses head', (fixture) =>
+    {
+        fixture.evidence.candidateCommit = '0'.repeat(40);
+    }],
+    ['candidate chooses base', (fixture) =>
+    {
+        fixture.evidence.frontierCommit = '0'.repeat(40);
+    }],
+    ['future base without governed suffix', (fixture) =>
+    {
+        fixture.base = fixture.head;
+    }],
+    ['self-sealed receipt is not execution authority', (fixture) =>
+    {
+        fixture.evidence.receipt = { status: 'ok' };
+    }],
+    ['candidate supplied repository override', (fixture) =>
+    {
+        fixture.evidence.repository = {};
+    }],
+    ['candidate supplied producer override', (fixture) =>
+    {
+        fixture.evidence.command = 'node forged.mjs';
+    }],
+    ['candidate supplied qualification', (fixture) =>
+    {
+        fixture.evidence.qualification = true;
+    }]
+])
+{
+    test(`finite fact-section history rejects ${label}`, () =>
+    {
+        const fixture = finiteHistoryFixture();
+        change(fixture);
+        assert.throws(() => factHistory.verifyFactSectionRepairHistoryPreflight(fixture), /fact-section repair history/u);
+    });
+}
+
+for (const [label, method, mutate] of [
+    ['missing side-parent node', 'revisionsBetween', (value, args) => args[0] === factHistory.releaseFactSectionRepairHistory.anchor ? value.slice(1) : value],
+    ['duplicated history node', 'revisionsBetween', (value, args) => args[0] === factHistory.releaseFactSectionRepairHistory.anchor ? [value[0], ...value.slice(0, -1)] : value],
+    ['history reordering', 'revisionsBetween', (value, args) => args[0] === factHistory.releaseFactSectionRepairHistory.anchor ? value.toReversed() : value],
+    ['swapped merge parent', 'commit', (value) => ({ ...value, parents: value.parents.toReversed() })],
+    ['unreviewed generator epoch tree', 'commit', (value, args) => args[0] === '3943bbc95711fa968e85eb411ae67644f793242b' ? { ...value, tree: '0'.repeat(40) } : value],
+    ['synthetic commit identity', 'commit', (value) => ({ ...value, commit: '0'.repeat(40) })],
+    ['executable source mode', 'blob', (value) => ({ ...value, mode: '100755' })],
+    ['symlink source mode', 'blob', (value) => ({ ...value, mode: '120000' })],
+    ['bytes disagree with Git object', 'blob', (value) => ({ ...value, bytes: Buffer.concat([value.bytes, Buffer.from('forged')]) })],
+    ['candidate mutates trusted policy', 'changedPaths', (value) => [...value, 'tools/governance/change-contract.mjs']],
+    ['candidate mutates source', 'changedPaths', (value) => [...value, 'tools/test-matrix/required-evidence-catalog.mjs']],
+    ['candidate edits unrelated prose document', 'changedPaths', (value) => [...value, 'docs/testing.md']],
+    ['candidate adds unregistered naming metadata', 'changedPaths', (value) => [...value, 'artifacts/change-contract/unknown.json']],
+    ['candidate omits the entire drift', 'changedPaths', () => []],
+    ['repair document restored to stale bytes', 'blob', (value, args) => args[0] === 'b8f3cd2a999e9e6243109d07700c411c9c06c4ed' ? finiteHistoryFixture().repository.blob(factHistory.releaseFactSectionRepairHistory.frontier, args[1]) : value]
+])
+{
+    test(`finite fact-section history rejects ${label}`, () =>
+    {
+        const fixture = finiteHistoryFixture();
+        const original = fixture.repository[method];
+        fixture.repository[method] = (...args) => mutate(original(...args), args);
+        assert.throws(() => factHistory.verifyFactSectionRepairHistoryPreflight(fixture), /fact-section repair history/u);
+    });
+}
+
+for (const [label, mutate] of [
+    ['transient prose change reverted before head', (text) => `${text}\nTransient unrelated prose\n`],
+    ['transient partial digest repair', (text) => text.replace(
+        '68e30ca22be4f9d0d7a5ee1d7e26cb18a3740246a8f426865b7e59ad8783b79f',
+        'de814266fc58064e3d824e5c298d9d3e1ba2c4ba8abeb420dfca9071b8e3fd03')],
+    ['transient generated marker replacement', (text) => text.replace('release.aggregate-contract', 'release.forged-contract')]
+])
+{
+    test(`finite fact-section history rejects ${label}`, () =>
+    {
+        const fixture = finiteHistoryFixture();
+        const original = fixture.repository;
+        const intermediate = 'e'.repeat(40);
+        fixture.repository = {
+            ...original,
+            revisionsBetween: (base, head) => base === fixture.base ? [intermediate, head] : original.revisionsBetween(base, head),
+            commit: (revision) => revision === intermediate
+                ? { commit: revision, parents: [fixture.base], tree: 'e'.repeat(40) }
+                : revision === fixture.head ? { ...original.commit(revision), parents: [intermediate] } : original.commit(revision),
+            changedPaths: (base, head) => [base, head].includes(intermediate)
+                ? [factHistory.releaseFactSectionRepairHistory.document] : original.changedPaths(base, head),
+            blob: (revision, file) =>
+            {
+                if (revision !== intermediate)
+                {
+                    return original.blob(revision, file);
+                }
+                const source = original.blob(fixture.base, file);
+                const bytes = Buffer.from(mutate(source.bytes.toString('utf8')));
+                return { mode: source.mode, object: createHash('sha1')
+                    .update(`blob ${bytes.length}\0`).update(bytes).digest('hex'), bytes };
+            }
+        };
+        assert.throws(() => factHistory.verifyFactSectionRepairHistoryPreflight(fixture), /intermediate prose, range or partial-drift mutation/u);
+    });
+}
