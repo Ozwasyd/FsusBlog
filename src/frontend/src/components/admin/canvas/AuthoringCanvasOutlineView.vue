@@ -1,36 +1,3 @@
-<script setup lang="ts">
-import { useI18nText } from '@/composables/useI18nText';
-import { ElButton } from '@ozwasyd/element-plus';
-import type { OutlineItem } from '@/composables/useAuthoringCanvas';
-
-defineProps<{
-    items: OutlineItem[];
-}>();
-
-defineEmits<{
-    (e: 'select-item', item: OutlineItem): void;
-    (e: 'delete-item', item: OutlineItem): void;
-    (e: 'open-source', nodeId: string): void;
-}>();
-
-
-function isRef(item: OutlineItem): boolean {
-    return item.type === 'article-reference' || item.type === 'heading-reference' || item.type === 'block-reference';
-}
-const { t } = useI18nText();
-function statusLabel(status: string): string {
-    switch (status) {
-        case 'current': return t('admin.canvas.current');
-        case 'pinned-current': return t('admin.canvas.pinned');
-        case 'target-updated': case 'pinned-stale': case 'source-stale': return t('admin.canvas.stale');
-        case 'permission-denied': return t('admin.canvas.denied');
-        case 'missing': case 'deleted': case 'archived': case 'heading-missing': case 'block-missing': return t('admin.canvas.missing');
-        case 'resolving': return t('common.loading.status');
-        default: return t('admin.canvas.unavailable');
-    }
-}
-</script>
-
 <template>
     <section
         class="canvas-outline-view"
@@ -42,7 +9,10 @@ function statusLabel(status: string): string {
             <span class="outline-count">{{ items.length }}</span>
         </div>
 
-        <ul class="outline-list" role="list">
+        <ul
+            class="outline-list"
+            role="list"
+        >
             <li
                 v-for="item in items"
                 :key="item.id"
@@ -61,10 +31,16 @@ function statusLabel(status: string): string {
             >
                 <div class="item-main">
                     <span class="item-title">{{ item.title }}</span>
-                    <span v-if="item.status" class="item-status-chip">{{ statusLabel(item.status) }}</span>
+                    <span
+                        v-if="item.status"
+                        class="item-status-chip"
+                    >{{ statusLabel(item.status) }}</span>
                 </div>
 
-                <div v-if="item.snippet" class="item-snippet">
+                <div
+                    v-if="item.snippet"
+                    class="item-snippet"
+                >
                     {{ item.snippet }}
                 </div>
 
@@ -91,12 +67,54 @@ function statusLabel(status: string): string {
                 </div>
             </li>
 
-            <li v-if="items.length === 0" class="outline-empty">
+            <li
+                v-if="items.length === 0"
+                class="outline-empty"
+            >
                 {{ t('admin.canvas.empty') }}
             </li>
         </ul>
     </section>
 </template>
+
+<script setup lang="ts">
+import { ElButton } from '@ozwasyd/element-plus';
+
+import type { OutlineItem } from '@/composables/useAuthoringCanvas';
+import { useI18nText } from '@/composables/useI18nText';
+defineProps<{
+    items: OutlineItem[];
+}>();
+defineEmits<{
+    (e: 'select-item', item: OutlineItem): void;
+    (e: 'delete-item', item: OutlineItem): void;
+    (e: 'open-source', nodeId: string): void;
+}>();
+function isRef(item: OutlineItem): boolean
+{
+    return item.type === 'article-reference' || item.type === 'heading-reference' || item.type === 'block-reference';
+}
+const { t } = useI18nText();
+function statusLabel(status: string): string
+{
+    switch (status)
+    {
+        case 'current': return t('admin.canvas.current');
+        case 'pinned-current': return t('admin.canvas.pinned');
+        case 'target-updated':
+        case 'pinned-stale':
+        case 'source-stale': return t('admin.canvas.stale');
+        case 'permission-denied': return t('admin.canvas.denied');
+        case 'missing':
+        case 'deleted':
+        case 'archived':
+        case 'heading-missing':
+        case 'block-missing': return t('admin.canvas.missing');
+        case 'resolving': return t('common.loading.status');
+        default: return t('admin.canvas.unavailable');
+    }
+}
+</script>
 
 
 

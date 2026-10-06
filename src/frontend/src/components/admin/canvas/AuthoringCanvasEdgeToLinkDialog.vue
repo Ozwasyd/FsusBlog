@@ -1,67 +1,84 @@
+<template>
+    <FsusDialog
+        :model-value="visible"
+        :title="t('admin.canvas.linkTitle')"
+        :width="fsusDialogWidths.compact"
+        @update:model-value="!$event && $emit('cancel')"
+    >
+
+        <div
+            v-if="!plan?.valid"
+            class="dialog-error-banner"
+        >
+            {{ t('admin.canvas.unavailable') }}
+        </div>
+
+        <div
+            v-else
+            class="dialog-plan-body"
+        >
+
+
+            <div class="plan-details">
+                <div class="plan-row">
+                    <span class="row-label">{{ t('admin.canvas.reference') }}</span>
+                    <span class="row-value">{{ plan.sourceNodeId }}</span>
+                </div>
+                <div class="plan-row">
+                    <span class="row-label">{{ t('admin.canvas.article') }}</span>
+                    <span class="row-value">{{ plan.targetTitle || `${t('admin.canvas.article')} #${plan.targetArticleId}` }}</span>
+                </div>
+                <div class="plan-row">
+                    <span class="row-label">{{ t('admin.canvas.linkTitle') }}</span>
+                    <code class="markdown-preview">{{ plan.generatedMarkdownLink }}</code>
+                </div>
+            </div>
+        </div>
+
+        <div class="dialog-actions">
+            <ElButton
+                native-type="button"
+                class="btn secondary"
+                @click="$emit('cancel')"
+            >{{ t('common.actions.cancel') }}</ElButton>
+            <ElButton
+                native-type="button"
+                class="btn primary"
+                :disabled="!plan?.valid || !canCommit"
+                type="primary"
+                @click="confirmConversion"
+            >
+                {{ t(canCommit ? 'common.actions.confirm' : 'admin.canvas.unavailable') }}
+            </ElButton>
+        </div>
+    </FsusDialog>
+</template>
+
 <script setup lang="ts">
 import { ElButton } from '@ozwasyd/element-plus';
-import { useI18nText } from '@/composables/useI18nText';
+
 import FsusDialog from '@/components/ui/FsusDialog.vue';
+import { useI18nText } from '@/composables/useI18nText';
 import { fsusDialogWidths } from '@/fsusui/dialog';
 import type { EdgeToLinkPlan } from '@/services/authoringCanvasEdgeToLink';
-
 const props = defineProps<{
     visible: boolean;
     plan: EdgeToLinkPlan | null;
     canCommit?: boolean;
 }>();
-
 const emit = defineEmits<{
     (e: 'cancel'): void;
     (e: 'confirm', plan: EdgeToLinkPlan): void;
 }>();
 const { t } = useI18nText();
-function confirmConversion() {
-    if (props.plan?.valid && props.canCommit) emit('confirm', props.plan);
+function confirmConversion()
+{
+    if (props.plan?.valid && props.canCommit)
+    {
+        emit('confirm', props.plan);
+    }
 }
 </script>
-
-<template>
-    <FsusDialog :model-value="visible" :title="t('admin.canvas.linkTitle')" :width="fsusDialogWidths.compact"
-        @update:model-value="!$event && $emit('cancel')">
-
-            <div v-if="!plan?.valid" class="dialog-error-banner">
-                {{ t('admin.canvas.unavailable') }}
-            </div>
-
-            <div v-else class="dialog-plan-body">
-
-
-                <div class="plan-details">
-                    <div class="plan-row">
-                        <span class="row-label">{{ t('admin.canvas.reference') }}</span>
-                        <span class="row-value">{{ plan.sourceNodeId }}</span>
-                    </div>
-                    <div class="plan-row">
-                        <span class="row-label">{{ t('admin.canvas.article') }}</span>
-                        <span class="row-value">{{ plan.targetTitle || `${t('admin.canvas.article')} #${plan.targetArticleId}` }}</span>
-                    </div>
-                    <div class="plan-row">
-                        <span class="row-label">{{ t('admin.canvas.linkTitle') }}</span>
-                        <code class="markdown-preview">{{ plan.generatedMarkdownLink }}</code>
-                    </div>
-                </div>
-            </div>
-
-            <div class="dialog-actions">
-                <ElButton native-type="button" class="btn secondary" @click="$emit('cancel')">{{ t('common.actions.cancel') }}</ElButton>
-                <ElButton
-                    native-type="button"
-                    class="btn primary"
-                    :disabled="!plan?.valid || !canCommit"
-                    type="primary"
-                    @click="confirmConversion"
-                >
-                    {{ t(canCommit ? 'common.actions.confirm' : 'admin.canvas.unavailable') }}
-                </ElButton>
-            </div>
-    </FsusDialog>
-</template>
 
 
 

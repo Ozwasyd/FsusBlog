@@ -1,39 +1,9 @@
-<script setup lang="ts">
-import { useI18nText } from '@/composables/useI18nText';
-import { ElButton } from '@ozwasyd/element-plus';
-defineProps<{
-    zoom: number;
-    disabled?: boolean;
-    canUndo: boolean;
-    canRedo: boolean;
-    hasSelection: boolean;
-    canConnect?: boolean;
-    canConvert?: boolean;
-    viewMode: 'canvas' | 'outline';
-}>();
-
-defineEmits<{
-    (e: 'connect-visual'): void;
-    (e: 'connect-reference'): void;
-    (e: 'convert-selected'): void;
-    (e: 'add-note'): void;
-    (e: 'add-reference'): void;
-    (e: 'add-frame'): void;
-    (e: 'undo'): void;
-    (e: 'redo'): void;
-    (e: 'delete-selected'): void;
-    (e: 'zoom-in'): void;
-    (e: 'zoom-out'): void;
-    (e: 'reset-zoom'): void;
-    (e: 'toggle-view-mode'): void;
-    (e: 'export-package'): void;
-    (e: 'import-package'): void;
-}>();
-const { t } = useI18nText();
-</script>
-
 <template>
-    <header class="canvas-toolbar" role="toolbar" :aria-label="t('admin.canvas.toolbar')">
+    <header
+        class="canvas-toolbar"
+        role="toolbar"
+        :aria-label="t('admin.canvas.toolbar')"
+    >
         <div class="toolbar-group">
             <ElButton
                 native-type="button"
@@ -68,11 +38,24 @@ const { t } = useI18nText();
         </div>
 
         <div class="toolbar-group">
-            <ElButton :disabled="disabled || !canConnect" @click="$emit('connect-visual')">{{ t('admin.canvas.connectVisual') }}</ElButton>
-            <ElButton :disabled="disabled || !canConnect" @click="$emit('connect-reference')">{{ t('admin.canvas.connectReference') }}</ElButton>
-            <ElButton :disabled="disabled || !canConvert" @click="$emit('convert-selected')">{{ t('admin.canvas.linkTitle') }}</ElButton>
+            <ElButton
+                :disabled="disabled || !canConnect"
+                @click="$emit('connect-visual')"
+            >{{ t('admin.canvas.connectVisual') }}</ElButton>
+            <ElButton
+                :disabled="disabled || !canConnect"
+                @click="$emit('connect-reference')"
+            >{{ t('admin.canvas.connectReference') }}</ElButton>
+            <ElButton
+                :disabled="disabled || !canConvert"
+                @click="$emit('convert-selected')"
+            >{{ t('admin.canvas.linkTitle') }}</ElButton>
         </div>
-        <div class="toolbar-divider" role="separator" aria-orientation="vertical"></div>
+        <div
+            class="toolbar-divider"
+            role="separator"
+            aria-orientation="vertical"
+        ></div>
 
         <div class="toolbar-group">
             <ElButton
@@ -97,7 +80,9 @@ const { t } = useI18nText();
             </ElButton>
             <ElButton
                 native-type="button"
-                class="toolbar-btn" type="danger" text
+                class="toolbar-btn"
+                type="danger"
+                text
                 :disabled="disabled || !hasSelection"
                 :title="t('common.actions.delete')"
                 :aria-label="t('common.actions.delete')"
@@ -107,7 +92,11 @@ const { t } = useI18nText();
             </ElButton>
         </div>
 
-        <div class="toolbar-divider" role="separator" aria-orientation="vertical"></div>
+        <div
+            class="toolbar-divider"
+            role="separator"
+            aria-orientation="vertical"
+        ></div>
 
         <div class="toolbar-group">
             <ElButton
@@ -120,7 +109,10 @@ const { t } = useI18nText();
             >
                 -
             </ElButton>
-            <span class="zoom-indicator" aria-live="polite">{{ Math.round(zoom * 100) }}%</span>
+            <span
+                class="zoom-indicator"
+                aria-live="polite"
+            >{{ Math.round(zoom * 100) }}%</span>
             <ElButton
                 native-type="button"
                 class="toolbar-btn"
@@ -143,7 +135,11 @@ const { t } = useI18nText();
             </ElButton>
         </div>
 
-        <div class="toolbar-divider" role="separator" aria-orientation="vertical"></div>
+        <div
+            class="toolbar-divider"
+            role="separator"
+            aria-orientation="vertical"
+        ></div>
 
         <div class="toolbar-group right-group">
             <ElButton
@@ -179,6 +175,40 @@ const { t } = useI18nText();
         </div>
     </header>
 </template>
+
+<script setup lang="ts">
+import { ElButton } from '@ozwasyd/element-plus';
+
+import { useI18nText } from '@/composables/useI18nText';
+defineProps<{
+    zoom: number;
+    disabled?: boolean;
+    canUndo: boolean;
+    canRedo: boolean;
+    hasSelection: boolean;
+    canConnect?: boolean;
+    canConvert?: boolean;
+    viewMode: 'canvas' | 'outline';
+}>();
+defineEmits<{
+    (e: 'connect-visual'): void;
+    (e: 'connect-reference'): void;
+    (e: 'convert-selected'): void;
+    (e: 'add-note'): void;
+    (e: 'add-reference'): void;
+    (e: 'add-frame'): void;
+    (e: 'undo'): void;
+    (e: 'redo'): void;
+    (e: 'delete-selected'): void;
+    (e: 'zoom-in'): void;
+    (e: 'zoom-out'): void;
+    (e: 'reset-zoom'): void;
+    (e: 'toggle-view-mode'): void;
+    (e: 'export-package'): void;
+    (e: 'import-package'): void;
+}>();
+const { t } = useI18nText();
+</script>
 
 
 

@@ -1,6 +1,5 @@
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from '@/adapters/binary/articleAdapter';
 import { mapPublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader';
-import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
 import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapRecoveryKeyCreateResponseFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter';
 import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
 import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentChildCursorFromPayload, mapCommentCreateResultFromPayload, mapCommentCursorFromPodPayload, mapCommentPermalinkContextFromPayload, mapCommentPolicySnapshotFromPayload, mapCommentTreeRootCursorFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
@@ -16,16 +15,17 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
+import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
 import { FrameType } from '@wasm/protocol/frame';
-
 export type BinaryFrameDecoder = (payload: Uint8Array) => unknown;
-export type BinaryFrameDecoderRegistration = readonly [FrameType, BinaryFrameDecoder];
-
+export type BinaryFrameDecoderRegistration = readonly [
+    FrameType,
+    BinaryFrameDecoder
+];
 const knownFrameTypes = new Set<number>(Object.values(FrameType));
-
 // This is the protocol-facing response catalog. Keep it independent from the
 // decoder registrations so registry validation can detect missing mappings.
 export const binaryFrameDecoderFrameTypes = Object.freeze([
@@ -168,11 +168,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.EmptySuccess,
     FrameType.MutationId
 ] as const satisfies readonly FrameType[]);
-
-export function createBinaryFrameDecoderRegistry(
-    registrations: readonly BinaryFrameDecoderRegistration[],
-    expectedFrameTypes?: readonly FrameType[]
-): Readonly<Record<number, BinaryFrameDecoder>>
+export function createBinaryFrameDecoderRegistry(registrations: readonly BinaryFrameDecoderRegistration[], expectedFrameTypes?: readonly FrameType[]): Readonly<Record<number, BinaryFrameDecoder>>
 {
     const registry: Record<number, BinaryFrameDecoder> = Object.create(null) as Record<number, BinaryFrameDecoder>;
     for (const [frameType, decoder] of registrations)
@@ -223,7 +219,6 @@ export function createBinaryFrameDecoderRegistry(
     }
     return Object.freeze(registry);
 }
-
 export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.ArticleList, mapArticlePageFromPodPayload],
     [FrameType.ArticleDetail, mapArticleDetailFromPodPayload],
@@ -364,17 +359,8 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.ArticleCanvasLinkReceipt, decodeArticleCanvasLinkReceipt],
     [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
-
-export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(
-    binaryFrameDecoderRegistrations,
-    binaryFrameDecoderFrameTypes
-);
-
-export function decodeBinaryFramePayload(
-    frameType: FrameType,
-    payload: Uint8Array,
-    accessProfile?: AedsAccessProfileId
-): unknown
+export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(binaryFrameDecoderRegistrations, binaryFrameDecoderFrameTypes);
+export function decodeBinaryFramePayload(frameType: FrameType, payload: Uint8Array, accessProfile?: AedsAccessProfileId): unknown
 {
     if (accessProfile === AEDS_ACCESS_PROFILE.publicArticleListCard)
     {
@@ -390,18 +376,12 @@ export function decodeBinaryFramePayload(
     }
     return decodeBinaryFramePayloadWithRegistry(binaryFrameDecoderRegistry, frameType, payload);
 }
-
-export function decodeBinaryFramePayloadWithRegistry(
-    registry: Readonly<Record<number, BinaryFrameDecoder>>,
-    frameType: FrameType,
-    payload: Uint8Array
-): unknown
+export function decodeBinaryFramePayloadWithRegistry(registry: Readonly<Record<number, BinaryFrameDecoder>>, frameType: FrameType, payload: Uint8Array): unknown
 {
     const mapper = registry[frameType];
     if (!mapper)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, `frame_type_unsupported:${frameType}`);
     }
-
     return mapper(payload);
 }
