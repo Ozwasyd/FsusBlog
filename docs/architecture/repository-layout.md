@@ -63,6 +63,14 @@ its history or payload. The persistent journal is part of the versioned current
 physical closure, not a terminal cleanup exception; complete chain/resume remain
 offline-only. Native qualification is still separate pending work.
 
+Within Migration, `PgLegacyNonArticlePreparation` reuses the original account-subject
+hasher and the bootstrap compiler's entity-default interpretation. Their callers do
+not own another hash algorithm or SQL-default policy. Article preservation binds
+its target predicate and the actual retained current-schema target separately in
+its operation identity, following the existing native bootstrap owner. Compiling
+these original sources does not qualify native preservation, recovery or bootstrap
+acceptance.
+
 ## Configuration ownership
 
 Shared runtime, test, and observability configuration belongs in `config/`; only the .NET framework tool manifest uses `.config/`. Project-specific `appsettings*.json` and `Properties/launchSettings.json` stay with their owning project, so Docker Compose launch profiles live in `ops/docker/Properties/`. Root `configs/`, ownerless `Properties/`, and scattered JSON configuration are rejected by `tools/configuration/check-configuration-layout.mjs`. See [`docs/configuration-layout.md`](../configuration-layout.md) for the complete ownership table.

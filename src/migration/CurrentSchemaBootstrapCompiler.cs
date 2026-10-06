@@ -279,7 +279,7 @@ internal static partial class CurrentSchemaBootstrapCompiler
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) ? value
             : throw new InvalidOperationException("current_schema_bootstrap_default_capability_unavailable");
 
-    private static string EntityDefaultValue(SchemaColumnModel column)
+    internal static string EntityDefaultValue(SchemaColumnModel column)
     {
         string value = column.DefaultValue!;
         // SugarColumn string defaults are literal values, not a second list of
