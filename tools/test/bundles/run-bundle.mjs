@@ -35,6 +35,7 @@ const {assertCorrectnessAttemptExecutionOwner, validateCorrectnessAttemptMigrati
 const {buildLocalStaticManifest, planLocalStaticCommands} = await import(new URL('../local-static-governance.mjs', import.meta.url));
 const {readMeasurementNoiseAuthoritySequence, validateMeasurementNoiseReceipt} = await import(new URL('../measurement-noise-envelope.mjs', import.meta.url));
 const {publishMigrationBuildReady} = await import(new URL('../migration-build-binding.mjs', import.meta.url));
+const {migrationAssemblyPendingPaths} = await import(new URL('../../db/generate-migration-assembly-receipt.mjs', import.meta.url));
 const {migrationExecutionPaths, readMigrationExecution} = await import(new URL('../run-migration-tests.mjs', import.meta.url));
 const {validateShardSummaryArtifacts} = await import(new URL('../run-backend-production-shards.mjs', import.meta.url));
 
@@ -2306,6 +2307,13 @@ async function runBackendTests()
     const migrationExecution = await readMigrationExecution(migrationContext);
     register({ id: migrationStep.id, members: ['backend-unit', 'backend-fast'] }, migrationResult,
         migrationExecution.summary.sourceCaseIds, [migrationPaths.directory]);
+    const assemblyPending = migrationAssemblyPendingPaths({ ...migrationContext, producer: 'backend-tests',
+        attemptId: String(process.env.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID ?? '') });
+    await executeStep(commandStep('migration-assembly-verification',
+        'tools/build-with-data-env.sh node tools/db/generate-migration-assembly-receipt.mjs --write', [], {
+            artifacts: [assemblyPending.directory],
+            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+        }));
     const testStep = commandStep('dotnet-production-union',
         'FSUSBLOG_BACKEND_CPU_BUDGET="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/run-backend-production-shards.mjs', [], {
             resources: {
