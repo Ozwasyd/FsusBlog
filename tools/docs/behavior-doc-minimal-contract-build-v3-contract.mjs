@@ -132,6 +132,12 @@ export function validateMinimalContractBuildReceipt(receipt, {
     {
         throw new Error('minimal contract build source/worktree identity mismatch');
     }
+    if (typeof receipt.runId !== 'string' || receipt.runId.length === 0
+    || !/^[a-f0-9]{40}$/u.test(receipt.sourceCommit ?? '')
+    || !/^[a-f0-9]{64}$/u.test(receipt.worktreeFingerprint ?? ''))
+    {
+        throw new Error('minimal contract build run/source identity is incomplete');
+    }
     if (!/^[a-f0-9]{64}$/u.test(receipt.buildKey ?? '')
     || receipt.buildRoot !== `.tmp/behavior-doc-contract-builds/${receipt.buildKey}`)
     {
