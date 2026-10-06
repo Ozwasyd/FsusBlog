@@ -18,6 +18,121 @@ const seal = (value) =>
 const fixture = () => createRuntimeRoleMinimalV3Fixture('v3-contract-test', identity);
 const options = { expectedRunId: 'v3-contract-test', expectedSourceIdentity: identity };
 
+test('pure receipt contracts reject incomplete identities and non-integer counters without expectations', () =>
+{
+    const receipt = createRuntimeRoleStaticV3Fixture('v3-contract-test', identity, { repositoryRoot: root });
+    const before = structuredClone(receipt);
+    assert.equal(validateBehaviorDocStaticAdmissionReceipt(receipt), receipt);
+    assert.equal(validateMinimalContractBuildReceipt(receipt.minimalContractBuild), receipt.minimalContractBuild);
+    assert.deepEqual(receipt, before);
+    const mutations = [
+        (value) => { value.run.id = ''; },
+        (value) => { value.source.commit = 'bad'; },
+        (value) => { value.source.worktreeFingerprint = ''; },
+        (value) => { value.worktree.root = ''; },
+        ...['node', 'dotnet', 'platform', 'architecture'].map((field) => (value) => { value.toolchain[field] = ''; }),
+        (value) => { value.implementationOwner.bindingCount = 1.5; },
+        (value) => { value.generated.documentCount = -1; },
+        (value) => { value.prose.verifiedClaimCount = 0.5; },
+        (value) => { value.mutationFixtures.caseCount = 1.5; },
+        (value) => { value.durationMs = -1; }
+    ];
+    for (const mutate of mutations)
+    {
+        const value = structuredClone(receipt);
+        mutate(value);
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(seal(value)));
+    }
+    for (const [field, invalidValues] of [
+        ['runId', ['', null, 1, {}]],
+        ['sourceCommit', ['', null, 'bad', 'a'.repeat(39), 'a'.repeat(41), 'A'.repeat(40), 'g'.repeat(40)]],
+        ['worktreeFingerprint', ['', null, 'bad', 'b'.repeat(63), 'b'.repeat(65), 'B'.repeat(64), 'g'.repeat(64)]]
+    ])
+    {
+        for (const invalidValue of invalidValues)
+        {
+            const value = structuredClone(receipt.minimalContractBuild);
+            value[field] = invalidValue;
+            // Keep child bindings consistent so they cannot mask the intrinsic refusal.
+            if (field !== 'runId')
+            {
+                value.artifacts['runtime-role-observation'].buildReceipt[field] = invalidValue;
+            }
+            const sealed = seal(value);
+            const invalidBefore = structuredClone(sealed);
+            assert.throws(() => validateMinimalContractBuildReceipt(sealed),
+                /run\/source identity is incomplete/u, `${field}: ${JSON.stringify(invalidValue)}`);
+            assert.deepEqual(sealed, invalidBefore);
+        }
+    }
+});
+
+test('intrinsic identity checks preserve explicit expected identity refusal order', () =>
+{
+    const receipt = fixture();
+    assert.throws(() => validateMinimalContractBuildReceipt(receipt, { expectedRunId: 'another-run' }),
+        /run id mismatch/u);
+    for (const source of [
+        { ...identity, sourceCommit: 'c'.repeat(40) },
+        { ...identity, worktreeFingerprint: 'd'.repeat(64) }
+    ])
+    {
+        assert.throws(() => validateMinimalContractBuildReceipt(receipt, { expectedSourceIdentity: source }),
+            /source\/worktree identity mismatch/u);
+    }
+    const emptyRun = seal({ ...receipt, runId: '' });
+    assert.throws(() => validateMinimalContractBuildReceipt(emptyRun, options), /run id mismatch/u);
+    const emptySource = structuredClone(receipt);
+    emptySource.sourceCommit = '';
+    emptySource.artifacts['runtime-role-observation'].buildReceipt.sourceCommit = '';
+    assert.throws(() => validateMinimalContractBuildReceipt(seal(emptySource), options),
+        /source\/worktree identity mismatch/u);
+});
+
+test('pure admission validation requires independent artifact reads when requested', () =>
+{
+    const receipt = createRuntimeRoleStaticV3Fixture('v3-contract-test', identity, { repositoryRoot: root });
+    const expected = { ...options, expectedWorktree: root, expectedExtractorIds: ['runtime-role'], artifactRepositoryRoot: root };
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(receipt, expected), /independent artifact reader/u);
+    const digests = new Map();
+    for (const artifact of Object.values(receipt.minimalContractBuild.artifacts))
+    {
+        digests.set(artifact.project, artifact.projectDigest);
+        digests.set(artifact.path, artifact.artifactDigest);
+        if (artifact.assemblyPath)
+        {
+            digests.set(artifact.assemblyPath, artifact.assemblyDigest);
+            digests.set(artifact.deploymentArtifactPath, artifact.deploymentArtifactDigest);
+        }
+        if (artifact.buildReceipt.openapiPath)
+        {
+            digests.set(artifact.buildReceipt.openapiPath, artifact.buildReceipt.openapiDigest);
+            digests.set(artifact.buildReceipt.openapiArtifactPath, artifact.buildReceipt.openapiDigest);
+        }
+    }
+    const visited = new Set();
+    const before = structuredClone(receipt);
+    assert.equal(validateBehaviorDocStaticAdmissionReceipt(receipt, {
+        ...expected,
+        readArtifactDigest: (repositoryRoot, relative) =>
+        {
+            assert.equal(repositoryRoot, root);
+            assert.ok(digests.has(relative));
+            visited.add(relative);
+            return digests.get(relative);
+        }
+    }), receipt);
+    assert.deepEqual([...visited].sort(), [...digests.keys()].sort());
+    assert.deepEqual(receipt, before);
+    for (const relative of digests.keys())
+    {
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(receipt, {
+            ...expected,
+            readArtifactDigest: (_repositoryRoot, candidate) => candidate === relative ? '0'.repeat(64) : digests.get(candidate)
+        }), /digest mismatch/u, relative);
+    }
+});
+
 test('canonical OpenAPI receipt seals cached and published projection bytes independently', () =>
 {
     const receipt = fixture();
