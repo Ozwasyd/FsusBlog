@@ -35,15 +35,13 @@
                 "tools/test/check-backend-production-build-authority.mjs",
                 "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-network.mjs",
-                "tools/test/execution-failure-diagnostic.mjs",
                 "tools/test/mysql-fixture-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
                 "tools/test/physical-execution-nested-channel.mjs",
                 "tools/test/physical-execution-process-tree.mjs",
                 "tools/test/physical-execution-systemd-sender.mjs",
-                "tools/test/run-deterministic-command.mjs",
-                "tools/test/run-once.mjs"
+                "tools/test/run-deterministic-command.mjs"
             ],
             "reason": "Preserve the registered environment and tool receipt keys, libc ABI, and current documented caller contracts of the original native allocation owners."
         },
