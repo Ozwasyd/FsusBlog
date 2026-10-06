@@ -2,8 +2,9 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import fs, { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { dirname, join, relative, resolve } from 'node:path';
+import { isDeepStrictEqual } from 'node:util';
 import { fileURLToPath } from 'node:url';
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
@@ -272,18 +273,22 @@ function summarize(output, root)
         .split(/\r?\n/u).map(line => line.trim()).filter(Boolean).slice(-3).join(' | ').slice(0, 1000);
 }
 
-function executeVerification(root, inputDigest)
+function executeVerification(root, inputDigest, env, directory)
 {
-    return verificationCommands.map(([command, args]) =>
+    return verificationCommands.map(([command, args], index) =>
     {
         const result = spawnSync(command, args, {
             cwd: root,
             encoding: 'utf8',
             maxBuffer: 64 * 1024 * 1024,
-            env: { ...process.env, PublishClientAssets: 'false' }
+            env: { ...env, PublishClientAssets: 'false' }
         });
         const output = `${result.stdout ?? ''}${result.stderr ?? ''}`;
         process.stdout.write(output);
+        for (const [stream, content] of [['stdout', result.stdout ?? ''], ['stderr', result.stderr ?? '']])
+        {
+            writeFileSync(join(directory, `${index}.${stream}`), content, { flag: 'wx', mode: 0o600 });
+        }
         return {
             command: [command, ...args].join(' '),
             status: result.status === 0 ? 'passed' : 'failed',
@@ -294,57 +299,486 @@ function executeVerification(root, inputDigest)
     });
 }
 
-if (process.argv[1] === fileURLToPath(import.meta.url))
-{
-    const rootIndex = process.argv.indexOf('--root');
-    const root = rootIndex >= 0 ? resolve(process.argv[rootIndex + 1]) : defaultRoot;
-    const receiptOutput = receiptPath(root);
-    const bindingOutput = bindingPath(root);
-    const previousReceipt = existsSync(receiptOutput) ? JSON.parse(readFileSync(receiptOutput, 'utf8')) : null;
-    let receipt = buildReceipt(root, { previousReceipt });
+const pendingSchema = 'fsusblog.migration-assembly-pending.v1';
+const pendingNames = ['0.stderr', '0.stdout', '1.stderr', '1.stdout', 'pending.json'];
 
-    if (process.argv.includes('--write'))
+function exact(value, keys)
+{
+    return value && !Array.isArray(value) && isDeepStrictEqual(Object.keys(value).sort(), [...keys].sort());
+}
+
+/** Only registered Migration producers can select their fixed run-private directory. */
+export function migrationAssemblyPendingPaths(context)
+{
+    if (!exact(context, ['root', 'runId', 'namespace', 'producer', 'sourceState', 'attemptId'])
+        || !['backend-tests', 'backend-unit'].includes(context.producer)
+        || context.attemptId !== (context.producer === 'backend-tests' ? 'attempt-0001' : null)
+        || typeof context.root !== 'string' || fs.realpathSync(context.root) !== context.root
+        || !/^[A-Za-z0-9][A-Za-z0-9_.-]{0,79}$/u.test(context.runId ?? '')
+        || !/^[A-Za-z0-9][A-Za-z0-9_.:/-]*$/u.test(context.namespace ?? '')
+        || !exact(context.sourceState, ['commit', 'worktreeFingerprint'])
+        || !/^[a-f0-9]{40}$/u.test(context.sourceState.commit)
+        || !/^[a-f0-9]{64}$/u.test(context.sourceState.worktreeFingerprint))
     {
-        const results = executeVerification(root, receipt.verificationInputDigest);
-        if (results.some(result => result.status !== 'passed'))
+        throw new Error('Migration assembly pending requires a closed current-run source context');
+    }
+    const runRoot = join(context.root, '.tmp/test-runs', context.runId);
+    const directory = context.producer === 'backend-tests'
+        ? join(runRoot, 'outputs/attempts', context.attemptId, 'artifacts/migration-assembly')
+        : join(runRoot, 'migration-assembly', context.producer);
+    return { directory, file: join(directory, 'pending.json'),
+        publication: join(runRoot, 'migration-assembly-publication', `${context.producer}.json`) };
+}
+
+function requireOwnedDirectory(root, directory, create = false, privateDirectory = true)
+{
+    let cursor = root;
+    for (const part of relative(root, directory).split('/'))
+    {
+        cursor = join(cursor, part);
+        if (!fs.lstatSync(cursor, { throwIfNoEntry: false }) && create)
         {
-            console.error('[migration-assembly-receipt] independent build/test verification failed; receipt was not written');
-            process.exitCode = 1;
+            mkdirSync(cursor, { mode: 0o700 });
         }
-        else
+        const stat = fs.lstatSync(cursor);
+        if (!stat.isDirectory() || stat.isSymbolicLink()
+            || (typeof process.getuid === 'function' && stat.uid !== process.getuid()))
         {
-            receipt = buildReceipt(root, {
-                baseCommit: resolveSourceBaseCommit(root, previousReceipt),
-                previousReceipt,
-                verificationResults: results
-            });
-            const binding = buildBinding(receipt);
-            mkdirSync(dirname(receiptOutput), { recursive: true });
-            writeFileSync(receiptOutput, serialized(receipt));
-            writeFileSync(bindingOutput, serialized(binding));
-            console.log(`[migration-assembly-receipt] wrote ${relative(root, receiptOutput)}`);
-            console.log(`[migration-assembly-receipt] wrote ${relative(root, bindingOutput)}`);
+            throw new Error('Migration assembly pending requires real task-owned parent directories');
         }
     }
-    else
+    const stat = fs.statSync(directory);
+    if (privateDirectory && (stat.mode & 0o077) !== 0)
     {
-        const expectedReceipt = serialized(buildReceipt(root, {
-            previousReceipt,
-            verificationResults: previousReceipt?.verificationResults ?? []
-        }));
-        const expectedBinding = previousReceipt ? serialized(buildBinding(JSON.parse(expectedReceipt))) : '';
-        const stale = !existsSync(receiptOutput)
-      || readFileSync(receiptOutput, 'utf8') !== expectedReceipt
-      || !existsSync(bindingOutput)
-      || readFileSync(bindingOutput, 'utf8') !== expectedBinding;
-        if (stale)
+        throw new Error('Migration assembly pending directory must be private');
+    }
+    return { device: stat.dev, inode: stat.ino };
+}
+
+function readOwnedFile(file, { privateFile = false } = {})
+{
+    const before = fs.lstatSync(file);
+    if (!before.isFile() || before.isSymbolicLink() || before.nlink !== 1
+        || before.size > 64 * 1024 * 1024
+        || (privateFile && (before.mode & 0o077) !== 0)
+        || (typeof process.getuid === 'function' && before.uid !== process.getuid()))
+    {
+        throw new Error('Migration assembly file must be bounded, single-link, owned regular data');
+    }
+    const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        const opened = fs.fstatSync(fd);
+        const bytes = fs.readFileSync(fd);
+        const after = fs.lstatSync(file);
+        if (before.dev !== opened.dev || before.ino !== opened.ino
+            || before.dev !== after.dev || before.ino !== after.ino
+            || before.size !== bytes.length || before.size !== after.size
+            || before.mtimeMs !== after.mtimeMs || before.ctimeMs !== after.ctimeMs)
         {
-            console.error('[migration-assembly-receipt] receipt or binding is missing/stale; run with --write');
-            process.exitCode = 1;
+            throw new Error('Migration assembly file changed during its owned read');
+        }
+        return bytes;
+    }
+    finally
+    {
+        fs.closeSync(fd);
+    }
+}
+
+function previousOutputs(root)
+{
+    return [receiptPath(root), bindingPath(root)].map(file => ({
+        path: relative(root, file), sha256: existsSync(file) ? sha256(readOwnedFile(file)) : null
+    }));
+}
+
+async function observeCurrentSource(root)
+{
+    const { snapshotSourceState } = await import('../test-matrix/scheduler.mjs');
+    return snapshotSourceState(root);
+}
+
+async function requireCurrentSource(context, observeSource)
+{
+    if (!isDeepStrictEqual(await observeSource(context.root), context.sourceState))
+    {
+        throw new Error('Migration assembly current source drifted');
+    }
+}
+
+async function originalBuildContext(context, { finalized = false } = {})
+{
+    const { resolveProductionBuildLayout, requireFinalizedProductionBuildResources } =
+        await import('../test-matrix/production-build-layout.mjs');
+    const layout = resolveProductionBuildLayout(context);
+    if (!finalized)
+    {
+        const { readMigrationBuildReady } = await import('../test/migration-build-binding.mjs');
+        await readMigrationBuildReady(context);
+    }
+    const manifest = finalized ? requireFinalizedProductionBuildResources(layout).manifest
+        : JSON.parse(readOwnedFile(layout.manifestFile).toString('utf8'));
+    if (manifest.owner?.namespace !== context.namespace || manifest.runId !== context.runId
+        || !isDeepStrictEqual(manifest.sourceState, context.sourceState)
+        || (!finalized && (manifest.status !== 'active' || manifest.owner?.state !== 'building')))
+    {
+        throw new Error('Migration assembly requires the original current source/build owner');
+    }
+    return { ownerIdentity: manifest.owner.ownerIdentity, createdAt: manifest.owner.createdAt,
+        runRoot: layout.runRoot };
+}
+
+async function originalMySqlAdmission(context, env, phase)
+{
+    const { readMySqlFixtureAdmissionForRun } = await import('../test/mysql-fixture-admission.mjs');
+    const { readRetainedMySqlFixtureLifecycle } = await import('../test-fixtures/services/mysql.mjs');
+    const admission = readMySqlFixtureAdmissionForRun({
+        root: context.root, runId: context.runId, namespace: context.namespace,
+        bundleId: context.producer === 'backend-tests' ? 'backend-tests' : 'matrix:backend-unit',
+        stepId: 'migration-services', sourceState: context.sourceState
+    }, { file: env.FSUSBLOG_MYSQL_FIXTURE_ADMISSION_FILE, phase: phase === 'live' ? 'live' : 'live-or-cleaned' });
+    if (phase === 'cleaned' && readRetainedMySqlFixtureLifecycle(
+        admission.record.context, admission.record.bindingDigest).state.phase !== 'cleaned')
+    {
+        throw new Error('Migration assembly publication requires actual original MySQL cleanup');
+    }
+    return admission;
+}
+
+/** Run the original unfiltered two commands under the original admitted build/service owner; never publish here. */
+export async function prepareMigrationAssemblyPending(context, {
+    env = process.env, observeSource = observeCurrentSource, requireBuild = originalBuildContext,
+    readAdmission = originalMySqlAdmission, execute = executeVerification
+} = {})
+{
+    const paths = migrationAssemblyPendingPaths(context);
+    await requireCurrentSource(context, observeSource);
+    const buildOwner = await requireBuild(context);
+    const admission = await readAdmission(context, env, 'live');
+    requireOwnedDirectory(context.root, dirname(paths.directory), true, false);
+    mkdirSync(paths.directory, { mode: 0o700 });
+    const directoryIdentity = requireOwnedDirectory(context.root, paths.directory);
+    const outputs = previousOutputs(context.root);
+    const previousReceipt = outputs[0].sha256 ? JSON.parse(readOwnedFile(receiptPath(context.root))) : null;
+    const initial = buildReceipt(context.root, { previousReceipt });
+    const results = await execute(context.root, initial.verificationInputDigest,
+        { ...env, ...admission.executionEnvironment, FSUSBLOG_PRODUCTION_BUILD_ROOT: buildOwner.runRoot }, paths.directory);
+    if (!isDeepStrictEqual(results, validationResults(initial.verificationInputDigest, results))
+        || results.some(result => result.status !== 'passed' || result.exitCode !== 0
+            || result.inputDigest !== initial.verificationInputDigest))
+    {
+        throw new Error('Migration assembly independent unfiltered build/test verification failed; no pending publication');
+    }
+    await requireCurrentSource(context, observeSource);
+    if (!isDeepStrictEqual(buildOwner, await requireBuild(context))
+        || admission.contentDigest !== (await readAdmission(context, env, 'live')).contentDigest
+        || !isDeepStrictEqual(outputs, previousOutputs(context.root)))
+    {
+        throw new Error('Migration assembly source/build/service/publication owner drifted during verification');
+    }
+    const receipt = buildReceipt(context.root, {
+        baseCommit: resolveSourceBaseCommit(context.root, previousReceipt), previousReceipt,
+        verificationResults: results
+    });
+    if (receipt.verificationInputDigest !== initial.verificationInputDigest)
+    {
+        throw new Error('Migration assembly independent verification inputs drifted');
+    }
+    const files = pendingNames.filter(name => name !== 'pending.json').map(name => ({
+        name, sha256: sha256(readOwnedFile(join(paths.directory, name), { privateFile: true }))
+    }));
+    if (!isDeepStrictEqual(requireOwnedDirectory(context.root, paths.directory), directoryIdentity)
+        || !isDeepStrictEqual(readdirSync(paths.directory).sort(), files.map(file => file.name)))
+    {
+        throw new Error('Migration assembly pending output roster or directory changed');
+    }
+    const pending = { schema: pendingSchema, context, buildOwner, admissionDigest: admission.contentDigest,
+        previousOutputs: outputs, receipt, binding: buildBinding(receipt), files };
+    writeFileSync(paths.file, serialized(pending), { flag: 'wx', mode: 0o600 });
+    return { ...paths, pendingSha256: sha256(readOwnedFile(paths.file, { privateFile: true })) };
+}
+
+/** Validate bytes from the fixed pending roster against actual current inputs, without a success-JSON capability. */
+export function verifyMigrationAssemblyPending(context, pending)
+{
+    const paths = migrationAssemblyPendingPaths(context);
+    if (fs.lstatSync(paths.publication, { throwIfNoEntry: false }))
+    {
+        throw new Error('Migration assembly pending publication cannot be repeated');
+    }
+    requireOwnedDirectory(context.root, paths.directory);
+    if (!exact(pending, ['schema', 'context', 'buildOwner', 'admissionDigest', 'previousOutputs', 'receipt', 'binding', 'files'])
+        || pending.schema !== pendingSchema || !isDeepStrictEqual(pending.context, context)
+        || !exact(pending.buildOwner, ['ownerIdentity', 'createdAt', 'runRoot'])
+        || !/^sha256:[a-f0-9]{64}$/u.test(pending.admissionDigest ?? '')
+        || !Array.isArray(pending.files)
+        || !isDeepStrictEqual(readdirSync(paths.directory).sort(), pendingNames)
+        || !isDeepStrictEqual(pending.previousOutputs, previousOutputs(context.root))
+        || !isDeepStrictEqual(pending.files?.map(file => file.name), pendingNames.filter(name => name !== 'pending.json'))
+        || pending.files.some(file => !exact(file, ['name', 'sha256'])
+            || file.sha256 !== sha256(readOwnedFile(join(paths.directory, file.name), { privateFile: true }))))
+    {
+        throw new Error('Migration assembly pending owner, bytes or closed output roster differs');
+    }
+    const receipt = pending.receipt;
+    if (!Array.isArray(receipt?.verificationResults) || receipt.verificationResults.length !== 2
+        || receipt.verificationResults.some(result => result.status !== 'passed' || result.exitCode !== 0
+            || result.inputDigest !== receipt.verificationInputDigest)
+        || !isDeepStrictEqual(receipt, buildReceipt(context.root, {
+            previousReceipt: receipt, verificationResults: receipt.verificationResults
+        })) || !isDeepStrictEqual(pending.binding, buildBinding(receipt)))
+    {
+        throw new Error('Migration assembly pending verification or source inventory is stale');
+    }
+    return paths;
+}
+
+async function readFinalizedPending(context, {
+    env = process.env, observeSource = observeCurrentSource, requireBuild = originalBuildContext,
+    readAdmission = originalMySqlAdmission
+} = {})
+{
+    const paths = migrationAssemblyPendingPaths(context);
+    requireOwnedDirectory(context.root, paths.directory);
+    const bytes = readOwnedFile(paths.file, { privateFile: true });
+    const pending = JSON.parse(bytes);
+    verifyMigrationAssemblyPending(context, pending);
+    await requireCurrentSource(context, observeSource);
+    if (!isDeepStrictEqual(pending.buildOwner, await requireBuild(context, { finalized: true }))
+        || pending.admissionDigest !== (await readAdmission(context, env, 'cleaned')).contentDigest)
+    {
+        throw new Error('Migration assembly publication crosses its original finalized build/service owner');
+    }
+    verifyMigrationAssemblyPending(context, pending);
+    if (!bytes.equals(readOwnedFile(paths.file, { privateFile: true })))
+    {
+        throw new Error('Migration assembly pending changed during publication admission');
+    }
+    return { paths, pending, bytes };
+}
+
+/** A fresh final candidate consumes its real two-command pending result without rewriting time-dependent tracked summaries. */
+export async function verifyCurrentMigrationAssembly(context, adapters = {})
+{
+    const { pending, bytes } = await readFinalizedPending(context, adapters);
+    const receipt = JSON.parse(readOwnedFile(receiptPath(context.root)));
+    const binding = JSON.parse(readOwnedFile(bindingPath(context.root)));
+    if (!isDeepStrictEqual(receipt, buildReceipt(context.root, {
+        previousReceipt: receipt, verificationResults: receipt.verificationResults
+    })) || !isDeepStrictEqual(binding, buildBinding(receipt))
+        || receipt.verificationInputDigest !== pending.receipt.verificationInputDigest
+        || !Array.isArray(receipt.verificationResults) || receipt.verificationResults.length !== 2
+        || receipt.verificationResults.some(result => result.status !== 'passed' || result.exitCode !== 0
+            || result.inputDigest !== receipt.verificationInputDigest))
+    {
+        throw new Error('Migration assembly fresh current-run evidence differs from the tracked source/binding');
+    }
+    return { status: 'verified-current-run', pendingSha256: sha256(bytes), sourceState: context.sourceState,
+        qualificationEligible: false, reason: 'assembly producer verified; full native/domain/CI independent acceptance is separate' };
+}
+
+/** Publish only the original validated pending pair after its actual owner cleanup/finalization; the new candidate needs a fresh run. */
+export async function publishMigrationAssemblyPending(context, adapters = {})
+{
+    const { paths, pending, bytes } = await readFinalizedPending(context, adapters);
+    const { observeSource = observeCurrentSource, rename = fs.renameSync } = adapters;
+    const targets = [receiptPath(context.root), bindingPath(context.root)];
+    const original = targets.map(file => existsSync(file) ? readOwnedFile(file) : null);
+    const staged = ['receipt', 'binding'].map(name => join(dirname(paths.publication), `${context.producer}.${name}.pending`));
+    const contents = [serialized(pending.receipt), serialized(pending.binding)];
+    const owned = [];
+    let published = 0;
+    let publicationError = null;
+    const cleanupErrors = [];
+    try
+    {
+        requireOwnedDirectory(context.root, dirname(paths.publication), true);
+        if (readdirSync(dirname(paths.publication)).length !== 0)
+        {
+            throw new Error('Migration assembly publication refuses unknown retained staging');
+        }
+        for (const file of targets)
+        {
+            requireOwnedDirectory(context.root, dirname(file), true, false);
+        }
+        for (const [index, file] of staged.entries())
+        {
+            writeFileSync(file, contents[index], { flag: 'wx', mode: 0o600 });
+            const stat = fs.lstatSync(file);
+            owned.push({ file, device: stat.dev, inode: stat.ino, sha256: sha256(contents[index]) });
+        }
+        await requireCurrentSource(context, observeSource);
+        verifyMigrationAssemblyPending(context, pending);
+        for (const [index, file] of staged.entries())
+        {
+            rename(file, targets[index]);
+            published++;
+        }
+        for (const [index, file] of targets.entries())
+        {
+            if (!readOwnedFile(file).equals(Buffer.from(contents[index])))
+            {
+                throw new Error('Migration assembly published bytes differ from their original pending owner');
+            }
+        }
+        requireOwnedDirectory(context.root, dirname(paths.publication), true);
+        writeFileSync(paths.publication, serialized({
+            schema: 'fsusblog.migration-assembly-publication.v1', pendingSha256: sha256(bytes),
+            sourceState: context.sourceState, outputs: previousOutputs(context.root),
+            qualificationEligible: false, reason: 'tracked publication changes candidate; fresh final-candidate execution required'
+        }), { flag: 'wx', mode: 0o600 });
+    }
+    catch (error)
+    {
+        publicationError = error;
+        for (let index = published - 1; index >= 0; index--)
+        {
+            try
+            {
+                if (!readOwnedFile(targets[index]).equals(Buffer.from(contents[index])))
+                {
+                    throw new Error('Migration assembly publication rollback refused foreign tracked bytes');
+                }
+                if (original[index] === null)
+                {
+                    fs.unlinkSync(targets[index]);
+                }
+                else
+                {
+                    const fd = fs.openSync(targets[index], fs.constants.O_WRONLY | fs.constants.O_NOFOLLOW);
+                    try
+                    {
+                        const stat = fs.fstatSync(fd);
+                        const named = fs.lstatSync(targets[index]);
+                        if (stat.dev !== named.dev || stat.ino !== named.ino || stat.nlink !== 1)
+                        {
+                            throw new Error('Migration assembly publication rollback target identity changed');
+                        }
+                        fs.ftruncateSync(fd, 0);
+                        fs.writeFileSync(fd, original[index]);
+                        fs.fsyncSync(fd);
+                    }
+                    finally
+                    {
+                        fs.closeSync(fd);
+                    }
+                }
+            }
+            catch (cleanupError)
+            {
+                cleanupErrors.push(cleanupError);
+            }
+        }
+    }
+    finally
+    {
+        for (const entry of owned)
+        {
+            try
+            {
+                const stat = fs.lstatSync(entry.file, { throwIfNoEntry: false });
+                if (stat)
+                {
+                    if (stat.isSymbolicLink() || stat.dev !== entry.device || stat.ino !== entry.inode
+                        || sha256(readOwnedFile(entry.file, { privateFile: true })) !== entry.sha256)
+                    {
+                        throw new Error('Migration assembly failed-publication cleanup refused a foreign staged file');
+                    }
+                    fs.unlinkSync(entry.file);
+                }
+            }
+            catch (cleanupError)
+            {
+                cleanupErrors.push(cleanupError);
+            }
+        }
+    }
+    if (cleanupErrors.length)
+    {
+        throw new AggregateError([...(publicationError ? [publicationError] : []), ...cleanupErrors],
+            `Migration assembly publication cleanup incomplete: ${publicationError?.message ?? cleanupErrors[0].message}`,
+            { cause: publicationError ?? cleanupErrors[0] });
+    }
+    if (publicationError)
+    {
+        throw publicationError;
+    }
+    return { receipt: targets[0], binding: targets[1], qualificationEligible: false };
+}
+
+if (process.argv[1] === fileURLToPath(import.meta.url))
+{
+    try
+    {
+        const args = process.argv.slice(2);
+        let root = defaultRoot;
+        let operation = 'check';
+        let producer = 'backend-tests';
+        const seen = new Set();
+        for (let index = 0; index < args.length; index++)
+        {
+            const argument = args[index];
+            if (seen.has(argument))
+            {
+                throw new Error('Migration assembly producer rejects duplicate options');
+            }
+            seen.add(argument);
+            if (argument === '--root' && args[index + 1] && !args[index + 1].startsWith('--'))
+            {
+                root = resolve(args[++index]);
+            }
+            else if (argument === '--backend-unit')
+            {
+                producer = 'backend-unit';
+            }
+            else if (['--write', '--publish-current-run', '--verify-current-run'].includes(argument) && operation === 'check')
+            {
+                operation = argument === '--write' ? 'prepare' : argument === '--publish-current-run' ? 'publish' : 'verify';
+            }
+            else
+            {
+                throw new Error('Migration assembly producer accepts only --root, --backend-unit and one canonical operation');
+            }
+        }
+        if (operation === 'check')
+        {
+            if (producer !== 'backend-tests')
+            {
+                throw new Error('Migration assembly check has no execution producer override');
+            }
+            const previousReceipt = existsSync(receiptPath(root)) ? JSON.parse(readFileSync(receiptPath(root), 'utf8')) : null;
+            const expectedReceipt = serialized(buildReceipt(root, {
+                previousReceipt, verificationResults: previousReceipt?.verificationResults ?? []
+            }));
+            const expectedBinding = previousReceipt ? serialized(buildBinding(JSON.parse(expectedReceipt))) : '';
+            if (!existsSync(receiptPath(root)) || readFileSync(receiptPath(root), 'utf8') !== expectedReceipt
+                || !existsSync(bindingPath(root)) || readFileSync(bindingPath(root), 'utf8') !== expectedBinding)
+            {
+                throw new Error('receipt or binding is missing/stale; use the admitted current-run --write producer');
+            }
+            console.log('[migration-assembly-receipt] ok');
         }
         else
         {
-            console.log('[migration-assembly-receipt] ok');
+            const context = {
+                root, producer, runId: process.env.FSUSBLOG_TEST_RUN_ID,
+                namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
+                attemptId: producer === 'backend-tests' ? process.env.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID : null,
+                sourceState: {
+                    commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+                    worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+                }
+            };
+            const result = operation === 'prepare'
+                ? await prepareMigrationAssemblyPending(context) : operation === 'publish'
+                    ? await publishMigrationAssemblyPending(context) : await verifyCurrentMigrationAssembly(context);
+            console.log(`[migration-assembly-receipt] ${operation}: ${JSON.stringify(result)}`);
         }
+    }
+    catch (error)
+    {
+        console.error(`[migration-assembly-receipt] ${error.message}`);
+        process.exitCode = 1;
     }
 }

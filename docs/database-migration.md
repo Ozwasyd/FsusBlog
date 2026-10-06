@@ -350,6 +350,35 @@ provider copies of the current schema model, shared legacy-only fields, web-host
 migration tests, graph cycles, dual registration, Server publish leakage, missing
 provider/build evidence and receipt or binding tampering.
 
+The same original producer's `--write` operation now requires the canonical
+scheduler run/source/namespace, the original admitted Migration build and a live
+owned MySQL fixture. It still runs both complete unfiltered commands:
+`dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore`
+and `dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore`.
+It writes only private pending receipt/binding and raw command logs. Production
+owns these through its `migration-assembly-verification` step in the original
+first-attempt output root; backend-unit uses its fixed run-private producer root.
+No arbitrary output path, permit JSON, filter or retry-attempt flag is accepted.
+
+After original current-run MySQL cleanup and successful build finalization,
+`node tools/db/generate-migration-assembly-receipt.mjs --publish-current-run`
+uses that same scheduler environment (and `--backend-unit` for the unit producer)
+to verify pending bytes, complete source/test inventories, original owner identity,
+actual released build resources and the exact cleaned MySQL admission. Only the
+original producer publishes the two registered tracked outputs. Partial pair
+publication restores the prior tracked bytes and removes only its identified
+staging files; original private logs remain available for diagnosis. Publication
+records `qualificationEligible: false`: tracked output changes require a fresh
+final-candidate run and independent acceptance. A source-control fixture or a
+historical receipt cannot satisfy that native execution requirement.
+
+The fresh final candidate uses `--verify-current-run` after its original cleanup
+and finalization to consume the newly executed pending evidence against the
+unchanged tracked source/binding. This reads actual current-run pending logs and
+full source fingerprints; it does not rewrite tracked elapsed-time summaries or
+start another publication cycle. Passing this producer read does not replace
+full native/domain/CI or independent acceptance.
+
 The PostgreSQL fixture exercises both an empty database and the representative
 20260517 historical schema twice. For each starting point, the normalized columns,
 indexes, and constraints after the first run must exactly match the second run. It

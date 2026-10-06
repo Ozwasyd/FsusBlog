@@ -3,8 +3,8 @@
     "generatedBy": "tools/test/generate-correctness-attempt-producers.mjs",
     "sourceDigests": {
         "config/testing/release-reliability-scenario-catalog.json": "sha256:5b35b04eba2fd6aed179b24ea427dfc18d35b91b29e182af93dfc23dea914582",
-        "tests/matrix.yml": "sha256:f5a145a05bc561b0a546942141a70e14455a1f4c116e58a2ae10a20032408385",
-        "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:ef15c0e8327696b326ae9acd0d4c0bcffbb113e00f478c45b799f90def3a2651",
+        "tests/matrix.yml": "sha256:97ba9e430ef55064a055ba2272b57923a3e5dc9ea55d25e73e8d0b47ba787ce9",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs": "sha256:d0fa3f6a5062739922c5121c38fc4026c7392d6817b4e3b7c1b6fbb53580dd82",
         "config/testing/replay-qualification-producers.json": "sha256:5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398",
         "config/testing/test-execution-envelope-applicability.json": "sha256:56187457f27a922333626fca45f50424d7a4c388ede1e176ed6515952387791c",
         "tools/test/attempt-runner.mjs": "sha256:a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c",
@@ -3625,6 +3625,33 @@
             }
         },
         {
+            "producerId": "physical:backend-tests:migration-assembly-verification",
+            "domain": "test-producers",
+            "producerKind": "unit",
+            "sourceAuthority": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+            "canonicalCommand": "production-fresh bundle backend-tests producer migration-assembly-verification",
+            "logicalTierIds": [],
+            "policyId": "correctness-first-attempt",
+            "allowedRetries": 0,
+            "firstFailureBlocksQualification": true,
+            "frameworkRetrySetting": 0,
+            "artifactOwner": "backend-tests",
+            "executionOwner": "tools/test/bundles/run-bundle.mjs",
+            "attemptAdapter": "tools/test/attempt-runner.mjs#runProducerAttempts",
+            "migrationState": "migrated",
+            "qualificationEligible": true,
+            "externalAuthorityKinds": [
+                "execution-envelope",
+                "replay-plan",
+                "temporal-context"
+            ],
+            "authorityBindings": {
+                "executionEnvelope": "tools/test/physical-execution-process-tree.mjs#runPhysicalExecution",
+                "replayPlan": "config/testing/replay-qualification-producers.json#contentDigest",
+                "temporalContext": "tools/test/temporal-context.mjs#qualificationTemporalContext"
+            }
+        },
+        {
             "producerId": "physical:backend-tests:migration-test-execution",
             "domain": "test-producers",
             "producerKind": "unit",
@@ -6339,5 +6366,5 @@
             }
         }
     ],
-    "contentDigest": "sha256:77d70b69a0a8cbd61bae97c040b82fcf9afce340a03a6f4cc6086e44e7f7c664"
+    "contentDigest": "sha256:f5a6549c5749e90fe6e89f604cf02c70c0bc473578051bbb33390851bef0ecba"
 }

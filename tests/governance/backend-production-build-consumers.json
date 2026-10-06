@@ -5,6 +5,15 @@
         "bundle": "backend-tests",
         "configuration": "Release",
         "receipt": ".tmp/test-runs/<runId>/backend-tests-ready.json",
+        "independentMigrationVerification": {
+            "id": "migration-assembly-verification",
+            "owner": "tools/db/generate-migration-assembly-receipt.mjs",
+            "commands": [
+                "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
+                "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore"
+            ],
+            "publication": "original producer after finalized build and exact MySQL cleanup; fresh final candidate required"
+        },
         "requests": [
             {
                 "id": "backend-server-build",

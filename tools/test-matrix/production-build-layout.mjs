@@ -764,6 +764,22 @@ export function inspectProductionBuildCapacityOwner(reference)
     return { status: retained ? 'retained' : 'released' };
 }
 
+/** Publication observes the original terminal owner and real resource cleanup; a JSON success flag grants nothing. */
+export function requireFinalizedProductionBuildResources(layout)
+{
+    const { manifest, owner } = readBuildOwner(layout, { allowTerminal: true });
+    if (manifest.status !== 'success' || owner.state !== 'complete' || fs.existsSync(layout.activeFile))
+    {
+        throw new Error('production publication requires a successfully finalized original build owner');
+    }
+    const reference = capacityOwnerReference(layout, owner);
+    if (inspectProductionBuildCapacityOwner(reference).status !== 'released')
+    {
+        throw new Error('production publication refused while original build resources are retained');
+    }
+    return { manifest, reference };
+}
+
 /** Read the original scheduler binding; this observation never authorizes resource effects. */
 export function inspectProductionBuildRecoveryBinding(reference)
 {

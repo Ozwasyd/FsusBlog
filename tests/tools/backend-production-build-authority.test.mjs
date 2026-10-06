@@ -13,6 +13,7 @@ const read = (relative) => fs.readFileSync(path.join(root, relative), 'utf8');
 const inputs = () => ({
     inventory: JSON.parse(read('tests/governance/backend-production-build-consumers.json')),
     bundleSource: read('tools/test/bundles/run-bundle.mjs'),
+    assemblyProducerSource: read('tools/db/generate-migration-assembly-receipt.mjs'),
     shardSource: read('tools/test/run-backend-production-shards.mjs'),
     rightsSource: read('tools/test/project-rights-v3-evidence.mjs'),
     integritySource: read('tools/test/project-evidence.mjs'),
@@ -30,6 +31,20 @@ test('Production fresh has one canonical Release backend build set and no govern
         postludeTesthostCount: 0,
         consumers: inputs().inventory.consumers
     });
+});
+
+test('validator preserves the original complete assembly producer commands and its owned pending step', () =>
+{
+    for (const mutate of [
+        input => { input.assemblyProducerSource = input.assemblyProducerSource.replace("['dotnet', ['test',", "['dotnet', ['filtered-test',"); },
+        input => { input.bundleSource = input.bundleSource.replace('artifacts: [assemblyPending.directory]', 'artifacts: [migrationTestDll]'); },
+        input => { input.inventory.producer.independentMigrationVerification.commands.pop(); }
+    ])
+    {
+        const input = inputs();
+        mutate(input);
+        assert.throws(() => validateBackendProductionBuildAuthority(input), /independent Migration assembly/u);
+    }
 });
 
 test('validator rejects a Debug compatibility build in the Production backend bundle', () =>

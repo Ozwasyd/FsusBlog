@@ -20,6 +20,7 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/db/generate-migration-assembly-receipt.mjs",
                 "tools/test-matrix/production-build-layout.mjs",
                 "tools/test-matrix/production-build-lifecycle.mjs",
                 "tools/test-matrix/production-capacity-reservation.mjs",
@@ -28,10 +29,12 @@
                 "tools/test-matrix/scheduler.mjs",
                 "tools/test-retention/audit.mjs",
                 "tools/test/behavior-doc-nuget-preparation.mjs",
+                "tools/test/bundles/run-bundle.mjs",
                 "tools/test/check-backend-production-build-authority.mjs",
                 "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-network.mjs",
                 "tools/test/execution-failure-diagnostic.mjs",
+                "tools/test/lanes/_suite-support.sh",
                 "tools/test/mysql-fixture-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
