@@ -241,6 +241,20 @@ Risk increments use Redis Lua IncrementClampedWithExpiryAsync atomically for rea
 
 Structured audit keeps `source/type/action/outcome/severity/actor/target/trace/path/method/reason_code` plus low-cardinality context. IP, User-Agent, session, and device fingerprint are SHA-256 hashes. The mapper accepts only explicit AuditActorType+AuditActorId and never infers actor from UserId, AccountId, InternalUserId, or AdminPrincipalId. High-value events synchronously use IAuditEventService and fall back to FSUSBLOG_DATA_ROOT/audit-fallback/critical-audit-*.jsonl. New record_hash binds the encrypted context_payload digest; legacy unbound signatures remain verifiable but are not repaired. Audit:TamperEvidenceKey or Security:AuditTamperEvidenceKey adds record_mac; chain_id prev_hash links within and across batches. /user/manage/audit verifies hash/mac/previous hash. Default query mode is pii-redacted; audit.read sees placeholders, while only audit.investigate plus explicit piiMode=investigation returns IP/UA/session/device hashes, writes high-value audit, and sets sensitiveFieldsRead=true. OpenTelemetry accepts only fsus.* low-cardinality enums and X-Fsus-Trace-Id is correlation, not identity.
 
+The protected operations readiness probe follows the same disclosure boundary.
+Its new `ownerDiagnostics` map exposes only cumulative counters, sequence and
+controlled disposition categories; it omits retained item references and arbitrary
+owner failure text. The existing audit-log runtime projection only sets
+`lastItemReference=null`; its other existing error fields are unchanged and have
+not been reviewed by this change. This projection does not change internal
+admission identity or replay/retention evidence. It must
+not substitute a queue ID, add an identity hash/pseudonym, log the raw reference,
+or derive qualification from diagnostic counters. The public readiness body stays
+minimal. The exact field retirement and operations-tool transport boundary are in
+[Queue-owner diagnostic projection](operations.md#queue-owner-diagnostic-projection).
+This projection rule does not certify unrelated deployment reports or historical
+logs; those remain subject to their own privacy review.
+
 ## Audit, retention, and secret recovery
 
 Ordinary audit covers low-risk reads, previews, and operations asynchronously.

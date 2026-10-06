@@ -487,6 +487,50 @@ Use the admin cache action endpoint for the remaining cutover sequence:
 
 Rollback is image and database-backup based. Do not roll back by re-enabling retired pre-envelope ArticleDetail reads or by adding a separate `/article/{id}/rights.aeds` endpoint; a partial rollback would let anonymous reads serve a payload shape that current V4/V3 decoders must reject.
 
+## Queue-owner diagnostic projection
+
+The protected `/api/ops/health/ready-detail` probe keeps readiness and qualification
+under `BoundedQueueDrainAggregator`. `runtime.requiredQueues` and
+`runtime.boundedQueueDrain` retain the same aggregate run, content digest, status,
+qualification and blockers. `requiredQueues.queues` describes catalog participant
+obligations; `commitPostcondition` is the participant's commit fact, not its last
+delivery disposition.
+
+`runtime.requiredQueues.ownerDiagnostics` preserves the original snapshots from
+`audit-log`, `admin-audit-log`, `security-risk-event` and `challenge-v2-event`.
+Each available owner reports its actual cumulative `committed`, `durableAccepted`
+and `requeued` counters, `sequence`, and controlled `lastDisposition`.
+`evidenceKind=OwnerSnapshot` and `qualificationEligible=false` are fixed: these
+independently sampled diagnostics cannot authorize readiness, drain or release.
+An absent owner is omitted as unavailable, not represented by zero. The challenge
+owner appears once; its shared cumulative counters must not be copied to or added
+across the high-value and normal participant lanes. These values remain owned by
+the original channel/journal snapshots, without a new accounting service or cache.
+
+The former participant-level `committed`, `durableAccepted`, `requeued` and
+`lastDisposition` fields are retired as nullable `null`; consumers must read the
+owner diagnostic map instead of treating the previous constant zeros or commit
+postcondition as delivery observations. Unknown disposition text is projected as
+the fixed `unknown` category. Raw `lastItemReference` is deliberately `null` in
+both this map and the existing `runtime.auditLog` health projection. Retained
+references can contain event text, exception messages or private identifiers;
+`AuditRead` does not grant investigation access. `QueueId` is not an item identity.
+The new `ownerDiagnostics` map exports no item reference, arbitrary owner failure
+text, pseudonym, or new telemetry label. The existing `runtime.auditLog` projection
+only redacts `lastItemReference`; its other error fields are unchanged and are not
+certified by this change. Internal delivery identity, payload, replay and retention
+accounting remain under their existing owners. Unavailable owner snapshots or
+service resolution are omitted independently, after the aggregate observation;
+they cannot suppress its structured failure receipt or supply zero counters.
+
+This is the existing registered operations-tool health JSON boundary in the
+[AEDS-only policy](api/aeds-only-policy.md), not an application API or a new AEDS
+payload. The protected probe permission and minimal public `/health/ready`
+projection remain unchanged. The separate AEDS `OpsHealthResponse`, frame 106,
+Shared/Core/POD/C++/TypeScript wire surfaces do not carry this diagnostic map.
+This health-projection boundary does not certify the privacy of other deployment
+drain reports, investigation paths or historical logs.
+
 ## Daily Checks
 
 - `docker ps` health status is healthy.

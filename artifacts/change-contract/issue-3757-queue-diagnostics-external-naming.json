@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Operations/ProductionHealth.cs"
+            ],
+            "reason": "Preserve existing caller-visible FSUSBLOG_DATA_ROOT and FSUSBLOG release/storage environment spellings in the registered C# source surface. This queue diagnostic projection introduces no environment name, new configuration authority, or shared wire field."
+        }
+    ]
+}
