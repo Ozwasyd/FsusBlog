@@ -4,6 +4,7 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "config/testing/correctness-attempt-producers.json",
                 "config/testing/physical-execution-process-policy.json",
                 "tests/governance/backend-production-build-consumers.json"
             ],
@@ -24,6 +25,7 @@
                 "tools/test-matrix/production-build-layout.mjs",
                 "tools/test-matrix/production-build-lifecycle.mjs",
                 "tools/test-matrix/production-capacity-reservation.mjs",
+                "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
                 "tools/test-matrix/production-resource-enforcement.mjs",
                 "tools/test-matrix/production-systemd-resource-boundary.mjs",
                 "tools/test-matrix/scheduler.mjs",
@@ -34,7 +36,6 @@
                 "tools/test/execution-envelope-directories.mjs",
                 "tools/test/execution-envelope-network.mjs",
                 "tools/test/execution-failure-diagnostic.mjs",
-                "tools/test/lanes/_suite-support.sh",
                 "tools/test/mysql-fixture-admission.mjs",
                 "tools/test/physical-execution-linux-systemd-adapter.mjs",
                 "tools/test/physical-execution-linux-systemd-bootstrap.mjs",
@@ -45,6 +46,13 @@
                 "tools/test/run-once.mjs"
             ],
             "reason": "Preserve the registered environment and tool receipt keys, libc ABI, and current documented caller contracts of the original native allocation owners."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh"
+            ],
+            "reason": "Preserve the original exported FSUSBLOG run/source, production build and MySQL admission environment keys consumed by the canonical backend-unit Shell lane and original assembly producer."
         }
     ]
 }
