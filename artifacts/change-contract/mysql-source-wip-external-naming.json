@@ -1,0 +1,13 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/migration/ArticlePreservationStorageWriter.cs",
+        "src/migration/MySqlArticlePreservationSourceReader.cs"
+      ],
+      "reason": "Preserve the trusted existing external process-environment spelling boundary for the two changed registered migration C# source surfaces. This ordinary metadata binds their source naming ownership only; it introduces no environment API, new exception, native execution authority, generated freshness or provider qualification."
+    }
+  ]
+}
