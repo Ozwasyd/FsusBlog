@@ -36,7 +36,22 @@ public sealed record CommentModerationRuntimeLease(
     string PriorModelContractVersion,
     string Owner,
     string PriorStateDigest,
-    string AppliedStateDigest);
+    string AppliedStateDigest)
+{
+    // Only the in-process port can attach native runtime custody. JSON receipts
+    // remain observations and cannot be imported as restoration authority.
+    [System.Text.Json.Serialization.JsonIgnore]
+    internal object? Custody { get; init; }
+}
+
+/// <summary>Preserves the acquisition cause and an independent failed release.</summary>
+public sealed class CommentModerationRuntimeAcquisitionException(
+    Exception originalError,
+    Exception cleanupError)
+    : Exception("Comment fixture runtime acquisition failed and its owned release was incomplete.", originalError)
+{
+    public Exception CleanupError { get; } = cleanupError;
+}
 
 public sealed record CommentModerationRuntimeRestore(
     string Schema,
@@ -313,44 +328,48 @@ public sealed class CommentModerationFixturePort(
     {
         if (!binding.IsValid() || string.IsNullOrWhiteSpace(manualReviewRegion))
             throw new InvalidOperationException("Comment moderation runtime lease binding is invalid.");
-        string priorRegion = runtimeState.GetRegionState(manualReviewRegion);
-        ModerationModelRuntimeSnapshot priorModel = runtimeState.CurrentModel;
-        Result<ModerationRuntimeSnapshot> regionState = runtimeState.SetRegionState(
-            manualReviewRegion,
-            ModerationRegionStates.ManualReviewOnly,
-            $"comment fixture manual-review matrix {binding.RunId}",
-            timeProvider.GetUtcNow().UtcDateTime.AddMinutes(15),
-            null,
-            binding.Owner);
-        if (!regionState.IsSuccess)
-            throw new InvalidOperationException("Comment moderation port could not enable the manual-review-only region runtime state.");
-        Result<ModerationRuntimeSnapshot> modelState = runtimeState.SetModelRuntime(
-            enabled: true,
-            provider: null,
-            modelProfile: null,
-            thresholdProfile: null,
-            reason: $"comment fixture anti-spam model runtime {binding.RunId}",
-            changedBy: binding.Owner);
-        if (!modelState.IsSuccess)
-            throw new InvalidOperationException($"Comment moderation port could not enable the anti-spam model runtime: {modelState.Error.Message}.");
-        ModerationModelRuntimeSnapshot appliedModel = runtimeState.CurrentModel;
-        if (runtimeState.GetRegionState(manualReviewRegion) != ModerationRegionStates.ManualReviewOnly
-            || !appliedModel.Enabled)
-            throw new InvalidOperationException("Comment moderation runtime lease did not reach the required owned state.");
-        return new CommentModerationRuntimeLease(
-            RuntimeLeaseSchema,
-            binding,
-            manualReviewRegion,
-            priorRegion,
-            ModerationRegionStates.ManualReviewOnly,
-            priorModel.Enabled,
-            priorModel.Provider,
-            priorModel.ModelProfile,
-            priorModel.ThresholdProfile,
-            priorModel.ContractVersion,
-            binding.Owner,
-            RuntimeStateDigest(manualReviewRegion, priorRegion, priorModel),
-            RuntimeStateDigest(manualReviewRegion, ModerationRegionStates.ManualReviewOnly, appliedModel));
+        ModerationRuntimeFixtureLease native = runtimeState.AcquireCommentFixtureRuntimeState(
+            manualReviewRegion, binding.Owner, binding.RunId,
+            timeProvider.GetUtcNow().UtcDateTime.AddMinutes(15))
+            ?? throw new InvalidOperationException("Comment moderation runtime owner did not return native custody.");
+        try
+        {
+            ModerationModelRuntimeSnapshot priorModel = native.Prior.Model;
+            ModerationModelRuntimeSnapshot appliedModel = native.Applied.Model;
+            if (RegionState(native.Applied, native.Region) != ModerationRegionStates.ManualReviewOnly
+                || !appliedModel.Enabled)
+                throw new InvalidOperationException("Comment moderation runtime lease did not reach the required owned state.");
+            var lease = new CommentModerationRuntimeLease(
+                RuntimeLeaseSchema,
+                binding,
+                native.Region,
+                RegionState(native.Prior, native.Region),
+                ModerationRegionStates.ManualReviewOnly,
+                priorModel.Enabled,
+                priorModel.Provider,
+                priorModel.ModelProfile,
+                priorModel.ThresholdProfile,
+                priorModel.ContractVersion,
+                binding.Owner,
+                RuntimeStateDigest(native.Prior),
+                RuntimeStateDigest(native.Applied));
+            return lease with
+            {
+                Custody = new RuntimeLeaseCustody(native, JsonSerializer.Serialize(lease))
+            };
+        }
+        catch (Exception acquisitionError)
+        {
+            try
+            {
+                native.Restore();
+            }
+            catch (Exception cleanupError)
+            {
+                throw new CommentModerationRuntimeAcquisitionException(acquisitionError, cleanupError);
+            }
+            throw;
+        }
     }
 
     public CommentModerationRuntimeRestore RestoreRuntimeState(
@@ -359,87 +378,45 @@ public sealed class CommentModerationFixturePort(
         if (lease.Schema != RuntimeLeaseSchema || !lease.Binding.IsValid()
             || string.IsNullOrWhiteSpace(lease.Region) || string.IsNullOrWhiteSpace(lease.PriorRegionState)
             || !StringComparer.Ordinal.Equals(lease.Owner, lease.Binding.Owner)
-            || !IsDigest(lease.PriorStateDigest) || !IsDigest(lease.AppliedStateDigest))
+            || !IsDigest(lease.PriorStateDigest) || !IsDigest(lease.AppliedStateDigest)
+            || lease.Custody is not RuntimeLeaseCustody custody)
             throw new InvalidOperationException("Comment moderation runtime lease is invalid.");
-        string leaseDigest = Digest(JsonSerializer.Serialize(lease));
-        if (runtimeState.GetRegionState(lease.Region) == lease.PriorRegionState
-            && SameModel(runtimeState.CurrentModel, lease))
-        {
-            // Idempotent release: a prior restore already reached the leased state.
-            return BuildRuntimeRestore(lease, leaseDigest, exact: true);
-        }
-        Result<ModerationRuntimeSnapshot> regionRestore = runtimeState.SetRegionState(
-            lease.Region,
-            lease.PriorRegionState,
-            $"comment fixture restore {lease.Binding.RunId}",
-            null,
-            null,
-            lease.Owner);
-        if (!regionRestore.IsSuccess
-            || runtimeState.GetRegionState(lease.Region) != lease.PriorRegionState)
-            throw new InvalidOperationException("Comment moderation runtime restore could not return the leased region state.");
-        Result<ModerationRuntimeSnapshot> rollback = runtimeState.RollbackModel(lease.Owner);
-        if (!rollback.IsSuccess || !SameModel(runtimeState.CurrentModel, lease))
-        {
-            // The shared rollback slot may hold an interleaved snapshot; fall back
-            // to an explicit prior-state write and still require an exact match.
-            Result<ModerationRuntimeSnapshot> direct = runtimeState.SetModelRuntime(
-                lease.PriorModelEnabled,
-                lease.PriorModelProvider,
-                lease.PriorModelProfile,
-                lease.PriorModelThresholdProfile,
-                $"comment fixture restore {lease.Binding.RunId}",
-                lease.Owner);
-            if (!direct.IsSuccess || !SameModel(runtimeState.CurrentModel, lease))
-                throw new InvalidOperationException("Comment moderation runtime restore could not return the leased model state.");
-        }
-        return BuildRuntimeRestore(lease, leaseDigest, exact: true);
-    }
-
-    private CommentModerationRuntimeRestore BuildRuntimeRestore(
-        CommentModerationRuntimeLease lease,
-        string leaseDigest,
-        bool exact)
-    {
-        ModerationModelRuntimeSnapshot current = runtimeState.CurrentModel;
+        string payload = JsonSerializer.Serialize(lease);
+        if (!StringComparer.Ordinal.Equals(payload, custody.Payload))
+            throw new InvalidOperationException("Comment moderation runtime lease differs from its native custody.");
+        // Actual owner release validates applied incarnation and restores the
+        // whole prior object plus rollback slot. A digest cannot grant release.
+        ModerationRuntimeSnapshot restored = custody.Native.Restore();
+        ModerationModelRuntimeSnapshot model = restored.Model;
         return new CommentModerationRuntimeRestore(
             RuntimeRestoreSchema,
             lease.Binding,
-            leaseDigest,
-            runtimeState.GetRegionState(lease.Region),
-            current.Enabled,
-            current.Provider,
-            current.ModelProfile,
-            current.ThresholdProfile,
-            current.ContractVersion,
-            lease.Owner,
-            RuntimeStateDigest(lease.Region, runtimeState.GetRegionState(lease.Region), current),
-            exact);
-    }
-
-    private static bool SameModel(
-        ModerationModelRuntimeSnapshot current,
-        CommentModerationRuntimeLease lease)
-        => current.Enabled == lease.PriorModelEnabled
-            && StringComparer.Ordinal.Equals(current.Provider, lease.PriorModelProvider)
-            && StringComparer.Ordinal.Equals(current.ModelProfile, lease.PriorModelProfile)
-            && StringComparer.Ordinal.Equals(current.ThresholdProfile, lease.PriorModelThresholdProfile)
-            && StringComparer.Ordinal.Equals(current.ContractVersion, lease.PriorModelContractVersion);
-
-    private static string RuntimeStateDigest(
-        string region,
-        string regionState,
-        ModerationModelRuntimeSnapshot model)
-        => Digest(JsonSerializer.Serialize(new
-        {
-            region,
-            regionState,
+            Digest(payload),
+            RegionState(restored, lease.Region),
             model.Enabled,
             model.Provider,
             model.ModelProfile,
             model.ThresholdProfile,
-            model.ContractVersion
-        }));
+            model.ContractVersion,
+            lease.Owner,
+            RuntimeStateDigest(restored),
+            Exact: true);
+    }
+
+    private sealed record RuntimeLeaseCustody(
+        ModerationRuntimeFixtureLease Native,
+        string Payload);
+
+    private static string RegionState(ModerationRuntimeSnapshot snapshot, string region)
+        => snapshot.RegionStates.TryGetValue(region, out string? state)
+            ? state
+            : ModerationRegionStates.Enabled;
+
+    // The wire digest observes all public snapshot metadata. Built-in runtime
+    // custody (including private scoring state) is retained by actual reference,
+    // not inferred from serialization or a reduced scalar tuple.
+    private static string RuntimeStateDigest(ModerationRuntimeSnapshot snapshot)
+        => Digest(JsonSerializer.Serialize(snapshot));
 
     public Task<string?> ReadCommentCacheGenerationAsync(
         int articleId,

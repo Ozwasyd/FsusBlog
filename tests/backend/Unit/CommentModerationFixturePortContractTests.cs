@@ -10,6 +10,8 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.FileProviders;
 
+using NSubstitute;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class CommentModerationFixturePortContractTests : IDisposable
@@ -100,21 +102,252 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
             }));
     }
 
-    private (CommentModerationFixturePort Port, ModerationRuntimeStateService RuntimeState) BuildPort(TimeProvider? clock = null)
+    [Fact]
+    public void RestoreRuntimeState_RetainsWholePriorMetadataAndAbsentRollbackSlot()
+    {
+        var clock = new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
+        (CommentModerationFixturePort port, ModerationRuntimeStateService runtime) = BuildPort(clock, modelEnabled: true);
+        Assert.True(runtime.SetDictionaryState("global.advertising", false, "prior-dictionary", null, "dictionary-actor").IsSuccess);
+        DateTime expiry = clock.UtcNow.UtcDateTime.AddHours(2);
+        Assert.True(runtime.SetRegionState(RegionCodes.UnitedStates, ModerationRegionStates.NoPublicDisplay,
+            "prior-region", expiry, null, "region-actor").IsSuccess);
+        ModerationRuntimeSnapshot prior = runtime.Current;
+        Assert.NotNull(prior.Model.BuiltInRuntime);
+        clock.UtcNow = clock.UtcNow.AddSeconds(5);
+        CommentModerationRuntimeLease lease = port.AcquireRuntimeState(Binding(), RegionCodes.UnitedStates);
+
+        CommentModerationRuntimeRestore first = port.RestoreRuntimeState(lease);
+        CommentModerationRuntimeRestore second = port.RestoreRuntimeState(lease);
+
+        // Object identity covers all runtime/model metadata and the private
+        // scorer's weights/thresholds, rather than just the wire scalar tuple.
+        Assert.Same(prior, runtime.Current);
+        Assert.Same(prior.Model, runtime.CurrentModel);
+        Assert.Same(prior.Model.BuiltInRuntime, runtime.CurrentModel.BuiltInRuntime);
+        Assert.Equal(expiry, runtime.Current.ExpiresAtUtc);
+        Assert.Equal("prior-region", runtime.Current.Reason);
+        Assert.Equal("region-actor", runtime.Current.ChangedBy);
+        Assert.Equal(lease.PriorStateDigest, first.RestoredStateDigest);
+        Assert.Equal(first, second);
+        Assert.True(runtime.RollbackModel("admin").IsFailure);
+        Assert.Same(prior, runtime.Current);
+    }
+
+    [Fact]
+    public void RestoreRuntimeState_RetainsExistingRollbackSlotAndInitialErrors()
+    {
+        var clock = new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
+        (CommentModerationFixturePort port, ModerationRuntimeStateService runtime) = BuildPort(clock, initialRuntimeInvalid: true);
+        ModerationRuntimeSnapshot initial = runtime.Current;
+        Assert.NotNull(initial.LastError);
+        Assert.NotNull(initial.Model.LastError);
+        CommentModerationRuntimeLease first = port.AcquireRuntimeState(Binding(), RegionCodes.UnitedStates);
+        port.RestoreRuntimeState(first);
+        Assert.Same(initial, runtime.Current);
+        Assert.True(runtime.RollbackModel("admin").IsFailure);
+
+        Assert.True(runtime.SetModelRuntime(false, "none", "prior-profile", "strict", "prior-model-reason", "prior-model-actor").IsSuccess);
+        ModerationRuntimeSnapshot prior = runtime.Current;
+        clock.UtcNow = clock.UtcNow.AddSeconds(5);
+        CommentModerationRuntimeLease second = port.AcquireRuntimeState(Binding(), RegionCodes.UnitedStates);
+        port.RestoreRuntimeState(second);
+        Assert.Same(prior, runtime.Current);
+        Assert.Equal(initial.Model with
+        {
+            LoadedAtUtc = clock.UtcNow.UtcDateTime,
+            LoadedBy = "admin",
+            Status = "rolled_back"
+        }, runtime.RollbackModel("admin").Value!.Model);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RestoreRuntimeState_RejectsInterveningOwnerEvenWhenScalarTupleIsUnchanged(bool afterRelease)
+    {
+        (CommentModerationFixturePort port, ModerationRuntimeStateService runtime) = BuildPort();
+        CommentModerationRuntimeLease lease = port.AcquireRuntimeState(Binding(), RegionCodes.UnitedStates);
+        if (afterRelease)
+            port.RestoreRuntimeState(lease);
+        string sameRegionState = runtime.GetRegionState(RegionCodes.UnitedStates);
+        Assert.True(runtime.SetRegionState(RegionCodes.UnitedStates, sameRegionState,
+            "intervening-owner", runtime.Current.ExpiresAtUtc, null, "other-owner").IsSuccess);
+        ModerationRuntimeSnapshot intervening = runtime.Current;
+
+        Assert.Throws<InvalidOperationException>(() => port.RestoreRuntimeState(lease));
+
+        Assert.Same(intervening, runtime.Current);
+        Assert.Equal("other-owner", runtime.Current.ChangedBy);
+    }
+
+    [Fact]
+    public void RestoreRuntimeState_RejectsImportedReceiptAndValidDigestTampering()
+    {
+        (CommentModerationFixturePort port, ModerationRuntimeStateService runtime) = BuildPort();
+        CommentModerationRuntimeLease lease = port.AcquireRuntimeState(Binding(), RegionCodes.UnitedStates);
+        ModerationRuntimeSnapshot applied = runtime.Current;
+        string payload = JsonSerializer.Serialize(lease);
+        CommentModerationRuntimeLease imported = JsonSerializer.Deserialize<CommentModerationRuntimeLease>(payload)!;
+        Assert.Equal(payload, JsonSerializer.Serialize(imported));
+        Assert.Throws<InvalidOperationException>(() => port.RestoreRuntimeState(imported));
+        Assert.Throws<InvalidOperationException>(() => port.RestoreRuntimeState(lease with
+        {
+            PriorStateDigest = $"sha256:{new string('d', 64)}"
+        }));
+        Assert.Throws<InvalidOperationException>(() => port.RestoreRuntimeState(lease with
+        {
+            PriorModelThresholdProfile = "forged-prior"
+        }));
+        Assert.Same(applied, runtime.Current);
+        Assert.True(port.RestoreRuntimeState(lease).Exact);
+    }
+
+    [Fact]
+    public void NativeRuntimeLease_NestedOwnedReleaseRestoresActualParentIncarnation()
+    {
+        var clock = new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
+        var (_, runtime) = BuildPort(clock);
+        ModerationRuntimeSnapshot original = runtime.Current;
+        var parent = runtime.AcquireCommentFixtureRuntimeState(RegionCodes.UnitedStates, "parent-owner", "parent", clock.UtcNow.UtcDateTime.AddMinutes(15));
+        var child = runtime.AcquireCommentFixtureRuntimeState(RegionCodes.Germany, "child-owner", "child", clock.UtcNow.UtcDateTime.AddMinutes(15));
+        Assert.Throws<InvalidOperationException>(() => parent.Restore());
+        Assert.Same(child.Applied, runtime.Current);
+        Assert.Same(parent.Applied, child.Restore());
+        Assert.Same(original, parent.Restore());
+        Assert.Same(original, parent.Restore());
+        Assert.True(runtime.RollbackModel("admin").IsFailure);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void AcquireRuntimeState_WhenReceiptConstructionFails_CompensatesActualPublishedStateOrReportsRejectedRelease(bool interleave)
+    {
+        (CommentModerationFixturePort port, ModerationRuntimeStateService runtime) = BuildPort(modelEnabled: true);
+        Assert.True(runtime.SetRegionState(RegionCodes.UnitedStates, ModerationRegionStates.NoPublicDisplay,
+            "prior", new DateTime(2024, 3, 1, 1, 0, 0, DateTimeKind.Utc), null, "prior-owner").IsSuccess);
+        ModerationRuntimeSnapshot prior = runtime.Current;
+        ModerationRuntimeSnapshot? intervening = null;
+        var cause = new NullMessageException();
+        CommentFixturePortBinding binding = Binding();
+        binding = binding with
+        {
+            // Validation observes the actual prior snapshot. Only serialization
+            // after native publication fails, before a caller receives its lease.
+            Capabilities = new FailAfterAcquireList(binding.Capabilities,
+                () => !ReferenceEquals(prior, runtime.Current),
+                interleave ? () =>
+                {
+                    Assert.True(runtime.SetGlobalState(ModerationGlobalStates.ReadOnly,
+                        "intervening", null, "other-owner").IsSuccess);
+                    intervening = runtime.Current;
+                } : null,
+                cause)
+        };
+
+        if (interleave)
+        {
+            CommentModerationRuntimeAcquisitionException failure = Assert.Throws<CommentModerationRuntimeAcquisitionException>(() =>
+                port.AcquireRuntimeState(binding, RegionCodes.UnitedStates));
+            Assert.Same(cause, failure.InnerException);
+            Assert.IsType<InvalidOperationException>(failure.CleanupError);
+            Assert.Same(intervening, runtime.Current);
+            Assert.Equal("other-owner", runtime.Current.ChangedBy);
+        }
+        else
+        {
+            Assert.Same(cause, Assert.Throws<NullMessageException>(() => port.AcquireRuntimeState(binding, RegionCodes.UnitedStates)));
+            Assert.Same(prior, runtime.Current);
+            Assert.True(runtime.RollbackModel("admin").IsFailure);
+            Assert.Same(prior, runtime.Current);
+        }
+        Assert.Equal(0, cause.MessageReads);
+    }
+
+    private sealed class FailAfterAcquireList(
+        IReadOnlyList<string> values,
+        Func<bool> hasApplied,
+        Action? interleave,
+        Exception cause) : IReadOnlyList<string>
+    {
+        public int Count => values.Count;
+        public string this[int index] => values[index];
+        public IEnumerator<string> GetEnumerator()
+        {
+            if (hasApplied())
+            {
+                interleave?.Invoke();
+                throw cause;
+            }
+            return values.GetEnumerator();
+        }
+        System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => GetEnumerator();
+    }
+
+    [Fact]
+    public async Task Seeder_RuntimeAcquisitionFailureKeepsOriginalCauseAndIndependentCleanupFailure()
+    {
+        CommentFixturePortBinding binding = Binding();
+        var threads = Substitute.For<ICommentThreadFixturePort>();
+        var moderation = Substitute.For<ICommentModerationFixturePort>();
+        var cause = new NullMessageException();
+        var cleanup = new InvalidOperationException("intervening owner rejected release");
+        var failure = new CommentModerationRuntimeAcquisitionException(cause, cleanup);
+        moderation.ReadCommentCacheGenerationAsync(binding.ArticleId, Arg.Any<CancellationToken>()).Returns("11");
+        moderation.AcquireRuntimeState(Arg.Any<CommentFixturePortBinding>(), Arg.Any<string>()).Returns(_ => throw failure);
+        var plan = new CommentFixturePlan(
+            "fsusblog.comment-fixture-plan.v1", "comment-moderation", "transaction-fixture",
+            binding.RunId, binding.Namespace, binding.TestSession, binding.ProfileId, binding.Capabilities,
+            new CommentFixtureIdentityReferences(11, 12, 7, binding.AuthProducerResultDigest, binding.AuthPrepareReferenceDigests)
+            {
+                AdminActorReferenceDigest = binding.AuthPrepareReferenceDigests[0]
+            },
+            new CommentFixtureArticleReference(binding.ArticleId, binding.PublicContentProducerResultDigest, binding.ArticleProjectionDigest),
+            binding.InventoryDigest, binding.CapabilityCatalogDigest, binding.VariantCatalogDigest,
+            binding.TemporalContextDigest, binding.ProducerPlanDigest, binding.PlanDigest);
+        var seeder = new CommentFixtureSeeder(threads, moderation,
+            new ConfigurationBuilder().Build(), new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero)));
+
+        CommentFixturePreparationException observed = await Assert.ThrowsAsync<CommentFixturePreparationException>(() => seeder.PrepareAsync(plan));
+
+        Assert.Same(cause, observed.InnerException);
+        Assert.Same(cleanup, observed.CleanupError);
+        Assert.Contains("incomplete", observed.Message, StringComparison.Ordinal);
+        Assert.DoesNotContain("completed.", observed.Message, StringComparison.Ordinal);
+        moderation.DidNotReceiveWithAnyArgs().RestoreRuntimeState(default!);
+        await threads.DidNotReceiveWithAnyArgs().ExecuteAsync(default!, default);
+        await threads.DidNotReceiveWithAnyArgs().CleanupAsync(default!, default);
+        Assert.Equal(0, cause.MessageReads);
+    }
+
+    private sealed class NullMessageException : Exception
+    {
+        public int MessageReads { get; private set; }
+        public override string Message
+        {
+            get
+            {
+                MessageReads++;
+                return null!;
+            }
+        }
+    }
+
+    private (CommentModerationFixturePort Port, ModerationRuntimeStateService RuntimeState) BuildPort(TimeProvider? clock = null, bool modelEnabled = false, bool initialRuntimeInvalid = false)
     {
         clock ??= new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
         string runtimePath = WriteRuntimePackage();
         IConfigurationRoot configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Moderation:AntiSpamModel:Enabled"] = "false",
+                ["Moderation:AntiSpamModel:Enabled"] = (modelEnabled || initialRuntimeInvalid).ToString(),
                 ["Moderation:AntiSpamModel:ModelProfile"] = "fsus-antispammodel",
                 ["Moderation:AntiSpamModel:ThresholdProfile"] = "default",
                 ["Moderation:AntiSpamModel:ContractVersion"] = AntiSpamModerationContract.DefaultVersion,
                 ["Moderation:AntiSpamModel:TimeoutMs"] = "800",
                 ["Moderation:AntiSpamModel:FailOpen"] = "true",
                 ["Moderation:AntiSpamModel:RuntimeChannel"] = "stable",
-                ["Moderation:AntiSpamModel:RuntimePath"] = runtimePath,
+                ["Moderation:AntiSpamModel:RuntimePath"] = initialRuntimeInvalid ? Path.Combine(_root, "missing-runtime") : runtimePath,
                 ["Moderation:AntiSpamModel:RequireSignature"] = "false"
             })
             .Build();
@@ -122,6 +355,7 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
             configuration,
             new TestWebHostEnvironment("Development"),
             clock);
+        configuration["Moderation:AntiSpamModel:RuntimePath"] = runtimePath;
         var port = new CommentModerationFixturePort(
             null!,
             null!,

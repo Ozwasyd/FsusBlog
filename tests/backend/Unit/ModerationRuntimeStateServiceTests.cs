@@ -226,6 +226,61 @@ public sealed class ModerationRuntimeStateServiceTests
         Assert.Equal("rolled_back", service.CurrentModel.Status);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void CommentFixtureAcquire_WhenModelLoadFails_PreservesWholeSnapshotAndOriginalRollbackSlot(bool hasRollbackSlot)
+    {
+        var clock = new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"), clock);
+        ModerationModelRuntimeSnapshot originalModel = service.CurrentModel;
+        if (hasRollbackSlot)
+            Assert.True(service.SetModelRuntime(false, "none", "prior-disabled", "strict", "prior-model-reason", "prior-model-actor").IsSuccess);
+        DateTime expiry = clock.UtcNow.UtcDateTime.AddHours(2);
+        Assert.True(service.SetRegionState(RegionCodes.UnitedStates, ModerationRegionStates.NoPublicDisplay,
+            "prior-region-reason", expiry, null, "prior-region-actor").IsSuccess);
+        ModerationRuntimeSnapshot prior = service.Current;
+
+        InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
+            service.AcquireCommentFixtureRuntimeState(RegionCodes.UnitedStates, "fixture-owner", "run", clock.UtcNow.UtcDateTime.AddMinutes(15)));
+
+        Assert.Contains("fsus_antispam_runtime_missing", error.Message, StringComparison.Ordinal);
+        Assert.Same(prior, service.Current);
+        Assert.Equal(expiry, service.Current.ExpiresAtUtc);
+        Assert.Equal("prior-region-reason", service.Current.Reason);
+        Assert.Equal("prior-region-actor", service.Current.ChangedBy);
+        var rollback = service.RollbackModel("after-failed-acquire");
+        if (hasRollbackSlot)
+        {
+            Assert.True(rollback.IsSuccess);
+            Assert.Equal(originalModel with
+            {
+                LoadedAtUtc = clock.UtcNow.UtcDateTime,
+                LoadedBy = "after-failed-acquire",
+                Status = "rolled_back"
+            }, service.CurrentModel);
+        }
+        else
+        {
+            Assert.True(rollback.IsFailure);
+            Assert.Equal("moderation_model_rollback_snapshot_missing", rollback.Error.Message);
+            Assert.Same(prior, service.Current);
+        }
+    }
+
+    [Theory]
+    [InlineData("Production", "US")]
+    [InlineData("Development", "CN")]
+    public void CommentFixtureAcquire_RejectsNonDevelopmentAndUnconfirmedMainlandWithoutMutation(string environment, string region)
+    {
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment(environment), TimeProvider.System);
+        ModerationRuntimeSnapshot prior = service.Current;
+        Assert.Throws<InvalidOperationException>(() => service.AcquireCommentFixtureRuntimeState(
+            region, "fixture-owner", "run", new DateTime(2024, 3, 1, 0, 15, 0, DateTimeKind.Utc)));
+        Assert.Same(prior, service.Current);
+        Assert.True(service.RollbackModel("admin").IsFailure);
+    }
+
     private static IConfigurationRoot BuildConfig()
         => new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>

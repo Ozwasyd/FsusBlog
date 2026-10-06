@@ -375,7 +375,12 @@ public sealed class CommentFixtureSeeder(
         }
         catch (Exception preparationError)
         {
-            Exception? cleanupError = (preparationError as CommentThreadFixtureRecoveryException)?.CleanupError;
+            Exception? cleanupError = preparationError switch
+            {
+                CommentThreadFixtureRecoveryException threadFailure => threadFailure.CleanupError,
+                CommentModerationRuntimeAcquisitionException runtimeFailure => runtimeFailure.CleanupError,
+                _ => null
+            };
             if (runtimeLease is not null)
             {
                 try
@@ -420,7 +425,9 @@ public sealed class CommentFixtureSeeder(
                 cleanupError is null
                     ? "Comment fixture prepare failed; exact owned compensation completed."
                     : "Comment fixture prepare failed and exact owned compensation was incomplete.",
-                preparationError,
+                preparationError is CommentModerationRuntimeAcquisitionException { InnerException: { } originalCause }
+                    ? originalCause
+                    : preparationError,
                 recoveryReceipt,
                 cleanupResult,
                 cleanupError);
