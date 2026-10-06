@@ -17,6 +17,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class TaxonomyExactMetadataTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void Codec_RoundTrip_PreservesIdNameAndDescription()
     {
         TaxonomyExactMetadataCoreModel original = new(7, "技术", "描述 😀");
@@ -29,6 +30,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void Codec_RoundTrip_MapsEmptyDescriptionToNull()
     {
         TaxonomyExactMetadataCoreModel original = new(3, "Life", null);
@@ -43,6 +45,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "taxonomy-pod-no-trailing-bytes")]
     public void Codec_RejectsTrailingBytes()
     {
         byte[] encoded = PodBinaryCodec.EncodeTaxonomyExactMetadata(new TaxonomyExactMetadataCoreModel(1, "Tech", "desc"));
@@ -52,6 +55,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void CategoryListCodec_DoesNotCarryDescription()
     {
         List<CategoryListItemResponse> items =
@@ -69,6 +73,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void MatchCanonicalTagId_ResolvesDisplayNameAndAliasToSameId()
     {
         (int Id, string Name)[] tags = [(11, "CSharp")];
@@ -82,6 +87,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "taxonomy-canonical-tag-identity-unambiguous")]
     public void MatchCanonicalTagId_ReturnsNullForMissingOrAmbiguousNames()
     {
         (int Id, string Name)[] tags = [(1, "Alpha"), (2, "alpha")];
@@ -91,6 +97,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void CacheIdentities_AreKeyedByKindAndCanonicalId()
     {
         Assert.Equal("category:7", TaxonomyExactMetadataCache.ForCategory(7));
@@ -99,6 +106,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "taxonomy-invalid-exact-identity-no-cache")]
     public async Task ExactRead_NonPositiveId_ReturnsBinaryNotFoundWithoutCache()
     {
         IOwnedFrameCache cache = Substitute.For<IOwnedFrameCache>();
@@ -131,6 +139,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ExactRead_CacheMissStoresDedicatedFrameByCanonicalIdentity()
     {
         IOwnedFrameCache cache = Substitute.For<IOwnedFrameCache>();
@@ -158,6 +167,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "taxonomy-missing-entity-notfound-no-cache")]
     public async Task ExactRead_MissingEntity_ReturnsNotFoundAndDoesNotCache()
     {
         IOwnedFrameCache cache = Substitute.For<IOwnedFrameCache>();
@@ -176,6 +186,19 @@ public sealed class TaxonomyExactMetadataTests
             "分类不存在");
 
         Assert.IsType<BinaryFrameResult>(result);
+        using var responseBody = new MemoryStream();
+        var context = new DefaultHttpContext();
+        context.Response.Body = responseBody;
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        var decoded = new AedsEncoder().TryDecode(responseBody.ToArray());
+        Assert.True(decoded.IsSuccess, decoded.Error.Message);
+        Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
+        var error = PodBinaryCodec.ToErrorDetail(errorPod);
+        Assert.Equal(ErrorCode.NotFound, error.Code);
+        Assert.Equal("分类不存在", error.Message);
         await cache.DidNotReceive().SetOwnedFrameAsync(
             Arg.Any<CachePolicyId>(),
             Arg.Any<string>(),
@@ -185,6 +208,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ExactMetadataPolicy_IsIndependentOfListFrames()
     {
         var registry = new CachePolicyRegistry();
@@ -203,6 +227,7 @@ public sealed class TaxonomyExactMetadataTests
     [InlineData("/api/binary/category/7.aeds")]
     [InlineData("/api/binary/tag/11.aeds")]
     [InlineData("/api/binary/tag/by-name.aeds")]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ExactRoutes_AreNotPublicHotReadL0(string path)
     {
         Assert.False(PublicHotReadFastPath.TryClassifyRouteForTests(path, out _));

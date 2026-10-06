@@ -699,6 +699,8 @@ function produceBehaviorMutationQualification(options)
         const rawTrace = fs.readFileSync(physicalRun.tracePath);
         return {
             sourceProject: physicalRun.sourceProject,
+            toolBinding: physicalRun.toolBindingPath
+                ? JSON.parse(fs.readFileSync(physicalRun.toolBindingPath)) : null,
             config: physicalRun.config,
             rawConfig,
             report: JSON.parse(rawReport),
@@ -708,7 +710,8 @@ function produceBehaviorMutationQualification(options)
             paths: {
                 config: repoRelative(repositoryRoot, physicalRun.configPath),
                 report: repoRelative(repositoryRoot, physicalRun.reportPath),
-                trace: repoRelative(repositoryRoot, physicalRun.tracePath)
+                trace: repoRelative(repositoryRoot, physicalRun.tracePath),
+                ...(physicalRun.toolBindingPath ? { toolBinding: repoRelative(repositoryRoot, physicalRun.toolBindingPath) } : {})
             }
         };
     });
@@ -718,7 +721,8 @@ function produceBehaviorMutationQualification(options)
             sourceProject: physicalRun.sourceProject,
             config: physicalRun.paths.config,
             report: physicalRun.paths.report,
-            trace: physicalRun.paths.trace
+            trace: physicalRun.paths.trace,
+            ...(physicalRun.paths.toolBinding ? { toolBinding: physicalRun.paths.toolBinding } : {})
         }))
     });
     let authority;

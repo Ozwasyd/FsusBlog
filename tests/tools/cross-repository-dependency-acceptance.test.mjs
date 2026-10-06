@@ -20,6 +20,8 @@ const {
     validateReceipt
 } = await import(pathToFileURL(path.join(root, 'tools/governance/cross-repository-dependency-acceptance.mjs')));
 
+const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
+
 const fixtures = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/governance/cross-repository-dependency-acceptance.json'), 'utf8'));
 
 test('fixture matrix covers every issue #1981 controlled acceptance case', () =>
@@ -131,7 +133,7 @@ test('receipt validation is closed, digest-bound and simulation-labelled', () =>
         implementationClosureDigests: { 'tools/evaluator.mjs': file }
     };
     const payload = {
-        schema: receiptSchema, evidenceClass, terminalQualification: true,
+        schema: receiptSchema, evidenceClass, terminalQualification: false,
         qualification: {
             mode: 'explicit-user-authorized-local-equivalent',
             hostedEvidenceClaimed: false,
@@ -158,10 +160,17 @@ test('receipt validation is closed, digest-bound and simulation-labelled', () =>
         repositories: [{ name: 'fsusblog', status: 'pass' }, { name: 'fsusui', status: 'pass' }],
         warnings: [], status: 'pass'
     };
-    // Import-free duplicate of the public canonical digest is intentionally avoided: a malformed digest must fail.
+    const sealed = { ...payload, receiptDigest: `sha256:${digestValue(payload)}` };
+    assert.equal(validateReceipt(sealed), sealed);
+    assert.equal(sealed.status, 'pass');
+    assert.equal(sealed.terminalQualification, false);
+    const terminal = { ...payload, terminalQualification: true };
+    const resealedTerminal = { ...terminal, receiptDigest: `sha256:${digestValue(terminal)}` };
+    assert.notEqual(resealedTerminal.receiptDigest, sealed.receiptDigest);
+    assert.throws(() => validateReceipt(resealedTerminal), /receipt_terminal_qualification/);
     assert.throws(() => validateReceipt({ ...payload, receiptDigest: 'sha256:' + '0'.repeat(64) }), /receipt_digest/);
     assert.throws(() => validateReceipt({ ...payload, extra: true, receiptDigest: 'x' }), /receipt_fields/);
-    assert.throws(() => validateReceipt({ ...payload, terminalQualification: false, receiptDigest: 'x' }),
+    assert.throws(() => validateReceipt({ ...payload, terminalQualification: true, receiptDigest: 'x' }),
         /receipt_terminal_qualification/);
     assert.throws(() => validateReceipt({ ...payload, evidenceClass: 'hosted-actions', receiptDigest: 'x' }), /receipt_header/);
     assert.throws(() => validateReceipt({ ...payload, qualification: {

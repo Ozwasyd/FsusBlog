@@ -6,6 +6,37 @@ namespace FsusBlog.Migration.Tests;
 
 public sealed class CurrentSchemaBootstrapCompilerTests
 {
+    [Theory]
+    [InlineData("int16-array", "smallint[]")]
+    [InlineData("uuid-array", "uuid[]")]
+    [InlineData("string-array", "text[]")]
+    public void BoundRecipeBootstrapKeepsExactArrayIdentityAndRejectsPhysicalDrift(string semantic, string physical)
+    {
+        CurrentSchemaProducerIdentity owner = Owner();
+        var columns = new Dictionary<string, SchemaColumnModel>(StringComparer.Ordinal)
+        {
+            ["id"] = new("id", false, true, false, null, "uuid", PhysicalType: "uuid"),
+            ["items"] = new("items", false, false, false, null, semantic, PhysicalType: physical,
+                Collation: SchemaPhysicalTypeProjection.ToCollation(SchemaProviderKind.PostgreSql, semantic))
+        };
+        var constraints = new Dictionary<string, SchemaConstraintModel>(StringComparer.Ordinal)
+        {
+            ["array_recipe_pkey"] = new("array_recipe_pkey", "primary-key", ["id"])
+        };
+        var facts = new CurrentSchemaRecipeFacts(new("array_recipe", columns, [], constraints: constraints), []);
+        var input = new CurrentSchemaBootstrapInput(Projection(), owner,
+            [new("array_recipe", SchemaProviderKind.PostgreSql, new string('d', 64), facts)]);
+        CompiledCurrentSchemaBootstrap compiled = CurrentSchemaBootstrapCompiler.Compile(input, owner,
+            SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input));
+        Assert.Contains(compiled.Commands, command => command.Sql.Contains($"\"items\" {physical} NOT NULL", StringComparison.Ordinal));
+        columns["items"] = columns["items"] with
+        {
+            PhysicalType = "integer[]"
+        };
+        Assert.Throws<InvalidOperationException>(() => CurrentSchemaBootstrapCompiler.Compile(input, owner,
+            SchemaProviderKind.PostgreSql, CurrentSchemaBootstrapCompiler.OwnedInputDigest(input)));
+    }
+
     [Fact]
     public void Bootstrap_IndependentSequenceTypedFactsPreserveOriginalSqlAndBindCompleteTarget()
     {

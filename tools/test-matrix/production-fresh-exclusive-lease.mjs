@@ -27,6 +27,62 @@ export const productionFreshLeaseStates = Object.freeze([
   'cancelled'
 ])
 
+const issuedLeases = new WeakMap()
+
+function issuedRecordIdentity(file) {
+  const stat = fs.lstatSync(file)
+  if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.size > 1048576
+    || fs.realpathSync(file) !== file || (process.platform !== 'win32'
+      && (stat.uid !== process.getuid() || (stat.mode & 0o077)))) {
+    throw new Error('Production Fresh issued owner record is not private and canonical')
+  }
+  return [stat.dev, stat.ino, stat.mode, stat.uid, stat.gid, stat.size, stat.ctimeMs, stat.mtimeMs]
+}
+
+function readIssuedOwner(file, expectedIdentity) {
+  for (const directory of [path.dirname(file), path.dirname(path.dirname(file))]) {
+    const stat = fs.lstatSync(directory)
+    if (!stat.isDirectory() || stat.isSymbolicLink() || fs.realpathSync(directory) !== directory
+      || (process.platform !== 'win32' && (stat.uid !== process.getuid() || (stat.mode & 0o077))))
+      throw new Error('Production Fresh issued owner directory drifted')
+  }
+  const before = issuedRecordIdentity(file)
+  if (JSON.stringify(before) !== JSON.stringify(expectedIdentity))
+    throw new Error('Production Fresh issued owner record identity drifted')
+  const descriptor = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0) | (fs.constants.O_NONBLOCK ?? 0))
+  try {
+    const opened = fs.fstatSync(descriptor)
+    if (!opened.isFile() || opened.nlink !== 1
+      || JSON.stringify([opened.dev, opened.ino, opened.mode, opened.uid, opened.gid, opened.size, opened.ctimeMs, opened.mtimeMs]) !== JSON.stringify(before))
+      throw new Error('Production Fresh issued owner changed during open')
+    const buffer = Buffer.alloc(1048577)
+    let count = 0
+    while (count < buffer.length) {
+      const read = fs.readSync(descriptor, buffer, count, buffer.length - count, count)
+      if (!read) break
+      count += read
+    }
+    if (count > 1048576) throw new Error('Production Fresh issued owner exceeds its byte bound')
+    const bytes = buffer.subarray(0, count)
+    const after = fs.fstatSync(descriptor)
+    if (after.ctimeMs !== opened.ctimeMs || after.size !== opened.size
+      || JSON.stringify(issuedRecordIdentity(file)) !== JSON.stringify(before))
+      throw new Error('Production Fresh issued owner changed during observation')
+    return JSON.parse(bytes.toString('utf8'))
+  } finally { fs.closeSync(descriptor) }
+}
+
+function immutableIssuedOwner(owner) {
+  const { heartbeatAt, state, contentDigest, ...identity } = owner
+  return JSON.stringify(canonicalize(identity))
+}
+
+export function assertProductionFreshExclusiveLease(lease, { root, runId, sourceState }) {
+  const validate = issuedLeases.get(lease)
+  if (!validate) throw new Error('Production Fresh requires its actual live issued lease')
+  return validate({ root, runId, sourceState })
+}
+
 const activeStates = new Set(['acquiring', 'active', 'finalizing'])
 const terminalStates = new Set(['complete', 'failed', 'cancelled'])
 const reclaimableAuthorityReasons = new Set(['owner-dead', 'owner-mismatch'])
@@ -522,6 +578,9 @@ export function acquireProductionFreshExclusiveLease({
   }
 
   const authority = selfAuthority(identity, groupOrJob.value)
+  const issuedSourceState = JSON.stringify(sourceState)
+  const issuedOwnerIdentity = immutableIssuedOwner(owner)
+  let currentRecordIdentity = issuedRecordIdentity(ownerFile)
   function updateState(state) {
     const markerFile = acquireCasMarker(leasePath, owner, 'heartbeat')
     if (!markerFile) return false
@@ -536,6 +595,7 @@ export function acquireProductionFreshExclusiveLease({
         state
       })
       atomicWriteJson(ownerFile, next)
+      currentRecordIdentity = issuedRecordIdentity(ownerFile)
       Object.assign(owner, next)
       return true
     } finally {
@@ -551,13 +611,14 @@ export function acquireProductionFreshExclusiveLease({
   }, Math.max(1, heartbeatEveryMs))
   heartbeat.unref?.()
 
-  return {
+  const lease = {
     owner,
     leasePath,
     release(state = 'complete') {
       if (!terminalStates.has(state)) {
         throw new Error('production fresh lease terminal state is invalid')
       }
+      issuedLeases.delete(lease)
       if (!updateState('finalizing')) {
         throw new Error('production fresh lease owner changed before finalizing')
       }
@@ -607,4 +668,19 @@ export function acquireProductionFreshExclusiveLease({
       fs.rmSync(tombstone, { recursive: true, force: true })
     }
   }
+  issuedLeases.set(lease, (expected) => {
+    const current = readIssuedOwner(ownerFile, currentRecordIdentity)
+    if (immutableIssuedOwner(current) !== issuedOwnerIdentity || immutableIssuedOwner(owner) !== issuedOwnerIdentity
+      || stopped || current?.state !== 'active' || !ownerExactMatches(owner, current)
+      || fs.realpathSync(expected.root) !== canonicalRepositoryRoot || expected.runId !== runId
+      || JSON.stringify(expected.sourceState) !== issuedSourceState
+      || verifyAuthority(current, authority).status !== 'active') {
+      throw new Error('Production Fresh live lease identity, source or state drifted')
+    }
+    const confirmed = readIssuedOwner(ownerFile, currentRecordIdentity)
+    if (JSON.stringify(confirmed) !== JSON.stringify(current))
+      throw new Error('Production Fresh issued owner drifted during authority verification')
+    return confirmed
+  })
+  return lease
 }

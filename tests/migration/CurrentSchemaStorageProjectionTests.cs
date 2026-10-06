@@ -6,6 +6,35 @@ namespace FsusBlog.Migration.Tests;
 
 public sealed class CurrentSchemaStorageProjectionTests
 {
+    [Theory]
+    [InlineData("smallint[]", "int16-array")]
+    [InlineData("uuid[]", "uuid-array")]
+    [InlineData("text[]", "string-array")]
+    public void OriginalArrayPhysicalIdentityIsClosedAndPostgresOnly(string physical, string semantic)
+    {
+        Assert.Equal(semantic, SchemaPhysicalTypeProjection.NormalizeDeclaredSemantic(physical));
+        Assert.Equal(physical, SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.PostgreSql, semantic, null));
+        Assert.Equal(physical, SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.PostgreSql, semantic, null, physical));
+        Assert.Equal(semantic == "string-array" ? "default" : "n/a", SchemaPhysicalTypeProjection.ToCollation(SchemaProviderKind.PostgreSql, semantic));
+        Assert.Throws<InvalidOperationException>(() => SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.MySql, semantic, null, physical));
+        Assert.Throws<InvalidOperationException>(() => SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.Sqlite, semantic, null, physical));
+        Assert.Throws<InvalidOperationException>(() => SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.PostgreSql, semantic, 2, physical));
+        Assert.Throws<InvalidOperationException>(() => SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.PostgreSql, semantic, null, "integer[]"));
+        Assert.Throws<InvalidOperationException>(() => SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.PostgreSql, "json", null, physical));
+    }
+
+    [Theory]
+    [InlineData("int2[]")]
+    [InlineData("uuid[][]")]
+    [InlineData("text[][]")]
+    [InlineData("varchar(32)[]")]
+    [InlineData("public.uuid[]")]
+    public void UnknownArrayTypeCannotBeNormalizedToAScalarOrJson(string physical)
+    {
+        Assert.Null(SchemaPhysicalTypeProjection.TryNormalizeDeclaredSemantic(physical));
+        Assert.Throws<InvalidOperationException>(() => SchemaPhysicalTypeProjection.NormalizeDeclaredSemantic(physical));
+    }
+
     [Fact]
     public void PhysicalConversionDomain_DoesNotReplaceLogicalInputOrJsonStorageFacts()
     {

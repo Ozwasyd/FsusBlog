@@ -13,6 +13,7 @@ public sealed class SecurityChallengeContractTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SupportedKinds_HaveStableWireNames()
     {
         string[] expected =
@@ -39,6 +40,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CreateChallengeId_UsesUuidV7()
     {
         string challengeId = SecurityChallengeContracts.CreateChallengeId();
@@ -58,6 +60,7 @@ public sealed class SecurityChallengeContractTests
     [InlineData("subject_hash_invalid")]
     [InlineData("client_ip_hash_invalid")]
     [InlineData("device_fp_hash_invalid")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-assignment-shape-and-binding-required")]
     public void ValidateAssignment_RejectsInvalidContractShapes(string expectedError)
     {
         SecurityChallengeAssignment assignment = expectedError switch
@@ -83,6 +86,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-challenge-id-uuid-v7")]
     public void ValidateAssignment_AllKindsRequireUuidV7()
     {
         string uuidV4 = Guid.NewGuid().ToString("D");
@@ -102,6 +106,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-assignment-pod-expected-kind")]
     public void AssignmentPod_RoundTripsAndHonorsExpectedKind()
     {
         SecurityChallengeAssignment assignment = CreateAssignment();
@@ -115,6 +120,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void EnvelopePod_RoundTripsAssignments()
     {
         SecurityChallengeAssignment assignment = CreateAssignment();
@@ -134,6 +140,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AedsFrameTypes_RegisterSecurityChallengeFrames()
     {
         Assert.Equal(171, (ushort)AedsFrameType.SecurityChallengeAssignment);
@@ -159,6 +166,7 @@ public sealed class SecurityChallengeContractTests
     [Theory]
     [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, "perceptionLocalizationV2", PerceptionSealedTaskKind.Localization)]
     [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, "perceptionMicroInteractionV2", PerceptionSealedTaskKind.MicroInteraction)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PerceptionSealedKinds_HaveStableWireNamesAndTaskMapping(
         SecurityChallengeKind kind,
         string wireName,
@@ -172,6 +180,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AedsFrameTypes_RegisterPerceptionSealedFrames()
     {
         Assert.Equal(184, (ushort)AedsFrameType.PerceptionSealedChallengeV2);
@@ -185,6 +194,7 @@ public sealed class SecurityChallengeContractTests
     [Theory]
     [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, PerceptionSealedTaskKind.Localization)]
     [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, PerceptionSealedTaskKind.MicroInteraction)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PerceptionSealedChallengeV2_ValidatesIndependentTaskKinds(SecurityChallengeKind kind, PerceptionSealedTaskKind taskKind)
     {
         var challenge = new PerceptionSealedChallengeV2(
@@ -210,6 +220,7 @@ public sealed class SecurityChallengeContractTests
     [Theory]
     [InlineData(SecurityChallengeKind.PerceptionLocalizationV2, PerceptionSealedTaskKind.Localization, PerceptionSealedResultPayloadKind.Coordinates)]
     [InlineData(SecurityChallengeKind.PerceptionMicroInteractionV2, PerceptionSealedTaskKind.MicroInteraction, PerceptionSealedResultPayloadKind.Steps)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PerceptionSealedResultV2_ValidatesIndependentPayloadKinds(
         SecurityChallengeKind kind,
         PerceptionSealedTaskKind taskKind,
@@ -233,6 +244,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PerceptionSealedContracts_DoNotExposeForbiddenSemanticFields()
     {
         string[] names =
@@ -250,6 +262,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityChallengeIssueAndVerifyContracts_RoundTrip()
     {
         var issue = new SecurityChallengeIssueBinaryRequest(
@@ -286,6 +299,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityChallengeIssueAndVerifyResponses_RoundTrip()
     {
         SecurityChallengeAssignment assignment = CreateAssignment();
@@ -334,6 +348,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityChallengeVerifyProgress_RoundTripsDeferredNextMember()
     {
         SecurityChallengeAssignment current = CreateAssignment();
@@ -367,6 +382,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-provider-payload-challenge-binding")]
     public void IssueResponse_RejectsProviderPayloadForDifferentChallenge()
     {
         SecurityChallengeAssignment assignment = CreateAssignment();
@@ -384,6 +400,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-envelope-id-uuid-v7")]
     public void VerifyRequest_RequiresUuidV7EnvelopeId()
     {
         var request = new SecurityChallengeVerifyBinaryRequest(
@@ -409,6 +426,7 @@ public sealed class SecurityChallengeContractTests
     [InlineData(1, 2, true, true, "envelope_completed_invalid")]
     [InlineData(2, 2, false, true, "envelope_completed_invalid")]
     [InlineData(1, 2, true, false, "proof_token_invalid")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-verify-aggregate-state-consistent")]
     public void VerifyResponse_RejectsInvalidAggregateState(
         int completedCount,
         int memberCount,
@@ -430,6 +448,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void VerifyResponse_AllowsMemberProgressWithoutProofToken()
     {
         SecurityChallengeVerifyBinaryResponse response = CreateVerifyResponse(
@@ -446,6 +465,7 @@ public sealed class SecurityChallengeContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-proof-token-envelope-completion-consistent")]
     public void VerifyResponse_RequiresProofTokenOnlyWhenEnvelopeCompletes()
     {
         SecurityChallengeVerifyBinaryResponse incompleteWithProof = CreateVerifyResponse(

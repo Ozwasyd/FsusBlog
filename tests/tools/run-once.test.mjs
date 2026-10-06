@@ -7,6 +7,99 @@ import test from 'node:test';
 const {verifyConsumerEvidenceFile} = await import(new URL('../../tools/test/check-physical-execution-consumer-evidence.mjs', import.meta.url));
 const {currentProcessIdentity} = await import(new URL('../../tools/test/process-identity.mjs', import.meta.url));
 const {buildRunBoundConsumerEvidence, runBoundExecution, runOnce, validateRunBoundConsumerEvidence, validateRunBoundProjection} = await import(new URL('../../tools/test/run-once.mjs', import.meta.url));
+const {executionFailureDiagnostic, formatExecutionFailure, selectExecutionFailure} = await import(new URL('../../tools/test/execution-failure-diagnostic.mjs', import.meta.url));
+
+for (const scenario of ['execution-only', 'finalization-only', 'both', 'cancel', 'incomplete-containment'])
+{
+    test(`run-bound failure receipt and CLI preserve ${scenario} diagnostics`, async (context) =>
+    {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-run-bound-first-cause-'));
+        context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+        const physical = { exitCode: 7, cleanup: { status: scenario === 'incomplete-containment' ? 'unverifiable' : 'verified', childTerminal: { exitCode: 0 } } };
+        const first = scenario === 'finalization-only' ? null : Object.assign(new Error('primary execution diagnostic'), {
+            name: scenario === 'cancel' ? 'AbortError' : 'Error',
+            exitCode: scenario === 'cancel' || scenario === 'incomplete-containment' ? null : 7,
+            signal: scenario === 'cancel' ? 'SIGTERM' : null,
+            physicalExecution: physical
+        });
+        const secondary = scenario === 'execution-only' ? null : new Error('correctness network observation is unavailable');
+        let restored;
+        await assert.rejects(runBoundExecution({
+            root, runId: `first-cause-${scenario}`, key: 'matrix-governance', command: ['fixture'], cwd: root,
+            inputDigest: 'input', environmentDigest: 'environment', outputContract: [], requiredOutputs: [],
+            commit: 'a'.repeat(40), worktreeFingerprint: 'source', testIds: ['matrix-validate'], consumerId: 'validate-matrix'
+        }, async () =>
+        {
+            throw selectExecutionFailure({ executionError: first, finalizationError: secondary, physicalExecution: physical });
+        }), (error) =>
+        {
+            restored = error;
+            return error.message === (first?.message ?? secondary.message);
+        });
+        const receiptDirectory = path.join(root, `first-cause-${scenario}`, 'receipts', 'matrix-governance');
+        const receipt = JSON.parse(fs.readFileSync(path.join(receiptDirectory, fs.readdirSync(receiptDirectory).find((name) => name.endsWith('.json'))), 'utf8'));
+        assert.equal(receipt.schema, 'fsusblog.physical-execution-receipt.v3');
+        assert.equal(receipt.status, scenario === 'cancel' ? 'cancelled' : 'failure');
+        assert.equal(receipt.physicalExecution.cleanup.childTerminal.exitCode, 0);
+        assert.equal(receipt.failure.exitCode, first?.exitCode ?? null);
+        assert.equal(receipt.failure.diagnostic.primary.exitCode, first?.exitCode ?? null);
+        assert.equal(receipt.failure.diagnostic.secondary?.message ?? null, first ? secondary?.message ?? null : null);
+        assert.deepEqual(executionFailureDiagnostic(restored), receipt.failure.diagnostic);
+        assert.match(formatExecutionFailure(restored), /execution-failure-diagnostic/u);
+    });
+}
+
+for (const causeCount of [1, 4])
+{
+    test(`cached run-bound failure retains ${causeCount} sealed causes through a second postflight refusal`, async (context) =>
+    {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-run-bound-cached-first-cause-'));
+        context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+        const options = {
+            root, runId: `cached-first-cause-${causeCount}`, key: 'matrix-governance', command: ['fixture'], cwd: root,
+            inputDigest: 'input', environmentDigest: 'environment', outputContract: [], requiredOutputs: [],
+            commit: 'a'.repeat(40), worktreeFingerprint: 'source', testIds: ['matrix-validate'], consumerId: 'validate-matrix'
+        };
+        const first = Object.assign(new Error('primary execution diagnostic'), { exitCode: 7 });
+        let cause = first;
+        for (let index = 0; index < causeCount; index += 1)
+        {
+            cause.cause = new Error(`sealed cause ${index}`);
+            cause = cause.cause;
+        }
+        selectExecutionFailure({ executionError: first, finalizationError: new Error('original postflight refusal') });
+        const original = executionFailureDiagnostic(first);
+        let calls = 0;
+        const operation = async () =>
+        {
+            calls += 1;
+            throw first;
+        };
+        await assert.rejects(runBoundExecution(options, operation), /primary execution diagnostic/u);
+        await assert.rejects(runBoundExecution(options, operation), (error) =>
+        {
+            assert.equal(error.cause, undefined);
+            assert.deepEqual(executionFailureDiagnostic(error), original);
+            const selected = selectExecutionFailure({ executionError: error, finalizationError: new Error('current postflight refusal') });
+            const value = executionFailureDiagnostic(selected);
+            assert.equal(selected, error);
+            assert.equal(selected.exitCode, 7);
+            assert.deepEqual(value.primary, original.primary);
+            assert.deepEqual(value.secondary, original.secondary);
+            assert.deepEqual(value.causes.slice(0, causeCount), original.causes);
+            assert.equal(value.causes.length, Math.min(4, causeCount + 1));
+            assert.equal(value.causesTruncated, causeCount === 4);
+            if (causeCount < 4)
+            {
+                assert.equal(value.causes.at(-1).message, 'current postflight refusal');
+            }
+            assert.match(formatExecutionFailure(selected), /original postflight refusal/u);
+            return true;
+        });
+        assert.equal(calls, 1);
+    });
+}
+
 test('run-once immediately reclaims a lock whose recorded owner process is dead', async (context) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-run-once-dead-owner-'));
@@ -208,4 +301,119 @@ test('run-bound summaries exclude lock tombstones and temporal artifacts', async
     assert.equal(summary.physicalExecutions, 1);
     assert.equal(summary.logicalConsumers, 2);
     assert.deepEqual(summary.producers.map((entry) => entry.key), [key]);
+});
+
+for (const variant of ['null', 'undefined', 'false', 'zero', 'empty', 'frozen', 'accessor', 'cancelled'])
+{
+    test(`run-bound producer projects original ${variant} failure before rethrow`, async (context) =>
+    {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-producer-failure-projection-'));
+        context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+        const controller = new AbortController();
+        let reads = 0;
+        const accessor = Object.freeze(Object.defineProperty({}, 'message', {
+            get()
+            {
+                reads += 1;
+                throw new Error('unexpected failure accessor');
+            } }));
+        const reason = variant === 'null' ? null : variant === 'undefined' ? undefined
+            : variant === 'false' ? false : variant === 'zero' ? 0 : variant === 'empty' ? ''
+                : variant === 'accessor' ? accessor : Object.freeze(new Error(`controlled ${variant}`));
+        const options = { root, runId: `producer-${variant}`, key: 'matrix-governance', command: ['controlled'], cwd: root,
+            inputDigest: 'input', environmentDigest: 'environment', outputContract: [], requiredOutputs: [],
+            commit: 'a'.repeat(40), worktreeFingerprint: 'source', testIds: ['matrix-validate'], consumerId: 'producer',
+            signal: controller.signal };
+        let invoked = 0;
+        const outcome = await runBoundExecution(options, async () =>
+        {
+            invoked += 1;
+            if (variant === 'cancelled')
+            {
+                controller.abort(reason);
+            }
+            throw reason;
+        }).then(() => ({ rejected: false }), (error) => ({ rejected: true, error }));
+        assert.equal(outcome.rejected, true);
+        assert.equal(outcome.error, reason);
+        assert.equal(invoked, 1);
+        if (variant === 'frozen' || variant === 'cancelled' || variant === 'accessor')
+        {
+            assert.equal(executionFailureDiagnostic(reason).secondary, null);
+        }
+        const runDirectory = path.join(root, options.runId);
+        const projections = fs.readdirSync(path.join(runDirectory, 'projections'));
+        assert.equal(projections.length, 1);
+        const projection = JSON.parse(fs.readFileSync(path.join(runDirectory, 'projections', projections[0]), 'utf8'));
+        assert.equal(projection.disposition, 'producer');
+        assert.equal(projection.status, variant === 'cancelled' ? 'cancelled' : 'failure');
+        const summary = JSON.parse(fs.readFileSync(path.join(runDirectory, 'summary.json'), 'utf8'));
+        assert.equal(summary.physicalExecutions, 1);
+        assert.equal(summary.logicalConsumers, 1);
+        assert.equal(reads, 0);
+        assert.equal(fs.readdirSync(path.join(runDirectory, 'receipts', options.key)).some((name) => name.endsWith('.lock')), false);
+    });
+}
+
+for (const output of ['projection', 'summary'])
+{
+    test(`run-bound producer preserves original failure when its ${output} cannot be written`, async (context) =>
+    {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-producer-secondary-projection-'));
+        context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+        const reason = Object.freeze(new Error('controlled original failure'));
+        const options = { root, runId: 'producer-secondary', key: 'matrix-governance', command: ['controlled'], cwd: root,
+            inputDigest: 'input', environmentDigest: 'environment', outputContract: [], requiredOutputs: [],
+            commit: 'a'.repeat(40), worktreeFingerprint: 'source', testIds: ['matrix-validate'], consumerId: 'producer' };
+        const outcome = await runBoundExecution(options, async () =>
+        {
+            if (output === 'projection')
+            {
+                fs.writeFileSync(path.join(root, options.runId, 'projections'), 'controlled unavailable projection directory');
+            }
+            else
+            {
+                fs.mkdirSync(path.join(root, options.runId, 'summary.json'));
+            }
+            throw reason;
+        }).then(() => ({ rejected: false }), (error) => ({ rejected: true, error }));
+        assert.equal(outcome.rejected, true);
+        assert.equal(outcome.error, reason);
+        assert.notEqual(executionFailureDiagnostic(reason).secondary, null);
+        if (output === 'summary')
+        {
+            assert.equal(fs.readdirSync(path.join(root, options.runId, 'projections')).length, 1);
+        }
+        assert.equal(fs.readdirSync(path.join(root, options.runId, 'receipts', options.key)).some((name) => name.endsWith('.lock')), false);
+    });
+}
+
+test('run-bound producer failure leaves cancelled cached consumers under their original signal', async (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-cancelled-failure-consumer-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const producerReason = Object.freeze(new Error('controlled producer failure'));
+    const consumerReason = Object.freeze(new Error('controlled cancelled consumer'));
+    const options = { root, runId: 'cancelled-failure-consumer', key: 'matrix-governance', command: ['controlled'], cwd: root,
+        inputDigest: 'input', environmentDigest: 'environment', outputContract: [], requiredOutputs: [],
+        commit: 'a'.repeat(40), worktreeFingerprint: 'source', testIds: ['matrix-validate'], consumerId: 'producer' };
+    let commands = 0;
+    await assert.rejects(runBoundExecution(options, async () =>
+    {
+        commands += 1;
+        throw producerReason;
+    }), (error) => error === producerReason);
+    const controller = new AbortController();
+    controller.abort(consumerReason);
+    const outcome = await runBoundExecution({ ...options, consumerId: 'consumer', signal: controller.signal }, async () =>
+    {
+        commands += 1;
+        assert.fail('a current failed receipt cannot execute again');
+    }).then(() => ({ rejected: false }), (error) => ({ rejected: true, error }));
+    assert.equal(outcome.rejected, true);
+    assert.equal(outcome.error, consumerReason);
+    assert.equal(commands, 1);
+    const summary = JSON.parse(fs.readFileSync(path.join(root, options.runId, 'summary.json'), 'utf8'));
+    assert.equal(summary.physicalExecutions, 1);
+    assert.equal(summary.logicalConsumers, 1);
 });

@@ -39,6 +39,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ModerationConsoleContractTests
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AuthoringEndpoints_ExposeModerationMethodsPermissionsAndRateLimitMetadata()
     {
         IModerationDictionaryService dictionaries = Substitute.For<IModerationDictionaryService>();
@@ -59,6 +60,7 @@ public sealed class ModerationConsoleContractTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-reload-and-rollback-endpoints-enforce-permission-and-step-up-then-audit-and-invalidate")]
     public async Task ReloadAndRollbackEndpoints_EnforcePermissionAndStepUpThenAuditAndInvalidate()
     {
         ModerationDictionaryRuntimeSnapshot snapshot = RuntimeSnapshot();
@@ -116,6 +118,7 @@ public sealed class ModerationConsoleContractTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GlobalRuntimeEndpoint_DeserializesMutationThenAuditsAndInvalidatesChangedState()
     {
         var request = new ModerationRuntimeGlobalStateRequest(
@@ -170,6 +173,7 @@ public sealed class ModerationConsoleContractTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-runtime-dictionary-serialization-exposes-counts-and-evidence-policy-without-raw-terms")]
     public void RuntimeDictionarySerialization_ExposesCountsAndEvidencePolicyWithoutRawTerms()
     {
         string json = JsonSerializer.Serialize(

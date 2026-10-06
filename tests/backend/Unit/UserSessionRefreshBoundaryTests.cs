@@ -16,6 +16,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UserSessionRefreshBoundaryTests
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void DependencyGraph_SessionRefreshHasNoUserServiceCallback()
     {
         Type[] dependencies = Assert.Single(typeof(UserSessionCommandService).GetConstructors())
@@ -37,6 +38,7 @@ public sealed class UserSessionRefreshBoundaryTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RuntimePath_OwnsLifecycleRotationAndReplayRevocation()
     {
         string runtime = RuntimeMetadataInspection.DescribeMethods(
@@ -55,6 +57,7 @@ public sealed class UserSessionRefreshBoundaryTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void CredentialDeletion_RevokesOnlySessionsCreatedByThatInternalCredentialRow()
     {
         string runtime = RuntimeMetadataInspection.DescribeMethods(
@@ -69,6 +72,7 @@ public sealed class UserSessionRefreshBoundaryTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void Composition_RegistersScopedSessionRefreshBoundary()
     {
         var services = new ServiceCollection();

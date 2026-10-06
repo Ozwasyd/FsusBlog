@@ -56,947 +56,1573 @@
     "frameTypes": [
         {
             "name": "Unknown",
-            "value": 0
+            "value": 0,
+            "goldenFamily": "reserved",
+            "goldenOrder": 0
         },
         {
             "name": "ArticleList",
-            "value": 1
+            "value": 1,
+            "goldenFamily": "public-article-response",
+            "goldenOrder": 1
         },
         {
             "name": "ArticleDetail",
-            "value": 2
+            "value": 2,
+            "goldenFamily": "public-article-response",
+            "goldenOrder": 2
         },
         {
             "name": "ArticleHot",
-            "value": 3
+            "value": 3,
+            "goldenFamily": "public-article-response",
+            "goldenOrder": 3
         },
         {
             "name": "ArticleSearch",
-            "value": 4
+            "value": 4,
+            "goldenFamily": "public-article-response",
+            "goldenOrder": 4
         },
         {
             "name": "CommentArticleCursor",
-            "value": 5
+            "value": 5,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 5
         },
         {
             "name": "CommentUserCursor",
-            "value": 6
+            "value": 6,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 6
         },
         {
             "name": "AdminStats",
-            "value": 7
+            "value": 7,
+            "goldenFamily": "admin-response",
+            "goldenOrder": 7
         },
         {
             "name": "CommentThreadReplyCursor",
-            "value": 8
+            "value": 8,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 8
         },
         {
             "name": "CategoryList",
-            "value": 9
+            "value": 9,
+            "goldenFamily": "taxonomy-response",
+            "goldenOrder": 9
         },
         {
             "name": "TagList",
-            "value": 10
+            "value": 10,
+            "goldenFamily": "taxonomy-response",
+            "goldenOrder": 10
         },
         {
             "name": "RecentCommentStats",
-            "value": 11
+            "value": 11,
+            "goldenFamily": "stats-response",
+            "goldenOrder": 11
         },
         {
             "name": "RegionStats",
-            "value": 12
+            "value": 12,
+            "goldenFamily": "stats-response",
+            "goldenOrder": 12
         },
         {
             "name": "SeoConfig",
-            "value": 13
+            "value": 13,
+            "goldenFamily": "system-response",
+            "goldenOrder": 13
         },
         {
             "name": "PageContent",
-            "value": 14
+            "value": 14,
+            "goldenFamily": "system-response",
+            "goldenOrder": 14
         },
         {
             "name": "ArticleFeatured",
-            "value": 15
+            "value": 15,
+            "goldenFamily": "public-article-response",
+            "goldenOrder": 15
         },
         {
             "name": "TrashClearResponse",
-            "value": 16
+            "value": 16,
+            "goldenFamily": "article-mutation-response",
+            "goldenOrder": 16
         },
         {
             "name": "AdminUserList",
-            "value": 17
+            "value": 17,
+            "goldenFamily": "admin-user-response",
+            "goldenOrder": 17
         },
         {
             "name": "AuthLoginFlow",
-            "value": 18
+            "value": 18,
+            "goldenFamily": "auth-response",
+            "goldenOrder": 18
         },
         {
             "name": "CurrentUserSnapshot",
-            "value": 19
+            "value": 19,
+            "goldenFamily": "auth-response",
+            "goldenOrder": 19
         },
         {
             "name": "UploadInit",
-            "value": 20
+            "value": 20,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 20
         },
         {
             "name": "UploadStatus",
-            "value": 21
+            "value": 21,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 21
         },
         {
             "name": "UploadPartAck",
-            "value": 22
+            "value": 22,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 22
         },
         {
             "name": "UploadComplete",
-            "value": 23
+            "value": 23,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 23
         },
         {
             "name": "UploadPartMap",
-            "value": 24
+            "value": 24,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 24
         },
         {
             "name": "AuthSessionList",
-            "value": 25
+            "value": 25,
+            "goldenFamily": "auth-response",
+            "goldenOrder": 25
         },
         {
             "name": "SiteComplianceConfig",
-            "value": 26
+            "value": 26,
+            "goldenFamily": "system-response",
+            "goldenOrder": 26
         },
         {
             "name": "ArticleRelatedReading",
-            "value": 27
+            "value": 27,
+            "goldenFamily": "public-article-response",
+            "goldenOrder": 27
         },
         {
             "name": "HumanReadChallengeResponse",
-            "value": 28
+            "value": 28,
+            "goldenFamily": "read-proof-response",
+            "goldenOrder": 28
         },
         {
             "name": "HumanReadSubmitResponse",
-            "value": 29
+            "value": 29,
+            "goldenFamily": "read-proof-response",
+            "goldenOrder": 29
         },
         {
             "name": "PowChallenge",
-            "value": 30
+            "value": 30,
+            "goldenFamily": "auth-response",
+            "goldenOrder": 30
         },
         {
             "name": "UploadInitRequest",
-            "value": 31
+            "value": 31,
+            "goldenFamily": "upload-request",
+            "goldenOrder": 31
         },
         {
             "name": "UploadCompleteRequest",
-            "value": 32
+            "value": 32,
+            "goldenFamily": "upload-request",
+            "goldenOrder": 32
         },
         {
             "name": "CategoryWriteRequest",
-            "value": 33
+            "value": 33,
+            "goldenFamily": "taxonomy-request",
+            "goldenOrder": 33
         },
         {
             "name": "TagWriteRequest",
-            "value": 34
+            "value": 34,
+            "goldenFamily": "taxonomy-request",
+            "goldenOrder": 34
         },
         {
             "name": "SeoConfigUpdateRequest",
-            "value": 35
+            "value": 35,
+            "goldenFamily": "system-request",
+            "goldenOrder": 35
         },
         {
             "name": "PageContentUpdateRequest",
-            "value": 36
+            "value": 36,
+            "goldenFamily": "system-request",
+            "goldenOrder": 36
         },
         {
             "name": "FileDeleteRequest",
-            "value": 38
+            "value": 38,
+            "goldenFamily": "file-request",
+            "goldenOrder": 37
         },
         {
             "name": "AdminChangeUserStatusRequest",
-            "value": 39
+            "value": 39,
+            "goldenFamily": "admin-user-request",
+            "goldenOrder": 38
         },
         {
             "name": "ArticleWriteRequest",
-            "value": 41
+            "value": 41,
+            "goldenFamily": "article-request",
+            "goldenOrder": 39
         },
         {
             "name": "AuthDeleteAccountRequest",
-            "value": 47
+            "value": 47,
+            "goldenFamily": "auth-request",
+            "goldenOrder": 40
         },
         {
             "name": "MfaSetupStart",
-            "value": 48
+            "value": 48,
+            "goldenFamily": "mfa-response",
+            "goldenOrder": 41
         },
         {
             "name": "MfaSetupVerify",
-            "value": 49
+            "value": 49,
+            "goldenFamily": "mfa-response",
+            "goldenOrder": 42
         },
         {
             "name": "MfaProfile",
-            "value": 50
+            "value": 50,
+            "goldenFamily": "mfa-response",
+            "goldenOrder": 43
         },
         {
             "name": "MfaChallengeResult",
-            "value": 51
+            "value": 51,
+            "goldenFamily": "mfa-response",
+            "goldenOrder": 44
         },
         {
             "name": "MfaSetupVerifyRequest",
-            "value": 52
+            "value": 52,
+            "goldenFamily": "mfa-request",
+            "goldenOrder": 45
         },
         {
             "name": "MfaPasswordProofRequest",
-            "value": 53
+            "value": 53,
+            "goldenFamily": "mfa-request",
+            "goldenOrder": 46
         },
         {
             "name": "MfaChallengeStartRequest",
-            "value": 54
+            "value": 54,
+            "goldenFamily": "mfa-request",
+            "goldenOrder": 47
         },
         {
             "name": "MfaChallengeVerifyRequest",
-            "value": 55
+            "value": 55,
+            "goldenFamily": "mfa-request",
+            "goldenOrder": 48
         },
         {
             "name": "ConversationList",
-            "value": 56
+            "value": 56,
+            "goldenFamily": "message-response",
+            "goldenOrder": 49
         },
         {
             "name": "ConversationDetail",
-            "value": 57
+            "value": 57,
+            "goldenFamily": "message-response",
+            "goldenOrder": 50
         },
         {
             "name": "ConversationMessage",
-            "value": 58
+            "value": 58,
+            "goldenFamily": "message-response",
+            "goldenOrder": 51
         },
         {
             "name": "ConversationCreateRequest",
-            "value": 59
+            "value": 59,
+            "goldenFamily": "message-request",
+            "goldenOrder": 52
         },
         {
             "name": "ConversationReplyRequest",
-            "value": 60
+            "value": 60,
+            "goldenFamily": "message-request",
+            "goldenOrder": 53
         },
         {
             "name": "ConversationStatusRequest",
-            "value": 61
+            "value": 61,
+            "goldenFamily": "message-request",
+            "goldenOrder": 54
         },
         {
             "name": "SystemMessageRequest",
-            "value": 62
+            "value": 62,
+            "goldenFamily": "message-request",
+            "goldenOrder": 55
         },
         {
             "name": "PasskeyRegisterBegin",
-            "value": 63
+            "value": 63,
+            "goldenFamily": "passkey-response",
+            "goldenOrder": 56
         },
         {
             "name": "PasskeyLoginBegin",
-            "value": 64
+            "value": 64,
+            "goldenFamily": "passkey-response",
+            "goldenOrder": 57
         },
         {
             "name": "PasskeyCredentialList",
-            "value": 65
+            "value": 65,
+            "goldenFamily": "passkey-response",
+            "goldenOrder": 58
         },
         {
             "name": "PasskeyRegisterCompleteRequest",
-            "value": 66
+            "value": 66,
+            "goldenFamily": "passkey-request",
+            "goldenOrder": 59
         },
         {
             "name": "PasskeyLoginCompleteRequest",
-            "value": 67
+            "value": 67,
+            "goldenFamily": "passkey-request",
+            "goldenOrder": 60
         },
         {
             "name": "PasskeyCredentialFriendlyNameUpdateRequest",
-            "value": 68
+            "value": 68,
+            "goldenFamily": "passkey-request",
+            "goldenOrder": 61
         },
         {
             "name": "NotificationEvent",
-            "value": 69
+            "value": 69,
+            "goldenFamily": "notification-stream-response",
+            "goldenOrder": 62
         },
         {
             "name": "NotificationHeartbeat",
-            "value": 70
+            "value": 70,
+            "goldenFamily": "notification-stream-response",
+            "goldenOrder": 63
         },
         {
             "name": "PublicAotBootstrap",
-            "value": 71
+            "value": 71,
+            "goldenFamily": "public-aot-response",
+            "goldenOrder": 64
         },
         {
             "name": "SiteComplianceConfigUpdateRequest",
-            "value": 72
+            "value": 72,
+            "goldenFamily": "system-request",
+            "goldenOrder": 65
         },
         {
             "name": "HumanReadChallengeRequest",
-            "value": 73
+            "value": 73,
+            "goldenFamily": "read-proof-request",
+            "goldenOrder": 66
         },
         {
             "name": "HumanReadSubmitRequest",
-            "value": 74
+            "value": 74,
+            "goldenFamily": "read-proof-request",
+            "goldenOrder": 67
         },
         {
             "name": "RumMetricBatchRequest",
-            "value": 75
+            "value": 75,
+            "goldenFamily": "telemetry-request",
+            "goldenOrder": 68
         },
         {
             "name": "RumMetricIngestResponse",
-            "value": 76
+            "value": 76,
+            "goldenFamily": "telemetry-response",
+            "goldenOrder": 69
         },
         {
             "name": "AuthorDraftSaveRequest",
-            "value": 77
+            "value": 77,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 70
         },
         {
             "name": "ArticlePreviewRequest",
-            "value": 78
+            "value": 78,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 71
         },
         {
             "name": "PrepublishCheckRequest",
-            "value": 79
+            "value": 79,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 72
         },
         {
             "name": "AiAssistRequest",
-            "value": 80
+            "value": 80,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 73
         },
         {
             "name": "AdminCacheActionRequest",
-            "value": 81
+            "value": 81,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 74
         },
         {
             "name": "IntegrityFixRequest",
-            "value": 82
+            "value": 82,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 75
         },
         {
             "name": "ModerationRuntimeGlobalStateRequest",
-            "value": 83
+            "value": 83,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 76
         },
         {
             "name": "ModerationRuntimeRegionStateRequest",
-            "value": 84
+            "value": 84,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 77
         },
         {
             "name": "ModerationDictionaryStateRequest",
-            "value": 85
+            "value": 85,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 78
         },
         {
             "name": "ModerationEffectivePolicyPreviewRequest",
-            "value": 86
+            "value": 86,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 79
         },
         {
             "name": "ModerationModelRuntimeRequest",
-            "value": 87
+            "value": 87,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 80
         },
         {
             "name": "ModerationReplayPreviewRequest",
-            "value": 88
+            "value": 88,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 81
         },
         {
             "name": "CommentModerationRequest",
-            "value": 89
+            "value": 89,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 82
         },
         {
             "name": "CommentModerationBulkRequest",
-            "value": 90
+            "value": 90,
+            "goldenFamily": "moderation-request",
+            "goldenOrder": 83
         },
         {
             "name": "ContentImportRequest",
-            "value": 91
+            "value": 91,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 84
         },
         {
             "name": "AuthorDraftResponse",
-            "value": 92
+            "value": 92,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 85
         },
         {
             "name": "AuthorDraftDiscardResponse",
-            "value": 93
+            "value": 93,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 86
         },
         {
             "name": "ArticlePreviewResponse",
-            "value": 94
+            "value": 94,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 87
         },
         {
             "name": "PrepublishCheckResponse",
-            "value": 95
+            "value": 95,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 88
         },
         {
             "name": "AiAssistResponse",
-            "value": 96
+            "value": 96,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 89
         },
         {
             "name": "AssetLibraryList",
-            "value": 97
+            "value": 97,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 90
         },
         {
             "name": "AssetCleanupResponse",
-            "value": 98
+            "value": 98,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 91
         },
         {
             "name": "AuthorTaxonomyCategoryList",
-            "value": 99
+            "value": 99,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 92
         },
         {
             "name": "AuthorTaxonomyTagList",
-            "value": 100
+            "value": 100,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 93
         },
         {
             "name": "AuthorAnalytics",
-            "value": 101
+            "value": 101,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 94
         },
         {
             "name": "AuditLogList",
-            "value": 102
+            "value": 102,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 95
         },
         {
             "name": "AuditLogSummary",
-            "value": 103
+            "value": 103,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 96
         },
         {
             "name": "AuditLogDetail",
-            "value": 104
+            "value": 104,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 97
         },
         {
             "name": "AuditTamperVerifyResponse",
-            "value": 105
+            "value": 105,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 98
         },
         {
             "name": "OpsHealth",
-            "value": 106
+            "value": 106,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 99
         },
         {
             "name": "BackupStatus",
-            "value": 107
+            "value": 107,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 100
         },
         {
             "name": "DangerousOperationPolicy",
-            "value": 108
+            "value": 108,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 101
         },
         {
             "name": "CacheDiagnostics",
-            "value": 109
+            "value": 109,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 102
         },
         {
             "name": "AdminCacheActionResponse",
-            "value": 110
+            "value": 110,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 103
         },
         {
             "name": "IntegrityReport",
-            "value": 111
+            "value": 111,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 104
         },
         {
             "name": "IntegrityFixPreview",
-            "value": 112
+            "value": 112,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 105
         },
         {
             "name": "IntegrityFixResponse",
-            "value": 113
+            "value": 113,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 106
         },
         {
             "name": "CommentModerationQueue",
-            "value": 114
+            "value": 114,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 107
         },
         {
             "name": "CommentModerationBulkResponse",
-            "value": 115
+            "value": 115,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 108
         },
         {
             "name": "CommentModerationResult",
-            "value": 116
+            "value": 116,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 109
         },
         {
             "name": "ContentExport",
-            "value": 117
+            "value": 117,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 110
         },
         {
             "name": "ContentBackupExport",
-            "value": 118
+            "value": 118,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 111
         },
         {
             "name": "ContentImportResponse",
-            "value": 119
+            "value": 119,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 112
         },
         {
             "name": "ArticleRevisionList",
-            "value": 120
+            "value": 120,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 113
         },
         {
             "name": "ArticleRevisionDetail",
-            "value": 121
+            "value": 121,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 114
         },
         {
             "name": "ArticleRevisionRollbackResponse",
-            "value": 122
+            "value": 122,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 115
         },
         {
             "name": "ModerationOverview",
-            "value": 123
+            "value": 123,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 116
         },
         {
             "name": "ModerationDictionarySnapshot",
-            "value": 124
+            "value": 124,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 117
         },
         {
             "name": "ModerationDictionaryReloadResponse",
-            "value": 125
+            "value": 125,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 118
         },
         {
             "name": "ModerationRuntimeStatus",
-            "value": 126
+            "value": 126,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 119
         },
         {
             "name": "ModerationRegionList",
-            "value": 127
+            "value": 127,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 120
         },
         {
             "name": "ModerationRegionGroupList",
-            "value": 128
+            "value": 128,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 121
         },
         {
             "name": "ModerationPolicyTemplateList",
-            "value": 129
+            "value": 129,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 122
         },
         {
             "name": "ModerationEffectivePolicy",
-            "value": 130
+            "value": 130,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 123
         },
         {
             "name": "RegionPolicySummaryList",
-            "value": 131
+            "value": 131,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 124
         },
         {
             "name": "ModerationModelStatus",
-            "value": 132
+            "value": 132,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 125
         },
         {
             "name": "ModerationReplayPreview",
-            "value": 133
+            "value": 133,
+            "goldenFamily": "moderation-response",
+            "goldenOrder": 126
         },
         {
             "name": "AntiCrawlerOptionsUpdateRequest",
-            "value": 134
+            "value": 134,
+            "goldenFamily": "security-request",
+            "goldenOrder": 127
         },
         {
             "name": "SecurityRiskResetRequest",
-            "value": 135
+            "value": 135,
+            "goldenFamily": "security-request",
+            "goldenOrder": 128
         },
         {
             "name": "AntiCrawlerRuleRequest",
-            "value": 136
+            "value": 136,
+            "goldenFamily": "security-request",
+            "goldenOrder": 129
         },
         {
             "name": "AntiCrawlerListEntryRequest",
-            "value": 137
+            "value": 137,
+            "goldenFamily": "security-request",
+            "goldenOrder": 130
         },
         {
             "name": "AntiCrawlerSimulationRequest",
-            "value": 138
+            "value": 138,
+            "goldenFamily": "security-request",
+            "goldenOrder": 131
         },
         {
             "name": "PowOptionsUpdateRequest",
-            "value": 139
+            "value": 139,
+            "goldenFamily": "security-request",
+            "goldenOrder": 132
         },
         {
             "name": "SecurityOverview",
-            "value": 140
+            "value": 140,
+            "goldenFamily": "security-response",
+            "goldenOrder": 133
         },
         {
             "name": "AntiCrawlerOverview",
-            "value": 141
+            "value": 141,
+            "goldenFamily": "security-response",
+            "goldenOrder": 134
         },
         {
             "name": "AntiCrawlerPolicySnapshot",
-            "value": 142
+            "value": 142,
+            "goldenFamily": "security-response",
+            "goldenOrder": 135
         },
         {
             "name": "CrawlerRangesAdminStatus",
-            "value": 143
+            "value": 143,
+            "goldenFamily": "security-response",
+            "goldenOrder": 136
         },
         {
             "name": "CrawlerRangeSyncResponse",
-            "value": 144
+            "value": 144,
+            "goldenFamily": "security-response",
+            "goldenOrder": 137
         },
         {
             "name": "SecurityRiskEventList",
-            "value": 145
+            "value": 145,
+            "goldenFamily": "security-response",
+            "goldenOrder": 138
         },
         {
             "name": "SecurityRiskSnapshotList",
-            "value": 146
+            "value": 146,
+            "goldenFamily": "security-response",
+            "goldenOrder": 139
         },
         {
             "name": "SecurityRiskResetResponse",
-            "value": 147
+            "value": 147,
+            "goldenFamily": "security-response",
+            "goldenOrder": 140
         },
         {
             "name": "AntiCrawlerRuleList",
-            "value": 148
+            "value": 148,
+            "goldenFamily": "security-response",
+            "goldenOrder": 141
         },
         {
             "name": "AntiCrawlerRuleResponse",
-            "value": 149
+            "value": 149,
+            "goldenFamily": "security-response",
+            "goldenOrder": 142
         },
         {
             "name": "AntiCrawlerRuleDeleteResponse",
-            "value": 150
+            "value": 150,
+            "goldenFamily": "security-response",
+            "goldenOrder": 143
         },
         {
             "name": "AntiCrawlerListEntryList",
-            "value": 151
+            "value": 151,
+            "goldenFamily": "security-response",
+            "goldenOrder": 144
         },
         {
             "name": "AntiCrawlerListEntryResponse",
-            "value": 152
+            "value": 152,
+            "goldenFamily": "security-response",
+            "goldenOrder": 145
         },
         {
             "name": "AntiCrawlerListEntryDeleteResponse",
-            "value": 153
+            "value": 153,
+            "goldenFamily": "security-response",
+            "goldenOrder": 146
         },
         {
             "name": "AntiCrawlerSimulationResult",
-            "value": 154
+            "value": 154,
+            "goldenFamily": "security-response",
+            "goldenOrder": 147
         },
         {
             "name": "PowOverview",
-            "value": 155
+            "value": 155,
+            "goldenFamily": "security-response",
+            "goldenOrder": 148
         },
         {
             "name": "PowPolicySnapshot",
-            "value": 156
+            "value": 156,
+            "goldenFamily": "security-response",
+            "goldenOrder": 149
         },
         {
             "name": "SiteSubscriptionRequest",
-            "value": 157
+            "value": 157,
+            "goldenFamily": "subscription-request",
+            "goldenOrder": 150
         },
         {
             "name": "SiteSubscriptionResponse",
-            "value": 158
+            "value": 158,
+            "goldenFamily": "subscription-response",
+            "goldenOrder": 151
         },
         {
             "name": "RecoveryKeyCreateResponse",
-            "value": 159
+            "value": 159,
+            "goldenFamily": "recovery-key-response",
+            "goldenOrder": 152
         },
         {
             "name": "RecoveryKeyVerifyRequest",
-            "value": 160
+            "value": 160,
+            "goldenFamily": "recovery-key-request",
+            "goldenOrder": 153
         },
         {
             "name": "RecoveryKeyVerifyResponse",
-            "value": 161
+            "value": 161,
+            "goldenFamily": "recovery-key-response",
+            "goldenOrder": 154
         },
         {
             "name": "RecoveryKeySessionRequest",
-            "value": 162
+            "value": 162,
+            "goldenFamily": "recovery-key-request",
+            "goldenOrder": 155
         },
         {
             "name": "IdentityAccountSnapshot",
-            "value": 163
+            "value": 163,
+            "goldenFamily": "identity-response",
+            "goldenOrder": 156
         },
         {
             "name": "CommentPolicySnapshot",
-            "value": 164
+            "value": 164,
+            "goldenFamily": "comment-policy-response",
+            "goldenOrder": 157
         },
         {
             "name": "CommentPolicyUpdateRequest",
-            "value": 165
+            "value": 165,
+            "goldenFamily": "comment-policy-request",
+            "goldenOrder": 158
         },
         {
             "name": "CommentCreateV2Request",
-            "value": 166
+            "value": 166,
+            "goldenFamily": "comment-request",
+            "goldenOrder": 159
         },
         {
             "name": "CommentAuthorView",
-            "value": 167
+            "value": 167,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 160
         },
         {
             "name": "AnonymousGovernanceActionRequest",
-            "value": 168
+            "value": 168,
+            "goldenFamily": "anonymous-governance-request",
+            "goldenOrder": 161
         },
         {
             "name": "AnonymousGovernanceActionResponse",
-            "value": 169
+            "value": 169,
+            "goldenFamily": "anonymous-governance-response",
+            "goldenOrder": 162
         },
         {
             "name": "AdminSessionList",
-            "value": 170
+            "value": 170,
+            "goldenFamily": "auth-response",
+            "goldenOrder": 163
         },
         {
             "name": "SecurityChallengeAssignment",
-            "value": 171
+            "value": 171,
+            "goldenFamily": "security-challenge",
+            "goldenOrder": 164
         },
         {
             "name": "SecurityChallengeEnvelope",
-            "value": 172
+            "value": 172,
+            "goldenFamily": "security-challenge",
+            "goldenOrder": 165
         },
         {
             "name": "SecurityChallengeIssueRequest",
-            "value": 173
+            "value": 173,
+            "goldenFamily": "security-challenge-request",
+            "goldenOrder": 166
         },
         {
             "name": "SecurityChallengeVerifyRequest",
-            "value": 174
+            "value": 174,
+            "goldenFamily": "security-challenge-request",
+            "goldenOrder": 167
         },
         {
             "name": "SecurityChallengeIssueResponse",
-            "value": 175
+            "value": 175,
+            "goldenFamily": "security-challenge-response",
+            "goldenOrder": 168
         },
         {
             "name": "SecurityChallengeVerifyResponse",
-            "value": 176
+            "value": 176,
+            "goldenFamily": "security-challenge-response",
+            "goldenOrder": 169
         },
         {
             "name": "Reserved177",
-            "value": 177
+            "value": 177,
+            "goldenFamily": "reserved",
+            "goldenOrder": 170
         },
         {
             "name": "Reserved178",
-            "value": 178
+            "value": 178,
+            "goldenFamily": "reserved",
+            "goldenOrder": 171
         },
         {
             "name": "AnonymousCredentialRootSnapshot",
-            "value": 179
+            "value": 179,
+            "goldenFamily": "anonymous-privacy-response",
+            "goldenOrder": 172
         },
         {
             "name": "AnonymousCommentCreateRequest",
-            "value": 182
+            "value": 182,
+            "goldenFamily": "anonymous-comment-request",
+            "goldenOrder": 215
         },
         {
             "name": "AnonymousPrivacyStateSnapshot",
-            "value": 183
+            "value": 183,
+            "goldenFamily": "anonymous-privacy-response",
+            "goldenOrder": 216
         },
         {
             "name": "PerceptionSealedChallengeV2",
-            "value": 184
+            "value": 184,
+            "goldenFamily": "security-challenge-response",
+            "goldenOrder": 217
         },
         {
             "name": "PerceptionSealedResultV2",
-            "value": 185
+            "value": 185,
+            "goldenFamily": "security-challenge-request",
+            "goldenOrder": 218
         },
         {
             "name": "RetiredCredentialSpecificRevocationRequest",
-            "value": 186
+            "value": 186,
+            "goldenFamily": "retired",
+            "goldenOrder": 219
         },
         {
             "name": "RetiredCredentialSpecificRevocationResponse",
-            "value": 187
+            "value": 187,
+            "goldenFamily": "retired",
+            "goldenOrder": 220
         },
         {
             "name": "AdminPrincipalSnapshot",
-            "value": 188
+            "value": 188,
+            "goldenFamily": "admin-principal-response",
+            "goldenOrder": 221
         },
         {
             "name": "AuthAnonymousBootstrapRequest",
-            "value": 189
+            "value": 189,
+            "goldenFamily": "auth-request",
+            "goldenOrder": 222
         },
         {
             "name": "AuthUpdatePublicHandleRequest",
-            "value": 190
+            "value": 190,
+            "goldenFamily": "auth-request",
+            "goldenOrder": 223
         },
         {
             "name": "ArticleResponsibilityRequest",
-            "value": 191
+            "value": 191,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 224
         },
         {
             "name": "ArticleResponsibilityResponse",
-            "value": 192
+            "value": 192,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 225
         },
         {
             "name": "BlindCredentialIssuerMetadata",
-            "value": 193
+            "value": 193,
+            "goldenFamily": "anonymous-privacy-response",
+            "goldenOrder": 226
         },
         {
             "name": "BlindCredentialIssueRequest",
-            "value": 194
+            "value": 194,
+            "goldenFamily": "anonymous-privacy-request",
+            "goldenOrder": 227
         },
         {
             "name": "BlindCredentialIssueResponse",
-            "value": 195
+            "value": 195,
+            "goldenFamily": "anonymous-privacy-response",
+            "goldenOrder": 228
         },
         {
             "name": "AnonymousCredentialRevocationSnapshot",
-            "value": 196
+            "value": 196,
+            "goldenFamily": "anonymous-privacy-response",
+            "goldenOrder": 229
         },
         {
             "name": "AnonymousCredentialRevocationDelta",
-            "value": 197
+            "value": 197,
+            "goldenFamily": "anonymous-privacy-response",
+            "goldenOrder": 230
         },
         {
             "name": "AnonymousCommentTicketRequest",
-            "value": 198
+            "value": 198,
+            "goldenFamily": "anonymous-privacy-request",
+            "goldenOrder": 173
         },
         {
             "name": "AnonymousCommentTicketResponse",
-            "value": 199
+            "value": 199,
+            "goldenFamily": "anonymous-privacy-response",
+            "goldenOrder": 174
         },
         {
             "name": "SecurityChallengeCancelRequest",
-            "value": 200
+            "value": 200,
+            "goldenFamily": "security-challenge-request",
+            "goldenOrder": 175
         },
         {
             "name": "ConversationReadRequest",
-            "value": 201
+            "value": 201,
+            "goldenFamily": "message-request",
+            "goldenOrder": 176
         },
         {
             "name": "AccountConversationReplyRequest",
-            "value": 202
+            "value": 202,
+            "goldenFamily": "message-request",
+            "goldenOrder": 177
         },
         {
             "name": "ConversationDetailV2",
-            "value": 203
+            "value": 203,
+            "goldenFamily": "message-response",
+            "goldenOrder": 178
         },
         {
             "name": "ConversationDetailV3",
-            "value": 204
+            "value": 204,
+            "goldenFamily": "message-response",
+            "goldenOrder": 179
         },
         {
             "name": "CommentCreateResult",
-            "value": 205
+            "value": 205,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 180
         },
         {
             "name": "AdminConversationList",
-            "value": 206
+            "value": 206,
+            "goldenFamily": "message-response",
+            "goldenOrder": 181
         },
         {
             "name": "AdminConversationDetail",
-            "value": 207
+            "value": 207,
+            "goldenFamily": "message-response",
+            "goldenOrder": 182
         },
         {
             "name": "CommentTreeRootCursor",
-            "value": 208
+            "value": 208,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 183
         },
         {
             "name": "CommentChildCursor",
-            "value": 209
+            "value": 209,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 184
         },
         {
             "name": "CommentPermalinkContext",
-            "value": 210
+            "value": 210,
+            "goldenFamily": "comment-response",
+            "goldenOrder": 185
         },
         {
             "name": "ConversationStatusMutationResult",
-            "value": 211
+            "value": 211,
+            "goldenFamily": "message-response",
+            "goldenOrder": 186
         },
         {
             "name": "PasskeySignalState",
-            "value": 212
+            "value": 212,
+            "goldenFamily": "passkey-response",
+            "goldenOrder": 187
         },
         {
             "name": "ArticleRevisionRollbackRequest",
-            "value": 213
+            "value": 213,
+            "goldenFamily": "authoring-request",
+            "goldenOrder": 188
         },
         {
             "name": "AnonymousCommentCreateResult",
-            "value": 214
+            "value": 214,
+            "goldenFamily": "anonymous-comment-response",
+            "goldenOrder": 189
         },
         {
             "name": "CommentManagementChallengeRequest",
-            "value": 215
+            "value": 215,
+            "goldenFamily": "comment-management-request",
+            "goldenOrder": 190
         },
         {
             "name": "CommentManagementChallengeResponse",
-            "value": 216
+            "value": 216,
+            "goldenFamily": "comment-management-response",
+            "goldenOrder": 191
         },
         {
             "name": "CommentAuthorEditRequest",
-            "value": 217
+            "value": 217,
+            "goldenFamily": "comment-management-request",
+            "goldenOrder": 192
         },
         {
             "name": "CommentAuthorMutationResult",
-            "value": 218
+            "value": 218,
+            "goldenFamily": "comment-management-response",
+            "goldenOrder": 193
         },
         {
             "name": "CommentAuthorStatusRequest",
-            "value": 219
+            "value": 219,
+            "goldenFamily": "comment-management-request",
+            "goldenOrder": 194
         },
         {
             "name": "CommentAuthorStatusResult",
-            "value": 220
+            "value": 220,
+            "goldenFamily": "comment-management-response",
+            "goldenOrder": 195
         },
         {
             "name": "CommentAuthorAppealRequest",
-            "value": 221
+            "value": 221,
+            "goldenFamily": "comment-management-request",
+            "goldenOrder": 196
         },
         {
             "name": "CommentRevisionList",
-            "value": 222
+            "value": 222,
+            "goldenFamily": "comment-management-response",
+            "goldenOrder": 197
         },
         {
             "name": "CommentReportRequest",
-            "value": 223
+            "value": 223,
+            "goldenFamily": "comment-governance-request",
+            "goldenOrder": 198
         },
         {
             "name": "CommentReportResult",
-            "value": 224
+            "value": 224,
+            "goldenFamily": "comment-governance-response",
+            "goldenOrder": 199
         },
         {
             "name": "CommentModerationTimeline",
-            "value": 225
+            "value": 225,
+            "goldenFamily": "comment-governance-response",
+            "goldenOrder": 200
         },
         {
             "name": "CommentAppealDecisionRequest",
-            "value": 226
+            "value": 226,
+            "goldenFamily": "comment-governance-request",
+            "goldenOrder": 201
         },
         {
             "name": "CommentAppealDecisionResult",
-            "value": 227
+            "value": 227,
+            "goldenFamily": "comment-governance-response",
+            "goldenOrder": 202
         },
         {
             "name": "ArticleResponsibilityHistory",
-            "value": 228
+            "value": 228,
+            "goldenFamily": "authoring-response",
+            "goldenOrder": 203
         },
         {
             "name": "CommentModerationClaimRequest",
-            "value": 229
+            "value": 229,
+            "goldenFamily": "comment-moderation-request",
+            "goldenOrder": 204
         },
         {
             "name": "CommentModerationClaimMutationRequest",
-            "value": 230
+            "value": 230,
+            "goldenFamily": "comment-moderation-request",
+            "goldenOrder": 205
         },
         {
             "name": "CommentModerationClaimResponse",
-            "value": 231
+            "value": 231,
+            "goldenFamily": "comment-moderation-response",
+            "goldenOrder": 206
         },
         {
             "name": "PluginPackageInstallRequest",
-            "value": 232
+            "value": 232,
+            "goldenFamily": "plugin-admin-request",
+            "goldenOrder": 207
         },
         {
             "name": "PluginAdminSnapshot",
-            "value": 233
+            "value": 233,
+            "goldenFamily": "plugin-admin-response",
+            "goldenOrder": 208
         },
         {
             "name": "PluginAdminMutationRequest",
-            "value": 234
+            "value": 234,
+            "goldenFamily": "plugin-admin-request",
+            "goldenOrder": 209
         },
         {
             "name": "ClusterRuntimeSnapshot",
-            "value": 235
+            "value": 235,
+            "goldenFamily": "cluster-runtime-response",
+            "goldenOrder": 210
         },
         {
             "name": "ClusterNodeStateRequest",
-            "value": 236
+            "value": 236,
+            "goldenFamily": "cluster-runtime-request",
+            "goldenOrder": 211
         },
         {
             "name": "ClusterSchedulerStateRequest",
-            "value": 237
+            "value": 237,
+            "goldenFamily": "cluster-runtime-request",
+            "goldenOrder": 212
         },
         {
             "name": "ClusterLeaseReleaseRequest",
-            "value": 238
+            "value": 238,
+            "goldenFamily": "cluster-runtime-request",
+            "goldenOrder": 213
         },
         {
             "name": "UserLocalePreference",
-            "value": 239
+            "value": 239,
+            "goldenFamily": "locale-preference-response",
+            "goldenOrder": 214
         },
         {
             "name": "EmptySuccess",
-            "value": 240
+            "value": 240,
+            "goldenFamily": "common-response",
+            "goldenOrder": 231
         },
         {
             "name": "MutationId",
-            "value": 241
+            "value": 241,
+            "goldenFamily": "common-response",
+            "goldenOrder": 232
         },
         {
             "name": "UserLocalePreferenceUpdateRequest",
-            "value": 242
+            "value": 242,
+            "goldenFamily": "locale-preference-request",
+            "goldenOrder": 233
         },
         {
             "name": "TaxonomyExactMetadata",
-            "value": 243
+            "value": 243,
+            "goldenFamily": "taxonomy-response",
+            "goldenOrder": 234
+        },
+        {
+            "name": "FontRegistryList",
+            "value": 244,
+            "goldenFamily": "font-registry-response",
+            "goldenOrder": 236
+        },
+        {
+            "name": "FontRegistryDetail",
+            "value": 245,
+            "goldenFamily": "font-registry-response",
+            "goldenOrder": 237
+        },
+        {
+            "name": "FontActivationList",
+            "value": 246,
+            "goldenFamily": "font-activation-response",
+            "goldenOrder": 238
+        },
+        {
+            "name": "ThemeRegistryList",
+            "value": 247,
+            "goldenFamily": "theme-registry-response",
+            "goldenOrder": 239
+        },
+        {
+            "name": "ThemeRegistryDetail",
+            "value": 248,
+            "goldenFamily": "theme-registry-response",
+            "goldenOrder": 240
+        },
+        {
+            "name": "ThemeActivationList",
+            "value": 249,
+            "goldenFamily": "theme-activation-response",
+            "goldenOrder": 241
+        },
+        {
+            "name": "ThemeActivation",
+            "value": 250,
+            "goldenFamily": "theme-activation-response",
+            "goldenOrder": 242
         },
         {
             "name": "ApiError",
-            "value": 251
+            "value": 251,
+            "goldenFamily": "error-response",
+            "goldenOrder": 235
+        },
+        {
+            "name": "ThemeActivationHistory",
+            "value": 252,
+            "goldenFamily": "theme-activation-response",
+            "goldenOrder": 243
+        },
+        {
+            "name": "AuthoringCanvasCreateRequest",
+            "value": 253,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 244
+        },
+        {
+            "name": "AuthoringCanvasDocumentHeader",
+            "value": 254,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 245
+        },
+        {
+            "name": "AuthoringCanvasListResponse",
+            "value": 255,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 246
+        },
+        {
+            "name": "AuthoringCanvasNodesResponse",
+            "value": 256,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 247
+        },
+        {
+            "name": "AuthoringCanvasEdgesResponse",
+            "value": 257,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 248
+        },
+        {
+            "name": "AuthoringCanvasApplyRequest",
+            "value": 258,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 249
+        },
+        {
+            "name": "AuthoringCanvasOperationReceipt",
+            "value": 259,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 250
+        },
+        {
+            "name": "AuthoringCanvasUndoRedoRequest",
+            "value": 260,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 251
+        },
+        {
+            "name": "AuthoringCanvasHistoryResponse",
+            "value": 261,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 252
+        },
+        {
+            "name": "AuthoringCanvasDeleteRequest",
+            "value": 262,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 253
+        },
+        {
+            "name": "AuthoringCanvasWriteReceipt",
+            "value": 263,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 254
+        },
+        {
+            "name": "AuthoringCanvasResolveRequest",
+            "value": 264,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 255
+        },
+        {
+            "name": "AuthoringCanvasReferenceResolutionBatch",
+            "value": 265,
+            "goldenFamily": "private-authoring-canvas",
+            "goldenOrder": 256
+        },
+        {
+            "name": "ArticleCanvasLinkRequest",
+            "value": 266,
+            "goldenFamily": "private-article-canvas-link",
+            "goldenOrder": 257
+        },
+        {
+            "name": "ArticleCanvasLinkReceipt",
+            "value": 267,
+            "goldenFamily": "private-article-canvas-link",
+            "goldenOrder": 258
+        },
+        {
+            "name": "ArticleCanvasLinkHistoryResponse",
+            "value": 268,
+            "goldenFamily": "private-article-canvas-link",
+            "goldenOrder": 259
         }
-    ]
+    ],
+    "goldenCatalog": {
+        "version": "fsusblog-aeds-golden-catalog-v1",
+        "defaultEvidence": [
+            "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+            "tests/backend/Unit/PodBinaryCodecTests.cs",
+            "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
+            "tests/backend/Unit/AuthoringCanvasWireCodecTests.cs",
+            "tests/backend/Unit/ArticleCanvasLinkWireCodecTests.cs"
+        ]
+    }
 }

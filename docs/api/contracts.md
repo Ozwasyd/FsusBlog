@@ -67,6 +67,16 @@ HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。�
 
 Compiled request 治理观察使用 closed `fsusblog.api-aeds-observation.v5`：容器的 `item` 递归保留元素/字典值的 nullable、primitive format/enum/bounds 和 CLR schema ref，与容器自身 nullable 分开；原 `itemType`/`itemSchemaRef` 必须与该元素一致。唯一 compiled observer 从实际声明的 `NullabilityInfo` tree 和原类型边界规则取值，未知 reference annotation 或不可精确解析的元素 annotation 拒绝，不推定 nullable。消费者拒绝缺少元素信息的旧 v4；观察及 build receipt、OpenAPI 和 fact projection 须由原 producer 重新生成，不能通过重密封旧输出代替。这只升级治理元数据，不改变 endpoint、AEDS v2 wire、runtime request reader 或 public error 合同。
 
+同一协议生成器也拥有 `tests/backend/Fixtures/aeds-golden-catalog.json`。编号和退休值只来自协议 manifest；`goldenCatalog.defaultEvidence` 与每个 frame 的 `goldenFamily`、`goldenOrder` 显式保存原测试元数据和排列顺序，不能从名称猜测 payload、POD 或 ABI。所有注册 frame 必须具有完整、唯一的 golden 元数据；生成与 `--check` 都覆盖五个输出，不从旧 catalog 反推源。catalog 的生成一致性不替代真实 codec、跨栈探针或完整 matrix 验收。
+
+`tools/contracts/generate-article-canvas-link-golden.mjs` 只生成 `tests/fixtures/protocol/article-canvas-link-wire-golden.json` 的 wire witnesses。它在写入前通过原 AEDS renderer 对共享 catalog 做完整字节一致性预检；catalog 不一致时拒绝生成，须由原协议 producer 恢复，不能在 Link producer 内删除、追加或重写共享 frame 条目。
+
+原 TestOwner `BackendGoldenCatalogTests` 继续持有独立 numeric oracle：旧 236 条 name/value/family 的固定 UTF-8 JSON 投影 SHA-256 包含原顺序，新 Font/Theme 八条使用独立 literal 编号与分类断言。其值不能随 manifest 或生成文件自动更新。原 `backend-golden` 入口在原 `Category=GoldenContract` SDK 测试前执行同一生成器的 Node 控制；这些控制与原 SDK 过滤、覆盖率和阈值共同保留，不能用 renderer 自洽替代 TestOwner 或 ABI 验收。
+
+Font/Theme 管理的八个 GET 均为 typed AEDS v2：`/api/binary/author/ops/fonts/registry`、`/registry/{fontId}`、`/activations` 分别使用 `FontRegistryList`、`FontRegistryDetail`、`FontActivationList`；`/api/binary/author/ops/themes/registry`、`/registry/{themeId}`、`/activations`、`/activations/{scope}`、`/activations/{scope}/history` 分别使用 `ThemeRegistryList`、`ThemeRegistryDetail`、`ThemeActivationList`、`ThemeActivation`、`ThemeActivationHistory`。缩写路径均相对于其 fonts/themes group。各路由继续要求 admin principal 的 `SystemConfig` 权限及 `fixed_ip` 限流，错误仍使用 `ApiError`；没有裸 JSON、`TextDecoder + JSON.parse` 或旧 helper fallback。前端经原生成 OperationID 路由入口消费，生成 OpenAPI/matrix/route 产品必须从当前 compiled endpoint observation 产生，不可用候选源码描述或旧分支产物替代。
+
+这些 payload 使用 Shared `FontThemeAdminPods` 和 `FontThemeAdminContractLimits` 的封闭、packed、bounded schema；C#、C++ 与 TypeScript 同步拒绝未知枚举、非法 presence/reserved、越界或非规范 UTF-8 slice、超限 count、截断和尾随 bytes。64-bit 非负 size/configuration/budget 在 TypeScript 为十进制字符串以保留完整 Int64 精度；时间仍是 UTC Unix 毫秒，nullable 用显式 presence 而非空字符串猜测。它们不改变路由、权限、AEDS header 或既有 Font/Theme 业务安装与激活语义。
+
 公开 HTML、hydration sidecar、PublicHotRead AEDS/HTML、cache/file runtime entry 与浏览器 hydration state 使用统一的 `PublicRepresentationCoordinate` 投影合同。唯一 machine-readable 定义是 `src/shared/Contracts/Validation/public-representation-coordinate.json`；C#、TypeScript 与 Wasm C++ 表面由 `tools/contracts/generate-public-representation-coordinate.mjs` 生成。它引用而不复制 release ID 与 AEDS wire authority，坐标包含 canonical route、source/revision/publication/visibility、renderer/release/assets、AEDS protocol/schema、document/sidecar digest、SEO identity 与 hydration page kind。坐标只在 build/project/publish 阶段密封，请求热路径不得查询数据库或 Redis 补齐坐标。
 
 transport validation 对 manifest 中每条转换只比较固定 `preserves` 字段。任一 renderer/assets/source/document/sidecar digest 不匹配，cache/file materialization 必须 evict-and-rebuild，HotRead 必须保留上一份合格 snapshot或回常规 endpoint，浏览器 hydration 与旧 Service Worker shell 必须走 network canonical route/navigation；不得继续消费部分兼容 payload。结构化 evidence 只使用固定 mismatch layer、transition 与 counter，不记录 route/digest/release 等高基数值。该合同不新增 frame 字段、不调整 AEDS v2 header 或 middleware 顺序，也不声明 #428 范围内的多节点强一致。
@@ -539,6 +549,53 @@ enrollment token 只允许访问 `POST /auth/enrollment/passkey/register/begin`�
 Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列。`article_draft` 首次建表使用 `owner_admin_principal_id`，`article_revision` 首次建表使用 `created_by_admin_principal_id`，`comment` 首次建表/补列使用 `moderated_by_admin_principal_id`。历史库中的 `owner_user_id`、`created_by_user_id`、`moderated_by_user_id` 仅作为迁移输入被 rename/copy/drop，不能作为运行时 API、导入恢复或后台审核契约字段。
 
 ---
+
+## Private authoring canvas contracts
+
+The AEDS-only `/api/binary/author/canvases` routes project the sole
+`IAuthoringCanvasDocumentStore`, operation engine and reference resolver.
+Shared pure contracts live in `src/shared/Contracts/AuthoringCanvas`; the
+[document boundary](../architecture/authoring-canvas-document-boundary.md)
+owns persistence, privacy, operation semantics and non-publication rules.
+The server resolves administrator/session identity and `primary-site` ownership;
+mutation inputs carry no owner or actor authority. Every route requires
+`ArticleWrite`, and writes plus resolution POSTs retain the existing PoW filter.
+All responses remain private and use the original typed `ApiError` semantics.
+
+The [AEDS protocol](../../src/core/Algorithms/AEDS_V2_PROTOCOL.md#private-authoring-canvas-payloads)
+defines frames 253–265 and links the single generated POD payload owner. Pages
+carry revision/digest coordinates and at most 256 records. Apply, undo and redo
+bind the actual document and history CAS coordinates; receipts and fresh reads,
+rather than browser previews, authorize success. Resolution accepts persisted
+node identities and never client target facts. No JSON fallback or whole-document
+replacement endpoint exists. The read-only `/{canvasId}/prepare` POST uses
+`AuthoringCanvasApplyRequest` frame 258 for both request and prepared response;
+it supplies authorized reference metadata and performs no mutation. Formal Apply
+still revalidates and seals the exact facts. Administrator private request leases
+cover transport and decode, and unresolved writes retry the exact cached payload
+with the original request ID.
+
+Explicit conversion uses the article owner, not a Canvas graph operation:
+`POST /api/binary/author/articles/{articleId:int}/canvas-links` accepts
+`ArticleCanvasLinkRequest` (266) and returns `ArticleCanvasLinkReceipt` (267);
+`GET` on the same path plus `/history` returns
+`ArticleCanvasLinkHistoryResponse` (268). Both require the authenticated admin
+`ArticleWrite` scope; POST retains PoW. Owner/site identity is supplied by the
+route, never by request fields. Apply binds source and target revision CAS and
+the persisted Canvas edge/revision/digest; undo/redo bind source CAS and the
+actual top journal ID. Article revision, outbox and link receipt/history commit
+together through production `ArticleService`. The receipt carries scoped
+request, journal, original revision and selected-edge provenance. The
+[document boundary](../architecture/authoring-canvas-document-boundary.md#explicit-article-owned-link-conversion)
+defines current-coordinate, idempotency, recovery and history rules.
+
+The single link payload source is `article-canvas-link-wire.json`, produced by
+`tools/contracts/generate-article-canvas-link-wire.mjs` using the existing bounded
+Canvas scalar codec. Each root is capped at 131,072 payload bytes; history
+contains at most 100 receipts per stack. All three stacks consume exact schema
+1 bytes, network GUIDs, LE scalars and decimal-string Int64 values. No JSON
+fallback exists. Wire witnesses and deterministic recovery controls do not
+qualify the actual PostgreSQL transaction, HTTP middleware or rendered UI.
 
 ## Pagination and Cursor Envelope
 
@@ -1583,53 +1640,37 @@ lossless/state/low lane 无法继续安全实时投递时必须按 delivery poli
 
 服务端通过真实 `INotificationStreamPublisher` 写入 backlog 并触发本机 fanout，响应包含 `status`、`drillId`、`routeKey`、`eventType`、`count` 与 `eventIds`。该入口只供 resilience evidence 使用，生产环境不映射，未配置 secret 时返回 `404`。
 
-### Test-only schema migration qualification
+### Retired Test-only schema migration qualification
 
 以下两个 JSON tooling routes 仅在 environment 精确为 `Test` 且
 `SchemaMigration:QualificationEnabled=true` 时映射；两者均要求 admin
 `system.config` 并应用 `fixed_ip` rate limit。Production/Development 中配置为 true
-Nor will it register.
+也不会注册。当前保留的是明确拒绝的过渡 route，不是 bridge write 或迁移准入。
 
 `POST /api/release-evidence/schema-bridge/write`
 
-ask:
-
-```json
-{
-  "operationId": "source-migration-run-001",
-  "sequence": 1
-}
-```
-
-`operationId` trim 后必须为 3..96 个 ASCII letters/digits/`-_.`；`sequence` 必须为
-1..1,000,000。无效输入返回 `400 {"code":"schema_qualification_write_invalid"}`。
-Successfully executes the idempotent upsert of the qualification control table and returns:
-
-```json
-{
-  "bridgeWrite": true,
-  "operationId": "source-migration-run-001",
-  "sequence": 1,
-  "releaseId": "release-blue-...",
-  "slot": "blue"
-}
-```
+固定返回 HTTP 410，`{"code":"schema_qualification_retired"}`。
+handler 不解析原 bridge payload，不创建 qualification table，也不执行 upsert。
+历史输入 normalization 与回归 fixture 保留不代表仍可调用旧写入行为。
 
 `GET /api/release-evidence/schema-qualification/readiness`
 
-- ready：HTTP 200，`{"status":"ready","code":"ok"}`；
-- isolated missing Expand：HTTP 503，
-  `{"status":"not_ready","code":"schema_incompatible"}`。
-
-受保护的 qualification 诊断字段中，`releaseId` 是严格
-`YYYYMMDDHHmmss-sha12` 部署身份，`schemaCompatibilityCoordinate` 是独立的数据库
-兼容坐标。坐标允许规范 min/max fence，但 fence 不得出现在 `releaseId` 字段；历史
-记录的 `appliedByRelease` 也必须始终是规范部署身份。
+固定返回 HTTP 503，
+`{"status":"failed","code":"schema_incompatible","reason":"schema_qualification_retired"}`。
+handler 不解析旧 online coordinator，也不能通过缺失 Expand、release window 或
+旧 shape 来授予 readiness。
 
 两条响应都携带 `X-Fsus-Release-Id`、`X-Fsus-Release-Slot` 与
 `Cache-Control: no-store`。这些 header 用于 source/target identity 对账，不是认证
-Credentials. route is only for #1031 isolation migration qualification; real production migrations can still only be made by
-`tools/deployment/release-rollout.sh` 串联正式 migration runner。
+credentials，更不是 current-schema/database receipt。原 #1031 qualification
+实验不再是生产迁移入口；历史 descriptors、fixture 和历史 `appliedByRelease`
+身份约束仍由离线迁移 owner 保留。
+
+Server 不执行 schema migration。正式迁移只属于唯一离线 executable 的
+plan/apply/verify 链，release/startup 必须消费与实际 candidate、current target、
+database 及独立 fresh observation 相符的 current-schema receipt。上述 refusal
+slice 本身不证明该整条链已实现或通过验收；剩余 producer、操作准入和最终
+route-inventory 产物删除仍须各自原始验证，不能从 410/503 推导成迁移成功。
 
 ### Development local auth fixture
 

@@ -108,7 +108,12 @@ fallback. The canonical provider requires
 for that identity file. It verifies the current production-build and replay
 receipts against the same run/source, binds the canonical fixture catalogs,
 execution-envelope policy, fixed epoch and state-domain catalog, and seals
-their digests before any schedule is created. The provider reopens and
+their digests before any schedule is created. The current-run build-authority
+producer passes that same source commit to the server build through
+`FsusBlogCommitSha` and builds the migration project before the backend test
+project under the same production build layout and Release writer lock.
+
+The provider reopens and
 revalidates every referenced regular non-symlink file; a stale build, replay,
 fixture, envelope or catalog cannot authorize a run. Its session root defaults
 to the repository-contained `.tmp/runtime-order-sessions` and may be overridden only

@@ -34,6 +34,16 @@ internal interface IOfflineMigrationCurrentSchemaVerificationAuthority
     Task<OfflineMigrationCurrentSchemaAuthoritySnapshot> ReadAsync(
         OfflineMigrationPlan plan, DbConnection connection, DbTransaction transaction,
         CancellationToken cancellationToken);
+
+    // The original MySQL creator supplies its live read capability. Existing raw
+    // pair implementations cannot silently become retained MySQL authority.
+    Task<OfflineMigrationCurrentSchemaAuthoritySnapshot> ReadAsync(
+        OfflineMigrationPlan plan, OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        throw new InvalidOperationException("offline_retained_authority_original_mysql_context_required");
+    }
 }
 
 internal interface IOfflineMigrationVerificationArtifactReader

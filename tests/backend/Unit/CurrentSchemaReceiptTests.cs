@@ -1,18 +1,61 @@
 using System.Security.Cryptography;
 using System.Text;
 
-using SqlSugar;
-
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.Schema;
 using FsusBlog.Contracts.SchemaMigration;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Shared.Algorithms.Schema;
 
+using SqlSugar;
+
 namespace FsusBlog.Server.Tests;
 
 public sealed class CurrentSchemaReceiptTests
 {
+    [Theory]
+    [InlineData("")]
+    [InlineData("relative/receipt.json")]
+    public async Task OperationalObservation_RejectsImplicitReceiptBeforeDatabaseAccess(string path)
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(() => CurrentSchemaReceiptAdmission.ObserveVerifiedAsync(
+            path, new string('a', 64), new string('a', 40), null!, null!, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task OperationalObservation_PreCancellationDoesNotAccessReceiptOrDatabase()
+    {
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => CurrentSchemaReceiptAdmission.ObserveVerifiedAsync(
+            string.Empty, string.Empty, string.Empty, null!, null!, cancellation.Token));
+    }
+
+    [Fact]
+    public async Task OperationalObservation_RejectsCandidateMetadataBeforeMissingFileOrDatabase()
+    {
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            CurrentSchemaReceiptAdmission.ObserveVerifiedAsync(Path.GetFullPath("never-opened.receipt"),
+                new string('a', 64), new string('0', 40), null!, null!, CancellationToken.None));
+        Assert.Equal("current_receipt_candidate_source_mismatch", error.Message);
+    }
+
+    [Fact]
+    public async Task OperationalObservation_UnitNativeFactSeamCannotCreateOwnedSnapshot()
+    {
+        bool invoked = false;
+        var observer = new CurrentSchemaReadObserver(new ReceiptSchemaInspector(), _ =>
+        {
+            invoked = true;
+            throw new InvalidOperationException("unit seam must not run");
+        });
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            observer.ReadOwnedAdmissionSnapshotAsync(CancellationToken.None));
+        Assert.Equal("current_schema_native_admission_requires_actual_database", error.Message);
+        Assert.False(invoked);
+        Assert.Null(new CurrentSchemaAdmissionState().Current);
+    }
+
     [Fact]
     public void ReceiptCodec_RequiresExplicitStatusEvenWhenTheDefaultWouldMatchItsSeal()
     {

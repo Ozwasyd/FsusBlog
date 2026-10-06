@@ -12,6 +12,8 @@ import {
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import vm from 'node:vm';
+import { canonicalize, sha256 } from '../../tools/test-observations/source-identity.mjs';
 
 const { loadCatalog } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { formatBehaviorTestBindingReport, joinBehaviorTestEvidence, parseBehaviorBindingsFromSource, scanBehaviorTestBindings, validateExactBehaviorCoverage, xunitObservationMatchesBinding } = await import(new URL('../../tools/contracts/behavior-test-binding.mjs', import.meta.url));
@@ -870,4 +872,119 @@ test('observation artifact schema constant remains the only execution evidence s
 {
     assert.equal(observationArtifactSchema, 'fsusblog.test-observation-artifact.v1');
     assert.equal(typeof sha256File, 'function');
+});
+
+
+// Source-only fixtures: original raw Vitest adapter and CLI body, no Vitest worker or SDK.
+function vitestFallbackFixture(t, statuses)
+{
+    const directory = fixtureRoot();
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const relative = '.tmp/observations/fallback-vitest.json';
+    write(directory, relative, JSON.stringify({ testResults: statuses.map((status, index) => ({
+        name: `/owned-source-fixture/${index}.test.ts`,
+        assertionResults: [{ title: 'same title', status, failureMessages: status === 'failed' ? ['owned fixture failure'] : [] }]
+    })) }));
+    const artifact = createObservationArtifact({
+        framework: 'vitest', reportFile: path.join(directory, relative), evidenceReference: relative,
+        suite: 'owned-source-fixture', observedAt: '2026-10-06T00:00:00.000Z',
+        metadata: {
+            sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: `sha256:${'b'.repeat(64)}` },
+            sourceClosureDigest: `sha256:${'c'.repeat(64)}`,
+            runner: { os: 'linux', arch: 'x64', runtime: 'source-fixture-only' },
+            run: { id: 'fallback-control', attemptKind: 'primary', evidenceClass: 'source-fixture-only' }
+        }
+    });
+    const binding = {
+        behaviorId: 'code-intent-governance', testKind: 'positive', framework: 'vitest',
+        sourcePath: 'tests/frontend/unit/target.test.ts', fullyQualifiedName: 'same title',
+        canonicalTestId: 'vitest:tests/frontend/unit/target.test.ts#same title',
+        invariantIds: [], reasonId: null, concurrencyHarness: null
+    };
+    const catalog = { contracts: [{ id: binding.behaviorId, status: 'active', requiredTestKinds: ['positive'] }] };
+    const scan = { bindings: [binding], errors: [], catalogDigest: 'd'.repeat(64), sourceDigests: [] };
+    const join = (value = artifact) => joinBehaviorTestEvidence({
+        repositoryRoot: directory, catalog, bindingsScan: scan, observations: [value],
+        evidenceRoot: directory, worktreeDigest: 'e'.repeat(64)
+    });
+    return { directory, artifact, binding, catalog, scan, join, relative };
+}
+
+test('Vitest fallback aggregates every raw matching file independent of report order', (t) =>
+{
+    for (const [statuses, expected] of [
+        [['passed', 'failed'], 'failed'], [['failed', 'passed'], 'failed'],
+        [['passed', 'skipped'], 'skipped'], [['skipped', 'passed'], 'skipped'],
+        [['passed', 'passed'], 'passed']
+    ])
+    {
+        const fixture = vitestFallbackFixture(t, statuses);
+        const result = fixture.join();
+        assert.equal(result.evidence[0].outcome, expected);
+        assert.equal(result.coverage[0].satisfiedTestKinds.includes('positive'), expected === 'passed');
+    }
+});
+
+test('Vitest fallback preserves exact canonical precedence and rejects raw/source drift', (t) =>
+{
+    const fixture = vitestFallbackFixture(t, ['passed', 'failed']);
+    const value = JSON.parse(readFileSync(path.join(fixture.directory, fixture.relative), 'utf8'));
+    value.testResults[0].name = fixture.binding.sourcePath;
+    write(fixture.directory, fixture.relative, JSON.stringify(value));
+    const canonical = createObservationArtifact({
+        framework: 'vitest', reportFile: path.join(fixture.directory, fixture.relative),
+        evidenceReference: fixture.relative, suite: 'owned-source-fixture',
+        observedAt: fixture.artifact.observedAt,
+        metadata: { sourceState: fixture.artifact.sourceState, sourceClosureDigest: fixture.artifact.sourceClosureDigest,
+            runner: fixture.artifact.runner, run: fixture.artifact.run }
+    });
+    assert.equal(fixture.join(canonical).evidence[0].outcome, 'passed');
+    write(fixture.directory, fixture.relative, 'changed raw bytes');
+    assert.ok(fixture.join(canonical).errors.some((error) => /producer.*digest/u.test(error)));
+    const mismatched = structuredClone(canonical);
+    mismatched.observations[1].sourceState.commit = 'f'.repeat(40);
+    assert.ok(fixture.join(mismatched).errors.some((error) => /source identity|content digest/u.test(error)));
+});
+
+test('Vitest fallback direct CLI body refuses first-pass fallback and planned files remain closed', async (t) =>
+{
+    const fixture = vitestFallbackFixture(t, ['passed', 'failed']);
+    write(fixture.directory, 'observation.json', JSON.stringify(fixture.artifact));
+    const cli = readFileSync(checker, 'utf8');
+    const body = cli.slice(cli.indexOf('function parseArgs('), cli.indexOf('export { assertBehaviorTestBindings'));
+    const output = [];
+    const localProcess = { argv: ['node', checker, '--mode', 'exact', '--observations', 'observation.json',
+        '--evidence-root', fixture.directory, '--json'], exitCode: 0,
+        stdout: { write: (value) => output.push(value) } };
+    vm.runInNewContext(body, {
+        fs: { writeFileSync }, path, root: fixture.directory, process: localProcess,
+        console: { log: (value) => output.push(value), error: (value) => output.push(value) },
+        scanBehaviorTestBindings: () => fixture.scan,
+        joinBehaviorTestEvidence: (options) => joinBehaviorTestEvidence({ ...options, repositoryRoot: fixture.directory,
+            catalog: fixture.catalog, bindingsScan: fixture.scan, worktreeDigest: 'e'.repeat(64) }),
+        validateExactBehaviorCoverage, formatBehaviorTestBindingReport,
+        assertBehaviorTestBindings: () => assert.fail('exact mode must keep its existing source scan path')
+    });
+    assert.equal(localProcess.exitCode, 1);
+    assert.equal(JSON.parse(output[0]).evidence[0].outcome, 'failed');
+    const { extraExecutedTestIdsFor } = await import('../../tools/test-matrix/produce-behavior-test-evidence.mjs');
+    const observed = fixture.artifact.observations.map((row) => row.testId);
+    assert.deepEqual(extraExecutedTestIdsFor(observed, new Set(), new Set([fixture.binding.sourcePath])), observed);
+    assert.deepEqual(extraExecutedTestIdsFor([fixture.binding.canonicalTestId],
+        new Set([fixture.binding.canonicalTestId]), new Set([fixture.binding.sourcePath])), []);
+});
+
+
+test('Vitest fallback retains blocked envelope outcome as a nonqualifying value control', (t) =>
+{
+    // The closed envelope admits blocked; raw Vitest currently emits failed/skipped only.
+    // This value fixture checks aggregation, without claiming an actual Vitest execution.
+    const fixture = vitestFallbackFixture(t, ['passed', 'failed']);
+    const value = structuredClone(fixture.artifact);
+    value.observations[1].outcome = 'blocked';
+    delete value.contentDigest;
+    value.contentDigest = sha256(JSON.stringify(canonicalize(value)));
+    const result = fixture.join(value);
+    assert.equal(result.evidence[0].outcome, 'blocked');
+    assert.equal(result.coverage[0].status, 'failed');
 });

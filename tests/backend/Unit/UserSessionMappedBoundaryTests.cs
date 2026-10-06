@@ -43,6 +43,7 @@ public sealed class UserSessionMappedBoundaryTests(
     UserSessionMappedBoundaryTests.MappedBoundaryHostFixture fixture)
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-mapped-notification-stream-preflight-revoked-ordinary-jwt-rejects-before-admission-and-clears-user-cookies")]
     public async Task MappedNotificationStreamPreflight_RevokedOrdinaryJwtRejectsBeforeAdmissionAndClearsUserCookies()
     {
         MappedBoundaryHost host = fixture.PrepareForTest();
@@ -80,6 +81,7 @@ public sealed class UserSessionMappedBoundaryTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-mapped-protected-binary-sessions-revoked-ordinary-jwt-rejects-before-handler-and-clears-user-cookies")]
     public async Task MappedProtectedBinarySessions_RevokedOrdinaryJwtRejectsBeforeHandlerAndClearsUserCookies()
     {
         MappedBoundaryHost host = fixture.PrepareForTest();

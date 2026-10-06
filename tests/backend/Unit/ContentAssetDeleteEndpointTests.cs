@@ -31,6 +31,7 @@ public sealed class ContentAssetDeleteEndpointTests
     [InlineData("../images/hero.png")]
     [InlineData("/uploads/images/hero.png")]
     [InlineData("https://evil.example.test/uploads/images/hero.png")]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "asset-delete-path-reject")]
     public async Task HandleFileDeleteAsync_RejectsPathOrUrlWithoutCallingStore(string candidate)
     {
         IAssetStore store = Substitute.For<IAssetStore>();
@@ -54,6 +55,7 @@ public sealed class ContentAssetDeleteEndpointTests
     [InlineData(AssetDeleteResult.Deleted, AedsFrameType.EmptySuccess, ErrorCode.None)]
     [InlineData(AssetDeleteResult.Referenced, AedsFrameType.ApiError, ErrorCode.Conflict)]
     [InlineData(AssetDeleteResult.NotFound, AedsFrameType.ApiError, ErrorCode.NotFound)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task HandleFileDeleteAsync_InvokesStronglyTypedStoreAndMapsOutcome(
         AssetDeleteResult outcome,
         AedsFrameType expectedFrameType,

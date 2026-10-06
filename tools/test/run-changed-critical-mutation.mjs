@@ -119,15 +119,6 @@ function findTraceLog(physicalOutput)
 
 function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physicalRuns })
 {
-    const restore = spawnSync(
-        'dotnet',
-        ['tool', 'restore'],
-        { cwd: root, stdio: 'inherit' }
-    );
-    if (restore.status !== 0)
-    {
-        return restore;
-    }
     for (const closure of selection.projectClosures)
     {
         const runName = closure.sourceProject.replaceAll('/', '-');
@@ -139,12 +130,15 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
         );
         const configPath = resolve(runDirectory, 'configs', `${runName}.json`);
         writeJsonAtomic(configPath, config);
+        const toolBindingPath = resolve(physicalOutput, 'tool-binding.json');
         const result = spawnSync(
-            'dotnet',
+            process.execPath,
             [
-                'tool',
+                resolve(root, 'tools/mutation/stryker-tool.mjs'),
                 'run',
-                'dotnet-stryker',
+                '--working-directory', closure.sourceProject,
+                '--attestation-output', toolBindingPath,
+                '--',
                 '--config-file',
                 configPath,
                 '--output',
@@ -153,7 +147,7 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
                 '--verbosity',
                 'trace'
             ], {
-                cwd: resolve(root, closure.sourceProject),
+                cwd: root,
                 stdio: 'inherit',
                 env: { ...process.env, FSUSBLOG_MUTATION_BUILD: '1' }
             }
@@ -164,6 +158,7 @@ function runPhysicalMutations({ selection, toolPolicy, runDirectory, root, physi
         }
         physicalRuns.push({
             sourceProject: closure.sourceProject,
+            toolBindingPath,
             config,
             configPath,
             reportPath: resolve(
@@ -263,6 +258,7 @@ function main()
         const rawTrace = readFileSync(physical.tracePath);
         return {
             sourceProject: physical.sourceProject,
+            toolBinding: JSON.parse(readFileSync(physical.toolBindingPath)),
             config: physical.config,
             rawConfig,
             report: JSON.parse(rawReport),
@@ -272,7 +268,8 @@ function main()
             paths: {
                 config: repoRelative(root, physical.configPath),
                 report: repoRelative(root, physical.reportPath),
-                trace: repoRelative(root, physical.tracePath)
+                trace: repoRelative(root, physical.tracePath),
+                toolBinding: repoRelative(root, physical.toolBindingPath)
             }
         };
     });
@@ -283,7 +280,8 @@ function main()
             sourceProject: physical.sourceProject,
             config: physical.paths.config,
             report: physical.paths.report,
-            trace: physical.paths.trace
+            trace: physical.paths.trace,
+            toolBinding: physical.paths.toolBinding
         }))
     });
     const authority = createChangedCriticalMutationAuthority({

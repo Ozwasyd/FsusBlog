@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict'
 import crypto from 'node:crypto'
 import { spawn } from 'node:child_process'
@@ -134,6 +135,7 @@ function createFixture(t, name) {
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }))
   const stateFile = path.join(directory, 'rollout-state.json')
   const state = createRolloutState({
+    ...createCurrentRolloutFixtureBinding(),
     rolloutId: `traffic-session-${name}-20260711`,
     kind: 'deploy',
     manifestPath: path.join(directory, 'release-manifest.json'),
@@ -146,7 +148,7 @@ function createFixture(t, name) {
     'manifest-validate',
     'capacity-preflight',
     'backup-restore-gate',
-    'expand-migration',
+    'current-schema-admission',
     'asset-materialize',
     'candidate-start',
     'candidate-readiness',

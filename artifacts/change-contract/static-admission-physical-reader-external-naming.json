@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-doc-static-admission.mjs"
+            ],
+            "reason": "Preserve all existing environment and process/build spellings on this tools module path governed by the trusted environment-variable exception while restoring physical receipt and independent artifact reads; no environment key is introduced or renamed."
+        }
+    ]
+}

@@ -13,12 +13,15 @@ import {
     currentSourceState,
     digest,
     loadRuntimeCacheCatalog,
+    loadRuntimeCacheSchema,
     RUNTIME_CACHE_RAW_EVIDENCE_SCHEMA,
     RUNTIME_CACHE_RECEIPT_SCHEMA,
     sealReceipt,
     validateRuntimeCacheReceipt,
     writeReceiptPreservingFirstFailure
 } from './runtime-cache-evidence-contract.mjs';
+import { binaryGetResponseError, isBinaryGet, runtimeCacheResponseError } from './runtime-cache-scenarios/related-reading-contract.mjs';
+import { validateJsonSchema } from '../test-matrix/schema-validator/validate.mjs';
 const { readRuntimeCacheFixtureInput, verifyRuntimeCacheFixtureInput } = await import(new URL('../test-fixtures/receipt/projection.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -463,6 +466,7 @@ export async function collectObservedRequest({
     }
     const response = await fetchWithTimeout(fetchImpl, `${requestBaseUrl}${spec.path}`, {
         method: spec.method,
+        redirect: 'manual',
         headers,
         ...(requestBody === undefined ? {} : { body: requestBody })
     }, timeoutMs);
@@ -470,8 +474,8 @@ export async function collectObservedRequest({
     const actual = { id, status: response.status, payloadDigest: sha256Bytes(body) };
     const observation = await takeObservation({ fetchImpl, baseUrl: requestBaseUrl, secret, requestId: id, timeoutMs });
     const observed = normalizeObservedRequest(observation, actual, spec);
-    return spec.captureResponseBody
-        ? { ...observed, responseBodyBase64: body.toString('base64') }
+    return spec.captureResponseBody || isBinaryGet(spec)
+        ? { ...observed, responseBodyBase64: body.toString('base64'), responseContentType: response.headers.get('content-type') ?? '' }
         : observed;
 }
 
@@ -795,17 +799,61 @@ export async function produceMeasuredScenarioReceipt(options, plan)
     const overallStartedAt = nowIso();
     const runtimeSnapshotStart = options.collectMemory ? null : await takeRuntimeSnapshot({ fetchImpl, baseUrl, secret, timeoutMs });
     const warmupStartedAt = nowIso();
-    const collect = (spec, index, phase = 'sample') => collectObservedRequest({
-        fetchImpl,
-        baseUrl: spec.baseUrl ?? baseUrl,
-        secret,
-        scenarioId: phase === 'sample' ? scenario.id : `${scenario.id}-${phase}`,
-        ordinal: index + 1,
-        spec,
-        timeoutMs
-    });
+    const collect = async (spec, index, phase = 'sample') =>
+    {
+        const observed = await collectObservedRequest({
+            fetchImpl,
+            baseUrl: spec.baseUrl ?? baseUrl,
+            secret,
+            scenarioId: phase === 'sample' ? scenario.id : `${scenario.id}-${phase}`,
+            ordinal: index + 1,
+            spec,
+            timeoutMs
+        });
+        return observed;
+    };
     const warmupRequests = await plan.warmup({ collect, fetchImpl, baseUrl, secret, timeoutMs, runId, attemptId });
     const warmupEndedAt = nowIso();
+    // Inspect only after the original warmup plan has joined its workers. A wire
+    // rejection must not race cleanup against an in-flight preparation/read.
+    const badWarmup = warmupRequests.map((request) => ({ request,
+        error: isBinaryGet(request) ? binaryGetResponseError(request) : null })).find((item) => item.error !== null);
+    if (badWarmup)
+    {
+        const warmupRaw = buildRawEvidence({ runId, scenarioId: scenario.id, attemptId, requests: warmupRequests, faultTimeline: [] });
+        const rawRelativePath = `.tmp/perf/runtime-cache/raw/${scenario.id}/${attemptId}.warmup.json`;
+        const failure = new Error(`warmup HTTP/AEDS response ${badWarmup.request.id}: ${badWarmup.error}`);
+        const secondaryErrors = [];
+        try
+        {
+            const rawBytes = writeImmutable(path.resolve(options.repositoryRoot ?? root, rawRelativePath), warmupRaw);
+            failure.message += `; raw evidence ${rawRelativePath} ${sha256Bytes(rawBytes)}`;
+        }
+        catch (evidenceError)
+        {
+            secondaryErrors.push(evidenceError);
+        }
+        const context = { scenario, identity, sourceStart, runId, attemptId, overallStartedAt,
+            runtimeSnapshotStart, fetchImpl, baseUrl, secret, timeoutMs };
+        try
+        {
+            const cleanupProof = await (options.collectCleanup ?? collectDefaultCleanupProof)(context);
+            failure.message += `; original cleanup proof ${canonicalJson(cleanupProof)}`;
+            const schema = loadRuntimeCacheSchema();
+            const cleanupErrors = validateJsonSchema(cleanupProof, { $defs: schema.$defs, ...schema.properties.cleanupProof });
+            if (cleanupErrors.length > 0 || cleanupProof.status !== 'passed' || !cleanupProof.namespaceRemoved ||
+                cleanupProof.activeKeyedEntries !== 0 || cleanupProof.durableRowsAfter !== 0)
+            {
+                secondaryErrors.push(new Error(`original cleanup proof is incomplete: ${canonicalJson(cleanupProof)}; ${cleanupErrors.join('; ')}`));
+            }
+        }
+        catch (cleanupError)
+        {
+            secondaryErrors.push(cleanupError);
+        }
+        if (secondaryErrors.length > 0) throw new AggregateError([failure, ...secondaryErrors], `${failure.message}; warmup evidence or original cleanup failed`);
+        throw failure;
+    }
 
     const sampleStartedAt = nowIso();
     const measured = await plan.sample({ collect, fetchImpl, baseUrl, secret, timeoutMs, runId, attemptId });
@@ -816,7 +864,12 @@ export async function produceMeasuredScenarioReceipt(options, plan)
         throw new Error(`${scenario.id} produced ${requests.length} measured requests; expected ${scenario.requests}`);
     }
     const assertionResults = measured.assertionResults ?? [];
-    const failed = assertionResults.find((item) => item.assertion.status === 'failed');
+    const invalidResponse = requests.map((request) => ({ request,
+        error: runtimeCacheResponseError(scenario.id, request, measured.parameters) })).find((item) => item.error !== null);
+    // Preserve the original first failed assertion, immutable raw evidence and cleanup.
+    // Transport failures use the existing firstFailure diagnostic, not a second catalog.
+    const failed = assertionResults.find((item) => item.assertion.status === 'failed') ??
+        (invalidResponse ? exactAssertionResult('http-aeds-response', null, invalidResponse.error, invalidResponse.request) : null);
     const faultTimeline = measured.faultTimeline ?? [];
     const context = { scenario, identity, sourceStart, runId, attemptId, overallStartedAt, sampleStartedAt, sampleEndedAt, runtimeSnapshotStart, fetchImpl, baseUrl, secret, timeoutMs };
     const memory = await (options.collectMemory ?? collectDefaultMemoryObservation)(context);

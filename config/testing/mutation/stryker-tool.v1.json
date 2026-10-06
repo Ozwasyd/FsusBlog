@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.stryker-tool.v1",
+    "upstreamArchive": "https://github.com/stryker-mutator/stryker-net/archive/cc7fdf3433025a4b63c2c091c07b2177d117359e.tar.gz",
+    "upstreamArchiveSha256": "d50354b9f99fd9d9e4959b2c4cf0dbf5068cc47488a49db77d00e0dbbb32cca0",
+    "upstreamVersion": "4.14.2",
+    "upstreamCommit": "cc7fdf3433025a4b63c2c091c07b2177d117359e",
+    "packageVersion": "4.14.2-fsusblog.3",
+    "patchPath": "tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch",
+    "patchSha256": "18836b98d0a179946b8c3f3807f6161a5f520c601ece1a7d51459e624e0320a5",
+    "expressionTreePatchPath": "tools/mutation/patches/stryker-net-4.14.2-expression-tree.patch",
+    "expressionTreePatchSha256": "6d3960b2ce447a0b0569aca7730b3ab2ac239c7d3a4ae678fa1386ba57537987",
+    "toolManifestPath": ".config/dotnet-tools.json",
+    "focusedTestProject": "src/Stryker.Core/Stryker.Core.UnitTest/Stryker.Core.UnitTest.csproj",
+    "focusedTestFilter": "FullyQualifiedName~CsharpMutationCandidateValidatorTests|FullyQualifiedName~CsharpExpressionTreeInstrumentationTests"
+}

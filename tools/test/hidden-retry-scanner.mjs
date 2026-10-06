@@ -380,9 +380,9 @@ function scanTimeoutRerun(input, findings)
     );
 }
 
-function scanSource(root, file)
+function scanSource(root, file, sourceBytes = null)
 {
-    const source = fs.readFileSync(file, 'utf8');
+    const source = sourceBytes === null ? fs.readFileSync(file, 'utf8') : sourceBytes.toString('utf8');
     const relative = portable(path.relative(root, file));
     const input = { root, file, relative, source };
     const findings = [];
@@ -431,6 +431,143 @@ export function scanHiddenRetries(root, { files = null } = {})
         scannerVersion: hiddenRetryScannerVersion,
         findings: Object.freeze(findings),
         contentDigest: digestCanonical(findings)
+    });
+}
+
+function readLiteralRetrySource(root, relative)
+{
+    if (typeof relative !== 'string' || !relative || path.posix.isAbsolute(relative)
+        || /[\\*?\0]/u.test(relative) || path.posix.normalize(relative) !== relative
+        || relative === '..' || relative.startsWith('../'))
+    {
+        throw new Error('retry disposition source requires a literal repository-relative path');
+    }
+    const repository = fs.realpathSync(root);
+    const file = path.resolve(repository, relative);
+    if (!file.startsWith(repository + path.sep) || portable(path.relative(repository, file)) !== relative)
+    {
+        throw new Error('retry disposition source requires a literal repository-relative path');
+    }
+    const before = fs.lstatSync(file, { bigint: true });
+    if (!before.isFile() || fs.realpathSync(file) !== file)
+    {
+        throw new Error(`retry disposition source must be a literal regular file: ${relative}`);
+    }
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    try
+    {
+        const opened = fs.fstatSync(descriptor, { bigint: true });
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor, { bigint: true });
+        const current = fs.lstatSync(file, { bigint: true });
+        const sameEpoch = (stat) => stat.isFile()
+            && ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].every((field) => stat[field] === before[field]);
+        if (![opened, after, current].every(sameEpoch) || fs.realpathSync(file) !== file)
+        {
+            throw new Error(`retry disposition source changed during literal read: ${relative}`);
+        }
+        return { repository, file, bytes };
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+}
+
+const reviewedSourceFields = [
+    'producerId', 'path', 'ruleId', 'classification', 'policyId',
+    'action', 'owner', 'sourceText', 'syntaxText'
+];
+const reviewedSemanticFields = ['producerId', 'ruleId', 'classification', 'policyId', 'action', 'owner'];
+
+export function assertUniquePriorRetryDispositionOwners(entries)
+{
+    if (!Array.isArray(entries))
+    {
+        throw new Error('independent prior retry disposition entries are required');
+    }
+    const identities = new Set();
+    for (const entry of entries)
+    {
+        const key = [entry.producerId, entry.location.path, entry.ruleId, entry.syntaxDigest].join('\0');
+        if (identities.has(key))
+        {
+            throw new Error(`duplicate prior retry semantic owner: ${entry.location.path}`);
+        }
+        identities.add(key);
+    }
+}
+
+// Reviewed source is an input to ordinary validation, not permission to approve a new disposition.
+export function resolveReviewedRetryDispositions(root, findings, {
+    reviewedSources = [],
+    priorEntries = []
+} = {})
+{
+    if (!Array.isArray(reviewedSources) || !Array.isArray(findings) || !Array.isArray(priorEntries))
+    {
+        throw new Error('reviewed retry sources, scanner findings and prior entries must be arrays');
+    }
+    const identities = new Set();
+    return reviewedSources.map((review) =>
+    {
+        if (!review || Object.keys(review).sort().join(',') !== [...reviewedSourceFields].sort().join(',')
+            || !/^[a-z][a-z0-9-]*$/u.test(review.producerId)
+            || !/^retry\.[a-z0-9.-]+$/u.test(review.ruleId)
+            || review.ruleId === 'retry.shell-command-loop'
+            || typeof review.path !== 'string' || !review.path.startsWith('tests/')
+            || /[\\*?\0]/u.test(review.path) || path.posix.normalize(review.path) !== review.path
+            || review.classification !== 'non-retry' || review.policyId !== null
+            || review.action !== 'restore-only' || typeof review.owner !== 'string' || !review.owner.trim()
+            || typeof review.sourceText !== 'string' || !review.sourceText
+            || typeof review.syntaxText !== 'string' || !review.syntaxText.trim())
+        {
+            throw new Error('reviewed retry sources require exact raw source and explicit non-retry semantics');
+        }
+        const identity = [review.producerId, review.path, review.ruleId].join('\0');
+        if (identities.has(identity))
+        {
+            throw new Error(`duplicate reviewed retry source: ${review.path}`);
+        }
+        identities.add(identity);
+        if (!fs.existsSync(path.resolve(root, review.path)))
+        {
+            throw new Error(`missing reviewed retry source: ${review.path}`);
+        }
+        const source = readLiteralRetrySource(root, review.path);
+        if (!source.bytes.equals(Buffer.from(review.sourceText, 'utf8')))
+        {
+            throw new Error(`reviewed retry source drift: ${review.path}`);
+        }
+        const syntaxDigest = sha256(review.syntaxText.trim().replace(/\s+/gu, ' '));
+        const matches = findings.filter((item) => item.producerId === review.producerId
+            && item.location.path === review.path && item.ruleId === review.ruleId
+            && item.syntaxDigest === syntaxDigest);
+        const actual = scanSource(source.repository, source.file, source.bytes).filter((item) => (
+            item.producerId === review.producerId && item.ruleId === review.ruleId
+            && item.syntaxDigest === syntaxDigest
+        ));
+        if (matches.length !== 1 || actual.length !== 1
+            || canonicalJson(matches[0]) !== canonicalJson(actual[0]))
+        {
+            throw new Error(`reviewed retry source requires exactly one original scanner finding: ${review.path}`);
+        }
+        const finding = actual[0];
+        const prior = priorEntries.filter((entry) => entry.producerId === finding.producerId
+            && entry.location.path === finding.location.path && entry.ruleId === finding.ruleId
+            && entry.syntaxDigest === finding.syntaxDigest);
+        if (prior.length > 1)
+        {
+            throw new Error(`duplicate prior reviewed retry disposition: ${review.path}`);
+        }
+        if (prior.length === 1 && reviewedSemanticFields.some((field) => prior[0][field] !== review[field]))
+        {
+            throw new Error(`conflicting prior reviewed retry disposition: ${review.path}`);
+        }
+        return Object.freeze({
+            finding: Object.freeze(finding),
+            disposition: Object.freeze(Object.fromEntries(reviewedSemanticFields.map((field) => [field, review[field]])))
+        });
     });
 }
 
@@ -509,15 +646,21 @@ function validateDispositionEntry(root, entry, policies)
     {
         throw new Error(`${entry.producerId} disposition sourceDigest is invalid`);
     }
-    const sourceFile = path.resolve(root, location.path);
-    if (!fs.existsSync(sourceFile) || sha256(fs.readFileSync(sourceFile)) !== entry.sourceDigest)
+    if (!fs.existsSync(path.resolve(root, location.path)))
+    {
+        throw new Error(`${entry.producerId} disposition source digest is stale`);
+    }
+    if (sha256(readLiteralRetrySource(root, location.path).bytes) !== entry.sourceDigest)
     {
         throw new Error(`${entry.producerId} disposition source digest is stale`);
     }
     return entry.findingId;
 }
 
-export function validateRetryDispositionRegistry(root, document, scan, policyRegistry)
+export function validateRetryDispositionRegistry(root, document, scan, policyRegistry, {
+    reviewedSources = [],
+    priorEntries = null
+} = {})
 {
     if (document?.schema !== retryDispositionRegistrySchema
         || document.scannerVersion !== hiddenRetryScannerVersion
@@ -570,7 +713,42 @@ export function validateRetryDispositionRegistry(root, document, scan, policyReg
         ];
         throw new Error(summary.join('\n'));
     }
-    return Object.freeze({ document, scan, warnings: Object.freeze([]) });
+    assertUniquePriorRetryDispositionOwners(priorEntries);
+    if (priorEntries === document.entries)
+    {
+        throw new Error('candidate retry disposition entries cannot serve as their own independent prior');
+    }
+    const reviews = resolveReviewedRetryDispositions(root, scan.findings, { reviewedSources, priorEntries });
+    const reviewedFindingIds = new Set(reviews.map((review) => review.finding.findingId));
+    for (const entry of document.entries)
+    {
+        const exact = priorEntries.filter((prior) => prior.findingId === entry.findingId);
+        const semantic = priorEntries.filter((prior) => prior.producerId === entry.producerId
+            && prior.location.path === entry.location.path && prior.ruleId === entry.ruleId
+            && prior.syntaxDigest === entry.syntaxDigest);
+        const candidates = exact.length === 1 ? exact : semantic;
+        if (candidates.length !== 1)
+        {
+            throw new Error(`retry disposition requires a unique existing prior owner: ${entry.location.path}`);
+        }
+        const prior = candidates[0];
+        if (reviewedSemanticFields.some((field) => prior[field] !== entry[field]))
+        {
+            throw new Error(`conflicting prior reviewed retry disposition: ${entry.location.path}`);
+        }
+        const exactBinding = ['findingId', 'producerId', 'ruleId', 'syntaxDigest', 'sourceDigest']
+            .every((field) => prior[field] === entry[field])
+            && canonicalJson(prior.location) === canonicalJson(entry.location);
+        if (!exactBinding && !reviewedFindingIds.has(entry.findingId))
+        {
+            throw new Error(`changed retry source or finding requires an exact raw source review: ${entry.location.path}`);
+        }
+    }
+    return Object.freeze({
+        document, scan, warnings: Object.freeze([]),
+        qualificationEligible: false,
+        status: 'source-validation-only'
+    });
 }
 
 export function sourceDigest(file)

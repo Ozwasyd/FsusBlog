@@ -45,6 +45,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     [InlineData(IdentityContamination.CookieAndAuthorization)]
     [InlineData(IdentityContamination.AuthenticatedPrincipal)]
     [InlineData(IdentityContamination.AuthoringBridgeHeader)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-real-endpoint-identity-contamination-rejects-before-every-ticket-boundary")]
     public async Task RealEndpoint_IdentityContaminationRejectsBeforeEveryTicketBoundary(
         IdentityContamination contamination)
     {
@@ -64,12 +65,13 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task RealEndpoint_ConcurrentIdentityContaminationNeverEntersExpensiveBoundaries()
     {
         const int Attempts = 32;
         await using var server = await AnonymousTicketPipelineServer.CreateAsync();
 
-        var requests = new Task<PipelineResponse>[Attempts];
+        var requests = new Func<Task<PipelineResponse>>[Attempts];
         for (int index = 0; index < Attempts; index += 1)
         {
             IdentityContamination contamination = (index % 3) switch
@@ -78,10 +80,10 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
                 1 => IdentityContamination.Authorization,
                 _ => IdentityContamination.AuthoringBridgeHeader
             };
-            requests[index] = server.SendAsync(server.ValidFrame, contamination);
+            requests[index] = () => server.SendAsync(server.ValidFrame, contamination);
         }
 
-        PipelineResponse[] responses = await Task.WhenAll(requests);
+        PipelineResponse[] responses = await RealConcurrencyHarness.RunAsync(requests);
 
         Assert.All(responses, static response => Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode));
         Assert.All(responses.Select(ReadError), static error => Assert.Equal(
@@ -96,6 +98,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     [InlineData(InvalidPayloadKind.MalformedAeds)]
     [InlineData(InvalidPayloadKind.OversizedProof)]
     [InlineData(InvalidPayloadKind.OrdinaryValidation)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-real-endpoint-identity-contamination-precedes-payload-and-validation-failures")]
     public async Task RealEndpoint_IdentityContaminationPrecedesPayloadAndValidationFailures(
         InvalidPayloadKind payloadKind)
     {
@@ -118,6 +121,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task RealEndpoint_CleanValidRequestEntersDecodeProofNullifierAndTicketStore()
     {
         await using var server = await AnonymousTicketPipelineServer.CreateAsync();

@@ -26,6 +26,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousCommentModerationPipelineTests
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void AntiSpamContext_CarriesAnonymousSafeActorAndPolicyMetadata()
     {
         string[] contextProperties = typeof(AntiSpamCommentModerationContext)
@@ -80,6 +81,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void AntiSpamModelRequest_UsesPrivacyAllowListAndSanitizesRuntimeMetadata()
     {
         string[] requestProperties = typeof(AntiSpamModerationRequest)
@@ -111,6 +113,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentModerationService_RuntimePathPassesCommentActorAndPolicySnapshotToAntiSpamContext()
     {
         ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentModerationService).GetConstructors()).GetParameters();
@@ -139,6 +142,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentModerationService_RuntimePathAppliesModelDispositionPolicyAndAuditsAutomaticActions()
     {
         ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentModerationService).GetConstructors()).GetParameters();
@@ -163,6 +167,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentModerationService_AutomaticDispositionRuntimeUsesRowVersionGuardAndRetry()
     {
         PropertyInfo rowVersion = Assert.IsAssignableFrom<PropertyInfo>(typeof(Comment).GetProperty("RowVersion"));
@@ -183,6 +188,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentAttributionBoundary_EnforcesAnonymousNullifierWithAtomicConsumeBeforeCommit()
     {
         ParameterInfo[] constructorParameters = Assert.Single(typeof(CommentCommandService).GetConstructors()).GetParameters();
@@ -205,6 +211,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void NullifierService_RuntimeUsesPrecheckAndAtomicConsume()
     {
         Type service = typeof(CommentAnonymousNullifierService);
@@ -230,6 +237,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void CommentService_AnonymousFailureRuntimeLogsDoNotWriteRawAnonymousScope()
     {
         string runtimeShape = string.Concat(
@@ -248,6 +256,7 @@ public sealed class AnonymousCommentModerationPipelineTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task AdminModerationEndpoints_ExposeAnonymousGovernanceActionsWithSpecificPermissions()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -304,6 +313,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ModerationQueue_RuntimeContractDoesNotExposeRealUserIdAndBatchesNullifierState()
     {
         string[] responseProperties = typeof(CommentModerationItemResponse)
@@ -331,6 +341,7 @@ public sealed class AnonymousCommentModerationPipelineTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-anonymous-governance-audit-runtime-hashes-irreversible-targets-and-preserves-provider-privacy")]
     public void AnonymousGovernanceAudit_RuntimeHashesIrreversibleTargetsAndPreservesProviderPrivacy()
     {
         MethodInfo hashMethod = typeof(AuthoringEndpoints).GetMethod(

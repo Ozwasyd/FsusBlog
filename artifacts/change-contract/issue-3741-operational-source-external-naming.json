@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/operations/archive-compiled-artifacts.mjs",
+                "tools/operations/export-failed-run-evidence.mjs",
+                "tools/operations/guest-preparation-caller.mjs",
+                "tools/operations/local-task-plan.mjs",
+                "tools/operations/recover-failed-run-carrier.mjs",
+                "tools/operations/retire-idle-materializations.mjs",
+                "tools/operations/wip-catalog-publication.mjs",
+                "tools/operations/wip-publication.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment spellings used by Git, Node, locale, principal/user-bus and the original SDK CLI. Closed operation plans and internal JavaScript option variables retain repository camelCase names; this declaration does not authorize historical task bindings or effects."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/operations/guest-preparation-caller.sh"
+            ],
+            "reason": "Preserve the Bash-defined BASH_SOURCE spelling at the thin original-caller launcher boundary; scriptRoot stays an internal camelCase alias. The launcher forwards original argv once and adds no new exported operational authority."
+        }
+    ]
+}

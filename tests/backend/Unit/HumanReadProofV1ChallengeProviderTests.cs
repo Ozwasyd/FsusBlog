@@ -20,6 +20,7 @@ public sealed class HumanReadProofV1ChallengeProviderTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterHumanReadProofV1Provider()
     {
         var services = new ServiceCollection();
@@ -34,6 +35,7 @@ public sealed class HumanReadProofV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_PublicRead_ReturnsAssignmentPayloadAndPersistsAuditMetadata()
     {
         ProviderFixture fixture = CreateFixture();
@@ -60,6 +62,7 @@ public sealed class HumanReadProofV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "human-read-proof-public-action-only")]
     public async Task IssueAsync_NonPublicRead_FailsClosedWithoutChallenge()
     {
         ProviderFixture fixture = CreateFixture();
@@ -75,6 +78,7 @@ public sealed class HumanReadProofV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_PublicReadAcceptedProof_ReturnsSuccessAndRecordsAttempt()
     {
         ProviderFixture fixture = CreateFixture();
@@ -99,6 +103,7 @@ public sealed class HumanReadProofV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "human-read-proof-public-action-only")]
     public async Task VerifyAsync_NonPublicRead_FailsClosedWithoutConsumingProof()
     {
         ProviderFixture fixture = CreateFixture();

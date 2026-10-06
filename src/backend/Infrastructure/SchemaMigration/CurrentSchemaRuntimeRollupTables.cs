@@ -1915,6 +1915,661 @@ internal static class CurrentSchemaRuntimeRollupTables
                 CONSTRAINT ck_theme_asset_size CHECK (size_bytes > 0)
             );
             """),
+        new(
+            "article_property_definition_owner",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_owner (
+                owner_user_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                revision bigint NOT NULL DEFAULT 0,
+                PRIMARY KEY (owner_user_id, site_scope),
+                CONSTRAINT ck_article_property_owner_user CHECK (owner_user_id >= 0),
+                CONSTRAINT ck_article_property_owner_scope CHECK (char_length(site_scope) BETWEEN 1 AND 128),
+                CONSTRAINT ck_article_property_owner_revision CHECK (revision >= 0)
+            );
+            """,
+            AdditionalSql:
+            [
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_article_property_definition_live_key
+                    ON article_property_definition(owner_user_id, site_scope, machine_key)
+                    WHERE status <> 2;
+                """,
+                """
+                CREATE INDEX IF NOT EXISTS ix_article_property_definition_page
+                    ON article_property_definition(owner_user_id, site_scope, machine_key, definition_id)
+                    WHERE status <> 2;
+                """,
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_article_property_receipt_revision
+                    ON article_property_definition_receipt(definition_id, schema_revision);
+                """,
+                """
+                CREATE INDEX IF NOT EXISTS ix_article_property_receipt_owner
+                    ON article_property_definition_receipt(owner_user_id, site_scope, owner_revision);
+                """,
+            ]),
+        new(
+            "article_property_definition",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition (
+                schema_version integer NOT NULL,
+                definition_id uuid NOT NULL,
+                owner_user_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                machine_key varchar(64) NOT NULL,
+                value_type smallint NOT NULL,
+                cardinality smallint NOT NULL,
+                required boolean NOT NULL,
+                missing_behavior smallint NOT NULL,
+                null_behavior smallint NOT NULL,
+                empty_behavior smallint NOT NULL,
+                default_kind smallint NOT NULL,
+                default_scalar varchar(16384) NULL,
+                default_option_ids varchar(37000) NOT NULL DEFAULT '',
+                default_article_ids varchar(32768) NOT NULL DEFAULT '',
+                min_length integer NULL,
+                max_length integer NULL,
+                min_number numeric NULL,
+                max_number numeric NULL,
+                min_date_utc_ticks bigint NULL CHECK (min_date_utc_ticks BETWEEN 0 AND 3155378975999999999),
+                max_date_utc_ticks bigint NULL CHECK (max_date_utc_ticks BETWEEN 0 AND 3155378975999999999),
+                min_items integer NULL,
+                max_items integer NULL,
+                reference_cardinality smallint NULL,
+                reference_permission smallint NULL,
+                allow_cross_site boolean NULL,
+                allow_deleted boolean NULL,
+                allow_archived boolean NULL,
+                allow_self_reference boolean NULL,
+                allow_cycles boolean NULL,
+                url_allowed_schemes varchar(128) NOT NULL DEFAULT '',
+                url_allow_relative boolean NULL,
+                url_allow_absolute boolean NULL,
+                url_max_length integer NULL,
+                url_normalization smallint NULL,
+                search_eligible boolean NOT NULL,
+                filterable boolean NOT NULL,
+                sortable boolean NOT NULL,
+                display_placement smallint NOT NULL,
+                visibility_scope smallint NOT NULL,
+                status smallint NOT NULL,
+                schema_revision bigint NOT NULL,
+                created_at_utc timestamp without time zone NOT NULL,
+                updated_at_utc timestamp without time zone NOT NULL,
+                content_digest varchar(64) NOT NULL,
+                PRIMARY KEY (definition_id),
+                CONSTRAINT fk_article_property_definition_owner
+                    FOREIGN KEY (owner_user_id, site_scope)
+                    REFERENCES article_property_definition_owner(owner_user_id, site_scope)
+                    ON DELETE RESTRICT,
+                CONSTRAINT ck_article_property_definition_schema CHECK (schema_version = 1),
+                CONSTRAINT ck_article_property_definition_owner CHECK (owner_user_id >= 0),
+                CONSTRAINT ck_article_property_definition_key CHECK (char_length(machine_key) BETWEEN 1 AND 64),
+                CONSTRAINT ck_article_property_definition_type CHECK (value_type BETWEEN 0 AND 7),
+                CONSTRAINT ck_article_property_definition_cardinality CHECK (cardinality BETWEEN 0 AND 1),
+                CONSTRAINT ck_article_property_definition_status CHECK (status BETWEEN 0 AND 2),
+                CONSTRAINT ck_article_property_definition_revision CHECK (schema_revision >= 1),
+                CONSTRAINT ck_article_property_definition_digest CHECK (content_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "article_property_definition_display_name",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_display_name (
+                definition_id uuid NOT NULL,
+                locale varchar(32) NOT NULL,
+                value varchar(256) NOT NULL,
+                PRIMARY KEY (definition_id, locale),
+                CONSTRAINT fk_article_property_display_name_definition
+                    FOREIGN KEY (definition_id) REFERENCES article_property_definition(definition_id)
+                    ON DELETE RESTRICT
+            );
+            """),
+        new(
+            "article_property_definition_option",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_option (
+                definition_id uuid NOT NULL,
+                option_id uuid NOT NULL,
+                label varchar(256) NOT NULL,
+                option_order integer NOT NULL,
+                status smallint NOT NULL,
+                PRIMARY KEY (definition_id, option_id),
+                CONSTRAINT fk_article_property_option_definition
+                    FOREIGN KEY (definition_id) REFERENCES article_property_definition(definition_id)
+                    ON DELETE RESTRICT,
+                CONSTRAINT ck_article_property_option_order CHECK (option_order >= 0),
+                CONSTRAINT ck_article_property_option_status CHECK (status BETWEEN 0 AND 2),
+                CONSTRAINT ux_article_property_option_order UNIQUE (definition_id, option_order)
+            );
+            """),
+        new(
+            "article_property_definition_option_label",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_option_label (
+                definition_id uuid NOT NULL,
+                option_id uuid NOT NULL,
+                locale varchar(32) NOT NULL,
+                value varchar(256) NOT NULL,
+                PRIMARY KEY (definition_id, option_id, locale),
+                CONSTRAINT fk_article_property_option_label_option
+                    FOREIGN KEY (definition_id, option_id)
+                    REFERENCES article_property_definition_option(definition_id, option_id)
+                    ON DELETE RESTRICT
+            );
+            """),
+        new(
+            "article_property_definition_receipt",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_receipt (
+                receipt_id uuid PRIMARY KEY,
+                request_id uuid NOT NULL,
+                actor_admin_principal_id bigint NOT NULL,
+                owner_user_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                command_kind varchar(32) NOT NULL,
+                command_digest varchar(64) NOT NULL,
+                definition_id uuid NOT NULL,
+                previous_owner_revision bigint NOT NULL,
+                owner_revision bigint NOT NULL,
+                previous_schema_revision bigint NOT NULL,
+                schema_revision bigint NOT NULL,
+                status smallint NOT NULL,
+                before_definition_digest varchar(64) NOT NULL,
+                after_definition_digest varchar(64) NOT NULL,
+                constraint_digest varchar(64) NOT NULL,
+                options_digest varchar(64) NOT NULL,
+                policy_digest varchar(64) NOT NULL,
+                flags_digest varchar(64) NOT NULL,
+                audit_reference uuid NOT NULL,
+                audit_digest varchar(64) NOT NULL,
+                content_digest varchar(64) NOT NULL,
+                occurred_at_utc timestamp without time zone NOT NULL,
+                CONSTRAINT fk_article_property_receipt_definition
+                    FOREIGN KEY (definition_id) REFERENCES article_property_definition(definition_id)
+                    ON DELETE RESTRICT,
+                CONSTRAINT ck_article_property_receipt_revision CHECK (
+                    owner_revision = previous_owner_revision + 1
+                    AND schema_revision = previous_schema_revision + 1),
+                CONSTRAINT ck_article_property_receipt_digest CHECK (
+                    command_digest ~ '^[0-9a-f]{64}$'
+                    AND content_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "article_property_definition_obligation",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_obligation (
+                receipt_id uuid NOT NULL,
+                obligation_index integer NOT NULL,
+                kind varchar(96) NOT NULL,
+                affected_value_count bigint NULL,
+                requires_reconciliation boolean NOT NULL,
+                reason_code varchar(128) NOT NULL,
+                PRIMARY KEY (receipt_id, obligation_index),
+                CONSTRAINT fk_article_property_obligation_receipt
+                    FOREIGN KEY (receipt_id) REFERENCES article_property_definition_receipt(receipt_id)
+                    ON DELETE RESTRICT,
+                CONSTRAINT ck_article_property_obligation_index CHECK (obligation_index >= 0),
+                CONSTRAINT ck_article_property_obligation_count CHECK (affected_value_count IS NULL OR affected_value_count >= 0)
+            );
+            """),
+        new(
+            "article_property_definition_idempotency",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_idempotency (
+                actor_admin_principal_id bigint NOT NULL,
+                request_id uuid NOT NULL,
+                command_digest varchar(64) NOT NULL,
+                receipt_id uuid NOT NULL,
+                created_at_utc timestamp without time zone NOT NULL,
+                PRIMARY KEY (actor_admin_principal_id, request_id),
+                CONSTRAINT fk_article_property_idempotency_receipt
+                    FOREIGN KEY (receipt_id) REFERENCES article_property_definition_receipt(receipt_id)
+                    ON DELETE RESTRICT,
+                CONSTRAINT ck_article_property_idempotency_digest CHECK (command_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "article_property_definition_history",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_history (
+                owner_user_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                history_version integer NOT NULL,
+                genesis_digest varchar(64) NOT NULL,
+                revision bigint NOT NULL,
+                head_digest varchar(64) NOT NULL,
+                PRIMARY KEY (owner_user_id, site_scope),
+                CONSTRAINT fk_article_property_history_owner
+                    FOREIGN KEY (owner_user_id, site_scope)
+                    REFERENCES article_property_definition_owner(owner_user_id, site_scope)
+                    ON DELETE RESTRICT,
+                CONSTRAINT ck_article_property_history_version CHECK (history_version = 1),
+                CONSTRAINT ck_article_property_history_revision CHECK (revision >= 0),
+                CONSTRAINT ck_article_property_history_digests CHECK (
+                    genesis_digest ~ '^[0-9a-f]{64}$'
+                    AND head_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "article_property_definition_command",
+            """
+            CREATE TABLE IF NOT EXISTS article_property_definition_command (
+                owner_user_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                sequence bigint NOT NULL,
+                history_version integer NOT NULL,
+                command_kind varchar(32) NOT NULL,
+                definition_id uuid NOT NULL,
+                receipt_id uuid NOT NULL,
+                actor_admin_principal_id bigint NOT NULL,
+                request_id uuid NOT NULL,
+                command_payload bytea NOT NULL,
+                affected_value_count bigint NULL,
+                previous_digest varchar(64) NOT NULL,
+                content_digest varchar(64) NOT NULL,
+                PRIMARY KEY (owner_user_id, site_scope, sequence),
+                CONSTRAINT fk_article_property_command_history
+                    FOREIGN KEY (owner_user_id, site_scope)
+                    REFERENCES article_property_definition_history(owner_user_id, site_scope)
+                    ON DELETE RESTRICT,
+                CONSTRAINT fk_article_property_command_receipt
+                    FOREIGN KEY (receipt_id)
+                    REFERENCES article_property_definition_receipt(receipt_id)
+                    ON DELETE RESTRICT,
+                CONSTRAINT ux_article_property_command_receipt UNIQUE (receipt_id),
+                CONSTRAINT ux_article_property_command_request UNIQUE (actor_admin_principal_id, request_id),
+                CONSTRAINT ck_article_property_command_version CHECK (history_version = 1),
+                CONSTRAINT ck_article_property_command_sequence CHECK (sequence >= 1),
+                CONSTRAINT ck_article_property_command_kind CHECK (
+                    command_kind IN ('create', 'change-settings', 'rename', 'deprecate', 'delete')),
+                CONSTRAINT ck_article_property_command_actor CHECK (actor_admin_principal_id > 0),
+                CONSTRAINT ck_article_property_command_payload CHECK (
+                    octet_length(command_payload) BETWEEN 1 AND 1048576),
+                CONSTRAINT ck_article_property_command_affected CHECK (
+                    affected_value_count IS NULL OR affected_value_count >= 0),
+                CONSTRAINT ck_article_property_command_digests CHECK (
+                    previous_digest ~ '^[0-9a-f]{64}$'
+                    AND content_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "article_canvas_link_journal",
+            """
+            CREATE TABLE IF NOT EXISTS article_canvas_link_journal (
+                journal_id uuid PRIMARY KEY,
+                owner_admin_principal_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                source_article_id integer NOT NULL,
+                request_id uuid NOT NULL,
+                mode smallint NOT NULL,
+                target_journal_id uuid NULL REFERENCES article_canvas_link_journal(journal_id),
+                parent_journal_id uuid NULL REFERENCES article_canvas_link_journal(journal_id),
+                previous_article_revision bigint NOT NULL,
+                article_revision bigint NOT NULL,
+                original_before_revision bigint NOT NULL,
+                original_after_revision bigint NOT NULL,
+                canvas_id uuid NOT NULL,
+                canvas_revision bigint NOT NULL,
+                canvas_content_digest varchar(64) NOT NULL,
+                edge_id uuid NOT NULL,
+                target_article_id integer NOT NULL,
+                target_revision bigint NOT NULL,
+                undo_depth integer NOT NULL,
+                redo_depth integer NOT NULL,
+                request_digest varchar(64) NOT NULL,
+                receipt_digest varchar(64) NOT NULL,
+                created_at_utc timestamp without time zone NOT NULL,
+                CONSTRAINT ux_article_canvas_link_request UNIQUE (owner_admin_principal_id, site_scope, request_id),
+                CONSTRAINT ck_article_canvas_link_principal CHECK (owner_admin_principal_id > 0),
+                CONSTRAINT ck_article_canvas_link_scope CHECK (site_scope = 'primary-site'),
+                CONSTRAINT ck_article_canvas_link_mode CHECK (mode BETWEEN 0 AND 2),
+                CONSTRAINT ck_article_canvas_link_revisions CHECK (
+                    previous_article_revision > 0 AND article_revision > 0
+                    AND previous_article_revision <> article_revision
+                    AND original_before_revision > 0 AND original_after_revision > 0),
+                CONSTRAINT ck_article_canvas_link_depth CHECK (undo_depth BETWEEN 0 AND 100 AND redo_depth BETWEEN 0 AND 100),
+                CONSTRAINT ck_article_canvas_link_digest CHECK (
+                    request_digest ~ '^[0-9a-f]{64}$' AND receipt_digest ~ '^[0-9a-f]{64}$'
+                    AND canvas_content_digest ~ '^[0-9a-f]{64}$'),
+                CONSTRAINT ck_article_canvas_link_target CHECK (source_article_id > 0 AND target_article_id > 0
+                    AND canvas_revision > 0 AND target_revision > 0),
+                CONSTRAINT ck_article_canvas_link_history_target CHECK ((mode = 0) = (target_journal_id IS NULL))
+            );
+            """,
+            AdditionalSql: ["CREATE INDEX IF NOT EXISTS ix_article_canvas_link_source ON article_canvas_link_journal(owner_admin_principal_id, site_scope, source_article_id, created_at_utc, journal_id);"]),
+        new(
+            "article_canvas_link_history",
+            """
+            CREATE TABLE IF NOT EXISTS article_canvas_link_history (
+                owner_admin_principal_id bigint NOT NULL REFERENCES admin_principal(id) ON DELETE CASCADE,
+                site_scope varchar(128) NOT NULL,
+                source_article_id integer NOT NULL,
+                article_revision bigint NOT NULL,
+                last_journal_id uuid NOT NULL REFERENCES article_canvas_link_journal(journal_id),
+                undo_entries uuid[] NOT NULL,
+                redo_entries uuid[] NOT NULL,
+                history_digest varchar(64) NOT NULL,
+                PRIMARY KEY (owner_admin_principal_id, site_scope, source_article_id),
+                CONSTRAINT ck_article_canvas_link_history_revision CHECK (article_revision > 0 AND source_article_id > 0),
+                CONSTRAINT ck_article_canvas_link_history_scope CHECK (site_scope = 'primary-site'),
+                CONSTRAINT ck_article_canvas_link_history_bounds CHECK (cardinality(undo_entries) <= 100 AND cardinality(redo_entries) <= 100),
+                CONSTRAINT ck_article_canvas_link_history_digest CHECK (history_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "authoring_canvas_operation_journal",
+            """
+            CREATE TABLE IF NOT EXISTS authoring_canvas_operation_journal (
+                journal_id uuid PRIMARY KEY,
+                canvas_id uuid NOT NULL,
+                owner_admin_principal_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                revision bigint NOT NULL,
+                mode smallint NOT NULL,
+                request_id uuid NOT NULL,
+                actor_user_id bigint NOT NULL,
+                parent_journal_id uuid NULL,
+                target_journal_id uuid NULL,
+                previous_content_digest varchar(64) NOT NULL,
+                content_digest varchar(64) NOT NULL,
+                transaction_digest varchar(64) NOT NULL,
+                reference_validation_digest varchar(64) NOT NULL,
+                command_kinds smallint[] NOT NULL,
+                affected_node_ids uuid[] NOT NULL,
+                affected_edge_ids uuid[] NOT NULL,
+                truncated_redo_journal_ids uuid[] NOT NULL,
+                result_node_count integer NOT NULL,
+                result_edge_count integer NOT NULL,
+                journal_digest varchar(64) NOT NULL,
+                created_at_utc timestamp without time zone NOT NULL,
+                CONSTRAINT uq_authoring_canvas_operation_journal_revision UNIQUE (
+                    canvas_id, owner_admin_principal_id, site_scope, revision),
+                CONSTRAINT uq_authoring_canvas_operation_journal_request UNIQUE (
+                    canvas_id, owner_admin_principal_id, site_scope, request_id),
+                CONSTRAINT fk_authoring_canvas_operation_journal_document
+                    FOREIGN KEY (canvas_id)
+                    REFERENCES authoring_canvas_document(id) ON DELETE CASCADE,
+                CONSTRAINT fk_authoring_canvas_operation_journal_parent
+                    FOREIGN KEY (parent_journal_id)
+                    REFERENCES authoring_canvas_operation_journal(journal_id) ON DELETE CASCADE,
+                CONSTRAINT fk_authoring_canvas_operation_journal_target
+                    FOREIGN KEY (target_journal_id)
+                    REFERENCES authoring_canvas_operation_journal(journal_id) ON DELETE CASCADE,
+                CONSTRAINT ck_authoring_canvas_operation_journal_revision CHECK (revision >= 2),
+                CONSTRAINT ck_authoring_canvas_operation_journal_mode CHECK (mode BETWEEN 0 AND 2),
+                CONSTRAINT ck_authoring_canvas_operation_journal_actor CHECK (actor_user_id > 0),
+                CONSTRAINT ck_authoring_canvas_operation_journal_counts CHECK (
+                    result_node_count BETWEEN 0 AND 10000
+                    AND result_edge_count BETWEEN 0 AND 10000),
+                CONSTRAINT ck_authoring_canvas_operation_journal_arrays CHECK (
+                    cardinality(command_kinds) BETWEEN 1 AND 10000
+                    AND cardinality(affected_node_ids) <= 10000
+                    AND cardinality(affected_edge_ids) <= 10000
+                    AND cardinality(truncated_redo_journal_ids) <= 100),
+                CONSTRAINT ck_authoring_canvas_operation_journal_digests CHECK (
+                    previous_content_digest ~ '^[0-9a-f]{64}$'
+                    AND content_digest ~ '^[0-9a-f]{64}$'
+                    AND transaction_digest ~ '^[0-9a-f]{64}$'
+                    AND reference_validation_digest ~ '^[0-9a-f]{64}$'
+                    AND journal_digest ~ '^[0-9a-f]{64}$')
+            );
+            """,
+            AdditionalSql:
+            [
+                """
+                CREATE INDEX IF NOT EXISTS ix_authoring_canvas_operation_journal_history
+                    ON authoring_canvas_operation_journal(
+                        canvas_id, owner_admin_principal_id, site_scope, revision, journal_id);
+                """
+            ]),
+        new(
+            "authoring_canvas_operation_command",
+            """
+            CREATE TABLE IF NOT EXISTS authoring_canvas_operation_command (
+                journal_id uuid NOT NULL,
+                command_ordinal integer NOT NULL,
+                command_id uuid NOT NULL,
+                command_kind smallint NOT NULL,
+                command_digest varchar(64) NOT NULL,
+                PRIMARY KEY (journal_id, command_ordinal),
+                CONSTRAINT uq_authoring_canvas_operation_command_id UNIQUE (
+                    journal_id, command_id),
+                CONSTRAINT fk_authoring_canvas_operation_command_journal
+                    FOREIGN KEY (journal_id)
+                    REFERENCES authoring_canvas_operation_journal(journal_id) ON DELETE CASCADE,
+                CONSTRAINT ck_authoring_canvas_operation_command_ordinal CHECK (
+                    command_ordinal BETWEEN 0 AND 9999),
+                CONSTRAINT ck_authoring_canvas_operation_command_kind CHECK (
+                    command_kind BETWEEN 0 AND 14),
+                CONSTRAINT ck_authoring_canvas_operation_command_digest CHECK (
+                    command_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "authoring_canvas_operation_command_fact",
+            """
+            CREATE TABLE IF NOT EXISTS authoring_canvas_operation_command_fact (
+                journal_id uuid NOT NULL,
+                command_ordinal integer NOT NULL,
+                direction smallint NOT NULL,
+                fact_order integer NOT NULL,
+                fact_payload jsonb NOT NULL,
+                fact_digest varchar(64) NOT NULL,
+                PRIMARY KEY (journal_id, command_ordinal, direction, fact_order),
+                CONSTRAINT fk_authoring_canvas_operation_command_fact_command
+                    FOREIGN KEY (journal_id, command_ordinal)
+                    REFERENCES authoring_canvas_operation_command(journal_id, command_ordinal)
+                    ON DELETE CASCADE,
+                CONSTRAINT ck_authoring_canvas_operation_command_fact_direction CHECK (
+                    direction BETWEEN 0 AND 1),
+                CONSTRAINT ck_authoring_canvas_operation_command_fact_order CHECK (
+                    fact_order BETWEEN 0 AND 20000),
+                CONSTRAINT ck_authoring_canvas_operation_command_fact_payload CHECK (
+                    jsonb_typeof(fact_payload) = 'object'),
+                CONSTRAINT ck_authoring_canvas_operation_command_fact_digest CHECK (
+                    fact_digest ~ '^[0-9a-f]{64}$')
+            );
+            """),
+        new(
+            "authoring_canvas_operation_history_state",
+            """
+            CREATE TABLE IF NOT EXISTS authoring_canvas_operation_history_state (
+                canvas_id uuid PRIMARY KEY,
+                owner_admin_principal_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                revision bigint NOT NULL,
+                canvas_content_digest varchar(64) NOT NULL,
+                history_digest varchar(64) NOT NULL,
+                undo_journal_ids uuid[] NOT NULL,
+                redo_journal_ids uuid[] NOT NULL,
+                last_journal_id uuid NULL,
+                updated_at_utc timestamp without time zone NOT NULL,
+                CONSTRAINT fk_authoring_canvas_operation_history_document
+                    FOREIGN KEY (canvas_id)
+                    REFERENCES authoring_canvas_document(id) ON DELETE CASCADE,
+                CONSTRAINT fk_authoring_canvas_operation_history_last_journal
+                    FOREIGN KEY (last_journal_id)
+                    REFERENCES authoring_canvas_operation_journal(journal_id) ON DELETE CASCADE,
+                CONSTRAINT ck_authoring_canvas_operation_history_revision CHECK (revision >= 1),
+                CONSTRAINT ck_authoring_canvas_operation_history_depth CHECK (
+                    cardinality(undo_journal_ids) <= 100
+                    AND cardinality(redo_journal_ids) <= 100),
+                CONSTRAINT ck_authoring_canvas_operation_history_digests CHECK (
+                    canvas_content_digest ~ '^[0-9a-f]{64}$'
+                    AND history_digest ~ '^[0-9a-f]{64}$')
+            );
+            """,
+            AdditionalSql:
+            [
+                """
+                CREATE UNIQUE INDEX IF NOT EXISTS ux_authoring_canvas_operation_history_owner
+                    ON authoring_canvas_operation_history_state(
+                        canvas_id, owner_admin_principal_id, site_scope);
+                """
+            ]),
+        new(
+            "authoring_canvas_operation_fact",
+            """
+            CREATE TABLE IF NOT EXISTS authoring_canvas_operation_fact (
+                journal_id uuid NOT NULL,
+                direction smallint NOT NULL,
+                fact_order integer NOT NULL,
+                fact_kind smallint NOT NULL,
+                fact_id uuid NOT NULL,
+                exists boolean NOT NULL,
+                node_type smallint NULL,
+                node_order integer NULL,
+                position_x double precision NULL,
+                position_y double precision NULL,
+                width double precision NULL,
+                height double precision NULL,
+                target_article_id integer NULL,
+                target_heading_identity varchar(128) NULL,
+                target_block_identity varchar(128) NULL,
+                pinned_target_revision bigint NULL,
+                display_projection_ref varchar(128) NULL,
+                reference_state smallint NULL,
+                note_source varchar(8192) NULL,
+                frame_label varchar(128) NULL,
+                frame_member_ids uuid[] NULL,
+                edge_type smallint NULL,
+                edge_order integer NULL,
+                source_node_id uuid NULL,
+                target_node_id uuid NULL,
+                edge_label varchar(128) NULL,
+                viewport_x double precision NULL,
+                viewport_y double precision NULL,
+                viewport_zoom double precision NULL,
+                fact_digest varchar(64) NOT NULL,
+                PRIMARY KEY (journal_id, direction, fact_order),
+                CONSTRAINT uq_authoring_canvas_operation_fact_identity UNIQUE (
+                    journal_id, direction, fact_kind, fact_id),
+                CONSTRAINT fk_authoring_canvas_operation_fact_journal
+                    FOREIGN KEY (journal_id)
+                    REFERENCES authoring_canvas_operation_journal(journal_id) ON DELETE CASCADE,
+                CONSTRAINT ck_authoring_canvas_operation_fact_direction CHECK (direction BETWEEN 0 AND 1),
+                CONSTRAINT ck_authoring_canvas_operation_fact_order CHECK (fact_order >= 0),
+                CONSTRAINT ck_authoring_canvas_operation_fact_kind CHECK (fact_kind BETWEEN 0 AND 2),
+                CONSTRAINT ck_authoring_canvas_operation_fact_digest CHECK (
+                    fact_digest ~ '^[0-9a-f]{64}$'),
+                CONSTRAINT ck_authoring_canvas_operation_fact_payload CHECK (
+                    (exists = false
+                        AND node_type IS NULL AND node_order IS NULL
+                        AND position_x IS NULL AND position_y IS NULL
+                        AND width IS NULL AND height IS NULL
+                        AND target_article_id IS NULL
+                        AND target_heading_identity IS NULL
+                        AND target_block_identity IS NULL
+                        AND pinned_target_revision IS NULL
+                        AND display_projection_ref IS NULL
+                        AND reference_state IS NULL AND note_source IS NULL
+                        AND frame_label IS NULL AND frame_member_ids IS NULL
+                        AND edge_type IS NULL AND edge_order IS NULL
+                        AND source_node_id IS NULL AND target_node_id IS NULL
+                        AND edge_label IS NULL
+                        AND viewport_x IS NULL AND viewport_y IS NULL
+                        AND viewport_zoom IS NULL)
+                    OR (exists = true AND fact_kind = 0
+                        AND node_type BETWEEN 0 AND 4 AND node_order >= 0
+                        AND position_x IS NOT NULL AND position_y IS NOT NULL
+                        AND width IS NOT NULL AND height IS NOT NULL
+                        AND edge_type IS NULL AND edge_order IS NULL
+                        AND source_node_id IS NULL AND target_node_id IS NULL
+                        AND edge_label IS NULL
+                        AND viewport_x IS NULL AND viewport_y IS NULL
+                        AND viewport_zoom IS NULL)
+                    OR (exists = true AND fact_kind = 1
+                        AND node_type IS NULL AND node_order IS NULL
+                        AND position_x IS NULL AND position_y IS NULL
+                        AND width IS NULL AND height IS NULL
+                        AND target_article_id IS NULL
+                        AND target_heading_identity IS NULL
+                        AND target_block_identity IS NULL
+                        AND pinned_target_revision IS NULL
+                        AND display_projection_ref IS NULL
+                        AND reference_state IS NULL AND note_source IS NULL
+                        AND frame_label IS NULL AND frame_member_ids IS NULL
+                        AND edge_type BETWEEN 0 AND 1 AND edge_order >= 0
+                        AND source_node_id IS NOT NULL AND target_node_id IS NOT NULL
+                        AND viewport_x IS NULL AND viewport_y IS NULL
+                        AND viewport_zoom IS NULL)
+                    OR (exists = true AND fact_kind = 2
+                        AND node_type IS NULL AND node_order IS NULL
+                        AND position_x IS NULL AND position_y IS NULL
+                        AND width IS NULL AND height IS NULL
+                        AND target_article_id IS NULL
+                        AND target_heading_identity IS NULL
+                        AND target_block_identity IS NULL
+                        AND pinned_target_revision IS NULL
+                        AND display_projection_ref IS NULL
+                        AND reference_state IS NULL AND note_source IS NULL
+                        AND frame_label IS NULL AND frame_member_ids IS NULL
+                        AND edge_type IS NULL AND edge_order IS NULL
+                        AND source_node_id IS NULL AND target_node_id IS NULL
+                        AND edge_label IS NULL
+                        AND viewport_x IS NOT NULL AND viewport_y IS NOT NULL
+                        AND viewport_zoom IS NOT NULL))
+            );
+            """),
+        new(
+            "authoring_canvas_operation_receipt",
+            """
+            CREATE TABLE IF NOT EXISTS authoring_canvas_operation_receipt (
+                receipt_id uuid PRIMARY KEY,
+                journal_id uuid NOT NULL,
+                canvas_id uuid NOT NULL,
+                owner_admin_principal_id bigint NOT NULL,
+                site_scope varchar(128) NOT NULL,
+                request_id uuid NOT NULL,
+                revision bigint NOT NULL,
+                mode smallint NOT NULL,
+                target_journal_id uuid NULL,
+                command_count integer NOT NULL,
+                command_kinds smallint[] NOT NULL,
+                affected_node_ids uuid[] NOT NULL,
+                affected_edge_ids uuid[] NOT NULL,
+                undo_depth integer NOT NULL,
+                redo_depth integer NOT NULL,
+                status smallint NOT NULL,
+                reasons text[] NOT NULL,
+                transaction_digest varchar(64) NOT NULL,
+                reference_validation_digest varchar(64) NOT NULL,
+                journal_digest varchar(64) NOT NULL,
+                canvas_content_digest varchar(64) NOT NULL,
+                receipt_digest varchar(64) NOT NULL,
+                created_at_utc timestamp without time zone NOT NULL,
+                CONSTRAINT uq_authoring_canvas_operation_receipt_request UNIQUE (
+                    canvas_id, owner_admin_principal_id, site_scope, request_id),
+                CONSTRAINT fk_authoring_canvas_operation_receipt_journal
+                    FOREIGN KEY (journal_id)
+                    REFERENCES authoring_canvas_operation_journal(journal_id) ON DELETE CASCADE,
+                CONSTRAINT ck_authoring_canvas_operation_receipt_revision CHECK (revision >= 2),
+                CONSTRAINT ck_authoring_canvas_operation_receipt_mode CHECK (mode BETWEEN 0 AND 2),
+                CONSTRAINT ck_authoring_canvas_operation_receipt_count CHECK (
+                    command_count BETWEEN 1 AND 10000
+                    AND command_count = cardinality(command_kinds)),
+                CONSTRAINT ck_authoring_canvas_operation_receipt_depth CHECK (
+                    undo_depth BETWEEN 0 AND 100 AND redo_depth BETWEEN 0 AND 100),
+                CONSTRAINT ck_authoring_canvas_operation_receipt_status CHECK (status = 0),
+                CONSTRAINT ck_authoring_canvas_operation_receipt_digests CHECK (
+                    transaction_digest ~ '^[0-9a-f]{64}$'
+                    AND reference_validation_digest ~ '^[0-9a-f]{64}$'
+                    AND journal_digest ~ '^[0-9a-f]{64}$'
+                    AND canvas_content_digest ~ '^[0-9a-f]{64}$'
+                    AND receipt_digest ~ '^[0-9a-f]{64}$')
+            );
+            """,
+            AdditionalSql:
+            [
+                """
+                CREATE INDEX IF NOT EXISTS ix_authoring_canvas_operation_receipt_history
+                    ON authoring_canvas_operation_receipt(
+                        canvas_id, owner_admin_principal_id, site_scope, revision DESC);
+                """
+            ]),
     ];
 
     internal static IReadOnlyList<string> TableNames

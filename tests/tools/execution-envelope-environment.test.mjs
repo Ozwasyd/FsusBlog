@@ -84,7 +84,9 @@ test('declared pinned dotnet host crosses only the explicit child environment bo
 test('executable identity includes absolute path, real path, version, and binary digest', () =>
 {
     const identity = observeExecutableIdentity(process.execPath, {
-        pathValue: process.env.PATH
+        pathValue: process.env.PATH,
+        // This pure identity oracle supplies the current Node observation; it does not fork a version tool.
+        observeVersion: () => ({ status: 0, stdout: process.version })
     });
     assert.equal(identity.absolutePath, process.execPath);
     assert.ok(identity.realPath.startsWith('/'));
@@ -175,7 +177,9 @@ test('PATH-resolved node normalizes only its non-measurement command label', () 
         producerAllowlist: [],
         injectedEnvironment: { FSUSBLOG_TEST_RUN_ID: 'run-node-label' },
         policy,
-        catalog
+        catalog,
+        observeExecutable: (name, options) => observeExecutableIdentity(name, { ...options,
+            observeVersion: () => ({ status: 0, stdout: process.version }) })
     });
     const planned = result.fragment.plannedExecutable;
     const actual = result.fragment.actualExecutable;

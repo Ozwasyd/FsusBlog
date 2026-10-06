@@ -11,8 +11,8 @@ import { createHash } from 'node:crypto';
 import { existsSync, readFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { ADAPTER_VERSION, classifyFile } from './adapters.mjs';
-import { canonicalStringify, discoverTestInventory } from './discovery.mjs';
+import { ADAPTER_VERSION, classifyFile, classifyXunitCompileOwner, parseXunitCompileDeclaration, xunitGeneratedCompilePathIsOwned } from './adapters.mjs';
+import { canonicalStringify, discoverTestInventory, observeXunitCompileSource, requireXunitConfiguration } from './discovery.mjs';
 import { INVENTORY_SCHEMA, validateInventoryArtifact } from './schema.mjs';
 
 export const DEFAULT_ARTIFACT_PATH = '.tmp/release-evidence/test-inventory.json';
@@ -35,8 +35,9 @@ export function computeInventoryDigest(artifact)
  * Detects source/path/adapter changes, removed or duplicated membership,
  * adapter-version drift and matrix/coverage/requirement input drift.
  */
-export function isInventoryStale(root, artifact, { runAdapters = true } = {})
+export function isInventoryStale(root, artifact, { runAdapters = true, configuration = 'Debug' } = {})
 {
+    requireXunitConfiguration(configuration);
     if (artifact?.schema !== INVENTORY_SCHEMA)
     {
         return { stale: true, reason: `schema is ${artifact?.schema ?? 'missing'}, expected ${INVENTORY_SCHEMA}` };
@@ -60,8 +61,25 @@ export function isInventoryStale(root, artifact, { runAdapters = true } = {})
         {
             return { stale: true, reason: `source file no longer exists: ${file.path}` };
         }
-        const source = readFileSync(absolute, 'utf8');
-        const currentDigest = `sha256:${createHash('sha256').update(source).digest('hex')}`;
+        const compileOwners = (file.declaredBy ?? []).map(parseXunitCompileDeclaration).filter(Boolean);
+        const compileOwner = compileOwners[0];
+        if (compileOwner && (compileOwners.length !== 1 || compileOwner.configuration !== configuration
+            || !xunitGeneratedCompilePathIsOwned(file.path, compileOwner)
+            || !artifact.testCases?.some((testCase) => testCase.ownerFile === file.path)))
+        {
+            return { stale: true, reason: `selected xunit Compile ownership changed: ${file.path}` };
+        }
+        const source = compileOwner ? '' : readFileSync(absolute, 'utf8');
+        let currentDigest;
+        try
+        {
+            currentDigest = compileOwner ? observeXunitCompileSource(root, file.path)
+                : `sha256:${createHash('sha256').update(source).digest('hex')}`;
+        }
+        catch (error)
+        {
+            return { stale: true, reason: `selected xunit Compile source identity changed: ${file.path}: ${error.message}` };
+        }
         if (currentDigest !== file.sourceDigest)
         {
             return { stale: true, reason: `source digest changed: ${file.path}` };
@@ -69,7 +87,7 @@ export function isInventoryStale(root, artifact, { runAdapters = true } = {})
         let classification;
         try
         {
-            classification = classifyFile(file.path, source);
+            classification = compileOwner ? classifyXunitCompileOwner() : classifyFile(file.path, source);
         }
         catch (error)
         {
@@ -84,9 +102,32 @@ export function isInventoryStale(root, artifact, { runAdapters = true } = {})
             };
         }
     }
-    const expected = discoverTestInventory(root, { runAdapters });
+    const expected = discoverTestInventory(root, { runAdapters, configuration });
     if (!runAdapters)
     {
+        // Reconstruct only the original producer's case-owner projection, after
+        // independently reading its current canonical bytes above. No SDK grant.
+        for (const file of artifact.sourceFiles)
+        {
+            const declarations = file.declaredBy.filter((value) => parseXunitCompileDeclaration(value));
+            if (declarations.length === 0)
+            {
+                continue;
+            }
+            const existing = expected.sourceFiles.find((value) => value.path === file.path);
+            const projected = { path: file.path, ...classifyXunitCompileOwner(),
+                sourceDigest: observeXunitCompileSource(root, file.path),
+                declaredBy: [...(existing?.declaredBy ?? []), ...declarations].sort() };
+            if (existing)
+            {
+                Object.assign(existing, projected);
+            }
+            else
+            {
+                expected.sourceFiles.push(projected);
+            }
+        }
+        expected.sourceFiles.sort((left, right) => left.path.localeCompare(right.path));
         for (const field of ['sourceState', 'discoverySources', 'sourceFiles'])
         {
             if (canonicalStringify(expected[field]) !== canonicalStringify(artifact[field]))
@@ -112,7 +153,7 @@ export function isInventoryStale(root, artifact, { runAdapters = true } = {})
  * callers may set requireArtifact=false to compute membership in-memory
  * through the same authority.
  */
-export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_PATH, requireArtifact = false, runAdapters = true } = {})
+export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_PATH, requireArtifact = false, runAdapters = true, configuration = 'Debug' } = {})
 {
     const absolute = path.join(root, artifactPath);
     if (existsSync(absolute))
@@ -130,7 +171,7 @@ export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_P
             );
         }
         validateInventoryArtifact(artifact);
-        const stale = isInventoryStale(root, artifact, { runAdapters });
+        const stale = isInventoryStale(root, artifact, { runAdapters, configuration });
         if (stale.stale)
         {
             throw new Error(`test inventory artifact is stale: ${stale.reason}; run node tools/test-inventory/produce.mjs`);
@@ -144,7 +185,7 @@ export function loadCanonicalInventory(root, { artifactPath = DEFAULT_ARTIFACT_P
       + 'run node tools/test-inventory/produce.mjs before this consumer'
         );
     }
-    return discoverTestInventory(root, { runAdapters });
+    return discoverTestInventory(root, { runAdapters, configuration });
 }
 
 /** Source-file membership projection used by quality, retention and docs consumers. */

@@ -199,6 +199,21 @@ export function verifyReleaseAssetGcPlan(plan)
     return Object.freeze(normalized);
 }
 
+export function observeReleaseAssetProtection({ storeDirectory, state, lockFile = null, readProtection }) {
+  if (typeof readProtection !== 'function') throw new Error('read-only GC protection requires a durable identity reader')
+  let activeProtection
+  const gcEvidence = executeReleaseAssetGc({
+    storeDirectory, state, lockFile, apply: false,
+    readOnlyProtection: () => {
+      activeProtection = normalizeActiveProtection(readProtection())
+      return activeProtection
+    }
+  })
+  // Retain the unchanged GC evidence contract; this result is not deletion authorization.
+  return Object.freeze({ gcEvidence, activeProtection })
+}
+
+
 export function executeReleaseAssetGc({
     storeDirectory,
     state,
@@ -207,17 +222,28 @@ export function executeReleaseAssetGc({
     lockFile = null,
     activeProtection = null,
     refreshProtection = null,
-    reviewedDryRun = null
+    reviewedDryRun = null,
+    readOnlyProtection = null
 })
 {
+    if (readOnlyProtection !== null && (apply || typeof readOnlyProtection !== 'function'))
+    {
+        throw new Error('read-only protection cannot authorize GC apply');
+    }
     const store = path.resolve(storeDirectory);
+    if (readOnlyProtection !== null)
+    {
+        assertSafeStoreRoot(store);
+    }
     const resolvedLockFile = path.resolve(lockFile ?? path.join(store, '.gc.lock'));
     fs.mkdirSync(path.dirname(resolvedLockFile), { recursive: true, mode: 0o700 });
     let lockDescriptor;
+    let readOnlyLockIdentity;
     try
     {
         lockDescriptor = fs.openSync(resolvedLockFile, 'wx', 0o600);
         fs.writeFileSync(lockDescriptor, `${JSON.stringify({ schema: 'fsusblog.release-assets.gc-lock.v1', pid: process.pid, token: crypto.randomUUID() })}\n`);
+        readOnlyLockIdentity = readOnlyProtection === null ? null : fs.fstatSync(lockDescriptor, { bigint: true });
     }
     catch (error)
     {
@@ -230,7 +256,20 @@ export function executeReleaseAssetGc({
 
     try
     {
+        const readProtectionUnderOwnedLock = () =>
+        {
+            assertReadOnlyStorageLock(resolvedLockFile, lockDescriptor, readOnlyLockIdentity);
+            const protection = normalizeActiveProtection(readOnlyProtection());
+            assertReadOnlyStorageLock(resolvedLockFile, lockDescriptor, readOnlyLockIdentity);
+            return protection;
+        };
+        const observedProtection = readOnlyProtection === null ? null : readProtectionUnderOwnedLock();
         const plan = verifyReleaseAssetGcPlan(planReleaseAssetGc({ storeDirectory: store, state }));
+        if (observedProtection && observedProtection.releaseId !== plan.state.activeReleaseId)
+        {
+            throw new Error('read-only active protection does not match the planned active release');
+        }
+        const observedManifests = observedProtection ? readProtectedManifestReferences(store, plan) : null;
         const reviewed = apply ? normalizeReviewedDryRunEvidence(reviewedDryRun, store) : null;
         const before = snapshotStore(store);
         if (apply)
@@ -269,6 +308,24 @@ export function executeReleaseAssetGc({
             }
         }
         const after = snapshotStore(store);
+        if (observedProtection)
+        {
+            const refreshed = readProtectionUnderOwnedLock();
+            if (JSON.stringify(observedProtection) !== JSON.stringify(refreshed))
+            {
+                throw new Error('durable active identity changed during read-only protection observation');
+            }
+            const finalPlan = verifyReleaseAssetGcPlan(planReleaseAssetGc({ storeDirectory: store, state }));
+            const finalManifests = readProtectedManifestReferences(store, finalPlan);
+            const finalSnapshot = snapshotStore(store);
+            if (plan.planSha256 !== finalPlan.planSha256
+                || JSON.stringify(before) !== JSON.stringify(after)
+                || JSON.stringify(before) !== JSON.stringify(finalSnapshot)
+                || JSON.stringify(observedManifests) !== JSON.stringify(finalManifests))
+            {
+                throw new Error('release asset bytes changed during read-only protection observation');
+            }
+        }
         const evidence = {
             schema: RELEASE_GC_EVIDENCE_SCHEMA,
             status: apply ? 'ok' : 'dry-run',
@@ -297,8 +354,68 @@ export function executeReleaseAssetGc({
         {
             fs.closeSync(lockDescriptor);
         }
-        fs.rmSync(resolvedLockFile, { force: true });
+        const current = readOnlyLockIdentity ? fs.lstatSync(resolvedLockFile, { bigint: true, throwIfNoEntry: false }) : null;
+        if (!readOnlyLockIdentity || (current?.isFile() && !current.isSymbolicLink()
+            && current.dev === readOnlyLockIdentity.dev && current.ino === readOnlyLockIdentity.ino))
+        {
+            fs.rmSync(resolvedLockFile, { force: true });
+        }
     }
+}
+
+function assertReadOnlyStorageLock(file, descriptor, original)
+{
+    const held = fs.fstatSync(descriptor, { bigint: true });
+    const current = fs.lstatSync(file, { bigint: true, throwIfNoEntry: false });
+    const fields = ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'];
+    if (fs.realpathSync(path.dirname(file)) !== path.dirname(file)
+        || !held.isFile() || held.nlink !== 1n || !current?.isFile() || current.isSymbolicLink()
+        || fields.some(field => original[field] !== held[field] || held[field] !== current[field]))
+    {
+        throw new Error('read-only storage lock physical identity changed');
+    }
+}
+
+function readProtectedManifestReferences(store, plan)
+{
+    return plan.protectedManifestBindings.map(binding =>
+    {
+        const file = path.join(store, 'releases', binding.releaseId, 'asset-manifest.json');
+        if (fs.realpathSync(file) !== file)
+        {
+            throw new Error('protected manifest must remain a canonical physical file');
+        }
+        const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+        try
+        {
+            const before = fs.fstatSync(descriptor, { bigint: true });
+            if (!before.isFile() || before.nlink !== 1n)
+            {
+                throw new Error('protected manifest must remain a single-link regular file');
+            }
+            const bytes = fs.readFileSync(descriptor);
+            const after = fs.fstatSync(descriptor, { bigint: true });
+            const current = fs.lstatSync(file, { bigint: true });
+            const epochFields = ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeNs', 'ctimeNs'];
+            if (fs.realpathSync(file) !== file || !current.isFile() || current.isSymbolicLink()
+                || BigInt(bytes.length) !== before.size
+                || epochFields.some(field => before[field] !== after[field] || after[field] !== current[field]))
+            {
+                throw new Error('protected manifest identity changed while reading');
+            }
+            const sha256 = `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
+            if (sha256 !== binding.assetManifestSha256)
+            {
+                throw new Error('release asset bytes changed during read-only protection observation');
+            }
+            return { releaseId: binding.releaseId, sha256,
+                epoch: Object.fromEntries(epochFields.map(field => [field, String(before[field])])) };
+        }
+        finally
+        {
+            fs.closeSync(descriptor);
+        }
+    });
 }
 
 function normalizeReleaseIds(value, label)

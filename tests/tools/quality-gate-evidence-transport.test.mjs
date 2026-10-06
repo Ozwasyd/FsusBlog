@@ -6,6 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+// The existing quality-gate-evidence-transport lifecycle owner retains this
+// file's effects: task-owned temporary files and bounded Node CLI children.
+// These codec fixtures do not execute an SDK, database, network or native lane.
+
 const {
     buildQualityGateEvidenceTransport,
     qualityGateTransportContext
@@ -16,6 +20,7 @@ const { verifyQualityGateEvidenceTransport } = await import(
     new URL('../../tools/ci/verify-quality-gate-evidence-transport.mjs', import.meta.url));
 const {
     extractCurrentRunEvidenceTransport,
+    listVerifiedTransportedArchiveFiles,
     locateTransportedCurrentRunEvidence
 } = await import(new URL('../../tools/test/current-run-evidence-transport.mjs', import.meta.url));
 const { governanceContentDigest } = await import(
@@ -326,6 +331,16 @@ function executeVerifiedProductionSummary(f, manifestDigest, mutateEnvironment =
     });
 }
 
+function executeTransportConsumer(f, manifestDigest, script, mutateEnvironment = () => {})
+{
+    const environment = productionSummaryEnvironment(f, manifestDigest);
+    environment.NODE_OPTIONS = '--max-old-space-size=256';
+    mutateEnvironment(environment);
+    return spawnSync(process.execPath, [path.join(f.root, `tools/ci/${script}`)], {
+        cwd: f.root, encoding: 'utf8', env: environment, timeout: 10_000, maxBuffer: 1024 * 1024
+    });
+}
+
 test('quality-gate workflow uploads downloads and exports one canonical transport identity', () =>
 {
     const workflow = fs.readFileSync(path.join(sourceRoot, '.github/workflows/quality-gate.yml'), 'utf8');
@@ -414,6 +429,12 @@ test('production-summary executes only after canonical reference and payload ver
             const summary = JSON.parse(fs.readFileSync(path.join(f.root,
                 '.tmp/release-evidence/jobs/production-summary.json'), 'utf8'));
             assert.equal(summary.status, 'success');
+            const jobs = executeTransportConsumer(f, produced.manifest.contentDigest, 'check-job-summaries.mjs');
+            assert.equal(jobs.status, 0, jobs.stderr || jobs.stdout);
+            assert.match(jobs.stdout, /ok summaries=1 auxiliary=1/u);
+            const flaky = executeTransportConsumer(f, produced.manifest.contentDigest, 'check-flaky-evidence.mjs');
+            assert.equal(flaky.status, 0, flaky.stderr || flaky.stdout);
+            assert.match(flaky.stdout, /ok evidence=1/u);
         }
         finally { fs.rmSync(f.root, { recursive: true, force: true }); }
     });
@@ -426,7 +447,12 @@ test('production-summary executes only after canonical reference and payload ver
         name: 'tampered payload',
         mutate: (f) => fs.appendFileSync(path.join(f.root,
             'artifacts/current-run/job-summaries.payload.json'), 'tampered'),
-        expected: /payload digest mismatch/u
+        expected: /transported evidence digest mismatch/u
+    }, {
+        name: 'tampered retained archive',
+        mutate: (f) => fs.appendFileSync(path.join(f.root,
+            'artifacts/current-run/transport-archive.json'), 'drift'),
+        expected: /transport archive digest mismatch/u
     }, {
         name: 'stale run',
         mutate: () => {},
@@ -445,6 +471,14 @@ test('production-summary executes only after canonical reference and payload ver
                 extractCurrentRunEvidenceTransport({ repositoryRoot: f.root,
                     manifestPath: 'artifacts/current-run/transport-manifest.json', extractRoot: '.' });
                 scenario.mutate(f);
+                for (const script of ['check-job-summaries.mjs', 'check-flaky-evidence.mjs'])
+                {
+                    const consumer = executeTransportConsumer(f, produced.manifest.contentDigest,
+                        script, scenario.mutateEnvironment);
+                    assert.notEqual(consumer.status, 0, `${script} must refuse changed transported inputs`);
+                    assert.match(consumer.stderr, scenario.expected);
+                    assert.equal(consumer.error, undefined, `${script} must settle without timeout`);
+                }
                 assert.throws(() => executeVerifiedProductionSummary(f, produced.manifest.contentDigest,
                     scenario.mutateEnvironment), scenario.expected);
                 assert.equal(fs.existsSync(path.join(f.root,
@@ -681,6 +715,73 @@ test('producer rejects missing stale duplicate and symlinked inputs', async (con
 
 test('download verifier rejects tampered duplicate missing and unsafe manifest mappings', async (context) =>
 {
+    await context.test('verified listing binds original archive bytes and extracted files', () =>
+    {
+        const f = fixture();
+        try
+        {
+            const produced = build(f);
+            removeTransportPayloadSources(f.root);
+            extractCurrentRunEvidenceTransport({ repositoryRoot: f.root,
+                manifestPath: 'artifacts/current-run/transport-manifest.json', extractRoot: '.' });
+            const listing = () => listVerifiedTransportedArchiveFiles({ repositoryRoot: f.root,
+                transportManifestPath: 'artifacts/current-run/transport-manifest.json',
+                authorityId: 'evidence-consumer.ci.check-job-summaries.current-run',
+                expectedManifestDigest: produced.manifest.contentDigest });
+            const files = listing();
+            assert.deepEqual(files, ['job-summaries.reference.json', 'job-summaries.payload.json']
+                .map((name) => path.join(f.root, 'artifacts/current-run', name)));
+            const payload = files[1];
+            const original = fs.readFileSync(payload);
+            fs.appendFileSync(payload, 'drift');
+            assert.throws(listing, /transported evidence digest mismatch/u);
+            fs.writeFileSync(payload, original);
+            fs.linkSync(payload, path.join(f.root, 'payload-hardlink.json'));
+            assert.throws(listing, /must not be hard-linked/u);
+            fs.unlinkSync(path.join(f.root, 'payload-hardlink.json'));
+            const manifestFile = path.join(f.root, 'artifacts/current-run/transport-manifest.json');
+            const manifestBytes = fs.readFileSync(manifestFile);
+            for (const [field, expected] of [
+                ['contentDigest', /transport object contentDigest binding mismatch/u],
+                ['producerDigest', /transport object producer digest binding mismatch/u]
+            ])
+            {
+                const changed = JSON.parse(manifestBytes);
+                changed.objects[0][field] = `sha256:${'e'.repeat(64)}`;
+                write(manifestFile, { ...changed, contentDigest: governanceContentDigest(changed) });
+                assert.throws(() => listVerifiedTransportedArchiveFiles({ repositoryRoot: f.root,
+                    transportManifestPath: 'artifacts/current-run/transport-manifest.json',
+                    authorityId: 'evidence-consumer.ci.check-job-summaries.current-run' }), expected);
+                fs.writeFileSync(manifestFile, manifestBytes);
+            }
+            const manifest = JSON.parse(manifestBytes);
+            manifest.objects[0].objectDigest = `sha256:${'e'.repeat(64)}`;
+            write(manifestFile, { ...manifest, contentDigest: governanceContentDigest(manifest) });
+            assert.throws(() => listVerifiedTransportedArchiveFiles({ repositoryRoot: f.root,
+                transportManifestPath: 'artifacts/current-run/transport-manifest.json',
+                authorityId: 'evidence-consumer.ci.check-job-summaries.current-run' }),
+            /transport original ref digest binding mismatch/u);
+            fs.writeFileSync(manifestFile, manifestBytes);
+            const archiveFile = path.join(f.root, 'artifacts/current-run/transport-archive.json');
+            const archiveBytes = fs.readFileSync(archiveFile);
+            const archive = JSON.parse(archiveBytes);
+            archive.entries[0].bytes = Buffer.from('different actual bytes').toString('base64');
+            write(archiveFile, { ...archive, contentDigest: governanceContentDigest(archive) });
+            manifest.objects[0].objectDigest = produced.manifest.objects[0].objectDigest;
+            manifest.archive.digest = digestFile(archiveFile);
+            write(manifestFile, { ...manifest, contentDigest: governanceContentDigest(manifest) });
+            assert.throws(() => listVerifiedTransportedArchiveFiles({ repositoryRoot: f.root,
+                transportManifestPath: 'artifacts/current-run/transport-manifest.json',
+                authorityId: 'evidence-consumer.ci.check-job-summaries.current-run' }),
+            /transport archive entry digest mismatch/u);
+            fs.writeFileSync(manifestFile, manifestBytes);
+            fs.writeFileSync(archiveFile, archiveBytes);
+            fs.rmSync(path.join(f.root, 'artifacts/current-run/transport-archive.json'));
+            assert.throws(listing, /transport archive is missing/u);
+        }
+        finally { fs.rmSync(f.root, { recursive: true, force: true }); }
+    });
+
     const scenarios = [{
         name: 'tampered archive',
         mutate: (f) => fs.appendFileSync(path.join(f.root,

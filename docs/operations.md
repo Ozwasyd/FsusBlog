@@ -1,5 +1,138 @@
 # FsusBlog Operations Runbook
 
+## Task-owned local source preservation
+
+Local preservation tools live in `tools/operations/`; they do not establish runtime,
+release, merge, or issue acceptance. Their default mode is read-only `inspect`.
+Each invocation requires `--plan PATH --plan-sha256 SHA256`; plans are regular,
+current-user-owned files inside their canonical `taskRoot`, use the closed
+`fsusblog.local-task-plan.v1` schema, and bind the actual source identities and
+operation budgets. Unknown keys, symlink ancestors, changed plan bytes, and
+out-of-task output paths are refused. A plan is an input binding, not authorization:
+the operator must already own the selected resources and have approval for the
+requested effects. Keep production data, shared caches, active worktrees, and
+unrelated processes outside the task root.
+
+Launcher and imported-helper SHA inputs bind the current source closure. WIP
+preservation separately selects a canonical source repository and registered dirty
+worktrees; its task scratch stays outside those source worktrees. Only the reviewed
+source repository's new preservation objects/refs and the scratch receipts may be
+written. Its explicit `resourceFloor` records current memory/disk admission floors;
+neither that record nor a source digest promotes historical evidence to acceptance.
+
+An explicit effect mode also requires the plan's current task lock, held by the
+direct `flock -n --close` parent for the operation's complete lifetime. The original
+scheduler owns admission, concurrency, memory and disk budgets. Historical dates,
+boot IDs, process IDs, VM capacities, and lock names never authorize a new run.
+Actual lock ownership does not prove global inactivity; unreadable activity remains
+`UNKNOWN`. These tools neither delete remote refs nor close GitHub issues.
+
+| Tool | Preserved behavior and effect boundary |
+| --- | --- |
+| `archive-compiled-artifacts.mjs` | `inspect` returns the current complete artifact inventory and digest; `archive` requires that frozen digest and current root epoch, preserves originals, creates a new tar and independent restore, and compares file hashes, modes, uid/gid, mtime, links, ACLs and native xattrs. Source and terminal digests are custody inputs, not successful terminal assertions. |
+| `retire-idle-materializations.mjs` | `sparse` projects only task-owned linked worktrees through normal worktree-local non-cone Git sparse checkout. The reviewed plan binds HEAD, branch, administrative path, baseline diff, protected roots and original keepers. Shared refs/stash/config/index, logical target index, status, retained bytes and ignored evidence are checked; readable activity or unreadable census refuses mutation. |
+| `probe-file-lease-capability.py` | Explicit native mode measures existing/new reader refusal and SIGIO using disposable owned fixtures. File identity and content remain bound; unsupported filesystem leases fail closed. |
+| `probe-file-lease-boundaries.py` | Explicit native mode measures direct-FD, mmap, O_PATH and directory limits plus disposable sparse projection. Primary failures survive descriptor/process cleanup failures. A kernel lease is a diagnostic, never an inactivity authority. |
+| `recover-failed-run-carrier.mjs` | A current closed carrier plan binds held read-only image descriptors, hashes, epochs, ancestry and original parent receipts before creating an owned recovery carrier. It preserves raw bounded logs and actual cleanup observations; a recovery carrier cannot resume or qualify the failed original checkpoint. |
+| `export-failed-run-evidence.mjs` | A current export plan binds the SSH identity and bounded original raw evidence selection. Structured commands retain nonzero status, hashes and terminal uncertainty; historical guest aliases and run IDs are not reusable authority. |
+| `guest-preparation-caller.sh` | The thin shell caller delegates to the Node owner, observes exactly one original plan-bound preparation CLI call, source HEAD/tree/index/environment before and after, raw outputs, signals and actual status. It does not substitute a retry or forge an original READY receipt. |
+| `wip-publication.mjs` | Inventory covers current branches, stashes and selected dirty worktrees; prepare and dirty snapshots preserve original parents, index and raw bytes. Credential/content and complete-tree path audits precede preservation. Local `.qoder/` is excluded from publication. |
+| `wip-catalog-publication.mjs` | Catalog preparation binds all selected source values to their actual preserved parents; explicit `push` uses atomic create-only remote compare-and-swap and verifies current remote reachability and values. Existing refs are preserved. |
+
+Before artifact execution, bind `originalInventorySha256` from the read-only
+inventory, rather than permitting a fresh source value at execution. Every
+artifact budget is explicit; archive and restore copies remain for investigation
+after a failure. Neither a verified archive nor its terminal input permits original
+artifact retirement.
+
+Sparse projection saves its original administrative identities, worktree
+configuration, patterns, retained inventory and failure phase. A post-mutation
+failure stops the batch without automatic rollback. Restore only at the bound HEAD
+using the saved worktree configuration and normal Git sparse checkout, then verify
+the new physical input closure before admitting builds or tests. Do not remove
+ignored evidence or use force-reset as rollback.
+
+Carrier ancestry uses the closed `fsusblog.failed-run-carrier.v2` receipt family.
+Every failed parent must preserve its complete image, seed, toolchain file/alias/
+directory and share closure before and after. Each later receipt and the current
+held inputs must match that exact parent closure. The only allowed image addition
+is the parent's own sealed `overlay.qcow2`, recorded with its actual hash, physical
+epoch, backing parent and virtual size inside the parent's run directory. An
+unrelated failed receipt, omitted ancestor, changed input or partial verification
+cannot establish recovery lineage. The producer and consumer use the same closure
+shape; consuming a FAILED receipt never inherits qualification.
+
+The original guest caller requires exactly two distinct read-only mount records,
+covering its selected SDK and feed paths. Execution rechecks those exact mountpoint
+source, filesystem type and `ro` options with `findmnt`; unrelated or duplicate
+read-only mounts cannot substitute for writable selected inputs.
+
+The reusable implementations derive from the ten local-tool values in source
+commit `1f6068ff7995f9c6bdde2efa9fdaef044ef3d20e`. The archive and sparse source
+scripts now have the owners above; both lease scripts retain their complementary
+diagnostics; the failed-run/export/guest scripts retain their custody and original
+caller controls through current plans; both WIP scripts retain full source catalog
+preservation and publication. The old `resource-control.md` contributes stable
+ownership, preservation and resource-floor rules here. Its old machine identities,
+one-off source selections and historical numeric scheduling limits are obsolete
+inputs, not a parallel current scheduling policy.
+
+Controlled fixture verification requires an explicit owned scratch root:
+
+```bash
+FSUSBLOG_OPERATIONS_FIXTURE_ROOT=/path/to/owned/scratch NODE_OPTIONS=--max-old-space-size=512 node --test --test-concurrency=1 tests/tools/local-operational-preservation.test.mjs tests/tools/local-operational-carrier.test.mjs tests/tools/local-wip-publication.test.mjs
+FSUSBLOG_OPERATIONS_FIXTURE_ROOT=/path/to/owned/scratch PYTHONDONTWRITEBYTECODE=1 python3 -I tests/tools/local-operational-leases.test.py
+```
+
+Disposable artifact roundtrip and ordinary Git sparse fixtures do not prove
+production resource admission. If the operational sparse wrapper sees unreadable
+current-owner `/proc` activity, its refusal is verified separately from ordinary
+fixture Git projection; positive wrapper admission remains unverified in that
+environment. Lease, VM, SSH and original guest execution require their actual
+owner's native acceptance; pure controls never replace those lanes.
+
+## Historical source preservation verification
+
+`tools/operations/verify-historical-preservation.py` is the maintained read-only
+owner for historical remote-source provenance. It checks the complete committed
+manifest roster, every owned path and permitted WIP metadata identity, PR
+number/source/merge binding, merge ancestry, source-at-merge mode/blob equality,
+and the whole original/current diff witnesses. A reviewed-current-owner mapping
+still needs independent semantic review. Squash/cherry-pick source history is not
+certified as commit ancestry. These checks do not qualify current integration,
+CI, runtime, issue acceptance or ref deletion.
+
+The manifest is an explicit historical input, not a generated current authority.
+The original source is the fourteen-row data at
+`90e2ae9b1d4701815d4ec91baa5948a009ed27c7`, path
+`artifacts/change-contract/remote-source-preservation-20261006/historical-preservation.json`.
+The physical `--manifest` bytes must equal that whole regular Git blob. Recorded
+bindings JSON must explicitly contain `remote` (ref-to-OID map) and `pullRequests`
+(PR-number-to-object map with `number`, `state`, `headRefOid`, `mergeCommit.oid`).
+They record a historical observation; deleted historical refs need not exist now,
+and the verifier never presents these inputs as current remote CAS or grants.
+
+```sh
+python3 tools/operations/verify-historical-preservation.py --repository /path/to/source --expected-head CURRENT_EXACT_HEAD --manifest /path/to/whole-historical-preservation.json --manifest-revision 90e2ae9b1d4701815d4ec91baa5948a009ed27c7 --manifest-path artifacts/change-contract/remote-source-preservation-20261006/historical-preservation.json --historical-bindings /path/to/recorded-remote-pr-bindings.json
+```
+
+`--live-bindings` explicitly selects read-only `origin`/GitHub observations instead
+of recorded bindings. It refuses if the historical audited master or selected refs
+have moved/disappeared. Neither mode fetches objects or writes refs. The required
+`--expected-head` binds the current local repository separately from the manifest's
+historical `auditedMaster`. The explicit manifest revision is a historical object,
+even if it is not an ancestor of the local HEAD; it grants no current authority.
+HEAD, index bytes and physical identity, local refs and tracked worktree
+status/diff must remain identical before and after verification; changed, missing,
+unsafe or unreadable inputs refuse. The report always leaves qualification,
+current remote-presence certification and deletion authorization false.
+
+Focused source controls run only in the task-owned scratch root:
+
+```sh
+FSUSBLOG_OPERATIONS_FIXTURE_ROOT=/path/to/owned/scratch python3 tests/tools/historical-preservation.test.py
+```
+
 ## Adaptive responsibility scheduling
 
 Inspect `GET /api/ops/cluster/nodes` with an independent admin principal carrying
@@ -487,12 +620,56 @@ Use the admin cache action endpoint for the remaining cutover sequence:
 
 Rollback is image and database-backup based. Do not roll back by re-enabling retired pre-envelope ArticleDetail reads or by adding a separate `/article/{id}/rights.aeds` endpoint; a partial rollback would let anonymous reads serve a payload shape that current V4/V3 decoders must reject.
 
+## Queue-owner diagnostic projection
+
+The protected `/api/ops/health/ready-detail` probe keeps readiness and qualification
+under `BoundedQueueDrainAggregator`. `runtime.requiredQueues` and
+`runtime.boundedQueueDrain` retain the same aggregate run, content digest, status,
+qualification and blockers. `requiredQueues.queues` describes catalog participant
+obligations; `commitPostcondition` is the participant's commit fact, not its last
+delivery disposition.
+
+`runtime.requiredQueues.ownerDiagnostics` preserves the original snapshots from
+`audit-log`, `admin-audit-log`, `security-risk-event` and `challenge-v2-event`.
+Each available owner reports its actual cumulative `committed`, `durableAccepted`
+and `requeued` counters, `sequence`, and controlled `lastDisposition`.
+`evidenceKind=OwnerSnapshot` and `qualificationEligible=false` are fixed: these
+independently sampled diagnostics cannot authorize readiness, drain or release.
+An absent owner is omitted as unavailable, not represented by zero. The challenge
+owner appears once; its shared cumulative counters must not be copied to or added
+across the high-value and normal participant lanes. These values remain owned by
+the original channel/journal snapshots, without a new accounting service or cache.
+
+The former participant-level `committed`, `durableAccepted`, `requeued` and
+`lastDisposition` fields are retired as nullable `null`; consumers must read the
+owner diagnostic map instead of treating the previous constant zeros or commit
+postcondition as delivery observations. Unknown disposition text is projected as
+the fixed `unknown` category. Raw `lastItemReference` is deliberately `null` in
+both this map and the existing `runtime.auditLog` health projection. Retained
+references can contain event text, exception messages or private identifiers;
+`AuditRead` does not grant investigation access. `QueueId` is not an item identity.
+The new `ownerDiagnostics` map exports no item reference, arbitrary owner failure
+text, pseudonym, or new telemetry label. The existing `runtime.auditLog` projection
+only redacts `lastItemReference`; its other error fields are unchanged and are not
+certified by this change. Internal delivery identity, payload, replay and retention
+accounting remain under their existing owners. Unavailable owner snapshots or
+service resolution are omitted independently, after the aggregate observation;
+they cannot suppress its structured failure receipt or supply zero counters.
+
+This is the existing registered operations-tool health JSON boundary in the
+[AEDS-only policy](api/aeds-only-policy.md), not an application API or a new AEDS
+payload. The protected probe permission and minimal public `/health/ready`
+projection remain unchanged. The separate AEDS `OpsHealthResponse`, frame 106,
+Shared/Core/POD/C++/TypeScript wire surfaces do not carry this diagnostic map.
+This health-projection boundary does not certify the privacy of other deployment
+drain reports, investigation paths or historical logs.
+
 ## Daily Checks
 
 - `docker ps` health status is healthy.
 - `/health/ready` returns public minimal readiness JSON with `status=ready` and `checkedAt`. The public probe is served from a 5 second single-flight readiness snapshot so high-frequency orchestrator checks do not run PostgreSQL, Redis and RiskControl deep probes on every request; use `/api/ops/health/ready-detail?forceRefresh=true` when an operator needs an immediate deep refresh.
 - `/api/ops/health/ready-detail` `checks.release` must equal the selected release manifest for `releaseId`, `releaseSlot`, full `commitSha`, `imageRef` and `imageDigest`. Any `release_identity_invalid` result blocks traffic; correct the manifest/environment binding or redeploy a retained digest, without changing a mutable tag in place.
-- `/api/ops/health/ready-detail` runtime startup snapshot shows expected `schemaMigration` / `accountSubjectHashInvariant` / `searchIndex` / `cacheInitializer` / `aotDiskCache` / `bootstrapRollback` task states for the current rollout. The snapshot is sourced from `StartupRuntimeState.CreateSnapshot()` and is independent from PublicAOT/AEDS payloads. In production the resolved migration runner is read-only compatibility; verify its runtime result together with `OnlineSchemaCompatibilityRuntimeState` rather than treating the historical `non_compensable` task label as proof that a mutation ran. `accountSubjectHashInvariant` must report `physical_projection_complete` before candidate traffic is enabled; `cacheInitializer` reports either `no_entries` or the number of rollback entries it can restore. The same runtime block exposes `scheduledPublish` with `lastPublishedCount`, `lastFailedCount`, `dueBacklog` and `lastError`; non-zero failures mean due scheduled articles remain queued for the next worker tick and should be investigated before release closeout.
+- `/api/ops/health/ready-detail` runtime startup snapshot shows expected `schemaMigration` / `accountSubjectHashInvariant` / `searchIndex` / `cacheInitializer` / `aotDiskCache` / `bootstrapRollback` task states for the current rollout. The snapshot is sourced from `StartupRuntimeState.CreateSnapshot()` and is independent from PublicAOT/AEDS payloads. The production schema runner is current-receipt admission, not a historical compatibility evaluator. The current schema health check must reverify the explicit receipt, candidate and live database binding; a startup task label or an untrusted `ready` report cannot substitute for that observation. `accountSubjectHashInvariant` must report `physical_projection_complete` before candidate traffic is enabled; `cacheInitializer` reports either `no_entries` or the number of rollback entries it can restore. The same runtime block exposes `scheduledPublish` with `lastPublishedCount`, `lastFailedCount`, `dueBacklog` and `lastError`; non-zero failures mean due scheduled articles remain queued for the next worker tick and should be investigated before release closeout.
 - `/api/ops/health/ready-detail` includes `observability` with service name/version, ActivitySource, Meter and whether OTLP export is enabled.
 - `/api/ops/health/ready-detail` includes `riskControl` with active policy, last-known-good policy, Redis consume-once and challenge provider registry state. If this check fails, keep the candidate out of traffic; write-class challenge paths fail closed, while public-read degradation must follow the active policy rather than bypassing RiskControl.
 - `/api/ops/health/ready-detail` includes `deployment` with release/slot/mode/state/generation, `canReceiveTraffic`, `canClaimBackgroundWork` and the drain snapshot. Any Candidate not exactly Ready, any Draining/Stopped/Failed state, or a generation mismatch blocks switch/closeout.
@@ -619,7 +796,7 @@ Authoring-level content export is a lighter recovery path for editorial mistakes
 
 ## Migration Recovery
 
-Before a production migration, create a site package and keep the package path with the deployment note. Production `serve` resolves `ServeSchemaCompatibilityRunner` and performs a read-only compatibility check; it must not acquire the migration advisory lock, create control tables or execute a descriptor. The rollout's `expand-migration` stage is the only automatic mutation and invokes `run-online-migrations.sh --phase expand` before candidate start. Backfill is an explicit resumable control-plane command. Contract is never selected by startup or candidate rollout and requires its own evidence plus separate `--confirm-destructive`. Large table migrations must include a batch plan, post-migration data check, and restore command in the release note. The minimal local preflight for migration-sensitive work is:
+Before an offline migration, retain its authenticated site package, restore drill and exact database identity with the deployment note. Production `serve` performs current-receipt admission and must not acquire a migration advisory lock, create control tables or execute a descriptor. The release current-schema-admission stage only invokes the candidate-pinned read-only Server verifier; it never runs offline plan, apply or verify. Those commands are separately admitted through the sole migration executable. An absent receipt or unavailable offline capability is a refusal, not permission to fall back to the retired Server command. Large table migrations must retain their sealed operation/checkpoint inputs, actual postcondition evidence and verified recovery pair. The following build/test/drill commands are partial preflight only, not current migration or release qualification:
 
 ```bash
 dotnet build src/backend/FsusBlog.Server.csproj --no-restore
@@ -644,7 +821,7 @@ refresh-token cleanup, length alignment and migration-history idempotency, and
 writes source/dump/PostgreSQL-bound semantic evidence. Ordinary integration
 records this exact test as `not-selected`.
 
-Online changes follow [Online Database Migration Protocol](online-database-migration.md) and [Online Migration Operations](online-database-migration-operations.md). Expand remains compatible with N/N-1 and rolls back by keeping the additive schema. Backfill pauses at its durable token without restarting the web process. Before Contract, stop the explicit command and keep the bridge; after destructive Contract, code rollback cannot recreate removed data, so isolate the affected write path and restore the verified backup into an isolated database before selecting a compatible release/database pair. Never edit migration history or progress rows to force readiness.
+The current boundary is defined in [Online Database Migration Protocol](online-database-migration.md#current-runtime-and-release-boundary) and [Database Migration Runbook](database-migration.md). Former N/N-1, Expand/Backfill/Contract and bridge procedures are historical evidence, not active Server or release APIs. After activation, code rollback cannot recreate removed data: isolate the affected write path and use a verified matching backup/database pair or a forward repair. Never edit migration history, durable apply journals or progress rows to force readiness, and never discard resume evidence to satisfy a current-schema comparison.
 
 ### Retired runtime fallback milestones
 

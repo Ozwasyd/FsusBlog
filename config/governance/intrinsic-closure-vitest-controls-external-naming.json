@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/governance/intrinsic-closure-vitest-controls-external-naming.json"
+            ],
+            "reason": "Preserve the exact registered external naming evidence schema and JSON wire keys for the existing trusted change-contract reader; this declaration adds no naming authority."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/contracts/behavior-test-binding.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build.mjs",
+                "tools/docs/behavior-doc-static-admission-contract.mjs",
+                "tools/docs/behavior-doc-static-admission-reader.mjs",
+                "tools/docs/behavior-doc-static-admission.mjs",
+                "tools/fact-extractors/lib/runtime-role-execution-closure.mjs",
+                "tools/fact-extractors/openapi-aeds/extract.mjs",
+                "tools/fact-extractors/runner.mjs",
+                "tools/fact-extractors/test-matrix/extract.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "Preserve existing original scheduler, build, extractor and runtime environment spellings while restoring executable byte closure and conservative outcome binding; no naming authority or environment permission changes."
+        }
+    ]
+}

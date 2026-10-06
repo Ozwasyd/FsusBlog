@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationApplyEvidence.cs",
+                "src/migration/OfflineMigrationApplyJournalVerifier.cs",
+                "src/migration/OfflineMigrationHost.cs"
+            ],
+            "reason": "Preserve the original closed offline_apply refusal and journal anchor spellings at the existing migration owners; the shared canonical anchor formatter grants no environment, credential, native operation or media publication authority."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/database-migration.md"
+            ],
+            "reason": "Preserve the documented offline-apply/v1 and offline-apply/v2 semantic anchor spellings and existing CLI keys while distinguishing the whole-file SHA, original checkpoint binding and unavailable compiled/native qualification."
+        }
+    ]
+}

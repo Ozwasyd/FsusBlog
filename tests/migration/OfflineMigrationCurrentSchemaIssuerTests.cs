@@ -9,6 +9,8 @@ using NSubstitute;
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
 
+using Xunit;
+
 namespace FsusBlog.Migration.Tests;
 
 // These are production-validator refusal/positive controls, not native issuer
@@ -17,6 +19,214 @@ public sealed class OfflineMigrationCurrentSchemaIssuerTests
 {
     private static readonly DateTimeOffset s_recordedAt = new(2026, 10, 3, 0, 0, 0, TimeSpan.Zero);
     private static readonly string s_digest = new('a', 64);
+
+    // Reflection reaches the original private anchor reader without adding a
+    // production test facade. These lifecycle doubles issue no native receipt.
+    [Theory]
+    [InlineData("missing", true, false)]
+    [InlineData("missing", false, true)]
+    [InlineData("missing", true, true)]
+    [InlineData("oversized", true, false)]
+    [InlineData("oversized", false, true)]
+    [InlineData("oversized", true, true)]
+    [InlineData("tampered", true, false)]
+    [InlineData("tampered", false, true)]
+    [InlineData("tampered", true, true)]
+    public async Task NativeAnchorCleanup_PreservesOriginalBodyRefusal(string variant, bool readerFails, bool commandFails)
+    {
+        Fixture binding = CreateFixture();
+        NativeIdentityLifecycleFixture fixture = CreateNativeAnchorLifecycleFixture(binding, variant);
+        ConfigureNativeIdentityCleanup(fixture, readerFails, commandFails);
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ReadNativeAnchorComponentAsync(binding, fixture));
+        Assert.Equal(variant == "tampered" ? "current_verify_native_anchor_changed"
+            : "current_verify_native_anchor_missing_or_oversized", failure.Message);
+        Assert.Contains("ReadNativeEntryAsync", failure.StackTrace);
+        AssertNativeAnchorCleanupCodes(failure, readerFails, commandFails);
+        AssertNativeAnchorLifecycle(binding, fixture);
+    }
+
+    [Theory]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task NativeAnchorCleanup_RefusesCleanupOnlyWithFixedCodes(bool readerFails, bool commandFails)
+    {
+        Fixture binding = CreateFixture();
+        NativeIdentityLifecycleFixture fixture = CreateNativeAnchorLifecycleFixture(binding, "valid");
+        ConfigureNativeIdentityCleanup(fixture, readerFails, commandFails);
+        InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+            ReadNativeAnchorComponentAsync(binding, fixture));
+        Assert.Equal("current_verify_native_anchor_cleanup_failed", failure.Message);
+        Assert.Null(failure.InnerException);
+        Assert.DoesNotContain("secondary_secret", failure.ToString(), StringComparison.Ordinal);
+        AssertNativeAnchorCleanupCodes(failure, readerFails, commandFails);
+        AssertNativeAnchorLifecycle(binding, fixture);
+    }
+
+    [Fact]
+    public async Task NativeAnchorCleanup_PreservesExactCancellationBeforeBothCleanupFailures()
+    {
+        Fixture binding = CreateFixture();
+        NativeIdentityLifecycleFixture fixture = CreateNativeAnchorLifecycleFixture(binding, "valid");
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        var first = new OperationCanceledException("fixture_body_cancellation", cancellation.Token);
+        fixture.Reader.ReadAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<bool>(first));
+        ConfigureNativeIdentityCleanup(fixture, readerFails: true, commandFails: true);
+        OperationCanceledException actual = await Assert.ThrowsAsync<OperationCanceledException>(() =>
+            ReadNativeAnchorComponentAsync(binding, fixture, cancellation.Token));
+        Assert.Same(first, actual);
+        Assert.Equal(cancellation.Token, actual.CancellationToken);
+        AssertNativeAnchorCleanupCodes(actual, readerFails: true, commandFails: true);
+        AssertNativeAnchorLifecycle(binding, fixture);
+    }
+
+    [Fact]
+    public async Task NativeAnchorCleanup_DisposesCommandWhenReaderCreationFails()
+    {
+        Fixture binding = CreateFixture();
+        NativeIdentityLifecycleFixture fixture = CreateNativeAnchorLifecycleFixture(binding, "valid");
+        var first = new IOException("fixture_execute_failure");
+        fixture.Command.ExecuteReaderAsync(Arg.Any<CancellationToken>()).Returns(Task.FromException<DbDataReader>(first));
+        ConfigureNativeIdentityCleanup(fixture, readerFails: true, commandFails: true);
+        IOException actual = await Assert.ThrowsAsync<IOException>(() => ReadNativeAnchorComponentAsync(binding, fixture));
+        Assert.Same(first, actual);
+        AssertNativeAnchorCleanupCodes(actual, readerFails: false, commandFails: true);
+        AssertNativeAnchorLifecycle(binding, fixture, readerCreated: false);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task NativeAnchorCleanup_AwaitsReaderThenCommandBeforeCompleting(bool bodyRefuses)
+    {
+        Fixture binding = CreateFixture();
+        NativeIdentityLifecycleFixture fixture = CreateNativeAnchorLifecycleFixture(binding, bodyRefuses ? "missing" : "valid");
+        var readerEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var readerFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var commandEntered = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        var commandFinished = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        fixture.Reader.DisposeAsync().Returns(_ =>
+        {
+            readerEntered.SetResult();
+            return new ValueTask(readerFinished.Task);
+        });
+        fixture.Command.DisposeAsync().Returns(_ =>
+        {
+            commandEntered.SetResult();
+            return new ValueTask(commandFinished.Task);
+        });
+        Task<OfflineMigrationApplyJournalEntry> operation = ReadNativeAnchorComponentAsync(binding, fixture);
+        try
+        {
+            await readerEntered.Task;
+            Assert.False(operation.IsCompleted);
+            Assert.False(commandEntered.Task.IsCompleted);
+            readerFinished.SetException(fixture.ReaderCleanupFailure);
+            await commandEntered.Task;
+            Assert.False(operation.IsCompleted);
+            commandFinished.SetException(fixture.CommandCleanupFailure);
+            InvalidOperationException failure = await Assert.ThrowsAsync<InvalidOperationException>(() => operation);
+            Assert.Equal(bodyRefuses ? "current_verify_native_anchor_missing_or_oversized"
+                : "current_verify_native_anchor_cleanup_failed", failure.Message);
+            AssertNativeAnchorCleanupCodes(failure, readerFails: true, commandFails: true);
+            AssertNativeAnchorLifecycle(binding, fixture);
+        }
+        finally
+        {
+            readerFinished.TrySetResult();
+            commandFinished.TrySetResult();
+        }
+    }
+
+    [Theory]
+    [InlineData(CurrentSchemaProviderKind.PostgreSql)]
+    [InlineData(CurrentSchemaProviderKind.MySql)]
+    public async Task NativeAnchorCleanup_KeepsOriginalSuccessfulAnchorAndDialect(CurrentSchemaProviderKind provider)
+    {
+        Fixture binding = CreateFixture();
+        if (provider == CurrentSchemaProviderKind.MySql)
+        {
+            CurrentSchemaDatabaseIdentity database = new(provider, "mysql:instance", "database");
+            binding = binding with
+            {
+                Request = binding.Request with { Database = database },
+                First = Seal(binding.First with { Database = database })
+            };
+        }
+        NativeIdentityLifecycleFixture fixture = CreateNativeAnchorLifecycleFixture(binding, "valid");
+        Assert.Equal(binding.First, await ReadNativeAnchorComponentAsync(binding, fixture));
+        AssertNativeAnchorLifecycle(binding, fixture);
+    }
+
+    private static NativeIdentityLifecycleFixture CreateNativeAnchorLifecycleFixture(Fixture binding, string variant)
+    {
+        NativeIdentityLifecycleFixture fixture = CreateNativeIdentityLifecycleFixture("blog");
+        fixture.Command.CommandTimeout = 30;
+        fixture.Command.CreateParameter().Returns(_ => Substitute.For<DbParameter>());
+        fixture.Command.Parameters.Returns(Substitute.For<DbParameterCollection>());
+        fixture.Reader.ReadAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult(variant != "missing"), Task.FromResult(false));
+        fixture.Reader.IsDBNull(2).Returns(variant == "oversized");
+        fixture.Reader.GetString(0).Returns(binding.First.ContentDigest);
+        fixture.Reader.GetString(1).Returns(binding.First.PreviousDigest);
+        OfflineMigrationApplyJournalEntry entry = variant == "tampered"
+            ? binding.First with { Sequence = binding.First.Sequence + 1 } : binding.First;
+        fixture.Reader.GetString(2).Returns(JsonSerializer.Serialize(entry));
+        return fixture;
+    }
+
+    private static Task<OfflineMigrationApplyJournalEntry> ReadNativeAnchorComponentAsync(
+        Fixture binding, NativeIdentityLifecycleFixture fixture, CancellationToken cancellationToken = default)
+    {
+        System.Reflection.MethodInfo method = typeof(OfflineMigrationCurrentSchemaIssuer).GetMethod("ReadNativeEntryAsync",
+            System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Static)
+            ?? throw new InvalidOperationException("Original private anchor reader is missing.");
+        return Assert.IsAssignableFrom<Task<OfflineMigrationApplyJournalEntry>>(method.Invoke(null,
+            [binding.Plan, binding.Request, binding.First.Sequence, fixture.Connection, fixture.Transaction, cancellationToken]));
+    }
+
+    private static void AssertNativeAnchorCleanupCodes(Exception failure, bool readerFails, bool commandFails)
+    {
+        ImmutableArray<string> actual = Assert.IsType<ImmutableArray<string>>(
+            failure.Data[OfflineMigrationCurrentSchemaIssuer.NativeAnchorCleanupFailuresKey]);
+        var expected = new List<string>();
+        if (readerFails)
+        {
+            expected.Add("current_verify_native_anchor_reader_cleanup_failed");
+        }
+        if (commandFails)
+        {
+            expected.Add("current_verify_native_anchor_command_cleanup_failed");
+        }
+        Assert.Equal(expected, actual);
+        Assert.DoesNotContain(actual, value => value.Contains("secondary_secret", StringComparison.Ordinal));
+    }
+
+    private static void AssertNativeAnchorLifecycle(Fixture binding, NativeIdentityLifecycleFixture fixture, bool readerCreated = true)
+    {
+        Assert.Same(fixture.Transaction, fixture.Command.Transaction);
+        Assert.Equal(30, fixture.Command.CommandTimeout);
+        Assert.Equal($"""
+            SELECT entry_digest, parent_digest,
+                CASE WHEN octet_length(entry_payload) <= 1048576 THEN entry_payload ELSE NULL END
+            FROM {OfflineMigrationApplyJournalDialect.Table(binding.Request.Database.Provider)}
+            WHERE plan_digest = @plan AND database_digest = @database
+                AND invocation_id = @invocation AND sequence = @sequence
+            """, fixture.Command.CommandText);
+        object[] parameters = fixture.Command.Parameters.ReceivedCalls()
+            .Where(call => call.GetMethodInfo().Name == nameof(DbParameterCollection.Add))
+            .Select(call => call.GetArguments()[0]!).ToArray();
+        Assert.Equal(new[] { "@plan", "@database", "@invocation", "@sequence" },
+            parameters.Cast<DbParameter>().Select(parameter => parameter.ParameterName));
+        Assert.Equal(new object[] { binding.Plan.ContentDigest, OfflineMigrationPlanValidation.Digest(binding.Request.Database),
+            binding.Request.InvocationId, binding.First.Sequence }, parameters.Cast<DbParameter>().Select(parameter => parameter.Value));
+        Assert.Equal(readerCreated ? 1 : 0,
+            fixture.Reader.ReceivedCalls().Count(call => call.GetMethodInfo().Name == nameof(DbDataReader.DisposeAsync)));
+        Assert.Single(fixture.Command.ReceivedCalls().Where(call => call.GetMethodInfo().Name == nameof(DbCommand.DisposeAsync)));
+        Assert.Empty(fixture.Transaction.ReceivedCalls());
+        Assert.Empty(fixture.Connection.ReceivedCalls().Where(call => call.GetMethodInfo().Name != "CreateDbCommand"));
+    }
 
     // Component lifecycle doubles call the original helper. They do not model
     // Npgsql protocol state, native ReadyForQuery failure or receipt qualification.

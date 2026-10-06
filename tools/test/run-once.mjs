@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { spawn } from 'node:child_process';
+import { renameSync } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import {
     access,
@@ -18,6 +19,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { executionFailureDiagnostic, formatExecutionFailure, restoreExecutionFailureDiagnostic, createExecutionFailureOwner, observeExecutionFailure, retainExecutionFailure, throwExecutionFailure } from './execution-failure-diagnostic.mjs';
+import { observePhysicalExecutionFailure } from './physical-execution-process-tree.mjs';
 import { currentProcessIdentity, processIdentityStatus } from './process-identity.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -66,12 +69,26 @@ function normalizeTestIds(testIds)
     return [...new Set(normalized)].sort();
 }
 
-async function writeJsonAtomic(file, document)
+async function writeJsonAtomic(file, document, signal = null, failureOwner = createExecutionFailureOwner())
 {
+    throwIfAborted(signal);
     await mkdir(path.dirname(file), { recursive: true });
+    throwIfAborted(signal);
     const temporary = `${file}.${process.pid}.${randomUUID()}.tmp`;
-    await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
-    await rename(temporary, file);
+    try
+    {
+        await writeFile(temporary, `${JSON.stringify(document, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+        throwIfAborted(signal);
+        // Keep the observed cancellation check and filesystem commit in one event-loop segment.
+        renameSync(temporary, file);
+    }
+    catch (error)
+    {
+        retainExecutionFailure(failureOwner, error);
+        try { await rm(temporary, { force: true }); }
+        catch (cleanupError) { retainExecutionFailure(failureOwner, cleanupError); }
+        throwExecutionFailure(failureOwner);
+    }
 }
 
 function sanitizeSegment(value, fallback)
@@ -188,11 +205,7 @@ function throwIfAborted(signal)
     {
         return;
     }
-    if (signal.reason instanceof Error)
-    {
-        throw signal.reason;
-    }
-    throw Object.assign(new Error('operation aborted'), { name: 'AbortError' });
+    throw signal.reason;
 }
 
 async function sleep(milliseconds, signal)
@@ -1196,6 +1209,7 @@ function receiptFailure(receipt)
     error.exitCode = receipt.failure?.exitCode ?? null;
     error.signal = receipt.failure?.signal ?? null;
     error.receiptStatus = receipt.status;
+    restoreExecutionFailureDiagnostic(error, receipt.failure?.diagnostic);
     return error;
 }
 
@@ -1279,7 +1293,7 @@ async function summarizeRunBoundExecutions(root, runId, {
             })),
             generatedAt: new Date().toISOString()
         };
-        await writeJsonAtomic(path.join(runDirectory, 'summary.json'), summary);
+        await writeJsonAtomic(path.join(runDirectory, 'summary.json'), summary, signal);
         return summary;
     }
     finally
@@ -1337,7 +1351,7 @@ async function writeRunBoundProjection({
         projectionDirectory,
         `${sanitizeSegment(consumerId, 'consumer')}-${sanitizeSegment(receipt.executionKey, 'execution')}-${randomUUID()}.json`
     );
-    await writeJsonAtomic(projectionFile, projection);
+    await writeJsonAtomic(projectionFile, projection, receipt.status === 'success' ? signal : null);
     await summarizeRunBoundExecutions(root, runId, { lockTimeoutMs, staleLockMs, heartbeatMs, signal });
     return projectionFile;
 }
@@ -1360,7 +1374,8 @@ export async function runBoundExecution({
     lockTimeoutMs = defaultLockTimeoutMs,
     staleLockMs = defaultStaleLockMs,
     heartbeatMs = defaultHeartbeatMs,
-    signal
+    signal,
+    failureOwner = createExecutionFailureOwner()
 }, operation)
 {
     for (const [name, value] of Object.entries({ runId, key, inputDigest, environmentDigest, commit, worktreeFingerprint }))
@@ -1425,10 +1440,14 @@ export async function runBoundExecution({
             lockTimeoutMs,
             staleLockMs,
             heartbeatMs,
-            signal
+            signal: disposition === 'producer' && receipt.status !== 'success' ? null : signal
         });
         if (receipt.status !== 'success')
         {
+            if (disposition === 'producer')
+            {
+                throwExecutionFailure(failureOwner);
+            }
             throw receiptFailure(receipt);
         }
         return { status: disposition === 'consumer' ? 'shared-current-run' : 'executed', receiptFile, projectionFile };
@@ -1462,17 +1481,17 @@ export async function runBoundExecution({
         try
         {
             physicalExecution = await operation();
+            throwIfAborted(signal);
         }
         catch (error)
         {
-            physicalExecution = error?.physicalExecution ?? null;
-            status = error?.name === 'AbortError' || error?.signal ? 'cancelled' : 'failure';
-            failure = {
-                name: error?.name ?? 'Error',
-                message: error instanceof Error ? error.message : String(error),
-                exitCode: error?.exitCode ?? null,
-                signal: error?.signal ?? null
-            };
+            retainExecutionFailure(failureOwner, error);
+            const observation = observeExecutionFailure(failureOwner);
+            physicalExecution = observePhysicalExecutionFailure(failureOwner).physicalExecution;
+            const diagnostic = observation.diagnostic;
+            status = signal?.aborted || diagnostic.primary.name === 'AbortError' || diagnostic.primary.signal ? 'cancelled' : 'failure';
+            failure = { name: diagnostic.primary.name, message: diagnostic.primary.message,
+                exitCode: diagnostic.primary.exitCode, signal: diagnostic.primary.signal, diagnostic };
         }
         const requiredOutputStates = await captureOutputStates(normalizedOutputs);
         if (status === 'success' && requiredOutputStates == null)
@@ -1485,6 +1504,7 @@ export async function runBoundExecution({
                 signal: null
             };
         }
+        if (status === 'success') throwIfAborted(signal);
         const payload = {
             schema: runBoundSchema,
             ...contract,
@@ -1502,12 +1522,21 @@ export async function runBoundExecution({
             failure
         };
         const receipt = { ...payload, receiptDigest: digestValue(payload) };
-        await writeJsonAtomic(receiptFile, receipt);
+        await writeJsonAtomic(receiptFile, receipt, receipt.status === 'success' ? signal : null, failureOwner);
+        // The failed producer still owns its original projection and summary.
         return await consume(receipt, 'producer', producerWaitMs);
+    }
+    catch (error)
+    {
+        retainExecutionFailure(failureOwner, error);
+        throwExecutionFailure(failureOwner);
     }
     finally
     {
-        await lock.release();
+        try { await lock.release(); }
+        catch (error) { retainExecutionFailure(failureOwner, error); }
+        // eslint-disable-next-line no-unsafe-finally
+        throwExecutionFailure(failureOwner);
     }
 }
 
@@ -1696,7 +1725,7 @@ if (isMain)
 {
     main(process.argv.slice(2)).catch((error) =>
     {
-        console.error(`[run-once] ${error instanceof Error ? error.message : String(error)}`);
+        console.error(`[run-once] ${formatExecutionFailure(error)}`);
         process.exit(1);
     });
 }

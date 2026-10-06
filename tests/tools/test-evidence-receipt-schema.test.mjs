@@ -6,11 +6,11 @@ import path from 'node:path';
 import test from 'node:test';
 
 /* eslint-disable import-x/no-relative-parent-imports */
+
 import { createProductionBuildReceipt } from '../../tools/ci/production-build-artifacts.mjs';
 import { BehaviorId, digestCatalog } from '../../tools/contracts/behavior-contract-catalog.mjs';
 import {
-    zeroLegacyRequiredPathClasses,
-    zeroLegacyScanSchema
+    scanZeroLegacyGovernance
 } from '../../tools/docs/behavior-document-consistency-final.mjs';
 import {
     createReleaseFinalTerminalAcceptance,
@@ -37,7 +37,12 @@ import {
     createRequiredEvidenceCatalogBinding
 } from '../../tools/test-matrix/required-evidence-catalog.mjs';
 
+import { createBrowserTemporalFixture } from './support/browser-temporal-fixture.mjs';
 import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
+import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs';
+
+const { digestCanonical } = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const { validateBrowserContractReceipt: validateBrowserContractReceiptPure } = await import(new URL('../../tools/release/browser-contract-receipt-contract.mjs', import.meta.url));
 
 const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
     consumerId: 'production-correctness',
@@ -50,6 +55,23 @@ const correctnessAttemptFixture = await createCleanAttemptEvidenceFixture({
     worktreeFingerprint: `sha256:${'b'.repeat(64)}`
 });
 test.after(() => correctnessAttemptFixture.cleanup());
+
+test('qualification-only field definitions retain rejection without treating ordinary data as evidence', (t) =>
+{
+    const fields = { expectedValue: 1, baselineValue: 2, verifiedAt: 'now', waiver: 'manual' };
+    const scannerFixture = createZeroLegacyScannerFixture({
+        'config/testing/behavior-qualification.json': JSON.stringify(fields),
+        'src/catalog/data.json': JSON.stringify(fields)
+    });
+    t.after(scannerFixture.dispose);
+    const findings = scanZeroLegacyGovernance(scannerFixture.root).findings;
+    for (const field of Object.keys(fields))
+    {
+        assert.ok(findings.some((finding) => finding.file === 'config/testing/behavior-qualification.json'
+            && finding.rule === `forbidden-machine-field:${field}`));
+    }
+    assert.equal(findings.some((finding) => finding.file === 'src/catalog/data.json'), false);
+});
 
 function canonicalize(value)
 {
@@ -181,6 +203,8 @@ function browserContractFixture(build)
         status: 'success',
         classification: 'clean',
         sourceState: build.sourceState,
+        runIdentity: { runId: 'browser-contract-run-1151' },
+        temporalBinding: createBrowserTemporalFixture({ sourceState: build.sourceState, runId: 'browser-contract-run-1151' }),
         build: {
             receipt: 'build/receipt.json',
             receiptContentDigest: build.receipt.contentDigest,
@@ -513,6 +537,120 @@ test('Browser Contract receipt seals #1078 identity, Chromium topology, diagnost
         .some((error) => error.includes('actual browser identity is missing or non-qualifying')));
 });
 
+test('Browser Contract independently rejects missing and resealed temporal observations', (context) =>
+{
+    const clean = browserContractFixture(buildFixture(context));
+    assert.ok(validateBrowserContractReceiptPure(clean)
+        .some((error) => error.includes('explicit temporal policy authority')));
+    const resealTemporal = (binding) =>
+    {
+        for (const artifact of [binding.plan, binding.actual])
+        {
+            delete artifact.digest;
+            artifact.digest = digestCanonical(artifact);
+        }
+        binding.receipt.planDigest = binding.plan.digest;
+        binding.receipt.actualDigest = binding.actual.digest;
+        binding.receipt.temporalContextDigest = digestCanonical(binding.plan.temporalContext);
+        delete binding.receipt.digest;
+        binding.receipt.digest = digestCanonical(binding.receipt);
+    };
+    const missing = sealBrowserContractReceipt({ ...clean, temporalBinding: null });
+    assert.ok(validateBrowserContractReceipt(missing, { requireSuccess: false })
+        .some((error) => error.includes('actual temporal binding')));
+    for (const field of ['businessEpochUtc', 'browserBusinessEpochUtc', 'timezone',
+        'locale', 'uiLocale', 'backendCulture', 'postgresTimezone', 'nodeTimezone', 'monotonicClockSource'])
+    {
+        for (const action of ['missing', 'drift'])
+        {
+            const value = structuredClone(clean);
+            if (action === 'missing')
+            {
+                delete value.temporalBinding.actual.observations[field];
+            }
+            else
+            {
+                value.temporalBinding.actual.observations[field] = 'wrong';
+            }
+            resealTemporal(value.temporalBinding);
+            assert.ok(validateBrowserContractReceipt(sealBrowserContractReceipt(value))
+                .some((error) => error.includes('temporal binding')), `${field}: ${action}`);
+        }
+    }
+    for (const mutate of [
+        (binding) =>
+        {
+            binding.actual.observations.observationBoundary = 'node-runtime';
+        },
+        (binding) =>
+        {
+            binding.bindingDigest = `sha256:${'0'.repeat(64)}`;
+        },
+        (binding) =>
+        {
+            for (const artifact of [binding.plan, binding.actual, binding.receipt])
+            {
+                artifact.source.commit = 'c'.repeat(40);
+            }
+        },
+        (binding) =>
+        {
+            for (const artifact of [binding.plan, binding.actual, binding.receipt])
+            {
+                artifact.run.schedulerRunId = 'another-run';
+            }
+        },
+        (binding) =>
+        {
+            for (const artifact of [binding.plan, binding.actual, binding.receipt])
+            {
+                artifact.producer.producerId = 'auth-session';
+            }
+            binding.plan.temporalContext.producerId = 'auth-session';
+            binding.actual.temporalContext.producerId = 'auth-session';
+        }
+    ])
+    {
+        const value = structuredClone(clean);
+        mutate(value.temporalBinding);
+        resealTemporal(value.temporalBinding);
+        assert.ok(validateBrowserContractReceipt(sealBrowserContractReceipt(value))
+            .some((error) => error.includes('temporal')));
+    }
+    for (const input of [
+        { sourceState: { ...clean.sourceState, commit: 'c'.repeat(40) } },
+        { sourceState: { ...clean.sourceState, worktreeFingerprint: 'd'.repeat(64) } },
+        { runId: 'another-run' },
+        { locale: 'en-US' }
+    ])
+    {
+        const binding = createBrowserTemporalFixture({
+            sourceState: clean.sourceState,
+            runId: clean.runIdentity.runId,
+            ...input
+        });
+        assert.ok(validateBrowserContractReceipt(sealBrowserContractReceipt({ ...clean, temporalBinding: binding }))
+            .some((error) => error.includes('temporal')));
+    }
+});
+
+test('Browser Contract can preserve startup failure without promoting absent temporal evidence', (context) =>
+{
+    const clean = browserContractFixture(buildFixture(context));
+    const failure = sealBrowserContractReceipt({
+        ...clean,
+        status: 'failure',
+        classification: 'infra',
+        error: { failureClass: 'infra', message: 'browser failed before actual observation' },
+        temporalBinding: null,
+        playwright: { chromiumRevision: null, browserIdentity: null },
+        topology: { ...clean.topology, browserLaunchCount: 0, maxConcurrentBrowserRoots: 0, contextCount: 0 },
+        scenarios: clean.scenarios.map((scenario) => ({ ...scenario, status: 'pending', classification: null }))
+    });
+    assert.deepEqual(validateBrowserContractReceipt(failure, { requireSuccess: false }), []);
+    assert.ok(validateBrowserContractReceipt(failure).some((error) => error.includes('status must be success')));
+});
+
 test('public-preview evidence binding rejects missing, stale, and tampered local evidence', (context) =>
 {
     const build = buildFixture(context);
@@ -836,6 +974,11 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
         }
     });
     const postRuntimeFile = path.join(build.directory, 'behavior-post-runtime.json');
+    fs.mkdirSync(path.join(build.repositoryRoot, 'docs'));
+    fs.writeFileSync(path.join(build.repositoryRoot, 'docs', 'receipt-binding.md'), '# Receipt binding fixture\n');
+    const zeroLegacyScan = scanZeroLegacyGovernance(build.repositoryRoot);
+    assert.equal(zeroLegacyScan.scannedFileCount, 1);
+    assert.deepEqual(zeroLegacyScan.findings, []);
     const consistencyFinal = sealDocument({
         schema: 'fsusblog.behavior-document-consistency-final-report.v1',
         sourceIdentity: preRuntime.sourceIdentity,
@@ -843,20 +986,7 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
             preRuntime: preRuntime.contentDigest,
             postRuntime: postRuntime.contentDigest
         },
-        zeroLegacyScan: {
-            schema: zeroLegacyScanSchema,
-            scanRoots: [
-                { path: 'config', pathClass: 'config' },
-                { path: 'docs', pathClass: 'docs' },
-                { path: 'src', pathClass: 'production' },
-                { path: 'tests', pathClass: 'tests' },
-                { path: 'tools', pathClass: 'tools' }
-            ],
-            scannedFileCount: 10,
-            pathClassCounts: Object.fromEntries(zeroLegacyRequiredPathClasses.map((pathClass) =>
-                [pathClass, pathClass === 'tests' ? 10 : 0])),
-            findings: []
-        },
+        zeroLegacyScan,
         dagAudit: {
             tierCount: 22,
             edgeCount: 22,
@@ -942,6 +1072,18 @@ test('release-final binding seals raw receipt digests and rejects cross-build id
     assert.deepEqual(terminalAcceptance.warnings, []);
     assert.equal(terminalAcceptance.spawnCounts.releaseFinalBeforePostRuntime, 0);
     assert.deepEqual(terminalAcceptance.dag.requiresEvidenceFrom, canonicalInputs);
+    const incompleteScanReport = sealDocument({
+        ...consistencyFinal,
+        zeroLegacyScan: { scannedFileCount: 1, findings: [] }
+    });
+    assert.throws(() => createReleaseFinalTerminalAcceptance({
+        binding,
+        preRuntimeReceipt: preRuntime,
+        postRuntimeReceipt: postRuntime,
+        consistencyFinalReport: incompleteScanReport,
+        currentRunContext,
+        canonicalInputs
+    }), /scan shape is open/u);
     for (const [name, mutate, pattern] of [
         ['input digest', (receipt) =>
         {

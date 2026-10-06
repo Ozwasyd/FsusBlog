@@ -24,6 +24,7 @@ public sealed class AedsProtocolCrossLanguageTests
     private static readonly Lazy<string> s_frontendProtocolRuntimeJson = new(ExecuteFrontendProtocolModule);
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void GeneratedContracts_CoverEveryFrameTypeAndTheExactV2HeaderLayout()
     {
         AssertGeneratedProtocolIsInSync();
@@ -52,6 +53,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendRoundTrip_AcceptsEveryGeneratedFrameType()
     {
         var encoder = new CoreAedsEncoder();
@@ -77,6 +79,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void FrontendFrameTypeEnum_MatchesSharedProtocolMetadata()
     {
         using JsonDocument frontend = ReadFrontendProtocolRuntime();
@@ -97,6 +100,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-legacy-admin-reset-retired")]
     public void LegacyAdminPasswordResetFrame_IsRetiredAcrossProtocolSurfaces()
     {
         const string RetiredName = "AdminResetUserPasswordRequest";
@@ -119,6 +123,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-legacy-aot-upload-removed")]
     public void LegacyAotUploadFrame42_IsRemovedAcrossProtocolAndCodecSurfaces()
     {
         string retiredName = string.Concat("Article", "Aot", "Bundle", "Request");
@@ -161,6 +166,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void FrontendHeaderConstants_MatchSharedProtocolMetadata()
     {
         using JsonDocument frontend = ReadFrontendProtocolRuntime();
@@ -174,6 +180,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedMutationIdFixture()
     {
         byte[] encoded = new CoreAedsEncoder().Encode(CoreFrameType.MutationId, [1, 2, 3, 4, 5]);
@@ -182,6 +189,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedApiErrorFixture()
     {
         ErrorDetail error = ErrorDetail.Create(ErrorCode.Forbidden, "权限不足", "role_required", "trace-123");
@@ -191,6 +199,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedPowChallengeFixture()
     {
         PowChallenge challenge = new("salt-value", 4, 1778290000, "signature-value");
@@ -200,6 +209,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedAuthLoginFlowFixture()
     {
         AuthLoginFlowDto flow = new(7, "anonymous_account", "mfa_required", "risk", "ticket-1");
@@ -209,6 +219,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedMfaChallengeResultFixture()
     {
         var payload = new System.Buffers.ArrayBufferWriter<byte>();
@@ -225,6 +236,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedMfaSetupStartFixture()
     {
         MfaSetupStartDto dto = new(
@@ -242,6 +254,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedAuthSessionListFixture()
     {
         List<UserSessionSummaryDto> sessions =
@@ -274,6 +287,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedCurrentUserSnapshotFixture()
     {
         CurrentUserSnapshotDto snapshot = new(123, "anonymous_account", 1, null, null);
@@ -284,6 +298,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedIdentityAccountSnapshotFixture()
     {
         var deletedAt = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
@@ -306,6 +321,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedMfaProfileFixture()
     {
         MfaProfileDto dto = new(true, new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc));
@@ -318,6 +334,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedCategoryListFixture()
     {
         List<CategoryListItemResponse> categories =
@@ -332,6 +349,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedConversationListFixture()
     {
         var page = new PageResponse<ConversationListItemResponse>
@@ -368,6 +386,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedConversationMessageFixture()
     {
         var dto = new ConversationMessageResponse
@@ -388,6 +407,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedConversationDetailFixture()
     {
         var dto = new ConversationDetailResponse
@@ -422,6 +442,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedCommentArticleCursorFixture()
     {
         CursorResponse<CommentThreadItemDto> cursor = new()
@@ -457,6 +478,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_EmitsArticleListWithExactPublicationCoordinates()
     {
         CorePageResult<ArticleListCoreModel> page = new(
@@ -515,6 +537,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedArticleFeaturedFixture()
     {
         List<FeaturedArticleSummaryDto> items =
@@ -529,6 +552,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_EmitsArticleDetailV5WithExactPublicationCoordinates()
     {
         var createTime = new DateTime(2026, 1, 2, 3, 4, 5, DateTimeKind.Utc);
@@ -567,6 +591,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendDecoder_ReadsCheckedInArticleDetailV3FixtureWithoutUpdatedAt()
     {
         byte[] frame = ReadProtocolFixtureBytes("article-detail-frame.hex");
@@ -581,6 +606,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedArticleHotFixture()
     {
         var hotPod1 = FsusBlog.Core.Mapping.Projectors.PodProjector.ProjectPopularArticle(11, "Hot 1", 999);
@@ -592,6 +618,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedArticleRelatedReadingFixture()
     {
         var createTime = new DateTime(2026, 5, 17, 12, 0, 0, DateTimeKind.Utc);
@@ -609,6 +636,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_EmitsArticleSearchWithExactPublicationCoordinates()
     {
         var searchCreateTime = new DateTime(2026, 5, 12, 12, 34, 56, DateTimeKind.Utc);
@@ -636,6 +664,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedRecentCommentStatsFixture()
     {
         List<RecentCommentCoreModel> comments =
@@ -664,6 +693,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedRegionStatsFixture()
     {
         List<RegionDistributionCoreModel> regions =
@@ -678,6 +708,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedAdminStatsFixture()
     {
         SiteStatsCoreModel stats = new(
@@ -708,6 +739,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedSeoConfigFixture()
     {
         SeoConfigPublicDto dto = new()
@@ -744,6 +776,7 @@ public sealed class AedsProtocolCrossLanguageTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void BackendEncoder_MatchesSharedPageContentFixture()
     {
         PageContentPublicDto dto = new()

@@ -252,3 +252,24 @@ test('frontend build caps every stage by the remaining shared step deadline', ()
     assert.doesNotMatch(source, /os\.totalmem/u);
     assert.doesNotMatch(source, /directBuildBundle\.cpuWeight \/ Math\.max\(1, hostCpu\)/u);
 });
+
+test('bootstrap deadlines share a steady origin across Node children despite wall-clock steps', () =>
+{
+    const source = read('tools/bootstrap-acceptance-env.sh');
+    const helper = /NowMonotonicMs\(\) \{\n {4}"\$\{FSUSBLOG_NODE:-node\}" -e '([^']+)'\n\}/u.exec(source);
+    assert.ok(helper, 'actual bootstrap monotonic helper was not found');
+    for (const wall of ['-9_000_000_000_000', '9_000_000_000_000'])
+    {
+        const before = process.hrtime.bigint() / 1_000_000n;
+        const child = spawnSync(process.execPath, ['-e', `Date.now = () => ${wall}; ${helper[1]}`],
+            { encoding: 'utf8', timeout: 10_000 });
+        const after = process.hrtime.bigint() / 1_000_000n;
+        assert.equal(child.status, 0, child.stderr);
+        const actual = BigInt(child.stdout);
+        assert.ok(actual >= before && actual <= after, 'child did not share the actual host monotonic origin');
+    }
+    assert.match(source, /const monotonicNowMs = \(\) => Number\(process\.hrtime\.bigint\(\) \/ 1_000_000n\)/u);
+    assert.match(source, /Math\.min\(inheritedDeadlineAtMs, monotonicNowMs\(\) \+ 10_000\)/u);
+    assert.match(source, /while \(monotonicNowMs\(\) <= deadlineAtMs\)/u);
+    assert.match(source, /deadlineAtMs - monotonicNowMs\(\)/u);
+});

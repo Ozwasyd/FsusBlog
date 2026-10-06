@@ -29,6 +29,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ReturnsSealedStatelessPayloadWithoutSemanticRecipeLeak()
     {
         var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.MicroInteraction, step: "drag:confirm"));
@@ -66,6 +67,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_UsesGeneratorPolicyForFamilyVariantAndPassesSelectionToRecipeAndToken()
     {
         var taskSource = new FakeTaskSource(CreateTaskMaterial(RenderRecipeV2TaskKind.MicroInteraction, step: "drag:confirm"));
@@ -110,6 +112,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void GeneratorSelector_AppliesWeightedActionRiskAndRedTeamPolicyWithFallback()
     {
         PerceptionChallengeGeneratorDistributionPolicy policy = CreateGeneratorPolicy(
@@ -191,6 +194,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "perception-generator-candidates-nonempty")]
     public void GeneratorSelector_PickRejectsEmptyCandidatesWithClearError()
     {
         Type weightedVariantType = GetWeightedVariantType();
@@ -203,6 +207,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void GeneratorSelector_PickReturnsSingleCandidate()
     {
         Type weightedVariantType = GetWeightedVariantType();
@@ -221,6 +226,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task DefaultTaskSource_BuildsDistinctRecipeStructuresForSupportedFamilies()
     {
         var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
@@ -248,6 +254,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task DefaultTaskSource_VariantChangesStructureAndRecipeHash()
     {
         var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
@@ -280,6 +287,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task DefaultTaskSource_LocalizationTargetIsBoundToVisualMaterialWithoutMetadataLeak()
     {
         var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
@@ -301,6 +309,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "perception-recipe-hash-integrity")]
     public async Task DefaultTaskSource_RecipeHashRejectsStructuralTampering()
     {
         var source = new DefaultPerceptionChallengeV2TaskSource(CreatePerceptionGeneratorConfiguration());
@@ -335,6 +344,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_AcceptsCharacterAnswerThroughAttemptGateAndReturnsProofExpiry()
     {
         PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.MicroInteraction) with
@@ -371,6 +381,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     [InlineData("deviceFpHash", "perception_device_fp_hash_mismatch")]
     [InlineData("policyVersion", "perception_policy_version_mismatch")]
     [InlineData("recipeHash", "perception_recipe_hash_mismatch")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "perception-sealed-token-binding")]
     public async Task VerifyAsync_RejectsSealedTokenBindingMismatches(string field, string expectedReason)
     {
         PerceptionChallengeV2TokenClaims claims = CreateClaims(RenderRecipeV2TaskKind.MicroInteraction) with
@@ -395,6 +406,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_CoversLocalizationAndMicroInteractionWithoutImageRecompute()
     {
         PerceptionChallengeV2TokenClaims localizationClaims = CreateClaims(RenderRecipeV2TaskKind.Localization) with
@@ -442,6 +454,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     [InlineData("attempt_exceeded", "perception_attempt_exceeded", "PerceptionAttemptExceeded")]
     [InlineData("redis_unavailable", "perception_redis_unavailable", "PerceptionRedisUnavailable")]
     [InlineData("challenge_replayed", "perception_replayed", "PerceptionReplay")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "perception-attempt-replay-redis-fail-closed")]
     public async Task VerifyAsync_RedisAttemptAndReplayFailuresFailClosedAndWriteRisk(
         string gateReason,
         string expectedReason,
@@ -478,6 +491,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RedisGate_UsesSpecifiedKeysSetNxIncrementAndExpiryAlignedToChallengeWindow()
     {
         var database = Substitute.For<IDatabase>();
@@ -535,6 +549,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RedisGate_AttemptCounterUsesSingleRedisScript()
     {
         var database = Substitute.For<IDatabase>();
@@ -569,6 +584,7 @@ public sealed class PerceptionChallengeV2ServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterPerceptionChallengeV2Services()
     {
         var services = new ServiceCollection();

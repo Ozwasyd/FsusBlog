@@ -1,9 +1,12 @@
 import assert from 'node:assert/strict';
+import childProcess from 'node:child_process';
 import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 
-const {createAndAdmitServiceEnvelope, executionServiceImageReference, loadExecutionServiceCatalog, observeContainerService, observeRunOwnedService, parseExecutionEnvelopeServicesOptions, requiredExecutionServices, resolveExecutionServiceContainers, validateExecutionServiceCatalog, verifyLiveServiceEnvelope} = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
+const {createAndAdmitServiceEnvelope, executionServiceImageReference, loadExecutionServiceCatalog, observeContainerService, observeRunOwnedService, parseExecutionEnvelopeServicesOptions, requiredExecutionServices, resolveExecutionServiceContainers, resolveExecutionServiceOutput, runExecutionEnvelopeServices, validateExecutionServiceCatalog, verifyLiveServiceEnvelope} = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
 const {loadExecutionEnvelopeApplicability} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
 const {prepareMySqlFixtureService, recoverMySqlFixtureService, verifyMySqlFixtureServiceCleanup, withMySqlFixtureService} = await import(new URL('../../tools/test-fixtures/services/mysql.mjs', import.meta.url));
@@ -192,6 +195,26 @@ test('MySQL lifecycle exclusively prepares a pinned bounded service and removes 
     assert.equal(state.phase, 'cleaned');
     assert.equal(state.qualificationEligible, false);
     await assert.rejects(service.verify, /no longer prepared/u);
+});
+
+test('MySQL lifecycle budgets ignore wall-clock steps while real steady deadlines remain bounded', async (t) =>
+{
+    let wall = 1_000_000;
+    let direction = 1;
+    let steady = 100.75;
+    t.mock.method(Date, 'now', () => wall += direction * 1_000_000_000);
+    t.mock.method(performance, 'now', () => steady);
+    for (direction of [1, -1])
+    {
+        const fixture = controlledMySqlLifecycle(t);
+        const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
+        await service.cleanup();
+        assert.deepEqual(verifyMySqlFixtureServiceCleanup(fixture.context, recoveryOptions(fixture)).cleanup,
+            { containerAbsent: true, credentialsRemoved: true });
+        assert.ok(fixture.state.calls.every(({ options }) =>
+            options.timeout > 0 && options.timeout <= fixture.context.commandBudgetMs));
+        steady += 0.25;
+    }
 });
 
 test('MySQL private admission binds one held grant, live SQL service and exact cleanup', async (t) =>
@@ -415,8 +438,8 @@ test('MySQL lifecycle cleanup consumes one total budget and does not reset it pe
 {
     const fixture = controlledMySqlLifecycle(t);
     const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
-    let now = Date.now();
-    t.mock.method(Date, 'now', () => now);
+    let now = performance.now();
+    t.mock.method(performance, 'now', () => now);
     fixture.state.onContainerLookup = () =>
     {
         now += fixture.context.cleanupBudgetMs;
@@ -658,8 +681,8 @@ test('MySQL cleanup verification uses one bounded observation budget without mut
     const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
     await service.cleanup();
     const bytes = fs.readFileSync(service.stateFile);
-    let now = Date.now();
-    t.mock.method(Date, 'now', () => now);
+    let now = performance.now();
+    t.mock.method(performance, 'now', () => now);
     fixture.state.onContainerLookup = () =>
     {
         now += fixture.context.cleanupBudgetMs;
@@ -1057,8 +1080,8 @@ test('MySQL recovery retains its total cleanup budget and permits only a new exp
 {
     const fixture = controlledMySqlLifecycle(t);
     const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
-    let now = Date.now();
-    t.mock.method(Date, 'now', () => now);
+    let now = performance.now();
+    t.mock.method(performance, 'now', () => now);
     fixture.state.onContainerLookup = () =>
     {
         now += fixture.context.cleanupBudgetMs;
@@ -1555,6 +1578,89 @@ test('forged planned-equals-actual envelopes fail against live runtime and servi
             observeService: () => structuredClone(service)
         }), /live planned\/actual service envelope drift/u, label);
     }
+});
+
+test('service output preserves regular files and missing tails without creating directories', (t) =>
+{
+    const parent = new URL('../../.tmp/service-output-boundary/', import.meta.url);
+    fs.mkdirSync(parent, { recursive: true });
+    const directory = fs.mkdtempSync(new URL('owned-', parent));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const existing = path.join(directory, 'existing.json');
+    fs.writeFileSync(existing, 'retained', { mode: 0o600 });
+    const missing = path.join(directory, 'new', 'tail', 'envelope.json');
+    assert.equal(resolveExecutionServiceOutput(existing), existing);
+    assert.equal(resolveExecutionServiceOutput(missing), missing);
+    assert.equal(fs.readFileSync(existing, 'utf8'), 'retained');
+    assert.deepEqual(fs.readdirSync(directory), ['existing.json']);
+    assert.throws(() => resolveExecutionServiceOutput(''), /output is required/u);
+    assert.throws(() => resolveExecutionServiceOutput(' '), /output is required/u);
+});
+
+test('actual service publication refuses root and aliases before catalog reads or effects', async (t) =>
+{
+    const repositoryRoot = path.resolve(import.meta.dirname, '../..');
+    const parent = new URL('../../.tmp/service-output-boundary/', import.meta.url);
+    fs.mkdirSync(parent, { recursive: true });
+    const directory = fs.mkdtempSync(new URL('owned-', parent));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const retained = path.join(directory, 'retained.json');
+    fs.writeFileSync(retained, 'retained', { mode: 0o600 });
+    const fileParent = path.join(retained, 'envelope.json');
+    const linkedFile = path.join(directory, 'linked.json');
+    const linkedRoot = path.join(directory, 'root-alias');
+    const linkedParent = path.join(directory, 'parent-alias');
+    fs.symlinkSync(retained, linkedFile);
+    fs.symlinkSync(repositoryRoot, linkedRoot, 'dir');
+    fs.symlinkSync(directory, linkedParent, 'dir');
+    const before = fs.readdirSync(directory).sort();
+    let effects = 0;
+    const unexpectedEffect = () =>
+    {
+        effects++;
+        throw new Error('unexpected effect before invalid output refusal');
+    };
+    for (const name of ['readFileSync', 'mkdirSync', 'writeFileSync', 'renameSync'])
+    {
+        t.mock.method(fs, name, unexpectedEffect);
+    }
+    t.mock.method(childProcess, 'spawnSync', unexpectedEffect);
+    syncBuiltinESMExports();
+    t.after(() =>
+    {
+        t.mock.restoreAll();
+        syncBuiltinESMExports();
+    });
+    for (const output of [
+        repositoryRoot,
+        path.join(repositoryRoot, 'tools', '..'),
+        path.dirname(repositoryRoot),
+        path.parse(repositoryRoot).root,
+        directory,
+        linkedFile,
+        linkedRoot,
+        path.join(linkedRoot, 'missing', 'envelope.json'),
+        path.join(linkedParent, 'missing', 'envelope.json'),
+        fileParent
+    ])
+    {
+        await assert.rejects(runExecutionEnvelopeServices([
+            '--producer-id', 'integration', '--run-id', 'run-output-boundary',
+            '--output', output, '--required-services', 'postgres',
+            '--postgres-container', 'owned-postgres',
+            '--service-catalog', path.join(directory, 'unread-catalog.json'),
+            '--process-evidence', path.join(directory, 'unread-process.json')
+        ]), /output must not|output requires/u, output);
+    }
+    if (path.resolve('.') === repositoryRoot)
+    {
+        await assert.rejects(runExecutionEnvelopeServices([
+            '--producer-id', 'integration', '--run-id', 'run-output-boundary',
+            '--output', '.'
+        ]), /output must not reuse/u);
+    }
+    assert.equal(effects, 0);
+    assert.deepEqual(fs.readdirSync(directory).sort(), before);
 });
 
 test('live verification option parsing is closed and single-occurrence', () =>

@@ -14,20 +14,26 @@
     "clockKinds": [
         "business-wall",
         "monotonic-measurement",
-        "artifact-metadata"
+        "artifact-metadata",
+        "runtime-identity"
     ],
     "authorityKinds": [
         "canonical-business-epoch",
         "runtime-monotonic",
         "artifact-observation",
-        "immutable-ledger"
+        "immutable-ledger",
+        "runtime-business-wall",
+        "observed-business-value",
+        "runtime-file-identity",
+        "runtime-document-identity"
     ],
     "dispositions": [
         "business-wall",
         "monotonic-measurement",
         "artifact-metadata",
         "requires-explicit",
-        "unknown"
+        "unknown",
+        "runtime-identity"
     ],
     "reasonCodes": [
         "temporal.ok",

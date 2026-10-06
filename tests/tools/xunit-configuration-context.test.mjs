@@ -1,0 +1,267 @@
+import assert from 'node:assert/strict';
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
+import test from 'node:test';
+
+const { isInventoryStale } = await import(new URL('../../tools/test-inventory/api.mjs', import.meta.url));
+const { parseInventoryArguments } = await import(new URL('../../tools/test-inventory/produce.mjs', import.meta.url));
+const { collectClosureCandidates, discoverTestInventory, enrollAndMergeXunitProjectResults, finalizeTestInventory, mergeXunitProjectResults, observeXunitCompileSource, projectXunitCompileContext, requireXunitConfiguration } = await import(new URL('../../tools/test-inventory/discovery.mjs', import.meta.url));
+
+const { exerciseXunitConfigurationFixture } = await import(new URL('./support/xunit-configuration-fixture.mjs', import.meta.url));
+
+// Controlled projection controls, not MSBuild/SDK or compiled oracle evidence.
+function fixture()
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-projection-'));
+    const project = { project: 'tests/Main.csproj', directory: 'tests' };
+    const file = (relative) =>
+    {
+        const absolute = path.join(root, relative);
+        mkdirSync(path.dirname(absolute), { recursive: true });
+        writeFileSync(absolute, 'controlled bytes');
+        return absolute;
+    };
+    const linked = file('linked/Linked.cs');
+    const generated = file('obj/Release/Generated.cs');
+    const output = file('bin/Release/Main.dll');
+    file('obj/Release/Main.dll');
+    const context = { Properties: { Configuration: 'Release', TargetPath: output,
+        IntermediateOutputPath: '../obj/Release' }, Items: { Compile: [{ FullPath: linked }, { FullPath: generated }] } };
+    return { root, project, context, linked, generated };
+}
+
+function withFixture(run)
+{
+    const value = fixture();
+    try
+    {
+        run(value);
+    }
+    finally
+    {
+        rmSync(value.root, { recursive: true, force: true });
+    }
+}
+
+test('xunit accepts only the closed Debug and Release configuration set', () =>
+{
+    assert.equal(requireXunitConfiguration(), 'Debug');
+    assert.equal(requireXunitConfiguration('Release'), 'Release');
+    for (const value of ['release', 'Unregistered', '', null, {}, 'Release;Build'])
+    {
+        assert.throws(() => requireXunitConfiguration(value), /unsupported xunit configuration/u);
+        assert.throws(() => isInventoryStale('/unused', {}, { runAdapters: false, configuration: value }), /unsupported xunit configuration/u);
+    }
+});
+
+test('xunit evaluated Compile projection owns linked and selected generated source without directory globs', () =>
+{
+    withFixture(({ root, project, context }) =>
+    {
+        const projected = projectXunitCompileContext(root, project, context, 'Release');
+        assert.deepEqual(projected.sources, ['linked/Linked.cs', 'obj/Release/Generated.cs']);
+        assert.equal(projected.configuration, 'Release');
+    });
+});
+
+test('xunit evaluated context rejects a different configuration and missing selected output or intermediate assembly', () =>
+{
+    withFixture(({ root, project, context }) =>
+    {
+        assert.throws(() => projectXunitCompileContext(root, project, context, 'Debug'), /configuration differs/u);
+        const missingOutput = structuredClone(context);
+        missingOutput.Properties.TargetPath = path.join(root, 'bin/Debug/Main.dll');
+        assert.throws(() => projectXunitCompileContext(root, project, missingOutput, 'Release'), /build output or intermediate/u);
+        rmSync(path.join(root, 'obj/Release/Main.dll'));
+        assert.throws(() => projectXunitCompileContext(root, project, context, 'Release'), /build output or intermediate/u);
+    });
+});
+
+test('xunit evaluated Compile projection rejects absent, duplicate, relative and non-CSharp source items', () =>
+{
+    withFixture(({ root, project, context, linked }) =>
+    {
+        for (const items of [[], [{ FullPath: linked }, { FullPath: linked }], [{ FullPath: 'linked/Linked.cs' }],
+            [{ FullPath: path.join(root, 'missing.cs') }], [{ FullPath: context.Properties.TargetPath }]])
+        {
+            const changed = structuredClone(context);
+            changed.Items.Compile = items;
+            assert.throws(() => projectXunitCompileContext(root, project, changed, 'Release'), /compile items|compiled source|duplicate compiled/u);
+        }
+    });
+});
+
+test('xunit union admits registered linked Compile owners and refuses removed or foreign case source', () =>
+{
+    const project = { project: 'tests/Main.csproj', directory: 'tests' };
+    const sourceFiles = [{ path: 'linked/Linked.cs', adapter: 'xunit' }, { path: 'tests/Removed.cs', adapter: 'xunit' }];
+    const result = { project, sources: ['linked/Linked.cs'], report: {
+        schema: 'fsusblog.test-inventory.xunit-roslyn.v1', diagnostics: [],
+        testCases: [{ id: 'unchanged-linked-case', ownerFile: 'linked/Linked.cs' }] } };
+    assert.equal(mergeXunitProjectResults([result], sourceFiles).testCases[0].id, 'unchanged-linked-case');
+    result.report.testCases[0].ownerFile = 'tests/Removed.cs';
+    assert.throws(() => mergeXunitProjectResults([result], sourceFiles), /case source is not owned/u);
+});
+
+test('xunit producer argument parsing carries the selected configuration and rejects malformed requests before SDK execution', () =>
+{
+    assert.equal(parseInventoryArguments([]).configuration, 'Debug');
+    assert.equal(parseInventoryArguments(['--configuration', 'Release']).configuration, 'Release');
+    for (const args of [['--configuration'], ['--configuration', 'release'], ['--configuration', 'Unregistered'],
+        ['--ignored', 'Release'], ['--configuration', 'Release', 'extra'],
+        ['--configuration', 'Debug', '--configuration', 'Release']])
+    {
+        assert.throws(() => parseInventoryArguments(args), /configuration|unknown argument/u);
+    }
+});
+
+test('xunit compiled fixture refuses absent or JSON-only owner channels before SDK execution or fixture writes', async () =>
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-no-owner-'));
+    const previous = process.env.FSUSBLOG_PHYSICAL_EXECUTION_CHANNEL;
+    try
+    {
+        delete process.env.FSUSBLOG_PHYSICAL_EXECUTION_CHANNEL;
+        await assert.rejects(exerciseXunitConfigurationFixture({ repositoryRoot: root,
+            adapterAssembly: path.join(root, 'adapter.dll') }), /live original build owner channel/u);
+        process.env.FSUSBLOG_PHYSICAL_EXECUTION_CHANNEL = JSON.stringify({ reference: {
+            context: { root, runId: 'xunit-json-only-control' } } });
+        await assert.rejects(exerciseXunitConfigurationFixture({ repositoryRoot: root,
+            adapterAssembly: path.join(root, 'adapter.dll') }));
+        assert.deepEqual(readdirSync(root), []);
+    }
+    finally
+    {
+        if (previous === undefined)
+        {
+            delete process.env.FSUSBLOG_PHYSICAL_EXECUTION_CHANNEL;
+        }
+        else
+        {
+            process.env.FSUSBLOG_PHYSICAL_EXECUTION_CHANNEL = previous;
+        }
+        rmSync(root, { recursive: true, force: true });
+    }
+});
+
+function canonicalCompileFixture()
+{
+    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-canonical-compile-'));
+    const write = (file, source = 'public class ControlledCase { }') =>
+    {
+        mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+        writeFileSync(path.join(root, file), source);
+    };
+    write('tests/matrix.yml', 'tiers:\n');
+    write('tests/coverage-registry.json', JSON.stringify({ entries: [] }));
+    write('tests/backend/Fixtures/backend-test-requirements.json', JSON.stringify({ profiles: [] }));
+    const paths = ['tests/backend/Cases.cs', 'linked/LinkedCases.cs',
+        '.tmp/build/compile-source-epoch/dotnet/FsusBlog.Server.Tests/obj/Release/net10.0/Generated.cs'];
+    for (const file of [...paths, 'tests/backend/obj/Debug/net10.0/Other.cs', 'linked/Helper.cs', 'tests/native/corpus/Owned.cs'])
+    {
+        write(file);
+    }
+    const project = { directory: 'tests/backend', project: 'tests/backend/FsusBlog.Server.Tests.csproj' };
+    const result = { project, configuration: 'Release', sources: [...paths, 'linked/Helper.cs'],
+        intermediateOutput: path.join(path.dirname(path.join(root, paths[2])), 'FsusBlog.Server.Tests.dll'),
+        report: { schema: 'fsusblog.test-inventory.xunit-roslyn.v1', diagnostics: [],
+            testCases: paths.map((ownerFile, index) => ({ id: `original-canonical-id-${index}`, ownerFile,
+                displayName: `ControlledCase${index}`, kind: 'fact', identity: 'static', adapter: 'xunit' })) } };
+    result.sourceDigests = Object.fromEntries(result.sources.map((file) => [file, observeXunitCompileSource(root, file)]));
+    const base = discoverTestInventory(root, { runAdapters: false, configuration: 'Release' });
+    const finish = () =>
+    {
+        const sourceFiles = structuredClone(base.sourceFiles);
+        const merged = enrollAndMergeXunitProjectResults(root, [result], sourceFiles, 'Release');
+        const content = structuredClone(base);
+        delete content.inventoryDigest;
+        return finalizeTestInventory({ ...content, sourceFiles, testCases: merged.testCases,
+            diagnostics: [...content.diagnostics, ...merged.diagnostics] });
+    };
+    return { root, paths, result, base, finish, write };
+}
+
+test('selected Compile canonical discovery enrolls real linked and generated case bytes into the full inventory', () =>
+{
+    const fixture = canonicalCompileFixture();
+    try
+    {
+        const { candidates } = collectClosureCandidates(fixture.root, { tiers: [] }, { entries: [] }, { profiles: [] });
+        assert.equal(candidates.has('linked/LinkedCases.cs'), false);
+        assert.equal(candidates.has(fixture.paths[2]), false);
+        const artifact = fixture.finish();
+        assert.deepEqual(artifact.testCases.map((entry) => entry.id), fixture.result.report.testCases.map((entry) => entry.id));
+        for (const file of fixture.paths)
+        {
+            const owner = artifact.sourceFiles.find((entry) => entry.path === file);
+            assert.equal(owner.adapter, 'xunit');
+            assert.equal(owner.sourceDigest, observeXunitCompileSource(fixture.root, file));
+            assert.ok(owner.declaredBy.includes('xunit:compile:tests/backend/FsusBlog.Server.Tests.csproj:Release'));
+        }
+        assert.equal(artifact.sourceFiles.some((entry) => entry.path === 'linked/Helper.cs'), false);
+        assert.equal(artifact.sourceFiles.some((entry) => entry.path.includes('/obj/Debug/')), false);
+        assert.deepEqual(isInventoryStale(fixture.root, artifact, { runAdapters: false, configuration: 'Release' }), { stale: false });
+    }
+    finally
+    {
+        rmSync(fixture.root, { recursive: true, force: true });
+    }
+});
+
+test('selected Compile enrollment refuses unknown, foreign, duplicate and path-alias owners', () =>
+{
+    const fixture = canonicalCompileFixture();
+    try
+    {
+        assert.throws(() => mergeXunitProjectResults([fixture.result], fixture.base.sourceFiles), /not registered/u);
+        const unknown = structuredClone(fixture.result);
+        unknown.report.testCases[0].ownerFile = 'linked/Unselected.cs';
+        assert.throws(() => enrollAndMergeXunitProjectResults(fixture.root, [unknown], [], 'Release'), /not owned/u);
+        const duplicate = structuredClone(fixture.result);
+        duplicate.project = { directory: 'tests/migration', project: 'tests/migration/FsusBlog.Migration.Tests.csproj' };
+        assert.throws(() => enrollAndMergeXunitProjectResults(fixture.root, [fixture.result, duplicate], [], 'Release'), /duplicate source ownership/u);
+        const outside = structuredClone(fixture.result);
+        outside.sources.push('../Outside.cs');
+        assert.throws(() => enrollAndMergeXunitProjectResults(fixture.root, [outside], [], 'Release'), /repository boundary/u);
+        const conflict = structuredClone(fixture.result);
+        conflict.sources.push('tests/native/corpus/Owned.cs');
+        conflict.sourceDigests['tests/native/corpus/Owned.cs'] = observeXunitCompileSource(fixture.root, 'tests/native/corpus/Owned.cs');
+        conflict.report.testCases.push({ ...conflict.report.testCases[0], id: 'conflicting-corpus-case', ownerFile: 'tests/native/corpus/Owned.cs' });
+        assert.throws(() => enrollAndMergeXunitProjectResults(fixture.root, [conflict], structuredClone(fixture.base.sourceFiles), 'Release'), /conflicts with an existing source owner/u);
+        const foreignEpoch = structuredClone(fixture.result);
+        foreignEpoch.intermediateOutput = path.join(fixture.root, '.tmp/build/foreign-epoch/dotnet/FsusBlog.Server.Tests/obj/Release/net10.0/FsusBlog.Server.Tests.dll');
+        assert.throws(() => enrollAndMergeXunitProjectResults(fixture.root, [foreignEpoch], [], 'Release'), /outside its selected intermediate owner/u);
+        const wrongConfiguration = structuredClone(fixture.result);
+        wrongConfiguration.configuration = 'Debug';
+        assert.throws(() => enrollAndMergeXunitProjectResults(fixture.root, [wrongConfiguration], [], 'Release'), /selected configuration/u);
+        rmSync(path.join(fixture.root, fixture.paths[1]));
+        symlinkSync(path.join(fixture.root, fixture.paths[0]), path.join(fixture.root, fixture.paths[1]));
+        assert.throws(fixture.finish, /path aliases/u);
+    }
+    finally
+    {
+        rmSync(fixture.root, { recursive: true, force: true });
+    }
+});
+
+test('selected Compile freshness rereads generated and linked bytes and refuses stale or missing inputs without SDK execution', () =>
+{
+    const fixture = canonicalCompileFixture();
+    try
+    {
+        const artifact = fixture.finish();
+        fixture.write(fixture.paths[2], 'public class ChangedGeneratedCase { }');
+        assert.throws(fixture.finish, /source bytes changed/u);
+        assert.match(isInventoryStale(fixture.root, artifact, { runAdapters: false, configuration: 'Release' }).reason, /source digest changed/u);
+        fixture.write(fixture.paths[2]);
+        rmSync(path.join(fixture.root, fixture.paths[1]));
+        assert.match(isInventoryStale(fixture.root, artifact, { runAdapters: false, configuration: 'Release' }).reason, /no longer exists/u);
+        symlinkSync(path.join(fixture.root, fixture.paths[0]), path.join(fixture.root, fixture.paths[1]));
+        assert.match(isInventoryStale(fixture.root, artifact, { runAdapters: false, configuration: 'Release' }).reason, /source identity changed/u);
+    }
+    finally
+    {
+        rmSync(fixture.root, { recursive: true, force: true });
+    }
+});

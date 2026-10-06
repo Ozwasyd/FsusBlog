@@ -23,6 +23,7 @@ test('outlet canonical default auth port: original already-aborted signal reache
     } } } }, {}, controller.signal), (error) => error === reason);
     assert.equal(calls, 0);
 });
+const { observePreparedBackendTemporalContext } = await import(new URL('../../tools/test-fixtures/producers/backend-temporal-observer.mjs', import.meta.url));
 const temporalContext = qualificationTemporalContext({
     sourceCommit: 'a'.repeat(40),
     sourceFingerprint: `sha256:${'b'.repeat(64)}`,
@@ -122,7 +123,11 @@ function resultFor(plan)
         },
         permissionCatalogDigest: 'a'.repeat(64),
         ceremonyEvidenceDigest: 'b'.repeat(64),
-        temporalObservation: { businessEpochUtc: temporalContext.businessEpochUtc }
+        temporalObservation: {
+            businessEpochUtc: temporalContext.businessEpochUtc,
+            backendCulture: 'Invariant',
+            postgresTimezone: 'UTC'
+        }
     };
 }
 
@@ -431,6 +436,16 @@ test('live prepare and verify consume environment secret without persisting it',
 
     globalThis.fetch = async (url, request) =>
     {
+        if (String(url).endsWith('/__local/temporal-observation'))
+        {
+            assert.equal(request.headers['X-Fsus-Local-Temporal-Fixture-Secret'], fixtureSecret);
+            return new Response(JSON.stringify({
+                businessEpochUtc: temporalContext.businessEpochUtc,
+                backendCulture: 'Invariant',
+                postgresTimezone: 'UTC',
+                observationBoundary: 'backend-and-postgres-session'
+            }), { status: 200 });
+        }
         assert.match(String(url), /^http:\/\/127\.0\.0\.1:5088\/api\/local\/auth-fixture\/(?:prepare|verify)$/u);
         assert.equal(request.headers['X-Fsus-Local-Auth-Fixture-Secret'], fixtureSecret);
         assert.doesNotMatch(request.body, new RegExp(fixtureSecret, 'u'));
@@ -465,7 +480,79 @@ test('live prepare and verify consume environment secret without persisting it',
         handles: {}
     });
     assert.doesNotMatch(JSON.stringify(producerResult), new RegExp(fixtureSecret, 'u'));
+    assert.equal(producerResult.temporalObservation.observationBoundary, 'backend-and-postgres-session');
     assert.equal((await verifyAuthSession({ handles: {} }, producerResult)).ok, true);
+});
+
+test('auth fixture rejects missing or drifting actual backend and database context', () =>
+{
+    const plan = buildPlan(['auth.user.active']);
+    for (const field of ['businessEpochUtc', 'backendCulture', 'postgresTimezone'])
+    {
+        const missing = resultFor(plan);
+        delete missing.temporalObservation[field];
+        assert.throws(() => validateAuthSessionResult(plan, missing),
+            new RegExp(`requires actual ${field}`, 'u'));
+        const drifting = resultFor(plan);
+        drifting.temporalObservation[field] = field === 'businessEpochUtc'
+            ? '2030-01-01T00:00:00.000Z'
+            : 'drifting-runtime-setting';
+        assert.throws(() => validateAuthSessionResult(plan, drifting),
+            /observation does not match planned temporal context/u);
+    }
+});
+
+test('backend observer cannot conceal producer drift or replace absent actual settings with the plan', async (testContext) =>
+{
+    const originalFetch = globalThis.fetch;
+    testContext.after(() =>
+    {
+        globalThis.fetch = originalFetch;
+    });
+    const context = {
+        temporalContext,
+        handles: {
+            baseUrl: 'http://127.0.0.1:5088',
+            localAuthFixtureSecret: 'controlled-observer-secret'
+        }
+    };
+    let calls = 0;
+    let actual = {
+        businessEpochUtc: temporalContext.businessEpochUtc,
+        backendCulture: 'Invariant',
+        postgresTimezone: 'UTC'
+    };
+    globalThis.fetch = async () =>
+    {
+        calls += 1;
+        return new Response(JSON.stringify(actual), { status: 200 });
+    };
+    await assert.rejects(observePreparedBackendTemporalContext(context, {}), /actual businessEpochUtc/u);
+    await assert.rejects(observePreparedBackendTemporalContext(context, {
+        businessEpochUtc: '2030-01-01T00:00:00.000Z'
+    }), /observation does not match planned temporal context/u);
+    assert.equal(calls, 0);
+    const prepared = {
+        businessEpochUtc: temporalContext.businessEpochUtc,
+        resolvedTemporalRoleArtifactDigest: `sha256:${'c'.repeat(64)}`
+    };
+    assert.deepEqual(await observePreparedBackendTemporalContext(context, prepared), { ...prepared, ...actual });
+    for (const field of ['businessEpochUtc', 'backendCulture', 'postgresTimezone'])
+    {
+        const complete = { ...actual };
+        delete actual[field];
+        await assert.rejects(observePreparedBackendTemporalContext(context, prepared),
+            new RegExp(`requires actual ${field}`, 'u'));
+        actual = { ...complete, [field]: field === 'businessEpochUtc'
+            ? '2030-01-01T00:00:00.000Z' : 'drifting-runtime-setting' };
+        await assert.rejects(observePreparedBackendTemporalContext(context, prepared),
+            /observation does not match planned temporal context/u);
+        actual = complete;
+    }
+    globalThis.fetch = async () => new Response('not authorized', { status: 401 });
+    await assert.rejects(observePreparedBackendTemporalContext(context, prepared), /failed HTTP 401/u);
+    globalThis.fetch = async () => new Response('not-json', { status: 200 });
+    await assert.rejects(observePreparedBackendTemporalContext(context, prepared), /invalid JSON/u);
 });
 
 test('independent verifier is mandatory and binds the exact producer result digest', async (context) =>

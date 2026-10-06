@@ -1,9 +1,10 @@
 using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 
-using Npgsql;
-
+using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
+
+using Npgsql;
 
 namespace FsusBlog.Migration;
 
@@ -18,15 +19,55 @@ internal interface IOfflineMigrationVerifiedReceiptProducer
 internal sealed class OfflineMigrationOwnedVerifyEvidence(
     OfflineMigrationCurrentSchemaVerificationCapabilities owners) : IOfflineMigrationVerifiedReceiptProducer
 {
-    public async Task<OfflineMigrationCurrentSchemaIssuedArtifact> IssueAsync(
-        OfflineMigrationVerifyCommandOptions options, CancellationToken cancellationToken)
+    internal async Task<OfflineMigrationCurrentSchemaIssuedArtifact> VerifyExistingAsync(
+        OfflineMigrationVerifyExistingCommandOptions options, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        OfflineMigrationCurrentSchemaIssuer.ValidateRequest(options.Request);
+        OfflineMigrationHost.ValidateExistingVerifyOptions(options);
         if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
         {
             throw new InvalidOperationException("current_verify_native_owners_not_configured");
         }
+        if (options.Request.Database.Provider == CurrentSchemaProviderKind.Sqlite)
+        {
+            // The current SQLite source observer is not a current-schema verification factory.
+            // Refuse before artifact, credential or native reads instead of restoring a raw pair route.
+            throw new InvalidOperationException("current_verify_sqlite_owned_current_schema_not_configured");
+        }
+        OfflineMigrationCurrentSchemaIssuedArtifact existing = await OfflineMigrationCurrentSchemaIssuer.ReadExistingArtifactAsync(
+            options.Receipt, owners, cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Reuse the original production owner: actual PG issuer or typed MySQL creator,
+        // complete observation, custody checks and awaited terminal cleanup remain unchanged.
+        OfflineMigrationCurrentSchemaIssuedArtifact independentlyObserved = await IssueAsync(
+            new(options.Request, options.EnvironmentFilePath, options.Receipt.Reference, options.TimeoutSeconds),
+            cancellationToken).ConfigureAwait(false);
+        OfflineMigrationCurrentSchemaIssuer.ValidateObservedReceipt(existing.Receipt, independentlyObserved.Receipt);
+        cancellationToken.ThrowIfCancellationRequested();
+        return await OfflineMigrationCurrentSchemaIssuer.RecheckExistingArtifactAsync(
+            options.Receipt, existing.Receipt, existing.Bytes, owners, cancellationToken).ConfigureAwait(false);
+    }
+
+    public async Task<OfflineMigrationCurrentSchemaIssuedArtifact> IssueAsync(
+        OfflineMigrationVerifyCommandOptions options, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        OfflineMigrationVerifyEvidence.ValidateCommandRequest(options.Request);
+        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+        if (options.Request.Database.Provider == CurrentSchemaProviderKind.Sqlite)
+        {
+            // Structural parsing cannot supply the missing current-schema factory.
+            // Refuse before reading artifacts, credentials or a native session.
+            throw new InvalidOperationException("current_verify_sqlite_owned_current_schema_not_configured");
+        }
+        if (options.Request.Database.Provider == CurrentSchemaProviderKind.MySql)
+        {
+            return await IssueOwnedMySqlArtifactAsync(options, cancellationToken).ConfigureAwait(false);
+        }
+        OfflineMigrationCurrentSchemaIssuer.ValidateRequest(options.Request);
         string connectionString = await OfflineMigrationHost.ReadRequiredConnectionStringAsync(
             options.EnvironmentFilePath, cancellationToken).ConfigureAwait(false);
         var connection = new NpgsqlConnection(connectionString);
@@ -65,6 +106,28 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
         return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
     }
 
+    private async Task<OfflineMigrationCurrentSchemaIssuedArtifact> IssueOwnedMySqlArtifactAsync(
+        OfflineMigrationVerifyCommandOptions options, CancellationToken cancellationToken)
+    {
+        OfflineMigrationCurrentSchemaIssuer.ValidateOwnedMySqlRequest(options.Request);
+        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+        string connectionString = await OfflineMigrationHost.ReadRequiredConnectionStringAsync(
+            options.EnvironmentFilePath, cancellationToken).ConfigureAwait(false);
+        // Only the original creator opens, mints, invalidates and cleans up this
+        // opaque consistent snapshot. Its awaited cleanup precedes serialization
+        // or publication eligibility; a raw Snapshot transaction is not accepted.
+        CurrentSchemaReceipt receipt = await OfflineMigrationMySqlNativeSession.ObserveOwnedReadAsync(
+            connectionString, (context, token) => OfflineMigrationCurrentSchemaIssuer.IssueOwnedMySqlAsync(
+                options.Request, context, owners, token), cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        byte[] bytes = CurrentSchemaReceiptCodec.Serialize(receipt);
+        string sha256 = Convert.ToHexStringLower(SHA256.HashData(bytes));
+        return new(new($"current-schema/v1/{sha256}", sha256), receipt, bytes);
+    }
+
     internal static void ThrowObservedFailure(Exception? primary)
     {
         // The original issuer records a secondary read-only transaction disposal
@@ -81,6 +144,23 @@ internal sealed class OfflineMigrationOwnedVerifyEvidence(
 
 internal static class OfflineMigrationVerifyEvidence
 {
+    internal static void ValidateCommandRequest(OfflineMigrationCurrentSchemaVerifyRequest request)
+    {
+        // Reuse the original provider-neutral identity validator only. It reads no
+        // receipt or native facts and grants no provider readiness or capability.
+        OfflineMigrationCurrentSchemaIssuer.ValidateExistingRequest(request);
+    }
+
+    internal static OfflineMigrationOwnedVerifyEvidence ComposeOwnedExisting(
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners)
+    {
+        ArgumentNullException.ThrowIfNull(owners);
+        return new(owners);
+    }
+
+    internal static OfflineMigrationOwnedVerifyEvidence CreateOwnedExisting()
+        => ComposeOwnedExisting(OfflineMigrationCurrentSchemaVerificationOwners.CreateOwned());
+
     internal static IOfflineMigrationVerifiedReceiptProducer ComposeOwned(
         OfflineMigrationCurrentSchemaVerificationCapabilities owners)
     {

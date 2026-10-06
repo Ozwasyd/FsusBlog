@@ -83,6 +83,10 @@ internal sealed class OfflineMigrationOwnedPlanningAuthorityReader : IOfflineMig
                 {
                     throw new InvalidOperationException("offline_plan_compiled_operation_owner_changed");
                 }
+                // Each concrete provider owner must satisfy the existing Core
+                // execution contract before target/tool, backup or native work.
+                // Metadata alone cannot make MySQL implicit-commit DDL atomic.
+                operation.RequireAtomicNativeExecution();
             }
         }
         cancellationToken.ThrowIfCancellationRequested();

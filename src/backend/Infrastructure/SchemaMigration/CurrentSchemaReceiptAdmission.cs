@@ -1,9 +1,9 @@
 using System.Reflection;
 using System.Security.Cryptography;
 
-using SqlSugar;
-
 using FsusBlog.Contracts.SchemaMigration;
+
+using SqlSugar;
 
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
@@ -13,6 +13,41 @@ namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 /// </summary>
 public static class CurrentSchemaReceiptAdmission
 {
+    /// <summary>Observes an explicit formal receipt and complete native current facts without publishing readiness.</summary>
+    public static async Task<CurrentSchemaVerifiedReadObservation> ObserveVerifiedAsync(
+        string receiptPath,
+        string expectedArtifactSha256,
+        string candidateSourceRevision,
+        ISqlSugarClient db,
+        ISchemaModelInspector inspector,
+        CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(receiptPath) || !Path.IsPathFullyQualified(receiptPath)
+            || receiptPath != receiptPath.Trim() || receiptPath.Any(char.IsControl))
+        {
+            throw new InvalidOperationException("current_schema_explicit_receipt_required");
+        }
+        CurrentSchemaReceiptCodec.RequireDigest(expectedArtifactSha256);
+        string actualSourceRevision = ValidateCandidateSource(candidateSourceRevision);
+        return await CurrentSchemaStartupVerifier.WithBoundedReceiptAsync(receiptPath, async bytes =>
+        {
+            if (Convert.ToHexStringLower(SHA256.HashData(bytes)) != expectedArtifactSha256
+                || CurrentSchemaReceiptCodec.Deserialize(bytes).Status != CurrentSchemaReceiptStatus.VerifiedCurrent)
+            {
+                throw new InvalidOperationException("current_receipt_artifact_admission_failed");
+            }
+            var observer = new CurrentSchemaReadObserver(db, inspector);
+            CurrentSchemaOwnedReadSnapshot snapshot = await observer.ReadOwnedAdmissionSnapshotAsync(cancellationToken)
+                .ConfigureAwait(false);
+            CurrentSchemaReceipt receipt = Validate(bytes, expectedArtifactSha256, snapshot.Admission);
+            cancellationToken.ThrowIfCancellationRequested();
+            return new CurrentSchemaVerifiedReadObservation(
+                new CurrentSchemaAdmissionResult(receipt, actualSourceRevision, expectedArtifactSha256),
+                snapshot.Schema, snapshot.Session);
+        }, cancellationToken).ConfigureAwait(false);
+    }
+
     /// <summary>Re-reads the explicit receipt and live database without publishing readiness or issuing writes.</summary>
     public static async Task<CurrentSchemaAdmissionResult> VerifyAsync(
         string receiptPath,
@@ -38,6 +73,28 @@ public static class CurrentSchemaReceiptAdmission
         CurrentSchemaReceipt receipt = Validate(bytes, expectedArtifactSha256, actual);
         cancellationToken.ThrowIfCancellationRequested();
         return new CurrentSchemaAdmissionResult(receipt, actualSourceRevision, expectedArtifactSha256);
+    }
+
+    /// <summary>Consumes actual retained receipt bytes through the original fresh read-only observer.</summary>
+    internal static async Task<CurrentSchemaAdmissionResult> VerifyOriginalHeldReceiptAsync(
+        OriginalCurrentSchemaReceipt original,
+        string candidateSourceRevision,
+        ISqlSugarClient db,
+        ISchemaModelInspector inspector,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(original);
+        cancellationToken.ThrowIfCancellationRequested();
+        string actualSourceRevision = ValidateCandidateSource(candidateSourceRevision);
+        original.ValidateUnchanged(cancellationToken);
+        var observer = new CurrentSchemaReadObserver(db, inspector);
+        CurrentSchemaAdmissionObservation actual = await observer.ReadAdmissionAsync(cancellationToken)
+            .ConfigureAwait(false);
+        original.ValidateUnchanged(cancellationToken);
+        CurrentSchemaReceipt receipt = original.ValidateAgainst(actual, cancellationToken);
+        original.ValidateUnchanged(cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        return new CurrentSchemaAdmissionResult(receipt, actualSourceRevision, original.ArtifactSha256);
     }
 
     /// <summary>Binds the original artifact bytes to fresh target, native database and physical-schema facts.</summary>
@@ -81,6 +138,12 @@ public static class CurrentSchemaReceiptAdmission
         return expectedSourceRevision;
     }
 }
+
+/// <summary>A completed owned read-only observation; this data does not publish startup state or execution qualification.</summary>
+public sealed record CurrentSchemaVerifiedReadObservation(
+    CurrentSchemaAdmissionResult Admission,
+    CurrentSchemaReadObservation Schema,
+    CurrentSchemaNativeSessionIdentity Session);
 
 /// <summary>Published only after real current-only startup admission; no default success exists.</summary>
 public sealed record CurrentSchemaAdmissionResult(

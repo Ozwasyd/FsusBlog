@@ -1,7 +1,7 @@
 import { BehaviorId } from '../../contracts/behavior-contract-catalog.mjs'
 import { validateProducerReceiptAgainstRegistry } from '../../test-matrix/post-runtime-producer-registry.mjs'
 import { isPlainObject, stable } from '../lib/canonicalize.mjs'
-import { validateCandidatePlan } from './candidate.mjs'
+import { assertCandidateParentIdentity, validateCandidatePlan } from './candidate.mjs'
 import {
   authority,
   classReceiptSchema,
@@ -19,9 +19,10 @@ import {
 } from './common.mjs'
 import { validateSemanticFacts } from './semantic-contracts.mjs'
 
-export function produceClassReceipt({ candidatePlan, classId, result, repositoryRoot = defaultRoot })
+export function produceClassReceipt({ candidatePlan, classId, result, repositoryRoot = defaultRoot, expectedRunId = null, expectedAttemptId = null })
 {
   const planInput = explicitJson(candidatePlan, 'candidate plan', repositoryRoot)
+    assertCandidateParentIdentity(planInput.value.candidate, { expectedRunId, expectedAttemptId });
   const plan = validateCandidatePlan(planInput.value, { repositoryRoot })
   const input = explicitJson(result, `${classId} result`, repositoryRoot)
   const { registry, producer } = authority(repositoryRoot)
@@ -89,12 +90,13 @@ export function produceClassReceipt({ candidatePlan, classId, result, repository
   })
 }
 
-export function validateClassReceipt(receipt, { repositoryRoot = defaultRoot } = {})
+export function validateClassReceipt(receipt, { repositoryRoot = defaultRoot, expectedRunId = null, expectedAttemptId = null } = {})
 {
   if (receipt?.schema !== classReceiptSchema || receipt.status !== 'qualified')
   {
     fail('class receipt schema/status mismatch')
   }
+    assertCandidateParentIdentity(receipt.candidate, { expectedRunId, expectedAttemptId });
   verifySeal(receipt, `class receipt ${receipt.classId ?? '<missing>'}`)
   const planInput = verifyReference(receipt.candidatePlanRef, 'class receipt candidate plan', repositoryRoot)
   const rawReference = receipt.rawResultRef
@@ -118,7 +120,9 @@ export function validateClassReceipt(receipt, { repositoryRoot = defaultRoot } =
     candidatePlan: planInput.relative,
     classId: receipt.classId,
     result: rawInput.relative,
-    repositoryRoot
+    repositoryRoot,
+        expectedRunId: receipt.candidate?.runId ?? null,
+        expectedAttemptId: receipt.candidate?.attemptId ?? null
   })
   if (replay.contentDigest !== receipt.contentDigest) fail(`${receipt.classId} class receipt replay mismatch`)
   return receipt

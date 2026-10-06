@@ -44,10 +44,19 @@ The following JSON/XML/text paths are permitted only when registered in `tools/c
 | Operations probe | `/api/ops/health/ready-detail`, `/api/ops/crawler-ranges/status` | Admin-only operations diagnostics; public `/health/ready` stays minimal, while the production admin UI reads business operations data through AEDS paths. |
 | Public AOT tooling | `/internal/public-aot/manifest`, `/internal/public-aot/health` | Build/backfill manifest and SSR-worker diagnostics, not browser runtime APIs. |
 | Local fixture tooling | `/__local/auth-fixture/status`, `/api/local/auth-fixture/status`, `/api/local/demo-fixture/prepare`, `/api/local/public-content-fixture/prepare`, `/__local/public-content-fixture/prepare`, `/__local/temporal-observation` | Development-only fixture producers/observation probes; loopback plus shared-secret access only, and production startup validation refuses to enable them. |
+| Auth fixture lifecycle | `/api/local/auth-fixture/prepare`, `/api/local/auth-fixture/verify` | The `auth-session` tooling producer consumes preparation and verification receipts; Development plus explicit fixture gate, secret and loopback only. |
+| Audit fixture lifecycle | `/__local/audit-fixture/prepare` | The `audit-records` tooling producer consumes the preparation receipt; Development plus explicit fixture gate, secret and loopback only. |
+| Profile fixture lifecycle | `/__local/account-profile-preferences/prepare`, `/__local/account-profile-preferences/verify` | The `account-profile-preferences` tooling producer consumes lifecycle receipts; Development plus explicit fixture gate, secret and loopback only. |
+| Comment fixture lifecycle | `/api/local/comment-fixture/prepare`, `/api/local/comment-fixture/cleanup` | The `comment-moderation` tooling producer consumes lifecycle and failure-recovery receipts; Development plus explicit fixture gate, secret and loopback only. |
+| Messaging fixture lifecycle | `/api/local/messaging-fixture/prepare` | The `account-messaging` tooling producer consumes the preparation receipt; Development plus explicit fixture gate, secret and loopback only. |
+| Security fixture lifecycle | `/__local/security-fixture/apply`, `/__local/security-fixture/observe`, `/__local/security-fixture/cleanup`, `/__local/security-fixture/observe-cleanup` | The `security-state` tooling producer consumes domain receipts; Development/Test plus explicit fixture gate, secret and loopback only, never mapped in Production. |
+| Runtime-cache fault probe | `/_fsus/testing/runtime-cache/redis-fault/{operationClass}` | The runtime-cache evidence runner consumes Redis fault classifications; the parent registers the probe only in Development/Test with a configured evidence secret, and the handler requires middleware-authenticated evidence access. |
 | Third-party moderation provider | HTTP JSON provider contract | External provider compatibility protocol. |
 | Evidence/tool/docs | `.tmp/release-evidence/**`, `tools/**`, `docs/**`, tests | Build, test, audit, and evidence files, not runtime APIs. |
 
 Exemptions may not use broad wildcards. Each entry must bind a concrete file, path or scope, matching pattern, and reason.
+
+The fixture lifecycle and runtime-cache fault exemptions retain JSON only for their named tooling consumers. Retire the entry when its route is removed; if a route becomes a browser-runtime application API, migrate it to AEDS instead of extending the exemption. These registrations do not admit public JSON fallbacks or bypass the existing environment, identity, secret, or caller checks.
 
 ## #105 convergence result
 

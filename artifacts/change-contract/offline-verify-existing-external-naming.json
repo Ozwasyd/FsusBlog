@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationCommandLine.cs",
+                "src/migration/OfflineMigrationCurrentSchemaIssuer.cs",
+                "src/migration/OfflineMigrationHost.cs",
+                "src/migration/OfflineMigrationHostOwnedConfiguration.cs",
+                "src/migration/OfflineMigrationVerifyEvidence.cs"
+            ],
+            "reason": "Preserve the original migration owner environment and closed refusal spellings, including ConnectionStrings__DefaultConnection, while retaining internal C# identities and the original explicit receipt-only caller. This registered scope does not add credential or native authority."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": ["docs/database-migration.md"],
+            "reason": "Preserve the original documented --receipt, --receipt-sha256, --checkpoint and --output command spellings while clarifying the existing receipt's whole-file and semantic digests and the unchanged missing-native-owner boundary."
+        }
+    ]
+}

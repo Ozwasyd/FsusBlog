@@ -35,3 +35,42 @@ cleanup, require the approved metadata merge and its actual gates, complete WIP
 commit/issue provenance, a fresh current-master preservation review and exact
 remote-head CAS. A newly changed valuable owner or remote head requires re-audit.
 The active #3524 Native family and all unproven remote refs are excluded.
+
+## Maintained read-only source entrypoint
+
+The original two source commits through `90e2ae9b1d4701815d4ec91baa5948a009ed27c7`
+remain in ordinary history. The original executable has moved to
+`tools/operations/verify-historical-preservation.py`, the existing operational-tool
+source owner. This directory retains handwritten historical data and its local
+format schema; neither is generated output or a current policy. The preceding
+historical scope describes the original observation and original CLI.
+
+The maintained CLI requires an exact current local HEAD and an explicit committed
+manifest Git commit revision/path. That explicit historical object grants no
+current authority, whether or not it is an ancestor of local HEAD. It compares the complete supplied manifest bytes with that
+regular Git blob, including the entire ref roster; a shortened/re-signed shadow
+manifest cannot reuse the original source binding. Recorded historical bindings
+are explicit caller inputs and do not prove current remote presence. Some original
+refs have since been deleted; successful historical verification does not restore,
+authorize deletion of, or grant authority over any ref. A live read-only origin/PR
+observation requires explicit `--live-bindings` and refuses moved/missing bindings.
+GitHub PR number, head and merge are bound independently. Source-at-merge means
+whole regular mode/blob equality at that PR-bound merge, with merge ancestry to
+the audited master; it does not assert source commit ancestry through a squash or
+cherry-pick. Independent semantic review, current source integration, CI, issue
+acceptance and cleanup authorization are always outside this verifier.
+
+The tool disables replacement objects, optional Git locks, external diff/textconv,
+and status fsmonitor hooks. It verifies the current local HEAD, index bytes,
+local refs and tracked status/diff before and after reading the historical objects.
+It holds regular bounded input file descriptors, checks their physical epochs,
+and checks the same input bytes again before emitting a successful report. It
+writes only JSON stdout, creates no object/index/ref/checkout, and never fetches,
+pushes, deletes refs, retries a mutation, installs dependencies or executes SDK,
+SSH, VM, native acceptance, historical CLI payloads or diff witnesses.
+
+For the original fourteen-row data, use the exact source revision/path shown in
+[the current operations entrypoint](../../../docs/operations.md#historical-source-preservation-verification).
+The original eleven controls remain available through `--self-test`; task-owned
+Git fixtures additionally cover current HEAD drift, complete roster/source-at-merge
+refusal, committed-input substitution, symlink input and actual index mutation.

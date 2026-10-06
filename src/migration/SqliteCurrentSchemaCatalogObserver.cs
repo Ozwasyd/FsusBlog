@@ -242,7 +242,10 @@ internal static class SqliteCurrentSchemaCatalogObserver
     // Byte-prefix first prevents both unbounded native hydration and SQLite's text
     // SUBSTR stopping at embedded NUL. UTF-8/UTF-16 need no more than four bytes per
     // UTF-16 character; oversize text still exceeds the original character limit.
-    private static string Text(string column) => $"CAST(SUBSTR(CAST({column} AS BLOB), 1, {(OfflineMigrationSourceObserver.MaximumCellCharacters + 1) * 4}) AS TEXT)";
+    // Native SUBSTR of an empty BLOB yields NULL. Preserve legitimate empty text
+    // before taking the bounded byte prefix; an actual NULL retains NULL through
+    // the ELSE branch and remains subject to the original RequiredText refusal.
+    private static string Text(string column) => $"CASE WHEN LENGTH(CAST({column} AS BLOB)) = 0 THEN '' ELSE CAST(SUBSTR(CAST({column} AS BLOB), 1, {(OfflineMigrationSourceObserver.MaximumCellCharacters + 1) * 4}) AS TEXT) END";
     private static int Integer(DbDataReader reader, int ordinal) => checked((int)reader.GetInt64(ordinal));
 
     private static SqliteSequenceValue ReadSequenceValue(DbDataReader reader, MetadataBudget budget)

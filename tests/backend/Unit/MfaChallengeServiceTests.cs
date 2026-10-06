@@ -46,6 +46,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RecordFailureAsync_NormalizesSubjectHashBeforeBuildingCounterKey()
     {
         var cache = new RecordingCounterCache();
@@ -68,6 +69,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task RecordFailureAsync_UsesSingleAtomicCounterSnapshot()
     {
         var cache = new RecordingCounterCache();
@@ -96,6 +98,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-record-failure-async-lock-decision-uses-atomic-subject-count")]
     public async Task RecordFailureAsync_LockDecisionUsesAtomicSubjectCount()
     {
         var cache = new RecordingCounterCache();
@@ -120,6 +123,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void MfaFailureLimiter_UsesStableAccountSubjectHashAndAccountAuditField()
     {
         string[] ticket = typeof(MfaChallengeTicket).GetProperties().Select(static property => property.Name).ToArray();
@@ -143,6 +147,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void MfaFailureLimiter_StaticLegacyUserIdResidueDoesNotReturn()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(MfaChallengeService));
@@ -152,6 +157,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-mfa-tickets-are-signed-and-legacy-tickets-rejected")]
     public void MfaTickets_AreSignedAndLegacyTicketsRejected()
     {
         var configuration = new ConfigurationBuilder()
@@ -277,6 +283,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MfaProofTokens_AreBoundToSubjectActionAndCryptographicRandomness()
     {
         var cache = new RecordingCounterCache();
@@ -319,6 +326,7 @@ public sealed class MfaChallengeServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-mfa-proof-tokens-are-one-time-and-reject-cross-account-subject-session-and-action-use")]
     public async Task MfaProofTokens_AreOneTimeAndRejectCrossAccountSubjectSessionAndActionUse()
     {
         var cache = new RecordingCounterCache();

@@ -28,6 +28,7 @@ public sealed class AdminMfaStepUpSecurityTests
 {
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AdminStepUpEndpoints_UseAdminPasskeyApiAndAdminManagePolicy()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -51,6 +52,7 @@ public sealed class AdminMfaStepUpSecurityTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task OrdinaryAccountStepUpEndpoints_UsePasskeyApiAndReturnMfaProof()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -74,6 +76,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void AdminStepUpEndpoints_BindChallengeToAuthenticatedPrincipalSessionAtRuntime()
     {
         string beginHandler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
@@ -97,6 +100,7 @@ public sealed class AdminMfaStepUpSecurityTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AdminSensitiveMutations_UseAdminStepUpProofInsteadOfUserMfa()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -134,6 +138,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void OrdinaryMfaChallengeStart_RejectsAdminSensitiveActionBeforeMintingProof()
     {
         string handler = RuntimeMetadataInspection.DescribeMethodClosureContaining(
@@ -149,6 +154,7 @@ public sealed class AdminMfaStepUpSecurityTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task ContentBackupExport_RequiresAdminSensitiveAdminProof()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -166,6 +172,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-admin-step-up-proof-rejects-missing-proof-without-cache-lookup")]
     public async Task AdminStepUpProof_RejectsMissingProofWithoutCacheLookup()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -177,6 +184,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-admin-step-up-proof-binds-to-admin-principal-session-action-and-consumes-once")]
     public async Task AdminStepUpProof_BindsToAdminPrincipalSessionActionAndConsumesOnce()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -214,6 +222,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-ordinary-user-mfa-proof-cannot-satisfy-admin-step-up")]
     public async Task OrdinaryUserMfaProof_CannotSatisfyAdminStepUp()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -228,6 +237,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-ordinary-risk-control-proof-cannot-satisfy-admin-step-up")]
     public async Task OrdinaryRiskControlProof_CannotSatisfyAdminStepUp()
     {
         var cache = new DualProofCache();
@@ -246,6 +256,7 @@ public sealed class AdminMfaStepUpSecurityTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-admin-step-up-proof-cannot-satisfy-ordinary-risk-control-challenge-proof")]
     public async Task AdminStepUpProof_CannotSatisfyOrdinaryRiskControlChallengeProof()
     {
         var cache = new DualProofCache();

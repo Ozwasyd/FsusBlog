@@ -17,6 +17,49 @@ Use `--base <ref>` for stacked branches and `--full` for the authoritative repos
 
 `./tools/format.sh` writes only selected changed files. It normalizes UTF-8/LF/final-newline/trailing whitespace, delegates C++ to `clang-format`, delegates Shell/CMake when their formatters exist, and pretty-prints JSON without sorting semantic keys. Markdown is never destructively wrapped. `--check` is read-only.
 
+## Registered native command input admission
+
+The sole current `CheckCpp` path consumes the complete original command-wrapper
+model for `tools/test/native/execution-envelope-landlock.c`. Required-tools lint
+selects that translation unit before candidate exclusions or full-mode hash debt
+can bypass admission. Registry/model/component and candidate selection-policy
+bytes must match the independently trusted checker checkout; a candidate registry
+or copied status cannot supply authority. Unregistered translation units keep the
+existing ordinary clang-tidy path and GenericTaint behavior.
+
+The original owner separately binds GCC production compilation and independent
+Clang semantic queries, compiler subprograms/specs, complete header and macro
+profiles, own-token streams, the closed finite AST and caller execution owners.
+The current eleven-function native grammar preserves `ParseIdentity` and
+`AllowOwnedTemporaryAlias`: complete decimal parsing, no-follow metadata opens,
+exact source/alias fstat descriptor pairs, native device/inode/UID/private-mode
+checks and the rule's same verified alias descriptor. Parser return and descriptor
+rule publication follow the original top-level guard sequence. Failure branches
+consume the bound owned `Fail` without an else or decorative nested guard; its
+straight-line body terminates in the unique original `_Exit(125)` with no earlier
+return or conditional escape. Unknown AST/input classes,
+ambient environment input, source writes and redirected call families refuse.
+The original additive getenv taint configuration does not waive other input.
+
+Owned input bytes use bounded original read-only descriptors with named-file,
+ancestor and descriptor epoch checks. The TU-local compile database is private
+0700/0400, contains exactly the admitted entry, and is independently reread after
+analysis alongside the canonical database, compiler/header/macro/token closure,
+caller owners, configuration and translation unit. Native analyzer execution
+receives the exact admitted minimal environment, with no ambient merge.
+
+The restored complete declaration retains its literal historical reviewed
+compiler/header/component/caller values (including the later original 42-file
+caller closure). It is source value, not approval of this composed candidate.
+Current component/caller changes therefore fail closed until the actual original
+observer and independent governance promotion establish a current full profile.
+No profile hashes, baseline thresholds, protected policies or qualification flags
+are refreshed by this source integration. Pure source/descriptor fixtures do not
+establish real compiler, header, analyzer, native or CI qualification. The original
+PR-policy replacement safety case remains prepared and unrun: its effective
+command-wrapper protection exports are absent from the current protected registry
+and require separate owner promotion. It is not evidence of present protection.
+
 ## Line-ending invariant
 
 `.gitattributes` is the checkout authority: every Git-recognized text file resolves to `eol=lf` unless the repository adds a narrow, documented `eol=crlf` exception for a Windows-native contract that demonstrably requires it. The repository currently has no such tracked exception. Binary files remain classified by Git as non-text and are never rewritten by the line-ending gate.

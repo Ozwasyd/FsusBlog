@@ -4,6 +4,7 @@ import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIden
 import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
 import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentChildCursorFromPayload, mapCommentCreateResultFromPayload, mapCommentCursorFromPodPayload, mapCommentPermalinkContextFromPayload, mapCommentPolicySnapshotFromPayload, mapCommentTreeRootCursorFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from '@/adapters/binary/commonAdapter';
+import { mapFontActivationListFromPayload, mapFontRegistryDetailFromPayload, mapFontRegistryListFromPayload, mapThemeActivationFromPayload, mapThemeActivationHistoryFromPayload, mapThemeActivationListFromPayload, mapThemeRegistryDetailFromPayload, mapThemeRegistryListFromPayload } from '@/adapters/binary/fontThemeAdminAdapter';
 import { mapUserLocalePreferenceFromPayload } from '@/adapters/binary/localePreferenceAdapter';
 import { mapAdminConversationDetailFromPayload, mapAdminConversationListFromPayload, mapConversationDetailFromPayload, mapConversationDetailV2FromPayload, mapConversationDetailV3FromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload, mapConversationStatusMutationResultFromPayload } from '@/adapters/binary/messageAdapter';
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload, mapPasskeySignalStateFromPayload } from '@/adapters/binary/passkeyAdapter';
@@ -15,16 +16,17 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
+import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
 import { FrameType } from '@wasm/protocol/frame';
-
 export type BinaryFrameDecoder = (payload: Uint8Array) => unknown;
-export type BinaryFrameDecoderRegistration = readonly [FrameType, BinaryFrameDecoder];
-
+export type BinaryFrameDecoderRegistration = readonly [
+    FrameType,
+    BinaryFrameDecoder
+];
 const knownFrameTypes = new Set<number>(Object.values(FrameType));
-
 // This is the protocol-facing response catalog. Keep it independent from the
 // decoder registrations so registry validation can detect missing mappings.
 export const binaryFrameDecoderFrameTypes = Object.freeze([
@@ -34,6 +36,8 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.ArticleSearch,
     FrameType.ArticleFeatured,
     FrameType.ArticleRelatedReading,
+    FrameType.ArticleCanvasLinkReceipt,
+    FrameType.ArticleCanvasLinkHistoryResponse,
     FrameType.HumanReadChallengeResponse,
     FrameType.HumanReadSubmitResponse,
     FrameType.TrashClearResponse,
@@ -86,6 +90,14 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.CategoryList,
     FrameType.TagList,
     FrameType.TaxonomyExactMetadata,
+    FrameType.FontRegistryList,
+    FrameType.FontRegistryDetail,
+    FrameType.FontActivationList,
+    FrameType.ThemeRegistryList,
+    FrameType.ThemeRegistryDetail,
+    FrameType.ThemeActivationList,
+    FrameType.ThemeActivation,
+    FrameType.ThemeActivationHistory,
     FrameType.RecentCommentStats,
     FrameType.RegionStats,
     FrameType.SeoConfig,
@@ -165,11 +177,7 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.EmptySuccess,
     FrameType.MutationId
 ] as const satisfies readonly FrameType[]);
-
-export function createBinaryFrameDecoderRegistry(
-    registrations: readonly BinaryFrameDecoderRegistration[],
-    expectedFrameTypes?: readonly FrameType[]
-): Readonly<Record<number, BinaryFrameDecoder>>
+export function createBinaryFrameDecoderRegistry(registrations: readonly BinaryFrameDecoderRegistration[], expectedFrameTypes?: readonly FrameType[]): Readonly<Record<number, BinaryFrameDecoder>>
 {
     const registry: Record<number, BinaryFrameDecoder> = Object.create(null) as Record<number, BinaryFrameDecoder>;
     for (const [frameType, decoder] of registrations)
@@ -220,7 +228,6 @@ export function createBinaryFrameDecoderRegistry(
     }
     return Object.freeze(registry);
 }
-
 export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.ArticleList, mapArticlePageFromPodPayload],
     [FrameType.ArticleDetail, mapArticleDetailFromPodPayload],
@@ -280,6 +287,14 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.CategoryList, mapCategoryListFromPayload],
     [FrameType.TagList, mapTagListFromPayload],
     [FrameType.TaxonomyExactMetadata, mapTaxonomyExactMetadataFromPayload],
+    [FrameType.FontRegistryList, mapFontRegistryListFromPayload],
+    [FrameType.FontRegistryDetail, mapFontRegistryDetailFromPayload],
+    [FrameType.FontActivationList, mapFontActivationListFromPayload],
+    [FrameType.ThemeRegistryList, mapThemeRegistryListFromPayload],
+    [FrameType.ThemeRegistryDetail, mapThemeRegistryDetailFromPayload],
+    [FrameType.ThemeActivationList, mapThemeActivationListFromPayload],
+    [FrameType.ThemeActivation, mapThemeActivationFromPayload],
+    [FrameType.ThemeActivationHistory, mapThemeActivationHistoryFromPayload],
     [FrameType.RecentCommentStats, mapRecentCommentsFromPodPayload],
     [FrameType.RegionStats, mapRegionsFromPodPayload],
     [FrameType.SeoConfig, mapSeoConfigFromPayload],
@@ -357,19 +372,12 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.SiteSubscriptionResponse, mapSiteSubscriptionResponseFromPayload],
     [FrameType.AdminPrincipalSnapshot, mapAuthoringJsonFromPayload],
     [FrameType.EmptySuccess, mapEmptySuccessFromPayload],
-    [FrameType.MutationId, mapMutationIdFromPayload]
+    [FrameType.MutationId, mapMutationIdFromPayload],
+    [FrameType.ArticleCanvasLinkReceipt, decodeArticleCanvasLinkReceipt],
+    [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
-
-export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(
-    binaryFrameDecoderRegistrations,
-    binaryFrameDecoderFrameTypes
-);
-
-export function decodeBinaryFramePayload(
-    frameType: FrameType,
-    payload: Uint8Array,
-    accessProfile?: AedsAccessProfileId
-): unknown
+export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(binaryFrameDecoderRegistrations, binaryFrameDecoderFrameTypes);
+export function decodeBinaryFramePayload(frameType: FrameType, payload: Uint8Array, accessProfile?: AedsAccessProfileId): unknown
 {
     if (accessProfile === AEDS_ACCESS_PROFILE.publicArticleListCard)
     {
@@ -385,18 +393,12 @@ export function decodeBinaryFramePayload(
     }
     return decodeBinaryFramePayloadWithRegistry(binaryFrameDecoderRegistry, frameType, payload);
 }
-
-export function decodeBinaryFramePayloadWithRegistry(
-    registry: Readonly<Record<number, BinaryFrameDecoder>>,
-    frameType: FrameType,
-    payload: Uint8Array
-): unknown
+export function decodeBinaryFramePayloadWithRegistry(registry: Readonly<Record<number, BinaryFrameDecoder>>, frameType: FrameType, payload: Uint8Array): unknown
 {
     const mapper = registry[frameType];
     if (!mapper)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, `frame_type_unsupported:${frameType}`);
     }
-
     return mapper(payload);
 }

@@ -3,12 +3,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-const {
-    validatePostRuntimeReceipt
-} = await import(new URL('../test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
+const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../test/temporal-producer-bindings.mjs', import.meta.url));
 
 import {
-    browserContractReceiptSchema,
+    validatePostRuntimeReceipt
+} from '../test-matrix/behavior-evidence-post-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
+import {
+    assertPreRuntimeQualified
+} from '../test-matrix/behavior-evidence-pre-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
+import {
+    validateRequiredEvidenceCatalogBinding
+} from '../test-matrix/required-evidence-catalog.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
+
+import {
     productionBuildReceiptSchema,
     productionBuildBinding,
     canonicalize,
@@ -19,9 +26,7 @@ import {
     sourceStateErrors,
     sameSourceState,
     sortedUniqueErrors,
-    validatePublicPreviewBinding,
-    validatePublicPreviewEvidenceBinding,
-    validateBrowserContractReceipt
+    validateBrowserContractReceipt as validateBrowserContractReceiptContract
 } from './browser-contract-receipt-contract.mjs';
 import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
 import {
@@ -31,21 +36,20 @@ import {
 import {
     validateReleaseReliabilityQualifiedBinding
 } from './release-reliability-qualified-receipt.mjs';
-const {
-    validateRequiredEvidenceCatalogBinding
-} = await import(new URL('../test-matrix/required-evidence-catalog.mjs', import.meta.url));
-const {
-    assertPreRuntimeQualified
-} = await import(new URL('../test-matrix/behavior-evidence-pre-runtime.mjs', import.meta.url));
 
 export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
 export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
 export const releaseFinalTestEvidenceBindingSchema = 'fsusblog.release-final-test-evidence-binding.v1';
 
-export { productionBuildBinding, validatePublicPreviewEvidenceBinding, validateBrowserContractReceipt } from './browser-contract-receipt-contract.mjs';
-void browserContractReceiptSchema;
-void validatePublicPreviewBinding;
-void validatePublicPreviewEvidenceBinding;
+export { productionBuildBinding, validatePublicPreviewEvidenceBinding } from './browser-contract-receipt-contract.mjs';
+
+export function validateBrowserContractReceipt(receipt, options = {})
+{
+    return validateBrowserContractReceiptContract(receipt, {
+        ...options,
+        temporalAuthority: readCorrectnessProducerTemporalAuthority()
+    });
+}
 
 
 function tierExecutionDependencies(tier)

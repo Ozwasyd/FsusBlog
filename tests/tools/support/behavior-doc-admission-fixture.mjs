@@ -1,10 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../../tools/docs/behavior-doc-static-admission-reader.mjs", import.meta.url));
 const { digestValue, sealSourceIdentity } = await import(new URL("../../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../../tools/fact-extractors/registry.mjs", import.meta.url));
-const { createRuntimeRoleMinimalV3Fixture } = await import(new URL("./runtime-role-minimal-v3-fixture.mjs", import.meta.url));
+const { createRuntimeRoleMinimalV4Fixture } = await import(new URL("./runtime-role-minimal-v3-fixture.mjs", import.meta.url));
 
 function seal(value)
 {
@@ -84,7 +84,7 @@ export function createBehaviorDocAdmissionFixture({
             contentDigest: '9'.repeat(64)
         },
         factObservations,
-        minimalContractBuild: createRuntimeRoleMinimalV3Fixture(runId, source),
+        minimalContractBuild: createRuntimeRoleMinimalV4Fixture(runId, source),
         generated: {
             status: 'ok',
             documentCount: 0,

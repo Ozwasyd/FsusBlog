@@ -275,7 +275,31 @@ enum class FrameType : std::uint16_t
     MutationId = 241,
     UserLocalePreferenceUpdateRequest = 242,
     TaxonomyExactMetadata = 243,
+    FontRegistryList = 244,
+    FontRegistryDetail = 245,
+    FontActivationList = 246,
+    ThemeRegistryList = 247,
+    ThemeRegistryDetail = 248,
+    ThemeActivationList = 249,
+    ThemeActivation = 250,
     ApiError = 251,
+    ThemeActivationHistory = 252,
+    AuthoringCanvasCreateRequest = 253,
+    AuthoringCanvasDocumentHeader = 254,
+    AuthoringCanvasListResponse = 255,
+    AuthoringCanvasNodesResponse = 256,
+    AuthoringCanvasEdgesResponse = 257,
+    AuthoringCanvasApplyRequest = 258,
+    AuthoringCanvasOperationReceipt = 259,
+    AuthoringCanvasUndoRedoRequest = 260,
+    AuthoringCanvasHistoryResponse = 261,
+    AuthoringCanvasDeleteRequest = 262,
+    AuthoringCanvasWriteReceipt = 263,
+    AuthoringCanvasResolveRequest = 264,
+    AuthoringCanvasReferenceResolutionBatch = 265,
+    ArticleCanvasLinkRequest = 266,
+    ArticleCanvasLinkReceipt = 267,
+    ArticleCanvasLinkHistoryResponse = 268,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -536,7 +560,31 @@ enum class FrameType : std::uint16_t
         case FrameType::MutationId:
         case FrameType::UserLocalePreferenceUpdateRequest:
         case FrameType::TaxonomyExactMetadata:
+        case FrameType::FontRegistryList:
+        case FrameType::FontRegistryDetail:
+        case FrameType::FontActivationList:
+        case FrameType::ThemeRegistryList:
+        case FrameType::ThemeRegistryDetail:
+        case FrameType::ThemeActivationList:
+        case FrameType::ThemeActivation:
         case FrameType::ApiError:
+        case FrameType::ThemeActivationHistory:
+        case FrameType::AuthoringCanvasCreateRequest:
+        case FrameType::AuthoringCanvasDocumentHeader:
+        case FrameType::AuthoringCanvasListResponse:
+        case FrameType::AuthoringCanvasNodesResponse:
+        case FrameType::AuthoringCanvasEdgesResponse:
+        case FrameType::AuthoringCanvasApplyRequest:
+        case FrameType::AuthoringCanvasOperationReceipt:
+        case FrameType::AuthoringCanvasUndoRedoRequest:
+        case FrameType::AuthoringCanvasHistoryResponse:
+        case FrameType::AuthoringCanvasDeleteRequest:
+        case FrameType::AuthoringCanvasWriteReceipt:
+        case FrameType::AuthoringCanvasResolveRequest:
+        case FrameType::AuthoringCanvasReferenceResolutionBatch:
+        case FrameType::ArticleCanvasLinkRequest:
+        case FrameType::ArticleCanvasLinkReceipt:
+        case FrameType::ArticleCanvasLinkHistoryResponse:
             return true;
         default:
             return false;

@@ -2,10 +2,11 @@ using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
 using System.Globalization;
-
-using MySqlConnector;
+using System.Runtime.ExceptionServices;
 
 using FsusBlog.Contracts.Migration;
+
+using MySqlConnector;
 
 namespace FsusBlog.Migration;
 
@@ -32,6 +33,8 @@ internal sealed record MySqlCurrentSchemaCatalog(
 /// </summary>
 internal static class MySqlCurrentSchemaCatalogObserver
 {
+    internal const string CleanupFailuresKey = "FsusBlog.Migration.MySqlCatalogCleanupFailures";
+
     internal static async Task<MySqlCurrentSchemaCatalog> ReadAsync(
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
@@ -52,7 +55,7 @@ internal static class MySqlCurrentSchemaCatalogObserver
                 "@@session.transaction_read_only", "@@session.sql_mode", "@@session.character_set_connection",
                 "@@session.collation_connection", "@@session.auto_increment_increment", "@@session.auto_increment_offset",
                 "@@show_gipk_in_create_table_and_information_schema"),
-            SessionNames,
+            s_sessionNames,
             budget, cancellationToken).ConfigureAwait(false);
         if (sessions.Length != 1)
             throw Failure("session_observation_invalid");
@@ -70,7 +73,7 @@ internal static class MySqlCurrentSchemaCatalogObserver
             throw Failure("complete_visibility_required");
 
         var rows = ImmutableArray.CreateBuilder<MySqlCatalogRow>();
-        foreach (CatalogQuery query in Queries)
+        foreach (CatalogQuery query in s_queries)
         {
             ImmutableArray<ImmutableArray<MySqlCatalogCell>> actual = await QueryAsync(connection, transaction,
                 query.Sql, query.Names, budget, cancellationToken).ConfigureAwait(false);
@@ -98,7 +101,7 @@ internal static class MySqlCurrentSchemaCatalogObserver
 
     internal static CurrentSchemaDatabaseIdentity RequireObservedSession(ImmutableArray<MySqlCatalogCell> session)
     {
-        if (session.Length != SessionNames.Length || !session.Select(cell => cell.Name).SequenceEqual(SessionNames)
+        if (session.Length != s_sessionNames.Length || !session.Select(cell => cell.Name).SequenceEqual(s_sessionNames)
             || !Guid.TryParse(session[0].Value, out Guid server) || server == Guid.Empty
             || string.IsNullOrWhiteSpace(session[1].Value) || session[2].Value != "REPEATABLE-READ"
             || session[3].Value is not ("0" or "1") || session[4].Value is null
@@ -148,23 +151,68 @@ internal static class MySqlCurrentSchemaCatalogObserver
         DbConnection connection, DbTransaction transaction, string sql, string[] names,
         MetadataBudget budget, CancellationToken cancellationToken)
     {
-        await using DbCommand command = connection.CreateCommand();
-        command.Transaction = transaction;
-        command.CommandText = sql;
-        command.CommandTimeout = 30; // Original source metadata command policy, not a new total deadline.
-        await using DbDataReader reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
-        if (reader.FieldCount != names.Length)
-            throw Failure("native_metadata_shape_invalid");
-        var rows = ImmutableArray.CreateBuilder<ImmutableArray<MySqlCatalogCell>>();
-        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        DbCommand command = connection.CreateCommand();
+        DbDataReader? reader = null;
+        Exception? failure = null;
+        var cleanupFailures = ImmutableArray.CreateBuilder<string>();
+        ImmutableArray<ImmutableArray<MySqlCatalogCell>> result = default;
+        try
         {
-            budget.AddRow();
-            var cells = ImmutableArray.CreateBuilder<MySqlCatalogCell>(names.Length);
-            for (int index = 0; index < names.Length; index++)
-                cells.Add(new(names[index], budget.ReadCell(reader.IsDBNull(index) ? null : reader.GetString(index))));
-            rows.Add(cells.ToImmutable());
+            cancellationToken.ThrowIfCancellationRequested();
+            command.Transaction = transaction;
+            command.CommandText = sql;
+            command.CommandTimeout = 30; // Original source metadata command policy, not a new total deadline.
+            reader = await command.ExecuteReaderAsync(CommandBehavior.SequentialAccess, cancellationToken).ConfigureAwait(false);
+            if (reader.FieldCount != names.Length)
+                throw Failure("native_metadata_shape_invalid");
+            var rows = ImmutableArray.CreateBuilder<ImmutableArray<MySqlCatalogCell>>();
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                budget.AddRow();
+                var cells = ImmutableArray.CreateBuilder<MySqlCatalogCell>(names.Length);
+                for (int index = 0; index < names.Length; index++)
+                    cells.Add(new(names[index], budget.ReadCell(reader.IsDBNull(index) ? null : reader.GetString(index))));
+                rows.Add(cells.ToImmutable());
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            result = rows.ToImmutable();
         }
-        return rows.ToImmutable();
+        catch (Exception primary)
+        {
+            failure = primary;
+        }
+        // Same original material-reader custody: join both actual disposals,
+        // retain the first failure and expose only this owner's fixed codes.
+        // A token or a successful metadata body cannot qualify failed cleanup.
+        if (reader is not null)
+        {
+            try
+            {
+                await reader.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception cleanup)
+            {
+                failure ??= cleanup;
+                cleanupFailures.Add("mysql_current_catalog_reader_cleanup_failed");
+            }
+        }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception cleanup)
+        {
+            failure ??= cleanup;
+            cleanupFailures.Add("mysql_current_catalog_command_cleanup_failed");
+        }
+        if (failure is not null)
+        {
+            if (cleanupFailures.Count > 0)
+                failure.Data[CleanupFailuresKey] = cleanupFailures.ToImmutable();
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 
     internal sealed class MetadataBudget
@@ -178,7 +226,8 @@ internal static class MySqlCurrentSchemaCatalogObserver
         }
         internal string? ReadCell(string? value)
         {
-            if (value is null) return null;
+            if (value is null)
+                return null;
             if (value.Length > OfflineMigrationSourceObserver.MaximumCellCharacters
                 || value.Length > OfflineMigrationSourceObserver.MaximumMetadataCharacters - _characters)
                 throw Failure("metadata_budget_exceeded");
@@ -197,14 +246,14 @@ internal static class MySqlCurrentSchemaCatalogObserver
     // Defensive descriptor copy for controls. Actual reads use this same owned
     // descriptor, never a fixture-only identity column or caller-supplied SQL.
     internal static IReadOnlyList<string> ObservedFieldNames(MySqlCatalogPart part)
-        => Queries.Single(query => query.Part == part).Names.ToArray();
-    private static readonly string[] SessionNames =
+        => s_queries.Single(query => query.Part == part).Names.ToArray();
+    private static readonly string[] s_sessionNames =
         ["server_uuid", "database", "isolation", "read_only", "sql_mode", "connection_charset",
             "connection_collation", "auto_increment_increment", "auto_increment_offset", "gipk_visible"];
     private static CatalogQuery Q(MySqlCatalogPart part, string table, string filter, string order, params string[] fields)
         => new(part, $"SELECT {SelectFields(fields)} FROM information_schema.{table} WHERE {filter} ORDER BY {order}", fields);
 
-    private static readonly CatalogQuery[] Queries =
+    private static readonly CatalogQuery[] s_queries =
     [
         Q(MySqlCatalogPart.Tables, "TABLES", "TABLE_SCHEMA=DATABASE()", "BINARY TABLE_NAME",
             "TABLE_NAME", "TABLE_TYPE", "ENGINE", "ROW_FORMAT", "TABLE_COLLATION", "CREATE_OPTIONS", "TABLE_COMMENT", "AUTO_INCREMENT"),

@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-const {EVIDENCE_TRANSPORT_MANIFEST_ENV, listTransportedArchiveFiles} = await import(new URL('../test/current-run-evidence-transport.mjs', import.meta.url));
+const {EVIDENCE_TRANSPORT_MANIFEST_ENV} = await import(new URL('../test/current-run-evidence-transport.mjs', import.meta.url));
 const {collectionDocumentDigest} = await import(new URL('./check-job-summaries.mjs', import.meta.url));
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const policyVersion = 'fsusblog-flaky-execution-v2';
@@ -444,15 +444,6 @@ function isSuccessful(item)
 
 function listFlakyFiles()
 {
-    const transport = String(process.env[EVIDENCE_TRANSPORT_MANIFEST_ENV] ?? '').trim();
-    if (transport)
-    {
-        return listTransportedArchiveFiles({
-            repositoryRoot: root,
-            transportManifestPath: transport,
-            authorityId: 'evidence-consumer.ci.check-flaky-evidence.current-run'
-        });
-    }
     const explicit = String(process.env.FSUSBLOG_FLAKY_EVIDENCE_FILES ?? '').trim();
     if (explicit)
     {
@@ -469,10 +460,11 @@ function listFlakyFiles()
         .map((name) => path.join(localDir, name));
 }
 
-function checkEvidence({ releaseFinal, files = listFlakyFiles() })
+function checkEvidence({ releaseFinal, files = listFlakyFiles(), documents = [] })
 {
     const errors = [];
     let count = 0;
+    const entries = documents.map((item, index) => ({ item, file: `transported flaky evidence[${index}]` }));
     for (const file of files)
     {
         let item;
@@ -485,12 +477,15 @@ function checkEvidence({ releaseFinal, files = listFlakyFiles() })
             errors.push(`${path.relative(root, file)}: ${error.message}`);
             continue;
         }
+        entries.push({ item, file: path.relative(root, file) });
+    }
+    for (const { item, file: displayFile } of entries)
+    {
         if (item.schema !== 'fsusblog.ci.flaky.v1')
         {
             continue;
         }
         count += 1;
-        const displayFile = path.relative(root, file);
         errors.push(...validateFlakyEvidence(item, displayFile));
         if (releaseFinal && !isNonBlockingDiagnosticEvidence(item) && !isSuccessful(item))
         {
@@ -500,10 +495,16 @@ function checkEvidence({ releaseFinal, files = listFlakyFiles() })
     return { count, errors };
 }
 
-function main()
+async function main()
 {
+    const transport = String(process.env[EVIDENCE_TRANSPORT_MANIFEST_ENV] ?? '').trim();
+    const collections = transport
+        ? (await import('./verify-quality-gate-evidence-transport.mjs'))
+            .readQualityGateEvidenceTransportCollections({ repositoryRoot: root, environment: process.env })
+        : null;
     const { count, errors } = checkEvidence({
-        releaseFinal: process.argv.includes('--release-final')
+        releaseFinal: process.argv.includes('--release-final'),
+        ...(collections ? { files: [], documents: collections.evidence } : {})
     });
     if (errors.length > 0)
     {
@@ -623,6 +624,10 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     }
     else
     {
-        main();
+        main().catch((error) =>
+        {
+            console.error(`[flaky-evidence] ${error.message}`);
+            process.exitCode = 1;
+        });
     }
 }

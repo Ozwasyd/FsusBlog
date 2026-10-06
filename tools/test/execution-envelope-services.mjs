@@ -1045,7 +1045,58 @@ function writePrivateJson(file, value)
     fs.renameSync(temporary, file);
 }
 
-async function main(argv)
+/** Resolve a file destination before service observation; inspection grants no write authority. */
+export function resolveExecutionServiceOutput(file)
+{
+    if (typeof file !== 'string' || !file.trim())
+    {
+        throw new Error('execution service output is required');
+    }
+    const output = path.resolve(file);
+    const relativeRoot = path.relative(output, root);
+    if (!relativeRoot || (relativeRoot !== '..'
+        && !relativeRoot.startsWith(`..${path.sep}`) && !path.isAbsolute(relativeRoot)))
+    {
+        throw new Error('execution service output must not reuse the repository root or an ancestor');
+    }
+    for (let current = output; ; current = path.dirname(current))
+    {
+        let metadata;
+        try
+        {
+            metadata = fs.lstatSync(current);
+        }
+        catch (error)
+        {
+            if (error.code === 'ENOTDIR')
+            {
+                throw new Error('execution service output requires real directory parents', { cause: error });
+            }
+            if (error.code !== 'ENOENT')
+            {
+                throw error;
+            }
+        }
+        if (metadata)
+        {
+            if (metadata.isSymbolicLink() || fs.realpathSync(current) !== current)
+            {
+                throw new Error('execution service output must not contain a path alias');
+            }
+            if (current === output ? !metadata.isFile() : !metadata.isDirectory())
+            {
+                throw new Error('execution service output requires a regular file and real directory parents');
+            }
+        }
+        if (current === path.parse(current).root)
+        {
+            break;
+        }
+    }
+    return output;
+}
+
+export async function runExecutionEnvelopeServices(argv)
 {
     const values = parseExecutionEnvelopeServicesOptions(argv);
     if (values.has('--image-reference'))
@@ -1083,12 +1134,12 @@ async function main(argv)
         '--process-evidence',
         '--service-catalog'
     ]);
+    const output = resolveExecutionServiceOutput(values.get('--output'));
     const catalog = loadExecutionServiceCatalog(
         values.has('--service-catalog')
             ? path.resolve(values.get('--service-catalog'))
             : executionServiceCatalogFile
     );
-    const output = path.resolve(values.get('--output'));
     const requiredServices = String(values.get('--required-services') ?? 'postgres,redis')
         .split(',').sort();
     const containers = resolveExecutionServiceContainers(values, requiredServices);
@@ -1102,13 +1153,14 @@ async function main(argv)
             : {},
         catalog
     });
+    resolveExecutionServiceOutput(output);
     writePrivateJson(output, envelope);
     console.log(`[execution-envelope-services] admitted output=${output}`);
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href)
 {
-    main(process.argv.slice(2)).catch((error) =>
+    runExecutionEnvelopeServices(process.argv.slice(2)).catch((error) =>
     {
         console.error(`[execution-envelope-services] ${error.message}`);
         process.exitCode = 1;

@@ -224,7 +224,11 @@ function compositionAdapter()
                 deviceProjections: [],
                 cleanupState: [],
                 identityReferences: request.identityReferences,
-                temporalObservation: null,
+                temporalObservation: {
+                    businessEpochUtc: '2024-02-29T23:59:59.000Z',
+                    backendCulture: 'Invariant',
+                    postgresTimezone: 'UTC'
+                },
                 contentDigest: digest
             };
         },
@@ -281,6 +285,17 @@ test('producer consumes provisional owned identity refs and emits exact typed li
     assert.equal('localStorage' in adapter.calls[0].request, false);
 });
 
+test('profile preference preparation rejects missing actual temporal observation', async () =>
+{
+    const adapter = compositionAdapter();
+    const prepare = adapter.prepare;
+    adapter.prepare = async (request) => ({ ...await prepare(request), temporalObservation: null });
+    await assert.rejects(
+        () => prepareAccountProfilePreferences(plannedContext({ adapter })),
+        /actual businessEpochUtc/u
+    );
+});
+
 test('producer independently verifies and cleans the exact composition receipt', async () =>
 {
     const adapter = compositionAdapter();
@@ -295,6 +310,42 @@ test('producer independently verifies and cleans the exact composition receipt',
     assert.strictEqual(adapter.calls[1].receipt, result.compositionReceipt);
     assert.equal(adapter.calls[2].action, 'cleanup');
     assert.strictEqual(adapter.calls[2].receipt, result.compositionReceipt);
+});
+
+test('profile preference preparation and verification reject incomplete or drifting actual clocks', async () =>
+{
+    for (const [field, value] of [
+        ['businessEpochUtc', undefined],
+        ['backendCulture', undefined],
+        ['postgresTimezone', undefined],
+        ['businessEpochUtc', '2024-03-01T00:00:00.000Z'],
+        ['backendCulture', 'zh-CN'],
+        ['postgresTimezone', 'Asia/Shanghai']
+    ])
+    {
+        const adapter = compositionAdapter();
+        const prepare = adapter.prepare;
+        adapter.prepare = async (request) =>
+        {
+            const raw = await prepare(request);
+            return { ...raw, temporalObservation: { ...raw.temporalObservation, [field]: value } };
+        };
+        await assert.rejects(
+            () => prepareAccountProfilePreferences(plannedContext({ adapter })),
+            /actual|temporal/iu
+        );
+
+        const context = plannedContext();
+        const result = await prepareAccountProfilePreferences(context);
+        const drifted = { ...result.temporalObservation, [field]: value };
+        for (const candidate of [
+            { ...result, temporalObservation: drifted },
+            { ...result, compositionReceipt: { ...result.compositionReceipt, temporalObservation: drifted } }
+        ])
+        {
+            assert.equal((await verifyAccountProfilePreferences(context, candidate)).ok, false);
+        }
+    }
 });
 
 test('live transport sends prepare identity headers only to the prepare endpoint', async () =>

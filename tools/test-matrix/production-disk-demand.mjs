@@ -207,6 +207,123 @@ export function readProductionDiskDemandCatalog(root, {
     return validateCatalog(JSON.parse(fs.readFileSync(file, 'utf8')));
 }
 
+/** The independent preparation reserves both archive staging and the actual locked ZIP size bound. */
+export function bindBehaviorDocNugetPreparationDiskDemand(catalog, feed, purpose = 'behavior-doc')
+{
+    validateCatalog(catalog);
+    if (!['behavior-doc', 'matrix-governance'].includes(purpose)) throw new Error('Unknown preparation capacity declaration');
+    if (![feed?.allocatedBytes, feed?.expandedAllocatedBytes].every((value) => Number.isSafeInteger(value) && value > 0)
+        || !/^[a-f0-9]{64}$/u.test(feed?.treeDigest ?? ''))
+    { throw new Error('NuGet preparation requires exact bounded feed resource inventory'); }
+    const result = JSON.parse(JSON.stringify(catalog));
+    result.rootBindings['behavior-doc-nuget-preparation'] = 'behaviorDocNugetPreparationRoot';
+    result.rootBindings['behavior-doc-run-owned'] = 'behaviorDocRunOwnedRoot';
+    const original = result.producers.find((entry) => entry.producerId === 'behavior-doc-static-admission');
+    if (!original) throw new Error('Original BehaviorDoc capacity demands are missing');
+    const retained = feed.allocatedBytes + feed.expandedAllocatedBytes;
+    if (!Number.isSafeInteger(retained)) throw new Error('NuGet preparation capacity bound overflow');
+    const scratch = original.demands.find((demand) => demand.rootId === 'os-temp');
+    if (!scratch) throw new Error('Original BehaviorDoc scratch demand is missing');
+    const artifact = { rootId: 'behavior-doc-nuget-preparation',
+        concurrencyClass: 'behavior-doc-nuget-preparation',
+        sourceOfEstimate: 'exact locked archive staging plus central-directory expanded allocation bound; tree='
+            + feed.treeDigest + '; original SDK artifact/uncertainty/recovery allowance retained' };
+    for (const field of byteFields)
+    {
+        artifact[field] = original.demands.filter((demand) => demand.rootId !== 'os-temp')
+            .reduce((sum, demand) => sum + demand[field], field === 'uncertaintyBytes' ? 0 : retained);
+        if (!Number.isSafeInteger(artifact[field])) throw new Error('NuGet preparation capacity declaration overflow');
+    }
+    result.producers.push({ producerId: purpose === 'behavior-doc' ? 'behavior-doc-nuget-preparation' : 'matrix-nuget-preparation', demands: [artifact,
+        { ...scratch, rootId: 'behavior-doc-run-owned',
+            sourceOfEstimate: scratch.sourceOfEstimate + '; original independent restore temporary allowance retained' }
+    ] });
+    return validateCatalog(result);
+}
+
+/** Source-proposed conservative parent metadata/carrier reserve, in addition to original native demands. */
+export function bindNugetParentControlDiskDemand(catalog, producerId)
+{
+    validateCatalog(catalog);
+    if (!['behavior-doc-nuget-preparation', 'matrix-nuget-preparation'].includes(producerId))
+        throw new Error('NuGet parent control demand requires its fixed preparation producer');
+    const result = JSON.parse(JSON.stringify(catalog));
+    const producer = result.producers.find((entry) => entry.producerId === producerId);
+    if (!producer) throw new Error('NuGet parent requires the original preparation demand');
+    for (const [rootId, binding] of [['nuget-parent-control', 'nugetParentControlRoot'],
+        ['nuget-parent-carrier', 'nugetParentCarrierRoot'], ['nuget-systemd-management', 'nugetSystemdManagementRoot'],
+        ['nuget-systemd-runtime', 'nugetSystemdRuntimeRoot']])
+    {
+        result.rootBindings[rootId] = binding;
+        producer.demands.push({ rootId, concurrencyClass: 'nuget-parent-control',
+            peakAdditionalBytes: 67108864, terminalRetainedBytes: 67108864,
+            rollbackOrRecoveryBytes: 67108864, uncertaintyBytes: 67108864,
+            sourceOfEstimate: 'Source-proposed conservative uncalibrated 64 MiB per-field parent control reserve; '
+                + 'layout, checkpoint, logs, residuals, physical receipts, run-bound caches, broker and systemd management; '
+                + 'not measured capacity acceptance; original per-transfer demands and safety remain' });
+    }
+    return validateCatalog(result);
+}
+
+/** Bind the actual finite offline copy to the original Fresh disk demand, without reducing safety. */
+export function bindBehaviorDocNugetDiskDemand(catalog, preparation)
+{
+    validateCatalog(catalog);
+    if (!Number.isSafeInteger(preparation?.allocatedBytes) || preparation.allocatedBytes <= 0
+        || !/^[a-f0-9]{64}$/u.test(preparation.treeDigest ?? '')
+        || !/^[a-f0-9]{64}$/u.test(preparation.bindingDigest ?? ''))
+    {
+        throw new Error('Fresh BehaviorDoc requires a bounded, byte-bound offline dependency inventory');
+    }
+    const result = JSON.parse(JSON.stringify(catalog));
+    result.rootBindings['behavior-doc-run-owned'] = 'behaviorDocRunOwnedRoot';
+    const producer = result.producers.find((entry) => entry.producerId === 'behavior-doc-static-admission');
+    const scratch = producer?.demands.find((entry) => entry.rootId === 'os-temp');
+    if (!scratch) throw new Error('Original BehaviorDoc scratch demand is missing');
+    scratch.rootId = 'behavior-doc-run-owned';
+    scratch.peakAdditionalBytes += preparation.allocatedBytes;
+    // The copied payload is removed at every attempt terminal path, but peak/recovery are still reserved.
+    scratch.rollbackOrRecoveryBytes += preparation.allocatedBytes;
+    scratch.sourceOfEstimate += '; actual private NuGet inventory allocated bound='
+        + preparation.allocatedBytes + ', tree=' + preparation.treeDigest + ', transfer='
+        + preparation.bindingDigest + '; target allocation unit=' + preparation.allocationBlockSize
+        + '; scratch and replay are on the run-owned filesystem';
+    return validateCatalog(result);
+}
+
+/** Explicit matrix ingress demand, independent of production bundle selection. */
+export function bindMatrixNugetDiskDemand(catalog, preparation, producerId)
+{
+    validateCatalog(catalog);
+    if (!['matrix-governance', 'validate-matrix'].includes(producerId)
+        || preparation?.purpose !== 'matrix-governance' || preparation.producerId !== producerId
+        || !Number.isSafeInteger(preparation.allocatedBytes) || preparation.allocatedBytes <= 0
+        || !Number.isSafeInteger(preparation.feedAllocatedBytes) || preparation.feedAllocatedBytes <= 0
+        || !/^[a-f0-9]{64}$/u.test(preparation.bindingDigest ?? ''))
+        throw new Error('Matrix capacity requires its exact admitted finite transfer');
+    const result = JSON.parse(JSON.stringify(catalog));
+    const original = result.producers.find((entry) => entry.producerId === 'behavior-doc-static-admission');
+    const scratch = original?.demands.find((entry) => entry.rootId === 'os-temp');
+    if (!scratch) throw new Error('Original NuGet artifact/scratch capacity declaration is missing');
+    result.rootBindings['matrix-nuget-artifacts'] = 'matrixNugetArtifactRoot';
+    result.rootBindings['behavior-doc-run-owned'] = 'behaviorDocRunOwnedRoot';
+    const artifact = { rootId: 'matrix-nuget-artifacts', concurrencyClass: 'matrix-current-source-build',
+        sourceOfEstimate: 'original five-host artifact, retention, recovery and uncertainty envelope retained for fixed two-project matrix closure; transfer=' + preparation.bindingDigest };
+    for (const field of byteFields)
+    {
+        artifact[field] = original.demands.filter((demand) => demand.rootId !== 'os-temp')
+            .reduce((sum, demand) => sum + demand[field], field === 'uncertaintyBytes' ? 0
+                : preparation.allocatedBytes + preparation.feedAllocatedBytes);
+        if (!Number.isSafeInteger(artifact[field])) throw new Error('Matrix capacity bound overflow');
+    }
+    const runOwned = { ...scratch, rootId: 'behavior-doc-run-owned',
+        peakAdditionalBytes: scratch.peakAdditionalBytes + preparation.allocatedBytes,
+        rollbackOrRecoveryBytes: scratch.rollbackOrRecoveryBytes + preparation.allocatedBytes,
+        sourceOfEstimate: scratch.sourceOfEstimate + '; exact current-attempt seeded NuGet allocation=' + preparation.allocatedBytes };
+    result.producers.push({ producerId, demands: [artifact, runOwned] });
+    return validateCatalog(result);
+}
+
 function dependencyClosure(tiers)
 {
     const byId = new Map(tiers.map((tier) => [tier.id, tier]));
@@ -430,6 +547,7 @@ export function defaultProductionDiskRoots(root, {
     return {
         behaviorDocContractBuildCacheRoot,
         behaviorDocObservationRoot,
+        behaviorDocRunOwnedRoot: path.join(root, '.tmp/test-execution-envelope/run-owned'),
         productionFreshOutputRoot: outputRoot,
         productionBuildRoot: buildRoot,
         osTempRoot: os.tmpdir(),

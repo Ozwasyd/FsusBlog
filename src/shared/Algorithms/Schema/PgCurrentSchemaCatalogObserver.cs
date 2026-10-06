@@ -86,6 +86,11 @@ public static class PgCurrentSchemaCatalogObserver
                     ELSE c.data_type
                 END AS semantic_data_type,
                 c.udt_name,
+                attribute_meta.attndims AS array_dimensions,
+                type_meta.typtype::text AS type_kind,
+                type_namespace.nspname AS type_schema,
+                element_meta.typname AS array_element_type,
+                element_namespace.nspname AS array_element_schema,
                 c.character_maximum_length,
                 c.column_default,
                 format_type(attribute_meta.atttypid, attribute_meta.atttypmod) AS physical_type,
@@ -131,6 +136,12 @@ public static class PgCurrentSchemaCatalogObserver
              AND NOT attribute_meta.attisdropped
             JOIN pg_type type_meta
               ON type_meta.oid = attribute_meta.atttypid
+            JOIN pg_namespace type_namespace
+              ON type_namespace.oid = type_meta.typnamespace
+            LEFT JOIN pg_type element_meta
+              ON element_meta.oid = type_meta.typelem
+            LEFT JOIN pg_namespace element_namespace
+              ON element_namespace.oid = element_meta.typnamespace
             LEFT JOIN pg_collation collation_meta
               ON collation_meta.oid = attribute_meta.attcollation
             LEFT JOIN pg_namespace collation_namespace
@@ -206,7 +217,12 @@ public static class PgCurrentSchemaCatalogObserver
                 isPrimaryKey,
                 isIdentity,
                 maxLength,
-                NormalizePostgresSemanticType(dataType, udtName),
+                NormalizePostgresColumnSemanticType(dataType, udtName,
+                    Convert.ToString(row["physical_type"]) ?? string.Empty,
+                    Convert.ToInt32(row["array_dimensions"]), Convert.ToString(row["type_kind"]) ?? string.Empty,
+                    Convert.ToString(row["type_schema"]) ?? string.Empty,
+                    Convert.ToString(row["array_element_type"]) ?? string.Empty,
+                    Convert.ToString(row["array_element_schema"]) ?? string.Empty),
                 isIdentity ? null : NormalizePostgresDefault(rawDefault),
                 "none",
                 PhysicalType: NormalizePostgresPhysicalType(
@@ -505,13 +521,33 @@ public static class PgCurrentSchemaCatalogObserver
             constraints: constraints,
             owner: new SchemaOwnerModel("postgresql", $"public.{tableName}"));
 
-    private static string NormalizePostgresSemanticType(string dataType, string udtName)
+    /// <summary>Decodes scalar rank zero or the closed builtin one-dimensional array identities from actual catalog facts.</summary>
+    public static string NormalizePostgresColumnSemanticType(string dataType, string udtName,
+        string physicalType, int arrayDimensions, string typeKind, string typeSchema,
+        string elementType, string elementSchema)
     {
-        if (string.Equals(dataType, "ARRAY", StringComparison.OrdinalIgnoreCase))
+        if (arrayDimensions != 0 || string.Equals(dataType, "ARRAY", StringComparison.OrdinalIgnoreCase)
+            || dataType.Contains('[') || dataType.Contains(']')
+            || physicalType.Contains('[') || physicalType.Contains(']'))
         {
-            throw new InvalidOperationException($"Unsupported PostgreSQL current schema array type: {udtName}.");
+            string? semantic = (udtName, elementType, NormalizePostgresPhysicalType(physicalType)) switch
+            {
+                ("_int2", "int2", "smallint[]") => "int16-array",
+                ("_uuid", "uuid", "uuid[]") => "uuid-array",
+                ("_text", "text", "text[]") => "string-array",
+                _ => null
+            };
+            if (arrayDimensions != 1 || dataType != "ARRAY" || typeKind != "b"
+                || typeSchema != "pg_catalog" || elementSchema != "pg_catalog" || semantic is null)
+            {
+                throw new InvalidOperationException($"Unsupported PostgreSQL current schema array identity or dimensions: {udtName}.");
+            }
+            return semantic;
         }
-        return SchemaPhysicalTypeProjection.NormalizeDeclaredSemantic(dataType);
+        string scalarSemantic = SchemaPhysicalTypeProjection.NormalizeDeclaredSemantic(dataType);
+        return scalarSemantic.EndsWith("-array", StringComparison.Ordinal)
+            ? throw new InvalidOperationException("PostgreSQL array semantic type requires the closed native catalog identity.")
+            : scalarSemantic;
     }
 
     /// <summary>Decodes the closed native foreign-key action vocabulary; unknown codes refuse.</summary>

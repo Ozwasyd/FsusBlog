@@ -1,7 +1,124 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import test from 'node:test';
 
 const {commentFixtureOwnershipErrors, readCommentFixtureContract, commentFixtureInventoryErrors, readCommentFixtureInventory} = await import(new URL('../../tools/test/comment-fixture-contract.mjs', import.meta.url));
+const {defaultTimeoutPolicyDigest, qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
+const {prepareCommentModeration, verifyCommentModeration} = await import(new URL('../../tools/test-fixtures/producers/comment-moderation-producer.mjs', import.meta.url));
+const {resolveFixtureTestSession} = await import(new URL('../../tools/test-fixtures/runtime-scope.mjs', import.meta.url));
+
+function commentTemporalContext()
+{
+    const digest = 'b'.repeat(64);
+    const context = {
+        namespace: 'comment-temporal',
+        runIdentity: 'comment-temporal-run',
+        profileIdentity: { profileId: 'comments-moderation' },
+        plan: {
+            capabilities: ['comment.moderation-matrix', 'comment.threaded', 'moderation.policy-matrix'],
+            expandedCapabilityDigest: `sha256:${digest}`,
+            variantPlanDigest: `sha256:${digest}`
+        },
+        variantPlan: { producerVariantPlanDigest: `sha256:${digest}` },
+        handles: {
+            baseUrl: 'http://127.0.0.1:9876',
+            localCommentFixtureSecret: 'comment-test-secret',
+            localPublicContentFixtureSecret: 'temporal-test-secret'
+        },
+        temporalContext: qualificationTemporalContext({
+            sourceCommit: 'a'.repeat(40),
+            sourceFingerprint: `sha256:${digest}`,
+            producerId: 'comment-moderation',
+            schedulerRunId: 'comment-temporal-run',
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            locale: 'en-US',
+            uiLocale: 'en-US',
+            timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+        })
+    };
+    const identityPrepareReferences = ['admin', 'primary-author', 'secondary-author'].map((role, index) =>
+    {
+        const body = {
+            schema: 'fsusblog.fixture-identity-prepare-reference.v1',
+            ownerProducerId: 'auth-session',
+            consumerProducerId: 'comment-moderation',
+            verified: false,
+            role,
+            publicId: String(index + 1),
+            runId: context.runIdentity,
+            namespace: context.namespace,
+            profileId: context.profileIdentity.profileId,
+            capabilityId: role === 'admin' ? 'auth.admin.full-permission' : 'auth.user.active',
+            producerResultDigest: digest
+        };
+        return { ...body, digest: createHash('sha256').update(JSON.stringify(body)).digest('hex') };
+    });
+    context.producerOutputs = {
+        'auth-session': { producerId: 'auth-session', producerResultDigest: digest, identityPrepareReferences },
+        'public-content': {
+            producerId: 'public-content',
+            strategy: 'transaction-fixture',
+            observations: { database: {}, redis: {}, cache: {} },
+            temporalArtifacts: { bindingDigest: `sha256:${digest}` },
+            projection: { articleId: '101' },
+            entityIdentities: [{ kind: 'article', id: '101' }]
+        }
+    };
+    return context;
+}
+
+test('comment HTTP temporal ingress rejects missing or drifting actual fields before consuming domain output', async (t) =>
+{
+    const context = commentTemporalContext();
+    const actual = { businessEpochUtc: '2024-02-29T23:59:59.000Z', backendCulture: 'Invariant', postgresTimezone: 'UTC' };
+    let observation;
+    let reads = 0;
+    t.mock.method(globalThis, 'fetch', async (url, options) =>
+    {
+        if (options.method === 'POST')
+        {
+            assert.equal(url, 'http://127.0.0.1:9876/api/local/comment-fixture/prepare');
+            return Response.json({});
+        }
+        reads += 1;
+        assert.equal(url, 'http://127.0.0.1:9876/__local/temporal-observation');
+        assert.equal(options.headers['X-Fsus-Local-Temporal-Fixture-Secret'], 'temporal-test-secret');
+        assert.equal(options.headers['X-Fsus-Test-Session'], resolveFixtureTestSession(context));
+        return Response.json(observation);
+    });
+    for (const value of [
+        {},
+        { ...actual, businessEpochUtc: undefined },
+        { ...actual, backendCulture: undefined },
+        { ...actual, postgresTimezone: undefined },
+        { ...actual, businessEpochUtc: '2024-03-01T00:00:00.000Z' },
+        { ...actual, backendCulture: 'zh-CN' },
+        { ...actual, postgresTimezone: 'Asia/Shanghai' }
+    ])
+    {
+        observation = value;
+        await assert.rejects(() => prepareCommentModeration(context), (error) =>
+            error.message.startsWith('backend temporal observation requires actual ')
+            || error.reasonCode?.startsWith('temporal.') === true);
+    }
+    assert.equal(reads, 7);
+    observation = actual;
+    // A valid clock is not a substitute for complete business-domain evidence.
+    await assert.rejects(() => prepareCommentModeration(context), /backend result is stale or cross-plan/u);
+});
+
+test('comment verification rechecks the actual clock without replacing domain postconditions', async () =>
+{
+    const context = commentTemporalContext();
+    const absent = await verifyCommentModeration(context, { temporalObservation: {} });
+    assert.equal(absent.ok, false);
+    assert.match(absent.reason, /requires actual businessEpochUtc/u);
+    const complete = await verifyCommentModeration(context, {
+        temporalObservation: { businessEpochUtc: '2024-02-29T23:59:59.000Z', backendCulture: 'Invariant', postgresTimezone: 'UTC' }
+    });
+    assert.equal(complete.ok, false);
+    assert.match(complete.reason, /verified result is incomplete/u);
+});
 function clone(value)
 {
     return structuredClone(value);

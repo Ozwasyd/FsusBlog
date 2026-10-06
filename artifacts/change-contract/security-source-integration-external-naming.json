@@ -1,0 +1,42 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/mutation/stryker-tool.mjs",
+                "tools/test-convergence/post-baseline-history.mjs",
+                "tools/test-matrix/produce-behavior-mutation-qualification.mjs",
+                "tools/test-matrix/verify-behavior-mutation-qualification.mjs",
+                "tools/test/changed-critical-mutation-evidence.mjs",
+                "tools/test/check-stryker-report.mjs",
+                "tools/test/run-changed-critical-mutation.mjs",
+                "tools/test/run-release-mutation-parity-build.mjs"
+            ],
+            "reason": "Preserve the existing caller-visible process environment and Git custody spellings across the integrated mutation producers, readers and historical bridge."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/authoritative-development-docs.json",
+                "config/testing/mutation/stryker-tool.v1.json"
+            ],
+            "reason": "Preserve the existing registered JSON key spellings for authoritative documentation ownership and the run-bound Stryker tool declaration."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md",
+                "tools/check-backend-test-governance.mjs"
+            ],
+            "reason": "Preserve the registered shared governance owner names and current repository-layout contract while integrating mutation inventory and custody controls."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh"
+            ],
+            "reason": "Preserve the existing scheduler and mutation process environment spellings in the sole shared shell capability owner."
+        }
+    ]
+}

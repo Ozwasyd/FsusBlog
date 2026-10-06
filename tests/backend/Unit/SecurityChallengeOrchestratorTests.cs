@@ -21,6 +21,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-protocol-activation-required")]
     public async Task V3IssueAndVerify_FailClosedBeforeProtocolActivationWithoutCallingProvider()
     {
         var provider = new FakeChallengeProvider("perceptionCharacterV3");
@@ -44,6 +45,7 @@ public sealed class SecurityChallengeOrchestratorTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterSecurityChallengeOrchestrator()
     {
         var services = new ServiceCollection();
@@ -58,6 +60,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-provider-required-for-plan")]
     public async Task IssueAsync_MissingProvider_FailsClosedAndWritesRisk()
     {
         var riskSink = new CapturingRiskSink();
@@ -76,6 +79,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-provider-issue-failure-fails-closed")]
     public async Task IssueAsync_ProviderFailure_FailsClosedAndWritesRisk()
     {
         var provider = new FakeChallengeProvider("perceptionCharacterV3")
@@ -96,6 +100,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_MultipleChallenges_ReturnsOnlyFirstActionableAssignment()
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
@@ -124,6 +129,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAndAdvance_PowBeforeV3_DoesNotLeaseScarceMemberEarly()
     {
         var pow = new FakeChallengeProvider("sha256PowV1");
@@ -147,6 +153,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConcurrentPowCompletion_IssuesV3AtMostOnce()
     {
         var pow = new FakeChallengeProvider("sha256PowV1");
@@ -158,8 +165,9 @@ public sealed class SecurityChallengeOrchestratorTests
             CreateIssueRequest(["sha256PowV1", "perceptionCharacterV3"]))).Envelope);
         SecurityChallengeOrchestrationVerifyRequest request = CreateVerifyRequest(envelope, 0);
 
-        SecurityChallengeOrchestrationVerifyResult[] results = await Task.WhenAll(
-            orchestrator.VerifyAsync(request), orchestrator.VerifyAsync(request));
+        SecurityChallengeOrchestrationVerifyResult[] results = await RealConcurrencyHarness.RunAsync(
+            () => orchestrator.VerifyAsync(request),
+            () => orchestrator.VerifyAsync(request));
 
         Assert.Equal(1, pow.VerifyCalls);
         Assert.Equal(1, v3.IssueCalls);
@@ -168,6 +176,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task OrderedPlan_PowThenPoSpaceThenV3_MaterializesOneMemberPerTransition()
     {
         var pow = new FakeChallengeProvider("sha256PowV1");
@@ -191,6 +200,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-plan-members-distinct")]
     public async Task DuplicateV3Plan_FailsBeforeAnyProviderIssue()
     {
         var v3 = new FakeChallengeProvider("perceptionCharacterV3");
@@ -207,6 +217,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_MultipleChallenges_ReturnsProgressThenOneAggregateProof()
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
@@ -243,6 +254,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-replay-preserves-progress")]
     public async Task VerifyAsync_ReplayedMemberIsRejectedWithoutDestroyingConcurrentProgress()
     {
         var state = new TestSecurityChallengeEnvelopeStateService(autoCreateSingleMember: false);
@@ -274,6 +286,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-provider-verification-failure-terminal")]
     public async Task VerifyAsync_LaterProviderFailureTerminatesEnvelopeWithoutAggregateProof()
     {
         var characterChallenge = new FakeChallengeProvider("perceptionCharacterV3")
@@ -311,6 +324,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-order-before-provider")]
     public async Task VerifyAsync_OutOfOrderMemberRejectsBeforeProviderExecution()
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
@@ -343,6 +357,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ProviderOnlyPoSpace_ReachesRegisteredProvider()
     {
         var provider = new FakeChallengeProvider("argon2idPoSpaceV1");
@@ -360,6 +375,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_ProviderSuccess_MintsProofToken()
     {
         var provider = new FakeChallengeProvider("sha256PowV1")
@@ -388,6 +404,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_PerceptionCharacterV3UsesIssuedEnvelopeDeviceAndPolicyBindings()
     {
         string envelopeId = SecurityChallengeContracts.CreateChallengeId();
@@ -445,6 +462,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueThenVerifyAsync_SingleMemberUsesSameEnvelopeStateMachine()
     {
         var provider = new FakeChallengeProvider("perceptionCharacterV3");
@@ -471,6 +489,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-proof-mint-failure-fails-closed")]
     public async Task VerifyAsync_ProofMintFailure_FailsClosedAndWritesRisk()
     {
         var provider = new FakeChallengeProvider("sha256PowV1")
@@ -493,6 +512,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_ProofMintFailure_RetryReusesPreparedTokenWithoutProviderReplay()
     {
         var provider = new FakeChallengeProvider("sha256PowV1");
@@ -515,6 +535,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_ResponseLossRetryReturnsSameCompletedProofWithoutReminting()
     {
         var provider = new FakeChallengeProvider("sha256PowV1");
@@ -538,6 +559,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task VerifyAsync_ConcurrentFinalRetriesShareOnePreparedToken()
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
@@ -551,9 +573,9 @@ public sealed class SecurityChallengeOrchestratorTests
         SecurityChallengeOrchestrationVerifyResult advanced = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None);
         SecurityChallengeOrchestrationVerifyRequest finalRequest = CreateVerifyRequest(envelope, Assert.IsType<SecurityChallengeAssignment>(advanced.NextAssignment));
 
-        SecurityChallengeOrchestrationVerifyResult[] results = await Task.WhenAll(
-            orchestrator.VerifyAsync(finalRequest, CancellationToken.None),
-            orchestrator.VerifyAsync(finalRequest, CancellationToken.None));
+        SecurityChallengeOrchestrationVerifyResult[] results = await RealConcurrencyHarness.RunAsync(
+            () => orchestrator.VerifyAsync(finalRequest, CancellationToken.None),
+            () => orchestrator.VerifyAsync(finalRequest, CancellationToken.None));
 
         Assert.All(results, result => Assert.True(result.Succeeded, result.Reason));
         Assert.Single(results.Select(static result => result.ProofToken).Distinct(StringComparer.Ordinal));
@@ -562,6 +584,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-identity-replacement-revokes-final-member")]
     public async Task VerifyAsync_IdentityReplacementRevokeBlocksFinalMember()
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
@@ -595,6 +618,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_WithoutProviderExpiry_UsesInjectedClockAndReturnsMintedExpiry()
     {
         var provider = new FakeChallengeProvider("sha256PowV1")
@@ -680,15 +704,12 @@ public sealed class SecurityChallengeOrchestratorTests
     {
         public string Kind { get; } = kind;
 
-        public int IssueCalls
-        {
-            get; private set;
-        }
+        private int _issueCalls;
+        private int _verifyCalls;
 
-        public int VerifyCalls
-        {
-            get; private set;
-        }
+        public int IssueCalls => Volatile.Read(ref _issueCalls);
+
+        public int VerifyCalls => Volatile.Read(ref _verifyCalls);
 
         public SecurityChallengeProviderVerifyRequest? LastVerifyRequest
         {
@@ -709,7 +730,7 @@ public sealed class SecurityChallengeOrchestratorTests
 
         public Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default)
         {
-            IssueCalls++;
+            Interlocked.Increment(ref _issueCalls);
             LastIssueRequest = request;
             if (IssueResult is { } result)
             {
@@ -736,7 +757,7 @@ public sealed class SecurityChallengeOrchestratorTests
 
         public Task<SecurityChallengeProviderVerifyResult> VerifyAsync(SecurityChallengeProviderVerifyRequest request, CancellationToken cancellationToken = default)
         {
-            VerifyCalls++;
+            Interlocked.Increment(ref _verifyCalls);
             LastVerifyRequest = request;
             return Task.FromResult(VerifyResult);
         }

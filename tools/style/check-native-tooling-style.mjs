@@ -8,6 +8,8 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
+import { isMandatoryCommandWrapperInput, prepareCommandWrapperInputModel, validateCommandWrapperInputSelection } from './command-wrapper-input-model.mjs';
+
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), '../..');
 const defaultPolicy = 'config/development/native-tooling-style-policy.json';
@@ -246,7 +248,7 @@ function Run(command, argumentsList, options = {})
     return spawnSync(command, argumentsList, {
         cwd: options.cwd ?? root,
         encoding: options.encoding ?? 'utf8',
-        env: { ...process.env, ...(options.env ?? {}) },
+        env: options.exactEnvironment ? { ...options.exactEnvironment } : { ...process.env, ...(options.env ?? {}) },
         maxBuffer: 32 * 1024 * 1024,
         timeout: options.timeout ?? 120_000
     });
@@ -1065,13 +1067,51 @@ function CheckCpp(file, content, argumentsValue)
         }
         return;
     }
-    const tidyResult = Run(clangTidy, [
-        '--quiet',
-        '-p',
-        compileDatabase.directory,
-        file,
-        ...ClangTidyDriverArguments(compileDatabase)
-    ]);
+    let inputModel;
+    try
+    {
+        inputModel = prepareCommandWrapperInputModel({
+            root, file, databases: LoadCompileCommandDatabases(),
+            cppLintPolicy: policy.standardTools.cppLint, environment: process.env
+        });
+    }
+    catch (error)
+    {
+        AddDiagnostic(file, 1, 'command-input-admission', error.message);
+        return;
+    }
+    let tidyResult;
+    try
+    {
+        tidyResult = Run(inputModel?.analyzerPath ?? clangTidy, [
+            '--quiet',
+            '-p',
+            inputModel?.compileDirectory ?? compileDatabase.directory,
+            file,
+            ...ClangTidyDriverArguments(compileDatabase),
+            ...(inputModel?.extraArguments ?? [])
+        ], { exactEnvironment: inputModel?.analyzerEnvironment });
+        inputModel?.revalidate();
+    }
+    catch (error)
+    {
+        AddDiagnostic(file, 1, 'command-input-admission', error.message);
+        return;
+    }
+    finally
+    {
+        if (inputModel)
+        {
+            try
+            {
+                inputModel.cleanup();
+            }
+            catch (error)
+            {
+                AddDiagnostic(file, 1, 'command-input-admission', `private analyzer input cleanup failed: ${error.message}`);
+            }
+        }
+    }
     if (tidyResult.status !== 0 || /(?:warning|error):/u.test(`${tidyResult.stdout}\n${tidyResult.stderr}`))
     {
         ToolFailure(file, 'clang-tidy', tidyResult);
@@ -2364,14 +2404,26 @@ function Main()
     }
     LoadBaseline();
 
-    const selected = SelectFiles(argumentsValue, exclusions);
+    const requestedCandidates = SelectFiles(argumentsValue, []);
+    const selected = requestedCandidates.filter(file => IsEligible(file, argumentsValue.domain, exclusions));
+    try
+    {
+        validateCommandWrapperInputSelection({ root, argumentsValue, selected, requestedCandidates, policyPath });
+    }
+    catch (error)
+    {
+        AddDiagnostic('tools/test/native/execution-envelope-landlock.c', 1, 'command-input-admission', error.message);
+        PrintDiagnostics();
+        process.exitCode = 1;
+        return;
+    }
     let checked = 0;
     let baselineExempt = 0;
     const checkedMarkdown = [];
     for (const file of selected)
     {
         const absolute = path.resolve(root, file);
-        if (argumentsValue.mode === 'full' && fs.existsSync(absolute))
+        if (argumentsValue.mode === 'full' && fs.existsSync(absolute) && !isMandatoryCommandWrapperInput(file, argumentsValue))
         {
             const expectedDigest = baseline.get(file);
             if (expectedDigest && expectedDigest === Sha256(fs.readFileSync(absolute)))

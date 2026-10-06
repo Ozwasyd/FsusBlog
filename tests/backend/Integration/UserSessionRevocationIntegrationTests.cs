@@ -37,6 +37,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     PublicHotDeliveryRedisFixture redisFixture) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-revoke-session-rejects-previously-issued-principal-after-cache-was-warm")]
     public async Task RevokeSession_RejectsPreviouslyIssuedPrincipalAfterCacheWasWarm()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -59,6 +60,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-revoke-other-sessions-invalidates-others-and-keeps-current-session-valid")]
     public async Task RevokeOtherSessions_InvalidatesOthersAndKeepsCurrentSessionValid()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -92,6 +94,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-revoke-all-sessions-invalidates-every-warm-principal-with-security-reason")]
     public async Task RevokeAllSessions_InvalidatesEveryWarmPrincipalWithSecurityReason()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -126,6 +129,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-revoke-sessions-by-credential-revokes-only-exact-account-credential-binding")]
     public async Task RevokeSessionsByCredential_RevokesOnlyExactAccountCredentialBinding()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -164,6 +168,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-refresh-replay-revokes-session-and-immediately-rejects-old-principal")]
     public async Task RefreshReplay_RevokesSessionAndImmediatelyRejectsOldPrincipal()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -191,6 +196,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-refresh-replay-revokes-only-target-session-and-does-not-treat-device-signal-as-authority")]
     public async Task RefreshReplay_RevokesOnlyTargetSessionAndDoesNotTreatDeviceSignalAsAuthority()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -239,6 +245,7 @@ public sealed class UserSessionRevocationIntegrationTests(
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConcurrentCacheMissAndRevoke_DoesNotResurrectStaleActiveSnapshot()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -249,23 +256,29 @@ public sealed class UserSessionRevocationIntegrationTests(
         var validator = new UserSessionValidationService(db, cache);
         ClaimsPrincipal principal = CreatePrincipal(accountId, session);
 
-        Task<UserSessionValidationResult> concurrentValidation = validator.ValidateAsync(principal, CancellationToken.None);
-        await cache.WaitForBlockedActivePublishAsync();
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => validator.ValidateAsync(principal, CancellationToken.None),
+            async concurrentValidation =>
+            {
+                await cache.WaitForBlockedActivePublishAsync();
 
-        UserSessionCommandService users = CreateSessionService(db, cache);
-        Assert.True(await users.RevokeSessionAsync(accountId, session.SessionId));
-        cache.ReleaseBlockedActivePublish();
+                UserSessionCommandService users = CreateSessionService(db, cache);
+                Assert.True(await users.RevokeSessionAsync(accountId, session.SessionId));
+                cache.ReleaseBlockedActivePublish();
 
-        UserSessionValidationResult racedResult = await concurrentValidation;
-        Assert.False(racedResult.IsValid);
-        Assert.Equal("user_session_revoked", racedResult.Reason);
-        Assert.Equal(
-            "user_session_revoked",
-            (await validator.ValidateAsync(principal, CancellationToken.None)).Reason);
+                UserSessionValidationResult racedResult = await concurrentValidation;
+                Assert.False(racedResult.IsValid);
+                Assert.Equal("user_session_revoked", racedResult.Reason);
+                Assert.Equal(
+                    "user_session_revoked",
+                    (await validator.ValidateAsync(principal, CancellationToken.None)).Reason);
+            },
+            () => cache.ReleaseBlockedActivePublish());
     }
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-revoke-all-committed-before-refresh-rejects-warm-principal-and-leaves-other-account-active")]
     public async Task RevokeAllCommittedBeforeRefreshRejectsWarmPrincipalAndLeavesOtherAccountActive()
     {
         const string RefreshToken = "issue-2334-revoke-first-refresh";
@@ -341,6 +354,7 @@ public sealed class UserSessionRevocationIntegrationTests(
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task RefreshReadOldRowThenRevokeCommitRejectsRotationAndEveryIssuedToken()
     {
         const string OriginalRefreshToken = "issue-2334-generation-zero";
@@ -399,76 +413,90 @@ public sealed class UserSessionRevocationIntegrationTests(
         await holder.OpenAsync();
         await using NpgsqlTransaction holderTransaction = await holder.BeginTransactionAsync();
         await AcquireSessionConcurrencyGateAsync(holder, holderTransaction, accountId);
-        Task<int> revoke = revokeSessions.RevokeAllSessionsAsync(
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => revokeSessions.RevokeAllSessionsAsync(
             accountId,
             "issue_2334_revoke_all",
-            CancellationToken.None);
-        _ = await WaitForLockWaitersAsync(connectionString, [revokeApplication], expectedCount: 1);
-        Task<RefreshTokenRotationResult> refresh = refreshSessions.RotateRefreshTokenAsync(
-            issued.RefreshToken,
-            session.SessionId,
-            CancellationToken.None);
-        bool refreshReachedGate = await WaitForLockWaitersAsync(
-            connectionString,
-            [revokeApplication, refreshApplication],
-            expectedCount: 2,
-            mustRemainIncomplete: refresh);
-        Assert.False(revoke.IsCompleted);
-        bool refreshWasIncompleteWhileHeld = !refresh.IsCompleted;
+            CancellationToken.None),
+            async revoke =>
+            {
+                _ = await WaitForLockWaitersAsync(connectionString, [revokeApplication], expectedCount: 1);
+                Task<RefreshTokenRotationResult> refresh = refreshSessions.RotateRefreshTokenAsync(
+                    issued.RefreshToken,
+                    session.SessionId,
+                    CancellationToken.None);
+                try
+                {
+                    bool refreshReachedGate = await WaitForLockWaitersAsync(
+                        connectionString,
+                        [revokeApplication, refreshApplication],
+                        expectedCount: 2,
+                        mustRemainIncomplete: refresh);
+                    Assert.False(revoke.IsCompleted);
+                    bool refreshWasIncompleteWhileHeld = !refresh.IsCompleted;
 
-        await holderTransaction.CommitAsync();
-        int revoked = await revoke.WaitAsync(TimeSpan.FromSeconds(30));
-        RefreshTokenRotationResult racedRefresh = await refresh.WaitAsync(TimeSpan.FromSeconds(30));
-        Assert.True(
-            refreshReachedGate,
-            "Refresh completed before reaching the shared session concurrency gate.");
-        Assert.True(
-            refreshWasIncompleteWhileHeld,
-            "Refresh completed while the shared session concurrency gate remained held.");
+                    await holderTransaction.CommitAsync();
+                    int revoked = await revoke.WaitAsync(TimeSpan.FromSeconds(30));
+                    RefreshTokenRotationResult racedRefresh = await refresh.WaitAsync(TimeSpan.FromSeconds(30));
+                    Assert.True(
+                        refreshReachedGate,
+                        "Refresh completed before reaching the shared session concurrency gate.");
+                    Assert.True(
+                        refreshWasIncompleteWhileHeld,
+                        "Refresh completed while the shared session concurrency gate remained held.");
 
-        Assert.Equal(1, revoked);
-        Assert.Equal(RefreshTokenRotationOutcome.ConcurrentConflict, racedRefresh.Outcome);
-        Assert.Null(racedRefresh.Tokens);
-        UserSession final = await setupDb.Queryable<UserSession>().SingleAsync(
-            row => row.SessionId == session.SessionId);
-        Assert.NotNull(final.RevokedAt);
-        Assert.Equal("issue_2334_revoke_all", final.RevokeReason);
-        Assert.Equal(1, final.RefreshGeneration);
-        Assert.Equal(HashToken(issued.RefreshToken), final.RefreshTokenHash);
-        Assert.Equal(
-            HashToken(OriginalRefreshToken),
-            (await setupDb.Queryable<UserRefreshTokenTombstone>().SingleAsync()).TokenHash);
+                    Assert.Equal(1, revoked);
+                    Assert.Equal(RefreshTokenRotationOutcome.ConcurrentConflict, racedRefresh.Outcome);
+                    Assert.Null(racedRefresh.Tokens);
+                    UserSession final = await setupDb.Queryable<UserSession>().SingleAsync(
+                        row => row.SessionId == session.SessionId);
+                    Assert.NotNull(final.RevokedAt);
+                    Assert.Equal("issue_2334_revoke_all", final.RevokeReason);
+                    Assert.Equal(1, final.RefreshGeneration);
+                    Assert.Equal(HashToken(issued.RefreshToken), final.RefreshTokenHash);
+                    Assert.Equal(
+                        HashToken(OriginalRefreshToken),
+                        (await setupDb.Queryable<UserRefreshTokenTombstone>().SingleAsync()).TokenHash);
 
-        Assert.Equal("user_session_revoked", (await validator.ValidateAsync(oldPrincipal, CancellationToken.None)).Reason);
-        Assert.Equal("user_session_revoked", (await validator.ValidateAsync(issuedPrincipal, CancellationToken.None)).Reason);
-        Assert.True((await validator.ValidateAsync(otherPrincipal, CancellationToken.None)).IsValid);
-        Assert.False(await setupSessions.VerifyRefreshRotationAsync(issued.RefreshToken, session.SessionId));
-        Assert.True(await setupSessions.VerifyRefreshRotationAsync("issue-2334-other-current", otherSession.SessionId));
-        Assert.Equal(RefreshTokenRotationOutcome.ExpiredOrUnknown, (
-            await setupSessions.RotateRefreshTokenAsync(
-                OriginalRefreshToken,
-                session.SessionId,
-                CancellationToken.None)).Outcome);
-        Assert.Equal(RefreshTokenRotationOutcome.ExpiredOrUnknown, (
-            await setupSessions.RotateRefreshTokenAsync(
-                issued.RefreshToken,
-                session.SessionId,
-                CancellationToken.None)).Outcome);
+                    Assert.Equal("user_session_revoked", (await validator.ValidateAsync(oldPrincipal, CancellationToken.None)).Reason);
+                    Assert.Equal("user_session_revoked", (await validator.ValidateAsync(issuedPrincipal, CancellationToken.None)).Reason);
+                    Assert.True((await validator.ValidateAsync(otherPrincipal, CancellationToken.None)).IsValid);
+                    Assert.False(await setupSessions.VerifyRefreshRotationAsync(issued.RefreshToken, session.SessionId));
+                    Assert.True(await setupSessions.VerifyRefreshRotationAsync("issue-2334-other-current", otherSession.SessionId));
+                    Assert.Equal(RefreshTokenRotationOutcome.ExpiredOrUnknown, (
+                        await setupSessions.RotateRefreshTokenAsync(
+                            OriginalRefreshToken,
+                            session.SessionId,
+                            CancellationToken.None)).Outcome);
+                    Assert.Equal(RefreshTokenRotationOutcome.ExpiredOrUnknown, (
+                        await setupSessions.RotateRefreshTokenAsync(
+                            issued.RefreshToken,
+                            session.SessionId,
+                            CancellationToken.None)).Outcome);
 
-        UserSessionValidationCacheState revokedState =
-            Assert.IsType<UserSessionValidationCacheState>(await cache.Production.ReadAsync(session.SessionId));
-        Assert.NotEqual(warm.RowVersion, revokedState.RowVersion);
-        Assert.Equal(final.RevokedAt, revokedState.RevokedAtUtc);
-        Assert.Equal(UserSessionMode.Revoked, revokedState.SessionMode);
-        Assert.Equal(1, cache.Recording.PublishManyCallCount);
-        Assert.Equal([session.SessionId], cache.Recording.LastPublishedSessionIds);
-        Assert.Equal(0, cache.Recording.InvalidateManyCallCount);
-        Assert.Null((await setupDb.Queryable<UserSession>().SingleAsync(
-            row => row.SessionId == otherSession.SessionId)).RevokedAt);
+                    UserSessionValidationCacheState revokedState =
+                        Assert.IsType<UserSessionValidationCacheState>(await cache.Production.ReadAsync(session.SessionId));
+                    Assert.NotEqual(warm.RowVersion, revokedState.RowVersion);
+                    Assert.Equal(final.RevokedAt, revokedState.RevokedAtUtc);
+                    Assert.Equal(UserSessionMode.Revoked, revokedState.SessionMode);
+                    Assert.Equal(1, cache.Recording.PublishManyCallCount);
+                    Assert.Equal([session.SessionId], cache.Recording.LastPublishedSessionIds);
+                    Assert.Equal(0, cache.Recording.InvalidateManyCallCount);
+                    Assert.Null((await setupDb.Queryable<UserSession>().SingleAsync(
+                        row => row.SessionId == otherSession.SessionId)).RevokedAt);
+                }
+                finally
+                {
+                    await holderTransaction.DisposeAsync();
+                    await refresh.WaitAsync(TimeSpan.FromSeconds(30));
+                }
+            },
+            async () => await holderTransaction.DisposeAsync());
     }
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-refresh-commit-then-revoke-commit-invalidates-old-and-new-token-authority")]
     public async Task RefreshCommitThenRevokeCommitInvalidatesOldAndNewTokenAuthority()
     {
         const string OriginalRefreshToken = "issue-2334-refresh-first";
@@ -557,6 +585,7 @@ public sealed class UserSessionRevocationIntegrationTests(
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-unauthenticated-principal-does-not-read-session-cache-or-database")]
     public async Task UnauthenticatedPrincipal_DoesNotReadSessionCacheOrDatabase()
     {
         var db = Substitute.For<ISqlSugarClient>();

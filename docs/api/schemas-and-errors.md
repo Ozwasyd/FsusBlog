@@ -737,7 +737,7 @@ projection: binary_post_security_challenge.publicErrorRefState
 render: failure-mode-code
 -->
 
-The operation-level public error reference state is `operation-status-authority-bound`.
+The operation-level public error reference state is `operation-status-authority-bound`: each observed error status links to its matching transport mapping in the shared error authority.
 
 <!-- fsus-doc-claim
 claimId: binary-api-aeds-contract.public-error-authority-owner

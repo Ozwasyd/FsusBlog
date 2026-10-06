@@ -351,6 +351,7 @@
                 "redis.session"
             ],
             "creates": [
+                "fixture.public-content",
                 "fixture.security-state"
             ],
             "resetBefore": [
@@ -373,6 +374,14 @@
                 "receipt"
             ],
             "operationOverlaps": [
+                {
+                    "domain": "fixture.public-content",
+                    "operations": [
+                        "creates",
+                        "reads"
+                    ],
+                    "testId": "security"
+                },
                 {
                     "domain": "postgres.security",
                     "operations": [
@@ -820,7 +829,9 @@
                 "redis.rate-limit"
             ],
             "invalidates": [],
-            "creates": [],
+            "creates": [
+                "fixture.public-content"
+            ],
             "resetBefore": [
                 {
                     "producer": "bootstrap",
@@ -850,6 +861,14 @@
                 }
             ],
             "operationOverlaps": [
+                {
+                    "domain": "fixture.public-content",
+                    "operations": [
+                        "creates",
+                        "reads"
+                    ],
+                    "testId": "resilience"
+                },
                 {
                     "domain": "postgres.security",
                     "operations": [

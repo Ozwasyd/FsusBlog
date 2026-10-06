@@ -5,10 +5,12 @@ import path from 'node:path';
 import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-const { defaultTimeoutPolicyDigest, digestCanonical, playwrightTemporalContextOptions, qualificationTemporalContext, semanticOutcomeDigest } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
-const { bindCorrectnessProducerTemporalArtifacts, observeBrowserTemporalContext, postgresTemporalSessionSql, validateTemporalProducerBindings, verifyPostgresTemporalObservation } = await import(new URL("../../tools/test/temporal-producer-bindings.mjs", import.meta.url));
+const { defaultTimeoutPolicyDigest, digestCanonical, playwrightTemporalContextOptions, qualificationTemporalContext, semanticOutcomeDigest, validateTemporalObservations } = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
+const { applyBrowserTemporalClock, bindCorrectnessProducerTemporalArtifacts, observeBrowserTemporalContext, postgresTemporalSessionSql, validateTemporalProducerBindings, verifyPostgresTemporalObservation, verifyCorrectnessProducerTemporalArtifacts } = await import(new URL("../../tools/test/temporal-producer-bindings.mjs", import.meta.url));
 const { buildProducerChildEnv } = await import(new URL("../../tools/test-fixtures/producers/spawn-helper.mjs", import.meta.url));
 const { buildFixtureVariantPlan, buildProducerFixtureVariantPlan } = await import(new URL("../../tools/testing/fixture-catalog.mjs", import.meta.url));
+const { publicContentVerificationIdentity, preparePublicContent, verifyPublicContent } = await import(new URL('../../tools/test-fixtures/producers/public-content-producer.mjs', import.meta.url));
+const { createDevelopmentDemoPort, createPublicContentPort } = await import(new URL('../../tools/test-fixtures/producers/catalog-ports.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const deterministicRunnerProducerId = 'matrix-governance';
@@ -30,11 +32,180 @@ function contextInput(overrides = {})
     };
 }
 
+function qualifiedPublicContext(observation)
+{
+    const temporalContext = qualificationTemporalContext(contextInput({ producerId: 'public-content' }));
+    const variantIds = ['canonical.public.empty'];
+    const fixturePlan = buildFixtureVariantPlan(variantIds);
+    const variantPlan = buildProducerFixtureVariantPlan({
+        producerId: 'public-content',
+        variantIds,
+        fixtureVariantIds: variantIds,
+        fixtureVariantPlanDigest: fixturePlan.variantPlanDigest
+    });
+    return {
+        variantPlan,
+        plan: { capabilities: ['public.empty'] },
+        namespace: 'ns',
+        runIdentity: temporalContext.schedulerRunId,
+        temporalContext,
+        handles: {
+            baseUrl: 'http://127.0.0.1:9876',
+            localPublicContentFixtureSecret: 'public-test-secret',
+            publicContentAdapter: {
+                async verify(context, receipt)
+                {
+                    return {
+                        ok: true,
+                        identity: publicContentVerificationIdentity(context),
+                        proofDigest: receipt.verificationProof?.digest ?? null,
+                        observations: {
+                            source: 'independent-service-read',
+                            database: { namespace: 'ns', schemaIdentity: 'public', entities: [] },
+                            redis: { namespace: 'ns', keys: [] },
+                            cache: { namespace: 'ns', generation: 0, entries: [] }
+                        }
+                    };
+                },
+                async prepare()
+                {
+                    return {
+                        strategy: 'transaction-fixture',
+                        entityIdentities: [],
+                        observations: {
+                            source: 'service',
+                            database: { namespace: 'ns', schemaIdentity: 'public', entities: [] },
+                            redis: { namespace: 'ns', keys: [] },
+                            cache: { namespace: 'ns', generation: 0, entries: [] }
+                        },
+                        temporalObservation: observation
+                    };
+                }
+            }
+        }
+    };
+}
+
+function publicTemporalObservation()
+{
+    return { businessEpochUtc: '2024-02-29T23:59:59.000Z', backendCulture: 'Invariant', postgresTimezone: 'UTC' };
+}
+
+test('public port rejects a drifting producer epoch before a correct later session read', async (t) =>
+{
+    const context = qualifiedPublicContext({ ...publicTemporalObservation(), businessEpochUtc: '2024-03-01T00:00:00.000Z' });
+    let sessionReads = 0;
+    t.mock.method(globalThis, 'fetch', async () =>
+    {
+        sessionReads += 1;
+        return Response.json(publicTemporalObservation());
+    });
+    await assert.rejects(() => createPublicContentPort().prepare(context), /temporal.actual-context-mismatch/u);
+    assert.equal(sessionReads, 0);
+});
+
+test('public producer requires complete actual clocks at preparation and verification', async () =>
+{
+    const actual = publicTemporalObservation();
+    const context = qualifiedPublicContext(actual);
+    const result = await preparePublicContent(context);
+    assert.deepEqual(result.temporalObservation, actual);
+    assert.equal((await verifyPublicContent(context, result)).ok, true);
+    for (const observation of [
+        null,
+        { ...actual, businessEpochUtc: undefined },
+        { ...actual, backendCulture: undefined },
+        { ...actual, postgresTimezone: undefined },
+        { ...actual, businessEpochUtc: '2024-03-01T00:00:00.000Z' },
+        { ...actual, backendCulture: 'zh-CN' },
+        { ...actual, postgresTimezone: 'Asia/Shanghai' }
+    ])
+    {
+        await assert.rejects(() => preparePublicContent(qualifiedPublicContext(observation)), /actual|temporal/iu);
+        assert.equal((await verifyPublicContent(context, { ...result, temporalObservation: observation })).ok, false);
+    }
+});
+
+test('public port retains a valid producer observation and binds the actual protected session', async (t) =>
+{
+    const actual = { ...publicTemporalObservation(), producerEvidence: 'original-measurement' };
+    const context = qualifiedPublicContext(actual);
+    context.handles.debugBackendUrl = 'http://127.0.0.1:9877';
+    t.mock.method(globalThis, 'fetch', async (url, options) =>
+    {
+        assert.equal(url, 'http://127.0.0.1:9876/__local/temporal-observation');
+        assert.equal(options.headers['X-Fsus-Local-Temporal-Fixture-Secret'], 'public-test-secret');
+        return Response.json(publicTemporalObservation());
+    });
+    const result = await createPublicContentPort().prepare(context);
+    assert.deepEqual(result.temporalObservation, {
+        ...actual,
+        observationBoundary: 'server-owned-public-content-backend-and-postgres-session'
+    });
+});
+
+test('demo port observes its own backend and rejects incomplete temporal verification', async (t) =>
+{
+    const variantIds = ['diagnostic.development.demo.dataset'];
+    const fixturePlan = buildFixtureVariantPlan(variantIds);
+    const context = {
+        namespace: 'demo-temporal',
+        runIdentity: 'temporal-producer-test',
+        temporalContext: qualificationTemporalContext(contextInput({ producerId: 'development-demo' })),
+        variantPlan: buildProducerFixtureVariantPlan({
+            producerId: 'development-demo',
+            variantIds,
+            fixtureVariantIds: variantIds,
+            fixtureVariantPlanDigest: fixturePlan.variantPlanDigest
+        }),
+        handles: {
+            baseUrl: 'http://127.0.0.1:9876',
+            debugBackendUrl: 'http://127.0.0.1:9877',
+            localDemoFixtureSecret: 'demo-test-secret'
+        }
+    };
+    const entities = ['article', 'comment', 'admin-principal', 'user'].map((kind, index) => ({
+        kind,
+        id: String(index + 1),
+        owner: 'demo-fixture:controlled-owner',
+        owned: true,
+        variantId: variantIds[0]
+    }));
+    t.mock.method(globalThis, 'fetch', async (url, options) =>
+    {
+        assert.equal(new URL(url).origin, context.handles.baseUrl);
+        if (options.method === 'POST')
+        {
+            assert.equal(url, `${context.handles.baseUrl}/api/local/demo-fixture/prepare`);
+            return Response.json({
+                entityIdentities: entities,
+                observations: {
+                    source: 'service',
+                    database: { entities },
+                    redis: { keys: [] },
+                    cache: { entries: [] }
+                }
+            });
+        }
+        assert.equal(url, `${context.handles.baseUrl}/__local/temporal-observation`);
+        assert.equal(options.headers['X-Fsus-Local-Temporal-Fixture-Secret'], 'demo-test-secret');
+        return Response.json(publicTemporalObservation());
+    });
+    const port = createDevelopmentDemoPort();
+    const result = await port.prepare(context);
+    assert.equal((await port.verify(context, result)).ok, true);
+    for (const field of ['businessEpochUtc', 'backendCulture', 'postgresTimezone'])
+    {
+        const invalid = { ...result, temporalObservation: { ...result.temporalObservation, [field]: undefined } };
+        assert.equal((await port.verify(context, invalid)).ok, false);
+    }
+});
+
 test('every fixture inventory implementation has one canonical temporal binding', () =>
 {
     assert.deepEqual(validateTemporalProducerBindings(), {
         producerCount: 9,
-        implementationCount: 25,
+        implementationCount: 29,
         cutoverExclusionCount: 0,
         digest: validateTemporalProducerBindings().digest
     });
@@ -94,6 +265,8 @@ test('every correctness producer can bind an exact plan actual and receipt', () 
 {
     for (const producerId of [
         'account-messaging',
+        'account-profile-preferences',
+        'audit-records',
         'auth-session',
         'comment-moderation',
         'development-demo',
@@ -125,6 +298,7 @@ test('every correctness producer can bind an exact plan actual and receipt', () 
             generatedAt: '2026-07-28T00:00:00.000Z'
         });
         assert.equal(bound.verification.qualificationEligible, true);
+        assert.equal(verifyCorrectnessProducerTemporalArtifacts({ producerId, binding: bound }).qualificationEligible, true);
         assert.equal(bound.plan.producer.producerId, producerId);
         assert.equal(bound.receipt.planDigest, bound.plan.digest);
         assert.equal(bound.receipt.actualDigest, bound.actual.digest);
@@ -355,19 +529,58 @@ test('browser context binds explicit locale and timezone instead of Node TZ only
         locale: 'ja-JP',
         timezoneId: 'UTC'
     });
-    assert.equal(observeBrowserTemporalContext(context, {
+    const actual = {
         locale: 'ja-JP',
         timezoneId: 'UTC',
+        backendCulture: 'Invariant',
+        postgresTimezone: 'UTC',
+        businessEpochUtc: context.businessEpochUtc,
+        browserBusinessEpochUtc: context.businessEpochUtc,
         nodeTimezone: 'UTC'
-    }).uiLocale, 'ja-JP');
+    };
+    const observation = observeBrowserTemporalContext(context, actual);
+    assert.equal(observation.uiLocale, 'ja-JP');
+    assert.equal(observation.browserBusinessEpochUtc, context.businessEpochUtc);
+    assert.equal(observation.observationBoundary, 'browser-runtime');
     assert.throws(
         () => observeBrowserTemporalContext(context, {
-            locale: 'ja-JP',
-            timezoneId: 'America/Los_Angeles',
-            nodeTimezone: 'UTC'
+            ...actual,
+            timezoneId: 'America/Los_Angeles'
         }),
         (error) => error.reasonCode === 'temporal.actual-context-mismatch'
     );
+    for (const field of Object.keys(actual))
+    {
+        const incomplete = { ...actual };
+        delete incomplete[field];
+        assert.throws(() => observeBrowserTemporalContext(context, incomplete),
+            (error) => error.reasonCode === 'temporal.actual-context-missing', field);
+    }
+    for (const field of ['businessEpochUtc', 'browserBusinessEpochUtc'])
+    {
+        assert.throws(() => observeBrowserTemporalContext(context, {
+            ...actual,
+            [field]: '2024-03-01T00:00:00.000Z'
+        }), (error) => error.reasonCode === 'temporal.actual-context-mismatch', field);
+    }
+    const missingBrowserEpoch = { ...observation };
+    delete missingBrowserEpoch.browserBusinessEpochUtc;
+    assert.throws(() => validateTemporalObservations(context, missingBrowserEpoch),
+        (error) => error.reasonCode === 'temporal.actual-context-missing');
+    assert.throws(() => validateTemporalObservations(context, {
+        ...observation,
+        browserBusinessEpochUtc: '2024-03-01T00:00:00.000Z'
+    }), (error) => error.reasonCode === 'temporal.actual-context-mismatch');
+});
+
+test('browser business clock configures only fixed Date before actual observation', async () =>
+{
+    const context = qualificationTemporalContext({ ...contextInput(), producerId: 'comment-moderation' });
+    const calls = [];
+    const page = { clock: { setFixedTime: async (value) => calls.push(value) } };
+    await applyBrowserTemporalClock(context, page);
+    assert.deepEqual(calls, [context.businessEpochUtc]);
+    await assert.rejects(() => applyBrowserTemporalClock(context, { clock: {} }), /setFixedTime/u);
 });
 
 test('host TZ perturbation cannot change a fixed semantic business outcome', () =>

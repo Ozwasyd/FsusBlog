@@ -8,13 +8,14 @@ import { fileURLToPath } from 'node:url';
 
 import {
     finalizeRunOwnedDirectories,
+    finalizeRunOwnedDirectoriesAfterPhysical,
     prepareRunOwnedDirectories
 } from './execution-envelope-directories.mjs';
-import { prepareCorrectnessEnvironment } from './execution-envelope-environment.mjs';
+import { prepareCorrectnessEnvironmentAsync, observeExecutableIdentityAsync, verifyExecutableIdentity } from './execution-envelope-environment.mjs';
 import {
     finalizeNetworkSandbox,
     loadExecutionNetworkPolicy,
-    prepareNetworkSandbox,
+    prepareNetworkSandboxAsync,
     projectPlannedEndpoints
 } from './execution-envelope-network.mjs';
 import {
@@ -23,7 +24,8 @@ import {
     sealExecutionEnvelopeReceipt,
     verifyExecutionEnvelopeReceipt
 } from './execution-envelope-receipt.mjs';
-import { runPhysicalExecution } from './physical-execution-process-tree.mjs';
+import { formatExecutionFailure, createExecutionFailureOwner, observeExecutionFailure, retainExecutionFailure, retainExecutionRecovery, throwExecutionFailure, executionFailureDataProperty, retainExecutionFailureCompatibility } from './execution-failure-diagnostic.mjs';
+import { runPhysicalExecution, observePhysicalExecutionFailure } from './physical-execution-process-tree.mjs';
 import {
     buildRunBoundConsumerEvidence,
     fingerprintPaths,
@@ -42,6 +44,11 @@ import {
     verifyTemporalReplay
 } from './temporal-context.mjs';
 const {loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy, resolveExecutionEnvelopeProducer} = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
+import { readPreparedNuget, revalidatePreparedNuget, assertPreparedNugetCurrent, requireNugetResourceChannel } from './behavior-doc-nuget-preparation.mjs';
+import { bindMatrixNugetDiskDemand, buildProductionDiskDemandPlan, defaultProductionDiskRoots, readProductionDiskDemandCatalog } from '../test-matrix/production-disk-demand.mjs';
+import { acquireProductionFreshExclusiveLease } from '../test-matrix/production-fresh-exclusive-lease.mjs';
+import { acquireProductionCapacityReservation } from '../test-matrix/production-capacity-reservation.mjs';
+import { snapshotSourceState } from '../test-matrix/scheduler.mjs';
 import { resolveTemporalRolesForProducerIfBound } from './temporal-role-resolver.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -50,6 +57,32 @@ const temporalChildObserver = path.join(
     repoRoot,
     'tools/test-fixtures/producers/temporal-child-observer.mjs'
 );
+
+/** Original preparation diagnostic helpers; descriptor inspection never executes an accessor. */
+export function preparationFailureProperty(owner, reason, field)
+{
+    return executionFailureDataProperty(reason, field) ?? null;
+}
+
+export function preparationFailureText(owner, reason)
+{
+    const message = preparationFailureProperty(owner, reason, 'message');
+    if (typeof message === 'string') return formatExecutionFailure(reason).split('\n')[0];
+    if (reason === null || !['object', 'function'].includes(typeof reason)) return String(reason);
+    return 'unprintable execution failure';
+}
+
+export function retainPreparationCleanupFailure(owner, firstReason, cleanupReason)
+{
+    const recoveryObligation = preparationFailureProperty(owner, cleanupReason, 'recoveryObligation');
+    const failure = Object.freeze({ failed: true, reason: firstReason, cleanupFailed: true,
+        cleanupReason, recoveryObligation });
+    owner.cleanupFailures ??= [];
+    owner.cleanupFailures.push(failure);
+    retainExecutionFailureCompatibility(firstReason, 'cleanupError', cleanupReason);
+    if (recoveryObligation !== null) retainExecutionFailureCompatibility(firstReason, 'recoveryObligation', recoveryObligation);
+    return failure;
+}
 
 function parse(argv)
 {
@@ -112,7 +145,9 @@ async function publishConsumerProjection({
     runId,
     key,
     consumerId,
-    executionEnvelopeBinding
+    executionEnvelopeBinding,
+    preparedNuget = null,
+    parentGuard = null
 })
 {
     const normalizedKey = sanitizeSegment(key, 'execution');
@@ -124,6 +159,8 @@ async function publishConsumerProjection({
         receiptFile: result.receiptFile
     });
 
+    if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+    parentGuard?.();
     const outputDirectory = path.resolve(cwd, directory);
     if (outputDirectory !== repoRoot && !outputDirectory.startsWith(`${repoRoot}${path.sep}`))
     {
@@ -147,8 +184,14 @@ async function publishConsumerProjection({
     });
     validateRunBoundConsumerEvidence(document, { runId, key: normalizedKey, consumerId });
     const temporary = `${outputFile}.next-${process.pid}`;
+    if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+    parentGuard?.();
     fs.writeFileSync(temporary, `${JSON.stringify(document, null, 2)}\n`, { mode: 0o600 });
+    if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+    parentGuard?.();
     fs.renameSync(temporary, outputFile);
+    if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+    parentGuard?.();
     return outputFile;
 }
 
@@ -275,10 +318,10 @@ function publishRunnerTemporalArtifacts({
 
 async function spawnCommand(command, cwd, signal, env, options = {})
 {
-    return await runPhysicalExecution({ command, cwd, signal, env, ...options });
+    return await runPhysicalExecution({ ...options, command, cwd, signal, env });
 }
 
-async function main(argv)
+async function executeCommand(argv, preparedNuget = null, parentOwner = null, failureOwner = createExecutionFailureOwner())
 {
     const { options, command } = parse(argv);
     if (!String(options.key ?? '').trim())
@@ -290,6 +333,9 @@ async function main(argv)
     const producerId = String(options.producerId ?? '').trim();
     const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim();
     const sourceCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim();
+    const parentModule = parentOwner ? await import('./nuget-preparation-owner.mjs') : null;
+    const parentExecution = parentOwner ? parentModule.requireNugetPreparationExecution(parentOwner,
+        { root: repoRoot, runId, purpose: preparedNuget?.purpose, producerId }) : null;
     const sourceFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim();
     if (!['correctness', 'diagnostic'].includes(executionClass))
     {
@@ -309,6 +355,7 @@ async function main(argv)
     }
     if (executionClass === 'diagnostic')
     {
+        if (options.preparedNuget) throw new Error('Diagnostic execution cannot admit prepared NuGet');
         if (options.projectionDirectory)
         {
             throw new Error('diagnostic execution cannot publish a correctness projection');
@@ -372,20 +419,47 @@ async function main(argv)
             throw new Error(`${producerId}: required execution service envelope is missing or drifted`);
         }
     }
-    const directoryEnvelope = prepareRunOwnedDirectories({
+    let directoryEnvelope = null;
+    let physicalStarted = false;
+    let terminalEvidence = null;
+    let preparationOwner = null;
+    const controller = new AbortController();
+    const executionSignal = parentExecution ? AbortSignal.any([controller.signal, parentExecution.physicalOptions.signal]) : controller.signal;
+    const publicationGuard = () =>
+    {
+        executionSignal.throwIfAborted();
+        if (parentOwner) parentModule.assertNugetManagedPreparationAdmission(parentOwner,
+            { root: repoRoot, runId, purpose: preparedNuget.purpose, producerId });
+    };
+    const abort = (signal) => controller.abort(Object.assign(new Error(`received ${signal}`), { name: 'AbortError', signal }));
+    const onSigint = () => abort('SIGINT');
+    const onSigterm = () => abort('SIGTERM');
+    process.once('SIGINT', onSigint);
+    process.once('SIGTERM', onSigterm);
+
+    try
+    {
+    if (!parentExecution)
+        throw new Error('Correctness preparation requires its complete original held-managed owner; nested preparation activation is pending');
+    publicationGuard();
+    directoryEnvelope = prepareRunOwnedDirectories({
         repositoryRoot: repoRoot,
         cwd,
         runId,
         producerId,
         attemptId: options.key,
-        outputs: options.outputs
+        outputs: options.outputs,
+        preparedNuget, assertPreparationAdmission: publicationGuard
     });
+    preparationOwner = parentModule.createNugetManagedPreparationOwner(parentOwner, {
+        expected: { root: repoRoot, runId, purpose: preparedNuget.purpose, producerId },
+        directories: directoryEnvelope, signal: executionSignal });
     let correctnessEnvironment;
     let networkSandbox;
     try
     {
-        correctnessEnvironment = prepareCorrectnessEnvironment({
-            command,
+        correctnessEnvironment = await prepareCorrectnessEnvironmentAsync({
+            command, cwd,
             parentEnvironment: process.env,
             producerAllowlist: options.environmentNames,
             injectedEnvironment: {
@@ -396,11 +470,11 @@ async function main(argv)
                 FSUSBLOG_TEST_SOURCE_COMMIT: sourceCommit,
                 FSUSBLOG_TEST_SOURCE_FINGERPRINT: sourceFingerprint
             },
-            policy,
-            catalog
+            policy, catalog, ...preparationOwner
         });
+        publicationGuard();
         const networkPolicy = loadExecutionNetworkPolicy();
-        networkSandbox = prepareNetworkSandbox({
+        networkSandbox = await prepareNetworkSandboxAsync({
             command: [
                 process.execPath,
                 temporalChildObserver,
@@ -409,6 +483,7 @@ async function main(argv)
             ],
             cwd,
             directories: directoryEnvelope.fragment.directories,
+            ownedDirectoryEnvelope: directoryEnvelope,
             writableRoots: directoryEnvelope.fragment.writableRoots,
             plannedEndpoints: projectPlannedEndpoints({
                 services: producerEnvelope.requiredServices,
@@ -418,13 +493,19 @@ async function main(argv)
             environment: correctnessEnvironment.environment,
             policy: networkPolicy,
             producerId,
-            attemptId: options.key
+            attemptId: options.key, signal: executionSignal, ...preparationOwner
         });
+        publicationGuard();
     }
     catch (error)
     {
-        finalizeRunOwnedDirectories(directoryEnvelope);
-        throw error;
+        retainExecutionFailure(failureOwner, error);
+        try { preparationOwner.assertFinalizablePreparation();
+            const observed = observePhysicalExecutionFailure(failureOwner);
+            finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope,
+                { physicalStarted: observed.physicalStarted, physicalExecution: observed.physicalTerminal === 'zero-members' ? observed.physicalExecution : null }); }
+        catch (cleanupError) { retainExecutionFailure(failureOwner, cleanupError); }
+        throwExecutionFailure(failureOwner);
     }
     const observedCommand = [
         ...networkSandbox.command
@@ -432,6 +513,8 @@ async function main(argv)
     const commit = git(['rev-parse', 'HEAD']);
     const inputPaths = [...new Set([
         ...options.paths,
+        ...(preparedNuget?.inputPaths ?? []),
+        ...(preparedNuget?.closure.sourceClosureDigests.map((entry) => entry.path) ?? []),
         physicalExecutionPolicy,
         'config/schemas/test-execution-envelope-applicability.schema.json',
         'config/schemas/test-execution-envelope-policy.schema.json',
@@ -450,6 +533,7 @@ async function main(argv)
         'tools/test/physical-execution-linux-systemd-adapter.mjs',
         'tools/test/physical-execution-linux-systemd-bootstrap.mjs',
         'tools/test/execution-envelope-receipt.mjs',
+        'tools/test/execution-failure-diagnostic.mjs',
         'tools/test/native/execution-envelope-landlock.c',
         'tools/test-matrix/execution-envelope-policy.mjs',
         'tools/test/temporal-context.mjs',
@@ -472,9 +556,13 @@ async function main(argv)
             digestCanonical(temporalContext),
             correctnessEnvironment.fragmentDigest,
             digest(directoryEnvelope.fragment),
-            digest(networkSandbox.fragment)
+            digest(networkSandbox.fragment),
+            preparedNuget?.bindingDigest ?? null
         ]
     });
+    if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+        if (parentOwner) parentModule.requireNugetPreparationExecution(parentOwner,
+            { root: repoRoot, runId, purpose: preparedNuget.purpose, producerId });
     const environmentDigest = digest({
         environment: correctnessEnvironment.fragment,
         directories: directoryEnvelope.fragment,
@@ -524,23 +612,24 @@ async function main(argv)
             directory: directoryEnvelope.fragment.ownedRoot
         })
     });
+    publicationGuard();
     writePrivateJson(executionEnvelopePlanFile, plan);
-    const controller = new AbortController();
-    const abort = (signal) => controller.abort(Object.assign(new Error(`received ${signal}`), { name: 'AbortError', signal }));
-    const onSigint = () => abort('SIGINT');
-    const onSigterm = () => abort('SIGTERM');
-    process.once('SIGINT', onSigint);
-    process.once('SIGTERM', onSigterm);
     let postflightAttempted = false;
     let executionEnvelopeBinding = null;
     const finalizeEnvelope = () =>
     {
+        preparationOwner.assertFinalizablePreparation();
+        const observed = observePhysicalExecutionFailure(failureOwner);
+        const cleanupStarted = observed.physicalStarted;
+        const cleanupEvidence = observed.physicalTerminal === 'zero-members' ? observed.physicalExecution : null;
         if (postflightAttempted)
         {
             return executionEnvelopeBinding;
         }
+        if (cleanupStarted && cleanupEvidence?.postObservation !== 'zero-members')
+            finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, { physicalStarted: cleanupStarted, physicalExecution: cleanupEvidence });
         postflightAttempted = true;
-        let postflightError = null;
+        const postflightOwner = createExecutionFailureOwner();
         let networkFragment = networkSandbox.fragment;
         let directoryFragment = directoryEnvelope.fragment;
         let actualHostFacts = null;
@@ -550,7 +639,7 @@ async function main(argv)
         }
         catch (error)
         {
-            postflightError = error;
+            retainExecutionFailure(postflightOwner, error);
         }
         try
         {
@@ -560,33 +649,34 @@ async function main(argv)
         }
         catch (error)
         {
-            postflightError ??= error;
+            retainExecutionFailure(postflightOwner, error);
         }
         try
         {
-            directoryFragment = finalizeRunOwnedDirectories(directoryEnvelope);
+            directoryFragment = finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, { physicalStarted: cleanupStarted, physicalExecution: cleanupEvidence });
         }
         catch (error)
         {
-            postflightError ??= error;
+            retainExecutionFailure(postflightOwner, error);
         }
-        if (postflightError)
+        if (observeExecutionFailure(postflightOwner).failed)
         {
-            writePrivateJson(executionEnvelopeReceiptFile, {
+            try { writePrivateJson(executionEnvelopeReceiptFile, {
                 schema: 'fsusblog.test-execution-envelope-rejection.v1',
                 qualificationEligible: false,
                 producerId,
                 schedulerRunId: runId,
                 attemptId: options.key,
                 planDigest: plan.envelopeDigest,
-                reason: postflightError.message,
+                reason: observeExecutionFailure(postflightOwner).diagnostic.primary.message,
                 fragments: {
                     environment: correctnessEnvironment.fragment,
                     directories: directoryFragment,
                     network: networkFragment
                 }
             });
-            throw postflightError;
+            } catch (receiptError) { retainExecutionFailure(postflightOwner, receiptError); }
+            throwExecutionFailure(postflightOwner);
         }
         const actual = buildExecutionEnvelope({
             phase: 'actual',
@@ -602,6 +692,7 @@ async function main(argv)
             hostFacts: actualHostFacts
         });
         const receipt = sealExecutionEnvelopeReceipt({ plan, actual });
+        publicationGuard();
         writePrivateJson(executionEnvelopeReceiptFile, receipt);
         executionEnvelopeBinding = {
             ...verifyExecutionEnvelopeReceipt(receipt),
@@ -610,6 +701,7 @@ async function main(argv)
         };
         return executionEnvelopeBinding;
     };
+
     try
     {
         const result = await runBoundExecution({
@@ -626,22 +718,34 @@ async function main(argv)
             executionEnvelopeDigest: plan.envelopeDigest,
             testIds: options.testIds,
             consumerId,
-            signal: controller.signal
+            signal: executionSignal,
+            failureOwner
         }, async () =>
         {
             let physicalExecution;
-            let executionError = null;
+            const attemptFailure = createExecutionFailureOwner();
             try
             {
+                if (preparedNuget)
+                {
+                    await revalidatePreparedNuget(preparedNuget, repoRoot);
+                    assertPreparedNugetCurrent(preparedNuget, repoRoot);
+                }
+                if (parentOwner) parentModule.requireNugetPreparationExecution(parentOwner,
+                    { root: repoRoot, runId, purpose: preparedNuget.purpose, producerId });
+                physicalStarted = true;
                 physicalExecution = await spawnCommand(
                     observedCommand,
                     cwd,
-                    controller.signal,
+                    executionSignal,
                     correctnessEnvironment.environment,
                     {
+                        ...(parentExecution ? parentExecution.physicalOptions : {}),
+                        failureOwner,
                         linuxPrivateNetwork: networkSandbox.linuxPrivateNetwork,
                         linuxNetworkPolicy: networkSandbox.linuxNetworkPolicy,
                         linuxReadWritePaths: networkSandbox.linuxReadWritePaths,
+                        linuxOwnedPrivateTmp: networkSandbox.linuxOwnedPrivateTmp,
                         privateDotnetScratch: networkSandbox.privateDotnetScratch
                             ? {
                                 schema: 'fsusblog.private-dotnet-scratch.v1',
@@ -653,33 +757,48 @@ async function main(argv)
             }
             catch (error)
             {
-                executionError = error;
-                physicalExecution = error?.physicalExecution ?? null;
+                retainExecutionFailure(attemptFailure, error);
+                physicalExecution = observePhysicalExecutionFailure(failureOwner).physicalExecution;
             }
-            let envelopeError = null;
+            terminalEvidence = physicalExecution;
+            if (!observeExecutionFailure(attemptFailure).failed)
+            {
+                try
+                {
+                    const executable = await observeExecutableIdentityAsync(correctnessEnvironment.command[0], {
+                        cwd, environment: correctnessEnvironment.environment, pathValue: correctnessEnvironment.environment.PATH, ...preparationOwner });
+                    publicationGuard();
+                    verifyExecutableIdentity(correctnessEnvironment.fragment.actualExecutable, executable);
+                }
+                catch (reason) { retainExecutionFailure(attemptFailure, reason); }
+            }
+
             try
             {
                 finalizeEnvelope();
             }
             catch (error)
             {
-                envelopeError = error;
+                retainExecutionFailure(attemptFailure, error);
             }
-            if (envelopeError)
+            if (observeExecutionFailure(attemptFailure).failed)
             {
-                envelopeError.physicalExecution = physicalExecution;
-                envelopeError.cause = executionError;
-                throw envelopeError;
+                retainExecutionFailure(failureOwner, observeExecutionFailure(attemptFailure).reason);
+                throwExecutionFailure(attemptFailure);
             }
-            if (executionError)
-            {
-                throw executionError;
-            }
+            if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+            publicationGuard();
             return physicalExecution;
         });
         if (!executionEnvelopeBinding)
         {
             throw new Error('correctness producer completed without an execution envelope receipt');
+        }
+        if (preparedNuget)
+        {
+            await revalidatePreparedNuget(preparedNuget, repoRoot);
+            publicationGuard();
+            assertPreparedNugetCurrent(preparedNuget, repoRoot);
         }
         const consumerEvidenceFile = options.projectionDirectory
             ? await publishConsumerProjection({
@@ -689,20 +808,32 @@ async function main(argv)
           runId,
           key: options.key,
           consumerId,
-          executionEnvelopeBinding
+          executionEnvelopeBinding,
+          preparedNuget,
+          parentGuard: publicationGuard
         })
             : null;
+        if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+        publicationGuard();
         const temporalFiles = publishRunnerTemporalArtifacts({
             context: temporalContext,
             result,
             key: options.key,
             executionEnvelopeBinding
         });
+        if (preparedNuget) assertPreparedNugetCurrent(preparedNuget, repoRoot);
+        publicationGuard();
         console.log(`[physical-execution] ${result.status} key=${options.key} receipt=${result.receiptFile} projection=${result.projectionFile}${consumerEvidenceFile ? ` consumer-evidence=${consumerEvidenceFile}` : ''} temporal-receipt=${temporalFiles.receipt} execution-envelope=${executionEnvelopeReceiptFile}`);
+        return { result, physicalExecution: terminalEvidence };
+    }
+    catch (error)
+    {
+        retainExecutionFailure(failureOwner, error);
+        throwExecutionFailure(failureOwner);
     }
     finally
     {
-        let finalizationError = null;
+
         if (!postflightAttempted)
         {
             try
@@ -711,21 +842,115 @@ async function main(argv)
             }
             catch (error)
             {
-                finalizationError = error;
+                retainExecutionFailure(failureOwner, error);
             }
         }
         process.off('SIGINT', onSigint);
         process.off('SIGTERM', onSigterm);
-        if (finalizationError)
+        // eslint-disable-next-line no-unsafe-finally
+        throwExecutionFailure(failureOwner);
+    }
+    }
+    catch (error)
+    {
+        retainExecutionFailure(failureOwner, error);
+        throwExecutionFailure(failureOwner);
+    }
+    finally
+    {
+        process.off('SIGINT', onSigint);
+        process.off('SIGTERM', onSigterm);
+        if (directoryEnvelope && !directoryEnvelope.fragment.cleanup.removedOwnedRoot)
         {
-            // eslint-disable-next-line no-unsafe-finally
-            throw finalizationError;
+            try { preparationOwner?.assertFinalizablePreparation();
+                const observed = observePhysicalExecutionFailure(failureOwner);
+                physicalStarted = observed.physicalStarted;
+                terminalEvidence = observed.physicalTerminal === 'zero-members' ? observed.physicalExecution : null;
+                finalizeRunOwnedDirectoriesAfterPhysical(directoryEnvelope, { physicalStarted, physicalExecution: terminalEvidence }); }
+            catch (error) { retainExecutionFailure(failureOwner, error); }
         }
+        // eslint-disable-next-line no-unsafe-finally
+        throwExecutionFailure(failureOwner);
+    }
+
+}
+
+export async function runDeterministicCommand(argv, parentOwner = null, failureOwner = createExecutionFailureOwner())
+{
+    const { options } = parse(argv);
+    const producerId = String(options.producerId ?? '').trim();
+    const required = ['behavior-doc-static-admission', 'matrix-governance', 'validate-matrix'].includes(producerId);
+    if (!required && !options.preparedNuget) return executeCommand(argv, null, null, failureOwner);
+    if (options.executionClass !== 'correctness') throw new Error('Prepared NuGet requires correctness execution');
+    if (!parentOwner)
+        throw new Error('Prepared correctness requires its complete original held-managed owner; nested preparation activation is pending');
+    const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim();
+    const prepared = await readPreparedNuget({ repositoryRoot: repoRoot, runId,
+        producerId, file: options.preparedNuget });
+    if (prepared.preparation.schedulerSource.commit !== process.env.FSUSBLOG_TEST_SOURCE_COMMIT
+        || prepared.preparation.schedulerSource.worktreeFingerprint !== process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT)
+        throw new Error('Prepared NuGet is foreign to the declared scheduler source identity');
+    if (parentOwner)
+    {
+        const { requireNugetPreparationExecution } = await import('./nuget-preparation-owner.mjs');
+        requireNugetPreparationExecution(parentOwner, { root: repoRoot, runId,
+            purpose: prepared.purpose, producerId });
+        return executeCommand(argv, prepared, parentOwner, failureOwner);
+    }
+    if (prepared.purpose === 'behavior-doc') return executeCommand(argv, prepared, null, failureOwner);
+    const sourceState = await snapshotSourceState(repoRoot);
+    assertPreparedNugetCurrent(prepared, repoRoot);
+    await requireNugetResourceChannel({ root: repoRoot, runId, sourceState });
+    assertPreparedNugetCurrent(prepared, repoRoot);
+    let lease, reservation;
+    try
+    {
+        lease = acquireProductionFreshExclusiveLease({ root: repoRoot, runId,
+            targetTierId: 'production-correctness', sourceState });
+        const catalog = bindMatrixNugetDiskDemand(readProductionDiskDemandCatalog(repoRoot), prepared, producerId);
+        const plan = buildProductionDiskDemandPlan({ root: repoRoot,
+            tiers: [{ id: producerId, executionDependsOn: [], exclusiveResources: [] }], maxParallel: 1,
+            catalog, roots: { ...defaultProductionDiskRoots(repoRoot, { includeDockerStorage: false }),
+                matrixNugetArtifactRoot: path.join(repoRoot, '.tmp') } });
+        reservation = acquireProductionCapacityReservation({ plan, runId,
+            candidateIdentityDigest: lease.owner.candidateIdentityDigest, repositoryRoot: repoRoot,
+            repositoryLeaseOwner: lease.owner });
+        reservation.guardProducer(producerId);
+        assertPreparedNugetCurrent(prepared, repoRoot);
+        await executeCommand(argv, prepared, null, failureOwner);
+        reservation.completeProducer(producerId);
+    }
+    catch (error) { retainExecutionFailure(failureOwner, error); throwExecutionFailure(failureOwner); }
+    finally
+    {
+        const observation = observeExecutionFailure(failureOwner);
+        const physical = observePhysicalExecutionFailure(failureOwner);
+        const safe = !physical.physicalStarted || physical.physicalTerminal === 'zero-members';
+        if (safe)
+        {
+            let capacityReleased = true;
+            try { reservation?.release(observation.failed ? 'recovery-required' : 'released'); }
+            catch (error) { capacityReleased = false; retainExecutionFailure(failureOwner, error); }
+            if (capacityReleased)
+                try { lease?.release(observation.failed ? 'failed' : 'complete'); }
+                catch (error) { capacityReleased = false; retainExecutionFailure(failureOwner, error); }
+            if (!capacityReleased) retainExecutionRecovery(failureOwner, { repositoryLeasePath: lease?.leasePath,
+                capacityReservationFile: reservation?.activeFile, reason: 'original owner release unverified; recovery records retained' });
+        }
+        else retainExecutionRecovery(failureOwner, { repositoryLeasePath: lease?.leasePath,
+            capacityReservationFile: reservation?.activeFile, reason: 'unknown physical terminal; original resources retained' });
+        // eslint-disable-next-line no-unsafe-finally
+        throwExecutionFailure(failureOwner);
     }
 }
 
-main(process.argv.slice(2)).catch((error) =>
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    console.error(`[physical-execution] ${error instanceof Error ? error.message : String(error)}`);
-    process.exitCode = Number.isInteger(error?.exitCode) && error.exitCode > 0 ? error.exitCode : 1;
-});
+    const failureOwner = createExecutionFailureOwner();
+    runDeterministicCommand(process.argv.slice(2), null, failureOwner).catch((error) =>
+    {
+        console.error(`[physical-execution] ${formatExecutionFailure(error, failureOwner)}`);
+        const exitCode = executionFailureDataProperty(error, 'exitCode');
+        process.exitCode = Number.isInteger(exitCode) && exitCode > 0 && exitCode <= 255 ? exitCode : 1;
+    });
+}

@@ -232,6 +232,7 @@
         ".hex",
         ".ico",
         ".png",
+        ".patch",
         ".proof",
         ".public_inputs",
         ".r1cs",
@@ -253,6 +254,14 @@
     ],
     "pathClassifications": [
         {
+            "id": "dependency-migration-archive",
+            "owner": "DependencyOwner",
+            "patterns": [
+                "config/dependencies/fsusui-public-npm-migration.patch.gz"
+            ],
+            "reason": "the packed migration input is integrity-checked by tools/dependencies/migrate-fsusui-public-npm.mjs; only these compressed bytes are non-source, while applied files retain their normal style owners"
+        },
+        {
             "id": "generated",
             "owner": "GeneratorOwner",
             "patterns": [
@@ -266,7 +275,6 @@
             "owner": "DependencyOwner",
             "patterns": [
                 "tools/vcpkg-overlays/**",
-                "config/dependencies/fsusui-public-npm-migration.patch.gz",
                 "**/vendor/**",
                 "**/node_modules/**"
             ],

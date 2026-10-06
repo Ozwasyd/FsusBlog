@@ -120,6 +120,10 @@ StaticArticleBulkAuthorityGovernance() {
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
 }
+StaticArticlePropertyDefinitionAuthority() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-property-definition-authority.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-property-definition-authority.test.mjs"
+}
 StaticLineEndings() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/style/line-ending-invariant.mjs"
 }
@@ -230,6 +234,7 @@ RunApplicationStaticPrechecksPhase() {
         article-relations StaticArticleRelations \
         article-scale-plan-governance StaticArticleScalePlanGovernance \
         article-bulk-authority-governance StaticArticleBulkAuthorityGovernance \
+        article-property-definition-authority StaticArticlePropertyDefinitionAuthority \
         central-package-management StaticCentralPackageManagement \
         dependency-update-surface StaticDependencyUpdateSurface \
         dependency-freshness StaticDependencyFreshness \

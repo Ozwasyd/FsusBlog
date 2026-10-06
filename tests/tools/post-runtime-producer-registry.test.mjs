@@ -6,12 +6,19 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { readRuntimeRoleExecutionClosure as readPhysicalExecutionClosure } from '../../tools/fact-extractors/lib/runtime-role-execution-closure.mjs';
+import { readPinnedRepositoryFile } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
+
+import { runtimeRoleRequiredExecutionFiles } from '../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
+
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
+const { createBrowserTemporalFixture } = await import(new URL('./support/browser-temporal-fixture.mjs', import.meta.url));
 const { deriveBrowserObservedRawFacts } = await import(new URL('../../tools/test-evidence/browser-contract-observed-facts.mjs', import.meta.url));
 const { selectBrowserContractScenarios } = await import(new URL('../browser-contract/contract-core.mjs', import.meta.url));
-const { createRuntimeRoleStaticV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { createRuntimeRoleStaticV4Fixture, createCurrentSchemaCodeContractFixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { createReleaseRolloutEvidenceFixture, createCurrentRolloutFixtureBinding, createCurrentRolloutAdmissionFixtureOutput } = await import(new URL('./support/release-rollout-evidence-fixture.mjs', import.meta.url));
 const {
     createCanonicalAotSourceFixture,
     createCanonicalHydrationFixtureObservation,
@@ -19,6 +26,12 @@ const {
     createCanonicalProbeSourceFixture
 } = await import(new URL('./support/canonical-post-runtime-source-fixture.mjs', import.meta.url));
 const { acceptedClaimsSchema, authorityDigest, canonicalRepositoryFile, identityAuthoritySchema, loadPostRuntimeProducerRegistry, postRuntimeRegistrySchema, requiredPostRuntimeBehaviors, root, sourceReceiptSchema, validateAcceptedClaimsReceiptAgainstRegistry, validatePostRuntimeProducerRegistry, validatePostRuntimeReaderFirewall, validatePostRuntimeRepositoryAuthority, validatePostRuntimeReceiptSchemas, validateProducerReceiptAgainstRegistry: validateProducerReceiptAgainstRegistryRaw } = await import(new URL('../../tools/test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
+
+function readRuntimeRoleExecutionClosure(repositoryRoot, assemblyPath)
+{
+    return readPhysicalExecutionClosure(repositoryRoot, assemblyPath, readPinnedRepositoryFile);
+}
+
 const catalog = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/behavior-contracts.json'), 'utf8'));
 const migrationLedger = JSON.parse(fs.readFileSync(path.join(root, 'config/contracts/document-claim-migration-ledger.json'), 'utf8'));
 const registry = loadPostRuntimeProducerRegistry(root);
@@ -40,6 +53,9 @@ const previewRegistry = JSON.parse(fs.readFileSync(
     'utf8'
 ));
 for (const file of [
+    'config/testing/temporal-policy.json',
+    'config/testing/temporal-callsite-dispositions.json',
+    'config/testing/temporal-producer-bindings.json',
     'config/docs/public-preview-screenshots.json',
     previewRegistry.qualityPolicyFile,
     ...previewRegistry.qualityScenarioFiles
@@ -94,7 +110,7 @@ function createRuntimeRoleAdmission(sourceState)
         sourceCommit: sourceState.sourceCommit,
         worktreeFingerprint: sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
     };
-    let admission = createRuntimeRoleStaticV3Fixture(sourceState.runId, source, {
+    let admission = createRuntimeRoleStaticV4Fixture(sourceState.runId, source, {
         repositoryRoot: receiptRepositoryRoot,
         extractorIds: JSON.parse(fs.readFileSync(
             path.join(receiptRepositoryRoot, 'config/contracts/behavior-fact-extractors.json'),
@@ -116,7 +132,8 @@ function createRuntimeRoleAdmission(sourceState)
         }
         const value = artifactId === 'runtime-role-observation'
             ? {
-                schema: 'fsusblog.runtime-role-observation.v2',
+                schema: 'fsusblog.runtime-role-observation.v3',
+                currentSchemaContract: createCurrentSchemaCodeContractFixture(),
                 ownership: { claimEligible: true },
                 deploymentAuthority: {
                     observationDigest: deploymentObservationDigest
@@ -126,14 +143,32 @@ function createRuntimeRoleAdmission(sourceState)
         const output = writeJson(artifact.path, value);
         artifact.artifactDigest = fileDigestHex(output);
         artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+        if (artifactId === 'openapi-aeds-observation')
+        {
+            const projection = artifact.buildReceipt;
+            const observed = writeJson(projection.openapiPath, {
+                openapi: '3.0.1',
+                info: { title: 'Synthetic post-runtime fixture', version: '1' },
+                paths: {}
+            });
+            const published = path.join(receiptRepositoryRoot, projection.openapiArtifactPath);
+            fs.mkdirSync(path.dirname(published), { recursive: true });
+            fs.copyFileSync(observed, published);
+            projection.openapiDigest = fileDigestHex(observed);
+        }
     }
     const assembly = path.join(receiptRepositoryRoot, runtimeArtifact.assemblyPath);
     fs.mkdirSync(path.dirname(assembly), { recursive: true });
-    fs.writeFileSync(assembly, 'runtime-role-assembly\n');
+    for (const file of runtimeRoleRequiredExecutionFiles)
+    {
+        fs.writeFileSync(path.join(path.dirname(assembly), file), 'runtime-role-assembly\n');
+    }
     runtimeArtifact.assemblyDigest = fileDigestHex(assembly);
     runtimeArtifact.buildReceipt.assemblyDigest = runtimeArtifact.assemblyDigest;
     runtimeArtifact.buildReceipt.reproducibleBuild.assemblyDigest =
         runtimeArtifact.assemblyDigest;
+    runtimeArtifact.buildReceipt.reproducibleBuild.executionClosure =
+        readRuntimeRoleExecutionClosure(receiptRepositoryRoot, runtimeArtifact.assemblyPath);
     const deployment = writeJson(runtimeArtifact.deploymentArtifactPath, {
         schema: 'fsusblog.runtime-role-deployment-observation.v1',
         ownership: { claimEligible: true },
@@ -166,7 +201,7 @@ function producerReceipt(classId = 'route-response-error')
         runtimeId: 'run-1:runtime',
         browserIdentity: 'run-1:browser-contract',
         releaseId: '20260830123456-abcdef123456',
-        rolloutId: 'run-1:rollout',
+        rolloutId: 'run-1-rollout',
         runId: 'run-1',
         attemptId: 'attempt-0001',
         fixtureId: 'run-1:fixture',
@@ -208,7 +243,19 @@ function producerReceipt(classId = 'route-response-error')
     };
     const embeddedDocument = (contract) =>
     {
-        if (contract.schema === 'fsusblog.fixture-prepare-state.v1') return createCanonicalPreparedFixture(sourceState)
+        if (contract.schema === 'fsusblog.fixture-prepare-state.v1')
+        {
+            return createCanonicalPreparedFixture(sourceState);
+        }
+        if (contract.schema === 'fsusblog.release-rollout-evidence.v2')
+        {
+            const base = path.join(receiptRepositoryRoot, '.tmp/release-rollout');
+            fs.mkdirSync(base, { recursive: true });
+            return createReleaseRolloutEvidenceFixture({
+                rolloutId: sourceState.rolloutId ?? `${sourceState.runId}-rollout`,
+                target: { ...createReleaseRolloutEvidenceFixture().target, releaseId: sourceState.releaseId }
+            }).createFinalEvidence(fs.mkdtempSync(path.join(base, `${classId}-`))).value;
+        }
         const source = {
             commit: sourceState.sourceCommit,
             worktreeFingerprint: sourceState.worktreeFingerprint
@@ -242,20 +289,20 @@ function producerReceipt(classId = 'route-response-error')
                 images: Object.fromEntries(Array.from({ length: 9 }, (_, index) =>
                     [`screenshot-${index + 1}`, `${index + 1}`.repeat(64)]))
             },
-            'fsusblog.release-rollout-evidence.v1': {
+            'fsusblog.release-rollout-evidence.v2': {
                 rolloutId: sourceState.rolloutId,
                 target: { releaseId: sourceState.releaseId }
             },
             'fsusblog.behavior-doc-static-admission-receipt.v1':
                 createRuntimeRoleAdmission(sourceState),
             'fsusblog.runtime-role-observation.v1': { observationDigest: digest('1') }
-        }
-        const document = { schema: contract.schema, ...bySchema[contract.schema] }
+        };
+        const document = { schema: contract.schema, ...bySchema[contract.schema] };
         return [
             'fsusblog.public-preview-screenshot-verification.v1',
             'fsusblog.behavior-doc-static-admission-receipt.v1'
-        ].includes(contract.schema) ? document : seal(document)
-    }
+        ].includes(contract.schema) ? document : seal(document);
+    };
     const embeddedReference = (field, contract) =>
     {
         const receiptPaths = {
@@ -265,7 +312,7 @@ function producerReceipt(classId = 'route-response-error')
             'fsusblog.spa-manifest-descriptor.v1': '.tmp/aot-manifest/spa-manifest-descriptor.json',
             'fsusblog.browser-contract-receipt.v2': '.tmp/browser-contract/receipt.json',
             'fsusblog.public-preview-screenshot-verification.v1': '.tmp/release-evidence/public-preview-screenshots.json',
-            'fsusblog.release-rollout-evidence.v1': `.tmp/release-rollout/${classId}.json`,
+            'fsusblog.release-rollout-evidence.v2': `.tmp/release-rollout/${classId}.json`,
             'fsusblog.behavior-doc-static-admission-receipt.v1':
                 '.tmp/behavior-doc-static-admission/receipt.json',
             'fsusblog.runtime-role-observation.v1': '.tmp/behavior-doc-static-admission/runtime-role-observation.json'
@@ -274,10 +321,10 @@ function producerReceipt(classId = 'route-response-error')
             receiptPaths[contract.schema]
                 ?? `.tmp/post-runtime-dependencies/${classId}-${field.replaceAll('.', '-')}.json`,
             embeddedDocument(contract),
-            contract.role)
-    }
-    let canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route'
-    let independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify'
+            contract.role);
+    };
+    let canonicalRerunCommand = 'node tools/test-evidence/runtime-observation-probes.mjs route';
+    let independentVerifyCommand = 'node tools/test-evidence/runtime-observation-raw.mjs verify';
     const upstreamBody = {
         schema: definition.sourceReceipt.schema,
         producerId: producer.producerId,
@@ -359,12 +406,12 @@ function producerReceipt(classId = 'route-response-error')
     }
     if (definition.sourceReceipt.role === 'probe')
     {
-        const canonicalSource = { commit: sourceState.sourceCommit, worktreeFingerprint: sourceState.worktreeFingerprint }
-        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource })
-        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt, 'production-build')
-        sourceState.buildIdentity = buildReceipt.contentDigest
-        const prepared = createCanonicalPreparedFixture(sourceState)
-        const fixtureRef = writeDependency('.tmp/fixtures/run-1/prepare-state.json', prepared, 'fixture')
+        const canonicalSource = { commit: sourceState.sourceCommit, worktreeFingerprint: sourceState.worktreeFingerprint };
+        const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource });
+        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt, 'production-build');
+        sourceState.buildIdentity = buildReceipt.contentDigest;
+        const prepared = createCanonicalPreparedFixture(sourceState);
+        const fixtureRef = writeDependency('.tmp/fixtures/run-1/prepare-state.json', prepared, 'fixture');
         const plan = seal({
             schema: 'fsusblog.post-runtime-candidate-plan.v1', producerId: producer.producerId,
             status: 'planned', sourceState: canonicalSource,
@@ -373,39 +420,41 @@ function producerReceipt(classId = 'route-response-error')
             observations: [{ classId, receiptPath: `.tmp/current-run/${classId}.json` }],
             identityAuthorityRefs: { plan: refs.candidatePlanRef, attempt: refs.attemptAuthorityRef,
                 fixture: refs.fixtureAuthorityRef, profile: refs.profileAuthorityRef }
-        })
-        const planRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json', plan, 'candidate-plan')
+        });
+        const planRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json', plan, 'candidate-plan');
         const { upstream: probe, sourceState: probeIdentity } = createCanonicalProbeSourceFixture(classId, {
             candidatePlan: { relative: planRef.path, fileDigest: planRef.fileDigest, value: plan },
             build: { ref: { path: buildRef.path, contentDigest: buildRef.fileDigest }, value: buildReceipt },
             fixture: { ref: { path: fixtureRef.path, contentDigest: fixtureRef.fileDigest }, value: prepared },
             output: upstreamRelative
-        }, { producer, sourceState })
-        Object.assign(sourceState, probeIdentity)
-        canonicalRerunCommand = probe.canonicalRerunCommand
-        independentVerifyCommand = probe.independentVerifyCommand
+        }, { producer, sourceState });
+        Object.assign(sourceState, probeIdentity);
+        canonicalRerunCommand = probe.canonicalRerunCommand;
+        independentVerifyCommand = probe.independentVerifyCommand;
         for (const field of definition.requiredSemanticFactFields)
+        {
             semanticFacts[field] = field.endsWith('Digest')
-                ? authorityDigest(probe.rawFacts[rawFieldFor(field)]) : probe.rawFacts[field]
-        Object.assign(upstreamRef, writeDependency(upstreamRelative, probe, 'probe'))
+                ? authorityDigest(probe.rawFacts[rawFieldFor(field)]) : probe.rawFacts[field];
+        }
+        Object.assign(upstreamRef, writeDependency(upstreamRelative, probe, 'probe'));
     }
     if (['browser-behavior-contract', 'aot-spa-hydration'].includes(classId))
     {
         const canonicalSource = {
             commit: sourceState.sourceCommit,
             worktreeFingerprint: sourceState.worktreeFingerprint
-        }
-        const assetRoot = path.join(receiptRepositoryRoot, '.tmp/retained-assets', allSourceState.releaseId)
-        const manifestRelative = path.relative(receiptRepositoryRoot, path.join(assetRoot, '.vite/manifest.json'))
-        const manifestRef = writeDependency(manifestRelative, { 'src/main.ts': { file: 'assets/main.js', isEntry: true } })
+        };
+        const assetRoot = path.join(receiptRepositoryRoot, '.tmp/retained-assets', allSourceState.releaseId);
+        const manifestRelative = path.relative(receiptRepositoryRoot, path.join(assetRoot, '.vite/manifest.json'));
+        const manifestRef = writeDependency(manifestRelative, { 'src/main.ts': { file: 'assets/main.js', isEntry: true } });
         const inventoryRef = writeDependency(path.relative(receiptRepositoryRoot, path.join(assetRoot, 'asset-manifest.json')),
-            { schema: 'fsusblog.release-assets.v1', releaseId: allSourceState.releaseId, files: [] })
+            { schema: 'fsusblog.release-assets.v1', releaseId: allSourceState.releaseId, files: [] });
         const buildReceipt = seal({ schema: 'fsusblog.ci-production-build-receipt.v1', sourceState: canonicalSource,
-            artifacts: [{ path: 'frontend-dist/.vite/manifest.json', sha256: manifestRef.fileDigest }] })
-        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt)
-        sourceState.buildIdentity = buildReceipt.contentDigest
+            artifacts: [{ path: 'frontend-dist/.vite/manifest.json', sha256: manifestRef.fileDigest }] });
+        const buildRef = writeDependency('.tmp/ci-production-build/receipt.json', buildReceipt);
+        sourceState.buildIdentity = buildReceipt.contentDigest;
         const build = { receipt: buildRef.path, receiptContentDigest: buildReceipt.contentDigest,
-            sourceState: canonicalSource, profile: 'production' }
+            sourceState: canonicalSource, profile: 'production' };
         const candidatePlan = seal({
             schema: 'fsusblog.post-runtime-candidate-plan.v1',
             producerId: producer.producerId,
@@ -421,9 +470,9 @@ function producerReceipt(classId = 'route-response-error')
             observations: [{ classId, receiptPath: `.tmp/current-run/${classId}.json` }],
             identityAuthorityRefs: { plan: refs.candidatePlanRef, attempt: refs.attemptAuthorityRef,
                 fixture: refs.fixtureAuthorityRef, profile: refs.profileAuthorityRef }
-        })
+        });
         const candidatePlanRef = writeDependency('.tmp/post-runtime-plan/run-1/attempt-0001/candidate-plan.json',
-            candidatePlan, 'candidate-plan')
+            candidatePlan, 'candidate-plan');
         const browserPlan = seal({
             schema: 'fsusblog.playwright-browser-identity.v1', executionClass: 'correctness',
             evidenceClass: 'browser-contract', qualificationEligible: true, managedExecutable: true,
@@ -434,19 +483,20 @@ function producerReceipt(classId = 'route-response-error')
                 fontSetDigest: digest('1'), localeDataDigest: digest('2'), locale: 'zh-CN',
                 deviceScaleFactor: 1, renderingMode: 'headless', colorScheme: 'light', gpuMode: 'software'
             }
-        })
+        });
         const browserActual = seal({ ...browserPlan, schema: 'fsusblog.playwright-browser-actual.v1',
             planDigest: browserPlan.contentDigest, renderingObservation: {
                 locale: 'zh-CN', deviceScaleFactor: 1, colorScheme: 'light', renderer: 'SwiftShader fixture renderer'
-            } })
+            } });
         const publicPreviewRef = upstreamBody.publicPreviewRef ?? embeddedReference('publicPreviewRef', {
             schema: 'fsusblog.public-preview-screenshot-verification.v1', role: 'public-preview'
-        })
-        const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, publicPreviewRef.path), 'utf8'))
+        });
+        const preview = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, publicPreviewRef.path), 'utf8'));
         let browser = sealBrowserContractReceipt({
             ...upstreamBody,
             sourceState: canonicalSource,
             status: 'success', classification: 'clean', error: null,
+            temporalBinding: createBrowserTemporalFixture({ sourceState: canonicalSource, runId: sourceState.runId }),
             wallClockMs: 2000,
             finalization: { state: 'complete', primary: { status: 'success' },
                 cleanup: { status: 'success' }, persistence: { attemptCount: 1 } },
@@ -467,38 +517,42 @@ function producerReceipt(classId = 'route-response-error')
                 evidenceFileDigest: publicPreviewRef.fileDigest },
             publicPreviewRef,
             candidatePlanRef
-        })
-        browser = sealBrowserContractReceipt({ ...browser, rawFacts: deriveBrowserObservedRawFacts(browser, preview) })
+        });
+        browser = sealBrowserContractReceipt({ ...browser, rawFacts: deriveBrowserObservedRawFacts(browser, preview) });
         if (classId === 'aot-spa-hydration')
         {
             const descriptor = seal({ schema: 'fsusblog.spa-manifest-descriptor.v1',
                 releaseId: allSourceState.releaseId, sourceCommit: sourceState.sourceCommit,
                 worktreeFingerprint: sourceState.worktreeFingerprint, buildReceiptDigest: buildReceipt.contentDigest,
                 assetRoot, manifestPath: path.join(assetRoot, '.vite/manifest.json'),
-                manifestDigest: manifestRef.fileDigest, assetInventoryDigest: inventoryRef.fileDigest })
+                manifestDigest: manifestRef.fileDigest, assetInventoryDigest: inventoryRef.fileDigest });
             const inputs = {
                 manifest: { value: descriptor, ref: writeDependency('.tmp/aot-manifest/spa-manifest-descriptor.json', descriptor, 'spa-manifest') },
                 browserContract: { value: browser, ref: writeDependency('.tmp/browser-contract/receipt.json', browser, 'browser-contract') }
-            }
-            const readBytes = (file) => fs.readFileSync(file)
+            };
+            const readBytes = (file) => fs.readFileSync(file);
             const { upstream: aot } = createCanonicalAotSourceFixture({ candidate: { ref: candidatePlanRef },
-                plan: candidatePlan, inputs, producer, readBytes }, buildReceipt)
+                plan: candidatePlan, inputs, producer, readBytes }, buildReceipt);
             for (const field of definition.requiredSemanticFactFields)
+            {
                 semanticFacts[field] = field.endsWith('Digest')
-                    ? authorityDigest(aot.rawFacts[rawFieldFor(field)]) : aot.rawFacts[field]
-            canonicalRerunCommand = aot.canonicalRerunCommand
-            independentVerifyCommand = aot.independentVerifyCommand
-            Object.assign(upstreamRef, writeDependency(upstreamRelative, aot, 'aot'))
-            sourceState.artifactDigest = manifestRef.fileDigest
+                    ? authorityDigest(aot.rawFacts[rawFieldFor(field)]) : aot.rawFacts[field];
+            }
+            canonicalRerunCommand = aot.canonicalRerunCommand;
+            independentVerifyCommand = aot.independentVerifyCommand;
+            Object.assign(upstreamRef, writeDependency(upstreamRelative, aot, 'aot'));
+            sourceState.artifactDigest = manifestRef.fileDigest;
         }
         else
         {
-        for (const field of definition.requiredSemanticFactFields)
-            semanticFacts[field] = field.endsWith('Digest')
-                ? authorityDigest(browser.rawFacts[rawFieldFor(field)]) : browser.rawFacts[field]
-        const browserRef = writeDependency(upstreamRelative, browser, 'browser')
-        Object.assign(upstreamRef, browserRef)
-        sourceState.artifactDigest = browserRef.fileDigest
+            for (const field of definition.requiredSemanticFactFields)
+            {
+                semanticFacts[field] = field.endsWith('Digest')
+                    ? authorityDigest(browser.rawFacts[rawFieldFor(field)]) : browser.rawFacts[field];
+            }
+            const browserRef = writeDependency(upstreamRelative, browser, 'browser');
+            Object.assign(upstreamRef, browserRef);
+            sourceState.artifactDigest = browserRef.fileDigest;
         }
     }
     const sourceReceipt = seal({
@@ -898,38 +952,60 @@ test('canonical Browser source preserves its sealer fields and rejects re-sealed
         upstream.publicPreview.evidenceFileDigest = fileDigest;
     };
     for (const [mutate, expected] of [
-        [(value) => { value.unregistered = true; }, /missing or unknown fields/u],
-        [(value) => { delete value.diagnostics; }, /missing or unknown fields/u],
-        [(value) => {
+        [(value) =>
+        {
+            value.unregistered = true;
+        }, /missing or unknown fields/u],
+        [(value) =>
+        {
+            delete value.diagnostics;
+        }, /missing or unknown fields/u],
+        [(value) =>
+        {
             value.sourceState.sourceCommit = value.sourceState.commit;
         }, /sourceState has missing or unknown fields/u],
-        [(value) => { value.runIdentity.runId = 'other-run'; }, /runId mismatch/u],
-        [(value) => {
+        [(value) =>
+        {
+            value.runIdentity.runId = 'other-run';
+        }, /runId mismatch/u],
+        [(value) =>
+        {
             value.buildBinding.receiptContentDigest = digest('f');
         }, /canonical Browser contract.*build.*digest mismatch/u],
-        [(value) => {
+        [(value) =>
+        {
             value.publicPreview.evidenceFileDigest = digest('f');
         }, /canonical source\/build\/run\/preview binding mismatch/u],
-        [(value) => {
+        [(value) =>
+        {
             value.candidatePlanRef.fileDigest = digest('f');
         }, /candidatePlanRef file digest mismatch/u],
-        [(value) => { value.status = 'failure'; }, /canonical Browser contract/u],
-        [(value) => {
+        [(value) =>
+        {
+            value.status = 'failure';
+        }, /canonical Browser contract/u],
+        [(value) =>
+        {
             value.rawFacts.network.requestFailureCount = 3;
         }, /raw semantic facts do not replay/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.captureContextCount = 9;
         }), /canonical preview has missing or unknown fields/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             delete value.qualityAudit;
         }), /canonical preview has missing or unknown fields/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.qualityAudit = false;
         }), /canonical preview quality mismatch/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.qualityPolicyDigest = 'f'.repeat(64);
         }), /canonical preview quality mismatch/u],
-        [mutatePreview((value) => {
+        [mutatePreview((value) =>
+        {
             value.quality.matrix.reports = [];
         }), /canonical preview quality mismatch/u]
     ])
@@ -982,16 +1058,20 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
     const classId = 'release-identity-readiness';
     const producerId = registry.producers[0].producerId;
     for (const [mutate, expected] of [
-        [({ admission }) => {
+        [({ admission }) =>
+        {
             delete admission.minimalContractBuild;
         }, /minimalContractBuild|fields are not sealed/u],
-        [({ admission }) => {
+        [({ admission }) =>
+        {
             admission.unknown = true;
         }, /fields are not sealed/u],
-        [({ upstream }) => {
+        [({ upstream }) =>
+        {
             upstream.runtimeRoleAdmissionRef.contentDigest = digest('f');
         }, /runtime-role admission content seal mismatch/u],
-        [({ admission, observationFile }) => {
+        [({ observationFile }) =>
+        {
             const observation = JSON.parse(fs.readFileSync(observationFile, 'utf8'));
             observation.ownership.claimEligible = false;
             fs.writeFileSync(
@@ -999,7 +1079,8 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(observation, null, 2)}\n`
             );
         }, /artifact runtime-role-observation digest mismatch/u],
-        [({ admission, observationFile, resealMinimal }) => {
+        [({ admission, observationFile, resealMinimal }) =>
+        {
             const observation = JSON.parse(fs.readFileSync(observationFile, 'utf8'));
             observation.schema = 'fsusblog.runtime-role-observation.v1';
             fs.writeFileSync(
@@ -1007,8 +1088,9 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(observation, null, 2)}\n`
             );
             resealMinimal(admission, observationFile, 'artifact');
-        }, /runtime-role v2 observation authority/u],
-        [({ admission, deploymentFile, resealMinimal }) => {
+        }, /runtime-role v3 observation authority/u],
+        [({ admission, deploymentFile, resealMinimal }) =>
+        {
             const deployment = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
             deployment.ownership.claimEligible = false;
             fs.writeFileSync(
@@ -1016,7 +1098,7 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(deployment, null, 2)}\n`
             );
             resealMinimal(admission, deploymentFile, 'deployment');
-        }, /runtime-role v2 observation authority/u]
+        }, /runtime-role v3 observation authority/u]
     ])
     {
         const receipt = producerReceipt(classId);
@@ -2549,4 +2631,483 @@ test('accepted claims reject re-sealed #2205 path, producer, tool, command and d
         registry, producerId, receipt: seal(duplicatePayload.receipt),
         repositoryRoot: duplicatePayload.repositoryRoot, migrationLedger
     }), /duplicate JSON key schema/u);
+});
+
+test('canonical Browser source keeps its sealer fields and rejects re-sealed identity drift', () =>
+{
+    const classId = 'browser-behavior-contract';
+    const producerId = registry.producers[0].producerId;
+    const mutatePreview = (mutation) => (upstream) =>
+    {
+        const file = path.join(receiptRepositoryRoot, upstream.publicPreviewRef.path);
+        const preview = JSON.parse(fs.readFileSync(file, 'utf8'));
+        assert.equal(Object.keys(preview).length, 15);
+        mutation(preview);
+        const bytes = `${JSON.stringify(preview, null, 2)}\n`;
+        fs.writeFileSync(file, bytes);
+        const fileDigest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+        upstream.publicPreviewRef.fileDigest = fileDigest;
+        upstream.publicPreview.evidenceFileDigest = fileDigest;
+    };
+    for (const [mutate, expected] of [
+        [(value) =>
+        {
+            value.unregistered = true;
+        }, /missing or unknown fields/u],
+        [(value) =>
+        {
+            delete value.diagnostics;
+        }, /missing or unknown fields/u],
+        [(value) =>
+        {
+            value.sourceState.sourceCommit = value.sourceState.commit;
+        }, /sourceState has missing or unknown fields/u],
+        [(value) =>
+        {
+            value.runIdentity.runId = 'other-run';
+        }, /runId mismatch/u],
+        [(value) =>
+        {
+            value.runIdentity.attemptId = 'attempt-0002';
+        }, /attemptId mismatch/u],
+        [(value) =>
+        {
+            value.buildBinding.receiptContentDigest = digest('f');
+        }, /canonical Browser contract.*build.*digest mismatch/u],
+        [(value) =>
+        {
+            value.publicPreview.evidenceFileDigest = digest('f');
+        }, /canonical source\/build\/run\/preview binding mismatch/u],
+        [(value) =>
+        {
+            value.candidatePlanRef.fileDigest = digest('f');
+        }, /candidatePlanRef file digest mismatch/u],
+        [(value) =>
+        {
+            value.candidatePlanRef.path = '.tmp/latest/plan.json';
+        }, /explicit current-run JSON path/u],
+        [(value) =>
+        {
+            value.status = 'failure';
+        }, /canonical Browser contract/u],
+        [(value) =>
+        {
+            value.rawFacts.network.requestFailureCount = 3;
+        }, /raw semantic facts do not replay/u],
+        [(value) =>
+        {
+            value.scenarios[0].observation = { retainedButChanged: true };
+        }, /raw semantic facts do not replay/u],
+        [mutatePreview((value) =>
+        {
+            value.captureContextCount = 9;
+        }), /canonical preview has missing or unknown fields/u],
+        [mutatePreview((value) =>
+        {
+            delete value.qualityAudit;
+        }), /canonical preview has missing or unknown fields/u],
+        [mutatePreview((value) =>
+        {
+            value.qualityAudit = false;
+        }), /canonical preview quality mismatch/u],
+        [mutatePreview((value) =>
+        {
+            value.qualityPolicyDigest = 'f'.repeat(64);
+        }), /canonical preview quality mismatch/u],
+        [mutatePreview((value) =>
+        {
+            value.quality.matrix.reports = [];
+        }), /canonical preview quality mismatch/u]
+    ])
+    {
+        const receipt = producerReceipt(classId);
+        const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path);
+        const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+        const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path);
+        const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'));
+        assert.equal(upstream.evidenceClass, 'browser-contract');
+        assert.deepEqual(Object.keys(upstream.sourceState).sort(), ['commit', 'worktreeFingerprint']);
+        mutate(upstream);
+        const changed = seal(upstream);
+        fs.writeFileSync(upstreamPath, `${JSON.stringify(changed, null, 2)}\n`);
+        source.upstreamRef.fileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(upstreamPath)).digest('hex')}`;
+        source.upstreamRef.contentDigest = changed.contentDigest;
+        receipt.sourceState.artifactDigest = source.upstreamRef.fileDigest;
+        source.sourceState.artifactDigest = source.upstreamRef.fileDigest;
+        const changedSource = seal(source);
+        fs.writeFileSync(sourcePath, `${JSON.stringify(changedSource, null, 2)}\n`);
+        receipt.sourceReceiptRef.fileDigest = `sha256:${createHash('sha256').update(fs.readFileSync(sourcePath)).digest('hex')}`;
+        receipt.sourceReceiptRef.contentDigest = changedSource.contentDigest;
+        assert.throws(() => validateProducerReceiptAgainstRegistry({
+            registry, producerId, receipt: seal(receipt), classId
+        }), expected);
+    }
+});
+
+
+test('canonical probe and AOT observations reject re-sealed semantic and retained-byte drift', () =>
+{
+    const write = (file, value, shouldSeal = true) =>
+    {
+        const document = shouldSeal ? seal(value) : value;
+        fs.writeFileSync(file, `${JSON.stringify(document, null, 2)}\n`);
+        return { fileDigest: `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`,
+            contentDigest: document.contentDigest ?? null };
+    };
+    const mutateDependency = (upstream, key, mutate) =>
+    {
+        const ref = key === 'plan' ? upstream.candidatePlanRef : upstream.evidenceRefs[key];
+        const file = path.join(receiptRepositoryRoot, ref.path);
+        const value = JSON.parse(fs.readFileSync(file, 'utf8'));
+        mutate(value);
+        Object.assign(ref, write(file, value));
+    };
+    for (const classId of ['route-response-error', 'cache-search-outbox-convergence', 'session-cookie-runtime', 'aot-spa-hydration'])
+    {
+        const cases = classId === 'aot-spa-hydration' ? [
+            [(upstream) =>
+{
+ upstream.rawFacts.serverHtml = 're-sealed-invention';
+}, /raw semantic facts mismatch/u],
+            [(upstream) => mutateDependency(upstream, 'plan', (value) =>
+{
+ value.candidate.runtimeId = 'other:runtime';
+}), /identity mismatch/u],
+            [(upstream) => mutateDependency(upstream, 'browserContract', (value) =>
+{
+                value.scenarios.find(({ id }) => id === 'public-hydration-history-reload').observation.direct.hydrated = false;
+            }), /not coherent/u],
+            [(upstream) => mutateDependency(upstream, 'manifest', (value) =>
+{
+ value.manifestPath += '/..';
+}), /not canonical/u],
+            [(upstream) => mutateDependency(upstream, 'manifest', (value) =>
+{
+                value.assetRoot = path.join(os.tmpdir(), value.releaseId);
+                value.manifestPath = path.join(value.assetRoot, '.vite/manifest.json');
+            }), /must belong to the current run/u],
+            [(upstream) =>
+{
+                const descriptor = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, upstream.evidenceRefs.manifest.path), 'utf8'));
+                fs.appendFileSync(descriptor.manifestPath, ' ');
+            }, /bytes do not exact-match/u],
+            [(upstream) => mutateDependency(upstream, 'manifest', (value) =>
+{
+ value.releaseId = '20260907000000-ffffffffffff';
+}), /candidate build/u]
+        ] : [
+            [(upstream) =>
+{
+ upstream.rawFacts[Object.keys(upstream.rawFacts)[0]] = 're-sealed-invention';
+}, /raw semantic facts mismatch/u],
+            [(upstream, receipt, source) =>
+{
+                upstream.facts.coherent = false;
+                upstream.sourceState.artifactDigest = authorityDigest(upstream.facts);
+                receipt.sourceState.artifactDigest = upstream.sourceState.artifactDigest;
+                source.sourceState.artifactDigest = upstream.sourceState.artifactDigest;
+            }, /facts are partial or incoherent/u],
+            [(upstream) =>
+{
+ upstream.provenance.syntheticSemanticResult = true;
+}, /authority\/build\/facts identity mismatch/u],
+            [(upstream) => mutateDependency(upstream, 'plan', (value) =>
+{
+ value.candidate.runId = 'other-run';
+}), /runId does not bind/u]
+        ];
+        for (const [mutate, expected] of cases)
+        {
+            const receipt = producerReceipt(classId);
+            const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path);
+            const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+            const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path);
+            const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'));
+            mutate(upstream, receipt, source);
+            Object.assign(source.upstreamRef, write(upstreamPath, upstream));
+            Object.assign(receipt.sourceReceiptRef, write(sourcePath, source));
+            assert.throws(() => validateProducerReceiptAgainstRegistry({ registry,
+                producerId: registry.producers[0].producerId, receipt: seal(receipt), classId }), expected);
+        }
+    }
+});
+
+
+test('AOT retained artifacts reject symlink and hardlink aliases', () =>
+{
+    for (const kind of ['symlink', 'hardlink'])
+    {
+        const classId = 'aot-spa-hydration';
+        const receipt = producerReceipt(classId);
+        const source = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path), 'utf8'));
+        const upstream = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, source.upstreamRef.path), 'utf8'));
+        const manifest = JSON.parse(fs.readFileSync(path.join(receiptRepositoryRoot, upstream.evidenceRefs.manifest.path), 'utf8'));
+        const original = `${manifest.manifestPath}.retained-original`;
+        fs.renameSync(manifest.manifestPath, original);
+        try
+        {
+            if (kind === 'symlink')
+            {
+                fs.symlinkSync(original, manifest.manifestPath);
+            }
+            else
+            {
+                fs.linkSync(original, manifest.manifestPath);
+            }
+            assert.throws(() => validateProducerReceiptAgainstRegistry({ registry,
+                producerId: registry.producers[0].producerId, receipt, classId }), /symlink|single-link|hard link|regular file/u);
+        }
+        finally
+        {
+            fs.unlinkSync(manifest.manifestPath);
+            fs.renameSync(original, manifest.manifestPath);
+        }
+    }
+});
+
+
+test('canonical pure receipt modules retain transitive no-I/O and no-execution boundaries', (context) =>
+{
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-pure-receipt-'));
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(repositoryRoot, 'tools/docs'), { recursive: true });
+    fs.mkdirSync(path.join(repositoryRoot, 'tools/contracts'), { recursive: true });
+    const entry = 'tools/docs/behavior-doc-static-admission-contract.mjs';
+    const entryFile = path.join(repositoryRoot, entry);
+    fs.writeFileSync(entryFile, "import path from 'node:path'\nexport const normalize = path.resolve\n");
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    fs.writeFileSync(entryFile, 'export const origin = value => new URL(value).origin\n');
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    fs.writeFileSync(entryFile, 'export const value = { process: "typed-observation", global: null, globalThis: 1 }\n');
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    fs.writeFileSync(entryFile, "export const pathname = value => new URL(value, 'https://fsusblog.invalid').pathname\n");
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    fs.writeFileSync(entryFile, 'export const origin = value => URL.parse(value)?.origin\n');
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    fs.writeFileSync(entryFile, "export const pathname = value => URL.parse(value, 'https://fsusblog.invalid')?.pathname\n");
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    for (const source of [
+        'export const parse = URL.parse\n',
+        'export const origin = (value, base) => URL.parse(value, base)?.origin\n',
+        "export const pathname = value => URL.parse(value, 'file:///tmp/')?.pathname\n",
+        'export const origin = value => URL.parse(value, undefined, 1)?.origin\n',
+        "import fs from 'node:fs'\nexport const reader = fs\n",
+        "import fs from 'node:fs'\nexport const reader = value => fs.readFileSync(new URL(value))\n",
+        'export const resolve = value => new URL(value, import.meta.url)\n',
+        "export const resolve = value => new URL(value, 'file:///tmp/').pathname\n",
+        'export const resolve = (value, base) => new URL(value, base).pathname\n',
+        'export const origin = (value, URL) => new URL(value).origin\n',
+        'const { URL } = {}; export const origin = value => new URL(value).origin\n',
+        'URL = class {}; export const origin = value => new URL(value).origin\n',
+        'URL.prototype.origin = 1; export const origin = value => new URL(value).origin\n',
+        "Object.defineProperty(URL.prototype, 'origin', { get() {} }); export const origin = value => new URL(value).origin\n",
+        "import { URL } from 'node:url'; export const origin = value => new URL(value).origin\n",
+        'export const reader = value => fetch(new URL(value))\n',
+        "import { spawn } from 'node:child_process'\nexport const run = spawn\n",
+        "export const dependency = import('node:path')\n",
+        "export const capability = process.getBuiltinModule('fs')\n",
+        'export const capability = { process }\n',
+        'export const capability = { [process]: true }\n',
+        'export const capability = { process: process }\n',
+        'export const capability = { process: globalThis }\n',
+        'const process = {}; export const capability = process\n',
+        'export const capability = value => value.process\n',
+        "import './doc-claim.mjs'\n",
+        "import './fake-receipt-contract.mjs'\n",
+        "import '../contracts/transitive-helper.mjs'\n"
+    ])
+    {
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/docs/doc-claim.mjs'), 'export const scanner = true\n');
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/docs/fake-receipt-contract.mjs'), 'export const copy = true\n');
+        fs.writeFileSync(path.join(repositoryRoot, 'tools/contracts/transitive-helper.mjs'),
+            "import { execSync } from 'node:child_process'\nexport const build = execSync\n");
+        fs.writeFileSync(entryFile, source);
+        assert.throws(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry), /forbidden/u);
+    }
+    for (const canonical of [entry, 'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
+        'tools/test-evidence/runtime-observation-probe-facts.mjs',
+        'tools/test-evidence/browser-contract-observed-facts.mjs',
+        'tools/test-evidence/aot-spa-hydration-observed-facts.mjs',
+        'tools/test-evidence/release-authority-bundle-contract.mjs',
+        'tools/test-evidence/release-authority-facts-contract.mjs',
+        'tools/fact-extractors/post-runtime/receipt-seal-contract.mjs',
+        'tools/test-fixtures/receipt/prepared-public-projection-contract.mjs',
+        'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
+        'tools/release/browser-contract-receipt-contract.mjs',
+        'tools/release/public-preview-quality-receipt-contract.mjs'])
+    {
+        assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(root, canonical));
+    }
+});
+
+
+test('canonical rollout references replay nested bytes and semantics without invented seals or IDs', () =>
+{
+    const classId = 'blue-green-containment';
+    const producerId = registry.producers[0].producerId;
+    const write = (file, value) =>
+    {
+        const bytes = Buffer.from(`${JSON.stringify(value, null, 2)}\n`);
+        fs.writeFileSync(file, bytes);
+        return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    };
+    for (const [mutate, expected] of [
+        [(value) =>
+        {
+            value.unregistered = true;
+        }, /canonical rollout.*missing or unknown fields/u],
+        [(value) =>
+        {
+            value.stages.pop();
+        }, /stage order is incomplete/u],
+        [(value) =>
+        {
+            fs.appendFileSync(value.stages[0].evidence.path, 'drift');
+        }, /changed after seal/u],
+        [(value) =>
+        {
+            const metadata = value.artifacts.resourceBudget;
+            const artifact = JSON.parse(fs.readFileSync(metadata.path, 'utf8'));
+            artifact.withinBudget = false;
+            metadata.sha256 = write(metadata.path, artifact);
+            metadata.bytes = fs.statSync(metadata.path).size;
+        }, /exceeded resource budget/u],
+        [(value) =>
+        {
+            value.stages[0].evidence.path = path.join(receiptRepositoryRoot, 'config/schemas/post-runtime-observation-result.schema.json');
+        }, /current run/u],
+        [(value) =>
+        {
+            value.stages[0].evidence.path = path.join(receiptRepositoryRoot, '.tmp/history/old.json');
+        }, /current run/u],
+        [(value, upstream) =>
+        {
+            upstream.rolloutEvidenceRef.contentDigest = digest('f');
+        }, /schema\/role\/digest contract/u],
+        [(value) =>
+        {
+            const directory = fs.mkdtempSync(path.join(receiptRepositoryRoot, '.tmp/release-rollout/swapped-'));
+            const other = createReleaseRolloutEvidenceFixture({
+                rolloutId: 'other-run-rollout',
+                target: { ...createReleaseRolloutEvidenceFixture().target, releaseId: value.target.releaseId }
+            }).createFinalEvidence(directory).value;
+            Object.assign(value, other);
+        }, /rolloutId does not bind the outer source identity/u]
+    ])
+    {
+        const receipt = producerReceipt(classId);
+        assert.doesNotThrow(() => validateProducerReceiptAgainstRegistry({ registry, producerId, receipt, classId }));
+        const sourcePath = path.join(receiptRepositoryRoot, receipt.sourceReceiptRef.path);
+        const source = JSON.parse(fs.readFileSync(sourcePath, 'utf8'));
+        const upstreamPath = path.join(receiptRepositoryRoot, source.upstreamRef.path);
+        const upstream = JSON.parse(fs.readFileSync(upstreamPath, 'utf8'));
+        const rolloutPath = path.join(receiptRepositoryRoot, upstream.rolloutEvidenceRef.path);
+        const rollout = JSON.parse(fs.readFileSync(rolloutPath, 'utf8'));
+        assert.equal(upstream.rolloutEvidenceRef.contentDigest, null);
+        assert.equal(Object.hasOwn(rollout, 'contentDigest'), false);
+        mutate(rollout, upstream);
+        upstream.rolloutEvidenceRef.fileDigest = write(rolloutPath, rollout);
+        const nextUpstream = seal(upstream);
+        source.upstreamRef.fileDigest = write(upstreamPath, nextUpstream);
+        source.upstreamRef.contentDigest = nextUpstream.contentDigest;
+        const nextSource = seal(source);
+        receipt.sourceReceiptRef.fileDigest = write(sourcePath, nextSource);
+        receipt.sourceReceiptRef.contentDigest = nextSource.contentDigest;
+        assert.throws(() => validateProducerReceiptAgainstRegistry({
+            registry, producerId, receipt: seal(receipt), classId
+        }), expected);
+    }
+});
+
+
+test('pure current rollout comparison admits only the original static equality import', (context) =>
+{
+    const repositoryRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-pure-comparator-'));
+    context.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    const entry = 'tools/docs/behavior-doc-static-admission-contract.mjs';
+    const file = path.join(repositoryRoot, entry);
+    fs.mkdirSync(path.dirname(file), { recursive: true });
+    fs.writeFileSync(file, "import { isDeepStrictEqual } from 'node:util'; export const compare = isDeepStrictEqual;\n");
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
+    for (const source of [
+        "import util from 'node:util'; export const compare = util.isDeepStrictEqual;\n",
+        "import * as util from 'node:util'; export const compare = util.isDeepStrictEqual;\n",
+        "import { isDeepStrictEqual as equal } from 'node:util'; export const compare = equal;\n",
+        "import { inspect } from 'node:util'; export const compare = inspect;\n",
+        "import { isDeepStrictEqual, inspect } from 'node:util'; export const compare = isDeepStrictEqual;\n",
+        "export { isDeepStrictEqual } from 'node:util';\n",
+        "export * from 'node:util';\n",
+        "export const compare = await import('node:util');\n",
+        "const util = require('node:util'); export const compare = util.isDeepStrictEqual;\n",
+        "import { isDeepStrictEqual } from 'util'; export const compare = isDeepStrictEqual;\n"
+    ])
+    {
+        fs.writeFileSync(file, source);
+        assert.throws(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry), /forbidden/u);
+    }
+    const closure = validatePostRuntimeReaderFirewall(root,
+        'tools/deployment/release-rollout-evidence-receipt-contract.mjs');
+    for (const original of ['tools/deployment/release-rollout-auxiliary-evidence-contract.mjs',
+        'tools/release/release-manifest-value-contract.mjs'])
+    {
+        assert.ok(closure.modules.includes(original));
+    }
+});
+
+test('current rollout whole comparison rejects nested bindings after coherent metadata changes', async () =>
+{
+    const { validateAuxiliaryEvidence } = await import(new URL(
+        '../../tools/deployment/release-rollout-auxiliary-evidence-contract.mjs', import.meta.url));
+    const { validateCurrentSchemaAdmissionOutput } = await import(new URL(
+        '../../tools/release/release-manifest-value-contract.mjs', import.meta.url));
+    const binding = createCurrentRolloutFixtureBinding();
+    const output = createCurrentRolloutAdmissionFixtureOutput(binding);
+    assert.deepEqual(validateCurrentSchemaAdmissionOutput(output, binding.currentSchema,
+        binding.candidateSourceRevision), []);
+    const state = { ...binding,
+        source: { releaseId: '20260710010101-aaaaaaaaaaaa' },
+        target: { releaseId: '20260711010101-bbbbbbbbbbbb', imageDigest: `sha256:${'b'.repeat(64)}` } };
+    const manifest = { schema: 'fsusblog.release-manifest.v3',
+        releaseId: state.target.releaseId, imageDigest: state.target.imageDigest,
+        commitSha: binding.candidateSourceRevision, currentSchema: structuredClone(binding.currentSchema) };
+    const errors = [];
+    validateAuxiliaryEvidence('releaseManifest', manifest, state, errors, 0);
+    assert.deepEqual(errors, []);
+    for (const mutate of [
+        (value) =>
+        {
+            value.currentSchema.database.databaseId = 'other-database';
+        },
+        (value) =>
+        {
+            value.currentSchema.target.extractorVersion = 'other-extractor';
+        },
+        (value) =>
+        {
+            value.currentSchema.receipt.reference = '/fixture/other-receipt.json';
+        }
+    ])
+    {
+        const changed = structuredClone(manifest);
+        mutate(changed);
+        const changedErrors = [];
+        validateAuxiliaryEvidence('releaseManifest', changed, state, changedErrors, 0);
+        assert.match(changedErrors.join('; '), /immutable target identity mismatch/u);
+    }
+    for (const mutate of [
+        (value) =>
+        {
+            value.database.databaseId = 'other-database';
+        },
+        (value) =>
+        {
+            value.target.extractorVersion = 'other-extractor';
+        }
+    ])
+    {
+        const changed = structuredClone(output);
+        mutate(changed);
+        assert.match(validateCurrentSchemaAdmissionOutput(changed, binding.currentSchema,
+            binding.candidateSourceRevision).join('; '), /immutable candidate receipt bindings/u);
+    }
 });

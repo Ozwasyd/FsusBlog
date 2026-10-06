@@ -39,6 +39,18 @@ Run the read-only check with the same secret/env-file inputs as the backend:
 dotnet run --project src/backend/FsusBlog.Server.csproj -- passkey-projection --check --env-file /run/secrets/fsusblog.env
 ```
 
+The optional environment file uses the Server original regular-file reader,
+with a 1 MiB encoded-byte budget on Linux x64/arm64. Empty files and relative
+passkey input paths remain valid; symlink leaves/ancestors, nonregular files,
+excess bytes and changed native identity are refused. Parsing preserves literal
+values, UTF8 replacement/BOM detection, comments, quotes and duplicate-key
+rejection; it never interpolates or executes file contents. The original FD is
+retained through the real command consumer, with rechecks after configuration
+acceptance and before host construction/dispatch. This is not a private-owner,
+single-link or atomic launch claim; multiple unchanged hardlinks are permitted.
+No environment bytes or values are written to diagnostic receipts by the reader.
+Supply a readable real file within the bound before retrying a refused command.
+
 The check output contains only `status`, mode, and counts. After drift is found, stop concurrent schema/manual mutations or use a controlled maintenance window before running:
 
 ```bash

@@ -27,6 +27,7 @@ public sealed class PerceptionChallengeV2E2eTests
     private const string FixedStep = "drag:0.68,0.36";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task CommentCreateFlow_IssueRenderVerifyProofResume_WritesReleaseEvidence()
     {
         using PerceptionE2eFixture fixture = PerceptionE2eFixture.Create();
@@ -90,6 +91,7 @@ public sealed class PerceptionChallengeV2E2eTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "perception-proof-answer-expiry-replay-binding")]
     public async Task CommentCreateFlow_FailsClosedForWrongAnswerExpiredReplayAndBindingMismatch()
     {
         using (PerceptionE2eFixture fixture = PerceptionE2eFixture.Create())

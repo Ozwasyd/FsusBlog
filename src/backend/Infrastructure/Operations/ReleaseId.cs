@@ -2,7 +2,7 @@ namespace FsusBlog.Server.Infrastructure.Operations;
 
 /// <summary>
 /// A deployable release identity. Schema compatibility fences intentionally use
-/// <see cref="SchemaMigration.SchemaCompatibilityCoordinate"/> instead.
+/// recorded historical scalar values, not this deployment identity parser.
 /// </summary>
 public readonly record struct ReleaseId
 {

@@ -242,3 +242,54 @@ export function adapterById(id)
 {
     return ADAPTERS.find((adapter) => adapter.id === id) ?? null;
 }
+
+/** Exact declaration of a selected original project; not an execution grant. */
+export function xunitCompileDeclaration(project, configuration)
+{
+    if (!xunitTestProjects.some((owner) => owner.project === project.project && owner.directory === project.directory)
+        || !['Debug', 'Release'].includes(configuration))
+    {
+        throw new Error('xunit Compile owner requires an original project and closed configuration');
+    }
+    return `xunit:compile:${project.project}:${configuration}`;
+}
+
+export function parseXunitCompileDeclaration(declaration)
+{
+    for (const project of xunitTestProjects)
+    {
+        for (const configuration of ['Debug', 'Release'])
+        {
+            if (declaration === xunitCompileDeclaration(project, configuration))
+            {
+                return { project, configuration };
+            }
+        }
+    }
+    return null;
+}
+
+/** Only an actual case owner in a selected Compile graph calls this projection. */
+export function classifyXunitCompileOwner()
+{
+    const adapter = ADAPTERS.find((owner) => owner.id === 'xunit');
+    return { adapter: adapter.id, adapterVersion: adapter.version, kind: adapter.kind,
+        caseIdentity: adapter.caseIdentity() };
+}
+
+/** Generated Compile cases stay within the original project/configuration layout. */
+export function xunitGeneratedCompilePathIsOwned(file, { project, configuration })
+{
+    if (!file.split('/').includes('obj') && !file.startsWith('.tmp/'))
+    {
+        return true;
+    }
+    if (file.startsWith(`${project.directory}/obj/${configuration}/`))
+    {
+        return true;
+    }
+    const parts = file.split('/');
+    const projectName = project.project.split('/').at(-1).replace(/\.csproj$/u, '');
+    return parts[0] === '.tmp' && parts[1] === 'build' && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/u.test(parts[2] ?? '')
+        && parts.slice(3, 7).join('/') === `dotnet/${projectName}/obj/${configuration}` && parts.length > 7;
+}

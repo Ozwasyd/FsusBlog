@@ -15,6 +15,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class SecurityRiskTaxonomyTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityRiskReason_PreservesLegacyValuesAndAddsProductionChallengeReasons()
     {
         var legacyValues = new (string Name, int Value)[]
@@ -71,6 +72,7 @@ public sealed class SecurityRiskTaxonomyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SecurityRiskSources_ExposeStableProductionChallengeSources()
     {
         var expected = new Dictionary<string, string>(StringComparer.Ordinal)
@@ -105,6 +107,7 @@ public sealed class SecurityRiskTaxonomyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RiskSink_AcceptsNewReasonsAndWritesStableEventAndLogNames()
     {
         SecurityRiskReason reason = ParseReason("SecurityChallengeRejected");
@@ -140,6 +143,7 @@ public sealed class SecurityRiskTaxonomyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RiskSink_PreservesUnknownReasonValuesWithoutThrowing()
     {
         var unknownReason = (SecurityRiskReason)999;

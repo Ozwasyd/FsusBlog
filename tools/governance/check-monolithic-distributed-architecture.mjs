@@ -972,6 +972,84 @@ function inspectProductionApplication(repositoryRoot, policy, compose, dockerfil
     };
 }
 
+export function verifyRuntimeRoleLiveContainers({ authority, slots })
+{
+    if (authority?.ownership?.claimEligible !== true
+        || JSON.stringify(Object.keys(slots ?? {}).sort()) !== JSON.stringify(['blue', 'green']))
+    {
+        throw new Error('live runtime topology requires closed authority and exactly both slots');
+    }
+    const result = {};
+    for (const slot of ['blue', 'green'])
+    {
+        const { container, image, compose, releaseId, imageDigest } = slots[slot];
+        const service = compose?.services?.[authority.application.composeService];
+        if (!service || Object.keys(compose.services).length !== 1
+            || service.image?.split('@')[1] !== imageDigest
+            || container?.Image !== image?.Id
+            || !/^sha256:[a-f0-9]{64}$/u.test(image?.Id ?? '')
+            || !image?.RepoDigests?.includes(service.image)
+            || container.Config?.Image !== service.image
+            || container.Name !== `/${service.container_name}`
+            || container.State?.Running !== true
+            || !/^[a-f0-9]{64}$/u.test(container.Id ?? '')
+            || container.Config?.Labels?.['io.fsusblog.release.id'] !== releaseId
+            || container.Config?.Labels?.['io.fsusblog.release.slot'] !== slot
+            || JSON.stringify([container.Path, ...(container.Args ?? [])])
+                !== JSON.stringify(authority.application.effectivePid1))
+        {
+            throw new Error(`live ${slot} image/process identity differs from actual engine and resolved Compose`);
+        }
+        const expected = new Map((service.volumes ?? []).map((mount) => [mount.target, mount]));
+        const actual = new Map((container.Mounts ?? []).map((mount) => [mount.Destination, mount]));
+        const targets = Object.keys(authority.volumeTopology).sort();
+        if (expected.size !== service.volumes?.length || actual.size !== container.Mounts?.length
+            || JSON.stringify([...expected.keys()].sort()) !== JSON.stringify(targets)
+            || JSON.stringify([...actual.keys()].sort()) !== JSON.stringify(targets))
+        {
+            throw new Error(`live ${slot} mount roster is missing, duplicate, or unknown`);
+        }
+        const mounts = {};
+        for (const target of targets)
+        {
+            const specification = expected.get(target);
+            const observation = actual.get(target);
+            const declaration = authority.volumeTopology[target];
+            const readWrite = declaration.access === 'read-write';
+            const source = specification.type === 'volume'
+                ? compose.volumes?.[specification.source]?.name : specification.source;
+            const observedSource = specification.type === 'volume' ? observation.Name : observation.Source;
+            if (!['bind', 'volume'].includes(specification.type)
+                || observation.Type !== specification.type || typeof source !== 'string' || source.length === 0
+                || source !== observedSource || observation.RW !== readWrite
+                || typeof observation.Source !== 'string' || !path.isAbsolute(observation.Source)
+                || (specification.read_only !== true) !== readWrite)
+            {
+                throw new Error(`live ${slot} mount identity/access differs at ${target}`);
+            }
+            mounts[target] = { type: observation.Type, source: observedSource,
+                engineSource: observation.Source, readWrite, scope: declaration.scope };
+        }
+        result[slot] = { containerId: container.Id, imageId: image.Id, releaseId, imageDigest, mounts };
+    }
+    for (const [target, declaration] of Object.entries(authority.volumeTopology))
+    {
+        const left = result.blue.mounts[target];
+        const right = result.green.mounts[target];
+        const same = left.type === right.type && left.source === right.source;
+        if ((declaration.scope === 'slot-private' || declaration.scope === 'release-identity')
+            && (same || left.engineSource === right.engineSource))
+        {
+            throw new Error(`live slot-private/release identity mount is shared at ${target}`);
+        }
+        if (['operator-shared', 'release-artifact-store', 'shared-between-slots'].includes(declaration.scope) && !same)
+        {
+            throw new Error(`live shared mount differs between slots at ${target}`);
+        }
+    }
+    return result;
+}
+
 export function observeRuntimeRoleDeploymentAuthority({ root = defaultRoot, policyFile = defaultPolicy } = {})
 {
     const errors = [];

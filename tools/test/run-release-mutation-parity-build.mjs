@@ -146,8 +146,9 @@ if (!fs.existsSync(debugAssembly))
     throw new Error('run-bound Debug production Core artifact is missing');
 }
 const debugAssemblyDigest = sha256(fs.readFileSync(debugAssembly));
-const result = spawnSync('dotnet', ['tool', 'run', 'dotnet-stryker', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
-    cwd: mutationProjectRoot, stdio: 'inherit', env: environment
+const toolBindingPath = path.join(output, 'tool-binding.json');
+const result = spawnSync(process.execPath, [path.join(root, 'tools/mutation/stryker-tool.mjs'), 'run', '--working-directory', mutationProjectRoot, '--attestation-output', toolBindingPath, '--', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
+    cwd: root, stdio: 'inherit', env: environment
 });
 if (result.status !== 0)
 {
@@ -157,6 +158,7 @@ const reportFile = path.join(output, 'reports', config['stryker-config']['report
 const rawReport = fs.readFileSync(reportFile);
 const rawTrace = fs.readFileSync(traceFile(output));
 const releaseAuthority = createStrykerAuthority({
+    toolBinding: JSON.parse(fs.readFileSync(toolBindingPath)),
     report: JSON.parse(rawReport), rawReport, reportPath: path.relative(root, reportFile).replaceAll(path.sep, '/'),
     reportAbsolutePath: reportFile, rawTrace, tracePath: path.relative(root, traceFile(output)).replaceAll(path.sep, '/'),
     config, rawConfig: fs.readFileSync(configFile), configPath: path.relative(root, configFile).replaceAll(path.sep, '/'),

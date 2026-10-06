@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import path from 'node:path';
 
 import { digestValue } from '../fact-extractors/lib/canonicalize.mjs';
@@ -19,7 +20,7 @@ export const hostDeclarations = Object.freeze({
         cacheFile: 'observations/runtime-role-observation.json',
         repositoryRootArgument: false,
         assemblyFile: 'artifacts/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll',
-        buildReceiptSchema: 'fsusblog.runtime-role-observation-build-receipt.v3'
+        buildReceiptSchema: 'fsusblog.runtime-role-observation-build-receipt.v4'
     },
     'openapi-aeds-observation': {
         project: 'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
@@ -63,17 +64,117 @@ function hasExactKeys(value, keys)
 }
 
 
+/** Validates compiled production-model evidence only; never native qualification. */
+export function validateCurrentSchemaCodeContractObservation(value) {
+    const expected = {
+        "schema": "fsusblog.current-schema-code-contract-observation.v1",
+        "evidenceStage": "pre-runtime",
+        "evidenceClass": "compiled-production-code-model",
+        "receiptFormat": "fsusblog.current-schema-receipt.v1",
+        "maximumEncodedBytes": 1048576,
+        "fixtureOnly": true,
+        "nativeQualification": false,
+        "codecType": "FsusBlog.Contracts.SchemaMigration.CurrentSchemaReceiptCodec",
+        "admissionType": "FsusBlog.Server.Infrastructure.SchemaMigration.CurrentSchemaReceiptAdmission",
+        "contractValidated": true
+    };
+    const keys = [...Object.keys(expected), 'fixtureArtifactSha256', 'fixtureContentDigest',
+        'positiveControls', 'refusalControls', 'observationDigest'];
+    if (!hasExactKeys(value, keys)
+        || Object.entries(expected).some(([key, expectedValue]) => value[key] !== expectedValue)
+        || !/^[a-f0-9]{64}$/u.test(value.fixtureArtifactSha256 ?? '')
+        || !/^[a-f0-9]{64}$/u.test(value.fixtureContentDigest ?? '')
+        || value.fixtureArtifactSha256 === value.fixtureContentDigest
+        || JSON.stringify(value.positiveControls) !== JSON.stringify([
+            'canonical-codec-roundtrip', 'whole-artifact-admission-contract',
+            'artifact-sha-distinct-from-content-seal'
+        ])) {
+        throw new Error('current-schema compiled contract is incomplete or claims native qualification');
+    }
+    const expectedRefusals = {
+        "old-format": "current_receipt_shape_invalid",
+        "empty-bytes": "current_receipt_size_invalid",
+        "oversized-bytes": "current_receipt_size_invalid",
+        "missing-status": "current_receipt_json_invalid",
+        "unknown-member": "current_receipt_json_invalid",
+        "duplicate-member": "current_receipt_json_invalid",
+        "unknown-status": "current_receipt_json_invalid",
+        "unknown-provider": "current_receipt_provider_unknown",
+        "missing-plan": "current_receipt_reference_missing",
+        "latest-reference": "current_receipt_latest_reference_forbidden",
+        "duplicate-checkpoint": "current_receipt_reference_duplicate",
+        "semantic-mismatch": "current_receipt_postcondition_failed",
+        "content-seal-drift": "current_receipt_digest_mismatch",
+        "whole-file-drift": "current_receipt_artifact_digest_mismatch",
+        "content-seal-as-file-sha": "current_receipt_artifact_digest_mismatch",
+        "target-swap": "current_receipt_live_admission_mismatch",
+        "database-swap": "current_receipt_live_admission_mismatch",
+        "provider-swap": "current_receipt_live_admission_mismatch",
+        "physical-schema-swap": "current_receipt_live_admission_mismatch",
+        "rejected-status": "current_receipt_live_admission_mismatch"
+    };
+    if (!hasExactKeys(value.refusalControls, Object.keys(expectedRefusals))
+        || Object.entries(expectedRefusals).some(([key, code]) => value.refusalControls[key] !== code)) {
+        throw new Error('current-schema compiled contract refusal vector is incomplete');
+    }
+    const unsigned = Object.fromEntries(keys.map((key) =>
+        [key, key === 'observationDigest' ? '' : value[key]]));
+    if (value.observationDigest !== createHash('sha256').update(JSON.stringify(unsigned)).digest('hex')) {
+        throw new Error('current-schema compiled contract digest mismatch');
+    }
+    return value;
+}
+
 function cachedArtifactPath(buildRoot, declaration)
 {
     return path.posix.join(buildRoot, declaration.cacheFile);
 }
 
 
+export const runtimeRoleRequiredExecutionFiles = Object.freeze([
+    'FsusBlog.RuntimeRoleObservation.dll',
+    'FsusBlog.Server.dll',
+    'FsusBlog.Migration.dll',
+    'FsusBlog.RuntimeRoleObservation.deps.json',
+    'FsusBlog.RuntimeRoleObservation.runtimeconfig.json'
+]);
+
+export function validateRuntimeRoleExecutionClosure(closure, assemblyDigest)
+{
+    if (!Array.isArray(closure) || closure.length === 0)
+    {
+        throw new Error('runtime-role execution closure is missing');
+    }
+    let previous = null;
+    for (const entry of closure)
+    {
+        if (!hasExactKeys(entry, ['path', 'mode', 'digest'])
+            || typeof entry.path !== 'string' || entry.path.length === 0
+            || path.posix.isAbsolute(entry.path) || entry.path.includes('\\')
+            || /[\u0000-\u001f\u007f]/u.test(entry.path)
+            || entry.path.split('/').some((part) => !part || part === '.' || part === '..')
+            || (previous !== null && previous >= entry.path)
+            || !Number.isInteger(entry.mode) || entry.mode < 0 || entry.mode > 0o777
+            || !/^[a-f0-9]{64}$/u.test(entry.digest ?? ''))
+        {
+            throw new Error('runtime-role execution closure has invalid, duplicate or unordered members');
+        }
+        previous = entry.path;
+    }
+    if (runtimeRoleRequiredExecutionFiles.some((file) => !closure.some((entry) => entry.path === file))
+        || closure.find((entry) => entry.path === 'FsusBlog.RuntimeRoleObservation.dll').digest !== assemblyDigest)
+    {
+        throw new Error('runtime-role execution closure lacks required files or the exact main assembly');
+    }
+    return closure;
+}
+
 export function validateMinimalContractBuildReceipt(receipt, {
     expectedRunId = null,
     expectedSourceIdentity = null,
     repositoryRoot = null,
-    readArtifactDigest = null
+    readArtifactDigest = null,
+    readExecutionClosure = null
 } = {})
 {
     if (receipt == null || typeof receipt !== 'object' || Array.isArray(receipt))
@@ -131,6 +232,12 @@ export function validateMinimalContractBuildReceipt(receipt, {
       || receipt.worktreeFingerprint !== expectedSourceIdentity.worktreeFingerprint))
     {
         throw new Error('minimal contract build source/worktree identity mismatch');
+    }
+    if (typeof receipt.runId !== 'string' || receipt.runId.length === 0
+    || !/^[a-f0-9]{40}$/u.test(receipt.sourceCommit ?? '')
+    || !/^[a-f0-9]{64}$/u.test(receipt.worktreeFingerprint ?? ''))
+    {
+        throw new Error('minimal contract build run/source identity is incomplete');
     }
     if (!/^[a-f0-9]{64}$/u.test(receipt.buildKey ?? '')
     || receipt.buildRoot !== `.tmp/behavior-doc-contract-builds/${receipt.buildKey}`)
@@ -198,7 +305,7 @@ export function validateMinimalContractBuildReceipt(receipt, {
           'dockerExecutable', 'composeImplementation',
           'effectiveComposeModelDigest',
           'deploymentAuthoritySchema', 'deploymentAuthorityContentDigest',
-          'deploymentObservationDigest'
+          'deploymentObservationDigest', 'observationSchema', 'evidenceStage', 'evidenceClass'
         ]
             : artifactId === 'openapi-aeds-observation'
         ? ['schema', 'artifactId', 'artifactPath', 'artifactDigest', 'configuration',
@@ -230,7 +337,10 @@ export function validateMinimalContractBuildReceipt(receipt, {
             }
         }
         if (artifactId === 'runtime-role-observation'
-      && (artifact.buildReceipt.deploymentAuthoritySchema !== 'fsusblog.monolithic-distributed-architecture.v2'
+      && (artifact.buildReceipt.observationSchema !== 'fsusblog.runtime-role-observation.v3'
+        || artifact.buildReceipt.evidenceStage !== 'pre-runtime'
+        || artifact.buildReceipt.evidenceClass !== 'compiled-production-code-model'
+        || artifact.buildReceipt.deploymentAuthoritySchema !== 'fsusblog.monolithic-distributed-architecture.v2'
         || artifact.buildReceipt.sourceCommit !== receipt.sourceCommit
         || artifact.buildReceipt.worktreeFingerprint !== receipt.worktreeFingerprint
         || artifact.buildReceipt.projectDigest !== artifact.projectDigest
@@ -238,13 +348,16 @@ export function validateMinimalContractBuildReceipt(receipt, {
         || artifact.buildReceipt.assemblyDigest !== artifact.assemblyDigest
         || !hasExactKeys(artifact.buildReceipt.reproducibleBuild, [
             'schema', 'project', 'command', 'outputRoot', 'assemblyPath', 'assemblyDigest',
-            'sourceClosureDigest'
+            'sourceClosureDigest', 'executionClosure'
         ])
         || artifact.buildReceipt.reproducibleBuild.schema
           !== 'fsusblog.runtime-role-reproducible-build-attestation.v1'
         || artifact.buildReceipt.reproducibleBuild.project !== artifact.project
         || artifact.buildReceipt.reproducibleBuild.outputRoot
           !== path.posix.join(runtimeReproducibleBuildRelative, receipt.buildKey)
+        || artifact.assemblyPath !== path.posix.join(
+            runtimeReproducibleBuildRelative, receipt.buildKey,
+            'bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll')
         || artifact.buildReceipt.reproducibleBuild.assemblyPath !== artifact.assemblyPath
         || artifact.buildReceipt.reproducibleBuild.assemblyDigest !== artifact.assemblyDigest
         || artifact.buildReceipt.reproducibleBuild.sourceClosureDigest
@@ -279,6 +392,24 @@ export function validateMinimalContractBuildReceipt(receipt, {
         || !/^sha256:[a-f0-9]{64}$/u.test(artifact.buildReceipt.deploymentObservationDigest ?? '')))
         {
             throw new Error('minimal contract build runtime-role deployment receipt is incomplete');
+        }
+        if (artifactId === 'runtime-role-observation')
+        {
+            const attested = validateRuntimeRoleExecutionClosure(
+                artifact.buildReceipt.reproducibleBuild.executionClosure, artifact.assemblyDigest);
+            if (repositoryRoot !== null)
+            {
+                if (typeof readExecutionClosure !== 'function')
+                {
+                    throw new Error('minimal contract build requires an independent execution closure reader');
+                }
+                const actual = validateRuntimeRoleExecutionClosure(
+                    readExecutionClosure(repositoryRoot, artifact.assemblyPath), artifact.assemblyDigest);
+                if (digestValue(actual) !== digestValue(attested))
+                {
+                    throw new Error('minimal contract build runtime-role execution closure digest mismatch');
+                }
+            }
         }
         if (repositoryRoot !== null
       && (readArtifactDigest(repositoryRoot, artifact.project) !== artifact.projectDigest

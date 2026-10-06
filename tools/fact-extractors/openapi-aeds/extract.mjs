@@ -475,12 +475,13 @@ function validateCanonicalMinimalReceipt(context)
             || typeof services.digestPath !== 'function'
             || typeof services.resolveContainedPath !== 'function'
             || typeof services.validateBuildIdentity !== 'function'
-            || typeof services.validateMinimalContractBuildReceipt !== 'function')
+            || typeof services.validateMinimalContractBuildReceipt !== 'function'
+            || typeof services.readExecutionClosure !== 'function')
         {
             throw new Error('canonical minimal-build validation capability is missing');
         }
         const { buildIdentitySchema, digestPath, resolveContainedPath,
-            validateBuildIdentity, validateMinimalContractBuildReceipt } = services;
+            validateBuildIdentity, validateMinimalContractBuildReceipt, readExecutionClosure } = services;
         if (context.buildIdentity.schema !== buildIdentitySchema
       || typeof context.buildReceiptPath !== 'string'
       || !/^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}\/receipts\/[A-Za-z0-9_.-]+\.json$/u.test(context.buildReceiptPath)
@@ -508,7 +509,8 @@ function validateCanonicalMinimalReceipt(context)
             expectedRunId: path.posix.basename(context.buildReceiptPath, '.json'),
             expectedSourceIdentity,
             repositoryRoot: context.repositoryRoot,
-            readArtifactDigest: digestPath
+            readArtifactDigest: digestPath,
+            readExecutionClosure
         });
         if (context.buildReceiptPath !== `${receipt.buildRoot}/receipts/${receipt.runId}.json`)
         {

@@ -34,7 +34,7 @@ const BASELINE_STAGES = new Set([
     'manifest-validate',
     'capacity-preflight',
     'backup-restore-gate',
-    'expand-migration',
+    'current-schema-admission',
     'asset-materialize'
 ]);
 const OVERLAP_STAGES = new Set([

@@ -19,6 +19,7 @@ import {
 } from './check-job-summaries.mjs';
 import {
     EVIDENCE_TRANSPORT_MANIFEST_ENV,
+    listVerifiedTransportedArchiveFiles,
     locateTransportedCurrentRunEvidence
 } from '../test/current-run-evidence-transport.mjs';
 import { evidenceContentDigest } from '../test/current-run-evidence-locator.mjs';
@@ -126,6 +127,8 @@ export function verifyQualityGateEvidenceTransport({
     {
         const registryEntry = registry.entries.find((entry) => entry.authorityId === authority.id);
         assert(registryEntry, `evidence locator authority is missing: ${authority.id}`);
+        listVerifiedTransportedArchiveFiles({ repositoryRoot, transportManifestPath: manifestPath,
+            authorityId: authority.id, expectedManifestDigest: expectedDigest });
         const located = locateTransportedCurrentRunEvidence({ context, registry, registryEntry,
             repositoryRoot, transportManifestPath: manifestPath, expectedManifestDigest: expectedDigest });
         transportManifest ??= located.transportManifest;

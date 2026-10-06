@@ -53,7 +53,15 @@ function attachSecondaryFailure(primary, property, secondary)
         primary[property] = secondary;
     }
     catch
-    {}
+    {
+        // A non-extensible primary failure must remain the reported failure.
+    }
+}
+
+function buildManifestIsTerminal(manifest)
+{
+    const state = { success: 'complete', failure: 'failed', cancelled: 'cancelled' }[manifest?.status];
+    return Boolean(state && manifest.owner?.state === state);
 }
 
 export async function runProductionBuildLifecycle(
@@ -182,15 +190,23 @@ export async function runProductionBuildLifecycle(
                 primaryFailure ??= operationError;
                 finalization = { status: failureStatus(operationError), primaryFailure };
             }
-            const { primaryFailure: _primaryFailure, ...finalizeOptions } = finalization;
+            const finalizeOptions = { ...finalization };
+            delete finalizeOptions.primaryFailure;
             try
             {
                 buildManifest = adapters.finalize(buildLayout, finalizeOptions);
-                sealed = true;
+                sealed = buildManifestIsTerminal(buildManifest);
+                if (!sealed)
+                {
+                    sealFailure = new Error('production build finalization did not produce a terminal owner');
+                }
             }
             catch (error)
             {
                 sealFailure = error;
+            }
+            if (sealFailure)
+            {
                 try
                 {
                     buildManifest = adapters.failClosed(buildLayout, {
@@ -198,7 +214,7 @@ export async function runProductionBuildLifecycle(
                         primaryFailure,
                         sealFailure
                     });
-                    sealed = true;
+                    sealed = buildManifestIsTerminal(buildManifest);
                 }
                 catch (fallbackError)
                 {
@@ -214,7 +230,9 @@ export async function runProductionBuildLifecycle(
                     logger.error(`[matrix:build-layout] secondary seal failure: ${sealFailure.message}`);
                 }
                 catch
-                {}
+                {
+                    // Reporting must not replace the original operation or seal failure.
+                }
             }
             if (fallbackFailure)
             {
@@ -226,7 +244,9 @@ export async function runProductionBuildLifecycle(
                     );
                 }
                 catch
-                {}
+                {
+                    // The retained fallback failure remains authoritative if reporting also fails.
+                }
             }
         }
 

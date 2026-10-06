@@ -86,7 +86,7 @@ test('matrix governance runner passes the host input only for the two admitted p
     {
         const result = spawnSync('bash', [runner, producerId], {
             encoding: 'utf8',
-            env: { ...process.env, FSUSBLOG_NODE: '/bin/echo' }
+            env: { ...process.env, FSUSBLOG_NODE: '/bin/echo', FSUSBLOG_MATRIX_NUGET_PREPARATION: '/controlled-prepared-descriptor' }
         });
         assert.equal(result.status, 0, result.stderr);
         assert.match(result.stdout, new RegExp(`--producer-id ${producerId}`, 'u'));

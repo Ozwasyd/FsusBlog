@@ -1,6 +1,13 @@
 // fixture-catalog: producer audit-records
 import { createHash } from 'node:crypto';
 
+import {
+    observeBackendTemporalContext,
+    validateBackendTemporalObservation
+} from './backend-temporal-observer.mjs';
+
+const { validateTemporalContext } = await import(new URL('../../test/temporal-context.mjs', import.meta.url));
+
 const producerId = 'audit-records';
 const strategy = 'transaction-fixture';
 const receiptSchema = 'fsusblog.audit-fixture-receipt.v1';
@@ -36,7 +43,13 @@ export function buildAuditPlan(context)
     {
         throw new Error('audit.empty cannot mix with mutating audit capabilities');
     }
-    const temporal = context?.temporalContext;
+    const temporal = context?.temporalContext
+        ? validateTemporalContext(context.temporalContext)
+        : null;
+    if (temporal && (temporal.producerId !== producerId || temporal.schedulerRunId !== context.runIdentity))
+    {
+        throw new Error('audit temporal context producer/run identity does not match the plan');
+    }
     const businessEpochUtc = temporal?.businessEpochUtc
         ?? context?.handles?.businessEpochUtc;
     if (!businessEpochUtc || !/Z$/u.test(String(businessEpochUtc)))
@@ -59,10 +72,16 @@ export async function prepareAuditRecords(context, signal)
 {
     const plan = buildAuditPlan(context);
     const adapter = context.handles?.auditFixtureAdapter;
-    const receipt = adapter && typeof adapter.prepare === 'function'
+    const hasAdapter = typeof adapter?.prepare === 'function';
+    const receipt = hasAdapter
         ? await adapter.prepare(plan, signal)
         : await invokeLocalAuditFixture(context, plan, signal);
     const validated = validateAuditReceipt(receipt, plan);
+    const temporalObservation = plan.temporalContext
+        ? hasAdapter
+            ? validateBackendTemporalObservation(plan.temporalContext, receipt.temporalObservation)
+            : await observeBackendTemporalContext(context, signal)
+        : null;
     const entityIdentities = validated.records.map((record) => ({
         kind: 'audit-record',
         id: record.identity,
@@ -73,7 +92,7 @@ export async function prepareAuditRecords(context, signal)
     return Object.freeze({
         producerId,
         strategy,
-        implementation: adapter
+        implementation: hasAdapter
             ? 'injected-audit-production-port'
             : 'src/backend/Services/Fixtures/AuditFixtureProducer.cs',
         enforceVariantEvidence: true,
@@ -109,6 +128,7 @@ export async function prepareAuditRecords(context, signal)
             })
         }),
         auditReceipt: validated,
+        ...(temporalObservation ? { temporalObservation } : {}),
         variantEvidence,
         postconditions: Object.freeze(postconditionsFor(validated.capabilities))
     });
@@ -118,6 +138,10 @@ export async function verifyAuditRecords(context, producerResult)
 {
     const plan = buildAuditPlan(context);
     const receipt = validateAuditReceipt(producerResult?.auditReceipt, plan);
+    if (plan.temporalContext)
+    {
+        validateBackendTemporalObservation(plan.temporalContext, producerResult?.temporalObservation);
+    }
     const adapter = context.handles?.auditFixtureAdapter;
     if (adapter && typeof adapter.verify === 'function')
     {
