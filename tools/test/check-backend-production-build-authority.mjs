@@ -9,6 +9,8 @@ const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '
 const expectedRequests = [
     ['backend-server-build', 'src/backend/FsusBlog.Server.csproj', 'canonical-runtime'],
     ['backend-tests-build', 'tests/backend/FsusBlog.Server.Tests.csproj', 'canonical-test-assembly'],
+    ['migration-tests-build', 'tests/migration/FsusBlog.Migration.Tests.csproj', 'independent-migration-test-assembly'],
+    ['xunit-inventory-adapter-build', 'tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj', 'canonical-xunit-inventory-tool'],
     ['backend-benchmark-build', 'benchmarks/core/FsusBlog.Core.Benchmarks.csproj', 'separate-benchmark-input']
 ];
 const expectedConsumers = [
@@ -32,6 +34,7 @@ function exactRows(actual, expected, fields, label)
 export function validateBackendProductionBuildAuthority({
     inventory,
     bundleSource,
+    assemblyProducerSource,
     shardSource,
     rightsSource,
     integritySource,
@@ -48,6 +51,18 @@ export function validateBackendProductionBuildAuthority({
         throw new Error('backend Production build consumer inventory identity is invalid');
     }
     exactRows(inventory.producer.requests, expectedRequests, ['id', 'target', 'role'], 'backend build requests');
+    if (JSON.stringify(inventory.producer.independentMigrationVerification) !== JSON.stringify({
+        id: 'migration-assembly-verification',
+        owner: 'tools/db/generate-migration-assembly-receipt.mjs',
+        commands: [
+            'dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore',
+            'dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore'
+        ],
+        publication: 'original producer after finalized build and exact MySQL cleanup; fresh final candidate required'
+    }))
+    {
+        throw new Error('independent Migration assembly verification inventory is invalid');
+    }
     exactRows(inventory.consumers, expectedConsumers, ['id', 'binding'], 'backend build consumers');
 
     const runBackendStart = bundleSource.indexOf('async function runBackendTests()');
@@ -57,14 +72,38 @@ export function validateBackendProductionBuildAuthority({
         throw new Error('backend Production bundle implementation is missing');
     }
     const productionBundle = bundleSource.slice(runBackendStart, runBackendEnd);
-    const buildRequests = [...productionBundle.matchAll(/dotnet build (src\/backend\/FsusBlog\.Server\.csproj|tests\/backend\/FsusBlog\.Server\.Tests\.csproj|benchmarks\/core\/FsusBlog\.Core\.Benchmarks\.csproj)([^\n']*)/gu)];
-    if (buildRequests.length !== 3 || buildRequests.some((match) => !match[2].includes('-c Release')))
+    if (!productionBundle.includes("commandStep('migration-assembly-verification',")
+        || !productionBundle.includes('tools/db/generate-migration-assembly-receipt.mjs --write')
+        || !productionBundle.includes('artifacts: [assemblyPending.directory]')
+        || typeof assemblyProducerSource !== 'string'
+        || !assemblyProducerSource.includes("['dotnet', ['build', 'src/migration/FsusBlog.Migration.csproj', '-c', 'Release', '--no-restore']]")
+        || !assemblyProducerSource.includes("['dotnet', ['test', 'tests/migration/FsusBlog.Migration.Tests.csproj', '-c', 'Release', '--no-restore']]")
+        || !assemblyProducerSource.includes('await prepareMigrationAssemblyPending(context)'))
     {
-        throw new Error('Production fresh must declare exactly the three inventoried Release build requests');
+        throw new Error('independent Migration assembly producer lost its complete original commands or pending owner');
+    }
+    const buildRequests = [...productionBundle.matchAll(/dotnet build ([^\s'";]+\.csproj)([^\n']*)/gu)];
+    if (JSON.stringify(buildRequests.map((match) => match[1])) !== JSON.stringify(expectedRequests.map((entry) => entry[1]))
+        || buildRequests.some((match) => !match[2].includes('-c Release')))
+    {
+        throw new Error('Production fresh must declare exactly the inventoried Release build requests');
+    }
+    if (!bundleSource.includes('const migrationTestDll = dotnetArtifacts.migrationTestDll;')
+        || !/commandStep\('migration-tests-build',[\s\S]*?artifacts: \[migrationTestDll\]/u.test(productionBundle)
+        || !productionBundle.includes('await executeStep(migrationTestsBuildStep);'))
+    {
+        throw new Error('Production Migration build must execute with its independent assembly artifact');
     }
     if (/\bDebug\b|EnsureBackendFilteredBuild|FSUSBLOG_BACKEND_TEST_CONFIGURATION/gu.test(productionBundle))
     {
         throw new Error('Production fresh reintroduced a Debug or filtered backend compatibility build');
+    }
+    if (!bundleSource.includes('const xunitAdapterDll = dotnetArtifacts.xunitAdapterDll;')
+        || !/commandStep\('xunit-inventory-adapter-build',[\s\S]*?artifacts: \[xunitAdapterDll, runMarkerFile\('migration-tests-ready'\)\]/u.test(productionBundle)
+        || !productionBundle.includes('afterSuccess: () => publishMigrationBuildReady({')
+        || !productionBundle.includes('await executeStep(xunitAdapterBuildStep);'))
+    {
+        throw new Error('Production xUnit inventory tool must execute its admitted Release build with a separate artifact');
     }
     if (!bundleSource.includes("schema: 'fsusblog.local-production.backend-tests-ready.v1'")
         || !bundleSource.includes('buildLayout: buildLayoutBinding()')
@@ -125,6 +164,7 @@ export function checkBackendProductionBuildAuthority({ root = defaultRoot } = {}
     return validateBackendProductionBuildAuthority({
         inventory,
         bundleSource: read(root, 'tools/test/bundles/run-bundle.mjs'),
+        assemblyProducerSource: read(root, 'tools/db/generate-migration-assembly-receipt.mjs'),
         shardSource: read(root, 'tools/test/run-backend-production-shards.mjs'),
         rightsSource: read(root, 'tools/test/project-rights-v3-evidence.mjs'),
         integritySource: read(root, 'tools/test/project-evidence.mjs'),

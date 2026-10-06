@@ -25,6 +25,7 @@ import {
     loadExecutionServiceCatalog,
     validateExecutionServiceCatalog
 } from './test/execution-envelope-services.mjs';
+import { loadPhysicalExecutionProcessPolicy } from './test/physical-execution-process-tree.mjs';
 import { availableMemoryGiB } from './test/system-memory.mjs';
 import {
     buildAggregatePlan as buildAggregateReachabilityPlan,
@@ -74,8 +75,13 @@ import { runLocalWorkflow } from './test-matrix/local-workflow-runner.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
 import {
     bindProductionBuildLayoutSource,
+    markProductionBuildServiceCreationAttempt,
     productionBuildEnvironment,
-    registerProductionBuildCompiler
+    registerProductionBuildCompiler,
+    retainProductionBuildResourceBoundary,
+    retainProductionBuildServiceContainment,
+    settleProductionBuildResidentService,
+    transferProductionBuildResidentService
 } from './test-matrix/production-build-layout.mjs';
 import { runProductionBuildLifecycle } from './test-matrix/production-build-lifecycle.mjs';
 import { acquireProductionCapacityReservation } from './test-matrix/production-capacity-reservation.mjs';
@@ -1928,6 +1934,28 @@ function resourceEnvironmentForTier(tier, baseEnv = {})
     return env;
 }
 
+function mysqlServiceSchedulerOptions(buildLayout, tiers)
+{
+    if (!tiers.some((tier) => tier.services?.includes('mysql')))
+    {
+        return {};
+    }
+    const policy = loadPhysicalExecutionProcessPolicy();
+    return {
+        resourceEnforcementMode: 'strict',
+        resourceEnforcementOptions: { systemdBoundary: {
+            commandBudgetMs: policy.systemdControlCommandTimeoutMs,
+            startupBudgetMs: policy.systemdResourceStartupTimeoutMs,
+            retainBinding: (reference) => retainProductionBuildResourceBoundary(buildLayout, reference, {
+                commandBudgetMs: policy.systemdControlCommandTimeoutMs
+            })
+        } },
+        retainManagedContainment: (authority) => retainProductionBuildServiceContainment(buildLayout, authority),
+        markManagedContainmentCreationAttempt: (authority, _tier, sender) =>
+            markProductionBuildServiceCreationAttempt(buildLayout, authority, sender)
+    };
+}
+
 export function cleanupSensitiveFixtures(namespace, namespaceEnv = {})
 {
     const configuredRoot = namespaceEnv.FSUSBLOG_FIXTURE_ROOT ?? process.env.FSUSBLOG_FIXTURE_ROOT;
@@ -3136,10 +3164,11 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
             repositoryLeaseOwner: runtime.productionFreshLeaseOwner,
             ...(runtime.capacityAuthorityRoot ? { authorityRoot: runtime.capacityAuthorityRoot } : {})
         });
-        let completed = false;
+        let result;
+        let operationError = null;
         try
         {
-            const result = await runLocalProfile(matrix, profileId, options, {
+            result = await runLocalProfile(matrix, profileId, options, {
                 ...runtime,
                 productionCapacityReservationHeld: true,
                 productionCapacityReservation: reservation,
@@ -3147,13 +3176,40 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                 productionCapacityPlanning: planning,
                 productionResumeAuthority
             });
-            completed = result?.status === 'success';
-            return result;
         }
-        finally
+        catch (error)
         {
-            reservation.release(completed ? 'released' : 'aborted');
+            operationError = error;
         }
+        try
+        {
+            reservation.release(!operationError && result?.status === 'success' ? 'released' : 'aborted');
+        }
+        catch (error)
+        {
+            if (!operationError && result?.status === 'failure')
+            {
+                result.productionCapacityReleaseError = error;
+                console.error(`[matrix:${profileId}] secondary capacity release failure: ${error.message}`);
+            }
+            else if (!operationError)
+            {
+                operationError = error;
+            }
+            else
+            {
+                console.error(`[matrix:${profileId}] secondary capacity release failure: ${error.message}`);
+                if (Object.isExtensible(operationError))
+                {
+                    operationError.productionCapacityReleaseError = error;
+                }
+            }
+        }
+        if (operationError)
+        {
+            throw operationError;
+        }
+        return result;
     }
     if (!options.planOnly && runtime.behaviorDocStaticAdmission == null)
     {
@@ -3360,6 +3416,10 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                 }
             }
         }
+    }
+    if (productionFresh && !options.planOnly)
+    {
+        await runtime.productionCapacityReservation.reconcilePriorBuildResources();
     }
     const wallClockStartedAtMs = Number(
         runtime.wallClockStartedAtMs
@@ -3595,7 +3655,9 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                 throwIfInterrupted
             })
             {
+                runtime.productionCapacityReservation.retainBuildOwner(buildLayout);
                 const preparedBuildSourceState = buildLayout.manifest.sourceState;
+                const physicalProcessPolicy = loadPhysicalExecutionProcessPolicy();
                 const scheduledPhysicalTiers = prependManagedProductionBuildGc(physicalTiers, runId, {
                     enabled: !options.resume,
                     outputRoot: runOutputs.outputRoot
@@ -3630,6 +3692,13 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                     result = recordSchedulerResult(await runDag({
                         registerManagedProcess: (identity, _tier, authority) =>
                             registerProductionBuildCompiler(buildLayout, identity, authority),
+                        retainManagedContainment: (authority) => retainProductionBuildServiceContainment(buildLayout, authority),
+                        markManagedContainmentCreationAttempt: (authority, _tier, creationSender) =>
+                            markProductionBuildServiceCreationAttempt(buildLayout, authority, creationSender),
+                        transferManagedResidentService: (authority, transfer) =>
+                            transferProductionBuildResidentService(buildLayout, authority, transfer),
+                        settleManagedResidentService: (authority, options) =>
+                            settleProductionBuildResidentService(buildLayout, authority, options),
                         sourceState: buildSourceState,
                         namespace: runNamespace,
                         tiers: scheduledPhysicalTiers,
@@ -3673,7 +3742,15 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                         afterTierSettled: async (tier) =>
                             runtime.productionCapacityReservation?.completeProducer(tier.id),
                         reuseAcrossSourceChanges: false,
-                        resourceEnforcementMode: process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto',
+                        resourceEnforcementMode: scheduledPhysicalTiers.some((tier) => tier.services?.includes('mysql'))
+                            ? 'strict' : process.env.FSUSBLOG_CGROUP_ENFORCEMENT ?? 'auto',
+                        resourceEnforcementOptions: { systemdBoundary: {
+                            commandBudgetMs: physicalProcessPolicy.systemdControlCommandTimeoutMs,
+                            startupBudgetMs: physicalProcessPolicy.systemdResourceStartupTimeoutMs,
+                            retainBinding: (reference) => retainProductionBuildResourceBoundary(buildLayout, reference, {
+                                commandBudgetMs: physicalProcessPolicy.systemdControlCommandTimeoutMs
+                            })
+                        } },
                         systemResources: detectedResources,
                         teeOutput: true,
                         onSourceState(sourceState)
@@ -4057,44 +4134,57 @@ export async function runLocalProfile(matrix, profileId, options, runtime = {})
                     }
                 }
 
-                try
+                afterFinalize(() =>
                 {
-                    const release = runtime.productionCapacityReservation.release(
+                    try
+                    {
+                        const release = runtime.productionCapacityReservation.release(
       result.status === 'success' ? 'released' : 'aborted');
-                    result.checkpoint = recordCheckpointProductionCapacityReservation(
-                        result.checkpointPath,
-                        runId,
-                        {
-                            reservationId: runtime.productionCapacityReservation.receipt.reservationId,
-                            planDigest: currentCapacityPlan.planDigest,
-                            producerDeclarationDigest: currentCapacityPlan.producerDeclarationDigest,
-                            releaseReceiptFile: path.resolve(release.file),
-                            releaseReceiptDigest: fileDigest(release.file),
-                            status: release.receipt.state
-                        });
-                }
-                catch (error)
-                {
-                    const capacityFailure = {
-                        tierId: profileId,
-                        exitCode: 1,
-                        reason: `Production capacity reservation release failed: ${error.message}`
-                    };
-                    result.status = 'failure';
-                    result.failure ??= capacityFailure;
-                    result.checkpoint = recordCheckpointFailure(
-                        result.checkpointPath,
-                        runId,
-                        capacityFailure,
-                        {
-                            targetTierId: profileId,
-                            sourceState: cleanupSource,
-                            runtimeNamespace: runNamespace,
-                            stage: 'capacity-reservation-release-failed',
-                            eventType: 'capacity-reservation-release-failed',
-                            step: 'capacity-reservation'
-                        });
-                }
+                        result.checkpoint = recordCheckpointProductionCapacityReservation(
+                            result.checkpointPath,
+                            runId,
+                            {
+                                reservationId: runtime.productionCapacityReservation.receipt.reservationId,
+                                planDigest: currentCapacityPlan.planDigest,
+                                producerDeclarationDigest: currentCapacityPlan.producerDeclarationDigest,
+                                releaseReceiptFile: path.resolve(release.file),
+                                releaseReceiptDigest: fileDigest(release.file),
+                                status: release.receipt.state
+                            });
+                    }
+                    catch (error)
+                    {
+                        const capacityFailure = {
+                            tierId: profileId,
+                            exitCode: 1,
+                            reason: `Production capacity reservation release failed: ${error.message}`
+                        };
+                        result.status = 'failure';
+                        result.failure ??= capacityFailure;
+                        result.checkpoint = recordCheckpointFailure(
+                            result.checkpointPath,
+                            runId,
+                            capacityFailure,
+                            {
+                                targetTierId: profileId,
+                                sourceState: cleanupSource,
+                                runtimeNamespace: runNamespace,
+                                stage: 'capacity-reservation-release-failed',
+                                eventType: 'capacity-reservation-release-failed',
+                                step: 'capacity-reservation'
+                            });
+                    }
+                    const summaryFile = localRunSummaryFile(profileId, runOutputs);
+                    if (fs.existsSync(summaryFile))
+                    {
+                        const summary = JSON.parse(fs.readFileSync(summaryFile, 'utf8'));
+                        summary.status = result.status;
+                        summary.failure = result.failure ?? null;
+                        summary.failures = result.checkpoint.failures ?? [];
+                        summary.productionCapacityReservation = result.checkpoint.productionCapacityReservation ?? null;
+                        fs.writeFileSync(summaryFile, `${JSON.stringify(summary, null, 2)}\n`);
+                    }
+                });
                 const completedAtMs = Date.now();
                 const fullScriptDurationMs = Math.max(0, completedAtMs - wallClockStartedAtMs);
                 const summaryFile = localRunSummaryFile(profileId, runOutputs);
@@ -4400,6 +4490,7 @@ async function runTier(matrix, tierId, args)
                 await runDag({
                     registerManagedProcess: (identity, _tier, authority) =>
                         registerProductionBuildCompiler(buildLayout, identity, authority),
+                    ...mysqlServiceSchedulerOptions(buildLayout, scheduledTiers),
                     sourceState: buildSourceState,
                     namespace: runNamespace,
                     tiers: scheduledTiers,
@@ -4940,6 +5031,7 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                 await runDag({
                     registerManagedProcess: (identity, _tier, authority) =>
                         registerProductionBuildCompiler(buildLayout, identity, authority),
+                    ...mysqlServiceSchedulerOptions(buildLayout, tiers),
                     sourceState: buildSourceState,
                     namespace: buildNamespace,
                     tiers,
@@ -4968,7 +5060,8 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
                     },
                     envForTier(tier)
                     {
-                        const runNamespace = namespaceFor(tier, options.shard, runId);
+                        const runNamespace = tier.services?.includes('mysql')
+                            ? buildNamespace : namespaceFor(tier, options.shard, runId);
                         const env = applyNamespaceBuildEnvironment(
                             tier,
                             productionBuildEnvironment(buildLayout, {
@@ -6096,6 +6189,7 @@ async function ciPrSmart(matrix, args)
                 await runDag({
                     registerManagedProcess: (identity, _tier, authority) =>
                         registerProductionBuildCompiler(buildLayout, identity, authority),
+                    ...mysqlServiceSchedulerOptions(buildLayout, scheduledTiers),
                     sourceState: buildSourceState,
                     namespace: runNamespace,
                     tiers: scheduledTiers,

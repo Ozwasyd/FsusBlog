@@ -5,6 +5,15 @@
         "bundle": "backend-tests",
         "configuration": "Release",
         "receipt": ".tmp/test-runs/<runId>/backend-tests-ready.json",
+        "independentMigrationVerification": {
+            "id": "migration-assembly-verification",
+            "owner": "tools/db/generate-migration-assembly-receipt.mjs",
+            "commands": [
+                "dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore",
+                "dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore"
+            ],
+            "publication": "original producer after finalized build and exact MySQL cleanup; fresh final candidate required"
+        },
         "requests": [
             {
                 "id": "backend-server-build",
@@ -17,6 +26,16 @@
                 "role": "canonical-test-assembly"
             },
             {
+                "id": "migration-tests-build",
+                "target": "tests/migration/FsusBlog.Migration.Tests.csproj",
+                "role": "independent-migration-test-assembly"
+            },
+            {
+                "id": "xunit-inventory-adapter-build",
+                "target": "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj",
+                "role": "canonical-xunit-inventory-tool"
+            },
+            {
                 "id": "backend-benchmark-build",
                 "target": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
                 "role": "separate-benchmark-input"
@@ -24,12 +43,30 @@
         ]
     },
     "consumers": [
-        { "id": "backend-exact-union", "binding": "build-receipt+test-dll-digest" },
-        { "id": "perception-v2", "binding": "exact-union-summary+test-dll-digest" },
-        { "id": "rights-v3", "binding": "exact-union-summary+trx-digests" },
-        { "id": "integrity-proof", "binding": "backend-producer-receipt+artifact-digests" },
-        { "id": "privacy-zk", "binding": "exact-union-summary+trx-digests" },
-        { "id": "cross-stack", "binding": "no-backend-artifact" }
+        {
+            "id": "backend-exact-union",
+            "binding": "build-receipt+test-dll-digest"
+        },
+        {
+            "id": "perception-v2",
+            "binding": "exact-union-summary+test-dll-digest"
+        },
+        {
+            "id": "rights-v3",
+            "binding": "exact-union-summary+trx-digests"
+        },
+        {
+            "id": "integrity-proof",
+            "binding": "backend-producer-receipt+artifact-digests"
+        },
+        {
+            "id": "privacy-zk",
+            "binding": "exact-union-summary+trx-digests"
+        },
+        {
+            "id": "cross-stack",
+            "binding": "no-backend-artifact"
+        }
     ],
     "forbiddenProductionRequests": [
         "Debug backend compatibility build",

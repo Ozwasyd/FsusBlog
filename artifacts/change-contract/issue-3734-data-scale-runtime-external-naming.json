@@ -1,0 +1,47 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/collect-release-reliability-fixture.mjs",
+                "tools/test/data-scale-disk-demand.mjs",
+                "tools/test/data-scale-runtime-admission.mjs",
+                "tools/test/data-scale-runtime-caller.mjs",
+                "tools/test/data-scale-runtime-owner.mjs",
+                "tools/test/data-scale-runtime-resource-pool.mjs",
+                "tools/test/data-scale-runtime-scheduler-owner.mjs",
+                "tools/test/release-reliability-lifecycle-actions.mjs",
+                "tools/test/release-reliability-lifecycle.mjs",
+                "tools/test/run-release-reliability-scenarios.mjs",
+                "tools/test/verify-release-reliability-lifecycle-action.mjs"
+            ],
+            "reason": "Keep the existing caller-visible FSUSBLOG process environment keys and scheduler run/invocation/attempt spellings while binding them to the original parent-owned runtime authority. Artifact paths and image declarations are not accepted as child capabilities."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/data-scale/seed.sh",
+                "tools/test/run-release-reliability-qualified-local.sh"
+            ],
+            "reason": "Preserve the established exported shell environment, production image and fixture interfaces used by the original seed and qualified release owners. Scheduler-owned invocation and resource controls use explicit adapters without renaming external keys."
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "Preserve the original acceptance secret and task-runtime environment interfaces while applying baseline container controls from the live parent reservation. No secret export or alternate credential owner is introduced."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/release-reliability-lifecycle-action-registry.schema.json",
+                "config/testing/production-disk-demand.json",
+                "config/testing/release-reliability-lifecycle-action-registry.json"
+            ],
+            "reason": "Keep the existing lifecycle registry and production disk-demand schema field spellings consumed by their original validators. The source-bound DataScale declaration and finite lifecycle actions extend the same machine-readable owners rather than creating a parallel contract."
+        }
+    ]
+}

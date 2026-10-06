@@ -108,6 +108,47 @@ public sealed class UserSessionJwtAuthenticationTests
     }
 
     [Fact]
+    public async Task AdminEndpoint_RevokedSessionFailsAuthenticationAndClearsOnlyAdminCookies()
+    {
+        var userValidator = Substitute.For<IUserSessionValidationService>();
+        var adminValidator = Substitute.For<IAdminSessionValidationService>();
+        adminValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<string>(), Arg.Any<CancellationToken>())
+            .Returns(Task.FromResult(AdminSessionValidationResult.Invalid("admin_session_revoked")));
+        await using WebApplication app = await StartHostAsync(userValidator, adminValidator);
+        // Exercise the real JWT lifetime/signature handler; revocation is the controlled input.
+        DateTime now = TimeProvider.System.GetUtcNow().UtcDateTime;
+        var principal = new AdminPrincipal { Id = 7, Handle = "root" };
+        var session = new AdminSession
+        {
+            SessionId = "revoked-admin-session",
+            AdminPrincipalId = principal.Id,
+            CreatedAtUtc = now,
+            IdleExpiresAtUtc = now.AddHours(1),
+            AbsoluteExpiresAtUtc = now.AddHours(8)
+        };
+        IssuedAccessToken token = app.Services.GetRequiredService<IJwtHelper>().GenerateAdminAccessToken(
+            principal, session, [AdminPermissions.AdminManage]);
+        using HttpClient client = app.GetTestClient();
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/binary/admin/protected");
+        request.Headers.Add("Cookie", $"AdminAccessToken={token.Token}");
+
+        using HttpResponseMessage response = await client.SendAsync(request);
+
+        Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
+        await adminValidator.Received(1).ValidateAsync(
+            Arg.Is<ClaimsPrincipal>(value => value.IsAdminPrincipal()), token.Token, Arg.Any<CancellationToken>());
+        await userValidator.DidNotReceive().ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>());
+        string[] cookies = response.Headers.TryGetValues("Set-Cookie", out IEnumerable<string>? values)
+            ? values.ToArray()
+            : [];
+        Assert.Contains(cookies, value => value.StartsWith("AdminAccessToken=", StringComparison.Ordinal));
+        Assert.Contains(cookies, value => value.StartsWith("AdminSessionId=", StringComparison.Ordinal));
+        Assert.DoesNotContain(cookies, value => value.StartsWith("AccessToken=", StringComparison.Ordinal));
+        Assert.DoesNotContain(cookies, value => value.StartsWith("RefreshToken=", StringComparison.Ordinal));
+        Assert.DoesNotContain(cookies, value => value.StartsWith("SessionId=", StringComparison.Ordinal));
+    }
+
+    [Fact]
     [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task ProtectedEndpoint_AcceptsPreviousKidInsideRotationWindow()
     {

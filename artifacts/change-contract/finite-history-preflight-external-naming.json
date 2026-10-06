@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/governance/fact-section-repair-history.mjs"
+            ],
+            "reason": "Preserve the caller-visible Git process environment keys GIT_NO_REPLACE_OBJECTS, GIT_NO_LAZY_FETCH and GIT_GRAFT_FILE in the read-only finite-history adapter; internal variables retain repository naming."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/fact-section-repair-history-preflight.schema.json"
+            ],
+            "reason": "Preserve the closed preflight evidence JSON schema field spellings and exact schema identity required by the original verifier and refusal controls."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "Preserve caller-visible document and marker spellings on this Markdown path governed by the trusted naming registry while documenting the original preflight-only boundary."
+        }
+    ]
+}

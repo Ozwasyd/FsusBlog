@@ -35,6 +35,15 @@ public class ArticleServiceValidationTests
     private static string ArticleRuntime(params string[] methodNames)
         => RuntimeMetadataInspection.DescribeMethods(typeof(ArticleService), methodNames);
 
+    private static string ArticleRevisionRuntime()
+    {
+        string caller = ArticleRuntime("SaveArticleRevisionAsync", "ResolveRevisionAdminPrincipalId");
+        Assert.Contains("ArticleRevisionPersistence.SaveAsync", caller, StringComparison.Ordinal);
+        return string.Join('\n', caller, RuntimeMetadataInspection.DescribeMethods(
+            typeof(ArticleRevisionPersistence),
+            nameof(ArticleRevisionPersistence.SaveAsync)));
+    }
+
     private static ArticleService BuildService()
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
@@ -492,7 +501,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void SaveArticleRevisionAsync_RuntimeLocksArticleRowAndDefinesUniqueRevisionIndex()
     {
-        string runtimeShape = ArticleRuntime("SaveArticleRevisionAsync");
+        string runtimeShape = ArticleRevisionRuntime();
         Assert.Contains("FOR UPDATE", runtimeShape, StringComparison.Ordinal);
         Assert.Contains(
             typeof(ArticleRevision).GetCustomAttributes<SugarIndexAttribute>(),
@@ -509,7 +518,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void SaveArticleRevisionAsync_RuntimeAllocatesRevisionNoAtomicallyAndRejectsDeletedArticle()
     {
-        string method = ArticleRuntime("SaveArticleRevisionAsync");
+        string method = ArticleRevisionRuntime();
 
         Assert.Contains("xmin", method, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("isdeleted = false", method, StringComparison.OrdinalIgnoreCase);
@@ -529,7 +538,7 @@ public class ArticleServiceValidationTests
     [Fact]
     public void SaveArticleRevisionAsync_RuntimeUsesAdminPrincipalActor()
     {
-        string method = ArticleRuntime("SaveArticleRevisionAsync", "ResolveRevisionAdminPrincipalId");
+        string method = ArticleRevisionRuntime();
 
         Assert.Contains("ResolveRevisionAdminPrincipalId", method, StringComparison.Ordinal);
         Assert.Contains("created_by_admin_principal_id", method, StringComparison.Ordinal);

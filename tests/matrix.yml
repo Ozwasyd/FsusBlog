@@ -2670,6 +2670,7 @@ tiers:
               tools/test/run-backend-production-shards.mjs,
               tools/test/build-migration-tests.mjs,
               tools/test/run-migration-tests.mjs,
+              tools/db/generate-migration-assembly-receipt.mjs,
               tools/test-fixtures/services/mysql.mjs,
               tools/test/mysql-fixture-admission.mjs,
               tools/test-matrix/mysql-fixture-recovery.mjs,

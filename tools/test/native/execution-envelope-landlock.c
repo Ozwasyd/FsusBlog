@@ -11,6 +11,7 @@
 #include <linux/landlock.h>
 #include <sys/prctl.h>
 #include <sys/syscall.h>
+#include <sys/stat.h>
 
 /* Linux UAPI added this right in Landlock ABI 5; older headers may omit it. */
 #ifndef LANDLOCK_ACCESS_FS_IOCTL_DEV
@@ -107,6 +108,51 @@ static void AllowPath(int rulesetFd, const char* path, uint64_t access)
     }
 }
 
+static unsigned long long ParseIdentity(const char* value)
+{
+    char* end = NULL;
+    errno = 0;
+    unsigned long long parsed = strtoull(value, &end, 10);
+    if (errno || !value[0] || value[0] == '-' || value[0] == '+' || *end)
+    {
+        errno = EINVAL;
+        Fail("invalid owned temporary directory identity");
+    }
+    return parsed;
+}
+
+static void AllowOwnedTemporaryAlias(int rulesetFd, const char* source, const char* device,
+                                    const char* inode, const char* uid, uint64_t access)
+{
+    int sourceFd = open(source, O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (sourceFd < 0)
+        Fail("cannot open owned temporary directory");
+    int aliasFd = open("/tmp", O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC);
+    if (aliasFd < 0)
+        Fail("cannot open private temporary alias");
+    struct stat sourceStat;
+    struct stat aliasStat;
+    if (fstat(sourceFd, &sourceStat) < 0 || fstat(aliasFd, &aliasStat) < 0)
+        Fail("cannot inspect owned temporary alias descriptors");
+    if ((unsigned long long)sourceStat.st_dev != ParseIdentity(device)
+        || (unsigned long long)sourceStat.st_ino != ParseIdentity(inode)
+        || (unsigned long long)sourceStat.st_uid != ParseIdentity(uid)
+        || sourceStat.st_dev != aliasStat.st_dev || sourceStat.st_ino != aliasStat.st_ino
+        || sourceStat.st_uid != aliasStat.st_uid || (sourceStat.st_mode & 0777) != 0700
+        || (aliasStat.st_mode & 0777) != 0700)
+    {
+        errno = EACCES;
+        Fail("owned temporary alias object identity mismatch");
+    }
+    // Grant through the same descriptor that was verified, never reopen the alias.
+    LandlockPathBeneathAttr rule = { .allowed_access = access, .parent_fd = aliasFd };
+    if (AddRule(rulesetFd, &rule) < 0)
+        Fail("cannot add verified owned temporary alias rule");
+    if (close(aliasFd) < 0 || close(sourceFd) < 0)
+        Fail("cannot close owned temporary alias descriptors");
+    fprintf(stderr, "execution-envelope-landlock: owned-private-tmp-verified device=%s inode=%s uid=%s\n", device, inode, uid);
+}
+
 int main(int argc, char** argv)
 {
     if (argc == 2 && strcmp(argv[1], "--version") == 0)
@@ -115,12 +161,28 @@ int main(int argc, char** argv)
         return 0;
     }
     int separator = -1;
+    const char* tempSource = NULL;
+    const char* tempDevice = NULL;
+    const char* tempInode = NULL;
+    const char* tempUid = NULL;
     for (int index = 1; index < argc; ++index)
     {
         if (strcmp(argv[index], "--") == 0)
         {
             separator = index;
             break;
+        }
+        if (strcmp(argv[index], "--owned-tmp-source") == 0 && index + 7 < argc
+            && strcmp(argv[index + 2], "--owned-tmp-device") == 0
+            && strcmp(argv[index + 4], "--owned-tmp-inode") == 0
+            && strcmp(argv[index + 6], "--owned-tmp-uid") == 0 && !tempSource)
+        {
+            tempSource = argv[index + 1];
+            tempDevice = argv[index + 3];
+            tempInode = argv[index + 5];
+            tempUid = argv[index + 7];
+            index += 7;
+            continue;
         }
         if ((strcmp(argv[index], "--writable") != 0 && strcmp(argv[index], "--writable-file") != 0)
             || index + 1 >= argc)
@@ -162,8 +224,21 @@ int main(int argc, char** argv)
         readAccess |= LANDLOCK_ACCESS_FS_IOCTL_DEV;
     }
     AllowPath(rulesetFd, "/", readAccess);
+    if (tempSource)
+    {
+        AllowOwnedTemporaryAlias(rulesetFd, tempSource, tempDevice, tempInode, tempUid, handledAccess);
+    }
     for (int index = 1; index < separator; index += 2)
     {
+        if (strcmp(argv[index], "--owned-tmp-source") == 0)
+        {
+            index += 6;
+            continue;
+        }
+        if (tempSource && strcmp(argv[index + 1], tempSource) == 0)
+        {
+            continue;
+        }
         uint64_t allowedAccess = handledAccess;
         if (strcmp(argv[index], "--writable-file") == 0)
         {

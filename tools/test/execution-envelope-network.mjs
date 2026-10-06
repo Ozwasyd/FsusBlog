@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
 import { admitsPrivateDotnetScratch, privateDotnetScratchPath } from './physical-execution-private-dotnet-scratch.mjs';
+import { inspectOwnedPrivateTmp } from './execution-envelope-directories.mjs';
 const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const landlockSource = path.join(
@@ -170,6 +171,7 @@ export function prepareNetworkSandbox({
     // eslint-disable-next-line no-unused-vars
     cwd,
     directories,
+    ownedDirectoryEnvelope = null,
     writableRoots,
     plannedEndpoints = [],
     environment,
@@ -197,6 +199,14 @@ export function prepareNetworkSandbox({
     const landlockReadWritePaths = privateDotnetScratch
         ? [...readWritePaths, privateDotnetScratchPath].sort()
         : readWritePaths;
+    const privateTmpCapability = ownedDirectoryEnvelope?.privateTmpCapability ?? null;
+    const ownedPrivateTmp = ownedDirectoryEnvelope
+        ? inspectOwnedPrivateTmp(privateTmpCapability, { environment, readWritePaths }) : null;
+    if (ownedPrivateTmp && (ownedDirectoryEnvelope.fragment.directories !== directories
+        || ownedPrivateTmp.source !== directories.temp))
+    {
+        throw new Error('private /tmp alias belongs to a different directory owner');
+    }
     const landlockExecutable = path.join(
         directories.toolCache,
         'execution-envelope-landlock'
@@ -222,6 +232,12 @@ export function prepareNetworkSandbox({
             networkLog,
             '--',
             landlock.helper.absolutePath,
+            ...(ownedPrivateTmp ? [
+                '--owned-tmp-source', ownedPrivateTmp.source,
+                '--owned-tmp-device', ownedPrivateTmp.device,
+                '--owned-tmp-inode', ownedPrivateTmp.inode,
+                '--owned-tmp-uid', ownedPrivateTmp.uid
+            ] : []),
             ...landlockReadWritePaths.flatMap((entry) => [
                 standardWritableFiles.includes(entry) ? '--writable-file' : '--writable',
                 entry
@@ -236,6 +252,7 @@ export function prepareNetworkSandbox({
         },
         linuxReadWritePaths: readWritePaths,
         privateDotnetScratch,
+        linuxOwnedPrivateTmp: privateTmpCapability,
         networkLog,
         fragment: {
             schema: executionEnvelopeNetworkSchema,
@@ -251,6 +268,7 @@ export function prepareNetworkSandbox({
                     compiler: landlock.compiler,
                     helper: landlock.helper,
                     privateTmp: true,
+                    ...(ownedPrivateTmp ? { ownedPrivateTmp } : {}),
                     readWritePaths: landlockReadWritePaths,
                     systemdReadWritePaths: readWritePaths,
                     privateDotnetScratch: privateDotnetScratch

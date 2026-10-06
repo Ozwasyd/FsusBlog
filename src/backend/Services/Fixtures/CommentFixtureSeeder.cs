@@ -160,7 +160,8 @@ public sealed class CommentFixturePreparationException(
 public sealed class CommentFixtureSeeder(
     ICommentThreadFixturePort threads,
     ICommentModerationFixturePort moderation,
-    IConfiguration configuration) : ICommentFixtureSeeder
+    IConfiguration configuration,
+    TimeProvider timeProvider) : ICommentFixtureSeeder
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
     private const string ProducerId = "comment-moderation";
@@ -199,7 +200,7 @@ public sealed class CommentFixtureSeeder(
                 [primary, secondary],
                 admin,
                 cancellationToken).ConfigureAwait(false);
-            DateTime now = DateTime.UtcNow;
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             string cacheBefore = await ReadCommentCacheGenerationAsync(articleId, cancellationToken).ConfigureAwait(false);
 
             RegionModerationDecision global = moderation.ResolveRegion(

@@ -163,7 +163,7 @@ public sealed class ModerationDictionaryServiceTests
     public void ResolveAction_WhenRegionalPolicyDisabled_FallsBackToGlobalBaseline()
     {
         using TestRoot root = TestRoot.FromRepoConfig();
-        var runtimeState = new ModerationRuntimeStateService(new ConfigurationBuilder().Build(), new TestWebHostEnvironment(root.Path));
+        var runtimeState = new ModerationRuntimeStateService(new ConfigurationBuilder().Build(), new TestWebHostEnvironment(root.Path), TimeProvider.System);
         var disabled = runtimeState.SetRegionState(
             RegionCodes.Singapore,
             ModerationRegionStates.Disabled,

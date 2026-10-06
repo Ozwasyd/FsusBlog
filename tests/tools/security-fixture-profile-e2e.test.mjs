@@ -59,7 +59,9 @@ function authAdapter()
                 providedCapabilities: authFixturePlan.capabilities,
                 observations: observed,
                 temporalObservation: {
-                    businessEpochUtc: authFixturePlan.temporalContext.businessEpochUtc
+                    businessEpochUtc: authFixturePlan.temporalContext.businessEpochUtc,
+                    backendCulture: 'Invariant',
+                    postgresTimezone: 'UTC'
                 }
             };
         },
@@ -153,7 +155,9 @@ function securityPorts()
                     runId: fragment.runId,
                     namespace: fragment.namespace,
                     family,
-                    businessEpochUtc,
+                    businessEpochUtc: '2026-01-15T12:00:00.000Z',
+                    backendCulture: 'Invariant',
+                    postgresTimezone: 'UTC',
                     capabilities: fragment.capabilities,
                     partial: false,
                     warnings: [],

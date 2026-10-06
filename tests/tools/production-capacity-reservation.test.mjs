@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
@@ -7,6 +8,14 @@ import test from 'node:test';
 const { currentProcessIdentity } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { acquireProductionCapacityReservation } = await import(new URL("../../tools/test-matrix/production-capacity-reservation.mjs", import.meta.url));
 const { canonicalFilesystemIdentity, productionDiskDemandDigest } = await import(new URL("../../tools/test-matrix/production-disk-demand.mjs", import.meta.url));
+const { finalizeProductionBuildLayout, prepareProductionBuildLayout } = await import(new URL('../../tools/test-matrix/production-build-layout.mjs', import.meta.url));
+const { acquireProductionFreshExclusiveLease } = await import(new URL('../../tools/test-matrix/production-fresh-exclusive-lease.mjs', import.meta.url));
+
+function prepareCapacityBuild(reservationOptions)
+{
+    return prepareProductionBuildLayout({ root: reservationOptions.repositoryRoot, runId: reservationOptions.runId,
+        sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }, namespace: 'capacity-test' });
+}
 
 function fixturePlan({ free = 999, requested = 400, safety = 100 } = {})
 {
@@ -72,6 +81,131 @@ test('second run subtracts an active reservation on the same filesystem', (t) =>
     second.release('released');
 });
 
+test('prior resource reconciliation is an explicit admitted-reservation operation', async (t) =>
+{
+    const reservation = acquireProductionCapacityReservation(options(t));
+    try
+    {
+        assert.deepEqual(await reservation.reconcilePriorBuildResources(), []);
+    }
+    finally
+    {
+        reservation.release('aborted');
+    }
+    await assert.rejects(() => reservation.reconcilePriorBuildResources(), /reservation.*released/u);
+});
+
+test('capacity discovery rejects non-private or aliased original journals before adoption', async (t) =>
+{
+    for (const variant of ['symlink', 'hardlink', 'public-file', 'public-directory', 'wrong-filename'])
+    {
+        await t.test(variant, { skip: process.platform === 'win32' && ['symlink', 'public-file', 'public-directory'].includes(variant) }, (subtest) =>
+        {
+            const reservationOptions = options(subtest);
+            const reservation = acquireProductionCapacityReservation(reservationOptions);
+            const file = reservation.activeFile;
+            const directory = path.dirname(file);
+            const saved = path.join(reservationOptions.authorityRoot, 'saved-original.json');
+            const renamed = path.join(directory, 'different-reservation.json');
+            const original = fs.readFileSync(file, 'utf8');
+            if (variant === 'symlink' || variant === 'hardlink')
+            {
+                fs.renameSync(file, saved);
+                if (variant === 'symlink')
+                {
+                    fs.symlinkSync(saved, file);
+                }
+                else
+                {
+                    fs.linkSync(saved, file);
+                }
+            }
+            else if (variant === 'wrong-filename')
+            {
+                fs.renameSync(file, renamed);
+            }
+            else
+            {
+                fs.chmodSync(variant === 'public-file' ? file : directory, 0o777);
+            }
+            try
+            {
+                assert.throws(() => acquireProductionCapacityReservation({ ...reservationOptions, runId: 'another-run' }),
+                    /reservation.*(private|identity)/u);
+                assert.equal(fs.readFileSync(variant === 'wrong-filename' ? renamed : file, 'utf8'), original);
+                assert.equal(fs.existsSync(path.join(reservationOptions.authorityRoot, 'terminal')), false);
+            }
+            finally
+            {
+                if (variant === 'symlink' || variant === 'hardlink')
+                {
+                    fs.unlinkSync(file);
+                    fs.renameSync(saved, file);
+                }
+                else if (variant === 'wrong-filename')
+                {
+                    fs.renameSync(renamed, file);
+                }
+                else
+                {
+                    fs.chmodSync(variant === 'public-file' ? file : directory, variant === 'public-file' ? 0o600 : 0o700);
+                }
+                reservation.release('aborted');
+            }
+        });
+    }
+});
+
+test('an empty aliased active directory cannot redirect reservation writes', { skip: process.platform === 'win32' }, (t) =>
+{
+    const reservationOptions = options(t);
+    fs.mkdirSync(reservationOptions.authorityRoot, { mode: 0o700 });
+    const foreign = path.join(path.dirname(reservationOptions.repositoryRoot), 'foreign-empty-directory');
+    fs.mkdirSync(foreign, { mode: 0o700 });
+    fs.symlinkSync(foreign, path.join(reservationOptions.authorityRoot, 'active'));
+    assert.throws(() => acquireProductionCapacityReservation(reservationOptions), /reservation directory.*private/u);
+    assert.deepEqual(fs.readdirSync(foreign), []);
+});
+
+test('prior resource recovery excludes other repositories and refuses a live original controller', async (t) =>
+{
+    const oldOptions = options(t, fixturePlan({ free: 4096 }));
+    const original = acquireProductionCapacityReservation({ ...oldOptions, heartbeatEveryMs: 60_000 });
+    const layout = prepareCapacityBuild(oldOptions);
+    original.retainBuildOwner(layout);
+    const bytes = fs.readFileSync(original.activeFile, 'utf8');
+    const foreignRoot = path.join(path.dirname(oldOptions.repositoryRoot), 'foreign-repository');
+    fs.mkdirSync(foreignRoot);
+    const foreign = acquireProductionCapacityReservation({ ...oldOptions, repositoryRoot: foreignRoot, runId: 'foreign-run' });
+    try
+    {
+        assert.deepEqual(await foreign.reconcilePriorBuildResources(), []);
+        assert.equal(fs.readFileSync(original.activeFile, 'utf8'), bytes);
+    }
+    finally
+    {
+        foreign.release('aborted');
+    }
+    fs.mkdirSync(path.join(oldOptions.repositoryRoot, '.git'));
+    const runId = 'next-same-repository';
+    const lease = acquireProductionFreshExclusiveLease({ root: oldOptions.repositoryRoot, runId,
+        targetTierId: 'production', sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) } });
+    const next = acquireProductionCapacityReservation({ ...oldOptions, runId,
+        repositoryLeaseOwner: lease.owner, candidateIdentityDigest: lease.owner.candidateIdentityDigest });
+    try
+    {
+        await assert.rejects(() => next.reconcilePriorBuildResources(), /prior build owner is live, changed or unverifiable/u);
+        assert.equal(fs.readFileSync(original.activeFile, 'utf8'), bytes);
+    }
+    finally
+    {
+        next.release('aborted');
+        lease.release('failed');
+        finalizeProductionBuildLayout(layout, { status: 'failure' });
+        original.release('aborted');
+    }
+});
+
 test('a plan larger than the retired 4 GiB threshold rejects while a small declared plan admits', (t) =>
 {
     const gib = 1024 ** 3;
@@ -129,12 +263,33 @@ test('guard and completion re-resolve a deleted planned leaf on the same filesys
     };
     delete reservationOptions.remeasureFilesystem;
 
-    const reservation = acquireProductionCapacityReservation(reservationOptions);
-    fs.rmSync(plannedLeaf, { recursive: true, force: true });
-
-    assert.equal(reservation.guardProducer('producer').status, 'admitted');
-    assert.equal(reservation.completeProducer('producer').status, 'within-declaration');
-    reservation.release('released');
+    // Exercise the default path/identity remeasurement while isolating its free-byte
+    // counter from unrelated writers on the shared test filesystem. Estimator
+    // under-declaration is covered separately; its 300-byte fixture grant is unchanged.
+    const readFilesystem = fs.statfsSync;
+    const initialStatistics = readFilesystem(plannedLeaf);
+    const probes = [];
+    fs.statfsSync = (probe, settings) =>
+    {
+        const observed = readFilesystem(probe, settings);
+        probes.push(String(probe));
+        return { ...observed, bavail: initialStatistics.bavail };
+    };
+    let reservation;
+    try
+    {
+        reservation = acquireProductionCapacityReservation(reservationOptions);
+        fs.rmSync(plannedLeaf, { recursive: true, force: true });
+        assert.equal(reservation.guardProducer('producer').status, 'admitted');
+        assert.equal(reservation.completeProducer('producer').status, 'within-declaration');
+        assert.ok(probes.filter((probe) => probe === path.dirname(plannedLeaf)).length >= 2,
+            'guard and completion must independently re-resolve the deleted leaf to its existing ancestor');
+    }
+    finally
+    {
+        fs.statfsSync = readFilesystem;
+        reservation?.release('released');
+    }
 });
 
 test('owner PID reuse or command mismatch remains blocking', (t) =>
@@ -273,4 +428,132 @@ test('success, failure, timeout and cancel terminal paths seal release receipts'
         assert.equal(release.receipt.terminalState, terminalState);
         assert.equal(release.receipt.state, terminalState === 'released' ? 'released' : 'aborted');
     }
+});
+
+test('capacity retains its exact build owner until terminal sealing and refuses new producers after retention', (t) =>
+{
+    const reservationOptions = options(t);
+    const reservation = acquireProductionCapacityReservation(reservationOptions);
+    const layout = prepareCapacityBuild(reservationOptions);
+    const reference = reservation.retainBuildOwner(layout);
+    assert.deepEqual(reservation.retainBuildOwner(layout), reference);
+    assert.deepEqual(reservation.receipt.buildOwnerReference, reference);
+    assert.throws(() => reservation.release('aborted'), (error) => error.code === 'PRODUCTION_CAPACITY_RETAINED');
+    assert.equal(reservation.receipt.state, 'recovery-required');
+    assert.equal(reservation.receipt.filesystems[0].admittedBytes, 500);
+    assert.throws(() => reservation.guardProducer('producer'), /requires recovery/u);
+    // Explicit dead-owner simulation cannot replace the actual build owner's observations.
+    assert.throws(() => acquireProductionCapacityReservation({ ...reservationOptions,
+        runId: 'run-second', verifyOwner: () => ({ status: 'terminal' }) }), /admission failed/u);
+    assert.equal(finalizeProductionBuildLayout(layout, { status: 'failure' }).owner.state, 'failed');
+    assert.equal(reservation.release('aborted').receipt.state, 'aborted');
+    assert.equal(fs.existsSync(reservation.activeFile), false);
+});
+
+test('capacity binding rejects another run and cannot be erased by a resealed journal', (t) =>
+{
+    const reservationOptions = options(t);
+    const reservation = acquireProductionCapacityReservation(reservationOptions);
+    const wrong = prepareCapacityBuild({ ...reservationOptions, runId: 'another-run' });
+    assert.throws(() => reservation.retainBuildOwner(wrong), /cross-bind/u);
+    const layout = prepareCapacityBuild(reservationOptions);
+    assert.throws(() => reservation.retainBuildOwner({ ...layout, manifestFile: wrong.manifestFile }), /canonical owner record paths/u);
+    reservation.retainBuildOwner(layout);
+    const original = JSON.parse(fs.readFileSync(reservation.activeFile, 'utf8'));
+    const changed = { ...original, buildOwnerReference: null };
+    delete changed.contentDigest;
+    changed.contentDigest = productionDiskDemandDigest(changed);
+    fs.writeFileSync(reservation.activeFile, JSON.stringify(changed));
+    assert.throws(() => reservation.release('released'), /compare-owner-token failed/u);
+    fs.writeFileSync(reservation.activeFile, JSON.stringify(original));
+    finalizeProductionBuildLayout(layout, { status: 'failure' });
+    reservation.release('aborted');
+    finalizeProductionBuildLayout(wrong, { status: 'failure' });
+});
+
+test('capacity release and recovery retain missing, replaced or identity-drifted build owners', async (t) =>
+{
+    for (const variant of ['missing', 'replaced', 'source', 'receipt'])
+    {
+        await t.test(variant, (t) =>
+        {
+            const reservationOptions = options(t);
+            const reservation = acquireProductionCapacityReservation(reservationOptions);
+            const layout = prepareCapacityBuild(reservationOptions);
+            reservation.retainBuildOwner(layout);
+            finalizeProductionBuildLayout(layout, { status: 'failure' });
+            if (['missing', 'replaced'].includes(variant))
+            {
+                fs.renameSync(layout.runRoot, `${layout.runRoot}.retained`);
+                if (variant === 'replaced')
+                {
+                    fs.cpSync(`${layout.runRoot}.retained`, layout.runRoot, { recursive: true });
+                }
+            }
+            else
+            {
+                const manifest = JSON.parse(fs.readFileSync(layout.manifestFile, 'utf8'));
+                if (variant === 'source')
+                {
+                    manifest.owner.sourceCommit = 'c'.repeat(40);
+                }
+                else
+                {
+                    manifest.owner.processTreeReceipt.receiptDigest = `sha256:${'0'.repeat(64)}`;
+                }
+                fs.writeFileSync(layout.manifestFile, JSON.stringify(manifest));
+            }
+            assert.throws(() => reservation.release('released'), (error) => error.code === 'PRODUCTION_CAPACITY_RETAINED');
+            assert.throws(() => acquireProductionCapacityReservation({ ...reservationOptions,
+                runId: 'run-second', verifyOwner: () => ({ status: 'terminal' }) }), /admission failed/u);
+            assert.equal(JSON.parse(fs.readFileSync(reservation.activeFile, 'utf8')).state, 'recovery-required');
+            assert.equal(fs.existsSync(path.join(reservation.authorityRoot, 'terminal', `${reservation.receipt.reservationId}.json`)), false);
+        });
+    }
+});
+
+test('a legacy capacity journal without an explicit build-owner binding cannot be silently recovered', (t) =>
+{
+    const reservationOptions = options(t);
+    const reservation = acquireProductionCapacityReservation(reservationOptions);
+    const original = JSON.parse(fs.readFileSync(reservation.activeFile, 'utf8'));
+    const legacy = { ...original };
+    delete legacy.buildOwnerReference;
+    delete legacy.contentDigest;
+    legacy.contentDigest = productionDiskDemandDigest(legacy);
+    fs.writeFileSync(reservation.activeFile, JSON.stringify(legacy));
+    assert.throws(() => acquireProductionCapacityReservation({ ...reservationOptions,
+        runId: 'run-second', verifyOwner: () => ({ status: 'terminal' }) }), /invalid or tampered/u);
+    fs.writeFileSync(reservation.activeFile, JSON.stringify(original));
+    reservation.release('aborted');
+});
+
+test('actual exited controller with an empty retained build owner permits capacity recovery', {
+    skip: process.platform === 'win32'
+}, (t) =>
+{
+    const reservationOptions = options(t);
+    const childOptions = { ...reservationOptions };
+    delete childOptions.ownerIdentity;
+    delete childOptions.remeasureFilesystem;
+    const source = `
+        import { acquireProductionCapacityReservation } from ${JSON.stringify(new URL('../../tools/test-matrix/production-capacity-reservation.mjs', import.meta.url).href)};
+        import { prepareProductionBuildLayout } from ${JSON.stringify(new URL('../../tools/test-matrix/production-build-layout.mjs', import.meta.url).href)};
+        const options = ${JSON.stringify(childOptions)};
+        const reservation = acquireProductionCapacityReservation({ ...options,
+            remeasureFilesystem: value => value.observedFreeBytes });
+        const layout = prepareProductionBuildLayout({ root: options.repositoryRoot, runId: options.runId,
+            sourceState: { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }, namespace: 'capacity-crash' });
+        reservation.retainBuildOwner(layout);
+        process.stdout.write(reservation.activeFile);
+    `;
+    const child = spawnSync(process.execPath, ['--input-type=module', '-e', source], {
+        detached: true, encoding: 'utf8', timeout: 30_000
+    });
+    assert.equal(child.status, 0, child.stderr || child.error?.message);
+    const activeFile = child.stdout.trim();
+    assert.equal(JSON.parse(fs.readFileSync(activeFile, 'utf8')).state, 'active');
+    const next = acquireProductionCapacityReservation({ ...reservationOptions, runId: 'run-second' });
+    assert.equal(fs.existsSync(activeFile), false);
+    next.release('released');
 });

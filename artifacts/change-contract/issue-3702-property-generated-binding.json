@@ -20,7 +20,7 @@
         },
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "e7d437734d5001492666bdf3e290388adec242162db4b733dca772dfbfbe8176"
+            "sha256": "140071261ec4d5eebb680026970ae5f07345668d14ba5830cad40795406c7682"
         },
         {
             "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",

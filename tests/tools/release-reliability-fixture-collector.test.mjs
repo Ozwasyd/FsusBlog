@@ -93,7 +93,7 @@ function createFixture(context)
     const labels = { 'io.fsusblog.test.run-id': 'fixture-run', 'io.fsusblog.test.namespace': 'fixture-namespace' };
     const containers = Object.fromEntries(['postgres', 'redis'].map((name) => [name, {
         Id: `fixture-${name}-id`,
-        Image: `sha256:${name.padEnd(64, '0').slice(0, 64)}`,
+        Image: digest(name),
         State: { Running: true },
         Config: { Image: `${name}:fixture`, Labels: { ...labels } },
         NetworkSettings: {
@@ -249,6 +249,8 @@ test('fixture collector seals Docker-native backend procfs identity and fixture 
     assert.equal(result.status, 0, result.stderr);
     const topology = JSON.parse(fs.readFileSync(path.join(fixture.root, 'fixture/topology.json'), 'utf8'));
     assert.equal(topology.runtime.backendContainer.id, fixture.containers.backend.Id);
+    assert.equal(topology.postgres.imageId, fixture.containers.postgres.Image);
+    assert.equal(topology.redis.imageId, fixture.containers.redis.Image);
     assert.equal(topology.runtime.backendContainer.hostPid, fixture.containers.backend.State.Pid);
     assert.equal(topology.runtime.backendContainer.health.status, 'healthy');
     assert.deepEqual(topology.runtime.backendContainer.health.configuration, healthcheck);

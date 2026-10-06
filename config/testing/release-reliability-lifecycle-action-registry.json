@@ -678,7 +678,7 @@
             "actionId": "data-scale-require-dedicated-runtime",
             "scenarioId": "release-data-scale-m",
             "phase": "precondition",
-            "operation": "observe-data-scale-runtime",
+            "operation": "provision-data-scale-runtime",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -709,7 +709,7 @@
                 "passed"
             ],
             "timeoutPolicy": {
-                "timeoutMs": 10000,
+                "timeoutMs": 600000,
                 "terminateGraceMs": 1000
             },
             "stateDomains": [
@@ -853,7 +853,7 @@
             "actionId": "data-scale-require-dedicated-runtime-teardown",
             "scenarioId": "release-data-scale-m",
             "phase": "reset-after",
-            "operation": "consume-data-scale-teardown",
+            "operation": "teardown-data-scale-runtime",
             "executable": "node",
             "args": [
                 "tools/test/release-reliability-lifecycle.mjs",
@@ -884,7 +884,7 @@
                 "passed"
             ],
             "timeoutPolicy": {
-                "timeoutMs": 10000,
+                "timeoutMs": 120000,
                 "terminateGraceMs": 1000
             },
             "stateDomains": [
