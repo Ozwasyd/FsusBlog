@@ -172,7 +172,8 @@ public sealed partial class RevisionSourceDiffEngine
     private static RevisionSourceDiffResult Failure(
         RevisionComparePlanBundle bundle,
         RevisionComparePlanStatus status,
-        string reasonCode)
+        string reasonCode,
+        long estimatedMemoryBytes = 0)
     {
         RevisionSourceDiffReceipt receipt = CreateReceipt(
             bundle,
@@ -186,7 +187,7 @@ public sealed partial class RevisionSourceDiffEngine
             [],
             [],
             [],
-            0,
+            estimatedMemoryBytes,
             0,
             0,
             []);
