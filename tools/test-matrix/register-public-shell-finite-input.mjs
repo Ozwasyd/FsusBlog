@@ -156,6 +156,8 @@ const digest = value => `sha256:${createHash('sha256').update(value).digest('hex
 
 function readCommittedSource(repositoryRoot, authority, sourceCommit, relative)
 {
+    assert.ok(typeof relative === 'string' && !path.isAbsolute(relative)
+        && relative.split('/').every(part => part && part !== '.' && part !== '..'), 'registration source path must be canonical');
     const git = args => runGitRepository(authority, args, { encoding: null });
     let cursor = repositoryRoot;
     for (const part of relative.split('/'))
@@ -165,13 +167,29 @@ function readCommittedSource(repositoryRoot, authority, sourceCommit, relative)
     }
     const stat = fs.lstatSync(cursor);
     assert.ok(stat.isFile() && stat.nlink === 1, 'registration source must be a regular single-link file');
-    const bytes = fs.readFileSync(cursor);
+    const descriptor = fs.openSync(cursor, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    let bytes;
+    try
+    {
+        const opened = fs.fstatSync(descriptor);
+        const same = other => ['dev', 'ino', 'mode', 'nlink', 'size', 'mtimeMs', 'ctimeMs'].every(key => opened[key] === other[key]);
+        assert.ok(same(stat), 'registration source changed before descriptor admission');
+        bytes = fs.readFileSync(descriptor);
+        assert.ok(same(fs.fstatSync(descriptor)) && same(fs.lstatSync(cursor)) && bytes.length === opened.size,
+            'registration source changed during descriptor read');
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
     const head = git(['ls-tree', sourceCommit, '--', relative]).toString('utf8').trim();
     const index = git(['ls-files', '--stage', '--', relative]).toString('utf8').trim();
     const match = /^(100644|100755) blob ([a-f0-9]{40})\t(.+)$/u.exec(head);
     assert.ok(match && match[3] === relative, 'registration source must belong to a committed regular blob');
     assert.equal(index, `${match[1]} ${match[2]} 0\t${relative}`, 'registration source index differs from HEAD');
     assert.ok(bytes.equals(git(['cat-file', 'blob', match[2]])), 'registration source bytes differ from HEAD');
+    assert.equal(git(['ls-files', '--stage', '--', relative]).toString('utf8').trim(), index,
+        'registration source index changed during admission');
     return bytes;
 }
 
@@ -236,6 +254,76 @@ export function preparePublicShellFiniteInputRegistration(repositoryRoot = root)
     return index;
 }
 
+/** Bind current bytes only. The separate canonical AST gate still proves graph completeness. */
+export function verifyPublicShellFiniteInputBinding(repositoryRoot = root)
+{
+    const repositoryAuthority = resolveGitRepositoryAuthority(repositoryRoot);
+    const sourceCommit = resolveSourceCommit(repositoryRoot, repositoryAuthority);
+    const registered = `${JSON.stringify(preparePublicShellFiniteInputRegistration(repositoryRoot), null, 4)}\n`;
+    const indexBytes = fs.readFileSync(path.join(repositoryRoot, indexPath));
+    assert.equal(indexBytes.toString('utf8'), registered, 'finite input registration is absent or stale');
+    const index = JSON.parse(registered);
+    const authorityBytes = fs.readFileSync(path.join(repositoryRoot, authorityPath));
+    const authority = JSON.parse(authorityBytes);
+    readCommittedSource(repositoryRoot, repositoryAuthority, sourceCommit, index.matrix);
+    assert.equal(authority.schema, index.authoritySchema, 'canonical authority schema');
+    assert.equal(authority.producer, index.producer, 'canonical authority producer');
+    assert.equal(authority.source, index.matrix, 'canonical authority matrix owner');
+    assert.equal(authority.sourceIndex, indexPath, 'canonical authority index owner');
+    assert.equal(authority.sourceIndexDigest, digest(indexBytes), 'canonical authority does not bind the current index');
+    assert.deepEqual(authority.nodeParserIdentity, index.nodeParserIdentity, 'canonical authority parser identity');
+    assert.equal(digest(JSON.stringify(authority.targets.map(({ target, declarations }) => ({ target, declarations })))),
+        index.declarationsDigest, 'canonical authority declaration roster changed');
+    assert.equal(digest(JSON.stringify(authority.targets.map(({ target }) => target))), index.targetPathsDigest,
+        'canonical authority target path roster changed');
+    const closure = new Map();
+    const indexBefore = runGitRepository(repositoryAuthority, ['ls-files', '--stage', '-z']);
+    for (const file of authority.closureFiles)
+    {
+        assert.ok(!closure.has(file.path), 'canonical authority closure contains a duplicate');
+        closure.set(file.path, file);
+    }
+    const union = new Set();
+    for (const target of authority.targets)
+    {
+        const file = closure.get(target.target);
+        assert.ok(!file || (file.contentDigest === target.contentDigest && file.indexDigest === target.indexDigest),
+            'canonical authority target differs from its actual closure source');
+        if (file)
+        {
+            union.add(target.target);
+        }
+        assert.equal(new Set(target.dependencyClosure).size, target.dependencyClosure.length, 'canonical authority target dependencies are duplicated');
+        for (const dependency of target.dependencyClosure)
+        {
+            assert.ok(closure.has(dependency), 'canonical authority target dependency is absent');
+            union.add(dependency);
+        }
+    }
+    assert.deepEqual([...union].sort(), [...closure.keys()].sort(), 'canonical authority closure and target mapping differ');
+    assert.ok(reviewedDependencies.every(dependency => closure.has(dependency)), 'canonical authority omits a reviewed finite dependency');
+    for (const file of authority.closureFiles)
+    {
+        const bytes = readCommittedSource(repositoryRoot, repositoryAuthority, sourceCommit, file.path);
+        assert.equal(digest(bytes), file.contentDigest, 'canonical authority closure bytes are stale');
+        assert.equal(file.contentDigest, file.indexDigest, 'canonical authority closure index is stale');
+    }
+    for (const target of authority.targets)
+    {
+        const bytes = readCommittedSource(repositoryRoot, repositoryAuthority, sourceCommit, target.target);
+        assert.equal(digest(bytes), target.contentDigest, 'canonical authority target bytes are stale');
+        assert.equal(target.contentDigest, target.indexDigest, 'canonical authority target index is stale');
+    }
+    assert.equal(runGitRepository(repositoryAuthority, ['ls-files', '--stage', '-z']), indexBefore,
+        'canonical authority candidate index changed during binding');
+    assert.equal(resolveSourceCommit(repositoryRoot, repositoryAuthority), sourceCommit, 'canonical authority candidate HEAD changed during binding');
+    assert.ok(authorityBytes.equals(fs.readFileSync(path.join(repositoryRoot, authorityPath))), 'canonical authority bytes changed during binding');
+    assert.ok(indexBytes.equals(fs.readFileSync(path.join(repositoryRoot, indexPath))), 'canonical authority index bytes changed during binding');
+    return { schema: 'fsusblog.generated-output-binding.v1',
+        sources: [ownerPath, 'tools/test-matrix/register-public-shell-finite-input.mjs'],
+        outputs: [{ path: indexPath, sha256: digest(indexBytes).slice(7) }, { path: authorityPath, sha256: digest(authorityBytes).slice(7) }] };
+}
+
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     assert.ok(process.argv.length === 3 && ['--check', '--write', '--bind'].includes(process.argv[2]),
@@ -252,19 +340,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         assert.equal(fs.readFileSync(destination, 'utf8'), registered, 'finite input registration is absent or stale');
         if (process.argv[2] === '--bind')
         {
-            const authorityBytes = fs.readFileSync(path.join(root, authorityPath));
-            const authority = JSON.parse(authorityBytes);
-            assert.equal(authority.schema, 'fsusblog.release-final-execution-target-authority.v2', 'canonical authority schema');
-            assert.equal(authority.producer, 'node tools/test-matrix/generate-release-final-execution-authority.mjs', 'canonical authority producer');
-            assert.equal(authority.sourceIndexDigest, digest(registered), 'canonical authority does not bind the current index');
-            const binding = {
-                schema: 'fsusblog.generated-output-binding.v1',
-                sources: [ownerPath, 'tools/test-matrix/register-public-shell-finite-input.mjs'],
-                outputs: [
-                    { path: indexPath, sha256: digest(registered).slice(7) },
-                    { path: authorityPath, sha256: digest(authorityBytes).slice(7) }
-                ]
-            };
+            const binding = verifyPublicShellFiniteInputBinding();
             fs.writeFileSync(path.join(root, bindingPath), `${JSON.stringify(binding, null, 4)}\n`);
             console.log('[public-shell-finite-input-registration] bound actual index and canonical authority output bytes');
         }

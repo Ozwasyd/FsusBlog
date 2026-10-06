@@ -7,19 +7,20 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Exercise only the reviewed semantic-roster producer.
-import { preparePublicShellFiniteInputRegistration } from '../../tools/test-matrix/register-public-shell-finite-input.mjs';
+import { preparePublicShellFiniteInputRegistration, verifyPublicShellFiniteInputBinding } from '../../tools/test-matrix/register-public-shell-finite-input.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const indexPath = 'config/testing/release-final-execution-authority-index.json';
 const ownerPath = 'tests/browser-contract/public-shell-finite-input-owner.mjs';
+const authorityPath = 'tests/fixtures/test-matrix/release-final-execution-target-authority.json';
 const registered = preparePublicShellFiniteInputRegistration(root);
 const entry = registered.runtimeDynamicImports.find(item => item.owner === ownerPath);
 
-function fixture(context)
+function fixture(context, binding = false)
 {
     const directory = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-finite-registration-test-'));
     context.after(() => rmSync(directory, { recursive: true, force: true }));
-    for (const file of [ownerPath, indexPath, ...entry.dependencies])
+    for (const file of [ownerPath, indexPath, 'tests/matrix.yml', ...entry.dependencies, ...(binding ? [authorityPath] : [])])
     {
         mkdirSync(path.dirname(path.join(directory, file)), { recursive: true });
         copyFileSync(path.join(root, file), path.join(directory, file));
@@ -77,4 +78,32 @@ test('registration rejects an existing sink with a shortened dependency graph', 
     index.runtimeDynamicImports.find(item => item.owner === ownerPath).dependencies.pop();
     writeFileSync(path.join(directory, indexPath), JSON.stringify(index));
     assert.throws(() => preparePublicShellFiniteInputRegistration(directory), /existing finite registration differs/u);
+});
+
+test('binding rejects a genuinely committed changed closure source under the same index', context =>
+{
+    const { directory, git } = fixture(context, true);
+    const file = 'src/frontend/src/locales/ja-JP/public.ts';
+    const beforeIndex = readFileSync(path.join(directory, indexPath));
+    const authority = JSON.parse(readFileSync(path.join(directory, authorityPath)));
+    const source = authority.closureFiles.find(item => item.path === file);
+    assert.ok(source, 'actual canonical authority contains the neighboring production module');
+    authority.closureFiles = [source, ...authority.closureFiles.filter(item => item !== source)];
+    writeFileSync(path.join(directory, authorityPath), JSON.stringify(authority));
+    writeFileSync(path.join(directory, file), `${readFileSync(path.join(directory, file), 'utf8')}\n// genuinely committed next domain candidate\n`);
+    git(['add', file]);
+    git(['-c', 'user.name=Finite Registration Test', '-c', 'user.email=finite-registration@test.invalid', 'commit', '-qm', 'changed actual domain source']);
+    assert.ok(beforeIndex.equals(readFileSync(path.join(directory, indexPath))));
+    assert.throws(() => verifyPublicShellFiniteInputBinding(directory), /canonical authority closure bytes are stale/u);
+});
+
+test('binding rejects a target digest detached from its actual canonical closure record', context =>
+{
+    const { directory } = fixture(context, true);
+    const authority = JSON.parse(readFileSync(path.join(directory, authorityPath)));
+    const target = authority.targets.find(item => authority.closureFiles.some(file => file.path === item.target));
+    assert.ok(target, 'actual canonical authority contains a shared target/closure source');
+    target.contentDigest = `sha256:${'0'.repeat(64)}`;
+    writeFileSync(path.join(directory, authorityPath), JSON.stringify(authority));
+    assert.throws(() => verifyPublicShellFiniteInputBinding(directory), /target differs from its actual closure source/u);
 });
