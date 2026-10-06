@@ -2,9 +2,8 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync, mkdirSync, mkdtempSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
 import { resolve, relative, dirname } from 'node:path';
-import { fileURLToPath } from 'node:url';
 import test from 'node:test';
-import { validateStrykerToolPolicy, validateStrykerToolBinding, requireStrykerExecutionIdentity } from '../../tools/mutation/stryker-tool.mjs';
+import { fileURLToPath } from 'node:url';
 
 import {
     attributeMutantsToBehaviors,
@@ -21,6 +20,9 @@ import {
 import {
     executeChangedCriticalSelection
 } from '../../tools/test/run-changed-critical-mutation.mjs';
+
+const { validateStrykerToolPolicy, validateStrykerToolBinding, requireStrykerExecutionIdentity } =
+    await import(new URL('../../tools/mutation/stryker-tool.mjs', import.meta.url));
 
 const rawToolPolicy = readFileSync(
     new URL('../../config/testing/mutation/changed-critical-domains.v1.json', import.meta.url)
@@ -519,7 +521,8 @@ test('repository candidate validator subtracts only exact baseline diagnostics',
     );
 });
 
-test('repository producer refuses absent current scheduler identity before bootstrap', () => {
+test('repository producer refuses absent current scheduler identity before bootstrap', () =>
+{
     assert.throws(() => requireStrykerExecutionIdentity({}), /current scheduler identity/u);
     assert.throws(() => requireStrykerExecutionIdentity({ FSUSBLOG_TEST_RUN_ID: 'old', FSUSBLOG_TEST_SOURCE_COMMIT: 'a'.repeat(40) }), /current scheduler identity/u);
 });

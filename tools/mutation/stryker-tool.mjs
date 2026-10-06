@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 
+import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import {
     existsSync,
@@ -11,9 +12,10 @@ import {
     writeFileSync
 } from 'node:fs';
 import { dirname, resolve, relative, isAbsolute, sep } from 'node:path';
-import { createMinimalCorrectnessEnvironment, observeExecutableIdentity } from '../test/execution-envelope-environment.mjs';
 import { fileURLToPath } from 'node:url';
-import { spawnSync } from 'node:child_process';
+
+const { createMinimalCorrectnessEnvironment, observeExecutableIdentity } =
+    await import(new URL('../test/execution-envelope-environment.mjs', import.meta.url));
 
 const scriptPath = fileURLToPath(import.meta.url);
 const rootDir = resolve(dirname(scriptPath), '../..');
@@ -29,9 +31,14 @@ function fail(message)
 function run(command, args, options = {})
 {
     const resolvedCommand = command === 'dotnet' ? boundHostExecutable?.realPath : command;
-    if (!resolvedCommand) fail('dotnet host was not observed before bootstrap');
+    if (!resolvedCommand)
+    {
+        fail('dotnet host was not observed before bootstrap');
+    }
     if (command === 'dotnet' && sha256(readFileSync(resolvedCommand)) !== boundHostExecutable.sha256.replace(/^sha256:/u, ''))
+    {
         fail('dotnet host drifted before bootstrap step');
+    }
     const result = spawnSync(resolvedCommand, args, {
         cwd: options.cwd ?? rootDir,
         env: options.env ?? childEnvironment,
@@ -39,13 +46,19 @@ function run(command, args, options = {})
         stdio: options.capture ? 'pipe' : 'inherit'
     });
     if (command === 'dotnet' && sha256(readFileSync(resolvedCommand)) !== boundHostExecutable.sha256.replace(/^sha256:/u, ''))
+    {
         fail('dotnet host drifted during bootstrap step');
+    }
     if (result.error)
+    {
         throw result.error;
+    }
     if (result.status !== 0)
     {
         if (options.capture)
+        {
             process.stderr.write(result.stderr ?? '');
+        }
         fail(`${command} exited with status ${result.status}`);
     }
     return options.capture ? (result.stdout ?? '').trim() : '';
@@ -59,18 +72,30 @@ function sha256(content)
 export function validateStrykerToolPolicy(policy, manifest, patch, expressionTreePatch = null)
 {
     if (policy?.schema !== 'fsusblog.stryker-tool.v1')
+    {
         fail('unsupported policy schema');
+    }
     if (!/^[0-9a-f]{40}$/u.test(policy.upstreamCommit ?? ''))
+    {
         fail('upstream commit must be a full lowercase SHA');
+    }
     const expectedArchive = `https://github.com/stryker-mutator/stryker-net/archive/${policy.upstreamCommit}.tar.gz`;
     if (policy.upstreamArchive !== expectedArchive)
+    {
         fail('upstream archive is not the reviewed official source');
+    }
     if (!/^[0-9a-f]{64}$/u.test(policy.upstreamArchiveSha256 ?? ''))
+    {
         fail('upstream archive digest is invalid');
+    }
     if (policy.upstreamVersion !== '4.14.2')
+    {
         fail('upstream version is not the reviewed release');
+    }
     if (policy.packageVersion !== '4.14.2-fsusblog.3')
+    {
         fail('package version is not the reviewed repository producer');
+    }
     const manifestTool = manifest?.tools?.['dotnet-stryker'];
     if (!manifest?.isRoot || manifestTool?.version !== policy.upstreamVersion
         || manifestTool?.rollForward !== false)
@@ -78,12 +103,16 @@ export function validateStrykerToolPolicy(policy, manifest, patch, expressionTre
         fail('tool manifest does not pin the reviewed upstream release');
     }
     if (sha256(patch) !== policy.patchSha256)
+    {
         fail('candidate-validity patch digest does not match policy');
+    }
     const resolvedExpressionTreePatch = expressionTreePatch ?? readFileSync(
         resolve(rootDir, policy.expressionTreePatchPath)
     );
     if (sha256(resolvedExpressionTreePatch) !== policy.expressionTreePatchSha256)
+    {
         fail('expression-tree patch digest does not match policy');
+    }
     return policy;
 }
 
@@ -105,9 +134,13 @@ function ensureArchive(policy)
     const archivePath = resolve(rootDir, `.tmp/tools/downloads/stryker-net-${policy.upstreamCommit}.tar.gz`);
     mkdirSync(dirname(archivePath), { recursive: true });
     if (!existsSync(archivePath))
+    {
         fail('reviewed official archive must be provisioned before admitted execution; bootstrap never downloads');
+    }
     if (sha256(readFileSync(archivePath)) !== policy.upstreamArchiveSha256)
+    {
         fail('downloaded upstream archive digest does not match policy');
+    }
     return archivePath;
 }
 
@@ -120,27 +153,38 @@ export function requireStrykerExecutionIdentity(environment)
         || !/^[0-9a-f]{40}$/u.test(commit ?? '')
         || !/^[0-9a-f]{64}$/u.test(worktreeFingerprint ?? '')
         || !environment.TMPDIR)
+    {
         fail('current scheduler identity and private execution scratch are required');
+    }
     return { runId, sourceState: { commit, worktreeFingerprint } };
 }
 
 function artifactPath(root, path, { directory = false } = {})
 {
     if (typeof path !== 'string' || isAbsolute(path))
+    {
         fail('tool custody requires a repository-relative artifact');
+    }
     const absolute = resolve(root, path);
     const local = relative(root, absolute);
     if (!local || local === '..' || local.startsWith(`..${sep}`) || isAbsolute(local))
+    {
         fail('tool custody artifact escapes its repository owner');
+    }
     let current = root;
     for (const part of local.split(sep))
     {
         current = resolve(current, part);
-        if (lstatSync(current).isSymbolicLink()) fail('tool custody artifact ancestor is a symlink');
+        if (lstatSync(current).isSymbolicLink())
+        {
+            fail('tool custody artifact ancestor is a symlink');
+        }
     }
     const stat = lstatSync(absolute);
     if (directory ? !stat.isDirectory() : !stat.isFile())
+    {
         fail('tool custody artifact type differs from its owner');
+    }
     return absolute;
 }
 
@@ -151,10 +195,22 @@ function installedFileInventory(directory, repositoryRoot)
     {
         const file = resolve(directory, name);
         const stat = lstatSync(file);
-        if (stat.isSymbolicLink()) fail('installed tool closure contains a symlink');
-        if (stat.isDirectory()) records.push(...installedFileInventory(file, repositoryRoot));
-        else if (stat.isFile()) records.push({ path: relative(repositoryRoot, file).split(sep).join('/'), sha256: sha256(readFileSync(file)) });
-        else fail('installed tool closure contains a nonregular file');
+        if (stat.isSymbolicLink())
+        {
+            fail('installed tool closure contains a symlink');
+        }
+        if (stat.isDirectory())
+        {
+            records.push(...installedFileInventory(file, repositoryRoot));
+        }
+        else if (stat.isFile())
+        {
+            records.push({ path: relative(repositoryRoot, file).split(sep).join('/'), sha256: sha256(readFileSync(file)) });
+        }
+        else
+        {
+            fail('installed tool closure contains a nonregular file');
+        }
     }
     return records;
 }
@@ -170,22 +226,30 @@ export function validateStrykerToolBinding(binding, { repositoryRoot = rootDir, 
         || binding.expressionTreePatchSha256 !== policy.expressionTreePatchSha256
         || JSON.stringify(binding.sourceState) !== JSON.stringify(sourceState)
         || (binding.runId !== runId && !String(runId).startsWith(`${binding.runId}:`)))
+    {
         fail('current source/run/policy producer binding mismatch');
+    }
     for (const field of ['package', 'executable'])
     {
         const artifact = binding[field];
         if (!/^[0-9a-f]{64}$/u.test(artifact?.sha256 ?? '')
             || sha256(readFileSync(artifactPath(repositoryRoot, artifact.path))) !== artifact.sha256)
+        {
             fail(`${field} custody digest mismatch`);
+        }
     }
     if (!binding.installedRoot || !Array.isArray(binding.installedFiles)
         || JSON.stringify(installedFileInventory(artifactPath(repositoryRoot, binding.installedRoot, { directory: true }), repositoryRoot))
             !== JSON.stringify(binding.installedFiles))
+    {
         fail('installed tool dependency closure differs from custody');
+    }
     if (!binding.hostExecutable?.absolutePath || !binding.hostExecutable?.sha256
         || sha256(readFileSync(binding.hostExecutable.realPath ?? binding.hostExecutable.absolutePath))
             !== binding.hostExecutable.sha256.replace(/^sha256:/u, ''))
+    {
         fail('actual dotnet host executable digest mismatch');
+    }
     return binding;
 }
 
@@ -196,12 +260,18 @@ function buildTool(outputPath)
     const applicability = JSON.parse(readFileSync(resolve(rootDir, 'config/testing/test-execution-envelope-applicability.json')));
     const envelopePolicy = JSON.parse(readFileSync(resolve(rootDir, 'config/testing/test-execution-envelope-policy.json')));
     const mutationProducer = applicability.producers.find(entry => entry.producerId === 'backend-mutation');
-    if (!mutationProducer) fail('canonical mutation environment owner is missing');
+    if (!mutationProducer)
+    {
+        fail('canonical mutation environment owner is missing');
+    }
     const injectedEnvironment = { FSUSBLOG_MUTATION_BUILD: '1', DOTNET_ROLL_FORWARD: 'Major' };
     for (const name of ['HOME', 'USERPROFILE', 'TMPDIR', 'TEMP', 'TMP', 'NUGET_PACKAGES', 'DOTNET_CLI_HOME',
         'FSUSBLOG_TOOL_CACHE', 'FSUSBLOG_TEST_RUN_ID', 'FSUSBLOG_TEST_SOURCE_COMMIT', 'FSUSBLOG_TEST_SOURCE_FINGERPRINT'])
     {
-        if (process.env[name] !== undefined) injectedEnvironment[name] = process.env[name];
+        if (process.env[name] !== undefined)
+        {
+            injectedEnvironment[name] = process.env[name];
+        }
     }
     const minimal = createMinimalCorrectnessEnvironment({
         parentEnvironment: process.env,
@@ -216,7 +286,9 @@ function buildTool(outputPath)
     if (scratchStat.isSymbolicLink() || !scratchStat.isDirectory()
         || (scratchStat.mode & 0o077) !== 0
         || (process.getuid && scratchStat.uid !== process.getuid()))
+    {
         fail('execution scratch is not a current-user private directory');
+    }
     // No ready.json or cross-run cache can substitute current execution/custody.
     // The admitted process tree owns resource enforcement and scratch cleanup.
     const artifactDirectory = resolve(dirname(outputPath), 'tool-custody');
@@ -256,7 +328,9 @@ function buildTool(outputPath)
     });
     process.stdout.write(`${focusedTestOutput}\n`);
     if (!/Passed!\s+-\s+Failed:\s+0,\s+Passed:\s+12,/u.test(focusedTestOutput))
+    {
         fail('fork focused test run did not execute the expected twelve tests');
+    }
     const feedDir = resolve(stagingDir, 'feed');
     run('dotnet', [
         'pack',
@@ -331,7 +405,9 @@ function main(args)
     }
     const outputPath = resolve(rootDir, attestationOutput);
     if (!relative(rootDir, outputPath).split(sep).join('/').startsWith('.tmp/mutation/'))
+    {
         fail('tool binding output must belong to the current mutation output owner');
+    }
     const { executable, binding, hostExecutable } = buildTool(outputPath);
     const result = spawnSync(hostExecutable.realPath, [executable, ...args], {
         cwd: resolve(rootDir, workingDirectory),
@@ -339,7 +415,9 @@ function main(args)
         stdio: 'inherit'
     });
     if (result.error)
+    {
         throw result.error;
+    }
     validateStrykerToolBinding(binding, { sourceState: binding.sourceState, runId: binding.runId });
     process.exitCode = result.status ?? 1;
 }

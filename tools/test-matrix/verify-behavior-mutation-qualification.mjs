@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { validateStrykerToolBinding } from '../mutation/stryker-tool.mjs';
 /**
  * Independent verifier for per-behavior mutation qualification receipts
  * (#2187, delivery item 11).
@@ -56,6 +55,9 @@ import {
 } from './produce-behavior-mutation-qualification.mjs';
 import { loadTestPlan } from './produce-behavior-test-evidence.mjs';
 
+
+const { validateStrykerToolBinding } =
+    await import(new URL('../mutation/stryker-tool.mjs', import.meta.url));
 
 export const verifyBehaviorMutationQualificationCommand =
     'node tools/test-matrix/verify-behavior-mutation-qualification.mjs';

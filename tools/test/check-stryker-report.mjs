@@ -5,9 +5,10 @@ import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs';
 import { dirname, isAbsolute, relative, resolve, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
-import { validateStrykerToolBinding } from '../mutation/stryker-tool.mjs';
-
 import { readReleaseReliabilityEvidenceBinding } from './release-reliability-evidence-binding.mjs';
+
+const { validateStrykerToolBinding } =
+    await import(new URL('../mutation/stryker-tool.mjs', import.meta.url));
 
 const knownStatuses = ['CompileError', 'Ignored', 'Killed', 'NoCoverage', 'Survived', 'Timeout'];
 const executedStatuses = new Set(['Killed', 'Survived', 'Timeout']);
@@ -616,7 +617,9 @@ function parseStrykerTrace({
     }
     const strykerVersion = versionRecords[0].groups.version;
     if (toolBinding && toolBinding.packageVersion !== strykerVersion)
+    {
         throw new Error("Stryker trace producer differs from actual tool custody");
+    }
     if (strykerVersion !== supportedStrykerNetVersion
         && !(strykerVersion === repositoryStrykerVersion && toolBinding?.packageVersion === strykerVersion))
     {
@@ -1224,7 +1227,9 @@ export function createStrykerAuthority({
 })
 {
     if (toolBinding)
+    {
         validateStrykerToolBinding(toolBinding, { repositoryRoot, sourceState, runId });
+    }
     const summary = validateStrykerReport(report);
     const reportBytes = rawJsonBytes(report, rawReport, 'raw Stryker report');
     const configBytes = rawJsonBytes(config, rawConfig, 'raw Stryker config');
