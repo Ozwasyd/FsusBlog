@@ -85,20 +85,104 @@ export function holdImageCustody(images, taskRoot) {
     } catch (error) { close(error); throw error; }
 }
 
+const carrierReceiptKeys = ['schema', 'mode', 'planSha256', 'runRoot', 'beforeClosure', 'afterClosure', 'parentActualPath', 'parentActualSha', 'recoveryImage', 'ancestry', 'afterAncestry', 'executions', 'signals', 'descriptorCloseErrors', 'procCensusUnknown', 'childTerminal', 'wholeProcessTreeZero', 'cleanupObligation', 'resourceGeometry', 'firstFailure', 'originalCliTerminal', 'failedCheckpointResume', 'autoSdkExecution', 'guestCommandsObservedByLauncher', 'partialPreparationQualified', 'qualificationEligible', 'custodyScope'];
+const physicalIdentityKeys = ['dev', 'ino', 'mode', 'uid', 'gid', 'nlink', 'size', 'mtimeNs', 'ctimeNs'];
+
+function validateIdentity(value) {
+    closed(value, physicalIdentityKeys);
+    if (Object.values(value).some(item => typeof item !== 'string' || !/^[0-9]+$/.test(item))) throw new Error('closed physical epoch required');
+}
+function validateRetainedFile(value, taskRoot) {
+    closed(value, ['file', 'sha256', 'identity']);
+    requireInside(taskRoot, value.file);
+    validateIdentity(value.identity);
+    if (!/^[a-f0-9]{64}$/.test(value.sha256)) throw new Error('retained file SHA required');
+}
+function validateRetainedImage(value, taskRoot) {
+    closed(value, ['name', 'file', 'sha256', 'identity', 'backing', 'parent', 'virtualSize']);
+    validateRetainedFile({ file: value.file, sha256: value.sha256, identity: value.identity }, taskRoot);
+    if (!/^[a-z][a-z0-9-]*$/.test(value.name) || !/^[1-9][0-9]*$/.test(value.virtualSize) || value.parent !== null && typeof value.parent !== 'string' || value.backing !== null && typeof value.backing !== 'string') throw new Error('retained image ancestry required');
+}
+export function validateCarrierClosure(value, taskRoot) {
+    closed(value, ['images', 'seed', 'toolchain', 'shares']);
+    if (!Array.isArray(value.images) || !value.images.length || !Array.isArray(value.shares)) throw new Error('complete retained image/share roster required');
+    value.images.forEach(item => validateRetainedImage(item, taskRoot));
+    if (new Set(value.images.map(item => item.file)).size !== value.images.length || new Set(value.images.map(item => item.name)).size !== value.images.length) throw new Error('duplicate retained image');
+    for (let index = 0; index < value.images.length; index++) {
+        const image = value.images[index];
+        const parent = value.images.slice(0, index).find(item => item.name === image.parent);
+        if (image.parent === null ? image.backing !== null : !parent || path.resolve(path.dirname(image.file), image.backing) !== parent.file || image.virtualSize !== parent.virtualSize) throw new Error('retained closure image parent mismatch');
+    }
+    validateRetainedFile(value.seed, taskRoot);
+    closed(value.toolchain, ['inputs', 'aliases', 'directories', 'bootFiles']);
+    const toolchain = value.toolchain;
+    if (!Array.isArray(toolchain.inputs) || !toolchain.inputs.length || !Array.isArray(toolchain.aliases) || !Array.isArray(toolchain.directories) || !toolchain.directories.length) throw new Error('complete retained toolchain required');
+    toolchain.inputs.forEach(item => validateRetainedFile(item, taskRoot));
+    if (new Set(toolchain.inputs.map(item => item.file)).size !== toolchain.inputs.length || toolchain.inputs.some(item => item.file === value.seed.file)) throw new Error('toolchain/seed closure overlap');
+    closed(toolchain.bootFiles, ['qemuImg', 'qemuSystem', 'firmware', 'firmwareDirectory', 'libraryDirectory', 'moduleDirectory']);
+    for (const key of ['qemuImg', 'qemuSystem', 'firmware']) if (!toolchain.inputs.some(item => item.file === toolchain.bootFiles[key])) throw new Error('retained boot tool omitted from closure');
+    for (const directory of toolchain.directories) {
+        closed(directory, ['file', 'identity']);
+        requireInside(taskRoot, directory.file);
+        validateIdentity(directory.identity);
+    }
+    if (new Set(toolchain.directories.map(item => item.file)).size !== toolchain.directories.length) throw new Error('duplicate retained toolchain directory');
+    for (const key of ['firmwareDirectory', 'libraryDirectory', 'moduleDirectory']) if (!toolchain.directories.some(item => item.file === toolchain.bootFiles[key])) throw new Error('retained toolchain root omitted');
+    for (const alias of toolchain.aliases) {
+        closed(alias, ['file', 'target', 'identity', 'resolved']);
+        requireInside(taskRoot, alias.file);
+        requireInside(taskRoot, alias.resolved);
+        validateIdentity(alias.identity);
+        if (typeof alias.target !== 'string' || !alias.target || !toolchain.inputs.some(item => item.file === alias.resolved)) throw new Error('retained toolchain alias target omitted');
+    }
+    if (new Set(toolchain.aliases.map(item => item.file)).size !== toolchain.aliases.length) throw new Error('duplicate retained alias');
+    for (const share of value.shares) {
+        closed(share, ['tag', 'directory', 'identity']);
+        requireInside(taskRoot, share.directory);
+        validateIdentity(share.identity);
+        if (!/^[a-z][a-z0-9-]*$/.test(share.tag)) throw new Error('retained share tag required');
+    }
+    if (new Set(value.shares.map(item => item.tag)).size !== value.shares.length || new Set(value.shares.map(item => item.directory)).size !== value.shares.length) throw new Error('duplicate retained share');
+}
+
+/** Only the parent's own sealed, terminal recovery output may extend inherited images. */
+export function expectedChildClosure(actual, taskRoot) {
+    validateCarrierClosure(actual.afterClosure, taskRoot);
+    const closure = structuredClone(actual.afterClosure);
+    if (actual.recoveryImage !== null) {
+        const image = actual.recoveryImage;
+        validateRetainedImage(image, taskRoot);
+        if (!actual.runRoot || image.file !== path.join(actual.runRoot, 'overlay.qcow2') || image.parent !== closure.images.at(-1).name || image.backing !== closure.images.at(-1).file || image.virtualSize !== closure.images.at(-1).virtualSize) throw new Error('exact parent-owned recovery overlay required');
+        requireInside(taskRoot, actual.runRoot);
+        closure.images.push(structuredClone(image));
+        validateCarrierClosure(closure, taskRoot);
+    }
+    return closure;
+}
+
+export function requireParentClosure(ancestry, current, taskRoot) {
+    validateCarrierClosure(current, taskRoot);
+    if (!ancestry.length || !isDeepStrictEqual(current, expectedChildClosure(ancestry.at(-1).actual, taskRoot))) throw new Error('current original inputs differ from failed parent actual closure');
+}
+
 export function inspectAncestry(roster, taskRoot) {
     let previous = null;
     return roster.map(item => {
         closed(item, ['file', 'sha256', 'parentSha256']);
         requireInside(taskRoot, item.file);
         const read = readRegular(item.file, 1024 * 1024);
-        if (read.sha256 !== item.sha256 || item.parentSha256 !== previous) throw new Error('failed receipt ancestry SHA mismatch');
+        if (read.sha256 !== item.sha256 || item.parentSha256 !== (previous?.sha256 ?? null)) throw new Error('failed receipt ancestry SHA mismatch');
         const actual = JSON.parse(read.bytes);
-        if (previous !== null && actual.parentActualSha !== previous || !actual.childTerminal || actual.failedCheckpointResume === true) throw new Error('failed receipt ancestry/terminal refusal');
-        for (const key of ['Images', 'Seed', 'Shares', 'Toolchain']) {
-            if (!Object.hasOwn(actual, `before${key}`) || !Object.hasOwn(actual, `after${key}`) || !isDeepStrictEqual(actual[`before${key}`], actual[`after${key}`])) throw new Error('failed receipt retained input closure unavailable');
-        }
-        previous = item.sha256;
-        return { file: item.file, sha256: read.sha256, firstFailure: actual.firstFailure ?? null, originalCliTerminal: 'UNKNOWN', qualificationInherited: false };
+        closed(actual, carrierReceiptKeys);
+        if (actual.schema !== 'fsusblog.failed-run-carrier.v2' || !actual.childTerminal || actual.failedCheckpointResume !== false || actual.qualificationEligible !== false || !actual.firstFailure || typeof actual.firstFailure.message !== 'string' || !actual.firstFailure.message || actual.firstFailure.verificationFailure !== null || !Array.isArray(actual.descriptorCloseErrors) || actual.descriptorCloseErrors.length) throw new Error('failed receipt ancestry/terminal refusal');
+        if (previous ? actual.parentActualSha !== previous.sha256 || actual.parentActualPath !== previous.file : actual.parentActualSha !== null || actual.parentActualPath !== null) throw new Error('failed receipt original parent SHA/path mismatch');
+        validateCarrierClosure(actual.beforeClosure, taskRoot);
+        validateCarrierClosure(actual.afterClosure, taskRoot);
+        if (!isDeepStrictEqual(actual.beforeClosure, actual.afterClosure)) throw new Error('failed receipt retained input closure unavailable');
+        if (previous && !isDeepStrictEqual(actual.beforeClosure, expectedChildClosure(previous.actual, taskRoot))) throw new Error('failed receipt inherited closure substitution');
+        expectedChildClosure(actual, taskRoot);
+        previous = { file: item.file, sha256: item.sha256, actual };
+        return { ...previous, firstFailure: actual.firstFailure, originalCliTerminal: 'UNKNOWN', qualificationInherited: false };
     });
 }
 
@@ -225,6 +309,10 @@ export async function main(argv) {
     let afterShares;
     let beforeAliases;
     let afterAliases;
+    let beforeClosure = null;
+    let afterClosure = null;
+    let recoveryImage = null;
+    let toolchainDirectories = [];
     let ancestry;
     let afterAncestry;
     let unknown = [];
@@ -261,12 +349,22 @@ export async function main(argv) {
         if (!isDeepStrictEqual(current, item.identity)) throw new Error('readonly share physical epoch drift');
         return { ...item };
     });
+    function currentClosure(inputs, aliases, shares) {
+        return {
+            images: custody.held.map(({ fd, ...image }) => image),
+            seed: inputs.find(item => item.file === plan.boot.seed),
+            toolchain: {
+                inputs: inputs.filter(item => item.file !== plan.boot.seed), aliases, directories: toolchainDirectories,
+                bootFiles: Object.fromEntries(['qemuImg', 'qemuSystem', 'firmware', 'firmwareDirectory', 'libraryDirectory', 'moduleDirectory'].map(key => [key, plan.boot[key]]))
+            },
+            shares
+        };
+    }
     try {
         beforeInputs = inspectInputs();
         beforeAliases = inspectAliases();
         beforeShares = inspectShares();
         ancestry = inspectAncestry(plan.ancestry, plan.taskRoot);
-        if (!ancestry.at(-1).firstFailure) throw new Error('last bound parent must be an actual failed receipt');
         for (const key of ['qemuImg', 'qemuSystem', 'seed', 'firmware']) if (!beforeInputs.some(item => item.file === plan.boot[key])) throw new Error('boot file absent from frozen toolchain/input roster');
         const inputNames = new Set(beforeInputs.map(item => item.file));
         if (inputNames.size !== beforeInputs.length) throw new Error('duplicate toolchain/input roster');
@@ -275,8 +373,9 @@ export async function main(argv) {
             if (visited.has(directory)) return;
             visited.add(directory);
             if (visited.size > 10000) throw new Error('toolchain roster count bound');
-            requireCanonicalOwnedPath(directory, { directory: true, insideRoot: plan.taskRoot });
-            for (const name of fs.readdirSync(directory)) {
+            const directoryIdentity = identity(requireCanonicalOwnedPath(directory, { directory: true, insideRoot: plan.taskRoot }));
+            toolchainDirectories.push({ file: directory, identity: directoryIdentity });
+            for (const name of fs.readdirSync(directory).sort()) {
                 const file = path.join(directory, name);
                 const info = fs.lstatSync(file);
                 if (info.isDirectory()) requireRosterClosure(file);
@@ -285,6 +384,8 @@ export async function main(argv) {
             }
         }
         for (const key of ['firmwareDirectory', 'libraryDirectory', 'moduleDirectory']) requireRosterClosure(plan.boot[key]);
+        beforeClosure = currentClosure(beforeInputs, beforeAliases, beforeShares);
+        requireParentClosure(ancestry, beforeClosure, plan.taskRoot);
         seedFd = fs.openSync(plan.boot.seed, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
         const seedIdentity = beforeInputs.find(item => item.file === plan.boot.seed).identity;
         if (!isDeepStrictEqual(identity(fs.fstatSync(seedFd, { bigint: true })), seedIdentity)) throw new Error('seed read-only FD epoch drift');
@@ -319,7 +420,7 @@ export async function main(argv) {
             const env = { PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', LD_LIBRARY_PATH: plan.boot.libraryDirectory, QEMU_MODULE_DIR: plan.boot.moduleDirectory };
             const options = { runRoot, env, descriptors: [...custody.held.map(item => item.fd), seedFd], limits: plan.limits, guard, executions, signals };
             const parent = custody.held.at(-1);
-            await runObserved(plan.boot.qemuImg, ['create', '-u', '-f', 'qcow2', '-F', 'qcow2', '-b', `/proc/self/fd/${custody.held.length + 2}`, overlay, parent.virtualSize], options);
+            await runObserved(plan.boot.qemuImg, ['create', '-u', '-f', 'qcow2', '-F', 'qcow2', '-b', parent.file, overlay, parent.virtualSize], options);
             const args = ['-machine', 'pc,smm=off', '-accel', 'tcg,thread=multi', '-cpu', 'max', '-smp', String(plan.boot.cpus), '-m', String(plan.boot.guestMemoryMiB), '-L', plan.boot.firmwareDirectory, '-bios', plan.boot.firmware, ...readOnlyBlockArguments(custody.held), '-blockdev', JSON.stringify({ driver: 'file', filename: overlay, 'node-name': 'task-overlay-file' }), '-blockdev', JSON.stringify({ driver: 'qcow2', file: 'task-overlay-file', backing: parent.name, 'node-name': 'task-overlay' }), '-device', 'virtio-blk-pci,drive=task-overlay', '-drive', `file=/proc/self/fd/${custody.held.length + 3},format=raw,if=ide,media=cdrom,readonly=on`, '-netdev', `user,id=task-recovery,restrict=on,hostfwd=tcp:127.0.0.1:${plan.boot.recoveryPort}-:22`, '-device', 'virtio-net-pci,netdev=task-recovery,romfile=', '-display', 'none', '-vga', 'none', '-serial', `file:${runRoot}/serial.log`, '-monitor', 'none', '-qmp', `unix:${runRoot}/qmp.sock,server=on,wait=off`, '-pidfile', path.join(runRoot, 'qemu.pid')];
             for (const item of plan.shares) args.push('-fsdev', `local,id=${item.tag},path=${item.directory},security_model=none,readonly=on`, '-device', `virtio-9p-pci,fsdev=${item.tag},mount_tag=${item.tag}`);
             guard(true);
@@ -332,6 +433,11 @@ export async function main(argv) {
             afterInputs = inspectInputs();
             afterAliases = inspectAliases();
             afterShares = inspectShares();
+            if (beforeClosure) {
+                toolchainDirectories = toolchainDirectories.map(item => ({ file: item.file, identity: identity(requireCanonicalOwnedPath(item.file, { directory: true, insideRoot: plan.taskRoot })) }));
+                afterClosure = currentClosure(afterInputs, afterAliases, afterShares);
+                if (!isDeepStrictEqual(beforeClosure, afterClosure)) throw new Error('carrier complete retained closure drift');
+            }
             afterAncestry = inspectAncestry(plan.ancestry, plan.taskRoot);
             if (beforeAliases && !isDeepStrictEqual(beforeAliases, afterAliases) || beforeInputs && !isDeepStrictEqual(beforeInputs, afterInputs) || beforeShares && !isDeepStrictEqual(beforeShares, afterShares) || ancestry && !isDeepStrictEqual(ancestry, afterAncestry)) throw new Error('carrier input/receipt before-after drift');
         } catch (error) { if (failure) failure.verificationFailure = error.message; else failure = error; }
@@ -342,9 +448,21 @@ export async function main(argv) {
             } catch (error) { failure ??= error; }
             try { fs.closeSync(seedFd); } catch (error) { seedCloseError = error.message; failure ??= error; }
         }
+        if (runRoot && fs.existsSync(path.join(runRoot, 'overlay.qcow2')) && executions.every(item => item.terminal) && !failure?.verificationFailure) {
+            try {
+                const file = path.join(runRoot, 'overlay.qcow2');
+                const actual = readRegular(file, plan.limits.cowBytes);
+                const parent = custody.held.at(-1);
+                const fd = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+                let metadata;
+                try { metadata = inspectQcow(fd, parent.file); } finally { fs.closeSync(fd); }
+                if (metadata.virtualSize !== parent.virtualSize) throw new Error('recovery overlay virtual size drift');
+                recoveryImage = { name: `recovery-${planSha256.slice(0, 16)}`, file, sha256: actual.sha256, identity: actual.identity, backing: parent.file, parent: parent.name, virtualSize: metadata.virtualSize };
+            } catch (error) { if (failure) failure.verificationFailure = error.message; else failure = error; }
+        }
         const descriptorCloseErrors = custody.close(failure);
         if (seedCloseError) descriptorCloseErrors.push(seedCloseError);
-        const result = { schema: 'fsusblog.failed-run-carrier.v1', mode: cli.mode, planSha256, runRoot: runRoot ?? null, beforeImages: plan.images, afterImages: failure?.verificationFailure ? null : plan.images, beforeInputs, afterInputs, beforeAliases, afterAliases, beforeShares, afterShares, ancestry, afterAncestry, executions, signals, descriptorCloseErrors, procCensusUnknown: unknown, childTerminal: executions.every(item => item.terminal), wholeProcessTreeZero: 'UNKNOWN', cleanupObligation: executions.some(item => item.started) ? 'exact task process/QMP recovery proof required' : null, resourceGeometry: { ...plan.limits, guestMemoryMiB: plan.boot.guestMemoryMiB, cpus: plan.boot.cpus }, firstFailure: failure ? { message: failure.message, resourceObservation: failure.resourceObservation ?? null, verificationFailure: failure.verificationFailure ?? null } : null, originalCliTerminal: 'UNKNOWN', failedCheckpointResume: false, autoSdkExecution: false, guestCommandsObservedByLauncher: false, partialPreparationQualified: false, qualificationEligible: false, custodyScope: 'Exact read-only image FDs, current hashes, ancestry and pre/post epochs; unreadable process census remains UNKNOWN.' };
+        const result = { schema: 'fsusblog.failed-run-carrier.v2', mode: cli.mode, planSha256, runRoot: runRoot ?? null, beforeClosure, afterClosure, parentActualPath: plan.ancestry.at(-1).file, parentActualSha: plan.ancestry.at(-1).sha256, recoveryImage, ancestry: ancestry?.map(({ actual, ...item }) => item), afterAncestry: afterAncestry?.map(({ actual, ...item }) => item), executions, signals, descriptorCloseErrors, procCensusUnknown: unknown, childTerminal: executions.every(item => item.terminal), wholeProcessTreeZero: 'UNKNOWN', cleanupObligation: executions.some(item => item.started) ? 'exact task process/QMP recovery proof required' : null, resourceGeometry: { ...plan.limits, guestMemoryMiB: plan.boot.guestMemoryMiB, cpus: plan.boot.cpus }, firstFailure: failure ? { message: failure.message, resourceObservation: failure.resourceObservation ?? null, verificationFailure: failure.verificationFailure ?? null } : null, originalCliTerminal: 'UNKNOWN', failedCheckpointResume: false, autoSdkExecution: false, guestCommandsObservedByLauncher: false, partialPreparationQualified: false, qualificationEligible: false, custodyScope: 'Exact read-only image FDs, current hashes, ancestry and pre/post epochs; unreadable process census remains UNKNOWN.' };
         if (runRoot) writeNewJson(path.join(runRoot, 'environment.actual.json'), result);
         console.log(JSON.stringify(result));
     }

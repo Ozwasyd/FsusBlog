@@ -52,6 +52,21 @@ using the saved worktree configuration and normal Git sparse checkout, then veri
 the new physical input closure before admitting builds or tests. Do not remove
 ignored evidence or use force-reset as rollback.
 
+Carrier ancestry uses the closed `fsusblog.failed-run-carrier.v2` receipt family.
+Every failed parent must preserve its complete image, seed, toolchain file/alias/
+directory and share closure before and after. Each later receipt and the current
+held inputs must match that exact parent closure. The only allowed image addition
+is the parent's own sealed `overlay.qcow2`, recorded with its actual hash, physical
+epoch, backing parent and virtual size inside the parent's run directory. An
+unrelated failed receipt, omitted ancestor, changed input or partial verification
+cannot establish recovery lineage. The producer and consumer use the same closure
+shape; consuming a FAILED receipt never inherits qualification.
+
+The original guest caller requires exactly two distinct read-only mount records,
+covering its selected SDK and feed paths. Execution rechecks those exact mountpoint
+source, filesystem type and `ro` options with `findmnt`; unrelated or duplicate
+read-only mounts cannot substitute for writable selected inputs.
+
 The reusable implementations derive from the ten local-tool values in source
 commit `1f6068ff7995f9c6bdde2efa9fdaef044ef3d20e`. The archive and sparse source
 scripts now have the owners above; both lease scripts retain their complementary

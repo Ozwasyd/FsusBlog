@@ -8,6 +8,16 @@ import { runObserved } from './recover-failed-run-carrier.mjs';
 function closed(value, keys) {
     if (!value || Array.isArray(value) || typeof value !== 'object' || Object.keys(value).length !== keys.length || keys.some(key => !Object.hasOwn(value, key))) throw new Error('closed original caller record required');
 }
+
+/** Read-only evidence must cover the selected SDK and feed, not an unrelated mount. */
+export function validateInputMounts(plan) {
+    if (!Array.isArray(plan.mounts) || plan.mounts.length !== 2 || plan.tool.sdk === plan.tool.feed || new Set(plan.mounts.map(item => item?.directory)).size !== 2) throw new Error('exact SDK/feed readonly mount coverage required');
+    for (const mount of plan.mounts) {
+        closed(mount, ['directory', 'source', 'type']);
+        if (![plan.tool.sdk, plan.tool.feed].includes(mount.directory) || typeof mount.source !== 'string' || !mount.source || typeof mount.type !== 'string' || !mount.type) throw new Error('selected SDK/feed readonly mount identity required');
+    }
+}
+
 export function buildOriginalCall(plan) {
     closed(plan.source, ['repository', 'head', 'tree', 'filesystem']);
     closed(plan.tool, ['node', 'nodeSha256', 'moduleSha256', 'sdk', 'feed', 'feedDigest']);
@@ -44,7 +54,7 @@ export async function main(argv) {
     if (readRegular(call.module).sha256 !== plan.tool.moduleSha256 || readRegular(plan.tool.node).sha256 !== plan.tool.nodeSha256) throw new Error('original Node/module bytes drift');
     requireCanonicalOwnedPath(plan.tool.node, { insideRoot: plan.taskRoot });
     requireCanonicalOwnedPath(`${plan.tool.sdk}/dotnet`, { insideRoot: plan.taskRoot });
-    if (!Array.isArray(plan.mounts) || !plan.mounts.length) throw new Error('explicit readonly mount roster required');
+    validateInputMounts(plan);
     for (const mount of plan.mounts) {
         closed(mount, ['directory', 'source', 'type']);
         requireCanonicalOwnedPath(mount.directory, { directory: true, insideRoot: plan.taskRoot });

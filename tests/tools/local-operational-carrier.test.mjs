@@ -6,9 +6,9 @@ import { test } from 'node:test';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { identity, sha256 } from '../../tools/operations/local-task-plan.mjs';
-import { holdImageCustody, inspectAncestry, readOnlyBlockArguments, runObserved, main as carrierMain } from '../../tools/operations/recover-failed-run-carrier.mjs';
+import { holdImageCustody, inspectAncestry, readOnlyBlockArguments, runObserved, requireParentClosure, expectedChildClosure, main as carrierMain } from '../../tools/operations/recover-failed-run-carrier.mjs';
 import { buildCaptures, buildSshArguments, quoteShell } from '../../tools/operations/export-failed-run-evidence.mjs';
-import { buildOriginalCall } from '../../tools/operations/guest-preparation-caller.mjs';
+import { buildOriginalCall, validateInputMounts } from '../../tools/operations/guest-preparation-caller.mjs';
 
 const repo = fileURLToPath(new URL('../..', import.meta.url));
 const tempParent = process.env.FSUSBLOG_OPERATIONS_FIXTURE_ROOT ?? os.tmpdir();
@@ -26,6 +26,47 @@ function image(name, backing = null, parent = null) {
     if (backing) bytes.write(backing, 128);
     fs.writeFileSync(file, bytes, { flag: 'wx' });
     return { name, file, sha256: sha256(bytes), identity: identity(fs.statSync(file, { bigint: true })), backing, parent };
+}
+
+function currentFixtureClosure(images, inputs, aliases, directories, boot, shares = []) {
+    const records = inputs.map(item => ({ ...item, identity: identity(fs.statSync(item.file, { bigint: true })) }));
+    return {
+        images: images.map(item => ({ ...item, virtualSize: '4096' })),
+        seed: records.find(item => item.file === boot.seed),
+        toolchain: {
+            inputs: records.filter(item => item.file !== boot.seed),
+            aliases: aliases.map(item => ({ ...item, resolved: fs.realpathSync(item.file) })),
+            directories: directories.map(file => ({ file, identity: identity(fs.statSync(file, { bigint: true })) })),
+            bootFiles: Object.fromEntries(['qemuImg', 'qemuSystem', 'firmware', 'firmwareDirectory', 'libraryDirectory', 'moduleDirectory'].map(key => [key, boot[key]]))
+        },
+        shares
+    };
+}
+function failedReceipt(closure, changes = {}) {
+    return {
+        schema: 'fsusblog.failed-run-carrier.v2', mode: 'inspect', planSha256: 'a'.repeat(64), runRoot: null,
+        beforeClosure: structuredClone(closure), afterClosure: structuredClone(closure),
+        parentActualPath: null, parentActualSha: null, recoveryImage: null, ancestry: [], afterAncestry: [], executions: [], signals: [], descriptorCloseErrors: [], procCensusUnknown: [], childTerminal: true, wholeProcessTreeZero: 'UNKNOWN', cleanupObligation: null, resourceGeometry: {},
+        firstFailure: { message: 'controlled original failure', resourceObservation: null, verificationFailure: null }, originalCliTerminal: 'UNKNOWN', failedCheckpointResume: false, autoSdkExecution: false, guestCommandsObservedByLauncher: false, partialPreparationQualified: false, qualificationEligible: false, custodyScope: 'Controlled fixture only', ...changes
+    };
+}
+function simpleClosure() {
+    const fixture = fs.mkdtempSync(path.join(root, 'closure-'));
+    const base = image(`base-${path.basename(fixture).toLowerCase()}`);
+    const boot = {};
+    const inputs = ['qemuImg', 'qemuSystem', 'seed', 'firmware'].map(key => {
+        const file = path.join(fixture, key);
+        fs.writeFileSync(file, key);
+        boot[key] = file;
+        return { file, sha256: sha256(fs.readFileSync(file)) };
+    });
+    const dirs = ['firmwareDirectory', 'libraryDirectory', 'moduleDirectory'].map(key => {
+        const file = path.join(fixture, key);
+        fs.mkdirSync(file);
+        boot[key] = file;
+        return file;
+    });
+    return currentFixtureClosure([base], inputs, [], dirs, boot);
 }
 
 test('held image custody preserves ordered backing graph, raw SHA and physical epochs', () => {
@@ -61,7 +102,7 @@ test('QCOW invalid header, pending incompatible feature and wrong ancestry refus
 
 test('exact failed receipt ancestry refuses resume, unbound parent and absent closure', () => {
     const file = path.join(root, 'parent.json');
-    const receipt = { childTerminal: true, failedCheckpointResume: false, beforeImages: [], afterImages: [], beforeSeed: {}, afterSeed: {}, beforeShares: [], afterShares: [], beforeToolchain: {}, afterToolchain: {}, firstFailure: { message: 'fixture failure' } };
+    const receipt = failedReceipt(simpleClosure());
     fs.writeFileSync(file, JSON.stringify(receipt));
     const item = { file, sha256: sha256(fs.readFileSync(file)), parentSha256: null };
     assert.equal(inspectAncestry([item], root)[0].originalCliTerminal, 'UNKNOWN');
@@ -152,10 +193,11 @@ test('carrier default inspect holds current closure without any execution or dis
     const taskLock = path.join(fixture, 'task.lock');
     fs.writeFileSync(taskLock, '');
     const receipt = path.join(fixture, 'failed-parent.json');
-    fs.writeFileSync(receipt, JSON.stringify({ childTerminal: true, firstFailure: { message: 'controlled' }, beforeImages: [], afterImages: [], beforeSeed: {}, afterSeed: {}, beforeShares: [], afterShares: [], beforeToolchain: {}, afterToolchain: {} }));
     const source = path.join(repo, 'tools/operations/recover-failed-run-carrier.mjs');
     const helper = path.join(repo, 'tools/operations/local-task-plan.mjs');
-    const plan = { schema: 'fsusblog.local-task-plan.v1', taskRoot: fixture, taskLock, sourceSha256: sha256(fs.readFileSync(source)), sourceInputs: [{ file: helper, sha256: sha256(fs.readFileSync(helper)) }], images: [base], inputs, toolchainAliases: aliases, shares: [], ancestry: [{ file: receipt, sha256: sha256(fs.readFileSync(receipt)), parentSha256: null }], boot: { qemuImg: inputs[0].file, qemuSystem: inputs[1].file, seed: inputs[2].file, firmware: inputs[3].file, firmwareDirectory: dirs[0], libraryDirectory: dirs[1], moduleDirectory: dirs[2], guestMemoryMiB: 1, cpus: 1, recoveryPort: 12345 }, limits: { minMemoryBytes: 1, minDiskBytes: 1, headroomBytes: 1, cowBytes: 1, logBytes: 128, deadlineMs: 1000, bootReserveBytes: 1, killGraceMs: 50, pollIntervalMs: 10 } };
+    const plan = { schema: 'fsusblog.local-task-plan.v1', taskRoot: fixture, taskLock, sourceSha256: sha256(fs.readFileSync(source)), sourceInputs: [{ file: helper, sha256: sha256(fs.readFileSync(helper)) }], images: [base], inputs, toolchainAliases: aliases, shares: [], ancestry: [{ file: receipt, sha256: '0'.repeat(64), parentSha256: null }], boot: { qemuImg: inputs[0].file, qemuSystem: inputs[1].file, seed: inputs[2].file, firmware: inputs[3].file, firmwareDirectory: dirs[0], libraryDirectory: dirs[1], moduleDirectory: dirs[2], guestMemoryMiB: 1, cpus: 1, recoveryPort: 12345 }, limits: { minMemoryBytes: 1, minDiskBytes: 1, headroomBytes: 1, cowBytes: 1, logBytes: 128, deadlineMs: 1000, bootReserveBytes: 1, killGraceMs: 50, pollIntervalMs: 10 } };
+    fs.writeFileSync(receipt, JSON.stringify(failedReceipt(currentFixtureClosure(plan.images, inputs, aliases, dirs, plan.boot))));
+    plan.ancestry[0].sha256 = sha256(fs.readFileSync(receipt));
     const planFile = path.join(fixture, 'plan.json');
     fs.writeFileSync(planFile, JSON.stringify(plan));
     const before = fs.readdirSync(fixture).sort();
@@ -167,6 +209,38 @@ test('carrier default inspect holds current closure without any execution or dis
         assert.deepEqual(messages[0].executions, []);
         assert.equal(messages[0].runRoot, null);
         assert.deepEqual(fs.readdirSync(fixture).sort(), before);
+        const originalOpen = fs.openSync;
+        fs.openSync = (file, flags, ...rest) => {
+            if (file === plan.boot.seed && flags === (fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)) throw new Error('controlled seed custody failure');
+            return originalOpen(file, flags, ...rest);
+        };
+        try {
+            assert.equal(await carrierMain(['--plan', planFile, '--plan-sha256', sha256(fs.readFileSync(planFile))]), 1);
+        } finally { fs.openSync = originalOpen; }
+        const produced = messages.at(-1);
+        assert.equal(produced.firstFailure.message, 'controlled seed custody failure');
+        assert.equal(produced.schema, 'fsusblog.failed-run-carrier.v2');
+        const producedFile = path.join(fixture, 'producer-failed.json');
+        fs.writeFileSync(producedFile, JSON.stringify(produced));
+        const consumed = inspectAncestry([...plan.ancestry, { file: producedFile, sha256: sha256(fs.readFileSync(producedFile)), parentSha256: plan.ancestry[0].sha256 }], fixture);
+        requireParentClosure(consumed, produced.afterClosure, fixture);
+        const goodParent = JSON.parse(fs.readFileSync(receipt));
+        for (const altered of [
+            value => { value.beforeClosure.images = []; value.afterClosure.images = []; },
+            value => { value.beforeClosure.seed.sha256 = 'f'.repeat(64); value.afterClosure.seed.sha256 = 'f'.repeat(64); },
+            value => { value.beforeClosure.toolchain.inputs[0].sha256 = 'f'.repeat(64); value.afterClosure.toolchain.inputs[0].sha256 = 'f'.repeat(64); }
+        ]) {
+            const substituted = structuredClone(goodParent);
+            altered(substituted);
+            fs.writeFileSync(receipt, JSON.stringify(substituted));
+            plan.ancestry[0].sha256 = sha256(fs.readFileSync(receipt));
+            fs.writeFileSync(planFile, JSON.stringify(plan));
+            assert.equal(await carrierMain(['--plan', planFile, '--plan-sha256', sha256(fs.readFileSync(planFile))]), 1);
+            assert.deepEqual(messages.at(-1).executions, []);
+            assert.equal(messages.at(-1).runRoot, null);
+        }
+        fs.writeFileSync(receipt, JSON.stringify(goodParent));
+        plan.ancestry[0].sha256 = sha256(fs.readFileSync(receipt));
         plan.sourceInputs[0].sha256 = '0'.repeat(64);
         fs.writeFileSync(planFile, JSON.stringify(plan));
         await assert.rejects(carrierMain(['--plan', planFile, '--plan-sha256', sha256(fs.readFileSync(planFile))]), /source helper SHA drift/);
@@ -184,4 +258,53 @@ test('exclusive raw log setup refuses an existing symlink and closes earlier des
     assert.equal(fs.readFileSync(protectedFile, 'utf8'), 'unchanged');
     assert.equal(executions.length, 0);
     assert.equal(fs.readdirSync('/proc/self/fd').length, beforeFds);
+});
+
+
+test('failed parent binds current seed/toolchain/share/image closure and only its exact output overlay may extend it', () => {
+    const closure = simpleClosure();
+    const actual = failedReceipt(closure);
+    const ancestry = [{ actual }];
+    requireParentClosure(ancestry, closure, root);
+    for (const mutate of [
+        value => { value.seed.sha256 = '0'.repeat(64); },
+        value => { value.toolchain.inputs[0].sha256 = '0'.repeat(64); },
+        value => { value.images[0].sha256 = '0'.repeat(64); },
+        value => { value.toolchain.aliases = [{ file: path.join(root, 'alias'), target: 'x', resolved: value.toolchain.inputs[0].file, identity: value.toolchain.inputs[0].identity }]; },
+        value => { value.shares.push({ tag: 'unrelated', directory: path.join(root, 'unrelated-share'), identity: value.seed.identity }); }
+    ]) {
+        const current = structuredClone(closure);
+        mutate(current);
+        assert.throws(() => requireParentClosure(ancestry, current, root), /parent actual closure/);
+    }
+    const outputRoot = fs.mkdtempSync(path.join(root, 'failed-output-'));
+    const overlay = image('exact-recovery-output', closure.images[0].file, closure.images[0].name);
+    const file = path.join(outputRoot, 'overlay.qcow2');
+    fs.renameSync(overlay.file, file);
+    actual.runRoot = outputRoot;
+    actual.recoveryImage = { ...overlay, file, identity: identity(fs.statSync(file, { bigint: true })), virtualSize: '4096' };
+    const current = expectedChildClosure(actual, root);
+    requireParentClosure(ancestry, current, root);
+    const first = path.join(root, 'canonical-first.json');
+    fs.writeFileSync(first, JSON.stringify(actual));
+    const firstSha = sha256(fs.readFileSync(first));
+    const second = path.join(root, 'canonical-second.json');
+    fs.writeFileSync(second, JSON.stringify(failedReceipt(current, { parentActualPath: first, parentActualSha: firstSha })));
+    const roster = [{ file: first, sha256: firstSha, parentSha256: null }, { file: second, sha256: sha256(fs.readFileSync(second)), parentSha256: firstSha }];
+    const consumed = inspectAncestry(roster, root);
+    requireParentClosure(consumed, current, root);
+    actual.recoveryImage.file = path.join(root, 'unrelated-overlay.qcow2');
+    assert.throws(() => expectedChildClosure(actual, root), /parent-owned recovery overlay/);
+    const omitted = failedReceipt(current);
+    delete omitted.afterClosure.toolchain;
+    fs.writeFileSync(second, JSON.stringify(omitted));
+    assert.throws(() => inspectAncestry([{ file: second, sha256: sha256(fs.readFileSync(second)), parentSha256: null }], root), /closed carrier/);
+});
+
+test('guest readonly mount coverage requires exactly the selected SDK and feed without substitution or duplicates', () => {
+    const plan = { tool: { sdk: '/owned/sdk', feed: '/owned/feed' }, mounts: [{ directory: '/owned/sdk', source: 'sdk-source', type: '9p' }, { directory: '/owned/feed', source: 'feed-source', type: '9p' }] };
+    validateInputMounts(plan);
+    for (const mounts of [[], [plan.mounts[0]], [plan.mounts[0], plan.mounts[0]], [plan.mounts[0], { ...plan.mounts[1], directory: '/owned/unrelated' }], [...plan.mounts, { directory: '/owned/unrelated', source: 'other', type: '9p' }]]) {
+        assert.throws(() => validateInputMounts({ ...plan, mounts }), /SDK\/feed/);
+    }
 });
