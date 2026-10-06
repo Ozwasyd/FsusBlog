@@ -6,6 +6,7 @@
             "paths": [
                 "config/testing/correctness-attempt-producers.json",
                 "config/testing/physical-execution-process-policy.json",
+                "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
                 "tests/governance/backend-production-build-consumers.json"
             ],
             "reason": "Preserve the registered environment and tool receipt keys, libc ABI, and current documented caller contracts of the original native allocation owners."
