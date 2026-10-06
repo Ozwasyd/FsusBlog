@@ -352,6 +352,31 @@ The Browser Contract terminal validator independently replays this temporal bind
 
 `tools/test/check-wall-clock-governance.mjs` calculates the complete scan closure from the fixture inventory and producer execution-boundary catalog; the ledger fails to have one or more sources, misses a clock call, and mixes business/measurement clocks. The business time field of `tools/data-scale/seed.sh` reads session-injected fixed epoch, and duration/generatedAt still belong to measurement/artifact respectively. TTL/expiry correctness uses injected `TimeProvider` to advance, and timeout and duration remain true to the monotonic clock. UTC midnight, leap day, month/year, DST forward/backward, scheduled/expiry/retention boundary and out-of-order are only declared in `temporal-shape-catalog.json`; the test executes each timezone/culture shape in an independent Node runtime, and perturbs the host `TZ` and wall-clock offset through the real correctness child, and the business timestamp is always retained in the semantic digest.
 
+The call-site policy also distinguishes live admission business values from injected fixture epochs.
+`runtime-business-wall` / `runtime-wall` owns the existing receipt freshness, runtime-input
+expiry and live admin token/session checks in `receipt/projection.mjs`; these checks remain
+included and cannot be replaced with a planned fixed epoch. `observed-business-value` /
+`observed-business` validates the original publication timestamp, retaining its seven .NET
+tick digits. Neither classification supplies a canonical fixture epoch or authorizes a producer.
+The fixed context and its independent actual observations remain required for qualification.
+
+`runtime-identity` records included rejection assertions rather than business instants or
+measurement duration. `runtime-file-identity` / `operability-only` binds private bounded
+reads to the same dev/inode/size/mtime/ctime/link/mode before and after reading; timestamps
+never select latest or successful receipts. `runtime-document-identity` / `observed-identity`
+binds the browser's actual `performance.timeOrigin` across locale rollback. Both identities
+must remain included, and cannot be relabeled as excluded artifact metadata. Actual event
+`performance.now` and interception deadlines remain separate live measurements.
+
+MySQL startup, cleanup and cleanup verification use integer milliseconds from
+`performance.now` for the existing total and per-command budgets. Bootstrap phase,
+termination and process-identity deadlines use `process.hrtime.bigint` milliseconds with a
+shared host origin across its Node children; its inherited inputs are durations, and its
+private internal deadline is not an external epoch timestamp. The process-identity cap stays
+10 seconds and each wait stays at most 25 milliseconds. Wall-clock changes cannot extend
+these intervals. Classification/source checks and controlled fixtures do not replace real
+service/browser runs, independent domain acceptance or promotion of a policy candidate.
+
 `config/testing/temporal-domain-producer-inventory.json` limits the auth/session, security and account-messaging producers of this stage of migration, and performs exact mapping on each persistence field, consumer and semantic role. `FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON` and `FSUSBLOG_TEMPORAL_ROLE_ARTIFACT_DIGEST` are child/.NET ingress; receipt only retains producer/role/state/invariant/digest bindings and does not copy absolute instants or secrets. These three types of producers are no longer allowed to read `Date.now` / `DateTime.UtcNow`, are not allowed to use random microseconds to break parallelism, are not allowed to prove expiry through sleep, and the PostgreSQL adapter is not allowed to use interval to recalculate roles.
 
 Comment transaction fixtures and moderation runtime snapshots consume the same registered business `TimeProvider`; each runtime mutation uses one observed instant for its identity and timestamps. Readiness remains a bounded observation loop on real runtime timers, not evidence that business expiry has occurred. The wall-clock ledger also owns .NET `Task.Delay` call sites: temporal-shape governance recognizes only exact, uniquely anchored `monotonic-measurement` entries with excluded semantic effect, and still rejects unregistered, changed, duplicated or business-classified waits. Data-scale comment encoders require explicit timestamps with a timezone instead of inventing missing dates; live offline seeding forwards the canonical temporal context rather than substituting a private epoch. Backend `startTicks` binds the independently observed process start identity, not the host time at receipt creation; unavailable or changing identity prevents receipt publication.

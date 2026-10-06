@@ -84,6 +84,71 @@ export function requiredText(value, field, reasonCode = 'temporal.context-invali
     return value.trim();
 }
 
+/** Validate clock purpose without granting producer/run qualification. */
+export function validateTemporalClockClassification(entry)
+{
+    const id = entry.callSiteId;
+    const liveAdmission = entry.path === 'tools/test-fixtures/receipt/projection.mjs'
+        && ['Date.now', 'new Date(value)'].includes(entry.api);
+    const publication = entry.path === 'tests/browser-contract/public-shell-locale-first-response.mjs'
+        && entry.api === 'new Date(value)';
+    if ((liveAdmission && (entry.clockKind !== 'business-wall' || entry.authorityKind !== 'runtime-business-wall'
+            || entry.ingress !== 'runtime-wall' || entry.semanticEffect !== 'included'))
+        || (publication && (entry.clockKind !== 'business-wall' || entry.authorityKind !== 'observed-business-value'
+            || entry.ingress !== 'observed-business' || entry.semanticEffect !== 'included'))
+        || (['file-timestamp', 'performance.timeOrigin'].includes(entry.api)
+            && entry.clockKind !== 'runtime-identity'))
+    {
+        fail('temporal.context-invalid', `${id} live admission, publication or identity cannot be artifact metadata`);
+    }
+    if (entry.disposition !== entry.clockKind)
+    {
+        fail('temporal.context-invalid', `${id} disposition differs from clock kind`);
+    }
+    if (entry.clockKind === 'business-wall')
+    {
+        const canonical = entry.authorityKind === 'canonical-business-epoch' && entry.ingress === 'canonical-injected';
+        const live = entry.authorityKind === 'runtime-business-wall' && entry.ingress === 'runtime-wall'
+            && ['Date.now', 'new Date(value)'].includes(entry.api);
+        const observed = entry.authorityKind === 'observed-business-value' && entry.ingress === 'observed-business'
+            && entry.api === 'new Date(value)';
+        if ((!canonical && !live && !observed) || entry.semanticEffect !== 'included')
+        {
+            fail('temporal.context-invalid', `${id} business clock lacks its explicit included authority`);
+        }
+    }
+    else if (entry.clockKind === 'monotonic-measurement')
+    {
+        if (entry.authorityKind !== 'runtime-monotonic' || entry.ingress !== 'runtime-monotonic'
+            || entry.semanticEffect !== 'excluded'
+            || ['Date.now', 'new Date()', 'new Date(value)', 'performance.timeOrigin', 'file-timestamp'].includes(entry.api))
+        {
+            fail('temporal.mixed-clock', `${id} measurement clock is not runtime monotonic`);
+        }
+    }
+    else if (entry.clockKind === 'runtime-identity')
+    {
+        const file = entry.api === 'file-timestamp' && entry.authorityKind === 'runtime-file-identity'
+            && entry.ingress === 'operability-only';
+        const document = entry.api === 'performance.timeOrigin' && entry.authorityKind === 'runtime-document-identity'
+            && entry.ingress === 'observed-identity';
+        if ((!file && !document) || entry.semanticEffect !== 'included')
+        {
+            fail('temporal.context-invalid', `${id} runtime identity lacks its included observation authority`);
+        }
+    }
+    else if (entry.clockKind !== 'artifact-metadata'
+        || entry.authorityKind !== 'artifact-observation' || entry.semanticEffect !== 'excluded'
+        || !['artifact-only', 'operability-only'].includes(entry.ingress))
+    {
+        fail('temporal.context-invalid', `${id} artifact clock classification is invalid`);
+    }
+    if (entry.api === 'file-timestamp' && entry.ingress !== 'operability-only')
+    {
+        fail('temporal.context-invalid', `${id} file timestamps cannot select correctness receipts`);
+    }
+}
+
 function exactEnum(value, allowed, field)
 {
     if (!allowed.includes(value))
@@ -209,9 +274,14 @@ export function createTemporalContract(authority = {})
             {
                 fail('temporal.ledger-source-mismatch', `${callSiteId}.semanticEffect is invalid`);
             }
-            if (!['canonical-injected', 'runtime-monotonic', 'artifact-only', 'operability-only'].includes(entry.ingress))
+            if (!['canonical-injected', 'runtime-monotonic', 'artifact-only', 'operability-only',
+                'runtime-wall', 'observed-business', 'observed-identity'].includes(entry.ingress))
             {
                 fail('temporal.ledger-source-mismatch', `${callSiteId}.ingress is invalid`);
+            }
+            if (!unresolvedDispositions.has(entry.disposition))
+            {
+                validateTemporalClockClassification(entry);
             }
         }
         const unresolved = document.entries.filter((entry) => unresolvedDispositions.has(entry.disposition));

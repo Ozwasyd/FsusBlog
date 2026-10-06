@@ -7,6 +7,7 @@ import {
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { validateTemporalClockClassification } from './temporal-context-contract.mjs';
 import { readTemporalLedger, TemporalContractError } from './temporal-context.mjs';
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -171,6 +172,14 @@ export function validateWallClockGovernance({ ledger, sources })
         });
     }
 
+    const mixedSymbols = [...Map.groupBy(ledger.entries, (entry) => `${entry.path}#${entry.symbol}`)]
+        .filter(([, entries]) => new Set(entries.map((entry) => entry.clockKind)).size > 1)
+        .map(([symbol]) => symbol);
+    if (mixedSymbols.length > 0)
+    {
+        fail('temporal.mixed-clock', 'symbols mix temporal clock kinds', { mixedSymbols });
+    }
+
     const governed = new Set(ledger.governedSources);
     const duplicateSources = ledger.governedSources.filter((source, index) =>
         ledger.governedSources.indexOf(source) !== index);
@@ -184,20 +193,7 @@ export function validateWallClockGovernance({ ledger, sources })
         {
             fail('temporal.ledger-source-mismatch', `${entry.callSiteId} path is outside governedSources`);
         }
-        if (entry.clockKind === 'business-wall'
-        && (entry.authorityKind !== 'canonical-business-epoch' || entry.ingress !== 'canonical-injected'))
-        {
-            fail('temporal.context-invalid', `${entry.callSiteId} business clock lacks canonical injection`);
-        }
-        if (entry.clockKind === 'monotonic-measurement'
-        && (entry.authorityKind !== 'runtime-monotonic' || entry.ingress !== 'runtime-monotonic'))
-        {
-            fail('temporal.mixed-clock', `${entry.callSiteId} measurement clock is not runtime monotonic`);
-        }
-        if (entry.api === 'file-timestamp' && entry.ingress !== 'operability-only')
-        {
-            fail('temporal.context-invalid', `${entry.callSiteId} mtime may only support operability`);
-        }
+        validateTemporalClockClassification(entry);
     }
 
     const entriesByPath = Map.groupBy(ledger.entries, (entry) => entry.path);
@@ -241,13 +237,7 @@ export function validateWallClockGovernance({ ledger, sources })
         }
     }
 
-    const mixedSymbols = [...Map.groupBy(ledger.entries, (entry) => `${entry.path}#${entry.symbol}`)]
-        .filter(([, entries]) => new Set(entries.map((entry) => entry.clockKind)).size > 1)
-        .map(([symbol]) => symbol);
-    if (mixedSymbols.length > 0)
-    {
-        fail('temporal.mixed-clock', 'symbols mix temporal clock kinds', { mixedSymbols });
-    }
+
 
     return {
         callSiteCount: ledger.entries.length,

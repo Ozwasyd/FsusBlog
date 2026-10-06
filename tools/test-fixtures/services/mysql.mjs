@@ -2,6 +2,7 @@ import { spawnSync } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import { setTimeout as delay } from 'node:timers/promises';
 
 const { dockerResourceArguments } = await import(new URL('../../test-matrix/production-resource-enforcement.mjs', import.meta.url));
@@ -210,10 +211,10 @@ function lifecycleOwner(state, paths, invoke, persistedDigest = null)
     const cleanup = () => cleanupPromise ??= (async () =>
     {
         // Cleanup is independent of current source/grants, but never of ownership.
-        const deadline = Date.now() + context.cleanupBudgetMs;
+        const deadline = Math.floor(performance.now()) + context.cleanupBudgetMs;
         const remainingBudget = () =>
         {
-            const remaining = deadline - Date.now();
+            const remaining = deadline - Math.floor(performance.now());
             if (remaining <= 0)
             {
                 throw new Error('MySQL lifecycle exhausted its total cleanup budget');
@@ -436,21 +437,21 @@ export async function prepareMySqlFixtureService(context, {
         }
         state.createdAt = inspectOwned(state.containerId, context.commandBudgetMs).Created;
         publish();
-        const deadline = Date.now() + context.startupBudgetMs;
+        const deadline = Math.floor(performance.now()) + context.startupBudgetMs;
         let ready = false;
-        while (Date.now() < deadline)
+        while (Math.floor(performance.now()) < deadline)
         {
             signal?.throwIfAborted();
             await assertResourcesHeld(context);
             const value = invoke(['exec', '-i', state.containerId, ...rootSqlCommand], {
-                input: 'SELECT 1;', budgetMs: Math.min(context.commandBudgetMs, Math.max(1, deadline - Date.now())), allowFailure: true
+                input: 'SELECT 1;', budgetMs: Math.min(context.commandBudgetMs, Math.max(1, deadline - Math.floor(performance.now()))), allowFailure: true
             });
             if (value === '1')
             {
                 ready = true;
                 break;
             }
-            await delay(Math.min(250, Math.max(1, deadline - Date.now())), undefined, { signal });
+            await delay(Math.min(250, Math.max(1, deadline - Math.floor(performance.now()))), undefined, { signal });
         }
         if (!ready)
         {
@@ -657,11 +658,11 @@ export function verifyMySqlFixtureServiceCleanup(context, {
     {
         throw new Error('MySQL cleanup verification has an invalid creation identity');
     }
-    const deadline = Date.now() + context.cleanupBudgetMs;
+    const deadline = Math.floor(performance.now()) + context.cleanupBudgetMs;
     const invoke = dockerInvoker(context, docker);
     const remainingBudget = () =>
     {
-        const remaining = deadline - Date.now();
+        const remaining = deadline - Math.floor(performance.now());
         if (remaining <= 0)
         {
             throw new Error('MySQL cleanup verification exhausted its total cleanup budget');
@@ -696,7 +697,7 @@ export function verifyMySqlFixtureServiceCleanup(context, {
     {
         throw new Error('MySQL cleanup verification creation identity changed during observation');
     }
-    if (Date.now() >= deadline)
+    if (Math.floor(performance.now()) >= deadline)
     {
         throw new Error('MySQL cleanup verification exhausted its total cleanup budget');
     }

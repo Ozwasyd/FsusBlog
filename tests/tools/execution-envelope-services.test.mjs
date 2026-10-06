@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import path from 'node:path';
+import { performance } from 'node:perf_hooks';
 import test from 'node:test';
 
 const {createAndAdmitServiceEnvelope, executionServiceImageReference, loadExecutionServiceCatalog, observeContainerService, observeRunOwnedService, parseExecutionEnvelopeServicesOptions, requiredExecutionServices, resolveExecutionServiceContainers, validateExecutionServiceCatalog, verifyLiveServiceEnvelope} = await import(new URL('../../tools/test/execution-envelope-services.mjs', import.meta.url));
@@ -192,6 +193,26 @@ test('MySQL lifecycle exclusively prepares a pinned bounded service and removes 
     assert.equal(state.phase, 'cleaned');
     assert.equal(state.qualificationEligible, false);
     await assert.rejects(service.verify, /no longer prepared/u);
+});
+
+test('MySQL lifecycle budgets ignore wall-clock steps while real steady deadlines remain bounded', async (t) =>
+{
+    let wall = 1_000_000;
+    let direction = 1;
+    let steady = 100.75;
+    t.mock.method(Date, 'now', () => wall += direction * 1_000_000_000);
+    t.mock.method(performance, 'now', () => steady);
+    for (direction of [1, -1])
+    {
+        const fixture = controlledMySqlLifecycle(t);
+        const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
+        await service.cleanup();
+        assert.deepEqual(verifyMySqlFixtureServiceCleanup(fixture.context, recoveryOptions(fixture)).cleanup,
+            { containerAbsent: true, credentialsRemoved: true });
+        assert.ok(fixture.state.calls.every(({ options }) =>
+            options.timeout > 0 && options.timeout <= fixture.context.commandBudgetMs));
+        steady += 0.25;
+    }
 });
 
 test('MySQL private admission binds one held grant, live SQL service and exact cleanup', async (t) =>
@@ -415,8 +436,8 @@ test('MySQL lifecycle cleanup consumes one total budget and does not reset it pe
 {
     const fixture = controlledMySqlLifecycle(t);
     const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
-    let now = Date.now();
-    t.mock.method(Date, 'now', () => now);
+    let now = performance.now();
+    t.mock.method(performance, 'now', () => now);
     fixture.state.onContainerLookup = () =>
     {
         now += fixture.context.cleanupBudgetMs;
@@ -658,8 +679,8 @@ test('MySQL cleanup verification uses one bounded observation budget without mut
     const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
     await service.cleanup();
     const bytes = fs.readFileSync(service.stateFile);
-    let now = Date.now();
-    t.mock.method(Date, 'now', () => now);
+    let now = performance.now();
+    t.mock.method(performance, 'now', () => now);
     fixture.state.onContainerLookup = () =>
     {
         now += fixture.context.cleanupBudgetMs;
@@ -1057,8 +1078,8 @@ test('MySQL recovery retains its total cleanup budget and permits only a new exp
 {
     const fixture = controlledMySqlLifecycle(t);
     const service = await prepareMySqlFixtureService(fixture.context, fixture.options);
-    let now = Date.now();
-    t.mock.method(Date, 'now', () => now);
+    let now = performance.now();
+    t.mock.method(performance, 'now', () => now);
     fixture.state.onContainerLookup = () =>
     {
         now += fixture.context.cleanupBudgetMs;
