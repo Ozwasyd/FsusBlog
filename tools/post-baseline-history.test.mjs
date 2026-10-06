@@ -11,6 +11,7 @@ import {
     POST_BASELINE_BEFORE_ANCHOR,
     POST_BASELINE_HISTORY_ANCHOR,
     historicalMethodMayBePresent,
+    canonicalFactMatchesHistoricalOwner,
     historicalXunitMethodPresent,
     validatePostBaselineHistory
 } from './test-convergence/post-baseline-history.mjs';
@@ -555,4 +556,79 @@ test('deletion evidence is independent of test attribution and refuses unresolve
     assert.equal(mayBePresent('public class OldTests {\n#if FEATURE\n}\npublic class OtherTests {\n#else\n'
         + '[Fact] public void Removed() {}\n}\n#endif'), true);
     assert.throws(() => historicalMethodMayBePresent('', 'OldTests', 'Removed'), /C# source mask capability/u);
+});
+
+
+test('canonical retired Fact identity is bound to the exact archived owner and static case', () =>
+{
+    const path = 'tests/backend/Unit/OldTests.cs';
+    const historicalId = `xunit:${path}#OldTests.Removed`;
+    const id = `xunit:${path}#Example.Tests.OldTests.Removed#case-0000`;
+    const source = 'namespace Example.Tests;\npublic class OldTests\n{\n    [Fact]\n    public void Removed() {}\n}';
+    const matches = (overrides = {}) => canonicalFactMatchesHistoricalOwner({
+        source, id, historicalId, path, maskCSharpTrivia, ...overrides
+    });
+    assert.equal(matches(), true);
+    for (const wrongId of [
+        historicalId,
+        id.replace('Example.Tests', 'Forged.Tests'),
+        id.replace('.Removed#', '.Other#'),
+        id.replace('#case-0000', '#case-0001'),
+        id.replace('OldTests.cs', 'OtherTests.cs')
+    ])
+    {
+        assert.equal(matches({ id: wrongId }), false);
+    }
+    assert.equal(matches({ historicalId: historicalId.replace('.Removed', '.Other') }), false);
+    assert.equal(matches({ source: source.replace('[Fact]', '[Theory]') }), false);
+    assert.equal(matches({ source: source.replace('Removed()', 'Removed(int value)') }), false);
+    assert.equal(matches({ source: source.replace('class OldTests', 'class OldTests<T>') }), false);
+    assert.equal(matches({ source: source.replace('namespace Example.Tests;', 'namespace Example.Tests {') + '}' }), false);
+    assert.equal(matches({ source: '#if SYMBOL\n' + source + '\n#endif' }), false);
+    assert.equal(matches({ source: 'using Fact = CustomFactAttribute;\n' + source }), false);
+    assert.equal(matches({ attributeContext: 'global using Fact = CustomFactAttribute;' }), false);
+    assert.equal(matches({ source: source + '\npublic class Fact {}' }), false);
+    assert.equal(matches({ source: source.replace('public class OldTests', 'public class Outer { public class OldTests') + '}' }), false);
+});
+
+test('canonical retired identity retains every exact Git preimage and deletion refusal', () =>
+{
+    const oldPath = 'tests/backend/Unit/BackendAuthStateMachineTests.cs';
+    const method = 'LoginWithMfa_RequiresPartialAuthBeforeFullSession';
+    const id = `xunit:${oldPath}#FsusBlog.Server.Tests.Unit.BackendAuthStateMachineTests.${method}#case-0000`;
+    const historicalId = `xunit:${oldPath}#BackendAuthStateMachineTests.${method}`;
+    const sourceCommit = '865dc18c29c208d3be0dcab6442f00864e7583f2';
+    const deletionCommit = '80038e83710cc9bd252aaef4c014d893d2c4bdc0';
+    const candidatePath = 'tests/canonical-fact-history-baseline.json';
+    const trustedMatrix = parseMatrix(execFileSync('git', [
+        'show', `${POST_BASELINE_HISTORY_ANCHOR}:tests/matrix.yml`
+    ], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }));
+    const legacyPaths = trustedMatrix.governance.retention.postBaselines;
+    const baseline = {
+        schema: 'fsusblog.issue-acceptance-baseline.v2', issue: 2348,
+        sourceCommit, deletionCommit, expectedRecords: 1, expectedMigrated: 1,
+        records: [{ id, historicalId, path: oldPath, disposition: 'migrated',
+            sourceBlobOid: '5c80eb7a0183610b0b00a23fd596a7f213328242', resultBlobOid: null }]
+    };
+    const ledger = JSON.parse(readFileSync(resolve(root, 'tests/test-retention-replacements.json'), 'utf8'));
+    const replacement = ledger.deletedTests.find((entry) => entry.id === id);
+    assert.ok(replacement);
+    const validate = (snapshot, overrides = {}) => validateHistory({
+        root, paths: [...legacyPaths, candidatePath], replacements: ledger.deletedTests,
+        readCurrent: (path) => path === candidatePath ? JSON.stringify(snapshot) : readFileSync(resolve(root, path), 'utf8'),
+        ...overrides
+    });
+    assert.deepEqual(validate(baseline).errors, []);
+    const record = baseline.records[0];
+    const withRecord = (changes) => ({ ...baseline, records: [{ ...record, ...changes }] });
+    assert.ok(validate(withRecord({ sourceBlobOid: '0'.repeat(40) })).errors.some((error) => /source blob binding/u.test(error)));
+    assert.ok(validate(withRecord({ resultBlobOid: record.sourceBlobOid })).errors.some((error) => /deletion-result blob binding/u.test(error)));
+    assert.ok(validate(withRecord({ historicalId: historicalId.replace(method, 'MissingMethod') })).errors.some((error) => /canonical retired identity|old attributed method/u.test(error)));
+    assert.ok(validate(withRecord({ id: id.replace('case-0000', 'case-0001') }), {
+        replacements: [...ledger.deletedTests.filter((entry) => entry.id !== id), { ...replacement, id: id.replace('case-0000', 'case-0001') }]
+    }).errors.some((error) => /canonical retired identity/u.test(error)));
+    assert.ok(validate({ ...baseline, sourceCommit: deletionCommit }).errors.some((error) => /sole immediate parent/u.test(error)));
+    assert.ok(validate({ ...baseline, deletionCommit: sourceCommit }).errors.some((error) => /sole immediate parent/u.test(error)));
+    assert.ok(validate(baseline, { replacements: ledger.deletedTests.filter((entry) => entry.id !== id) }).errors.some((error) => /exact central replacement/u.test(error)));
+    assert.ok(validate(baseline, { anchorCommit: sourceCommit }).errors.some((error) => /trusted master history|survives trusted master anchor/u.test(error)));
 });

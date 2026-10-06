@@ -176,7 +176,7 @@ function unambiguousTestAttribute(masked, name, attributeContext)
     return true;
 }
 
-function historicalMethodPresent(source, className, methodName, maskCSharpTrivia, proveXunit, attributeContext = '')
+function historicalMethodPresent(source, className, methodName, maskCSharpTrivia, proveXunit, attributeContext = '', requireFact = false)
 {
     if (typeof maskCSharpTrivia !== 'function')
     {
@@ -255,6 +255,11 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
         {
             continue;
         }
+        if (requireFact && (depths[classMatch.index] !== 0
+            || /^\s*</u.test(masked.slice(classMatch.index + classMatch[0].length))))
+        {
+            continue;
+        }
         const bodyDepth = depths[opening + 1];
         let closing = opening + 1;
         while (closing < masked.length && !(masked[closing] === '}' && depths[closing] === bodyDepth))
@@ -281,6 +286,10 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             {
                 continue;
             }
+            if (requireFact && !/^\s*\)/u.test(masked.slice(methodOffset + methodMatch[0].length)))
+            {
+                continue;
+            }
             // Without the historical compilation symbols, an attributed method in a
             // conditional region cannot be proven to have been an executable test.
             if (proveXunit && insideConditional(methodOffset))
@@ -288,7 +297,8 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
                 continue;
             }
             if (!proveXunit || precedingAttributeNames(masked, opening, methodOffset)
-                .some((name) => unambiguousTestAttribute(masked, name, attributeContext)))
+                .some((name) => unambiguousTestAttribute(masked, name, attributeContext)
+                    && (!requireFact || /^(?:Fact|FactAttribute)$/u.test(name.split('.').at(-1)))))
             {
                 return true;
             }
@@ -350,10 +360,37 @@ function historicalAttributeContext(root, commit, maskCSharpTrivia)
     return context.join('\n');
 }
 
+// This is an exact-history assertion against an existing canonical ID, not an
+// inventory producer. Only the unambiguous file-scoped, top-level, no-argument
+// Fact shape can bridge the archived method ID to Roslyn's static case identity.
+export function canonicalFactMatchesHistoricalOwner({ source, id, historicalId, path, maskCSharpTrivia, attributeContext = '' })
+{
+    const historical = /^xunit:(tests\/backend\/Unit\/[A-Za-z0-9_.-]+\.cs)#([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/u.exec(String(historicalId ?? ''));
+    if (!historical || historical[1] !== path || typeof source !== 'string' || typeof maskCSharpTrivia !== 'function')
+    {
+        return false;
+    }
+    const masked = maskCSharpTrivia(source);
+    if (/^[ \t]*#\s*(?:if|elif|else|endif)\b/mu.test(masked))
+    {
+        return false;
+    }
+    const namespaces = [...masked.matchAll(/\bnamespace\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*([;{])/gu)];
+    if (namespaces.length !== 1 || namespaces[0][2] !== ';')
+    {
+        return false;
+    }
+    const [, , className, methodName] = historical;
+    const expected = `xunit:${path}#${namespaces[0][1]}.${className}.${methodName}#case-0000`;
+    return id === expected && historicalMethodPresent(
+        source, className, methodName, maskCSharpTrivia, true, attributeContext, true
+    );
+}
+
 function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTrivia, readAttributeContext })
 {
     const errors = [];
-    const match = /^xunit:(tests\/backend\/Unit\/[A-Za-z0-9_.-]+\.cs)#([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/u.exec(String(record?.id ?? ''));
+    const match = /^xunit:(tests\/backend\/Unit\/[A-Za-z0-9_.-]+\.cs)#([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/u.exec(String(record?.historicalId ?? record?.id ?? ''));
     if (!match || !safePath(record?.path) || match[1] !== record.path || basename(record.path) !== `${match[2]}.cs`)
     {
         return [`${record?.id ?? '<missing id>'}: v2 history requires an exact legacy xUnit method and owner path`];
@@ -384,6 +421,12 @@ function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTriv
     catch (error)
     {
         return [`${record.id}: ${error.message}`];
+    }
+    if (record.historicalId !== undefined && !canonicalFactMatchesHistoricalOwner({
+        source, id: record.id, historicalId: record.historicalId, path, maskCSharpTrivia, attributeContext
+    }))
+    {
+        errors.push(`${record.id}: canonical retired identity does not match the exact historical Fact owner`);
     }
     if (!blobOid.test(String(record.sourceBlobOid ?? '')) || record.sourceBlobOid !== sourceOid)
     {
