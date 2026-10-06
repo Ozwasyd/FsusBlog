@@ -7,15 +7,15 @@ import {
     validateCorrectnessAttemptMigration
 } from '../../tools/test/correctness-attempt-migration.mjs';
 
-test('all 225 correctness producers bind canonical attempt and external authorities', () =>
+test('all 226 correctness producers bind canonical attempt and external authorities', () =>
 {
     const verification = validateCorrectnessAttemptMigration();
     assert.deepEqual(verification, {
         schema: 'fsusblog.correctness-attempt-migration-verification.v1',
         status: 'verified',
-        producerCount: 225,
-        migratedCount: 225,
-        qualificationEligibleCount: 225,
+        producerCount: 226,
+        migratedCount: 226,
+        qualificationEligibleCount: 226,
         inventoryDigest: verification.inventoryDigest,
         replayProducerInventoryDigest: verification.replayProducerInventoryDigest,
         executionEnvelopeProducerCount: 130,

@@ -11,6 +11,7 @@ import {
     buildReceipt,
     receiptPath
 } from './generate-migration-assembly-receipt.mjs';
+import { migrationCurrentSchemaBoundaryFailures } from './migration-current-schema-boundary.mjs';
 
 const defaultRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const rootIndex = process.argv.indexOf('--root');
@@ -153,11 +154,16 @@ const migrationText = migrationSources.map(path => readFileSync(path, 'utf8')).j
 reject(/using\s+FsusBlog\.Server|namespace\s+FsusBlog\.Server|Microsoft\.AspNetCore|IHostedService|BackgroundService|WebApplication|TestServer/.test(migrationText), 'Migration source re-enters Server or web-host code');
 const migrationRowModelPath = join(root, 'src/migration/Definitions/CommentRevisionMigrationRows.cs');
 const migrationRowModel = existsSync(migrationRowModelPath) ? readFileSync(migrationRowModelPath, 'utf8') : '';
-const providerMappingText = migrationSources
-    .filter(path => path !== migrationRowModelPath)
-    .map(path => readFileSync(path, 'utf8'))
-    .join('\n');
-reject(/\[(?:SugarTable|SugarColumn|SugarIndex)\b|CurrentSchemaCanonical|SchemaTableModel/.test(providerMappingText), 'Migration providers contain a duplicate current-schema field mapping');
+const currentSchemaBoundaryFailures = migrationCurrentSchemaBoundaryFailures({
+    migrationSources: new Map(migrationSources.map(path =>
+        [path.slice(root.length + 1).replaceAll('\\', '/'), readFileSync(path, 'utf8')])),
+    canonicalSources: new Map(files('src/shared/Contracts/Schema').filter(path => path.endsWith('.cs'))
+        .map(path => [path, readFileSync(path, 'utf8')]))
+});
+for (const failure of currentSchemaBoundaryFailures)
+{
+    failures.push(`Migration providers contain a duplicate current-schema field mapping: ${failure}`);
+}
 reject(
     !migrationRowModel.includes('[SugarTable("comment")]')
     || !migrationRowModel.includes('[SugarTable("comment_revision")]')

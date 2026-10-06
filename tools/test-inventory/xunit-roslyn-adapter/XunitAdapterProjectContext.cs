@@ -27,94 +27,32 @@ internal static partial class XunitAdapterProgram
         return testAttribute is not null;
     }
 
-    private static bool ReadAllowUnsafeBlocks(string projectPath)
+    private static string[] CollectSourceFiles(string projectDir, System.Text.Json.JsonElement compileItems)
     {
-        string projectText = File.ReadAllText(projectPath);
-        int index = projectText.IndexOf("<AllowUnsafeBlocks>", StringComparison.Ordinal);
-        if (index < 0)
-            return false;
-        int start = index + "<AllowUnsafeBlocks>".Length;
-        int end = projectText.IndexOf("</AllowUnsafeBlocks>", start, StringComparison.Ordinal);
-        return end > start && bool.TryParse(projectText[start..end].Trim(), out bool value) && value;
-    }
-
-    private static string[] CollectSourceFiles(string projectDir, string projectPath)
-    {
-        var files = new List<string>();
-        CollectCsFiles(projectDir, files);
-        string objDir = ResolveProjectBuildDirectory(projectDir, projectPath, "obj");
-        if (Directory.Exists(objDir))
+        if (compileItems.ValueKind != System.Text.Json.JsonValueKind.Array)
         {
-            foreach (string generated in Directory.EnumerateFiles(objDir, "*.g.cs", SearchOption.AllDirectories))
+            throw new InvalidOperationException("MSBuild Compile did not return a source item array");
+        }
+        var files = new HashSet<string>(StringComparer.Ordinal);
+        foreach (System.Text.Json.JsonElement item in compileItems.EnumerateArray())
+        {
+            string value = item.GetProperty("FullPath").GetString() ?? "";
+            if (value.Length == 0 || !Path.IsPathFullyQualified(value))
             {
-                files.Add(generated);
+                throw new InvalidOperationException("MSBuild Compile returned a source without an absolute FullPath");
+            }
+            string file = Path.GetFullPath(value, projectDir);
+            if (!File.Exists(file) || !file.EndsWith(".cs", StringComparison.Ordinal)
+                || !files.Add(file))
+            {
+                throw new InvalidOperationException($"MSBuild Compile returned a missing, unsupported or duplicate source: {file}");
             }
         }
-        string? expectedOutput = FindOutputDirectory(projectDir, projectPath);
-        if (expectedOutput is not null && !Directory.Exists(expectedOutput))
+        if (files.Count == 0)
         {
-            throw new InvalidOperationException($"test project build output is missing at {expectedOutput}; run dotnet build on {Path.GetFileName(projectPath)} before invoking the adapter");
+            throw new InvalidOperationException("MSBuild Compile returned no source items");
         }
-        return files
-            .Where(file =>
-            {
-                string relative = Path.GetRelativePath(projectDir, file).Replace(Path.DirectorySeparatorChar, '/');
-                if (relative.StartsWith("Fixtures/security-source-analysis/", StringComparison.Ordinal))
-                    return false;
-                if (relative.StartsWith("Fixtures/", StringComparison.Ordinal) && file.Contains("/Fixtures/", StringComparison.Ordinal))
-                {
-                    return !relative.Contains("security-source-analysis", StringComparison.Ordinal);
-                }
-                return true;
-            })
-            .Distinct(StringComparer.Ordinal)
-            .OrderBy(file => file, StringComparer.Ordinal)
-            .ToArray();
-    }
-
-    private static void CollectCsFiles(string directory, List<string> files)
-    {
-        foreach (string entry in Directory.EnumerateFileSystemEntries(directory))
-        {
-            string name = Path.GetFileName(entry);
-            if (name is "bin" or "obj" or "node_modules")
-                continue;
-            if (Directory.Exists(entry))
-                CollectCsFiles(entry, files);
-            else if (entry.EndsWith(".cs", StringComparison.Ordinal))
-                files.Add(entry);
-        }
-    }
-
-    private static string ResolveProjectBuildDirectory(string projectDir, string projectPath, string leaf)
-    {
-        string configuredRoot = Environment.GetEnvironmentVariable("FSUSBLOG_PRODUCTION_BUILD_ROOT")?.Trim() ?? "";
-        return configuredRoot.Length == 0
-            ? Path.Combine(projectDir, leaf)
-            : Path.Combine(
-                Path.GetFullPath(configuredRoot),
-                "dotnet",
-                Path.GetFileNameWithoutExtension(projectPath),
-                leaf);
-    }
-
-    private static string? FindOutputDirectory(string projectDir, string projectPath)
-    {
-        string binDir = ResolveProjectBuildDirectory(projectDir, projectPath, "bin");
-        if (!Directory.Exists(binDir))
-            return null;
-        foreach (string config in new[] { "Debug", "Release" })
-        {
-            string candidate = Path.Combine(binDir, config, "net10.0");
-            if (Directory.Exists(candidate))
-                return candidate;
-        }
-        foreach (string framework in Directory.EnumerateDirectories(binDir, "*", SearchOption.AllDirectories))
-        {
-            if (Directory.EnumerateFiles(framework, "*.dll").Any())
-                return framework;
-        }
-        return null;
+        return files.OrderBy(file => file, StringComparer.Ordinal).ToArray();
     }
 
 }

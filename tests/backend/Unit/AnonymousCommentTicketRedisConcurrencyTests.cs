@@ -32,11 +32,12 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     PostgresSchemaMigrationFixture postgres,
     PublicHotDeliveryRedisFixture redis) : IClassFixture<PublicHotDeliveryRedisFixture>
 {
-    private const int Attempts = 16;
+    private const int Attempts = 24;
     private const string NullifierHash = "a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1a1";
     private const string ModerationPepper = "unit-test-moderation-pepper-with-at-least-thirty-two-chars";
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConsumeTicketAsync_RealRedisL2RaceReturnsExactlyOnePayloadAndConverges()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -58,6 +59,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConsumeTicketAsync_WarmedL1RaceStillUsesRedisAuthorityExactlyOnce()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: true);
@@ -84,6 +86,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConsumeTicketAsync_ExpiredRedisTtlReturnsOnlyMisses()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -103,6 +106,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-consume-ticket-async-malformed-or-tampered-payload-fails-closed-and-does-not-revive-key")]
     public async Task ConsumeTicketAsync_MalformedOrTamperedPayloadFailsClosedAndDoesNotReviveKey(bool tamperVersion)
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -128,6 +132,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-consume-ticket-async-cancellation-and-redis-failure-allow-at-most-one-later-success")]
     public async Task ConsumeTicketAsync_CancellationAndRedisFailureAllowAtMostOneLaterSuccess()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -184,6 +189,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CreateStrongAnonymousCommentAsync_SameRealTicketRaceCommitsOneTransactionAndReplays()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(postgres);
@@ -200,8 +206,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
         using var barrier = new Barrier(Attempts);
         AnonymousCommentCreateRequestCoreModel request = CreateCommentRequest(issued.Response.Ticket);
 
-        CommentCreateResult[] results = await Task.WhenAll(Enumerable.Range(0, Attempts)
-            .Select(_ => StartBarrierTaskAsync(barrier, async () =>
+        CommentCreateResult[] results = await RealConcurrencyHarness.RunAsync(Enumerable.Range(0, Attempts), _ => StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 CommentCommandService service = CreateCommentService(
@@ -214,7 +219,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
                     request,
                     RegionDecision(),
                     CancellationToken.None);
-            }))).WaitAsync(TimeSpan.FromSeconds(40));
+            })).WaitAsync(TimeSpan.FromSeconds(40));
 
         Assert.All(results, static result => Assert.True(result.Created));
         Assert.Single(results, static result => !result.IdempotencyReplay);
@@ -250,16 +255,17 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
         byte[] ticket)
     {
         using var barrier = new Barrier(Attempts);
-        return await Task.WhenAll(Enumerable.Range(0, Attempts)
-            .Select(_ => StartBarrierTaskAsync(barrier, () => service.ConsumeTicketAsync(
+        return await RealConcurrencyHarness.RunAsync(Enumerable.Range(0, Attempts),
+            _ => StartBarrierTaskAsync(barrier, () => service.ConsumeTicketAsync(
                 ticket,
-                CancellationToken.None)))).WaitAsync(TimeSpan.FromSeconds(30));
+                CancellationToken.None))).WaitAsync(TimeSpan.FromSeconds(30));
     }
 
     private static void AssertExactlyOnePayload(
         CacheReadResult<AnonymousCommentTicketPayload>[] results,
         long expiresAtUnixMs)
     {
+        Assert.Equal(24, results.Length);
         CacheReadResult<AnonymousCommentTicketPayload> hit = Assert.Single(results, static result => result.Hit);
         Assert.NotNull(hit.Value);
         Assert.Equal(new AnonymousCommentTicketPayload(

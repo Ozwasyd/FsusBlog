@@ -265,6 +265,16 @@
             "supersededBy": null
         },
         {
+            "path": "docs/architecture/article-property-definition-authority.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2322
+            ],
+            "supersedes": [],
+            "supersededBy": null
+        },
+        {
             "path": "docs/architecture/authoring-canvas-document-boundary.md",
             "status": "current",
             "owner": "backend",

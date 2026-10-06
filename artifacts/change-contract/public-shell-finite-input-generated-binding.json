@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/browser-contract/public-shell-finite-input-owner.mjs",
+        "tools/test-matrix/register-public-shell-finite-input.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/release-final-execution-authority-index.json",
+            "sha256": "8ac6477d3e63e95756a503ce2f6275a04a12ce7a7eef69e9da268997f246d8bb"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "00bae08411abc7963bda3fd45862936fc9b186e5a0903ef5f72b7e3699845d6e"
+        }
+    ]
+}

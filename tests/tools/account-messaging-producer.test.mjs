@@ -159,10 +159,16 @@ function baseContext(adapter)
         profileIdentity: {
             profileId: 'account-messaging'
         },
-        temporalContext: {
-            schema: 'fsusblog.temporal-context.v1',
-            digest: digest('d')
-        },
+        temporalContext: qualificationTemporalContext({
+            sourceCommit: 'a'.repeat(40),
+            sourceFingerprint: digest('b'),
+            producerId: 'account-messaging',
+            schedulerRunId: 'message-test-run',
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            locale: 'en-US',
+            uiLocale: 'en-US',
+            timeoutPolicyDigest: defaultTimeoutPolicyDigest()
+        }),
         producerOutputs: {
             'auth-session': identityResult
         },
@@ -191,6 +197,11 @@ function buildRaw(plan, overrides = {})
         planDigest: plan.planDigest,
         inventoryDigest: plan.inventoryDigest,
         ownershipDigest: plan.ownershipDigest,
+        temporalObservation: {
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            backendCulture: 'Invariant',
+            postgresTimezone: 'UTC'
+        },
         capabilityProofs,
         entityIdentities: [
             { kind: 'thread', id: '7001', semanticRole: 'single-thread' },
@@ -263,7 +274,7 @@ test('account-messaging prepares, independently verifies, and exactly cleans own
         }
     ]);
     const verification = await verifyAccountMessaging(context, result);
-    assert.equal(verification.ok, true);
+    assert.equal(verification.ok, true, verification.reason);
     assert.equal(verification.producerId, 'account-messaging');
     assert.match(verification.identitySourceReceiptDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.match(verification.identityReferencesDigest, /^[a-f0-9]{64}$/u);
@@ -287,7 +298,13 @@ test('account-messaging consumes the canonical temporal resolver without a local
         prepare: async ({ messagingPlan }) =>
         {
             capturedPlan = messagingPlan;
-            return buildRaw(messagingPlan);
+            return buildRaw(messagingPlan, {
+                temporalObservation: {
+                    businessEpochUtc: '2042-05-17T09:30:00.000Z',
+                    backendCulture: 'Invariant',
+                    postgresTimezone: 'UTC'
+                }
+            });
         }
     });
     context.temporalContext = qualificationTemporalContext({
@@ -306,6 +323,78 @@ test('account-messaging consumes the canonical temporal resolver without a local
     assert.equal(capturedPlan.temporalRoles.shape.id, 'auth-security-messaging-account-lifecycle');
     assert.equal(result.temporalRoleArtifactDigest, capturedPlan.temporalRoles.contentDigest);
     assert.equal(capturedPlan.temporalRoles.fixtureIdentity.fixtureId, 'account-messaging');
+});
+
+test('account-messaging rejects missing or drifting backend and database observations', async () =>
+{
+    for (const field of ['businessEpochUtc', 'backendCulture', 'postgresTimezone'])
+    {
+        for (const missing of [true, false])
+        {
+            const context = baseContext({
+                prepare: async ({ messagingPlan }) =>
+                {
+                    const raw = buildRaw(messagingPlan);
+                    if (missing)
+                    {
+                        delete raw.temporalObservation[field];
+                    }
+                    else
+                    {
+                        raw.temporalObservation[field] = field === 'businessEpochUtc'
+                            ? '2030-01-01T00:00:00.000Z'
+                            : 'drifting-runtime-setting';
+                    }
+                    return raw;
+                }
+            });
+            await assert.rejects(prepareAccountMessaging(context, undefined, { temporalResolver }),
+                missing ? /requires actual/u : /observation does not match planned temporal context/u);
+        }
+    }
+});
+
+test('account-messaging HTTP preparation binds the protected backend session observation', async (testContext) =>
+{
+    const originalFetch = globalThis.fetch;
+    testContext.after(() =>
+    {
+        globalThis.fetch = originalFetch;
+    });
+    const context = baseContext(undefined);
+    context.handles = {
+        baseUrl: 'http://127.0.0.1:5088/',
+        localAuthFixtureSecret: 'controlled-temporal-secret',
+        localMessagingFixtureSecret: 'controlled-messaging-secret'
+    };
+    const paths = [];
+    globalThis.fetch = async (url, request) =>
+    {
+        const endpoint = new URL(url).pathname;
+        paths.push(endpoint);
+        if (endpoint === '/api/local/messaging-fixture/prepare')
+        {
+            assert.equal(request.headers['X-Fsus-Local-Messaging-Fixture-Secret'], 'controlled-messaging-secret');
+            return new Response(JSON.stringify(buildRaw(JSON.parse(request.body), {
+                temporalObservation: {
+                    businessEpochUtc: '2024-02-29T23:59:59.000Z',
+                    resolvedTemporalRoleArtifactDigest: temporalArtifact.contentDigest
+                }
+            })), { status: 200 });
+        }
+        assert.equal(endpoint, '/__local/temporal-observation');
+        assert.equal(request.headers['X-Fsus-Local-Temporal-Fixture-Secret'], 'controlled-temporal-secret');
+        return new Response(JSON.stringify({
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            backendCulture: 'Invariant',
+            postgresTimezone: 'UTC',
+            observationBoundary: 'backend-and-postgres-session'
+        }), { status: 200 });
+    };
+    const result = await prepareAccountMessaging(context, undefined, { temporalResolver });
+    assert.deepEqual(paths, ['/api/local/messaging-fixture/prepare', '/__local/temporal-observation']);
+    assert.equal(result.temporalObservation.postgresTimezone, 'UTC');
+    assert.equal(result.temporalObservation.resolvedTemporalRoleArtifactDigest, temporalArtifact.contentDigest);
 });
 
 test('account-messaging reruns idempotently and parallel namespaces clean only receipt-owned entities', async () =>
@@ -452,6 +541,7 @@ async function c2HttpUnitModel()
         prepare: async ({ messagingPlan }) =>
         {
             preparedRaw = buildRaw(messagingPlan);
+            preparedRaw.temporalObservation.businessEpochUtc = '2042-05-17T09:30:00.000Z';
             preparedRaw.capabilityProofs = preparedRaw.capabilityProofs.map((proof) => ({ ...proof, cache: 'exact', outbox: 'exact' }));
             preparedRaw.observations.database.entities[0].semanticRole = 'single-thread';
             return preparedRaw;
@@ -531,7 +621,7 @@ test('C2 actual Node verify path consumes a fresh independent HTTP read and boun
         return new Response(JSON.stringify(c2UnitRead(request, preparedRaw)));
     }, () => verifyAccountMessaging(context, result, controller.signal));
     assert.equal(calls, 1);
-    assert.equal(verification.ok, true);
+    assert.equal(verification.ok, true, verification.reason);
     assert.match(verification.readObservationDigest, /^sha256:[a-f0-9]{64}$/u);
     assert.deepEqual(verification.observations, result.observations);
 });
@@ -587,7 +677,8 @@ for (const field of ['source', 'generation', 'run', 'namespace', 'profile', 'cat
 }
 
 for (const mutation of ['prepared-only', 'warning', 'structural', 'fallback', 'binding', 'auth-digest', 'cleanup',
-    'cache-missing', 'cache-drift', 'cache-proof', 'db-drift', 'stream-drift', 'outbox-proof', 'count-only', 'payload', 'owner', 'empty'])
+    'cache-missing', 'cache-drift', 'cache-proof', 'db-drift', 'stream-drift', 'outbox-proof', 'count-only', 'payload', 'owner', 'empty',
+    'temporal-clock-missing', 'temporal-epoch-drift'])
 {
     test(`C2 unit model rejects independent ${mutation} evidence instead of repairing or accepting prepare`, async () =>
     {
@@ -600,6 +691,12 @@ for (const mutation of ['prepared-only', 'warning', 'structural', 'fallback', 'b
             const read = c2UnitRead(request, preparedRaw);
             switch (mutation)
             {
+                case 'temporal-clock-missing':
+                    delete read.result.temporalObservation;
+                    break;
+                case 'temporal-epoch-drift':
+                    read.result.temporalObservation.businessEpochUtc = '2024-02-29T23:59:59.000Z';
+                    break;
                 case 'prepared-only':
                     delete read.ok;
                     break;

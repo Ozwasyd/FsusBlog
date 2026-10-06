@@ -4,11 +4,12 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import process from 'node:process'
-import { validatePublicAotWarmEvidence } from '../frontend/public-aot-warm-evidence.mjs'
+import { validateAuxiliaryEvidence as validateAuxiliaryEvidenceContract, validateCurrentSchemaStageOutput, validateCurrentRolloutEvidenceBindings } from './release-rollout-auxiliary-evidence-contract.mjs'
+import { verifyReleaseRolloutEvidence } from './release-rollout-evidence-receipt-contract.mjs';
 import { ROLLOUT_STAGES, readRolloutState } from './release-rollout-lib.mjs'
 
-const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v1'
-const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v1'
+const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v2'
+const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v2'
 const REQUIRED_FINAL_ARTIFACTS = Object.freeze([
   'publicTraffic',
   'notificationStream',
@@ -20,7 +21,7 @@ const REQUIRED_FINAL_ARTIFACTS = Object.freeze([
 const REQUIRED_AUXILIARY_EVIDENCE = Object.freeze([
   'releaseManifest',
   'backupRestoreGate',
-  'migrationExpand',
+  'currentSchemaAdmission',
   'candidateReadiness',
   'assetMaterialization',
   'retentionPrepared',
@@ -50,11 +51,17 @@ const TRAFFIC_CATEGORIES = Object.freeze([
 const TRAFFIC_POLICY_STAGES = Object.freeze(['status:planned', ...ROLLOUT_STAGES, 'status:completed'])
 const SHA256 = /^sha256:[0-9a-f]{64}$/u
 const HMAC_SHA256 = /^hmac-sha256:[0-9a-f]{64}$/u
+const EXECUTION_PREPARATION_SCHEMA = 'fsusblog.release-rollout-shell-preparation.v1'
+const EXECUTION_RESULT_SCHEMA = 'fsusblog.release-rollout-shell-result.v1'
 
 try {
   const { command, options, artifacts, auxiliaries } = parseArgs(process.argv.slice(2))
   if (command === 'stage') {
     emitStageEvidence(options)
+  } else if (command === 'prepare-stage-execution') {
+    prepareStageExecution(options)
+  } else if (command === 'finish-stage-execution') {
+    finishStageExecution(options)
   } else if (command === 'preseal') {
     presealEvidence(options, artifacts, auxiliaries)
   } else if (command === 'finalize') {
@@ -69,6 +76,126 @@ try {
 } catch (error) {
   process.stderr.write(`[release-rollout-evidence] fatal: ${error instanceof Error ? error.message : String(error)}\n`)
   process.exitCode = 1
+}
+
+// These records observe the original shell owner, not an admitted native
+// process tree. In particular they cannot authorize or replace native verify.
+function prepareStageExecution(options) {
+  const state = readRolloutState(requiredPath(options, 'state'))
+  const stage = required(options, 'stage')
+  if (!ROLLOUT_STAGES.includes(stage) || state.currentStage !== stage) {
+    throw new Error('shell preparation requires the original active rollout stage')
+  }
+  const command = required(options, 'shell-function')
+  if (!/^Stage[A-Za-z]{1,100}$/u.test(command)) throw new Error('invalid rollout shell function')
+  const owner = boundedExecutionFile(requiredPath(options, 'owner'), 1024 * 1024)
+  const manifest = boundedExecutionFile(state.manifestPath, 1024 * 1024)
+  if (manifest.sha256 !== `sha256:${state.manifestSha256}`) throw new Error('rollout manifest bytes changed before command')
+  const record = {
+    schema: EXECUTION_PREPARATION_SCHEMA,
+    qualification: 'diagnostic-only',
+    commandKind: 'rollout-shell-function',
+    rolloutId: state.rolloutId,
+    stage,
+    attempt: state.stages.filter(item => item.stage === stage).length,
+    commandId: boundedLabel(required(options, 'command-id'), 'command-id'),
+    argv: [command],
+    owner,
+    manifest,
+    source: state.source,
+    target: state.target,
+    monotonicStartedNs: process.hrtime.bigint().toString(),
+    startedAtUtc: isoUtc(required(options, 'started-at'), 'started-at')
+  }
+  if (record.attempt < 1) throw new Error('shell preparation lacks a started attempt')
+  // Never replace a preparation: a repeated attempt needs a new state attempt.
+  writeJsonExclusiveOrReplace(requiredPath(options, 'out'), record, false)
+}
+
+function finishStageExecution(options) {
+  const preparationPath = requiredPath(options, 'preparation')
+  const captured = boundedExecutionFile(preparationPath, 64 * 1024, true)
+  const { content, ...preparationRef } = captured
+  const preparation = JSON.parse(content.toString('utf8'))
+  const keys = ['schema', 'qualification', 'commandKind', 'rolloutId', 'stage', 'attempt', 'commandId', 'argv', 'owner', 'manifest', 'source', 'target', 'monotonicStartedNs', 'startedAtUtc']
+  if (Object.keys(preparation).sort().join('\n') !== keys.sort().join('\n')
+    || preparation.schema !== EXECUTION_PREPARATION_SCHEMA
+    || preparation.qualification !== 'diagnostic-only'
+    || preparation.commandKind !== 'rollout-shell-function'
+    || !Array.isArray(preparation.argv) || preparation.argv.length !== 1
+    || !/^Stage[A-Za-z]{1,100}$/u.test(preparation.argv[0])
+    || !/^[0-9]{1,30}$/u.test(preparation.monotonicStartedNs)) {
+    throw new Error('unsupported or malformed shell preparation')
+  }
+  const state = readRolloutState(requiredPath(options, 'state'))
+  if (state.currentStage !== preparation.stage || state.rolloutId !== preparation.rolloutId
+    || state.stages.filter(item => item.stage === preparation.stage).length !== preparation.attempt
+    || canonicalJson(state.source) !== canonicalJson(preparation.source)
+    || canonicalJson(state.target) !== canonicalJson(preparation.target)
+    || path.resolve(state.manifestPath) !== preparation.manifest.path
+    || `sha256:${state.manifestSha256}` !== preparation.manifest.sha256) {
+    throw new Error('shell preparation no longer belongs to the active attempt')
+  }
+  for (const metadata of [preparation.owner, preparation.manifest]) {
+    const current = boundedExecutionFile(metadata.path, 1024 * 1024)
+    if (canonicalJson(current) !== canonicalJson(metadata)) throw new Error('shell execution input changed')
+  }
+  const exitCode = nonNegativeInteger(options['exit-code'], 'exit-code')
+  if (exitCode > 255) throw new Error('shell exit code is outside the wait-status range')
+  const completedAtUtc = isoUtc(required(options, 'completed-at'), 'completed-at')
+  if (Date.parse(completedAtUtc) < Date.parse(preparation.startedAtUtc)) throw new Error('shell completion precedes preparation')
+  const monotonicCompletedNs = process.hrtime.bigint()
+  if (monotonicCompletedNs < BigInt(preparation.monotonicStartedNs)) throw new Error('shell monotonic clock regressed')
+  const output = {
+    stdout: boundedExecutionFile(requiredPath(options, 'stdout'), 64 * 1024 * 1024),
+    stderr: boundedExecutionFile(requiredPath(options, 'stderr'), 64 * 1024 * 1024)
+  }
+  // A shell return is not proof that descendants, channels or native cleanup
+  // reached terminal zero. Interrupted owners do not manufacture this record.
+  writeJsonExclusiveOrReplace(requiredPath(options, 'out'), {
+    schema: EXECUTION_RESULT_SCHEMA,
+    qualification: 'diagnostic-only',
+    observation: 'shell-command-returned',
+    preparation: preparationRef,
+    exitCode,
+    monotonicCompletedNs: monotonicCompletedNs.toString(),
+    completedAtUtc,
+    output
+  }, false)
+}
+
+function boundedExecutionFile(file, maximumBytes, retainBytes = false) {
+  const resolved = path.resolve(file)
+  const descriptor = fs.openSync(resolved, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW)
+  try {
+    const before = fs.fstatSync(descriptor)
+    if (!before.isFile() || !Number.isSafeInteger(before.size) || before.size > maximumBytes) {
+      throw new Error('shell execution input exceeds its regular-file byte bound')
+    }
+    const buffer = Buffer.alloc(64 * 1024)
+    const hash = crypto.createHash('sha256')
+    const chunks = []
+    let bytes = 0
+    for (;;) {
+      const count = fs.readSync(descriptor, buffer, 0, buffer.length, null)
+      if (count === 0) break
+      bytes += count
+      if (bytes > maximumBytes) throw new Error('shell execution input grew beyond its byte bound')
+      hash.update(buffer.subarray(0, count))
+      if (retainBytes) chunks.push(Buffer.from(buffer.subarray(0, count)))
+    }
+    const after = fs.fstatSync(descriptor)
+    const pathStat = fs.lstatSync(resolved)
+    if (bytes !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs
+      || after.ctimeMs !== before.ctimeMs || !pathStat.isFile() || pathStat.isSymbolicLink()
+      || pathStat.ino !== before.ino || pathStat.dev !== before.dev) {
+      throw new Error('shell execution input changed during collection')
+    }
+    return { path: resolved, bytes, sha256: `sha256:${hash.digest('hex')}`,
+      ...(retainBytes ? { content: Buffer.concat(chunks, bytes) } : {}) }
+  } finally {
+    fs.closeSync(descriptor)
+  }
 }
 
 function presealEvidence(options, artifactInputs, auxiliaryInputs) {
@@ -132,6 +259,9 @@ function emitStageEvidence(options) {
     durationMs: Date.parse(completedAtUtc) - Date.parse(startedAtUtc),
     output: { stdout, stderr }
   }
+  const errors = []
+  validateCurrentSchemaStageOutput(evidence, state, errors, { fileMetadata, readJson })
+  if (errors.length > 0) throw new Error(errors.join('\n'))
   writeJsonExclusiveOrReplace(requiredPath(options, 'out'), evidence, options.replace === true)
   process.stdout.write(`${JSON.stringify(evidence)}\n`)
 }
@@ -163,6 +293,7 @@ function finalizeEvidence(options, artifactInputs, auxiliaryInputs) {
       try {
         const metadata = fileMetadata(attempt.evidencePath)
         const parsed = readJson(attempt.evidencePath)
+        validateCurrentSchemaStageOutput(parsed, state, errors, { fileMetadata, readJson })
         if (parsed.schema !== STAGE_SCHEMA || parsed.rolloutId !== state.rolloutId || parsed.stage !== stage || parsed.status !== attempt.status) {
           errors.push(`${stage}: attempt ${index + 1} evidence identity/status is invalid`)
         }
@@ -180,6 +311,7 @@ function finalizeEvidence(options, artifactInputs, auxiliaryInputs) {
     try {
       const metadata = fileMetadata(record.evidencePath)
       const parsed = readJson(record.evidencePath)
+      validateCurrentSchemaStageOutput(parsed, state, errors, { fileMetadata, readJson })
       if (parsed.schema !== STAGE_SCHEMA || parsed.rolloutId !== state.rolloutId || parsed.stage !== stage || parsed.status !== 'ok') {
         errors.push(`${stage}: stage evidence identity/status is invalid`)
       }
@@ -202,11 +334,10 @@ function finalizeEvidence(options, artifactInputs, auxiliaryInputs) {
     source: state.source,
     target: state.target,
     gatewayGeneration: state.gatewayGeneration,
-    rollback: {
-      allowed: state.rollbackAllowed,
-      contractMigrationApplied: state.contractMigrationApplied,
-      target: state.source
-    },
+    manifestSha256: state.manifestSha256,
+    candidateSourceRevision: state.candidateSourceRevision,
+    currentSchema: state.currentSchema,
+    rollback: { allowed: false },
     stages,
     recoveries,
     artifacts,
@@ -304,6 +435,9 @@ function collectAuxiliaryEvidence(inputs, errors, state) {
     try {
       const parsed = readJson(file)
       validateAuxiliaryEvidence(name, parsed, state, errors)
+      if (name === 'releaseManifest' && fileMetadata(file).sha256 !== `sha256:${state.manifestSha256}`) {
+        errors.push('releaseManifest: complete manifest bytes differ from durable rollout binding')
+      }
       auxiliary[name] = { ...fileMetadata(file), schema: parsed.schema ?? null, status: parsed.status ?? null }
     } catch (error) {
       errors.push(`${name}: ${message(error)}`)
@@ -313,249 +447,51 @@ function collectAuxiliaryEvidence(inputs, errors, state) {
 }
 
 function validateAuxiliaryEvidence(name, value, state, errors) {
-  if (!value || typeof value !== 'object' || Array.isArray(value)) {
-    errors.push(`${name}: auxiliary evidence must be a JSON object`)
-    return
-  }
-  if (value.rolloutId !== undefined && value.rolloutId !== state.rolloutId) errors.push(`${name}: rolloutId mismatch`)
-  if (value.releaseId !== undefined && name !== 'releaseManifest'
-    && ![state.source.releaseId, state.target.releaseId].includes(value.releaseId)) errors.push(`${name}: releaseId is outside rollout identities`)
-  if (value.target?.releaseId !== undefined && value.target.releaseId !== state.target.releaseId) errors.push(`${name}: target release mismatch`)
-    if (value.source?.releaseId !== undefined && value.source.releaseId !== state.source.releaseId) {errors.push(`${name}: source release mismatch`)};
-    if (Array.isArray(value.errors) && value.errors.length > 0) {errors.push(`${name}: errors must be empty`)};
-    if (name === 'releaseManifest')
+  validateAuxiliaryEvidenceContract(name, value, state, errors)
+}
+
+function verifyFinalEvidence(file)
 {
-        if (value.schema !== 'fsusblog.release-manifest.v2'
-      || value.releaseId !== state.target.releaseId
-      || value.imageDigest !== state.target.imageDigest)
-{
-            errors.push(`${name}: immutable target identity mismatch`);
+    try
+    {
+        return verifyReleaseRolloutEvidence(JSON.parse(readEvidenceBytes(file).toString('utf8')), {
+            evidencePath: path.resolve(file),
+            now: Date.now(),
+            readBytes: readEvidenceBytes
+        });
     }
-    return
-  }
-  if (name === 'operatorNote') {
-    if (value.schema !== 'fsusblog.release-rollout-operator-note.v1'
-      || value.rolloutId !== state.rolloutId
-      || typeof value.provided !== 'boolean'
-      || typeof value.note !== 'string'
-      || value.note.length > 4000) {
-      errors.push(`${name}: structured operator note is invalid`)
-    }
-    return
-  }
-  if (name === 'publicAotWarm') {
-    const publicAotErrors = validatePublicAotWarmEvidence(value, {
-      expectedRelease: state.target.releaseId,
-      expectedSlot: state.target.slot,
-      expectedPublicOrigin: value.expectedPublicOrigin,
-      requireScope: 'all',
-      maxAgeSeconds: Number.MAX_SAFE_INTEGER
-    })
-        errors.push(...publicAotErrors.map((error) => `${name}: ${error}`));
-        return;
-    }
-    const targetGeneration = Number(state.target.runtimeGeneration ?? state.target.generation);
-    if (name === 'challengeKindCutoverReceipt')
-{
-        if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-receipt.v1'
-      || value.accepted !== true || value.status !== 'applied' || value.dryRun !== false
-      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration)
-{
-            errors.push(`${name}: applied receipt is not bound to the target release fence`);
-        }
-        return;
-    }
-    if (name === 'challengeKindCutoverAcceptance')
-{
-        if (value.schemaVersion !== 'fsus.security-challenge-kind-cutover-acceptance.v1'
-      || value.accepted !== true || value.releaseId !== state.target.releaseId
-      || value.slot !== state.target.slot || value.generation !== targetGeneration)
-{
-            errors.push(`${name}: verifier acceptance is not bound to the target release fence`);
-        }
-        return;
-    }
-    if (name === 'challengeKindCutoverGate')
-{
-        if (value.schema !== 'fsusblog.release-challenge-kind-cutover-gate.v1'
-      || value.status !== 'pass' || value.rolloutId !== state.rolloutId
-      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration
-      || value.lifecycle?.destructiveCutoverStarted !== true
-      || value.lifecycle?.activationCommitted !== false
-      || value.lifecycle?.stage !== 'source-drain'
-      || value.bindings?.backendFence !== true || value.bindings?.frontend !== true
-      || value.bindings?.staticAssets !== true || value.bindings?.cutover !== true
-      || value.bindings?.perceptionCharacterV3 !== true)
-{
-            errors.push(`${name}: cross-layer target binding gate is invalid`);
-        }
-        return;
-    }
-    if (name === 'perceptionCharacterV3Cutover')
-{
-        if (value.schemaVersion !== 'fsus.security.perception-character-v3-cutover-receipt.v1'
-      || value.accepted !== true || value.status !== 'activated' || value.dryRun !== false
-      || value.releaseId !== state.target.releaseId || value.slot !== state.target.slot
-      || value.generation !== targetGeneration)
-{
-            errors.push(`${name}: V3 cutover is not bound to the target release fence`);
-        }
-        return;
-    }
-    if (value.status !== undefined && !['pass', 'ok', 'healthy', 'completed', 'dry-run'].includes(value.status))
-{
-        errors.push(`${name}: status is not successful`);
+    catch (error)
+    {
+        return { schema: 'fsusblog.release-rollout-evidence-verification.v1', status: 'fail', errors: [message(error)] };
     }
 }
 
-function verifyFinalEvidence(file) {
-  const errors = []
-  let evidence
-  try {
-    evidence = readJson(file)
-  } catch (error) {
-    return { schema: 'fsusblog.release-rollout-evidence-verification.v1', status: 'fail', errors: [message(error)] }
-  }
-  if (evidence.schema !== FINAL_SCHEMA) errors.push(`schema must be ${FINAL_SCHEMA}`)
-  if (evidence.status !== 'pass') errors.push('rollout evidence status must be pass')
-  if (!Array.isArray(evidence.errors) || evidence.errors.length !== 0) errors.push('rollout evidence errors must be empty')
-  if (!Array.isArray(evidence.stages) || evidence.stages.map(item => item.stage).join('\n') !== ROLLOUT_STAGES.join('\n')) {
-    errors.push('rollout evidence stage order is incomplete')
-  } else {
-    for (const expectedStage of ROLLOUT_STAGES) {
-      const stage = evidence.stages.find(item => item.stage === expectedStage)
-      const metadata = stage?.evidence
-      if (!metadata || !/^sha256:[0-9a-f]{64}$/u.test(String(metadata.sha256 ?? ''))) {
-        errors.push(`rollout stage evidence is invalid: ${expectedStage}`)
-        continue
-      }
-      try {
-        const current = fileMetadata(metadata.path)
-        if (current.sha256 !== metadata.sha256 || current.bytes !== metadata.bytes) {
-          errors.push(`stage evidence changed after seal: ${expectedStage}`)
-          continue
+function readEvidenceBytes(file)
+{
+    const resolved = path.resolve(file);
+    const descriptor = fs.openSync(resolved, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    try
+    {
+        const before = fs.fstatSync(descriptor, { bigint: true });
+        if (!before.isFile())
+        {
+            throw new Error(`evidence input must be a regular non-symlink file: ${resolved}`);
         }
-        const parsed = readJson(metadata.path)
-        if (parsed.schema !== STAGE_SCHEMA || parsed.rolloutId !== evidence.rolloutId || parsed.stage !== expectedStage || parsed.status !== 'ok') {
-          errors.push(`stage evidence identity/status is invalid: ${expectedStage}`)
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor, { bigint: true });
+        const current = fs.lstatSync(resolved, { bigint: true });
+        if (!current.isFile() || current.isSymbolicLink()
+            || ['dev', 'ino', 'size', 'mtimeNs', 'ctimeNs'].some(field => before[field] !== after[field]
+                || current[field] !== after[field]))
+        {
+            throw new Error(`evidence input changed while reading: ${resolved}`);
         }
-        for (const stream of ['stdout', 'stderr']) {
-          const output = parsed.output?.[stream]
-          if (!output) continue
-          const currentOutput = fileMetadata(output.path)
-          if (currentOutput.sha256 !== output.sha256 || currentOutput.bytes !== output.bytes) {
-            errors.push(`stage ${expectedStage} ${stream} changed after seal`)
-          }
-        }
-      } catch (error) {
-        errors.push(`${expectedStage}: ${message(error)}`)
-      }
-      if (!Array.isArray(stage.attemptEvidence) || stage.attemptEvidence.length !== stage.attempts) {
-        errors.push(`rollout stage attempt evidence is incomplete: ${expectedStage}`)
-      } else {
-        for (const attempt of stage.attemptEvidence) {
-          if (!attempt.evidence) {
-            errors.push(`rollout stage attempt evidence is invalid: ${expectedStage} attempt ${attempt.attempt ?? '<missing>'}`)
-            continue
-          }
-          try {
-            const currentAttempt = fileMetadata(attempt.evidence.path)
-            if (currentAttempt.sha256 !== attempt.evidence.sha256 || currentAttempt.bytes !== attempt.evidence.bytes) {
-              errors.push(`stage attempt evidence changed after seal: ${expectedStage} attempt ${attempt.attempt}`)
-              continue
-            }
-            const parsedAttempt = readJson(attempt.evidence.path)
-            if (parsedAttempt.schema !== STAGE_SCHEMA
-              || parsedAttempt.rolloutId !== evidence.rolloutId
-              || parsedAttempt.stage !== expectedStage
-              || parsedAttempt.status !== attempt.status) {
-              errors.push(`stage attempt evidence identity/status is invalid: ${expectedStage} attempt ${attempt.attempt}`)
-            }
-            for (const stream of ['stdout', 'stderr']) {
-              const output = parsedAttempt.output?.[stream]
-              if (!output) continue
-              const currentOutput = fileMetadata(output.path)
-              if (currentOutput.sha256 !== output.sha256 || currentOutput.bytes !== output.bytes) {
-                errors.push(`stage ${expectedStage} attempt ${attempt.attempt} ${stream} changed after seal`)
-              }
-            }
-          } catch (error) {
-            errors.push(`${expectedStage} attempt ${attempt.attempt ?? '<missing>'}: ${message(error)}`)
-          }
-        }
-      }
+        return bytes;
     }
-  }
-  if (!Array.isArray(evidence.recoveries)) {
-    errors.push('rollout evidence recoveries must be an array')
-  } else {
-    validateRecoveryResolution(evidence.recoveries, errors)
-    for (const recovery of evidence.recoveries) {
-      if (!['ok', 'failed'].includes(recovery.status) || !recovery.evidence) {
-        errors.push(`rollout recovery evidence is invalid: ${recovery.action ?? '<missing>'}`)
-        continue
-      }
-      try {
-        const current = fileMetadata(recovery.evidence.path)
-        if (current.sha256 !== recovery.evidence.sha256 || current.bytes !== recovery.evidence.bytes) {
-          errors.push(`recovery evidence changed after seal: ${recovery.action}`)
-        }
-      } catch (error) {
-        errors.push(`recovery ${recovery.action}: ${message(error)}`)
-      }
+    finally
+    {
+        fs.closeSync(descriptor);
     }
-  }
-  const artifactNames = Object.keys(evidence.artifacts ?? {})
-  if (artifactNames.join('\n') !== REQUIRED_FINAL_ARTIFACTS.join('\n')) {
-    errors.push('rollout evidence artifact set must be the exact allowlist')
-  }
-  for (const name of REQUIRED_FINAL_ARTIFACTS) {
-    const artifact = evidence.artifacts?.[name]
-    if (!artifact || artifact.status === 'fail' || !/^sha256:[0-9a-f]{64}$/u.test(String(artifact.sha256 ?? ''))) {
-      errors.push(`rollout evidence artifact is invalid: ${name}`)
-      continue
-    }
-    try {
-      const current = fileMetadata(artifact.path)
-      if (current.sha256 !== artifact.sha256 || current.bytes !== artifact.bytes) errors.push(`artifact changed after seal: ${name}`)
-      const parsed = readJson(artifact.path)
-      if (parsed.rolloutId !== evidence.rolloutId) errors.push(`${name}: rolloutId does not match sealed rollout`)
-      if (parsed.target?.releaseId !== undefined && parsed.target.releaseId !== evidence.target?.releaseId) errors.push(`${name}: target release does not match sealed rollout`)
-      if (parsed.target?.imageDigest !== undefined && parsed.target.imageDigest !== evidence.target?.imageDigest) errors.push(`${name}: target digest does not match sealed rollout`)
-      if (parsed.sourceReleaseId !== undefined && parsed.sourceReleaseId !== evidence.source?.releaseId) errors.push(`${name}: source release does not match sealed rollout`)
-      if (parsed.targetReleaseId !== undefined && parsed.targetReleaseId !== evidence.target?.releaseId) errors.push(`${name}: target release does not match sealed rollout`)
-      validateSemanticArtifact(name, parsed, errors)
-    } catch (error) {
-      errors.push(`${name}: ${message(error)}`)
-    }
-  }
-  const auxiliaryNames = Object.keys(evidence.auxiliary ?? {})
-  if (auxiliaryNames.join('\n') !== REQUIRED_AUXILIARY_EVIDENCE.join('\n')) {
-    errors.push('rollout evidence auxiliary set is incomplete or out of order')
-  }
-  for (const name of REQUIRED_AUXILIARY_EVIDENCE) {
-    const metadata = evidence.auxiliary?.[name]
-    if (!metadata || !/^sha256:[0-9a-f]{64}$/u.test(String(metadata.sha256 ?? ''))) {
-      errors.push(`rollout auxiliary evidence is invalid: ${name}`)
-      continue
-    }
-    try {
-      const current = fileMetadata(metadata.path)
-      if (current.sha256 !== metadata.sha256 || current.bytes !== metadata.bytes) errors.push(`auxiliary evidence changed after seal: ${name}`)
-      validateAuxiliaryEvidence(name, readJson(metadata.path), evidence, errors)
-    } catch (error) {
-      errors.push(`${name}: ${message(error)}`)
-    }
-  }
-  return {
-    schema: 'fsusblog.release-rollout-evidence-verification.v1',
-    status: errors.length === 0 ? 'pass' : 'fail',
-    rolloutId: evidence.rolloutId ?? null,
-    evidence: path.resolve(file),
-    errors
-  }
 }
 
 function validateSemanticArtifact(name, value, errors) {
@@ -609,7 +545,7 @@ function validateSemanticArtifact(name, value, errors) {
     if (!value.checks || Object.values(value.checks).some(check => check !== true)) errors.push(`${name}: one or more resource checks did not pass`)
   } else if (name === 'faultInjection') {
     const requiredCases = [
-      'manifest-digest-mismatch', 'capacity-insufficient', 'expand-failure', 'candidate-readiness',
+      'manifest-digest-mismatch', 'capacity-insufficient', 'current-admission-failure', 'candidate-readiness',
       'asset-hash-mismatch', 'gateway-reload-failure', 'active-fence-failure', 'public-probe-failure',
       'drain-timeout', 'source-stop-failure', 'host-interruption', 'redis-disconnect', 'postgres-disconnect'
     ]

@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/register-public-shell-finite-input.mjs"
+            ],
+            "reason": "Preserve Node process argument and canonical Git environment spelling while source-root, replay and source symbols keep the repository internal naming convention."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh"
+            ],
+            "reason": "Retain the existing process environment, child argument and readiness protocol names in the byte-identical parent shell source."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/release-final-execution-authority-index.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing execution-index and canonical authority schema keys, parser identities and external runtime-module-path identifiers while binding actual reviewed source and output bytes."
+        }
+    ]
+}

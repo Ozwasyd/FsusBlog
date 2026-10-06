@@ -1,3 +1,4 @@
+import { retainExecutionFailureCompatibility, createExecutionFailureOwner, observeExecutionFailure, retainExecutionFailure, throwExecutionFailure, executionFailureDataProperty } from './execution-failure-diagnostic.mjs';
 import { spawn, spawnSync } from 'node:child_process';
 import { createHash, generateKeyPairSync, randomUUID, sign } from 'node:crypto';
 import fs from 'node:fs';
@@ -6,22 +7,32 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+const { prepareProductionSystemdServiceAdmission } = await import(new URL('../test-matrix/production-systemd-resource-boundary.mjs', import.meta.url));
+const { digestCanonical, freezeDeep } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
+
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
+import { inspectOwnedPrivateTmp } from './execution-envelope-directories.mjs';
 import {
     tmpIdentity,
     verifyPrivateDotnetScratchBinding,
     verifyPrivateTmpNamespace
 } from './physical-execution-private-dotnet-scratch.mjs';
-import { createPhysicalExecutionOutputTracker } from './physical-execution-process-tree.mjs';
+import { createPhysicalExecutionOutputTracker, residentServiceOutputSchema,
+    resourceServiceContainmentIsComplete, resourceServiceContainmentSchema } from './physical-execution-process-tree.mjs';
+import { systemdSenderReadyIsComplete, verifySystemdSenderTerminal } from './physical-execution-systemd-sender.mjs';
+import { inspectOriginalNativeInputCarrier, beginOriginalNativeInputServiceRetention, retainOriginalNativeInputPreparedService, prepareOriginalNativeInputReceive,
+    validateOriginalNativeInputRegistration } from './physical-execution-native-input-carrier.mjs';
 import {
     collectProcessGroupOrJobIdentity,
-    collectProcessIdentity
+    collectProcessIdentity,
+    processIdentityStatus
 } from './process-identity.mjs';
 
 const bootstrap = path.join(
     path.dirname(fileURLToPath(import.meta.url)),
     'physical-execution-linux-systemd-bootstrap.mjs'
 );
+const senderBootstrap = path.join(path.dirname(fileURLToPath(import.meta.url)), 'physical-execution-systemd-sender.mjs');
 
 function executableSnapshot(command, environment, cwd)
 {
@@ -79,6 +90,8 @@ function delay(milliseconds)
     return new Promise((resolve) => setTimeout(resolve, milliseconds));
 }
 
+const waitForFileCancellationReasons = new WeakMap();
+
 class WaitForFileCancellation extends Error
 {
     constructor(phase, reason)
@@ -86,24 +99,13 @@ class WaitForFileCancellation extends Error
         super(`physical execution ${phase} aborted`);
         this.name = 'WaitForFileCancellation';
         this.reason = reason;
+        waitForFileCancellationReasons.set(this, reason);
     }
 }
 
 function cancellationPrimary(reason)
 {
-    if (reason instanceof Error)
-    {
-        return reason;
-    }
-    const safeReason = ['string', 'number', 'boolean'].includes(typeof reason)
-        ? reason
-        : reason == null
-      ? null
-      : '[non-error abort reason]';
-    const error = new Error('physical execution cancelled', { cause: safeReason });
-    error.name = 'AbortError';
-    error.abortReason = safeReason;
-    return error;
+    return reason;
 }
 
 function systemctl(args)
@@ -163,6 +165,7 @@ function unitProperties(unitName, runSystemctl)
         '--property=ProtectHome',
         '--property=ProtectSystem',
         '--property=ReadWritePaths',
+        '--property=BindPaths',
         '--no-pager'
     ];
     let result;
@@ -229,7 +232,8 @@ function waitForFile({
     intervalMs,
     signal,
     deadlineAt = Number.POSITIVE_INFINITY,
-    getChildError = () => null
+    getChildError = () => null,
+    allowExitedChild = false
 })
 {
     return new Promise((resolve, reject) =>
@@ -269,7 +273,7 @@ function waitForFile({
                 finish(reject, childError);
                 return;
             }
-            if (child.exitCode !== null || child.signalCode !== null)
+            if (!allowExitedChild && (child.exitCode !== null || child.signalCode !== null))
             {
                 finish(
                     reject,
@@ -294,9 +298,10 @@ function waitForFile({
     });
 }
 
-function writePrivateJsonFile(controlRoot, name, value)
+function writePrivateJsonFile(controlRoot, name, value, { durable = false } = {})
 {
     const file = path.join(controlRoot, name);
+    const temporary = `${file}.next-${randomUUID()}`;
     const serialized = JSON.stringify(value);
     if (typeof serialized !== 'string')
     {
@@ -307,14 +312,36 @@ function writePrivateJsonFile(controlRoot, name, value)
     fs.constants.O_EXCL |
     (fs.constants.O_NOFOLLOW ?? 0);
     let descriptor;
+    let temporaryCreated = false;
     try
     {
-        descriptor = fs.openSync(file, flags, 0o600);
+        descriptor = fs.openSync(temporary, flags, 0o600);
+        temporaryCreated = true;
         fs.writeFileSync(descriptor, `${serialized}\n`, 'utf8');
         const stat = fs.fstatSync(descriptor);
         if (!stat.isFile() || (stat.mode & 0o777) !== 0o600)
         {
             throw new Error(`physical execution private carrier ${name} is not a regular 0600 file`);
+        }
+        if (durable)
+        {
+            fs.fsyncSync(descriptor);
+        }
+        // Publish complete bytes without replacing an existing carrier or symlink.
+        fs.linkSync(temporary, file);
+        fs.unlinkSync(temporary);
+        temporaryCreated = false;
+        if (durable)
+        {
+            const directory = fs.openSync(controlRoot, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+            try
+            {
+                fs.fsyncSync(directory);
+            }
+            finally
+            {
+                fs.closeSync(directory);
+            }
         }
     }
     finally
@@ -323,7 +350,184 @@ function writePrivateJsonFile(controlRoot, name, value)
         {
             fs.closeSync(descriptor);
         }
+        if (temporaryCreated)
+        {
+            fs.unlinkSync(temporary);
+        }
     }
+}
+
+/** Prepare exact private files before a nonblocking resident service can open its output. */
+export function prepareResidentServiceOutput(controlRoot)
+{
+    const directory = fs.lstatSync(controlRoot);
+    if (!directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== process.getuid()
+        || (directory.mode & 0o077) !== 0 || fs.realpathSync(controlRoot) !== controlRoot)
+    {
+        throw new Error('resident service output requires a literal owned private control root');
+    }
+    const files = {};
+    for (const name of ['stdout', 'stderr'])
+    {
+        const file = path.join(controlRoot, `${name}.log`);
+        const descriptor = fs.openSync(file, fs.constants.O_WRONLY | fs.constants.O_CREAT |
+            fs.constants.O_EXCL | (fs.constants.O_NOFOLLOW ?? 0), 0o600);
+        try
+        {
+            const stat = fs.fstatSync(descriptor);
+            if (!stat.isFile() || stat.uid !== process.getuid() || (stat.mode & 0o777) !== 0o600
+                || stat.nlink !== 1)
+            {
+                throw new Error(`resident service ${name} output is not an owned private file`);
+            }
+            fs.fsyncSync(descriptor);
+            files[name] = { path: file, device: stat.dev, inode: stat.ino };
+        }
+        finally
+        {
+            fs.closeSync(descriptor);
+        }
+    }
+    const descriptor = fs.openSync(controlRoot, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    try
+    {
+        fs.fsyncSync(descriptor);
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+    return Object.freeze({ schema: residentServiceOutputSchema,
+        controlRoot: { path: controlRoot, device: directory.dev, inode: directory.ino }, files });
+}
+
+function residentOutputFile(carrier)
+{
+    const stat = fs.lstatSync(carrier.path);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.uid !== process.getuid()
+        || (stat.mode & 0o777) !== 0o600 || stat.dev !== carrier.device || stat.ino !== carrier.inode
+        || fs.realpathSync(carrier.path) !== carrier.path)
+    {
+        throw new Error('resident service output carrier identity changed');
+    }
+    return stat;
+}
+
+function residentOutputDigest(carrier)
+{
+    const descriptor = fs.openSync(carrier.path, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    try
+    {
+        const before = fs.fstatSync(descriptor);
+        if (before.dev !== carrier.device || before.ino !== carrier.inode || before.nlink !== 1
+            || before.uid !== process.getuid() || (before.mode & 0o777) !== 0o600)
+        {
+            throw new Error('resident service output descriptor identity changed');
+        }
+        const digest = createHash('sha256');
+        const buffer = Buffer.alloc(64 * 1024);
+        let bytes = 0;
+        let read;
+        while ((read = fs.readSync(descriptor, buffer, 0, buffer.length, null)) > 0)
+        {
+            bytes += read;
+            digest.update(buffer.subarray(0, read));
+        }
+        const after = fs.fstatSync(descriptor);
+        if (bytes !== before.size || after.size !== before.size || after.mtimeMs !== before.mtimeMs
+            || after.ctimeMs !== before.ctimeMs)
+        {
+            throw new Error('resident service output changed during digest read-back');
+        }
+        return { path: carrier.path, device: carrier.device, inode: carrier.inode,
+            byteCount: bytes, digest: `sha256:${digest.digest('hex')}` };
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+}
+
+function assertResidentOutputWritersAbsent(carriers, members, supervisorPid)
+{
+    const identities = Object.values(carriers.files).map((file) => `${file.device}:${file.inode}`);
+    for (const pid of members)
+    {
+        if (!Number.isSafeInteger(pid) || pid <= 0)
+        {
+            throw new Error('resident service output member identity is invalid');
+        }
+        if (pid === supervisorPid)
+        {
+            continue;
+        }
+        const directory = `/proc/${pid}/fd`;
+        for (const entry of fs.readdirSync(directory))
+        {
+            const stat = fs.statSync(path.join(directory, entry));
+            if (identities.includes(`${stat.dev}:${stat.ino}`))
+            {
+                throw new Error(`resident service member ${pid} retains the producer output descriptor`);
+            }
+        }
+    }
+}
+
+/** Capture a stable prefix; the live service and final output read-back remain with the caller's owner. */
+export async function captureResidentServiceOutput(carriers, {
+    readMembers,
+    supervisorPid,
+    outputTracker
+})
+{
+    const directory = fs.lstatSync(carriers?.controlRoot?.path);
+    if (!directory.isDirectory() || directory.isSymbolicLink() || directory.uid !== process.getuid()
+        || directory.dev !== carriers.controlRoot.device || directory.ino !== carriers.controlRoot.inode
+        || (directory.mode & 0o077) !== 0 || fs.realpathSync(carriers.controlRoot.path) !== carriers.controlRoot.path
+        || typeof readMembers !== 'function'
+        || (supervisorPid !== null && (!Number.isSafeInteger(supervisorPid) || supervisorPid <= 0))
+        || typeof outputTracker?.attach !== 'function' || typeof outputTracker.close !== 'function')
+    {
+        throw new Error('resident service output capture authority is incomplete');
+    }
+    const beforeMembers = readMembers();
+    if (!Array.isArray(beforeMembers) || (supervisorPid === null
+        ? beforeMembers.length !== 0 : !beforeMembers.includes(supervisorPid)))
+    {
+        throw new Error('resident service output capture lacks its exact live supervisor');
+    }
+    assertResidentOutputWritersAbsent(carriers, beforeMembers, supervisorPid);
+    const before = Object.fromEntries(Object.entries(carriers.files).map(([name, carrier]) =>
+        [name, residentOutputFile(carrier)]));
+    for (const name of ['stdout', 'stderr'])
+    {
+        outputTracker.attach(fs.createReadStream(carriers.files[name].path, {
+            flags: fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0)
+        }), name);
+    }
+    const output = await outputTracker.close();
+    const afterMembers = readMembers();
+    if (!output.logComplete || JSON.stringify(afterMembers) !== JSON.stringify(beforeMembers))
+    {
+        throw new Error('resident service output capture or member roster changed');
+    }
+    assertResidentOutputWritersAbsent(carriers, afterMembers, supervisorPid);
+    const outputFiles = {};
+    for (const name of ['stdout', 'stderr'])
+    {
+        const after = residentOutputFile(carriers.files[name]);
+        if (after.size !== before[name].size || after.mtimeMs !== before[name].mtimeMs
+            || after.ctimeMs !== before[name].ctimeMs)
+        {
+            throw new Error(`resident service ${name} output changed during capture`);
+        }
+        outputFiles[name] = residentOutputDigest(carriers.files[name]);
+    }
+    if (JSON.stringify(readMembers()) !== JSON.stringify(beforeMembers))
+    {
+        throw new Error('resident service output member roster changed after digest read-back');
+    }
+    return { ...output, outputFiles };
 }
 
 function createControlRoot({ env, linuxReadWritePaths })
@@ -435,20 +639,82 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             linuxPrivateNetwork = false,
             linuxNetworkPolicy = null,
             linuxReadWritePaths = [],
+            linuxOwnedPrivateTmp = null,
+            originalNativeInputCarrier = null,
             privateDotnetScratch = null,
             signal,
             policy,
             stdout,
             stderr,
             schema,
-            outputTracker = null
+            outputTracker = null,
+            resourceBoundary = null,
+            resourceContext = null,
+            processOwner = null,
+            residentServiceOutput = false,
+            observePhysicalExecution = () => {}
         })
         {
             requireSystemdAuthority(runSystemctl);
+            const ownedPrivateTmp = linuxOwnedPrivateTmp
+                ? inspectOwnedPrivateTmp(linuxOwnedPrivateTmp, { environment: env, readWritePaths: linuxReadWritePaths })
+                : null;
+            if (ownedPrivateTmp && (/[\s:\\]/u.test(ownedPrivateTmp.source)
+                || ['/tmp', '/var/tmp'].some((directory) => ownedPrivateTmp.source === directory
+                    || ownedPrivateTmp.source.startsWith(`${directory}/`))))
+            {
+                throw new Error('private /tmp alias path cannot be represented exactly by systemd');
+            }
+            const hostTmp = ownedPrivateTmp ? fs.statSync('/tmp', { bigint: true }) : null;
+            const privateTmpPlan = ownedPrivateTmp ? {
+                ...ownedPrivateTmp,
+                hostMountNamespace: fs.readlinkSync('/proc/self/ns/mnt'),
+                hostTmpDevice: String(hostTmp.dev),
+                hostTmpInode: String(hostTmp.ino)
+            } : null;
+            const nativeCarrier = originalNativeInputCarrier === null ? null
+                : inspectOriginalNativeInputCarrier(originalNativeInputCarrier, { command }).descriptor;
+            if (originalNativeInputCarrier !== null && (!nativeCarrier || !privateTmpPlan || !processOwner
+                || !resourceBoundary || residentServiceOutput
+                || digestCanonical(processOwner.nativeInputCarrier) !== digestCanonical(nativeCarrier)))
+                throw new Error('required native inputs lack their original retained direct process carrier');
+            if (resourceBoundary === null && resourceContext !== null)
+            {
+                throw new Error('systemd resource execution context requires its live boundary capability');
+            }
+            if (processOwner !== null && (resourceBoundary === null
+                || typeof processOwner.retain !== 'function' || typeof processOwner.beforeCreation !== 'function'
+                || typeof processOwner.register !== 'function'
+                || !Number.isSafeInteger(processOwner.commandBudgetMs) || processOwner.commandBudgetMs <= 0))
+            {
+                throw new Error('systemd service process owner requires resource admission, retention, registration and an explicit budget');
+            }
+            if (residentServiceOutput && (processOwner === null || resourceBoundary === null))
+            {
+                throw new Error('resident service output requires its original durable process and resource owners');
+            }
             const authorityId = randomUUID();
             const { privateKey, publicKey } = generateKeyPairSync('ed25519');
             let python;
             const unitName = `fsusblog-physical-${authorityId.replaceAll('-', '')}`;
+            // A serialized report or a slice name cannot replace the original owner's live capability.
+            const resourceAdmission = resourceBoundary === null ? null : prepareProductionSystemdServiceAdmission(
+                resourceBoundary, { unitName: `${unitName}.service`, authorityId, expectedContext: resourceContext }
+            );
+            if (resourceAdmission)
+            {
+                const literalCwd = path.resolve(cwd);
+                if (fs.realpathSync(literalCwd) !== literalCwd)
+                {
+                    throw new Error('systemd resource service requires a literal working directory');
+                }
+                const relative = path.relative(resourceContext.root, literalCwd);
+                if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative))
+                {
+                    throw new Error('systemd resource service working directory escapes its bound repository');
+                }
+                cwd = literalCwd;
+            }
             const hostMountNamespace = privateDotnetScratch
                 ? fs.readlinkSync('/proc/self/ns/mnt') : null;
             const hostTmpIdentity = privateDotnetScratch ? tmpIdentity('/tmp') : null;
@@ -456,11 +722,22 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 env,
                 linuxReadWritePaths
             });
+            let residentOutput = null;
+            try
+            {
+                residentOutput = residentServiceOutput ? prepareResidentServiceOutput(controlRoot) : null;
+            }
+            catch (error)
+            {
+                removeControlRoot(controlRoot);
+                throw error;
+            }
             const readyFile = path.join(controlRoot, 'ready');
             const startFile = path.join(controlRoot, 'start');
             const childFile = path.join(controlRoot, 'child.json');
             const resultFile = path.join(controlRoot, 'result.json');
             const finalizeFile = path.join(controlRoot, 'finalize');
+            let containmentAuthority = null;
             let privateDotnetScratchReceipt = null;
             let privateTmpMountNamespace = null;
             const removeUnestablishedRoot = (primaryError) =>
@@ -471,7 +748,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 }
                 catch (removeError)
                 {
-                    primaryError.physicalExecutionFinalizeError = {
+                    retainExecutionFailureCompatibility(primaryError, 'physicalExecutionFinalizeError', {
                         name: removeError.name,
                         message: `control root removal failed: ${removeError.message}`,
                         cleanup: {
@@ -481,7 +758,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                             knownRuntimeResiduals: [],
                             controlRoot
                         }
-                    };
+                    });
                 }
             };
             try
@@ -503,10 +780,59 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     authorityId,
                     publicKey: publicKey.export({ type: 'spki', format: 'pem' }),
                     python,
+                    privateTmpPlan,
+                    ...(nativeCarrier ? { nativeInputCarrier: nativeCarrier, nativeInputHandshakeTimeoutMs: handshakeTimeoutMs } : {}),
                     privateDotnetScratch: privateDotnetScratch
                         ? { ...privateDotnetScratch, unitName, hostMountNamespace, hostTmpIdentity }
                         : null
                 });
+                if (resourceAdmission)
+                {
+                    if (processOwner)
+                    {
+                        const stat = fs.lstatSync(controlRoot);
+                        if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid()
+                            || (stat.mode & 0o077) !== 0 || fs.realpathSync(controlRoot) !== controlRoot)
+                        {
+                            throw new Error('systemd process intent requires its exact private control carrier');
+                        }
+                        containmentAuthority = freezeDeep({ schema: resourceServiceContainmentSchema,
+                            platform: 'linux', kind: 'systemd-resource-service', authorityId, killPolicy: 'control-group',
+                            phase: 'prepared', createdAt: new Date().toISOString(), serviceBinding: resourceAdmission.serviceBinding,
+                            commandBudgetMs: processOwner.commandBudgetMs,
+                            nestedChannel: processOwner.nestedChannel ?? null,
+                            ...(nativeCarrier ? { nativeInputCarrier: nativeCarrier } : {}),
+                            controlRoot: { path: controlRoot, device: stat.dev, inode: stat.ino },
+                            supervisorProcessIdentity: null, creationSender: null,
+                            ...(residentOutput ? { residentOutput } : {}) });
+                        if (!resourceServiceContainmentIsComplete(containmentAuthority))
+                        {
+                            throw new Error('systemd process creation intent is incomplete');
+                        }
+                    }
+                    writePrivateJsonFile(controlRoot, 'resource-boundary.json', {
+                        authorityId,
+                        unitName: resourceAdmission.unitName,
+                        sliceUnitName: resourceAdmission.sliceUnitName,
+                        description: resourceAdmission.description,
+                        reference: resourceAdmission.reference,
+                        containmentAuthority
+                    }, { durable: true });
+                    if (processOwner)
+                    {
+                        if (nativeCarrier) beginOriginalNativeInputServiceRetention(originalNativeInputCarrier, containmentAuthority);
+                        const acknowledgement = await processOwner.retain(containmentAuthority);
+                        if (acknowledgement?.authorityDigest !== digestCanonical(containmentAuthority))
+                        {
+                            throw new Error('systemd process intent lacks exact independent durable acknowledgement');
+                        }
+                        if (nativeCarrier) await retainOriginalNativeInputPreparedService(originalNativeInputCarrier, containmentAuthority);
+                        if (signal?.aborted)
+                        {
+                            throw new WaitForFileCancellation('process-intent', signal.reason);
+                        }
+                    }
+                }
             }
             catch (error)
             {
@@ -516,12 +842,19 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             const systemdArgs = [
                 '--user',
                 '--quiet',
-                '--wait',
-                '--pipe',
+                ...(residentOutput ? ['--no-block'] : ['--wait', '--pipe']),
                 '--collect',
                 '--service-type=exec',
                 '--property=KillMode=control-group',
                 '--property=ExitType=cgroup',
+                ...(resourceAdmission ? [
+                    `--property=Slice=${resourceAdmission.sliceUnitName}`,
+                    `--property=Description=${resourceAdmission.description}`
+                ] : []),
+                ...(residentOutput ? [
+                    `--property=StandardOutput=append:${residentOutput.files.stdout.path}`,
+                    `--property=StandardError=append:${residentOutput.files.stderr.path}`
+                ] : []),
                 ...(linuxPrivateNetwork ? ['--property=PrivateNetwork=yes'] : []),
                 ...(linuxNetworkPolicy ? [
                     `--property=IPAddressDeny=${linuxNetworkPolicy.deny}`,
@@ -531,6 +864,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     '--property=ProtectSystem=strict',
                     '--property=ProtectHome=read-only',
                     '--property=PrivateTmp=yes',
+                    ...(privateTmpPlan ? [`--property=BindPaths=${privateTmpPlan.source}:/tmp:norbind`] : []),
                     ...linuxReadWritePaths.map((entry) => `--property=ReadWritePaths=${entry}`)
                 ] : []),
                 `--working-directory=${cwd}`,
@@ -540,31 +874,176 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 controlRoot
             ];
             let child;
+            let gatedSender = null;
+            let childError = null;
+            let systemdRunSpawnError = null;
+            let childTerminal;
+            let childClosed;
+            let creationFailure = null;
+            let validatedSenderReady = null;
+            let beforeCreationAttempted = false;
+            let releaseDeliveryAttempted = false;
+            const creationCleanupFailures = [];
+            const executionOutput = outputTracker ??
+                createPhysicalExecutionOutputTracker({ policy, stdout, stderr });
+            const senderDiagnostics = { stdout: '', stderr: '', truncated: false };
+            const observeCreationChild = () =>
+            {
+                child.once('error', (error) =>
+                {
+                    systemdRunSpawnError = error;
+                    childError = error;
+                });
+                childTerminal = new Promise((resolve) =>
+                {
+                    if (child.exitCode !== null || child.signalCode !== null)
+                    {
+                        resolve({ exitCode: child.exitCode, signal: child.signalCode });
+                        return;
+                    }
+                    child.once('error', (error) => resolve({ exitCode: null, signal: null, error }));
+                    child.once('exit', (exitCode, childSignal) => resolve({ exitCode, signal: childSignal }));
+                });
+                childClosed = new Promise((resolve) =>
+                {
+                    if (child.exitCode !== null && child.stdout.destroyed && child.stderr.destroyed)
+                    {
+                        resolve(true);
+                    }
+                    else
+                    {
+                        child.once('close', () => resolve(true));
+                    }
+                });
+                if (residentOutput)
+                {
+                    for (const name of ['stdout', 'stderr'])
+                    {
+                        child[name].on('error', () => senderDiagnostics.truncated = true);
+                        child[name].on('data', (chunk) =>
+                        {
+                            const remaining = Math.max(0, 64 * 1024 - Buffer.byteLength(senderDiagnostics[name]));
+                            senderDiagnostics[name] += chunk.subarray(0, remaining).toString('utf8');
+                            senderDiagnostics.truncated ||= chunk.length > remaining;
+                        });
+                        child[name].resume();
+                    }
+                }
+                else
+                {
+                    executionOutput.attach(child.stdout, 'stdout');
+                    executionOutput.attach(child.stderr, 'stderr');
+                }
+            };
             try
             {
-                child = spawnProcess('systemd-run', systemdArgs, {
-                    cwd,
-                    env: controlEnv,
-                    stdio: ['ignore', 'pipe', 'pipe'],
-                    windowsHide: true
-                });
+                if (processOwner)
+                {
+                    if (signal?.aborted)
+                    {
+                        throw new WaitForFileCancellation('service-creation-attempt', signal.reason);
+                    }
+                    const senderPlan = { authorityId, args: systemdArgs, cwd };
+                    writePrivateJsonFile(controlRoot, 'sender-plan.json', senderPlan, { durable: true });
+                    gatedSender = spawnProcess(process.execPath, [senderBootstrap, controlRoot], {
+                        cwd, env: controlEnv, stdio: ['ignore', 'pipe', 'pipe', 'ipc'], windowsHide: true
+                    });
+                    child = gatedSender;
+                    observeCreationChild();
+                    const ready = await new Promise((resolve, reject) =>
+                    {
+                        const timer = setTimeout(() => finish(reject,
+                            new Error('systemd creation sender readiness timed out')), handshakeTimeoutMs);
+                        const finish = (settle, value) =>
+                        {
+                            clearTimeout(timer);
+                            gatedSender.off('message', onMessage);
+                            gatedSender.off('error', onError);
+                            gatedSender.off('exit', onExit);
+                            settle(value);
+                        };
+                        const onMessage = (message) => finish(resolve, message);
+                        const onError = (error) => finish(reject, error);
+                        const onExit = (code, childSignal) => finish(reject,
+                            new Error(`systemd creation sender exited before readiness: ${code ?? childSignal}`));
+                        gatedSender.once('message', onMessage);
+                        gatedSender.once('error', onError);
+                        gatedSender.once('exit', onExit);
+                    });
+                    if (!systemdSenderReadyIsComplete(ready)
+                        || ready.authorityId !== authorityId
+                        || ready.planDigest !== digestCanonical(senderPlan)
+                        || ready.processIdentity.pid !== gatedSender.pid
+                        || digestCanonical(readProcessIdentity(gatedSender.pid)) !== digestCanonical(ready.processIdentity))
+                    {
+                        throw new Error('systemd creation sender readiness differs from its exact live process and plan');
+                    }
+                    validatedSenderReady = ready;
+                    beforeCreationAttempted = true;
+                    const acknowledgement = await processOwner.beforeCreation(containmentAuthority, ready);
+                    const attempted = { ...containmentAuthority, phase: 'create-attempted', creationSender: ready };
+                    if (acknowledgement?.authorityDigest !== digestCanonical(attempted))
+                    {
+                        throw new Error('systemd service creation attempt lacks exact independent durable acknowledgement');
+                    }
+                    containmentAuthority = freezeDeep(attempted);
+                    if (signal?.aborted)
+                    {
+                        throw new WaitForFileCancellation('service-creation-attempt', signal.reason);
+                    }
+                    releaseDeliveryAttempted = true;
+                    await new Promise((resolve, reject) =>
+                    {
+                        child.send({ type: 'release', authorityId, planDigest: ready.planDigest }, (error) =>
+                        {
+                            if (error)
+                            {
+                                reject(error);
+                            }
+                            else
+                            {
+                                resolve();
+                            }
+                        });
+                    });
+                }
+                else
+                {
+                    child = spawnProcess('systemd-run', systemdArgs, {
+                        cwd, env: controlEnv, stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true
+                    });
+                    observeCreationChild();
+                }
             }
             catch (error)
             {
-                removeUnestablishedRoot(error);
-                throw error;
+                if (!gatedSender)
+                {
+                    removeUnestablishedRoot(error);
+                    throw error;
+                }
+
+                // A durable owner acknowledgement or IPC callback may fail after its action.
+                // Keep this first failure and reconcile the actual actor through the normal finalizer.
+                creationFailure = error instanceof Error
+                    ? error
+                    : new Error('systemd service creation failed', { cause: error });
+                if (gatedSender.connected)
+                {
+                    try
+                    {
+                        gatedSender.disconnect();
+                    }
+                    catch (disconnectError)
+                    {
+                        creationCleanupFailures.push({
+                            name: disconnectError.name,
+                            code: disconnectError.code ?? null,
+                            message: disconnectError.message
+                        });
+                    }
+                }
             }
-            let childError = null;
-            let systemdRunSpawnError = null;
-            child.once('error', (error) =>
-            {
-                systemdRunSpawnError = error;
-                childError = error;
-            });
-            const executionOutput = outputTracker ??
-                createPhysicalExecutionOutputTracker({ policy, stdout, stderr });
-            executionOutput.attach(child.stdout, 'stdout');
-            executionOutput.attach(child.stderr, 'stderr');
             const inventory = new Map();
             const lifecycle = ['created'];
             const termination = [];
@@ -575,24 +1054,46 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
             let commandPid;
             let commandProcessGroup = null;
             let executionAdmission = null;
+            let resourceExecutionAdmission = null;
             let authorityEstablished = false;
             let first;
             let outputEvidence = null;
-            const childTerminal = new Promise((resolve) =>
+            let residentTransferred = false;
+            const senderClosed = residentOutput ? childClosed : null;
+            const creationError = () => childError ?? (residentOutput && (child.exitCode !== null && child.exitCode !== 0
+                || child.signalCode !== null)
+                ? new Error(`nonblocking systemd sender failed before service handshake: ${child.exitCode ?? child.signalCode}`)
+                : null);
+            const verifyResidentSenderTerminal = async () =>
             {
-                if (child.exitCode !== null || child.signalCode !== null)
+                const sender = containmentAuthority?.creationSender;
+                if (!await Promise.race([senderClosed, delay(policy.pipeCloseTimeoutMs).then(() => false)]))
                 {
-                    resolve({ exitCode: child.exitCode, signal: child.signalCode });
-                    return;
+                    throw new Error('nonblocking systemd sender output did not close before the deadline');
                 }
-                child.once('error', (error) => resolve({ exitCode: null, signal: null, error }));
-                child.once('exit', (exitCode, childSignal) => resolve({ exitCode, signal: childSignal }));
-            });
+                const senderPlan = JSON.parse(fs.readFileSync(path.join(controlRoot, 'sender-plan.json'), 'utf8'));
+                const senderReceipt = JSON.parse(fs.readFileSync(path.join(controlRoot, 'sender-terminal.json'), 'utf8'));
+                if (!sender || digestCanonical(senderPlan) !== sender.planDigest
+                    || !verifySystemdSenderTerminal(senderReceipt, sender)
+                    || senderReceipt.submission !== 'sender-returned' || senderReceipt.exitCode !== 0
+                    || senderReceipt.signal !== null || senderReceipt.errorCode !== null
+                    || processIdentityStatus(sender.processIdentity).status !== 'dead'
+                    || senderDiagnostics.stdout !== '' || senderDiagnostics.stderr !== ''
+                    || senderDiagnostics.truncated)
+                {
+                    throw new Error('nonblocking systemd sender terminal or diagnostics are unverifiable');
+                }
+            };
             const runCleanupCommand = (args) =>
             {
                 let result;
                 try
                 {
+                    if (resourceAdmission && ['kill', 'stop'].includes(args[0]))
+                    {
+                        // Process ownership still owns termination; never touch a replaced or unknown service.
+                        resourceAdmission.assertOwnedOrAbsent();
+                    }
                     result = runSystemctl(args);
                 }
                 catch (error)
@@ -729,8 +1230,11 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 runCleanupCommand(stopArgs);
                 const resetArgs = ['reset-failed', unitName];
                 runCleanupCommand(resetArgs);
-                lifecycle.push('bounded-pipe-close');
-                outputEvidence = await executionOutput.close();
+                if (!residentOutput)
+                {
+                    lifecycle.push('bounded-pipe-close');
+                    outputEvidence = await executionOutput.close();
+                }
 
                 let zeroObservations = 0;
                 let lastProperties = null;
@@ -814,10 +1318,21 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     commands: cleanupCommands
                 };
             };
-            let primaryError = null;
+            const adapterFailureOwner = createExecutionFailureOwner();
+            let primaryError;
+            const hasPrimaryFailure = () => observeExecutionFailure(adapterFailureOwner).failed;
+            const recordPrimaryFailure = (reason) =>
+            {
+                retainExecutionFailure(adapterFailureOwner, reason);
+                primaryError = observeExecutionFailure(adapterFailureOwner).reason;
+            };
             let cleanup;
             try
             {
+                if (creationFailure)
+                {
+                    throw creationFailure;
+                }
                 await waitForFile({
                     file: readyFile,
                     phase: 'ready',
@@ -825,7 +1340,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     intervalMs: policy.observationIntervalMs,
                     signal,
                     deadlineAt: Date.now() + handshakeTimeoutMs,
-                    getChildError: () => childError
+                    getChildError: creationError,
+                    allowExitedChild: residentOutput !== null
                 });
                 properties = unitProperties(unitName, runSystemctl);
                 if (properties.status !== 'verified' || !properties.values.ControlGroup)
@@ -859,6 +1375,11 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 {
                     throw new Error('physical execution systemd filesystem authority is unverifiable');
                 }
+                if (privateTmpPlan && (properties.values.BindPaths !== `${privateTmpPlan.source}:/tmp`
+                    || !exactPropertyTokens(properties.values.ReadWritePaths, linuxReadWritePaths)))
+                {
+                    throw new Error('physical execution systemd owned /tmp binding is unverifiable');
+                }
                 authorityEstablished = true;
                 supervisorPid = Number(fs.readFileSync(readyFile, 'utf8').trim());
                 controlGroup = properties.values.ControlGroup;
@@ -879,6 +1400,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     throw new Error(`physical execution supervisor identity is unverifiable: ${supervisorIdentity.reason}`);
                 }
                 inventory.set(`${supervisorPid}:${supervisorIdentity.processStartIdentity}`, supervisorIdentity);
+                const nativeReceiveDeadlineAt = nativeCarrier ? Date.now() + handshakeTimeoutMs : null;
                 fs.writeFileSync(startFile, 'start\n', { mode: 0o600 });
                 await waitForFile({
                     file: childFile,
@@ -886,11 +1408,13 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     child,
                     intervalMs: policy.observationIntervalMs,
                     signal,
-                    deadlineAt: Date.now() + handshakeTimeoutMs,
-                    getChildError: () => childError
+                    deadlineAt: nativeReceiveDeadlineAt ?? Date.now() + handshakeTimeoutMs,
+                    getChildError: creationError,
+                    allowExitedChild: residentOutput !== null
                 });
                 const registrationBytes = fs.readFileSync(childFile, 'utf8').trim();
                 const childRegistration = JSON.parse(registrationBytes);
+                let finalRegistrationBytes = registrationBytes;
                 if (childRegistration.spawnError)
                 {
                     const spawnError = new Error(
@@ -909,6 +1433,8 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 {
                     throw new Error('physical execution pre-exec command admission is invalid');
                 }
+                if (nativeCarrier && digestCanonical(childRegistration.requiredNativeInputs) !== digestCanonical(nativeCarrier))
+                    throw new Error('native pre-exec registration omitted its exact required carrier');
                 const commandIdentity = readProcessIdentity(commandPid);
                 if (commandIdentity.status !== 'verified')
                 {
@@ -951,6 +1477,41 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 {
                     throw new WaitForFileCancellation('admission', signal.reason);
                 }
+                if (privateTmpPlan)
+                {
+                    inspectOwnedPrivateTmp(linuxOwnedPrivateTmp, { environment: env, readWritePaths: linuxReadWritePaths });
+                    const actual = childRegistration.ownedPrivateTmp;
+                    if (!actual || JSON.stringify(actual.plan) !== JSON.stringify(privateTmpPlan)
+                        || actual.mountNamespace === privateTmpPlan.hostMountNamespace
+                        || actual.sourceDevice !== privateTmpPlan.device || actual.sourceInode !== privateTmpPlan.inode
+                        || actual.aliasDevice !== actual.sourceDevice || actual.aliasInode !== actual.sourceInode
+                        || (actual.aliasDevice === privateTmpPlan.hostTmpDevice && actual.aliasInode === privateTmpPlan.hostTmpInode)
+                        || !actual.mountInfo || actual.aliasMode !== 0o700 || actual.aliasUid !== privateTmpPlan.uid)
+                    {
+                        throw new Error('physical execution kernel owned /tmp alias admission is unverifiable');
+                    }
+                }
+                if (resourceAdmission)
+                {
+                    resourceExecutionAdmission = resourceAdmission.admit(commandIdentity, controlGroup);
+                    if (processOwner)
+                    {
+                        containmentAuthority = freezeDeep({ ...containmentAuthority, phase: 'pre-exec',
+                            serviceBinding: resourceExecutionAdmission.serviceBinding, supervisorProcessIdentity: commandIdentity });
+                        const registered = await processOwner.register(commandIdentity, containmentAuthority);
+                        const retained = registered?.owner?.managedContainmentAuthorities?.find((entry) => entry.authorityId === authorityId);
+                        if (!retained || digestCanonical(retained) !== digestCanonical(containmentAuthority))
+                        {
+                            throw new Error('systemd process pre-exec registration lacks its exact independent durable receipt');
+                        }
+                        resourceExecutionAdmission = resourceAdmission.revalidate();
+                    }
+                    writePrivateJsonFile(controlRoot, 'resource-admitted.json', resourceExecutionAdmission, { durable: true });
+                    if (signal?.aborted)
+                    {
+                        throw new WaitForFileCancellation('resource-admission', signal.reason);
+                    }
+                }
                 executionAdmission = {
                     phase: 'pre-exec',
                     pid: commandPid,
@@ -958,11 +1519,56 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     commandDigest: `sha256:${createHash('sha256').update(JSON.stringify(command)).digest('hex')}`,
                     environmentDigest: childRegistration.environmentDigest,
                     executableCandidates: childRegistration.executables,
-                    executedImageObservation: 'not-observed'
+                    executedImageObservation: 'not-observed',
+                    ...(privateTmpPlan ? { ownedPrivateTmp: childRegistration.ownedPrivateTmp } : {})
                 };
+                if (nativeCarrier)
+                {
+                    const receive = await prepareOriginalNativeInputReceive(originalNativeInputCarrier, {
+                        authority: containmentAuthority, identity: commandIdentity, controlGroup,
+                        registration: childRegistration, registrationBytes });
+                    resourceExecutionAdmission = resourceAdmission.revalidate();
+                    inspectOriginalNativeInputCarrier(originalNativeInputCarrier, { command });
+                    signal?.throwIfAborted();
+                    const timeoutSeconds = (nativeReceiveDeadlineAt - Date.now()) / 1000;
+                    if (timeoutSeconds <= 0) throw new Error('native input original handshake budget expired');
+                    const instruction = JSON.stringify({ phase: 'receive-only', registrationSha256: receive.registrationSha256,
+                        carrier: receive.carrier, timeoutSeconds });
+                    writePrivateJsonFile(controlRoot, 'input-admission.json', { instruction,
+                        signature: sign(null, Buffer.from(instruction), privateKey).toString('base64') }, { durable: true });
+                    await waitForFile({ file: path.join(controlRoot, 'child-inputs.json'), phase: 'native-inputs', child,
+                        intervalMs: policy.observationIntervalMs, signal, deadlineAt: nativeReceiveDeadlineAt,
+                        getChildError: creationError });
+                    resourceExecutionAdmission = resourceAdmission.revalidate();
+                    inspectOriginalNativeInputCarrier(originalNativeInputCarrier, { command });
+                    const file = path.join(controlRoot, 'child-inputs.json');
+                    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+                    let finalRegistration;
+                    try
+                    {
+                        const before = fs.fstatSync(descriptor, { bigint: true });
+                        if (!before.isFile() || before.uid !== BigInt(process.getuid()) || before.nlink !== 1n
+                            || (before.mode & 0o7777n) !== 0o600n || before.size > 262144n)
+                            throw new Error('native final registration carrier is not bounded/private');
+                        finalRegistrationBytes = fs.readFileSync(descriptor, 'utf8').trim();
+                        const after = fs.fstatSync(descriptor, { bigint: true });
+                        const named = fs.lstatSync(file, { bigint: true });
+                        if (['dev', 'ino', 'uid', 'gid', 'mode', 'nlink', 'size', 'ctimeNs', 'mtimeNs']
+                            .some((key) => before[key] !== after[key] || after[key] !== named[key]))
+                            throw new Error('native final registration original epoch changed');
+                        finalRegistration = JSON.parse(finalRegistrationBytes);
+                    }
+                    finally { fs.closeSync(descriptor); }
+                    await validateOriginalNativeInputRegistration(originalNativeInputCarrier, childRegistration, finalRegistration);
+                    resourceExecutionAdmission = resourceAdmission.revalidate();
+                    inspectOriginalNativeInputCarrier(originalNativeInputCarrier, { command });
+                    signal?.throwIfAborted();
+                    if (Date.now() >= nativeReceiveDeadlineAt) throw new Error('native input final validation exceeded original handshake budget');
+                    executionAdmission.nativeInputs = finalRegistration.nativeInputs;
+                }
                 writePrivateJsonFile(controlRoot, 'release.json', {
-                    registration: registrationBytes,
-                    signature: sign(null, Buffer.from(registrationBytes), privateKey).toString('base64')
+                    registration: finalRegistrationBytes,
+                    signature: sign(null, Buffer.from(finalRegistrationBytes), privateKey).toString('base64')
                 });
                 lifecycle.push('running');
                 const resultPromise = waitForFile({
@@ -971,21 +1577,22 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     child,
                     intervalMs: policy.observationIntervalMs,
                     signal,
-                    getChildError: () => childError
+                    getChildError: creationError,
+                    allowExitedChild: residentOutput !== null
                 })
                     .then(() => ({ kind: 'result', value: JSON.parse(fs.readFileSync(resultFile, 'utf8')) }))
                     .catch((error) =>
                     {
-                        if (error instanceof WaitForFileCancellation)
+                        if (waitForFileCancellationReasons.has(error))
                         {
-                            return { kind: 'cancel', primaryError: cancellationPrimary(error.reason) };
+                            return { kind: 'cancel', primaryError: cancellationPrimary(waitForFileCancellationReasons.get(error)) };
                         }
                         throw error;
                     });
                 first = await resultPromise;
                 if (first.kind === 'cancel')
                 {
-                    primaryError = first.primaryError;
+                    recordPrimaryFailure(first.primaryError);
                     let contained = false;
                     try
                     {
@@ -993,68 +1600,115 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     }
                     catch (error)
                     {
-                        primaryError.physicalExecutionContainmentError = {
-                            name: error.name,
-                            message: error.message
-                        };
+                        recordPrimaryFailure(error);
+                        retainExecutionFailureCompatibility(primaryError, 'physicalExecutionContainmentError', {
+                            name: executionFailureDataProperty(error, 'name') ?? 'Error',
+                            message: observeExecutionFailure(adapterFailureOwner).diagnostic.secondary?.message ?? 'containment failed'
+                        });
                     }
-                    if (!contained && !primaryError.physicalExecutionContainmentError)
+                    if (!contained && !executionFailureDataProperty(primaryError, 'physicalExecutionContainmentError'))
                     {
-                        primaryError.physicalExecutionContainmentError = {
-                            name: 'Error',
-                            message: 'physical execution cgroup remained nonempty after termination escalation'
-                        };
+                        recordPrimaryFailure(new Error('physical execution cgroup remained nonempty after termination escalation'));
                     }
                 }
                 else
                 {
                     if (first.value.spawnError)
                     {
-                        primaryError = Object.assign(new Error(`command spawn failed: ${first.value.spawnError.message}`), {
+                        recordPrimaryFailure(Object.assign(new Error(`command spawn failed: ${first.value.spawnError.message}`), {
                             name: first.value.spawnError.name,
                             code: first.value.spawnError.code
-                        });
+                        }));
                     }
                     else if (first.value.exitCode !== 0 || first.value.signal)
                     {
-                        primaryError = Object.assign(
+                        recordPrimaryFailure(Object.assign(
                             new Error(`command failed (${first.value.signal ? `signal ${first.value.signal}` : `exit ${first.value.exitCode}`}): ${command.join(' ')}`),
                             { exitCode: first.value.exitCode, signal: first.value.signal }
-                        );
+                        ));
                     }
                     const members = readCgroupMemberPids(controlGroup)
                         .filter((pid) => pid !== supervisorPid && pid !== commandPid);
                     if (members.length > 0)
                     {
-                        if (!await terminate('parent-exited-with-live-descendants'))
+                        if (!hasPrimaryFailure() && residentOutput && typeof processOwner?.transfer === 'function')
                         {
-                            primaryError ??= new Error('physical execution cgroup is not empty');
+                            try
+                            {
+                                await verifyResidentSenderTerminal();
+                                outputEvidence = await captureResidentServiceOutput(residentOutput, {
+                                    readMembers: () => readCgroupMemberPids(controlGroup),
+                                    supervisorPid, outputTracker: executionOutput
+                                });
+                                const memberPids = readCgroupMemberPids(controlGroup).sort((left, right) => left - right);
+                                const memberIdentities = memberPids.map((pid) =>
+                                {
+                                    const identity = readProcessIdentity(pid);
+                                    if (identity.status !== 'verified')
+                                    {
+                                        throw new Error(`resident service member ${pid} identity is unverifiable`);
+                                    }
+                                    return identity;
+                                });
+                                if (!memberPids.includes(supervisorPid)
+                                    || JSON.stringify(readCgroupMemberPids(controlGroup).sort((left, right) => left - right))
+                                        !== JSON.stringify(memberPids)
+                                    || signal?.aborted)
+                                {
+                                    throw new Error('resident service member roster changed before independent transfer');
+                                }
+                                const acknowledgement = await processOwner.transfer(containmentAuthority, {
+                                    memberIdentities, supervisorIdentity: memberIdentities.find((entry) => entry.pid === supervisorPid),
+                                    outputFiles: outputEvidence.outputFiles
+                                });
+                                const transferred = { ...containmentAuthority, phase: 'resident-transferred',
+                                    residentTransfer: acknowledgement?.residentTransfer };
+                                if (!resourceServiceContainmentIsComplete(transferred)
+                                    || acknowledgement.authorityDigest !== digestCanonical(transferred))
+                                {
+                                    throw new Error('resident service lacks exact independent durable transfer acknowledgement');
+                                }
+                                containmentAuthority = freezeDeep(transferred);
+                                residentTransferred = true;
+                                lifecycle.push('bounded-file-output-capture', 'resident-service-transferred');
+                            }
+                            catch (error)
+                            {
+                                recordPrimaryFailure(error);
+                            }
                         }
-                        else if (!primaryError)
+                        if (!residentTransferred && !await terminate('parent-exited-with-live-descendants'))
                         {
-                            primaryError = new Error('physical execution parent exited before its process group became empty (cgroup still live)');
+                            recordPrimaryFailure(new Error('physical execution cgroup is not empty'));
+                        }
+                        else if (!residentTransferred && !hasPrimaryFailure())
+                        {
+                            recordPrimaryFailure(new Error('physical execution parent exited before its process group became empty (cgroup still live)'));
                         }
                     }
                 }
             }
             catch (error)
             {
-                const normalizedError = error instanceof WaitForFileCancellation
-                    ? cancellationPrimary(error.reason)
+                const normalizedError = waitForFileCancellationReasons.has(error)
+                    ? cancellationPrimary(waitForFileCancellationReasons.get(error))
                     : error;
-                primaryError ??= normalizedError;
-                if (primaryError !== normalizedError && !primaryError.physicalExecutionContainmentError)
+                recordPrimaryFailure(normalizedError);
+                if (primaryError !== normalizedError && !executionFailureDataProperty(primaryError, 'physicalExecutionContainmentError'))
                 {
-                    primaryError.physicalExecutionContainmentError = {
-                        name: normalizedError.name,
-                        message: normalizedError.message
-                    };
+                    retainExecutionFailureCompatibility(primaryError, 'physicalExecutionContainmentError', {
+                        name: executionFailureDataProperty(normalizedError, 'name') ?? 'Error',
+                        message: observeExecutionFailure(adapterFailureOwner).diagnostic.secondary?.message ?? 'containment failed'
+                    });
                 }
                 childError = normalizedError;
             }
             try
             {
-                cleanup = await finalizeSupervisor();
+                cleanup = residentTransferred
+                    ? { status: 'transferred', reason: 'exact live resident service durably retained by its build owner',
+                        authorityEstablished: true, knownRuntimeResiduals: [] }
+                    : await finalizeSupervisor();
             }
             catch (error)
             {
@@ -1072,8 +1726,79 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     }
                 };
             }
+            if (creationFailure)
+            {
+                const closed = await Promise.race([
+                    childClosed,
+                    delay(policy.pipeCloseTimeoutMs).then(() => false)
+                ]);
+                cleanup = {
+                    ...cleanup,
+                    status: 'unverifiable',
+                    reason: 'systemd creation failure requires original durable-owner terminal reconciliation',
+                    creationAttempt: {
+                        finalization: cleanup,
+                        senderPid: gatedSender.pid ?? null,
+                        ready: validatedSenderReady,
+                        beforeCreationAttempted,
+                        releaseDeliveryAttempted,
+                        senderClosed: closed,
+                        terminal: cleanup.childTerminal ?? null,
+                        senderDiagnostics,
+                        cleanupFailures: creationCleanupFailures
+                    }
+                };
+            }
             let cleanupVerified = cleanup.status === 'verified';
             let confirmedNotEstablished = false;
+            let resourceAbsenceVerified = resourceAdmission === null;
+            if (resourceAdmission && (cleanupVerified || systemdRunSpawnError?.code === 'ENOENT'))
+            {
+                try
+                {
+                    if (resourceAdmission.assertOwnedOrAbsent() !== null)
+                    {
+                        throw new Error('the bound service is not collected');
+                    }
+                    resourceAbsenceVerified = true;
+                }
+                catch (error)
+                {
+                    cleanup = { ...cleanup, status: 'unverifiable',
+                        reason: `resource-bound service absence is unverified: ${error.message}` };
+                    cleanupVerified = false;
+                }
+            }
+            if (cleanupVerified)
+            {
+                if (residentOutput)
+                {
+                    try
+                    {
+                        await verifyResidentSenderTerminal();
+                        const finalOutput = await captureResidentServiceOutput(residentOutput, {
+                            readMembers: () => controlGroup ? readCgroupMemberPids(controlGroup) : [],
+                            supervisorPid: null,
+                            outputTracker: outputEvidence
+                                ? createPhysicalExecutionOutputTracker({ policy, stdout: null, stderr: null })
+                                : executionOutput
+                        });
+                        if (outputEvidence && digestCanonical(outputEvidence.outputFiles)
+                            !== digestCanonical(finalOutput.outputFiles))
+                        {
+                            throw new Error('resident service output changed after refused transfer');
+                        }
+                        outputEvidence ??= finalOutput;
+                        lifecycle.push('bounded-file-output-capture');
+                    }
+                    catch (error)
+                    {
+                        cleanup = { ...cleanup, status: 'unverifiable',
+                            reason: `resident service output or sender terminal is unverifiable: ${error.message}` };
+                        cleanupVerified = false;
+                    }
+                }
+            }
             if (privateDotnetScratch && cleanupVerified && !fs.existsSync(startFile))
             {
                 privateDotnetScratchReceipt = {
@@ -1092,7 +1817,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         path.join(controlRoot, 'private-dotnet-scratch-finalized.json'), 'utf8'
                     ));
                     if (!['removed', 'not-prepared'].includes(privateDotnetScratchReceipt.cleanup)
-                        || (privateDotnetScratchReceipt.cleanup === 'not-prepared' && !primaryError)
+                        || (privateDotnetScratchReceipt.cleanup === 'not-prepared' && !hasPrimaryFailure())
                         || privateDotnetScratchReceipt.path !== privateDotnetScratch.path
                         || privateDotnetScratchReceipt.unitName !== unitName
                         || privateDotnetScratchReceipt.authorityId !== authorityId
@@ -1136,7 +1861,7 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                     cleanupVerified = false;
                 }
             }
-            else if (systemdRunSpawnError?.code === 'ENOENT' && !supervisorPid && !authorityEstablished)
+            else if (systemdRunSpawnError?.code === 'ENOENT' && !supervisorPid && !authorityEstablished && resourceAbsenceVerified && !creationFailure)
             {
                 confirmedNotEstablished = true;
                 cleanup = {
@@ -1196,16 +1921,27 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                         protectSystem: 'strict',
                         protectHome: 'read-only',
                         privateTmp: true,
-                        readWritePaths: [...linuxReadWritePaths]
+                        readWritePaths: [...linuxReadWritePaths],
+                        ...(privateTmpPlan ? {
+                            ownedPrivateTmp: { planned: privateTmpPlan, actual: executionAdmission?.ownedPrivateTmp ?? null,
+                                bindPaths: properties?.values?.BindPaths ?? null }
+                        } : {})
                     }
                     : null,
                 privateDotnetScratch: privateDotnetScratchReceipt,
                 established: establishedState,
                 attemptedUnitName: establishedState === true ? null : unitName
             };
-            if (!cleanupVerified && cleanup.status !== 'not-established')
+            if (!cleanupVerified && cleanup.status !== 'not-established' && !residentTransferred)
             {
-                primaryError ??= new Error(`physical execution cleanup is unverifiable: ${cleanup.reason}`);
+                recordPrimaryFailure(new Error(`physical execution cleanup is unverifiable: ${cleanup.reason}`));
+            }
+            if (!outputEvidence && residentOutput)
+            {
+                executionOutput.attach(null, 'stdout');
+                executionOutput.attach(null, 'stderr');
+                outputEvidence = { ...await executionOutput.close(), logComplete: false,
+                    logTruncationReason: 'resident-output-unverified' };
             }
             outputEvidence ??= await executionOutput.close();
             if (!outputEvidence.logComplete)
@@ -1213,19 +1949,19 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 const logError = new Error(
                     `physical execution log is incomplete: ${outputEvidence.logTruncationReason}`
                 );
-                if (primaryError)
+                if (hasPrimaryFailure())
                 {
-                    primaryError.physicalExecutionLogError ??= {
-                        name: logError.name,
-                        message: logError.message
-                    };
+                    recordPrimaryFailure(logError);
+                    retainExecutionFailureCompatibility(primaryError, 'physicalExecutionLogError', {
+                        name: logError.name, message: logError.message
+                    });
                 }
                 else
                 {
-                    primaryError = logError;
+                    recordPrimaryFailure(logError);
                 }
             }
-            lifecycle.push(primaryError ? 'seal-cancelled-or-failed-receipt' : 'seal-completed-receipt');
+            lifecycle.push(hasPrimaryFailure() ? 'seal-cancelled-or-failed-receipt' : 'seal-completed-receipt');
             const evidence = {
                 schema,
                 platform: 'linux',
@@ -1233,11 +1969,12 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 authority,
                 lifecycle,
                 termination,
-                postObservation: cleanupVerified || cleanup.status === 'not-established'
-                    ? 'zero-members'
-                    : 'unverifiable',
+                postObservation: residentTransferred ? 'resident-transferred'
+                    : cleanupVerified || cleanup.status === 'not-established' ? 'zero-members' : 'unverifiable',
                 cleanup,
                 executionAdmission,
+                resourceExecutionAdmission,
+                containmentAuthority,
                 controlRoot: cleanupVerified || cleanup.status === 'not-established' ? null : controlRoot,
                 processInventory: [...inventory.values()].map((identity) => ({
                     pid: identity.pid,
@@ -1267,18 +2004,17 @@ export function createPhysicalExecutionLinuxSystemdAdapter({
                 })),
                 ...outputEvidence
             };
-            if (primaryError)
+            observePhysicalExecution(evidence);
+            if (hasPrimaryFailure())
             {
-                primaryError.physicalExecution = evidence;
+                retainExecutionFailureCompatibility(primaryError, 'physicalExecution', evidence);
                 if (!cleanupVerified && cleanup.status !== 'not-established')
                 {
-                    primaryError.physicalExecutionFinalizeError = {
-                        name: 'Error',
-                        message: cleanup.reason,
-                        cleanup
-                    };
+                    retainExecutionFailureCompatibility(primaryError, 'physicalExecutionFinalizeError', {
+                        name: 'Error', message: cleanup.reason, cleanup
+                    });
                 }
-                throw primaryError;
+                throwExecutionFailure(adapterFailureOwner);
             }
             return evidence;
         }

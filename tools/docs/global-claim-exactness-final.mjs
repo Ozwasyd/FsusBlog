@@ -26,6 +26,8 @@ import { fileURLToPath } from 'node:url';
 const { BehaviorId, digestCatalog, loadCatalog } = await import(new URL('../contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { digestValue } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
 const { readFactObservationReceipt } = await import(new URL('../fact-extractors/reader.mjs', import.meta.url));
+const { readCurrentRunEvidencePublication } = await import(new URL('../test/current-run-evidence-publication.mjs', import.meta.url));
+const { governanceContentDigest, validateCurrentRunEvidenceContext } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
 import { scanApiProtocolDocResidue, runApiProtocolDocMutationCases } from './api-protocol-doc-exactness.mjs';
 import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import { scanContentResidues } from './content-doc-exactness.mjs';
@@ -468,25 +470,142 @@ export function validateGlobalClaimExactnessReceipt(receipt, { expectedRunId = n
     return receipt;
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+function parseGlobalTerminalArguments(args)
 {
-    const receiptIndex = process.argv.indexOf('--receipts');
-    if (receiptIndex < 0)
+    const options = {};
+    for (let index = 0; index < args.length; index += 2)
     {
-        throw new Error('usage: global-claim-exactness-final.mjs --receipts <dir-with-extractor-receipts>');
+        const option = args[index];
+        const value = args[index + 1];
+        if (!['--receipts', '--out'].includes(option) || Object.hasOwn(options, option)
+            || typeof value !== 'string' || value.length === 0 || value.startsWith('--'))
+        {
+            throw new Error('global exactness requires unique closed --receipts and --out pairs');
+        }
+        options[option] = value;
     }
-    const directory = path.resolve(process.argv[receiptIndex + 1]);
+    if (!options['--receipts'] || !options['--out'])
+    {
+        throw new Error('usage: global-claim-exactness-final.mjs --receipts <current-observations-dir> --out <bound-payload>');
+    }
+    return options;
+}
+
+function requireGlobalTerminalSession(options)
+{
+    const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim();
+    const sourceCommit = String(process.env.FSUSBLOG_TEST_SOURCE_COMMIT ?? '').trim();
+    const worktreeFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? '').trim();
+    if (!runId || !/^[a-f0-9]{40}$/u.test(sourceCommit) || !/^[a-f0-9]{64}$/u.test(worktreeFingerprint))
+    {
+        throw new Error('global exactness requires current run/source bindings');
+    }
+    const consumer = 'evidence-consumer.docs.global-claim-exactness-final';
+    const contextPath = String(process.env.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT ?? '').trim();
+    const referencePath = String(process.env.FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PATH ?? '').trim();
+    const payloadPath = String(process.env.FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PAYLOAD_PATH ?? '').trim();
+    const output = path.resolve(root, options['--out']);
+    if (process.env.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER !== consumer || !contextPath || !referencePath || !payloadPath
+        || output !== path.resolve(root, payloadPath) || output === path.resolve(root, referencePath))
+    {
+        throw new Error('global exactness requires its original registered context/reference/payload bindings');
+    }
+    const context = validateCurrentRunEvidenceContext(JSON.parse(fs.readFileSync(path.resolve(root, contextPath), 'utf8')));
+    const { state } = readCurrentRunEvidencePublication({ outputPath: referencePath, repositoryRoot: root });
+    if (state.state !== 'prepared' || state.authorityId !== `${consumer}.current-run`
+        || state.producerId !== `${consumer}.producer`
+        || state.outputPath !== path.relative(root, path.resolve(root, referencePath)).replaceAll(path.sep, '/')
+        || state.payloadPath !== path.relative(root, output).replaceAll(path.sep, '/'))
+    {
+        throw new Error('global exactness requires the original prepared publication session');
+    }
+    for (const field of ['schedulerRunId', 'attemptId', 'sourceCommit', 'worktreeFingerprint', 'candidateIdentity', 'buildIdentity'])
+    {
+        if (governanceContentDigest({ value: state[field] }) !== governanceContentDigest({ value: context[field] }))
+        {
+            throw new Error('global exactness context differs from the original prepared publication session');
+        }
+    }
+    if (runId !== state.schedulerRunId || sourceCommit !== state.sourceCommit
+        || `sha256:${worktreeFingerprint}` !== state.worktreeFingerprint)
+    {
+        throw new Error('global exactness run/source differs from the original prepared publication session');
+    }
+    const parent = path.dirname(output);
+    if (!output.startsWith(`${root}${path.sep}`) || fs.realpathSync(root) !== root)
+    {
+        throw new Error('global exactness payload must remain inside its physical repository');
+    }
+    let cursor = root;
+    for (const component of path.relative(root, parent).split(path.sep).filter(Boolean))
+    {
+        cursor = path.join(cursor, component);
+        const info = fs.lstatSync(cursor);
+        if (!info.isDirectory() || info.isSymbolicLink() || fs.realpathSync(cursor) !== cursor)
+        {
+            throw new Error('global exactness payload parents must be canonical physical directories');
+        }
+    }
+    if (fs.lstatSync(output, { throwIfNoEntry: false }))
+    {
+        throw new Error('global exactness payload already exists');
+    }
+    return { runId, sourceCommit, worktreeFingerprint, output, sessionDigest: state.contentDigest };
+}
+
+async function runGlobalTerminalCli(args)
+{
+    const options = parseGlobalTerminalArguments(args);
+    const binding = requireGlobalTerminalSession(options);
+    const directory = path.resolve(options['--receipts']);
     const receiptPaths = fs.readdirSync(directory)
         .filter((entry) => entry.endsWith('.json') && entry !== 'receipt-paths.txt')
         .map((entry) => path.join(directory, entry));
-    const identity = readFactObservationReceipt(receiptPaths[0]);
+    if (receiptPaths.length === 0)
+    {
+        throw new Error('global exactness current observations are missing');
+    }
     const result = await buildGlobalClaimExactnessReceipt({
         repositoryRoot: root,
         observationReceiptPaths: receiptPaths,
-        runId: String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim(),
-        sourceCommit: identity.sourceCommit,
-        worktreeFingerprint: identity.worktreeFingerprint
+        runId: binding.runId,
+        sourceCommit: binding.sourceCommit,
+        worktreeFingerprint: binding.worktreeFingerprint
     });
-    validateGlobalClaimExactnessReceipt(result);
+    validateGlobalClaimExactnessReceipt(result, { expectedRunId: binding.runId });
+    const current = requireGlobalTerminalSession(options);
+    if (current.sessionDigest !== binding.sessionDigest || result.runId !== binding.runId
+        || result.source.sourceCommit !== binding.sourceCommit || result.source.worktreeFingerprint !== binding.worktreeFingerprint)
+    {
+        throw new Error('global exactness result or original publication session changed before payload write');
+    }
+    const bytes = Buffer.from(`${JSON.stringify(result, null, 2)}\n`);
+    if (bytes.length > 8 * 1024 * 1024)
+    {
+        throw new Error('global exactness payload exceeds the bounded writer limit');
+    }
+    const descriptor = fs.openSync(binding.output, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+    try
+    {
+        fs.writeFileSync(descriptor, bytes);
+        fs.fsyncSync(descriptor);
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
     console.log(`[global-claim-exactness-final] ok behaviors=${result.counts.requiredBehaviors} claims=${result.counts.proseClaimCount + result.counts.generatedClaimCount} mutations=${result.counts.mutationKilled}/${result.counts.mutationTotal}`);
+}
+
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
+{
+    try
+    {
+        await runGlobalTerminalCli(process.argv.slice(2));
+    }
+    catch (error)
+    {
+        console.error(`[global-claim-exactness-final] ${error.message}`);
+        process.exitCode = 1;
+    }
 }

@@ -3,6 +3,9 @@ import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { readRuntimeRoleExecutionClosure as readPhysicalExecutionClosure } from '../fact-extractors/lib/runtime-role-execution-closure.mjs';
+import { readPinnedRepositoryFile } from '../test-matrix/post-runtime-producer-registry.mjs';
+
 const {
     buildIdentitySchema,
     computeConsumedInputDigests,
@@ -20,6 +23,8 @@ import {
     minimalContractBuildSchema,
     openApiProjectionPaths,
     runtimeReproduciblePathMapArgument,
+    validateCurrentSchemaCodeContractObservation,
+    validateRuntimeRoleExecutionClosure,
     validateMinimalContractBuildReceipt as validateMinimalContractBuildReceiptValue
 } from './behavior-doc-minimal-contract-build-v3-contract.mjs';
 export {
@@ -27,6 +32,11 @@ export {
     minimalContractBuildSchema,
     runtimeReproduciblePathMapArgument
 } from './behavior-doc-minimal-contract-build-v3-contract.mjs';
+
+function readRuntimeRoleExecutionClosure(repositoryRoot, assemblyPath)
+{
+    return readPhysicalExecutionClosure(repositoryRoot, assemblyPath, readPinnedRepositoryFile);
+}
 
 const cacheRelative = '.tmp/behavior-doc-contract-builds';
 const runtimeReproducibleBuildRelative = '.tmp/runtime-role-reproducible-builds';
@@ -82,6 +92,9 @@ export function minimalContractSourceClosureDigests(repositoryRoot, compiledExtr
         'config/contracts/behavior-fact-extractors.json',
         'tools/docs/behavior-doc-minimal-contract-build.mjs',
         'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
+        'tools/fact-extractors/lib/runtime-role-execution-closure.mjs',
+        'tools/test-matrix/post-runtime-producer-registry.mjs',
+        'tools/fact-extractors/runner.mjs',
         'tools/fact-extractors/identity.mjs',
         'Directory.Build.props',
         'Directory.Packages.props',
@@ -179,7 +192,9 @@ export function reproduceRuntimeRoleAssembly({
           : argument)],
         outputRoot,
         assemblyPath,
-        assemblyDigest
+        assemblyDigest,
+        executionClosure: validateRuntimeRoleExecutionClosure(
+            readRuntimeRoleExecutionClosure(repositoryRoot, assemblyPath), assemblyDigest)
     };
 }
 
@@ -325,6 +340,7 @@ export function validateMinimalContractBuildReceipt(receipt, options = {})
 {
     return validateMinimalContractBuildReceiptValue(receipt, {
         ...options,
+        readExecutionClosure: options.repositoryRoot == null ? null : readRuntimeRoleExecutionClosure,
         readArtifactDigest: options.repositoryRoot == null
             ? null
             : (repositoryRoot, file) => digestPath(repositoryRoot, file)
@@ -550,6 +566,12 @@ export function runMinimalContractBuild({
               '--',
               ...applicationArgs
             ];
+                if (artifactId === 'runtime-role-observation'
+                    && digestValue(readRuntimeRoleExecutionClosure(repositoryRoot, runtimeReproducibleBuild.assemblyPath))
+                        !== digestValue(runtimeReproducibleBuild.executionClosure))
+                {
+                    throw new Error('runtime-role execution closure changed around producer execution');
+                }
                 const result = spawn('dotnet', args, {
                     cwd: repositoryRoot,
                     encoding: 'utf8',
@@ -563,6 +585,12 @@ export function runMinimalContractBuild({
                     maxBuffer: 64 * 1024 * 1024,
                     timeout: hostTimeoutMs
                 });
+                if (artifactId === 'runtime-role-observation'
+                    && digestValue(readRuntimeRoleExecutionClosure(repositoryRoot, runtimeReproducibleBuild.assemblyPath))
+                        !== digestValue(runtimeReproducibleBuild.executionClosure))
+                {
+                    throw new Error('runtime-role execution closure changed around producer execution');
+                }
                 if (result.status !== 0)
                 {
                     const stderr = String(result.stderr ?? '').trim();
@@ -581,7 +609,7 @@ export function runMinimalContractBuild({
                 const artifactBytes = fs.readFileSync(stagedOutput, 'utf8');
                 const artifactObservation = JSON.parse(artifactBytes);
                 if (artifactId === 'runtime-role-observation'
-          && (artifactObservation.schema !== 'fsusblog.runtime-role-observation.v2'
+          && (artifactObservation.schema !== 'fsusblog.runtime-role-observation.v3'
             || artifactObservation.deploymentAuthority?.authoritySchema
               !== deploymentObservation.authoritySchema
             || artifactObservation.deploymentAuthority?.authorityContentDigest
@@ -590,6 +618,10 @@ export function runMinimalContractBuild({
               !== deploymentObservation.observationDigest))
                 {
                     throw new Error('minimal contract runtime-role observation did not bind deployment authority');
+                }
+                if (artifactId === 'runtime-role-observation')
+                {
+                    validateCurrentSchemaCodeContractObservation(artifactObservation.currentSchemaContract);
                 }
                 const artifactDigestValue = digestPath(stagingRoot, declaration.cacheFile);
                 const projectDigestValue = artifactDigest(repositoryRoot, declaration.project);
@@ -642,7 +674,10 @@ export function runMinimalContractBuild({
                 effectiveComposeModelDigest: artifactObservation.deploymentAuthority?.effectiveCompose?.modelDigest,
                 deploymentAuthoritySchema: artifactObservation.deploymentAuthority?.authoritySchema,
                 deploymentAuthorityContentDigest: artifactObservation.deploymentAuthority?.authorityContentDigest,
-                deploymentObservationDigest: artifactObservation.deploymentAuthority?.observationDigest
+                deploymentObservationDigest: artifactObservation.deploymentAuthority?.observationDigest,
+                observationSchema: artifactObservation.schema,
+                evidenceStage: artifactObservation.currentSchemaContract.evidenceStage,
+                evidenceClass: artifactObservation.currentSchemaContract.evidenceClass
               }
                         : {})
                 };
@@ -723,6 +758,9 @@ export function runMinimalContractBuild({
     const identityReceiptFile = path.join(buildRoot, 'receipts', `${normalizedRunId}.json`);
     fs.mkdirSync(path.dirname(identityReceiptFile), { recursive: true });
     fs.writeFileSync(identityReceiptFile, `${JSON.stringify(receipt, null, 2)}\n`);
+    validateMinimalContractBuildReceipt(receipt, {
+        expectedRunId: normalizedRunId, expectedSourceIdentity: sourceIdentity, repositoryRoot
+    });
     return {
         receipt,
         receiptFile,

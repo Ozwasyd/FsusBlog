@@ -86,6 +86,19 @@ test('real repository operation finding fails when create semantics are omitted'
     rmSync(dir, {recursive:true,force:true})
   }
 })
+test('fixture orchestrator consumers cannot omit public-content creation or its read overlap', () => {
+    for (const stepId of ['security-runtime-core', 'resilience']) {
+        rejects((data) => {
+            const entry = data.steps.find((candidate) => candidate.stepId === stepId)
+            entry.creates = entry.creates.filter((domain) => domain !== 'fixture.public-content')
+            entry.operationOverlaps = entry.operationOverlaps.filter((overlap) => overlap.domain !== 'fixture.public-content')
+        }, new RegExp(`${stepId} analyzer detected undeclared creates fixture\\.public-content`))
+        rejects((data) => {
+            const entry = data.steps.find((candidate) => candidate.stepId === stepId)
+            entry.operationOverlaps = entry.operationOverlaps.filter((overlap) => overlap.domain !== 'fixture.public-content')
+        }, new RegExp(`${stepId} has unexplained operation overlap for fixture\\.public-content`))
+    }
+})
 test('rejects reset producer command and assertion receipt drift', () => {
   rejects((data) => data.steps.find((entry) => entry.stepId === 'runtime-integration').resetBefore[0].producerCommand='tools/false-reset.sh', /producer command mismatch/)
   rejects((data) => data.steps.find((entry) => entry.stepId === 'runtime-integration').resetBefore[0].assertionId='not-a-real-postcondition', /verifier does not own assertion receipt/)

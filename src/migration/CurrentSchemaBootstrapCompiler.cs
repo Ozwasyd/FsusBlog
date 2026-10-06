@@ -269,6 +269,11 @@ internal static partial class CurrentSchemaBootstrapCompiler
             };
         }
         string value = column.PhysicalType ?? throw new InvalidOperationException("current_schema_bootstrap_physical_type_missing");
+        if (column.DataType.EndsWith("-array", StringComparison.Ordinal) || value.Contains('[') || value.Contains(']'))
+        {
+            return SchemaPhysicalTypeProjection.ToPhysical(SchemaProviderKind.PostgreSql,
+                column.DataType, column.MaxLength, value);
+        }
         return Regex.IsMatch(value,
             "^(?:smallint|integer|bigint|boolean|text|bytea|uuid|jsonb|real|double precision|numeric(?:\\([0-9]+(?:,[0-9]+)?\\))?|date|time(?:\\([0-9]+\\))?(?: without time zone)?|timestamp(?:\\([0-9]+\\))?(?: without time zone| with time zone)?|character varying\\([1-9][0-9]*\\))$",
             RegexOptions.CultureInvariant) ? value : throw new InvalidOperationException($"current_schema_bootstrap_physical_type_unavailable:{value}");
@@ -279,7 +284,7 @@ internal static partial class CurrentSchemaBootstrapCompiler
             RegexOptions.CultureInvariant | RegexOptions.IgnoreCase) ? value
             : throw new InvalidOperationException("current_schema_bootstrap_default_capability_unavailable");
 
-    private static string EntityDefaultValue(SchemaColumnModel column)
+    internal static string EntityDefaultValue(SchemaColumnModel column)
     {
         string value = column.DefaultValue!;
         // SugarColumn string defaults are literal values, not a second list of

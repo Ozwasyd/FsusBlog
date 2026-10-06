@@ -19,11 +19,37 @@ import { createPublicAotWarmEvidence } from '../../../tools/frontend/public-aot-
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
 const evidenceCli = path.join(root, 'tools/deployment/release-rollout-evidence.mjs')
+/** Metadata-only unit inputs; these are not issued receipts or fresh Server/native admission. */
+export function createCurrentRolloutFixtureBinding(candidateSourceRevision = 'b'.repeat(40)) {
+  return {
+    manifestSha256: '9'.repeat(64),
+    candidateSourceRevision,
+    currentSchema: {
+      receipt: { reference: '/fixture/current-schema.json', sha256: '1'.repeat(64) },
+      target: {
+        modelVersion: 'fixture-model.v1', extractorVersion: 'fixture-extractor.v1', generatorVersion: 'fixture-generator.v1',
+        sourceDigest: '2'.repeat(64), contentDigest: '3'.repeat(64)
+      },
+      database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' },
+      actualSchemaDigest: '4'.repeat(64)
+    }
+  }
+}
+/** Synthetic command bytes for component replay tests, not a Server or native observation. */
+export function createCurrentRolloutAdmissionFixtureOutput(binding = createCurrentRolloutFixtureBinding()) {
+  return { status: 'verified-current', candidateSourceRevision: binding.candidateSourceRevision,
+    artifactSha256: binding.currentSchema.receipt.sha256, target: binding.currentSchema.target,
+    database: binding.currentSchema.database, actualSchemaDigest: binding.currentSchema.actualSchemaDigest }
+}
 /**
  * Canonical rollout test data, sealed and replayed by the real CLI.
  * These are fixture observations, never runtime qualification evidence.
  */
 export function createReleaseRolloutEvidenceFixture(options = {}) {
+const fixtureBinding = options.manifest
+  ? { manifestSha256: crypto.createHash('sha256').update(`${JSON.stringify(options.manifest, null, 2)}\n`).digest('hex'),
+      candidateSourceRevision: options.manifest.commitSha, currentSchema: structuredClone(options.manifest.currentSchema) }
+  : createCurrentRolloutFixtureBinding()
 const rolloutId = options.rolloutId ?? 'deploy-20260711-release-evidence'
 const source = options.source ?? {
   slot: 'blue',
@@ -46,7 +72,7 @@ const requiredArtifactNames = [
   'faultInjection'
 ]
 const requiredAuxiliaryNames = [
-    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+    'releaseManifest', 'backupRestoreGate', 'currentSchemaAdmission', 'candidateReadiness',
     'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm',
     'candidateSmoke', 'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
     'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
@@ -58,7 +84,7 @@ const requiredAuxiliaryNames = [
 const faultCases = [
   'manifest-digest-mismatch',
   'capacity-insufficient',
-  'expand-failure',
+  'current-admission-failure',
   'candidate-readiness',
   'asset-hash-mismatch',
   'gateway-reload-failure',
@@ -87,7 +113,10 @@ function fixture(t, name) {
 }
 
 function newState(directory) {
+  const binding = structuredClone(fixtureBinding)
+  binding.manifestSha256 = crypto.createHash('sha256').update(`${JSON.stringify(auxiliaryPayload('releaseManifest'), null, 2)}\n`).digest('hex')
   return createRolloutState({
+    ...binding,
     rolloutId,
     kind: 'deploy',
     manifestPath: path.join(directory, 'release-manifest.json'),
@@ -104,13 +133,22 @@ function writeJson(file, value) {
 
 function stageEvidenceFile(fixture, stage) {
   const file = path.join(fixture.commandDirectory, `${stage}.json`)
+  let output
+  if (stage === 'current-schema-admission') {
+    const stdout = path.join(fixture.commandDirectory, `${stage}.stdout`)
+    writeJson(stdout, createCurrentRolloutAdmissionFixtureOutput(fixtureBinding))
+    const bytes = fs.readFileSync(stdout)
+    output = { stdout: { path: stdout, bytes: bytes.length,
+      sha256: `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}` } }
+  }
   writeJson(file, {
-    schema: 'fsusblog.release-rollout-stage-evidence.v1',
+    schema: 'fsusblog.release-rollout-stage-evidence.v2',
     rolloutId,
     stage,
     attempt: 1,
     status: 'ok',
-    exitCode: 0
+    exitCode: 0,
+    ...(output ? { output } : {})
   })
   return file
 }
@@ -427,10 +465,21 @@ function auxiliaryPayload(name)
 {
   if (name === 'releaseManifest')
   {
+    if (options.manifest) return structuredClone(options.manifest)
     return {
-      schema: 'fsusblog.release-manifest.v2',
+      schema: 'fsusblog.release-manifest.v3',
       releaseId: target.releaseId,
-      imageDigest: target.imageDigest
+      imageDigest: target.imageDigest,
+      commitSha: fixtureBinding.candidateSourceRevision,
+      currentSchema: fixtureBinding.currentSchema
+    }
+  }
+  if (name === 'currentSchemaAdmission') {
+    const binding = fixtureBinding
+    return {
+      status: 'verified-current', candidateSourceRevision: binding.candidateSourceRevision,
+      artifactSha256: binding.currentSchema.receipt.sha256, target: binding.currentSchema.target,
+      database: binding.currentSchema.database, actualSchemaDigest: binding.currentSchema.actualSchemaDigest
     }
   }
   if (name === 'publicAotWarm') return validPublicAotWarmEvidence()

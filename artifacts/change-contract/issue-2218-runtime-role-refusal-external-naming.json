@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "docs/architecture/repository-layout.md"
+            ],
+            "reason": "Preserve the original native file refusal codes, P/Invoke ABI and ownership identifiers while sharing the existing guard with Server; child #3731 records source custody and pending canonical/native qualification"
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+                "src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs",
+                "src/shared/Algorithms/IO/NativeRegularFileGuard.cs"
+            ],
+            "reason": "Preserve the original native file refusal codes, P/Invoke ABI and ownership identifiers while sharing the existing guard with Server; child #3731 records source custody and pending canonical/native qualification"
+        }
+    ]
+}

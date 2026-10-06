@@ -130,16 +130,20 @@ test('test current schema materializer remains explicit, canonical and pre-runti
     assert.match(materializer, /current_schema_materializer_public_schema_not_empty/u);
     assert.match(materializer, /ValidateAssemblySourceCommit\(options\.SourceCommit\)/u);
     assert.match(materializer, /ValidateServiceEnvelope\([\s\S]*options\.RunId/u);
-    assert.match(materializer, /BeginTranAsync\(\)[\s\S]*InitTables\([\s\S]*verifier\.RunAsync[\s\S]*AtomicWrite\(preparedOutputPath[\s\S]*CommitTranAsync\(\)[\s\S]*AtomicWrite\(resolvedOutputPath/u);
-    assert.match(materializer, /InitTables\([\s\S]*CurrentSchemaRuntimeRollupTables\.ApplyEnsureTableStepsAsync[\s\S]*verifier\.RunAsync/u);
+    assert.match(materializer, /BeginTranAsync\(IsolationLevel\.RepeatableRead\)[\s\S]*InitTables\([\s\S]*observer\.ReadAsync[\s\S]*AtomicWrite\(preparedOutputPath[\s\S]*CommitTranAsync\(\)[\s\S]*AtomicWrite\(resolvedOutputPath/u);
+    assert.match(materializer, /InitTables\([\s\S]*CurrentSchemaRuntimeRollupTables\.ApplyEnsureTableStepsAsync[\s\S]*PgCurrentSchemaControlShape\.EnsureApplyJournalAsync[\s\S]*observer\.ReadAsync/u);
     assert.match(materializer, /RollbackTranAsync\(\)/u);
     assert.match(materializer, /File\.Move\(temporaryPath, fullPath, overwrite: false\)/u);
 
     const inspector = fs.readFileSync(path.join(root, inspectorRelative), 'utf8');
-    assert.match(inspector, /owning_constraint\.conindid = index_meta\.indexrelid[\s\S]*owning_constraint\.contype = 'p'/u);
+    assert.match(inspector, /PgCurrentSchemaCatalogObserver\.ReadAsync\(connection, (?:borrowed|transaction), cancellationToken\)/u);
+    const nativeCatalog = fs.readFileSync(
+        path.join(root, 'src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs'), 'utf8'
+    );
+    assert.match(nativeCatalog, /owning_constraint\.conindid = index_meta\.indexrelid[\s\S]*owning_constraint\.contype = 'p'/u);
 
     const commandRoute = program.indexOf('CurrentSchemaTestMaterializationCommandLine.IsRequested(args)');
-    const serveParser = program.indexOf('OnlineSchemaMigrationCommandLine.Parse(args)');
+    const serveParser = program.indexOf('ServerCommandLine.Parse(args)');
     assert.ok(commandRoute >= 0 && commandRoute < serveParser);
     assert.match(program, /exceptionCode\.StartsWith\("current_schema_"/u);
 

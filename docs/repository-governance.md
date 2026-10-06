@@ -88,6 +88,23 @@ Dependency Review runs when pull requests change package locks, project files, o
 workflow files, blocks high-severity dependency changes, and denies the configured
 AGPL/GPL/LGPL license families.
 
+### Controlled cross-repository model receipts
+
+`tools/governance/cross-repository-dependency-acceptance.mjs` reports controlled
+model results with `evidenceClass=local-controlled-simulation` and always sets
+`terminalQualification=false`, including when every case passes. The validator
+rejects a terminal claim even when its digest has been coherently recomputed.
+Source closure and fixture binding establish replay identity; the same producer's
+`verify` replay does not supply independent cross-repository acceptance. The
+receipt's producer-authored qualification mode is data, not an external grant.
+
+The fixture's `2026-09-11` platform disclosure is a historical controlled input.
+Its Actions settings, unavailable hosted evidence and empty check lists do not
+establish current platform availability or passed live gates. A real terminal
+local-equivalent flow remains separate work: it must consume externally authorized
+and independently accepted results bound to the current Blog and UI candidates
+under the existing [change contract](development/change-contract.md).
+
 ### Freshness execution and identities
 
 From `src/frontend`, `npm run deps:freshness` invokes the unique producer

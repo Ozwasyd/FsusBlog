@@ -274,6 +274,20 @@ export function observationEnvelopeAuthorityFields({
     });
 }
 
+export function assertCandidateParentIdentity(candidate, { expectedRunId = null, expectedAttemptId = null } = {})
+{
+    if (expectedRunId === null && expectedAttemptId === null)
+    {
+        return;
+    }
+    if (typeof expectedRunId !== 'string' || expectedRunId.length === 0
+        || typeof expectedAttemptId !== 'string' || expectedAttemptId.length === 0
+        || candidate?.runId !== expectedRunId || candidate?.attemptId !== expectedAttemptId)
+    {
+        fail('candidate input differs from the explicit current parent run/attempt');
+    }
+}
+
 export function produceCandidatePlan({
     preRuntimeReceipt,
     acceptedClaimsReceipt,
@@ -281,15 +295,24 @@ export function produceCandidatePlan({
     context,
     identityAuthorityDirectory,
     observationPaths,
-    repositoryRoot = defaultRoot
+    repositoryRoot = defaultRoot,
+    expectedRunId = null,
+    expectedAttemptId = null
 })
 {
+    const currentParentInput = expectedRunId !== null || expectedAttemptId !== null
+        ? explicitJson(context, 'candidate context', repositoryRoot)
+        : null;
+    if (currentParentInput !== null)
+    {
+        assertCandidateParentIdentity(currentParentInput.value.candidate, { expectedRunId, expectedAttemptId });
+    }
     const preInput = explicitJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot);
     const pre = preInput.value;
     assertPreRuntimeQualified(pre);
     const claimsInput = explicitJson(acceptedClaimsReceipt, 'accepted claims receipt', repositoryRoot);
     const buildInput = explicitJson(buildReceipt, 'production build receipt', repositoryRoot);
-    const runInput = explicitJson(context, 'candidate context', repositoryRoot);
+    const runInput = currentParentInput ?? explicitJson(context, 'candidate context', repositoryRoot);
     const run = validateCandidateContext(runInput.value, repositoryRoot);
     const claims = validateAcceptedClaims(claimsInput.value, { expectedRunId: run.candidate.runId, repositoryRoot });
     const sourceState = { commit: pre.sourceIdentity.commit, worktreeFingerprint: prefixedDigest(pre.sourceIdentity.worktreeFingerprint) };

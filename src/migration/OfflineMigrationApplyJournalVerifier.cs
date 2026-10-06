@@ -359,7 +359,12 @@ public sealed class OfflineMigrationApplyJournalVerifier
         => Digest(entry with { ContentDigest = string.Empty });
     /// <summary>Semantic entry anchor, not the byte SHA of an exported artifact.</summary>
     public static OfflineMigrationJournalAnchor Reference(OfflineMigrationApplyJournalEntry entry)
-        => new($"offline-apply/{(entry.Format == MediaFormat ? "v2" : "v1")}/{entry.ContentDigest}", entry.ContentDigest);
+        => Reference(entry.Format, entry.ContentDigest);
+    internal static bool HasCanonicalReference(OfflineMigrationJournalAnchor? anchor)
+        => anchor is not null && (anchor == Reference(Format, anchor.EntryDigest)
+            || anchor == Reference(MediaFormat, anchor.EntryDigest));
+    private static OfflineMigrationJournalAnchor Reference(string format, string entryDigest)
+        => new($"offline-apply/{(format == MediaFormat ? "v2" : "v1")}/{entryDigest}", entryDigest);
     private static string Digest<T>(T value)
         => Convert.ToHexStringLower(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(value)));
 }

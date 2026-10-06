@@ -69,12 +69,14 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void AccountDelete_IsCredentialMutationAction()
     {
         Assert.True(UserSecurityStepUpActions.IsCredentialMutation(UserSecurityStepUpActions.AccountDelete));
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserSecurityStepUpRequest_UsesAccountIdAndFriendlyNameUpdateAction()
     {
         Assert.NotNull(typeof(UserSecurityStepUpRequest).GetProperty("AccountId"));
@@ -84,6 +86,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-mfa-enabled-account-does-not-accept-password-fallback")]
     public async Task MfaEnabledAccount_DoesNotAcceptPasswordFallback()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -104,6 +107,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-non-mfa-account-still-requires-anonymous-step-up-proof")]
     public async Task NonMfaAccount_StillRequiresAnonymousStepUpProof()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -125,6 +129,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-password-proof-is-not-accepted-as-anonymous-step-up")]
     public async Task PasswordProof_IsNotAcceptedAsAnonymousStepUp()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -146,6 +151,7 @@ public sealed class UserSecurityStepUpServiceTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-missing-deleted-or-banned-account-fails-closed-without-checking-proofs")]
     public async Task MissingDeletedOrBannedAccount_FailsClosedWithoutCheckingProofs()
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -188,6 +194,7 @@ public sealed class UserSecurityStepUpServiceTests
     [Theory]
     [InlineData(null)]
     [InlineData("not-a-sha256-subject")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-missing-or-malformed-physical-subject-fails-closed-before-proof-validation")]
     public async Task MissingOrMalformedPhysicalSubject_FailsClosedBeforeProofValidation(string? accountSubjectHash)
     {
         IUserAccountReader users = Substitute.For<IUserAccountReader>();
@@ -235,6 +242,7 @@ public sealed class UserIdentityRetirementBinaryEndpointTests
     [Theory]
     [InlineData(null)]
     [InlineData("not-a-sha256-subject")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-mfa-challenge-start-missing-or-malformed-physical-subject-returns-account-subject-required")]
     public async Task MfaChallengeStart_MissingOrMalformedPhysicalSubjectReturnsAccountSubjectRequired(
         string? accountSubjectHash)
     {

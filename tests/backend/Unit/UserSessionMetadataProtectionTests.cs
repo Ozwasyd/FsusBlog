@@ -18,6 +18,7 @@ public sealed class UserSessionMetadataProtectionTests
     private static readonly byte[] s_secondKey = Enumerable.Range(33, 32).Select(static value => (byte)value).ToArray();
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-capture-stores-only-account-scoped-rotating-pseudonyms-and-coarse-labels")]
     public void Capture_StoresOnlyAccountScopedRotatingPseudonymsAndCoarseLabels()
     {
         var protector = new UserSessionMetadataProtector(new SecurityRiskPseudonymizer(7, s_firstKey));
@@ -49,6 +50,7 @@ public sealed class UserSessionMetadataProtectionTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-protect-for-read-accepts-bounded-previous-epoch-then-expires-it")]
     public void ProtectForRead_AcceptsBoundedPreviousEpochThenExpiresIt()
     {
         DateTimeOffset now = new(2026, 7, 20, 0, 0, 0, TimeSpan.Zero);
@@ -97,6 +99,7 @@ public sealed class UserSessionMetadataProtectionTests
             UserSessionMetadataProtector.ParseUserAgent(userAgent));
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void MissingSignals_RemainOptionalForPasskeyCompatibleLogin()
     {
         var protector = new UserSessionMetadataProtector(new SecurityRiskPseudonymizer(1, s_firstKey));
@@ -110,6 +113,7 @@ public sealed class UserSessionMetadataProtectionTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void PersistenceAndResponseShapes_CannotReintroduceRawSessionMetadata()
     {
         string[] forbiddenProperties = ["DeviceFingerprint", "LastIp", "UserAgent"];

@@ -61,7 +61,7 @@ internal sealed class PgArticlePreservationOperation : OfflineMigrationArticleMe
         RetainedTool = tool;
         string semantic = ArticlePreservationSemanticReceipt.Digest("pg-article-preservation-operation-v1", new
         {
-            Source = SourcePredicate, Target = TargetPredicate, owned.Target,
+            Source = SourcePredicate, Target = TargetPredicate, CurrentTarget = owned.Target,
             SourceArtifact = source, CurrentArtifact = current,
             configuration.MediaRunId, configuration.SourceAssetRoot, configuration.TargetParent,
             configuration.TrustedSiteOrigin, configuration.PublicPathPrefix, configuration.TargetDirectoryName

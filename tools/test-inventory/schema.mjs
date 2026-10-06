@@ -7,6 +7,8 @@
  * single inventory authority serves every consumer.
  */
 
+import { parseXunitCompileDeclaration } from './adapters.mjs';
+
 export const INVENTORY_SCHEMA = 'fsusblog.test-inventory.v1';
 
 export const SOURCE_FILE_KINDS = new Set([
@@ -307,9 +309,20 @@ function validateSourceFile(file, label)
 {
     assertClosedObject(file, KNOWN_SOURCE_FILE_KEYS, label);
     assertString(file.path, `${label}.path`);
-    if (!file.path.startsWith('tests/') && !file.path.startsWith('tools/'))
+    const compileDeclarations = (file.declaredBy ?? []).filter((value) => parseXunitCompileDeclaration(value));
+    if ((!file.path.startsWith('tests/') && !file.path.startsWith('tools/'))
+        && !(file.adapter === 'xunit' && compileDeclarations.length === 1 && file.path.endsWith('.cs')))
     {
         fail(`${label}.path must be repository-relative under tests/ or tools/`);
+    }
+    if (file.path.includes('\\') || file.path.split('/').some((part) => !part || part === '.' || part === '..')
+        || file.path.startsWith('/'))
+    {
+        fail(`${label}.path must be a canonical repository-relative path`);
+    }
+    if (compileDeclarations.length > 1)
+    {
+        fail(`${label} has duplicate selected Compile ownership`);
     }
     assertString(file.adapter, `${label}.adapter`);
     assertString(file.adapterVersion, `${label}.adapterVersion`);
@@ -321,7 +334,8 @@ function validateSourceFile(file, label)
     assertStringArray(file.declaredBy ?? [], `${label}.declaredBy`);
     for (const declaration of file.declaredBy ?? [])
     {
-        if (!KNOWN_DECLARATION_PREFIXES.some((prefix) => declaration === prefix || declaration.startsWith(prefix)))
+        if (!parseXunitCompileDeclaration(declaration)
+            && !KNOWN_DECLARATION_PREFIXES.some((prefix) => declaration === prefix || declaration.startsWith(prefix)))
         {
             fail(`${label}.declaredBy contains unknown declaration source: ${declaration}`);
         }

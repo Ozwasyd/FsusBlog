@@ -11,6 +11,7 @@ using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Contracts.Governance;
 
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
@@ -440,6 +441,74 @@ public sealed class NativeGroth16ZkProofBackendTests
         Assert.False(result.Verified);
         Assert.Equal(ZkProofVerificationStatuses.InvalidProof, result.Status);
         Assert.Contains(logger.Messages, static message => message.Contains("timed out", StringComparison.OrdinalIgnoreCase));
+    }
+
+    [Fact]
+    [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = RealConcurrencyHarness.Id)]
+    public async Task ProductionZkProofVerifier_ThirtyTwoNativeProofsObserveConfiguredFourSlotLimit()
+    {
+        const int Attempts = 32;
+        const int MaxConcurrent = 4;
+        byte[] verifyingKey = MclGroth16PairingFixture.CreateVerifyingKey();
+        using var temp = TempNativeZkFixture.Create(verifyingKey);
+        using NativeGroth16ZkProofBackend nativeBackend = CreateFixtureBackend(
+            temp, MclGroth16VerifierLibrary.Create());
+        var backend = new HeldNativeProofBackend(nativeBackend, MaxConcurrent);
+        using ProductionZkProofVerifier verifier = CreateProductionVerifier(
+            temp, backend, overrides: ConcurrencyOverrides(MaxConcurrent.ToString()));
+        Assert.True(verifier.IsConfigured);
+        ProductionZkProofBackendRequest backendRequest = ValidBackendRequest([], temp.VerifyingKeySha256);
+        byte[] proof = MclGroth16PairingFixture.CreateProof(
+            verifyingKey, NativeGroth16PublicInputCodec.Encode(backendRequest).Span);
+        ZkProofVerificationRequest request = ValidVerificationRequest(proof, temp.VerifyingKeySha256);
+        using var cancellation = new CancellationTokenSource();
+        using var barrier = new Barrier(Attempts);
+        var allInvoked = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
+        int invoked = 0;
+
+        Task<ZkProofVerificationResult[]> pending = RealConcurrencyHarness.RunAsync(
+            Enumerable.Range(0, Attempts),
+            _ => Task.Factory.StartNew(
+                async () =>
+                {
+                    Assert.True(barrier.SignalAndWait(TimeSpan.FromSeconds(30), cancellation.Token));
+                    Task<ZkProofVerificationResult> verification = verifier.VerifyAsync(request, cancellation.Token);
+                    if (Interlocked.Increment(ref invoked) == Attempts)
+                    {
+                        allInvoked.TrySetResult();
+                    }
+                    return await verification;
+                },
+                CancellationToken.None,
+                TaskCreationOptions.LongRunning,
+                TaskScheduler.Default).Unwrap());
+        try
+        {
+            await allInvoked.Task.WaitAsync(TimeSpan.FromSeconds(30));
+            await backend.FirstWaveEntered.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.Equal(32, Volatile.Read(ref invoked));
+            Assert.False(pending.IsCompleted);
+            Assert.Equal(MaxConcurrent, backend.CallCount);
+            Assert.Equal(MaxConcurrent, backend.InFlight);
+            Assert.Equal(4, backend.MaxInFlight);
+            Assert.Equal(0, backend.CompletedNativeCalls);
+
+            backend.Release();
+            ZkProofVerificationResult[] results = await pending.WaitAsync(TimeSpan.FromSeconds(30));
+            Assert.Equal(Attempts, results.Length);
+            Assert.All(results, static result => Assert.True(result.Verified));
+            Assert.Equal(Attempts, backend.CallCount);
+            Assert.Equal(Attempts, backend.CompletedNativeCalls);
+            Assert.Equal(MaxConcurrent, backend.MaxInFlight);
+            Assert.Equal(0, backend.InFlight);
+        }
+        finally
+        {
+            backend.Release();
+            cancellation.Cancel();
+            await pending.WaitAsync(TimeSpan.FromSeconds(30));
+        }
     }
 
     [Theory]
@@ -900,6 +969,67 @@ public sealed class NativeGroth16ZkProofBackendTests
         public void Dispose()
         {
         }
+
+        private void TrackMax(int value)
+        {
+            while (true)
+            {
+                int current = Volatile.Read(ref _maxInFlight);
+                if (value <= current ||
+                    Interlocked.CompareExchange(ref _maxInFlight, value, current) == current)
+                {
+                    return;
+                }
+            }
+        }
+    }
+
+    // Hold only the production gate's admitted calls. Every released result comes
+    // from the real native backend and existing MCL pairing fixture, never a callback.
+    private sealed class HeldNativeProofBackend(
+        NativeGroth16ZkProofBackend inner,
+        int firstWaveSize) : IProductionZkProofBackend
+    {
+        private readonly TaskCompletionSource _firstWaveEntered = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private readonly TaskCompletionSource _release = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        private int _callCount;
+        private int _inFlight;
+        private int _maxInFlight;
+        private int _completedNativeCalls;
+
+        public Task FirstWaveEntered => _firstWaveEntered.Task;
+        public int CallCount => Volatile.Read(ref _callCount);
+        public int InFlight => Volatile.Read(ref _inFlight);
+        public int MaxInFlight => Volatile.Read(ref _maxInFlight);
+        public int CompletedNativeCalls => Volatile.Read(ref _completedNativeCalls);
+
+        public bool IsAvailable(string backendName) => inner.IsAvailable(backendName);
+
+        public async Task<ProductionZkProofBackendResult> VerifyAsync(
+            ProductionZkProofBackendRequest request,
+            CancellationToken cancellationToken = default)
+        {
+            int call = Interlocked.Increment(ref _callCount);
+            int inFlight = Interlocked.Increment(ref _inFlight);
+            TrackMax(inFlight);
+            if (call == firstWaveSize)
+            {
+                _firstWaveEntered.TrySetResult();
+            }
+            try
+            {
+                await _release.Task.WaitAsync(cancellationToken);
+                ProductionZkProofBackendResult result = await inner.VerifyAsync(request, cancellationToken);
+                Interlocked.Increment(ref _completedNativeCalls);
+                return result;
+            }
+            finally
+            {
+                Interlocked.Decrement(ref _inFlight);
+            }
+        }
+
+        public void Release() => _release.TrySetResult();
 
         private void TrackMax(int value)
         {

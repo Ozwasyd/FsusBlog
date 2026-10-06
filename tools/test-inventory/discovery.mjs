@@ -15,10 +15,10 @@
 
 import { spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdirSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
+import { closeSync, constants, existsSync, fstatSync, lstatSync, mkdirSync, openSync, realpathSync, readFileSync, readdirSync, statSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
-import { ADAPTER_VERSION, SUPPORT_CLASSIFICATION, classifyFile, xunitTestProjects } from './adapters.mjs';
+import { ADAPTER_VERSION, SUPPORT_CLASSIFICATION, classifyFile, classifyXunitCompileOwner, xunitCompileDeclaration, xunitGeneratedCompilePathIsOwned, xunitTestProjects } from './adapters.mjs';
 import { INVENTORY_SCHEMA, validateInventoryArtifact } from './schema.mjs';
 
 const { parseMatrix } = await import(new URL('../test-matrix/parse-matrix.mjs', import.meta.url));
@@ -361,29 +361,96 @@ export function collectClosureCandidates(root, matrix, coverageRegistry, require
  */
 const XUNIT_ADAPTER_PROJECT = 'tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj';
 
-export function readXunitProjectContext(root, project)
+// Read only a canonical repository-owned file selected by the actual Compile graph.
+export function observeXunitCompileSource(root, relative)
 {
-    const evaluation = spawnSync('dotnet', [
-        'msbuild', path.join(root, project.project), '--nologo', '-verbosity:quiet',
-        '-property:Configuration=Debug', '-getProperty:TargetPath', '-getItem:Compile'
-    ], { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
-    if (evaluation.status !== 0)
+    if (typeof relative !== 'string' || !relative.endsWith('.cs') || path.isAbsolute(relative)
+        || relative.includes('\\') || relative.split('/').some((part) => !part || part === '.' || part === '..'))
     {
-        throw new Error(`xunit project context failed for ${project.project}: ${evaluation.stderr || evaluation.stdout || evaluation.error?.message}`);
+        throw new Error(`xunit Compile source is outside its canonical repository boundary: ${relative}`);
     }
-    const context = JSON.parse(evaluation.stdout);
+    const repository = path.resolve(root);
+    if (realpathSync(repository) !== repository)
+    {
+        throw new Error('xunit Compile repository root cannot be a path alias');
+    }
+    let cursor = repository;
+    for (const part of relative.split('/'))
+    {
+        cursor = path.join(cursor, part);
+        if (lstatSync(cursor).isSymbolicLink())
+        {
+            throw new Error(`xunit Compile source cannot use path aliases: ${relative}`);
+        }
+    }
+    const prior = lstatSync(cursor);
+    if (!prior.isFile() || prior.nlink !== 1 || realpathSync(cursor) !== cursor)
+    {
+        throw new Error(`xunit Compile source requires its current regular owned file: ${relative}`);
+    }
+    const descriptor = openSync(cursor, constants.O_RDONLY | (constants.O_NOFOLLOW ?? 0) | (constants.O_NONBLOCK ?? 0));
+    try
+    {
+        const held = fstatSync(descriptor);
+        const current = lstatSync(cursor);
+        if (!held.isFile() || held.nlink !== 1 || held.dev !== current.dev || held.ino !== current.ino
+            || current.dev !== prior.dev || current.ino !== prior.ino || realpathSync(cursor) !== cursor)
+        {
+            throw new Error(`xunit Compile source requires its current regular owned file: ${relative}`);
+        }
+        const bytes = readFileSync(descriptor);
+        const after = fstatSync(descriptor);
+        const final = lstatSync(cursor);
+        if (after.size !== bytes.length || held.size !== after.size || held.mtimeMs !== after.mtimeMs || held.ctimeMs !== after.ctimeMs
+            || after.nlink !== 1 || realpathSync(cursor) !== cursor || final.dev !== after.dev || final.ino !== after.ino || final.isSymbolicLink())
+        {
+            throw new Error(`xunit Compile source changed during observation: ${relative}`);
+        }
+        return `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+    }
+    finally
+    {
+        closeSync(descriptor);
+    }
+}
+
+export function requireXunitConfiguration(configuration = 'Debug')
+{
+    if (!['Debug', 'Release'].includes(configuration))
+    {
+        throw new Error(`unsupported xunit configuration: ${configuration}`);
+    }
+    return configuration;
+}
+
+// This projects the result of a real MSBuild observation; it grants no SDK execution.
+export function projectXunitCompileContext(root, project, context, configuration = 'Debug')
+{
+    requireXunitConfiguration(configuration);
+    if (context.Properties?.Configuration !== configuration)
+    {
+        throw new Error(`xunit compile configuration differs for ${project.project}`);
+    }
     const output = context.Properties?.TargetPath;
-    if (typeof output !== 'string' || !existsSync(output) || !statSync(output).isFile())
+    const intermediate = context.Properties?.IntermediateOutputPath;
+    const projectDirectory = path.dirname(path.resolve(root, project.project));
+    const resolvedIntermediate = typeof intermediate === 'string' && intermediate.trim()
+        ? path.resolve(projectDirectory, intermediate) : null;
+    if (typeof output !== 'string' || !path.isAbsolute(output)
+        || !existsSync(output) || !statSync(output).isFile()
+        || !resolvedIntermediate || !existsSync(path.join(resolvedIntermediate, path.basename(output)))
+        || !statSync(path.join(resolvedIntermediate, path.basename(output))).isFile())
     {
-        throw new Error(`xunit project build output is missing for ${project.project}: ${output ?? '<missing TargetPath>'}; run dotnet build --configuration Debug`);
+        throw new Error(`xunit project ${configuration} build output or intermediate context is missing for ${project.project}`);
     }
-    if (!Array.isArray(context.Items?.Compile))
+    if (!Array.isArray(context.Items?.Compile) || context.Items.Compile.length === 0)
     {
         throw new Error(`xunit project compile items are missing for ${project.project}`);
     }
     const sources = context.Items.Compile.map((item) =>
     {
-        if (typeof item.FullPath !== 'string' || !existsSync(item.FullPath) || !statSync(item.FullPath).isFile())
+        if (typeof item.FullPath !== 'string' || !path.isAbsolute(item.FullPath)
+            || !item.FullPath.endsWith('.cs') || !existsSync(item.FullPath) || !statSync(item.FullPath).isFile())
         {
             throw new Error(`xunit compiled source is missing for ${project.project}: ${item.FullPath ?? '<missing FullPath>'}`);
         }
@@ -393,7 +460,38 @@ export function readXunitProjectContext(root, project)
     {
         throw new Error(`xunit duplicate compiled source in ${project.project}`);
     }
-    return { project, sources, output };
+    return { project, sources, output, intermediateOutput: path.join(resolvedIntermediate, path.basename(output)), configuration,
+        sourceDigests: Object.fromEntries(sources.map((file) => [file, observeXunitCompileSource(root, file)])) };
+}
+
+export function readXunitProjectContext(root, project, configuration = 'Debug')
+{
+    requireXunitConfiguration(configuration);
+    const args = ['msbuild', path.join(root, project.project), '--nologo', '-verbosity:quiet',
+        `-property:Configuration=${configuration}`, '-property:BuildProjectReferences=false',
+        '-getProperty:Configuration,TargetPath,IntermediateOutputPath', '-getItem:Compile'];
+    const evaluate = (compile) =>
+    {
+        const evaluation = spawnSync('dotnet', [...args, ...(compile
+            ? ['-target:Compile', '-property:SkipCompilerExecution=true', '-property:UseSharedCompilation=false'] : [])],
+        { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 });
+        if (evaluation.status !== 0)
+        {
+            throw new Error(`xunit project context failed for ${project.project}: ${evaluation.stderr || evaluation.stdout || evaluation.error?.message}`);
+        }
+        return projectXunitCompileContext(root, project, JSON.parse(evaluation.stdout), configuration);
+    };
+    const prior = evaluate(false);
+    const digest = (file) => createHash('sha256').update(readFileSync(file)).digest('hex');
+    const priorOutputDigest = digest(prior.output);
+    const priorIntermediateDigest = digest(prior.intermediateOutput);
+    const current = evaluate(true);
+    if (current.output !== prior.output || current.intermediateOutput !== prior.intermediateOutput
+        || digest(current.output) !== priorOutputDigest || digest(current.intermediateOutput) !== priorIntermediateDigest)
+    {
+        throw new Error(`xunit Compile changed its previously built output context for ${project.project}`);
+    }
+    return current;
 }
 
 export function mergeXunitProjectResults(results, sourceFiles)
@@ -428,16 +526,13 @@ export function mergeXunitProjectResults(results, sourceFiles)
                 throw new Error(`xunit duplicate case identity: ${testCase.id}`);
             }
             caseOwners.add(testCase.id);
-            if (!ownedFiles.has(testCase.ownerFile))
-            {
-                continue;
-            }
-            // Preserve the existing Roslyn source catalog, including historical
-            // backend Compile Remove surfaces. Catalog presence is not execution
-            // evidence; the actual build output and references are checked above.
-            if (!testCase.ownerFile.startsWith(`${project.directory}/`))
+            if (!sources.includes(testCase.ownerFile))
             {
                 throw new Error(`xunit case source is not owned by ${project.project}: ${testCase.ownerFile}`);
+            }
+            if (!ownedFiles.has(testCase.ownerFile))
+            {
+                throw new Error(`xunit case source is not registered in canonical inventory: ${testCase.ownerFile}`);
             }
             testCases.push(testCase);
         }
@@ -451,13 +546,85 @@ export function mergeXunitProjectResults(results, sourceFiles)
     return { testCases, diagnostics };
 }
 
-function runXunitRoslynAdapter(root, projectPath, sourceFiles)
+/** Enroll only actual case owners from the selected, byte-bound Compile result. */
+export function enrollAndMergeXunitProjectResults(root, results, sourceFiles, configuration = 'Debug')
 {
-    const xunitFiles = sourceFiles.filter((file) => file.adapter === 'xunit');
-    if (xunitFiles.length === 0)
+    const owners = new Map();
+    const enrollments = new Map();
+    for (const result of results)
     {
-        return { testCases: [], diagnostics: [] };
+        const declaration = xunitCompileDeclaration(result.project, configuration);
+        if (result.configuration !== configuration || !result.sourceDigests)
+        {
+            throw new Error('xunit Compile enrollment requires its selected configuration and source observation');
+        }
+        for (const file of result.sources)
+        {
+            if (owners.has(file))
+            {
+                throw new Error(`xunit duplicate source ownership for ${file}`);
+            }
+            owners.set(file, result.project.project);
+            if (observeXunitCompileSource(root, file) !== result.sourceDigests[file])
+            {
+                throw new Error(`xunit selected Compile source bytes changed: ${file}`);
+            }
+        }
+        if (result.report.schema !== 'fsusblog.test-inventory.xunit-roslyn.v1'
+            || !Array.isArray(result.report.testCases) || !Array.isArray(result.report.diagnostics)
+            || result.report.diagnostics.some((entry) => entry.severity === 'error'))
+        {
+            throw new Error(`xunit project semantic context failed for ${result.project.project}`);
+        }
+        for (const testCase of result.report.testCases)
+        {
+            const file = testCase.ownerFile;
+            if (!result.sources.includes(file))
+            {
+                throw new Error(`xunit case source is not owned by ${result.project.project}: ${file}`);
+            }
+            if (file.split('/').includes('obj') || file.startsWith('.tmp/'))
+            {
+                const intermediate = path.dirname(result.intermediateOutput ?? '');
+                const absolute = path.resolve(root, file);
+                if (!path.isAbsolute(intermediate) || !absolute.startsWith(`${intermediate}${path.sep}`)
+                    || !xunitGeneratedCompilePathIsOwned(file, { project: result.project, configuration }))
+                {
+                    throw new Error(`xunit generated case is outside its selected intermediate owner: ${file}`);
+                }
+            }
+            enrollments.set(file, { declaration, digest: result.sourceDigests[file] });
+        }
     }
+    // No mutation until all projects and byte observations have been admitted.
+    for (const [file, enrollment] of enrollments)
+    {
+        const existing = sourceFiles.find((source) => source.path === file);
+        if (existing && !['xunit', 'xunit-support', 'support'].includes(existing.adapter))
+        {
+            throw new Error(`xunit Compile case conflicts with an existing source owner: ${file}`);
+        }
+        if (existing && existing.sourceDigest !== enrollment.digest)
+        {
+            throw new Error(`xunit catalog source bytes changed before Compile enrollment: ${file}`);
+        }
+        const record = { path: file, ...classifyXunitCompileOwner(), sourceDigest: enrollment.digest,
+            declaredBy: [...new Set([...(existing?.declaredBy ?? []), enrollment.declaration])].sort() };
+        if (existing)
+        {
+            Object.assign(existing, record);
+        }
+        else
+        {
+            sourceFiles.push(record);
+        }
+    }
+    sourceFiles.sort((left, right) => left.path.localeCompare(right.path));
+    return mergeXunitProjectResults(results, sourceFiles);
+}
+
+function runXunitRoslynAdapter(root, projectPath, configuration)
+{
     const adapterProject = path.join(root, XUNIT_ADAPTER_PROJECT);
     if (!existsSync(adapterProject))
     {
@@ -465,7 +632,7 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
     }
     const build = spawnSync(
         'dotnet',
-        ['build', adapterProject, '-v:q'],
+        ['build', adapterProject, '--configuration', configuration, '-v:q'],
         { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
     );
     if (build.status !== 0)
@@ -483,11 +650,15 @@ function runXunitRoslynAdapter(root, projectPath, sourceFiles)
             'run',
             '--project',
             adapterProject,
+            '--configuration',
+            configuration,
             '--no-build',
             '--no-launch-profile',
             '--',
             root,
-            path.join(root, projectPath)
+            path.join(root, projectPath),
+            '--configuration',
+            configuration
         ],
         { cwd: root, encoding: 'utf8', maxBuffer: 128 * 1024 * 1024 }
     );
@@ -661,8 +832,9 @@ function runNativeEntryAdapter(root, sourceFiles, matrix)
     return { testCases, diagnostics };
 }
 
-export function discoverTestInventory(root, { includeSourceState = true, runAdapters = true } = {})
+export function discoverTestInventory(root, { includeSourceState = true, runAdapters = true, configuration = 'Debug' } = {})
 {
+    requireXunitConfiguration(configuration);
     const matrixText = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');
     const matrix = parseMatrix(matrixText);
     const coverageRegistry = JSON.parse(readFileSync(path.join(root, 'tests/coverage-registry.json'), 'utf8'));
@@ -757,12 +929,12 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
     if (runAdapters)
     {
         const projectResults = xunitTestProjects
-            .filter(({ directory }) => sourceFiles.some((file) => file.adapter === 'xunit' && file.path.startsWith(`${directory}/`)))
+            .filter(({ project }) => existsSync(path.join(root, project)))
             .map((project) => ({
-                ...readXunitProjectContext(root, project),
-                report: runXunitRoslynAdapter(root, project.project, sourceFiles)
+                ...readXunitProjectContext(root, project, configuration),
+                report: runXunitRoslynAdapter(root, project.project, configuration)
             }));
-        const xunitResult = mergeXunitProjectResults(projectResults, sourceFiles);
+        const xunitResult = enrollAndMergeXunitProjectResults(root, projectResults, sourceFiles, configuration);
         adapterCases = xunitResult.testCases;
         adapterDiagnostics = xunitResult.diagnostics;
         const tsResult = runTsAstAdapter(root, sourceFiles);
@@ -795,7 +967,11 @@ export function discoverTestInventory(root, { includeSourceState = true, runAdap
       || String(left.file ?? '').localeCompare(String(right.file ?? ''))
         ))
     };
+    return finalizeTestInventory(content);
+}
+
+export function finalizeTestInventory(content)
+{
     const inventoryDigest = sha256(canonicalStringify(content));
-    const artifact = { ...content, inventoryDigest };
-    return validateInventoryArtifact(artifact);
+    return validateInventoryArtifact({ ...content, inventoryDigest });
 }

@@ -109,12 +109,45 @@ if [[ "$postgres_timezone" != "UTC" ]]; then
     exit 1
 fi
 
+require_empty="${FSUSBLOG_DATA_SCALE_REQUIRE_EMPTY:-0}"
+if [[ "$require_empty" != "0" && "$require_empty" != "1" ]]; then
+    printf '[data-scale:seed] FSUSBLOG_DATA_SCALE_REQUIRE_EMPTY must be 0 or 1\n' >&2
+    exit 1
+fi
+if [[ "$require_empty" == "1" ]]; then
+    backend_container="${FSUSBLOG_DATA_SCALE_BACKEND_CONTAINER_NAME:-}"
+    redis_container="${FSUSBLOG_REDIS_CONTAINER_NAME:-}"
+    if [[ -z "$backend_container" || -z "$redis_container" ]]; then
+        printf '[data-scale:seed] dedicated backend and Redis identities are required\n' >&2
+        exit 1
+    fi
+    if ! backend_inventory="$(docker ps -a --format '{{.Names}}')"; then
+        printf '[data-scale:seed] dedicated backend inventory is unavailable\n' >&2
+        exit 1
+    fi
+    if grep -Fqx -- "$backend_container" <<<"$backend_inventory"; then
+        printf '[data-scale:seed] dedicated backend must be absent during raw seed: %s\n' "$backend_container" >&2
+        exit 1
+    fi
+    if [[ "$(docker exec "$redis_container" redis-cli --raw DBSIZE)" != "0" ]]; then
+        printf '[data-scale:seed] dedicated Redis must be pristine during raw seed: %s\n' "$redis_container" >&2
+        exit 1
+    fi
+fi
+
 if ! docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
     printf '[data-scale:seed] postgres container is not ready: %s\n' "$postgres_container" >&2
     exit 1
 fi
 
-active_connections="$(docker exec -i "$postgres_container" psql -X -q -t -A -U fsusblog -d fsusblog -c "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid();" 2>/dev/null || echo "0")"
+if ! active_connections="$(docker exec -i "$postgres_container" psql -X -q -t -A -U fsusblog -d fsusblog -c "SELECT count(*) FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid();" 2>/dev/null)"; then
+    printf '[data-scale:seed] dedicated database connection inventory is unavailable\n' >&2
+    exit 1
+fi
+if [[ ! "$active_connections" =~ ^[0-9]+$ ]]; then
+    printf '[data-scale:seed] dedicated database connection inventory is invalid\n' >&2
+    exit 1
+fi
 if [[ "$active_connections" -gt 0 ]]; then
     printf '[data-scale:seed] dedicated database has %s active foreign connections; offline seed requires isolation\n' "$active_connections" >&2
     exit 1
@@ -129,6 +162,7 @@ summary="$(
         -v tier="$TIER" \
         -v article_count="$articles" \
         -v comment_count="$comments" \
+        -v require_empty="$require_empty" \
         -v business_epoch="$business_epoch_utc" \
         -v postgres_timezone="$postgres_timezone" <<'SQL'
 BEGIN;
@@ -142,6 +176,22 @@ BEGIN
   END IF;
 END
 $temporal$;
+
+\if :require_empty
+DO $empty_database$
+BEGIN
+  IF EXISTS (SELECT 1 FROM article LIMIT 1)
+     OR EXISTS (SELECT 1 FROM comment LIMIT 1)
+     OR EXISTS (SELECT 1 FROM category LIMIT 1)
+     OR EXISTS (SELECT 1 FROM tag LIMIT 1)
+     OR EXISTS (SELECT 1 FROM article_public_taxonomy_projection LIMIT 1)
+     OR EXISTS (SELECT 1 FROM category_public_article_count LIMIT 1)
+     OR EXISTS (SELECT 1 FROM tag_public_article_count LIMIT 1) THEN
+    RAISE EXCEPTION 'dedicated data-scale database is not empty';
+  END IF;
+END
+$empty_database$;
+\endif
 
 CREATE TEMP TABLE data_scale_context(
   namespace text NOT NULL,
@@ -698,11 +748,15 @@ observed AS (
     (SELECT count(*) FROM tag WHERE name LIKE ctx.prefix || ':tag:%')::integer AS tags,
     (SELECT count(*) FROM article_body b JOIN article a ON a.id = b.article_id WHERE a.title LIKE ctx.prefix || ':article:%')::integer AS article_bodies,
     (SELECT count(*) FROM article_tag at JOIN article a ON a.id = at.articleid WHERE a.title LIKE ctx.prefix || ':article:%')::integer AS article_tags,
+    (SELECT count(*) FROM article_tag at JOIN tmp_data_scale_articles a ON a.article_id = at.articleid WHERE a.is_public)::integer AS published_article_tags,
     (SELECT count(*) FROM comment WHERE content LIKE ctx.prefix || ':comment:%' AND parent_id IS NULL)::integer AS root_comments,
     (SELECT count(*) FROM comment WHERE content LIKE ctx.prefix || ':comment:%' AND parent_id IS NOT NULL AND root_id IS NOT NULL)::integer AS nested_comments,
     (SELECT count(*) FROM article_public_taxonomy_projection WHERE article_id IN (SELECT article_id FROM tmp_data_scale_articles))::integer AS taxonomy_projections,
     (SELECT count(*) FROM category_public_article_count WHERE category_id IN (SELECT id FROM tmp_data_scale_categories))::integer AS category_projections,
-    (SELECT count(*) FROM tag_public_article_count WHERE tag_id IN (SELECT id FROM tmp_data_scale_tags))::integer AS tag_projections
+    (SELECT count(*) FROM tag_public_article_count WHERE tag_id IN (SELECT id FROM tmp_data_scale_tags))::integer AS tag_projections,
+    (SELECT count(*) FROM article_public_taxonomy_projection p JOIN article a ON a.id = p.article_id WHERE a.title LIKE ctx.prefix || ':article:%')::integer AS taxonomy_projected_articles,
+    (SELECT COALESCE(sum(article_count), 0) FROM category_public_article_count)::integer AS taxonomy_category_total,
+    (SELECT COALESCE(sum(article_count), 0) FROM tag_public_article_count)::integer AS taxonomy_tag_total
   FROM ctx
 ),
 result AS (
@@ -720,6 +774,11 @@ result AS (
       AND observed.taxonomy_projections = observed.published
       AND observed.category_projections >= 4
       AND observed.tag_projections >= 8
+      AND (NOT :'require_empty'::boolean OR (
+        observed.taxonomy_projected_articles = observed.published
+        AND observed.taxonomy_category_total = observed.published
+        AND observed.taxonomy_tag_total = observed.published_article_tags
+      ))
       AND (ctx.article_count = 1 OR (observed.published > 0 AND observed.scheduled > 0 AND observed.archived > 0 AND observed.deleted > 0))
     ) AS ok
   FROM ctx, observed
@@ -752,11 +811,24 @@ SELECT jsonb_pretty(jsonb_build_object(
     'tags', tags,
     'articleBodies', article_bodies,
     'articleTags', article_tags,
+    'publishedArticleTags', published_article_tags,
     'rootComments', root_comments,
     'nestedComments', nested_comments,
     'taxonomyProjections', taxonomy_projections,
     'categoryProjections', category_projections,
-    'tagProjections', tag_projections
+    'tagProjections', tag_projections,
+    'taxonomyProjectedArticles', taxonomy_projected_articles,
+    'taxonomyCategoryTotal', taxonomy_category_total,
+    'taxonomyTagTotal', taxonomy_tag_total
+  ),
+  'databaseProjections', jsonb_build_object(
+    'status', CASE WHEN NOT :'require_empty'::boolean OR (
+      taxonomy_projected_articles = published
+      AND taxonomy_category_total = published
+      AND taxonomy_tag_total = published_article_tags
+    ) THEN 'verified' ELSE 'failed' END,
+    'authority', 'article_public_taxonomy_projection',
+    'offline', :'require_empty'::boolean
   ),
   'coverage', jsonb_build_object(
     'publicList', published > 0,

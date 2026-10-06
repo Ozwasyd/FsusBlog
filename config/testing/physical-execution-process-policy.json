@@ -5,6 +5,8 @@
     "pipeCloseTimeoutMs": 2000,
     "observationIntervalMs": 20,
     "zeroMemberObservations": 2,
+    "systemdControlCommandTimeoutMs": 5000,
+    "systemdResourceStartupTimeoutMs": 10000,
     "maximumCapturedOutputBytesPerStream": 1048576,
     "unixProcessGroupRequired": true,
     "linuxCgroupRequired": true,

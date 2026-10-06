@@ -10,6 +10,10 @@ if [[ -z "${FSUSBLOG_TEST_SOURCE_COMMIT:-}" || -z "${FSUSBLOG_TEST_SOURCE_FINGER
     exit 1
 fi
 
+CURRENT_EVIDENCE_CONTEXT="${FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT:?FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT is required}"
+GLOBAL_REFERENCE="${FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PATH:?FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PATH is required}"
+GLOBAL_PAYLOAD="${FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PAYLOAD_PATH:?FSUSBLOG_DOCS_GLOBAL_CLAIM_EXACTNESS_FINAL_EVIDENCE_PAYLOAD_PATH is required}"
+
 ADMISSION_RECEIPT="${FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:-$ROOT_DIR/.tmp/behavior-doc-static-admission/receipt.json}"
 ADMISSION_COMPONENTS="${FSUSBLOG_BEHAVIOR_DOC_ADMISSION_COMPONENTS:-$ROOT_DIR/.tmp/behavior-doc-static-admission/components}"
 CATALOG="${FSUSBLOG_BEHAVIOR_CATALOG:-$ROOT_DIR/config/contracts/behavior-contracts.json}"
@@ -75,3 +79,11 @@ mkdir -p "$OUT_DIR"
     --run-id "$FSUSBLOG_TEST_RUN_ID" \
     --out "$OUT_DIR/receipt.json" \
     --assert
+
+# The original global producer owns raw payload bytes; its original hook publishes the reference.
+FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER=evidence-consumer.docs.global-claim-exactness-final \
+FSUSBLOG_CURRENT_RUN_EVIDENCE_HOOK_OWNER_PID= \
+    "$NODE_BIN" --import "$ROOT_DIR/tools/test/current-run-evidence-producer-hook.mjs" \
+    "$ROOT_DIR/tools/docs/global-claim-exactness-final.mjs" \
+    --receipts "$FACT_OBSERVATIONS_DIR" \
+    --out "$GLOBAL_PAYLOAD"

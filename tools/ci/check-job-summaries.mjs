@@ -6,8 +6,7 @@ import process from 'node:process'
 import { fileURLToPath } from 'node:url'
 
 import {
-  EVIDENCE_TRANSPORT_MANIFEST_ENV,
-  listTransportedArchiveFiles
+  EVIDENCE_TRANSPORT_MANIFEST_ENV
 } from '../test/current-run-evidence-transport.mjs'
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'))
@@ -91,14 +90,6 @@ function readJson(file) {
 }
 
 function listSummaryFiles() {
-  const transport = String(process.env[EVIDENCE_TRANSPORT_MANIFEST_ENV] ?? '').trim()
-  if (transport) {
-    return listTransportedArchiveFiles({
-      repositoryRoot: root,
-      transportManifestPath: transport,
-      authorityId: 'evidence-consumer.ci.check-job-summaries.current-run'
-    })
-  }
   const explicit = String(process.env.FSUSBLOG_QUALITY_GATE_JOB_SUMMARIES ?? '').trim()
   if (explicit) {
     return JSON.parse(explicit).map((file) => path.resolve(root, file)).sort()
@@ -297,7 +288,7 @@ function producerCommand(tier) {
   return `./tools/test.sh ci-tier ${tier.id}`
 }
 
-function main() {
+async function main() {
   const requirePlan = process.argv.includes('--require-plan')
   const options = {
     tier: parseOption('tier'),
@@ -306,15 +297,24 @@ function main() {
     includeManual: process.argv.includes('--include-manual'),
     strictShards: process.argv.includes('--strict-shards')
   }
-  const files = listSummaryFiles()
+  const transport = String(process.env[EVIDENCE_TRANSPORT_MANIFEST_ENV] ?? '').trim()
+  const collections = transport
+    ? (await import('./verify-quality-gate-evidence-transport.mjs'))
+      .readQualityGateEvidenceTransportCollections({ repositoryRoot: root, environment: process.env })
+    : null
+  const documents = collections
+    ? collections.summaries.map((summary, index) => ({
+      file: path.resolve(root, collections.jobPayloadPath), summary, index
+    }))
+    : listSummaryFiles().map((file) => ({ file, summary: readJson(file) }))
   const errors = []
   const summaries = []
   const auxiliaryEvidence = []
 
-  for (const file of files) {
-    const summary = readJson(file)
+  for (const { file, summary, index } of documents) {
     const relativeFile = path.relative(root, file)
-    const classification = classifyJobEvidence(summary, relativeFile)
+    const classification = classifyJobEvidence(summary,
+      index === undefined ? relativeFile : `${relativeFile}#summaries[${index}]`)
     errors.push(...classification.errors)
     if (classification.kind === 'job-summary') summaries.push({ file, summary })
     if (classification.kind === 'auxiliary-evidence') {
@@ -353,9 +353,5 @@ function main() {
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  try {
-    main()
-  } catch (error) {
-    fail([error.message])
-  }
+  main().catch((error) => fail([error.message]))
 }

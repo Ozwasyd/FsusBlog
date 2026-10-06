@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { test } from 'node:test';
 
+const { validateTemporalClockClassification } = await import(new URL('../../tools/test/temporal-context-contract.mjs', import.meta.url));
+
 const { discoverRepositoryTemporalSources, validateWallClockGovernance, verifyRepositoryWallClockGovernance } = await import(new URL("../../tools/test/check-wall-clock-governance.mjs", import.meta.url));
 
 function entry(overrides = {})
@@ -35,11 +37,11 @@ function ledger(entries)
 test('repository temporal ledger has finite closure over real correctness producers', () =>
 {
     assert.deepEqual(verifyRepositoryWallClockGovernance(), {
-        callSiteCount: 67,
+        callSiteCount: 130,
         mixedClockCount: 0,
         pendingCount: 0,
         unknownCount: 0,
-        governedSourceCount: 50
+        governedSourceCount: 76
     });
 });
 
@@ -54,6 +56,21 @@ test('Program binds the canonical test business clock before application service
     );
     assert.ok(temporalIndex >= 0);
     assert.ok(applicationIndex > temporalIndex);
+});
+
+test('moderation runtime clock cannot escape the producer execution boundary', () =>
+{
+    const sourcePath = 'src/backend/Services/Moderation/ModerationRuntimeStateService.cs';
+    const source = fs.readFileSync(new URL(`../../${sourcePath}`, import.meta.url), 'utf8');
+    const mutated = source.replace('timeProvider.GetUtcNow().UtcDateTime', 'DateTime.UtcNow');
+    assert.notEqual(source, mutated);
+    const independentlyDiscoveredSources = discoverRepositoryTemporalSources({
+        sourceOverrides: new Map([[sourcePath, mutated]])
+    });
+    // Boundary sources are checked even without an independent discovery marker.
+    independentlyDiscoveredSources.set(sourcePath, mutated);
+    assert.throws(() => verifyRepositoryWallClockGovernance({ independentlyDiscoveredSources }),
+        (error) => error.reasonCode === 'temporal.ledger-unresolved');
 });
 
 test('independent full-repository discovery rejects a hidden temporal producer callsite', () =>
@@ -198,4 +215,61 @@ test('symbols that mix business and measurement clocks fail closed', () =>
         }),
         (error) => error.reasonCode === 'temporal.mixed-clock'
     );
+});
+
+
+test('live credential expiry and observed publication remain included business values', () =>
+{
+    const live = entry({ path: 'tools/test-fixtures/receipt/projection.mjs', api: 'Date.now',
+        clockKind: 'business-wall', disposition: 'business-wall', authorityKind: 'runtime-business-wall',
+        ingress: 'runtime-wall', semanticEffect: 'included' });
+    const publication = entry({ path: 'tests/browser-contract/public-shell-locale-first-response.mjs', api: 'new Date(value)',
+        clockKind: 'business-wall', disposition: 'business-wall', authorityKind: 'observed-business-value',
+        ingress: 'observed-business', semanticEffect: 'included' });
+    for (const value of [live, publication])
+    {
+        assert.doesNotThrow(() => validateTemporalClockClassification(value));
+        for (const mutation of [
+            { semanticEffect: 'excluded' },
+            { clockKind: 'artifact-metadata', disposition: 'artifact-metadata', authorityKind: 'artifact-observation',
+                ingress: 'artifact-only', semanticEffect: 'excluded' },
+            { authorityKind: 'canonical-business-epoch', ingress: 'canonical-injected' }
+        ])
+        {
+            assert.throws(() => validateTemporalClockClassification({ ...value, ...mutation }),
+                (error) => error.reasonCode === 'temporal.context-invalid');
+        }
+    }
+});
+
+test('actual file and document identities retain assertions and cannot become excluded metadata', () =>
+{
+    const file = entry({ api: 'file-timestamp', clockKind: 'runtime-identity', disposition: 'runtime-identity',
+        authorityKind: 'runtime-file-identity', ingress: 'operability-only', semanticEffect: 'included' });
+    const document = entry({ api: 'performance.timeOrigin', clockKind: 'runtime-identity', disposition: 'runtime-identity',
+        authorityKind: 'runtime-document-identity', ingress: 'observed-identity', semanticEffect: 'included' });
+    for (const value of [file, document])
+    {
+        assert.doesNotThrow(() => validateTemporalClockClassification(value));
+        for (const mutation of [
+            { semanticEffect: 'excluded' }, { ingress: 'artifact-only' },
+            { authorityKind: 'runtime-monotonic' },
+            { clockKind: 'artifact-metadata', disposition: 'artifact-metadata', authorityKind: 'artifact-observation',
+                ingress: 'operability-only', semanticEffect: 'excluded' }
+        ])
+        {
+            assert.throws(() => validateTemporalClockClassification({ ...value, ...mutation }),
+                (error) => error.reasonCode === 'temporal.context-invalid');
+        }
+    }
+});
+
+test('wall clocks cannot be relabeled as a live monotonic budget', () =>
+{
+    for (const api of ['Date.now', 'new Date()', 'new Date(value)', 'performance.timeOrigin', 'file-timestamp'])
+    {
+        assert.throws(() => validateTemporalClockClassification(entry({ api })),
+            (error) => ['temporal.mixed-clock', 'temporal.context-invalid'].includes(error.reasonCode));
+    }
+    assert.doesNotThrow(() => validateTemporalClockClassification(entry({ api: 'process.hrtime.bigint' })));
 });

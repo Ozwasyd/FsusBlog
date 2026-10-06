@@ -2,11 +2,19 @@
 import path from 'node:path';
 import process from 'node:process';
 
-import { createReleaseManifest, writeReleaseManifestAtomic } from './release-manifest.mjs';
+import { createReleaseManifest, readCurrentSchemaReleaseBinding, writeReleaseManifestAtomic } from './release-manifest.mjs';
 
 function parseArgs(argv)
 {
     const options = {};
+    const allowed = new Set(['output', 'release-id', 'created-at-utc', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
+        'frontend-manifest-hash', 'wasm-artifact-hash', 'current-receipt', 'current-receipt-reference', 'current-receipt-sha256',
+        'current-model-version', 'current-extractor-version', 'current-generator-version', 'current-source-digest',
+        'current-content-digest', 'current-provider', 'current-instance-id', 'current-database-id', 'current-actual-schema-digest',
+        'dotnet-version', 'node-version', 'docker-version', 'dockerfile-digest', 'runtime-profile-id',
+        'runtime-profile-manifest-digest', 'runtime-profile-digest', 'runtime-base-family', 'target-runtime',
+        'publish-single-file', 'publish-ready-to-run', 'tiered-pgo', 'quick-jit-for-loops', 'server-gc', 'native-aot',
+        'thread-pool-mode', 'topology-mode']);
     for (let index = 0; index < argv.length; index += 2)
     {
         const name = argv[index];
@@ -15,7 +23,12 @@ function parseArgs(argv)
         {
             throw new Error(`invalid argument near ${name ?? '<end>'}`);
         }
-        options[name.slice(2)] = value;
+        const key = name.slice(2);
+        if (!allowed.has(key) || Object.hasOwn(options, key) || value.startsWith('--'))
+        {
+            throw new Error(`unknown, duplicate or missing argument: ${name}`);
+        }
+        options[key] = value;
     }
     return options;
 }
@@ -26,7 +39,7 @@ try
     const required = [
         'output', 'release-id', 'created-at-utc', 'commit-sha', 'image-repository', 'image-tag', 'image-digest',
         'frontend-manifest-hash', 'wasm-artifact-hash',
-        'schema-minimum-coordinate', 'schema-maximum-coordinate',
+        'current-receipt-sha256',
         'dotnet-version', 'node-version', 'docker-version', 'dockerfile-digest'
     ];
     for (const field of required)
@@ -34,6 +47,20 @@ try
         if (!options[field])
         {
             throw new Error(`missing --${field}`);
+        }
+    }
+    const projectedFields = ['current-receipt-reference', 'current-model-version', 'current-extractor-version',
+        'current-generator-version', 'current-source-digest', 'current-content-digest', 'current-provider',
+        'current-instance-id', 'current-database-id', 'current-actual-schema-digest'];
+    if (options['current-receipt'] && projectedFields.some(field => Object.hasOwn(options, field)))
+    {
+        throw new Error('current receipt artifact and caller-projected fields cannot be combined');
+    }
+    if (!options['current-receipt'])
+    {
+        for (const field of projectedFields)
+        {
+            if (!options[field]) throw new Error(`missing --${field}`);
         }
     }
     const manifest = createReleaseManifest({
@@ -46,8 +73,23 @@ try
         createdAtUtc: options['created-at-utc'],
         frontendManifestHash: options['frontend-manifest-hash'],
         wasmArtifactHash: options['wasm-artifact-hash'],
-        schemaMinimumCoordinate: options['schema-minimum-coordinate'],
-        schemaMaximumCoordinate: options['schema-maximum-coordinate'],
+        currentSchema: options['current-receipt']
+            ? readCurrentSchemaReleaseBinding(options['current-receipt'], options['current-receipt-sha256']) : {
+            receipt: { reference: options['current-receipt-reference'], sha256: options['current-receipt-sha256'] },
+            target: {
+                modelVersion: options['current-model-version'],
+                extractorVersion: options['current-extractor-version'],
+                generatorVersion: options['current-generator-version'],
+                sourceDigest: options['current-source-digest'],
+                contentDigest: options['current-content-digest']
+            },
+            database: {
+                provider: /^[012]$/u.test(options['current-provider']) ? Number(options['current-provider']) : null,
+                instanceId: options['current-instance-id'],
+                databaseId: options['current-database-id']
+            },
+            actualSchemaDigest: options['current-actual-schema-digest']
+        },
         dotnetVersion: options['dotnet-version'],
         nodeVersion: options['node-version'],
         dockerVersion: options['docker-version'],

@@ -17,6 +17,11 @@ import {
   schedulerTierAdmissionActivity,
   schedulerTierAdmissionSchema
 } from './scheduler-run-owner.mjs'
+import {
+    assertSchedulerVerificationContext,
+    collectSchedulerVerificationOutputRefs,
+    verifyCompletedSchedulerTierEvidence
+} from './scheduler.mjs';
 import { validateJsonSchema } from './schema-validator/validate.mjs'
 
 export const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
@@ -268,13 +273,14 @@ function validateClaims({ receipt, producer, aggregate, candidateContext, reposi
 }
 
 export function validatePostRuntimeSchedulerEvidence({
-  admission,
-  reference,
-  preRuntimeReceipt,
-  repositoryRoot = root
+    admission,
+    reference,
+    preRuntimeReceipt,
+    completedSchedulerContext,
+    repositoryRoot = root
 })
 {
-  if (admission?.schema !== schedulerTierAdmissionSchema
+    if (admission?.schema !== schedulerTierAdmissionSchema
     || admission.status !== 'admitted' || admission.mode !== 'fresh'
     || admission.currentTierId !== 'behavior-evidence-post-runtime'
     || admission.targetTierId !== 'release-final'
@@ -282,237 +288,286 @@ export function validatePostRuntimeSchedulerEvidence({
     || admission.sourceState?.commit !== preRuntimeReceipt.sourceIdentity.commit
     || prefixedDigest(admission.sourceState?.worktreeFingerprint)
       !== prefixedDigest(preRuntimeReceipt.sourceIdentity.worktreeFingerprint))
-  {
-    fail('scheduler admission run/source/tier identity is invalid')
-  }
-  if (admission.releaseFinalSpawnCountBeforeAdmission !== 0
+    {
+        fail('scheduler admission run/source/tier identity is invalid');
+    }
+    if (admission.releaseFinalSpawnCountBeforeAdmission !== 0
     || admission.activeTierIds?.includes('release-final'))
-  {
-    fail('release-final was spawned before the post-runtime receipt')
-  }
-  const expectedPath = `.tmp/test-runs/${admission.runId}/scheduler-admissions/`
+    {
+        fail('release-final was spawned before the post-runtime receipt');
+    }
+    const expectedPath = `.tmp/test-runs/${admission.runId}/scheduler-admissions/`
     + `${admission.schedulerOwnerToken}-${admission.admissionSequence}-`
-    + `${admission.currentTierId}.json`
-  if (reference.path !== expectedPath) fail('scheduler admission path identity is invalid')
-  const activity = schedulerTierAdmissionActivity({
-    runsRoot: path.join(path.resolve(repositoryRoot), '.tmp/test-runs'),
-    admission,
-    reference: {
-      schema: admission.schema,
-      ref: reference.path,
-      fileDigest: reference.fileDigest,
-      contentDigest: admission.contentDigest,
-      currentTierId: admission.currentTierId,
-      admissionSequence: admission.admissionSequence
-    }
-  })
-  if (activity.status !== 'active')
-  {
-    fail(`scheduler admission is not live and exact: ${activity.status}:${activity.reason}`)
-  }
-  return admission
-}
-
-export function joinVerifiedPostRuntimeObservations({
-  preRuntimeReceipt,
-  catalog,
-  registry,
-  observations,
-  observationReferences,
-  acceptedClaims,
-  acceptedClaimsReference,
-  candidateContext,
-  schedulerAdmission,
-  schedulerReference,
-  repositoryRoot = root
-})
-{
-  const pre = assertPreRuntimeQualified(structuredClone(preRuntimeReceipt))
-  const graph = requiredGraph(catalog, registry, repositoryRoot)
-  if (prefixedDigest(pre.catalogDigest) !== `sha256:${digestCatalog(catalog)}`)
-  {
-    fail('pre-runtime receipt catalog digest does not match the current BehaviorCatalog')
-  }
-  const aggregate = validateAggregateObservations({
-    observations,
-    graph,
-    preRuntimeReceipt: pre
-  })
-  const first = observations[0]
-  if (candidateContext?.schema !== 'fsusblog.post-runtime-candidate-context.v1'
-    || !sameValue(candidateContext.sourceState, first.sourceState)
-    || !sameValue(candidateContext.candidate, first.candidate))
-  {
-    fail('candidate context does not exact-match observation candidate identity')
-  }
-  const executionIdentity = validateClaims({
-    receipt: acceptedClaims,
-    producer: aggregate.producer,
-    aggregate: first,
-    candidateContext,
-    repositoryRoot
-  })
-  validatePostRuntimeSchedulerEvidence({
-    admission: schedulerAdmission,
-    reference: schedulerReference,
-    preRuntimeReceipt: pre,
-    repositoryRoot
-  })
-  if (schedulerAdmission.runId !== first.candidate.runId
-    || schedulerAdmission.runId !== acceptedClaims.sourceState.schedulerRunId)
-  {
-    fail('scheduler, candidate, and accepted claims run identities differ')
-  }
-  const behaviorIds = graph.contracts.map(({ id }) => id)
-  const requiredProducerClasses = Object.fromEntries(graph.producers.map((producer) => [
-    producer.producerId,
-    sortedUnique(Object.values(producer.requiredObservations).flat())
-  ]))
-  const observedProducerClasses = Object.fromEntries(graph.producers.map((producer) => [
-    producer.producerId,
-    aggregate.classEntries
-      .filter(() => producer.producerId === aggregate.producer.producerId)
-      .map(({ classId }) => classId)
-      .sort()
-  ]))
-  const observedBehaviorResults = aggregate.classEntries
-    .map((observation) => ({
-      behaviorId: aggregate.producer.behaviorId,
-      extractorId: graph.contractByBehavior.get(aggregate.producer.behaviorId).factExtractorId,
-      producerId: aggregate.producer.producerId,
-      scope: observation.scope,
-      classId: observation.classId,
-      classReceiptPath: observation.classReceiptRef.path,
-      classReceiptDigest: prefixedDigest(observation.receiptDigest),
-      rawReceiptPath: observation.rawResultRef.path,
-      rawReceiptDigest: prefixedDigest(observation.rawResultRef.contentDigest),
-      semanticFactsDigest: `sha256:${digestValue(observation.semanticFacts)}`,
-      status: 'ok'
-    }))
-    .sort((left, right) => left.classId.localeCompare(right.classId))
-  const receipt = {
-    schema: postRuntimeReceiptSchema,
-    scope: 'post-runtime',
-    runIdentity: pre.runIdentity,
-    sourceIdentity: pre.sourceIdentity,
-    candidateIdentity: {
-      sourceCommit: first.sourceState.commit,
-      worktreeFingerprint: prefixedDigest(first.sourceState.worktreeFingerprint),
-      buildIdentity: prefixedDigest(first.buildReceiptDigest),
-      ...stable(first.candidate)
-    },
-    executionIdentity,
-    preRuntimeReceiptDigest: prefixedDigest(pre.contentDigest),
-    staticClaimVerificationDigest: pre.staticClaimVerificationDigest == null
-      ? null
-      : prefixedDigest(pre.staticClaimVerificationDigest),
-    catalogDigest: `sha256:${digestCatalog(catalog)}`,
-    registryDigest: `sha256:${digestValue(registry)}`,
-    behaviorIds,
-    requiredRuntimeProducers: graph.producers.map(({ producerId }) => producerId),
-    requiredObservationScopes: [...requiredScopes],
-    requiredProducerClasses,
-    observedProducerClasses,
-    observedBehaviorResults,
-    observationRefs: observationReferences.sort((left, right) =>
-      left.scope.localeCompare(right.scope)),
-    acceptedClaimsRef: acceptedClaimsReference,
-    documentClaimDigests: Object.fromEntries(acceptedClaims.claims.map(({ claimId, claimDigest }) =>
-      [claimId, prefixedDigest(claimDigest)])),
-    documentClaimTerminalDigest: prefixedDigest(
-      acceptedClaims.terminalReceiptRef.payloadContentDigest),
-    schedulerEvidence: schedulerReference,
-    missing: [],
-    orphans: [],
-    conflicts: [],
-    stale: [],
-    diagnostics: [],
-    findingCounts: { missing: 0, orphans: 0, conflicts: 0, stale: 0, diagnostics: 0 },
-    releaseFinalSpawnCountBeforeReceipt: schedulerAdmission.releaseFinalSpawnCountBeforeAdmission,
-    status: 'ok',
-    failureReasons: [],
-    contentDigest: null
-  }
-  receipt.contentDigest = sealedDigest(receipt)
-  return validatePostRuntimeReceipt(receipt)
-}
-
-export function joinBehaviorEvidencePostRuntime({
-  preRuntimeReceipt,
-  catalog = 'config/contracts/behavior-contracts.json',
-  registry = 'config/testing/post-runtime-producer-registry.json',
-  observationReceipts = [],
-  schedulerEvidence,
-  repositoryRoot = root,
-  ...unsupported
-} = {})
-{
-  if (Object.keys(unsupported).length > 0) fail('legacy or unknown join inputs are forbidden')
-  if (!Array.isArray(observationReceipts) || observationReceipts.length !== 2)
-  {
-    fail('exactly two aggregate observation receipt paths are required')
-  }
-  const preInput = readCurrentJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot)
-  const catalogInput = readCurrentJson(catalog, 'BehaviorCatalog', repositoryRoot)
-  const registryInput = readCurrentJson(registry, 'post-runtime producer registry', repositoryRoot)
-  const observationInputs = observationReceipts.map((input, index) =>
-    readCurrentJson(input, `aggregate observation ${index}`, repositoryRoot))
-  const byScope = new Map()
-  for (const input of observationInputs)
-  {
-    if (byScope.has(input.value.scope)) fail(`duplicate ${input.value.scope} aggregate observation`)
-    if (input.value.scope === 'application')
+    + `${admission.currentTierId}.json`;
+    if (reference.path !== expectedPath)
     {
-      validateApplicationRuntimeObservation(input.value, { repositoryRoot })
+        fail('scheduler admission path identity is invalid');
     }
-    else if (input.value.scope === 'release-deployment')
+    if (completedSchedulerContext !== undefined)
     {
-      validateReleaseDeploymentObservation(input.value, { repositoryRoot })
+        const context = assertSchedulerVerificationContext(completedSchedulerContext);
+        if (context.runId !== admission.runId
+      || !sameValue(context.sourceState, admission.sourceState)
+      || context.expectedCandidateIdentityDigest !== admission.schedulerCandidateIdentityDigest)
+        {
+            fail('completed scheduler context does not exact-match the post-runtime admission');
+        }
+        verifyCompletedSchedulerTierEvidence({
+            root: repositoryRoot,
+            runsRoot: path.join(path.resolve(repositoryRoot), '.tmp/test-runs'),
+            runId: context.runId,
+            tierId: admission.currentTierId,
+            admission,
+            admissionReference: {
+                schema: admission.schema, ref: reference.path, fileDigest: reference.fileDigest,
+                contentDigest: admission.contentDigest, currentTierId: admission.currentTierId,
+                admissionSequence: admission.admissionSequence
+            },
+            expectedSourceState: context.sourceState,
+            expectedCandidateIdentityDigest: context.expectedCandidateIdentityDigest,
+            tiers: context.tiers,
+            expectedOutputRefs: collectSchedulerVerificationOutputRefs({
+                context, tierId: admission.currentTierId, root: repositoryRoot
+            }),
+            mode: 'completed-tier'
+        });
     }
     else
     {
-      fail(`unknown aggregate observation scope ${input.value.scope ?? 'missing'}`)
+        const activity = schedulerTierAdmissionActivity({
+            runsRoot: path.join(path.resolve(repositoryRoot), '.tmp/test-runs'),
+            admission,
+            reference: {
+                schema: admission.schema,
+                ref: reference.path,
+                fileDigest: reference.fileDigest,
+                contentDigest: admission.contentDigest,
+                currentTierId: admission.currentTierId,
+                admissionSequence: admission.admissionSequence
+            }
+        });
+        if (activity.status !== 'active')
+        {
+            fail(`scheduler admission is not live and exact: ${activity.status}:${activity.reason}`);
+        }
     }
-    byScope.set(input.value.scope, input)
-  }
-  const first = observationInputs[0].value
-  const claimsInput = readReference(
-    first.acceptedClaimsReceiptRef,
-    'accepted claims receipt',
-    repositoryRoot
-  )
-  const planInput = readReference(first.candidatePlanRef, 'candidate plan', repositoryRoot)
-  const contextInput = readReference(
-    planInput.value.candidateContextRef,
-    'candidate context',
-    repositoryRoot
-  )
-  const schedulerInput = readCurrentJson(
+    return admission;
+}
+
+export function joinVerifiedPostRuntimeObservations({
+    preRuntimeReceipt,
+    catalog,
+    registry,
+    observations,
+    observationReferences,
+    acceptedClaims,
+    acceptedClaimsReference,
+    candidateContext,
+    schedulerAdmission,
+    schedulerReference,
+    completedSchedulerContext,
+    repositoryRoot = root
+})
+{
+    const pre = assertPreRuntimeQualified(structuredClone(preRuntimeReceipt));
+    const graph = requiredGraph(catalog, registry, repositoryRoot);
+    if (prefixedDigest(pre.catalogDigest) !== `sha256:${digestCatalog(catalog)}`)
+    {
+        fail('pre-runtime receipt catalog digest does not match the current BehaviorCatalog');
+    }
+    const aggregate = validateAggregateObservations({
+        observations,
+        graph,
+        preRuntimeReceipt: pre
+    });
+    const first = observations[0];
+    if (candidateContext?.schema !== 'fsusblog.post-runtime-candidate-context.v1'
+    || !sameValue(candidateContext.sourceState, first.sourceState)
+    || !sameValue(candidateContext.candidate, first.candidate))
+    {
+        fail('candidate context does not exact-match observation candidate identity');
+    }
+    const executionIdentity = validateClaims({
+        receipt: acceptedClaims,
+        producer: aggregate.producer,
+        aggregate: first,
+        candidateContext,
+        repositoryRoot
+    });
+    validatePostRuntimeSchedulerEvidence({
+        admission: schedulerAdmission,
+        reference: schedulerReference,
+        preRuntimeReceipt: pre,
+        completedSchedulerContext,
+        repositoryRoot
+    });
+    if (schedulerAdmission.runId !== first.candidate.runId
+    || schedulerAdmission.runId !== acceptedClaims.sourceState.schedulerRunId)
+    {
+        fail('scheduler, candidate, and accepted claims run identities differ');
+    }
+    const behaviorIds = graph.contracts.map(({ id }) => id);
+    const requiredProducerClasses = Object.fromEntries(graph.producers.map((producer) => [
+        producer.producerId,
+        sortedUnique(Object.values(producer.requiredObservations).flat())
+    ]));
+    const observedProducerClasses = Object.fromEntries(graph.producers.map((producer) => [
+        producer.producerId,
+        aggregate.classEntries
+            .filter(() => producer.producerId === aggregate.producer.producerId)
+            .map(({ classId }) => classId)
+            .sort()
+    ]));
+    const observedBehaviorResults = aggregate.classEntries
+        .map((observation) => ({
+            behaviorId: aggregate.producer.behaviorId,
+            extractorId: graph.contractByBehavior.get(aggregate.producer.behaviorId).factExtractorId,
+            producerId: aggregate.producer.producerId,
+            scope: observation.scope,
+            classId: observation.classId,
+            classReceiptPath: observation.classReceiptRef.path,
+            classReceiptDigest: prefixedDigest(observation.receiptDigest),
+            rawReceiptPath: observation.rawResultRef.path,
+            rawReceiptDigest: prefixedDigest(observation.rawResultRef.contentDigest),
+            semanticFactsDigest: `sha256:${digestValue(observation.semanticFacts)}`,
+            status: 'ok'
+        }))
+        .sort((left, right) => left.classId.localeCompare(right.classId));
+    const receipt = {
+        schema: postRuntimeReceiptSchema,
+        scope: 'post-runtime',
+        runIdentity: pre.runIdentity,
+        sourceIdentity: pre.sourceIdentity,
+        candidateIdentity: {
+            sourceCommit: first.sourceState.commit,
+            worktreeFingerprint: prefixedDigest(first.sourceState.worktreeFingerprint),
+            buildIdentity: prefixedDigest(first.buildReceiptDigest),
+            ...stable(first.candidate)
+        },
+        executionIdentity,
+        preRuntimeReceiptDigest: prefixedDigest(pre.contentDigest),
+        staticClaimVerificationDigest: pre.staticClaimVerificationDigest == null
+            ? null
+            : prefixedDigest(pre.staticClaimVerificationDigest),
+        catalogDigest: `sha256:${digestCatalog(catalog)}`,
+        registryDigest: `sha256:${digestValue(registry)}`,
+        behaviorIds,
+        requiredRuntimeProducers: graph.producers.map(({ producerId }) => producerId),
+        requiredObservationScopes: [...requiredScopes],
+        requiredProducerClasses,
+        observedProducerClasses,
+        observedBehaviorResults,
+        observationRefs: observationReferences.sort((left, right) =>
+            left.scope.localeCompare(right.scope)),
+        acceptedClaimsRef: acceptedClaimsReference,
+        documentClaimDigests: Object.fromEntries(acceptedClaims.claims.map(({ claimId, claimDigest }) =>
+            [claimId, prefixedDigest(claimDigest)])),
+        documentClaimTerminalDigest: prefixedDigest(
+            acceptedClaims.terminalReceiptRef.payloadContentDigest),
+        schedulerEvidence: schedulerReference,
+        missing: [],
+        orphans: [],
+        conflicts: [],
+        stale: [],
+        diagnostics: [],
+        findingCounts: { missing: 0, orphans: 0, conflicts: 0, stale: 0, diagnostics: 0 },
+        releaseFinalSpawnCountBeforeReceipt: schedulerAdmission.releaseFinalSpawnCountBeforeAdmission,
+        status: 'ok',
+        failureReasons: [],
+        contentDigest: null
+    };
+    receipt.contentDigest = sealedDigest(receipt);
+    return validatePostRuntimeReceipt(receipt);
+}
+
+export function joinBehaviorEvidencePostRuntime({
+    preRuntimeReceipt,
+    catalog = 'config/contracts/behavior-contracts.json',
+    registry = 'config/testing/post-runtime-producer-registry.json',
+    observationReceipts = [],
     schedulerEvidence,
-    'scheduler tier admission',
-    repositoryRoot
-  )
-  return joinVerifiedPostRuntimeObservations({
-    preRuntimeReceipt: preInput.value,
-    catalog: catalogInput.value,
-    registry: registryInput.value,
-    observations: observationInputs.map(({ value }) => value),
-    observationReferences: observationInputs.map(observationReference),
-    acceptedClaims: claimsInput.value,
-    acceptedClaimsReference: {
-      path: claimsInput.path,
-      fileDigest: claimsInput.fileDigest,
-      contentDigest: prefixedDigest(claimsInput.value.contentDigest)
-    },
-    candidateContext: contextInput.value,
-    schedulerAdmission: schedulerInput.value,
-    schedulerReference: {
-      path: schedulerInput.path,
-      fileDigest: schedulerInput.fileDigest,
-      contentDigest: prefixedDigest(schedulerInput.value.contentDigest)
-    },
-    repositoryRoot
-  })
+    completedSchedulerContext,
+    repositoryRoot = root,
+    ...unsupported
+} = {})
+{
+    if (Object.keys(unsupported).length > 0)
+    {
+        fail('legacy or unknown join inputs are forbidden');
+    }
+    if (completedSchedulerContext !== undefined)
+    {
+        assertSchedulerVerificationContext(completedSchedulerContext);
+    }
+    if (!Array.isArray(observationReceipts) || observationReceipts.length !== 2)
+    {
+        fail('exactly two aggregate observation receipt paths are required');
+    }
+    const preInput = readCurrentJson(preRuntimeReceipt, 'pre-runtime receipt', repositoryRoot);
+    const catalogInput = readCurrentJson(catalog, 'BehaviorCatalog', repositoryRoot);
+    const registryInput = readCurrentJson(registry, 'post-runtime producer registry', repositoryRoot);
+    const observationInputs = observationReceipts.map((input, index) =>
+        readCurrentJson(input, `aggregate observation ${index}`, repositoryRoot));
+    const byScope = new Map();
+    for (const input of observationInputs)
+    {
+        if (byScope.has(input.value.scope))
+        {
+            fail(`duplicate ${input.value.scope} aggregate observation`);
+        }
+        if (input.value.scope === 'application')
+        {
+            validateApplicationRuntimeObservation(input.value, { repositoryRoot });
+        }
+        else if (input.value.scope === 'release-deployment')
+        {
+            validateReleaseDeploymentObservation(input.value, { repositoryRoot });
+        }
+        else
+        {
+            fail(`unknown aggregate observation scope ${input.value.scope ?? 'missing'}`);
+        }
+        byScope.set(input.value.scope, input);
+    }
+    const first = observationInputs[0].value;
+    const claimsInput = readReference(
+        first.acceptedClaimsReceiptRef,
+        'accepted claims receipt',
+        repositoryRoot
+    );
+    const planInput = readReference(first.candidatePlanRef, 'candidate plan', repositoryRoot);
+    const contextInput = readReference(
+        planInput.value.candidateContextRef,
+        'candidate context',
+        repositoryRoot
+    );
+    const schedulerInput = readCurrentJson(
+        schedulerEvidence,
+        'scheduler tier admission',
+        repositoryRoot
+    );
+    return joinVerifiedPostRuntimeObservations({
+        preRuntimeReceipt: preInput.value,
+        catalog: catalogInput.value,
+        registry: registryInput.value,
+        observations: observationInputs.map(({ value }) => value),
+        observationReferences: observationInputs.map(observationReference),
+        acceptedClaims: claimsInput.value,
+        acceptedClaimsReference: {
+            path: claimsInput.path,
+            fileDigest: claimsInput.fileDigest,
+            contentDigest: prefixedDigest(claimsInput.value.contentDigest)
+        },
+        candidateContext: contextInput.value,
+        completedSchedulerContext,
+        schedulerAdmission: schedulerInput.value,
+        schedulerReference: {
+            path: schedulerInput.path,
+            fileDigest: schedulerInput.fileDigest,
+            contentDigest: prefixedDigest(schedulerInput.value.contentDigest)
+        },
+        repositoryRoot
+    });
 }
 
 export function validatePostRuntimeReceipt(receipt)

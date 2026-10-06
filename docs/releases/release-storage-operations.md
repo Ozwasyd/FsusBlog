@@ -75,6 +75,26 @@ node tools/storage/gc-release-assets.mjs \
 
 `--apply` re-reads the current protected manifests and rejects any digest drift, protected-release drift, or delete-plan drift before it removes a release or object. The `.gc.lock` create-new lock makes concurrent collectors fail closed. Operators do not delete a lock blindly: first establish that no collector owns it, preserve the lock record as incident evidence, and then use the approved stale-lock procedure. The GC evidence schema is `fsusblog.release-assets.gc-evidence.v1` and records the sealed plan, every release/object action, and before/after inventory.
 
+### Read-only protection observation
+
+Use the same collector to observe durable protection without applying a cleanup plan:
+
+```bash
+node tools/storage/gc-release-assets.mjs \
+  --observe-protection \
+  --store /var/lib/fsusblog/release-assets \
+  --state /var/lib/fsusblog/release-assets/retention-state.json \
+  --slot-state /var/lib/fsusblog/slots/slot-state.json \
+  --rollout-state build/releases/<release-id>/rollout-state.json \
+  --out .tmp/release-assets-protection-observation.json
+```
+
+The collector holds an actual deployment `flock` descriptor before acquiring the storage create-new `.gc.lock`. It reads the durable inputs twice inside both locks, reopens every protected manifest, and rejects changed bytes, file epochs, hardlinks, symlinks, or replaced lock identity. Observation output is create-new and must be outside the asset store. Caller lock tokens and `--apply` are refused in this mode. Its `fsusblog.release-assets.protection-observation.v1` result contains the unchanged dry-run GC evidence and `qualificationEligible: false`; it cannot authorize deletion or replace a reviewed dry-run.
+
+Optional `--rollout-evidence <path>` replays the current rollout verifier against actual artifact bytes and the durable current-schema rollout. `--observe-runtime` additionally requires `--blue-manifest` and `--green-manifest`; select the deployment environment with `--environment-file` when its default does not apply. The existing active-protection authority can be selected with `--authority`. It collects actual slot status, engine images/containers, resolved Compose, PID1, labels, and complete mount identities through the existing governance owner, including private separation and shared equality across both live slots. Static architecture success is not live-runtime acceptance.
+
+Optional `--current-schema-input <path>` requires live runtime observation and the sole `verifyRuntimeRoleCurrentSchemaPair` provider. Its source and target records use the provider's closed current-only inputs, bind candidate revisions and receipt paths/digests to the actual release manifests, and compare stable identities across both observations. A missing provider fails closed. The retired `--schema-pair` input is refused. Ordinary source and fixture checks do not establish native producer, admission, or deployment qualification; those gates remain separately required.
+
 ## Upload crash cleanup
 
 Only the `UploadCommitTempCleanupLease` owner removes `.incoming/<other-instance>/*.tmp` older than the configured retention threshold. The current instance directory and fresh files are protected. Final upload files are never cleanup candidates. A retry validates an existing deterministic final file; it never overwrites it.

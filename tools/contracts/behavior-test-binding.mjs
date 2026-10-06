@@ -1002,14 +1002,20 @@ export function joinBehaviorTestEvidence({
         }
         if (!matched && binding.framework === 'vitest')
         {
-            for (const [testId, candidate] of observationByTestId)
+            const candidates = [...observationByTestId.entries()].filter(([testId]) =>
+                testId.startsWith('vitest:') && testId.endsWith(`#${binding.fullyQualifiedName}`));
+            if (candidates.length > 0)
             {
-                if (testId.endsWith(`#${binding.fullyQualifiedName}`) && testId.startsWith('vitest:'))
-                {
-                    matched = candidate;
-                    matchedTestIds = [testId];
-                    break;
-                }
+                const outcomes = candidates.map(([, candidate]) => candidate.outcome);
+                const outcome = outcomes.includes('failed')
+                    ? 'failed'
+                    : outcomes.includes('blocked')
+                        ? 'blocked'
+                        : outcomes.includes('skipped')
+                            ? 'skipped'
+                            : 'passed';
+                matched = { ...candidates[0][1], testId: binding.canonicalTestId, outcome };
+                matchedTestIds = candidates.map(([testId]) => testId);
             }
         }
         if (!matched && binding.framework === 'xunit-trx')

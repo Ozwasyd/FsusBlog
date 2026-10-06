@@ -82,12 +82,9 @@ export function verifyReleaseFinalPostRuntimeAuthority({
         preRuntimeReceipt: directEvidence.behaviorPreRuntime.file,
         catalog: 'config/contracts/behavior-contracts.json',
         registry: 'config/testing/post-runtime-producer-registry.json',
-        observationReceipts: post.observationRefs.map((reference) => reference.ref),
-        acceptedClaimsReceipts: post.acceptedClaimRefs.map((reference) => reference.ref),
-        executionContext: post.executionContext.ref,
-        schedulerEvidence: post.schedulerEvidence.ref,
-        verificationMode: 'completed-tier',
-        schedulerVerificationContext,
+        observationReceipts: post.observationRefs.map((reference) => reference.path),
+        schedulerEvidence: post.schedulerEvidence.path,
+        completedSchedulerContext: schedulerVerificationContext,
         repositoryRoot
     });
     if (verified.contentDigest !== post.contentDigest)

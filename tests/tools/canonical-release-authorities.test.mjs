@@ -16,7 +16,8 @@ import { seal as pureSeal } from '../../tools/fact-extractors/post-runtime/recei
 import {
   canonicalAuthorityMaxBytes,
   createCanonicalReleaseAuthorityReader,
-  verifyCanonicalReleaseAuthorities
+  verifyCanonicalReleaseAuthorities,
+  verifyCanonicalReleaseAuthorityInputs
 } from '../../tools/test-evidence/canonical-release-authorities.mjs'
 import { verifyCanonicalReleaseAuthorityValues }
   from '../../tools/test-evidence/canonical-release-authorities-value-contract.mjs'
@@ -24,13 +25,17 @@ import {
   createPureReleaseAuthorityFixture,
   createReadinessManifest,
   createReleaseRolloutEvidenceFixture,
-  createRuntimeRoleMinimalV3Fixture,
-  createRuntimeRoleStaticV3Fixture,
+  createCurrentSchemaCodeContractFixture,
+  createRuntimeRoleMinimalV4Fixture,
+  createRuntimeRoleStaticV4Fixture,
   digest,
   fileDigest,
   semanticDigest,
   write
 } from './support/release-authority-test-fixtures.mjs'
+
+import { deriveReleaseReadinessModelFacts, deriveBlueGreenModelFacts }
+  from '../../tools/fact-extractors/lib/release-authority-model-facts-contract.mjs'
 
 const pureAuthorityFixture = () => createPureReleaseAuthorityFixture(semanticDigest)
 
@@ -51,8 +56,9 @@ function canonicalAuthorityFixture(context)
     fs.mkdirSync(path.dirname(path.join(directory, file)), { recursive: true })
     fs.copyFileSync(path.join(root, file), path.join(directory, file))
   }
+  const manifest = createReadinessManifest(releaseId, source.sourceCommit)
   const rolloutFixture = createReleaseRolloutEvidenceFixture({
-    rolloutId, target: { slot: 'green', releaseId, imageDigest: digest('1'), runtimeGeneration: 42 }
+    rolloutId, manifest, target: { slot: 'green', releaseId, imageDigest: digest('1'), runtimeGeneration: 42 }
   })
   const rolloutDirectory = path.join(directory, '.tmp', 'rollout')
   const data = { directory: rolloutDirectory, stateFile: path.join(rolloutDirectory, 'state.json'),
@@ -60,16 +66,16 @@ function canonicalAuthorityFixture(context)
   rolloutFixture.advanceState(data, { includeFinalStage: true })
   const artifacts = rolloutFixture.writeArtifacts(data)
   const auxiliary = rolloutFixture.writeAuxiliary(data)
-  const manifest = createReadinessManifest(releaseId, source.sourceCommit)
   write(auxiliary.releaseManifest, manifest)
   const rolloutFile = path.join(rolloutDirectory, 'release-rollout.json')
   const finalized = rolloutFixture.runEvidence(['finalize', '--state', data.stateFile, '--out', rolloutFile,
     ...rolloutFixture.artifactArgs(artifacts), ...rolloutFixture.auxiliaryArgs(auxiliary)])
   assert.equal(finalized.status, 0, finalized.stderr || finalized.stdout)
   const rollout = rolloutFixture.parseStdout(finalized)
-  const minimal = createRuntimeRoleMinimalV3Fixture('canonical-value-test', source)
+  const minimal = createRuntimeRoleMinimalV4Fixture('canonical-value-test', source)
   const artifact = minimal.artifacts['runtime-role-observation']
-  const observation = { schema: 'fsusblog.runtime-role-observation.v2', ownership: { claimEligible: true },
+  const observation = { schema: 'fsusblog.runtime-role-observation.v3', ownership: { claimEligible: true },
+    currentSchemaContract: createCurrentSchemaCodeContractFixture(),
     deploymentAuthority: { observationDigest: artifact.buildReceipt.deploymentObservationDigest } }
   const deployment = { schema: 'fsusblog.runtime-role-deployment-observation.v1', ownership: { claimEligible: true },
     observationDigest: artifact.buildReceipt.deploymentObservationDigest }
@@ -83,7 +89,7 @@ function canonicalAuthorityFixture(context)
   minimal.contentDigest = digestValue(minimal)
   const extractorIds = JSON.parse(fs.readFileSync(path.join(directory, 'config/contracts/behavior-fact-extractors.json')))
     .extractors.map(extractor => extractor.id).sort()
-  const admission = createRuntimeRoleStaticV3Fixture('canonical-value-test', source, {
+  const admission = createRuntimeRoleStaticV4Fixture('canonical-value-test', source, {
     repositoryRoot: directory, extractorIds, minimalContractBuild: minimal
   })
   const admissionFile = path.join(directory, '.tmp', 'admission.json')
@@ -123,13 +129,16 @@ test('canonical authority synthetic value replay and contained wrapper agree wit
 {
   const fixture = canonicalAuthorityFixture(context)
   const actual = verifyCanonicalReleaseAuthorityValues({ ...fixture.options, ...fixture.readers(fixture.snapshots) })
-  const wrapped = verifyCanonicalReleaseAuthorities(fixture.options)
-  assert.deepEqual(actual, wrapped)
+  const wrapped = verifyCanonicalReleaseAuthorityInputs(fixture.options)
+  assert.equal(wrapped.kind, 'pre-runtime-release-authority-inputs')
+  assert.equal(wrapped.qualificationEligible, false)
+  assert.deepEqual(actual, wrapped.values)
+  assert.throws(() => verifyCanonicalReleaseAuthorities(fixture.options), /admitted native collector is not connected/u)
   assert.equal(actual.authorityDigest, semanticDigest({
     rollout: actual.rollout.ref.fileDigest, runtimeRole: actual.runtimeRole.observation.ref.fileDigest,
     deployment: actual.runtimeRole.deployment.ref.fileDigest, manifest: actual.manifest.ref.fileDigest
   }))
-  assert.equal(actual.runtimeRole.buildReceipt.schema, 'fsusblog.runtime-role-observation-build-receipt.v3')
+  assert.equal(actual.runtimeRole.buildReceipt.schema, 'fsusblog.runtime-role-observation-build-receipt.v4')
 })
 
 test('canonical authority values reject coordinated source mutations and the current legacy producer', context =>
@@ -141,12 +150,16 @@ test('canonical authority values reject coordinated source mutations and the cur
   const cases = [
     ['current legacy producer', values => { values.artifact.buildReceipt.schema = currentBuildSchema }],
     ['v2 build downgrade', values => { values.artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v2' }],
+    ['v3 build downgrade', values => { values.artifact.buildReceipt.schema = 'fsusblog.runtime-role-observation-build-receipt.v3' }],
     ['unowned producer', values => { values.artifact.buildReceipt.producer = 'fixture-self-approval' }],
     ['empty source closure', values => {
       values.minimal.sourceClosureDigests = []
       values.artifact.buildReceipt.reproducibleBuild.sourceClosureDigest = digestValue([])
     }],
     ['v1 runtime observation', values => { values.observation.schema = 'fsusblog.runtime-role-observation.v1' }],
+    ['v2 runtime observation', values => { values.observation.schema = 'fsusblog.runtime-role-observation.v2' }],
+    ['pre model claims native qualification', values => { values.observation.currentSchemaContract.nativeQualification = true }],
+    ['pre model missing refusal', values => { delete values.observation.currentSchemaContract.refusalControls['content-seal-as-file-sha'] }],
     ['runtime ownership unknown', values => { values.observation.ownership.claimEligible = false }],
     ['deployment ownership unknown', values => { values.deployment.ownership.claimEligible = false }],
     ['deployment observation mismatch', values => { values.observation.deploymentAuthority.observationDigest = digest('f') }],
@@ -166,7 +179,7 @@ test('canonical authority values reject coordinated source mutations and the cur
     ['independent extractor roster drift', values => { values.registry.extractors.pop() }]
   ]
   assert.notEqual(currentBuildSchema,
-    'fsusblog.runtime-role-observation-build-receipt.v3', 'current producer authority inventory changed; re-audit the v3 gap')
+    'fsusblog.runtime-role-observation-build-receipt.v4', 'current producer authority inventory changed; re-audit the v4 boundary')
   for (const [name, mutate, binding = {}] of cases)
   {
     const bytes = new Map(fixture.snapshots)
@@ -210,7 +223,7 @@ test('canonical authority values reject coordinated source mutations and the cur
       ...fixture.options, candidatePlan: values.plan, ...readers
     }), /canonical-release-authorities|BehaviorDoc admission|minimal contract build/u, name)
   }
-  assert.equal(cases.length, 22)
+  assert.equal(cases.length, 26)
 })
 
 function authorityReaderFixture(context)
@@ -297,7 +310,7 @@ test('canonical authority value verifier imports only pure fixed validators and 
     assert.doesNotMatch(source, /\b(?:process|require)\s*(?:\.|\()|\bimport\s*\(/u)
     for (const match of source.matchAll(/(?:from\s*|import\s*)['"]([^'"]+)['"]/gu))
     {
-      if (['node:crypto', 'node:path'].includes(match[1])) continue
+      if (['node:crypto', 'node:path', 'node:util'].includes(match[1])) continue
       assert.ok(match[1].startsWith('.'), `unexpected import ${match[1]}`)
       await visit(path.resolve(path.dirname(file), match[1]))
     }
@@ -328,7 +341,7 @@ test('pure release authority helpers have a crypto-only transitive import closur
     await import(file)
   }
   await visit(path.join(root, 'tools/test-evidence/release-authority-bundle-contract.mjs'))
-  await visit(path.join(root, 'tools/test-evidence/release-authority-facts-contract.mjs'))
+  await visit(path.join(root, 'tools/fact-extractors/lib/release-authority-model-facts-contract.mjs'))
   assert.equal(seen.size, 4)
 })
 
@@ -350,8 +363,8 @@ test('pure release authority bundle and facts preserve original-body golden pari
   const actual = {
     releaseBundle: buildReleaseReadinessAuthorityBundle(fixture),
     blueGreenBundle: buildBlueGreenAuthorityBundle({ ...fixture, candidatePlan: fixture.planInput.ref.path, context }),
-    releaseFacts: deriveReleaseReadinessAuthorityFacts(fixture),
-    blueGreenFacts: deriveBlueGreenAuthorityFacts(fixture)
+    releaseFacts: deriveReleaseReadinessModelFacts(fixture).facts,
+    blueGreenFacts: deriveBlueGreenModelFacts(fixture).facts
   }
   // Captured from original bundle bodies at 0e8ed680 and projector bodies at 311cf194e.
   assert.equal(semanticDigest(actual), 'sha256:52c0b87d0be0abf9a13d578164af0910679485fa3e7f6ac7b3b7df494fa0e0d4')
@@ -363,16 +376,87 @@ test('pure release authority facts follow current inputs and preserve projection
   const fixture = pureAuthorityFixture()
   fixture.build.packageDigest = semanticDigest('changed-package')
   fixture.authorities.manifest.value.schemaCompatibility.contentDigest = semanticDigest('explicit-schema')
-  const release = deriveReleaseReadinessAuthorityFacts(fixture)
+  const release = deriveReleaseReadinessModelFacts(fixture).facts
   assert.equal(release.typedFacts.packageDigest, fixture.build.packageDigest)
   assert.equal(release.legacyFacts.packageDigest, fixture.build.packageDigest)
   assert.equal(release.typedFacts.schemaDigest, fixture.authorities.manifest.value.schemaCompatibility.contentDigest)
   fixture.authorities.rollout.value.stages = fixture.authorities.rollout.value.stages.filter(({ stage }) => stage !== 'candidate-readiness')
-  const blue = deriveBlueGreenAuthorityFacts(fixture)
+  const blue = deriveBlueGreenModelFacts(fixture).facts
   assert.equal(blue.typedFacts.promotionDigest, blue.typedFacts.switchDigest)
   fixture.authorities.rollout.value.artifacts.assetCompatibility.sha256 = semanticDigest('changed-assets')
-  assert.notEqual(deriveBlueGreenAuthorityFacts(fixture).typedFacts.containmentDigest, blue.typedFacts.containmentDigest)
+  assert.notEqual(deriveBlueGreenModelFacts(fixture).facts.typedFacts.containmentDigest, blue.typedFacts.containmentDigest)
 })
 
 const commit = resolveSourceCommit(root)
 const releaseId = `20260711010101-${commit.slice(0, 12)}`
+
+// Source refusal controls; synthetic metadata is deliberately unable to qualify.
+test('disconnected native collector refuses legacy windows and claimed current schema facts', () =>
+{
+  for (const claimedCurrentSchema of [undefined, {
+    status: 'verified-current', verified: true, qualificationEligible: true,
+    nativeQualification: true, receipt: { contentDigest: digest('1') },
+    admission: { value: { status: 'pass' } }
+  }])
+  {
+    const fixture = pureAuthorityFixture()
+    fixture.authorities.currentSchema = claimedCurrentSchema
+    assert.throws(() => deriveReleaseReadinessAuthorityFacts(fixture), /admitted native collector is not connected/u)
+    assert.throws(() => deriveBlueGreenAuthorityFacts(fixture), /admitted native collector is not connected/u)
+  }
+})
+
+test('pre-runtime model envelopes cannot become native authority material', () =>
+{
+  const fixture = pureAuthorityFixture()
+  for (const projection of [deriveReleaseReadinessModelFacts(fixture), deriveBlueGreenModelFacts(fixture)])
+  {
+    assert.deepEqual(Object.keys(projection), ['kind', 'qualificationEligible', 'facts'])
+    assert.equal(projection.kind, 'pre-runtime-release-authority-model')
+    assert.equal(projection.qualificationEligible, false)
+    assert.equal('status' in projection, false)
+    assert.equal('executed' in projection, false)
+    fixture.authorities.currentSchema = projection
+    assert.throws(() => deriveReleaseReadinessAuthorityFacts(fixture), /admitted native collector is not connected/u)
+    assert.throws(() => deriveBlueGreenAuthorityFacts(fixture), /admitted native collector is not connected/u)
+  }
+})
+
+test('every production canonical authority caller retains the qualified entry and excludes model helpers', () =>
+{
+  const expected = new Map([
+    ['tools/test-evidence/release-readiness-raw.mjs', 'deriveReleaseReadinessAuthorityFacts'],
+    ['tools/test-evidence/blue-green-containment-raw.mjs', 'deriveBlueGreenAuthorityFacts']
+  ])
+  const discovered = []
+  const visit = directory => {
+    for (const item of fs.readdirSync(directory, { withFileTypes: true }))
+    {
+      if (item.name === 'node_modules') continue
+      const file = path.join(directory, item.name)
+      if (item.isDirectory()) visit(file)
+      else if (item.isFile() && file.endsWith('.mjs'))
+      {
+        const source = fs.readFileSync(file, 'utf8')
+        const relative = path.relative(root, file).replaceAll(path.sep, '/')
+        assert.doesNotMatch(source, /(?:from\s*|import\s*\()\s*['"][^'"]*release-authority-model-facts-contract\.mjs/u,
+          `production must not import unqualified model projections: ${relative}`)
+        if (relative === 'tools/test-evidence/canonical-release-authorities.mjs'
+          || relative === 'tools/test-evidence/release-authority-facts-contract.mjs') continue
+        if (/\b(?:verifyCanonicalReleaseAuthorities|deriveReleaseReadinessAuthorityFacts|deriveBlueGreenAuthorityFacts)\s*\(/u.test(source))
+        {
+          discovered.push(relative)
+          const projector = expected.get(relative)
+          assert.equal(typeof projector, 'string', `new qualification caller requires boundary review: ${relative}`)
+          assert.doesNotMatch(source, /\b(?:verifyCanonicalReleaseAuthorityInputs|deriveReleaseReadinessModelFacts|deriveBlueGreenModelFacts)\b/u)
+          assert.equal([...source.matchAll(/\bverifyCanonicalReleaseAuthorities\s*\(/gu)].length, 2)
+          assert.equal([...source.matchAll(new RegExp(`\\b${projector}\\s*\\(`, 'gu'))].length, 1)
+          assert.match(source, /from '\.\/canonical-release-authorities\.mjs'/u)
+          assert.match(source, /from '\.\/release-authority-facts-contract\.mjs'/u)
+        }
+      }
+    }
+  }
+  visit(path.join(root, 'tools'))
+  assert.deepEqual(discovered.sort(), [...expected.keys()].sort())
+})

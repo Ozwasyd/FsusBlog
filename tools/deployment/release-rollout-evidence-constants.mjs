@@ -2,7 +2,7 @@ export const ROLLOUT_STAGES = Object.freeze([
   'manifest-validate',
   'capacity-preflight',
   'backup-restore-gate',
-  'expand-migration',
+  'current-schema-admission',
   'asset-materialize',
   'candidate-start',
   'candidate-readiness',
@@ -16,8 +16,8 @@ export const ROLLOUT_STAGES = Object.freeze([
   'release-evidence'
 ])
 
-export const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v1'
-export const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v1'
+export const STAGE_SCHEMA = 'fsusblog.release-rollout-stage-evidence.v2'
+export const FINAL_SCHEMA = 'fsusblog.release-rollout-evidence.v2'
 export const REQUIRED_FINAL_ARTIFACTS = Object.freeze([
   'publicTraffic',
   'notificationStream',
@@ -29,7 +29,7 @@ export const REQUIRED_FINAL_ARTIFACTS = Object.freeze([
 export const REQUIRED_AUXILIARY_EVIDENCE = Object.freeze([
   'releaseManifest',
   'backupRestoreGate',
-  'migrationExpand',
+  'currentSchemaAdmission',
   'candidateReadiness',
   'assetMaterialization',
   'retentionPrepared',

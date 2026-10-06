@@ -49,7 +49,7 @@ internal static class CurrentSchemaRecipeFactExtractor
 
     private static (SchemaColumnModel, IReadOnlyList<SchemaConstraintModel>) Column(string source, string table)
     {
-        Match match = Match(source, $"(?<name>{Id}) (?<type>varchar\\([1-9][0-9]*\\)|double precision|timestamp(?: without time zone)?|smallint|integer|bigint|boolean|bytea|uuid|jsonb|date)\\s*(?<tail>.*)");
+        Match match = Match(source, $"(?<name>{Id}) (?<type>(?:smallint|uuid|text)\\[\\]|varchar\\([1-9][0-9]*\\)|double precision|timestamp(?: without time zone)?|smallint|integer|bigint|boolean|bytea|uuid|jsonb|date)\\s*(?<tail>.*)");
         string name = match.Groups["name"].Value;
         string type = match.Groups["type"].Value.ToLowerInvariant();
         string tail = match.Groups["tail"].Value.Trim();

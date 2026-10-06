@@ -17,6 +17,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class OwnedFrameCacheTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task SetOwnedFrame_RetainsSensitiveBufferAcrossRedisAwaitAndReaderThenReleasesOnce()
     {
         var pool = new MultiTrackingArrayPool();
@@ -43,24 +44,34 @@ public sealed class OwnedFrameCacheTests
         using var memory = new MemoryCache(new MemoryCacheOptions());
         using UnifiedCache cache = CreateCache(memory, db);
 
-        Task set = cache.SetOwnedFrameAsync(CachePolicyId.AdminStatsFrame, "core:main", owner);
-        await writeEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Assert.Equal(0, pool.ReturnCount);
-        Assert.Equal(AedsFrameHeader.Magic, BitConverter.ToUInt32(responseLease.Memory.Span[..4]));
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => cache.SetOwnedFrameAsync(CachePolicyId.AdminStatsFrame, "core:main", owner),
+            async set =>
+            {
+                await writeEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Assert.Equal(0, pool.ReturnCount);
+                Assert.Equal(AedsFrameHeader.Magic, BitConverter.ToUInt32(responseLease.Memory.Span[..4]));
 
-        releaseWrite.TrySetResult(true);
-        await set;
-        Assert.Equal(1, cache.GetOwnedFrameResidencySnapshot().EntryCount);
-        await cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main");
-        Assert.Equal(0, pool.ReturnCount);
+                releaseWrite.TrySetResult(true);
+                await set;
+                Assert.Equal(1, cache.GetOwnedFrameResidencySnapshot().EntryCount);
+                await cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main");
+                Assert.Equal(0, pool.ReturnCount);
 
-        responseLease.Dispose();
+                responseLease.Dispose();
 
-        Assert.True(SpinWait.SpinUntil(() => pool.ReturnCount == 1, TimeSpan.FromSeconds(5)));
-        Assert.True(pool.WasCleared(backing));
+                Assert.True(SpinWait.SpinUntil(() => pool.ReturnCount == 1, TimeSpan.FromSeconds(5)));
+                Assert.True(pool.WasCleared(backing));
+            },
+            () =>
+            {
+                releaseWrite.TrySetResult(true);
+                responseLease.Dispose();
+            });
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ReplaceAndShutdown_RetireEachOwnerOnceAndResidencyTracksBackingCapacity()
     {
         var pool = new MultiTrackingArrayPool(extraCapacity: 113);
@@ -95,6 +106,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "cancelled-cache-transfer-preserves-reader-and-releases-backing")]
     public async Task CancellationAfterRedisCommit_ConsumesRootButOutstandingReaderRemainsValid()
     {
         var pool = new MultiTrackingArrayPool();
@@ -130,6 +142,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task RedisL2Backfill_OwnsExactSensitiveArrayUntilEvictionAndReaderCompletion()
     {
         byte[] frame = new AedsEncoder().Encode(AedsFrameType.AdminStats, [1, 2, 3]);
@@ -155,6 +168,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "disposed-cache-refuses-and-consumes-sensitive-owner")]
     public async Task AlreadyDisposedCache_ConsumesTransferredSensitiveOwner()
     {
         var pool = new MultiTrackingArrayPool();
@@ -173,6 +187,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task DisposeDuringRedisWrite_PreventsPostShutdownInstallAndReleasesOwner()
     {
         var pool = new MultiTrackingArrayPool();
@@ -195,18 +210,28 @@ public sealed class OwnedFrameCacheTests
         using var memory = new MemoryCache(new MemoryCacheOptions());
         UnifiedCache cache = CreateCache(memory, db);
 
-        Task set = cache.SetOwnedFrameAsync(CachePolicyId.AdminStatsFrame, "core:main", owner);
-        await writeEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        cache.Dispose();
-        releaseWrite.TrySetResult(true);
-        await set;
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => cache.SetOwnedFrameAsync(CachePolicyId.AdminStatsFrame, "core:main", owner),
+            async set =>
+            {
+                await writeEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                cache.Dispose();
+                releaseWrite.TrySetResult(true);
+                await set;
 
-        Assert.Equal(0, cache.GetOwnedFrameResidencySnapshot().EntryCount);
-        Assert.True(SpinWait.SpinUntil(() => pool.WasReturned(backing), TimeSpan.FromSeconds(5)));
-        Assert.True(pool.WasCleared(backing));
+                Assert.Equal(0, cache.GetOwnedFrameResidencySnapshot().EntryCount);
+                Assert.True(SpinWait.SpinUntil(() => pool.WasReturned(backing), TimeSpan.FromSeconds(5)));
+                Assert.True(pool.WasCleared(backing));
+            },
+            () =>
+            {
+                cache.Dispose();
+                releaseWrite.TrySetResult(true);
+            });
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task L2ReadAndRemove_AreOrderedSoInvalidationCannotBeResurrected()
     {
         byte[] frame = new AedsEncoder().Encode(AedsFrameType.AdminStats, [4, 5, 6]);
@@ -230,29 +255,53 @@ public sealed class OwnedFrameCacheTests
         using var memory = new MemoryCache(new MemoryCacheOptions());
         using UnifiedCache cache = CreateCache(memory, db);
 
-        Task<OwnedFrameCacheReadResult> readTask = cache.TryGetOwnedFrameAsync(
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => cache.TryGetOwnedFrameAsync(
             CachePolicyId.AdminStatsFrame,
             "core:main",
-            AedsFrameType.AdminStats);
-        await readEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Task removeTask = cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main");
-        await Task.Yield();
-        Assert.False(deleteEntered.Task.IsCompleted);
+            AedsFrameType.AdminStats),
+            async readTask =>
+            {
+                await readEntered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Task removeTask = cache.RemoveAsync(CachePolicyId.AdminStatsFrame, "core:main");
+                try
+                {
+                    await Task.Yield();
+                    Assert.False(deleteEntered.Task.IsCompleted);
 
-        releaseRead.TrySetResult(true);
-        OwnedFrameCacheReadResult read = await readTask;
-        await removeTask;
-        Assert.True(deleteEntered.Task.IsCompleted);
-        Assert.Equal(0, cache.GetOwnedFrameResidencySnapshot().EntryCount);
-        Assert.True(cache.GetOwnedFrameResidencySnapshot().CapacityBytes > 0);
+                    releaseRead.TrySetResult(true);
+                    OwnedFrameCacheReadResult read = await readTask;
+                    await removeTask;
+                    Assert.True(deleteEntered.Task.IsCompleted);
+                    Assert.Equal(0, cache.GetOwnedFrameResidencySnapshot().EntryCount);
+                    Assert.True(cache.GetOwnedFrameResidencySnapshot().CapacityBytes > 0);
 
-        read.Lease!.Dispose();
-        Assert.True(SpinWait.SpinUntil(
-            () => cache.GetOwnedFrameResidencySnapshot() == default,
-            TimeSpan.FromSeconds(5)));
+                    read.Lease!.Dispose();
+                    Assert.True(SpinWait.SpinUntil(
+                        () => cache.GetOwnedFrameResidencySnapshot() == default,
+                        TimeSpan.FromSeconds(5)));
+                }
+                finally
+                {
+                    releaseRead.TrySetResult(true);
+                    try
+                    {
+                        await Task.WhenAll(readTask, removeTask);
+                    }
+                    finally
+                    {
+                        if (readTask.Status == TaskStatus.RanToCompletion)
+                        {
+                            readTask.Result.Lease?.Dispose();
+                        }
+                    }
+                }
+            },
+            () => releaseRead.TrySetResult(true));
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "sensitive-aeds-cache-invalid-frame-cleared")]
     public async Task InvalidSensitiveL2Frame_IsClearedAfterValidationFailure()
     {
         byte[] frame = new AedsEncoder().Encode(AedsFrameType.AdminStats, [7, 8, 9]);
@@ -275,6 +324,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "cache-admission-failure-preserves-prior-owner-residency")]
     public async Task MemoryCacheAdmissionFailure_PreservesPreviousOwnerAndCounters()
     {
         var firstPool = new MultiTrackingArrayPool();
@@ -308,6 +358,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task MemoryCacheCompaction_RetiresOwnerExactlyOnce()
     {
         var pool = new MultiTrackingArrayPool();
@@ -326,6 +377,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ReversedMultiKeyInvalidations_AcquireOrderedGatesWithoutDeadlock()
     {
         var firstPool = new MultiTrackingArrayPool();
@@ -340,18 +392,18 @@ public sealed class OwnedFrameCacheTests
         await cache.SetOwnedFrameAsync(CachePolicyId.ArticleListFrame, "a", first);
         await cache.SetOwnedFrameAsync(CachePolicyId.ArticleListFrame, "b", second);
 
-        Task forward = cache.RemoveManyAsync(
+        Func<Task> forward = () => cache.RemoveManyAsync(
             [
                 new(CachePolicyId.ArticleListFrame, "a"),
                 new(CachePolicyId.ArticleListFrame, "b")
             ]);
-        Task reverse = cache.RemoveManyAsync(
+        Func<Task> reverse = () => cache.RemoveManyAsync(
             [
                 new(CachePolicyId.ArticleListFrame, "b"),
                 new(CachePolicyId.ArticleListFrame, "a")
             ]);
 
-        await Task.WhenAll(forward, reverse).WaitAsync(TimeSpan.FromSeconds(5));
+        await RealConcurrencyHarness.RunAsync(forward, reverse).WaitAsync(TimeSpan.FromSeconds(5));
         Assert.True(SpinWait.SpinUntil(() => firstPool.WasReturned(firstBacking), TimeSpan.FromSeconds(5)));
         Assert.True(SpinWait.SpinUntil(() => secondPool.WasReturned(secondBacking), TimeSpan.FromSeconds(5)));
         Assert.Equal(default, cache.GetOwnedFrameResidencySnapshot());
@@ -517,6 +569,7 @@ public sealed class OwnedFrameCacheTests
 public sealed class OwnedFrameResponseResultTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task PreencodedResult_ReleasesLeaseOnNotModifiedAndHeadPaths()
     {
         await AssertEarlyReturnReleasesAsync("GET", ifNoneMatch: "\"v1\"");
@@ -524,6 +577,7 @@ public sealed class OwnedFrameResponseResultTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-response-failure-releases-lease-once")]
     public async Task PreencodedResult_ReleasesLeaseWhenBodyWriteThrows()
     {
         var pool = new ResponseTrackingArrayPool();
@@ -542,6 +596,7 @@ public sealed class OwnedFrameResponseResultTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "cancelled-response-releases-lease-exactly-once")]
     public async Task PreencodedResult_ReleasesLeaseWhenRequestIsAlreadyCancelled()
     {
         var pool = new ResponseTrackingArrayPool();
@@ -563,6 +618,7 @@ public sealed class OwnedFrameResponseResultTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-response-single-execution")]
     public async Task PreencodedResult_RejectsConcurrentSecondExecutionAndFirstStillReleasesOnce()
     {
         var pool = new ResponseTrackingArrayPool();

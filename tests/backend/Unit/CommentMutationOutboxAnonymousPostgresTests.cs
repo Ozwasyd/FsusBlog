@@ -67,17 +67,41 @@ public sealed class CommentMutationOutboxAnonymousPostgresTests(PostgresSchemaMi
 
         using ServiceProvider provider = BuildAnonymousWorkerServices(connectionString, invalidations);
         var worker = CreateWorker(provider);
-        Task<int> firstBatch = worker.ProcessPendingAsync(CancellationToken.None);
-        await invalidations.Entered.WaitAsync(TimeSpan.FromSeconds(30));
+        using var workerCancellation = new CancellationTokenSource();
+        Task<int> firstBatch = worker.ProcessPendingAsync(workerCancellation.Token);
+        try
+        {
+            await invalidations.Entered.WaitAsync(TimeSpan.FromSeconds(30));
 
-        Assert.False(firstBatch.IsCompleted);
-        Assert.Equal(Attempts, submissions.Count(static task => task.IsCompletedSuccessfully));
-        Assert.Equal(1, invalidations.CallCount);
-        CacheDispatchObservation blockedDispatch = Assert.Single(invalidations.Observations);
-        AssertBlockedAnonymousWorkerState(connectionString, Attempts, blockedDispatch);
-        AssertAnonymousCommitState(connectionString, Attempts, expectedProcessedEvents: 0);
+            Assert.False(firstBatch.IsCompleted);
+            Assert.Equal(Attempts, submissions.Count(static task => task.IsCompletedSuccessfully));
+            Assert.Equal(1, invalidations.CallCount);
+            CacheDispatchObservation blockedDispatch = Assert.Single(invalidations.Observations);
+            AssertBlockedAnonymousWorkerState(connectionString, Attempts, blockedDispatch);
+            AssertAnonymousCommitState(connectionString, Attempts, expectedProcessedEvents: 0);
+        }
+        finally
+        {
+            invalidations.Release();
+            try
+            {
+                await firstBatch.WaitAsync(TimeSpan.FromSeconds(30));
+            }
+            catch (TimeoutException)
+            {
+                workerCancellation.Cancel();
+                try
+                {
+                    await firstBatch.WaitAsync(TimeSpan.FromSeconds(30));
+                }
+                catch (OperationCanceledException) when (workerCancellation.IsCancellationRequested)
+                {
+                    // Cleanup observed the canceled worker; the original timeout still fails.
+                }
+                throw;
+            }
+        }
 
-        invalidations.Release();
         int processed = await firstBatch.WaitAsync(TimeSpan.FromSeconds(30));
         int nextBatch;
         do
@@ -131,6 +155,7 @@ public sealed class CommentMutationOutboxAnonymousPostgresTests(PostgresSchemaMi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-strong-anonymous-submission-worker-retry-and-restart-preserve-committed-comment-and-checkpoints")]
     public async Task StrongAnonymousSubmission_WorkerRetryAndRestartPreserveCommittedCommentAndCheckpoints()
     {
         string connectionString = await CreateAnonymousCommentDatabaseAsync();

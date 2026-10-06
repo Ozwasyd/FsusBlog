@@ -1,6 +1,10 @@
 using System.Collections.Immutable;
 using System.Data;
 using System.Data.Common;
+using System.Security.Cryptography;
+using System.Text.Json;
+
+using FsusBlog.Contracts.Migration;
 
 using Microsoft.Data.Sqlite;
 
@@ -8,17 +12,15 @@ using NSubstitute;
 
 using Xunit;
 
-using FsusBlog.Contracts.Migration;
-
 namespace FsusBlog.Migration.Tests;
 
 public sealed class OfflineMigrationApplyJournalTests
 {
-    private static readonly string IdentityDigest = new('a', 64);
-    private static readonly DateTimeOffset RecordedAt = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
+    private static readonly string s_identityDigest = new('a', 64);
+    private static readonly DateTimeOffset s_recordedAt = new(2026, 10, 2, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
-    public void First_entry_is_the_original_successfully_accepted_attempt_start_across_forks_and_resume()
+    public void FirstEntryIsTheOriginalSuccessfullyAcceptedAttemptStartAcrossForksAndResume()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -37,16 +39,16 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.RecoveryRequired,
             failure: "offline_apply_prior_attempt_interrupted"));
         Accept(fork, Control(plan, fork, OfflineMigrationApplyJournalState.AttemptStarted, attempt: 2)
-            with { RecordedAt = RecordedAt.AddMinutes(1) });
+            with { RecordedAt = s_recordedAt.AddMinutes(1) });
         Assert.Same(first, fork.First);
-        Assert.Equal(RecordedAt, fork.First!.RecordedAt);
-        Assert.Equal(RecordedAt.AddMinutes(1), fork.Last!.RecordedAt);
+        Assert.Equal(s_recordedAt, fork.First!.RecordedAt);
+        Assert.Equal(s_recordedAt.AddMinutes(1), fork.Last!.RecordedAt);
         Assert.Same(first, verifier.First);
         Assert.Same(first, verifier.Last);
     }
 
     [Fact]
-    public void Complete_transaction_chain_requires_committed_unit_then_verified_step()
+    public void CompleteTransactionChainRequiresCommittedUnitThenVerifiedStep()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -61,7 +63,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Staging_fork_does_not_publish_uncommitted_progress()
+    public void StagingForkDoesNotPublishUncommittedProgress()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier original = Verifier(plan);
@@ -81,7 +83,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [InlineData("database")]
     [InlineData("invocation")]
     [InlineData("plan")]
-    public void Rejects_changed_binding_without_advancing_chain(string changed)
+    public void RejectsChangedBindingWithoutAdvancingChain(string changed)
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -102,7 +104,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Rejects_uncommitted_proof_and_premature_terminal()
+    public void RejectsUncommittedProofAndPrematureTerminal()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -115,7 +117,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Rejects_failed_actual_predicate_even_with_valid_observation_digest()
+    public void RejectsFailedActualPredicateEvenWithValidObservationDigest()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -128,7 +130,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Batches_preserve_high_watermark_counts_and_exact_resume_boundary()
+    public void BatchesPreserveHighWatermarkCountsAndExactResumeBoundary()
     {
         OfflineMigrationPlan plan = Plan(OfflineMigrationExecutionMode.CheckpointedBatch);
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -147,7 +149,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Interrupted_attempt_requires_terminal_then_exact_successor_attempt()
+    public void InterruptedAttemptRequiresTerminalThenExactSuccessorAttempt()
     {
         OfflineMigrationPlan plan = Plan(OfflineMigrationExecutionMode.CheckpointedBatch);
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -166,7 +168,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Empty_plan_is_never_a_successful_apply_plan()
+    public void EmptyPlanIsNeverASuccessfulApplyPlan()
     {
         OfflineMigrationPlan plan = Plan() with { OrderedSteps = [] };
         plan = plan with { ContentDigest = OfflineMigrationPlanCodec.ComputeContentDigest(plan) };
@@ -174,7 +176,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Actual_canonical_artifact_sha_is_not_the_payload_semantic_seal()
+    public void ActualCanonicalArtifactShaIsNotThePayloadSemanticSeal()
     {
         OfflineMigrationPlan plan = Plan();
         string actualBytesSha = Convert.ToHexStringLower(System.Security.Cryptography.SHA256.HashData(
@@ -187,7 +189,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Transaction_mode_cannot_claim_partial_or_batch_commit()
+    public void TransactionModeCannotClaimPartialOrBatchCommit()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -201,7 +203,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [Theory]
     [InlineData("unrelated-predicate")]
     [InlineData("changed-before-facts")]
-    public void Resealed_step_proof_cannot_replace_the_committed_unit_before(string changed)
+    public void ResealedStepProofCannotReplaceTheCommittedUnitBefore(string changed)
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -219,7 +221,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Crash_recovery_proof_may_use_the_exact_reobserved_committed_target()
+    public void CrashRecoveryProofMayUseTheExactReobservedCommittedTarget()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -243,7 +245,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [InlineData("zero")]
     [InlineData("infinite")]
     [InlineData("unsupported-timer-range")]
-    public async Task Missing_or_invalid_cleanup_budget_rejects_before_native_lock_or_write(string invalid)
+    public async Task MissingOrInvalidCleanupBudgetRejectsBeforeNativeLockOrWrite(string invalid)
     {
         TimeSpan? budget = invalid switch
         {
@@ -271,7 +273,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Unlock_failure_preserves_first_apply_failure_and_records_cleanup_failure_separately()
+    public async Task UnlockFailurePreservesFirstApplyFailureAndRecordsCleanupFailureSeparately()
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection(failUnlock: true);
@@ -288,7 +290,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Native_cleanup_await_uses_independent_finite_budget_and_does_not_claim_disposal()
+    public async Task NativeCleanupAwaitUsesIndependentFiniteBudgetAndDoesNotClaimDisposal()
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection(awaitUnlockCancellation: true);
@@ -309,7 +311,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [Theory]
     [InlineData("main-cancel")]
     [InlineData("operation-fault")]
-    public async Task Transaction_disposal_fault_does_not_replace_the_first_in_flight_failure(string first)
+    public async Task TransactionDisposalFaultDoesNotReplaceTheFirstInFlightFailure(string first)
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection(allowReadOnlyAdmission: true, failTransactionDisposal: true);
@@ -325,7 +327,10 @@ public sealed class OfflineMigrationApplyJournalTests
                 Assert.Equal(IsolationLevel.RepeatableRead, call.Arg<DbTransaction>().IsolationLevel);
                 entered.TrySetResult();
                 await release.Task;
-                if (first == "main-cancel") { call.Arg<CancellationToken>().ThrowIfCancellationRequested(); }
+                if (first == "main-cancel")
+                {
+                    call.Arg<CancellationToken>().ThrowIfCancellationRequested();
+                }
                 throw new InvalidOperationException("fixture_private_operation_fault");
             });
         Task<OfflineMigrationApplyResult> pending = OfflineMigrationExecutor.ApplyAsync(
@@ -337,7 +342,10 @@ public sealed class OfflineMigrationApplyJournalTests
             await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
             Assert.False(pending.IsCompleted);
             Assert.Equal(0, connection.WriteAttempts);
-            if (first == "main-cancel") { cancellation.Cancel(); }
+            if (first == "main-cancel")
+            {
+                cancellation.Cancel();
+            }
             release.TrySetResult();
             OfflineMigrationApplyResult result = await pending;
             Assert.Equal(OfflineMigrationApplyStatus.RecoveryRequired, result.Status);
@@ -358,7 +366,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Unsupported_native_provider_is_rejected_before_connection_or_admission_use()
+    public async Task UnsupportedNativeProviderIsRejectedBeforeConnectionOrAdmissionUse()
     {
         OfflineMigrationPlan plan = Plan(provider: CurrentSchemaProviderKind.MySql);
         DbConnection connection = Substitute.For<DbConnection>();
@@ -377,7 +385,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Destructive_confirmation_is_rejected_before_lock_or_admission_use()
+    public async Task DestructiveConfirmationIsRejectedBeforeLockOrAdmissionUse()
     {
         OfflineMigrationPlan plan = Plan(destructive: true);
         DbConnection connection = Substitute.For<DbConnection>();
@@ -394,7 +402,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Missing_compiled_operation_owner_rejects_after_lock_before_any_transaction_or_write()
+    public async Task MissingCompiledOperationOwnerRejectsAfterLockBeforeAnyTransactionOrWrite()
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection();
@@ -416,7 +424,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Already_cancelled_apply_has_no_native_lock_or_write_side_effect()
+    public async Task AlreadyCancelledApplyHasNoNativeLockOrWriteSideEffect()
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection();
@@ -437,7 +445,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Wrong_exact_plan_artifact_rejects_before_native_connection_use()
+    public async Task WrongExactPlanArtifactRejectsBeforeNativeConnectionUse()
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection();
@@ -454,7 +462,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Locked_source_admission_rejection_leaves_control_and_business_state_unwritten()
+    public async Task LockedSourceAdmissionRejectionLeavesControlAndBusinessStateUnwritten()
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection(allowReadOnlyAdmission: true);
@@ -483,7 +491,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task In_flight_locked_admission_cancellation_has_no_control_or_business_write()
+    public async Task InFlightLockedAdmissionCancellationHasNoControlOrBusinessWrite()
     {
         OfflineMigrationPlan plan = Plan();
         using var connection = new LockOnlyConnection(allowReadOnlyAdmission: true);
@@ -527,7 +535,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Media_operation_cannot_use_the_no_journal_execute_route()
+    public void MediaOperationCannotUseTheNoJournalExecuteRoute()
     {
         OfflineMigrationPlan plan = Plan();
         var operation = new FixtureMediaOperation(plan.OrderedSteps[0].Operations[0]);
@@ -539,7 +547,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Media_owner_requires_durable_preparation_publication_and_atomic_committed_unit()
+    public void MediaOwnerRequiresDurablePreparationPublicationAndAtomicCommittedUnit()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
@@ -561,7 +569,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Media_publication_cannot_skip_preparation_or_repeat_a_parent_cas()
+    public void MediaPublicationCannotSkipPreparationOrRepeatAParentCas()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
@@ -586,7 +594,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [InlineData("source-root")]
     [InlineData("target-root")]
     [InlineData("directory")]
-    public void Resealed_media_publication_cannot_change_the_prepared_binding(string changed)
+    public void ResealedMediaPublicationCannotChangeThePreparedBinding(string changed)
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
@@ -615,7 +623,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Durable_preparation_recovers_the_exact_opaque_invocation_and_owned_run_pair()
+    public void DurablePreparationRecoversTheExactOpaqueInvocationAndOwnedRunPair()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
@@ -633,12 +641,12 @@ public sealed class OfflineMigrationApplyJournalTests
         Accept(verifier, Proof(verifier) with { Attempt = 2 });
         Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted, attempt: 2));
         Assert.True(verifier.Completed);
-        Assert.Equal(RecordedAt, verifier.First!.RecordedAt);
+        Assert.Equal(s_recordedAt, verifier.First!.RecordedAt);
         Assert.Equal(prepared.Media.Binding, verifier.StepProofs[0].Media!.Binding);
     }
 
     [Fact]
-    public void V2_media_round_trip_retains_raw_binding_and_v1_null_media_bytes_are_unchanged()
+    public void V2MediaRoundTripRetainsRawBindingAndV1NullMediaBytesAreUnchanged()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
@@ -663,7 +671,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Unbound_or_nonmedia_owner_cannot_admit_resealed_media_events()
+    public void UnboundOrNonmediaOwnerCannotAdmitResealedMediaEvents()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -675,7 +683,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Failed_actual_journal_append_does_not_advance_the_staged_media_chain()
+    public async Task FailedActualJournalAppendDoesNotAdvanceTheStagedMediaChain()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier committed = MediaVerifier(plan);
@@ -704,7 +712,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Publication_appends_original_seven_bindings_on_graph_transaction_without_committing()
+    public async Task PublicationAppendsOriginalSevenBindingsOnGraphTransactionWithoutCommitting()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier committed = MediaVerifier(plan);
@@ -741,7 +749,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Media_owner_cannot_admit_a_checkpointed_partial_graph_mode()
+    public void MediaOwnerCannotAdmitACheckpointedPartialGraphMode()
     {
         OfflineMigrationPlan plan = Plan(OfflineMigrationExecutionMode.CheckpointedBatch);
         OfflineMigrationApplyJournalVerifier verifier = Verifier(plan);
@@ -751,7 +759,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public void Resealed_unit_cannot_swap_the_physically_published_generation()
+    public void ResealedUnitCannotSwapThePhysicallyPublishedGeneration()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
@@ -769,7 +777,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [Theory]
     [InlineData("unrelated-reference")]
     [InlineData("changed-facts")]
-    public void Publication_must_retain_the_original_prepared_source_predicate(string changed)
+    public void PublicationMustRetainTheOriginalPreparedSourcePredicate(string changed)
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalVerifier verifier = MediaVerifier(plan);
@@ -785,7 +793,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Journal_append_retains_first_cancellation_when_command_disposal_also_fails()
+    public async Task JournalAppendRetainsFirstCancellationWhenCommandDisposalAlsoFails()
     {
         OfflineMigrationPlan plan = Plan();
         OfflineMigrationApplyJournalEntry entry = Seal(Control(plan, Verifier(plan), OfflineMigrationApplyJournalState.AttemptStarted));
@@ -807,7 +815,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Journal_budget_counts_actual_utf8_bytes_before_any_native_command()
+    public async Task JournalBudgetCountsActualUtf8BytesBeforeAnyNativeCommand()
     {
         OfflineMigrationPlan plan = Plan();
         ImmutableArray<OfflineMigrationFact> facts = Enumerable.Range(0, 96)
@@ -837,7 +845,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [InlineData("success-result", "refused")]
     [InlineData("success-result", "failed")]
     [InlineData("cancelled-positive", "exhausted")]
-    public async Task PostgreSql_acquisition_failure_retains_effect_custody_until_original_cleanup(string acquisition, string cleanup)
+    public async Task PostgreSqlAcquisitionFailureRetainsEffectCustodyUntilOriginalCleanup(string acquisition, string cleanup)
     {
         // These command controls enter the real executor's failure boundary; they
         // are not native PostgreSQL execution or a successful migration proof.
@@ -867,8 +875,14 @@ public sealed class OfflineMigrationApplyJournalTests
             if (cleanup == "failed") throw new InvalidOperationException("fixture_unlock_private_detail");
             if (cleanup == "exhausted")
             {
-                try { await Task.Delay(Timeout.Infinite, cleanupToken); }
-                finally { cleanupAwaitEnded = true; }
+                try
+                {
+                    await Task.Delay(Timeout.Infinite, cleanupToken);
+                }
+                finally
+                {
+                    cleanupAwaitEnded = true;
+                }
             }
             return (object?)(cleanup != "refused");
         });
@@ -915,7 +929,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [Theory]
     [InlineData(true)]
     [InlineData(false)]
-    public async Task PostgreSql_lock_scalar_custody_precedes_command_disposal(bool observedSuccess)
+    public async Task PostgreSqlLockScalarCustodyPrecedesCommandDisposal(bool observedSuccess)
     {
         var commands = PostgreSqlLockCommands();
         var first = new InvalidOperationException("fixture_first_private_detail");
@@ -945,7 +959,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task PostgreSql_observed_busy_result_does_not_release_a_lock_not_acquired_by_this_attempt()
+    public async Task PostgreSqlObservedBusyResultDoesNotReleaseALockNotAcquiredByThisAttempt()
     {
         var commands = PostgreSqlLockCommands();
         commands.Acquire.ExecuteScalarAsync(Arg.Any<CancellationToken>()).Returns(Task.FromResult<object?>(false));
@@ -975,7 +989,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [InlineData(CurrentSchemaProviderKind.PostgreSql)]
     [InlineData(CurrentSchemaProviderKind.MySql)]
     [InlineData(CurrentSchemaProviderKind.Sqlite)]
-    public void Provider_exact_committed_checkpoint_replay_preserves_identity_and_rejects_cross_provider(CurrentSchemaProviderKind provider)
+    public void ProviderExactCommittedCheckpointReplayPreservesIdentityAndRejectsCrossProvider(CurrentSchemaProviderKind provider)
     {
         // This is a pure journal control, not a native provider or migration success claim.
         OfflineMigrationPlan plan = Plan(provider: provider);
@@ -1000,7 +1014,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [Theory]
     [InlineData(OfflineMigrationExecutionMode.Transaction)]
     [InlineData(OfflineMigrationExecutionMode.CheckpointedBatch)]
-    public void Undeclared_mysql_atomic_operation_cannot_reinterpret_the_sealed_mode(OfflineMigrationExecutionMode mode)
+    public void UndeclaredMysqlAtomicOperationCannotReinterpretTheSealedMode(OfflineMigrationExecutionMode mode)
     {
         OfflineMigrationPlan plan = Plan(mode, CurrentSchemaProviderKind.MySql);
         OfflineMigrationProviderOperation identity = plan.OrderedSteps[0].Operations.Single(value => value.Provider == CurrentSchemaProviderKind.MySql);
@@ -1015,7 +1029,7 @@ public sealed class OfflineMigrationApplyJournalTests
     [Theory]
     [InlineData(CurrentSchemaProviderKind.PostgreSql)]
     [InlineData(CurrentSchemaProviderKind.Sqlite)]
-    public void Transactional_provider_contract_does_not_rewrite_the_operation(CurrentSchemaProviderKind provider)
+    public void TransactionalProviderContractDoesNotRewriteTheOperation(CurrentSchemaProviderKind provider)
     {
         OfflineMigrationPlan plan = Plan(provider: provider);
         OfflineMigrationProviderOperation identity = plan.OrderedSteps[0].Operations.Single(value => value.Provider == provider);
@@ -1026,7 +1040,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Sqlite_native_file_lock_is_retained_between_committed_units_and_released_without_closing_caller()
+    public async Task SqliteNativeFileLockIsRetainedBetweenCommittedUnitsAndReleasedWithoutClosingCaller()
     {
         // A real task-owned native SQLite component control, not a complete sealed apply.
         using var fixture = new NativeSqliteFixture();
@@ -1059,7 +1073,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Sqlite_caller_transaction_is_not_nested_rolled_back_or_disposed_by_apply_lock()
+    public async Task SqliteCallerTransactionIsNotNestedRolledBackOrDisposedByApplyLock()
     {
         using var fixture = new NativeSqliteFixture();
         using var token = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -1079,7 +1093,7 @@ public sealed class OfflineMigrationApplyJournalTests
     }
 
     [Fact]
-    public async Task Sqlite_actual_journal_and_business_rollback_together_and_parent_unique_cas_is_native()
+    public async Task SqliteActualJournalAndBusinessRollbackTogetherAndParentUniqueCasIsNative()
     {
         using var fixture = new NativeSqliteFixture();
         using var token = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -1108,7 +1122,7 @@ public sealed class OfflineMigrationApplyJournalTests
             }
             await using (DbTransaction transaction = await session.BeginAsync(token.Token))
             {
-                OfflineMigrationApplyJournalEntry sibling = Seal(first with { Sequence = 2, RecordedAt = RecordedAt.AddSeconds(1) });
+                OfflineMigrationApplyJournalEntry sibling = Seal(first with { Sequence = 2, RecordedAt = s_recordedAt.AddSeconds(1) });
                 SqliteException failure = await Assert.ThrowsAsync<SqliteException>(() => OfflineMigrationStateStore.AppendApplyJournalAsync(
                     fixture.Connection, transaction, sibling, token.Token));
                 Assert.Equal(19, failure.SqliteErrorCode);
@@ -1124,11 +1138,14 @@ public sealed class OfflineMigrationApplyJournalTests
                 await transaction.RollbackAsync(token.Token);
             }
         }
-        finally { await session.ReleaseAsync(token.Token); }
+        finally
+        {
+            await session.ReleaseAsync(token.Token);
+        }
     }
 
     [Fact]
-    public async Task Sqlite_actual_trigger_drift_is_rejected_before_journal_read_or_append()
+    public async Task SqliteActualTriggerDriftIsRejectedBeforeJournalReadOrAppend()
     {
         using var fixture = new NativeSqliteFixture();
         using var token = new CancellationTokenSource(TimeSpan.FromSeconds(10));
@@ -1146,7 +1163,10 @@ public sealed class OfflineMigrationApplyJournalTests
             Assert.Equal("offline_apply_journal_physical_shape_changed", failure.Message);
             await transaction.RollbackAsync(token.Token);
         }
-        finally { await session.ReleaseAsync(token.Token); }
+        finally
+        {
+            await session.ReleaseAsync(token.Token);
+        }
     }
 
     private sealed class NativeSqliteFixture : IDisposable
@@ -1172,6 +1192,76 @@ public sealed class OfflineMigrationApplyJournalTests
             // Only this fixture's newly created, task-owned directory is removed.
             Directory.Delete(_directory, recursive: true);
         }
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void HostCheckpointGatePreservesOriginalV1AndAcceptedMediaV2Anchors(bool media)
+    {
+        var (options, result) = HostCheckpointFixture(media);
+        OfflineMigrationHost.ValidateApplyOutcome(options, result);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(result.Checkpoint);
+        var artifact = new CurrentSchemaArtifactReference("original-checkpoint", Convert.ToHexStringLower(SHA256.HashData(bytes)));
+        Assert.NotEqual(result.Checkpoint!.JournalHead.EntryDigest, artifact.Sha256);
+        Assert.Equal(result.Checkpoint, OfflineMigrationOwnedApplyEvidence.DecodeCheckpoint(artifact, bytes, options.InvocationId));
+    }
+
+    [Theory]
+    [InlineData("v3")]
+    [InlineData("v02")]
+    [InlineData("latest")]
+    [InlineData("suffix")]
+    [InlineData("entry-digest")]
+    [InlineData("malformed-digest")]
+    public void HostAndOriginalDecoderRefuseFakeOrChangedMediaCheckpointReferences(string changed)
+    {
+        var (options, result) = HostCheckpointFixture(media: true);
+        OfflineMigrationApplyCheckpoint checkpoint = result.Checkpoint!;
+        OfflineMigrationJournalAnchor anchor = checkpoint.JournalHead;
+        anchor = changed switch
+        {
+            "entry-digest" => anchor with { EntryDigest = new('c', 64) },
+            "malformed-digest" => new("offline-apply/v2/broken", "broken"),
+            "suffix" => anchor with { Reference = anchor.Reference + "/extra" },
+            _ => anchor with { Reference = "offline-apply/" + changed + "/" + anchor.EntryDigest }
+        };
+        checkpoint = checkpoint with { JournalHead = anchor };
+        InvalidOperationException host = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationHost.ValidateApplyOutcome(options, result with { Checkpoint = checkpoint }));
+        Assert.Equal("offline_apply_native_checkpoint_changed", host.Message);
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(checkpoint);
+        var artifact = new CurrentSchemaArtifactReference("original-checkpoint", Convert.ToHexStringLower(SHA256.HashData(bytes)));
+        InvalidOperationException decoder = Assert.Throws<InvalidOperationException>(() =>
+            OfflineMigrationOwnedApplyEvidence.DecodeCheckpoint(artifact, bytes, options.InvocationId));
+        Assert.Equal(changed == "malformed-digest" ? "offline_apply_original_checkpoint_digest_invalid"
+            : "offline_apply_original_checkpoint_binding_invalid", decoder.Message);
+    }
+
+    private static (OfflineMigrationApplyCommandOptions Options, OfflineMigrationApplyResult Result) HostCheckpointFixture(bool media)
+    {
+        // Actual pure journal/Host data owners, with no native execution or publication claim.
+        OfflineMigrationPlan plan = Plan();
+        OfflineMigrationApplyJournalVerifier verifier = media ? MediaVerifier(plan) : Verifier(plan);
+        Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.AttemptStarted));
+        if (media)
+        {
+            Accept(verifier, MediaEntry(plan, verifier, OfflineMigrationApplyJournalState.MediaPrepared));
+        }
+        else
+        {
+            Accept(verifier, Unit(plan, verifier, complete: true));
+            Accept(verifier, Proof(verifier));
+            Accept(verifier, Control(plan, verifier, OfflineMigrationApplyJournalState.ApplyCompleted));
+        }
+        OfflineMigrationApplyCheckpoint checkpoint = Checkpoint(verifier);
+        verifier.Complete(checkpoint);
+        var options = new OfflineMigrationApplyCommandOptions(plan.Source.Database, "unused-environment", Artifact(plan),
+            "invocation", 1, false, null, "unused-apply-output", "unused-checkpoint-output", 30, 5);
+        var result = new OfflineMigrationApplyResult(media ? OfflineMigrationApplyStatus.RecoveryRequired
+            : OfflineMigrationApplyStatus.Completed, options.Plan, plan.ContentDigest, options.Database,
+            checkpoint, verifier.StepProofs, media ? ["offline_apply_connection_cleanup_unverified"] : []);
+        return (options, result);
     }
 
     private static OfflineMigrationApplyJournalVerifier MediaVerifier(OfflineMigrationPlan plan)
@@ -1232,30 +1322,30 @@ public sealed class OfflineMigrationApplyJournalTests
         CurrentSchemaProviderKind provider = CurrentSchemaProviderKind.PostgreSql, bool destructive = false)
     {
         var database = new CurrentSchemaDatabaseIdentity(provider, "instance", "database");
-        var source = new OfflineMigrationSourceObservation(database, "extractor", "v1", [], [], [], IdentityDigest);
-        var artifact = new CurrentSchemaArtifactReference("fixture-backup", IdentityDigest);
+        var source = new OfflineMigrationSourceObservation(database, "extractor", "v1", [], [], [], s_identityDigest);
+        var artifact = new CurrentSchemaArtifactReference("fixture-backup", s_identityDigest);
         var backup = new OfflineMigrationBackupObservation(artifact, artifact, artifact, "fixture-owner", "v1",
-            RecordedAt, RecordedAt, "fixture-snapshot", IdentityDigest, IdentityDigest,
+            s_recordedAt, s_recordedAt, "fixture-snapshot", s_identityDigest, s_identityDigest,
             source, source with { Database = database with { DatabaseId = "restored" } },
             new[] { "aotCache", "configRedacted", "dataProtectionKeyRing", "database", "searchIndex", "uploads" }
-                .Select(name => new OfflineMigrationFact(name, IdentityDigest)).ToImmutableArray());
+                .Select(name => new OfflineMigrationFact(name, s_identityDigest)).ToImmutableArray());
         var step = new OfflineMigrationStep("owned-step", "owned-source", "owned-target", [], "owned-idempotency", destructive,
             new("v1", mode == OfflineMigrationExecutionMode.Transaction ? 0 : 1, "owned-watermark", "owned-replay"),
             Enum.GetValues<CurrentSchemaProviderKind>().Select(provider => new OfflineMigrationProviderOperation(
-                provider, "fixture-operation", IdentityDigest, IdentityDigest, mode)).ToImmutableArray());
+                provider, "fixture-operation", s_identityDigest, s_identityDigest, mode)).ToImmutableArray());
         var registry = new OfflineMigrationSourceRegistry("v1",
-            [new("fixture-profile", "v1", "fixture-owner", [nameof(Complete_transaction_chain_requires_committed_unit_then_verified_step)],
+            [new("fixture-profile", "v1", "fixture-owner", [nameof(CompleteTransactionChainRequiresCommittedUnitThenVerifiedStep)],
                 step.StepId, Enum.GetValues<CurrentSchemaProviderKind>().Select(value => new OfflineMigrationSourceShape(
                     value, source.ExtractorId, source.ExtractorVersion, [], [], [])).ToImmutableArray())]);
         var dag = new OfflineMigrationDag("fixture-dag", "v1", [step]);
-        var target = new CurrentSchemaTargetIdentity("v1", "v1", "v1", IdentityDigest, IdentityDigest);
-        var tool = new CurrentSchemaVerifierIdentity(new('a', 40), IdentityDigest, IdentityDigest, IdentityDigest);
+        var target = new CurrentSchemaTargetIdentity("v1", "v1", "v1", s_identityDigest, s_identityDigest);
+        var tool = new CurrentSchemaVerifierIdentity(new('a', 40), s_identityDigest, s_identityDigest, s_identityDigest);
         OfflineMigrationPlan plan = OfflineMigrationPlanBuilder.Create(source, backup, target, tool, registry, dag,
-            RecordedAt, TimeSpan.FromHours(1));
+            s_recordedAt, TimeSpan.FromHours(1));
         // The normal pure builder/verifier validates this synthetic fixture's closure.
         // None of these fixture observations are a real backup, DB proof, or operation grant.
         return OfflineMigrationPlanVerifier.Verify(plan, source, backup, target, tool, registry, dag,
-            RecordedAt, TimeSpan.FromHours(1)).Plan;
+            s_recordedAt, TimeSpan.FromHours(1)).Plan;
     }
 
     private static CurrentSchemaArtifactReference Artifact(OfflineMigrationPlan plan)
@@ -1272,7 +1362,7 @@ public sealed class OfflineMigrationApplyJournalTests
         => new(OfflineMigrationApplyJournalVerifier.Format, Artifact(plan), plan.ContentDigest, plan.Source.Database, "invocation",
             (verifier.Last?.Sequence ?? 0) + 1, attempt, null, null, null, state, null, null, null, null,
             0, 0, false, null, null, verifier.Last?.ContentDigest ?? OfflineMigrationApplyJournalVerifier.GenesisDigest,
-            string.Empty, failure, RecordedAt);
+            string.Empty, failure, s_recordedAt);
     private static OfflineMigrationPredicateObservation Observation(OfflineMigrationPlan plan, string predicate)
     {
         OfflineMigrationProviderOperation operation = plan.OrderedSteps[0].Operations[0];
@@ -1327,8 +1417,13 @@ public sealed class OfflineMigrationApplyJournalTests
         public override string ServerVersion => "fixture";
         public override ConnectionState State => ConnectionState.Open;
         public override void ChangeDatabase(string databaseName) => throw new NotSupportedException();
-        public override void Close() { CloseAttempts++; }
-        public override void Open() { }
+        public override void Close()
+        {
+            CloseAttempts++;
+        }
+        public override void Open()
+        {
+        }
         protected override DbTransaction BeginDbTransaction(IsolationLevel isolationLevel)
         {
             TransactionAttempts++;
@@ -1353,8 +1448,12 @@ public sealed class OfflineMigrationApplyJournalTests
         protected override DbConnection? DbConnection { get; set; } = owner;
         protected override DbTransaction? DbTransaction { get; set; }
         protected override DbParameterCollection DbParameterCollection => _parameters;
-        public override void Cancel() { }
-        public override void Prepare() { }
+        public override void Cancel()
+        {
+        }
+        public override void Prepare()
+        {
+        }
         public override int ExecuteNonQuery()
         {
             owner.WriteAttempts++;
@@ -1410,7 +1509,9 @@ public sealed class OfflineMigrationApplyJournalTests
         public override IsolationLevel IsolationLevel => isolationLevel;
         protected override DbConnection DbConnection => owner;
         public override void Commit() => throw new NotSupportedException("fixture_commit_forbidden");
-        public override void Rollback() { }
+        public override void Rollback()
+        {
+        }
         protected override void Dispose(bool disposing)
         {
             if (disposing)
@@ -1448,8 +1549,18 @@ public sealed class OfflineMigrationApplyJournalTests
         internal List<DbParameter> Values { get; } = [];
         public override int Count => Values.Count;
         public override object SyncRoot => this;
-        public override int Add(object value) { Values.Add((DbParameter)value); return Values.Count - 1; }
-        public override void AddRange(Array values) { foreach (object value in values) { Add(value); } }
+        public override int Add(object value)
+        {
+            Values.Add((DbParameter)value);
+            return Values.Count - 1;
+        }
+        public override void AddRange(Array values)
+        {
+            foreach (object value in values)
+            {
+                Add(value);
+            }
+        }
         public override void Clear() => Values.Clear();
         public override bool Contains(object value) => Values.Contains((DbParameter)value);
         public override bool Contains(string value) => IndexOf(value) >= 0;
@@ -1467,7 +1578,14 @@ public sealed class OfflineMigrationApplyJournalTests
         protected override void SetParameter(string parameterName, DbParameter value)
         {
             int index = IndexOf(parameterName);
-            if (index < 0) { Values.Add(value); } else { Values[index] = value; }
+            if (index < 0)
+            {
+                Values.Add(value);
+            }
+            else
+            {
+                Values[index] = value;
+            }
         }
     }
 }

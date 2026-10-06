@@ -825,3 +825,50 @@ test('signal finalization after a primary error preserves interruption phase and
         assert.equal(receipt.finalization.cleanup.error.message, 'cleanup provider failed');
     });
 });
+
+test('run identity consumes the canonical test-run authority and rejects disagreement', async (context) =>
+{
+    const { directory, env } = await harness(context, {
+        FSUSBLOG_TEST_RUN_ID: 'quality-gate-42-1',
+        FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'quality-gate-42-1'
+    });
+    const identity = resolveBrowserContractRunIdentity({ env, sourceState, repoRoot: directory });
+    assert.equal(identity.runId, 'quality-gate-42-1');
+    assert.throws(
+        () => resolveBrowserContractRunIdentity({
+            env: { ...env, FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'browser-only-42-1' },
+            sourceState,
+            repoRoot: directory
+        }),
+        /run authorities disagree/u
+    );
+});
+
+test('run identity binds the canonical attempt and separates repeated parent runs', async (context) =>
+{
+    const { directory, env } = await harness(context, {
+        FSUSBLOG_TEST_RUN_ID: 'quality-gate-42-1',
+        FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'quality-gate-42-1',
+        FSUSBLOG_TEST_ATTEMPT_ID: 'attempt-0001',
+        FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID: 'attempt-0001'
+    });
+    const first = resolveBrowserContractRunIdentity({ env, sourceState, repoRoot: directory });
+    assert.equal(first.attemptId, 'attempt-0001');
+    const second = resolveBrowserContractRunIdentity({
+        env: { ...env, FSUSBLOG_TEST_ATTEMPT_ID: 'attempt-0002',
+            FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID: 'attempt-0002' },
+        sourceState, repoRoot: directory
+    });
+    assert.equal(second.runId, first.runId);
+    assert.equal(second.attemptId, 'attempt-0002');
+    assert.notEqual(second.namespace, first.namespace);
+    assert.throws(() => resolveBrowserContractRunIdentity({
+        env: { ...env, FSUSBLOG_TEST_ATTEMPT_ID: 'attempt-0002' },
+        sourceState, repoRoot: directory
+    }), /attempt authorities disagree/u);
+    assert.throws(() => resolveBrowserContractRunIdentity({
+        env: { ...env, FSUSBLOG_TEST_ATTEMPT_ID: 'attempt-1',
+            FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID: 'attempt-1' },
+        sourceState, repoRoot: directory
+    }), /attempt identity is invalid/u);
+});

@@ -1,12 +1,12 @@
 using System.Collections.Immutable;
 using System.Runtime.InteropServices;
-using System.Text.Json;
 using System.Security.Cryptography;
-
-using SqlSugar;
+using System.Text.Json;
 
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
+
+using SqlSugar;
 
 namespace FsusBlog.Migration;
 
@@ -135,10 +135,21 @@ public static class OfflineMigrationHost
         {
             try
             {
-                OfflineMigrationVerifyCommandOptions options = OfflineMigrationCommandLine.ParseVerify(args);
-                await RunReadOnlyCommandWithSignalsAsync(callerToken => VerifyWithinBudgetAsync(
-                    options, () => configuration is null ? OfflineMigrationVerifyEvidence.CreateOwned()
-                        : configuration.CreateVerifyProducer(), Console.Out, callerToken, configuration?.Clock)).ConfigureAwait(false);
+                if (OfflineMigrationCommandLine.HasExistingVerifyReceiptOptions(args))
+                {
+                    OfflineMigrationVerifyExistingCommandOptions options = OfflineMigrationCommandLine.ParseVerifyExisting(args);
+                    await RunReadOnlyCommandWithSignalsAsync(callerToken => VerifyExistingWithinBudgetAsync(
+                        options, () => configuration is null ? OfflineMigrationVerifyEvidence.CreateOwnedExisting()
+                            : configuration.CreateExistingReceiptVerifier(), Console.Out, callerToken, configuration?.Clock))
+                        .ConfigureAwait(false);
+                }
+                else
+                {
+                    OfflineMigrationVerifyCommandOptions options = OfflineMigrationCommandLine.ParseVerify(args);
+                    await RunReadOnlyCommandWithSignalsAsync(callerToken => VerifyWithinBudgetAsync(
+                        options, () => configuration is null ? OfflineMigrationVerifyEvidence.CreateOwned()
+                            : configuration.CreateVerifyProducer(), Console.Out, callerToken, configuration?.Clock)).ConfigureAwait(false);
+                }
                 return 0;
             }
             catch (OfflineMigrationSourceFingerprintException fingerprint)
@@ -450,12 +461,81 @@ public static class OfflineMigrationHost
         if (result.Checkpoint is { } checkpoint)
         {
             if (checkpoint.InvocationId != options.InvocationId || checkpoint.Sequence <= 0 || checkpoint.JournalHead is null
-                || checkpoint.JournalHead.Reference != "offline-apply/v1/" + checkpoint.JournalHead.EntryDigest)
+                || !OfflineMigrationApplyJournalVerifier.HasCanonicalReference(checkpoint.JournalHead))
             {
                 throw new InvalidOperationException("offline_apply_native_checkpoint_changed");
             }
             OfflineMigrationPlanValidation.RequireDigest(checkpoint.JournalHead.EntryDigest, "offline_apply_native_checkpoint_changed");
         }
+    }
+
+    internal static void ValidateExistingVerifyOptions(OfflineMigrationVerifyExistingCommandOptions options)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        OfflineMigrationCurrentSchemaIssuer.ValidateExistingRequest(options.Request);
+        ArgumentNullException.ThrowIfNull(options.Receipt);
+        CurrentSchemaReceiptCodec.RequireDigest(options.Receipt.Sha256);
+        string path = options.Receipt.Reference;
+        if (!Path.IsPathFullyQualified(path) || Path.GetFullPath(path) != path
+            || path.Split('/', '\\').Any(value => value.Equals("latest", StringComparison.OrdinalIgnoreCase)))
+        {
+            throw new InvalidOperationException("schema_verify_original_path_required");
+        }
+        if (new[] { options.Request.Plan.Reference, options.Request.Apply.Reference, options.EnvironmentFilePath }
+            .Concat(options.Request.Checkpoints.Select(value => value.Reference)).Contains(path, StringComparer.Ordinal))
+        {
+            throw new InvalidOperationException("schema_verify_receipt_conflicts_with_input");
+        }
+    }
+
+    internal static async Task VerifyExistingWithinBudgetAsync(
+        OfflineMigrationVerifyExistingCommandOptions options,
+        Func<OfflineMigrationOwnedVerifyEvidence> createVerifier,
+        TextWriter output, CancellationToken callerToken, TimeProvider? timeProvider = null)
+    {
+        ArgumentNullException.ThrowIfNull(options);
+        if (options.TimeoutSeconds is <= 0 or > int.MaxValue / 1000)
+        {
+            throw new InvalidOperationException("schema_verify_timeout_invalid");
+        }
+        ValidateExistingVerifyOptions(options);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)),
+            timeProvider ?? TimeProvider.System);
+        using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);
+        operation.Token.ThrowIfCancellationRequested();
+        // A concrete original sealed producer, not an arbitrary successful callback,
+        // owns credential/session creation and full independent native verification.
+        OfflineMigrationOwnedVerifyEvidence verifier = createVerifier();
+        operation.Token.ThrowIfCancellationRequested();
+        OfflineMigrationCurrentSchemaIssuedArtifact verified = await verifier.VerifyExistingAsync(options, operation.Token)
+            .ConfigureAwait(false);
+        operation.Token.ThrowIfCancellationRequested();
+        byte[] bytes = verified.Bytes.ToArray();
+        CurrentSchemaReceiptCodec.ValidateIntegrity(verified.Receipt);
+        OfflineMigrationCurrentSchemaIssuer.ValidateObservedReceipt(verified.Receipt, CurrentSchemaReceiptCodec.Deserialize(bytes));
+        if (verified.Reference != options.Receipt
+            || verified.Receipt.Database != options.Request.Database || verified.Receipt.Plan != options.Request.Plan
+            || verified.Receipt.Apply != options.Request.Apply
+            || !verified.Receipt.Checkpoints.SequenceEqual(options.Request.Checkpoints)
+            || Convert.ToHexStringLower(SHA256.HashData(bytes)) != options.Receipt.Sha256
+            || verified.Receipt.Status != CurrentSchemaReceiptStatus.VerifiedCurrent)
+        {
+            throw new InvalidOperationException("current_verify_existing_artifact_changed");
+        }
+        operation.Token.ThrowIfCancellationRequested();
+        // This response is the original existing artifact and its two different
+        // digests, not a new receipt or an execution/run/attempt authority. The original
+        // admitted outer owner must bind actual argv, inputs and collected raw bytes.
+        using JsonDocument reported = JsonDocument.Parse(bytes);
+        await output.WriteLineAsync(JsonSerializer.Serialize(new
+        {
+            status = "ok",
+            receiptRef = new { path = options.Receipt.Reference, fileDigest = options.Receipt.Sha256,
+                contentDigest = verified.Receipt.ContentDigest, schema = CurrentSchemaReceiptCodec.Format },
+            receipt = reported.RootElement
+        }).AsMemory(), operation.Token).ConfigureAwait(false);
+        await output.FlushAsync(operation.Token).ConfigureAwait(false);
+        operation.Token.ThrowIfCancellationRequested();
     }
 
     internal static async Task VerifyWithinBudgetAsync(
@@ -467,7 +547,7 @@ public static class OfflineMigrationHost
         {
             throw new InvalidOperationException("schema_verify_timeout_invalid");
         }
-        OfflineMigrationCurrentSchemaIssuer.ValidateRequest(options.Request);
+        OfflineMigrationVerifyEvidence.ValidateCommandRequest(options.Request);
         using var deadline = new CancellationTokenSource(TimeSpan.FromMilliseconds(checked(options.TimeoutSeconds * 1000)),
             timeProvider ?? TimeProvider.System);
         using var operation = CancellationTokenSource.CreateLinkedTokenSource(callerToken, deadline.Token);

@@ -6,6 +6,17 @@
     },
     "nodeTests": [
         {
+            "file": "tests/tools/aeds-protocol-generation.test.mjs",
+            "owner": "matrix-tier:backend-golden",
+            "executionCategory": "matrix-tier",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ]
+        },
+        {
             "file": "tests/browser-contract/fixture-lifecycle.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -6533,6 +6544,21 @@
             ]
         },
         {
+            "file": "tests/tools/article-property-definition-authority.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text"
+            ],
+            "staticGovernance": {
+                "id": "article-property-definition-authority",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
             "file": "tests/tools/article-relations.test.mjs",
             "owner": "repository-governance:static-node-contracts",
             "executionCategory": "repository-governance",
@@ -6752,21 +6778,6 @@
             ],
             "staticGovernance": {
                 "id": "canonical-article-graph-factory",
-                "category": "real-subprocess-lifecycle",
-                "physicalOwner": "process:lifecycle"
-            }
-        },
-        {
-            "file": "tests/tools/canonical-article-lifecycle-authority.test.mjs",
-            "owner": "repository-governance:static-node-contracts",
-            "executionCategory": "repository-governance",
-            "lifecycle": "canonical-execution",
-            "physicalExecutionCount": 1,
-            "classifications": [
-                "source-text"
-            ],
-            "staticGovernance": {
-                "id": "canonical-article-lifecycle-authority",
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }
@@ -7614,6 +7625,129 @@
                 "id": "ssr-runtime-closure",
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/migration-execution-evidence.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "migration-execution-evidence",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/migration-fast-lane.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "migration-fast-lane",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/migration-fast-lane.value-3404.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "migration-fast-lane-value-3404",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/migration-retained-inputs.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "migration-retained-inputs",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/migration-retained-inputs.value-5218.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration",
+                "runtime"
+            ],
+            "staticGovernance": {
+                "id": "migration-retained-inputs-value-5218",
+                "category": "real-subprocess-lifecycle",
+                "physicalOwner": "process:lifecycle"
+            }
+        },
+        {
+            "file": "tests/tools/migration-governance-registration.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior",
+                "migration"
+            ],
+            "staticGovernance": {
+                "id": "migration-governance-registration",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
+            }
+        },
+        {
+            "file": "tests/tools/article-canvas-link-golden-ownership.test.mjs",
+            "owner": "repository-governance:static-node-contracts",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
+            "classifications": [
+                "source-text",
+                "behavior"
+            ],
+            "staticGovernance": {
+                "id": "article-canvas-link-golden-ownership",
+                "category": "pure-file-validation",
+                "physicalOwner": "host:pure-file"
             }
         }
     ]

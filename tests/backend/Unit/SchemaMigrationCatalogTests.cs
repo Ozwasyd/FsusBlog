@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Migration.Catalogs;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
@@ -199,16 +200,56 @@ public sealed class SchemaMigrationCatalogTests
             },
             catalog =>
             {
-                Assert.Equal("current-20260915-author-recent-history", catalog.CatalogId);
+                Assert.Equal("current-20260915-authoring", catalog.CatalogId);
+                Assert.Equal(
+                    new[] {ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId},
+                    catalog.Descriptors.Select(static descriptor => descriptor.MigrationId));
                 Assert.Equal(new DateOnly(2026, 9, 15), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 9, 15), catalog.EndVersion);
                 SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
                 Assert.Equal(AdminSessionProjectionMigrationDefinitions.MigrationId, dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20261002-article-property-definition-command-history", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 10, 2), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 10, 2), catalog.EndVersion);
+                Assert.Equal(
+                    new[] {ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId},
+                    catalog.Dependencies.Select(static dependency => dependency.MigrationId));
+                Assert.All(catalog.Dependencies, dependency =>
+                    Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase));
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20261006-article-canvas-links", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 10, 6), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 10, 6), catalog.EndVersion);
+                Assert.Equal(ArticleCanvasLinkMigrationDefinitions.MigrationId, Assert.Single(catalog.Descriptors).MigrationId);
+                SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
+                Assert.Equal(AuthoringCanvasOperationJournalMigrationDefinitions.MigrationId, dependency.MigrationId);
+                Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
             });
-        Assert.Equal(146, manifest.Descriptors.Count);
+        Assert.Equal(149, manifest.Descriptors.Count);
         const string ExpectedPlanFingerprint = "F2FBD2AF4569856A7435D044AAD13FABD6B32A5F68EF6DEA8C546E8B234E7F04";
-        string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
+        ISchemaMigrationDescriptor[] historicalDescriptors = manifest.Descriptors
+            .Where(descriptor => descriptor.MigrationId != ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId
+                && descriptor.MigrationId != ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId
+                && descriptor.MigrationId != ArticleCanvasLinkMigrationDefinitions.MigrationId)
+            .ToArray();
+        Assert.Equal(146, historicalDescriptors.Length);
+        const string RecentHistoryMigrationId = "20260915-post-author-recent-history";
+        Assert.Single(historicalDescriptors, static descriptor =>
+            descriptor.MigrationId == RecentHistoryMigrationId);
+        ISchemaMigrationDescriptor[] originalDescriptors = historicalDescriptors
+            .Where(static descriptor => descriptor.MigrationId != RecentHistoryMigrationId)
+            .ToArray();
+        Assert.Equal(145, originalDescriptors.Length);
+        Assert.Equal(
+            "D53AB234D57D3C847748434A7A64810A21D8DA44219CFA895360A96B918A4117",
+            ComputePlanFingerprint(originalDescriptors));
+        string actualPlanFingerprint = ComputePlanFingerprint(historicalDescriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
             $"Schema migration plan fingerprint changed: {actualPlanFingerprint}");
@@ -469,7 +510,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(146, first.Count);
+        Assert.Equal(149, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

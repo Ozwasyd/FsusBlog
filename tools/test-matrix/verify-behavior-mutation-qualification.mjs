@@ -56,6 +56,9 @@ import {
 import { loadTestPlan } from './produce-behavior-test-evidence.mjs';
 
 
+const { validateStrykerToolBinding } =
+    await import(new URL('../mutation/stryker-tool.mjs', import.meta.url));
+
 export const verifyBehaviorMutationQualificationCommand =
     'node tools/test-matrix/verify-behavior-mutation-qualification.mjs';
 export const verifyBehaviorMutationQualificationReceiptSchema =
@@ -561,6 +564,21 @@ export function verifyBehaviorMutationQualification(options)
         }
         for (const run of authority.physicalRuns ?? [])
         {
+            if (run.traceExecution?.strykerVersion === '4.14.2-fsusblog.3' || run.toolBinding)
+            {
+                try
+                {
+                    validateStrykerToolBinding(run.toolBinding, {
+                        repositoryRoot: repositoryRootValue,
+                        sourceState: authority.sourceState,
+                        runId: authority.runId
+                    });
+                }
+                catch (error)
+                {
+                    errors.push(`${run.sourceProject} actual tool custody failed: ${error.message}`);
+                }
+            }
             for (const kind of ['rawReport', 'rawTrace'])
             {
                 const entry = run[kind];

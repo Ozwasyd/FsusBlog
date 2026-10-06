@@ -7,6 +7,47 @@ namespace FsusBlog.Migration.Tests;
 
 public sealed class PgCurrentSchemaCatalogObserverTests
 {
+    [Theory]
+    [InlineData("_int2", "int2", "smallint[]", "int16-array")]
+    [InlineData("_uuid", "uuid", "uuid[]", "uuid-array")]
+    [InlineData("_text", "text", "text[]", "string-array")]
+    public void NativeArrayIdentityRequiresBuiltinElementPhysicalTypeAndActualRankOne(
+        string udt, string element, string physical, string semantic)
+    {
+        Assert.Equal(semantic, PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "ARRAY", udt, physical, 1, "b", "pg_catalog", element, "pg_catalog"));
+        foreach (int rank in new[] { -1, 0, 2 })
+        {
+            Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+                "ARRAY", udt, physical, rank, "b", "pg_catalog", element, "pg_catalog"));
+        }
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "ARRAY", udt, physical, 1, "d", "pg_catalog", element, "pg_catalog"));
+        // The actual query exposes a domain's formatted base as semantic_data_type,
+        // while physical_type and attndims still describe the domain column.
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            physical, udt, "public.array_domain", 0, "d", "public", "", ""));
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "ARRAY", udt, physical, 1, "b", "public", element, "pg_catalog"));
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "ARRAY", udt, physical, 1, "b", "pg_catalog", element, "public"));
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "ARRAY", udt, physical + "[]", 1, "b", "pg_catalog", element, "pg_catalog"));
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "ARRAY", udt, physical, 1, "b", "pg_catalog", "unknown", "pg_catalog"));
+    }
+
+    [Fact]
+    public void ScalarColumnRequiresActualRankZeroAndCannotAdoptAnArrayPhysicalType()
+    {
+        Assert.Equal("int32", PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "integer", "int4", "integer", 0, "b", "pg_catalog", "", ""));
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "integer", "int4", "integer", 1, "b", "pg_catalog", "", ""));
+        Assert.Throws<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.NormalizePostgresColumnSemanticType(
+            "uuid", "_uuid", "uuid[]", 0, "b", "pg_catalog", "uuid", "pg_catalog"));
+    }
+
     [Fact]
     public void NativeIndexObservation_PreservesCompleteOriginalPhysicalKeySemantics()
     {

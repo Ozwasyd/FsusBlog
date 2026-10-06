@@ -27,6 +27,8 @@ using Microsoft.AspNetCore.WebUtilities;
 
 using Npgsql;
 
+using SqlSugar;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Infrastructure.Operations;
@@ -117,12 +119,14 @@ public sealed record ProductionObservabilityHealthCheck(
     int CustomAttributeCount,
     string? Error = null) : IProductionHealthCheck;
 
-public sealed record ProductionOnlineSchemaCompatibilityHealthCheck(
+/// <summary>Protected current admission detail; only its stable failure code enters the public readiness report.</summary>
+public sealed record ProductionCurrentSchemaAdmissionHealthCheck(
     string Status,
     string? PublicErrorCode,
-    string? ReleaseId,
-    string? SchemaCompatibilityCoordinate,
-    IReadOnlyList<OnlineSchemaCompatibilityIssue> Issues,
+    string? ArtifactSha256,
+    string? CandidateSourceRevision,
+    string? TargetContentDigest,
+    string? ActualSchemaDigest,
     string? Error = null) : IProductionHealthCheck;
 
 public sealed record ProductionReleaseIdentityHealthCheck(
@@ -385,6 +389,30 @@ public sealed record RequiredQueueHealthSnapshot(
     }
 
     public IReadOnlyList<string> Blockers { get; init; } = [];
+
+    /// <summary>Gets original queue-owner diagnostics, sampled independently of the qualification receipt.</summary>
+    /// <value>Only available owners appear; their cumulative counters must not be summed across participant lanes.</value>
+    public IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> OwnerDiagnostics { get; init; }
+        = new Dictionary<string, RequiredQueueOwnerDiagnosticSnapshot>(StringComparer.Ordinal);
+}
+
+/// <summary>Preserves original owner counters and controlled disposition without exporting retained item identity.</summary>
+public sealed record RequiredQueueOwnerDiagnosticSnapshot(
+    string OwnerId,
+    long Committed,
+    long DurableAccepted,
+    long Requeued,
+    long Sequence,
+    string? LastDisposition)
+{
+    /// <summary>Gets the independent observation kind, outside aggregate qualification.</summary>
+    public string EvidenceKind => "OwnerSnapshot";
+
+    /// <summary>Gets whether these diagnostic values may qualify readiness or drain completion.</summary>
+    public bool QualificationEligible => false;
+
+    /// <summary>Omits retained item material, which may contain private identifiers or event text.</summary>
+    public string? LastItemReference => null;
 }
 
 public sealed record BoundedQueueDrainHealthCheck(
@@ -401,13 +429,17 @@ public sealed record RequiredQueueHealthEntry(
     long Queued,
     long InFlight,
     long DurablePending,
-    long Committed,
-    long DurableAccepted,
-    long Requeued,
+    long? Committed,
+    long? DurableAccepted,
+    long? Requeued,
     long TerminalFailed,
     string? LastDisposition,
     string? LastItemReference,
-    string? LastFailureReason);
+    string? LastFailureReason)
+{
+    /// <summary>Gets the aggregate participant postcondition, distinct from an owner delivery disposition.</summary>
+    public string? CommitPostcondition { get; init; }
+}
 
 public static class ProductionLivenessProbe
 {
@@ -429,8 +461,8 @@ public static class ProductionReadinessPublicReport
             ["checkedAt"] = report.CheckedAt
         };
         if (!string.Equals(report.Status, "ready", StringComparison.Ordinal)
-            && report.Checks.TryGetValue("schemaCompatibility", out object? schemaValue)
-            && schemaValue is ProductionOnlineSchemaCompatibilityHealthCheck schema
+            && report.Checks.TryGetValue("currentSchema", out object? schemaValue)
+            && schemaValue is ProductionCurrentSchemaAdmissionHealthCheck schema
             && string.Equals(schema.PublicErrorCode, "schema_incompatible", StringComparison.Ordinal))
         {
             result["code"] = "schema_incompatible";
@@ -487,7 +519,7 @@ public sealed class ProductionReadinessProbe(
         };
         if (environment.IsProduction())
         {
-            checks["schemaCompatibility"] = CheckOnlineSchemaCompatibility();
+            checks["currentSchema"] = await CheckCurrentSchemaAdmissionAsync(cancellationToken).ConfigureAwait(false);
         }
         ProductionReadinessAsyncResults asyncChecks = await asyncChecksTask;
 
@@ -594,30 +626,53 @@ public sealed class ProductionReadinessProbe(
         return configurationSnapshot.Current;
     }
 
-    private ProductionOnlineSchemaCompatibilityHealthCheck CheckOnlineSchemaCompatibility()
+    internal async Task<ProductionCurrentSchemaAdmissionHealthCheck> CheckCurrentSchemaAdmissionAsync(
+        CancellationToken cancellationToken)
     {
-        OnlineSchemaCompatibilityReport? report = serviceProvider
-            .GetService<OnlineSchemaCompatibilityRuntimeState>()?
+        cancellationToken.ThrowIfCancellationRequested();
+        CurrentSchemaAdmissionResult? startup = serviceProvider
+            .GetService<CurrentSchemaAdmissionState>()?
             .Current;
-        if (report is null)
+        if (startup is null)
         {
-            return new ProductionOnlineSchemaCompatibilityHealthCheck(
-                "failed",
-                "schema_incompatible",
-                releaseIdentity.Current.ReleaseId,
-                null,
-                [],
-                "schema_compatibility_unavailable");
+            return FailedCurrentAdmission("current_schema_admission_unavailable");
         }
-
-        return new ProductionOnlineSchemaCompatibilityHealthCheck(
-            report.Ready ? "ok" : "failed",
-            report.PublicErrorCode,
-            report.ReleaseId,
-            report.SchemaCompatibilityCoordinate,
-            report.Issues,
-            report.Ready ? null : "schema_incompatible");
+        string source = configuration["SchemaMigration:CurrentReceipt:CandidateSourceRevision"] ?? string.Empty;
+        string artifactSha256 = configuration["SchemaMigration:CurrentReceipt:Sha256"] ?? string.Empty;
+        ReleaseIdentitySnapshot release = releaseIdentity.Current;
+        if (!release.Configured || source != release.CommitSha
+            || source != startup.CandidateSourceRevision || artifactSha256 != startup.ArtifactSha256)
+        {
+            return FailedCurrentAdmission("current_schema_admission_binding_mismatch");
+        }
+        try
+        {
+            await using AsyncServiceScope scope = serviceProvider.CreateAsyncScope();
+            CurrentSchemaAdmissionResult fresh = await CurrentSchemaReceiptAdmission.VerifyAsync(
+                configuration["SchemaMigration:CurrentReceipt:Path"] ?? string.Empty,
+                artifactSha256,
+                source,
+                scope.ServiceProvider.GetRequiredService<ISqlSugarClient>(),
+                scope.ServiceProvider.GetRequiredService<ISchemaModelInspector>(),
+                cancellationToken).ConfigureAwait(false);
+            if (fresh.Receipt.Target != startup.Receipt.Target || fresh.Receipt.Database != startup.Receipt.Database
+                || fresh.Receipt.ActualSchemaDigest != startup.Receipt.ActualSchemaDigest)
+            {
+                return FailedCurrentAdmission("current_schema_admission_observation_changed");
+            }
+            return new ProductionCurrentSchemaAdmissionHealthCheck(
+                "ok", null, fresh.ArtifactSha256, fresh.CandidateSourceRevision,
+                fresh.Receipt.Target.ContentDigest, fresh.Receipt.ActualSchemaDigest);
+        }
+        catch (Exception exception) when (exception is not OperationCanceledException)
+        {
+            logger.LogWarning(exception, "Current-schema readiness observation failed closed.");
+            return FailedCurrentAdmission("current_schema_admission_failed");
+        }
     }
+
+    private static ProductionCurrentSchemaAdmissionHealthCheck FailedCurrentAdmission(string error)
+        => new("failed", "schema_incompatible", null, null, null, null, error);
 
     private static ProductionConfigurationHealthCheck RedactConfigurationHealth(ProductionConfigurationHealthCheck check)
         => string.Equals(check.Status, "ok", StringComparison.Ordinal)
@@ -714,6 +769,8 @@ public sealed class ProductionReadinessProbe(
         PublicHotReadRuntimeSnapshot? publicHotRead = await publicHotReadTask;
         PublicHotQuiescenceResult? publicHotQuiescence = await publicHotQuiescenceTask;
         AuditLogRuntimeSnapshot? auditLog = await auditLogTask;
+        // Operations AuditRead does not grant investigation access to retained item material.
+        auditLog = ProjectAuditLogDiagnostics(auditLog);
         RuntimePressureSnapshot pressure = await pressureTask;
         string status = (publicHotRead is null
                 || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
@@ -745,7 +802,7 @@ public sealed class ProductionReadinessProbe(
         };
     }
 
-    private (RequiredQueueHealthSnapshot Required, BoundedQueueDrainHealthCheck Drain) CaptureBoundedQueueAuthority()
+    internal (RequiredQueueHealthSnapshot Required, BoundedQueueDrainHealthCheck Drain) CaptureBoundedQueueAuthority()
     {
         if (serviceProvider.GetService<BoundedQueueDrainAggregator>() is not { } aggregator)
         {
@@ -760,11 +817,14 @@ public sealed class ProductionReadinessProbe(
             return (new RequiredQueueHealthSnapshot("failed", new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal))
             {
                 QualificationStatus = "failed",
-                Blockers = failed.Blockers
+                Blockers = failed.Blockers,
+                OwnerDiagnostics = CaptureRequiredQueueOwnerDiagnostics(serviceProvider)
             }, failed);
         }
 
         BoundedQueueDrainAggregateReceipt aggregate = aggregator.Observe();
+        // Optional diagnostic reads must not change the aggregate observation order or availability.
+        IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> ownerDiagnostics = CaptureRequiredQueueOwnerDiagnostics(serviceProvider);
         var queues = new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal);
         foreach (BoundedQueueParticipantReceipt participant in aggregate.Participants)
         {
@@ -780,13 +840,16 @@ public sealed class ProductionReadinessProbe(
                 participant.Queued,
                 participant.InFlight,
                 participant.DurablePending,
-                Committed: 0,
-                DurableAccepted: 0,
-                Requeued: 0,
+                Committed: null,
+                DurableAccepted: null,
+                Requeued: null,
                 participant.TerminalFailures,
-                participant.CommitPostcondition.ToString(),
-                participant.QueueId,
-                participant.ErrorCode);
+                LastDisposition: null,
+                LastItemReference: null,
+                participant.ErrorCode)
+            {
+                CommitPostcondition = participant.CommitPostcondition.ToString()
+            };
         }
 
         var drain = new BoundedQueueDrainHealthCheck(
@@ -802,9 +865,66 @@ public sealed class ProductionReadinessProbe(
             RunId = aggregate.RunId,
             ContentDigest = aggregate.ContentDigest,
             QualificationStatus = aggregate.QualificationStatus,
-            Blockers = aggregate.Blockers
+            Blockers = aggregate.Blockers,
+            OwnerDiagnostics = ownerDiagnostics
         }, drain);
     }
+
+    /// <summary>Projects the four existing owners without creating a second readiness or delivery authority.</summary>
+    internal static IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> CaptureRequiredQueueOwnerDiagnostics(IServiceProvider serviceProvider)
+    {
+        var queues = new Dictionary<string, RequiredQueueOwnerDiagnosticSnapshot>(StringComparer.Ordinal);
+        Capture<AuditLogChannel>("audit-log", static owner =>
+        {
+            AuditLogChannelSnapshot snapshot = owner.Snapshot();
+            return new("audit-log", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+        Capture<AdminAuditLogChannel>("admin-audit-log", static owner =>
+        {
+            AdminAuditLogChannelSnapshot snapshot = owner.Snapshot();
+            return new("admin-audit-log", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+        Capture<SecurityRiskEventWriteQueue>("security-risk-event", static owner =>
+        {
+            SecurityRiskEventWriteQueueSnapshot snapshot = owner.Snapshot();
+            return new("security-risk-event", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+        Capture<ChallengeV2AuditEventQueue>("challenge-v2-event", static owner =>
+        {
+            ChallengeV2AuditEventQueueSnapshot snapshot = owner.Snapshot();
+            return new("challenge-v2-event", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+
+        void Capture<TOwner>(string ownerId, Func<TOwner, RequiredQueueOwnerDiagnosticSnapshot> project) where TOwner : class
+        {
+            try
+            {
+                if (serviceProvider.GetService<TOwner>() is { } owner)
+                {
+                    queues[ownerId] = project(owner);
+                }
+            }
+            catch (Exception)
+            {
+                // Unavailable diagnostics are omitted, never zero-filled or promoted to qualification.
+                // The aggregate independently retains its original structured observer failure.
+            }
+        }
+
+        return queues;
+    }
+
+    internal static AuditLogRuntimeSnapshot? ProjectAuditLogDiagnostics(AuditLogRuntimeSnapshot? snapshot)
+        => snapshot is null ? null : snapshot with { LastItemReference = null };
+
+    private static string? ControlledQueueDisposition(string? disposition)
+        => disposition switch
+        {
+            null => null,
+            "queued" or "in-flight" or "committed" or "durable-pending" or "durable-accepted"
+                or "requeued" or "rejected" or "terminal-failed" or "closed" => disposition,
+            _ => "unknown"
+        };
 
     private static async Task<PublicHotQuiescenceResult?> ReadPublicHotQuiescenceAsync(
         PublicHotArtifactUpdateQueue? publicHotQueue,

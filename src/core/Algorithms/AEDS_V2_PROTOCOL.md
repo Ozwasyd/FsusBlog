@@ -16,6 +16,8 @@ Core, backend, benchmarks, and backend tests import the generated Shared packed 
 
 Access profiles do not alter this wire protocol. `src/shared/Contracts/Validation/aeds-access-profiles.json` generates C#/TypeScript/C++ reader constants for existing payload layouts, while the frame header, CRC, frame type and POD layout authorities remain unchanged. A projection reader validates the complete frame and payload before returning selected fields; it may not skip CRC, range, UTF-8, reserved-byte, count or trailing-byte checks. The default `publicArticleListCard` profile reads 76-byte and 100-byte ArticleList records; the legal 56-byte layout routes to the canonical decoder, and unknown or malformed layouts fail closed. See `docs/architecture/aeds-access-projections.md`.
 
+The native decoder's exported `get_last_error_code` returns the numeric `uint8` `ErrorCode` from `DecodeFrame`; it is not a frame type or an HTTP error code. Existing codes `0`-`9` retain their published meanings. The additional payload failures are distinct: `FontThemePayloadInvalid = 10`, `AuthoringCanvasPayloadInvalid = 11`, and `ArticleCanvasLinkPayloadInvalid = 12`, with their corresponding symbolic error strings. Combining the unpublished Canvas and Font branches resolves their overlapping proposed values; it does not retain the Canvas preview's numeric `10`/`11` allocation. The export preserves each failure code without collapsing it into a generic result, and native callers and controls must use the current enum.
+
 ## Frame Layout
 
 - Header: 16 bytes; payload: compact POD bytes (from `PodBinaryCodec`).
@@ -162,7 +164,15 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `241`: MutationId
 - `242`: UserLocalePreferenceUpdateRequest
 - `243`: TaxonomyExactMetadata
+- `244`: FontRegistryList
+- `245`: FontRegistryDetail
+- `246`: FontActivationList
+- `247`: ThemeRegistryList
+- `248`: ThemeRegistryDetail
+- `249`: ThemeActivationList
+- `250`: ThemeActivation
 - `251`: ApiError
+- `252`: ThemeActivationHistory
 
 `CommentArticleCursor`, `CommentThreadReplyCursor`, and `CommentUserCursor` records do not carry fixed legacy display-name slots. Each item blob stores the content slice first, then appends two length-prefixed `CommentAuthorView` payloads: required `author` and optional `replyToAuthor`. Decoders must reject missing author payloads instead of reconstructing display authors from legacy identity strings.
 
@@ -179,6 +189,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `UserLocalePreference` payload: 24-byte `UserLocalePreferencePod` (`int64 revision`, `int64 updatedAtUnixMs`, `uint8 mode`, `uint8 hasFixedLocale`, `uint8 fixedLocale`, one reserved zero byte, four reserved zero bytes). `mode=1` is `auto` and requires `hasFixedLocale/fixedLocale=0/0`; `mode=2` is `fixed` and requires `hasFixedLocale=1` plus an enabled canonical locale id.
 - `UserLocalePreferenceUpdateRequest` payload: 16-byte `UserLocalePreferenceUpdateRequestPod` with the same mode/locale/reserved rules and `int64 expectedRevision`; device-scoped writes require revision zero, while account-scoped writes use optimistic revision matching.
 - `ApiError` payload: `ApiErrorPod` (`byte Code`, `byte Category`, `int32 HttpStatus`, fixed UTF-8 `Message`, `Details`, `TraceId`).
+- Font/Theme administration response frames `244`-`250` and `252` use a closed 16-byte `FontThemePayloadHeaderPod` (`int32 version = 1`, `int32 recordCount`, `int32 payloadLength`, `int32 reserved = 0`). `payloadLength` covers every byte after this header. List payloads then contain the exact fixed-size POD array, one `int32 blobByteLength`, and a canonical UTF-8 blob. Detail payloads contain one detail POD, exactly `recordCount` child PODs or mode slice references, the blob length, and the canonical blob. `ThemeActivation` is a singleton with `recordCount = 1`; a missing activation remains a typed record whose scope is present and whose nullable values are absent.
+- Font/Theme slices must be contiguous in field and record order. Required strings are non-empty unless their field explicitly permits empty text; absent optional strings encode both presence `0` and slice `0/0`. Nullable scalars likewise require a zero value when absent. UTF-8 is strict, all boolean/presence bytes are `0` or `1`, reserved bytes are zero, counts and per-field byte lengths are bounded by `FontThemeAdminContractLimits`, and trailing bytes are rejected. Font install state is `1 installed`; Theme install states are `1 Discovered`, `2 Validated`, `3 Installed`, `4 Enabled`, `5 Disabled`, `6 Failed`, `7 RolledBack`, `8 Uninstalled`; Theme activation status is `1 Applied`, `2 Rejected`, `3 RolledBack`, `4 ResetToDefault`. The fixed POD sizes are `FontRegistryItemPod=76`, `FontRegistryDetailPod=100`, `FontFacePod=56`, `FontActivationPod=64`, `ThemeRegistryItemPod=84`, `ThemeRegistryDetailPod=148`, `ThemeActivationPod=64`, and `ThemeActivationHistoryPod=124` bytes.
 - `CategoryWriteRequest` / `TagWriteRequest` payload: current requests use a 136-byte `TaxonomyMetadataMutationRequestPod` (`Utf8Fixed128 Name`, `Utf8SliceRef Description`) followed by the standard `int32 blobByteLength` and UTF-8 description blob. During migration, the backend also accepts the exact legacy 128-byte `NameMutationRequestPod`; legacy create interprets description as null and legacy update preserves the stored description. New-format description input is trimmed, whitespace-only input becomes null, and values over 500 Unicode scalar values are rejected before persistence.
 - `SeoConfigUpdateRequest` payload: same layout as `SeoConfig`.
 - `PageContentUpdateRequest` payload: same layout as `PageContent`.
@@ -291,3 +303,51 @@ Notification payload values use a small tagged binary representation so the WebS
 3. Read payload block of `PayloadLength`.
 4. Recompute and compare `PayloadCrc16`.
 5. Decode payload using corresponding compact POD schema by `FrameType`.
+
+## Private authoring canvas payloads
+
+Frames `253`–`265` are the closed private canvas roots: create request, document
+header, owner list, node page, edge page, apply request, operation receipt,
+undo/redo request, history window, delete request, write receipt, persisted-node
+resolution request and resolution batch, respectively. `ApiError` remains `251`;
+Font/Theme candidate slots `244`–`250` and `252` are not reused. The private
+read-only prepare endpoint uses frame `258` for both input and prepared intention
+output; that output is not frame `259` operation-receipt authority.
+
+The single payload source is
+`src/shared/Contracts/Validation/authoring-canvas-wire.json`, whose root frame
+bindings must match `aeds-protocol.json`. Run
+`node tools/contracts/generate-authoring-canvas-wire.mjs` to produce the Core
+POD codec, TypeScript codec and C++ payload validator; use `--check` to detect
+stale outputs. Each payload starts with schema byte `1`. GUIDs use 16 RFC/network
+bytes; other scalars are little endian. Strings use an int32 UTF-8 byte length
+with strict Unicode validation and the declared UTF-16 code-unit bound. Null
+presence and booleans are `0` or `1`; enums have closed registries. Unix
+millisecond timestamps retain the existing `PodTimeCodec` semantics. Int64 is
+represented as a decimal string in TypeScript.
+
+The wire producer derives the public TypeScript `authoringCanvasLimits` from
+the existing Shared domain constants through the schema's source references;
+the projection does not define independent domain budgets.
+
+Arrays reject invalid counts before allocation. Before/after operation facts
+share an aggregate limit of 40,002; complete payloads are capped at 8 MiB and
+must be consumed exactly. The production C++ decoder validates these payloads
+after the original frame/header/CRC checks. A malformed private payload is
+`authoring_canvas_payload_invalid`, never JSON, text or a partial decode.
+HTTP ingress retains the existing binary binder's 8 MiB complete-frame cap,
+which includes the 16-byte header in addition to the bounded payload.
+
+## Private article Canvas link payloads
+
+Frames `266`, `267` and `268` are `ArticleCanvasLinkRequest`,
+`ArticleCanvasLinkReceipt` and `ArticleCanvasLinkHistoryResponse` respectively.
+`src/shared/Contracts/Validation/article-canvas-link-wire.json` owns their closed
+layouts and binds the shared article records. Run
+`node tools/contracts/generate-article-canvas-link-wire.mjs` (or `--check`) to
+produce C#, TypeScript and C++ surfaces using the original bounded Canvas scalar
+substrate. Schema byte, network GUID, strict UTF-8, LE scalar and exact-consumption
+rules remain the same. Complete payloads have a 131,072-byte cap; undo/redo arrays
+are each bounded at 100. Production C++ rejects malformed payloads as
+`article_canvas_link_payload_invalid`. The wire carries only typed identifiers,
+revisions and canonical digests, never article source or client-authored Markdown.

@@ -49,6 +49,7 @@ public sealed class AdminPrincipalSecurityContractTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-anonymous-identity-runtime-does-not-grant-admin-from-legacy-user-role")]
     public void AnonymousIdentityRuntime_DoesNotGrantAdminFromLegacyUserRole()
     {
         string resolved = AnonymousIdentityRuntime.ResolveBackendRole(
@@ -61,6 +62,7 @@ public sealed class AdminPrincipalSecurityContractTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-admin-principal-cookie-is-only-preferred-for-admin-authorization-metadata")]
     public async Task AdminPrincipalCookie_IsOnlyPreferredForAdminAuthorizationMetadata()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -101,6 +103,7 @@ public sealed class AdminPrincipalSecurityContractTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AdminPrincipalCookiePreference_CachesDecisionInHttpContextItems()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();

@@ -1,6 +1,12 @@
+using System.Runtime.ExceptionServices;
+
+using FsusBlog.Algorithms.IO;
+using FsusBlog.Contracts.Schema;
+
+using Microsoft.Win32.SafeHandles;
+
 using SqlSugar;
 
-using FsusBlog.Contracts.Schema;
 namespace FsusBlog.Server.Infrastructure.SchemaMigration;
 
 public interface ISchemaMigrationRunner
@@ -92,25 +98,110 @@ public sealed class CurrentSchemaStartupVerifier(
     internal static async Task<byte[]> ReadBoundedReceiptAsync(
         string path,
         CancellationToken cancellationToken)
+        => await WithBoundedReceiptAsync(path, static bytes => Task.FromResult(bytes), cancellationToken).ConfigureAwait(false);
+
+    internal static async Task<T> WithBoundedReceiptAsync<T>(
+        string path,
+        Func<byte[], Task<T>> observe,
+        CancellationToken cancellationToken)
     {
-        const int MaximumBytes = FsusBlog.Contracts.SchemaMigration.CurrentSchemaReceiptCodec.MaximumEncodedBytes;
-        await using var file = new FileStream(
-            path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096, FileOptions.Asynchronous);
-        if (file.Length == 0 || file.Length > MaximumBytes)
+        cancellationToken.ThrowIfCancellationRequested();
+        if (string.IsNullOrWhiteSpace(path)
+            || path.Split('/', '\\').Any(value => value.Equals("latest", StringComparison.OrdinalIgnoreCase)))
         {
-            throw new InvalidOperationException("current_schema_receipt_size_invalid");
+            throw new InvalidOperationException("current_schema_explicit_receipt_required");
         }
-        using var bytes = new MemoryStream((int)file.Length);
-        byte[] buffer = new byte[4096];
-        int count;
-        while ((count = await file.ReadAsync(buffer, cancellationToken).ConfigureAwait(false)) != 0)
+        const int MaximumBytes = FsusBlog.Contracts.SchemaMigration.CurrentSchemaReceiptCodec.MaximumEncodedBytes;
+        SafeFileHandle? handle = null;
+        FileStream? file = null;
+        NativeRegularFileGuard.OriginalRegularFileIdentity? initial = null;
+        byte[]? original = null;
+        T result = default!;
+        Exception? primary = null;
+        var secondary = new List<Exception>();
+        try
         {
-            if (bytes.Length + count > MaximumBytes)
+            handle = NativeRegularFileGuard.OpenOriginalRegularFile(path, cancellationToken);
+            initial = NativeRegularFileGuard.CaptureOriginalRegularFileIdentity(path, handle, cancellationToken);
+            // A native descriptor is synchronous; do not claim managed async-handle metadata.
+            file = new FileStream(handle, FileAccess.Read, 4096);
+            long length = file.Length;
+            if (length is <= 0 or > MaximumBytes)
+            {
+                throw new InvalidOperationException("current_schema_receipt_size_invalid");
+            }
+            byte[] bytes = new byte[checked((int)length)];
+            await file.ReadExactlyAsync(bytes.AsMemory(), cancellationToken).ConfigureAwait(false);
+            byte[] trailing = new byte[1];
+            if (await file.ReadAsync(trailing.AsMemory(), cancellationToken).ConfigureAwait(false) != 0)
             {
                 throw new InvalidOperationException("current_schema_receipt_size_exceeded");
             }
-            bytes.Write(buffer, 0, count);
+            NativeRegularFileGuard.ValidateOriginalRegularFileUnchanged(path, handle, initial, cancellationToken);
+            original = bytes.ToArray();
+            result = await observe(bytes).ConfigureAwait(false);
         }
-        return bytes.ToArray();
+        catch (Exception exception)
+        {
+            primary = exception;
+        }
+        finally
+        {
+            if (file is not null && handle is not null && initial is not null && original is not null)
+            {
+                using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(10));
+                try
+                {
+                    NativeRegularFileGuard.ValidateOriginalRegularFileUnchanged(path, handle, initial, cleanup.Token);
+                    file.Position = 0;
+                    byte[] after = new byte[original.Length];
+                    await file.ReadExactlyAsync(after.AsMemory(), cleanup.Token).ConfigureAwait(false);
+                    byte[] trailing = new byte[1];
+                    if (!original.AsSpan().SequenceEqual(after)
+                        || await file.ReadAsync(trailing.AsMemory(), cleanup.Token).ConfigureAwait(false) != 0)
+                    {
+                        throw new InvalidOperationException("current_receipt_artifact_changed");
+                    }
+                    NativeRegularFileGuard.ValidateOriginalRegularFileUnchanged(path, handle, initial, cleanup.Token);
+                }
+                catch (Exception exception)
+                {
+                    secondary.Add(exception);
+                }
+            }
+            if (file is not null)
+            {
+                try
+                {
+                    await file.DisposeAsync().ConfigureAwait(false);
+                }
+                catch (Exception exception)
+                {
+                    secondary.Add(exception);
+                }
+            }
+            try
+            {
+                handle?.Dispose();
+            }
+            catch (Exception exception)
+            {
+                secondary.Add(exception);
+            }
+        }
+        if (secondary.Count > 0)
+        {
+            if (primary is not null)
+            {
+                secondary.Insert(0, primary);
+            }
+            throw new AggregateException("current_schema_receipt_scope_failed", secondary);
+        }
+        if (primary is not null)
+        {
+            ExceptionDispatchInfo.Capture(primary).Throw();
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return result;
     }
 }

@@ -1,6 +1,9 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
+import { readRuntimeRoleExecutionClosure } from './lib/runtime-role-execution-closure.mjs';
+import { readPinnedRepositoryFile } from '../test-matrix/post-runtime-producer-registry.mjs';
+
 import {
     buildIdentitySchema,
     computeConsumedInputDigests,
@@ -219,7 +222,15 @@ export async function runExtractor({
             digestPath,
             resolveContainedPath,
             validateBuildIdentity,
-            validateMinimalContractBuildReceipt: minimalBuildReceiptValidator
+            validateMinimalContractBuildReceipt: minimalBuildReceiptValidator,
+            readExecutionClosure: (rootDirectory, assemblyPath) =>
+            {
+                if (path.resolve(rootDirectory) !== path.resolve(repositoryRoot))
+                {
+                    fail('minimal-build execution closure root differs from its actual runner');
+                }
+                return readRuntimeRoleExecutionClosure(repositoryRoot, assemblyPath, readPinnedRepositoryFile);
+            }
         }
     });
     const normalized = normalizeExtractorResult(raw, extractor);

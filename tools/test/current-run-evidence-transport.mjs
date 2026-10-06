@@ -240,6 +240,10 @@ export function validateEvidenceTransportManifest(manifest)
         assertDigest(object.contentDigest, 'contentDigest');
         assertDigest(object.producerDigest, 'producerDigest');
         assertDigest(object.objectDigest, 'objectDigest');
+        assert(object.originalRef.contentDigest === object.contentDigest,
+            'transport object contentDigest binding mismatch');
+        assert(object.originalRef.producerReceiptDigest === object.producerDigest,
+            'transport object producer digest binding mismatch');
         assert(Array.isArray(object.archiveEntries) && object.archiveEntries.length === 2,
             'transport object must contain exactly one reference receipt and one payload');
         const roles = new Set();
@@ -561,13 +565,72 @@ export function resolveCorrectnessEvidencePath({
     return absolute;
 }
 
-export function listTransportedArchiveFiles({ repositoryRoot, transportManifestPath, authorityId })
+function validateTransportArchive(archive, manifest)
 {
-    const manifest = validateEvidenceTransportManifest(JSON.parse(fs.readFileSync(
-        path.resolve(repositoryRoot, transportManifestPath), 'utf8')));
+    assert(archive?.schema === EVIDENCE_TRANSPORT_ARCHIVE_SCHEMA, 'transport archive schema mismatch');
+    assert(archive.contentDigest === governanceContentDigest(archive),
+        'transport archive contentDigest mismatch');
+    assert(Array.isArray(archive.entries), 'transport archive entries are required');
+    const entryIdentity = (entry) => `${entry.path}\u0000${entry.role}\u0000${entry.digest}`;
+    const expectedEntries = manifest.archive.entries.map(entryIdentity).sort();
+    const actualEntries = archive.entries.map(entryIdentity).sort();
+    assert(JSON.stringify(actualEntries) === JSON.stringify(expectedEntries),
+        'transport archive entry list or digest mismatch');
+    assert(archive.entries.length === expectedEntries.length, 'transport archive cardinality mismatch');
+    for (const entry of archive.entries)
+    {
+        assert(typeof entry.bytes === 'string', `transport archive bytes are missing: ${entry.path}`);
+        assert(digestBytes(Buffer.from(entry.bytes, 'base64')) === entry.digest,
+            `transport archive entry digest mismatch: ${entry.path}`);
+    }
+    return archive;
+}
+
+export function listVerifiedTransportedArchiveFiles({
+    repositoryRoot, transportManifestPath, authorityId, expectedManifestDigest
+})
+{
+    const manifestAbsolute = path.resolve(repositoryRoot, transportManifestPath);
+    assert(manifestAbsolute !== path.resolve(repositoryRoot), 'transport manifest is not a file');
+    assertPhysicalPath(manifestAbsolute, repositoryRoot, 'transport manifest');
+    const manifest = validateEvidenceTransportManifest(JSON.parse(fs.readFileSync(manifestAbsolute, 'utf8')));
+    if (expectedManifestDigest)
+    {
+        assert(manifest.contentDigest === expectedManifestDigest, 'transport manifest digest mismatch');
+    }
+    const archiveAbsolute = assertPhysicalPath(path.resolve(repositoryRoot, manifest.archive.path),
+        repositoryRoot, 'transport archive');
+    const archiveBytes = fs.readFileSync(archiveAbsolute);
+    assert(digestBytes(archiveBytes) === manifest.archive.digest, 'transport archive digest mismatch');
+    const archive = validateTransportArchive(JSON.parse(archiveBytes.toString('utf8')), manifest);
+    for (const object of manifest.objects)
+    {
+        const original = object.archiveEntries.filter((entry) => entry.path === object.originalRef.path);
+        assert(original.length === 1, 'transport original ref must map to exactly one object archive entry');
+        assert(original[0].digest === object.objectDigest
+            && original[0].digest === object.originalRef.inputDigest,
+        'transport original ref digest binding mismatch');
+    }
     const mapped = manifest.objects.filter((object) => object.authorityId === authorityId);
     assert(mapped.length === 1, mapped.length === 0
         ? `transport mapping is missing for ${authorityId}`
         : `duplicate transport mapping for ${authorityId}`);
-    return mapped[0].archiveEntries.map((entry) => path.resolve(repositoryRoot, entry.extractedPath));
+    const extracted = new Set();
+    return mapped[0].archiveEntries.map((entry) =>
+    {
+        const archiveEntry = archive.entries.find((candidate) => candidate.path === entry.path
+            && candidate.role === entry.role);
+        assert(archiveEntry?.digest === entry.digest, `transport mapping digest mismatch: ${entry.path}`);
+        assert(!extracted.has(entry.extractedPath), `duplicate transported extractedPath: ${entry.extractedPath}`);
+        extracted.add(entry.extractedPath);
+        const absolute = assertPhysicalPath(path.resolve(repositoryRoot, entry.extractedPath),
+            repositoryRoot, `transported evidence ${entry.extractedPath}`);
+        assert(digestFile(absolute) === entry.digest, `transported evidence digest mismatch: ${entry.extractedPath}`);
+        return absolute;
+    });
+}
+
+export function listTransportedArchiveFiles(options)
+{
+    return listVerifiedTransportedArchiveFiles(options);
 }

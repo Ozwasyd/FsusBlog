@@ -21,6 +21,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const {
     checkMonolithicDistributedArchitecture,
+    verifyRuntimeRoleLiveContainers,
     msbuildEvaluationEnvironment,
     msbuildSandboxProperties,
     parseMsbuildEvaluationEnvelope
@@ -865,4 +866,121 @@ test('deployment authority rejects a resealed but reversed role-separation claim
     const observation = observeRuntimeRoleDeploymentAuthority({ root });
     assert.equal(observation.ownership.claimEligible, false);
     assert.ok(observation.ownership.failureReasons.some((reason) => reason.includes('unsupported split deployments')));
+});
+
+
+test('live readonly runtime container validation preserves exact engine and mount identity guards', () =>
+{
+    // Explicit codec inputs only: no engine, container, native observation or grant.
+    const digest = value => `sha256:${value.repeat(64)}`;
+    const authority = { ownership: { claimEligible: true },
+        application: { composeService: 'fsusblog', effectivePid1: ['/app/FsusBlog.Server'] },
+        volumeTopology: {
+            '/shared': { access: 'read-write', scope: 'shared-between-slots' },
+            '/instance': { access: 'read-write', scope: 'slot-private' },
+            '/manifest': { access: 'read-only', scope: 'release-identity' },
+            '/assets': { access: 'read-only', scope: 'release-artifact-store' }
+        } };
+    const slots = {};
+    for (const [slot, letter] of [['blue', 'a'], ['green', 'b']])
+    {
+        const releaseId = slot === 'blue' ? '20260710010101-aaaaaaaaaaaa' : '20260711010101-bbbbbbbbbbbb';
+        const imageDigest = digest(letter);
+        const imageRef = `registry.example/fsusblog@${imageDigest}`;
+        const sources = { '/shared': '/fixture/shared', '/instance': `/fixture/${slot}/instance`,
+            '/manifest': `/fixture/${slot}/manifest`, '/assets': '/fixture/assets' };
+        const volumes = Object.entries(authority.volumeTopology).map(([target, declaration]) => ({
+            type: 'bind', target, source: sources[target], read_only: declaration.access === 'read-only'
+        }));
+        slots[slot] = { releaseId, imageDigest,
+            image: { Id: digest('f'), RepoDigests: [imageRef] },
+            compose: { services: { fsusblog: { image: imageRef, container_name: `fsusblog-${slot}`, volumes } } },
+            container: { Id: letter.repeat(64), Image: digest('f'), Name: `/fsusblog-${slot}`,
+                Path: '/app/FsusBlog.Server', Args: [], State: { Running: true },
+                Config: { Image: imageRef, Labels: { 'io.fsusblog.release.id': releaseId, 'io.fsusblog.release.slot': slot } },
+                Mounts: volumes.map(mount => ({ Destination: mount.target, Type: mount.type,
+                    Source: mount.source, RW: !mount.read_only })) } };
+    }
+    assert.equal(verifyRuntimeRoleLiveContainers({ authority, slots }).blue.releaseId, slots.blue.releaseId);
+    assert.throws(() => verifyRuntimeRoleLiveContainers({ authority: { ...authority, ownership: { claimEligible: false } }, slots }), /closed authority/u);
+    assert.throws(() => verifyRuntimeRoleLiveContainers({ authority, slots: { blue: slots.blue } }), /exactly both slots/u);
+    const changes = [
+        value => { value.blue.container.Image = digest('e'); },
+        value => { value.blue.image.RepoDigests = []; },
+        value => { value.blue.container.Args = ['unexpected']; },
+        value => { value.blue.container.Config.Labels['io.fsusblog.release.slot'] = 'green'; },
+        value => { value.blue.container.Mounts.pop(); },
+        value => { value.blue.container.Mounts.push(value.blue.container.Mounts[0]); },
+        value => { value.blue.container.Mounts[2].RW = true; },
+        value => { value.green.compose.services.fsusblog.volumes[1].source = '/fixture/blue/instance';
+            value.green.container.Mounts[1].Source = '/fixture/blue/instance'; },
+        value => { value.green.compose.services.fsusblog.volumes[0].source = '/fixture/other-shared';
+            value.green.container.Mounts[0].Source = '/fixture/other-shared'; }
+    ];
+    for (const change of changes)
+    {
+        const changed = structuredClone(slots);
+        change(changed);
+        assert.throws(() => verifyRuntimeRoleLiveContainers({ authority, slots: changed }), /image\/process identity|mount roster|mount identity\/access|mount is shared|shared mount differs/u);
+    }
+});
+
+
+test('live runtime topology compares actual image IDs and exact mount identities instead of release labels', () =>
+{
+    const digest = `sha256:${'a'.repeat(64)}`;
+    const imageRef = `registry.example/fsusblog@${digest}`;
+    const authority = {
+        ownership: { claimEligible: true },
+        application: { composeService: 'fsusblog.server', effectivePid1: ['./FsusBlog.Server'] },
+        volumeTopology: {
+            '/private': { access: 'read-write', scope: 'slot-private' },
+            '/shared': { access: 'read-only', scope: 'shared-between-slots' }
+        }
+    };
+    const slots = Object.fromEntries(['blue', 'green'].map((slot, index) => [slot, {
+        releaseId: `release-${slot}`,
+        imageDigest: digest,
+        image: { Id: digest, RepoDigests: [imageRef] },
+        compose: {
+            services: { 'fsusblog.server': {
+                image: imageRef, container_name: `fsus-app-${slot}`,
+                volumes: [
+                    { type: 'volume', source: 'private', target: '/private' },
+                    { type: 'bind', source: '/srv/shared', target: '/shared', read_only: true }
+                ]
+            } },
+            volumes: { private: { name: `private-${slot}` } }
+        },
+        container: {
+            Id: String(index + 1).repeat(64), Image: digest, Name: `/fsus-app-${slot}`,
+            State: { Running: true }, Path: './FsusBlog.Server', Args: [],
+            Config: { Image: imageRef, Labels: {
+                'io.fsusblog.release.id': `release-${slot}`, 'io.fsusblog.release.slot': slot
+            } },
+            Mounts: [
+                { Type: 'volume', Name: `private-${slot}`, Source: `/var/lib/docker/volumes/private-${slot}/_data`, Destination: '/private', RW: true },
+                { Type: 'bind', Source: '/srv/shared', Destination: '/shared', RW: false }
+            ]
+        }
+    }]));
+    assert.equal(verifyRuntimeRoleLiveContainers({ authority, slots }).blue.imageId, digest);
+    for (const mutate of [
+        (value) => { value.blue.container.Image = `sha256:${'b'.repeat(64)}`; },
+        (value) => { value.blue.image.RepoDigests = []; },
+        (value) => { value.blue.container.Args = ['--unowned']; },
+        (value) => { value.blue.container.Mounts[0].Name = 'private-green'; },
+        (value) => { value.blue.container.Mounts[1].RW = true; },
+        (value) => { value.blue.container.Mounts[0].Source = value.green.container.Mounts[0].Source; },
+        (value) => { value.blue.container.Mounts.push({ Type: 'bind', Source: '/etc', Destination: '/unknown', RW: false }); },
+        (value) => {
+            value.blue.container.Mounts[0].Name = 'private-green';
+            value.blue.compose.volumes.private.name = 'private-green';
+        }
+    ])
+    {
+        const changed = structuredClone(slots);
+        mutate(changed);
+        assert.throws(() => verifyRuntimeRoleLiveContainers({ authority, slots: changed }), /live/u);
+    }
 });

@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/OfflineMigrationApplyEvidence.cs",
+                "src/migration/OfflineMigrationCommandLine.cs",
+                "src/migration/OfflineMigrationHost.cs",
+                "src/migration/OfflineMigrationVerifyEvidence.cs"
+            ],
+            "reason": "Preserve the existing registered environment names, CLI spellings and closed refusal codes unchanged while ordering only existing C# imports; no database, wire, native owner, receipt, budget or current provider capability is renamed or granted."
+        }
+    ]
+}

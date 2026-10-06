@@ -41,7 +41,18 @@ only produces current-run mutation/terminal receipts and independently verifies 
 
 ## Schema migration ownership
 
-`src/migration/` belongs to the independent `FsusBlog.Migration` project: legacy descriptors, catalogs, checksum/history, typed provider DDL, and migration-only conversion rows compile only there and in `tests/migration/`. The project also builds as an `Exe` offline-migration host, and `tools/db/run-online-migrations.sh` with `--server-dll` points to its output. `OfflineMigrationCatalogEntries.generated.cs` is derived from the Server-side `OnlineSchemaMigrationCatalog` by `tools/db/generate-offline-migration-catalog.mjs`; `tools/db/check-offline-migration-catalog-parity.mjs` prevents drift. `src/shared/Contracts/Schema/` owns the single neutral current-schema description, identity/generation/projection/comparison and complete typed recipe-effect/owned-target contracts; it contains no provider SQL templates or legacy input. `src/backend/Infrastructure/SchemaMigration/` retains the current entity extractor/inspector, current-owned PostgreSQL recipes, their single fact extractor and read-only projection/artifact exporter, fail-closed startup verifier, lock, and business-backfill handlers; the Server production graph must not reference the Migration assembly. Migration's bootstrap compiler consumes independently bound neutral current facts, not Server code or a second handwritten current field mapping. Same-transaction observation, original apply/journal integration, actual owned export and native three-provider qualification remain pending; unknown capabilities fail closed and this source component does not qualify as full bootstrap. The machine-readable file/symbol inventory and content digest are at `artifacts/schema-migration/migration-assembly-receipt.json`.
+`src/migration/` belongs to the independent `FsusBlog.Migration` project: legacy descriptors, catalogs, checksum/history, typed provider DDL, and migration-only conversion rows compile only there and in `tests/migration/`. The project also builds as an `Exe` offline-migration host, and `tools/db/run-online-migrations.sh` with `--server-dll` points to its output. `OfflineMigrationCatalogEntries.generated.cs` is derived from Migration-owned `OfflineMigrationClassificationFacts.cs` by `tools/db/generate-offline-migration-catalog.mjs`; `tools/db/check-offline-migration-catalog-parity.mjs` prevents drift. `src/shared/Contracts/Schema/` owns the single neutral current-schema description, identity/generation/projection/comparison and complete typed recipe-effect/owned-target contracts; it contains no provider SQL templates or legacy input. `src/backend/Infrastructure/SchemaMigration/` retains the current entity extractor/inspector, current-owned PostgreSQL recipes, their single fact extractor and read-only projection/artifact exporter, fail-closed startup verifier, lock, and business-backfill handlers; the Server production graph must not reference the Migration assembly. Migration's bootstrap compiler consumes independently bound neutral current facts, not Server code or a second handwritten current field mapping. Same-transaction observation, original apply/journal integration, actual owned export and native three-provider qualification remain pending; unknown capabilities fail closed and this source component does not qualify as full bootstrap. The machine-readable file/symbol inventory and content digest are at `artifacts/schema-migration/migration-assembly-receipt.json`.
+
+`tools/db/check-migration-assembly-boundary.mjs` checks every Migration C# source,
+including unregistered directories, against type names derived from the actual
+Shared schema declarations. Consuming those neutral types and their sole authority
+is allowed; redeclaring or shadowing them, binding homonyms to another owner, and
+adding ORM mappings outside the existing `Comment` and `CommentRevision`
+backfill entities are rejected, including additional mappings in their source file.
+The source check masks comments and literals and resolves type and namespace aliases.
+It conservatively rejects conflicting aliases across lexical scopes; it is not a
+C# semantic compiler. Its source result does not replace the byte-bound assembly
+receipt or native provider qualification.
 
 `src/shared/Algorithms/Schema/` owns the single current-only PostgreSQL native catalog,
 expression/effect reader and comparer. Its connection boundary is the BCL
@@ -62,6 +73,24 @@ admitted by name. A same-name malformed journal refuses, and Server never parses
 its history or payload. The persistent journal is part of the versioned current
 physical closure, not a terminal cleanup exception; complete chain/resume remain
 offline-only. Native qualification is still separate pending work.
+
+Within Migration, `PgLegacyNonArticlePreparation` reuses the original account-subject
+hasher and the bootstrap compiler's entity-default interpretation. Their callers do
+not own another hash algorithm or SQL-default policy. Article preservation binds
+its target predicate and the actual retained current-schema target separately in
+its operation identity, following the existing native bootstrap owner. Compiling
+these original sources does not qualify native preservation, recovery or bootstrap
+acceptance.
+
+`src/shared/Algorithms/IO/NativeRegularFileGuard.cs` owns the single Linux
+x64/arm64 original regular-file and held-FD identity primitive. Server receipt
+admission and Migration's original artifact-reader facade consume it through their
+existing Shared references; the Server graph has no Migration dependency. Each
+consumer retains its own byte/hash limits. The shared owner contains no receipt
+codec, migration history, database qualification or readiness publication. Held
+database descriptors remain non-owning and the guard never reopens/closes their
+leaf, preserving SQLite's process-wide record locks. Original file controls and
+native provider acceptance remain distinct from this source ownership move.
 
 ## Configuration ownership
 
@@ -146,7 +175,7 @@ Issue #1166 moved the original top-level `circuits/` path to `src/zk/circuits/`.
 
 ## Root exceptions
 
-`src/` is the sole canonical product-source root. `benchmarks/`, `tests/`, `tools/`, and `ops/` contain executable source under benchmark-isolation, test-isolation, repository-tooling, and operator-tooling exceptions; they do not enter product source or shipping assemblies. `.config/` is the framework root required by the .NET tool manifest. Every other top-level directory must be declared in `tests/governance/repository-source-layout.json` as artifact, configuration, documentation, security, or automation ownership; a new source-like root also needs an explicit `architecturalException`, or the checker fails closed. Top-level `release-evidence/` is retired and forbidden: historical reports belong in `docs/reports/`, static contracts in `security/evidence-contracts/`, fixtures in `tests/fixtures/evidence/`, and a fresh bundle only in untracked `.tmp/release-evidence/`. Optional `release-index/` is the sole exception and may contain only the minimal identity/integrity JSON checked by `check-release-evidence-layout.mjs`; it cannot store a bundle or replace its immutable storage reference.
+`src/` is the sole canonical product-source root. `benchmarks/`, `tests/`, `tools/`, and `ops/` contain executable source under benchmark-isolation, test-isolation, repository-tooling, and operator-tooling exceptions; they do not enter product source or shipping assemblies. Stryker tool source is a tooling dependency pinned by `config/testing/mutation/stryker-tool.v1.json` to the official source archive and versioned `tools/mutation/patches/` overlays. `tools/mutation/stryker-tool.mjs` builds it only inside an admitted run-owned mutation custody directory, binds its actual package/executable/dependency closure, and leaves resource enforcement and cleanup to the existing scheduler/process-tree owners. It is never linked into product runtime or shipping assemblies. `.config/` is the framework root required by the .NET tool manifest. Every other top-level directory must be declared in `tests/governance/repository-source-layout.json` as artifact, configuration, documentation, security, or automation ownership; a new source-like root also needs an explicit `architecturalException`, or the checker fails closed. Top-level `release-evidence/` is retired and forbidden: historical reports belong in `docs/reports/`, static contracts in `security/evidence-contracts/`, fixtures in `tests/fixtures/evidence/`, and a fresh bundle only in untracked `.tmp/release-evidence/`. Optional `release-index/` is the sole exception and may contain only the minimal identity/integrity JSON checked by `check-release-evidence-layout.mjs`; it cannot store a bundle or replace its immutable storage reference.
 
 ## Verification
 

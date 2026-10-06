@@ -1,4 +1,7 @@
 import { createHash } from 'node:crypto'
+import { readRuntimeRoleExecutionClosure as readPhysicalExecutionClosure } from '../lib/runtime-role-execution-closure.mjs'
+import { readPinnedRepositoryFile } from '../../test-matrix/post-runtime-producer-registry.mjs'
+
 import { spawnSync } from 'node:child_process'
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import os from 'node:os'
@@ -54,6 +57,13 @@ import {
 import { validateRequiredEvidenceCatalog } from '../../test-matrix/required-evidence-catalog.mjs'
 import { adaptReleaseFinalizerSemanticOutcome } from '../../test-matrix/outcomes/release-finalizer-adapter.mjs'
 import { postRuntimeReceiptSchema } from '../../test-matrix/behavior-evidence-post-runtime.mjs'
+import { validateCurrentSchemaCodeContractObservation, validateRuntimeRoleExecutionClosure } from '../../docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
+
+
+function readRuntimeRoleExecutionClosure(repositoryRoot, assemblyPath)
+{
+    return readPhysicalExecutionClosure(repositoryRoot, assemblyPath, readPinnedRepositoryFile);
+}
 
 const requiredFactKeys = Object.freeze([
   'test.topology.profiles',
@@ -91,7 +101,10 @@ const declaredFactSources = Object.freeze([
   'tools/deployment/destructive-operation-authority.mjs',
   'src/migration',
   'src/backend/Infrastructure/SchemaMigration',
-  'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs'
+  'src/shared/Contracts/Migration/CurrentSchemaMigrationIdentityContracts.cs',
+  'src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs',
+  'src/backend/Infrastructure/SchemaMigration/CurrentSchemaReceiptAdmission.cs',
+  'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs'
 ])
 
 const consumerInputs = Object.freeze([
@@ -134,7 +147,7 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
   const attestation = runtimeBinding.buildReceipt?.reproducibleBuild
   const expectedKeys = [
     'schema', 'project', 'command', 'outputRoot', 'assemblyPath', 'assemblyDigest',
-    'sourceClosureDigest'
+    'sourceClosureDigest', 'executionClosure'
   ]
   const expectedOutputRoot = `.tmp/runtime-role-reproducible-builds/${minimalReceipt.buildKey}`
   const expectedCommand = [
@@ -148,6 +161,8 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
     || attestation.schema !== 'fsusblog.runtime-role-reproducible-build-attestation.v1'
     || attestation.project !== runtimeBinding.project
     || attestation.outputRoot !== expectedOutputRoot
+    || attestation.assemblyPath !== path.posix.join(expectedOutputRoot,
+      'bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll')
     || attestation.assemblyPath !== runtimeBinding.assemblyPath
     || attestation.assemblyDigest !== runtimeBinding.assemblyDigest
     || attestation.sourceClosureDigest !== digestValue(minimalReceipt.sourceClosureDigests)
@@ -155,19 +170,33 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
   {
     throw new Error('runtime-role reproducible build attestation is not exact')
   }
+  const readCurrentClosure = () => {
+    const actual = validateRuntimeRoleExecutionClosure(
+      readRuntimeRoleExecutionClosure(repositoryRoot, runtimeBinding.assemblyPath), runtimeBinding.assemblyDigest)
+    if (digestValue(actual) !== digestValue(attestation.executionClosure))
+    {
+      throw new Error('runtime-role execution closure differs from its attested physical artifacts')
+    }
+    return digestValue(actual)
+  }
+  const closureDigest = readCurrentClosure()
   const trustedKey = digestValue({
     sourceCommit: minimalReceipt.sourceCommit,
     worktreeFingerprint: minimalReceipt.worktreeFingerprint,
     project: runtimeBinding.project,
-    projectDigest: runtimeBinding.projectDigest
+    projectDigest: runtimeBinding.projectDigest,
+    buildKey: minimalReceipt.buildKey,
+    toolchain: minimalReceipt.toolchain,
+    sourceClosureDigest: attestation.sourceClosureDigest
   })
   const previouslyVerified = verifiedRuntimeAttestations.get(trustedKey)
   if (previouslyVerified !== undefined)
   {
-    if (previouslyVerified !== runtimeBinding.assemblyDigest)
+    if (previouslyVerified !== closureDigest)
     {
-      throw new Error('runtime-role assembly differs from the independently verified upstream build')
+      throw new Error('runtime-role execution closure differs from the independently verified upstream build')
     }
+    readCurrentClosure()
     return
   }
   let reproduced
@@ -193,12 +222,13 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
         command: attestation.command,
         outputRoot: attestation.outputRoot,
         assemblyPath: attestation.assemblyPath,
-        assemblyDigest: attestation.assemblyDigest
+        assemblyDigest: attestation.assemblyDigest,
+        executionClosure: attestation.executionClosure
       }))
     {
       throw new Error('runtime-role assembly does not match the canonical reproducible build')
     }
-    verifiedRuntimeAttestations.set(trustedKey, reproduced.assemblyDigest)
+    readCurrentClosure()
   }
   finally
   {
@@ -207,6 +237,8 @@ function verifyRuntimeReproducibleBuild(repositoryRoot, runtimeBinding, minimalR
       removeRuntimeRoleVerificationBuild(repositoryRoot, reproduced.outputRoot)
     }
   }
+  readCurrentClosure()
+  verifiedRuntimeAttestations.set(trustedKey, digestValue(reproduced.executionClosure))
 }
 
 function sortedUniqueStrings(values)
@@ -430,6 +462,16 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     rolloutId: 'runtime-observation-rollout',
     kind: 'deploy',
     manifestPath: '/runtime-observation/release.json',
+    // Metadata-only library fixture: no manifest or issued receipt is produced here.
+    manifestSha256: '1'.repeat(64),
+    candidateSourceRevision: 'b'.repeat(40),
+    currentSchema: {
+      receipt: { reference: '/runtime-observation/current-receipt.json', sha256: '2'.repeat(64) },
+      target: { modelVersion: 'fixture-v1', extractorVersion: 'fixture-v1', generatorVersion: 'fixture-v1',
+        sourceDigest: '3'.repeat(64), contentDigest: '4'.repeat(64) },
+      database: { provider: 0, instanceId: 'fixture-instance', databaseId: 'fixture-database' },
+      actualSchemaDigest: '5'.repeat(64)
+    },
     source: { slot: 'blue', releaseId: releaseA, imageDigest: digestA, runtimeGeneration: 1 },
     target: { slot: 'green', releaseId: releaseB, imageDigest: digestB, runtimeGeneration: 2 },
     createdAtUtc: at
@@ -495,13 +537,14 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
   const volumeScopes = Object.fromEntries(['operator-shared', 'release-artifact-store', 'release-identity',
     'shared-between-slots', 'slot-private'].map((scope) => [scope, Object.entries(volumeTopology)
     .filter(([, value]) => value?.scope === scope).map(([target]) => target).sort()]))
-  const schemaOverlap = runtimeObservation?.schemaOverlap
+  const currentSchemaContract = runtimeObservation?.currentSchemaContract
   const claimEligibilityReasons = ['production-current-active-resource-evidence-absent']
   if (runtimeObservation?.ownership?.claimEligible !== true) claimEligibilityReasons.push('runtime-ownership-authority-conflict')
   if (Object.values(volumeScopes).flat().length !== 10) claimEligibilityReasons.push('volume-topology-incomplete')
   if (unsupportedVolumeCleanup.status !== 'unsupported') claimEligibilityReasons.push('volume-cleanup-authority-conflict')
   if (unsupportedSchemaCleanup.status !== 'unsupported') claimEligibilityReasons.push('schema-cleanup-authority-conflict')
-  if (schemaOverlap?.claimEligible !== true) claimEligibilityReasons.push('schema-overlap-authority-conflict')
+  if (currentSchemaContract?.contractValidated !== true
+    || currentSchemaContract?.nativeQualification !== false) claimEligibilityReasons.push('current-schema-code-contract-conflict')
 
   return {
     evidenceClass: 'synthetic-library-proof',
@@ -539,7 +582,7 @@ function observeBlueGreenFacts(moduleSources, runtimeObservation, destructiveAut
     },
     volumeTopology: projectVolumeTopology(volumeTopology),
     volumeScopes,
-    schemaOverlap,
+    currentSchemaContract,
     runtimeProtectionAuthorityState: 'synthetic-library-proof',
     artifactProtectionAuthorityState: 'synthetic-library-proof',
     schemaProtectionAuthorityState: 'synthetic-library-proof',
@@ -1399,11 +1442,20 @@ export function extract(context)
     unsupportedCombinations: runtimeObservation?.unsupportedCombinations,
     ownership: runtimeObservation?.ownership,
     deploymentAuthority: runtimeObservation?.deploymentAuthority,
-    schemaOverlap: runtimeObservation?.schemaOverlap
+    currentSchemaContract: runtimeObservation?.currentSchemaContract
   }
   const runtimeContentDigest = createHash('sha256')
     .update(JSON.stringify(runtimeUnsigned), 'utf8').digest('hex')
-  if (runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v2'
+  try
+  {
+    validateCurrentSchemaCodeContractObservation(runtimeObservation?.currentSchemaContract)
+  }
+  catch (error)
+  {
+    return failResult([error instanceof Error ? error.message : String(error)])
+  }
+  if (!exactKeys(runtimeObservation, [...Object.keys(runtimeUnsigned), 'observationDigest'])
+    || runtimeObservation?.schema !== 'fsusblog.runtime-role-observation.v3'
     || runtimeObservation?.observationDigest !== runtimeContentDigest
     || runtimeModes.map((mode) => mode.id).sort().join(',') !== 'adaptive,single,static-role'
     || runtimeObservation?.ownership?.authorityState !== 'closed-current'
@@ -1421,34 +1473,6 @@ export function extract(context)
       runtimeObservation?.deploymentAuthority?.effectiveCompose?.dockerExecutable?.digest ?? ''))
     || !/^[a-f0-9]{64}$/u.test(String(
       runtimeObservation?.deploymentAuthority?.effectiveCompose?.composeImplementation?.digest ?? ''))
-    || runtimeObservation?.schemaOverlap?.authorityState !== 'observed-in-current-schema-manifest-probe'
-    || runtimeObservation?.schemaOverlap?.claimEligible !== true
-    || runtimeObservation?.schemaOverlap?.evidenceClass !== 'current-manifest-catalog-production-provider-model'
-    || runtimeObservation?.schemaOverlap?.manifestDescriptorCount !== runtimeObservation?.schemaOverlap?.catalogMetadataCount
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.manifestDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.catalogDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.databaseObservationDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.sourceReleaseManifestDigest ?? ''))
-    || !/^sha256:[a-f0-9]{64}$/u.test(String(runtimeObservation?.schemaOverlap?.targetReleaseManifestDigest ?? ''))
-    || runtimeObservation?.schemaOverlap?.sourceReleaseId === runtimeObservation?.schemaOverlap?.targetReleaseId
-    || runtimeObservation?.schemaOverlap?.previousRollbackReleaseId === runtimeObservation?.schemaOverlap?.sourceReleaseId
-    || runtimeObservation?.schemaOverlap?.sameReleaseFailureCode !== 'schema_previous_rollback_release_not_distinct'
-    || JSON.stringify(runtimeObservation?.schemaOverlap?.missingExpandFailureCodes)
-      !== JSON.stringify(['schema_expand_pending'])
-    || JSON.stringify(runtimeObservation?.schemaOverlap?.concurrentContractFailureCodes) !== JSON.stringify([
-      'schema_contract_backfill_incomplete',
-      'schema_contract_backfill_unverified',
-      'schema_contract_backup_restore_stale',
-      'schema_contract_confirmation_missing',
-      'schema_contract_current_release_dependency',
-      'schema_contract_exclusive_mode_missing',
-      'schema_contract_observation_window',
-      'schema_contract_old_writes_enabled',
-      'schema_contract_previous_release_dependency',
-      'schema_contract_release_window_open',
-      'schema_contract_rollback_manifest_open',
-      'schema_contract_slot_switch_in_progress'
-    ])
     || !Array.isArray(runtimeObservation?.unsupportedCombinations)
     || runtimeObservation.unsupportedCombinations.some((entry) => entry.errorCode === 'unexpectedly-accepted'))
   {
@@ -1461,6 +1485,14 @@ export function extract(context)
   try
   {
     const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json')
+    const assertReplayClosure = () => {
+      const closure = readRuntimeRoleExecutionClosure(context.repositoryRoot, runtimeBinding.assemblyPath)
+      if (digestValue(closure) !== digestValue(runtimeBinding.buildReceipt.reproducibleBuild.executionClosure))
+      {
+        throw new Error('runtime-role execution closure changed around compiled producer replay')
+      }
+    }
+    assertReplayClosure()
     const replay = spawnSync('dotnet', [
       assemblyAbsolute,
       '--deployment-observation', deploymentAbsolute,
@@ -1471,6 +1503,7 @@ export function extract(context)
       stdio: ['ignore', 'pipe', 'pipe'],
       timeout: 5 * 60_000
     })
+    assertReplayClosure()
     if (replay.status !== 0 || !existsSync(replayOutput)
       || sha256(readFileSync(replayOutput)) !== runtimeArtifactDigest)
     {
@@ -1540,7 +1573,7 @@ export function extract(context)
     return failResult([`runtime-role deployment source validation failed: ${error instanceof Error ? error.message : String(error)}`])
   }
   const expectedRuntimeBuildReceipt = {
-    schema: 'fsusblog.runtime-role-observation-build-receipt.v3',
+    schema: 'fsusblog.runtime-role-observation-build-receipt.v4',
     artifactId: 'runtime-role-observation',
     artifactPath: '.tmp/contracts/runtime-role/runtime-role-observation.json',
     artifactDigest: runtimeArtifactDigest,
@@ -1561,7 +1594,10 @@ export function extract(context)
     effectiveComposeModelDigest: runtimeObservation.deploymentAuthority.effectiveCompose?.modelDigest,
     deploymentAuthoritySchema: runtimeObservation.deploymentAuthority.authoritySchema,
     deploymentAuthorityContentDigest: runtimeObservation.deploymentAuthority.authorityContentDigest,
-    deploymentObservationDigest: runtimeObservation.deploymentAuthority.observationDigest
+    deploymentObservationDigest: runtimeObservation.deploymentAuthority.observationDigest,
+    observationSchema: runtimeObservation.schema,
+    evidenceStage: runtimeObservation.currentSchemaContract.evidenceStage,
+    evidenceClass: runtimeObservation.currentSchemaContract.evidenceClass
   }
   if (!exactKeys(runtimeBinding.buildReceipt, Object.keys(expectedRuntimeBuildReceipt))
     || digestValue(runtimeBinding.buildReceipt) !== digestValue(expectedRuntimeBuildReceipt))
@@ -1725,7 +1761,7 @@ export function extract(context)
       effectiveCompose: projectEffectiveCompose(runtimeObservation.deploymentAuthority.effectiveCompose),
       volumeTopology: projectVolumeTopology(runtimeObservation.deploymentAuthority.volumeTopology)
     },
-    schemaOverlap: runtimeObservation.schemaOverlap,
+    currentSchemaContract: runtimeObservation.currentSchemaContract,
     observationDigest: runtimeObservation.observationDigest,
     artifactDigest: runtimeArtifactDigest
   }
@@ -1734,7 +1770,7 @@ export function extract(context)
     rollout: 'tools/deployment/release-rollout-lib.mjs',
     releaseAssetsGc: 'tools/storage/release-gc.mjs',
     destructiveOperations: 'tools/deployment/destructive-operation-authority.mjs',
-    onlineSchema: 'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs',
+    currentSchemaAdmission: 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaReceiptAdmission.cs',
     topologyAuthority: 'tools/governance/check-monolithic-distributed-architecture.mjs'
   }
   let destructiveAuthority

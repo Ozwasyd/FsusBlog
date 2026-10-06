@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:47e83b8d54755a1eb030475b8461bcd960c7143fefa03ffc410b959dca8b34ee",
+    "policyDigest": "sha256:3c5418c9c684ad1404f5be6ed4528a034b7fab57df767a91e47992a1a3e753e0",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -386,6 +386,20 @@
             "supersedes": [],
             "supersededBy": null,
             "relatedIssues": [],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-property-definition-authority.md",
+            "title": "Article PropertyDefinition authority",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2322
+            ],
             "producer": null
         },
         {
@@ -1962,7 +1976,7 @@
         },
         {
             "path": "docs/online-database-migration-operations.md",
-            "title": "Online Migration Operations",
+            "title": "Migration Operations",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",

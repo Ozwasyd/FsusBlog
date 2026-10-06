@@ -1,13 +1,14 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { isValidReleaseId } from '../release/release-id.mjs';
+import { validateCurrentSchemaBinding } from '../release/release-manifest-value-contract.mjs';
 
-export const ROLLOUT_SCHEMA = 'fsusblog.release-rollout-state.v1';
+export const ROLLOUT_SCHEMA = 'fsusblog.release-rollout-state.v2';
 export const ROLLOUT_STAGES = Object.freeze([
   'manifest-validate',
   'capacity-preflight',
   'backup-restore-gate',
-  'expand-migration',
+  'current-schema-admission',
   'asset-materialize',
   'candidate-start',
   'candidate-readiness',
@@ -32,9 +33,12 @@ export function createRolloutState(input) {
   const state = {
     schema: ROLLOUT_SCHEMA,
     rolloutId: rolloutId(input.rolloutId),
-    kind: enumValue(input.kind ?? 'deploy', ['deploy', 'rollback'], 'kind'),
+    kind: enumValue(input.kind ?? 'deploy', ['deploy'], 'kind'),
     status: 'planned',
     manifestPath: absolutePath(input.manifestPath, 'manifestPath'),
+    manifestSha256: input.manifestSha256,
+    candidateSourceRevision: input.candidateSourceRevision,
+    currentSchema: structuredClone(input.currentSchema),
     source,
     target,
     currentStage: null,
@@ -42,10 +46,9 @@ export function createRolloutState(input) {
     stages: [],
         switchCommitted: false,
         gatewayGeneration: null,
-        contractMigrationApplied: false,
         destructiveCutoverStarted: false,
         activationCommitted: false,
-        rollbackAllowed: true,
+        rollbackAllowed: false,
         candidateOnly: false,
         outcome: null,
     recovery: null,
@@ -140,13 +143,8 @@ export function markGatewaySwitchCommitted(state, generation, at = new Date().to
   return state
 }
 
-export function markContractMigrationApplied(state, at = new Date().toISOString()) {
-  validateRolloutState(state)
-  state.contractMigrationApplied = true
-  state.rollbackAllowed = false
-  state.updatedAtUtc = timestamp(at, 'contractMigrationAppliedAtUtc')
-  validateRolloutState(state)
-    return state;
+export function markContractMigrationApplied() {
+    throw new Error('Serve-time Contract migrations are retired; only the offline migration owner can mutate schema');
 }
 
 export function markDestructiveCutoverStarted(state, at = new Date().toISOString())
@@ -218,6 +216,9 @@ export function completeRolloutRecovery(state, input = {}) {
     throw new Error(`recovery action mismatch: expected ${state.recovery.action}, got ${action}`)
   }
   const completedAtUtc = timestamp(input.completedAtUtc ?? new Date().toISOString(), 'recovery.completedAtUtc')
+  const terminalStatus = input.terminalStatus === undefined || input.terminalStatus === null
+    ? null
+    : enumValue(input.terminalStatus, ['aborted'], 'recovery.terminalStatus')
   state.recoveries.push({
     action,
     failedStage: state.recovery.failedStage,
@@ -227,9 +228,6 @@ export function completeRolloutRecovery(state, input = {}) {
     evidencePath: absolutePath(input.evidencePath, 'recovery.evidencePath'),
     errorCode: null
   })
-  const terminalStatus = input.terminalStatus === undefined || input.terminalStatus === null
-    ? null
-    : enumValue(input.terminalStatus, ['rolled_back', 'aborted'], 'recovery.terminalStatus')
   state.status = terminalStatus ?? 'running'
   state.outcome = terminalStatus
   state.recovery = null
@@ -305,9 +303,14 @@ export function validateRolloutState(state) {
   if (!state || typeof state !== 'object' || Array.isArray(state)) throw new Error('rollout state must be an object')
   if (state.schema !== ROLLOUT_SCHEMA) throw new Error(`rollout schema must be ${ROLLOUT_SCHEMA}`)
   rolloutId(state.rolloutId)
-  enumValue(state.kind, ['deploy', 'rollback'], 'kind')
-  enumValue(state.status, ['planned', 'running', 'recovery_required', 'candidate_ready', 'completed', 'rolled_back', 'aborted'], 'status')
+  enumValue(state.kind, ['deploy'], 'kind')
+  enumValue(state.status, ['planned', 'running', 'recovery_required', 'candidate_ready', 'completed', 'aborted'], 'status')
   absolutePath(state.manifestPath, 'manifestPath')
+  if (typeof state.manifestSha256 !== 'string' || !/^[0-9a-f]{64}$/u.test(state.manifestSha256)) throw new Error('manifestSha256 must bind the complete manifest bytes')
+  if (typeof state.candidateSourceRevision !== 'string' || !/^[0-9a-f]{40}$/u.test(state.candidateSourceRevision) || /^0+$/u.test(state.candidateSourceRevision)) throw new Error('candidateSourceRevision must be a nonzero Git SHA')
+  const bindingErrors = []
+  validateCurrentSchemaBinding(state.currentSchema, bindingErrors)
+  if (bindingErrors.length > 0) throw new Error(bindingErrors.join('\n'))
   releaseIdentity(state.source, 'source')
   releaseIdentity(state.target, 'target')
   if (state.source.slot === state.target.slot) throw new Error('source and target slots must differ')
@@ -322,18 +325,17 @@ export function validateRolloutState(state) {
   if (typeof state.switchCommitted !== 'boolean') throw new Error('switchCommitted must be boolean')
     if (state.gatewayGeneration !== null && (!Number.isSafeInteger(state.gatewayGeneration) || state.gatewayGeneration < 1)) {throw new Error('gatewayGeneration is invalid')};
     if (state.switchCommitted !== (state.gatewayGeneration !== null)) {throw new Error('switchCommitted and gatewayGeneration disagree')};
-    if (typeof state.contractMigrationApplied !== 'boolean' || typeof state.rollbackAllowed !== 'boolean') {throw new Error('migration rollback flags are invalid')};
+    if (Object.hasOwn(state, 'contractMigrationApplied') || state.rollbackAllowed !== false) {throw new Error('serve-time migration and image-only rollback are retired')};
     if (typeof state.destructiveCutoverStarted !== 'boolean') {throw new Error('destructiveCutoverStarted must be boolean')};
     if (state.destructiveCutoverStarted && !state.switchCommitted) {throw new Error('destructive cutover requires a committed gateway switch')};
     if (typeof state.activationCommitted !== 'boolean') {throw new Error('activationCommitted must be boolean')};
     if (state.activationCommitted && !state.destructiveCutoverStarted) {throw new Error('activation cannot precede destructive cutover')};
-    if (state.contractMigrationApplied && state.rollbackAllowed) {throw new Error('Contract migration must disable rollback')};
     if (typeof state.candidateOnly !== 'boolean') {throw new Error('candidateOnly must be boolean')};
     if (state.status === 'candidate_ready' && !state.candidateOnly) {throw new Error('candidate_ready status requires candidateOnly')};
-  if (state.outcome !== null) enumValue(state.outcome, ['succeeded', 'candidate_ready', 'rolled_back', 'aborted'], 'outcome')
+  if (state.outcome !== null) enumValue(state.outcome, ['succeeded', 'candidate_ready', 'aborted'], 'outcome')
   if (state.status === 'completed' && state.outcome !== 'succeeded') throw new Error('completed rollout outcome must be succeeded')
   if (state.status === 'candidate_ready' && state.outcome !== 'candidate_ready') throw new Error('candidate rollout outcome must be candidate_ready')
-  if (['rolled_back', 'aborted'].includes(state.status) && state.outcome !== state.status) throw new Error('terminal recovery outcome must match status')
+  if (state.status === 'aborted' && state.outcome !== state.status) throw new Error('terminal recovery outcome must match status')
   if (state.status === 'recovery_required') validateRecovery(state.recovery)
   if (state.status !== 'recovery_required' && state.recovery !== null) throw new Error('recovery plan is only valid for recovery_required')
   if (!Array.isArray(state.recoveries)) throw new Error('recoveries must be an array')
@@ -348,9 +350,6 @@ function recoveryPlan(state, failedStage) {
   const index = ROLLOUT_STAGES.indexOf(failedStage)
   const switchIndex = ROLLOUT_STAGES.indexOf('gateway-switch')
   const drainIndex = ROLLOUT_STAGES.indexOf('source-drain')
-  if (state.contractMigrationApplied) {
-    return { action: 'manual-contract-recovery', automatic: false, reason: 'contract_migration_applied', failedStage }
-  }
   if (!state.switchCommitted && index < switchIndex) {
     return { action: 'preserve-source-stop-candidate', automatic: true, reason: 'failure_before_gateway_switch', failedStage }
   }
@@ -360,7 +359,7 @@ function recoveryPlan(state, failedStage) {
     }
     if (failedStage === 'source-drain' && !state.destructiveCutoverStarted)
 {
-        return { action: 'rollback-gateway-to-source', automatic: true, reason: 'post_switch_gate_failed_before_source_drain', failedStage };
+        return { action: 'resume-release-activation-same-cutover', automatic: true, reason: 'post_switch_old_source_rollback_forbidden', failedStage };
     }
     if (state.destructiveCutoverStarted && index >= drainIndex && index <= ROLLOUT_STAGES.indexOf('public-verify'))
 {
@@ -419,11 +418,9 @@ function recoveryAction(value) {
   return enumValue(value, [
         'preserve-source-stop-candidate',
         'gateway-recover',
-        'rollback-gateway-to-source',
         'resume-release-activation-same-cutover',
         'retain-source-report-cleanup-blocker',
-        'resume-release-evidence',
-        'manual-contract-recovery'
+        'resume-release-evidence'
   ], 'recovery.action')
 }
 

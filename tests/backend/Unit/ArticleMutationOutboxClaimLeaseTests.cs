@@ -29,6 +29,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ArticleMutationOutboxClaimLeaseTests
 {
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ClaimStateMachine_PersistsOwnerHeartbeatAndIndependentRetrySchedule()
     {
         foreach (string property in new[]
@@ -56,6 +57,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ConcurrentWorkers_OnlyCurrentClaimTokenCanWriteReceiptRetryOrCompletion()
     {
         string heartbeat = RuntimeMetadataInspection.DescribeMethods(
@@ -85,6 +87,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-claim-commit-failure-cannot-reach-external-effects")]
     public async Task ClaimCommitFailure_CannotReachExternalEffects()
     {
         var coordinator = Substitute.For<IArticleMutationSideEffectCoordinator>();
@@ -117,6 +120,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void WorkerCrash_ExpiredClaimIsReclaimableButLiveClaimIsHeartbeated()
     {
         string claim = RuntimeMetadataInspection.DescribeMethods(
@@ -139,6 +143,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task DuplicateDelivery_ReusesStableContentHashAndPassesItToNotificationPublisher()
     {
         string first = ArticleMutationDeliveryKey.Build("event-1125", ArticleMutationReplayEdges.Notification);
@@ -207,6 +212,7 @@ public sealed class ArticleMutationOutboxClaimLeaseTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void ClaimLeaseExpandMigration_IsAdditiveAndOnlineCompatible()
     {
         const string MigrationId = "20260715-post-article-mutation-outbox-claim-lease";

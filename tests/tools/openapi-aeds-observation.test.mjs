@@ -6,6 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { readRuntimeRoleExecutionClosure as readPhysicalExecutionClosure } from '../../tools/fact-extractors/lib/runtime-role-execution-closure.mjs';
+import { readPinnedRepositoryFile } from '../../tools/test-matrix/post-runtime-producer-registry.mjs';
+
+import { runtimeRoleRequiredExecutionFiles } from '../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
+
 const { digestCatalog, loadCatalog } = await import(new URL("../../tools/contracts/behavior-contract-catalog.mjs", import.meta.url));
 const { digestValue } = await import(new URL("../../tools/fact-extractors/lib/canonicalize.mjs", import.meta.url));
 const { buildOpenApiFromMatrix, committedOpenApiPath, operationsFromOpenApi, readJson, loadProtocol } = await import(new URL("../../tools/contracts/lib/openapi-contracts.mjs", import.meta.url));
@@ -15,7 +20,12 @@ const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await im
 const { buildIdentitySchema, digestPath, resolveContainedPath, sealSourceIdentity, validateBuildIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
 const { validateMinimalContractBuildReceipt } = await import(new URL('../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
 const { runExtractor } = await import(new URL('../../tools/fact-extractors/runner.mjs', import.meta.url));
-const { createRuntimeRoleMinimalV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { createRuntimeRoleMinimalV4Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+
+function readRuntimeRoleExecutionClosure(repositoryRoot, assemblyPath)
+{
+    return readPhysicalExecutionClosure(repositoryRoot, assemblyPath, readPinnedRepositoryFile);
+}
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
 const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
@@ -158,7 +168,7 @@ function writeCanonicalObservation(repositoryRoot, observation)
     git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
         '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'isolated receipt unit fixture');
     const source = sealSourceIdentity(repositoryRoot);
-    const receipt = createRuntimeRoleMinimalV3Fixture('canonical-openapi-unit', source);
+    const receipt = createRuntimeRoleMinimalV4Fixture('canonical-openapi-unit', source);
     for (const artifact of Object.values(receipt.artifacts))
     {
         const project = path.join(repositoryRoot, artifact.project);
@@ -199,7 +209,11 @@ function writeCanonicalObservation(repositoryRoot, observation)
         artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
         if (artifact.assemblyPath)
         {
-            artifact.assemblyDigest = writeBytes(artifact.assemblyPath, 'unit-fixture-assembly');
+            for (const file of runtimeRoleRequiredExecutionFiles)
+            {
+                writeBytes(path.posix.join(path.posix.dirname(artifact.assemblyPath), file), 'unit-fixture-assembly');
+            }
+            artifact.assemblyDigest = digestPath(repositoryRoot, artifact.assemblyPath);
             artifact.deploymentArtifactDigest = writeBytes(artifact.deploymentArtifactPath, 'unit-fixture-deployment');
             Object.assign(artifact.buildReceipt, {
                 sourceCommit: source.sourceCommit,
@@ -209,6 +223,8 @@ function writeCanonicalObservation(repositoryRoot, observation)
                 deploymentArtifactDigest: artifact.deploymentArtifactDigest
             });
             artifact.buildReceipt.reproducibleBuild.assemblyDigest = artifact.assemblyDigest;
+            artifact.buildReceipt.reproducibleBuild.executionClosure =
+                readRuntimeRoleExecutionClosure(repositoryRoot, artifact.assemblyPath);
             artifact.buildReceipt.reproducibleBuild.sourceClosureDigest = digestValue(receipt.sourceClosureDigests);
         }
     }
@@ -251,7 +267,8 @@ function writeCanonicalObservation(repositoryRoot, observation)
                 digestPath,
                 resolveContainedPath,
                 validateBuildIdentity,
-                validateMinimalContractBuildReceipt
+                validateMinimalContractBuildReceipt,
+                readExecutionClosure: readRuntimeRoleExecutionClosure
             },
             repositoryRoot,
             ...source,
@@ -300,7 +317,7 @@ test('canonical OpenAPI refuses missing validation capabilities and runner cache
     const { context } = writeCanonicalObservation(directory, sampleObservation());
     assert.equal(extractOpenApi(context).status, 'ok');
     for (const key of ['buildIdentitySchema', 'digestPath', 'resolveContainedPath',
-        'validateBuildIdentity', 'validateMinimalContractBuildReceipt'])
+        'validateBuildIdentity', 'validateMinimalContractBuildReceipt', 'readExecutionClosure'])
     {
         const result = extractOpenApi({ ...context, minimalBuildServices: { ...context.minimalBuildServices, [key]: undefined } });
         assert.equal(result.status, 'failed', key);
@@ -715,14 +732,14 @@ test('compiled C# observation self-test executes real loader, merger, and reques
     assert.match(result.stdout, /self-test.*ok/iu);
 });
 
-test('pre-3177 normal producer isolates only the exact owned JSON routes and emits the AEDS observation', {
+test('normal producer retains all eight font and theme AEDS routes and refuses contract drift', {
     timeout: 120_000
 }, () =>
 {
     const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-production-census-'));
     try
     {
-        const result = spawnSync('dotnet', [
+        const runProducer = (outputPath, contractsPath = null) => spawnSync('dotnet', [
             'run',
             '--project',
             'tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj',
@@ -731,24 +748,102 @@ test('pre-3177 normal producer isolates only the exact owned JSON routes and emi
             '--no-build',
             '--',
             '--output',
-            path.join(directory, 'observation.json'),
+            outputPath,
             '--repository-root',
-            root
+            root,
+            ...(contractsPath === null ? [] : ['--contracts', contractsPath])
         ], {
             cwd: root,
             encoding: 'utf8',
             env: process.env
         });
+        const result = runProducer(path.join(directory, 'observation.json'));
         const diagnostic = `${result.stdout}\n${result.stderr}`;
         assert.equal(result.status, 0, diagnostic);
-        assert.match(diagnostic, /pre-#3177 known non-AEDS routes excluded count=8:/u);
         const observation = readJson(path.join(directory, 'observation.json'));
+        assert.equal(observation.schema, 'fsusblog.api-aeds-observation.v5');
+        assert.equal(observation.protocol, 'AEDS');
+        assert.equal(observation.aedsVersion, 2);
+        assert.deepEqual(validateObservationAgainstProtocol(observation, loadProtocol()), []);
         assert.ok(observation.operations.some((operation) =>
             operation.operationId === 'binary_get_article_articleId_int_related_aeds'
             && operation.responseFrame === 'ArticleRelatedReading'));
-        assert.ok(observation.operations.every((operation) =>
-            !operation.path.startsWith('/api/binary/author/ops/fonts/')
-            && !operation.path.startsWith('/api/binary/author/ops/themes/')));
+
+        const catalog = readJson(path.join(root, 'src/shared/Contracts/Validation/aeds-endpoint-contracts.json'));
+        assert.equal(catalog.schema, 'fsusblog.aeds-endpoint-contracts.v2');
+        assert.equal(catalog.protocol, 'AEDS');
+        assert.equal(catalog.aedsVersion, 2);
+        const expectedRoutes = [
+            ['/api/binary/author/ops/fonts/activations', 'FontActivationList'],
+            ['/api/binary/author/ops/fonts/registry', 'FontRegistryList'],
+            ['/api/binary/author/ops/fonts/registry/{fontId}', 'FontRegistryDetail'],
+            ['/api/binary/author/ops/themes/activations', 'ThemeActivationList'],
+            ['/api/binary/author/ops/themes/activations/{scope}', 'ThemeActivation'],
+            ['/api/binary/author/ops/themes/activations/{scope}/history', 'ThemeActivationHistory'],
+            ['/api/binary/author/ops/themes/registry', 'ThemeRegistryList'],
+            ['/api/binary/author/ops/themes/registry/{themeId}', 'ThemeRegistryDetail']
+        ];
+        const isFontOrTheme = (operation) => operation.path.startsWith('/api/binary/author/ops/fonts/')
+            || operation.path.startsWith('/api/binary/author/ops/themes/');
+        const expectedKeys = expectedRoutes.map(([route]) => `GET ${route}`).sort();
+        assert.deepEqual(catalog.operations.filter(isFontOrTheme)
+            .map((operation) => `${operation.method} ${operation.path}`).sort(), expectedKeys);
+        assert.deepEqual(observation.operations.filter(isFontOrTheme)
+            .map((operation) => `${operation.method} ${operation.path}`).sort(), expectedKeys);
+        for (const [route, responseFrame] of expectedRoutes)
+        {
+            const contract = catalog.operations.find((operation) => operation.method === 'GET' && operation.path === route);
+            const operation = observation.operations.find((entry) => entry.method === 'GET' && entry.path === route);
+            assert.deepEqual({
+                requestFrame: contract.requestFrame,
+                requestType: contract.requestType,
+                requestEncoding: contract.requestEncoding,
+                responseFrame: contract.responseFrame,
+                errorFrame: contract.errorFrame,
+                successStatus: contract.successStatus
+            }, {
+                requestFrame: null, requestType: null, requestEncoding: null,
+                responseFrame, errorFrame: 'ApiError', successStatus: 200
+            }, route);
+            assert.equal(operation.operationId, contract.operationId, route);
+            assert.equal(operation.requestFrame, null, route);
+            assert.equal(operation.responseFrame, responseFrame, route);
+            assert.equal(operation.errorFrame, 'ApiError', route);
+            assert.equal(operation.successStatus, 200, route);
+            assert.equal(operation.request.direction, 'request', route);
+            assert.equal(operation.request.source, 'none', route);
+            assert.equal(operation.request.encoding, 'none', route);
+            assert.deepEqual(operation.request.sourceTypes, [], route);
+            assert.equal(operation.resultPlacement, 'aeds.frame.payload', route);
+            assert.equal(operation.protocolState, 'active-aeds-only', route);
+            assert.equal(operation.errorAuthorityBehaviorId, 'configuration-error-security-policy', route);
+            assert.equal(operation.publicErrorRefState, 'operation-status-authority-bound', route);
+            assert.deepEqual(operation.responses.filter((response) => response.kind === 'success')
+                .map((response) => response.schemaRef), [`aeds://frame/${responseFrame}`], route);
+            const errors = operation.responses.filter((response) => response.kind === 'error');
+            assert.ok(errors.length > 0, route);
+            assert.ok(errors.every((response) => response.schemaRef === 'aeds://frame/ApiError'), route);
+            assert.ok(operation.responses.every((response) => response.contentType === 'application/octet-stream'
+                && response.resultPlacement === 'aeds.frame.payload'), route);
+        }
+
+        // Re-sealing a shared declaration cannot override the compiled route or error interface.
+        for (const [field, frame] of [['responseFrame', 'ThemeRegistryList'], ['errorFrame', 'ArticleDetail']])
+        {
+            const changed = structuredClone(catalog);
+            changed.operations.find((operation) => operation.method === 'GET'
+                && operation.path === '/api/binary/author/ops/fonts/registry')[field] = frame;
+            delete changed.contentDigest;
+            changed.contentDigest = sha256(Buffer.from(JSON.stringify(changed), 'utf8'));
+            const contractsPath = path.join(directory, `${field}-contracts.json`);
+            writeFileSync(contractsPath, `${JSON.stringify(changed)}\n`);
+            const outputPath = path.join(directory, field, 'observation.json');
+            const refused = runProducer(outputPath, contractsPath);
+            assert.notEqual(refused.status, 0, `${refused.stdout}\n${refused.stderr}`);
+            assert.match(`${refused.stdout}\n${refused.stderr}`,
+                new RegExp(`compiled/shared ${field} conflict`, 'u'));
+            assert.throws(() => readFileSync(outputPath), { code: 'ENOENT' });
+        }
     }
     finally
     {
@@ -967,6 +1062,72 @@ test('extractor accepts sealed observation and emits operation map', () =>
     {
         rmSync(directory, { recursive: true, force: true });
     }
+});
+
+function writeMinimalBuildObservation(repositoryRoot, observation)
+{
+    return writeCanonicalObservation(repositoryRoot, observation).context;
+}
+
+test('canonical minimal build observation uses its exact source and artifact receipt without a standalone receipt', (t) =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const context = writeMinimalBuildObservation(directory, sampleObservation());
+    const result = extractOpenApi(context);
+    assert.equal(result.status, 'ok', result.failureReasons?.join('; '));
+    assert.equal(result.observations.operationCount, 2);
+    assert.equal(result.observations.operations.binary_post_admin_article.pow, true);
+    for (const changed of [
+        { buildReceiptPath: undefined },
+        { buildReceiptPath: '.tmp/missing-build-receipt.json' },
+        { sourceCommit: 'c'.repeat(40) },
+        { worktreeFingerprint: 'd'.repeat(64) },
+        { buildIdentity: { ...context.buildIdentity, receiptDigest: '0'.repeat(64) } },
+        { buildIdentity: { ...context.buildIdentity, artifactDigest: '0'.repeat(64) } }
+    ])
+    {
+        assert.equal(extractOpenApi({ ...context, ...changed }).status, 'failed', JSON.stringify(changed));
+    }
+});
+
+test('canonical minimal build rejects independently changed source and published observation bytes', (t) =>
+{
+    for (const target of [observationBuildSourcePaths[0], observationRelative])
+    {
+        const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-tamper-'));
+        t.after(() => rmSync(directory, { recursive: true, force: true }));
+        const context = writeMinimalBuildObservation(directory, sampleObservation());
+        const absolute = path.join(directory, target);
+        writeFileSync(absolute, `${readFileSync(absolute, 'utf8')}\nchanged`);
+        assert.equal(extractOpenApi(context).status, 'failed', target);
+    }
+});
+
+test('canonical minimal build cannot bless an invalid inner observation digest by resealing outer identities', (t) =>
+{
+    const directory = mkdtempSync(path.join(os.tmpdir(), 'openapi-minimal-inner-digest-'));
+    t.after(() => rmSync(directory, { recursive: true, force: true }));
+    const context = writeMinimalBuildObservation(directory, sampleObservation());
+    const receiptPath = path.join(directory, context.buildReceiptPath);
+    const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
+    const observation = JSON.parse(readFileSync(path.join(directory, observationRelative), 'utf8'));
+    observation.observationDigest = '0'.repeat(64);
+    const bytes = JSON.stringify(observation);
+    const artifact = receipt.artifacts['openapi-aeds-observation'];
+    for (const file of [artifact.path, artifact.artifactPath])
+    {
+        writeFileSync(path.join(directory, file), bytes);
+    }
+    artifact.artifactDigest = sha256(bytes);
+    artifact.buildReceipt.artifactDigest = artifact.artifactDigest;
+    receipt.contentDigest = digestValue({ ...receipt, contentDigest: null });
+    writeFileSync(receiptPath, JSON.stringify(receipt));
+    context.buildIdentity.artifactDigest = artifact.artifactDigest;
+    context.buildIdentity.receiptDigest = receipt.contentDigest;
+    const result = extractOpenApi(context);
+    assert.equal(result.status, 'failed');
+    assert.ok(result.failureReasons.some((reason) => reason.includes('observationDigest')));
 });
 
 test('stale artifact digest (yesterday Debug swap) fails', () =>

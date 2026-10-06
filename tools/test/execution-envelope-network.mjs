@@ -5,8 +5,9 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { observeExecutableIdentity } from './execution-envelope-environment.mjs';
+import { executeManagedPreparation, observeExecutableIdentity, observeExecutableIdentityAsync } from './execution-envelope-environment.mjs';
 import { admitsPrivateDotnetScratch, privateDotnetScratchPath } from './physical-execution-private-dotnet-scratch.mjs';
+import { inspectOwnedPrivateTmp } from './execution-envelope-directories.mjs';
 const { executionEnvelopeDigest } = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const landlockSource = path.join(
@@ -165,11 +166,51 @@ export function projectPlannedEndpoints({ services, serviceEnvelope, policy })
     return endpoints;
 }
 
+function landlockCompilerArguments(output)
+{
+    return ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-o', output, landlockSource];
+}
+
+async function requiredToolAsync(name, options)
+{
+    try
+    {
+        return await observeExecutableIdentityAsync(name, {
+            ...options,
+            ...(name === 'ip' ? { versionArgs: ['-Version'] } : {})
+        });
+    }
+    catch (error)
+    {
+        // The original arbitrary reason remains primary; no wrapper error replaces it.
+        throw error;
+    }
+}
+
+async function buildLandlockHelperAsync({ output, ...options })
+{
+    const compiler = await requiredToolAsync('cc', options);
+    await executeManagedPreparation({
+        purpose: 'landlock-helper-build',
+        command: [compiler.realPath, ...landlockCompilerArguments(output)],
+        cwd: options.cwd,
+        environment: options.environment
+    }, options);
+    options.signal?.throwIfAborted();
+    options.assertPreparationAdmission();
+    fs.chmodSync(output, 0o700);
+    return {
+        compiler,
+        helper: await observeExecutableIdentityAsync(output, options)
+    };
+}
+
 export function prepareNetworkSandbox({
     command,
     // eslint-disable-next-line no-unused-vars
     cwd,
     directories,
+    ownedDirectoryEnvelope = null,
     writableRoots,
     plannedEndpoints = [],
     environment,
@@ -185,6 +226,23 @@ export function prepareNetworkSandbox({
         throw new Error(`correctness network sandbox is unavailable on ${platform}`);
     }
     const observer = requiredTool('strace', pathValue);
+    const bindings = prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId });
+    const { landlockExecutable } = bindings;
+    const landlock = buildLandlockHelper({
+        output: landlockExecutable,
+        pathValue,
+        environment: {
+            ...environment,
+            TMPDIR: directories.temp,
+            TMP: directories.temp,
+            TEMP: directories.temp
+        }
+    });
+    return projectPreparedNetworkSandbox({ command, plannedEndpoints, environment, policy, observer, landlock, ...bindings });
+}
+
+export function prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId })
+{
     const networkLog = path.join(directories.toolCache, 'network.strace');
     const bindings = new Set([
         ...Object.values(directories),
@@ -197,20 +255,21 @@ export function prepareNetworkSandbox({
     const landlockReadWritePaths = privateDotnetScratch
         ? [...readWritePaths, privateDotnetScratchPath].sort()
         : readWritePaths;
-    const landlockExecutable = path.join(
-        directories.toolCache,
-        'execution-envelope-landlock'
-    );
-    const landlock = buildLandlockHelper({
-        output: landlockExecutable,
-        pathValue,
-        environment: {
-            ...environment,
-            TMPDIR: directories.temp,
-            TMP: directories.temp,
-            TEMP: directories.temp
-        }
-    });
+    const privateTmpCapability = ownedDirectoryEnvelope?.privateTmpCapability ?? null;
+    const ownedPrivateTmp = ownedDirectoryEnvelope
+        ? inspectOwnedPrivateTmp(privateTmpCapability, { environment, readWritePaths }) : null;
+    if (ownedPrivateTmp && (ownedDirectoryEnvelope.fragment.directories !== directories
+        || ownedPrivateTmp.source !== directories.temp))
+    {
+        throw new Error('private /tmp alias belongs to a different directory owner');
+    }
+    const landlockExecutable = path.join(directories.toolCache, 'execution-envelope-landlock');
+    return { networkLog, readWritePaths, landlockReadWritePaths, privateTmpCapability, ownedPrivateTmp, privateDotnetScratch, landlockExecutable };
+}
+
+function projectPreparedNetworkSandbox({ command, plannedEndpoints, environment, policy, observer, landlock,
+    networkLog, readWritePaths, landlockReadWritePaths, privateTmpCapability, ownedPrivateTmp, privateDotnetScratch })
+{
     return {
         command: [
             observer.absolutePath,
@@ -222,6 +281,12 @@ export function prepareNetworkSandbox({
             networkLog,
             '--',
             landlock.helper.absolutePath,
+            ...(ownedPrivateTmp ? [
+                '--owned-tmp-source', ownedPrivateTmp.source,
+                '--owned-tmp-device', ownedPrivateTmp.device,
+                '--owned-tmp-inode', ownedPrivateTmp.inode,
+                '--owned-tmp-uid', ownedPrivateTmp.uid
+            ] : []),
             ...landlockReadWritePaths.flatMap((entry) => [
                 standardWritableFiles.includes(entry) ? '--writable-file' : '--writable',
                 entry
@@ -236,6 +301,7 @@ export function prepareNetworkSandbox({
         },
         linuxReadWritePaths: readWritePaths,
         privateDotnetScratch,
+        linuxOwnedPrivateTmp: privateTmpCapability,
         networkLog,
         fragment: {
             schema: executionEnvelopeNetworkSchema,
@@ -251,6 +317,7 @@ export function prepareNetworkSandbox({
                     compiler: landlock.compiler,
                     helper: landlock.helper,
                     privateTmp: true,
+                    ...(ownedPrivateTmp ? { ownedPrivateTmp } : {}),
                     readWritePaths: landlockReadWritePaths,
                     systemdReadWritePaths: readWritePaths,
                     privateDotnetScratch: privateDotnetScratch
@@ -335,4 +402,32 @@ export function finalizeNetworkSandbox(prepared)
     }
     prepared.fragment.admission = 'planned-actual-exact';
     return prepared.fragment;
+}
+
+export async function prepareNetworkSandboxAsync({
+    command, cwd, directories, ownedDirectoryEnvelope = null, writableRoots, plannedEndpoints = [],
+    environment, policy, producerId = null, attemptId = null,
+    executePreparation, assertPreparationExecution, assertPreparationAdmission, signal,
+    platform = process.platform, pathValue = environment.PATH
+})
+{
+    if (platform !== 'linux')
+    {
+        throw new Error(`correctness network sandbox is unavailable on ${platform}`);
+    }
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('asynchronous network preparation requires the original held-managed owner port');
+    }
+    if (typeof assertPreparationAdmission !== 'function')
+        throw new Error('network helper writes require the original live preparation admission');
+    const toolOptions = { cwd, pathValue, environment, executePreparation, assertPreparationExecution, assertPreparationAdmission, signal };
+    const observer = await requiredToolAsync('strace', toolOptions);
+    const bindings = prepareNetworkBindings({ directories, ownedDirectoryEnvelope, writableRoots, environment, producerId, attemptId });
+    const landlock = await buildLandlockHelperAsync({
+        ...toolOptions,
+        output: bindings.landlockExecutable,
+        environment: { ...environment, TMPDIR: directories.temp, TMP: directories.temp, TEMP: directories.temp }
+    });
+    return projectPreparedNetworkSandbox({ command, plannedEndpoints, environment, policy, observer, landlock, ...bindings });
 }

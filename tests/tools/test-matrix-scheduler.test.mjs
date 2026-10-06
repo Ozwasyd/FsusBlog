@@ -10,7 +10,7 @@ import { setTimeout as delay } from 'node:timers/promises';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scheduler = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
-const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
+const { validateBehaviorDocStaticAdmissionReceipt } = await import(new URL("../../tools/docs/behavior-doc-static-admission-reader.mjs", import.meta.url));
 const { sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { currentProcessIdentity } = await import(new URL("../../tools/test/process-identity.mjs", import.meta.url));
 const { createArtifactDigestTable } = await import(new URL("../../tools/test-matrix/artifact-digest-table.mjs", import.meta.url));
@@ -35,6 +35,7 @@ import {
 } from './support/esm-fixture-materializer-contracts.mjs';
 import { materializeEsmFixture, preflightMaterializedEsmFixture } from './support/esm-fixture-materializer.mjs';
 import { posixCancellationFailureSource } from './support/posix-cancellation-fixture.mjs';
+import { prepareSchedulerCliMatrixFixture } from './support/scheduler-cli-fixture.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
@@ -93,6 +94,18 @@ function createTempDir(name)
 function createRunnerFixture(temp)
 {
     const runner = materializeTestMatrixRunner(root, temp);
+    fs.mkdirSync(path.join(temp, 'tools/fixtures'), { recursive: true });
+    return commitRunnerFixture(temp, runner);
+}
+
+function sealRunnerFixture(temp, matrixFile)
+{
+    prepareSchedulerCliMatrixFixture(root, temp, matrixFile);
+    return commitRunnerFixture(temp, path.join(temp, 'tools/run-test-matrix.mjs'));
+}
+
+function commitRunnerFixture(temp, runner)
+{
     if (!fs.existsSync(path.join(temp, '.git')))
     {
         execFileSync('git', ['init', '--quiet'], { cwd: temp });
@@ -103,13 +116,14 @@ function createRunnerFixture(temp)
         '!/.gitignore',
         '!/.github/',
         '!/config/',
-        '!/tools/'
+        '!/tools/',
+        '!/tests/'
     ].join('\n') + '\n');
     prepareBehaviorDocAdmissionFixtureAuthority({
         sourceRepositoryRoot: root,
         repositoryRoot: temp
     });
-    execFileSync('git', ['add', '--all', '--', '.gitignore', '.github', 'config', 'tools'], {
+    execFileSync('git', ['add', '--all', '--', '.gitignore', '.github', 'config', 'tools', 'tests'], {
         cwd: temp
     });
     execFileSync(
@@ -1186,6 +1200,14 @@ test('fresh scheduler preserves authenticated current-run prerequisite outputs f
             status: prerequisite.status,
             executionKey: 'matrix-governance',
             runBoundReceiptDigest: prerequisiteProjection.receipt.receiptDigest
+        },
+        observations: {
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            timezone: 'UTC',
+            nodeTimezone: 'UTC',
+            locale: 'en-US',
+            monotonicClockSource: 'performance-now',
+            observationBoundary: 'test-producer'
         },
         generatedAt: '2026-07-29T00:00:00.000Z'
     });
@@ -5357,3 +5379,571 @@ test('POSIX cancellation fixture refuses absent, malformed and dead readiness in
             assert.match(result.stderr, /fixture readiness refused/u);
         });
     });
+
+test('sealed scheduler CLI fixture rejects missing finalizer and executable drift before child spawn', (t) =>
+{
+    const temp = createTempDir('scheduler-sealed-boundary');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const runner = createRunnerFixture(temp);
+    const marker = path.join(temp, 'marker.txt');
+    const script = path.join(temp, 'tools/fixtures/marker.mjs');
+    const matrix = path.join(temp, 'matrix.yml');
+    fs.writeFileSync(script, `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(marker)}, 'spawned');\n`);
+    fs.writeFileSync(matrix, [
+        'version: fsusblog-test-matrix-v2',
+        'tiers:',
+        '  - id: backend-unit',
+        '    command: node tools/fixtures/marker.mjs',
+        '    executionDependsOn: []',
+        '    ciJob: fixture'
+    ].join('\n'));
+    sealRunnerFixture(temp, matrix);
+    const run = () => spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--fresh'], {
+        cwd: temp,
+        encoding: 'utf8',
+        env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrix }
+    });
+    const finalizer = path.join(temp, 'tools/test/lanes/release-final.sh');
+    const finalizerBytes = fs.readFileSync(finalizer);
+    fs.rmSync(finalizer);
+    const missing = run();
+    assert.notEqual(missing.status, 0);
+    assert.match(missing.stderr, /ENOENT.*release-final\.sh/u);
+    assert.equal(fs.existsSync(marker), false);
+    fs.writeFileSync(finalizer, finalizerBytes);
+    fs.appendFileSync(script, '// executable drift after fixture sealing\n');
+    const drifted = run();
+    assert.notEqual(drifted.status, 0);
+    assert.match(drifted.stderr, /working-tree bytes differ from the repository index/u);
+    assert.equal(fs.existsSync(marker), false);
+});
+
+// These probes invoke the complete current owners with controlled native I/O;
+// their terminal observations do not qualify an actual systemd execution.
+async function resourceServiceFailureProbe({ nuget, reason, terminal = 'zero-members', postCancel = false, earlierTerminal = null })
+{
+    const vm = await import('node:vm');
+    const { PassThrough } = await import('node:stream');
+    const { finished } = await import('node:stream/promises');
+    const failures = await import(new URL('../../tools/test/execution-failure-diagnostic.mjs', import.meta.url));
+    const physicalSource = fs.readFileSync(path.join(root, 'tools/test/physical-execution-process-tree.mjs'), 'utf8');
+    const physicalObserver = physicalSource.slice(physicalSource.indexOf('export function observePhysicalExecutionFailure('),
+        physicalSource.indexOf('\nexport const physicalExecutionProcessTreeSchema')).replace('export ', '');
+    const physicalExecution = physicalSource.slice(physicalSource.indexOf('export async function runPhysicalExecution(')).replace('export ', '');
+    const source = fs.readFileSync(schedulerFile, 'utf8');
+    const service = source.slice(source.indexOf('function beginResourceService('),
+        source.indexOf('\n/** Re-read real resident PID')).replace("await import('../test/nuget-preparation-owner.mjs')", 'await controlledStage');
+    const state = { stage: { id: 'matrix-nuget-preparation', argv: ['fixed'], inputs: ['fixed-source'] },
+        sdk: { fixed: true }, closed: false, executing: false, nativeRecords: [],
+        failureOwner: failures.createExecutionFailureOwner(), declaration: { owner: 'matrix-nuget-preparation' },
+        root: '/controlled-source', runId: 'controlled-run', purpose: 'matrix-governance',
+        outputFile: '/controlled-owned/preparation.json',
+        feed: { root: '/controlled-owned/finite-feed', treeDigest: 'controlled-finite-feed' } };
+    const capability = Object.freeze({});
+    const evidence = { postObservation: terminal, containmentAuthority: { complete: true },
+        resourceExecutionAdmission: { controlled: true }, logComplete: true };
+    let execution;
+    let commands = 0;
+    let registrations = 0;
+    let removals = 0;
+    const context = vm.createContext({ ...failures, AbortController, PassThrough, finished, setTimeout, clearTimeout,
+        resourceServiceFailureOwners: new WeakMap(),
+        process: { env: {} }, owners: new WeakMap([[capability, state]]),
+        createHash,
+        loadPhysicalExecutionProcessPolicy: () => ({}), resourceServiceContainmentIsComplete: (value) => value?.complete === true,
+        executePhysicalExecution: async (options) =>
+        {
+            commands += 1;
+            const observed = options.controlledEarlier
+                ? { ...evidence, postObservation: earlierTerminal } : evidence;
+            options.observePhysicalExecution(observed);
+            if (options.controlledEarlier)
+            {
+                return observed;
+            }
+            if (postCancel)
+            {
+                await options.processOwner.register({ pid: 123 }, evidence.containmentAuthority);
+                execution.terminate(reason);
+                return evidence;
+            }
+            throw reason;
+        },
+        assertNugetScheduledTier: () =>
+        {},
+        requireNugetPreparationExecution: () =>
+        {},
+        assertNugetPreparationOwner: () =>
+        {} });
+    vm.runInContext('const physicalInvocationObservations = new WeakMap();\n' + physicalObserver + '\n' + physicalExecution, context);
+    const ownerSource = fs.readFileSync(path.join(root, 'tools/test/nuget-preparation-owner.mjs'), 'utf8');
+    const ownerHelpers = ownerSource.slice(ownerSource.indexOf('const sdkIdentity ='), ownerSource.indexOf('const parentSources ='));
+    vm.runInContext(ownerHelpers, context);
+    if (nuget)
+    {
+        const ownerSource = fs.readFileSync(path.join(root, 'tools/test/nuget-preparation-owner.mjs'), 'utf8');
+        const observer = ownerSource.slice(ownerSource.indexOf('export function observeOwnedNugetStageFailure('),
+            ownerSource.indexOf('\n/** Called only through')).replace('export ', '');
+        const stage = ownerSource.slice(ownerSource.indexOf('export async function executeOwnedNugetStage('),
+            ownerSource.indexOf('\n/** Genuine dependency owner')).replace('export ', '')
+            .replace("await import('../docs/prepare-behavior-doc-nuget.mjs')", 'await controlledProducer');
+        context.controlledProducer = { prepareBehaviorDocNuget: async () =>
+        {
+            if (earlierTerminal !== null)
+            {
+                await context.runPhysicalExecution({ ...state.execution, failureOwner: state.failureOwner, controlledEarlier: true });
+            }
+            return { preparation: {}, physicalExecution: await context.runPhysicalExecution({ ...state.execution, failureOwner: state.failureOwner }) };
+        } };
+        vm.runInContext(observer + '\n' + stage, context);
+        context.controlledStage = { executeOwnedNugetStage: context.executeOwnedNugetStage,
+            observeOwnedNugetStageFailure: context.observeOwnedNugetStageFailure };
+    }
+    const invoke = vm.runInContext('(' + service + ')', context);
+    const ownedCommand = vm.runInContext(`command(${JSON.stringify(state.stage.argv)})`, context);
+    const ownedSdkIdentity = vm.runInContext(`sdkIdentity(${JSON.stringify(state.sdk)})`, context);
+    execution = invoke({ id: state.stage.id, command: ownedCommand, cacheInputs: state.stage.inputs,
+        nugetSdkIdentity: ownedSdkIdentity }, { root: state.root, env: {}, boundary: {}, resourceContext: {},
+        processOwner: { register: async () =>
+        {
+            registrations += 1;
+            return {};
+        } }, terminationGraceMs: 1,
+        outputPipeline: { attach: (stream) => stream.resume(), onFailure: () => () =>
+        {
+            removals += 1;
+        } },
+        residualRoot: '/controlled-owned', nugetPreparationOwner: nuget ? capability : null });
+    const registration = execution.registrationReady.then(() => ({ resolved: true }), (error) => ({ rejected: true, error }));
+    if (postCancel)
+    {
+        assert.equal((await registration).resolved, true);
+        execution.resume();
+    }
+    const result = await execution.promise;
+    const registrationResult = await registration;
+    assert.equal(result.error, reason);
+    assert.equal(result.executionFailed, true);
+    assert.notEqual(result.code, 0);
+    const expectedTerminal = earlierTerminal !== null && earlierTerminal !== 'zero-members' ? 'unverifiable' : terminal;
+    assert.equal(result.physicalExecutionTermination.terminated, expectedTerminal === 'zero-members');
+    assert.equal(result.physicalExecutionTermination.postObservation, expectedTerminal);
+    assert.equal(commands, earlierTerminal === null ? 1 : 2);
+    assert.equal(registrations, postCancel ? 1 : 0);
+    assert.equal(removals, 1);
+    if (!postCancel)
+    {
+        assert.equal(registrationResult.rejected, true);
+        assert.equal(registrationResult.error, reason);
+    }
+    return result;
+}
+
+for (const variant of ['null', 'undefined', 'false', 'zero', 'empty', 'frozen', 'accessor', 'unknown'])
+{
+    test(`resource-service typed owner settles original ${variant} failure before registration`, async () =>
+    {
+        let reads = 0;
+        const accessor = Object.freeze(Object.defineProperties({}, Object.fromEntries(
+            ['message', 'exitCode', 'signal', 'physicalExecution', 'timeoutPhase'].map((name) => [name,
+                { get()
+                {
+                    reads += 1;
+                    throw new Error('unexpected failure accessor');
+                } }]))));
+        const reason = variant === 'null' ? null : variant === 'undefined' ? undefined
+            : variant === 'false' ? false : variant === 'zero' ? 0 : variant === 'empty' ? ''
+                : variant === 'accessor' ? accessor : Object.freeze(new Error(`controlled ${variant}`));
+        await resourceServiceFailureProbe({ nuget: false, reason,
+            terminal: variant === 'unknown' ? 'unverifiable' : 'zero-members' });
+        assert.equal(reads, 0);
+    });
+}
+
+test('resource-service typed owner consumes the original NuGet null failure observation', async () =>
+{
+    await resourceServiceFailureProbe({ nuget: true, reason: null });
+});
+
+test('resource-service typed owner preserves frozen NuGet cancellation after registration', async () =>
+{
+    const reason = Object.freeze(new Error('controlled frozen cancellation'));
+    await resourceServiceFailureProbe({ nuget: true, reason, postCancel: true });
+    assert.equal(Object.hasOwn(reason, 'physicalExecution'), false);
+});
+
+
+test('resource-service typed owner retains an unknown earlier NuGet execution despite a zero-member last observation', async () =>
+{
+    await resourceServiceFailureProbe({ nuget: true, reason: null, earlierTerminal: 'unverifiable' });
+});
+
+// The complete current scheduler functions run with controlled native I/O.
+// These observations do not issue a reservation or qualify a real service.
+async function probeManagedRegistration({ repository = root, kind, reason, missing = false,
+    cleanupError = null, closeError = null, bindFailure = false })
+{
+    const vm = await import('node:vm');
+    const { PassThrough } = await import('node:stream');
+    const { finished } = await import('node:stream/promises');
+    const { isDeepStrictEqual } = await import('node:util');
+    const failures = await import(pathToFileURL(path.join(repository, 'tools/test/execution-failure-diagnostic.mjs')));
+    const catalog = await import(pathToFileURL(path.join(repository, 'tools/test/execution-envelope-services.mjs')));
+    const source = fs.readFileSync(path.join(repository, 'tools/test-matrix/scheduler.mjs'), 'utf8');
+    const serviceStart = source.includes('const resourceServiceFailureOwners =')
+        ? source.indexOf('const resourceServiceFailureOwners =') : source.indexOf('function beginResourceService(');
+    const service = source.slice(serviceStart, source.indexOf('\n/** Re-read real resident PID'));
+    const start = source.slice(source.indexOf('    const startTier = async (tier) =>'),
+        source.indexOf('\n    const recordSettled = (entry, settled) =>'))
+        .replace("import(new URL('../test/execution-envelope-services.mjs', import.meta.url))", 'Promise.resolve(controlledCatalog)')
+        .replace("import(new URL('../test/mysql-fixture-admission.mjs', import.meta.url))", 'Promise.resolve(controlledAdmission)')
+        .replace("import(new URL('../test-fixtures/services/mysql.mjs', import.meta.url))", 'Promise.resolve(controlledLifecycle)')
+        .replace("await import(new URL('../test/data-scale-runtime-scheduler-owner.mjs', import.meta.url))", 'await Promise.resolve(controlledDataOwner)');
+    const physical = fs.readFileSync(path.join(repository, 'tools/test/physical-execution-process-tree.mjs'), 'utf8');
+    const observer = physical.slice(physical.indexOf('export function observePhysicalExecutionFailure('),
+        physical.indexOf('\nexport const physicalExecutionProcessTreeSchema')).replace('export ', '');
+    const physicalExecution = physical.slice(physical.indexOf('export async function runPhysicalExecution(')).replace('export ', '');
+    const observed = { registrations: 0, binds: 0, closed: 0, removals: 0, cleanup: 0,
+        containerCreates: 0, streams: [], execution: null };
+    const startingExecutions = new Set();
+    const active = new Map();
+    const tier = { id: kind === 'mysql' ? 'backend-unit' : 'release-reliability-fresh',
+        command: 'controlled-original-registration', services: kind === 'mysql' ? ['mysql'] : [],
+        cacheInputs: ['controlled-source'], resourceGrantDynamic: false };
+    const pipeline = {
+        attach(stream)
+        {
+            observed.streams.push(stream);
+            stream.resume();
+        },
+        onFailure: () => () =>
+        {
+            observed.removals += 1;
+        },
+        write: () =>
+        {},
+        async close()
+        {
+            observed.closed += 1;
+            if (closeError !== null)
+            {
+                throw closeError;
+            }
+            return {};
+        }
+    };
+    const context = vm.createContext({ ...failures, fs, path, process: { env: {} },
+        AbortController, PassThrough, finished, setTimeout, clearTimeout, structuredClone, isDeepStrictEqual,
+        schedulerWaitLedger: { observe: () =>
+        {} }, startingExecutions, active,
+        dataScaleRuntimeOwners: new Map(), root: repository, runId: 'controlled-run', runsRoot: repository,
+        runDirectory: repository, sourceState: { commit: 'controlled-source', worktreeFingerprint: 'controlled-source' },
+        mode: 'controlled-source', schedulerAdmissionSequence: 0, checkpointFile: '/controlled/checkpoint',
+        resourceGrantFile: '/controlled/grants', tierLogDirectory: '/controlled/logs',
+        checkpoint: { tiers: {}, schedulerAdmissions: {}, targetTierId: tier.id, runId: 'controlled-run' },
+        requestedSystemdBoundary: { commandBudgetMs: 1 }, systemdContext: {}, terminationGraceMs: 1,
+        currentRunPreexecutedTierBindings: new Map(), byId: new Map([[tier.id, tier]]),
+        conservativeRepositoryFingerprint: 'controlled-source', resume: false,
+        tierResourceUnits: () => ({ cpuUnits: 1, memoryGiB: 1 }),
+        createSchedulerTierAdmission: () => ({ runId: 'controlled-run' }),
+        writeSchedulerTierAdmission: () => ({ file: '/controlled/admission', currentTierId: tier.id }),
+        writeCheckpoint: () =>
+        {}, applyReleaseFinalizerSpawnDecision: (_tier, env) => env,
+        tierInputFingerprint: () => 'controlled-source', dependencyFingerprint: () => 'controlled-source',
+        ownedGeneratedDeclarations: () => [], cleanFreshOwnedFiles: () =>
+        {}, outputProvenance: () => ({}),
+        createAsyncLogPipeline: () => pipeline, snapshotWorktree: async () => ({}),
+        loadPhysicalExecutionProcessPolicy: () => ({}),
+        resourceServiceContainmentIsComplete: () => false,
+        executePhysicalExecution: async (physicalOptions) =>
+        {
+            physicalOptions.observePhysicalExecution({ postObservation: 'unverifiable', logComplete: true });
+            if (missing)
+            {
+                return { postObservation: 'unverifiable', logComplete: true };
+            }
+            await physicalOptions.processOwner.register({ pid: 123 }, Object.freeze({ controlled: true }));
+            throw new Error('controlled registration unexpectedly continued');
+        },
+        options: { namespace: 'controlled-source',
+            registerSchedulerFinalizer: () =>
+            {}, retainManagedContainment: () =>
+            {},
+            markManagedContainmentCreationAttempt: () =>
+            {},
+            registerManagedProcess: async () =>
+            {
+                observed.registrations += 1;
+                if (bindFailure)
+                {
+                    return {};
+                }
+                throw reason;
+            } },
+        resourceEnforcer: {
+            mode: 'enforced', update: () => ({ cpuMax: 'controlled', memoryHighBytes: 1, memoryMaxBytes: 1, pidsMax: 1 }),
+            environment: () => ({}), executionBoundary: () => Object.freeze({ controlled: true }),
+            bindManagedService: () =>
+            {
+                observed.binds += 1;
+                throw bindFailure ? reason : new Error('controlled negative must never bind');
+            },
+            reserveContainerResources: () => ({ async releaseAfterCleanup(cleanup)
+            {
+                observed.cleanup += 1;
+                await cleanup();
+                if (cleanupError !== null)
+                {
+                    throw cleanupError;
+                }
+                return {};
+            } })
+        },
+        controlledCatalog: catalog,
+        controlledAdmission: { mysqlFixtureAdmissionFile: () => '/controlled/mysql-admission' },
+        controlledLifecycle: { prepareMySqlFixtureService: () =>
+        {
+            observed.containerCreates += 1;
+            throw new Error('controlled negative must never create a container');
+        } },
+        controlledDataOwner: { createDataScaleRuntimeSchedulerOwner: async () => ({ environment: {}, dispose: async () =>
+        {} }) }
+    });
+    vm.runInContext('const physicalInvocationObservations = new WeakMap();\n' + observer + '\n' + physicalExecution, context);
+    vm.runInContext(service, context);
+    const original = context.beginResourceService;
+    context.beginResourceService = (...args) =>
+    {
+        const execution = original(...args);
+        observed.execution = execution;
+        return execution;
+    };
+    const startTier = vm.runInContext(start + '\nstartTier', context);
+    let failed = false;
+    let error;
+    try
+    {
+        await startTier(vm.runInContext('(' + JSON.stringify(tier) + ')', context));
+    }
+    catch (value)
+    {
+        failed = true;
+        error = value;
+    }
+    const result = await observed.execution?.promise;
+    return { ...observed, startingExecutions, active, failed, error, result, context, failures,
+        failure: observed.execution ? context.observeResourceServiceFailure?.(observed.execution) : null,
+        issueExecution: () => original({ id: 'controlled-other', command: 'controlled-other' }, {
+            root: repository, env: {}, outputPipeline: pipeline, boundary: {}, resourceContext: {},
+            processOwner: { register: async () => ({}) }, terminationGraceMs: 1, residualRoot: repository
+        }) };
+}
+
+for (const kind of ['data', 'mysql'])
+{
+    for (const variant of ['null', 'undefined', 'zero', 'frozen', 'accessor'])
+    {
+        test(`managed ${kind} registration preserves original ${variant} failure through its complete bind path`, async () =>
+        {
+            let reads = 0;
+            const reason = variant === 'null' ? null : variant === 'undefined' ? undefined : variant === 'zero' ? 0
+                : variant === 'frozen' ? Object.freeze(new Error('controlled frozen registration'))
+                    : Object.freeze(Object.defineProperties({}, Object.fromEntries(
+                        ['message', 'name', 'physicalExecution', 'exitCode', 'signal'].map((name) => [name, { get()
+                        {
+                            reads += 1;
+                            throw new Error('unexpected registration failure accessor');
+                        } }]))));
+            const value = await probeManagedRegistration({ kind, reason });
+            assert.equal(value.failed, true);
+            assert.equal(value.error, reason);
+            assert.equal(value.result.error, reason);
+            assert.equal(value.registrations, 1);
+            assert.equal(value.binds, 0);
+            assert.equal(value.containerCreates, 0);
+            assert.equal(value.closed, 1);
+            assert.equal(value.removals, 1);
+            assert.equal(value.streams.every((stream) => stream.readableEnded && stream.writableFinished), true);
+            assert.equal(value.startingExecutions.size, 0);
+            assert.equal(value.result.physicalExecutionTermination.terminated, false);
+            assert.equal(value.result.physicalExecutionTermination.postObservation, 'unverifiable');
+            assert.equal(reads, 0);
+        });
+    }
+
+    test(`managed ${kind} missing registration keeps the original guard without inventing a prior failure`, async () =>
+    {
+        const value = await probeManagedRegistration({ kind, missing: true });
+        assert.equal(value.failed, true);
+        assert.match(value.error.message, kind === 'mysql'
+            ? /^MySQL fixture requires a registered pre-exec systemd service$/u
+            : /^DataScale fixture requires a registered pre-exec systemd service$/u);
+        assert.equal(value.result.executionFailed, undefined);
+        assert.equal(value.result.error, undefined);
+        assert.equal(value.registrations, 0);
+        assert.equal(value.binds, 0);
+        assert.equal(value.containerCreates, 0);
+        assert.equal(value.failure.reason, value.error);
+        assert.equal(value.result.physicalExecutionTermination.terminated, false);
+    });
+
+    test(`managed ${kind} failed original binding preserves its first primitive and frozen reason`, async () =>
+    {
+        for (const reason of [null, undefined, 0, Object.freeze(new Error('controlled binding refusal'))])
+        {
+            const value = await probeManagedRegistration({ kind, reason, bindFailure: true });
+            assert.equal(value.failed, true);
+            assert.equal(value.error, reason);
+            assert.equal(value.failure.reason, reason);
+            assert.equal(value.result.error, reason);
+            assert.equal(value.registrations, 1);
+            assert.equal(value.binds, 1);
+            assert.equal(value.containerCreates, 0);
+            assert.equal(value.closed, 1);
+            assert.equal(value.startingExecutions.size, 0);
+            assert.equal(value.result.physicalExecutionTermination.terminated, false);
+        }
+    });
+}
+
+test('managed registration keeps cleanup and log closure failures secondary to an undefined first reason', async () =>
+{
+    const cleanupError = Object.freeze(new Error('controlled cleanup refusal'));
+    const closeError = Object.freeze(new Error('controlled close refusal'));
+    const value = await probeManagedRegistration({ kind: 'mysql', reason: undefined, cleanupError, closeError });
+    assert.equal(value.failed, true);
+    assert.equal(value.error, undefined);
+    assert.equal(value.failure.failed, true);
+    assert.equal(value.failure.reason, undefined);
+    assert.equal(value.failure.secondaryFailures.length, 2);
+    assert.equal(value.failure.secondaryFailures[0], cleanupError);
+    assert.equal(value.failure.secondaryFailures[1], closeError);
+    assert.equal(value.cleanup, 1);
+    assert.equal(value.closed, 1);
+    assert.equal(value.binds, 0);
+    assert.equal(value.result.physicalExecutionTermination.terminated, false);
+});
+
+test('managed registration rejects a foreign execution failure observation without invoking its methods', async () =>
+{
+    const value = await probeManagedRegistration({ kind: 'data', reason: null });
+    let calls = 0;
+    const foreign = { terminate()
+    {
+        calls += 1;
+    } };
+    assert.throws(() => value.context.observeResourceServiceFailure(foreign), /original execution/u);
+    await assert.rejects(value.context.settleResourceServiceRegistrationFailure(foreign, null, {
+        startingExecutions: new Set(), outputPipeline: { close: foreign.terminate }, truncationReason: 'controlled'
+    }), /original execution/u);
+    assert.equal(calls, 0);
+});
+
+test('managed admission failure drains original starting and active executions while retaining unknown termination', async () =>
+{
+    const value = await probeManagedRegistration({ kind: 'data', reason: undefined });
+    const starting = value.issueExecution();
+    const running = value.issueExecution();
+    await Promise.all([starting.registrationReady, running.registrationReady]);
+    value.startingExecutions.add(starting);
+    const terminationError = Object.freeze(new Error('controlled termination callback refusal'));
+    const terminate = starting.terminate;
+    starting.terminate = (reason) =>
+    {
+        terminate(reason);
+        throw terminationError;
+    };
+    const asynchronousTerminationError = Object.freeze(new Error('controlled asynchronous termination refusal'));
+    const settlementError = Object.freeze(new Error('controlled entry settlement refusal'));
+    const entry = { terminate(reason)
+    {
+        running.terminate(reason);
+        return Promise.reject(asynchronousTerminationError);
+    }, promise: running.promise.then(() =>
+    {
+        throw settlementError;
+    }), cancelRequested: false };
+    entry.promise.catch(() =>
+    {});
+    value.active.set('controlled-other', entry);
+    const owner = value.failures.createExecutionFailureOwner();
+    value.failures.retainExecutionFailure(owner, undefined);
+    let caught = false;
+    let reason;
+    try
+    {
+        await value.context.drainOwnedSchedulerExecutions(value.startingExecutions, value.active, owner);
+    }
+    catch (error)
+    {
+        caught = true;
+        reason = error;
+    }
+    assert.equal(caught, true);
+    assert.equal(reason, undefined);
+    assert.equal(entry.cancelRequested, true);
+    for (const execution of [starting, running])
+    {
+        const result = await execution.promise;
+        assert.equal(result.executionFailed, true);
+        assert.equal(result.physicalExecutionTermination.terminated, false);
+        assert.equal(result.physicalExecutionTermination.postObservation, 'unverifiable');
+    }
+    const failure = value.failures.observeExecutionFailure(owner);
+    assert.equal(failure.failed, true);
+    assert.equal(failure.reason, undefined);
+    assert.equal(failure.secondaryFailures[0], terminationError);
+    assert.equal(failure.secondaryFailures[1], asynchronousTerminationError);
+    assert.equal(failure.secondaryFailures[2], settlementError);
+    assert.equal(value.active.size, 1);
+    assert.equal(value.startingExecutions.size, 1);
+});
+
+test('managed scheduler outer catch preserves accessor and proxy reasons without reading their name', async () =>
+{
+    const vm = await import('node:vm');
+    const failures = await import(new URL('../../tools/test/execution-failure-diagnostic.mjs', import.meta.url));
+    const source = fs.readFileSync(schedulerFile, 'utf8');
+    const actual = source.slice(source.indexOf('export async function runDag(options)')).replace('export ', '');
+    for (const variant of ['accessor', 'proxy'])
+    {
+        let reads = 0;
+        const reason = variant === 'accessor' ? Object.freeze(Object.defineProperty({}, 'name', { get()
+        {
+            reads += 1;
+            throw new Error('unexpected outer failure accessor');
+        } })) : new Proxy(Object.freeze({}), { get()
+        {
+            reads += 1;
+            throw new Error('unexpected outer failure proxy read');
+        } });
+        const terminalStates = [];
+        const release = (state) => terminalStates.push(state);
+        release.markRunning = () =>
+        {};
+        release.markFinalizing = () =>
+        {};
+        release.owner = {};
+        const invoke = vm.runInNewContext(actual + '\nrunDag', { path, process: { env: {} }, ...failures,
+            resolveRealOrAncestralPath: (value) => value, safeRunId: (value) => value,
+            acquireRunLock: () => release, runDagUnlocked: async () =>
+            {
+                throw reason;
+            } });
+        let caught = false;
+        let actualReason;
+        try
+        {
+            await invoke({ root, runId: 'controlled-run', sourceState: {}, snapshotWorktree: async () => ({}) });
+        }
+        catch (error)
+        {
+            caught = true;
+            actualReason = error;
+        }
+        assert.equal(caught, true);
+        assert.equal(actualReason, reason);
+        assert.equal(reads, 0);
+        assert.deepEqual(terminalStates, ['failed']);
+    }
+});

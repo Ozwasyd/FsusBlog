@@ -1,3 +1,4 @@
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
@@ -45,8 +46,7 @@ function releaseInput(releaseId, imageDigest)
         createdAtUtc: releaseId === greenRelease ? '2026-07-11T02:02:02.000Z' : '2026-07-11T01:01:01.000Z',
         frontendManifestHash: `sha256:${'b'.repeat(64)}`,
         wasmArtifactHash: `sha256:${'c'.repeat(64)}`,
-        schemaMinimumCoordinate: blueRelease,
-        schemaMaximumCoordinate: greenRelease,
+        currentSchema: createCurrentRolloutFixtureBinding().currentSchema,
         dotnetVersion: '10.0.100',
         nodeVersion: 'v20.19.0',
         dockerVersion: '28.0.0',
@@ -243,6 +243,8 @@ test('slot scripts coexist, remain idempotent, preserve active slot on candidate
     const durableSlots = readSlotState(fixture.stateFile, { allowMissing: false });
     const rolloutFile = path.join(fixture.directory, 'rollout-state.json');
     writeRolloutStateAtomic(rolloutFile, createRolloutState({
+      ...createCurrentRolloutFixtureBinding(greenCommitSha),
+      manifestSha256: crypto.createHash('sha256').update(fs.readFileSync(greenManifest)).digest('hex'),
         rolloutId: 'deployment-slots-test', manifestPath: greenManifest,
         source: {
             slot: 'blue', releaseId: blueRelease, imageDigest: blueDigest,

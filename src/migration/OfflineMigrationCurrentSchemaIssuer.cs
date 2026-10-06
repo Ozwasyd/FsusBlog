@@ -27,6 +27,8 @@ internal sealed record OfflineMigrationCurrentSchemaIssuedArtifact(
 
 internal static class OfflineMigrationCurrentSchemaIssuer
 {
+    internal const string NativeAnchorCleanupFailuresKey = "FsusBlog.Migration.CurrentAnchorCleanupFailures";
+
     internal const string NativeIdentityCleanupFailuresKey = "FsusBlog.Migration.CurrentIdentityCleanupFailures";
 
     private static readonly JsonSerializerOptions s_artifactJson = new()
@@ -72,6 +74,42 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         CurrentSchemaReceipt reported = CurrentSchemaReceiptCodec.Deserialize(bytes);
         CurrentSchemaReceipt observed = await IssueAsync(request, connection, owners, cancellationToken).ConfigureAwait(false);
         ValidateObservedReceipt(reported, observed);
+    }
+
+    internal static async Task<OfflineMigrationCurrentSchemaIssuedArtifact> ReadExistingArtifactAsync(
+        CurrentSchemaArtifactReference receiptArtifact,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RequireOwnedCapabilities(owners);
+        RequireReference(receiptArtifact);
+        ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, cancellationToken)
+            .ConfigureAwait(false);
+        CurrentSchemaReceipt reported = CurrentSchemaReceiptCodec.Deserialize(bytes);
+        cancellationToken.ThrowIfCancellationRequested();
+        // A hash-bound codec carrier is data, not independent native verification.
+        return new(receiptArtifact, reported, bytes);
+    }
+
+    internal static async Task<OfflineMigrationCurrentSchemaIssuedArtifact> RecheckExistingArtifactAsync(
+        CurrentSchemaArtifactReference receiptArtifact, CurrentSchemaReceipt reported, ReadOnlyMemory<byte> originalBytes,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        RequireOwnedCapabilities(owners);
+        RequireReference(receiptArtifact);
+        byte[] originalSnapshot = originalBytes.ToArray();
+        ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, cancellationToken)
+            .ConfigureAwait(false);
+        if (!bytes.Span.SequenceEqual(originalSnapshot.AsSpan()))
+        {
+            throw new InvalidOperationException("current_verify_existing_artifact_changed");
+        }
+        ValidateObservedReceipt(reported, CurrentSchemaReceiptCodec.Deserialize(bytes));
+        cancellationToken.ThrowIfCancellationRequested();
+        // Return the original artifact, not the independently recomputed receipt or a
+        // newly issued seal. The producer repeats this check after native cleanup.
+        return new(receiptArtifact, reported, bytes);
     }
 
     internal static void ValidateObservedReceipt(CurrentSchemaReceipt reported, CurrentSchemaReceipt independentlyObserved)
@@ -129,82 +167,8 @@ internal static class OfflineMigrationCurrentSchemaIssuer
             }
             CurrentSchemaDatabaseIdentity database = await ReadNativeIdentityAsync(connection, transaction, cancellationToken)
                 .ConfigureAwait(false);
-            if (database != request.Database || database != plan.Source.Database)
-            {
-                throw new InvalidOperationException("current_verify_native_database_changed");
-            }
-
-            OfflineMigrationApplyJournalVerifier journal = CreateBoundJournalVerifier(
-                plan, request.Plan, request.InvocationId, owners.Operations);
-            await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, plan.ContentDigest,
-                database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
-                .ConfigureAwait(false);
-            ValidateNativeProofs(plan, apply, journal);
-            foreach (OfflineMigrationApplyCheckpoint checkpoint in exactCheckpoints)
-            {
-                OfflineMigrationApplyJournalEntry anchor = await ReadNativeEntryAsync(
-                    plan, request, checkpoint.Sequence, connection, transaction, cancellationToken).ConfigureAwait(false);
-                if (anchor.InvocationId != checkpoint.InvocationId
-                    || OfflineMigrationApplyJournalVerifier.Reference(anchor) != checkpoint.JournalHead)
-                {
-                    throw new InvalidOperationException("current_verify_checkpoint_native_anchor_changed");
-                }
-            }
-            OfflineMigrationApplyJournalEntry first = await ReadNativeEntryAsync(
-                plan, request, 1, connection, transaction, cancellationToken).ConfigureAwait(false);
-            ValidateFirstAdmission(plan, request, first);
-
-            CurrentSchemaAdmissionObservation current = await owners.CurrentSchema.ObserveAsync(
-                connection, transaction, database, cancellationToken).ConfigureAwait(false);
-            ValidateCurrentObservation(current, database, plan.Target);
-            OfflineMigrationCurrentSchemaAuthoritySnapshot authority = await owners.Authority.ReadAsync(
-                plan, connection, transaction, cancellationToken).ConfigureAwait(false);
-            if (authority.CurrentVerifier.SourceRevision == new string('0', 40))
-            {
-                throw new InvalidOperationException("current_verify_producer_source_unobserved");
-            }
-            VerifiedOfflineMigrationPlan admitted = OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, planBytes.Span, request.Plan,
-                authority.AuthenticatedBackup, current.Target, authority.RetainedPlanTool, authority.Registry,
-                authority.Dag, first.RecordedAt, authority.MaximumBackupAge);
-            await OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, request.Plan, journal,
-                owners.Operations, cancellationToken).ConfigureAwait(false);
-
-            ImmutableArray<OfflineMigrationApplyJournalEntry> nativeProofs = journal.StepProofs;
-            var postconditions = ImmutableArray.CreateBuilder<CurrentSchemaStepPostcondition>(plan.OrderedSteps.Length);
-            for (int index = 0; index < plan.OrderedSteps.Length; index++)
-            {
-                OfflineMigrationStep step = plan.OrderedSteps[index];
-                OfflineMigrationProviderOperation identity = step.Operations.Single(value => value.Provider == database.Provider);
-                if (!Enum.IsDefined(identity.Mode))
-                {
-                    throw new InvalidOperationException("current_verify_operation_mode_unknown");
-                }
-                OfflineMigrationApplyOperation operation = owners.Operations.Resolve(step, identity);
-                if (operation.Identity != identity)
-                {
-                    throw new InvalidOperationException("current_verify_operation_owner_changed");
-                }
-                OfflineMigrationPredicateObservation actual = await operation.ObserveAsync(
-                    step.TargetPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
-                ValidatePostcondition(step.TargetPostcondition, identity, actual, nativeProofs[index].After);
-                if (identity.Mode == OfflineMigrationExecutionMode.CheckpointedBatch)
-                {
-                    OfflineMigrationPredicateObservation replay = await operation.ObserveAsync(
-                        step.ResumePolicy.ReplayPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
-                    ValidatePostcondition(step.ResumePolicy.ReplayPostcondition, identity, replay, null);
-                }
-                postconditions.Add(new(step.StepId, step.TargetPostcondition,
-                    OfflineMigrationPlanValidation.Digest(actual.ExpectedFacts),
-                    OfflineMigrationPlanValidation.Digest(actual.ActualFacts), actual.ContentDigest));
-            }
-            receipt = new(CurrentSchemaReceiptCodec.Format, CurrentSchemaReceiptStatus.VerifiedCurrent,
-                current.Target, plan.SourceFingerprintId, plan.SourceFingerprintVersion, plan.SourceRegistryDigest,
-                plan.Source.ContentDigest, request.Plan, request.Apply, request.Checkpoints, database,
-                current.ActualSchemaDigest, postconditions.MoveToImmutable(), authority.AuthenticatedBackup.Package,
-                authority.AuthenticatedBackup.Manifest, authority.AuthenticatedBackup.RestoreDrill,
-                authority.RecoveryReferences, authority.CurrentVerifier, [], string.Empty);
-            receipt = receipt with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt) };
-            _ = CurrentSchemaReceiptCodec.Serialize(receipt);
+            receipt = await VerifySnapshotAsync(request, planBytes, plan, apply, exactCheckpoints,
+                connection, transaction, database, owners, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             // No commit or migration write: closing this read-only snapshot precedes
             // returning anything eligible for artifact publication.
@@ -236,6 +200,208 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         return receipt ?? throw new InvalidOperationException("current_verify_receipt_not_observed");
     }
 
+    // The creator alone supplies this opaque capability. No raw Snapshot pair,
+    // recorded transaction ID or caller expected-schema DTO can enter this route.
+    internal static async Task<CurrentSchemaReceipt> IssueOwnedMySqlAsync(
+        OfflineMigrationCurrentSchemaVerifyRequest request,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateOwnedMySqlRequest(request);
+        ArgumentNullException.ThrowIfNull(context);
+        RequireOwnedCapabilities(owners);
+        using CancellationTokenSource scope = context.CreateReadScope(cancellationToken);
+        cancellationToken = scope.Token;
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        OfflineMigrationSourceObserver.MySqlNativeIdentityMaterial identity =
+            await OfflineMigrationSourceObserver.ReadMySqlNativeIdentityMaterialAsync(
+                context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        ReadOnlyMemory<byte> planBytes = await ReadArtifactAsync(request.Plan, owners.Artifacts, cancellationToken)
+            .ConfigureAwait(false);
+        OfflineMigrationPlan plan = DecodeArtifact<OfflineMigrationPlan>(planBytes);
+        ReadOnlyMemory<byte> applyBytes = await ReadArtifactAsync(request.Apply, owners.Artifacts, cancellationToken)
+            .ConfigureAwait(false);
+        OfflineMigrationApplyResult apply = DecodeArtifact<OfflineMigrationApplyResult>(applyBytes);
+        var checkpoints = ImmutableArray.CreateBuilder<OfflineMigrationApplyCheckpoint>(request.Checkpoints.Length);
+        foreach (CurrentSchemaArtifactReference reference in request.Checkpoints)
+        {
+            checkpoints.Add(DecodeArtifact<OfflineMigrationApplyCheckpoint>(
+                await ReadArtifactAsync(reference, owners.Artifacts, cancellationToken).ConfigureAwait(false)));
+        }
+        ImmutableArray<OfflineMigrationApplyCheckpoint> exactCheckpoints = checkpoints.MoveToImmutable();
+        ValidateReportedApply(request, plan, apply, exactCheckpoints);
+        CurrentSchemaReceipt receipt = await VerifySnapshotAsync(request, planBytes, plan, apply, exactCheckpoints,
+            context.OriginalConnection, context.OriginalTransaction, identity.Database, owners,
+            cancellationToken, context).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        // MySQL metadata is not frozen by the InnoDB row snapshot. Reuse the same
+        // complete current owner after semantic observations, never a catalog-only
+        // DTO, before binding the final native epoch and database identity.
+        CurrentSchemaAdmissionObservation terminalCurrent = await owners.CurrentSchema.ObserveAsync(
+            context.OriginalConnection, context.OriginalTransaction, identity.Database, cancellationToken)
+            .ConfigureAwait(false);
+        ValidateTerminalCurrentObservation(terminalCurrent, receipt.Database, receipt.Target, receipt.ActualSchemaDigest);
+        OfflineMigrationSourceObserver.MySqlNativeIdentityMaterial terminal =
+            await OfflineMigrationSourceObserver.ReadMySqlNativeIdentityMaterialAsync(
+                context.OriginalConnection, context.OriginalTransaction, cancellationToken).ConfigureAwait(false);
+        if (terminal != identity)
+        {
+            throw new InvalidOperationException("current_verify_native_database_changed");
+        }
+        await context.RequireBoundaryAsync(cancellationToken).ConfigureAwait(false);
+        cancellationToken.ThrowIfCancellationRequested();
+        return receipt;
+    }
+
+    internal static void ValidateTerminalCurrentObservation(CurrentSchemaAdmissionObservation terminal,
+        CurrentSchemaDatabaseIdentity database, CurrentSchemaTargetIdentity target, string originalSchemaDigest)
+    {
+        CurrentSchemaReceiptCodec.RequireDigest(originalSchemaDigest);
+        ValidateCurrentObservation(terminal, database, target);
+        if (terminal.ActualSchemaDigest != originalSchemaDigest)
+        {
+            throw new InvalidOperationException("current_verify_terminal_schema_changed");
+        }
+    }
+
+    internal static async Task VerifyExistingOwnedMySqlAsync(
+        CurrentSchemaArtifactReference receiptArtifact, OfflineMigrationCurrentSchemaVerifyRequest request,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ValidateOwnedMySqlRequest(request);
+        RequireReference(receiptArtifact);
+        ArgumentNullException.ThrowIfNull(context);
+        RequireOwnedCapabilities(owners);
+        using CancellationTokenSource scope = context.CreateReadScope(cancellationToken);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        ReadOnlyMemory<byte> bytes = await ReadArtifactAsync(receiptArtifact, owners.Artifacts, scope.Token)
+            .ConfigureAwait(false);
+        CurrentSchemaReceipt reported = CurrentSchemaReceiptCodec.Deserialize(bytes);
+        CurrentSchemaReceipt observed = await IssueOwnedMySqlAsync(request, context, owners, scope.Token)
+            .ConfigureAwait(false);
+        ValidateObservedReceipt(reported, observed);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        scope.Token.ThrowIfCancellationRequested();
+    }
+
+    private static void RequireOwnedCapabilities(OfflineMigrationCurrentSchemaVerificationCapabilities owners)
+    {
+        ArgumentNullException.ThrowIfNull(owners);
+        if (owners.Artifacts is null || owners.Authority is null || owners.CurrentSchema is null || owners.Operations is null)
+        {
+            throw new InvalidOperationException("current_verify_native_owners_not_configured");
+        }
+    }
+
+    private static async Task<CurrentSchemaReceipt> VerifySnapshotAsync(
+        OfflineMigrationCurrentSchemaVerifyRequest request, ReadOnlyMemory<byte> planBytes,
+        OfflineMigrationPlan plan, OfflineMigrationApplyResult apply,
+        ImmutableArray<OfflineMigrationApplyCheckpoint> exactCheckpoints,
+        DbConnection connection, DbTransaction transaction, CurrentSchemaDatabaseIdentity database,
+        OfflineMigrationCurrentSchemaVerificationCapabilities owners, CancellationToken cancellationToken,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext? mysqlContext = null)
+    {
+        if ((database.Provider == CurrentSchemaProviderKind.MySql) != (mysqlContext is not null))
+        {
+            throw new InvalidOperationException("current_verify_original_mysql_context_required");
+        }
+        if (database != request.Database || database != plan.Source.Database)
+        {
+            throw new InvalidOperationException("current_verify_native_database_changed");
+        }
+
+        OfflineMigrationApplyJournalVerifier journal = CreateBoundJournalVerifier(
+            plan, request.Plan, request.InvocationId, owners.Operations);
+        if (mysqlContext is null)
+        {
+            await OfflineMigrationStateStore.ReadApplyJournalAsync(connection, transaction, plan.ContentDigest,
+                database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        else
+        {
+            await OfflineMigrationStateStore.ReadApplyJournalAsync(mysqlContext, plan.ContentDigest,
+                database, new(request.InvocationId, 1, false, apply.Checkpoint), journal, cancellationToken)
+                .ConfigureAwait(false);
+        }
+        ValidateNativeProofs(plan, apply, journal);
+        foreach (OfflineMigrationApplyCheckpoint checkpoint in exactCheckpoints)
+        {
+            OfflineMigrationApplyJournalEntry anchor = mysqlContext is null
+                ? await ReadNativeEntryAsync(plan, request, checkpoint.Sequence, connection, transaction,
+                    cancellationToken).ConfigureAwait(false)
+                : await ReadOwnedMySqlNativeEntryAsync(plan, request, checkpoint.Sequence, mysqlContext,
+                    cancellationToken).ConfigureAwait(false);
+            if (anchor.InvocationId != checkpoint.InvocationId
+                || OfflineMigrationApplyJournalVerifier.Reference(anchor) != checkpoint.JournalHead)
+            {
+                throw new InvalidOperationException("current_verify_checkpoint_native_anchor_changed");
+            }
+        }
+        OfflineMigrationApplyJournalEntry first = mysqlContext is null
+            ? await ReadNativeEntryAsync(plan, request, 1, connection, transaction, cancellationToken).ConfigureAwait(false)
+            : await ReadOwnedMySqlNativeEntryAsync(plan, request, 1, mysqlContext, cancellationToken).ConfigureAwait(false);
+        ValidateFirstAdmission(plan, request, first);
+
+        CurrentSchemaAdmissionObservation current = await owners.CurrentSchema.ObserveAsync(
+            connection, transaction, database, cancellationToken).ConfigureAwait(false);
+        ValidateCurrentObservation(current, database, plan.Target);
+        OfflineMigrationCurrentSchemaAuthoritySnapshot authority = mysqlContext is null
+            ? await owners.Authority.ReadAsync(plan, connection, transaction, cancellationToken).ConfigureAwait(false)
+            : await owners.Authority.ReadAsync(plan, mysqlContext, cancellationToken).ConfigureAwait(false);
+        if (authority.CurrentVerifier.SourceRevision == new string('0', 40))
+        {
+            throw new InvalidOperationException("current_verify_producer_source_unobserved");
+        }
+        VerifiedOfflineMigrationPlan admitted = OfflineMigrationPlanVerifier.VerifyForCompletedApplyBindings(plan, planBytes.Span, request.Plan,
+            authority.AuthenticatedBackup, current.Target, authority.RetainedPlanTool, authority.Registry,
+            authority.Dag, first.RecordedAt, authority.MaximumBackupAge);
+        await OfflineMigrationApplyEvidence.BindAcceptedOperationProgressAsync(admitted, request.Plan, journal,
+            owners.Operations, cancellationToken).ConfigureAwait(false);
+
+        ImmutableArray<OfflineMigrationApplyJournalEntry> nativeProofs = journal.StepProofs;
+        var postconditions = ImmutableArray.CreateBuilder<CurrentSchemaStepPostcondition>(plan.OrderedSteps.Length);
+        for (int index = 0; index < plan.OrderedSteps.Length; index++)
+        {
+            OfflineMigrationStep step = plan.OrderedSteps[index];
+            OfflineMigrationProviderOperation identity = step.Operations.Single(value => value.Provider == database.Provider);
+            if (!Enum.IsDefined(identity.Mode))
+            {
+                throw new InvalidOperationException("current_verify_operation_mode_unknown");
+            }
+            OfflineMigrationApplyOperation operation = owners.Operations.Resolve(step, identity);
+            if (operation.Identity != identity)
+            {
+                throw new InvalidOperationException("current_verify_operation_owner_changed");
+            }
+            OfflineMigrationPredicateObservation actual = await operation.ObserveAsync(
+                step.TargetPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
+            ValidatePostcondition(step.TargetPostcondition, identity, actual, nativeProofs[index].After);
+            if (identity.Mode == OfflineMigrationExecutionMode.CheckpointedBatch)
+            {
+                OfflineMigrationPredicateObservation replay = await operation.ObserveAsync(
+                    step.ResumePolicy.ReplayPostcondition, connection, transaction, cancellationToken).ConfigureAwait(false);
+                ValidatePostcondition(step.ResumePolicy.ReplayPostcondition, identity, replay, null);
+            }
+            postconditions.Add(new(step.StepId, step.TargetPostcondition,
+                OfflineMigrationPlanValidation.Digest(actual.ExpectedFacts),
+                OfflineMigrationPlanValidation.Digest(actual.ActualFacts), actual.ContentDigest));
+        }
+        CurrentSchemaReceipt receipt = new(CurrentSchemaReceiptCodec.Format, CurrentSchemaReceiptStatus.VerifiedCurrent,
+            current.Target, plan.SourceFingerprintId, plan.SourceFingerprintVersion, plan.SourceRegistryDigest,
+            plan.Source.ContentDigest, request.Plan, request.Apply, request.Checkpoints, database,
+            current.ActualSchemaDigest, postconditions.MoveToImmutable(), authority.AuthenticatedBackup.Package,
+            authority.AuthenticatedBackup.Manifest, authority.AuthenticatedBackup.RestoreDrill,
+            authority.RecoveryReferences, authority.CurrentVerifier, [], string.Empty);
+        receipt = receipt with { ContentDigest = CurrentSchemaReceiptCodec.ComputeContentDigest(receipt) };
+        _ = CurrentSchemaReceiptCodec.Serialize(receipt);
+        return receipt;
+    }
+
     internal static void ValidateCurrentObservation(CurrentSchemaAdmissionObservation current,
         CurrentSchemaDatabaseIdentity nativeDatabase, CurrentSchemaTargetIdentity intendedTarget)
     {
@@ -256,6 +422,55 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         RequireReference(request.Apply);
         CurrentSchemaReceiptCodec.ValidateDatabase(request.Database);
         if (request.Database.Provider != CurrentSchemaProviderKind.PostgreSql
+            || request.Checkpoints.IsDefaultOrEmpty || string.IsNullOrWhiteSpace(request.InvocationId)
+            || request.InvocationId.Length > 160 || request.InvocationId != request.InvocationId.Trim()
+            || request.InvocationId.Any(char.IsControl))
+        {
+            throw new InvalidOperationException("current_verify_explicit_native_identity_required");
+        }
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CurrentSchemaArtifactReference checkpoint in request.Checkpoints)
+        {
+            RequireReference(checkpoint);
+            if (!references.Add(checkpoint.Reference))
+            {
+                throw new InvalidOperationException("current_verify_checkpoint_reference_duplicate");
+            }
+        }
+    }
+
+    // Structural CLI identity only; the native producer separately requires current provider owners.
+    internal static void ValidateExistingRequest(OfflineMigrationCurrentSchemaVerifyRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        RequireReference(request.Plan);
+        RequireReference(request.Apply);
+        CurrentSchemaReceiptCodec.ValidateDatabase(request.Database);
+        if (request.Database.Provider is not (CurrentSchemaProviderKind.PostgreSql or CurrentSchemaProviderKind.MySql or CurrentSchemaProviderKind.Sqlite)
+            || request.Checkpoints.IsDefaultOrEmpty || string.IsNullOrWhiteSpace(request.InvocationId)
+            || request.InvocationId.Length > 160 || request.InvocationId != request.InvocationId.Trim()
+            || request.InvocationId.Any(char.IsControl))
+        {
+            throw new InvalidOperationException("current_verify_explicit_native_identity_required");
+        }
+        var references = new HashSet<string>(StringComparer.Ordinal);
+        foreach (CurrentSchemaArtifactReference checkpoint in request.Checkpoints)
+        {
+            RequireReference(checkpoint);
+            if (!references.Add(checkpoint.Reference))
+            {
+                throw new InvalidOperationException("current_verify_checkpoint_reference_duplicate");
+            }
+        }
+    }
+
+    internal static void ValidateOwnedMySqlRequest(OfflineMigrationCurrentSchemaVerifyRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        RequireReference(request.Plan);
+        RequireReference(request.Apply);
+        CurrentSchemaReceiptCodec.ValidateDatabase(request.Database);
+        if (request.Database.Provider != CurrentSchemaProviderKind.MySql
             || request.Checkpoints.IsDefaultOrEmpty || string.IsNullOrWhiteSpace(request.InvocationId)
             || request.InvocationId.Length > 160 || request.InvocationId != request.InvocationId.Trim()
             || request.InvocationId.Any(char.IsControl))
@@ -485,37 +700,101 @@ internal static class OfflineMigrationCurrentSchemaIssuer
         return result!;
     }
 
+    private static async Task<OfflineMigrationApplyJournalEntry> ReadOwnedMySqlNativeEntryAsync(
+        OfflineMigrationPlan plan, OfflineMigrationCurrentSchemaVerifyRequest request, long sequence,
+        OfflineMigrationMySqlNativeSession.OwnedReadContext context, CancellationToken cancellationToken)
+    {
+        using CancellationTokenSource scope = context.CreateReadScope(cancellationToken);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        OfflineMigrationApplyJournalEntry entry = await ReadNativeEntryAsync(plan, request, sequence,
+            context.OriginalConnection, context.OriginalTransaction, scope.Token).ConfigureAwait(false);
+        await context.RequireBoundaryAsync(scope.Token).ConfigureAwait(false);
+        scope.Token.ThrowIfCancellationRequested();
+        return entry;
+    }
+
     private static async Task<OfflineMigrationApplyJournalEntry> ReadNativeEntryAsync(
         OfflineMigrationPlan plan, OfflineMigrationCurrentSchemaVerifyRequest request, long sequence,
         DbConnection connection, DbTransaction transaction, CancellationToken cancellationToken)
     {
-        await using DbCommand command = OfflineMigrationStateStore.NativeCommand(connection, transaction, """
+        var cleanupFailures = ImmutableArray.CreateBuilder<string>(2);
+        DbCommand command = request.Database.Provider == CurrentSchemaProviderKind.MySql
+            ? OfflineMigrationStateStore.NativeCommand(connection, transaction, $"""
+            SELECT entry_digest, parent_digest,
+                CASE WHEN octet_length(entry_payload) <= 1048576 THEN entry_payload ELSE NULL END
+            FROM {OfflineMigrationApplyJournalDialect.Table(CurrentSchemaProviderKind.MySql)}
+            WHERE plan_digest = @plan AND database_digest = @database
+                AND invocation_id = @invocation AND sequence = @sequence
+            """)
+            : OfflineMigrationStateStore.NativeCommand(connection, transaction, """
             SELECT entry_digest, parent_digest,
                 CASE WHEN octet_length(entry_payload) <= 1048576 THEN entry_payload ELSE NULL END
             FROM public.__fsus_schema_offline_apply_journal
             WHERE plan_digest = @plan AND database_digest = @database
                 AND invocation_id = @invocation AND sequence = @sequence
             """);
-        OfflineMigrationStateStore.Parameter(command, "@plan", plan.ContentDigest);
-        OfflineMigrationStateStore.Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(request.Database));
-        OfflineMigrationStateStore.Parameter(command, "@invocation", request.InvocationId);
-        OfflineMigrationStateStore.Parameter(command, "@sequence", sequence);
-        await using DbDataReader reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
-        if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false) || reader.IsDBNull(2))
+        DbDataReader? reader = null;
+        OfflineMigrationApplyJournalEntry? result = null;
+        Exception? failure = null;
+        try
         {
-            throw new InvalidOperationException("current_verify_native_anchor_missing_or_oversized");
+            OfflineMigrationStateStore.Parameter(command, "@plan", plan.ContentDigest);
+            OfflineMigrationStateStore.Parameter(command, "@database", OfflineMigrationPlanValidation.Digest(request.Database));
+            OfflineMigrationStateStore.Parameter(command, "@invocation", request.InvocationId);
+            OfflineMigrationStateStore.Parameter(command, "@sequence", sequence);
+            reader = await command.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+            if (!await reader.ReadAsync(cancellationToken).ConfigureAwait(false) || reader.IsDBNull(2))
+            {
+                throw new InvalidOperationException("current_verify_native_anchor_missing_or_oversized");
+            }
+            OfflineMigrationApplyJournalEntry entry = JsonSerializer.Deserialize<OfflineMigrationApplyJournalEntry>(
+                reader.GetString(2), s_artifactJson) ?? throw new InvalidOperationException("current_verify_native_anchor_null");
+            if (entry.Plan != request.Plan || entry.PlanContentDigest != plan.ContentDigest || entry.Database != request.Database
+                || entry.InvocationId != request.InvocationId || entry.Sequence != sequence
+                || entry.ContentDigest != reader.GetString(0) || entry.PreviousDigest != reader.GetString(1)
+                || entry.ContentDigest != OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
+                || await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                throw new InvalidOperationException("current_verify_native_anchor_changed");
+            }
+            result = entry;
         }
-        OfflineMigrationApplyJournalEntry entry = JsonSerializer.Deserialize<OfflineMigrationApplyJournalEntry>(
-            reader.GetString(2), s_artifactJson) ?? throw new InvalidOperationException("current_verify_native_anchor_null");
-        if (entry.Plan != request.Plan || entry.PlanContentDigest != plan.ContentDigest || entry.Database != request.Database
-            || entry.InvocationId != request.InvocationId || entry.Sequence != sequence
-            || entry.ContentDigest != reader.GetString(0) || entry.PreviousDigest != reader.GetString(1)
-            || entry.ContentDigest != OfflineMigrationApplyJournalVerifier.ComputeEntryDigest(entry)
-            || await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        catch (Exception primary)
         {
-            throw new InvalidOperationException("current_verify_native_anchor_changed");
+            failure = primary;
         }
-        return entry;
+        // Finish both owned resources without letting disposal replace the native
+        // anchor refusal or its cancellation token. Never dispose the caller pair.
+        if (reader is not null)
+        {
+            try
+            {
+                await reader.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (Exception)
+            {
+                failure ??= new InvalidOperationException("current_verify_native_anchor_cleanup_failed");
+                cleanupFailures.Add("current_verify_native_anchor_reader_cleanup_failed");
+            }
+        }
+        try
+        {
+            await command.DisposeAsync().ConfigureAwait(false);
+        }
+        catch (Exception)
+        {
+            failure ??= new InvalidOperationException("current_verify_native_anchor_cleanup_failed");
+            cleanupFailures.Add("current_verify_native_anchor_command_cleanup_failed");
+        }
+        if (failure is not null)
+        {
+            if (cleanupFailures.Count > 0)
+            {
+                failure.Data[NativeAnchorCleanupFailuresKey] = cleanupFailures.ToImmutable();
+            }
+            ExceptionDispatchInfo.Capture(failure).Throw();
+        }
+        return result!;
     }
 
     private static void RequireReference(CurrentSchemaArtifactReference reference)

@@ -77,7 +77,8 @@ function validateAdmission(receipt, {
     expectedWorktree = null,
     artifactRepositoryRoot = null,
     expectedExtractorIds = null,
-    readArtifactDigest = null
+    readArtifactDigest = null,
+    readExecutionClosure = null
 } = {}, validateMinimalReceipt)
 {
     if (receipt?.schema !== behaviorDocAdmissionReceiptSchema)
@@ -211,6 +212,7 @@ function validateAdmission(receipt, {
     validateMinimalReceipt(receipt.minimalContractBuild, {
         repositoryRoot: artifactRepositoryRoot,
         readArtifactDigest,
+        readExecutionClosure,
         expectedRunId: receipt.run.id,
         expectedSourceIdentity: {
             sourceCommit: receipt.source.commit,

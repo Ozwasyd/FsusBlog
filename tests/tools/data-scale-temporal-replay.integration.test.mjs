@@ -454,8 +454,11 @@ SELECT jsonb_build_object('changed', count(*)) FROM changed;
         assert.deepEqual(cleanup.remaining, {
             articles: 0,
             categories: 0,
+            categoryProjections: 0,
             comments: 0,
-            tags: 0
+            tags: 0,
+            tagProjections: 0,
+            taxonomyProjections: 0
         });
         rmSync(outputDirectory, { recursive: true, force: true });
     }

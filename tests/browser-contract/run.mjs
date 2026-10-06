@@ -30,6 +30,7 @@ import {
 } from '../../tools/test/playwright-browser-identity.mjs';
 import { loadTemporalContext } from '../../tools/test/temporal-context.mjs';
 import {
+    applyBrowserTemporalClock,
     bindCorrectnessProducerTemporalArtifacts,
     observeBrowserTemporalContext
 } from '../../tools/test/temporal-producer-bindings.mjs';
@@ -1224,6 +1225,7 @@ async function main()
                     await context.tracing.start({ screenshots: true, snapshots: true, sources: false, title: scenario.id });
                 }
                 page = await context.newPage();
+                await applyBrowserTemporalClock(temporalContext, page);
                 if (browserTemporalObservation === null)
                 {
                     const renderingObservation = await observeBrowserRendering(page);
@@ -1232,28 +1234,28 @@ async function main()
                         receipt.playwright.browserIdentity.actual,
                         renderingObservation
                     );
-                    const browserObservation = await page.evaluate(() => ({
-                        locale: navigator.language,
-                        timezoneId: Intl.DateTimeFormat().resolvedOptions().timeZone
-                    }));
-                    const runtimeObservation =
-                        preparedFixture.lifecycle?.runtime?.temporalObservation;
-                    if (!runtimeObservation)
-                    {
-                        throw new BrowserContractFailure(
-                            'browser contract backend/PostgreSQL temporal observation is missing',
-                            'contract'
-                        );
-                    }
-                    browserTemporalObservation = observeBrowserTemporalContext(
-                        temporalContext,
-                        {
-                            ...runtimeObservation,
-                            locale: browserObservation.locale,
-                            timezoneId: browserObservation.timezoneId,
-                            nodeTimezone: process.env.TZ
-                        }
+                }
+                const browserObservation = await page.evaluate(() => ({
+                    locale: navigator.language,
+                    timezoneId: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                    browserBusinessEpochUtc: new Date().toISOString()
+                }));
+                const runtimeObservation = preparedFixture.lifecycle?.runtime?.temporalObservation;
+                if (!runtimeObservation)
+                {
+                    throw new BrowserContractFailure(
+                        'browser contract backend/PostgreSQL temporal observation is missing',
+                        'contract'
                     );
+
+                }
+                browserTemporalObservation = observeBrowserTemporalContext(temporalContext, {
+                    ...runtimeObservation,
+                    ...browserObservation,
+                    nodeTimezone: process.env.TZ
+                });
+                if (localeRootBinding === null)
+                {
                     localeRootBinding = await freezePublicShellLocaleRootBinding(
                         localeMatrix, preparedFixture, localeAuthoritySnapshot,
                         serializableBrowserPlan(managed.plan), receipt.playwright.browserIdentity.actual
@@ -1263,6 +1265,7 @@ async function main()
                         digest: localeRootBinding.digest
                     };
                 }
+
                 page.setDefaultTimeout(browserContractAppReadyTimeoutMs);
                 page.setDefaultNavigationTimeout(browserContractAppReadyTimeoutMs);
                 audit = createPageAudit(page);
@@ -1411,9 +1414,7 @@ async function main()
             retainOriginal: (ref) => localeOriginalRefs.push(ref) });
 
         const publicPreviewStaging = path.join(runOutputRoot, 'public-preview-docs');
-        const publicPreviewOperations = await import(pathToFileURL(
-            path.join(root, 'tools/docs/public-preview-screenshots.mjs')
-        ).href);
+        const publicPreviewOperations = await import(new URL('../../tools/docs/public-preview-screenshots.mjs', import.meta.url));
         const publicPreviewEvidenceFile = path.join(root, '.tmp/release-evidence/public-preview-screenshots.json');
         const publicPreview = await capturePublicPreviewGallery({
             browser,

@@ -3,6 +3,7 @@ import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const {canonicalDigest, canonicalTestId, planExactShards, sealReplayPlan, sealReplayReceipt} = await import(new URL('../../tools/test/execution-replay-contract.mjs', import.meta.url));
 const {buildExecutionReplayCommand, ExecutionReplayMismatch, verifyExecutionReplay} = await import(new URL('../../tools/test/execution-replay-verifier.mjs', import.meta.url));
@@ -159,13 +160,14 @@ test('diagnostic evidence cannot be promoted to qualification', () =>
 test('replay command binds owned absolute plan, digest, seed, shard, workers, scheduler and envelope without secrets', () =>
 {
     const { plan } = fixture();
-    const directory = mkdtempSync(path.join(new URL('../..', import.meta.url).pathname, '.tmp-replay-command-'));
+    const repositoryRoot = fileURLToPath(new URL('../..', import.meta.url));
+    const directory = mkdtempSync(path.join(repositoryRoot, '.tmp-replay-command-'));
     try
     {
         const planPath = path.join(directory, "plan with ' quote.json");
         writeFileSync(planPath, `${JSON.stringify(plan)}\n`);
         const command = buildExecutionReplayCommand({
-            root: new URL('../..', import.meta.url).pathname,
+            root: repositoryRoot,
             planPath,
             plan,
             schedulerShuffleSeed: plan.schedulerShuffleSeed,

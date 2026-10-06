@@ -13,7 +13,7 @@ public sealed partial class RevisionSourceDiffEngine
         Symbol = 2
     }
 
-    private enum TokenizationStatus
+    internal enum TokenizationStatus
     {
         Available = 0,
         InvalidUtf8 = 1,
@@ -24,4 +24,11 @@ public sealed partial class RevisionSourceDiffEngine
         ImmutableArray<RevisionDiffWordEdit> Edits,
         int TokenCount,
         bool BudgetExceeded);
+
+    internal readonly record struct WordTokenization(
+        string BaseText,
+        string CompareText,
+        int BaseCount,
+        int CompareCount,
+        TokenizationStatus Status);
 }

@@ -22,13 +22,15 @@ import {
     behaviorDocAdmissionReceiptSchema,
     defaultBehaviorDocAdmissionComponentsDirectory,
     defaultBehaviorDocAdmissionReceipt,
-    validateBehaviorDocStaticAdmissionReceipt as validateBehaviorDocStaticAdmissionReceiptValue
+    behaviorDocGlobalClaimExactnessComponent
 } from './behavior-doc-static-admission-contract.mjs';
 export {
     behaviorDocAdmissionReceiptSchema,
     defaultBehaviorDocAdmissionComponentsDirectory,
-    defaultBehaviorDocAdmissionReceipt
+    defaultBehaviorDocAdmissionReceipt,
+    behaviorDocGlobalClaimExactnessComponent
 } from './behavior-doc-static-admission-contract.mjs';
+import { readBehaviorDocStaticAdmissionReceipt, validateBehaviorDocStaticAdmissionReceipt } from './behavior-doc-static-admission-reader.mjs';
 import { validateRepositoryMigrationLedger } from './check-document-claim-migration-ledger.mjs';
 import {
     formatGovernanceViolations as formatMutationGovernanceViolations,
@@ -56,12 +58,12 @@ import {
     formatGovernanceViolations as formatGeneratedGovernanceViolations,
     scanGeneratedFactSectionGovernance
 } from './generated-fact-sections/governance.mjs';
+import { globalExactnessScopeId, validateGlobalClaimExactnessReceipt } from './global-claim-exactness-final.mjs';
 import {
     formatGovernanceViolations as formatProseGovernanceViolations,
     scanProseClaimGovernance
 } from './prose-claim-verifier/governance.mjs';
 import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs';
-
 
 
 export const behaviorDocAdmissionTierId = 'behavior-doc-static-admission';
@@ -119,35 +121,10 @@ function authorityDigests(repositoryRoot, catalog, claimReceipt)
     };
 }
 
-export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
-    expectedRunId = null,
-    expectedSourceIdentity = null,
-    expectedWorktree = null
-} = {})
-{
-    const expectedExtractorIds = expectedWorktree === null
-        ? null
-        : loadRegistry(path.join(
-            expectedWorktree,
-            'config/contracts/behavior-fact-extractors.json'
-        )).extractors.map((extractor) => extractor.id).sort();
-    return validateBehaviorDocStaticAdmissionReceiptValue(receipt, {
-        expectedRunId,
-        expectedSourceIdentity,
-        expectedWorktree,
-        expectedExtractorIds
-    });
-}
-
-export function readBehaviorDocStaticAdmissionReceipt(file, expected = {})
-{
-    if (!file || !fs.existsSync(file))
-    {
-        throw new Error('BehaviorDoc admission receipt is missing');
-    }
-    const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
-    return validateBehaviorDocStaticAdmissionReceipt(receipt, expected);
-}
+export {
+    readBehaviorDocStaticAdmissionReceipt,
+    validateBehaviorDocStaticAdmissionReceipt
+} from './behavior-doc-static-admission-reader.mjs';
 
 function writeReceipt(file, receipt)
 {
@@ -172,6 +149,70 @@ export function writeFactObservationReceipts(componentsDirectory, observationRec
     }
 }
 
+function invalidateOwnedGlobalClaimTerminal(componentsDirectory, runId)
+{
+    const directory = path.resolve(componentsDirectory);
+    const terminal = path.join(directory, behaviorDocGlobalClaimExactnessComponent);
+    const file = fs.lstatSync(terminal, { throwIfNoEntry: false, bigint: true });
+    if (!file)
+    {
+        return;
+    }
+    const parent = fs.lstatSync(directory, { bigint: true });
+    const uid = BigInt(process.getuid());
+    if (!file.isFile() || file.isSymbolicLink() || file.nlink !== 1n
+        || file.uid !== uid || !parent.isDirectory() || parent.uid !== uid
+        || (parent.mode & 0o022n) !== 0n || fs.realpathSync(directory) !== directory
+        || file.size < 1n || file.size > 8388608n)
+    {
+        throw new Error('global claim terminal is not the current owned regular output');
+    }
+    const epoch = ['dev', 'ino', 'mode', 'uid', 'gid', 'nlink', 'size', 'mtimeNs', 'ctimeNs'];
+    const sameEpoch = (first, second) => epoch.every((field) => first[field] === second[field]);
+    const descriptor = fs.openSync(terminal, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
+    try
+    {
+        const held = fs.fstatSync(descriptor, { bigint: true });
+        if (!held.isFile() || !sameEpoch(held, file))
+        {
+            throw new Error('global claim terminal changed before owned invalidation');
+        }
+        const bytes = Buffer.alloc(Number(held.size));
+        let offset = 0;
+        while (offset < bytes.length)
+        {
+            const count = fs.readSync(descriptor, bytes, offset, bytes.length - offset, offset);
+            if (count === 0)
+            {
+                throw new Error('global claim terminal changed during bounded invalidation read');
+            }
+            offset += count;
+        }
+        if (fs.readSync(descriptor, Buffer.alloc(1), 0, 1, offset) !== 0)
+        {
+            throw new Error('global claim terminal grew during bounded invalidation read');
+        }
+        const receipt = JSON.parse(bytes.toString('utf8'));
+        validateGlobalClaimExactnessReceipt(receipt, { expectedRunId: String(runId) });
+        if (receipt.scopeId !== globalExactnessScopeId)
+        {
+            throw new Error('global claim terminal is not the original task output family');
+        }
+        if (BigInt(bytes.length) !== held.size
+            || !sameEpoch(held, fs.fstatSync(descriptor, { bigint: true }))
+            || !sameEpoch(held, fs.lstatSync(terminal, { bigint: true }))
+            || !sameEpoch(parent, fs.lstatSync(directory, { bigint: true })))
+        {
+            throw new Error('global claim terminal changed before owned invalidation');
+        }
+        fs.unlinkSync(terminal);
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+}
+
 export async function runBehaviorDocStaticAdmission({
     repositoryRoot = root,
     runId = process.env.FSUSBLOG_TEST_RUN_ID || `local-${process.pid}`,
@@ -183,6 +224,86 @@ export async function runBehaviorDocStaticAdmission({
     candidateSpawnCountBeforeReceipt = 0
 } = {})
 {
+    const directory = path.resolve(componentsDirectory);
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const parent = fs.lstatSync(directory);
+    if (!parent.isDirectory() || parent.uid !== process.getuid()
+        || (parent.mode & 0o022) !== 0 || fs.realpathSync(directory) !== directory)
+    {
+        throw new Error('BehaviorDoc admission output reservation requires its private task-owned directory');
+    }
+    const lock = path.join(directory, '.behavior-doc-admission-writer.lock');
+    const descriptor = fs.openSync(lock, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o600);
+    let held;
+    try
+    {
+        held = fs.fstatSync(descriptor, { bigint: true });
+    }
+    catch (error)
+    {
+        fs.closeSync(descriptor);
+        throw error;
+    }
+    let result;
+    let failure;
+    let failed = false;
+    try
+    {
+        result = await runReservedBehaviorDocStaticAdmission({ repositoryRoot, runId, outputFile, componentsDirectory, candidateSpawnCountBeforeReceipt });
+    }
+    catch (error)
+    {
+        failure = error;
+        failed = true;
+    }
+    try
+    {
+        try
+        {
+            const current = fs.lstatSync(lock, { bigint: true });
+            if (!current.isFile() || current.nlink !== 1n
+                || !['dev', 'ino', 'mode', 'uid', 'gid', 'nlink', 'size', 'mtimeNs', 'ctimeNs'].every((field) => current[field] === held[field]))
+            {
+                throw new Error('BehaviorDoc admission output reservation changed');
+            }
+            fs.unlinkSync(lock);
+        }
+        finally
+        {
+            fs.closeSync(descriptor);
+        }
+    }
+    catch (error)
+    {
+        if (!failed)
+        {
+            failure = error;
+            failed = true;
+        }
+        else
+        {
+            failure = new AggregateError([failure, error], 'BehaviorDoc admission failed with unresolved output reservation', { cause: failure });
+        }
+    }
+    if (failed)
+    {
+        throw failure;
+    }
+    return result;
+}
+
+async function runReservedBehaviorDocStaticAdmission({
+    repositoryRoot = root,
+    runId = process.env.FSUSBLOG_TEST_RUN_ID || `local-${process.pid}`,
+    outputFile = path.join(repositoryRoot, defaultBehaviorDocAdmissionReceipt),
+    componentsDirectory = path.join(
+        repositoryRoot,
+        defaultBehaviorDocAdmissionComponentsDirectory
+    ),
+    candidateSpawnCountBeforeReceipt = 0
+} = {})
+{
+    invalidateOwnedGlobalClaimTerminal(componentsDirectory, runId);
     const startedAt = Date.now();
     const sourceIdentity = sealSourceIdentity(repositoryRoot);
     const toolchain = {
@@ -431,7 +552,8 @@ export async function runBehaviorDocStaticAdmission({
     validateBehaviorDocStaticAdmissionReceipt(receipt, {
         expectedRunId: String(runId),
         expectedSourceIdentity: sourceIdentity,
-        expectedWorktree: repositoryRoot
+        expectedWorktree: repositoryRoot,
+        artifactRepositoryRoot: repositoryRoot
     });
     return { receipt, receiptFile: outputFile };
 }

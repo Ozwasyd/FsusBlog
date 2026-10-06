@@ -20,29 +20,31 @@ import { createRequire, isBuiltin } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// eslint-disable-next-line import-x/no-relative-parent-imports
-import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs';
-import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs';
+import { validateRolloutId, verifyReleaseRolloutEvidence } from '../deployment/release-rollout-evidence-receipt-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { readRuntimeRoleExecutionClosure } from '../fact-extractors/lib/runtime-role-execution-closure.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { validateCurrentSchemaCodeContractObservation } from '../docs/behavior-doc-minimal-contract-build-v3-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     validateBrowserContractReceipt,
     validatePublicPreviewEvidenceBinding
-} from '../release/browser-contract-receipt-contract.mjs';
+} from '../release/browser-contract-receipt-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     projectPublicPreviewQualityRegistry,
     validatePublicPreviewQualityManifestValue
-} from '../release/public-preview-quality-receipt-contract.mjs';
+} from '../release/public-preview-quality-receipt-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     deriveAotSpaHydrationRawFacts,
     normalizeAotSpaHydrationFacts
-} from '../test-evidence/aot-spa-hydration-observed-facts.mjs';
-import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs';
+} from '../test-evidence/aot-spa-hydration-observed-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     deriveProbeRawFacts,
     verifyFacts as verifyProbeFacts
-} from '../test-evidence/runtime-observation-probe-facts.mjs';
+} from '../test-evidence/runtime-observation-probe-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     projectPreparedPublicIds
-} from '../test-fixtures/receipt/prepared-public-projection-contract.mjs';
+} from '../test-fixtures/receipt/prepared-public-projection-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 
 import { parseMatrix } from './parse-matrix.mjs';
 
@@ -95,7 +97,7 @@ const embeddedIdentityCapabilities = Object.freeze({
         'sourceCommit', 'worktreeFingerprint', 'runId', 'browserIdentity'
     ],
     'fsusblog.public-preview-screenshot-verification.v1': ['sourceCommit'],
-    'fsusblog.release-rollout-evidence.v1': ['releaseId', 'rolloutId'],
+    'fsusblog.release-rollout-evidence.v2': ['releaseId', 'rolloutId'],
     'fsusblog.behavior-doc-static-admission-receipt.v1': [
         'sourceCommit', 'worktreeFingerprint', 'runId'
     ]
@@ -106,6 +108,12 @@ const attemptIdentityPattern = /^attempt-[0-9]{4}$/u;
 const releaseIdentityPattern = /^[0-9]{14}-[a-f0-9]{12}$/u;
 const readerFirewallEntry = 'tools/test-matrix/post-runtime-producer-registry.mjs';
 const pureReceiptContracts = new Set([
+    'tools/deployment/release-rollout-evidence-receipt-contract.mjs',
+    'tools/fact-extractors/post-runtime/receipt-seal-contract.mjs',
+    'tools/test-evidence/release-authority-facts-contract.mjs',
+    'tools/test-evidence/release-authority-bundle-contract.mjs',
+    'tools/test-evidence/aot-spa-hydration-source-contract.mjs',
+    'tools/test-evidence/runtime-observation-probe-receipt-contract.mjs',
     'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
     'tools/docs/behavior-doc-static-admission-contract.mjs',
     'tools/release/browser-contract-receipt-contract.mjs',
@@ -277,12 +285,58 @@ process.stdin.on('end', () => {
         if (forbiddenReaderPath(node.value))
             throw new Error('documentation filesystem read is forbidden in the reader closure')
     }
-    const add = (kind, node) => {
+    const add = (kind, node, originalPureComparator = false) => {
         if (!literal(node)) throw new Error('non-literal ' + kind + ' dependency')
+        if (process.argv[3] === 'pure' && node.value === 'node:util' && !originalPureComparator)
+            throw new Error('non-comparator util capability is forbidden in a pure receipt contract')
         dependencies.push({ kind, specifier: node.value })
     }
-    const walk = (node, enclosingFunction = null) => {
+    const bindsUrl = (node) => {
+        if (!node) return false
+        if (node.type === 'Identifier') return node.name === 'URL'
+        if (node.type === 'RestElement') return bindsUrl(node.argument)
+        if (node.type === 'AssignmentPattern') return bindsUrl(node.left)
+        if (node.type === 'ArrayPattern') return node.elements.some(bindsUrl)
+        if (node.type === 'ObjectPattern') return node.properties.some(item => bindsUrl(item.value ?? item.argument))
+        return false
+    }
+    const writesUrl = (node) => {
+        const current = unwrap(node)
+        return bindsUrl(current) || (current?.type === 'MemberExpression' && writesUrl(current.object))
+    }
+    const pureUrlParser = (node) => (node?.type === 'NewExpression'
+        || (node?.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
+            && node.callee.object?.type === 'Identifier' && node.callee.object.name === 'URL'
+            && node.callee.computed === false && node.callee.property.name === 'parse'))
+        && (node.arguments.length === 1 || (node.arguments.length === 2
+            && literal(node.arguments[1]) && /^https?:\/\//u.test(node.arguments[1].value)))
+    const walk = (node, enclosingFunction = null, parent = null, grandparent = null) => {
         if (!node || typeof node !== 'object') return
+        const plainDataKey = parent?.type === 'Property' && parent.key === node
+            && parent.computed === false && parent.shorthand === false
+        if (process.argv[3] === 'pure' && node.type === 'Identifier'
+            && ['process', 'globalThis', 'global'].includes(node.name) && !plainDataKey)
+            throw new Error('ambient process/global capability is forbidden in a pure receipt contract')
+        if (process.argv[3] === 'pure')
+        {
+            if (node.type === 'Identifier' && node.name === 'URL'
+                && !(pureUrlParser(parent) && parent.callee === node)
+                && !(parent?.type === 'MemberExpression' && parent.object === node
+                    && parent.computed === false && parent.property.name === 'parse'
+                    && pureUrlParser(grandparent) && grandparent.callee === parent))
+                throw new Error('URL capability outside standard value parsing is forbidden in a pure receipt contract')
+            if (node.type === 'Identifier' && ['fetch', 'WebSocket', 'XMLHttpRequest', 'EventSource'].includes(node.name))
+                throw new Error('network capability is forbidden in a pure receipt contract')
+            if ((node.type === 'VariableDeclarator' && bindsUrl(node.id))
+                || (['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)
+                    && (bindsUrl(node.id) || node.params.some(bindsUrl)))
+                || (['ClassDeclaration', 'ClassExpression'].includes(node.type) && bindsUrl(node.id))
+                || (node.type === 'CatchClause' && bindsUrl(node.param))
+                || (node.type?.startsWith('Import') && bindsUrl(node.local))
+                || (node.type === 'AssignmentExpression' && writesUrl(node.left))
+                || (node.type === 'UpdateExpression' && writesUrl(node.argument)))
+                throw new Error('shadowed or mutable URL is forbidden in a pure receipt contract')
+        }
         const functionName = (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression'
             || node.type === 'ArrowFunctionExpression') ? (node.id?.name ?? enclosingFunction) : enclosingFunction
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
@@ -349,12 +403,21 @@ process.stdin.on('end', () => {
             registerFilesystemPattern(node.left)
         if (node.type === 'ImportDeclaration')
         {
-            add('import', node.source)
+            const comparator = node.source.value === 'node:util'
+                && node.specifiers.length === 1
+                && node.specifiers[0].type === 'ImportSpecifier'
+                && node.specifiers[0].imported.name === 'isDeepStrictEqual'
+                && node.specifiers[0].local.name === 'isDeepStrictEqual'
+            add('import', node.source, comparator)
             registerImportAliases(node)
         }
         else if ((node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') && node.source)
             add('import', node.source)
-        else if (node.type === 'ImportExpression') add('import', node.source)
+        else if (node.type === 'ImportExpression')
+        {
+            if (process.argv[3] === 'pure') throw new Error('dynamic import is forbidden in a pure receipt contract')
+            add('import', node.source)
+        }
         else if (node.type === 'CallExpression'
             && (requireCallee(node.callee) || requireFactoryCall(node.callee)))
         {
@@ -371,7 +434,8 @@ process.stdin.on('end', () => {
             throw new Error('computed module factory method is forbidden in the reader closure')
         if (node.type === 'NewExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'URL')
         {
-            if (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value))
+            const pureValueParser = process.argv[3] === 'pure' && pureUrlParser(node)
+            if (!pureValueParser && (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value)))
                 throw new Error('dynamic or documentation URL is forbidden in the reader closure')
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
@@ -420,8 +484,8 @@ process.stdin.on('end', () => {
         for (const [key, value] of Object.entries(node))
         {
             if (key === 'start' || key === 'end') continue
-            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName))
-            else walk(value, functionName)
+            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName, node, parent))
+            else walk(value, functionName, node, parent)
         }
     }
     for (const statement of ast.body ?? [])
@@ -650,7 +714,7 @@ function readPinnedRepositoryFile(repositoryRoot, relative, label)
     let descriptor;
     try
     {
-        descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+        descriptor = fs.openSync(absolute, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW | fs.constants.O_NONBLOCK);
         const before = fs.fstatSync(descriptor, { bigint: true });
         if (!before.isFile() || before.nlink !== 1n)
         {
@@ -689,6 +753,8 @@ function readPinnedRepositoryFile(repositoryRoot, relative, label)
         }
     }
 }
+
+export { readPinnedRepositoryFile };
 
 function trackedRepositoryEntries(repositoryRoot)
 {
@@ -836,14 +902,15 @@ function assertIndexSnapshotUnchanged(repositoryRoot, entries)
     }
 }
 
-function parseExecutableDependencies(source, relative)
+function parseExecutableDependencies(source, relative, pure = false)
 {
     const sourceType = relative.endsWith('.cjs') ? 'script' : 'module';
     try
     {
         return JSON.parse(execFileSync(process.execPath, [
             '--expose-internals', '--input-type=commonjs', '--eval', acornDependencyParser, sourceType,
-            relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : ''
+            relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : '',
+            pure ? 'pure' : ''
         ], { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }));
     }
     catch (error)
@@ -927,12 +994,12 @@ export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry =
         }
         const source = readPinnedRepositoryFile(repositoryRoot, relative,
             `reader module ${relative}`).bytes.toString('utf8');
-        const dependencies = parseExecutableDependencies(source, relative);
+        const dependencies = parseExecutableDependencies(source, relative, pure);
         for (const dependency of dependencies)
         {
             if (pure && (isBuiltin(dependency.specifier)
                 || dependency.specifier.startsWith('node:'))
-                && !['path', 'node:path', 'crypto', 'node:crypto'].includes(dependency.specifier))
+                && !['path', 'node:path', 'crypto', 'node:crypto', 'node:util'].includes(dependency.specifier))
             {
                 fail(`pure receipt contract reaches forbidden I/O or execution module ${dependency.specifier}`);
             }
@@ -1614,9 +1681,19 @@ function validateTypedSourceState(sourceState, repositoryRoot, producerId,
         candidateId: `${sourceState.runId}:candidate`,
         fixtureId: `${sourceState.runId}:fixture`,
         runtimeId: `${sourceState.runId}:runtime`,
-        browserIdentity: `${sourceState.runId}:browser-contract`,
-        rolloutId: `${sourceState.runId}:rollout`
+        browserIdentity: `${sourceState.runId}:browser-contract`
     };
+    if (sourceState.rolloutId !== undefined)
+    {
+        try
+        {
+            validateRolloutId(sourceState.rolloutId);
+        }
+        catch
+        {
+            fail(`producer ${producerId} receipt scoped candidate/runtime/browser/release identity is invalid`);
+        }
+    }
     if (Object.entries(scopedIdentities).some(([field, expected]) =>
         sourceIdentityFields.includes(field) && sourceState[field] !== expected)
         || (sourceIdentityFields.includes('releaseId')
@@ -1751,12 +1828,13 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
 {
     assertExactKeys(ref, ['path', 'fileDigest', 'contentDigest', 'schema', 'role'], label);
     const preview = contract.schema === 'fsusblog.public-preview-screenshot-verification.v1';
+    const rollout = contract.schema === 'fsusblog.release-rollout-evidence.v2';
     const preparedFixture = contract.schema === 'fsusblog.fixture-prepare-state.v1';
     const runtimeRoleAdmission =
         contract.schema === 'fsusblog.behavior-doc-static-admission-receipt.v1';
     if (ref.schema !== contract.schema || ref.role !== contract.role
         || !digestPattern.test(ref.fileDigest ?? '')
-        || (preview || preparedFixture
+        || (preview || rollout || preparedFixture
             ? ref.contentDigest !== null
             : !digestPattern.test(ref.contentDigest ?? ''))
         || ref.fileDigest === ref.contentDigest)
@@ -1831,6 +1909,34 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
         }
         projectPreparedPublicIds(current.value);
     }
+    else if (rollout)
+    {
+        assertExactKeys(current.value, ['schema', 'status', 'rolloutId', 'kind', 'source', 'target',
+            'gatewayGeneration', 'manifestSha256', 'candidateSourceRevision', 'currentSchema',
+            'rollback', 'stages', 'recoveries', 'artifacts', 'auxiliary', 'errors',
+            'sealedAtUtc'], `${label} canonical rollout`);
+        const verification = verifyReleaseRolloutEvidence(current.value, {
+            evidencePath: ref.path,
+            now: Date.now(),
+            readBytes: (file) =>
+            {
+                if (typeof file !== 'string')
+                {
+                    fail(`${label} nested rollout path must be explicit`);
+                }
+                const relative = path.isAbsolute(file) ? path.relative(repositoryRoot, file) : file;
+                if (!relative.startsWith('.tmp/') || unsafeReceiptPath.test(relative))
+                {
+                    fail(`${label} nested rollout bytes must belong to the current run`);
+                }
+                return readPinnedRepositoryFile(repositoryRoot, relative, `${label} nested rollout bytes`).bytes;
+            }
+        });
+        if (verification.status !== 'pass')
+        {
+            fail(`${label} canonical rollout contract: ${verification.errors.join('; ')}`);
+        }
+    }
     else if (runtimeRoleAdmission)
     {
         if (ref.contentDigest !== prefixedDigest(current.value.contentDigest))
@@ -1859,7 +1965,9 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
                 repositoryRoot,
                 'config/contracts/behavior-fact-extractors.json'
             ).extractors.map((extractor) => extractor.id).sort(),
-            readArtifactDigest
+            readArtifactDigest,
+            readExecutionClosure: (rootDirectory, assemblyPath) =>
+                readRuntimeRoleExecutionClosure(rootDirectory, assemblyPath, readPinnedRepositoryFile)
         });
         const artifact =
             current.value.minimalContractBuild.artifacts['runtime-role-observation'];
@@ -1874,9 +1982,12 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             `${label} runtime-role deployment observation`
         );
         const buildReceipt = artifact.buildReceipt;
-        if (observation.value.schema !== 'fsusblog.runtime-role-observation.v2'
+        if (observation.value.schema !== 'fsusblog.runtime-role-observation.v3'
             || buildReceipt.schema
-                !== 'fsusblog.runtime-role-observation-build-receipt.v3'
+                !== 'fsusblog.runtime-role-observation-build-receipt.v4'
+            || buildReceipt.observationSchema !== observation.value.schema
+            || buildReceipt.evidenceStage !== 'pre-runtime'
+            || buildReceipt.evidenceClass !== 'compiled-production-code-model'
             || observation.value.ownership?.claimEligible !== true
             || deployment.value.ownership?.claimEligible !== true
             || observation.value.deploymentAuthority?.observationDigest
@@ -1887,8 +1998,9 @@ function replayEmbeddedReference(repositoryRoot, ref, contract, sourceState, lab
             || deployment.fileDigest
                 !== `sha256:${artifact.deploymentArtifactDigest}`)
         {
-            fail(`${label} runtime-role v2 observation authority is stale or incomplete`);
+            fail(`${label} runtime-role v3 observation authority is stale or incomplete`);
         }
+        validateCurrentSchemaCodeContractObservation(observation.value.currentSchemaContract);
     }
     else if (current.value.schema !== contract.schema
         || !digestPattern.test(prefixedDigest(current.value.contentDigest))
@@ -1977,7 +2089,8 @@ function identityProjection(value)
 {
     const execution = value?.executionIdentity ?? value?.plan?.executionIdentity ?? {};
     const source = value?.sourceState ?? value?.sourceIdentity ?? execution.source
-        ?? execution.sourceIdentity ?? value?.source ?? {};
+        ?? execution.sourceIdentity
+        ?? (value?.schema === 'fsusblog.release-rollout-evidence.v2' ? {} : value?.source) ?? {};
     const candidate = value?.candidate ?? value?.target ?? {};
     const run = value?.runIdentity ?? value?.run ?? {};
     return {
@@ -2075,6 +2188,20 @@ function probeSourceProjection(repositoryRoot, upstream, sourceState, contract, 
     return identityProjection(upstream);
 }
 
+function readBrowserTemporalAuthority(repositoryRoot)
+{
+    const ledger = readPinnedRepositoryFile(repositoryRoot,
+        'config/testing/temporal-callsite-dispositions.json', 'temporal ledger');
+    return {
+        policy: readJson(repositoryRoot, 'config/testing/temporal-policy.json'),
+        ledger: {
+            document: parseStrictJson(ledger.bytes.toString('utf8'), 'temporal ledger'),
+            digest: `sha256:${createHash('sha256').update(ledger.bytes).digest('hex')}`
+        },
+        producerBindings: readJson(repositoryRoot, 'config/testing/temporal-producer-bindings.json')
+    };
+}
+
 function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
 {
     const label = `producer ${producerId} AOT upstream`;
@@ -2150,7 +2277,10 @@ function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, en
         }
         return retained.get(file);
     };
-    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, { readBytes });
+    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, {
+        readBytes,
+        temporalAuthority: readBrowserTemporalAuthority(repositoryRoot)
+    });
     if (digestValue(upstream.rawFacts)
         !== digestValue(deriveAotSpaHydrationRawFacts(inputs, { readBytes })))
     {
@@ -2174,6 +2304,7 @@ function browserSourceProjection(
 {
     const label = `producer ${producerId} browser upstream`;
     const browserErrors = validateBrowserContractReceipt(upstream, {
+        temporalAuthority: readBrowserTemporalAuthority(repositoryRoot),
         expectedCommit: sourceState.sourceCommit,
         expectedFingerprint: sourceState.worktreeFingerprint,
         expectedBuildReceiptDigest: sourceState.buildIdentity

@@ -1,0 +1,38 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/prepare-behavior-doc-nuget.mjs",
+                "tools/docs/run-nuget-preparation.mjs",
+                "tools/test-matrix/production-capacity-reservation.mjs",
+                "tools/test-matrix/production-disk-demand.mjs",
+                "tools/test-matrix/production-fresh-exclusive-lease.mjs",
+                "tools/test-matrix/protected-behavior-doc-admission.mjs",
+                "tools/test-matrix/scheduler.mjs",
+                "tools/test/behavior-doc-nuget-preparation.mjs",
+                "tools/test/execution-envelope-directories.mjs",
+                "tools/test/matrix-governance-command.mjs",
+                "tools/test/nuget-preparation-owner.mjs",
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test/run-once.mjs"
+            ],
+            "reason": "Preserve original scheduler, owned directory, NuGet and dotnet environment spellings at existing tool boundaries while adapting them to internal producer and preparation values."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/run-matrix-governance-once.sh"
+            ],
+            "reason": "The original shell runner transports the explicit matrix descriptor and canonical SDK selector through stable uppercase environment interfaces, then passes the descriptor as a runner argument."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/governance/finite-nuget-external-naming.json"
+            ],
+            "reason": "Preserve the registered external-naming evidence schema and its exact wire keys for the trusted change-contract checker; this metadata adapts existing source surfaces without introducing a separate naming authority."
+        }
+    ]
+}

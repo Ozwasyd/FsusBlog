@@ -84,9 +84,10 @@
                         "observe-runtime",
                         "observe-mutation",
                         "observe-data-scale-runtime",
+                        "provision-data-scale-runtime",
                         "prepare-evidence-files",
                         "run-measurement",
-                        "consume-data-scale-teardown"
+                        "teardown-data-scale-runtime"
                     ]
                 },
                 "executable": {

@@ -41,6 +41,8 @@ Historical and current revisions come from the existing authoring revision reade
 
 The engine supplies stable context groups for unchanged ranges; consumers do not recalculate folding coordinates. Source byte, line, token, memory, time, output, hunk, and chunk limits come from the sealed admission. Token, output, and chunk accounting is enforced incrementally, and the algorithm runs on a worker task. Limit breaches, cancellation, expiry, package drift, structure ambiguity, and receipt/range tampering return no partial success.
 
+Memory admission reserves a conservative managed-workspace envelope before line matching, UTF-16 decoding, token records and substrings, occurrence dictionaries, anchors/LIS arrays, heading identity sets, and output materialization. A span-only grapheme pass counts the actual tokens before token collections are allocated; a long coalesced word is charged for its character payload, not just one record. Temporary reservations are released after each matching/refinement phase while retained output stays charged. The successful receipt records the maximum concurrent envelope, independently reconstructed from verified raw ranges and token counts; a memory rejection records the prospective envelope that was refused and returns no partial ranges. Worker memory refusals pass through the original completion cancellation, expiry, and exact package rereads; a stale or cancelled comparison cannot publish a memory result instead. These are deterministic managed-workspace estimates, not measured process RSS, cumulative GC allocations, or ownership of the packages and canonical parser's allocations. No token or memory limit is lowered to make an input fit.
+
 The semantic receipt binds engine, segmenter, parser, budget, plan, source, structure, byte, line, token, word-edit, heading, context-group, hunk, chunk, memory, output, and representation identities. Identical inputs produce the same semantic receipt. Wall-clock elapsed time is isolated in an attempt receipt bound to that semantic digest. Diff results contain source ranges and content-addressed receipts only; they never become revision storage, an HTML patch, an AI summary, or a second body authority.
 
 ## Risks and no-restart rollback
@@ -156,3 +158,8 @@ factPath: facts.article.restore.causal
 render: relation-subject-predicate-object
 -->
 Restore creates a new publication coordinate without reviving the old publication or creating a new revision when a soft-deleted article is restored from its existing current revision.
+
+
+## Current publication projection invocation
+
+Canonical fixture projection verification binds the independently retained original publication request to its exact persisted mutation command and immutable publication, rights, responsibility, and audit references. A receipt digest or relabeled run/namespace cannot replace that invocation. The existing canonical writer remains the sole publication owner; the projection verifier only observes its outputs and never writes or schedules repair. The prepare-bound public-content proof separately seals the original invocation for independent rereading. Current AOT document and hydration sidecar bytes must agree with the sealed version and rights under the existing bounded convergence deadline. Source integration for #2175 retains unresolved canonical runtime and release acceptance gates described in [Testing](../testing.md).

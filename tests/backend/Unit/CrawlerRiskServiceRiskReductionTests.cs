@@ -14,6 +14,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class CrawlerRiskServiceRiskReductionTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task AddRiskAsync_PositiveSignal_UsesAtomicClampedIncrementWithoutReadModifyWrite()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -65,6 +66,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task AddRiskAsync_ZeroDeltaSignal_RecordsEventWithoutRiskScoreRedisReadOrWrite()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -108,6 +110,7 @@ public sealed class CrawlerRiskServiceRiskReductionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task AddRiskAsync_ReadProofAcceptedSignal_ReducesExistingPublicReadRiskScore()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();

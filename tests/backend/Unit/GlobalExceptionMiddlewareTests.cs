@@ -25,6 +25,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_NoException_CallsNext()
     {
         bool nextCalled = false;
@@ -43,6 +44,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "mw-cancel-no-response")]
     public async Task InvokeAsync_OperationCanceledException_DoesNotWriteResponse()
     {
         var middleware = BuildMiddleware(_ => throw new OperationCanceledException("cancelled"));
@@ -58,6 +60,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "argument-exception-controlled-400")]
     public async Task InvokeAsync_ArgumentException_Returns400()
     {
         var middleware = BuildMiddleware(_ => throw new ArgumentException("bad argument"));
@@ -71,6 +74,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "bad-http-binding-detail-not-disclosed")]
     public async Task InvokeAsync_BadHttpRequestException_Returns400WithoutBindingDetail()
     {
         var middleware = BuildMiddleware(_ => throw new BadHttpRequestException(
@@ -93,6 +97,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "unauthorized-exception-controlled-401")]
     public async Task InvokeAsync_UnauthorizedAccessException_Returns401()
     {
         var middleware = BuildMiddleware(_ => throw new UnauthorizedAccessException("not allowed"));
@@ -106,6 +111,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "missing-resource-exception-controlled-404")]
     public async Task InvokeAsync_KeyNotFoundException_Returns404()
     {
         var middleware = BuildMiddleware(_ => throw new KeyNotFoundException("not found"));
@@ -119,6 +125,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "unsupported-operation-exception-controlled-501")]
     public async Task InvokeAsync_NotImplementedException_Returns501()
     {
         var middleware = BuildMiddleware(_ => throw new NotImplementedException("not implemented"));
@@ -147,6 +154,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "unexpected-exception-controlled-500")]
     public async Task InvokeAsync_UnknownException_Returns500()
     {
         var middleware = BuildMiddleware(_ => throw new InvalidOperationException("unexpected"));
@@ -160,6 +168,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "mw-production-no-exception-leak")]
     public async Task InvokeAsync_Production500_DoesNotLeakExceptionMessage()
     {
         var middleware = BuildMiddleware(
@@ -181,6 +190,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_Development500_ShowsExceptionMessage()
     {
         var middleware = BuildMiddleware(
@@ -200,6 +210,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "argument-exception-binary-api-error-400")]
     public async Task InvokeAsync_BinaryAccept_WritesApiErrorFrame()
     {
         var middleware = BuildMiddleware(_ => throw new ArgumentException("bad binary"));
@@ -231,6 +242,7 @@ public sealed class GlobalExceptionMiddlewareTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "mw-started-response-rethrow")]
     public async Task InvokeAsync_ResponseHasStarted_RethrowsException()
     {
         var middleware = BuildMiddleware(_ => throw new InvalidOperationException("after headers sent"));

@@ -1,19 +1,24 @@
 # Database Migration Runbook
 
-This document is the historical/final-state catalog for legacy descriptors. New
-production changes must follow [Online Database Migration Protocol](online-database-migration.md)
-and [Online Migration Operations](online-database-migration-operations.md). The only
-production release entry is `tools/deployment/release-rollout.sh`: it executes an
-explicit Expand before candidate start; production `serve` performs only read-only
-compatibility checks. Backfill resumes from durable checkpoints, while Contract is a
-separate destructive operation after observation and backup gates.
+This document retains the historical/final-state catalog for legacy descriptors.
+Current runtime and release boundaries follow
+[Online Database Migration Protocol](online-database-migration.md) and
+[Online Migration Operations](online-database-migration-operations.md).
+`FsusBlog.Server serve` requires explicit current-schema receipt and source binding
+with the current native observation; its parser rejects `migrate` and the retired
+phase and release-selection options before host construction. The release rollout
+consumes that current-only admission and does not execute offline plan, apply or
+verify. Those operations belong to the independent offline migration host and its
+sealed inputs; source integration does not establish provider or native readiness.
 
-Do not replay this legacy catalog through the online Contract command. Pre-protocol
+The former `Expand -> deploy compatible code -> Backfill -> observe -> Contract`
+ordering, N/N-1 bridge and durable pause behavior are historical references only,
+not a current release window or Serve readiness authority. Do not replay this
+legacy catalog through the historical online Contract command. Pre-protocol
 descriptors are `LegacyBootstrapOnly` and require an isolated restore/cold bootstrap.
-Expand/Backfill can degrade without restarting the web process by retaining the
-N/N-1 bridge or pausing the durable token. After destructive Contract, code rollback
-cannot recreate removed data: isolate the write path and restore a verified backup
-before selecting a compatible retained image/database pair.
+After destructive Contract, code rollback cannot recreate removed data: isolate
+the write path and restore a verified backup before selecting a compatible
+retained image/database pair.
 
 ## Versioned Legacy Catalog
 
@@ -42,6 +47,21 @@ in the same phase, or the actual boundaries differ from the declared gaps. The
 runner consumes this manifest order directly: all
 `PreCodeFirst` descriptors remain ordered by migration ID before all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
+
+Plan fingerprint controls bind the first descriptor definition admitted to master,
+preserving every earlier descriptor's ordered ID, phase and checksum. A draft
+fingerprint cannot replace that published source. Oracle reconciliation requires
+the original PR/merge identity and exact descriptor, transaction, step-order,
+SQL-byte and checksum facts; applied history must not be rewritten to fit an oracle.
+
+For [PR #3515](https://github.com/Ozwasyd/FsusBlog/pull/3515), the first published
+recent-history definition is master commit `493abaedad77df5f301222405d7904268bb32e75`,
+blob `5c473c4ae9d1bd3bfa46d7f968eabfb897ae954a`. The original 145-descriptor plan
+remains anchored separately; the complete 146-descriptor plan binds that published
+addition and its receipt timestamp/constraint SQL. The older `6d7e8bfa3` draft
+fingerprint records source history, not an accepted applied-database checksum.
+External draft application, native qualification and complete source-bound assembly
+receipt generation remain separate, unverified obligations.
 
 Descriptor implementations live under
 `src/migration/Definitions/`; release-range catalogs
@@ -109,25 +129,40 @@ output follows the rollout gate contract: `status` is `ok` / `dry_run` /
 `paused` / `failed`, with `phase`, `migrationIds` and `codes`.
 
 The host applies only the `Expand`-classified descriptors of the curated
-register (`OnlineSchemaMigrationCatalog` in the Server); the register is
+register (`OfflineMigrationClassificationFacts` in `src/migration/`); the register is
 exposed to the host as the generated
 `src/migration/OfflineMigrationCatalogEntries.generated.cs` (producer
 `tools/db/generate-offline-migration-catalog.mjs`, guarded by
 `tools/db/check-offline-migration-catalog-parity.mjs`). Server-side
-`CurrentSchemaStartupVerifier` compares the live schema against the CodeFirst
-entity projection only; migration-created indexes/constraints are exempted
-through the generated
+`CurrentSchemaStartupVerifier` requires the explicit current receipt and compares
+its complete target with the native database: canonical compiled entity tables
+plus the required recipes exported by `CurrentSchemaOwnedProjectionExporter`
+from `CurrentSchemaRuntimeRollupTables`. Shared
+`CurrentSchemaCanonicalAuthority` owns their combined physical projection.
+Required recipe tables, columns, constraints and additional effects must be
+present; an optional table allowlist cannot grant admission. The Server cannot
+reference the Migration assembly, so the current recipe source preserves the
+original migration DDL and the extra-tables checker binds both owners.
+
+`tools/db/check-schema-allowed-extra-tables.mjs` reads recursively registered
+migration definitions in the original manifest's phase/ordinal-ID order and
+retains descriptor step order. A later CREATE survives a preceding retirement;
+`IF NOT EXISTS` cannot replace an existing shape. Typed retirement requires the
+original same-ID destructive proof registration. The original closed literal
+FOREACH retirement SQL supplies source coverage evidence, not native rollback
+qualification. Conditional CREATE is conservatively a possible survivor;
+unresolved retirement, source registration, dynamic table lifecycle and
+unsupported required-table shape effects fail closed. Current entity and
+required-recipe ownership must be disjoint, and surviving tables and final
+required indexes, triggers, added columns and constraints remain source-bound.
+This finite lexical source check does not replace compiled export, original
+immutable-plan tests, native schema/effect comparison or receipt admission.
+
+The generated historical link inventory
 `src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs`
-(producer `tools/db/generate-schema-allowed-extra-links.mjs`, guarded by
-`tools/db/check-schema-allowed-extra-links.mjs`), so a migrated database still
-passes the fail-closed admission check. Visit-log and author-analytics rollup
-tables created by PostCodeFirst `EnsureTable` steps
-(`daily_read_stats`, `region_read_stats`, `event_type_read_stats`,
-`author_daily_read_stats` and sibling author rollups) are required extras:
-they are not CodeFirst entities, they must exist, and they are not optional
-`s_allowedExtraTables` members. The Server catalog
-`CurrentSchemaRuntimeRollupTables` owns the same CREATE TABLE SQL; the extra-tables
-checker binds it to those two descriptors. Cold-start legacy
+continues to use `tools/db/generate-schema-allowed-extra-links.mjs` and its parity
+checker; it does not supply optional admission grants for the complete target.
+Cold-start legacy
 descriptors fail closed with `schema_legacy_bootstrap_required` until the
 historical cold-start runner has marked them applied, and the `contract`
 phase requires porting the backup-evidence gate, so the host currently fails
@@ -135,6 +170,18 @@ closed with `schema_offline_contract_not_supported` instead of executing
 destructive work unguarded. `backfill-resume` executes resumable handlers
 declared in the migration assembly (for example
 `AccountSubjectHashOnlineBackfillHandler`).
+
+The existing offline Expand preflight retains the original conservative destructive
+predicate: typed column/table/index drops and column/table renames, plus the full
+whitespace-normalized fingerprint of `RawSqlStep`, `BackfillSqlStep` and
+`AssertSqlStep` for DROP COLUMN/TABLE/INDEX, RENAME COLUMN/TO, SET NOT NULL,
+ALTER COLUMN, TRUNCATE and DELETE FROM. It rejects selected unapplied Expand work
+before dry-run output or descriptor execution. The original legacy-bootstrap gate
+still runs first; applied and Contract-classified descriptors are not selected.
+This predicate does not rewrite SQL, change historical classification or grant a
+rollback proof. The existing shared drop-proof requirements and closed Contract
+phase remain unchanged; native execution and backup admission still require their
+original owners.
 
 ### Immutable offline planning boundary
 
@@ -158,6 +205,13 @@ destructiveness, checkpoint policy and all three provider operation references.
 Operation semantic digests identify definitions, not actual row-data verification.
 The independent plan verifier rebuilds that closure from owner inputs and fresh
 observations; merely resealing a modified payload does not authorize it.
+
+The configured original planning owner resolves the entire compiled DAG and
+checks each actual provider operation's existing atomic execution contract before
+retained target/tool, backup configuration, environment credentials or native
+work. Declared transaction or batch metadata cannot admit MySQL implicit-commit
+DDL. Apply repeats its operation-owner check on the actual locked connection;
+the pure planning gate does not supply a missing provider implementation.
 
 Backup admission distinguishes the original database at capture from the isolated
 restore database. The original authenticated backup owner must bind package,
@@ -222,6 +276,33 @@ of three native implementations: missing MySQL/SQLite full-content/snapshot
 capabilities fail closed. The component still needs its unique native-session
 owner and genuine producer/provider execution before operational qualification.
 
+`MySqlArticlePreservationSourceReader` connects the existing bounded article reader
+to the original `OfflineMigrationMySqlNativeSession` owned-read port. Finite limits,
+read budget and source inputs are checked before driver parsing or native I/O. A
+linked deadline governs session creation and the borrowed read and remains live
+through the awaited original cleanup. It does not interrupt the native disposers;
+the reader returns only after successful owned cleanup and a final cancellation
+check. The borrowed path accepts only the original live `OwnedReadContext`, retaining
+its creator cancellation scope and native transaction checks. Raw driver objects,
+isolation labels and caller-created keys cannot grant a MySQL source read. This
+wrapper does not capture or authenticate a backup, publish artifacts, register an
+Apply operation, or qualify native execution; existing provider gates remain required.
+
+The existing `ArticlePreservationStorageWriter` also exposes a MySQL data-only stage
+through the original Apply owner's live read context from its locked read/write Begin.
+It revalidates retained target and published inputs, measures InnoDB tables without
+triggers, bounds parameterized inserts and set-based two-pointer CAS batches, and
+reads back every row and cell, including bounded UTF8 text and microsecond timestamps.
+It performs no DDL or allocator repair and cannot register a complete provider route.
+Creator-linked cancellation and local scope/connection/transaction checks surround
+each awaited command and reader operation. These local checks do not prove a native
+transaction epoch. On this single connection, native proof queries run before a
+command and after its reader and command disposers return successfully; no second
+query runs through a live reader. Failures retain the first cause and cleanup
+observations, and unverified disposal cannot yield a successful stage. The original
+Apply owner still owns commit, rollback and journal append. PostgreSQL remains the
+default data dialect; low-level command fixtures grant no native write capability.
+
 Sealed Apply consumes the exact verified artifact and revalidates source (or
 exact journal progress), backup, target, tool and DAG after its exclusive lock,
 on the same native transaction/session. Control journal entries are insert-only;
@@ -236,6 +317,15 @@ separate integration/terminal proof, not a declaration inferred from a token.
 Current native Apply is PostgreSQL-only; missing compiled bootstrap/legacy
 operations, production admission or non-PG
 capabilities refuse before the first write. Legacy Contract guards are unchanged.
+
+Checkpoint decoding and the Host's pre-publication outcome gate share the original
+journal reference owner. Both retain exact non-media v1 and media v2 semantic
+anchors, while the checkpoint artifact's whole-file SHA remains a separate binding.
+Unknown versions, `latest`, extra suffixes and reference/digest disagreement refuse;
+the original digest, invocation, sequence, plan and database checks remain required.
+Accepting this data shape does not prove native completion, media publication or
+current-schema readiness. Prepared C# controls exercise the actual pure journal
+and Host owners; compiled and native qualification remain unrun.
 
 The durable native apply journal remains present after completion: no delete or
 external-chain handoff is inferred from bounded step proofs or a receipt. Its
@@ -292,6 +382,70 @@ unsupported foreign-key semantics, sequence/guard/dynamic seeds and full native
 control/bootstrap postconditions remain unavailable, so these commands cannot
 qualify a complete current bootstrap. Existing narrowly supported literal default
 syntax remains a subset compiler capability, not a new typed-expression authority.
+
+The migration-owned `SqliteCurrentSchemaCatalogObserver` is a read-only SQLite
+bootstrap prerequisite, not an approved bootstrap operation. It measures the
+caller's original native `Serializable` transaction: main schema SQL (including
+checks, views and trigger bodies), generated columns, strict/without-rowid flags,
+complete index key/auxiliary facts, foreign keys and violations, and actual
+`sqlite_sequence` watermarks. It preserves declared provider types without
+inventing a second current entity mapping, changes no pragma and commits nothing.
+Attached/temp namespaces, virtual/shadow-table capabilities and incomplete or
+oversized metadata are refused, not omitted. Its limits are the original source
+observer metadata limits. Native filename is only a namespace observation, never
+a database incarnation. The unique current owner still must supply the complete
+legal SQLite recipe projection and expected effects; original native incarnation,
+apply/DAG registration, backup admission and all-three-provider execution gates
+remain required. This component does not admit a legacy database as empty, issue a
+current receipt, or qualify a full bootstrap. Cancellation/physical interrupt and
+cleanup deadlines remain owned by the caller's native session, not this reader.
+
+`SqliteCurrentSchemaEffectObserver` reuses that same native catalog and the single
+`Shared.Algorithms.SqliteImmutableTriggerObserver` decoder. It records the actual
+unconditional `BEFORE UPDATE` or `BEFORE DELETE` event, `RAISE` action and exact
+literal message; it does not equate `ABORT`, `ROLLBACK`, `FAIL` and `IGNORE`, invent
+a two-event trigger, or choose a SQLite policy for the original PostgreSQL guard.
+Conditional/narrow events, extra statements and unsupported bodies fail closed.
+These are measured effects, not an expected current mapping or a bootstrap grant.
+Complete provider recipes, independent sequence semantics and target/DAG admission
+remain with their original owners; an empty observed effect vector is not success.
+
+The same closed decoder also renders explicit native trigger facts, escaping names
+and literal messages without inventing an action or merging update/delete events.
+`ReadAndMatchTriggerFactsAsync` freezes the supplied vector before observation and
+compares every actual name, table, event, action and message, rejecting missing,
+additional, conditional or different effects in the caller's original transaction.
+Duplicate-name admission uses SQLite's ASCII-only case fold; distinct Unicode
+case pairs remain separate native names, without normalizing event/action/message.
+This comparison does not authenticate expected facts: only the complete original
+current provider projection may supply production expectations. The original
+PostgreSQL exception does not by itself choose SQLite `ABORT` versus `ROLLBACK`;
+no such provider policy, independent allocator, full target or step registration
+is granted by this rendering/measurement adapter.
+
+The remote source integration retains the complete catalog/effect SOURCE controls
+from #1761 and #2217 under the bounded #3705 integration and the last source commit
+`c85ceb9004cbafc545b12c8deb7360fa0a4194a7`. The original strict SQLite sequence storage-type checks remain unchanged; the
+shared decoder uses the current `FsusBlog.Shared.Algorithms` owner. Real native
+SOURCE controls exposed an existing catalog defect: SQLite 3.49.1 returns NULL
+from `SUBSTR` of an empty BLOB, so the original bounded text projection lost the
+legitimate empty namespace filename before `RequiredText` could observe it. The
+projection now preserves a zero-byte non-NULL value as empty text before taking
+the original byte prefix. Actual NULL still remains NULL and is refused by the
+original required-field check. The `(MaximumCellCharacters + 1) * 4` byte prefix,
+row/character budgets, embedded-NUL refusal, strict sequence checks, original
+native connection/transaction and namespace admission remain unchanged.
+
+The supplementary combination of these complete production/control sources and
+prebuilt Migration prerequisite dependencies executed all 72 original controls
+and seven additional empty/NULL, Unicode, oversized-byte and NUL controls with
+79 passes and no skips. The original 57 failures before this fix remain recorded;
+no expected result or native fixture was weakened. This source combination does
+not prove the canonical candidate Migration assembly/build or required matrix.
+Those gates and independent full-provider bootstrap/admission remain separate. No task
+service, production receipt or approved SQLite action policy is implied. Rollback
+removes this isolated decoder/effect integration and its controls while preserving
+the existing catalog reader, owned-domain observer and shared PostgreSQL owners.
 
 The same source assembly also contains the original SQLite owned-domain observer.
 It measures the complete catalog on the borrowed original connection/transaction;
@@ -350,6 +504,39 @@ provider copies of the current schema model, shared legacy-only fields, web-host
 migration tests, graph cycles, dual registration, Server publish leakage, missing
 provider/build evidence and receipt or binding tampering.
 
+The same original producer's `--write` operation now requires the canonical
+scheduler run/source/namespace, the original admitted Migration build and a live
+owned MySQL fixture. It still runs both complete unfiltered commands:
+`dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore`
+and `dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore`.
+It writes only private pending receipt/binding and raw command logs. Production
+owns these through its `migration-assembly-verification` step in the original
+first-attempt output root; backend-unit uses its fixed run-private producer root.
+No arbitrary output path, permit JSON, filter or retry-attempt flag is accepted.
+
+After original current-run MySQL cleanup and successful build finalization,
+`node tools/db/generate-migration-assembly-receipt.mjs --publish-current-run`
+uses that same scheduler environment (and `--backend-unit` for the unit producer)
+to verify pending bytes, complete source/test inventories, original owner identity,
+actual released build resources and the exact cleaned MySQL admission. Only the
+original producer publishes the two registered tracked outputs. Partial pair
+publication restores the prior tracked bytes and removes only its identified
+staging files; original private logs remain available for diagnosis. Publication
+records `qualificationEligible: false`: tracked output changes require a fresh
+final-candidate run and independent acceptance. A source-control fixture or a
+historical receipt cannot satisfy that native execution requirement.
+
+The fresh final candidate uses `--verify-current-run` after its original cleanup
+and finalization to consume the newly executed pending evidence against the
+unchanged tracked source/binding. This reads actual current-run pending logs and
+full source fingerprints. After asynchronous build/service admission and before
+publication or a verified return, the producer re-observes the complete original
+source snapshot and rechecks pending/tracked bytes and file identities across that
+read window. Shared inputs outside Migration's local inventory must also remain
+unchanged. It does not rewrite tracked elapsed-time summaries or
+start another publication cycle. Passing this producer read does not replace
+full native/domain/CI or independent acceptance.
+
 The PostgreSQL fixture exercises both an empty database and the representative
 20260517 historical schema twice. For each starting point, the normalized columns,
 indexes, and constraints after the first run must exactly match the second run. It
@@ -389,6 +576,32 @@ closed. This route performs no DDL, backfill, journal or migration-history write
 Only successful startup admission publishes `CurrentSchemaAdmissionState.Current`;
 an absent state is never readiness. The same read-only verification API does not
 publish readiness when used by an operational consumer.
+`CurrentSchemaReceiptAdmission.ObserveVerifiedAsync` is the operational observation
+bridge for the explicit `FsusBlog.RuntimeRoleObservation --observe-current-schema`
+mode. Its closed stdin contains `connectionString`, `receiptPath`, `receiptSha256`
+and `candidateSourceRevision`; credentials are never command arguments or output.
+The original bounded regular-file owner retains the receipt descriptor across
+the complete native observation and rechecks its named incarnation and bytes.
+The sole current observer refuses incoming transactions for admission, owns one
+PostgreSQL read-only repeatable-read snapshot, and compares native database and
+session identities before and after the complete current tables/effects. It
+awaits explicit rollback, transaction disposal and any owned connection close;
+observation failures retain their first cause and independent cleanup failures.
+The operational return publishes neither startup state nor a new receipt.
+
+The synchronous `verifyRuntimeRoleCurrentSchemaPair` consumer requires two
+explicit compiled observer assemblies, formal receipt files and artifact hashes,
+candidate source revisions and independently live-verified service envelopes.
+It invokes each actual candidate separately without building, retains/rechecks
+the original file data, and compares native database/service identity, complete
+current target identity and schema digest/count. Each side exposes a
+`stableIdentity` for repeated operational comparisons; per-connection PID is
+kept only in its individual observation. Both the native result and pair return
+have `qualificationEligible: false`. These are controlled read-only observations,
+not startup readiness, test-materialization receipts, two-slot compatibility or
+offline execution authority. A missing formal issuer receipt, compiled candidate
+or actual native service keeps the route unverified; source controls cannot
+establish those facts.
 The receipt JSON must explicitly contain its closed `status`; omission cannot
 default to success. Receipt admission failures stop hosted business-service startup
 in Development as well as Production, using the fatal admission category rather
@@ -418,6 +631,18 @@ Other original-file consumers reuse this guard with their own existing byte limi
 Relative paths, `latest` discovery, empty or oversized files, cancellation and
 changed bytes cannot substitute reconstructed records for original artifacts.
 
+The sole native identity primitive is
+`src/shared/Algorithms/IO/NativeRegularFileGuard.cs`. Migration retains its original
+artifact-reader facade and refusal codes. The Server's bound receipt reader also
+uses this owner before opening a stream, reads the exact observed size plus a
+trailing-byte check, and validates the same handle/path identities before returning
+bytes. Its receipt budget remains exactly 1 MiB; the existing whole-file SHA and
+ordered `CurrentSchemaReceiptCodec` seal validation then run in admission. No
+receipt record or JSON status supplies a file identity token. Held database-FD
+validation never reopens or closes a database leaf. Sharing this file primitive
+does not connect the pending scheduler-admitted post-runtime native collector or
+qualify release/deployment acceptance.
+
 Native current schema, instance/database identity, required target postconditions
 and checkpoint replay predicates are re-observed on one PostgreSQL repeatable-read,
 read-only transaction. The issuer passes its actual native instance/database identity to the current-schema
@@ -432,6 +657,38 @@ return canonical current-receipt bytes with their separate whole-file SHA-256.
 `VerifyExistingAsync` consumes an explicit original receipt artifact and re-runs
 that native verification before comparing the complete recomputed receipt seal;
 it does not accept a caller's success status or re-use its claimed verifier identity.
+
+The current offline host also accepts a receipt-only `verify` invocation: retain
+the explicit provider, instance/database identity, environment, plan/apply paths
+and whole-file hashes, ordered `--checkpoint <path> <sha256>` inputs, invocation
+identity and finite timeout; use `--receipt <absolute-original-file>` and
+`--receipt-sha256 <whole-file-sha256>` instead of `--output`. Mixed publication
+and existing-receipt inputs, duplicate or unknown options, noncanonical paths,
+`latest` aliases and receipt/input conflicts refuse before I/O. This adds no
+publication destination and does not restore the retired offline phase protocol.
+Command selection follows option positions and their original value arity;
+literal receipt-option names used as ordinary identity values remain values.
+
+The sealed existing-receipt producer captures a private hash-bound byte snapshot,
+then calls the unchanged current native issuance owner with the exact request.
+PostgreSQL uses its current read-only issuer; MySQL uses the original typed
+`ObserveOwnedReadAsync` creator and live owned-context issuer. Complete independent
+receipt comparison precedes a re-read of the same explicit artifact after awaited
+native cleanup. The response reports the original artifact's whole-file hash and
+separate semantic seal, without publishing a new receipt. Byte capture and
+`RecheckExistingArtifactAsync` remain data checks and cannot admit native facts.
+Three-provider parsing is structural only: a configured SQLite request still
+refuses with `current_verify_sqlite_owned_current_schema_not_configured` before
+artifact or credential reads because the current SQLite source observer is not
+a current-schema verification factory. Ordinary publication-mode `verify` also
+preserves all three explicit provider identities during structural parsing. Before
+reading artifacts or credentials, its producer requires all four original owners;
+SQLite still refuses because its current-schema factory is absent. A configured
+PostgreSQL request uses the original native issuer; a configured MySQL request
+uses the original creator-owned context and owned issuer, never a raw connection
+and transaction supplied by the caller. Parsing does not prove provider readiness.
+These source paths and restored C# controls have not received compiled,
+native-provider or scheduler-collector qualification.
 
 The normal issuer factory remains deliberately unavailable until original native
 current-schema, compiled-operation and authenticated-backup owners are
@@ -543,6 +800,18 @@ capabilities and command drift refuse explicitly. Recipe compilation additionall
 requires the exact input digest from an independently verified owned artifact;
 producer strings or caller-supplied facts cannot substitute for that evidence.
 The original owner ordering (all tables before additional effects) is preserved.
+The sole required recipe catalog includes the six active authoring canvas operation
+tables and their original three indexes, constraints and foreign keys. Their
+current facts retain PostgreSQL `smallint[]`, `uuid[]` and `text[]` as distinct
+`int16-array`, `uuid-array` and `string-array` storage identities, including the
+receipt reasons and canvas-link history arrays. The original native catalog reader
+measures `pg_attribute.attndims`: only rank one with exact builtin array and
+element identities in `pg_catalog` is supported; scalar columns require rank zero.
+Domains, aliases, unknown elements, inconsistent physical types and other ranks
+refuse. Text arrays retain their native default collation. These arrays are not
+JSON conversions and have no MySQL or SQLite storage projection. The historical
+descriptor SQL and fingerprints remain unchanged; source coverage is not native
+bootstrap or three-provider qualification.
 `PgCurrentSchemaBootstrapOperation` and its exact compiled-owner registry provide
 a PostgreSQL empty-source component. They consume only an actually invoked owned
 target, bind the current Migration assembly bytes, revalidate retained original
@@ -570,6 +839,24 @@ has been executed for this source component. Source cases include original-vs-co
 schema/effect parity and immutable guard refusal, but have not been executed for
 this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.
+
+The original MySQL catalog query independently awaits its reader and command
+disposals, preserving the first query/shape/budget/cancellation failure via the
+original exception while recording only fixed immutable cleanup codes. Cleanup
+failure after an otherwise successful read still refuses; cancellation is checked
+after the complete awaited cleanup. Its SQL descriptors, metadata limits, original
+30-second command policy and native session/driver guard are unchanged. Direct
+private-query lifecycle SOURCE controls do not qualify native cleanup or a database.
+This remote-source integration remains WIP pending canonical Migration validation,
+independent native acceptance and complete source-bound assembly receipt generation.
+The 19 original SOURCE cases retain exact immutable diagnostic types, fixed values
+and ordering. Their comparison explicitly selects string sequence equality; the
+original default ImmutableArray overload compared distinct backing-array identities.
+A separate four-case overload diagnostic covers equal, reordered, dropped and altered
+values. These mocked cleanup controls are not native service qualification.
+It does not register a whole MySQL legacy migration operation. Rollback reverts this
+catalog-query cleanup change if reader or command custody regresses, retaining the
+existing native session guards and metadata budgets.
 
 `PgCurrentSchemaCatalogObserver`, `PgCurrentSchemaEffectObserver` and
 `PgCurrentSchemaExpressionParser` are the single current native PostgreSQL

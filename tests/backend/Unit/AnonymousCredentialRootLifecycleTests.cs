@@ -91,7 +91,7 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
     [Trait("Category", "Concurrency")]
     public async Task RootLifecycle_HighFrequencyReaderAndVerifierReuseSingleAuthoritativeGeneration()
     {
-        const int Reads = 32;
+        const int Reads = 48;
         string connectionString = await CreateConnectionStringAsync();
         var clock = new MutableTimeProvider(s_runtimeNow);
         var queryProbe = new RootQueryProbe();
@@ -123,6 +123,7 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
             Reads,
             () => rootService.GetCurrentSnapshotAsync(CancellationToken.None));
 
+        Assert.Equal(48, serviceReads.Length);
         Assert.All(serviceReads, static result => Assert.True(result.IsSuccess, result.Error.Message));
         Assert.Single(serviceReads.Select(SnapshotIdentity).Distinct(StringComparer.Ordinal));
         Assert.Equal(1, queryProbe.RootSelectCount);
@@ -136,6 +137,7 @@ public sealed class AnonymousCredentialRootLifecycleTests(PostgresSchemaMigratio
         AnonymousCredentialRootRuntimeSnapshot[] readerReads = await RunConcurrentlyAsync(
             Reads,
             () => Task.FromResult(reader.CurrentSnapshot));
+        Assert.Equal(48, readerReads.Length);
         Assert.All(readerReads, snapshot => Assert.Same(runtimeGeneration, snapshot));
 
         var backend = new AcceptingProductionZkProofBackend();

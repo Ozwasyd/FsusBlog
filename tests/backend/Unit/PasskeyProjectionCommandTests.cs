@@ -1,4 +1,4 @@
-using FsusBlog.Server.Infrastructure.SchemaMigration;
+using FsusBlog.Server.Infrastructure.Operations;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -7,25 +7,25 @@ public sealed class PasskeyProjectionCommandTests
     [Fact]
     public void CheckCommand_ParsesWithoutReleaseIdentity()
     {
-        OnlineSchemaMigrationCommand command = OnlineSchemaMigrationCommandLine.Parse(
+        ServerCommand command = ServerCommandLine.Parse(
             ["passkey-projection", "--check", "--env-file", "/run/secrets/fsus.env"]);
 
-        Assert.Equal(OnlineSchemaMigrationCommandKind.PasskeyProjectionCheck, command.Kind);
+        Assert.Equal(ServerCommandKind.PasskeyProjectionCheck, command.Kind);
         Assert.Equal("/run/secrets/fsus.env", command.EnvironmentFilePath);
-        Assert.False(command.ConfirmDestructive);
+        Assert.False(command.ConfirmRepair);
     }
 
     [Fact]
     public void RepairCommand_RequiresExplicitConfirmation()
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            OnlineSchemaMigrationCommandLine.Parse(["passkey-projection", "--repair"]));
-        OnlineSchemaMigrationCommand command = OnlineSchemaMigrationCommandLine.Parse(
+            ServerCommandLine.Parse(["passkey-projection", "--repair"]));
+        ServerCommand command = ServerCommandLine.Parse(
             ["passkey-projection", "--repair", "--confirm-repair"]);
 
         Assert.Equal("passkey_projection_repair_confirmation_required", error.Message);
-        Assert.Equal(OnlineSchemaMigrationCommandKind.PasskeyProjectionRepair, command.Kind);
-        Assert.True(command.ConfirmDestructive);
+        Assert.Equal(ServerCommandKind.PasskeyProjectionRepair, command.Kind);
+        Assert.True(command.ConfirmRepair);
     }
 
     [Theory]
@@ -37,7 +37,7 @@ public sealed class PasskeyProjectionCommandTests
         string expectedCode)
     {
         InvalidOperationException error = Assert.Throws<InvalidOperationException>(() =>
-            OnlineSchemaMigrationCommandLine.Parse(["passkey-projection", first, second]));
+            ServerCommandLine.Parse(["passkey-projection", first, second]));
 
         Assert.Equal(expectedCode, error.Message);
     }

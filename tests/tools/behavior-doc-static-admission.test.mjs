@@ -6,7 +6,9 @@ import path from 'node:path';
 import process from 'node:process';
 import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import { createCurrentSchemaCodeContractFixture } from './support/runtime-role-minimal-v3-fixture.mjs';
 
+const { runtimeRoleRequiredExecutionFiles } = await import(new URL('../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
 const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
@@ -133,6 +135,9 @@ function fakeMinimalReceipt(runId, source)
                     ...(artifactId === 'runtime-role-observation'
                         ? {
                             sourceCommit: source.sourceCommit,
+                            observationSchema: 'fsusblog.runtime-role-observation.v3',
+                            evidenceStage: 'pre-runtime',
+                            evidenceClass: 'compiled-production-code-model',
                             worktreeFingerprint: source.worktreeFingerprint,
                             projectDigest: 'c'.repeat(64),
                             assemblyPath: runtimeAssemblyPath,
@@ -151,6 +156,10 @@ function fakeMinimalReceipt(runId, source)
                                 outputRoot: runtimeBuildRoot,
                                 assemblyPath: runtimeAssemblyPath,
                                 assemblyDigest: '3'.repeat(64),
+                                executionClosure: runtimeRoleRequiredExecutionFiles.map((file) => ({
+                                    path: file, mode: 0o644, digest: file === 'FsusBlog.RuntimeRoleObservation.dll'
+                                        ? '3'.repeat(64) : '9'.repeat(64)
+                                })).sort((left, right) => left.path < right.path ? -1 : left.path > right.path ? 1 : 0),
                                 sourceClosureDigest: digestValue(sourceClosureDigests)
                             },
                             deploymentArtifactPath: runtimeDeploymentPath,
@@ -336,6 +345,9 @@ function copyMinimalBuildFixture(repositoryRoot)
         'config/contracts/behavior-fact-extractors.json',
         'tools/docs/behavior-doc-minimal-contract-build.mjs',
         'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
+        'tools/fact-extractors/lib/runtime-role-execution-closure.mjs',
+        'tools/test-matrix/post-runtime-producer-registry.mjs',
+        'tools/fact-extractors/runner.mjs',
         'tools/fact-extractors/identity.mjs',
         'Directory.Build.props',
         'Directory.Packages.props',
@@ -648,7 +660,10 @@ test('minimal contract build uses only a content-addressed root and never ambien
                 'bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll'
             );
             fs.mkdirSync(path.dirname(assembly), { recursive: true });
-            fs.writeFileSync(assembly, 'fixture-runtime-role-assembly');
+            for (const file of runtimeRoleRequiredExecutionFiles)
+            {
+                fs.writeFileSync(path.join(path.dirname(assembly), file), 'fixture-runtime-role-assembly');
+            }
             return { status: 0, stdout: '', stderr: '' };
         }
         const outputIndex = args.indexOf('--output');
@@ -661,7 +676,8 @@ test('minimal contract build uses only a content-addressed root and never ambien
             : null;
         fs.writeFileSync(args[outputIndex + 1], runtime
             ? `${JSON.stringify({
-                schema: 'fsusblog.runtime-role-observation.v2',
+                schema: 'fsusblog.runtime-role-observation.v3',
+                currentSchemaContract: createCurrentSchemaCodeContractFixture(),
                 deploymentAuthority: {
                     authoritySchema: deployment.authoritySchema,
                     authorityContentDigest: deployment.authorityContentDigest,
@@ -761,7 +777,9 @@ if [[ "\${1:-}" == "build" ]]; then
   done
   assembly="$artifacts/bin/FsusBlog.RuntimeRoleObservation/release/FsusBlog.RuntimeRoleObservation.dll"
   mkdir -p "$(dirname "$assembly")"
-  printf 'fixture-runtime-role-assembly' > "$assembly"
+  for file in FsusBlog.RuntimeRoleObservation.dll FsusBlog.Server.dll FsusBlog.Migration.dll FsusBlog.RuntimeRoleObservation.deps.json FsusBlog.RuntimeRoleObservation.runtimeconfig.json; do
+    printf 'fixture-runtime-role-assembly' > "$(dirname "$assembly")/$file"
+  done
   exit 0
 fi
 output=""
@@ -800,7 +818,8 @@ if [[ "$runtime" == "1" ]]; then
     import fs from "node:fs";
     const deployment = JSON.parse(fs.readFileSync(process.argv[1], "utf8"));
     fs.writeFileSync(process.argv[2], JSON.stringify({
-      schema: "fsusblog.runtime-role-observation.v2",
+      schema: "fsusblog.runtime-role-observation.v3",
+      currentSchemaContract: ${JSON.stringify(createCurrentSchemaCodeContractFixture())},
       deploymentAuthority: {
         authoritySchema: deployment.authoritySchema,
         authorityContentDigest: deployment.authorityContentDigest,

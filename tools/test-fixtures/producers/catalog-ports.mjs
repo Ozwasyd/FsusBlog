@@ -10,6 +10,7 @@ import path from 'node:path';
 const { readFixtureCatalogs } = await import(new URL("../../testing/fixture-catalog.mjs", import.meta.url));
 
 import { accountProfilePreferenceIdentityRoleRequests } from './account-profile-preference-producer.mjs';
+import { observeBackendTemporalContext, observePreparedBackendTemporalContext, validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 import {
     buildProducerChildEnv,
     repositoryRoot,
@@ -102,49 +103,6 @@ function variantOutputFromTypedPlan(context, producerId)
     };
 }
 
-async function observeBackendTemporalContext(context, signal)
-{
-    const baseUrl = context.handles?.debugBackendUrl
-    ?? context.handles?.baseUrl
-    ?? process.env.FSUSBLOG_DEBUG_BACKEND_URL
-    ?? process.env.FSUSBLOG_BASE_URL
-    ?? '';
-    const secret = context.handles?.localPublicContentFixtureSecret
-    ?? context.handles?.localAuthFixtureSecret
-    ?? context.handles?.localDemoFixtureSecret
-    ?? process.env.FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET
-    ?? process.env.FSUSBLOG_LOCAL_AUTH_FIXTURE_SECRET
-    ?? process.env.FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET
-    ?? '';
-    if (!baseUrl || !secret)
-    {
-        throw new Error(
-            'backend temporal observation requires the actual backend URL and local fixture secret'
-        );
-    }
-    const response = await fetch(`${baseUrl}/__local/temporal-observation`, {
-        headers: {
-            'X-Fsus-Local-Temporal-Fixture-Secret': secret
-        },
-        signal
-    });
-    const text = await response.text();
-    if (!response.ok)
-    {
-        throw new Error(
-            `backend temporal observation failed HTTP ${response.status}: ${text.slice(0, 400)}`
-        );
-    }
-    try
-    {
-        return JSON.parse(text);
-    }
-    catch
-    {
-        throw new Error('backend temporal observation returned invalid JSON');
-    }
-}
-
 export function createAuthSessionPort(catalogs = readFixtureCatalogs())
 {
     const producer = catalogProducer('auth-session', catalogs);
@@ -182,11 +140,13 @@ export function createPublicContentPort(catalogs = readFixtureCatalogs())
             assertNoStrategyEnv();
             // transaction-fixture only (#1712): domain-port composition root, no API/DB fallback.
             const {
-                preparePublicContent
+                preparePublicContent, resolvePublicContentBackendUrl
             } = await import('./public-content-producer.mjs');
             const result = await preparePublicContent(context, signal);
             const backendObservation = context.temporalContext
-                ? await observeBackendTemporalContext(context, signal)
+                ? await observePreparedBackendTemporalContext(context, result.temporalObservation, signal, {
+                    baseUrl: resolvePublicContentBackendUrl(context)
+                })
                 : null;
             return {
                 ...result,
@@ -227,10 +187,10 @@ export function createDevelopmentDemoPort(catalogs = readFixtureCatalogs())
         async prepare(context, signal)
         {
             assertNoStrategyEnv();
-            const { prepareDemoPublic } = await import('./demo-public-producer.mjs');
+            const { prepareDemoPublic, resolveDemoBackendUrl } = await import('./demo-public-producer.mjs');
             const result = await prepareDemoPublic(context, signal);
             const backendObservation = context.temporalContext
-                ? await observeBackendTemporalContext(context, signal)
+                ? await observeBackendTemporalContext(context, signal, { baseUrl: resolveDemoBackendUrl(context) })
                 : null;
             return {
                 ...result,
@@ -250,6 +210,17 @@ export function createDevelopmentDemoPort(catalogs = readFixtureCatalogs())
         },
         async verify(context, producerResult)
         {
+            if (context.temporalContext)
+            {
+                try
+                {
+                    validateBackendTemporalObservation(context.temporalContext, producerResult?.temporalObservation);
+                }
+                catch (error)
+                {
+                    return { ok: false, producerId: producer.id, reason: error.message };
+                }
+            }
             const { verifyDemoPublic } = await import('./demo-public-producer.mjs');
             return verifyDemoPublic(context, producerResult);
         },

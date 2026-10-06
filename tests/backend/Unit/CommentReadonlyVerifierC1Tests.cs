@@ -335,7 +335,7 @@ public sealed class CommentReadonlyVerifierC1Tests
         public ReadModel()
         {
             IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?> { ["CommentThreads:MaxDepth"] = "2" }).Build();
-            Seeder = new CommentFixtureSeeder(Threads, Moderation, configuration);
+            Seeder = new CommentFixtureSeeder(Threads, Moderation, configuration, TimeProvider.System);
             var plan = new CommentFixturePlan("fsusblog.comment-fixture-plan.v1", "comment-moderation", "transaction-fixture",
                 "c1-test-run", "c1-test-ns", "c1-test-session", "comments-moderation",
                 ["comment.moderation-matrix", "comment.threaded", "moderation.policy-matrix"],

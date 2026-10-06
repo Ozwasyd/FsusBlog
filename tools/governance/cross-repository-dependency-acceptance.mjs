@@ -22,6 +22,7 @@ const blogClosure = [
     'tools/governance/dependency-blocker-checks.mjs',
     'tools/governance/dependency-freshness-blockers.mjs',
     'tools/dependencies/update-fsusui-release.mjs',
+    'tools/dependencies/fsusui-release-package.mjs',
     'tools/dependencies/verify-fsusui-release-event.mjs',
     'tools/dependencies/fsusui-manager-ownership.mjs',
     'config/dependencies/update-surface.json',
@@ -873,7 +874,7 @@ export function validateReceipt(receipt)
     {
         throw new Error('receipt_status');
     }
-    if (receipt.terminalQualification !== (receipt.status === 'pass'))
+    if (receipt.terminalQualification !== false)
     {
         throw new Error('receipt_terminal_qualification');
     }
@@ -1009,7 +1010,7 @@ export async function runAcceptance({ blogRepository, blogSha, uiRepository, uiS
         }));
         const payload = {
             schema: receiptSchema, evidenceClass,
-            terminalQualification: cases.every((item) => item.pass),
+            terminalQualification: false,
             qualification: {
                 mode: 'explicit-user-authorized-local-equivalent',
                 hostedEvidenceClaimed: false,

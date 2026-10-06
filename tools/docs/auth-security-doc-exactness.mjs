@@ -11,7 +11,7 @@ import {
     validateBehaviorDocExactnessReceipt,
     verifyBehaviorDocExactnessReplay
 } from './behavior-doc-exactness.mjs';
-import { readBehaviorDocStaticAdmissionReceipt } from './behavior-doc-static-admission.mjs';
+import { readBehaviorDocStaticAdmissionReceipt } from './behavior-doc-static-admission-reader.mjs';
 import { parseRepositoryClaims } from './doc-claim.mjs';
 import { processGeneratedFactSections } from './generated-fact-sections/generator.mjs';
 import { verifyProseClaims } from './prose-claim-verifier/verifier.mjs';

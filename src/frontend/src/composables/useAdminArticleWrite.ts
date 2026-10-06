@@ -811,7 +811,7 @@ export function useAdminArticleWrite()
     const documentSiteHost = typeof window === 'undefined' ? '' : window.location.host.trim();
     const documentSiteScope = `site:${documentSiteHost.length > 0 ? documentSiteHost : 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
-    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() ?? 'unknown'}`
+    const documentUserScope = `user:${adminStore.adminPrincipal?.id?.trim() || 'unknown'}`
         .replace(/[^a-zA-Z0-9._:-]/gu, '-');
     const articleDocumentContextBinding = articleDocumentContextAuthority.acquire({
         articleId: articleId.value,

@@ -47,6 +47,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         ?? throw new InvalidOperationException("GetOrCreateStablePasskeyUserHandleAsync should exist.");
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task StablePasskeyUserHandle_ConcurrentFirstRegistrationReturnsOneFinalHandle()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -66,9 +67,9 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         var secondStaleUser = new User { Id = accountId, PasskeyUserHandle = null };
         using var barrier = new Barrier(2);
 
-        byte[][] handles = await Task.WhenAll(
-                StartBarrierTaskAsync(barrier, () => InvokeGetOrCreateStablePasskeyUserHandleAsync(firstService, firstStaleUser)),
-                StartBarrierTaskAsync(barrier, () => InvokeGetOrCreateStablePasskeyUserHandleAsync(secondService, secondStaleUser)))
+        byte[][] handles = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(barrier, () => InvokeGetOrCreateStablePasskeyUserHandleAsync(firstService, firstStaleUser)),
+            () => StartBarrierTaskAsync(barrier, () => InvokeGetOrCreateStablePasskeyUserHandleAsync(secondService, secondStaleUser)))
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.True(handles[0].AsSpan().SequenceEqual(handles[1]));
@@ -79,6 +80,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task RemoveCredentialAsync_ConcurrentDeletesKeepOnePasskeyWithoutRecovery()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -100,9 +102,9 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         PasskeyService secondService = CreatePasskeyService(secondDb);
         using var barrier = new Barrier(2);
 
-        PasskeyCredentialMutationResult[] results = await Task.WhenAll(
-                StartBarrierTaskAsync(barrier, () => firstService.RemoveCredentialAsync(accountId, firstCredentialId, CancellationToken.None)),
-                StartBarrierTaskAsync(barrier, () => secondService.RemoveCredentialAsync(accountId, secondCredentialId, CancellationToken.None)))
+        PasskeyCredentialMutationResult[] results = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(barrier, () => firstService.RemoveCredentialAsync(accountId, firstCredentialId, CancellationToken.None)),
+            () => StartBarrierTaskAsync(barrier, () => secondService.RemoveCredentialAsync(accountId, secondCredentialId, CancellationToken.None)))
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Single(results, static result => result.Success);
@@ -118,6 +120,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task UserPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -140,9 +143,9 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         PasskeyService secondService = CreatePasskeyService(secondDb);
         using var barrier = new Barrier(2);
 
-        bool[] results = await Task.WhenAll(
-                StartBarrierTaskAsync(barrier, () => InvokeTryUpdatePasskeySignCountAsync(firstService, credentialId, 7, rowVersion, 8)),
-                StartBarrierTaskAsync(barrier, () => InvokeTryUpdatePasskeySignCountAsync(secondService, credentialId, 7, rowVersion, 8)))
+        bool[] results = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(barrier, () => InvokeTryUpdatePasskeySignCountAsync(firstService, credentialId, 7, rowVersion, 8)),
+            () => StartBarrierTaskAsync(barrier, () => InvokeTryUpdatePasskeySignCountAsync(secondService, credentialId, 7, rowVersion, 8)))
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Single(results, static result => result);
@@ -151,6 +154,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task UserPasskeyAssertion_ConcurrentCasConflictReloadsWithoutCloneResponse()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -188,11 +192,11 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
             CreateAssertionCache(),
             sessions);
 
-        var results = await Task.WhenAll(
-                firstService.CompleteAssertionAsync(
+        var results = await RealConcurrencyHarness.RunAsync(
+            () => firstService.CompleteAssertionAsync(
                     CreateAssertionRequest(credentialId, actualSignCount: 11, backupEligible: false, backupState: false),
                     CancellationToken.None),
-                secondService.CompleteAssertionAsync(
+            () => secondService.CompleteAssertionAsync(
                     CreateAssertionRequest(credentialId, actualSignCount: 12, backupEligible: true, backupState: true),
                     CancellationToken.None))
             .WaitAsync(TimeSpan.FromSeconds(30));
@@ -208,6 +212,7 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task AdminPasskeySignCount_ConcurrentStaleRowVersionAllowsOnlyOneUpdate()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -232,9 +237,9 @@ public sealed class PasskeySignCountConcurrencyTests(PostgresSchemaMigrationFixt
         AdminPrincipalService secondService = CreateAdminPrincipalService(secondDb);
         using var barrier = new Barrier(2);
 
-        bool[] results = await Task.WhenAll(
-                StartBarrierTaskAsync(barrier, () => InvokeTryUpdateAdminPasskeySignCountAsync(firstService, credentialId, 11, rowVersion, 12)),
-                StartBarrierTaskAsync(barrier, () => InvokeTryUpdateAdminPasskeySignCountAsync(secondService, credentialId, 11, rowVersion, 12)))
+        bool[] results = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(barrier, () => InvokeTryUpdateAdminPasskeySignCountAsync(firstService, credentialId, 11, rowVersion, 12)),
+            () => StartBarrierTaskAsync(barrier, () => InvokeTryUpdateAdminPasskeySignCountAsync(secondService, credentialId, 11, rowVersion, 12)))
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Single(results, static result => result);

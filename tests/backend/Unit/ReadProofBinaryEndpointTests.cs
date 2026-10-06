@@ -18,6 +18,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ReadProofBinaryEndpointTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ChallengeAsync_ValidAedsRequest_ReturnsChallengeFrame()
     {
         var aeds = new AedsEncoder();
@@ -43,6 +44,7 @@ public sealed class ReadProofBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-rejected-challenge-signal")]
     public async Task ChallengeAsync_RejectedChallenge_WritesRiskSignalAndKeepsLegacyFallbackShape()
     {
         var aeds = new AedsEncoder();
@@ -72,6 +74,7 @@ public sealed class ReadProofBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task SubmitAsync_ValidAedsRequest_ReturnsSubmitFrame()
     {
         var aeds = new AedsEncoder();
@@ -102,6 +105,7 @@ public sealed class ReadProofBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-rejected-proof-signal")]
     public async Task SubmitAsync_RejectedProof_WritesRiskSignal()
     {
         var aeds = new AedsEncoder();
@@ -125,6 +129,7 @@ public sealed class ReadProofBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-dedup-unavailable-no-work")]
     public async Task SubmitAsync_DedupUnavailable_DoesNotCreateBackgroundRiskWork()
     {
         var aeds = new AedsEncoder();
@@ -153,6 +158,7 @@ public sealed class ReadProofBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "readproof-malformed-payload-error")]
     public async Task ChallengeAsync_MalformedPayload_ReturnsApiErrorFrame()
     {
         var aeds = new AedsEncoder();

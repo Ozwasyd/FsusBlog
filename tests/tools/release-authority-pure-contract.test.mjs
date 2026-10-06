@@ -2,7 +2,7 @@ import assert from 'node:assert/strict'
 import test from 'node:test'
 import { digestValue, stable } from '../../tools/fact-extractors/lib/canonicalize.mjs'
 import { buildReleaseReadinessAuthorityBundle, buildBlueGreenAuthorityBundle } from '../../tools/test-evidence/release-authority-bundle-contract.mjs'
-import { deriveReleaseReadinessAuthorityFacts, deriveBlueGreenAuthorityFacts } from '../../tools/test-evidence/release-authority-facts-contract.mjs'
+import { deriveReleaseReadinessModelFacts, deriveBlueGreenModelFacts } from '../../tools/fact-extractors/lib/release-authority-model-facts-contract.mjs'
 import { seal as pureSeal } from '../../tools/fact-extractors/post-runtime/receipt-seal-contract.mjs'
 import { createPureReleaseAuthorityFixture } from './support/pure-release-authority-fixture.mjs'
 
@@ -26,8 +26,8 @@ test('pure release authority bundle and facts preserve original-body golden pari
   const actual = {
     releaseBundle: buildReleaseReadinessAuthorityBundle(fixture),
     blueGreenBundle: buildBlueGreenAuthorityBundle({ ...fixture, candidatePlan: fixture.planInput.ref.path, context }),
-    releaseFacts: deriveReleaseReadinessAuthorityFacts(fixture),
-    blueGreenFacts: deriveBlueGreenAuthorityFacts(fixture)
+    releaseFacts: deriveReleaseReadinessModelFacts(fixture).facts,
+    blueGreenFacts: deriveBlueGreenModelFacts(fixture).facts
   }
   // Captured from original bundle bodies at 0e8ed680 and projector bodies at 311cf194e.
   assert.equal(semanticDigest(actual), 'sha256:52c0b87d0be0abf9a13d578164af0910679485fa3e7f6ac7b3b7df494fa0e0d4')
@@ -39,13 +39,13 @@ test('pure release authority facts follow current inputs and preserve projection
   const fixture = pureAuthorityFixture()
   fixture.build.packageDigest = semanticDigest('changed-package')
   fixture.authorities.manifest.value.schemaCompatibility.contentDigest = semanticDigest('explicit-schema')
-  const release = deriveReleaseReadinessAuthorityFacts(fixture)
+  const release = deriveReleaseReadinessModelFacts(fixture).facts
   assert.equal(release.typedFacts.packageDigest, fixture.build.packageDigest)
   assert.equal(release.legacyFacts.packageDigest, fixture.build.packageDigest)
   assert.equal(release.typedFacts.schemaDigest, fixture.authorities.manifest.value.schemaCompatibility.contentDigest)
   fixture.authorities.rollout.value.stages = fixture.authorities.rollout.value.stages.filter(({ stage }) => stage !== 'candidate-readiness')
-  const blue = deriveBlueGreenAuthorityFacts(fixture)
+  const blue = deriveBlueGreenModelFacts(fixture).facts
   assert.equal(blue.typedFacts.promotionDigest, blue.typedFacts.switchDigest)
   fixture.authorities.rollout.value.artifacts.assetCompatibility.sha256 = semanticDigest('changed-assets')
-  assert.notEqual(deriveBlueGreenAuthorityFacts(fixture).typedFacts.containmentDigest, blue.typedFacts.containmentDigest)
+  assert.notEqual(deriveBlueGreenModelFacts(fixture).facts.typedFacts.containmentDigest, blue.typedFacts.containmentDigest)
 })

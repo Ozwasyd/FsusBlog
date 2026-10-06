@@ -35,6 +35,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     private static readonly byte[] s_previousPseudonymKey = Enumerable.Range(33, 32).Select(static value => (byte)value).ToArray();
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Migration_CreatesSecurityRiskEventTableWithQueryableDimensions()
     {
         var registry = new SchemaMigrationRegistry();
@@ -64,6 +65,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Migration_AddsPseudonymEpochAndPurgesUnkeyedIdentityHistory()
     {
         var registry = new SchemaMigrationRegistry();
@@ -81,6 +83,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RiskScoreEngine_AggregatesActiveEventsWithLinearTtlDecay()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -104,6 +107,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RiskEventStore_QueriesBySourceReasonActionAndSubjectHash()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -127,6 +131,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RiskEventStore_PersistsKeyedClientIpPseudonymInsteadOfRawSha256()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -151,6 +156,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "risk-persistence-failure-sanitized-fallback-log")]
     public async Task SecurityRiskEventSink_PersistenceFailureDoesNotBreakHotPathAndWritesFallbackLog()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -213,6 +219,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityRiskEventSink_AddRiskAsync_EnqueuesPersistenceWithoutAwaitingStore()
     {
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
@@ -259,6 +266,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "risk-event-batch-failure-retry-preserves-writes")]
     public async Task SecurityRiskEventWriter_PersistsBatchesRetriesByHalvesAndEmitsRuntimeMetrics()
     {
         var measurements = new List<(string Name, double Value)>();
@@ -305,6 +313,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityRiskEventWriterWorker_FlushOnceAsync_PersistsQueuedRiskEvents()
     {
         var store = new RecordingRiskEventStore();
@@ -338,6 +347,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityRiskEventSink_UsesStableAccountSubjectHashInsteadOfUserId()
     {
         var store = new RecordingRiskEventStore();
@@ -378,6 +388,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "risk-account-subject-missing-domain-isolation")]
     public async Task SecurityRiskEventSink_MissingAccountSubjectHashDoesNotCrossIdentityDomains()
     {
         var store = new RecordingRiskEventStore();
@@ -420,6 +431,7 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityRiskEventSink_RedisMissFallsBackToPostgresAggregationAndWarmsCache()
     {
         using SqlSugarClient db = await CreateDbAsync();

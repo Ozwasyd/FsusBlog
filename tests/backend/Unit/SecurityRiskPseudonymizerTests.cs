@@ -14,6 +14,7 @@ public sealed class SecurityRiskPseudonymizerTests
     private static readonly byte[] s_differentKey = Enumerable.Range(33, 32).Select(static value => (byte)value).ToArray();
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PseudonymizeCurrent_IsDeterministicDomainSeparatedAndKeyed()
     {
         var pseudonymizer = new SecurityRiskPseudonymizer(7, s_currentKey);
@@ -40,6 +41,7 @@ public sealed class SecurityRiskPseudonymizerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PseudonymizeCurrent_NormalizesIpv4MappedIpv6()
     {
         var pseudonymizer = new SecurityRiskPseudonymizer(3, s_currentKey);
@@ -54,6 +56,7 @@ public sealed class SecurityRiskPseudonymizerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PseudonymizeForRead_ReturnsCurrentAndUnexpiredPreviousEpoch()
     {
         var clock = new FixedTimeProvider(s_now);
@@ -76,6 +79,7 @@ public sealed class SecurityRiskPseudonymizerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PseudonymizeForRead_DropsExpiredPreviousEpoch()
     {
         var pseudonymizer = new SecurityRiskPseudonymizer(
@@ -94,6 +98,7 @@ public sealed class SecurityRiskPseudonymizerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "risk-pseudonym-key-required")]
     public void ValidateConfiguration_FailsClosedForMissingWeakTemplateAndReusedKeys()
     {
         Assert.Contains(
@@ -131,6 +136,7 @@ public sealed class SecurityRiskPseudonymizerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void ValidateConfiguration_AcceptsBoundedIndependentRotationWindow()
     {
         IConfiguration configuration = Configuration(new Dictionary<string, string?>

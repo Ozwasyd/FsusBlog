@@ -564,7 +564,7 @@
                 ],
                 "referenceContracts": {
                     "rolloutEvidenceRef": {
-                        "schema": "fsusblog.release-rollout-evidence.v1",
+                        "schema": "fsusblog.release-rollout-evidence.v2",
                         "role": "release-rollout",
                         "identityFields": [
                             "releaseId"
@@ -641,7 +641,7 @@
                 ],
                 "referenceContracts": {
                     "rolloutEvidenceRef": {
-                        "schema": "fsusblog.release-rollout-evidence.v1",
+                        "schema": "fsusblog.release-rollout-evidence.v2",
                         "role": "release-rollout",
                         "identityFields": [
                             "releaseId",
