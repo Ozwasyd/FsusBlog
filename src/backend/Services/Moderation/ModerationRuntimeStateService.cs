@@ -269,59 +269,149 @@ public sealed class ModerationRuntimeStateService(
     {
         lock (_gate)
         {
-            ModerationModelRuntimeSnapshot current = Current.Model;
-            string resolvedProvider = string.IsNullOrWhiteSpace(provider) ? current.Provider : NormalizeProvider(provider);
-            if (!s_validModelProviders.Contains(resolvedProvider))
-            {
-                return Result<ModerationRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_invalid");
-            }
-
-            bool nextEnabled = enabled ?? current.Enabled;
-            FsusAntiSpamModelRuntimeSnapshot? runtime = current.BuiltInRuntime;
-            if (nextEnabled)
-            {
-                Result<FsusAntiSpamModelRuntimeSnapshot> runtimeResult = runtime is null
-                    ? LoadBuiltInRuntime(configuration)
-                    : Result<FsusAntiSpamModelRuntimeSnapshot>.Success(runtime);
-                if (runtimeResult.IsFailure)
-                {
-                    return Result<ModerationRuntimeSnapshot>.Failure(runtimeResult.Error);
-                }
-
-                runtime = runtimeResult.Value!;
-                resolvedProvider = AntiSpamModerationProviders.BuiltIn;
-            }
-
-            _previousModel = current;
-            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
-            ModerationModelRuntimeSnapshot nextModel = current with
-            {
-                SnapshotId = BuildSnapshotId("model", $"{resolvedProvider}:{enabled?.ToString() ?? "same"}", now),
-                Enabled = nextEnabled,
-                Provider = resolvedProvider,
-                ModelProfile = runtime?.ModelProfile ?? TextHelpers.TrimOrNull(modelProfile) ?? current.ModelProfile,
-                ThresholdProfile = TextHelpers.TrimOrNull(thresholdProfile) ?? current.ThresholdProfile,
-                ContractVersion = runtime?.ContractVersion ?? current.ContractVersion,
-                ConfigChecksum = runtime?.ConfigChecksum ?? BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{now:O}"),
-                LoadedAtUtc = now,
-                LoadedBy = NormalizeActor(changedBy),
-                Status = "loaded",
-                LastError = null,
-                RuntimePath = runtime?.RuntimePath ?? current.RuntimePath,
-                RuntimeChannel = runtime?.Channel ?? current.RuntimeChannel,
-                BuiltInRuntime = runtime
-            };
+            Result<ModerationModelRuntimeSnapshot> prepared = PrepareModelRuntime(
+                enabled, provider, modelProfile, thresholdProfile, changedBy);
+            if (prepared.IsFailure)
+                return Result<ModerationRuntimeSnapshot>.Failure(prepared.Error);
+            ModerationModelRuntimeSnapshot nextModel = prepared.Value!;
+            _previousModel = Current.Model;
             ModerationRuntimeSnapshot next = Current with
             {
-                SnapshotId = BuildSnapshotId("model-runtime", nextModel.ConfigChecksum, now),
+                SnapshotId = BuildSnapshotId("model-runtime", nextModel.ConfigChecksum, nextModel.LoadedAtUtc),
                 Model = nextModel,
-                ChangedAtUtc = now,
+                ChangedAtUtc = nextModel.LoadedAtUtc,
                 ChangedBy = NormalizeActor(changedBy),
                 Reason = TextHelpers.TrimOrNull(reason),
                 LastError = null
             };
             Volatile.Write(ref _snapshot, next);
             return Result<ModerationRuntimeSnapshot>.Success(next);
+        }
+    }
+
+    // Called under _gate. All model loading and validation precede publication.
+    private Result<ModerationModelRuntimeSnapshot> PrepareModelRuntime(
+        bool? enabled, string? provider, string? modelProfile, string? thresholdProfile, string changedBy)
+    {
+        ModerationModelRuntimeSnapshot current = Current.Model;
+        string resolvedProvider = string.IsNullOrWhiteSpace(provider) ? current.Provider : NormalizeProvider(provider);
+        if (!s_validModelProviders.Contains(resolvedProvider))
+        {
+            return Result<ModerationModelRuntimeSnapshot>.Failure(ErrorCode.Validation, "moderation_model_provider_invalid");
+        }
+
+        bool nextEnabled = enabled ?? current.Enabled;
+        FsusAntiSpamModelRuntimeSnapshot? runtime = current.BuiltInRuntime;
+        if (nextEnabled)
+        {
+            Result<FsusAntiSpamModelRuntimeSnapshot> runtimeResult = runtime is null
+                ? LoadBuiltInRuntime(configuration)
+                : Result<FsusAntiSpamModelRuntimeSnapshot>.Success(runtime);
+            if (runtimeResult.IsFailure)
+            {
+                return Result<ModerationModelRuntimeSnapshot>.Failure(runtimeResult.Error);
+            }
+
+            runtime = runtimeResult.Value!;
+            resolvedProvider = AntiSpamModerationProviders.BuiltIn;
+        }
+
+        DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+        ModerationModelRuntimeSnapshot nextModel = current with
+        {
+            SnapshotId = BuildSnapshotId("model", $"{resolvedProvider}:{enabled?.ToString() ?? "same"}", now),
+            Enabled = nextEnabled,
+            Provider = resolvedProvider,
+            ModelProfile = runtime?.ModelProfile ?? TextHelpers.TrimOrNull(modelProfile) ?? current.ModelProfile,
+            ThresholdProfile = TextHelpers.TrimOrNull(thresholdProfile) ?? current.ThresholdProfile,
+            ContractVersion = runtime?.ContractVersion ?? current.ContractVersion,
+            ConfigChecksum = runtime?.ConfigChecksum ?? BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{now:O}"),
+            LoadedAtUtc = now,
+            LoadedBy = NormalizeActor(changedBy),
+            Status = "loaded",
+            LastError = null,
+            RuntimePath = runtime?.RuntimePath ?? current.RuntimePath,
+            RuntimeChannel = runtime?.Channel ?? current.RuntimeChannel,
+            BuiltInRuntime = runtime
+        };
+        return Result<ModerationModelRuntimeSnapshot>.Success(nextModel);
+    }
+
+    public ModerationRuntimeFixtureLease AcquireCommentFixtureRuntimeState(
+        string region, string owner, string runId, DateTime expiresAtUtc)
+    {
+        string normalizedRegion = NormalizeRegion(region);
+        if (!environment.IsDevelopment() || string.IsNullOrWhiteSpace(region)
+            || string.IsNullOrWhiteSpace(owner) || string.IsNullOrWhiteSpace(runId)
+            || expiresAtUtc.Kind != DateTimeKind.Utc)
+            throw new InvalidOperationException("Comment fixture runtime ownership is invalid or unavailable.");
+        // The fixture has no Mainland confirmation authority. Keep the same
+        // fail-closed protection as SetRegionState(manual-review-only, null).
+        if (normalizedRegion == RegionCodes.MainlandChina)
+            throw new InvalidOperationException("cn_mainland_confirmation_required");
+        lock (_gate)
+        {
+            ModerationRuntimeSnapshot prior = Current;
+            ModerationModelRuntimeSnapshot? priorPreviousModel = _previousModel;
+            Result<ModerationModelRuntimeSnapshot> prepared = PrepareModelRuntime(
+                true, null, null, null, owner);
+            if (prepared.IsFailure)
+                throw new InvalidOperationException($"Comment moderation port could not enable the anti-spam model runtime: {prepared.Error.Message}.");
+            ModerationModelRuntimeSnapshot model = prepared.Value!;
+            var regions = new Dictionary<string, string>(prior.RegionStates, StringComparer.Ordinal)
+            {
+                [normalizedRegion] = ModerationRegionStates.ManualReviewOnly
+            };
+            ModerationRuntimeSnapshot applied = prior with
+            {
+                SnapshotId = BuildSnapshotId("model-runtime", model.ConfigChecksum, model.LoadedAtUtc),
+                RegionStates = regions,
+                Model = model,
+                ChangedAtUtc = model.LoadedAtUtc,
+                ChangedBy = NormalizeActor(owner),
+                Reason = $"comment fixture anti-spam model runtime {runId}",
+                ExpiresAtUtc = expiresAtUtc,
+                LastError = null
+            };
+            // Allocate the complete capability before either owned mutation.
+            // A failed load/build cannot leave a partially published region.
+            var lease = new OwnedCommentFixtureLease(
+                this, normalizedRegion, prior, applied, priorPreviousModel);
+            _previousModel = prior.Model;
+            Volatile.Write(ref _snapshot, applied);
+            return lease;
+        }
+    }
+
+    private sealed class OwnedCommentFixtureLease(
+        ModerationRuntimeStateService owner,
+        string region,
+        ModerationRuntimeSnapshot prior,
+        ModerationRuntimeSnapshot applied,
+        ModerationModelRuntimeSnapshot? priorPreviousModel) : ModerationRuntimeFixtureLease
+    {
+        private bool _released;
+        public override string Region => region;
+        public override ModerationRuntimeSnapshot Prior => prior;
+        public override ModerationRuntimeSnapshot Applied => applied;
+
+        public override ModerationRuntimeSnapshot Restore()
+        {
+            lock (owner._gate)
+            {
+                ModerationRuntimeSnapshot expected = _released ? prior : applied;
+                ModerationModelRuntimeSnapshot? expectedPreviousModel = _released ? priorPreviousModel : prior.Model;
+                if (!ReferenceEquals(owner.Current, expected)
+                    || !ReferenceEquals(owner._previousModel, expectedPreviousModel))
+                    throw new InvalidOperationException("Comment fixture runtime restore rejected an intervening owner.");
+                if (!_released)
+                {
+                    owner._previousModel = priorPreviousModel;
+                    Volatile.Write(ref owner._snapshot, prior);
+                    _released = true;
+                }
+                return prior;
+            }
         }
     }
 

@@ -441,6 +441,53 @@ public sealed class ArticleScalePlanTests
                 || method.Name.Contains("Write", StringComparison.Ordinal));
     }
 
+    [Fact]
+    public void Validator_RejectsScaleXsWithOneScheduledArticleAndNoPublishedArticle()
+    {
+        ArticleScalePlan plan = ArticleScalePlanBuilder.Create("scale-xs", "single-variant-drift", Artifacts());
+        Assert.True(Validate(plan).IsValid);
+
+        ArticleScalePlan nonCanonical = Reseal(plan with
+        {
+            StateDistribution = plan.StateDistribution.Select(static allocation => allocation with
+            {
+                Count = allocation.Variant switch
+                {
+                    ArticleScaleVariant.Published => 0,
+                    ArticleScaleVariant.Scheduled => 1,
+                    _ => allocation.Count
+                }
+            }).ToArray()
+        });
+
+        Assert.Equal(1, nonCanonical.ArticleCount);
+        Assert.Equal(1, nonCanonical.StateDistribution.Sum(static allocation => allocation.Count));
+        Assert.Equal(0, Allocation(nonCanonical, ArticleScaleVariant.Published).Count);
+        Assert.Equal(1, Allocation(nonCanonical, ArticleScaleVariant.Scheduled).Count);
+        ArticleScalePlanValidationResult validation = Validate(nonCanonical);
+        Assert.False(validation.IsValid);
+        Assert.Contains("state distribution count for Published is not canonical", validation.Errors);
+        Assert.Contains("state distribution count for Scheduled is not canonical", validation.Errors);
+    }
+
+    [Fact]
+    public void Validator_RejectsPublishedVariantContractWithDeletedFlag()
+    {
+        ArticleScalePlan plan = ArticleScalePlanBuilder.Create("scale-xs", "deleted-flag-drift", Artifacts());
+        Assert.True(Validate(plan).IsValid);
+        ArticleScaleVariantAllocation published = Allocation(plan, ArticleScaleVariant.Published);
+        Assert.False(published.Contract.IsDeleted);
+
+        ArticleScalePlan tampered = ReplaceAllocation(plan, published with
+        {
+            Contract = published.Contract with { IsDeleted = true }
+        });
+
+        ArticleScalePlanValidationResult validation = Validate(tampered);
+        Assert.False(validation.IsValid);
+        Assert.Contains("variant contract for Published is incomplete or stale", validation.Errors);
+    }
+
     private static ArticleScaleArtifactBindings Artifacts()
         => new(
             new(

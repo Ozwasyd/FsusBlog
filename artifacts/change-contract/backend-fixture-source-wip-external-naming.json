@@ -1,0 +1,15 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/backend/Interfaces/IModerationRuntimeStateService.cs",
+        "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+        "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+        "src/backend/Services/Moderation/ModerationRuntimeStateService.cs"
+      ],
+      "reason": "Preserve the existing trusted process-environment interface within the exact four changed backend C# owners. This ordinary source naming declaration records external spelling ownership only; it does not authorize fixture execution, native/SDK work, freshness or runtime acceptance."
+    }
+  ]
+}
