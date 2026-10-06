@@ -2,6 +2,7 @@ using System.Data.Common;
 using System.Data;
 using System.Collections.Immutable;
 using System.Text.Json;
+using System.Text.RegularExpressions;
 
 using SqlSugar;
 
@@ -18,6 +19,19 @@ public sealed record OfflineMigrationExecutionResult(
 internal static class OfflineMigrationExecutor
 {
     private const int MaximumBackfillBatches = 100;
+
+    private static readonly string[] s_destructiveSqlTokens =
+    [
+        " DROP COLUMN ",
+        " DROP TABLE ",
+        " DROP INDEX ",
+        " RENAME COLUMN ",
+        " RENAME TO ",
+        " SET NOT NULL",
+        " ALTER COLUMN ",
+        " TRUNCATE ",
+        " DELETE FROM "
+    ];
 
     // This is the existing domain executor's sealed route, not the historical online
     // Contract phase. CLI integration remains blocked until real operation owners exist.
@@ -593,7 +607,7 @@ internal static class OfflineMigrationExecutor
         }
     }
 
-    private static async Task<OfflineMigrationExecutionResult> ExecuteExpandAsync(
+    internal static async Task<OfflineMigrationExecutionResult> ExecuteExpandAsync(
         OfflineMigrationCommandOptions command,
         IReadOnlyList<ISchemaMigrationDescriptor> descriptors,
         IReadOnlyDictionary<string, OfflineMigrationClassification> classifications,
@@ -622,7 +636,7 @@ internal static class OfflineMigrationExecutor
             .ToArray();
 
         string[] destructive = selected
-            .Where(descriptor => descriptor.Steps.Any(static step => step is DropColumnStep or DropTableStep))
+            .Where(ContainsDestructiveOperation)
             .Select(static descriptor => descriptor.MigrationId)
             .ToArray();
         if (destructive.Length > 0)
@@ -691,6 +705,23 @@ internal static class OfflineMigrationExecutor
             command.Phase,
             selected.Select(static descriptor => descriptor.MigrationId).ToArray(),
             []);
+    }
+
+    private static bool ContainsDestructiveOperation(ISchemaMigrationDescriptor descriptor)
+        => descriptor.Steps.Any(ContainsDestructiveOperation);
+
+    private static bool ContainsDestructiveOperation(SchemaMigrationStep step)
+    {
+        if (step is DropColumnStep or DropTableStep or DropIndexStep or RenameColumnStep or RenameTableStep)
+        {
+            return true;
+        }
+        if (step is not RawSqlStep and not BackfillSqlStep and not AssertSqlStep)
+        {
+            return false;
+        }
+        string normalized = $" {Regex.Replace(step.Fingerprint, @"\s+", " ", RegexOptions.CultureInvariant).ToUpperInvariant()} ";
+        return s_destructiveSqlTokens.Any(normalized.Contains);
     }
 
     private static async Task<OfflineMigrationExecutionResult> ExecuteBackfillAsync(
