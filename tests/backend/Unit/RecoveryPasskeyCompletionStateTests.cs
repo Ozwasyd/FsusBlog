@@ -18,6 +18,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RecoveryPasskeyCompletionStateTests
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-authenticator-validation-failure-restores-pending-session-and-allows-retry")]
     public async Task AuthenticatorValidationFailure_RestoresPendingSessionAndAllowsRetry()
     {
         const string Token = "recovery-session-authenticator-retry";
@@ -50,6 +51,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-database-failure-restores-pending-session-and-allows-same-request-retry")]
     public async Task DatabaseFailure_RestoresPendingSessionAndAllowsSameRequestRetry()
     {
         const string Token = "recovery-session-database-retry";
@@ -81,6 +83,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConcurrentDoubleSubmit_AllowsOnlyOneLogicalCompletion()
     {
         const string Token = "recovery-session-concurrent";
@@ -106,20 +109,26 @@ public sealed class RecoveryPasskeyCompletionStateTests
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
         PasskeyRegisterCompleteCoreModel request = Request(Token, "concurrent");
 
-        Task<Result<RecoveryPasskeyBindOutcome>> firstTask = service.CompletePasskeyBindAsync(Token, request);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Result<RecoveryPasskeyBindOutcome> second = await service.CompletePasskeyBindAsync(Token, request);
-        release.TrySetResult();
-        Result<RecoveryPasskeyBindOutcome> first = await firstTask;
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => service.CompletePasskeyBindAsync(Token, request),
+            async firstTask =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Result<RecoveryPasskeyBindOutcome> second = await service.CompletePasskeyBindAsync(Token, request);
+                release.TrySetResult();
+                Result<RecoveryPasskeyBindOutcome> first = await firstTask;
 
-        Assert.True(first.IsSuccess);
-        Assert.False(second.IsSuccess);
-        Assert.Equal(ErrorCode.Conflict, second.Error.Code);
-        Assert.Equal("RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS", second.Error.Message);
-        Assert.Equal(1, completionCalls);
+                Assert.True(first.IsSuccess);
+                Assert.False(second.IsSuccess);
+                Assert.Equal(ErrorCode.Conflict, second.Error.Code);
+                Assert.Equal("RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS", second.Error.Message);
+                Assert.Equal(1, completionCalls);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-response-lost-after-commit-replay-returns-idempotent-success-without-second-mutation")]
     public async Task ResponseLostAfterCommit_ReplayReturnsIdempotentSuccessWithoutSecondMutation()
     {
         const string Token = "recovery-session-response-loss";
@@ -161,6 +170,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-replay-different-request-reject")]
     public async Task CompletedSession_ReplayWithDifferentRequestIsRejected()
     {
         const string Token = "recovery-session-request-binding";
@@ -203,6 +213,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-expired-pending-reject")]
     public async Task ExpiredPendingSession_RejectsWithoutCallingPasskeyMutation()
     {
         const string Token = "recovery-session-expired";
@@ -231,6 +242,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task ExpiredCompletingLease_RecoversPendingAndCompletesSameRequestRetry()
     {
         const string Token = "recovery-session-expired-completing";
@@ -266,6 +278,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void LegacyPendingEnvelope_RemainsReadableAcrossDeployment()
     {
         RecoveryKeySession session = ActiveSession();

@@ -7,11 +7,15 @@ import { fileURLToPath } from 'node:url';
 
 import { readReleaseReliabilityEvidenceBinding } from './release-reliability-evidence-binding.mjs';
 
+const { validateStrykerToolBinding } =
+    await import(new URL('../mutation/stryker-tool.mjs', import.meta.url));
+
 const knownStatuses = ['CompileError', 'Ignored', 'Killed', 'NoCoverage', 'Survived', 'Timeout'];
 const executedStatuses = new Set(['Killed', 'Survived', 'Timeout']);
 const terminalStatuses = new Set(knownStatuses);
 const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/iu;
 const supportedStrykerNetVersion = '4.14.2';
+const repositoryStrykerVersion = '4.14.2-fsusblog.3';
 
 // Reviewed against dotnet-stryker@4.14.2.
 // Source revision: cc7fdf3433025a4b63c2c091c07b2177d117359e.
@@ -255,7 +259,7 @@ function requireExactStringProperty(object, property, label, { allowEmpty = fals
 
 function supportedStrykerOperator(mutant, label, strykerVersion)
 {
-    if (strykerVersion !== supportedStrykerNetVersion)
+    if (strykerVersion !== supportedStrykerNetVersion && strykerVersion !== repositoryStrykerVersion)
     {
         throw new Error(`unsupported Stryker.NET producer version ${strykerVersion}`);
     }
@@ -592,7 +596,8 @@ function parseStrykerTrace({
     rawReportSha256,
     reportAbsolutePath,
     testCaseFilter,
-    rawMutants
+    rawMutants,
+    toolBinding = null
 })
 {
     const trace = Buffer.isBuffer(rawTrace) ? rawTrace.toString('utf8') : String(rawTrace ?? '');
@@ -611,7 +616,12 @@ function parseStrykerTrace({
         throw new Error('Stryker trace must contain exactly one producer version record');
     }
     const strykerVersion = versionRecords[0].groups.version;
-    if (strykerVersion !== supportedStrykerNetVersion)
+    if (toolBinding && toolBinding.packageVersion !== strykerVersion)
+    {
+        throw new Error("Stryker trace producer differs from actual tool custody");
+    }
+    if (strykerVersion !== supportedStrykerNetVersion
+        && !(strykerVersion === repositoryStrykerVersion && toolBinding?.packageVersion === strykerVersion))
     {
         throw new Error(
             `unsupported Stryker.NET producer version ${strykerVersion}; `
@@ -1212,9 +1222,14 @@ export function createStrykerAuthority({
     generatedAt,
     repositoryRoot = process.cwd(),
     sourceRoot,
-    releaseReliability = null
+    releaseReliability = null,
+    toolBinding = null
 })
 {
+    if (toolBinding)
+    {
+        validateStrykerToolBinding(toolBinding, { repositoryRoot, sourceState, runId });
+    }
     const summary = validateStrykerReport(report);
     const reportBytes = rawJsonBytes(report, rawReport, 'raw Stryker report');
     const configBytes = rawJsonBytes(config, rawConfig, 'raw Stryker config');
@@ -1248,7 +1263,8 @@ export function createStrykerAuthority({
                 : resolve(repositoryRoot, reportPath)
         ),
         testCaseFilter,
-        rawMutants
+        rawMutants,
+        toolBinding
     });
     const testIdentities = buildTestIdentityMap(report);
     const inventory = mutationInventory(report, {
@@ -1304,6 +1320,7 @@ export function createStrykerAuthority({
     const batches = traceExecution.batches;
     const authority = {
         schema: 'fsusblog.stryker-authority.v1',
+        ...(toolBinding ? { toolBinding } : {}),
         status: 'success',
         tierId: normalizedTierId,
         sliceId: normalizedTierId,
@@ -1396,7 +1413,9 @@ function validateStrykerAuthorityShape(authority)
     {
         throw new Error('Stryker authority trace/report digest binding mismatch');
     }
-    if (authority.traceExecution?.strykerVersion !== supportedStrykerNetVersion)
+    if (authority.traceExecution?.strykerVersion !== supportedStrykerNetVersion
+        && !(authority.traceExecution?.strykerVersion === repositoryStrykerVersion
+            && authority.toolBinding?.packageVersion === repositoryStrykerVersion))
     {
         throw new Error(
             `Stryker authority producer version must be ${supportedStrykerNetVersion}`
@@ -1541,14 +1560,15 @@ function parseAuthorityOptions(args)
         tierId: null,
         outputPath: null,
         sourceRoot: null,
-        tracePath: null
+        tracePath: null,
+        toolBindingPath: null
     };
     for (let index = 0; index < args.length; index += 1)
     {
         const flag = args[index];
         const value = args[index + 1];
         if (
-            !['--config', '--tier', '--out', '--source-root', '--trace-log'].includes(flag)
+            !['--config', '--tier', '--out', '--source-root', '--trace-log', '--tool-binding'].includes(flag)
             || !value
             || value.startsWith('--')
         )
@@ -1571,6 +1591,10 @@ function parseAuthorityOptions(args)
         if (flag === '--source-root')
         {
             options.sourceRoot = value;
+        }
+        if (flag === '--tool-binding')
+        {
+            options.toolBindingPath = value;
         }
         if (flag === '--trace-log')
         {
@@ -1629,6 +1653,8 @@ function main()
         const inputs = {
             report,
             rawReport,
+            toolBinding: authorityOptions.toolBindingPath
+                ? JSON.parse(readFileSync(resolve(authorityOptions.toolBindingPath), 'utf8')) : null,
             reportPath: evidencePath(root, absoluteReportPath),
             reportAbsolutePath: absoluteReportPath,
             rawTrace,

@@ -29,6 +29,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     private static readonly DateTimeOffset s_baselineNow = DateTimeOffset.Parse("2026-06-19T08:00:00Z");
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Migration_CreatesVersionedSecurityPolicySnapshotTable()
     {
         var registry = new SchemaMigrationRegistry();
@@ -55,6 +56,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ActivateAsync_WritesImmutableVersionsAndRevokesPreviousActive()
     {
         string connectionString = await CreateConnectionStringAsync();
@@ -89,6 +91,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ActivateAsync_ConcurrentSamePolicyIdProducesStrictlyMonotonicVersions()
     {
         string connectionString = await CreateConnectionStringAsync();
@@ -100,8 +103,8 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         var secondService = new SecurityPolicySnapshotService(secondDb, new StaticTimeProvider(s_baselineNow.AddSeconds(1)));
         using var barrier = new Barrier(2);
 
-        SecurityPolicySnapshotRecord[] records = await Task.WhenAll(
-                StartBarrierTaskAsync(
+        SecurityPolicySnapshotRecord[] records = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(
                     barrier,
                     () => firstService.ActivateAsync(
                         SecurityPolicyIds.AntiCrawler,
@@ -110,7 +113,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
                         createdByAdminId: 7,
                         reason: "first",
                         CancellationToken.None)),
-                StartBarrierTaskAsync(
+            () => StartBarrierTaskAsync(
                     barrier,
                     () => secondService.ActivateAsync(
                         SecurityPolicyIds.AntiCrawler,
@@ -135,6 +138,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ResolveNextVersionAsync_RuntimeUsesSingleReturningUpdateOnHotPath()
     {
         string connectionString = await CreateConnectionStringAsync();
@@ -170,6 +174,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RollbackAsync_CreatesNewActiveVersionFromHistoricalDocumentAndAudits()
     {
         string connectionString = await CreateConnectionStringAsync();
@@ -199,6 +204,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-corrupt-active-lkg-only")]
     public async Task LoadActiveOrLastKnownGoodAsync_FallsBackWhenActiveDocumentCannotDeserialize()
     {
         string connectionString = await CreateConnectionStringAsync();
@@ -236,6 +242,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task SecurityEndpoints_RequireAdminStepUpAndPersistPolicySnapshotsForWrites()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -270,6 +277,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-policy-admin-principal-required")]
     public async Task SecurityEndpoints_AttributePolicyMutationActorsToAdminPrincipal()
     {
         MethodInfo resolveActor = typeof(SecurityEndpoints).GetMethod("ResolveActor", BindingFlags.NonPublic | BindingFlags.Static)!;
@@ -318,6 +326,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task StartupLoader_LoadsRiskControlAndPerceptionV2ActiveOrLastKnownGoodPolicy()
     {
         ISecurityPolicySnapshotService snapshots = Substitute.For<ISecurityPolicySnapshotService>();
@@ -351,6 +360,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task StartupLoader_LoadsPolicySnapshotsSequentiallyWithoutSharingScopedDbClientConcurrently()
     {
         var snapshots = new ConcurrencyTrackingSnapshotService();

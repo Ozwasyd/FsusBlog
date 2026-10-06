@@ -20,6 +20,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Migration_CreatesChallengeAuditTablesWithoutRawPayload()
     {
         var registry = new SchemaMigrationRegistry();
@@ -48,6 +49,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Entities_MapChallengeTablesWithoutPayloadSourceColumns()
     {
         string[] challengeColumns = typeof(SecurityChallenge)
@@ -68,6 +70,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterSecurityChallengePersistence()
     {
         var services = new ServiceCollection();
@@ -82,6 +85,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RecordAttemptAsync_UsesReturningMetricsWithoutPostTransactionReloads()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -110,6 +114,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_PersistsChallengeHashMetadata()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -144,6 +149,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RecordAttemptAsync_WritesSuccessAttemptAndTransitionsChallenge()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -166,6 +172,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RecordAttemptAsync_WritesFailureAndReplayAttemptsIndependently()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -197,6 +204,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task ExpireAndRevokeAsync_RecordTerminalStateAttempts()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -223,6 +231,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     [Fact]
     [Trait("Category", "Concurrency")]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task RecordAttemptAsync_ConcurrentOutcomesCannotDowngradeVerifiedChallenge()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -250,8 +259,8 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
             SecurityChallengeAttemptOutcomes.Revoked
         ];
         using var barrier = new Barrier(concurrentOutcomes.Length);
-        Task<SecurityChallengeAttempt>[] writes = concurrentOutcomes
-            .Select(outcome => StartTogetherAsync(
+        Task<SecurityChallengeAttempt[]> concurrentWrites = RealConcurrencyHarness.RunAsync(concurrentOutcomes,
+            outcome => StartTogetherAsync(
                 barrier,
                 async () =>
                 {
@@ -260,10 +269,9 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
                     return await service.RecordAttemptAsync(
                         CreateAttemptRequest(request.ChallengeId, outcome, $"concurrent-{outcome}"),
                         CancellationToken.None);
-                }))
-            .ToArray();
+                }));
 
-        SecurityChallengeAttempt[] attempts = await Task.WhenAll(writes)
+        SecurityChallengeAttempt[] attempts = await concurrentWrites
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Equal(

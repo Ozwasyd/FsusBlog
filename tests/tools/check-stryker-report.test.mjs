@@ -667,3 +667,13 @@ test('critical mutation lane enables trace logging and passes trace plus source 
     assert.match(legacy, /src\/core/u);
     assert.match(tier, /\.tmp\/mutation\/backend-critical\/authority\.json/u);
 });
+
+
+test('repository fork version text cannot qualify without actual executable custody', () =>
+{
+    const input = authorityInputs();
+    assert.throws(() => createStrykerAuthority({
+        ...input,
+        rawTrace: input.rawTrace.toString('utf8').replace('4.14.2', '4.14.2-fsusblog.3')
+    }), /unsupported Stryker\.NET producer version/u);
+});

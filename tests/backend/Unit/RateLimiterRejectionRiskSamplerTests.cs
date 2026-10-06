@@ -14,6 +14,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     private static readonly DateTimeOffset s_fixedUtcNow = new(2026, 7, 11, 6, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void MatchedAndUnmatchedHighCardinalityRawPaths_CollapseToLogicalRoutes()
     {
         var sampler = CreateSampler(maxTrackedBuckets: 16);
@@ -41,6 +42,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void RouteIdentity_BoundsLongEndpointMetadataAndUnknownMethods()
     {
         var endpoint = new Endpoint(
@@ -57,6 +59,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void CapacityBoundary_DropsNewBucketsButPreservesExistingBucketWriteLimit()
     {
         const int Capacity = 64;
@@ -92,6 +95,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public void CrossMinuteRotation_ReplacesTheWholeWindowOnceUnderConcurrency()
     {
         const int Capacity = 128;
@@ -105,7 +109,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
         int writes = 0;
         int capacityDrops = 0;
-        Parallel.For(0, 20_000, index =>
+        RealConcurrencyHarness.Run(0, 20_000, index =>
         {
             RateLimiterRiskSampleDecision decision = sampler.Sample(
                 2_001,
@@ -127,13 +131,14 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public void ConcurrentSameBucket_PreservesExactlyFourRiskWrites()
     {
         var sampler = CreateSampler(maxTrackedBuckets: 32);
         int writes = 0;
         int writeLimitDrops = 0;
 
-        Parallel.For(0, 20_000, _ =>
+        RealConcurrencyHarness.Run(0, 20_000, _ =>
         {
             RateLimiterRiskSampleDecision decision = sampler.Sample(3_000, "same-client", "same-route");
             if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal)
@@ -150,6 +155,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AnonymousLoginAdminNotificationStreamAndBinaryRoutes_KeepIndependentCaps()
     {
         var sampler = CreateSampler(maxTrackedBuckets: 32);
@@ -177,6 +183,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
     [Fact]
     [Trait("Category", "Performance")]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void SaturatedBucketLookup_P95RemainsStableFrom64To4096TrackedBuckets()
     {
         const long Minute = 4_000;

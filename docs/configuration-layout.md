@@ -55,15 +55,7 @@ The .NET CLI finds `.config/dotnet-tools.json` without a custom flag:
 dotnet tool restore
 ```
 
-Stryker has no repository-root discovery dependency. Both lanes pass their canonical file explicitly:
-
-```bash
-dotnet tool run dotnet-stryker --config-file config/testing/mutation/default.json
-repo_root="$PWD"
-(cd src/core && dotnet tool run dotnet-stryker --config-file "$repo_root/config/testing/mutation/critical.json")
-```
-
-The test runner also supplies each lane's output directory and, for the critical lane, runs from `src/core` while retaining the repository-absolute config path.
+The manifest pins the reviewed official Stryker `4.14.2` release. Mutation execution uses the source/overlay policy in `config/testing/mutation/stryker-tool.v1.json` and the canonical wrapper `tools/mutation/stryker-tool.mjs`. The enclosing scheduler admits the process tree and supplies its current source/run identity and private scratch. The wrapper consumes a previously provisioned, digest-verified official archive, builds a fresh run-owned tool directory, and writes an actual package/executable/dependency custody binding alongside the mutation output. It neither downloads nor promotes an existing `ready.json` cache. Every lane passes its canonical mutation config explicitly through `run --working-directory <source-project> --attestation-output <run-owned mutation output>/tool-binding.json -- <Stryker arguments>`; the report producer and independent replay verify the same binding. A standalone wrapper invocation without current scheduler identity fails closed.
 
 ## Visual Studio launch ownership
 

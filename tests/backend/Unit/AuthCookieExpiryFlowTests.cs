@@ -64,6 +64,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
     [InlineData(AuthExpiryFlow.AdminLogin)]
     [InlineData(AuthExpiryFlow.LocalAuthFixture)]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MappedAuthFlows_EmitExactIssuedAccessTokenExpiry(AuthExpiryFlow flow)
     {
         using HttpResponseMessage response = await fixture.SendSuccessAsync(flow);
@@ -110,6 +111,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-local-auth-fixture-runner-failure-emits-no-cookies")]
     public async Task LocalAuthFixtureRunnerFailure_EmitsNoCookies()
     {
         (HttpResponseMessage response, int runnerCallCount) = await fixture.SendFailureAsync();
@@ -141,6 +143,7 @@ public sealed class AuthCookieExpiryFlowTests(AuthCookieExpiryFlowTests.AuthCook
 
     [Fact]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-refresh-db-commit-then-post-cookie-verification-fault-deletes-staged-cookies-and-emits-metric")]
     public async Task Refresh_DbCommitThenPostCookieVerificationFault_DeletesStagedCookiesAndEmitsMetric()
     {
         var measurements = new ConcurrentBag<(string Name, double Value)>();

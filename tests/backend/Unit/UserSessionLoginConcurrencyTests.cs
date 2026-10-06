@@ -23,6 +23,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_TwoDeviceLoginsRemainActive()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -62,6 +63,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task CompleteLoginAsync_ActiveSessionLimitEvictsLeastRecentlyUsedSession()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -93,6 +95,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CompleteLoginAsync_ConcurrentDevicesUnderLimitReturnActiveSessions()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -104,9 +107,9 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         UserLoginWorkflowService firstService = CreateService(firstDb);
         UserLoginWorkflowService secondService = CreateService(secondDb);
 
-        var results = await Task.WhenAll(
-            firstService.CompleteLoginAsync(user, "203.0.113.20", "device-concurrent-a", "agent-a", true, false),
-            secondService.CompleteLoginAsync(user, "203.0.113.21", "device-concurrent-b", "agent-b", true, false));
+        var results = await RealConcurrencyHarness.RunAsync(
+            () => firstService.CompleteLoginAsync(user, "203.0.113.20", "device-concurrent-a", "agent-a", true, false),
+            () => secondService.CompleteLoginAsync(user, "203.0.113.21", "device-concurrent-b", "agent-b", true, false));
 
         Assert.All(results, result => Assert.True(result.Success, result.Message));
         string[] issuedSessionIds = results.Select(result => result.Data?.SessionId).OfType<string>().ToArray();
@@ -120,6 +123,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CompleteLoginAsync_ConcurrentSameDeviceCreatesIndependentSessions()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -129,9 +133,9 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         using SqlSugarClient firstDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
 
-        var results = await Task.WhenAll(
-            CreateService(firstDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", true, false),
-            CreateService(secondDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", true, false));
+        var results = await RealConcurrencyHarness.RunAsync(
+            () => CreateService(firstDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", true, false),
+            () => CreateService(secondDb).CompleteLoginAsync(user, "203.0.113.25", "same-device", "agent", true, false));
 
         Assert.All(results, result => Assert.True(result.Success, result.Message));
         string[] issuedSessionIds = results.Select(result => result.Data?.SessionId).OfType<string>().ToArray();
@@ -144,6 +148,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CompleteLoginAsync_ConcurrentAdmissionsNeverExceedActiveSessionLimit()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -154,10 +159,10 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         using SqlSugarClient secondDb = PostgresSqlSugarTestClient.Create(connectionString);
         using SqlSugarClient thirdDb = PostgresSqlSugarTestClient.Create(connectionString);
 
-        var results = await Task.WhenAll(
-            CreateService(firstDb, 2).CompleteLoginAsync(user, "203.0.113.26", "limit-a", "agent-a", true, false),
-            CreateService(secondDb, 2).CompleteLoginAsync(user, "203.0.113.27", "limit-b", "agent-b", true, false),
-            CreateService(thirdDb, 2).CompleteLoginAsync(user, "203.0.113.28", "limit-c", "agent-c", true, false));
+        var results = await RealConcurrencyHarness.RunAsync(
+            () => CreateService(firstDb, 2).CompleteLoginAsync(user, "203.0.113.26", "limit-a", "agent-a", true, false),
+            () => CreateService(secondDb, 2).CompleteLoginAsync(user, "203.0.113.27", "limit-b", "agent-b", true, false),
+            () => CreateService(thirdDb, 2).CompleteLoginAsync(user, "203.0.113.28", "limit-c", "agent-c", true, false));
 
         Assert.All(results, result => Assert.True(result.Success, result.Message));
         List<UserSession> sessions = await setupDb.Queryable<UserSession>()
@@ -169,6 +174,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CompleteLoginAsync_ConcurrentRevokeOthersDoesNotRevokeNewSession()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -189,27 +195,33 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         UserSessionCommandService commandService = CreateSessionCommandService(revokeDb);
         UserLoginWorkflowService loginService = CreateService(loginDb);
 
-        Task<int> revokeTask = commandService.RevokeOtherSessionsAsync(user.Id, current.Data!.Value.SessionId);
-        var loginTask = loginService.CompleteLoginAsync(
-            user,
-            "203.0.113.31",
-            "device-new",
-            "agent-new",
-            true,
-            false);
-        await Task.WhenAll(revokeTask, loginTask);
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => commandService.RevokeOtherSessionsAsync(user.Id, current.Data!.Value.SessionId),
+            async revokeTask =>
+            {
+                var loginTask = loginService.CompleteLoginAsync(
+                    user,
+                    "203.0.113.31",
+                    "device-new",
+                    "agent-new",
+                    true,
+                    false);
+                await Task.WhenAll(revokeTask, loginTask);
 
-        var login = await loginTask;
-        Assert.True(login.Success, login.Message);
-        List<UserSession> active = await setupDb.Queryable<UserSession>()
-            .Where(session => session.UserId == user.Id && session.RevokedAt == null)
-            .ToListAsync();
-        Assert.Contains(active, session => session.SessionId == current.Data.Value.SessionId);
-        Assert.Contains(active, session => session.SessionId == login.Data!.Value.SessionId);
+                var login = await loginTask;
+                Assert.True(login.Success, login.Message);
+                List<UserSession> active = await setupDb.Queryable<UserSession>()
+                    .Where(session => session.UserId == user.Id && session.RevokedAt == null)
+                    .ToListAsync();
+                Assert.Contains(active, session => session.SessionId == current.Data.Value.SessionId);
+                Assert.Contains(active, session => session.SessionId == login.Data!.Value.SessionId);
+            },
+            static () => { });
     }
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CompleteLoginAsync_ConcurrentAccountDeletionLeavesNoActiveSession()
     {
         using SqlSugarClient setupDb = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -228,25 +240,30 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
         UserProfileCommandService profileService = CreateProfileCommandService(deleteDb);
         UserLoginWorkflowService loginService = CreateService(loginDb);
 
-        Task<(bool Success, string Message)> deleteTask = profileService.DeleteAccountAsync(
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => profileService.DeleteAccountAsync(
             user.Id,
-            new DeleteAccountRequestDto { ConfirmText = "DELETE" });
-        var loginTask = loginService.CompleteLoginAsync(
-            user,
-            "203.0.113.40",
-            "device-delete-race",
-            "agent-delete-race",
-            true,
-            false);
-        await Task.WhenAll(deleteTask, loginTask);
+            new DeleteAccountRequestDto { ConfirmText = "DELETE" }),
+            async deleteTask =>
+            {
+                var loginTask = loginService.CompleteLoginAsync(
+                    user,
+                    "203.0.113.40",
+                    "device-delete-race",
+                    "agent-delete-race",
+                    true,
+                    false);
+                await Task.WhenAll(deleteTask, loginTask);
 
-        Assert.True((await deleteTask).Success);
-        User deleted = await setupDb.Queryable<User>().InSingleAsync(user.Id);
-        Assert.Equal(2, deleted.Status);
-        Assert.NotNull(deleted.DeletedAt);
-        Assert.Empty(await setupDb.Queryable<UserSession>()
-            .Where(session => session.UserId == user.Id && session.RevokedAt == null)
-            .ToListAsync());
+                Assert.True((await deleteTask).Success);
+                User deleted = await setupDb.Queryable<User>().InSingleAsync(user.Id);
+                Assert.Equal(2, deleted.Status);
+                Assert.NotNull(deleted.DeletedAt);
+                Assert.Empty(await setupDb.Queryable<UserSession>()
+                    .Where(session => session.UserId == user.Id && session.RevokedAt == null)
+                    .ToListAsync());
+            },
+            static () => { });
     }
 
     private static async Task<User> SeedAccountAsync(SqlSugarClient db)

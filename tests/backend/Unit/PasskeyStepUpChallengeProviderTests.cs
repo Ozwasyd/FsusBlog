@@ -25,6 +25,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterPasskeyStepUpProviders()
     {
         var services = new ServiceCollection();
@@ -44,6 +45,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task UserProvider_IssueAsync_RequiresOrdinaryAuthenticatedUserAndReturnsPasskeyPayload()
     {
         var fixture = CreateUserFixture();
@@ -62,6 +64,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-user-rejects-admin")]
     public async Task UserProvider_IssueAsync_RejectsAdminPrincipal()
     {
         var fixture = CreateUserFixture();
@@ -77,6 +80,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-user-rejects-unauthenticated")]
     public async Task UserProvider_IssueAsync_RejectsUnauthenticatedRequest()
     {
         var fixture = CreateUserFixture();
@@ -92,6 +96,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task UserProvider_VerifyAsync_ConsumesUserStepUpAndRecordsVerifiedAttempt()
     {
         var fixture = CreateUserFixture();
@@ -113,6 +118,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-user-verify-rejects-admin-shape")]
     public async Task UserProvider_VerifyAsync_RejectsAdminProofPayloadShape()
     {
         var fixture = CreateUserFixture();
@@ -132,6 +138,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task AdminProvider_IssueAndVerifyUseVerifyOnlyAdminPasskeyPath()
     {
         var fixture = CreateAdminFixture();
@@ -158,6 +165,7 @@ public sealed class PasskeyStepUpChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "stepup-admin-rejects-user")]
     public async Task AdminProvider_IssueAsync_RejectsOrdinaryUser()
     {
         var fixture = CreateAdminFixture();

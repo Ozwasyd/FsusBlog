@@ -20,6 +20,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AuthSecurityHardeningTests
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserEntity_DoesNotPersistLegacyPlaintextRefreshToken()
     {
         string[] userProperties = typeof(User).GetProperties().Select(static property => property.Name).ToArray();
@@ -41,6 +42,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserSessionCommandService_ProductionRefreshUsesAtomicFamilyLineageAndHashOnlyTombstone()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
@@ -60,6 +62,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserProfileCommandService_AccountDeletionRuntimeRevokesAllSessionsInTransaction()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
@@ -72,6 +75,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserSessionCommandService_RefreshRotationRuntimeUsesCasAndReplayRevocation()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
@@ -92,6 +96,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserService_MfaSetupRuntimeUsesPendingSecretUntilVerification()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
@@ -108,6 +113,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void UserService_MfaStateMutationsRuntimeAreTransactionalAndLockUserRow()
     {
         foreach (string methodName in new[]
@@ -132,6 +138,7 @@ public sealed class AuthSecurityHardeningTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task MfaChallengeEndpoint_IsRateLimitedAndCountsFailures()
     {
         await using EndpointContractSnapshot app = EndpointContractApplication.CreateSnapshot();
@@ -165,6 +172,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void PasskeyService_RuntimeRequiresUserVerificationAndSanitizesErrors()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeType(typeof(PasskeyService));
@@ -177,6 +185,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void PasskeyService_RegistrationRuntimeUsesAnonymousSafeMetadataInAnonymousMode()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
@@ -193,6 +202,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void PasskeyCredentialRemoval_RuntimeProtectsLastCredentialInAnonymousMode()
     {
         string runtimeShape = RuntimeMetadataInspection.DescribeMethods(
@@ -206,6 +216,7 @@ public sealed class AuthSecurityHardeningTests
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public void CredentialMutationEndpoints_RuntimeVerifyStepUpBeforeDomainMutation()
     {
         var mutations = new (string MutationMember, string Action)[]
@@ -251,6 +262,7 @@ public sealed class AuthSecurityHardeningTests
 
     [Fact]
     [Trait("ShardAffinity", "EndpointContractApplication")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task OrdinaryAccountRuntimeContract_DoesNotPersistOrInferAdminAuthorityFields()
     {
         string[] ordinarySnapshotProperties = typeof(CurrentUserSnapshotDto)

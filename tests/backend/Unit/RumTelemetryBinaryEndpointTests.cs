@@ -19,6 +19,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class RumTelemetryBinaryEndpointTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task IngestAsync_ValidAedsBatch_ReturnsIngestResponseFrame()
     {
         var aeds = new AedsEncoder();
@@ -54,6 +55,7 @@ public sealed class RumTelemetryBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "rum-malformed-payload-error")]
     public async Task IngestAsync_MalformedPayload_ReturnsApiErrorFrame()
     {
         var aeds = new AedsEncoder();
@@ -74,6 +76,7 @@ public sealed class RumTelemetryBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "rum-oversized-frame-reject")]
     public async Task IngestAsync_OversizedFrame_ReturnsPayloadTooLargeApiError()
     {
         var aeds = new AedsEncoder();

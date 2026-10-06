@@ -30,6 +30,7 @@ public sealed class PublicHotReadRiskProjectionTests
     private static readonly DateTimeOffset s_now = new(2026, 9, 8, 0, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void L0_100KUniqueIps_UsesOnlyBoundedLocalStateWithZeroExternalCommands()
     {
         var clock = new FixedTimeProvider(s_now);
@@ -68,6 +69,7 @@ public sealed class PublicHotReadRiskProjectionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void PositiveRisk_TransitionsZeroToChallengeAndBlock_ConvergesAcrossNodesAndReplaysAfterRestart()
     {
         var clock = new FixedTimeProvider(s_now);
@@ -106,6 +108,7 @@ public sealed class PublicHotReadRiskProjectionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "public-risk-stale-or-unowned-reset-cannot-overwrite")]
     public void AuthoritativeZeroResetWinsOverPositiveAndOlderEpochOrReplayCannotResurrectIt()
     {
         var clock = new FixedTimeProvider(s_now);
@@ -143,6 +146,7 @@ public sealed class PublicHotReadRiskProjectionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RedisDisconnect_WithExistingPositiveRisk_FailsClosedWithoutWaitingForRedisTimeout()
     {
         var clock = new FixedTimeProvider(s_now);
@@ -175,6 +179,7 @@ public sealed class PublicHotReadRiskProjectionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task UnknownProjection_ModesObserveEnforceStrictAndLockdownNeverBlockTheL0Thread()
     {
         foreach (string mode in new[]
@@ -215,6 +220,7 @@ public sealed class PublicHotReadRiskProjectionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "risk-projection-reject-stale-downgrade-capacity")]
     public async Task CapacityVersionReorderDuplicateAndPubSubLoss_UseSafeEvictionAndDurableReplay()
     {
         var clock = new FixedTimeProvider(s_now);
@@ -296,6 +302,7 @@ public sealed class PublicHotReadRiskProjectionTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task VerifiedCrawlerSocialPreviewAndPowChallenge_RetainExistingSemantics()
     {
         foreach ((string itemKey, string expectedSource) in new[]

@@ -9,6 +9,7 @@ public sealed class OwnedAedsFrameTests
     private static readonly AedsEncoder s_encoder = new();
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void DetachOwnedFrame_PreservesWireBytesAndReportsLogicalAndBackingSizes()
     {
         byte[] payload = Enumerable.Range(0, 37).Select(static value => (byte)value).ToArray();
@@ -33,6 +34,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void Retire_DefersExactlyOnePoolReturnUntilEveryReadLeaseEnds()
     {
         var pool = new TrackingArrayPool();
@@ -65,6 +67,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "owned-aeds-read-lease-lifetime")]
     public void ReleasedLease_InvalidatesPreviouslyCapturedReadOnlyMemory()
     {
         var pool = new TrackingArrayPool();
@@ -84,6 +87,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void PinnedLease_DefersOwnerReleaseUntilMemoryHandleIsUnpinned()
     {
         var pool = new TrackingArrayPool();
@@ -105,6 +109,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public void ConcurrentRetireAndLeaseDisposal_ReturnPooledBufferOnce()
     {
         var pool = new TrackingArrayPool();
@@ -116,7 +121,7 @@ public sealed class OwnedAedsFrameTests
             .Select(_ => owned.AcquireReadLease())
             .ToArray();
 
-        Parallel.Invoke(
+        RealConcurrencyHarness.Run(
             () => owned.Retire(),
             () => owned.Dispose(),
             () => Parallel.ForEach(leases, static lease => lease.Dispose()),
@@ -134,6 +139,7 @@ public sealed class OwnedAedsFrameTests
     [InlineData(AedsFrameType.CurrentUserSnapshot, true)]
     [InlineData(AedsFrameType.ArticleList, false)]
     [InlineData(AedsFrameType.PublicAotBootstrap, false)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void DetachedOwner_UsesSensitivityAllowlistWhenReturningPoolBuffer(
         AedsFrameType frameType,
         bool expectedClear)
@@ -157,6 +163,7 @@ public sealed class OwnedAedsFrameTests
     [Theory]
     [InlineData(AedsFrameType.AdminStats, true)]
     [InlineData(AedsFrameType.ArticleDetail, false)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void ExactOwner_ClearsSensitiveFramesButKeepsPublicImmutableFrames(
         AedsFrameType frameType,
         bool expectedClear)
@@ -173,6 +180,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "owned-aeds-sealed-single-transfer")]
     public void DetachOwnedFrame_RequiresSealAndInvalidatesWriterAfterTransfer()
     {
         var pool = new TrackingArrayPool();
@@ -190,6 +198,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void Builders_ProduceWireEquivalentPooledAndExactOwners()
     {
         byte[] payload = Enumerable.Range(0, 257).Select(static value => unchecked((byte)value)).ToArray();
@@ -214,6 +223,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-two-pass-payload-length-stable")]
     public void BuildExact_RejectsPayloadLengthChangesBetweenPasses()
     {
         int pass = 0;
@@ -232,6 +242,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "pool-return-failure-completes-release-accounting")]
     public void PoolReturnFailure_StillCompletesBackingReleaseAccountingCallback()
     {
         var pool = new ThrowingReturnArrayPool();

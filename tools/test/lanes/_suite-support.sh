@@ -1649,20 +1649,13 @@ RunBackendMutationWithConfig() {
         fi
         strykerTraceArgs=(--log-to-file --verbosity trace)
     fi
-    (
-        cd "$ROOT_DIR"
-        Run dotnet tool restore
-    )
     Run rm -rf "$outputDir"
     local FSUSBLOG_MUTATION_BUILD=1
     export FSUSBLOG_MUTATION_BUILD
-    (
-        cd "$workingDir"
-        Run dotnet tool run dotnet-stryker \
-            --config-file "$configPath" \
-            --output "$outputDir" \
-            "${strykerTraceArgs[@]}"
-    )
+    Run node "$ROOT_DIR/tools/mutation/stryker-tool.mjs" run \
+        --working-directory "$workingDir" \
+        --attestation-output "$outputDir/tool-binding.json" \
+        -- --config-file "$configPath" --output "$outputDir" "${strykerTraceArgs[@]}"
     if [[ -n "$authorityTier" || -n "$authorityOut" ]]; then
         local traceLogs=()
         mapfile -t traceLogs < <(
@@ -1676,6 +1669,7 @@ RunBackendMutationWithConfig() {
             --config "$configPath" \
             --tier "$authorityTier" \
             --out "$authorityOut" \
+            --tool-binding "$outputDir/tool-binding.json" \
             --trace-log "${traceLogs[0]}" \
             --source-root "${authoritySourceRoot#"$ROOT_DIR"/}"
         if [[ "$authorityTier" == "release-mutation-critical-slice" ]]; then

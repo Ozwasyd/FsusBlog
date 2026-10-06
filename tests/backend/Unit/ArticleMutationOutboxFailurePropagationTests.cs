@@ -28,6 +28,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
 
     [Theory]
     [MemberData(nameof(CoordinatorCriticalEdges))]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-replay-outbox-async-critical-projector-failure-returns-failed-result")]
     public async Task ReplayOutboxAsync_CriticalProjectorFailureReturnsFailedResult(string failedEdge)
     {
         ArticleMutationSideEffectCoordinator coordinator = CreateCoordinator(failedEdge);
@@ -51,6 +52,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-replay-outbox-async-notification-failure-is-recorded-without-blocking-critical-convergence")]
     public async Task ReplayOutboxAsync_NotificationFailureIsRecordedWithoutBlockingCriticalConvergence()
     {
         IMessageRealtimePublisher realtimePublisher = Substitute.For<IMessageRealtimePublisher>();
@@ -80,6 +82,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-replay-outbox-async-cancellation-is-never-downgraded-to-best-effort-failure")]
     public async Task ReplayOutboxAsync_CancellationIsNeverDowngradedToBestEffortFailure()
     {
         using var cancellation = new CancellationTokenSource();
@@ -104,6 +107,7 @@ public sealed class ArticleMutationOutboxFailurePropagationTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void DispatcherCriticalEdgesRemainPartOfTheRequiredCompletionGate()
     {
         Assert.Contains(ArticleMutationReplayEdges.PublicAotInvalidation, ArticleMutationReplayEdges.Required);

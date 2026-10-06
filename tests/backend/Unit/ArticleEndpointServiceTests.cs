@@ -25,6 +25,7 @@ public sealed partial class ArticleEndpointServiceTests
     private static readonly TimeSpan s_concurrentColdFrameWaitTimeout = TimeSpan.FromSeconds(30);
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_Hit_ReturnsFrameWithoutCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -44,6 +45,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-get-page-list-async-when-cancelled-before-call-does-not-touch-cache-or-core")]
     public async Task GetPageListAsync_WhenCancelledBeforeCall_DoesNotTouchCacheOrCore()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -72,6 +74,7 @@ public sealed partial class ArticleEndpointServiceTests
     [Theory]
     [InlineData(0, 10)]
     [InlineData(1, 999999)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-get-page-list-async-invalid-pagination-returns-validation-failure-without-cache-or-core")]
     public async Task GetPageListAsync_InvalidPagination_ReturnsValidationFailureWithoutCacheOrCore(int page, int size)
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -97,6 +100,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-get-page-list-async-when-cancelled-after-core-load-skips-frame-cache-set")]
     public async Task GetPageListAsync_WhenCancelledAfterCoreLoad_SkipsFrameCacheSet()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -143,6 +147,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task GetPageListAsync_ConcurrentColdFrameMiss_CoalescesCoreLoadAndCacheSet()
     {
         const int Callers = 16;
@@ -172,8 +177,8 @@ public sealed partial class ArticleEndpointServiceTests
                 return Result<CorePageResult<ArticleListCoreModel>>.Success(page);
             });
 
-        Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>[] tasks = Enumerable.Range(0, Callers)
-            .Select(_ => service.GetPageListAsync(
+        Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[]> concurrentResults = RealConcurrencyHarness.RunAsync(Enumerable.Range(0, Callers),
+            _ => service.GetPageListAsync(
                 1,
                 10,
                 categoryId: null,
@@ -181,13 +186,19 @@ public sealed partial class ArticleEndpointServiceTests
                 isDeleted: false,
                 canReadDeleted: true,
                 status: null,
-                canReadPrivate: true))
-            .ToArray();
+                canReadPrivate: true));
 
-        await cache.InitialColdReadsCompleted.WaitAsync(s_concurrentColdFrameWaitTimeout);
-        await firstCoreLoadStarted.Task.WaitAsync(s_concurrentColdFrameWaitTimeout);
-        releaseCore.SetResult(true);
-        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await Task.WhenAll(tasks).WaitAsync(s_concurrentColdFrameWaitTimeout);
+        try
+        {
+            await cache.InitialColdReadsCompleted.WaitAsync(s_concurrentColdFrameWaitTimeout);
+            await firstCoreLoadStarted.Task.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        }
+        finally
+        {
+            releaseCore.TrySetResult(true);
+            await concurrentResults.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        }
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await concurrentResults.WaitAsync(s_concurrentColdFrameWaitTimeout);
 
         Assert.All(results, result => Assert.True(result.HasCachedFrame));
         Assert.Equal(1, Volatile.Read(ref coreLoads));
@@ -461,6 +472,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_PublicFrameMiss_UsesUncachedCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -515,6 +527,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPageListAsync_PublicCursor_ValidatesFilterAndUsesCursorCacheIdentity()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -565,6 +578,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-get-page-list-async-invalid-or-cross-filter-cursor-fails-before-cache-and-core")]
     public async Task GetPageListAsync_InvalidOrCrossFilterCursor_FailsBeforeCacheAndCore()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -626,6 +640,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_Miss_QueuesBackfillWithoutCoreQuery()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -645,6 +660,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_Miss_QueuesBackfillIndependentOfRequestToken()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -669,6 +685,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_FileMiss_UsesBinaryProjectionAndWarmsArtifactOnce()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -697,6 +714,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task GetPublicArtifactBackedDetailAsync_CutoverDisabled_FallsBackWithoutRepairStorm()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -721,6 +739,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-create-async-preserves-lifecycle-validation-details")]
     public async Task CreateAsync_PreservesLifecycleValidationDetails()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -740,6 +759,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task CreateAsync_ReturnsBoundRightsSnapshotCoordinates()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -757,6 +777,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-update-async-preserves-lifecycle-validation-details")]
     public async Task UpdateAsync_PreservesLifecycleValidationDetails()
     {
         var core = Substitute.For<IArticleCoreService>();
@@ -776,6 +797,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task UpdateAsync_ReturnsBoundRightsSnapshotCoordinates()
     {
         var core = Substitute.For<IArticleCoreService>();

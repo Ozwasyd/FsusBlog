@@ -26,6 +26,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     private static string? s_sharedConnectionString;
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-verify-async-with-only-recovery-key-creates-pending-session-without-premature-passkey-revocation")]
     public async Task VerifyAsync_WithOnlyRecoveryKey_CreatesPendingSessionWithoutPrematurePasskeyRevocation()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -93,6 +94,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-verify-async-revocation-publication-failure-rolls-back-database-and-cleans-possible-partial-fence")]
     public async Task VerifyAsync_RevocationPublicationFailureRollsBackDatabaseAndCleansPossiblePartialFence()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -133,6 +135,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-key-invalid-generic-failure")]
     public async Task VerifyAsync_InvalidOrLegacyKey_ReturnsGenericFailureAndRateLimits()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -181,6 +184,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-key-overlong-early-reject")]
     public async Task VerifyAsync_OverlongRecoveryKeyRejectsBeforeAttemptCounterOrCredentialLookup()
     {
         using SqlSugarClient db = await CreateDbAsync();
@@ -203,6 +207,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public void RecoveryKeyService_BoundsInputAndDerivesAttemptIdentityOnlyFromLookup()
     {
         FieldInfo maxCharsField = typeof(RecoveryKeyService).GetField(
@@ -235,6 +240,7 @@ public sealed class RecoveryKeyServiceBehaviorTests(PostgresSchemaMigrationFixtu
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_LocksCandidateRowBeforeConsumingValidSecret()
     {
         using SqlSugarClient db = await CreateDbAsync();

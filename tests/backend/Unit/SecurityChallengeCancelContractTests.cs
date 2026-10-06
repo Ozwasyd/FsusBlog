@@ -10,6 +10,7 @@ namespace FsusBlog.Server.Tests;
 public sealed class SecurityChallengeCancelContractTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CancellationRequest_RoundTripsAllServerBindings()
     {
         var request = new SecurityChallengeCancelBinaryRequest(
@@ -32,6 +33,7 @@ public sealed class SecurityChallengeCancelContractTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "security-cancel-pod-complete-payload")]
     public void CancellationRequest_RejectsTruncatedPayload()
     {
         var request = new SecurityChallengeCancelBinaryRequest(
