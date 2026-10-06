@@ -15,7 +15,7 @@ const { loadRegistry, validateOwnershipAgainstBehaviorCatalog, root } = await im
 const { buildIdentitySchema, digestPath, resolveContainedPath, sealSourceIdentity, validateBuildIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
 const { validateMinimalContractBuildReceipt } = await import(new URL('../../tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
 const { runExtractor } = await import(new URL('../../tools/fact-extractors/runner.mjs', import.meta.url));
-const { createRuntimeRoleMinimalV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { createRuntimeRoleMinimalV4Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
 
 const observationRelative = '.tmp/contracts/openapi/api-aeds-observation.json';
 const observedOpenApiRelative = '.tmp/contracts/openapi/fsusblog.openapi.observed.json';
@@ -158,7 +158,7 @@ function writeCanonicalObservation(repositoryRoot, observation)
     git('-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
         '-c', 'commit.gpgsign=false', 'commit', '--quiet', '-m', 'isolated receipt unit fixture');
     const source = sealSourceIdentity(repositoryRoot);
-    const receipt = createRuntimeRoleMinimalV3Fixture('canonical-openapi-unit', source);
+    const receipt = createRuntimeRoleMinimalV4Fixture('canonical-openapi-unit', source);
     for (const artifact of Object.values(receipt.artifacts))
     {
         const project = path.join(repositoryRoot, artifact.project);

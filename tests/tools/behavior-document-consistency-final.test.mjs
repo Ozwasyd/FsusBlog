@@ -23,7 +23,7 @@ import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fi
 const { sealDocClaimVerificationReceipt, sealGeneratedSectionCheckReceipt, sealOwnerBindingReceipt } = await import(new URL('../../tools/contracts/behavior-graph-join.mjs', import.meta.url));
 const { buildReceipt: buildFactObservationReceipt, semanticDigestFromReceipt } = await import(new URL('../../tools/fact-extractors/receipt.mjs', import.meta.url));
 const { loadPostRuntimeProducerRegistry } = await import(new URL('../../tools/test-matrix/post-runtime-producer-registry.mjs', import.meta.url));
-const { createRuntimeRoleMinimalV3Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
+const { createRuntimeRoleMinimalV4Fixture } = await import(new URL('./support/runtime-role-minimal-v3-fixture.mjs', import.meta.url));
 
 const commit = 'a'.repeat(40)
 const fingerprint = 'b'.repeat(64)
@@ -228,7 +228,7 @@ function fixture(overrides = {})
             status: 'ok', extractorDigest: fact.extractorDigest,
             semanticDigest: semanticDigestFromReceipt(fact), contentDigest: fact.contentDigest
         }])),
-        minimalContractBuild: createRuntimeRoleMinimalV3Fixture(runId, sourceIdentity),
+        minimalContractBuild: createRuntimeRoleMinimalV4Fixture(runId, sourceIdentity),
         generated: { status: 'ok', documentCount: 0, contentDigest: generated.contentDigest },
         prose: { status: 'ok', verifiedClaimCount: claims.claims.length, contentDigest: verification.contentDigest },
         mutationFixtures: { status: 'ok', caseCount: 1, contentDigest: 'f'.repeat(64) },

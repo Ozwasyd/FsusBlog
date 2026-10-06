@@ -1962,7 +1962,7 @@
         },
         {
             "path": "docs/online-database-migration-operations.md",
-            "title": "Online Migration Operations",
+            "title": "Migration Operations",
             "kind": "markdown",
             "status": "current",
             "owner": "governance",

@@ -3,6 +3,8 @@ import fs from 'node:fs'
 import os from 'node:os'
 import path from 'node:path'
 import test from 'node:test'
+import { createCurrentRolloutFixtureBinding } from './support/release-rollout-evidence-fixture.mjs'
+import { validateCurrentSchemaAdmissionOutput } from '../../tools/release/release-manifest-value-contract.mjs'
 import {
   ROLLOUT_STAGES,
   completeRollout,
@@ -28,6 +30,7 @@ const targetDigest = `sha256:${'b'.repeat(64)}`
 
 function createState() {
   return createRolloutState({
+    ...createCurrentRolloutFixtureBinding(),
     rolloutId: 'rollout-20260711-0001',
     kind: 'deploy',
     manifestPath: '/var/lib/fsusblog/releases/target/release-manifest.json',
@@ -94,14 +97,14 @@ test('every injected stage failure produces the phase-correct recovery action', 
     ['manifest-validate', 'preserve-source-stop-candidate'],
     ['capacity-preflight', 'preserve-source-stop-candidate'],
     ['backup-restore-gate', 'preserve-source-stop-candidate'],
-    ['expand-migration', 'preserve-source-stop-candidate'],
+    ['current-schema-admission', 'preserve-source-stop-candidate'],
     ['candidate-start', 'preserve-source-stop-candidate'],
     ['candidate-readiness', 'preserve-source-stop-candidate'],
     ['asset-materialize', 'preserve-source-stop-candidate'],
         ['candidate-smoke', 'preserve-source-stop-candidate'],
         ['compatibility-smoke', 'preserve-source-stop-candidate'],
         ['gateway-switch', 'gateway-recover'],
-        ['source-drain', 'rollback-gateway-to-source'],
+        ['source-drain', 'resume-release-activation-same-cutover'],
         ['active-fence', 'resume-release-activation-same-cutover'],
         ['public-verify', 'resume-release-activation-same-cutover'],
         ['source-stop', 'retain-source-report-cleanup-blocker'],
@@ -123,7 +126,7 @@ test('every injected stage failure produces the phase-correct recovery action', 
         assert.equal(recovery.failedStage, stage);
         if (stage === 'source-drain')
 {
-            assert.equal(recovery.reason, 'post_switch_gate_failed_before_source_drain');
+            assert.equal(recovery.reason, 'post_switch_old_source_rollback_forbidden');
         }
         if (stage === 'active-fence' || stage === 'public-verify')
 {
@@ -166,7 +169,7 @@ test('failed stages cannot resume until their exact recovery action has durable 
     assert.equal(state.currentStage, 'candidate-start');
 });
 
-test('pre-cutover source drain failure may rollback, while a started cutover can only resume target activation', () =>
+test('post-switch source drain failures cannot restore an old image before or after cutover', () =>
 {
     const state = createState();
     completeThrough(state, 'source-drain');
@@ -175,16 +178,16 @@ test('pre-cutover source drain failure may rollback, while a started cutover can
         errorCode: 'source_drain_failed_before_cutover',
         failedAtUtc: '2026-07-11T02:40:01.000Z'
     });
-    completeRolloutRecovery(state, {
+    assert.throws(() => completeRolloutRecovery(state, {
     action: 'rollback-gateway-to-source',
     evidencePath: '/var/lib/fsusblog/evidence/post-switch-rollback.json',
     terminalStatus: 'rolled_back',
     completedAtUtc: '2026-07-11T02:40:02.000Z'
-  })
+  }), /recovery.action/u)
 
-    assert.equal(state.status, 'rolled_back');
-    assert.equal(state.outcome, 'rolled_back');
-    assert.throws(() => startRolloutStage(state, 'source-drain'), /terminal/u);
+    assert.equal(state.status, 'recovery_required');
+    assert.equal(state.outcome, null);
+    assert.equal(planRolloutRecovery(state).action, 'resume-release-activation-same-cutover');
 
     const irreversible = createState();
     completeThrough(irreversible, 'source-drain');
@@ -194,11 +197,13 @@ test('pre-cutover source drain failure may rollback, while a started cutover can
     assert.equal(planRolloutRecovery(irreversible).action, 'resume-release-activation-same-cutover');
 });
 
-test('Contract migration disables automatic rollback and survives a later failure as manual recovery', () =>
+test('retired serve-time Contract mutation refuses without changing durable state', () =>
 {
   const state = createState()
   completeThrough(state, 'source-stop')
-  markContractMigrationApplied(state, '2026-07-11T03:00:00.000Z')
+  const before = structuredClone(state)
+  assert.throws(() => markContractMigrationApplied(state, '2026-07-11T03:00:00.000Z'), /are retired/u)
+  assert.deepEqual(state, before)
   startRolloutStage(state, 'source-stop', '2026-07-11T03:00:01.000Z')
   failRolloutStage(state, 'source-stop', {
     errorCode: 'docker_stop_failed',
@@ -206,7 +211,7 @@ test('Contract migration disables automatic rollback and survives a later failur
   })
 
   assert.equal(state.rollbackAllowed, false)
-  assert.equal(planRolloutRecovery(state).action, 'manual-contract-recovery')
+  assert.equal(planRolloutRecovery(state).action, 'retain-source-report-cleanup-blocker')
   assert.equal(planRolloutRecovery(state).automatic, false)
 })
 
@@ -223,6 +228,43 @@ test('durable rollout state ignores interrupted temporary files and remains mode
   const recovered = readRolloutState(file)
   assert.deepEqual(recovered.completedStages, ['manifest-validate'])
   assert.equal(fs.statSync(file).mode & 0o777, 0o600)
+})
+
+test('current rollout requires explicit complete bindings and cannot resume legacy or image rollback state', () => {
+  const valid = createState()
+  assert.equal(valid.schema, 'fsusblog.release-rollout-state.v2')
+  assert.equal(valid.rollbackAllowed, false)
+  assert.equal(Object.hasOwn(valid, 'contractMigrationApplied'), false)
+  for (const patch of [
+    { schema: 'fsusblog.release-rollout-state.v1' }, { kind: 'rollback' },
+    { manifestSha256: null }, { manifestSha256: [valid.manifestSha256] },
+    { candidateSourceRevision: null }, { candidateSourceRevision: [valid.candidateSourceRevision] },
+    { candidateSourceRevision: '0'.repeat(40) }, { currentSchema: null },
+    { rollbackAllowed: true }, { contractMigrationApplied: false },
+    { status: 'rolled_back', outcome: 'rolled_back' },
+    { currentSchema: { ...valid.currentSchema, receipt: { ...valid.currentSchema.receipt, reference: '/receipts/latest/current.json' } } }
+  ]) {
+    const state = { ...structuredClone(valid), ...patch }
+    const before = structuredClone(state)
+    assert.throws(() => startRolloutStage(state, 'manifest-validate'))
+    assert.deepEqual(state, before)
+  }
+})
+
+test('Server admission output binds every current receipt, database, physical schema and candidate field', () => {
+  const binding = createCurrentRolloutFixtureBinding()
+  const output = { status: 'verified-current', candidateSourceRevision: binding.candidateSourceRevision,
+    artifactSha256: binding.currentSchema.receipt.sha256, target: binding.currentSchema.target,
+    database: binding.currentSchema.database, actualSchemaDigest: binding.currentSchema.actualSchemaDigest }
+  assert.deepEqual(validateCurrentSchemaAdmissionOutput(output, binding.currentSchema, binding.candidateSourceRevision), [])
+  for (const value of [null, {}, { ...output, status: undefined }, { ...output, status: 'pass' },
+    { ...output, candidateSourceRevision: 'a'.repeat(40) }, { ...output, artifactSha256: 'a'.repeat(64) },
+    { ...output, target: { ...output.target, contentDigest: 'a'.repeat(64) } },
+    { ...output, database: { ...output.database, databaseId: 'other' } },
+    { ...output, database: { ...output.database, provider: 1 } },
+    { ...output, actualSchemaDigest: output.target.contentDigest }, { ...output, nativeAdmission: true }
+  ]) assert.ok(validateCurrentSchemaAdmissionOutput(value, binding.currentSchema, binding.candidateSourceRevision).length > 0)
+  assert.ok(validateCurrentSchemaAdmissionOutput(output, binding.currentSchema, [binding.candidateSourceRevision]).length > 0)
 })
 
 test('state rejects reordered stages, mutable identities, generation reuse and incomplete completion', () => {

@@ -8,7 +8,9 @@ RELEASE_MANIFEST=""
 ROLLOUT_STATE_FILE="${FSUSBLOG_ROLLOUT_STATE_FILE:-}"
 ROLLOUT_EVIDENCE_ROOT="${FSUSBLOG_ROLLOUT_EVIDENCE_ROOT:-/var/lib/fsusblog/deployment/rollouts}"
 BACKUP_RESTORE_EVIDENCE="${FSUSBLOG_BACKUP_RESTORE_EVIDENCE:-}"
-MIGRATION_SERVER_DLL="${FSUSBLOG_MIGRATION_SERVER_DLL:-}"
+CURRENT_ADMISSION_PASSED=0
+CURRENT_MANIFEST_SHA256=""
+CURRENT_ADMISSION_OUTPUT=""
 PRODUCTION_BUILD_RECEIPT="${FSUSBLOG_PRODUCTION_BUILD_RECEIPT_HOST_PATH:-}"
 TRAFFIC_SCENARIO="${FSUSBLOG_ROLLOUT_TRAFFIC_SCENARIO:-}"
 TRAFFIC_BINDING_KEY_FILE="${FSUSBLOG_ROLLOUT_TRAFFIC_BINDING_KEY_FILE:-}"
@@ -37,7 +39,6 @@ ASSET_STORE="${FSUSBLOG_RELEASE_ASSET_STORE:-/var/lib/fsusblog/release-assets}"
 RETENTION_STATE="${FSUSBLOG_RELEASE_RETENTION_STATE:-}"
 DRY_RUN=0
 NO_SWITCH=0
-ROLLBACK=0
 RESUME=0
 TRAFFIC_PID=""
 RESOURCE_PID=""
@@ -87,13 +88,12 @@ Usage() {
 Usage: tools/deployment/release-rollout.sh --release-manifest <file> [options]
 
 This is the only supported production rollout entry. It serializes and persists:
-  immutable manifest -> capacity/backup/Expand -> assets -> isolated candidate/smoke/compatibility
+  fresh current-schema admission -> immutable manifest -> capacity/backup -> assets -> isolated candidate/smoke/compatibility
   -> provisional gateway switch -> source drain + legacy cutover -> active fence activation -> public verification -> source stop -> evidence seal
 
 Required evidence/configuration:
   --release-manifest <file>           Immutable CI release manifest.
   --backup-restore-evidence <file>    Recent successful real restore drill.
-  --migration-server-dll <file>       Exact target FsusBlog.Server.dll migration runner.
   --production-build-receipt <file>   Exact sealed CI receipt beside its immutable artifact domains.
   --traffic-scenario <file>           Full HTTP scenario including auth/write/upload/admin read.
   --traffic-binding-key-file <file>   Mode 0400/0600 key for final traffic evidence HMAC verification.
@@ -114,7 +114,7 @@ Required evidence/configuration:
 Modes:
   --dry-run       Validate immutable inputs/state and print the exact ordered plan without mutation.
   --no-switch     Start, materialize and verify the candidate; do not mutate public traffic/fence.
-  --rollback      Roll out the manifest that exactly matches the durable previous slot/release.
+  --rollback      Retired: a previous image is not verified database recovery.
   --resume        Resume an existing durable rollout state after stage-specific recovery.
 
 Paths/config:
@@ -175,9 +175,7 @@ while [[ $# -gt 0 ]]; do
             shift 2
             ;;
         --migration-server-dll)
-            [[ $# -ge 2 ]] || RolloutFail "--migration-server-dll requires a path"
-            MIGRATION_SERVER_DLL="$2"
-            shift 2
+            RolloutFail "serve_time_schema_migration_retired"
             ;;
         --production-build-receipt)
             [[ $# -ge 2 ]] || RolloutFail "--production-build-receipt requires a path"
@@ -304,8 +302,7 @@ while [[ $# -gt 0 ]]; do
             shift
             ;;
         --rollback)
-            ROLLBACK=1
-            shift
+            RolloutFail "schema_image_only_rollback_retired"
             ;;
         --resume)
             RESUME=1
@@ -321,7 +318,6 @@ done
 
 [[ -n "$RELEASE_MANIFEST" ]] || RolloutFail "--release-manifest is required"
 [[ -f "$RELEASE_MANIFEST" ]] || RolloutFail "release manifest not found: $RELEASE_MANIFEST"
-[[ "$NO_SWITCH" == "0" || "$ROLLBACK" == "0" ]] || RolloutFail "--no-switch and --rollback are mutually exclusive"
 [[ "$DRY_RUN" == "0" || "$RESUME" == "0" ]] || RolloutFail "--dry-run cannot resume mutable state"
 [[ -z "$REQUESTED_ROLLOUT_ID" || "$REQUESTED_ROLLOUT_ID" =~ ^[0-9A-Za-z][0-9A-Za-z._-]{7,127}$ ]] ||
     RolloutFail "--rollout-id is invalid"
@@ -342,6 +338,9 @@ ReadInitialState() {
         [[ -f "$ROLLOUT_STATE_FILE" ]] || RolloutFail "--resume state is missing: $ROLLOUT_STATE_FILE"
         state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")" ||
             RolloutFail "unable to read durable rollout state"
+        [[ "$(jq -r '.kind' <<<"$state")" == "deploy" &&
+            "$(jq -r '.recovery.action // ""' <<<"$state")" != "rollback-gateway-to-source" ]] ||
+            RolloutFail "schema_image_only_rollback_retired"
         ROLLOUT_ID="$(jq -r '.rolloutId' <<<"$state")"
         [[ -z "$REQUESTED_ROLLOUT_ID" || "$REQUESTED_ROLLOUT_ID" == "$ROLLOUT_ID" ]] ||
             RolloutFail "--rollout-id does not match the durable resume state"
@@ -353,7 +352,6 @@ ReadInitialState() {
         TARGET_RELEASE="$(jq -r '.target.releaseId' <<<"$state")"
         TARGET_DIGEST="$(jq -r '.target.imageDigest' <<<"$state")"
         TARGET_GENERATION="$(jq -r '.target.runtimeGeneration' <<<"$state")"
-        [[ "$(jq -r '.kind' <<<"$state")" == "rollback" ]] && ROLLBACK=1
         SlotRequire "$SOURCE_SLOT"
         SlotRequire "$TARGET_SLOT"
         node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
@@ -376,11 +374,7 @@ ReadInitialState() {
     [[ "$SOURCE_DIGEST" =~ ^sha256:[0-9a-f]{64}$ ]] || RolloutFail "active image digest is invalid"
     [[ "$SOURCE_GENERATION" =~ ^[0-9]+$ && "$SOURCE_GENERATION" -ge 1 ]] || RolloutFail "active runtime generation is invalid"
 
-    if [[ "$ROLLBACK" == "1" ]]; then
-        TARGET_SLOT="$(jq -r '.previousSlot // ""' <<<"$state")"
-    else
-        TARGET_SLOT="$([[ "$SOURCE_SLOT" == "blue" ]] && printf green || printf blue)"
-    fi
+    TARGET_SLOT="$([[ "$SOURCE_SLOT" == "blue" ]] && printf green || printf blue)"
     SlotRequire "$TARGET_SLOT"
 
     local manifestResult
@@ -391,13 +385,7 @@ ReadInitialState() {
     TARGET_DIGEST="$(jq -r '.imageDigest' <<<"$manifestResult")"
     [[ "$TARGET_RELEASE" != "$SOURCE_RELEASE" ]] || RolloutFail "target release must differ from active release"
     [[ "$TARGET_DIGEST" != "$SOURCE_DIGEST" ]] || RolloutFail "target digest must differ from active digest"
-    if [[ "$ROLLBACK" == "1" ]]; then
-        [[ "$(jq -r '.previousReleaseId' <<<"$state")" == "$TARGET_RELEASE" &&
-        "$(jq -r '.previousImageDigest' <<<"$state")" == "$TARGET_DIGEST" ]] ||
-            RolloutFail "rollback manifest does not exactly match the durable previous release"
-    fi
-
-    ROLLOUT_ID="${REQUESTED_ROLLOUT_ID:-$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)-${TARGET_RELEASE}}"
+    ROLLOUT_ID="${REQUESTED_ROLLOUT_ID:-deploy-${TARGET_RELEASE}}"
     [[ -n "$ROLLOUT_STATE_FILE" ]] || ROLLOUT_STATE_FILE="$ROLLOUT_EVIDENCE_ROOT/$ROLLOUT_ID/state.json"
     ConfigureRolloutPaths
 }
@@ -599,7 +587,7 @@ PrintDryRun() {
     plannedGeneration="$(($(jq -r '.runtimeGeneration' <<<"$state") + 1))"
     jq -cn \
         --arg rolloutId "$ROLLOUT_ID" \
-        --arg kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)" \
+        --arg kind deploy \
         --arg manifest "$(realpath "$RELEASE_MANIFEST")" \
         --arg sourceSlot "$SOURCE_SLOT" --arg sourceRelease "$SOURCE_RELEASE" --arg sourceDigest "$SOURCE_DIGEST" \
         --arg targetSlot "$TARGET_SLOT" --arg targetRelease "$TARGET_RELEASE" --arg targetDigest "$TARGET_DIGEST" \
@@ -607,9 +595,9 @@ PrintDryRun() {
         --argjson sourceGeneration "$SOURCE_GENERATION" \
         --argjson targetGeneration "$plannedGeneration" \
         --argjson noSwitch "$([[ "$NO_SWITCH" == "1" ]] && printf true || printf false)" \
-        --argjson stages "$(printf '%s\n' manifest-validate capacity-preflight backup-restore-gate expand-migration asset-materialize candidate-start candidate-readiness candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence | jq -R . | jq -s .)" '
+        --argjson stages "$(printf '%s\n' manifest-validate capacity-preflight backup-restore-gate current-schema-admission asset-materialize candidate-start candidate-readiness candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence | jq -R . | jq -s .)" '
     {
-      schema: "fsusblog.release-rollout-plan.v1",
+      schema: "fsusblog.release-rollout-plan.v2",
       status: "dry-run",
       rolloutId: $rolloutId,
       kind: $kind,
@@ -618,15 +606,15 @@ PrintDryRun() {
       source: {slot: $sourceSlot, releaseId: $sourceRelease, imageDigest: $sourceDigest, generation: $sourceGeneration},
       target: {slot: $targetSlot, releaseId: $targetRelease, imageDigest: $targetDigest, generation: $targetGeneration},
       candidateOnly: $noSwitch,
+      admissionVerified: false,
       stages: (if $noSwitch then $stages[0:9] else $stages end),
-      safety: {exclusiveHostLock: true, immutableDigest: true, activeSlotCleanupForbidden: true, criticalGatesSkippable: false}
+      safety: {exclusiveHostLockAcquired: false, immutableDigest: true, activeSlotCleanupForbidden: true, criticalGatesSkippable: false}
     }'
 }
 
 RequireRuntimeInputs() {
     for entry in \
         "backup restore evidence:$BACKUP_RESTORE_EVIDENCE" \
-        "migration server DLL:$MIGRATION_SERVER_DLL" \
         "production build receipt:$PRODUCTION_BUILD_RECEIPT" \
         "traffic scenario:$TRAFFIC_SCENARIO" \
         "traffic binding key:$TRAFFIC_BINDING_KEY_FILE" \
@@ -735,7 +723,7 @@ RecoverInterruptedStage() {
 
     if [[ -f "$evidenceFile" ]]; then
         evidenceStatus="$(jq -r --arg rolloutId "$ROLLOUT_ID" --arg stage "$stage" '
-      if .schema == "fsusblog.release-rollout-stage-evidence.v1"
+      if .schema == "fsusblog.release-rollout-stage-evidence.v2"
         and .rolloutId == $rolloutId and .stage == $stage and (.status == "ok" or .status == "failed")
       then .status else "invalid" end
     ' "$evidenceFile" 2>/dev/null || printf invalid)"
@@ -807,7 +795,7 @@ CreateOrResumeState() {
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" create \
         --state "$ROLLOUT_STATE_FILE" \
         --rollout-id "$ROLLOUT_ID" \
-        --kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf deploy)" \
+        --kind deploy \
         --manifest "$(realpath "$RELEASE_MANIFEST")" \
         --slot-state "$SLOT_STATE_FILE" \
         --source-slot "$SOURCE_SLOT" --source-release "$SOURCE_RELEASE" --source-digest "$SOURCE_DIGEST" --source-generation "$SOURCE_GENERATION" \
@@ -1089,6 +1077,15 @@ EnsureBackgroundProbesAlive() {
 }
 
 CleanupBackgroundProbes() {
+    if [[ "$CURRENT_ADMISSION_PASSED" != "1" ]]; then
+        # Refusal withdraws mutation authority, not responsibility for our own children.
+        # Adopted observers and their PID/stop files belong to the prior invocation.
+        [[ "$TRAFFIC_ADOPTED" != "0" ]] || StopPublicTraffic >/dev/null 2>&1 || true
+        [[ "$RESOURCE_ADOPTED" != "0" ]] || StopResourceProbe >/dev/null 2>&1 || true
+        [[ "$NOTIFICATION_ADOPTED" != "0" ]] || StopNotificationProbe >/dev/null 2>&1 || true
+        [[ "$ASSET_COMPATIBILITY_ADOPTED" != "0" ]] || CancelAssetCompatibilityProbe >/dev/null 2>&1 || true
+        return 0
+    fi
     [[ "$PRESERVE_BACKGROUND_PROBES_ON_EXIT" == "0" ]] || return 0
     StopPublicTraffic >/dev/null 2>&1 || true
     StopResourceProbe >/dev/null 2>&1 || true
@@ -1140,6 +1137,10 @@ WaitForWorkerLedger() {
 
 InterruptRollout() {
     local signal="$1" stage state attempt stdoutFile stderrFile evidenceFile startedAt completedAt
+    if [[ "$CURRENT_ADMISSION_PASSED" != "1" ]]; then
+        CleanupBackgroundProbes
+        exit 130
+    fi
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE" 2>/dev/null || true)"
     stage="$(jq -r '.currentStage // ""' <<<"$state" 2>/dev/null || true)"
     if [[ -n "$stage" ]]; then
@@ -1175,7 +1176,8 @@ trap 'CleanupBackgroundProbes' EXIT
 RunStage() {
     local stage="$1" commandId="$2"
     shift 2
-    local state completed attempt started completedAt stdoutFile stderrFile evidenceFile exitCode=0 evidenceExit=0
+    local state completed attempt started completedAt stdoutFile stderrFile evidenceFile preparationFile executionFile exitCode=0 evidenceExit=0 captureExit=0
+    FreshCurrentSchemaAdmission
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
     completed="$(jq -r --arg stage "$stage" '.completedStages | index($stage) != null' <<<"$state")"
     if [[ "$completed" == "true" ]]; then
@@ -1187,16 +1189,37 @@ RunStage() {
     stdoutFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stdout"
     stderrFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.stderr"
     evidenceFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.json"
+    preparationFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.shell-preparation.json"
+    executionFile="$EVIDENCE_DIR/commands/${stage}.attempt-${attempt}.shell-result.json"
     started="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
     node "$ROOT_DIR/tools/deployment/rollout-state.mjs" start-stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" --at "$started" >/dev/null
     RolloutLog "stage=$stage status=running"
     RehearsalStageHold "$stage"
+    # This owner currently calls fixed shell functions with no credential
+    # arguments. Do not serialize arbitrary argv or claim native admission.
+    [[ "$#" == "1" && "$(type -t -- "$1")" == "function" ]] || RolloutFail "stage=$stage requires one original shell function"
+    node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" prepare-stage-execution \
+        --state "$ROLLOUT_STATE_FILE" --stage "$stage" --command-id "$commandId" \
+        --shell-function "$1" --owner "$ROOT_DIR/tools/deployment/release-rollout.sh" \
+        --started-at "$started" --out "$preparationFile" >/dev/null
     set +e
     "$@" >"$stdoutFile" 2>"$stderrFile"
     exitCode=$?
     set -e
     completedAt="$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)"
+    set +e
+    node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" finish-stage-execution \
+        --state "$ROLLOUT_STATE_FILE" --preparation "$preparationFile" \
+        --exit-code "$exitCode" --completed-at "$completedAt" \
+        --stdout "$stdoutFile" --stderr "$stderrFile" --out "$executionFile" >/dev/null
+    captureExit=$?
+    set -e
+    if [[ "$captureExit" != "0" ]]; then
+        # Collection failure must not replace the original command failure.
+        [[ "$exitCode" != "0" ]] || exitCode=70
+        printf '[release-rollout] shell result capture failed for %s\n' "$stage" >>"$stderrFile"
+    fi
     set +e
     node "$ROOT_DIR/tools/deployment/release-rollout-evidence.mjs" stage \
         --state "$ROLLOUT_STATE_FILE" --stage "$stage" \
@@ -1208,7 +1231,7 @@ RunStage() {
     evidenceExit=$?
     set -e
     if [[ "$evidenceExit" != "0" ]]; then
-        exitCode=70
+        [[ "$exitCode" != "0" ]] || exitCode=70
         printf '[release-rollout] stage evidence write failed for %s\n' "$stage" >>"$stderrFile"
     fi
     if [[ "$exitCode" == "0" ]]; then
@@ -1231,7 +1254,7 @@ RunStage() {
 
 StageIndex() {
     local wanted="$1" index=0 stage
-    for stage in manifest-validate capacity-preflight backup-restore-gate expand-migration asset-materialize candidate-start candidate-readiness candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence; do
+    for stage in manifest-validate capacity-preflight backup-restore-gate current-schema-admission asset-materialize candidate-start candidate-readiness candidate-smoke compatibility-smoke gateway-switch source-drain active-fence public-verify source-stop release-evidence; do
         [[ "$stage" == "$wanted" ]] && {
             printf '%s\n' "$index"
             return
@@ -1243,6 +1266,7 @@ StageIndex() {
 
 RecoverPendingState() {
     local state action failedStage recoveryFile recoveryStdout recoveryStderr status=0
+    FreshCurrentSchemaAdmission
     state="$(node "$ROOT_DIR/tools/deployment/rollout-state.mjs" read --state "$ROLLOUT_STATE_FILE")"
     [[ "$(jq -r '.status' <<<"$state")" == "recovery_required" ]] || return 0
     action="$(jq -r '.recovery.action' <<<"$state")"
@@ -1267,19 +1291,7 @@ RecoverPendingState() {
             set -e
             ;;
         rollback-gateway-to-source)
-            set +e
-            "$ROOT_DIR/tools/deployment/release-rollout-recovery.sh" rollback-to-source \
-                --rollout-state "$ROLLOUT_STATE_FILE" --slot-state "$SLOT_STATE_FILE" \
-                --env-file "$PRODUCTION_ENV_FILE" --source-manifest "${FSUSBLOG_ROLLOUT_SOURCE_MANIFEST:-}" \
-                --public-url "$PUBLIC_PROBE_URL" --admin-header-file "$ADMIN_HEADER_FILE" --control-origin "$CONTROL_ORIGIN" \
-                --out "$recoveryFile" >"$recoveryStdout" 2>"$recoveryStderr"
-            status=$?
-            set -e
-            if [[ "$status" == "0" ]]; then
-                node "$ROOT_DIR/tools/deployment/rollout-state.mjs" complete-recovery \
-                    --state "$ROLLOUT_STATE_FILE" --action "$action" --evidence "$recoveryFile" --terminal-status rolled_back >/dev/null
-                return 0
-            fi
+            RolloutFail "schema_image_only_rollback_retired"
             ;;
         resume-release-activation-same-cutover | resume-release-evidence)
             jq -cn --arg action "$action" --arg failedStage "$failedStage" \
@@ -1311,6 +1323,78 @@ RecoverPendingState() {
     return 91
 }
 
+FreshCurrentSchemaAdmission() {
+    CURRENT_ADMISSION_PASSED=0
+    [[ ! -v FSUSBLOG_MIGRATION_SERVER_DLL ]] || RolloutFail "serve_time_schema_migration_retired"
+    SlotRequireCommand docker
+    [[ -f "$PRODUCTION_ENV_FILE" && ! -L "$PRODUCTION_ENV_FILE" ]] ||
+        RolloutFail "current_schema_admission_requires_explicit_environment_file"
+    local fieldsText
+    fieldsText="$(node --input-type=module - "$ROOT_DIR" "$RELEASE_MANIFEST" "$CURRENT_MANIFEST_SHA256" "$ROLLOUT_STATE_FILE" "$RESUME" <<'NODE'
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { pathToFileURL } from 'node:url';
+const [root, file, expectedSha, stateFile, resume] = process.argv.slice(2);
+const { readReleaseManifest, readCurrentSchemaReleaseBinding } = await import(pathToFileURL(`${root}/tools/release/release-manifest.mjs`));
+const stat = fs.lstatSync(file);
+if (!stat.isFile() || stat.isSymbolicLink()) throw new Error('manifest must be a regular non-symlink file');
+const digest = () => createHash('sha256').update(fs.readFileSync(file)).digest('hex');
+const sha = digest();
+if (expectedSha && expectedSha !== sha) throw new Error('manifest bytes changed during rollout');
+const manifest = readReleaseManifest(file);
+if (digest() !== sha) throw new Error('manifest changed while reading');
+const binding = readCurrentSchemaReleaseBinding(manifest.currentSchema.receipt.reference, manifest.currentSchema.receipt.sha256);
+if (!isDeepStrictEqual(binding, manifest.currentSchema)) throw new Error('receipt projection differs from manifest bindings');
+if (resume === '1' || (stateFile && fs.existsSync(stateFile))) {
+    const { readRolloutState } = await import(pathToFileURL(`${root}/tools/deployment/release-rollout-lib.mjs`));
+    const state = readRolloutState(stateFile);
+    if (state.manifestSha256 !== sha || state.candidateSourceRevision !== manifest.commitSha
+        || !isDeepStrictEqual(state.currentSchema, binding)
+        || state.target.releaseId !== manifest.releaseId || state.target.imageDigest !== manifest.imageDigest) {
+        throw new Error('current receipt and candidate bindings differ from durable rollout state');
+    }
+}
+process.stdout.write([manifest.imageRef, manifest.commitSha, binding.receipt.reference,
+    binding.receipt.sha256, sha, JSON.stringify(binding)].join('\n') + '\n');
+NODE
+)" || RolloutFail "current_schema_admission_input_binding_failed"
+    local -a fields
+    mapfile -t fields <<<"$fieldsText"
+    [[ "${#fields[@]}" == "6" ]] || RolloutFail "current_schema_admission_input_incomplete"
+    CURRENT_MANIFEST_SHA256="${fields[4]}"
+    local environmentFile
+    environmentFile="$(realpath "$PRODUCTION_ENV_FILE")"
+    [[ "$environmentFile" != *','* && "${fields[2]}" != *','* ]] ||
+        RolloutFail "current_schema_admission_mount_path_invalid"
+    CURRENT_ADMISSION_OUTPUT="$(docker run --rm --network fsus-infra-network \
+        --mount "type=bind,source=$environmentFile,target=/run/fsusblog-current-admission/production.env,readonly" \
+        --mount "type=bind,source=${fields[2]},target=/run/fsusblog-current-admission/current-receipt.json,readonly" \
+        --entrypoint /app/FsusBlog.Server "${fields[0]}" \
+        current-schema-check --env-file /run/fsusblog-current-admission/production.env \
+        --receipt /run/fsusblog-current-admission/current-receipt.json \
+        --receipt-sha256 "${fields[3]}" --candidate-source-revision "${fields[1]}")" ||
+        RolloutFail "current_schema_admission_candidate_command_failed"
+    if ! node --input-type=module - "$ROOT_DIR" "${fields[5]}" "${fields[1]}" "$CURRENT_ADMISSION_OUTPUT" "$RELEASE_MANIFEST" "$CURRENT_MANIFEST_SHA256" <<'NODE'
+import fs from 'node:fs';
+import { createHash } from 'node:crypto';
+import { isDeepStrictEqual } from 'node:util';
+import { pathToFileURL } from 'node:url';
+const [root, binding, source, output, manifestFile, manifestSha] = process.argv.slice(2);
+const { validateCurrentSchemaAdmissionOutput } = await import(pathToFileURL(`${root}/tools/release/release-manifest-value-contract.mjs`));
+const parsedBinding = JSON.parse(binding);
+const errors = validateCurrentSchemaAdmissionOutput(JSON.parse(output), parsedBinding, source);
+if (errors.length) throw new Error(errors.join('\n'));
+const { readCurrentSchemaReleaseBinding } = await import(pathToFileURL(`${root}/tools/release/release-manifest.mjs`));
+if (createHash('sha256').update(fs.readFileSync(manifestFile)).digest('hex') !== manifestSha
+    || !isDeepStrictEqual(readCurrentSchemaReleaseBinding(parsedBinding.receipt.reference, parsedBinding.receipt.sha256), parsedBinding)) {
+    throw new Error('candidate references changed during fresh admission');
+}
+NODE
+    then RolloutFail "current_schema_admission_output_binding_failed"; fi
+    CURRENT_ADMISSION_PASSED=1
+}
+
 StageManifestValidate() {
     node "$ROOT_DIR/tools/release/check-release-manifest.mjs" \
         --manifest "$RELEASE_MANIFEST" --slot "$TARGET_SLOT" --release-id "$TARGET_RELEASE" --image-digest "$TARGET_DIGEST"
@@ -1329,22 +1413,10 @@ StageBackupRestoreGate() {
         --out "$EVIDENCE_DIR/backup-restore-gate.json"
 }
 
-StageExpandMigration() {
-    local migrationOutput="$EVIDENCE_DIR/migration-expand.json"
-    if [[ "$ROLLBACK" == "1" ]]; then
-        jq -cn '{schema:"fsusblog.online-migration-rollout.v1",status:"ok",phase:"expand",action:"not-required-for-rollback",contractApplied:false,errors:[]}' >"$migrationOutput"
-    else
-        "$ROOT_DIR/tools/db/run-online-migrations.sh" \
-            --server-dll "$MIGRATION_SERVER_DLL" --release-manifest "$RELEASE_MANIFEST" \
-            --env-file "$PRODUCTION_ENV_FILE" --phase expand >"$migrationOutput"
-    fi
-    jq -e '
-    type == "object"
-    and (.status == "ok" or .status == "pass" or .status == "completed")
-    and (.phase == "expand")
-    and ((.errors // []) | type == "array" and length == 0)
-  ' "$migrationOutput" >/dev/null
-    cat "$migrationOutput"
+StageCurrentSchemaAdmission() {
+    FreshCurrentSchemaAdmission
+    printf '%s\n' "$CURRENT_ADMISSION_OUTPUT" >"$EVIDENCE_DIR/current-schema-admission.json"
+    printf '%s\n' "$CURRENT_ADMISSION_OUTPUT"
     WaitForTrafficBaseline
 }
 
@@ -1426,7 +1498,7 @@ StageGatewaySwitch() {
     EnsureBackgroundProbesAlive
     "$ROOT_DIR/tools/deployment/gateway-switch.sh" \
         --to "$TARGET_SLOT" --release "$TARGET_RELEASE" --image-digest "$TARGET_DIGEST" \
-        --kind "$([[ "$ROLLBACK" == "1" ]] && printf rollback || printf switch)" \
+        --kind switch \
         --state-file "$SLOT_STATE_FILE" --public-url "$PUBLIC_PROBE_URL" \
         --admin-header-file "$ADMIN_HEADER_FILE" --control-origin "$CONTROL_ORIGIN" \
         --defer-source-drain --rollout-state-file "$ROLLOUT_STATE_FILE"
@@ -1596,7 +1668,7 @@ AuxiliaryArgs() {
     printf '%s\n' \
         --auxiliary "releaseManifest=$RELEASE_MANIFEST" \
         --auxiliary "backupRestoreGate=$EVIDENCE_DIR/backup-restore-gate.json" \
-        --auxiliary "migrationExpand=$EVIDENCE_DIR/migration-expand.json" \
+        --auxiliary "currentSchemaAdmission=$EVIDENCE_DIR/current-schema-admission.json" \
         --auxiliary "candidateReadiness=$EVIDENCE_DIR/candidate-readiness-gate.json" \
         --auxiliary "assetMaterialization=$EVIDENCE_DIR/asset-materialization.json" \
         --auxiliary "retentionPrepared=$EVIDENCE_DIR/asset-retention-prepared.json" \
@@ -1652,14 +1724,18 @@ FinalizeRollout() {
     RolloutLog "status=completed rollout=$ROLLOUT_ID evidence=$FINAL_EVIDENCE"
 }
 
+if [[ "$DRY_RUN" == "1" ]]; then
+    ReadInitialState
+    PrintDryRun
+    exit 0
+fi
+
+FreshCurrentSchemaAdmission
 SlotAcquireDeploymentLock
 export FSUSBLOG_DEPLOYMENT_LOCK_FD="${FSUSBLOG_DEPLOYMENT_LOCK_FD:-9}"
 export FSUSBLOG_ROLLOUT_ENTRY=1
 ReadInitialState
-if [[ "$DRY_RUN" == "1" ]]; then
-    PrintDryRun
-    exit 0
-fi
+FreshCurrentSchemaAdmission
 
 RequireRuntimeInputs
 PRODUCTION_BUILD_RECEIPT="$(realpath "$PRODUCTION_BUILD_RECEIPT")"
@@ -1678,7 +1754,7 @@ StartAssetCompatibilityProbe
 RunStage manifest-validate immutable-manifest StageManifestValidate
 RunStage capacity-preflight host-capacity StageCapacityPreflight
 RunStage backup-restore-gate backup-restore-evidence StageBackupRestoreGate
-RunStage expand-migration online-expand StageExpandMigration
+RunStage current-schema-admission current-schema-readonly StageCurrentSchemaAdmission
 RunStage asset-materialize immutable-assets StageAssetMaterialize
 RunStage candidate-start isolated-candidate StageCandidateStart
 RunStage candidate-readiness release-aware-readiness StageCandidateReadiness

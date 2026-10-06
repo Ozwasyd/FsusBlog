@@ -1,0 +1,101 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "config/contracts/behavior-fact-extractors.json",
+                "docs/architecture/monolithic-distributed-boundary.md"
+            ],
+            "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/document-inventory.generated.json",
+                "config/schemas/behavior-doc-static-admission-receipt.schema.json",
+                "config/schemas/runtime-role-observation.schema.json"
+            ],
+            "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/admin-operations-health-boundary.md"
+            ],
+            "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/Operations/ProductionHealth.cs",
+                "src/backend/Infrastructure/Operations/ReleaseId.cs",
+                "src/backend/Infrastructure/Operations/ServerCommand.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCoordinator.cs",
+                "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs",
+                "src/backend/Infrastructure/SchemaMigration/PostgresOnlineSchemaMigrationStateStore.cs",
+                "src/backend/Infrastructure/SchemaMigration/SchemaCompatibilityCoordinate.cs",
+                "src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs",
+                "src/backend/Program.cs",
+                "tools/deployment/release-rollout-auxiliary-evidence-contract.mjs",
+                "tools/deployment/release-rollout-evidence-constants.mjs",
+                "tools/deployment/release-rollout-evidence-sections.mjs",
+                "tools/deployment/release-rollout-evidence-verifier.mjs",
+                "tools/deployment/release-rollout-evidence.mjs",
+                "tools/deployment/release-rollout-gate.mjs",
+                "tools/deployment/release-rollout-lib.mjs",
+                "tools/deployment/release-rollout-semantic-artifact-contract.mjs",
+                "tools/deployment/release-traffic-probe.mjs",
+                "tools/deployment/rollout-state.mjs",
+                "tools/deployment/verify-release-challenge-kind-cutover.mjs",
+                "tools/deployment/zero-downtime-rehearsal-plan.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+                "tools/docs/behavior-doc-minimal-contract-build.mjs",
+                "tools/fact-extractors/test-matrix/extract.mjs",
+                "tools/operations/check-release-evidence-manifest.mjs",
+                "tools/operations/collect-release-rollout-bundle.mjs",
+                "tools/release/check-release-final.mjs",
+                "tools/release/check-release-manifest.mjs",
+                "tools/release/create-release-manifest.mjs",
+                "tools/release/release-manifest-value-contract.mjs",
+                "tools/release/release-manifest.mjs",
+                "tools/test-evidence/canonical-release-authorities-value-contract.mjs",
+                "tools/test-evidence/canonical-release-authorities.mjs",
+                "tools/test-evidence/release-authority-facts-contract.mjs",
+                "tools/test-evidence/release-readiness-observations.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs"
+            ],
+            "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        },
+        {
+            "id": "runtime-role-observation-authority",
+            "paths": [
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs"
+            ],
+            "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/db/run-online-migrations.sh",
+                "tools/deployment/gateway-recover.sh",
+                "tools/deployment/gateway-rollback.sh",
+                "tools/deployment/gateway-switch.sh",
+                "tools/deployment/release-rollout-recovery.sh",
+                "tools/deployment/release-rollout.sh",
+                "tools/deployment/slot-common.sh",
+                "tools/deployment/zero-downtime-rehearsal.sh"
+            ],
+            "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        }
+    ]
+}

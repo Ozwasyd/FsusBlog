@@ -17,6 +17,7 @@ import {
     writeRolloutStateAtomic
 } from '../../tools/deployment/release-rollout-lib.mjs'
 import { createPublicAotWarmEvidence } from '../../tools/frontend/public-aot-warm-evidence.mjs'
+import { createCurrentRolloutFixtureBinding, createCurrentRolloutAdmissionFixtureOutput } from './support/release-rollout-evidence-fixture.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..')
 const evidenceCli = path.join(root, 'tools/deployment/release-rollout-evidence.mjs')
@@ -42,7 +43,7 @@ const requiredArtifactNames = [
   'faultInjection'
 ]
 const requiredAuxiliaryNames = [
-    'releaseManifest', 'backupRestoreGate', 'migrationExpand', 'candidateReadiness',
+    'releaseManifest', 'backupRestoreGate', 'currentSchemaAdmission', 'candidateReadiness',
     'assetMaterialization', 'retentionPrepared', 'retainedAssets', 'publicAotWarm',
     'candidateSmoke', 'compatibilityMatrix', 'gatewayTransition', 'activeFenceAcquire',
     'activeFenceSourceRevoke', 'activeFenceVerify', 'challengeKindCutoverReceipt',
@@ -54,7 +55,7 @@ const requiredAuxiliaryNames = [
 const faultCases = [
   'manifest-digest-mismatch',
   'capacity-insufficient',
-  'expand-failure',
+  'current-admission-failure',
   'candidate-readiness',
   'asset-hash-mismatch',
   'gateway-reload-failure',
@@ -83,7 +84,10 @@ function fixture(t, name) {
 }
 
 function newState(directory) {
+  const binding = createCurrentRolloutFixtureBinding()
+  binding.manifestSha256 = crypto.createHash('sha256').update(`${JSON.stringify(manifestPayload(), null, 2)}\n`).digest('hex')
   return createRolloutState({
+    ...binding,
     rolloutId,
     kind: 'deploy',
     manifestPath: path.join(directory, 'release-manifest.json'),
@@ -100,13 +104,22 @@ function writeJson(file, value) {
 
 function stageEvidenceFile(fixture, stage) {
   const file = path.join(fixture.commandDirectory, `${stage}.json`)
+  let output
+  if (stage === 'current-schema-admission') {
+    const stdout = path.join(fixture.commandDirectory, `${stage}.stdout`)
+    writeJson(stdout, createCurrentRolloutAdmissionFixtureOutput())
+    const bytes = fs.readFileSync(stdout)
+    output = { stdout: { path: stdout, bytes: bytes.length,
+      sha256: `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}` } }
+  }
   writeJson(file, {
-    schema: 'fsusblog.release-rollout-stage-evidence.v1',
+    schema: 'fsusblog.release-rollout-stage-evidence.v2',
     rolloutId,
     stage,
     attempt: 1,
     status: 'ok',
-    exitCode: 0
+    exitCode: 0,
+    ...(output ? { output } : {})
   })
   return file
 }
@@ -423,11 +436,13 @@ function writeAuxiliary(fixture) {
       ? path.join(fixture.directory, 'release-manifest.json')
             : path.join(fixture.directory, 'auxiliary', `${name}.json`);
         const payload = name === 'releaseManifest'
-            ? {
-          schema: 'fsusblog.release-manifest.v2',
-          releaseId: target.releaseId,
-          imageDigest: target.imageDigest
-        }
+            ? manifestPayload()
+        : name === 'currentSchemaAdmission'
+          ? { status: 'verified-current', candidateSourceRevision: createCurrentRolloutFixtureBinding().candidateSourceRevision,
+              artifactSha256: createCurrentRolloutFixtureBinding().currentSchema.receipt.sha256,
+              target: createCurrentRolloutFixtureBinding().currentSchema.target,
+              database: createCurrentRolloutFixtureBinding().currentSchema.database,
+              actualSchemaDigest: createCurrentRolloutFixtureBinding().currentSchema.actualSchemaDigest }
             : name === 'publicAotWarm'
         ? validPublicAotWarmEvidence()
         : name === 'challengeKindCutoverReceipt'
@@ -460,6 +475,12 @@ function writeAuxiliary(fixture) {
     files[name] = file
   }
   return files
+}
+
+function manifestPayload() {
+  const binding = createCurrentRolloutFixtureBinding()
+  return { schema: 'fsusblog.release-manifest.v3', releaseId: target.releaseId,
+    imageDigest: target.imageDigest, commitSha: binding.candidateSourceRevision, currentSchema: binding.currentSchema }
 }
 
 function validPublicAotWarmEvidence() {
@@ -504,6 +525,100 @@ function runEvidence(args) {
     encoding: 'utf8'
   })
 }
+
+function shellCaptureFixture(t) {
+  const data = fixture(t, 'shell-capture')
+  const state = newState(data.directory)
+  writeJson(state.manifestPath, manifestPayload())
+  startRolloutStage(state, 'manifest-validate', '2026-07-11T00:00:00.000Z')
+  writeRolloutStateAtomic(data.stateFile, state)
+  const preparation = path.join(data.directory, 'shell-preparation.json')
+  const result = path.join(data.directory, 'shell-result.json')
+  const stdout = path.join(data.directory, 'stdout')
+  const stderr = path.join(data.directory, 'stderr')
+  fs.writeFileSync(stdout, 'original output\n')
+  fs.writeFileSync(stderr, '')
+  const prepare = (command = 'StageManifestValidate') => runEvidence([
+    'prepare-stage-execution', '--state', data.stateFile, '--stage', 'manifest-validate',
+    '--command-id', 'immutable-manifest', '--shell-function', command,
+    '--owner', path.join(root, 'tools/deployment/release-rollout.sh'),
+    '--started-at', '2026-07-11T00:00:00.000Z', '--out', preparation
+  ])
+  const finish = (exitCode = '0') => runEvidence([
+    'finish-stage-execution', '--state', data.stateFile, '--preparation', preparation,
+    '--exit-code', exitCode, '--completed-at', '2026-07-11T00:00:01.000Z',
+    '--stdout', stdout, '--stderr', stderr, '--out', result
+  ])
+  return { ...data, state, preparation, result, stdout, stderr, prepare, finish }
+}
+
+test('original shell capture binds real preparation bytes and raw output without granting native authority', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.equal(data.prepare().status, 0)
+  assert.equal(data.finish('23').status, 0)
+  const preparation = JSON.parse(fs.readFileSync(data.preparation, 'utf8'))
+  const result = JSON.parse(fs.readFileSync(data.result, 'utf8'))
+  assert.deepEqual(preparation.argv, ['StageManifestValidate'])
+  assert.equal(result.exitCode, 23)
+  assert.equal(result.qualification, 'diagnostic-only')
+  assert.equal(result.observation, 'shell-command-returned')
+  assert.ok(BigInt(result.monotonicCompletedNs) >= BigInt(preparation.monotonicStartedNs))
+  assert.equal(result.preparation.sha256, sha256Text(fs.readFileSync(data.preparation)))
+  assert.equal(result.output.stdout.sha256, sha256Text(fs.readFileSync(data.stdout)))
+  assert.equal(JSON.stringify(result).includes('original output'), false)
+  assert.equal('runtimeId' in result, false)
+  assert.equal('cleanupVerified' in result, false)
+  assert.notEqual(data.finish().status, 0)
+})
+
+test('shell capture refuses credentials, missing interruption preparation and unknown protocol fields', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.notEqual(data.prepare('postgres://credential@example/db').status, 0)
+  assert.notEqual(data.finish('130').status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+  assert.equal(data.prepare().status, 0)
+  const preparation = JSON.parse(fs.readFileSync(data.preparation, 'utf8'))
+  preparation.cleanupVerified = true
+  writeJson(data.preparation, preparation)
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+})
+
+test('shell capture rejects changed manifest and stale rollout attempt rather than resealing either', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.equal(data.prepare().status, 0)
+  const original = fs.readFileSync(data.state.manifestPath)
+  fs.appendFileSync(data.state.manifestPath, '\n')
+  assert.notEqual(data.finish().status, 0)
+  fs.writeFileSync(data.state.manifestPath, original)
+  const state = JSON.parse(fs.readFileSync(data.stateFile, 'utf8'))
+  state.rolloutId = 'different-rollout'
+  writeJson(data.stateFile, state)
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+})
+
+test('shell capture rejects nonregular raw output and preserves the old stage schema', (t) => {
+  const data = shellCaptureFixture(t)
+  assert.equal(data.prepare().status, 0)
+  const descriptor = fs.openSync(data.stdout, 'r+')
+  try {
+    fs.ftruncateSync(descriptor, 64 * 1024 * 1024 + 1)
+  } finally {
+    fs.closeSync(descriptor)
+  }
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+  fs.unlinkSync(data.stdout)
+  fs.symlinkSync(data.stderr, data.stdout)
+  assert.notEqual(data.finish().status, 0)
+  assert.equal(fs.existsSync(data.result), false)
+  const rollout = fs.readFileSync(path.join(root, 'tools/deployment/release-rollout.sh'), 'utf8')
+  assert.match(rollout, /prepare-stage-execution/u)
+  assert.match(rollout, /finish-stage-execution/u)
+  assert.match(rollout, /fsusblog\.release-rollout-stage-evidence\.v2/u)
+  assert.match(rollout, /\[\[ "\$exitCode" != "0" \]\] \|\| exitCode=70/u)
+})
 
 function parseStdout(result) {
   assert.notEqual(result.stdout.trim(), '', result.stderr)
@@ -550,6 +665,62 @@ test('stage evidence is bound to the currently running stage, ordered timestamps
   ])
   assert.notEqual(mutableOverwrite.status, 0)
   assert.match(mutableOverwrite.stderr, /EEXIST|file already exists/u)
+})
+
+test('current admission stage captures only complete matching Server output rather than status or exit alone', (t) => {
+  const data = fixture(t, 'current-stage-output')
+  const state = newState(data.directory)
+  for (const [index, stage] of ROLLOUT_STAGES.slice(0, 3).entries()) {
+    startRolloutStage(state, stage, `2026-07-11T00:0${index}:00.000Z`)
+    completeRolloutStage(state, stage, { completedAtUtc: `2026-07-11T00:0${index}:01.000Z` })
+  }
+  startRolloutStage(state, 'current-schema-admission', '2026-07-11T00:03:00.000Z')
+  writeRolloutStateAtomic(data.stateFile, state)
+  const stdout = path.join(data.directory, 'current.stdout')
+  const stderr = path.join(data.directory, 'current.stderr')
+  fs.writeFileSync(stderr, '')
+  const valid = createCurrentRolloutAdmissionFixtureOutput()
+  const cases = [null, { status: 'verified-current' }, { ...valid, status: 'pass' },
+    { ...valid, candidateSourceRevision: 'a'.repeat(40) }, { ...valid, artifactSha256: 'a'.repeat(64) },
+    { ...valid, database: { ...valid.database, instanceId: 'other' } },
+    { ...valid, target: { ...valid.target, sourceDigest: 'a'.repeat(64) } },
+    { ...valid, actualSchemaDigest: valid.target.contentDigest }, valid]
+  for (const [index, value] of cases.entries()) {
+    fs.writeFileSync(stdout, JSON.stringify(value))
+    const out = path.join(data.commandDirectory, `current-${index}.json`)
+    const result = runEvidence(['stage', '--state', data.stateFile, '--stage', 'current-schema-admission',
+      '--status', 'ok', '--exit-code', '0', '--command-id', 'current-schema-readonly',
+      '--started-at', '2026-07-11T00:03:00.000Z', '--completed-at', '2026-07-11T00:03:01.000Z',
+      '--stdout', stdout, '--stderr', stderr, '--out', out])
+    if (index === cases.length - 1) {
+      assert.equal(result.status, 0, result.stderr)
+      assert.equal(parseStdout(result).output.stdout.sha256, `sha256:${crypto.createHash('sha256').update(fs.readFileSync(stdout)).digest('hex')}`)
+    } else {
+      assert.notEqual(result.status, 0)
+      assert.equal(fs.existsSync(out), false)
+      assert.match(result.stderr, /current-schema-admission/u)
+    }
+  }
+})
+
+test('preseal rejects current auxiliary binding drift while all original six artifacts remain valid', (t) => {
+  const data = fixture(t, 'current-preseal-binding')
+  advanceState(data)
+  const artifacts = writeArtifacts(data)
+  const auxiliary = writeAuxiliary(data)
+  const original = JSON.parse(fs.readFileSync(auxiliary.currentSchemaAdmission, 'utf8'))
+  for (const [index, value] of [{ ...original, candidateSourceRevision: 'a'.repeat(40) },
+    { ...original, database: { ...original.database, databaseId: 'other' } },
+    { ...original, target: { ...original.target, contentDigest: 'a'.repeat(64) } }, original].entries()) {
+    writeJson(auxiliary.currentSchemaAdmission, value)
+    const result = runEvidence(['preseal', '--state', data.stateFile, '--out', path.join(data.directory, `preseal-${index}.json`),
+      ...artifactArgs(artifacts), ...auxiliaryArgs(auxiliary)])
+    if (index === 3) assert.equal(result.status, 0, result.stderr || result.stdout)
+    else {
+      assert.notEqual(result.status, 0)
+      assert.match(parseStdout(result).errors.join('\n'), /currentSchemaAdmission/u)
+    }
+  }
 })
 
 test('preseal is stage-ordered and reports every missing and semantic artifact error in one run', (t) => {

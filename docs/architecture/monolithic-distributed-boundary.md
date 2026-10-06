@@ -12,6 +12,21 @@ render: rationale-prose
 
 ## Invariants
 
+The required compiled runtime-role observation v3 binds the production current-schema
+codec and admission value contract, with explicitly fixture-only deterministic
+positive and refusal probes. Its closed `currentSchemaContract` is pre-runtime
+`compiled-production-code-model` evidence, never native database qualification.
+The original bounded minimal build publishes runtime build receipt v4 and retains
+the exact source, assembly bytes, deployment/Compose identity and raw-byte replay.
+No native issuer or database service is required or started before static admission.
+
+Actual current-schema qualification belongs to the post-runtime
+`deployment-current-schema-admission` behavior and requires the sole v1 receipt
+and original independent database verification. A compiled fixture, self-seal,
+old overlap/window/Ready material, or missing owner cannot satisfy it. The generated
+section below remains unchanged until its original producer is replayed; its old
+v2 values are not current v3 evidence or proof that these probes have executed.
+
 ## Runtime modes
 
 <!-- fsus-doc-claim
