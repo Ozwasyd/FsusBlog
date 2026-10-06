@@ -375,7 +375,11 @@ historical receipt cannot satisfy that native execution requirement.
 The fresh final candidate uses `--verify-current-run` after its original cleanup
 and finalization to consume the newly executed pending evidence against the
 unchanged tracked source/binding. This reads actual current-run pending logs and
-full source fingerprints; it does not rewrite tracked elapsed-time summaries or
+full source fingerprints. After asynchronous build/service admission and before
+publication or a verified return, the producer re-observes the complete original
+source snapshot and rechecks pending/tracked bytes and file identities across that
+read window. Shared inputs outside Migration's local inventory must also remain
+unchanged. It does not rewrite tracked elapsed-time summaries or
 start another publication cycle. Passing this producer read does not replace
 full native/domain/CI or independent acceptance.
 

@@ -59,7 +59,7 @@ function pendingFixture(t)
 {
     const root = mkdtempSync(join(tmpdir(), 'fsusblog-migration-pending-'));
     t.after(() => rmSync(root, { recursive: true, force: true }));
-    const sources = ['src/migration/Fixture.cs', 'tests/migration/Fixture.cs'];
+    const sources = ['src/migration/Fixture.cs', 'tests/migration/Fixture.cs', 'src/sharedFixture'];
     for (const file of sources)
     {
         mkdirSync(dirname(join(root, file)), { recursive: true });
@@ -319,6 +319,100 @@ test('Migration assembly pending fresh final source consumes new command evidenc
     assert.ok(bindingBytes.equals(readFileSync(published.binding)));
     writeFileSync(published.binding, 'tampered tracked binding\n');
     await assert.rejects(verifyCurrentMigrationAssembly(fixture.context, fixture.adapters), /pending owner|tracked source\/binding/u);
+});
+
+test('Migration assembly pending rejects full shared-source drift during asynchronous finalized admission', async t =>
+{
+    for (const operation of [publishMigrationAssemblyPending, verifyCurrentMigrationAssembly])
+    {
+        for (const boundary of ['requireBuild', 'readAdmission'])
+        {
+            const fixture = pendingFixture(t);
+            await prepareMigrationAssemblyPending(fixture.context, fixture.adapters);
+            let published;
+            if (operation === verifyCurrentMigrationAssembly)
+            {
+                published = await publishMigrationAssemblyPending(fixture.context, fixture.adapters);
+                fixture.context.runId = 'fresh-shared-source';
+                fixture.context.sourceState = await fixture.adapters.observeSource();
+                await prepareMigrationAssemblyPending(fixture.context, fixture.adapters);
+            }
+            const paths = migrationAssemblyPendingPaths(fixture.context);
+            const pendingBytes = readFileSync(paths.file);
+            const original = fixture.adapters[boundary];
+            fixture.adapters[boundary] = async (...args) =>
+            {
+                const result = await original(...args);
+                await Promise.resolve();
+                writeFileSync(join(fixture.root, 'src/sharedFixture'), 'shared input changed after owner await\n');
+                return result;
+            };
+            const before = published ? [readFileSync(published.receipt), readFileSync(published.binding)] : null;
+            await assert.rejects(operation(fixture.context, fixture.adapters), /current source drifted/u);
+            // Migration's local inventory and pending command bytes remain valid:
+            // only the complete original source snapshot can catch this mutation.
+            assert.ok(pendingBytes.equals(readFileSync(paths.file)));
+            verifyMigrationAssemblyPending(fixture.context, JSON.parse(pendingBytes));
+            assert.equal(fs.existsSync(paths.publication), false);
+            if (published)
+            {
+                assert.ok(before[0].equals(readFileSync(published.receipt)));
+                assert.ok(before[1].equals(readFileSync(published.binding)));
+            }
+            else
+            {
+                assert.equal(fs.existsSync(join(fixture.root, 'artifacts')), false);
+            }
+        }
+    }
+});
+
+test('Migration assembly pending rejects pending and tracked identity replacement during the final source read', async t =>
+{
+    for (const operation of [publishMigrationAssemblyPending, verifyCurrentMigrationAssembly])
+    {
+        for (const member of ['pending', 'tracked'])
+        {
+            if (operation === publishMigrationAssemblyPending && member === 'tracked')
+            {
+                continue;
+            }
+            const fixture = pendingFixture(t);
+            await prepareMigrationAssemblyPending(fixture.context, fixture.adapters);
+            let published;
+            if (operation === verifyCurrentMigrationAssembly)
+            {
+                published = await publishMigrationAssemblyPending(fixture.context, fixture.adapters);
+                fixture.context.runId = 'fresh-file-identity';
+                fixture.context.sourceState = await fixture.adapters.observeSource();
+                await prepareMigrationAssemblyPending(fixture.context, fixture.adapters);
+            }
+            const paths = migrationAssemblyPendingPaths(fixture.context);
+            const file = member === 'pending' ? paths.file : published.binding;
+            const before = readFileSync(file);
+            const observe = fixture.adapters.observeSource;
+            let observations = 0;
+            fixture.adapters.observeSource = async (...args) =>
+            {
+                const source = await observe(...args);
+                if (++observations === 3)
+                {
+                    const replacement = join(fixture.root, '.tmp', 'source-owned-replacement');
+                    writeFileSync(replacement, before, { mode: 0o600, flag: 'wx' });
+                    fs.renameSync(replacement, file);
+                }
+                return source;
+            };
+            await assert.rejects(operation(fixture.context, fixture.adapters), /file identity changed/u);
+            assert.equal(observations, 3);
+            assert.ok(before.equals(readFileSync(file)));
+            assert.equal(fs.existsSync(paths.publication), false);
+            if (operation === publishMigrationAssemblyPending)
+            {
+                assert.deepEqual(fs.readdirSync(dirname(paths.publication)), []);
+            }
+        }
+    }
 });
 
 test('Migration assembly pending CLI rejects generic output and fake permission JSON before command execution', t =>

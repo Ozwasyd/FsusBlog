@@ -386,6 +386,32 @@ function readOwnedFile(file, { privateFile = false } = {})
     }
 }
 
+function captureOwnedFile(file, options = {})
+{
+    const stat = fs.lstatSync(file, { throwIfNoEntry: false });
+    if (!stat)
+    {
+        return { file, options, bytes: null, identity: null };
+    }
+    const bytes = readOwnedFile(file, options);
+    return { file, options, bytes,
+        identity: { device: stat.dev, inode: stat.ino, size: stat.size,
+            mtimeMs: stat.mtimeMs, ctimeMs: stat.ctimeMs } };
+}
+
+function requireUnchangedOwnedFiles(observations)
+{
+    for (const observation of observations)
+    {
+        const current = captureOwnedFile(observation.file, observation.options);
+        if (!isDeepStrictEqual(current.identity, observation.identity)
+            || (observation.bytes !== null && (current.bytes === null || !observation.bytes.equals(current.bytes))))
+        {
+            throw new Error('Migration assembly pending or tracked file identity changed during its source read window');
+        }
+    }
+}
+
 function previousOutputs(root)
 {
     return [receiptPath(root), bindingPath(root)].map(file => ({
@@ -477,6 +503,7 @@ export async function prepareMigrationAssemblyPending(context, {
     {
         throw new Error('Migration assembly source/build/service/publication owner drifted during verification');
     }
+    await requireCurrentSource(context, observeSource);
     const receipt = buildReceipt(context.root, {
         baseCommit: resolveSourceBaseCommit(context.root, previousReceipt), previousReceipt,
         verificationResults: results
@@ -541,7 +568,9 @@ async function readFinalizedPending(context, {
 {
     const paths = migrationAssemblyPendingPaths(context);
     requireOwnedDirectory(context.root, paths.directory);
-    const bytes = readOwnedFile(paths.file, { privateFile: true });
+    const observations = [captureOwnedFile(paths.file, { privateFile: true }),
+        ...[receiptPath(context.root), bindingPath(context.root)].map(file => captureOwnedFile(file))];
+    const bytes = observations[0].bytes;
     const pending = JSON.parse(bytes);
     verifyMigrationAssemblyPending(context, pending);
     await requireCurrentSource(context, observeSource);
@@ -550,20 +579,18 @@ async function readFinalizedPending(context, {
     {
         throw new Error('Migration assembly publication crosses its original finalized build/service owner');
     }
+    await requireCurrentSource(context, observeSource);
+    requireUnchangedOwnedFiles(observations);
     verifyMigrationAssemblyPending(context, pending);
-    if (!bytes.equals(readOwnedFile(paths.file, { privateFile: true })))
-    {
-        throw new Error('Migration assembly pending changed during publication admission');
-    }
-    return { paths, pending, bytes };
+    return { paths, pending, bytes, observations };
 }
 
 /** A fresh final candidate consumes its real two-command pending result without rewriting time-dependent tracked summaries. */
 export async function verifyCurrentMigrationAssembly(context, adapters = {})
 {
-    const { pending, bytes } = await readFinalizedPending(context, adapters);
-    const receipt = JSON.parse(readOwnedFile(receiptPath(context.root)));
-    const binding = JSON.parse(readOwnedFile(bindingPath(context.root)));
+    const { pending, bytes, observations } = await readFinalizedPending(context, adapters);
+    const receipt = JSON.parse(observations[1].bytes);
+    const binding = JSON.parse(observations[2].bytes);
     if (!isDeepStrictEqual(receipt, buildReceipt(context.root, {
         previousReceipt: receipt, verificationResults: receipt.verificationResults
     })) || !isDeepStrictEqual(binding, buildBinding(receipt))
@@ -574,6 +601,9 @@ export async function verifyCurrentMigrationAssembly(context, adapters = {})
     {
         throw new Error('Migration assembly fresh current-run evidence differs from the tracked source/binding');
     }
+    await requireCurrentSource(context, adapters.observeSource ?? observeCurrentSource);
+    requireUnchangedOwnedFiles(observations);
+    verifyMigrationAssemblyPending(context, pending);
     return { status: 'verified-current-run', pendingSha256: sha256(bytes), sourceState: context.sourceState,
         qualificationEligible: false, reason: 'assembly producer verified; full native/domain/CI independent acceptance is separate' };
 }
@@ -581,7 +611,7 @@ export async function verifyCurrentMigrationAssembly(context, adapters = {})
 /** Publish only the original validated pending pair after its actual owner cleanup/finalization; the new candidate needs a fresh run. */
 export async function publishMigrationAssemblyPending(context, adapters = {})
 {
-    const { paths, pending, bytes } = await readFinalizedPending(context, adapters);
+    const { paths, pending, bytes, observations } = await readFinalizedPending(context, adapters);
     const { observeSource = observeCurrentSource, rename = fs.renameSync } = adapters;
     const targets = [receiptPath(context.root), bindingPath(context.root)];
     const original = targets.map(file => existsSync(file) ? readOwnedFile(file) : null);
@@ -609,7 +639,17 @@ export async function publishMigrationAssemblyPending(context, adapters = {})
             owned.push({ file, device: stat.dev, inode: stat.ino, sha256: sha256(contents[index]) });
         }
         await requireCurrentSource(context, observeSource);
+        requireUnchangedOwnedFiles(observations);
         verifyMigrationAssemblyPending(context, pending);
+        for (const entry of owned)
+        {
+            const stat = fs.lstatSync(entry.file);
+            if (stat.dev !== entry.device || stat.ino !== entry.inode
+                || sha256(readOwnedFile(entry.file, { privateFile: true })) !== entry.sha256)
+            {
+                throw new Error('Migration assembly staged publication identity changed');
+            }
+        }
         for (const [index, file] of staged.entries())
         {
             rename(file, targets[index]);
