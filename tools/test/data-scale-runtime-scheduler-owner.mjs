@@ -136,7 +136,7 @@ export async function createDataScaleRuntimeSchedulerOwner({
                 capacity?.release('aborted');
                 lease.release('failed');
             });
-            throw new AggregateError([error, cleanupError], 'DataScale scheduler admission failed with custody retained', { cause: error });
+            throw new AggregateError([error, cleanupError], 'DataScale scheduler admission failed with custody retained', { cause: cleanupError });
         }
         throw error;
     }
