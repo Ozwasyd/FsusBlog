@@ -6,6 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { digest, loadRuntimeCacheCatalog, sealReceipt, validateRuntimeCacheReceipt } = await import(new URL('../../tools/test/runtime-cache-evidence-contract.mjs', import.meta.url));
+const { encodeAedsFrame } = await import(new URL('../frontend/support/aeds-envelope.mjs', import.meta.url));
 const { relatedReadingResponseError } = await import(new URL('../../tools/test/runtime-cache-scenarios/related-reading-contract.mjs', import.meta.url));
 const { produceRelatedReadingReceipt } = await import(new URL('../../tools/test/runtime-cache-scenarios/related-reading.mjs', import.meta.url));
 
@@ -41,11 +42,12 @@ async function collectFixture(t, { frame = 'valid', status = 200, coldCommands =
         {
             built.add(articleId);
         }
-        const body = Buffer.from(frames[frame], 'base64');
+        const body = articleId ? Buffer.from(frames[frame], 'base64') : Buffer.from(encodeAedsFrame(13, Buffer.alloc(12)));
+        const actualStatus = articleId ? status : 200;
         const id = request.headers['x-fsus-runtime-evidence-request'];
         const commandCount = first ? coldCommands : 0;
         observations.set(id, {
-            requestId: id, method: 'GET', path: url.pathname, status,
+            requestId: id, method: 'GET', path: url.pathname, status: actualStatus,
             payloadDigest: digest(body), layerSource: first ? 'database' : 'l1-frame',
             latencyMs: first ? 3 : 1, allocatedBytes: 0,
             redisCommands: [], redisFailureEvents: [],
@@ -55,7 +57,7 @@ async function collectFixture(t, { frame = 'valid', status = 200, coldCommands =
             databaseCommandCount: commandCount, databaseDroppedCommandCount: 0, databaseLateCommandCount: 0,
             databaseObservationStatus: 'complete', databaseAttributionComplete: true
         });
-        response.writeHead(status, { 'content-type': 'application/octet-stream' });
+        response.writeHead(actualStatus, { 'content-type': 'application/octet-stream' });
         response.end(body);
     });
     await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));

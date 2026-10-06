@@ -7,6 +7,99 @@ import test from 'node:test';
 const {verifyConsumerEvidenceFile} = await import(new URL('../../tools/test/check-physical-execution-consumer-evidence.mjs', import.meta.url));
 const {currentProcessIdentity} = await import(new URL('../../tools/test/process-identity.mjs', import.meta.url));
 const {buildRunBoundConsumerEvidence, runBoundExecution, runOnce, validateRunBoundConsumerEvidence, validateRunBoundProjection} = await import(new URL('../../tools/test/run-once.mjs', import.meta.url));
+const {executionFailureDiagnostic, formatExecutionFailure, selectExecutionFailure} = await import(new URL('../../tools/test/execution-failure-diagnostic.mjs', import.meta.url));
+
+for (const scenario of ['execution-only', 'finalization-only', 'both', 'cancel', 'incomplete-containment'])
+{
+    test(`run-bound failure receipt and CLI preserve ${scenario} diagnostics`, async (context) =>
+    {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-run-bound-first-cause-'));
+        context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+        const physical = { exitCode: 7, cleanup: { status: scenario === 'incomplete-containment' ? 'unverifiable' : 'verified', childTerminal: { exitCode: 0 } } };
+        const first = scenario === 'finalization-only' ? null : Object.assign(new Error('primary execution diagnostic'), {
+            name: scenario === 'cancel' ? 'AbortError' : 'Error',
+            exitCode: scenario === 'cancel' || scenario === 'incomplete-containment' ? null : 7,
+            signal: scenario === 'cancel' ? 'SIGTERM' : null,
+            physicalExecution: physical
+        });
+        const secondary = scenario === 'execution-only' ? null : new Error('correctness network observation is unavailable');
+        let restored;
+        await assert.rejects(runBoundExecution({
+            root, runId: `first-cause-${scenario}`, key: 'matrix-governance', command: ['fixture'], cwd: root,
+            inputDigest: 'input', environmentDigest: 'environment', outputContract: [], requiredOutputs: [],
+            commit: 'a'.repeat(40), worktreeFingerprint: 'source', testIds: ['matrix-validate'], consumerId: 'validate-matrix'
+        }, async () =>
+        {
+            throw selectExecutionFailure({ executionError: first, finalizationError: secondary, physicalExecution: physical });
+        }), (error) =>
+        {
+            restored = error;
+            return error.message === (first?.message ?? secondary.message);
+        });
+        const receiptDirectory = path.join(root, `first-cause-${scenario}`, 'receipts', 'matrix-governance');
+        const receipt = JSON.parse(fs.readFileSync(path.join(receiptDirectory, fs.readdirSync(receiptDirectory).find((name) => name.endsWith('.json'))), 'utf8'));
+        assert.equal(receipt.schema, 'fsusblog.physical-execution-receipt.v3');
+        assert.equal(receipt.status, scenario === 'cancel' ? 'cancelled' : 'failure');
+        assert.equal(receipt.physicalExecution.cleanup.childTerminal.exitCode, 0);
+        assert.equal(receipt.failure.exitCode, first?.exitCode ?? null);
+        assert.equal(receipt.failure.diagnostic.primary.exitCode, first?.exitCode ?? null);
+        assert.equal(receipt.failure.diagnostic.secondary?.message ?? null, first ? secondary?.message ?? null : null);
+        assert.deepEqual(executionFailureDiagnostic(restored), receipt.failure.diagnostic);
+        assert.match(formatExecutionFailure(restored), /execution-failure-diagnostic/u);
+    });
+}
+
+for (const causeCount of [1, 4])
+{
+    test(`cached run-bound failure retains ${causeCount} sealed causes through a second postflight refusal`, async (context) =>
+    {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-run-bound-cached-first-cause-'));
+        context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+        const options = {
+            root, runId: `cached-first-cause-${causeCount}`, key: 'matrix-governance', command: ['fixture'], cwd: root,
+            inputDigest: 'input', environmentDigest: 'environment', outputContract: [], requiredOutputs: [],
+            commit: 'a'.repeat(40), worktreeFingerprint: 'source', testIds: ['matrix-validate'], consumerId: 'validate-matrix'
+        };
+        const first = Object.assign(new Error('primary execution diagnostic'), { exitCode: 7 });
+        let cause = first;
+        for (let index = 0; index < causeCount; index += 1)
+        {
+            cause.cause = new Error(`sealed cause ${index}`);
+            cause = cause.cause;
+        }
+        selectExecutionFailure({ executionError: first, finalizationError: new Error('original postflight refusal') });
+        const original = executionFailureDiagnostic(first);
+        let calls = 0;
+        const operation = async () =>
+        {
+            calls += 1;
+            throw first;
+        };
+        await assert.rejects(runBoundExecution(options, operation), /primary execution diagnostic/u);
+        await assert.rejects(runBoundExecution(options, operation), (error) =>
+        {
+            assert.equal(error.cause, undefined);
+            assert.deepEqual(executionFailureDiagnostic(error), original);
+            const selected = selectExecutionFailure({ executionError: error, finalizationError: new Error('current postflight refusal') });
+            const value = executionFailureDiagnostic(selected);
+            assert.equal(selected, error);
+            assert.equal(selected.exitCode, 7);
+            assert.deepEqual(value.primary, original.primary);
+            assert.deepEqual(value.secondary, original.secondary);
+            assert.deepEqual(value.causes.slice(0, causeCount), original.causes);
+            assert.equal(value.causes.length, Math.min(4, causeCount + 1));
+            assert.equal(value.causesTruncated, causeCount === 4);
+            if (causeCount < 4)
+            {
+                assert.equal(value.causes.at(-1).message, 'current postflight refusal');
+            }
+            assert.match(formatExecutionFailure(selected), /original postflight refusal/u);
+            return true;
+        });
+        assert.equal(calls, 1);
+    });
+}
+
 test('run-once immediately reclaims a lock whose recorded owner process is dead', async (context) =>
 {
     const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-run-once-dead-owner-'));

@@ -81,6 +81,95 @@ public sealed class CanonicalArticlePublicationFixturePortIntegrationTests(Postg
     }
 
     [Fact]
+    public async Task ProjectionInvocation_RereadsOriginalRequestAndRealPersistedTupleWithoutWrites()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        CanonicalArticlePublicationRequest request = await CreateRequestAsync(db, semanticRole: "projection-current");
+        CanonicalArticlePublicationResult result = await CreatePort(db).PublishAsync(request);
+        CanonicalArticleProjectionVerifier reader = CreateInvocationOnlyProjectionReader(db);
+
+        // This is the production entry's exact current-invocation read predicate,
+        // not a claim that derived workers, renderer or browser ran in this fixture.
+        await reader.VerifyPublicationInvocationAsync(result.Receipt, request, CancellationToken.None);
+
+        Assert.Equal(1, await CountAsync(db, "article"));
+        Assert.Equal(1, await CountAsync(db, "article_revision"));
+        Assert.Equal(1, await CountAsync(db, "article_publication"));
+        Assert.Equal(1, await CountAsync(db, "article_mutation_command"));
+        Assert.Equal(1, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(1, await CountAsync(db, "sys_audit_log"));
+    }
+
+    [Theory]
+    [InlineData("receipt-only", "publication_current_run_binding_missing")]
+    [InlineData("receipt-relabel", "publication_current_invocation_binding_mismatch")]
+    [InlineData("invocation-relabel", "publication_current_invocation_command_not_exact")]
+    [InlineData("plan-drift", "publication_current_invocation_command_mismatch")]
+    [InlineData("rights-drift", "publication_canonical_reference_mismatch")]
+    public async Task ProjectionInvocation_RejectsRelabelAndStaleReferencesAgainstRealRows(
+        string scenario, string expectedViolation)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        CanonicalArticlePublicationRequest request = await CreateRequestAsync(db, semanticRole: "projection-negative");
+        CanonicalArticlePublicationResult result = await CreatePort(db).PublishAsync(request);
+        CanonicalArticleProjectionVerifier reader = CreateInvocationOnlyProjectionReader(db);
+        await reader.VerifyPublicationInvocationAsync(result.Receipt, request, CancellationToken.None);
+
+        CanonicalArticlePublicationReceipt receipt = result.Receipt;
+        if (scenario == "receipt-relabel")
+        {
+            receipt = receipt with
+            {
+                RunId = "not-current-run",
+                Namespace = "not-current-namespace"
+            };
+        }
+        else if (scenario == "invocation-relabel")
+        {
+            request = request with
+            {
+                Binding = request.Binding with
+                {
+                    RunId = "not-current-run",
+                    Namespace = "not-current-namespace"
+                }
+            };
+            receipt = receipt with
+            {
+                RunId = request.Binding.RunId,
+                Namespace = request.Binding.Namespace
+            };
+        }
+        else if (scenario == "plan-drift")
+        {
+            request = request with
+            {
+                Plan = request.Plan with
+                {
+                    Title = "not-the-persisted-plan"
+                }
+            };
+        }
+        else if (scenario == "rights-drift")
+        {
+            receipt = receipt with
+            {
+                PolicyHash = "sha256:" + new string('f', 64)
+            };
+        }
+
+        CanonicalArticleProjectionVerificationException error = await Assert.ThrowsAsync<
+            CanonicalArticleProjectionVerificationException>(() => scenario == "receipt-only"
+                ? reader.VerifyAsync(receipt)
+                : reader.VerifyAsync(receipt, request));
+        Assert.Contains(expectedViolation, error.Violations);
+        Assert.Equal(1, await CountAsync(db, "article"));
+        Assert.Equal(1, await CountAsync(db, "article_mutation_command"));
+        Assert.Equal(1, await CountAsync(db, "article_mutation_outbox"));
+        Assert.Equal(1, await CountAsync(db, "sys_audit_log"));
+    }
+
+    [Fact]
     public async Task PublishAsync_CrossPlanSameRunRole_ConflictsWithoutExtraWrites()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
@@ -336,6 +425,15 @@ public sealed class CanonicalArticlePublicationFixturePortIntegrationTests(Postg
             """);
         return db;
     }
+
+    private static CanonicalArticleProjectionVerifier CreateInvocationOnlyProjectionReader(SqlSugarClient db)
+        // Deliberately unavailable output ports cannot supply manufactured output success.
+        // These controls cover only real DB invocation/ref reads; the original seeder
+        // supplies all real production ports for full publication projection acceptance.
+        => new(db, searchIndex: null!, articles: null!, projectionStore: null!, artifactStore: null!,
+            hotReadStore: null!, aotGenerationAuthority: null!, aotArtifactStore: null!,
+            publicArtifactStorage: null!, httpContextAccessor: null!, revocationRegistry: null!,
+            revocationState: null!, cacheReader: null!, runtimeKeyScope: null!, timeProvider: null!);
 
     private static CanonicalArticlePublicationFixturePort CreatePort(SqlSugarClient db)
     {

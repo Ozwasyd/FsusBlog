@@ -1094,17 +1094,6 @@ RunBoundedWarningOnlySourceMutation() (
     local availableKb evidenceRoot activeGroup="" activeLauncher="" variant stage status
     local oracle='FsusBlog.Server.Tests.Unit.AdminAuditDurableAdmissionIssue2040Tests.PersistentReplayFailure_BlocksRealAdminParticipantHealthAndQualification'
     local sourcePath='src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs'
-    local readyScript
-    # read reaches heredoc EOF (no NUL); its nonzero EOF status is expected.
-    IFS= read -r -d '' readyScript <<'READY' || true
-prefix="$1"; shift
-ps -o pid=,ppid=,pgid=,sid= -p "$BASHPID" >"$prefix.ready"
-printf 'ready\n' >"$prefix.ready.pipe"
-# No dotnet command may start before independently validated ownership.
-IFS= read -r -t 5 release <"$prefix.release.pipe" || exit 125
-[[ "$release" == release ]] || exit 125
-exec "$@"
-READY
     [[ "$parentCommit" =~ ^[a-f0-9]{40}$ ]] || return 2
     mkdir -p "$workRoot"
     availableKb="$(df -Pk "$workRoot" | awk 'END {print $4}')"
@@ -1189,7 +1178,14 @@ NODE
                 cd "$evidenceRoot/$variant"
                 exec env FSUSBLOG_DATA_ROOT="$evidenceRoot/$variant-data" FSUSBLOG_PRODUCTION_BUILD_ROOT="" \
                     MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 DOTNET_PROCESSOR_COUNT=1 \
-                    setsid --wait bash -c "$readyScript" bounded-mutation-ready \
+                    setsid --wait bash -c 'prefix="$1"; shift
+ps -o pid=,ppid=,pgid=,sid= -p "$BASHPID" >"$prefix.ready"
+printf '"'"'ready\n'"'"' >"$prefix.ready.pipe"
+# No dotnet command may start before independently validated ownership.
+IFS= read -r -t 5 release <"$prefix.release.pipe" || exit 125
+[[ "$release" == release ]] || exit 125
+exec "$@"
+' bounded-mutation-ready \
                         "$prefix" "$evidenceRoot/$variant/tools/build-with-data-env.sh" "${args[@]}"
             ) >"$evidenceRoot/$variant.$stage.log" 2>&1 &
             activeLauncher=$!
@@ -1570,6 +1566,7 @@ RunBackendPropertyOnly() {
 }
 
 RunBackendGoldenOnly() {
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/aeds-protocol-generation.test.mjs"
     RunBackendDotnetFilterWithCoverage golden "Category=GoldenContract"
     WriteBackendSplitSummary backend-golden "Category=GoldenContract"
 }

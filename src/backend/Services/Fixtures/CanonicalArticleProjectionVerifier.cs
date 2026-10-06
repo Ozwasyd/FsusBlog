@@ -4,6 +4,9 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using AngleSharp.Dom;
+using AngleSharp.Html.Parser;
+
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Cache;
 using FsusBlog.Core.Mapping.Models;
@@ -13,6 +16,7 @@ using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.Outputs;
@@ -115,6 +119,9 @@ public sealed class CanonicalArticleProjectionVerifier(
     IArticleDetailAedsArtifactStore artifactStore,
     PublicHotReadStore hotReadStore,
     IPublicAotInvalidationGenerationAuthority aotGenerationAuthority,
+    IPublicAotArtifactStore aotArtifactStore,
+    IPublicArtifactStorage publicArtifactStorage,
+    IHttpContextAccessor httpContextAccessor,
     PublicArtifactRevocationRegistry revocationRegistry,
     IPublicArtifactRevocationStateStore revocationState,
     ICacheStringReader cacheReader,
@@ -131,18 +138,204 @@ public sealed class CanonicalArticleProjectionVerifier(
     public Task<CanonicalArticleProjectionOutputAggregate> VerifyAsync(
         CanonicalArticleLifecycleReceipt authority,
         CancellationToken cancellationToken = default)
-        => VerifyAsync(ProjectionAuthority.From(authority), cancellationToken);
+        => throw new CanonicalArticleProjectionVerificationException(["authority_current_run_refs_missing"]);
+
+    public Task<CanonicalArticleProjectionOutputAggregate> VerifyAsync(
+        CanonicalArticleLifecycleReceipt authority,
+        CanonicalArticleLifecycleFixtureBinding currentInvocation,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(authority);
+        ArgumentNullException.ThrowIfNull(currentInvocation);
+        currentInvocation.Validate();
+        if (authority.RunId != currentInvocation.RunId
+            || authority.Namespace != currentInvocation.Namespace
+            || authority.ProfileId != currentInvocation.ProfileId
+            || authority.AdminPrincipalId != currentInvocation.AdminPrincipalId
+            || authority.WriterContractDigest != currentInvocation.WriterContractDigest
+            || authority.TemporalContextDigest != currentInvocation.TemporalContextDigest)
+        {
+            throw new CanonicalArticleProjectionVerificationException(["authority_current_invocation_binding_mismatch"]);
+        }
+        return VerifyAsync(ProjectionAuthority.From(authority), cancellationToken);
+    }
 
     public Task<CanonicalArticleProjectionOutputAggregate> VerifyAsync(
         CanonicalArticlePublicationReceipt authority,
         CancellationToken cancellationToken = default)
         => VerifyAsync(ProjectionAuthority.From(authority), cancellationToken);
 
+    public async Task<CanonicalArticleProjectionOutputAggregate> VerifyAsync(
+        CanonicalArticlePublicationReceipt authority,
+        CanonicalArticlePublicationRequest currentInvocation,
+        CancellationToken cancellationToken = default)
+    {
+        await VerifyPublicationInvocationAsync(authority, currentInvocation, cancellationToken).ConfigureAwait(false);
+        return await VerifyAsync(ProjectionAuthority.From(authority, hasSealedCurrentRunBinding: true), cancellationToken)
+            .ConfigureAwait(false);
+    }
+
+    public async Task VerifyAggregateAsync(
+        CanonicalArticleProjectionOutputAggregate aggregate,
+        CanonicalArticlePublicationReceipt authority,
+        CanonicalArticlePublicationRequest currentInvocation,
+        CancellationToken cancellationToken = default)
+    {
+        CanonicalArticleProjectionOutputAggregate reread = await VerifyAsync(
+            authority, currentInvocation, cancellationToken).ConfigureAwait(false);
+        VerifyAggregate(aggregate, ProjectionAuthority.From(authority, hasSealedCurrentRunBinding: true));
+        if (reread.AggregateDigest != aggregate.AggregateDigest)
+        {
+            throw new CanonicalArticleProjectionVerificationException(["projection_aggregate_current_output_mismatch"]);
+        }
+    }
+
+    public Task<CanonicalArticleProjectionOutputAggregate> AwaitCurrentOutputAsync(
+        CanonicalArticleLifecycleReceipt authority,
+        CanonicalArticleLifecycleFixtureBinding currentInvocation,
+        TimeSpan observationInterval,
+        CancellationToken callerBudgetToken)
+        => AwaitCurrentOutputAsync(
+            token => VerifyAsync(authority, currentInvocation, token),
+            observationInterval, callerBudgetToken);
+
+    public Task<CanonicalArticleProjectionOutputAggregate> AwaitCurrentOutputAsync(
+        CanonicalArticlePublicationReceipt authority,
+        CanonicalArticlePublicationRequest currentInvocation,
+        TimeSpan observationInterval,
+        CancellationToken callerBudgetToken)
+        => AwaitCurrentOutputAsync(
+            token => VerifyAsync(authority, currentInvocation, token),
+            observationInterval, callerBudgetToken);
+
+    internal static async Task<CanonicalArticleProjectionOutputAggregate> AwaitCurrentOutputAsync(
+        Func<CancellationToken, Task<CanonicalArticleProjectionOutputAggregate>> observe,
+        TimeSpan observationInterval,
+        CancellationToken callerBudgetToken)
+    {
+        // The fixture executor owns the existing convergence budget. This observer
+        // creates no new deadline and cannot schedule or repair the producer.
+        if (!callerBudgetToken.CanBeCanceled || observationInterval <= TimeSpan.Zero)
+        {
+            throw new ArgumentException("projection observation requires the caller's bounded token and poll interval");
+        }
+        while (true)
+        {
+            callerBudgetToken.ThrowIfCancellationRequested();
+            try
+            {
+                CanonicalArticleProjectionOutputAggregate aggregate = await observe(callerBudgetToken)
+                    .WaitAsync(callerBudgetToken).ConfigureAwait(false);
+                callerBudgetToken.ThrowIfCancellationRequested();
+                return aggregate;
+            }
+            catch (CanonicalArticleProjectionVerificationException error)
+                when (error.Violations.Count == 2
+                    && error.Violations.Contains("aot_current_document_missing", StringComparer.Ordinal)
+                    && error.Violations.Contains("projection_aggregate_contains_failures", StringComparer.Ordinal))
+            {
+                // Absence at the current versioned key is not success or evidence of
+                // a queued job. It may only be reread until the original budget ends.
+                // Stale/invalid bytes, drift, failed edges or any other violation are terminal.
+                try
+                {
+                    await Task.Delay(observationInterval, callerBudgetToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (callerBudgetToken.IsCancellationRequested)
+                {
+                    throw new OperationCanceledException(
+                        "canonical projection output observation canceled while current AOT document remained absent",
+                        error, callerBudgetToken);
+                }
+            }
+        }
+    }
+
+    internal async Task VerifyPublicationInvocationAsync(
+        CanonicalArticlePublicationReceipt authority,
+        CanonicalArticlePublicationRequest currentInvocation,
+        CancellationToken cancellationToken)
+    {
+        ArgumentNullException.ThrowIfNull(authority);
+        ArgumentNullException.ThrowIfNull(currentInvocation);
+        ArgumentNullException.ThrowIfNull(currentInvocation.Binding);
+        ArgumentNullException.ThrowIfNull(currentInvocation.Plan);
+        currentInvocation.Binding.Validate();
+        CanonicalArticlePublicationFixtureBinding binding = currentInvocation.Binding;
+        if (authority.RunId != binding.RunId || authority.Namespace != binding.Namespace
+            || authority.ProfileId != binding.ProfileId || authority.AdminPrincipalId != binding.AdminPrincipalId
+            || authority.WriterContractDigest != binding.WriterContractDigest
+            || authority.SemanticRole != currentInvocation.Plan.SemanticRole)
+        {
+            throw new CanonicalArticleProjectionVerificationException(["publication_current_invocation_binding_mismatch"]);
+        }
+        string clientMutationId = CanonicalArticlePublicationFixturePort.DeriveClientMutationId(
+            binding.RunId, binding.Namespace, currentInvocation.Plan.SemanticRole).ToString("D");
+        List<ArticleMutationCommand> commands = await db.Queryable<ArticleMutationCommand>()
+            .Where(item => item.AdminPrincipalId == binding.AdminPrincipalId && item.ClientMutationId == clientMutationId)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (commands.Count != 1)
+        {
+            throw new CanonicalArticleProjectionVerificationException(["publication_current_invocation_command_not_exact"]);
+        }
+        ArticleMutationCommand command = commands[0];
+        if (command.AdminPrincipalId != binding.AdminPrincipalId || command.ClientMutationId != clientMutationId
+            || command.RequestHash != CanonicalArticlePublicationFixturePort.ComputeRequestHash(currentInvocation.Plan)
+            || command.ArticleId != authority.ArticleId || command.RevisionId != authority.RevisionId
+            || command.RevisionNo != authority.RevisionNo || command.ReleaseId != authority.PublicationId
+            || command.ReleaseNo != authority.PublicationNo || command.RightsSnapshotId != authority.RightsSnapshotId
+            || command.RightsRevisionNo != authority.RevisionNo
+            || command.Status != (int)ArticleStatus.Published)
+        {
+            throw new CanonicalArticleProjectionVerificationException(["publication_current_invocation_command_mismatch"]);
+        }
+
+        ArticlePublicationRecord? publication = await db.Queryable<ArticlePublicationRecord>()
+            .Where(item => item.Id == authority.PublicationId).FirstAsync(cancellationToken).ConfigureAwait(false);
+        ArticleRightsSnapshot? rights = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(item => item.Id == authority.RightsSnapshotId).FirstAsync(cancellationToken).ConfigureAwait(false);
+        ArticleResponsibilitySnapshot? responsibility = await db.Queryable<ArticleResponsibilitySnapshot>()
+            .Where(item => item.Id == authority.ResponsibilitySnapshotId).FirstAsync(cancellationToken).ConfigureAwait(false);
+        // Use the receipt's exact immutable audit reference, never a latest/tail lookup.
+        List<AuditLog> audits = await db.Queryable<AuditLog>()
+            .Where(item => item.ChainId == authority.AuditChainId && item.RecordHash == authority.AuditRecordHash)
+            .ToListAsync(cancellationToken).ConfigureAwait(false);
+        if (publication is null || publication.Id != authority.PublicationId
+            || publication.ArticleId != authority.ArticleId || publication.ArticleRevisionId != authority.RevisionId
+            || publication.RevisionNo != authority.RevisionNo || publication.PublicationNo != authority.PublicationNo
+            || publication.RightsSnapshotId != authority.RightsSnapshotId
+            || publication.ResponsibilitySnapshotId != authority.ResponsibilitySnapshotId
+            || rights is null || rights.Id != authority.RightsSnapshotId || rights.ArticleId != authority.ArticleId
+            || rights.ArticleRevisionId != authority.RevisionId || rights.RevisionNo != authority.RevisionNo
+            || rights.PolicyHash != authority.PolicyHash || rights.ContentCanonicalHash != authority.ContentCanonicalHash
+            || responsibility is null || responsibility.Id != authority.ResponsibilitySnapshotId
+            || responsibility.ArticleId != authority.ArticleId || responsibility.ArticleRevisionId != authority.RevisionId
+            || responsibility.RevisionNo != authority.RevisionNo
+            || responsibility.ResponsibilityVersion != authority.ResponsibilityVersion
+            || audits.Count != 1)
+        {
+            throw new CanonicalArticleProjectionVerificationException(["publication_canonical_reference_mismatch"]);
+        }
+        AuditLog audit = audits[0];
+        if (audit.ChainId != authority.AuditChainId || audit.RecordHash != authority.AuditRecordHash
+            || audit.TargetType != "article-canonical-publication"
+            || audit.TargetId != authority.ArticleId.ToString(CultureInfo.InvariantCulture)
+            || audit.ActorId != binding.AdminPrincipalId.ToString(CultureInfo.InvariantCulture)
+            || audit.Outcome != "success"
+            || audit.EventInfo != CanonicalArticlePublicationFixturePort.ComputeAuditDigest(
+                authority.ArticleId, authority.RevisionId, authority.PublicationId, authority.RightsSnapshotId,
+                authority.ResponsibilitySnapshotId, authority.OutboxEventId))
+        {
+            throw new CanonicalArticleProjectionVerificationException(["publication_canonical_audit_mismatch"]);
+        }
+    }
+
     private async Task<CanonicalArticleProjectionOutputAggregate> VerifyAsync(
         ProjectionAuthority authority,
         CancellationToken cancellationToken)
     {
         ArgumentNullException.ThrowIfNull(authority);
+        cancellationToken.ThrowIfCancellationRequested();
         var violations = new List<string>();
         VerifyAuthorityEnvelope(authority, violations);
         if (violations.Count > 0)
@@ -258,6 +451,7 @@ public sealed class CanonicalArticleProjectionVerifier(
             throw new CanonicalArticleProjectionVerificationException(
                 violations.Distinct(StringComparer.Ordinal).Order(StringComparer.Ordinal).ToArray());
         }
+        cancellationToken.ThrowIfCancellationRequested();
         return aggregate;
     }
 
@@ -432,6 +626,15 @@ public sealed class CanonicalArticleProjectionVerifier(
             violations.Add("sealed_revision_missing_or_invalid");
             return ProjectionOutputs.Invalid(violations);
         }
+        ArticleRightsSnapshot? sealedRights = await db.Queryable<ArticleRightsSnapshot>()
+            .Where(item => item.Id == coordinates.RightsSnapshotId
+                && item.ArticleId == authority.ArticleId
+                && item.ArticleRevisionId == coordinates.RevisionId)
+            .FirstAsync(cancellationToken).ConfigureAwait(false);
+        if (sealedRights is null || sealedRights.RevisionNo != coordinates.RevisionNo)
+        {
+            violations.Add("sealed_rights_snapshot_missing_or_invalid");
+        }
         if (!string.Equals(row.Title, revision.Title, StringComparison.Ordinal)
             || !string.Equals(row.Summary, revision.Summary, StringComparison.Ordinal)
             || !string.Equals(row.CoverImageUrl, revision.CoverImageUrl, StringComparison.Ordinal)
@@ -585,6 +788,16 @@ public sealed class CanonicalArticleProjectionVerifier(
             violations.Add("aot_article_generation_mismatch");
         }
 
+        AotOutputObservation aotOutput = await ReadAotOutputAsync(
+            authority, coordinates, revision, sealedRights, aotGeneration, cancellationToken).ConfigureAwait(false);
+        violations.AddRange(aotOutput.Violations);
+        PublicAotInvalidationGenerationState aotAfterRead = await aotGenerationAuthority
+            .LoadAsync(cancellationToken).ConfigureAwait(false);
+        if (aotAfterRead.ContentDigest != aotState.ContentDigest)
+        {
+            violations.Add("aot_generation_changed_during_observation");
+        }
+
         IReadOnlyList<PublicArtifactTombstone> activeRevocations = await revocationState
             .LoadActiveAsync(cancellationToken)
             .ConfigureAwait(false);
@@ -667,7 +880,10 @@ public sealed class CanonicalArticleProjectionVerifier(
             aotState.ContentDigest,
             ArticleKey = aotArticleKey,
             PagePrefix = aotPagePrefix,
-            AppliedGeneration = aotGeneration
+            AppliedGeneration = aotGeneration,
+            aotOutput.DocumentDigest,
+            aotOutput.BootstrapDigest,
+            aotOutput.HydrationDigest
         });
         string revocationDigest = Digest(new
         {
@@ -707,6 +923,235 @@ public sealed class CanonicalArticleProjectionVerifier(
             cacheVersion,
             violations);
     }
+
+    private async Task<AotOutputObservation> ReadAotOutputAsync(
+        ProjectionAuthority authority,
+        CanonicalArticleProjectionCoordinates coordinates,
+        ArticleRevision revision,
+        ArticleRightsSnapshot? sealedRights,
+        long generation,
+        CancellationToken cancellationToken)
+    {
+        var violations = new List<string>();
+        HttpContext? context = httpContextAccessor.HttpContext;
+        if (context is null)
+        {
+            return new AotOutputObservation(null, null, null, ["aot_current_request_scope_missing"]);
+        }
+        string routeKey = PublicRouteIdentity.BuildArticleRouteKey(authority.ArticleId);
+        string routePath = PublicRouteIdentity.BuildCanonicalPath(PublicPageId.ArticleDetail, routeKey, authority.ArticleId);
+        var match = new PublicAotRouteMatch(PublicPageKind.ArticleDetail, PublicPageId.ArticleDetail,
+            routeKey, routePath, routePath, string.Empty);
+        PublicAotArtifactLookup lookup = aotArtifactStore.CreateLookup(context, match);
+        PublicAotCacheEntry? entry = await aotArtifactStore.TryGetEntryAsync(lookup, cancellationToken).ConfigureAwait(false);
+        if (!authority.PubliclyVisible)
+        {
+            if (entry is not null)
+            {
+                violations.Add("aot_document_visibility_mismatch");
+            }
+            return new AotOutputObservation(DigestText("absent"), null, null, violations);
+        }
+        if (entry is null)
+        {
+            return new AotOutputObservation(null, null, null, ["aot_current_document_missing"]);
+        }
+        if (!aotArtifactStore.IsRenderable(entry, lookup)
+            || lookup.UsesDevelopmentSourceAssets
+            || entry.CacheKey != lookup.DocumentCacheKey
+            || entry.PageId != PublicPageId.ArticleDetail
+            || entry.RouteKey != routeKey
+            || !lookup.DocumentCacheKey.EndsWith(":iv:" + generation.ToString(CultureInfo.InvariantCulture), StringComparison.Ordinal)
+            || entry.ExpiresAtUtc <= timeProvider.GetUtcNow())
+        {
+            violations.Add("aot_current_document_identity_mismatch");
+        }
+        string html = entry.GetHtml();
+        string documentDigest = DigestBytes(entry.GetDocument().Utf8Bytes.Span);
+        if (!entry.GetDocument().Utf8Bytes.Span.SequenceEqual(Encoding.UTF8.GetBytes(html)))
+        {
+            violations.Add("aot_document_bytes_disagree");
+        }
+        // Parse the actual browser document tree with a standalone parser, no resource
+        // loader or script engine. Scripting mode only selects browser-compatible noscript parsing.
+        using var document = await new HtmlParser(new HtmlParserOptions { IsScripting = true })
+            .ParseDocumentAsync(html, cancellationToken).ConfigureAwait(false);
+        IElement? bootstrapNode = FindUniqueDataScript(document, "fsus-aot-bootstrap");
+        string? bootstrapDigest = null;
+        if (bootstrapNode is null
+            || !PublicAotBinaryPayload.TryDecodeObject(bootstrapNode.TextContent,
+                out Dictionary<string, object?> bootstrap))
+        {
+            violations.Add("aot_bootstrap_payload_invalid");
+        }
+        else
+        {
+            bootstrapDigest = Digest(bootstrap);
+            violations.AddRange(VerifyAotArticleOutput(bootstrap, coordinates, authority.ContentDigest, revision, sealedRights));
+        }
+        string? hydrationDigest = null;
+        IElement? hydrationNode = FindUniqueDataScript(document, "fsus-aot-hydration-props");
+        if (hydrationNode is null
+            || !string.IsNullOrWhiteSpace(hydrationNode.TextContent)
+            || !PublicAotHydrationSidecarReference.TryFromUrl(hydrationNode.GetAttribute("data-aeds-src"),
+                out PublicAotHydrationSidecarReference sidecar)
+            || hydrationNode.GetAttribute("data-aeds-src") != sidecar.Url)
+        {
+            violations.Add("aot_hydration_reference_missing");
+        }
+        else
+        {
+            PublicArtifactKey key = PublicArtifactKey.HydrationSidecar(routeKey, sidecar.Sha256Hex, entry.FrontendAssetVersion);
+            PublicArtifactReadResult? hydration = await publicArtifactStorage.TryReadAsync(
+                key, LocalPublicArtifactStorage.AedsMediaType, sidecar.Sha256Hex, cancellationToken).ConfigureAwait(false);
+            if (hydration is null
+                || hydration.Descriptor.Key != key
+                || hydration.Descriptor.Sha256Hex != sidecar.Sha256Hex
+                || DigestBytes(hydration.Content.Span) != "sha256:" + sidecar.Sha256Hex
+                || !PublicAotBinaryPayload.TryDecodeObject(hydration.Content, out Dictionary<string, object?> payload)
+                || PublicAotDocumentComposer.BuildPayloadSidecarUrl(Convert.ToBase64String(hydration.Content.Span)) != sidecar.Url)
+            {
+                violations.Add("aot_hydration_payload_invalid");
+            }
+            else
+            {
+                hydrationDigest = DigestBytes(hydration.Content.Span);
+                IReadOnlyDictionary<string, object?>? rights = PublicAotBinaryPayload.TryGetObject(payload, "rights");
+                if (PublicAotBinaryPayload.TryGetString(payload, "articleId") != authority.ArticleId.ToString(CultureInfo.InvariantCulture)
+                    || !AotVersionCoordinatesMatch(payload, coordinates)
+                    || DigestText(PublicAotBinaryPayload.TryGetString(payload, "bodyContent")) != authority.ContentDigest
+                    || PublicAotBinaryPayload.TryGetString(payload, "title") != revision.Title
+                    || rights is null
+                    || !AotRightsMatch(rights, coordinates, sealedRights))
+                {
+                    violations.Add("aot_hydration_semantic_mismatch");
+                }
+            }
+        }
+        return new AotOutputObservation(documentDigest, bootstrapDigest, hydrationDigest, violations);
+    }
+
+    private static IElement? FindUniqueDataScript(IDocument document, string id)
+    {
+        // document.All excludes inert template contents, comments and raw-text pseudo-tags.
+        IElement[] matches = document.All.Where(node => node.GetAttribute("id") == id).ToArray();
+        return matches.Length == 1
+            && matches[0].NamespaceUri == "http://www.w3.org/1999/xhtml"
+            && matches[0].LocalName == "script"
+            && matches[0].GetAttribute("type") == "application/octet-stream"
+            && !matches[0].HasAttribute("src")
+            ? matches[0] : null;
+    }
+
+    private static bool AotVersionCoordinatesMatch(
+        IReadOnlyDictionary<string, object?> article,
+        CanonicalArticleProjectionCoordinates coordinates)
+        => PublicAotBinaryPayload.TryGetString(article, "currentRevisionId") == coordinates.RevisionId.ToString(CultureInfo.InvariantCulture)
+            && PublicAotBinaryPayload.TryGetString(article, "revisionNo") == coordinates.RevisionNo.ToString(CultureInfo.InvariantCulture)
+            && PublicAotBinaryPayload.TryGetString(article, "currentPublicationId") == coordinates.PublicationId?.ToString(CultureInfo.InvariantCulture)
+            && PublicAotBinaryPayload.TryGetString(article, "publicationNo") == coordinates.PublicationNo?.ToString(CultureInfo.InvariantCulture);
+
+    private static IReadOnlyList<string> VerifyAotArticleOutput(
+        IReadOnlyDictionary<string, object?> bootstrap,
+        CanonicalArticleProjectionCoordinates coordinates,
+        string contentDigest,
+        ArticleRevision? revision = null,
+        ArticleRightsSnapshot? sealedRights = null)
+    {
+        var violations = new List<string>();
+        IReadOnlyDictionary<string, object?>? article = PublicAotBinaryPayload.TryGetObject(bootstrap, "article");
+        if (article is null)
+        {
+            return ["aot_article_output_missing"];
+        }
+        // A producer that omits publication coordinates cannot prove a current publication.
+        if (PublicAotBinaryPayload.TryGetString(article, "id") != coordinates.ArticleId.ToString(CultureInfo.InvariantCulture)
+            || !AotVersionCoordinatesMatch(article, coordinates))
+        {
+            violations.Add("aot_article_output_coordinate_mismatch");
+        }
+        if (DigestText(PublicAotBinaryPayload.TryGetString(article, "content")) != contentDigest)
+        {
+            violations.Add("aot_article_output_content_digest_mismatch");
+        }
+        IReadOnlyDictionary<string, object?>? rights = PublicAotBinaryPayload.TryGetObject(article, "rights");
+        if (rights is null || !AotRightsMatch(rights, coordinates, sealedRights))
+        {
+            violations.Add("aot_article_output_rights_mismatch");
+        }
+        if (revision is not null)
+        {
+            IReadOnlyDictionary<string, object?>? category = PublicAotBinaryPayload.TryGetObject(article, "category");
+            article.TryGetValue("tags", out object? rawTags);
+            object?[] tags = rawTags as object?[] ?? [];
+            string tagIds = string.Join(',', tags.OfType<IReadOnlyDictionary<string, object?>>()
+                .Select(tag => PublicAotBinaryPayload.TryGetString(tag, "id"))
+                .OrderBy(id => int.TryParse(id, NumberStyles.None, CultureInfo.InvariantCulture, out int value) ? value : -1));
+            if (PublicAotBinaryPayload.TryGetString(article, "title") != revision.Title
+                || PublicAotBinaryPayload.TryGetString(article, "summary") != (revision.Summary ?? string.Empty)
+                || PublicAotBinaryPayload.TryGetString(article, "coverImageUrl") != (revision.CoverImageUrl ?? string.Empty)
+                || category is null
+                || PublicAotBinaryPayload.TryGetString(category, "id") != revision.CategoryId.ToString(CultureInfo.InvariantCulture)
+                || tagIds != (revision.TagIds ?? string.Empty)
+                || tags.OfType<IReadOnlyDictionary<string, object?>>().Any(tag =>
+                    !int.TryParse(PublicAotBinaryPayload.TryGetString(tag, "id"), NumberStyles.None,
+                        CultureInfo.InvariantCulture, out int tagId) || tagId <= 0)
+                || tags.Length != tags.OfType<IReadOnlyDictionary<string, object?>>().Count())
+            {
+                violations.Add("aot_article_output_metadata_mismatch");
+            }
+        }
+        return violations;
+    }
+
+    private static bool AotRightsMatch(
+        IReadOnlyDictionary<string, object?> rights,
+        CanonicalArticleProjectionCoordinates coordinates,
+        ArticleRightsSnapshot? sealedRights)
+    {
+        if (PublicAotBinaryPayload.TryGetString(rights, "snapshotId") != coordinates.RightsSnapshotId?.ToString(CultureInfo.InvariantCulture)
+            || PublicAotBinaryPayload.TryGetString(rights, "articleRevisionId") != coordinates.RevisionId.ToString(CultureInfo.InvariantCulture)
+            || PublicAotBinaryPayload.TryGetString(rights, "revisionNo") != coordinates.RevisionNo.ToString(CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+        if (sealedRights is null)
+        {
+            return true;
+        }
+        JsonElement expected = JsonSerializer.SerializeToElement(new
+        {
+            sealedRights.Enabled,
+            sealedRights.LicenseType,
+            sealedRights.CopyrightHolder,
+            sealedRights.CopyrightYear,
+            sealedRights.RightsStatement,
+            sealedRights.AttributionTemplate,
+            sealedRights.CopyPolicy,
+            sealedRights.MaxExcerptChars,
+            sealedRights.AllowCodeCopy,
+            sealedRights.ShowPublicBadge,
+            sealedRights.ProofBindingEnabled,
+            sealedRights.CanonicalUrl,
+            sealedRights.PolicyHash,
+            sealedRights.ContentCanonicalHash
+        }, s_json);
+        foreach (JsonProperty property in expected.EnumerateObject())
+        {
+            if (!rights.TryGetValue(property.Name, out object? actual)
+                || !JsonElement.DeepEquals(property.Value, JsonSerializer.SerializeToElement(actual, s_json)))
+            {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    private sealed record AotOutputObservation(
+        string? DocumentDigest,
+        string? BootstrapDigest,
+        string? HydrationDigest,
+        IReadOnlyList<string> Violations);
 
     internal static IReadOnlyList<string> VerifyProjectionConsistencyForTests(
         CanonicalArticleProjectionConsistencyEvidence evidence)
@@ -898,6 +1343,10 @@ public sealed class CanonicalArticleProjectionVerifier(
         if (string.IsNullOrWhiteSpace(authority.RunId) || string.IsNullOrWhiteSpace(authority.Namespace))
         {
             violations.Add("authority_current_run_refs_missing");
+        }
+        if (!authority.HasSealedCurrentRunBinding)
+        {
+            violations.Add("publication_current_run_binding_missing");
         }
         if (authority.Operations is null || authority.Operations.Count == 0)
         {
@@ -1197,6 +1646,7 @@ public sealed class CanonicalArticleProjectionVerifier(
         string ContentDigest,
         bool PubliclyVisible,
         bool HasValidReceipt,
+        bool HasSealedCurrentRunBinding,
         IReadOnlyList<ProjectionOperation> Operations)
     {
         public static ProjectionAuthority From(CanonicalArticleLifecycleReceipt receipt)
@@ -1238,6 +1688,7 @@ public sealed class CanonicalArticleProjectionVerifier(
                 receipt.ContentDigest,
                 receipt.CurrentStatus == ArticleStatus.Published && !receipt.IsDeleted,
                 valid,
+                true,
                 (receipt.Operations ?? []).Select(static operation => new ProjectionOperation(
                     operation.OutboxEventId,
                     operation.OutboxPayloadDigest,
@@ -1250,7 +1701,9 @@ public sealed class CanonicalArticleProjectionVerifier(
                     operation.ResponsibilityVersion)).ToArray());
         }
 
-        public static ProjectionAuthority From(CanonicalArticlePublicationReceipt receipt)
+        public static ProjectionAuthority From(
+            CanonicalArticlePublicationReceipt receipt,
+            bool hasSealedCurrentRunBinding = false)
         {
             ArgumentNullException.ThrowIfNull(receipt);
             string expectedDigest = CanonicalArticlePublicationFixturePort.ComputeReceiptDigest(
@@ -1280,6 +1733,9 @@ public sealed class CanonicalArticleProjectionVerifier(
                 receipt.ContentDigest,
                 true,
                 valid,
+                // Only the original invocation and its exact persisted command can
+                // bind these fields; the publication digest does not seal them.
+                hasSealedCurrentRunBinding,
                 [new ProjectionOperation(
                     receipt.OutboxEventId,
                     receipt.OutboxPayloadDigest,

@@ -2682,6 +2682,68 @@
           "requestFrame": "UserLocalePreferenceUpdateRequest"
         }
       ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/FontAdminEndpoints.cs",
+      "frontendWrapper": "src/frontend/src/api/fontAdmin.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/fontThemeAdminAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/author/ops/fonts/activations",
+          "auth": "admin",
+          "responseFrame": "FontActivationList"
+        },
+        {
+          "method": "GET",
+          "path": "/author/ops/fonts/registry",
+          "auth": "admin",
+          "responseFrame": "FontRegistryList"
+        },
+        {
+          "method": "GET",
+          "path": "/author/ops/fonts/registry/{fontId}",
+          "auth": "admin",
+          "responseFrame": "FontRegistryDetail"
+        }
+      ]
+    },
+    {
+      "source": "src/backend/Modules/Endpoints/ThemeAdminEndpoints.cs",
+      "frontendWrapper": "src/frontend/src/api/themeAdmin.ts",
+      "frontendAdapter": "src/frontend/src/adapters/binary/fontThemeAdminAdapter.ts",
+      "routes": [
+        {
+          "method": "GET",
+          "path": "/author/ops/themes/activations",
+          "auth": "admin",
+          "responseFrame": "ThemeActivationList"
+        },
+        {
+          "method": "GET",
+          "path": "/author/ops/themes/activations/{scope}",
+          "auth": "admin",
+          "responseFrame": "ThemeActivation"
+        },
+        {
+          "method": "GET",
+          "path": "/author/ops/themes/activations/{scope}/history",
+          "auth": "admin",
+          "responseFrame": "ThemeActivationHistory"
+        },
+        {
+          "method": "GET",
+          "path": "/author/ops/themes/registry",
+          "auth": "admin",
+          "responseFrame": "ThemeRegistryList"
+        },
+        {
+          "method": "GET",
+          "path": "/author/ops/themes/registry/{themeId}",
+          "auth": "admin",
+          "responseFrame": "ThemeRegistryDetail"
+        }
+      ]
     }
   ],
   "coherenceProfiles": [

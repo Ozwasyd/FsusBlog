@@ -43,6 +43,21 @@ runner consumes this manifest order directly: all
 `PreCodeFirst` descriptors remain ordered by migration ID before all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
 
+Plan fingerprint controls bind the first descriptor definition admitted to master,
+preserving every earlier descriptor's ordered ID, phase and checksum. A draft
+fingerprint cannot replace that published source. Oracle reconciliation requires
+the original PR/merge identity and exact descriptor, transaction, step-order,
+SQL-byte and checksum facts; applied history must not be rewritten to fit an oracle.
+
+For [PR #3515](https://github.com/Ozwasyd/FsusBlog/pull/3515), the first published
+recent-history definition is master commit `493abaedad77df5f301222405d7904268bb32e75`,
+blob `5c473c4ae9d1bd3bfa46d7f968eabfb897ae954a`. The original 145-descriptor plan
+remains anchored separately; the complete 146-descriptor plan binds that published
+addition and its receipt timestamp/constraint SQL. The older `6d7e8bfa3` draft
+fingerprint records source history, not an accepted applied-database checksum.
+External draft application, native qualification and complete source-bound assembly
+receipt generation remain separate, unverified obligations.
+
 Descriptor implementations live under
 `src/migration/Definitions/`; release-range catalogs
 live under `src/migration/Catalogs/`. To add a
@@ -570,6 +585,24 @@ has been executed for this source component. Source cases include original-vs-co
 schema/effect parity and immutable guard refusal, but have not been executed for
 this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.
+
+The original MySQL catalog query independently awaits its reader and command
+disposals, preserving the first query/shape/budget/cancellation failure via the
+original exception while recording only fixed immutable cleanup codes. Cleanup
+failure after an otherwise successful read still refuses; cancellation is checked
+after the complete awaited cleanup. Its SQL descriptors, metadata limits, original
+30-second command policy and native session/driver guard are unchanged. Direct
+private-query lifecycle SOURCE controls do not qualify native cleanup or a database.
+This remote-source integration remains WIP pending canonical Migration validation,
+independent native acceptance and complete source-bound assembly receipt generation.
+The 19 original SOURCE cases retain exact immutable diagnostic types, fixed values
+and ordering. Their comparison explicitly selects string sequence equality; the
+original default ImmutableArray overload compared distinct backing-array identities.
+A separate four-case overload diagnostic covers equal, reordered, dropped and altered
+values. These mocked cleanup controls are not native service qualification.
+It does not register a whole MySQL legacy migration operation. Rollback reverts this
+catalog-query cleanup change if reader or command custody regresses, retaining the
+existing native session guards and metadata budgets.
 
 `PgCurrentSchemaCatalogObserver`, `PgCurrentSchemaEffectObserver` and
 `PgCurrentSchemaExpressionParser` are the single current native PostgreSQL

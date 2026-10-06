@@ -941,6 +941,13 @@ export class ArticleWorkspaceTabRouter
                     contentDigest: calculateOpenArticleDocumentDigest(base)
                 };
             }
+            if (
+                receipt.editorSessionRef !== entry.editorSessionRef
+                || receipt.registryRevision !== entry.lifecycleRevision
+            )
+            {
+                throw new Error('session-ready-receipt-invalid');
+            }
             this.sessionReceiptsByTabId.set(entry.tabId, cloneValue(receipt));
             return receipt;
         }

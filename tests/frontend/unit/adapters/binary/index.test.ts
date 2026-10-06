@@ -175,10 +175,69 @@ function commentPolicyPayload(languages: string): Uint8Array {
   return buildPayload(pod, blobParts(encodedLanguages, snapshotHash))
 }
 
+function fontThemePayload(records: Uint8Array[], blob: Uint8Array, count = records.length): Uint8Array {
+  const recordBytes = buildPayload(...records)
+  const payload = new Uint8Array(16 + recordBytes.byteLength + 4 + blob.byteLength)
+  writeInt32(payload, 0, 1)
+  writeInt32(payload, 4, count)
+  writeInt32(payload, 8, recordBytes.byteLength + 4 + blob.byteLength)
+  payload.set(recordBytes, 16)
+  writeInt32(payload, 16 + recordBytes.byteLength, blob.byteLength)
+  payload.set(blob, 20 + recordBytes.byteLength)
+  return payload
+}
+
+function fontThemeEmptyListPayload(): Uint8Array {
+  return fontThemePayload([], new Uint8Array(0))
+}
+
+function fontRegistryDetailPayload(): Uint8Array {
+  const record = new Uint8Array(100)
+  record[34] = 1
+  const required = textBytes('x')
+  let blobOffset = 0
+  for (const offset of [36, 44, 52, 60, 68]) {
+    writeSliceRef(record, offset, blobOffset, 1)
+    blobOffset += 1
+  }
+  for (const offset of [76, 84, 92]) writeSliceRef(record, offset, 5, 0)
+  return fontThemePayload([record], buildPayload(required, required, required, required, required), 0)
+}
+
+function themeRegistryDetailPayload(): Uint8Array {
+  const record = new Uint8Array(148)
+  record[57] = 1
+  const required = textBytes('x')
+  let blobOffset = 0
+  for (const offset of [68, 76, 84, 92]) {
+    writeSliceRef(record, offset, blobOffset, 1)
+    blobOffset += 1
+  }
+  writeSliceRef(record, 100, blobOffset, 0)
+  for (const offset of [108, 116, 124]) {
+    writeSliceRef(record, offset, blobOffset, 1)
+    blobOffset += 1
+  }
+  for (const offset of [132, 140]) writeSliceRef(record, offset, blobOffset, 0)
+  return fontThemePayload([record], buildPayload(required, required, required, required, required, required, required), 0)
+}
+
+function themeActivationPayload(): Uint8Array {
+  const record = new Uint8Array(64)
+  const scope = textBytes('public')
+  writeSliceRef(record, 24, 0, scope.byteLength)
+  return fontThemePayload([record], scope)
+}
+
 const jsonPayload = (): Uint8Array => textBytes('{}')
 const zeroPayload = (size: number): (() => Uint8Array) => () => new Uint8Array(size)
 const validPayloadByDecoder = new Map<string, () => Uint8Array>([
-  ['mapArticlePageFromPodPayload', zeroPayload(16)],
+  ['mapArticlePageFromPodPayload', () => {
+    const payload = new Uint8Array(29)
+    writeInt32(payload, 0, 0x41535046)
+    writeInt32(payload, 4, 2)
+    return payload
+  }],
   ['mapArticleDetailFromPodPayload', () => protocolFixturePayload(articleDetailFrameHex)],
   ['mapArticleHotFromPodPayload', zeroPayload(8)],
   ['mapArticleSearchFromPodPayload', zeroPayload(4)],
@@ -235,6 +294,14 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapCategoryListFromPayload', zeroPayload(8)],
   ['mapTagListFromPayload', zeroPayload(8)],
   ['mapTaxonomyExactMetadataFromPayload', zeroPayload(24)],
+  ['mapFontRegistryListFromPayload', fontThemeEmptyListPayload],
+  ['mapFontRegistryDetailFromPayload', fontRegistryDetailPayload],
+  ['mapFontActivationListFromPayload', fontThemeEmptyListPayload],
+  ['mapThemeRegistryListFromPayload', fontThemeEmptyListPayload],
+  ['mapThemeRegistryDetailFromPayload', themeRegistryDetailPayload],
+  ['mapThemeActivationListFromPayload', fontThemeEmptyListPayload],
+  ['mapThemeActivationFromPayload', themeActivationPayload],
+  ['mapThemeActivationHistoryFromPayload', fontThemeEmptyListPayload],
   ['mapRecentCommentsFromPodPayload', zeroPayload(8)],
   ['mapRegionsFromPodPayload', zeroPayload(8)],
   ['mapSeoConfigFromPayload', () => blobbedZeroPod(5000)],
@@ -253,7 +320,37 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapMutationIdFromPayload', zeroPayload(8)]
 ])
 
-const EXPECTED_REGISTRATION_SHA256 = 'e529c8f4a5dc137d4aafe9d867023ea366f45038fadefaf0b4eab4f89521e511'
+const EXPECTED_REGISTRATION_SHA256 = '9aff665d1307f662734af11513a13f9dee610f4d58e3180a5e714918d8083295'
+
+// The original replacement ledger remains bound to its original retired tests.
+// New typed contracts use independent, readable expectations, not fabricated
+// execution fingerprints in that historical evidence product.
+const fontThemeExpectedResults = new Map<string, unknown>([
+  ['mapFontRegistryListFromPayload', []],
+  ['mapFontActivationListFromPayload', []],
+  ['mapThemeRegistryListFromPayload', []],
+  ['mapThemeActivationListFromPayload', []],
+  ['mapThemeActivationHistoryFromPayload', []],
+  ['mapFontRegistryDetailFromPayload', {
+    fontId: 'x', name: 'x', family: 'x', category: 'x', version: 'x',
+    installState: 'installed', enabled: false, builtIn: false, faceCount: 0, criticalFaceCount: 0,
+    totalSizeBytes: '0', installedAt: '1970-01-01T00:00:00.000Z', updatedAt: '1970-01-01T00:00:00.000Z',
+    licenseText: '', licenseSourceJson: '', manifestJson: '', faces: []
+  }],
+  ['mapThemeRegistryDetailFromPayload', {
+    themeId: 'x', name: 'x', version: 'x', author: 'x', description: '', type: 'x',
+    installState: 'Discovered', enabled: false, packageHash: 'x', packageLocation: 'x',
+    installedAtUtc: '1970-01-01T00:00:00.000Z', updatedAtUtc: '1970-01-01T00:00:00.000Z',
+    manifestJson: '', configSchemaJson: '', modes: [],
+    supports: { public: false, admin: false, console: false, highContrast: false, reducedMotion: false, rtl: false },
+    budgets: { cssBytes: '0', assetBytes: '0', previewBytes: '0', maxSelectors: 0, maxSelectorDepth: 0, maxImportant: 0, maxMotionDurationMs: 0 },
+    permissions: { script: false, network: false, filesystem: false }
+  }],
+  ['mapThemeActivationFromPayload', {
+    scope: 'public', activeThemeId: null, mode: null, activationId: null,
+    assetVersion: null, configVersion: null, updatedAtUtc: null
+  }]
+])
 
 function registrationFingerprint(
   registrations: ReadonlyArray<readonly [FrameType, (payload: Uint8Array) => unknown]>
@@ -307,7 +404,7 @@ describe('decodeBinaryFramePayload', () => {
 
   it('builds one authoritative decoder registration per supported frame', () => {
     const frameTypes = binaryFrameDecoderRegistrations.map(([frameType]) => frameType)
-    expect(binaryFrameDecoderRegistrations).toHaveLength(136)
+    expect(binaryFrameDecoderRegistrations).toHaveLength(144)
     expect(registrationFingerprint(binaryFrameDecoderRegistrations))
       .toBe(EXPECTED_REGISTRATION_SHA256)
     expect(new Set(frameTypes).size).toBe(frameTypes.length)
@@ -382,13 +479,23 @@ describe('decodeBinaryFramePayload', () => {
     expect([...validPayloadByDecoder.keys()].sort()).toEqual([...registeredDecoderNames].sort())
     expect([
       ...Object.keys(routingReplacementLedger.decoderResultSha256),
-      'mapUserLocalePreferenceFromPayload'
+      'mapUserLocalePreferenceFromPayload',
+      ...fontThemeExpectedResults.keys()
     ].sort()).toEqual([...registeredDecoderNames].sort())
 
     for (const [frameType, decoder] of binaryFrameDecoderRegistrations) {
       const createPayload = validPayloadByDecoder.get(decoder.name)
       expect(createPayload, `missing valid payload for ${decoder.name}`).toBeTypeOf('function')
       const result = decodeBinaryFramePayload(frameType, createPayload!())
+      if (fontThemeExpectedResults.has(decoder.name)) {
+        expect(result, `${frameType}:${decoder.name}`).toEqual(fontThemeExpectedResults.get(decoder.name))
+        continue
+      }
+      if (decoder.name === 'mapArticlePageFromPodPayload') {
+        // The active cursor contract supersedes the historical page-result fingerprint.
+        expect(result).toEqual({ items: [], total: 0, hasMore: false, nextCursor: null })
+        continue
+      }
       if (decoder.name === 'mapUserLocalePreferenceFromPayload') {
         expect(result).toEqual({
           mode: 'auto',

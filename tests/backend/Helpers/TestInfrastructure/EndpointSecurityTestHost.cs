@@ -187,6 +187,11 @@ public sealed class EndpointSecurityTestServerOptions
         get; init;
     }
 
+    public bool MapFontThemeAdminEndpoints
+    {
+        get; init;
+    }
+
     public int FixedIpPermitLimit { get; init; } = 100;
 
     public RiskDecisionKind RiskDecision { get; init; } = RiskDecisionKind.Challenge;
@@ -250,7 +255,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         CapturingEndpointRiskSink riskSink,
         IBlacklistService blacklist,
         IUserAccountReader users,
-        IUnifiedCache cache,
+        ICacheStringReader cache,
         IRiskDecisionService riskDecision,
         string dataProtectionRoot)
     {
@@ -332,7 +337,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         get;
     }
 
-    public IUnifiedCache Cache
+    public ICacheStringReader Cache
     {
         get;
     }
@@ -489,7 +494,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         var userSessionValidator = Substitute.For<IUserSessionValidationService>();
         userSessionValidator.ValidateAsync(Arg.Any<ClaimsPrincipal>(), Arg.Any<CancellationToken>())
             .Returns(Task.FromResult(UserSessionValidationResult.Valid));
-        var cache = Substitute.For<IUnifiedCache>();
+        var cache = Substitute.For<ICacheStringReader>();
         cache.GetStringAsync(
                 Arg.Any<CachePolicyId>(),
                 Arg.Any<string>(),
@@ -548,7 +553,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         builder.Services.AddSingleton(users);
         builder.Services.RemoveAll<IAccountStateProjection>();
         builder.Services.AddSingleton<IAccountStateProjection>(accountStates);
-        builder.Services.AddSingleton<IUnifiedCache>(cache);
+        builder.Services.AddSingleton<ICacheStringReader>(cache);
         builder.Services.AddSingleton(pow);
         builder.Services.AddSingleton(new AdaptivePowGovernor(cache, builder.Configuration));
         builder.Services.AddSingleton<ISecurityRiskSignalSink>(riskSink);
@@ -583,6 +588,11 @@ public sealed class EndpointSecurityTestServer : IDisposable
         if (options.MapAuthoringEndpoints)
         {
             app.MapAuthoringEndpoints();
+        }
+        if (options.MapFontThemeAdminEndpoints)
+        {
+            app.MapFontAdminEndpoints();
+            app.MapThemeAdminEndpoints();
         }
         app.StartAsync().GetAwaiter().GetResult();
 

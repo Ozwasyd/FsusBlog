@@ -12,37 +12,27 @@ public sealed partial class RevisionSourceDiffEngine
         ReadOnlySpan<byte> compareBytes,
         int compareOffset,
         int remainingTokenBudget,
+        MemoryBudget memory,
         CancellationToken cancellationToken)
     {
-        TokenizationStatus baseStatus = TryTokenize(
-            baseBytes,
-            baseOffset,
-            remainingTokenBudget,
-            cancellationToken,
-            out List<TextToken>? baseTokens);
-        if (baseStatus == TokenizationStatus.BudgetExceeded)
+        using var decoded = memory.Reserve(DecodedWordBytes(baseBytes.Length, compareBytes.Length));
+        WordTokenization prepared = PrepareWordTokenization(
+            baseBytes, compareBytes, remainingTokenBudget, cancellationToken);
+        if (prepared.Status == TokenizationStatus.BudgetExceeded)
         {
-            return new WordDiffResult([], baseTokens.Count, true);
+            return new WordDiffResult([], prepared.BaseCount + prepared.CompareCount, true);
         }
-        if (baseStatus == TokenizationStatus.InvalidUtf8)
+        if (prepared.Status == TokenizationStatus.InvalidUtf8)
         {
             return new WordDiffResult([], 0, false);
         }
-        TokenizationStatus compareStatus = TryTokenize(
-            compareBytes,
-            compareOffset,
-            remainingTokenBudget - baseTokens.Count,
-            cancellationToken,
-            out List<TextToken>? compareTokens);
-        if (compareStatus == TokenizationStatus.BudgetExceeded)
-        {
-            return new WordDiffResult([], baseTokens.Count + compareTokens.Count, true);
-        }
-        if (compareStatus == TokenizationStatus.InvalidUtf8)
-        {
-            return new WordDiffResult([], 0, false);
-        }
-        int tokenCount = baseTokens.Count + compareTokens.Count;
+        int tokenCount = prepared.BaseCount + prepared.CompareCount;
+        // No token record, substring, list/dictionary or anchor array exists
+        // until the complete hunk workspace has passed this admission.
+        using var tokens = memory.Reserve(TokenWorkspaceBytes(tokenCount,
+            prepared.BaseText.Length + prepared.CompareText.Length));
+        TryTokenize(prepared.BaseText, baseOffset, prepared.BaseCount, cancellationToken, out List<TextToken> baseTokens);
+        TryTokenize(prepared.CompareText, compareOffset, prepared.CompareCount, cancellationToken, out List<TextToken> compareTokens);
 
         int prefix = 0;
         while (prefix < baseTokens.Count
@@ -99,6 +89,9 @@ public sealed partial class RevisionSourceDiffEngine
             compareCursor,
             compareEnd - compareCursor,
             compareOffset + compareBytes.Length);
+        // Retained output remains charged while all hunk workspace is still
+        // live; disposal only releases the temporary reservation, not its peak.
+        memory.Retain(edits.Count * 192L);
         return new WordDiffResult(edits.ToImmutable(), tokenCount, false);
     }
 
@@ -200,24 +193,79 @@ public sealed partial class RevisionSourceDiffEngine
             TokenRange(compareTokens, compareStart, compareCount, compareEnd)));
     }
 
-    private static TokenizationStatus TryTokenize(
-        ReadOnlySpan<byte> bytes,
-        int absoluteOffset,
-        int maxTokenCount,
-        CancellationToken cancellationToken,
-        out List<TextToken> tokens)
+    internal static WordTokenization PrepareWordTokenization(
+        ReadOnlySpan<byte> baseBytes,
+        ReadOnlySpan<byte> compareBytes,
+        int remainingTokenBudget,
+        CancellationToken cancellationToken = default)
     {
-        tokens = [];
-        string text;
+        string baseText;
+        string compareText;
+        cancellationToken.ThrowIfCancellationRequested();
         try
         {
-            text = new UTF8Encoding(false, true).GetString(bytes);
+            baseText = new UTF8Encoding(false, true).GetString(baseBytes);
         }
         catch (DecoderFallbackException)
         {
-            return TokenizationStatus.InvalidUtf8;
+            return new WordTokenization(string.Empty, string.Empty, 0, 0, TokenizationStatus.InvalidUtf8);
         }
-        TextElementEnumerator enumerator = StringInfo.GetTextElementEnumerator(text);
+        int baseCount = CountTextTokens(baseText, remainingTokenBudget, cancellationToken);
+        if (baseCount > remainingTokenBudget)
+        {
+            return new WordTokenization(baseText, string.Empty, baseCount, 0, TokenizationStatus.BudgetExceeded);
+        }
+        try
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            compareText = new UTF8Encoding(false, true).GetString(compareBytes);
+        }
+        catch (DecoderFallbackException)
+        {
+            return new WordTokenization(string.Empty, string.Empty, 0, 0, TokenizationStatus.InvalidUtf8);
+        }
+        int compareCount = CountTextTokens(compareText, remainingTokenBudget - baseCount, cancellationToken);
+        return new WordTokenization(baseText, compareText, baseCount, compareCount,
+            compareCount > remainingTokenBudget - baseCount ? TokenizationStatus.BudgetExceeded : TokenizationStatus.Available);
+    }
+
+    private static int CountTextTokens(string text, int maxTokenCount, CancellationToken cancellationToken)
+    {
+        int count = 0;
+        int elementCount = 0;
+        TextTokenClass previous = default;
+        bool hasToken = false;
+        for (int index = 0; index < text.Length;)
+        {
+            if ((elementCount++ & 1023) == 0)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+            }
+            int length = StringInfo.GetNextTextElementLength(text, index);
+            TextTokenClass current = Classify(text, index, length);
+            if (!hasToken || current != previous || current == TextTokenClass.Symbol)
+            {
+                if (++count > maxTokenCount)
+                {
+                    return count;
+                }
+            }
+            hasToken = true;
+            previous = current;
+            index += length;
+        }
+        cancellationToken.ThrowIfCancellationRequested();
+        return count;
+    }
+
+    private static void TryTokenize(
+        string text,
+        int absoluteOffset,
+        int tokenCount,
+        CancellationToken cancellationToken,
+        out List<TextToken> tokens)
+    {
+        tokens = new List<TextToken>(tokenCount);
         int byteOffset = absoluteOffset;
         int tokenCharStart = 0;
         int tokenByteOffset = absoluteOffset;
@@ -225,15 +273,15 @@ public sealed partial class RevisionSourceDiffEngine
         TextTokenClass tokenClass = default;
         bool hasToken = false;
         int elementCount = 0;
-        while (enumerator.MoveNext())
+        for (int index = 0; index < text.Length;)
         {
             if ((elementCount++ & 1023) == 0)
             {
                 cancellationToken.ThrowIfCancellationRequested();
             }
-            string value = enumerator.GetTextElement();
-            int byteLength = Encoding.UTF8.GetByteCount(value);
-            TextTokenClass currentClass = Classify(value);
+            int length = StringInfo.GetNextTextElementLength(text, index);
+            int byteLength = Encoding.UTF8.GetByteCount(text.AsSpan(index, length));
+            TextTokenClass currentClass = Classify(text, index, length);
             bool coalesces = hasToken
                 && (currentClass is TextTokenClass.Word or TextTokenClass.Whitespace)
                 && tokenClass == currentClass;
@@ -241,17 +289,9 @@ public sealed partial class RevisionSourceDiffEngine
             {
                 if (hasToken)
                 {
-                    if (tokens.Count >= maxTokenCount)
-                    {
-                        return TokenizationStatus.BudgetExceeded;
-                    }
-                    tokens.Add(new TextToken(
-                        text[tokenCharStart..enumerator.ElementIndex],
-                        tokenByteOffset,
-                        tokenByteLength,
-                        tokenClass));
+                    tokens.Add(new TextToken(text[tokenCharStart..index], tokenByteOffset, tokenByteLength, tokenClass));
                 }
-                tokenCharStart = enumerator.ElementIndex;
+                tokenCharStart = index;
                 tokenByteOffset = byteOffset;
                 tokenByteLength = 0;
                 tokenClass = currentClass;
@@ -259,26 +299,31 @@ public sealed partial class RevisionSourceDiffEngine
             }
             tokenByteLength += byteLength;
             byteOffset += byteLength;
+            index += length;
         }
         cancellationToken.ThrowIfCancellationRequested();
         if (hasToken)
         {
-            if (tokens.Count >= maxTokenCount)
-            {
-                return TokenizationStatus.BudgetExceeded;
-            }
             tokens.Add(new TextToken(text[tokenCharStart..], tokenByteOffset, tokenByteLength, tokenClass));
         }
-        return TokenizationStatus.Available;
     }
 
-    private static TextTokenClass Classify(string textElement)
+    private static TextTokenClass Classify(string text, int index, int length)
     {
-        if (textElement.All(char.IsWhiteSpace))
+        bool whitespace = true;
+        foreach (char value in text.AsSpan(index, length))
+        {
+            if (!char.IsWhiteSpace(value))
+            {
+                whitespace = false;
+                break;
+            }
+        }
+        if (whitespace)
         {
             return TextTokenClass.Whitespace;
         }
-        UnicodeCategory category = char.GetUnicodeCategory(textElement, 0);
+        UnicodeCategory category = char.GetUnicodeCategory(text, index);
         return category is UnicodeCategory.UppercaseLetter
             or UnicodeCategory.LowercaseLetter
             or UnicodeCategory.TitlecaseLetter

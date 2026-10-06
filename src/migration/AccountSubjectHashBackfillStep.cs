@@ -55,6 +55,11 @@ public sealed class AccountSubjectHashOnlineBackfillHandler(ISqlSugarClient db)
     public const string ExpandMigrationId = "20260711-pre-account-subject-hash-expand";
     public const string BackfillMigrationId = "20260711-post-account-subject-hash-backfill";
 
+    // Reuse the original legacy account hasher for the supported password-era
+    // profile, whose new passkey/public handles are absent after retirement.
+    internal static string ComputeLegacyAnonymousAccountSubject(int accountId)
+        => AccountSubjectMigrationHasher.Create(new AccountIdentityMaterial(accountId, null, null, null));
+
     public string MigrationId => BackfillMigrationId;
 
     public async Task<OnlineSchemaBackfillBatchResult> ExecuteBatchAsync(

@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/deployment/release-rollout-evidence.mjs"
+            ],
+            "reason": "The existing rollout CLI retains its external process environment spelling and command/evidence identifiers while the retained-file verifier changes only internal reading and delegation. No external name or repository mapping is changed."
+        }
+    ]
+}

@@ -50,8 +50,14 @@ export function checkCanonicalArticleLifecycleAuthority(repositoryRoot = default
     const publicContentSeeder = read("src/backend/Services/Fixtures/PublicContentFixtureSeeder.cs");
     const publicContentVerification = read("src/backend/Services/Fixtures/PublicContentFixtureSeeder.Verification.cs");
     const productionEdges = read("src/backend/Services/ArticleMutationSideEffects.cs");
-    if (!publicContentVerification.includes("projectionVerifier.VerifyAsync(lifecycle, cancellationToken)")
-        || !/RequireVerificationEquality\(original\.Fields, fields,\s*"projectionAggregate", "requiredProjectionEdgesVerified"\)/u.test(publicContentVerification))
+    const lifecycleProjectionStart = publicContentVerification.indexOf("if (lifecycle is not null)");
+    const publicationProjectionStart = publicContentVerification.indexOf(
+        'else if (original.Fields.ContainsKey("projectionAggregate"))', lifecycleProjectionStart);
+    const lifecycleProjectionObservation = lifecycleProjectionStart >= 0 && publicationProjectionStart > lifecycleProjectionStart
+        ? publicContentVerification.slice(lifecycleProjectionStart, publicationProjectionStart) : "";
+    if (!lifecycleProjectionObservation.includes("projectionVerifier.VerifyAsync(")
+        || !lifecycleProjectionObservation.includes("lifecycle, invocation.Binding, cancellationToken)")
+        || !/RequireVerificationEquality\(original\.Fields, fields,\s*"projectionAggregate", "requiredProjectionEdgesVerified"\)/u.test(lifecycleProjectionObservation))
     {
         violations.push("independent public verification must reread and match the sealed projection aggregate");
     }
