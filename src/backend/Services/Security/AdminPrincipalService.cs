@@ -27,6 +27,19 @@ using SqlSugar;
 
 namespace FsusBlog.Server.Services.Security;
 
+internal interface IAdminSessionIssuancePort
+{
+    Task<AdminSessionTokens?> IssueAsync(long principalId, string expectedHandle,
+        AdminAuthClientContext clientContext, CancellationToken cancellationToken);
+    Task CleanupAsync(long principalId, string sessionId, CancellationToken cancellationToken);
+}
+
+internal sealed class AdminSessionIssuanceRecoveryException(AdminSessionTokens credentials, Exception cause)
+    : InvalidOperationException("owned admin issuance failed with pending exact cleanup", cause)
+{
+    internal AdminSessionTokens RecoveryCredentials() => credentials;
+}
+
 public interface IAdminPrincipalService
 {
     Task<(bool Success, string Message, PasskeyRegBeginData? Data)> BeginBootstrapPasskeyRegistrationAsync(
@@ -152,7 +165,7 @@ public sealed class AdminPrincipalService(
     ILogger<AdminPrincipalService> logger,
     IAdminAuditLogChannel adminAuditLogChannel,
     IAdminSessionProjectionMutationCoordinator? sessionProjectionMutations = null,
-    TimeProvider? timeProvider = null) : IAdminPrincipalService
+    TimeProvider? timeProvider = null) : IAdminPrincipalService, IAdminSessionIssuancePort
 {
     public const string BootstrapTokenEnvironmentVariable = "FSUSBLOG_ADMIN_BOOTSTRAP_TOKEN";
     private const string BootstrapCachePrefix = "admin-bootstrap";
@@ -403,23 +416,11 @@ public sealed class AdminPrincipalService(
             return (false, "Admin Passkey assertion failed", null);
         }
 
-        var login = await db.Ado.UseTranAsync(async () =>
+        PreparedAdminSession? preparedSession = await IssueCommittedAdminSessionAsync(principal, clientContext, cancellationToken);
+        if (preparedSession is null)
         {
-            principal.LastLoginAtUtc = DateTime.UtcNow;
-            await db.Updateable(principal)
-                .UpdateColumns(p => new { p.LastLoginAtUtc })
-                .ExecuteCommandAsync();
-            return await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
-        });
-        if (!login.IsSuccess || login.Data is null)
-        {
-            logger.LogError(login.ErrorException, "Admin session creation transaction failed.");
             return (false, "Admin login failed", null);
         }
-
-        PreparedAdminSession preparedSession = login.Data;
-        await PublishSessionProjectionMutationAsync(preparedSession.Mutation, cancellationToken);
-        await WriteAuditAsync(principal.Id, preparedSession.Tokens.SessionId, "admin.login.completed", "success", clientContext, highImpact: true, cancellationToken);
         FsusObservability.RecordAdminPasskeyAssertion("login", 1, Stopwatch.GetElapsedTime(startedAt), "success");
         return (true, "Admin login completed", preparedSession.Tokens);
     }
@@ -1058,6 +1059,103 @@ public sealed class AdminPrincipalService(
     private sealed record PreparedAdminSession(
         AdminSessionTokens Tokens,
         PreparedAdminSessionProjectionMutation? Mutation);
+
+    async Task<AdminSessionTokens?> IAdminSessionIssuancePort.IssueAsync(
+        long principalId, string expectedHandle, AdminAuthClientContext clientContext, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        AdminPrincipal? principal = await db.Queryable<AdminPrincipal>()
+            .Where(item => item.Id == principalId).FirstAsync(cancellationToken);
+        RequireOwnedIssuancePrincipal(principal, principalId, expectedHandle);
+        PreparedAdminSession? committed = null;
+        try
+        {
+            return (await IssueCommittedAdminSessionAsync(principal!, clientContext, cancellationToken,
+                prepared => committed = prepared))?.Tokens;
+        }
+        catch (Exception primary) when (committed is not null)
+        {
+            try
+            {
+                if (await RevokeAdminSessionAsync(principalId, committed.Tokens.SessionId, "fixture-issuance-failed", CancellationToken.None)
+                    == AdminSessionRevokeResult.Conflict)
+                {
+                    throw new InvalidOperationException("owned admin session recovery conflict");
+                }
+            }
+            catch (Exception cleanup)
+            {
+                throw new AdminSessionIssuanceRecoveryException(committed.Tokens, new AggregateException(primary, cleanup));
+            }
+            throw;
+        }
+    }
+
+    internal static void RequireOwnedIssuancePrincipal(AdminPrincipal? principal, long id, string handle)
+    {
+        if (principal is null || id <= 0 || principal.Id != id || principal.IsRoot
+            || !handle.StartsWith("fxauth-", StringComparison.Ordinal) || principal.Handle != handle
+            || principal.Status != AdminPrincipalStatus.Active)
+        {
+            throw new InvalidOperationException("owned admin session issuance identity mismatch");
+        }
+    }
+
+    async Task IAdminSessionIssuancePort.CleanupAsync(long principalId, string sessionId, CancellationToken cancellationToken)
+    {
+        AdminSessionRevokeResult result = await RevokeAdminSessionAsync(principalId, sessionId, "fixture-cleanup", cancellationToken);
+        if (result != AdminSessionRevokeResult.Conflict)
+        {
+            return;
+        }
+        // An authenticated exact retry may complete publication after the revoke
+        // transaction committed. Never reinterpret an unrevoked CAS conflict.
+        DateTime revokedAtUtc = default;
+        var recovery = await db.Ado.UseTranAsync(async () =>
+        {
+            AdminSessionRevokeCandidate? candidate = await LoadAdminSessionRevokeCandidateAsync(principalId, sessionId, cancellationToken);
+            if (candidate is null || candidate.RevokedAtUtc is null)
+            {
+                throw new InvalidOperationException("owned admin exact cleanup conflict");
+            }
+            revokedAtUtc = candidate.RevokedAtUtc.Value;
+            DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+            bool live = await db.Queryable<AdminSession>().Where(item => item.AdminPrincipalId == principalId
+                && item.SessionId == sessionId && item.IdleExpiresAtUtc > now && item.AbsoluteExpiresAtUtc > now)
+                .AnyAsync(cancellationToken);
+            return live ? await PrepareSessionProjectionMutationAsync([sessionId], cancellationToken) : null;
+        });
+        if (!recovery.IsSuccess)
+        {
+            throw new InvalidOperationException("owned admin exact cleanup recovery failed");
+        }
+        await PublishSessionProjectionMutationAsync(recovery.Data, cancellationToken);
+        await WriteAdminSessionRevokeAuditAsync(principalId, sessionId, "fixture-cleanup", revokedAtUtc, cancellationToken);
+    }
+
+    private async Task<PreparedAdminSession?> IssueCommittedAdminSessionAsync(
+        AdminPrincipal principal, AdminAuthClientContext clientContext, CancellationToken cancellationToken,
+        Action<PreparedAdminSession>? onCommitted = null)
+    {
+        var login = await db.Ado.UseTranAsync(async () =>
+        {
+            principal.LastLoginAtUtc = DateTime.UtcNow;
+            await db.Updateable(principal)
+                .UpdateColumns(p => new { p.LastLoginAtUtc })
+                .ExecuteCommandAsync();
+            return await CreateSessionAndTokenAsync(principal, clientContext, stepUpVerified: false, cancellationToken);
+        });
+        if (!login.IsSuccess || login.Data is null)
+        {
+            logger.LogError(login.ErrorException, "Admin session creation transaction failed.");
+            return null;
+        }
+        PreparedAdminSession prepared = login.Data;
+        onCommitted?.Invoke(prepared);
+        await PublishSessionProjectionMutationAsync(prepared.Mutation, cancellationToken);
+        await WriteAuditAsync(principal.Id, prepared.Tokens.SessionId, "admin.login.completed", "success", clientContext, highImpact: true, cancellationToken);
+        return prepared;
+    }
 
     private async Task<PreparedAdminSession> CreateSessionAndTokenAsync(
         AdminPrincipal principal,

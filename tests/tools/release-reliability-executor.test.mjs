@@ -357,7 +357,7 @@ function executeFixtureScenario(fixture, catalog, options = {})
 {
     return executeScenario({
         catalog,
-        scenarioId: canonicalIds[0],
+        scenarioId: options.scenarioId ?? canonicalIds[0],
         evidenceClass: 'diagnostic',
         qualificationEligible: false,
         repositoryRoot: fixture.root,
@@ -650,6 +650,8 @@ test('stale evidence is removed and cannot pass when the producer is not spawned
         const result = await executeFixtureScenario(fixture, catalog, { spawnProcess: () => null });
         assert.equal(result.status, 'failed');
         assert.equal(fs.existsSync(stale), false);
+        assert.equal(result.producerSpawned, false);
+        assert.equal(result.authoritativeEvidence, null);
     }
     finally
     {
@@ -830,6 +832,52 @@ test('ambient semantic overrides and undeclared keys never reach any scenario pr
         assert.ok(results.every(
             (result) => !JSON.stringify(result).includes('must-not-leak')
         ));
+    }
+    finally
+    {
+        removeFixture(fixture);
+    }
+});
+
+test('data-scale owner inputs reach lifecycle actions but not the workload', async () =>
+{
+    const fixture = createFixture();
+    try
+    {
+        const ownerInputs = {
+            FSUSBLOG_RELEASE_RUNTIME_IMAGE: `sha256:${'3'.repeat(64)}`,
+            FSUSBLOG_TEST_FIXTURE_CONFIG: 'config/testing/fixture.json',
+            FSUSBLOG_DATA_SCALE_CALLER_JOURNAL: path.join(fixture.root, 'parent-caller-journal.json')
+        };
+        const observed = new Map();
+        const result = await executeFixtureScenario(fixture, catalogFor(fixture), {
+            scenarioId: 'release-data-scale-m',
+            ambientEnvironment: {
+                ...fixtureAmbientEnvironment,
+                ...ownerInputs
+            },
+            spawnProcess: (executable, args, options) =>
+            {
+                observed.set(
+                    options.env.FSUSBLOG_RELEASE_RELIABILITY_ACTION_ID,
+                    options.env
+                );
+                return spawn(executable, args, options);
+            }
+        });
+
+        assert.equal(result.status, 'passed', result.failure);
+        const lifecycleEnvironment = observed.get(
+            'release-data-scale-m-fixture-precondition'
+        );
+        const measurementEnvironment = observed.get(
+            'release-data-scale-m-fixture-measurement'
+        );
+        for (const [key, value] of Object.entries(ownerInputs))
+        {
+            assert.equal(lifecycleEnvironment[key], value, key);
+            assert.equal(key in measurementEnvironment, false, key);
+        }
     }
     finally
     {

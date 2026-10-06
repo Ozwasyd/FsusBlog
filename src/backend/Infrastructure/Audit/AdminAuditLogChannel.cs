@@ -4,6 +4,8 @@ using System.Threading.Channels;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Observability;
 
+using Microsoft.Extensions.Configuration;
+
 namespace FsusBlog.Server.Infrastructure.Audit;
 
 public interface IAdminAuditLogChannel
@@ -13,26 +15,15 @@ public interface IAdminAuditLogChannel
     ValueTask EnqueueManyAsync(IReadOnlyList<AdminAuditLog> audits, CancellationToken cancellationToken = default);
 }
 
-public sealed class AdminAuditLogChannel(
-    IServiceScopeFactory scopeFactory,
-    ILogger<AdminAuditLogChannel> logger) : IAdminAuditLogChannel
+public sealed class AdminAuditLogChannel : IAdminAuditLogChannel
 {
     internal const int DefaultCapacity = 4_096;
-
-    private readonly Channel<AdminAuditLog> _channel = Channel.CreateBounded<AdminAuditLog>(
-        new BoundedChannelOptions(DefaultCapacity)
-        {
-            SingleReader = true,
-            SingleWriter = false,
-            FullMode = BoundedChannelFullMode.Wait
-        });
-    private readonly IServiceScopeFactory _scopeFactory = scopeFactory;
-    private readonly ILogger<AdminAuditLogChannel> _logger = logger;
-    private long _queuedCount;
-    private long _inFlightCount;
-    private long _durablePendingCount;
-    private long _durableAcceptedCount;
-    private long _committedCount;
+    private readonly Channel<AdminAuditLog> _channel;
+    private readonly IServiceScopeFactory _scopeFactory;
+    private readonly ILogger<AdminAuditLogChannel> _logger;
+    private readonly AdminAuditFallbackWriter _journal;
+    private readonly object _queueGate = new();
+    private readonly Dictionary<Guid, bool> _live = [];
     private long _requeuedCount;
     private long _rejectedCount;
     private long _terminalFailureCount;
@@ -42,32 +33,86 @@ public sealed class AdminAuditLogChannel(
     private string? _lastItemReference;
     private int _completed;
 
+    public AdminAuditLogChannel(
+        IServiceScopeFactory scopeFactory, ILogger<AdminAuditLogChannel> logger,
+        IConfiguration? configuration = null, IAuditRetentionEpochKeyStore? keys = null)
+        : this(new BoundedChannelOptions(DefaultCapacity)
+        {
+            SingleReader = true,
+            SingleWriter = false,
+            FullMode = BoundedChannelFullMode.Wait
+        }, scopeFactory, logger, configuration ?? new ConfigurationBuilder().Build(), keys)
+    {
+    }
+
+    internal AdminAuditLogChannel(
+        BoundedChannelOptions options, IServiceScopeFactory scopeFactory,
+        ILogger<AdminAuditLogChannel> logger, IConfiguration configuration,
+        IAuditRetentionEpochKeyStore? keys = null)
+    {
+        if (options.FullMode != BoundedChannelFullMode.Wait)
+        {
+            throw new ArgumentException("admin_audit_requires_explicit_overflow", nameof(options));
+        }
+        _channel = Channel.CreateBounded<AdminAuditLog>(options);
+        _scopeFactory = scopeFactory;
+        _logger = logger;
+        _journal = new AdminAuditFallbackWriter(configuration, keys ?? new LocalAuditRetentionEpochKeyStore(configuration));
+    }
+
     internal ChannelReader<AdminAuditLog> Reader => _channel.Reader;
 
-    public long QueuedCount => Math.Max(0, Volatile.Read(ref _queuedCount));
+    public long QueuedCount
+    {
+        get
+        {
+            lock (_queueGate)
+            {
+                return _live.LongCount(static pair => !pair.Value);
+            }
+        }
+    }
 
     public async ValueTask EnqueueAsync(AdminAuditLog audit, CancellationToken cancellationToken = default)
     {
-        if (cancellationToken.IsCancellationRequested)
+        AdminAuditLog delivery;
+        try
         {
-            await WriteFallbackAsync([audit], CancellationToken.None);
-            return;
+            // Request cancellation cannot revoke a required audit event. Publish
+            // independently before either bounded admission or direct fallback.
+            delivery = await _journal.AdmitAsync(audit).ConfigureAwait(false);
         }
-
-        if (_channel.Writer.TryWrite(audit))
+        catch (Exception ex)
         {
-            long queued = Interlocked.Increment(ref _queuedCount);
-            SetDisposition("queued", ItemReference(audit));
-            FsusObservability.RecordAdminAuditQueue(
-                adminAuditQueuedCount: 1,
-                adminAuditDroppedCount: 0,
-                adminAuditFallbackWriteCount: 0,
-                queueDepth: queued);
-            return;
+            MarkTerminalFailure(1, ex.Data["AdminAuditDeliveryId"] as string,
+                $"admin-audit:admission-failed:{ex.GetType().Name}");
+            throw;
         }
-
+        if (!cancellationToken.IsCancellationRequested)
+        {
+            lock (_queueGate)
+            {
+                if (_channel.Writer.TryWrite(delivery))
+                {
+                    _live.Add(Identity(delivery), false);
+                    SetDisposition("durable-accepted", Identity(delivery).ToString("N"));
+                    FsusObservability.RecordAdminAuditQueue(1, 0, 0, _live.Count);
+                    return;
+                }
+            }
+        }
         Interlocked.Increment(ref _rejectedCount);
-        await WriteFallbackAsync([audit], CancellationToken.None);
+        lock (_queueGate)
+        {
+            string reason = Volatile.Read(ref _completed) != 0 ? "closed:durable-accepted"
+                : cancellationToken.IsCancellationRequested ? "cancelled:durable-accepted"
+                : "queue-full:durable-accepted";
+            SetDisposition("durable-pending", Identity(delivery).ToString("N"), reason);
+        }
+        // Preserve the catalog's direct fallback call boundary with the bound
+        // immutable delivery, never the caller's mutable object.
+        audit = delivery;
+        await WriteFallbackAsync([audit], CancellationToken.None).ConfigureAwait(false);
     }
 
     public async ValueTask EnqueueManyAsync(IReadOnlyList<AdminAuditLog> audits, CancellationToken cancellationToken = default)
@@ -75,203 +120,197 @@ public sealed class AdminAuditLogChannel(
         cancellationToken.ThrowIfCancellationRequested();
         foreach (AdminAuditLog audit in audits)
         {
-            await EnqueueAsync(audit, cancellationToken);
+            await EnqueueAsync(audit, cancellationToken).ConfigureAwait(false);
         }
     }
 
     internal bool TryRead([NotNullWhen(true)] out AdminAuditLog? audit)
     {
-        if (!_channel.Reader.TryRead(out audit))
+        lock (_queueGate)
         {
-            return false;
+            while (_channel.Reader.TryRead(out audit))
+            {
+                Guid id = Identity(audit);
+                if (_live.ContainsKey(id))
+                {
+                    _live[id] = true;
+                    SetDisposition("in-flight", id.ToString("N"));
+                    return true;
+                }
+            }
         }
-
-        DecrementQueuedCount();
-        Interlocked.Increment(ref _inFlightCount);
-        SetDisposition("in-flight", ItemReference(audit));
-        return true;
+        audit = null;
+        return false;
     }
 
     internal async ValueTask<AdminAuditLog> ReadAsync(CancellationToken cancellationToken)
     {
-        AdminAuditLog audit = await _channel.Reader.ReadAsync(cancellationToken);
-        DecrementQueuedCount();
-        Interlocked.Increment(ref _inFlightCount);
-        SetDisposition("in-flight", ItemReference(audit));
-        return audit;
+        while (true)
+        {
+            AdminAuditLog audit = await _channel.Reader.ReadAsync(cancellationToken).ConfigureAwait(false);
+            lock (_queueGate)
+            {
+                Guid id = Identity(audit);
+                if (_live.ContainsKey(id))
+                {
+                    _live[id] = true;
+                    SetDisposition("in-flight", id.ToString("N"));
+                    return audit;
+                }
+            }
+        }
     }
 
     internal ValueTask<bool> WaitToReadAsync(CancellationToken cancellationToken)
         => _channel.Reader.WaitToReadAsync(cancellationToken);
 
+    internal async Task EnsureAdmittedAsync(IReadOnlyList<AdminAuditLog> audits)
+    {
+        for (int index = 0; index < audits.Count; index++)
+        {
+            if (!AdminAuditDurableDelivery.IsBound(audits[index]))
+            {
+                // Manual worker entry points still pass through the same owner.
+                AdminAuditLog delivery = await _journal.AdmitAsync(audits[index]).ConfigureAwait(false);
+                AdminAuditDurableDelivery.BindSource(audits[index], delivery);
+            }
+            else
+            {
+                _ = AdminAuditDurableDelivery.GetRequired(audits[index]);
+            }
+        }
+    }
+
+    internal async Task ReplayAsync(CancellationToken replayCancellationToken)
+    {
+        await _journal.ReplayAsync(async (audits, cancellationToken) =>
+        {
+            lock (_queueGate)
+            {
+                foreach (AdminAuditLog record in audits)
+                {
+                    _live[Identity(record)] = true;
+                }
+                SetDisposition("in-flight", Identity(audits[0]).ToString("N"));
+            }
+            try
+            {
+                await using ObservedAsyncServiceScope scope = DependencyInjectionScopeTelemetry.CreateAsyncScope(
+                    _scopeFactory, "admin_audit_flush");
+                IAdminAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAdminAuditLogStore>();
+                await store.WriteBatchAsync(audits, cancellationToken).ConfigureAwait(false);
+            }
+            finally
+            {
+                lock (_queueGate)
+                {
+                    foreach (AdminAuditLog record in audits)
+                    {
+                        _live.Remove(Identity(record));
+                    }
+                    SetDisposition("durable-pending", Identity(audits[0]).ToString("N"));
+                }
+            }
+        }, replayCancellationToken).ConfigureAwait(false);
+        lock (_queueGate)
+        {
+            // Committed wake hints may still occupy physical bounded slots.
+            while (_channel.Reader.TryRead(out AdminAuditLog? hint))
+            {
+                _live.Remove(Identity(hint));
+            }
+            SetDisposition("committed", null);
+        }
+    }
+
     internal async Task WriteFallbackAsync(IReadOnlyList<AdminAuditLog> audits, CancellationToken cancellationToken)
     {
-        if (audits.Count == 0)
-        {
-            return;
-        }
-
-        MarkDurablePending(audits.Count);
+        await EnsureAdmittedAsync(audits).ConfigureAwait(false);
         try
         {
-            await using AsyncServiceScope scope = _scopeFactory.CreateAsyncScope();
-            IAdminAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAdminAuditLogStore>();
-            await store.WriteBatchAsync(audits, cancellationToken);
-            FsusObservability.RecordAdminAuditQueue(
-                adminAuditQueuedCount: 0,
-                adminAuditDroppedCount: 0,
-                adminAuditFallbackWriteCount: audits.Count,
-                queueDepth: Volatile.Read(ref _queuedCount));
-            MarkDurableAccepted(audits.Count);
+            await ReplayAsync(cancellationToken).ConfigureAwait(false);
+            FsusObservability.RecordAdminAuditQueue(0, 0, audits.Count, QueuedCount);
         }
-        catch (Exception ex) when (ex is not OperationCanceledException)
+        catch (Exception ex)
         {
-            FsusObservability.RecordAdminAuditQueue(
-                adminAuditQueuedCount: 0,
-                adminAuditDroppedCount: audits.Count,
-                adminAuditFallbackWriteCount: 0,
-                queueDepth: Volatile.Read(ref _queuedCount));
-            _logger.LogError(ex, "admin-audit fallback write failed. Count={Count}", audits.Count);
-            MarkDurableFailed(audits.Count, ItemReference(audits[0]), $"fallback-failed:{ex.GetType().Name}");
-            throw;
-        }
-        catch (OperationCanceledException)
-        {
-            MarkDurableFailed(audits.Count, ItemReference(audits[0]), "fallback-cancelled");
+            _logger.LogError("admin-audit durable fallback remains pending. FailureCategory={Category}", ex.GetType().Name);
             throw;
         }
     }
 
     public void Complete(Exception? error = null)
     {
-        if (Interlocked.Exchange(ref _completed, 1) != 0)
+        if (Interlocked.Exchange(ref _completed, 1) == 0)
         {
-            return;
+            _channel.Writer.TryComplete(error);
+            lock (_queueGate)
+            {
+                SetDisposition("closed", error?.Message);
+            }
         }
-
-        _channel.Writer.TryComplete(error);
-        SetDisposition("closed", error?.Message);
     }
 
     public AdminAuditLogChannelSnapshot Snapshot()
-        => new(
-            QueuedCount,
-            Volatile.Read(ref _inFlightCount),
-            Volatile.Read(ref _durablePendingCount),
-            Volatile.Read(ref _durableAcceptedCount),
-            Volatile.Read(ref _committedCount),
-            Volatile.Read(ref _requeuedCount),
-            Volatile.Read(ref _rejectedCount),
-            Volatile.Read(ref _terminalFailureCount),
-            Volatile.Read(ref _sequence),
-            Volatile.Read(ref _lastDisposition),
-            Volatile.Read(ref _lastFailureReason),
-            Volatile.Read(ref _lastItemReference));
-
-    internal void MarkCommitted(int count)
     {
-        Decrement(ref _inFlightCount, count);
-        Interlocked.Add(ref _committedCount, Math.Max(0, count));
-        SetDisposition("committed", null);
+        lock (_queueGate)
+        {
+            AdminAuditJournalSnapshot journal;
+            try
+            {
+                journal = _journal.Snapshot();
+            }
+            catch (Exception ex)
+            {
+                Interlocked.CompareExchange(ref _terminalFailureCount, 1, 0);
+                SetDisposition("terminal-failed", null, $"admin-audit:journal-state-unavailable:{ex.GetType().Name}");
+                journal = new(0, 0, 0, 0, 0, null, null);
+            }
+            long queued = _live.LongCount(static pair => !pair.Value);
+            long inFlight = _live.LongCount(static pair => pair.Value);
+            long terminal = journal.TerminalFailures + _terminalFailureCount;
+            long pending = Math.Max(0, journal.Pending - queued - inFlight);
+            return new(queued, inFlight, pending, journal.Accepted, journal.Committed,
+                _requeuedCount, _rejectedCount, terminal, _sequence + journal.Sequence,
+                terminal > 0 ? "terminal-failed" : inFlight > 0 ? "in-flight"
+                    : queued > 0 ? "durable-accepted" : pending > 0 ? "durable-pending" : _lastDisposition,
+                _terminalFailureCount > 0 ? _lastFailureReason : journal.LastFailure ?? _lastFailureReason,
+                _terminalFailureCount > 0 ? _lastItemReference : journal.LastReference ?? _lastItemReference);
+        }
     }
 
     internal bool TryRequeue(AdminAuditLog audit)
     {
-        if (!_channel.Writer.TryWrite(audit))
+        lock (_queueGate)
         {
-            return false;
+            if (!_channel.Writer.TryWrite(audit))
+            {
+                return false; // The published journal remains the disposition.
+            }
+            _live[Identity(audit)] = false;
+            _requeuedCount++;
+            SetDisposition("requeued", Identity(audit).ToString("N"));
+            return true;
         }
-
-        Interlocked.Increment(ref _queuedCount);
-        Decrement(ref _inFlightCount, 1);
-        Interlocked.Increment(ref _requeuedCount);
-        SetDisposition("requeued", ItemReference(audit));
-        return true;
     }
 
     internal void MarkTerminalFailure(int count, string? itemReference, string reason)
     {
-        if (count <= 0)
+        lock (_queueGate)
         {
-            return;
+            _terminalFailureCount += Math.Max(0, count);
+            SetDisposition("terminal-failed", itemReference, reason);
         }
-
-        Decrement(ref _inFlightCount, count);
-        Interlocked.Add(ref _terminalFailureCount, count);
-        SetDisposition("terminal-failed", itemReference, reason);
     }
 
-    internal void MarkDurableFailed(int count, string? itemReference, string reason)
-    {
-        Decrement(ref _durablePendingCount, count);
-        MarkTerminalFailure(count, itemReference, reason);
-    }
-
-    private void MarkDurablePending(int count)
-    {
-        Interlocked.Add(ref _durablePendingCount, Math.Max(0, count));
-        SetDisposition("durable-pending", null);
-    }
-
-    private void MarkDurableAccepted(int count)
-    {
-        Decrement(ref _durablePendingCount, count);
-        Decrement(ref _inFlightCount, count);
-        Interlocked.Add(ref _durableAcceptedCount, Math.Max(0, count));
-        SetDisposition("durable-accepted", null);
-    }
-
-    private static string ItemReference(AdminAuditLog audit)
-        => audit.Id > 0
-            ? audit.Id.ToString(System.Globalization.CultureInfo.InvariantCulture)
-            : $"{audit.AdminPrincipalId}:{audit.Action}:{audit.OccurredAtUtc.Ticks}:{audit.TargetId}";
-
-    private static void Decrement(ref long value, long count)
-    {
-        if (count <= 0)
-        {
-            return;
-        }
-
-        long current;
-        do
-        {
-            current = Volatile.Read(ref value);
-            if (current <= 0)
-            {
-                return;
-            }
-        }
-        while (Interlocked.CompareExchange(ref value, Math.Max(0, current - count), current) != current);
-    }
+    private static Guid Identity(AdminAuditLog audit)
+        => AdminAuditDurableDelivery.GetRequired(audit).Entry.DeliveryId;
 
     private void SetDisposition(string disposition, string? itemReference, string? failureReason = null)
     {
-        Interlocked.Increment(ref _sequence);
-        Volatile.Write(ref _lastDisposition, disposition);
-        if (itemReference is not null)
-        {
-            Volatile.Write(ref _lastItemReference, itemReference);
-        }
-
-        if (failureReason is not null)
-        {
-            Volatile.Write(ref _lastFailureReason, failureReason);
-        }
-    }
-
-    private void DecrementQueuedCount()
-    {
-        long current;
-        do
-        {
-            current = Volatile.Read(ref _queuedCount);
-            if (current <= 0)
-            {
-                return;
-            }
-        }
-        while (Interlocked.CompareExchange(ref _queuedCount, current - 1, current) != current);
+        _sequence++;
+        _lastDisposition = disposition;
+        _lastItemReference = itemReference ?? _lastItemReference;
+        _lastFailureReason = failureReason ?? _lastFailureReason;
     }
 }
 

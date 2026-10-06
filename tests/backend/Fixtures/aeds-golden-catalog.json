@@ -251,6 +251,14 @@
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "UserLocalePreferenceUpdateRequest", "value": 242, "family": "locale-preference-request" },
     { "name": "TaxonomyExactMetadata", "value": 243, "family": "taxonomy-response" },
-    { "name": "ApiError", "value": 251, "family": "error-response" }
+    { "name": "ApiError", "value": 251, "family": "error-response" },
+    { "name": "FontRegistryList", "value": 244, "family": "font-registry-response" },
+    { "name": "FontRegistryDetail", "value": 245, "family": "font-registry-response" },
+    { "name": "FontActivationList", "value": 246, "family": "font-activation-response" },
+    { "name": "ThemeRegistryList", "value": 247, "family": "theme-registry-response" },
+    { "name": "ThemeRegistryDetail", "value": 248, "family": "theme-registry-response" },
+    { "name": "ThemeActivationList", "value": 249, "family": "theme-activation-response" },
+    { "name": "ThemeActivation", "value": 250, "family": "theme-activation-response" },
+    { "name": "ThemeActivationHistory", "value": 252, "family": "theme-activation-response" }
   ]
 }

@@ -215,11 +215,14 @@ public sealed class AuthoringExtensionBudgetSupervisor(
             wallLimit,
             monitorStop.Token);
         T? value = default;
+        bool operationReturned = false;
         AuthoringBudgetStatus status;
         string reason;
         try
         {
             value = await operation.ExecuteAsync(wallLimit.Token);
+            operationReturned = true;
+            wallLimit.Token.ThrowIfCancellationRequested();
             status = AuthoringBudgetStatus.Completed;
             reason = "completed";
         }
@@ -229,6 +232,7 @@ public sealed class AuthoringExtensionBudgetSupervisor(
                 ? AuthoringBudgetStatus.Cancelled
                 : AuthoringBudgetStatus.Breached;
             reason = cancellationToken.IsCancellationRequested ? "cancelled" : "wall-time-budget-exceeded";
+            value = default;
         }
         catch
         {
@@ -255,12 +259,14 @@ public sealed class AuthoringExtensionBudgetSupervisor(
             reason = "measurement-authority-failed";
             value = default;
         }
-        if (status == AuthoringBudgetStatus.Completed)
+        if (status == AuthoringBudgetStatus.Completed ||
+            operationReturned && status == AuthoringBudgetStatus.Cancelled)
         {
-            reason = liveBreach ?? FindBreach(before, after, stopwatch.Elapsed, budget) ?? reason;
-            if (reason != "completed")
+            string? measuredBreach = liveBreach ?? FindBreach(before, after, stopwatch.Elapsed, budget);
+            if (measuredBreach is not null)
             {
                 status = AuthoringBudgetStatus.Breached;
+                reason = measuredBreach;
                 value = default;
             }
         }
@@ -268,6 +274,13 @@ public sealed class AuthoringExtensionBudgetSupervisor(
         {
             status = AuthoringBudgetStatus.Breached;
             reason = liveBreach;
+            value = default;
+        }
+
+        if (status == AuthoringBudgetStatus.Completed && cancellationToken.IsCancellationRequested)
+        {
+            status = AuthoringBudgetStatus.Cancelled;
+            reason = "cancelled";
             value = default;
         }
 
@@ -280,7 +293,7 @@ public sealed class AuthoringExtensionBudgetSupervisor(
             }
         }
 
-        return await CompleteAsync(
+        AuthoringBudgetResult<T> result = await CompleteAsync(
             identity,
             status,
             reason,
@@ -288,6 +301,12 @@ public sealed class AuthoringExtensionBudgetSupervisor(
             stopwatch.Elapsed,
             after,
             CancellationToken.None);
+        if (result.Status == AuthoringBudgetStatus.Completed)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+        }
+
+        return result;
     }
 
     public static AuthoringResourceBudget FromManifest(AuthoringResourceLimits limits) => new(

@@ -1,7 +1,8 @@
 import assert from 'node:assert/strict';
-import crypto from 'node:crypto';
 import { spawnSync } from 'node:child_process';
+import crypto from 'node:crypto';
 import {
+    existsSync,
     mkdirSync,
     mkdtempSync,
     readFileSync,
@@ -70,7 +71,7 @@ test('authoring terminal matrix rejects registry drift and receipt creation with
     }
 });
 
-test('authoring terminal receipt binds every current-run artifact and rejects tamper', () =>
+test('authoring terminal receipt refuses complete synthetic evidence and still detects tamper', () =>
 {
     const directory = mkdtempSync(path.join(tmpdir(), 'fsusblog-authoring-receipt-'));
     try
@@ -111,12 +112,10 @@ test('authoring terminal receipt binds every current-run artifact and rejects ta
             '--evidence', evidencePath,
             '--write-receipt', receiptPath
         ], directory);
-        assert.equal(result.status, 0, output(result));
-        const receipt = JSON.parse(readFileSync(receiptPath, 'utf8'));
-        assert.equal(receipt.status, 'terminal-accepted');
-        assert.deepEqual(receipt.warnings, []);
-        assert.equal(Object.keys(receipt.artifactDigests).length, catalog.terminalEvidence.length);
-        assert.match(receipt.receiptDigest, /^[0-9a-f]{64}$/);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /registered current-run producer validators are required/);
+        assert.match(output(result), /terminal acceptance blocked/);
+        assert.equal(existsSync(receiptPath), false);
 
         artifacts[0].sha256 = '0'.repeat(64);
         writeFileSync(evidencePath, `${JSON.stringify({
@@ -126,6 +125,48 @@ test('authoring terminal receipt binds every current-run artifact and rejects ta
         const tampered = run(['--root', directory, '--evidence', evidencePath], directory);
         assert.notEqual(tampered.status, 0);
         assert.match(output(tampered), /digest mismatched/);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
+
+test('authoring terminal matrix refuses a removed registry, suite, domain or empty chain', () =>
+{
+    const directory = mkdtempSync(path.join(tmpdir(), 'fsusblog-authoring-matrix-coverage-'));
+    try
+    {
+        const original = JSON.parse(readFileSync(catalogPath, 'utf8'));
+        // A complete independent override remains a valid audit input.
+        const override = path.join(directory, 'catalog.json');
+        writeFileSync(override, `${JSON.stringify(Object.fromEntries(Object.entries(original).reverse()))}\n`);
+        const control = run(['--catalog', override]);
+        assert.equal(control.status, 0, output(control));
+        for (const field of ['registries', 'requiredSuites', 'terminalEvidence', 'all'])
+        {
+            const changed = structuredClone(original);
+            if (field === 'all')
+            {
+                changed.registries = [];
+                changed.requiredSuites = [];
+                changed.terminalEvidence = [];
+            }
+            else
+            {
+                changed[field].pop();
+            }
+            writeFileSync(override, `${JSON.stringify(changed)}\n`);
+            const evidence = path.join(directory, 'evidence.json');
+            writeFileSync(evidence, `${JSON.stringify({
+                schema: 'fsusblog.authoring-extension-terminal-evidence.v1', artifacts: []
+            })}\n`);
+            const receipt = path.join(directory, 'receipt.json');
+            const result = run(['--catalog', override, '--evidence', evidence, '--write-receipt', receipt]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /canonical catalog contract drifted/);
+            assert.equal(existsSync(receipt), false);
+        }
     }
     finally
     {

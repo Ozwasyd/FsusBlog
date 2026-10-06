@@ -1,14 +1,52 @@
-import { spawnSync } from 'node:child_process';
-import { copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
-import os from 'node:os';
+import { copyFileSync, existsSync, lstatSync, mkdirSync, mkdtempSync, renameSync, rmSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
+import { Writable } from 'node:stream';
 
-export function exerciseXunitConfigurationFixture({ repositoryRoot, adapterAssembly })
+const { authorizeProductionBuildNestedProcess, productionDotnetArtifacts, resolveProductionBuildLayout } = await import(new URL('../../../tools/test-matrix/production-build-layout.mjs', import.meta.url));
+const { nestedExecutionChannelKey } = await import(new URL('../../../tools/test/physical-execution-nested-channel.mjs', import.meta.url));
+const { runPhysicalExecution } = await import(new URL('../../../tools/test/physical-execution-process-tree.mjs', import.meta.url));
+const { currentProcessIdentity } = await import(new URL('../../../tools/test/process-identity.mjs', import.meta.url));
+
+export async function exerciseXunitConfigurationFixture({ repositoryRoot, adapterAssembly })
 {
-    const root = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-configuration-'));
+    // A channel descriptor is only a locator. The retained owner independently
+    // checks the live caller and service membership before any fixture writes.
+    const channelValue = process.env[nestedExecutionChannelKey];
+    if (!channelValue)
+    {
+        throw new Error('xunit configuration fixture requires its live original build owner channel');
+    }
+    const channel = JSON.parse(channelValue);
+    authorizeProductionBuildNestedProcess(channel, currentProcessIdentity());
+    const layout = resolveProductionBuildLayout(channel.reference.context);
+    if (path.resolve(repositoryRoot) !== path.resolve(channel.reference.context.root)
+        || process.env.FSUSBLOG_PRODUCTION_BUILD_ROOT !== layout.runRoot
+        || path.resolve(adapterAssembly) !== productionDotnetArtifacts(layout).xunitAdapterDll
+        || !existsSync(adapterAssembly))
+    {
+        throw new Error('xunit configuration fixture requires its original source/layout and prebuilt adapter');
+    }
+    const fixtureBase = path.join(layout.runRoot, 'xunit-configuration-fixtures');
+    if (!existsSync(fixtureBase))
+    {
+        mkdirSync(fixtureBase);
+    }
+    const baseMetadata = lstatSync(fixtureBase);
+    if (baseMetadata.isSymbolicLink() || !baseMetadata.isDirectory())
+    {
+        throw new Error('xunit configuration fixture root cannot be a link or special file');
+    }
+    const root = mkdtempSync(path.join(fixtureBase, 'fixture-'));
     try
     {
         copyFileSync(path.join(repositoryRoot, 'Directory.Build.props'), path.join(root, 'Directory.Build.props'));
+        if (existsSync(path.join(repositoryRoot, 'global.json')))
+        {
+            copyFileSync(path.join(repositoryRoot, 'global.json'), path.join(root, 'global.json'));
+        }
+        // These two fixture projects have no package dependencies. Preserve
+        // locked-mode policy with their real empty dependency lock, and deny feeds.
+        writeFileSync(path.join(root, 'NuGet.Config'), '<configuration><packageSources><clear /></packageSources></configuration>');
         const buildRoot = path.join(root, 'artifacts');
         const project = path.join(root, 'tests/ConfigurationFixtureTests.csproj');
         mkdirSync(path.dirname(project), { recursive: true });
@@ -20,7 +58,7 @@ export function exerciseXunitConfigurationFixture({ repositoryRoot, adapterAssem
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)' == 'Release'">
-    <DefineConstants>$(DefineConstants);CONFIGURATION_FIXTURE</DefineConstants>
+    <DefineConstants>$(DefineConstants);RELEASE;CONFIGURATION_FIXTURE</DefineConstants>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <ItemGroup>
@@ -93,21 +131,53 @@ public sealed class ExcludedCases { [Xunit.Fact] public void ExcludedCase() { } 
     public sealed class DependencyCases { [Fact] public void ForeignDependencyCase() { } }
 }
 `);
+        for (const directory of ['tests', 'dependency'])
+        {
+            writeFileSync(path.join(root, directory, 'packages.lock.json'),
+                JSON.stringify({ version: 2, dependencies: { 'net10.0': directory === 'tests'
+                    ? { configurationdependency: { type: 'Project' } } : {} } }));
+        }
         const environment = {
             ...process.env,
-            CI: 'false',
-            GITHUB_ACTIONS: 'false',
             FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot
         };
-        const invoke = (args) => spawnSync('dotnet', args, {
-            cwd: root,
-            env: environment,
-            encoding: 'utf8',
-            maxBuffer: 32 * 1024 * 1024
-        });
-        const runAdapter = (args = []) =>
+        const invoke = async (args) =>
         {
-            const result = invoke([adapterAssembly, root, project, ...args]);
+            let stdout = '';
+            let stderr = '';
+            const capture = (append) => new Writable({ write(chunk, _encoding, done)
+            {
+                append(chunk.toString());
+                done();
+            } });
+            try
+            {
+                await runPhysicalExecution({ command: ['dotnet', ...args], cwd: root, env: environment,
+                    linuxReadWritePaths: [root], stdout: capture((chunk) =>
+                    {
+                        stdout += chunk;
+                    }),
+                    stderr: capture((chunk) =>
+                    {
+                        stderr += chunk;
+                    }) });
+                return { status: 0, stdout, stderr };
+            }
+            catch (error)
+            {
+                // Only a fully observed nonzero child exit is a negative oracle.
+                // Authentication, grant, containment and cleanup errors propagate.
+                if (!Number.isInteger(error.exitCode) || error.physicalExecution?.postObservation !== 'zero-members'
+                    || error.physicalExecution?.logComplete !== true)
+                {
+                    throw error;
+                }
+                return { status: error.exitCode, stdout, stderr };
+            }
+        };
+        const runAdapter = async (args = []) =>
+        {
+            const result = await invoke([adapterAssembly, root, project, ...args]);
             return {
                 status: result.status,
                 report: result.stdout.trim() ? JSON.parse(result.stdout) : null,
@@ -117,7 +187,7 @@ public sealed class ExcludedCases { [Xunit.Fact] public void ExcludedCase() { } 
         const explicit = (configuration) => runAdapter(['--configuration', configuration]);
         for (const configuration of ['Debug', 'Release'])
         {
-            const build = invoke([
+            const build = await invoke([
                 'build', project, '-c', configuration, '-v:q', '-m:1',
                 '/p:UseSharedCompilation=false', '/p:NuGetAudit=false'
             ]);
@@ -126,40 +196,44 @@ public sealed class ExcludedCases { [Xunit.Fact] public void ExcludedCase() { } 
                 throw new Error(`configuration fixture build failed: ${build.stdout}\n${build.stderr}`);
             }
         }
-        const debug = explicit('Debug');
-        const release = explicit('Release');
-        const defaultConfiguration = runAdapter();
-        const invalidArguments = [
+        const debug = await explicit('Debug');
+        const release = await explicit('Release');
+        const defaultConfiguration = await runAdapter();
+        const invalidArguments = [];
+        for (const args of [
             ['--configuration', 'release'],
             ['--configuration', 'Unregistered'],
             ['--configuration'],
             ['--ignored', 'Release'],
             ['--configuration', 'Release', 'extra']
-        ].map((args) => runAdapter(args));
+        ])
+        {
+            invalidArguments.push(await runAdapter(args));
+        }
 
         const debugIntermediate = path.join(buildRoot, 'dotnet/ConfigurationFixtureTests/obj/Debug/net10.0');
         writeFileSync(path.join(debugIntermediate, 'InvalidOtherConfiguration.g.cs'), '#error wrong configuration source\n');
-        const releaseIgnoresDebugGenerated = explicit('Release');
-        const debugRejectsInvalidGenerated = explicit('Debug');
+        const releaseIgnoresDebugGenerated = await explicit('Release');
+        const debugRejectsInvalidGenerated = await explicit('Debug');
 
         const releaseAssembly = path.join(
             buildRoot, 'dotnet/ConfigurationFixtureTests/bin/Release/net10.0/ConfigurationFixtureTests.dll'
         );
         renameSync(releaseAssembly, `${releaseAssembly}.fixture-backup`);
-        const missingReleaseAssembly = explicit('Release');
+        const missingReleaseAssembly = await explicit('Release');
         renameSync(`${releaseAssembly}.fixture-backup`, releaseAssembly);
         const releaseIntermediate = path.join(buildRoot, 'dotnet/ConfigurationFixtureTests/obj/Release/net10.0');
         renameSync(releaseIntermediate, `${releaseIntermediate}.fixture-backup`);
-        const missingReleaseIntermediate = explicit('Release');
+        const missingReleaseIntermediate = await explicit('Release');
         rmSync(releaseIntermediate, { recursive: true, force: true });
         renameSync(`${releaseIntermediate}.fixture-backup`, releaseIntermediate);
-        const restoredRelease = explicit('Release');
+        const restoredRelease = await explicit('Release');
         writeFileSync(path.join(releaseIntermediate, 'NotACompileItem.g.cs'), '#error not a Compile item\n');
-        const releaseIgnoresUnownedGenerated = explicit('Release');
+        const releaseIgnoresUnownedGenerated = await explicit('Release');
         renameSync(path.join(root, 'linked/LinkedCases.cs'), path.join(root, 'linked/LinkedCases.cs.backup'));
-        const missingLinkedSource = explicit('Release');
+        const missingLinkedSource = await explicit('Release');
         renameSync(path.join(root, 'linked/LinkedCases.cs.backup'), path.join(root, 'linked/LinkedCases.cs'));
-        const restoredLinkedSource = explicit('Release');
+        const restoredLinkedSource = await explicit('Release');
         return {
             debug,
             release,

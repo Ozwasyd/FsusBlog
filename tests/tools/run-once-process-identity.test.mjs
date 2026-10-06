@@ -243,6 +243,148 @@ test('cross-platform collector never degrades to PID-only identity', () =>
     );
 });
 
+test('Linux group observation requires healthy proc authority before classifying an absent PID as dead', (t) =>
+{
+    const procRoot = fixture(t);
+    fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+    const bootId = path.join(procRoot, 'sys/kernel/random/boot_id');
+    fs.writeFileSync(bootId, 'fixture-boot-id\n');
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'dead');
+
+    fs.mkdirSync(path.join(procRoot, '123'));
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+    const fields = Array.from({ length: 20 }, () => '0');
+    fields[1] = '123';
+    fields[18] = '42';
+    fs.writeFileSync(path.join(procRoot, '123/stat'), `123 (live without executable identity) S ${fields.join(' ')}\n`);
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+    fs.unlinkSync(path.join(procRoot, '123/stat'));
+    fs.rmdirSync(path.join(procRoot, '123'));
+    fs.writeFileSync(bootId, '\n');
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+    fs.unlinkSync(bootId);
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot: path.join(procRoot, 'absent') }).status, 'unverifiable');
+    for (const pid of [0, -1, NaN, '123'])
+    {
+        assert.equal(collectProcessGroupOrJobIdentity(pid, { platform: 'linux', procRoot }).status, 'unverifiable');
+    }
+});
+
+test('Linux group observation rejects a PID that reappears while boot identity is collected', (t) =>
+{
+    const procRoot = fixture(t);
+    fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+    const bootId = path.join(procRoot, 'sys/kernel/random/boot_id');
+    fs.writeFileSync(bootId, 'fixture-boot-id\n');
+    const read = fs.readFileSync.bind(fs);
+    let initialStatMissing = false;
+    t.mock.method(fs, 'readFileSync', (file, ...args) =>
+    {
+        if (file === path.join(procRoot, '123/stat'))
+        {
+            initialStatMissing = true;
+        }
+        if (file === bootId)
+        {
+            assert.equal(initialStatMissing, true);
+            fs.mkdirSync(path.join(procRoot, '123'));
+            fs.writeFileSync(path.join(procRoot, '123/stat'), 'replacement-pid');
+        }
+        return read(file, ...args);
+    });
+    const observed = collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot });
+    assert.equal(observed.status, 'unverifiable');
+    assert.equal(fs.existsSync(path.join(procRoot, '123/stat')), true);
+    assert.equal(Object.hasOwn(observed, 'value'), false);
+});
+
+test('Linux group observation refuses unreadable boot identity or proc root', (t) =>
+{
+    const procRoot = fixture(t);
+    fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+    const bootId = path.join(procRoot, 'sys/kernel/random/boot_id');
+    fs.writeFileSync(bootId, 'fixture-boot-id\n');
+    const read = fs.readFileSync.bind(fs);
+    const list = fs.readdirSync.bind(fs);
+    let denied = 'boot';
+    t.mock.method(fs, 'readFileSync', (file, ...args) =>
+    {
+        if (denied === 'boot' && file === bootId)
+        {
+            throw Object.assign(new Error('boot identity permission denied'), { code: 'EACCES' });
+        }
+        return read(file, ...args);
+    });
+    t.mock.method(fs, 'readdirSync', (directory, ...args) =>
+    {
+        if (denied === 'root' && directory === procRoot)
+        {
+            throw Object.assign(new Error('proc root permission denied'), { code: 'EACCES' });
+        }
+        return list(directory, ...args);
+    });
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+    denied = 'root';
+    assert.equal(collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot }).status, 'unverifiable');
+});
+
+test('Linux group stat permission errors remain unverifiable even when the PID directory is absent', (t) =>
+{
+    const procRoot = fixture(t);
+    fs.mkdirSync(path.join(procRoot, 'sys/kernel/random'), { recursive: true });
+    fs.writeFileSync(path.join(procRoot, 'sys/kernel/random/boot_id'), 'fixture-boot-id\n');
+    const statPath = path.join(procRoot, '123/stat');
+    const read = fs.readFileSync.bind(fs);
+    t.mock.method(fs, 'readFileSync', (file, ...args) =>
+    {
+        if (file === statPath)
+        {
+            throw Object.assign(new Error('proc stat permission denied'), { code: 'EACCES' });
+        }
+        return read(file, ...args);
+    });
+    const observed = collectProcessGroupOrJobIdentity(123, { platform: 'linux', procRoot });
+    assert.equal(observed.status, 'unverifiable');
+    assert.match(observed.reason, /permission denied/u);
+});
+
+test('Linux group observation preserves a live authority and distinguishes a reaped real child', {
+    skip: process.platform !== 'linux',
+    timeout: 30_000
+}, async (t) =>
+{
+    const live = collectProcessGroupOrJobIdentity(process.pid);
+    assert.equal(live.status, 'verified', live.reason);
+    assert.ok(live.value.leaderProcessStartIdentity.startsWith('linux:'));
+    const child = spawn(process.execPath, ['-e', "process.stdin.resume(); process.stdin.on('end', () => process.exit(0))"], {
+        stdio: ['pipe', 'ignore', 'ignore']
+    });
+    t.after(() =>
+    {
+        if (child.exitCode === null && child.signalCode === null)
+        {
+            child.kill('SIGTERM');
+        }
+    });
+    await new Promise((resolve, reject) =>
+    {
+        child.once('error', reject);
+        child.once('spawn', resolve);
+    });
+    assert.equal(collectProcessIdentity(child.pid).status, 'verified');
+    assert.equal(collectProcessGroupOrJobIdentity(child.pid).status, 'verified');
+    const closed = new Promise((resolve, reject) =>
+    {
+        child.once('error', reject);
+        child.once('close', (code) => code === 0 ? resolve() : reject(new Error(`child exited ${code}`)));
+    });
+    child.stdin.end();
+    await closed;
+    assert.equal(collectProcessGroupOrJobIdentity(child.pid).status, 'dead');
+    assert.equal(collectProcessGroupOrJobIdentity(process.pid).status, 'verified');
+});
+
 test('Linux proc stat parsing survives parenthesized command names and discovers a real child identity', async (t) =>
 {
     const procRoot = fixture(t);

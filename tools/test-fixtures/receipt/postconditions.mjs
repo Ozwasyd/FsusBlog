@@ -6,9 +6,62 @@
  * HTTP 200 only, file exists) fail closed.
  */
 
+import { readFileSync } from 'node:fs';
+
+import { maskCSharpTrivia } from '../../test/csharp-source-mask.mjs';
+
 const { readFixtureCatalogs } = await import(new URL('../../testing/fixture-catalog.mjs', import.meta.url));
-import { freezeDeep, plainObject } from './canonical.mjs';
+import { freezeDeep, plainObject, sha256Text } from './canonical.mjs';
 import { securityPostconditionVerifiers } from './security-postconditions.mjs';
+
+/** Read the production owner's closed constant/set declaration, never receipt-selected names. */
+export function readProductionProjectionEdgeContract()
+{
+    const source = readFileSync(new URL('../../../src/backend/Services/ArticleMutationSideEffects.cs', import.meta.url), 'utf8');
+    const masked = maskCSharpTrivia(source);
+    const owners = [...masked.matchAll(/public static class ArticleMutationReplayEdges\s*\{/gu)];
+    if (owners.length !== 1)
+    {
+        throw new Error('production required projection edge owner is not exact');
+    }
+    const start = owners[0].index + owners[0][0].length;
+    let depth = 1;
+    let end = start;
+    while (end < masked.length && depth > 0)
+    {
+        if (masked[end] === '{') depth += 1;
+        if (masked[end] === '}') depth -= 1;
+        end += 1;
+    }
+    const owner = masked.slice(start, end - 1);
+    const constants = new Map();
+    for (const match of owner.matchAll(/public const string (\w+)\s*=\s*;/gu))
+    {
+        const literal = source.slice(start + match.index, start + match.index + match[0].length)
+            .match(/=\s*"([^"\\]+)"\s*;/u)?.[1];
+        if (!literal || constants.has(match[1]))
+        {
+            throw new Error('production projection edge constant is not exact');
+        }
+        constants.set(match[1], literal);
+    }
+    const declarations = [...owner.matchAll(/public static readonly IReadOnlySet<string> Required = new HashSet<string>\(StringComparer\.Ordinal\)\s*\{([^{}]*)\};/gu)];
+    const declaration = declarations.length === 1 ? declarations[0][1] : null;
+    const symbols = String(declaration ?? '').split(',').map((item) => item.trim()).filter(Boolean);
+    if (depth !== 0 || !constants.has('ContractId') || symbols.length === 0
+        || symbols.some((symbol) => !/^\w+$/u.test(symbol) || !constants.has(symbol))
+        || new Set(symbols).size !== symbols.length)
+    {
+        throw new Error('production required projection edge contract cannot be derived exactly');
+    }
+    const requiredEdges = symbols.map((symbol) => constants.get(symbol)).sort();
+    if (new Set(requiredEdges).size !== requiredEdges.length)
+    {
+        throw new Error('production required projection edge contract contains duplicate names');
+    }
+    return Object.freeze({ contractId: constants.get('ContractId'), requiredEdges: Object.freeze(requiredEdges) });
+}
+
 
 function fail(id, reason)
 {
@@ -197,9 +250,184 @@ function verifyArticleStatus(id, expectedStatus, { allowMissingPublication = fal
             {
                 return fail(id, `article ${article.id} current_publication_id is empty`);
             }
+            const projection = verifyRequiredProjectionAggregate(article, id, ctx);
+            if (!projection.ok)
+            {
+                return projection;
+            }
         }
         return pass(id, { articleIds: owned.ids });
     };
+}
+
+// Match System.Text.Json's default encoder for the closed projection envelope.
+// Property order is explicit below; outer fixture canonicalization may reorder keys.
+function projectionJson(value)
+{
+    if (typeof value === 'string')
+    {
+        const escapes = { '\b': '\\b', '\t': '\\t', '\n': '\\n', '\f': '\\f', '\r': '\\r', '\\': '\\\\' };
+        return `"${value.split('').map((character) =>
+        {
+            if (escapes[character])
+            {
+                return escapes[character];
+            }
+            const code = character.charCodeAt(0);
+            if (code < 32 || code > 126 || /["&'+<>`]/u.test(character))
+            {
+                return `\\u${code.toString(16).toUpperCase().padStart(4, '0')}`;
+            }
+            return character;
+        }).join('')}"`;
+    }
+    if (Array.isArray(value))
+    {
+        return `[${value.map(projectionJson).join(',')}]`;
+    }
+    if (plainObject(value))
+    {
+        return `{${Object.entries(value).map(([key, item]) => `${projectionJson(key)}:${projectionJson(item)}`).join(',')}}`;
+    }
+    return JSON.stringify(value);
+}
+
+function projectionCoordinates(value)
+{
+    const { articleId, revisionId, revisionNo, publicationId, publicationNo,
+        rightsSnapshotId, responsibilitySnapshotId, responsibilityVersion } = value ?? {};
+    return { articleId, revisionId, revisionNo, publicationId, publicationNo,
+        rightsSnapshotId, responsibilitySnapshotId, responsibilityVersion };
+}
+
+function projectionEdge(edge, terminalBody = false)
+{
+    const { eventId, eventVersion, edgeName, owner, status, attemptCount, generation,
+        deliveryKey, inputDigest, outputDigest, terminalReceiptDigest } = edge;
+    const identity = terminalBody ? { eventId, eventVersion, owner, edgeName } : { eventId, eventVersion, edgeName, owner };
+    const body = { ...identity, status, attemptCount, generation, deliveryKey, inputDigest,
+        outputDigest, coordinates: projectionCoordinates(edge.coordinates) };
+    return terminalBody ? body : { ...body, terminalReceiptDigest };
+}
+
+export function computeProjectionTerminalDigest(edge)
+{
+    return sha256Text(projectionJson(projectionEdge(edge, true)));
+}
+
+export function computeProjectionAggregateDigest(aggregate)
+{
+    const { schema, runId, namespace, authorityReceiptDigest, requiredEdgeContractId,
+        requiredEdges, publiclyVisible, contentDigest, searchDigest, aotDigest, revocationDigest,
+        aedsDigest, hotReadDigest, publicListDigest, publicDetailDigest, cacheDigest, failures } = aggregate;
+    return sha256Text(projectionJson({ schema, runId, namespace, authorityReceiptDigest,
+        requiredEdgeContractId, requiredEdges, currentCoordinates: projectionCoordinates(aggregate.currentCoordinates),
+        publiclyVisible, contentDigest, searchDigest, aotDigest, revocationDigest, aedsDigest,
+        hotReadDigest, publicListDigest, publicDetailDigest, cacheDigest,
+        edges: aggregate.edges.map((edge) => projectionEdge(edge)), failures }));
+}
+
+function verifyRequiredProjectionAggregate(article, postconditionId, ctx)
+{
+    const fields = article.fields ?? {};
+    const aggregate = fields.projectionAggregate;
+    if (fields.requiredProjectionEdgesVerified !== true || !aggregate)
+    {
+        return fail(postconditionId, `article ${article.id} required projection aggregate missing`);
+    }
+    const isDigest = (value) => /^sha256:[a-f0-9]{64}$/u.test(String(value ?? ''));
+    const requiredEdges = Array.isArray(aggregate.requiredEdges) ? aggregate.requiredEdges : [];
+    const terminalEdges = Array.isArray(aggregate.edges) ? aggregate.edges : [];
+    const requiredNames = [...new Set(requiredEdges.map(String))].sort();
+    const terminalNames = terminalEdges.map((edge) => String(edge?.edgeName ?? '')).sort();
+    let productionContract;
+    try
+    {
+        productionContract = readProductionProjectionEdgeContract();
+    }
+    catch
+    {
+        return fail(postconditionId, `article ${article.id} production required projection contract unavailable`);
+    }
+    const expectedNamespace = String(
+        ctx?.namespace ?? ctx?.observations?.database?.namespace ?? ''
+    ).trim();
+    const expectedRunId = String(ctx?.runId ?? '').trim();
+    if (aggregate.schema !== 'fsusblog.canonical-article-projection-aggregate.v1'
+      || aggregate.requiredEdgeContractId !== productionContract.contractId
+      || !String(aggregate.runId ?? '').trim()
+      || !String(aggregate.namespace ?? '').trim()
+      || (expectedRunId && aggregate.runId !== expectedRunId)
+      || (expectedNamespace && aggregate.namespace !== expectedNamespace)
+      || requiredNames.length === 0
+      || requiredNames.length !== requiredEdges.length
+      || JSON.stringify(requiredNames) !== JSON.stringify(productionContract.requiredEdges)
+      || JSON.stringify(requiredNames) !== JSON.stringify(terminalNames)
+      || !Array.isArray(aggregate.failures)
+      || aggregate.failures.length !== 0)
+    {
+        return fail(postconditionId, `article ${article.id} required projection vector is not exact`);
+    }
+    const coordinates = aggregate.currentCoordinates ?? {};
+    if (String(coordinates.articleId ?? '') !== String(article.id)
+      || ![coordinates.articleId, coordinates.revisionId, coordinates.revisionNo]
+          .every((value) => Number.isSafeInteger(value) && value > 0)
+      || ![coordinates.publicationId, coordinates.publicationNo, coordinates.rightsSnapshotId,
+          coordinates.responsibilitySnapshotId, coordinates.responsibilityVersion]
+          .every((value) => value === null || (Number.isSafeInteger(value) && value > 0))
+      || !isDigest(aggregate.authorityReceiptDigest)
+      || !isDigest(aggregate.contentDigest)
+      || !isDigest(aggregate.searchDigest)
+      || !isDigest(aggregate.aotDigest)
+      || !isDigest(aggregate.revocationDigest)
+      || !isDigest(aggregate.aedsDigest)
+      || !isDigest(aggregate.hotReadDigest)
+      || !isDigest(aggregate.publicListDigest)
+      || !isDigest(aggregate.publicDetailDigest)
+      || !isDigest(aggregate.cacheDigest)
+      || !isDigest(aggregate.aggregateDigest))
+    {
+        return fail(postconditionId, `article ${article.id} projection coordinates or digests are invalid`);
+    }
+    const eventIds = new Set();
+    const inputDigests = new Set();
+    for (const edge of terminalEdges)
+    {
+        const edgeCoordinates = edge?.coordinates ?? {};
+        if (edge?.status !== 'completed'
+          || edge?.eventVersion !== 2
+          || edge?.owner !== `production-outbox:${edge?.edgeName ?? ''}`
+          || !String(edge?.eventId ?? '').trim()
+          || !Number.isSafeInteger(edge?.attemptCount) || edge.attemptCount < 1
+          || !Number.isSafeInteger(edge?.generation) || edge.generation < 1
+          || edge?.deliveryKey !== sha256Text(`${edge?.eventId}:${edge?.edgeName}`).slice(7)
+          || !isDigest(edge?.inputDigest)
+          || !isDigest(edge?.outputDigest)
+          || !isDigest(edge?.terminalReceiptDigest)
+          || JSON.stringify(projectionCoordinates(edgeCoordinates)) !== JSON.stringify(projectionCoordinates(coordinates))
+          || edge.terminalReceiptDigest !== computeProjectionTerminalDigest(edge))
+        {
+            return fail(postconditionId, `article ${article.id} projection edge receipt is invalid`);
+        }
+        eventIds.add(edge.eventId);
+        inputDigests.add(edge.inputDigest);
+    }
+    if (eventIds.size !== 1 || inputDigests.size !== 1)
+    {
+        return fail(postconditionId, `article ${article.id} projection edges are cross-event or cross-input`);
+    }
+    if (aggregate.aggregateDigest !== computeProjectionAggregateDigest(aggregate))
+    {
+        return fail(postconditionId, `article ${article.id} projection aggregate digest mismatch`);
+    }
+    const expectedVisible = String(fields.status ?? '') === 'published'
+      && fields.deleted !== true
+      && fields.isDeleted !== true;
+    if (aggregate.publiclyVisible !== expectedVisible)
+    {
+        return fail(postconditionId, `article ${article.id} projection visibility disagrees with authority`);
+    }
+    return pass(postconditionId);
 }
 
 function verifyHomeFeaturedHot(ctx)
@@ -230,7 +458,8 @@ function verifyHomeFeaturedHot(ctx)
     }
 
     const hotKeys = (redis.keys ?? []).filter((item) => item.present === true
-    && (/hot|featured/i.test(String(item.key ?? '')) || /hot|featured/i.test(String(item.domain ?? ''))));
+    && (item.key === 'blog:top_articles'
+        || /hot|featured/i.test(String(item.key ?? '')) || /hot|featured/i.test(String(item.domain ?? ''))));
     if (hotKeys.length === 0)
     {
         return fail(id, 'Redis hot/featured keys missing');
@@ -563,8 +792,7 @@ function verifyMultipleRevisions(ctx)
     }
     const scoped = entitiesOf(db, 'article').filter((item) => item.capabilityHint === id
     || item.postconditionId === id
-    || item.fields?.multipleRevisions === true
-    || (Array.isArray(item.fields?.revisionIds) && item.fields.revisionIds.length >= 2));
+    || item.fields?.multipleRevisions === true);
     const owned = requireOwnedIds(scoped.length ? scoped : entitiesOf(db, 'article'), id);
     if (!owned.ok)
     {
@@ -578,6 +806,14 @@ function verifyMultipleRevisions(ctx)
     if (!ok)
     {
         return fail(id, 'no owned article has multiple revisions');
+    }
+    for (const article of scoped.length ? scoped : entitiesOf(db, 'article'))
+    {
+        const projection = verifyRequiredProjectionAggregate(article, id, ctx);
+        if (!projection.ok)
+        {
+            return projection;
+        }
     }
     return pass(id, { articleIds: owned.ids });
 }
@@ -604,6 +840,11 @@ function verifyMultiplePublications(ctx)
         if (Number(article.fields?.publicationCount ?? 0) < 2 && article.fields?.multiplePublications !== true)
         {
             return fail(id, `article ${article.id} missing multiple publications`);
+        }
+        const projection = verifyRequiredProjectionAggregate(article, id, ctx);
+        if (!projection.ok)
+        {
+            return projection;
         }
     }
     return pass(id, { articleIds: owned.ids });
@@ -652,9 +893,52 @@ function verifyLifecycleTransition(id, expectedOperations, minimumRevisions, min
             {
                 return fail(id, `article ${article.id} is missing expected lifecycle operations`);
             }
+            const projection = verifyRequiredProjectionAggregate(article, id, ctx);
+            if (!projection.ok)
+            {
+                return projection;
+            }
         }
         return pass(id, { articleIds: owned.ids });
     };
+}
+
+function verifyPublishedScheduledUpdate(ctx)
+{
+    const id = 'article-published-scheduled-update';
+    const utcInstant = (value) => typeof value === 'string' && /(?:Z|\+00:00)$/u.test(value)
+        ? Date.parse(value) : Number.NaN;
+    const lifecycle = verifyLifecycleTransition(id, ['create', 'scheduled-update'], 2, 1)(ctx);
+    if (!lifecycle.ok)
+    {
+        return lifecycle;
+    }
+    const articleIds = new Set(lifecycle.detail.articleIds);
+    for (const article of entitiesOf(ctx.observations.database, 'article').filter((item) => articleIds.has(String(item.id))))
+    {
+        const fields = article.fields ?? {};
+        const schedule = fields.scheduledUpdate ?? {};
+        const due = utcInstant(schedule.scheduledPublishAt);
+        const transitioned = utcInstant(schedule.transitionedAtUtc);
+        const observed = utcInstant(schedule.observedBusinessTimeUtc);
+        const oldPublication = String(fields.publicationIds?.[0] ?? '');
+        if (fields.operations.length !== 2
+            || fields.operations[0] !== 'create' || fields.operations[1] !== 'scheduled-update'
+            || fields.publicationIds.length !== 1 || !/^[1-9][0-9]*$/u.test(oldPublication)
+            || String(fields.currentPublicationId) !== oldPublication
+            || String(schedule.beforePublicationId) !== oldPublication
+            || String(schedule.afterPublicationId) !== oldPublication
+            || fields.revisionIds.length !== 2
+            || String(fields.currentRevisionId) !== String(fields.revisionIds[1])
+            || String(fields.revisionIds[0]) === String(fields.revisionIds[1])
+            || !Number.isFinite(due) || !Number.isFinite(transitioned) || !Number.isFinite(observed)
+            || transitioned > observed || due <= observed
+            || utcInstant(fields.pendingPublicationAt) !== due)
+        {
+            return fail(id, `article ${article.id} does not preserve the old publication before the business-clock due time`);
+        }
+    }
+    return lifecycle;
 }
 
 function verifyTaxonomyCategoryTag(ctx)
@@ -798,7 +1082,7 @@ function verifyCommentMatrix(id)
         const one = (role) => comments.filter((item) => item.fields?.semanticRole === role);
         if (id === 'comment-moderation-matrix')
         {
-                const expected = {
+            const expected = {
                 'approved-root': { status: 'approved', runtimeStatus: 'approved', publicVisible: true, queueMember: false, queueBucket: 'approved', queueOrder: -1 },
                 pending: { status: 'pending', runtimeStatus: 'pending', publicVisible: false, queueMember: true, queueBucket: 'pending' },
                 rejected: { status: 'rejected', runtimeStatus: 'rejected', publicVisible: false, queueMember: true, queueBucket: 'rejected' },
@@ -874,7 +1158,7 @@ function verifyCommentMatrix(id)
                 }
             }
             const spam = one('spam')[0]?.fields ?? {};
-                if (!Array.isArray(spam.signalEvidence) || spam.signalEvidence.length === 0
+            if (!Array.isArray(spam.signalEvidence) || spam.signalEvidence.length === 0
         || spam.signalEvidence.some((evidence) => String(evidence?.commentId) !== String(one('spam')[0].id)
           || !/^[1-9][0-9]*$/u.test(String(evidence?.signalId ?? ''))
           || typeof evidence?.provider !== 'string' || evidence.provider.length === 0
@@ -1340,8 +1624,7 @@ export const POSTCONDITION_VERIFIERS = Object.freeze({
     'article-revision-history': verifyRevisionHistory,
     'article-multiple-revisions': verifyMultipleRevisions,
     'article-multiple-publications': verifyMultiplePublications,
-    'article-published-scheduled-update': verifyLifecycleTransition(
-        'article-published-scheduled-update', ['create', 'scheduled-update', 'scheduled-publish'], 2, 2),
+    'article-published-scheduled-update': verifyPublishedScheduledUpdate,
     'article-restore': verifyLifecycleTransition('article-restore', ['create', 'delete', 'restore'], 2, 2),
     'article-rollback': verifyLifecycleTransition('article-rollback', ['create', 'update', 'rollback'], 3, 2),
     'taxonomy-category-tag': verifyTaxonomyCategoryTag,
@@ -1453,6 +1736,8 @@ export function verifyCapabilityPostconditions({
     providedCapabilities,
     observations,
     entityIdentities = [],
+    runId = null,
+    namespace = null,
     catalogs = readFixtureCatalogs()
 })
 {
@@ -1479,7 +1764,9 @@ export function verifyCapabilityPostconditions({
                 observations,
                 entityIdentities,
                 capabilityId,
-                producerId
+                producerId,
+                runId,
+                namespace
             });
             results.push(freezeDeep({ capabilityId, ...result }));
         }

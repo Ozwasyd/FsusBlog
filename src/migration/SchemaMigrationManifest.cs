@@ -39,7 +39,9 @@ internal sealed class SchemaMigrationManifest
             SchemaMigrationCatalog20260906AuthoringCanvasOperations.Create(),
             SchemaMigrationCatalog20260907.Create(),
             SchemaMigrationCatalog20260908ArticleCreate.Create(),
-            SchemaMigrationCatalog20260913BanStateProjection.Create()
+            SchemaMigrationCatalog20260913BanStateProjection.Create(),
+            Create20260915Catalog(),
+            SchemaMigrationCatalog20261002ArticlePropertyDefinitionCommandHistory.Create()
         ],
         [
             new SchemaMigrationVersionGap(
@@ -71,7 +73,13 @@ internal sealed class SchemaMigrationManifest
                 new DateOnly(2026, 9, 3)),
             new SchemaMigrationVersionGap(
                 new DateOnly(2026, 9, 9),
-                new DateOnly(2026, 9, 12))
+                new DateOnly(2026, 9, 12)),
+            new SchemaMigrationVersionGap(
+                new DateOnly(2026, 9, 14),
+                new DateOnly(2026, 9, 14)),
+            new SchemaMigrationVersionGap(
+                new DateOnly(2026, 9, 16),
+                new DateOnly(2026, 10, 1))
         ]);
 
     private static SchemaMigrationCatalog Create20260904Catalog()
@@ -85,6 +93,32 @@ internal sealed class SchemaMigrationManifest
             CatalogId: "current-20260904-authoring",
             StartVersion: new DateOnly(2026, 9, 4),
             EndVersion: new DateOnly(2026, 9, 4),
+            GapPolicy: SchemaMigrationGapPolicy.AllowSparseVersions,
+            Dependencies: Array.AsReadOnly(
+            [
+                .. catalogs.SelectMany(static catalog => catalog.Dependencies)
+                    .Distinct()
+                    .OrderBy(static dependency => dependency.MigrationId, StringComparer.Ordinal)
+                    .ThenBy(static dependency => dependency.Phase)
+            ]),
+            Descriptors: Array.AsReadOnly(
+            [
+                .. catalogs.SelectMany(static catalog => catalog.Descriptors)
+                    .Order(SchemaMigrationExecutionOrder.Instance)
+            ]));
+    }
+
+    private static SchemaMigrationCatalog Create20260915Catalog()
+    {
+        SchemaMigrationCatalog[] catalogs =
+        [
+            SchemaMigrationCatalog20260915AuthorRecentHistory.Create(),
+            SchemaMigrationCatalog20260915ArticlePropertyDefinitions.Create()
+        ];
+        return new SchemaMigrationCatalog(
+            CatalogId: "current-20260915-authoring",
+            StartVersion: new DateOnly(2026, 9, 15),
+            EndVersion: new DateOnly(2026, 9, 15),
             GapPolicy: SchemaMigrationGapPolicy.AllowSparseVersions,
             Dependencies: Array.AsReadOnly(
             [

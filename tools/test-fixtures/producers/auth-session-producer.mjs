@@ -8,6 +8,12 @@
  */
 
 import { createHash } from 'node:crypto';
+import path from 'node:path';
+
+const { readPrivateJson, writePrivateJson } = await import(new URL('../receipt/private-io.mjs', import.meta.url));
+const { digestCanonical } = await import(new URL('../receipt/canonical.mjs', import.meta.url));
+
+import { observePreparedBackendTemporalContext, validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 
 const {resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const {validateProducerReceipt} = await import(new URL('../receipt/producer-receipt.mjs', import.meta.url));
@@ -506,7 +512,10 @@ export function validateAuthSessionResult(plan, raw)
         cacheObservation: observations.cache,
         permissionCatalogDigest: raw.permissionCatalogDigest ?? raw.PermissionCatalogDigest ?? null,
         ceremonyEvidenceDigest: raw.ceremonyEvidenceDigest ?? raw.CeremonyEvidenceDigest ?? null,
-        temporalObservation: raw.temporalObservation ?? raw.TemporalObservation ?? null,
+        temporalObservation: validateBackendTemporalObservation(
+            plan.temporalContext,
+            raw.temporalObservation ?? raw.TemporalObservation
+        ),
         cleanupContract: { kind: 'owned-identities', ownerIdentity: plan.roles[0].ownerIdentity }
     };
     const producerResultDigest = stableDigest(resultCore);
@@ -568,7 +577,7 @@ async function invokeLocalCompositionRoot(context, plan, signal)
             Accept: 'application/json',
             'X-Fsus-Local-Auth-Fixture-Secret': secret
         },
-        body: JSON.stringify(plan),
+        body: JSON.stringify({ ...plan, privateProjectionIdentity: authPrivateIdentity(context, plan.planDigest) }),
         signal
     });
     const text = await response.text();
@@ -584,9 +593,21 @@ async function invokeLocalCompositionRoot(context, plan, signal)
     }
     if (!response.ok)
     {
-        throw new Error(`auth-session composition root failed HTTP ${response.status}: ${String(payload?.detail ?? text).slice(0, 400)}`);
+        for (const carrier of payload?.privateCarriers ?? [])
+        {
+            persistAuthPrivateCarrier(context, carrier);
+        }
+        throw new Error(`auth-session composition root failed HTTP ${response.status}; private recovery retained when supplied`);
     }
-    return payload;
+    return {
+        ...payload,
+        temporalObservation: await observePreparedBackendTemporalContext(
+            context,
+            payload?.temporalObservation ?? payload?.TemporalObservation,
+            signal,
+            { baseUrl }
+        )
+    };
 }
 
 function resolveLocalCompositionRoot(context)
@@ -624,10 +645,53 @@ export async function prepareAuthSession(context, signal)
         identityRoleRequests: context.identityRoleRequests
     });
     const adapter = context.handles?.authFixtureAdapter;
-    const raw = adapter && typeof adapter.prepare === 'function'
+    const injectedPrepare = typeof adapter?.prepare === 'function';
+    if (!injectedPrepare && plan.roles.some((role) => role.kind === 'admin' && role.expectedState === 'active')
+        && !context.handles?.authPrivateCarrierDir)
+    {
+        throw new Error('auth-session private carrier owned output directory required before issuance');
+    }
+    const raw = injectedPrepare
         ? await adapter.prepare({ ...context, authFixturePlan: plan }, signal)
         : await invokeLocalCompositionRoot(context, plan, signal);
-    const result = validateAuthSessionResult(plan, raw);
+    const carriers = raw.privateCarriers ?? raw.PrivateCarriers ?? [];
+    const publicRaw = { ...raw };
+    delete publicRaw.privateCarriers;
+    delete publicRaw.PrivateCarriers;
+    const result = validateAuthSessionResult(plan, publicRaw);
+    const privateCarrierReferences = [];
+    try
+    {
+        if (!injectedPrepare)
+        {
+            requireAuthPrivateCarriers(plan, result, carriers);
+        }
+        for (const carrier of carriers)
+        {
+            const identity = authPrivateIdentity(context, plan.planDigest);
+            if (!context.handles?.authPrivateCarrierDir || digestCanonical(carrier.identity) !== digestCanonical(identity)
+                || typeof carrier.opaque !== 'string' || !carrier.publicFact)
+            {
+                throw new Error('auth-session private carrier binding invalid');
+            }
+            privateCarrierReferences.push(persistAuthPrivateCarrier(context, carrier));
+        }
+    }
+    catch (error)
+    {
+        for (const carrier of carriers)
+        {
+            try
+            {
+                await invokeAuthPrivate(context, carrier, { cleanup: true });
+            }
+            catch
+            {
+                throw new Error('auth private carrier publication failed; exact cleanup recovery required', { cause: error });
+            }
+        }
+        throw error;
+    }
     const variantByCapability = new Map((context.variantPlan?.variants ?? [])
         .map((item) => [item.capabilityId, item.id]));
     if (plan.capabilities.some((capabilityId) => !variantByCapability.has(capabilityId)))
@@ -656,9 +720,106 @@ export async function prepareAuthSession(context, signal)
         ...result,
         entityIdentities: Object.freeze(entityIdentities),
         authVerificationEntities: verificationEntities,
+        privateCarrierReferences: Object.freeze(privateCarrierReferences),
         observations,
         databaseObservation: database
     });
+}
+
+export function authPrivateIdentity(context, planDigest)
+{
+    return Object.freeze({
+        runId: context.runIdentity, namespace: context.namespace,
+        profileId: context.profileIdentity?.profileId,
+        sourceCommit: context.sourceIdentity?.commit,
+        sourceFingerprint: context.sourceIdentity?.worktreeFingerprint,
+        serviceGeneration: context.handles?.serviceGeneration,
+        catalogDigest: context.plan?.catalogDigest,
+        variantPlanDigest: context.plan?.variantPlanDigest,
+        planDigest
+    });
+}
+
+export function readAuthPrivateCarrier(reference)
+{
+    const result = readPrivateJson(reference.path, { label: 'auth-private-carrier' });
+    if (result.contentDigest !== reference.contentDigest)
+    {
+        throw new Error('auth private carrier file digest mismatch');
+    }
+    return result.document;
+}
+
+export function requireAuthPrivateCarriers(plan, result, carriers)
+{
+    const roles = plan.roles.filter((role) => role.kind === 'admin' && role.expectedState === 'active');
+    if (!Array.isArray(carriers) || carriers.length !== roles.length
+        || new Set(carriers.map((carrier) => carrier.publicFact?.semanticRole)).size !== roles.length
+        || roles.some((role) =>
+        {
+            const carrier = carriers.find((item) => item.publicFact?.semanticRole === role.semanticRole);
+            const fact = result.observations.database.entities.find((item) => item.kind === 'admin'
+                && item.semanticRole === role.semanticRole && item.fixtureIdentity === role.fixtureIdentity);
+            return !carrier || !fact || carrier.identity?.planDigest !== plan.planDigest
+                || carrier.publicFact.id !== fact.id || !fact.fields.adminSessionId
+                || digestCanonical(carrier.publicFact.fields) !== digestCanonical(fact.fields);
+        }))
+    {
+        throw new Error('auth private active-admin carriers do not exactly cover production session facts');
+    }
+}
+
+export function persistAuthPrivateCarrier(context, carrier)
+{
+    if (!context.handles?.authPrivateCarrierDir || !carrier.identity?.planDigest
+        || digestCanonical(carrier.identity) !== digestCanonical(authPrivateIdentity(context, carrier.identity.planDigest))
+        || typeof carrier.opaque !== 'string' || !carrier.publicFact)
+    {
+        throw new Error('auth private carrier owned binding invalid');
+    }
+    const file = path.join(context.handles.authPrivateCarrierDir,
+        `${createHash('sha256').update(carrier.opaque).digest('hex')}.json`);
+    const written = writePrivateJson(file, carrier, { label: 'auth-private-carrier' });
+    const reference = Object.freeze({ path: written.path, contentDigest: written.contentDigest,
+        principalId: String(carrier.publicFact.id), semanticRole: carrier.publicFact.semanticRole });
+    const referenceFile = `${file}.reference.json`;
+    writePrivateJson(referenceFile, reference, { label: 'auth-private-carrier-reference' });
+    return Object.freeze({ ...reference, referenceFile });
+}
+
+export async function invokeAuthPrivate(context, carrier, { reveal = false, receiptDigest = null, cleanup = false, callerAbortSignal } = {})
+{
+    callerAbortSignal?.throwIfAborted();
+    const { baseUrl, secret } = resolveLocalCompositionRoot(context);
+    if (!baseUrl || !secret)
+    {
+        throw new Error('auth private explicit backend ingress required');
+    }
+    const response = await fetch(`${baseUrl}/api/local/auth-fixture/private/${cleanup ? 'cleanup' : 'verify'}`, {
+        method: 'POST', headers: {
+            'Content-Type': 'application/json', 'X-Fsus-Local-Auth-Fixture-Secret': secret,
+            'X-Fsus-Test-Run-Id': context.runIdentity, 'X-Fsus-Test-Namespace': context.namespace
+        },
+        body: JSON.stringify({ ...carrier, reveal, fixtureReceiptDigest: receiptDigest }),
+        signal: callerAbortSignal
+            ? AbortSignal.any([callerAbortSignal, AbortSignal.timeout(60_000)])
+            : AbortSignal.timeout(60_000)
+    });
+    callerAbortSignal?.throwIfAborted();
+    if (!response.ok)
+    {
+        throw new Error(`auth private port rejected HTTP ${response.status}`);
+    }
+    const value = await response.json();
+    callerAbortSignal?.throwIfAborted();
+    if (value?.ok !== true || (!cleanup && (!value.identity || !value.publicFact
+        || digestCanonical(value.identity) !== digestCanonical(carrier.identity)
+        || value.carrierDigest !== createHash('sha256').update(carrier.opaque).digest('hex')
+        || digestCanonical(value.publicFact) !== digestCanonical(carrier.publicFact))))
+    {
+        throw new Error('auth private independent verification binding mismatch');
+    }
+    return value;
 }
 
 export function projectVerifiedIdentityReferences({
@@ -747,8 +908,9 @@ export function projectVerifiedIdentityReferences({
     return Object.freeze({ ...body, digest: stableDigest(body) });
 }
 
-export async function verifyAuthSession(context, producerResult)
+export async function verifyAuthSession(context, producerResult, signal = undefined)
 {
+    signal?.throwIfAborted();
     try
     {
         assertNoSecret(producerResult);
@@ -762,7 +924,7 @@ export async function verifyAuthSession(context, producerResult)
     let verification;
     if (adapter && typeof adapter.verify === 'function')
     {
-        verification = await adapter.verify(context, producerResult);
+        verification = await adapter.verify(context, producerResult, signal);
     }
     else
     {
@@ -787,13 +949,16 @@ export async function verifyAuthSession(context, producerResult)
                 entityIdentities: producerResult.authVerificationEntities,
                 providedCapabilities: producerResult.providedCapabilities,
                 planDigest: producerResult.planDigest
-            })
+            }),
+            signal
         });
+        signal?.throwIfAborted();
         verification = response.ok ? await response.json() : {
             ok: false,
             reason: `auth-session live verifier failed HTTP ${response.status}`
         };
     }
+    signal?.throwIfAborted();
     if (verification?.ok !== true || verification.receiptDigest !== stableDigest(producerResult))
     {
         return {
@@ -801,6 +966,23 @@ export async function verifyAuthSession(context, producerResult)
             producerId: PRODUCER_ID,
             reason: verification?.reason ?? 'auth-session independent verification mismatch'
         };
+    }
+    for (const reference of producerResult.privateCarrierReferences ?? [])
+    {
+        const carrier = readAuthPrivateCarrier(reference);
+        if (digestCanonical(carrier.identity) !== digestCanonical(authPrivateIdentity(context, producerResult.planDigest)))
+        {
+            return { ok: false, producerId: PRODUCER_ID, reason: 'auth private execution identity drift' };
+        }
+        const fact = producerResult.observations.database.entities.find((item) =>
+            item.kind === 'admin' && item.id === reference.principalId && item.semanticRole === reference.semanticRole);
+        if (!fact || digestCanonical(fact.fields) !== digestCanonical(carrier.publicFact.fields))
+        {
+            return { ok: false, producerId: PRODUCER_ID, reason: 'auth private public fact drift' };
+        }
+        await invokeAuthPrivate(context, { ...carrier, publicFact: { ...carrier.publicFact, fields: fact.fields } },
+            { callerAbortSignal: signal });
+        signal?.throwIfAborted();
     }
     return {
         ok: true,
@@ -812,6 +994,15 @@ export async function verifyAuthSession(context, producerResult)
 
 export async function cleanupAuthSession(context, receipt, signal)
 {
+    for (const reference of receipt.privateCarrierReferences ?? [])
+    {
+        const carrier = readAuthPrivateCarrier(reference);
+        if (digestCanonical(carrier.identity) !== digestCanonical(authPrivateIdentity(context, receipt.planDigest)))
+        {
+            throw new Error('auth private cleanup execution identity drift');
+        }
+        await invokeAuthPrivate(context, carrier, { cleanup: true });
+    }
     const adapter = context.handles?.authFixtureAdapter;
     if (adapter && typeof adapter.cleanup === 'function')
     {

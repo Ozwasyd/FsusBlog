@@ -31,7 +31,10 @@ StaticPerceptionCharacterV3Cutover() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/contracts/check-perception-character-v3-retirement.mjs"
 }
 StaticBackgroundServices() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-background-service-classification.mjs"; }
-StaticSuiteConvergence() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"; }
+StaticSuiteConvergence() {
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tools/post-baseline-history.test.mjs"
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/check-test-suite-convergence.mjs"
+}
 StaticWallClockGovernance() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-wall-clock-governance.mjs"; }
 StaticTemporalProducerBindings() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/verify-temporal-producers.mjs" --kind catalog; }
 StaticBackendPhysicalTopology() { Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/architecture/check-backend-physical-topology.mjs" --out "${FSUSBLOG_RELEASE_EVIDENCE_DIR:-$ROOT_DIR/.tmp/release-evidence}/backend-physical-topology.json"; }
@@ -102,6 +105,10 @@ StaticBlockAnchorContract() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-block-anchor-contract.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/block-anchor-contract.test.mjs"
 }
+StaticArticleRelations() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-relations.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-relations.test.mjs"
+}
 StaticArticleScalePlanGovernance() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-article-scale-plan-governance.mjs"
     Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-scale-plan-governance.test.mjs"
@@ -112,6 +119,10 @@ StaticArticleBulkAuthorityGovernance() {
 }
 StaticCsharpStyle() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/dotnet/check-csharp-style.mjs" --mode full
+}
+StaticArticlePropertyDefinitionAuthority() {
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/check-article-property-definition-authority.mjs"
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/article-property-definition-authority.test.mjs"
 }
 StaticLineEndings() {
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/style/line-ending-invariant.mjs"
@@ -220,8 +231,10 @@ RunApplicationStaticPrechecksPhase() {
         article-embed-publication StaticArticleEmbedPublication \
         article-embed-relations StaticArticleEmbedRelations \
         block-anchor-contract StaticBlockAnchorContract \
+        article-relations StaticArticleRelations \
         article-scale-plan-governance StaticArticleScalePlanGovernance \
         article-bulk-authority-governance StaticArticleBulkAuthorityGovernance \
+        article-property-definition-authority StaticArticlePropertyDefinitionAuthority \
         central-package-management StaticCentralPackageManagement \
         dependency-update-surface StaticDependencyUpdateSurface \
         dependency-freshness StaticDependencyFreshness \

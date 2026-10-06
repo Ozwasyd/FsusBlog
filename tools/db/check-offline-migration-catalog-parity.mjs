@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // Guard the offline migration host classification table against drift.
 // OfflineMigrationCatalogEntries.generated.cs is a derived artifact of
-// src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs
+// src/migration/OfflineMigrationClassificationFacts.cs
 // (authoritative curated register). Verify:
 //   1. the generated file carries the current source digest (regenerate on
 //      catalog changes)
@@ -36,7 +36,7 @@ function read(path)
     return readFileSync(fullPath, 'utf8');
 }
 
-const sourcePath = 'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs';
+const sourcePath = 'src/migration/OfflineMigrationClassificationFacts.cs';
 const generatedPath = 'src/migration/OfflineMigrationCatalogEntries.generated.cs';
 const definitionsDir = 'src/migration/Definitions';
 

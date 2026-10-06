@@ -6,24 +6,24 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     loadLifecycleActionContracts
-} from '../../tools/test/release-reliability-lifecycle-actions.mjs';
-import {
+} = await import(new URL('../../tools/test/release-reliability-lifecycle-actions.mjs', import.meta.url));
+const {
     inspectBackendIdentity,
     readMeasurementProcessTreeObservation,
     runLifecycleAction
-} from '../../tools/test/release-reliability-lifecycle.mjs';
-import {
+} = await import(new URL('../../tools/test/release-reliability-lifecycle.mjs', import.meta.url));
+const {
     digestValue,
     sealDocument
-} from '../../tools/test/release-reliability-receipt.mjs';
-import {
+} = await import(new URL('../../tools/test/release-reliability-receipt.mjs', import.meta.url));
+const {
     verifyDataScaleOwnerReceipt,
     verifyDataScaleTeardownRuntimeBinding,
     verifyLifecycleActionReceipt,
     verifyMeasurementProcessTreeBinding
-} from '../../tools/test/verify-release-reliability-lifecycle-action.mjs';
+} = await import(new URL('../../tools/test/verify-release-reliability-lifecycle-action.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
@@ -97,6 +97,7 @@ function createFixture(context)
             contentDigest: `sha256:${'c'.repeat(64)}`,
             imageDigest: `sha256:${'2'.repeat(64)}`
         },
+        fixture: { status: 'complete' },
         policy: {
             physicalExecution: {
                 status: 'complete',
@@ -627,12 +628,15 @@ test('owner verifier accepts #1620 array-shaped teardown and rejects obsolete ti
 {
     const fixture = createFixture(context);
     const receipt = sealDocument({
-        schema: 'fsusblog.data-scale-teardown.v1',
+        schema: 'fsusblog.data-scale-teardown.v2',
         status: 'complete',
         dataScaleRunId: 'data-scale-run',
         parentSchedulerRunId: runId,
+        invocationId,
+        attemptId: 'attempt-1',
         sourceCommit,
         runtimePlanDigest: `sha256:${'f'.repeat(64)}`,
+        runtimeReceiptDigest: `sha256:${'e'.repeat(64)}`,
         startedAt: '2026-07-30T00:00:00.000Z',
         finishedAt: '2026-07-30T00:00:01.000Z',
         resources: [{
@@ -661,9 +665,11 @@ test('owner verifier accepts #1620 array-shaped teardown and rejects obsolete ti
         ownerReceipt: 'data-scale-teardown',
         receiptPath: relative,
         identity: fixture.identity,
-        runId
+        runId,
+        invocationId,
+        attemptId: 'attempt-1'
     });
-    assert.equal(verified.schema, 'fsusblog.data-scale-teardown.v1');
+    assert.equal(verified.schema, 'fsusblog.data-scale-teardown.v2');
     const obsolete = sealDocument({
         ...receipt,
         contentDigest: undefined,
@@ -681,7 +687,9 @@ test('owner verifier accepts #1620 array-shaped teardown and rejects obsolete ti
             ownerReceipt: 'data-scale-teardown',
             receiptPath: relative,
             identity: fixture.identity,
-            runId
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
         }),
         /top-level fields mismatch/u
     );
@@ -719,14 +727,28 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         );
     }
     const receipt = sealDocument({
-        schema: 'fsusblog.data-scale-runtime.v1',
+        schema: 'fsusblog.data-scale-runtime.v2',
         dataScaleRunId,
         parentSchedulerRunId: runId,
+        invocationId,
+        attemptId: 'attempt-1',
         sourceCommit,
         worktreeFingerprint: fixture.identity.sourceState.worktreeFingerprint,
         buildReceiptDigest: fixture.identity.build.contentDigest,
         imageDigest: `sha256:${'2'.repeat(64)}`,
+        fixtureIdentityDigest: digestValue(fixture.identity.fixture),
         namespace: 'data-scale-namespace',
+        network: { id: '8'.repeat(64), name: 'data-scale-network' },
+        permissionHelper: {
+            name: 'data-scale-permission-helper',
+            postExists: false
+        },
+        lifecycle: {
+            start: 'complete',
+            reset: 'complete',
+            readiness: 'complete',
+            postcondition: 'pending'
+        },
         postgres: {
             containerId: '3'.repeat(64),
             imageDigest: `sha256:${'4'.repeat(64)}`,
@@ -744,6 +766,21 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
             baseUrl: 'http://127.0.0.1:24501',
             executableOrImageDigest: fixture.identity.build.imageDigest
         },
+        connections: {
+            postgres: {
+                applicationName: `FsusBlogDataScale-${dataScaleRunId}`,
+                backendAddress: '172.24.0.4',
+                database: 'fsusblog_data_scale',
+                matchingClientCount: 2,
+                foreignClientCount: 0
+            },
+            redis: {
+                clientName: `FsusBlogDataScale-${dataScaleRunId}`,
+                backendAddress: '172.24.0.4',
+                matchingClientCount: 2,
+                foreignClientCount: 0
+            }
+        },
         aotRoot: `.tmp/${dataScaleRunId}/aot`,
         searchRoot: `.tmp/${dataScaleRunId}/search`,
         hotReadRoot: `.tmp/${dataScaleRunId}/hot-read`,
@@ -751,6 +788,12 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         envManifestDigest: `sha256:${'9'.repeat(64)}`,
         seedReceiptPath: seedRelative,
         seedReceiptDigest: rawDigest(fs.readFileSync(seedFile)),
+        seedSummary: {
+            status: 'ok', tier: 'scale-m', namespace: 'data-scale-namespace',
+            declared: { articles: 10000, comments: 100000 },
+            expected: { articles: 10000, comments: 100000 },
+            observed: { articles: 10000, comments: 100000 }
+        },
         createdAt: '2026-07-30T00:00:00.000Z'
     });
     const relative = `.tmp/${dataScaleRunId}/runtime.json`;
@@ -760,9 +803,90 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
         ownerReceipt: 'data-scale-runtime',
         receiptPath: relative,
         identity: fixture.identity,
-        runId
+        runId,
+        invocationId,
+        attemptId: 'attempt-1'
     });
     assert.equal(verified.dataScaleRunId, dataScaleRunId);
+    const missingConnections = sealDocument({
+        ...receipt,
+        contentDigest: undefined,
+        connections: undefined
+    });
+    fs.writeFileSync(
+        path.join(fixture.root, relative),
+        JSON.stringify(missingConnections)
+    );
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
+        }),
+        /top-level fields mismatch/u
+    );
+    const unknownConnectionField = sealDocument({
+        ...receipt,
+        contentDigest: undefined,
+        connections: {
+            ...receipt.connections,
+            redis: { ...receipt.connections.redis, unknown: true }
+        }
+    });
+    fs.writeFileSync(
+        path.join(fixture.root, relative),
+        JSON.stringify(unknownConnectionField)
+    );
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
+        }),
+        /Redis connection identity top-level fields mismatch/u
+    );
+    fs.writeFileSync(
+        path.join(fixture.root, relative),
+        JSON.stringify(receipt)
+    );
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-2'
+        }),
+        /identity mismatch/u
+    );
+    const notReady = sealDocument({
+        ...receipt,
+        contentDigest: undefined,
+        lifecycle: { ...receipt.lifecycle, readiness: 'failed' }
+    });
+    fs.writeFileSync(path.join(fixture.root, relative), JSON.stringify(notReady));
+    assert.throws(
+        () => verifyDataScaleOwnerReceipt({
+            repositoryRoot: fixture.root,
+            ownerReceipt: 'data-scale-runtime',
+            receiptPath: relative,
+            identity: fixture.identity,
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
+        }),
+        /lifecycle state is incomplete/u
+    );
     const wrongBuild = sealDocument({
         ...receipt,
         contentDigest: undefined,
@@ -778,7 +902,9 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
             ownerReceipt: 'data-scale-runtime',
             receiptPath: relative,
             identity: fixture.identity,
-            runId
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
         }),
         /identity mismatch/u
     );
@@ -793,7 +919,9 @@ test('#1617 runtime owner binds exact nested identities, dedicated roots, and se
             ownerReceipt: 'data-scale-runtime',
             receiptPath: relative,
             identity: fixture.identity,
-            runId
+            runId,
+            invocationId,
+            attemptId: 'attempt-1'
         }),
         /seed receipt path\/digest binding mismatch/u
     );

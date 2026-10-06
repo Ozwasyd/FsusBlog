@@ -2,6 +2,11 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../.." && pwd)"
+if [[ "$#" -ne 0 ]]; then
+    printf '[runtime-cache-evidence] accepts no arguments; scenario shards use run-runtime-cache-evidence.mjs --scenario\n' >&2
+    exit 64
+fi
+
 # shellcheck source=_lane-collect-support.sh
 source "$ROOT_DIR/tools/test/lanes/_lane-collect-support.sh"
 
@@ -18,19 +23,23 @@ mkdir -p "$OUT_DIR"
 
 producer_status=0
 checker_status=0
-set +e
 producer_args=(
     --all
     --out-dir "$OUT_DIR"
     --base-url "$FSUSBLOG_BASE_URL"
 )
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-runtime-cache-evidence.mjs" "${producer_args[@]}"
-producer_status=$?
-"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-runtime-cache-evidence.mjs" \
+if "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-runtime-cache-evidence.mjs" "${producer_args[@]}"; then
+    producer_status=0
+else
+    producer_status=$?
+fi
+if "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/check-runtime-cache-evidence.mjs" \
     --receipt-dir "$OUT_DIR/receipts" \
-    --summary "$SUMMARY_FILE"
-checker_status=$?
-set -e
+    --summary "$SUMMARY_FILE"; then
+    checker_status=0
+else
+    checker_status=$?
+fi
 
 if ((producer_status != 0 || checker_status != 0)); then
     printf '[runtime-cache-evidence] failed producer=%s checker=%s; first-failure artifacts retained in %s\n' \

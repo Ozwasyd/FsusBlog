@@ -1,20 +1,21 @@
-import { createHash } from 'node:crypto'
+import { createHash } from 'node:crypto';
 
-import { digestValue } from '../../../tools/fact-extractors/lib/canonicalize.mjs'
-import { projectPreparedPublicIds } from '../../../tools/test-fixtures/receipt/projection.mjs'
-import { deriveProbeRawFacts, verifyFacts } from '../../../tools/test-evidence/runtime-observation-probe-facts.mjs'
-import { buildRuntimeObservationProbeReceipt } from '../../../tools/test-evidence/runtime-observation-probe-receipt-contract.mjs'
-import { buildAotSpaHydrationSourceBundle } from '../../../tools/test-evidence/aot-spa-hydration-source-contract.mjs'
-import { normalizeAotSpaHydrationFacts } from '../../../tools/test-evidence/aot-spa-hydration-observed-facts.mjs'
+const { digestValue } = await import(new URL('../../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
+const { normalizeAotSpaHydrationFacts } = await import(new URL('../../../tools/test-evidence/aot-spa-hydration-observed-facts.mjs', import.meta.url));
+const { buildAotSpaHydrationSourceBundle } = await import(new URL('../../../tools/test-evidence/aot-spa-hydration-source-contract.mjs', import.meta.url));
+const { deriveProbeRawFacts, verifyFacts } = await import(new URL('../../../tools/test-evidence/runtime-observation-probe-facts.mjs', import.meta.url));
+const { buildRuntimeObservationProbeReceipt } = await import(new URL('../../../tools/test-evidence/runtime-observation-probe-receipt-contract.mjs', import.meta.url));
+const { projectPreparedPublicIds } = await import(new URL('../../../tools/test-fixtures/receipt/projection.mjs', import.meta.url));
+const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../../../tools/test/temporal-producer-bindings.mjs', import.meta.url));
 
-export { createBrowserContractObservationFixture } from './browser-contract-observation-fixture.mjs'
+export { createBrowserContractObservationFixture } from './browser-contract-observation-fixture.mjs';
 export {
     beginCurrentRunEvidencePublication,
     finalizeCurrentRunEvidencePublication
-} from '../../../tools/test/current-run-evidence-publication.mjs'
+} from '../../../tools/test/current-run-evidence-publication.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve the existing static fixture re-export.
 
-const sha = value => `sha256:${createHash('sha256').update(String(value)).digest('hex')}`
-const digest = value => `sha256:${digestValue(value)}`
+const sha = value => `sha256:${createHash('sha256').update(String(value)).digest('hex')}`;
+const digest = value => `sha256:${digestValue(value)}`;
 
 /** Shared synthetic test source factory; the production builders remain the only envelope authority. */
 export function createCanonicalProbeSourceFixture(classId, context, { producer, sourceState })
@@ -22,23 +23,23 @@ export function createCanonicalProbeSourceFixture(classId, context, { producer, 
     const { facts } = createCanonicalProbeFixtureFacts(classId, {
         prepareState: context.fixture.value, prepareStateDigest: context.fixture.ref.contentDigest,
         releaseId: context.candidatePlan.value.candidate.releaseId
-    })
-    const identity = { ...sourceState, artifactDigest: digest(facts) }
+    });
+    const identity = { ...sourceState, artifactDigest: digest(facts) };
     return { sourceState: identity, facts,
-        upstream: buildRuntimeObservationProbeReceipt(classId, context, facts, { producer, sourceState: identity }) }
+        upstream: buildRuntimeObservationProbeReceipt(classId, context, facts, { producer, sourceState: identity }) };
 }
 
 export function createCanonicalAotSourceFixture(options, buildReceipt)
 {
-    const normalized = normalizeAotSpaHydrationFacts(options.inputs, options.plan, buildReceipt, { readBytes: options.readBytes })
-    return { normalized, upstream: buildAotSpaHydrationSourceBundle(options) }
+    const normalized = normalizeAotSpaHydrationFacts(options.inputs, options.plan, buildReceipt, { readBytes: options.readBytes, temporalAuthority: readCorrectnessProducerTemporalAuthority() });
+    return { normalized, upstream: buildAotSpaHydrationSourceBundle(options) };
 }
 
 /** Deliberately synthetic DOM observations; exercise the real normalizer, not a browser run. */
 export function createCanonicalHydrationFixtureObservation(releaseId)
 {
     const stableIdentity = { captured: true, appSame: true, shellSame: true, firstChildSame: true,
-        childElementCountSame: true, hydrated: true, appCount: 1, shellCount: 1, violations: [] }
+        childElementCountSame: true, hydrated: true, appCount: 1, shellCount: 1, violations: [] };
     return {
         schema: 'fsusblog.browser-contract-public-aot-observation.v1',
         fixture: { articleId: '42', articlePath: '/article/42', articleTitle: 'Current article' },
@@ -49,7 +50,7 @@ export function createCanonicalHydrationFixtureObservation(releaseId)
             hydrationKind: 'ArticleDetail', hydrated: true, appCount: 1, shellCount: 1,
             bootstrapText: '{"id":42}', resourceUrls: ['https://example.test/assets/app.js'] },
         spa: structuredClone(stableIdentity), history: structuredClone(stableIdentity), reload: structuredClone(stableIdentity)
-    }
+    };
 }
 
 /** Synthetic observations for contract tests only; never runtime qualification evidence. */
@@ -70,23 +71,24 @@ export function createCanonicalPreparedFixture(sourceState)
             observations: { source: 'service', database: { entities: [] }, redis: { keys: [] }, cache: { entries: [] } },
             projection: { articleId: '11', articleTitle: 'Current article', categoryId: '12', tagId: '13', searchKeyword: 'CURRENT_BODY' }
         } }
-    }
+    };
 }
 
 function routeFacts(prepared, prepareStateDigest, releaseId)
 {
-    const projection = projectPreparedPublicIds(prepared)
-    const response = (id, status, typedKind, overrides = {}) => {
+    const projection = projectPreparedPublicIds(prepared);
+    const response = (id, status, typedKind, overrides = {}) =>
+    {
         const value = { id, role: 'fixture-role', expectation: 'typed-semantic-result', status,
             headers: {}, bodyDigest: sha(id), byteLength: 1, typedPayloadDigest: sha(id), typedKind,
             typedEntityId: null, typedTitleDigest: null, typedCode: null, typedCategory: null,
-            typedStatusCode: null, typedMessageDigest: null, decodeError: null, ...overrides }
-        value.requestObservation = { method: 'GET', url: `http://127.0.0.1/fixture/${id}` }
+            typedStatusCode: null, typedMessageDigest: null, decodeError: null, ...overrides };
+        value.requestObservation = { method: 'GET', url: `http://127.0.0.1/fixture/${id}` };
         value.typedPayloadProjection = typedKind === 'typed-error'
             ? { code: value.typedCode, category: value.typedCategory, statusCode: value.typedStatusCode, messageDigest: value.typedMessageDigest }
-            : null
-        return value
-    }
+            : null;
+        return value;
+    };
     return {
         schema: 'fsusblog.route-response-error-probe-facts.v1', coherent: true,
         fixtureAuthority: { prepareStateDigest, projectionDigest: projection.projectionDigest,
@@ -111,7 +113,7 @@ function routeFacts(prepared, prepareStateDigest, releaseId)
             }),
             response('admin-list-visible', 200, 'payload')
         ]
-    }
+    };
 }
 
 function cacheFacts(releaseId)
@@ -128,16 +130,16 @@ function cacheFacts(releaseId)
         readModel: { projectionDigest: sha('projection'), detailDigest: sha('detail'),
             detailTitleDigest: sha('Current article'), visible: true, responseStatus: 200 },
         output: { navigationDigest: sha('navigation'), envelopeDigest: sha('envelope'), containsMarker: true, responseStatus: 200 }
-    }
+    };
 }
 
 function sessionFacts(releaseId)
 {
-    const refreshDigest = sha('observed-refresh-hash')
+    const refreshDigest = sha('observed-refresh-hash');
     const expiry = { accessTokenExp: 200, issuedAt: 100, idleExpiresAt: '2026-09-08T00:00:00Z',
-        absoluteExpiresAt: '2026-09-09T00:00:00Z', durationPolicy: 1 }
+        absoluteExpiresAt: '2026-09-09T00:00:00Z', durationPolicy: 1 };
     const database = { id: sha('session-id'), refreshtokenhash: refreshDigest,
-        idleexpiresat: expiry.idleExpiresAt, absoluteexpiresat: expiry.absoluteExpiresAt, duration_policy: expiry.durationPolicy }
+        idleexpiresat: expiry.idleExpiresAt, absoluteexpiresat: expiry.absoluteExpiresAt, duration_policy: expiry.durationPolicy };
     return {
         schema: 'fsusblog.session-cookie-runtime-probe-facts.v1', coherent: true,
         database: { sessionDigest: digest(database), sessionIdDigest: database.id,
@@ -160,16 +162,19 @@ function sessionFacts(releaseId)
             failure: { caseId: 'revoked-session-refresh-denied', revokeStatus: 200, refreshStatus: 403,
                 releaseIds: [releaseId, releaseId], passed: true }
         }
-    }
+    };
 }
 
 export function createCanonicalProbeFixtureFacts(classId, { prepareState, prepareStateDigest, releaseId })
 {
     const facts = classId === 'route-response-error' ? routeFacts(prepareState, prepareStateDigest, releaseId)
         : classId === 'cache-search-outbox-convergence' ? cacheFacts(releaseId)
-        : classId === 'session-cookie-runtime' ? sessionFacts(releaseId) : null
-    if (!facts) throw new Error(`unsupported probe fixture class ${classId}`)
-    const projection = projectPreparedPublicIds(prepareState)
-    verifyFacts(classId, facts, { fixtureProjection: { ...projection, prepareStateDigest }, expectedReleaseId: releaseId })
-    return { facts, rawFacts: deriveProbeRawFacts(classId, facts) }
+        : classId === 'session-cookie-runtime' ? sessionFacts(releaseId) : null;
+    if (!facts)
+    {
+        throw new Error(`unsupported probe fixture class ${classId}`);
+    }
+    const projection = projectPreparedPublicIds(prepareState);
+    verifyFacts(classId, facts, { fixtureProjection: { ...projection, prepareStateDigest }, expectedReleaseId: releaseId });
+    return { facts, rawFacts: deriveProbeRawFacts(classId, facts) };
 }

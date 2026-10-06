@@ -126,6 +126,7 @@
             "consumedInputs": [
                 "src/backend/Entities/UserSessionAuthenticationContext.cs",
                 "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+                "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
                 "src/backend/Services/Security/MfaChallengeService.cs",
                 "src/backend/Services/Security/PasskeyService.cs",
                 "src/backend/Services/Security/RecoveryKeyService.cs",
@@ -186,7 +187,7 @@
             "kind": "compiled-assembly",
             "entrypoint": "tools/fact-extractors/content-lifecycle/extract.mjs",
             "consumedInputs": [
-                "src/core/Services/Articles/ArticleStatusTransitionPolicy.cs",
+                "src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs",
                 "src/backend/Entities/Article.cs",
                 "src/backend/Entities/Comment.cs",
                 "src/backend/Entities/CommentMutationOutbox.cs",

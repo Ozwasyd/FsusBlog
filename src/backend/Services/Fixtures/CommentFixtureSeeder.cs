@@ -1,5 +1,9 @@
 // fixture-catalog: producer comment-moderation
 using System.Globalization;
+using System.Security.Cryptography;
+using System.Text;
+using System.Text.Json;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Cache;
@@ -93,6 +97,29 @@ public sealed record CommentFixtureCleanupResult(
     CommentFixtureCrossDomainSentinel? CrossDomainAfter,
     CommentModerationCleanupObservation ModerationObservation);
 
+/// <summary>Canonical receipt bytes are checked against the complete sealed receipt, not self-reported flags.</summary>
+public sealed record CommentFixtureSealedReference(JsonElement Receipt, string CanonicalBody);
+
+public sealed record CommentFixtureVerificationRequest(
+    string Schema,
+    CommentFixturePlan Plan,
+    CommentThreadFixtureCleanupReceipt CleanupReceipt,
+    IReadOnlyDictionary<string, CommentThreadFixtureObservationIdentity> Roles,
+    CommentFixtureSealedReference AuthReference,
+    CommentFixtureSealedReference PublicReference,
+    JsonElement VerifiedAuthReferences);
+
+public sealed record CommentFixtureVerificationResult(
+    string Schema,
+    CommentFixturePortBinding Binding,
+    IReadOnlyList<CommentThreadFixtureEntity> ThreadEntities,
+    CommentModerationFixtureResult Moderation,
+    string CacheGeneration,
+    CommentFixtureCrossDomainSentinel CrossDomainBefore,
+    CommentFixtureCrossDomainSentinel CrossDomainAfter,
+    string AuthSourceReceiptDigest,
+    string PublicSourceReceiptDigest);
+
 public interface ICommentFixtureSeeder
 {
     Task<CommentFixtureResult> PrepareAsync(
@@ -101,6 +128,10 @@ public interface ICommentFixtureSeeder
 
     Task<CommentFixtureCleanupResult> CleanupAsync(
         CommentThreadFixtureCleanupReceipt receipt,
+        CancellationToken cancellationToken = default);
+
+    Task<CommentFixtureVerificationResult> VerifyAsync(
+        CommentFixtureVerificationRequest request,
         CancellationToken cancellationToken = default);
 }
 
@@ -129,7 +160,8 @@ public sealed class CommentFixturePreparationException(
 public sealed class CommentFixtureSeeder(
     ICommentThreadFixturePort threads,
     ICommentModerationFixturePort moderation,
-    IConfiguration configuration) : ICommentFixtureSeeder
+    IConfiguration configuration,
+    TimeProvider timeProvider) : ICommentFixtureSeeder
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
     private const string ProducerId = "comment-moderation";
@@ -168,7 +200,7 @@ public sealed class CommentFixtureSeeder(
                 [primary, secondary],
                 admin,
                 cancellationToken).ConfigureAwait(false);
-            DateTime now = DateTime.UtcNow;
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             string cacheBefore = await ReadCommentCacheGenerationAsync(articleId, cancellationToken).ConfigureAwait(false);
 
             RegionModerationDecision global = moderation.ResolveRegion(
@@ -415,6 +447,242 @@ public sealed class CommentFixtureSeeder(
             thread.CrossDomainBefore,
             thread.CrossDomainAfter,
             observation);
+    }
+
+    /// <summary>Observe the exact prepared graph independently; never execute, drain, restore or repair it.</summary>
+    public async Task<CommentFixtureVerificationResult> VerifyAsync(
+        CommentFixtureVerificationRequest request,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (request.Roles is null
+            || request.Roles.Any(item => string.IsNullOrWhiteSpace(item.Key)
+                || item.Value is null || item.Value.CommentId <= 0)
+            || request.CleanupReceipt?.OwnedComments is null
+            || request.CleanupReceipt.OwnedComments.Any(item => item.Key <= 0
+                || item.Value is null || item.Value.CommentId != item.Key))
+            throw new InvalidOperationException("Comment verify owned role authority is invalid.");
+        CommentFixturePlan plan = request.Plan;
+        ValidatePlan(plan);
+        CommentFixturePortBinding binding = PortBinding(plan, $"comment-fixture:{plan.Namespace}:{plan.RunId}");
+        if (request.Schema != "fsusblog.comment-fixture-verification-request.v1"
+            || !binding.IsValid()
+            || request.CleanupReceipt.Schema != CleanupSchema
+            || JsonSerializer.Serialize(request.CleanupReceipt.Binding) != JsonSerializer.Serialize(binding)
+            || request.CleanupReceipt.CrossDomainBefore is null)
+            throw new InvalidOperationException("Comment verify plan/cleanup owner binding is invalid.");
+
+        JsonElement auth = ValidateSealedReference(request.AuthReference, "auth-session", plan);
+        JsonElement content = ValidateSealedReference(request.PublicReference, "public-content", plan);
+        if (!JsonElement.DeepEquals(auth.GetProperty("source"), content.GetProperty("source"))
+            || ReceiptText(auth, "serviceGeneration") != ReceiptText(content, "serviceGeneration")
+            || ReceiptText(auth, "fixtureCatalogDigest") != ReceiptText(content, "fixtureCatalogDigest"))
+            throw new InvalidOperationException("Comment verify prerequisite execution identity differs.");
+        RequireOwnedReference(auth, "admin", plan.IdentityReferences.AdminPrincipalId.ToString(CultureInfo.InvariantCulture), "admin");
+        RequireOwnedReference(auth, "user", plan.IdentityReferences.PrimaryAccountId.ToString(CultureInfo.InvariantCulture), "primary-author");
+        RequireOwnedReference(auth, "user", plan.IdentityReferences.SecondaryAccountId.ToString(CultureInfo.InvariantCulture), "secondary-author");
+        RequireOwnedReference(content, "article", plan.ArticleReference.ArticleId.ToString(CultureInfo.InvariantCulture), role: null);
+        ValidateVerifiedAuthReferences(request.VerifiedAuthReferences, auth, plan);
+
+        int maxDepth = Math.Clamp(configuration.GetValue("CommentThreads:MaxDepth", CommentCommandService.DefaultMaxThreadDepth), 2, 256);
+        string[] expectedRoles = new[] {
+            "approved-root", "approved-reply", "approved-nested", "pending", "rejected", "spam", "edited",
+            "deleted-root", "deleted-root-child", "deleted-reply-parent", "deleted-reply",
+            "region-global", "region-manual-review", "depth-root"
+        }.Concat(Enumerable.Range(1, maxDepth).Select(depth => $"depth-{depth.ToString(CultureInfo.InvariantCulture)}"))
+            .Order(StringComparer.Ordinal).ToArray();
+        if (!request.Roles.Keys.Order(StringComparer.Ordinal).SequenceEqual(expectedRoles, StringComparer.Ordinal)
+            || request.Roles.Values.Select(item => item.CommentId).Distinct().Count() != expectedRoles.Length
+            || !request.Roles.Values.Select(item => item.CommentId).Order()
+                .SequenceEqual(request.CleanupReceipt.OwnedComments.Keys.Order()))
+            throw new InvalidOperationException("Comment verify owned role graph is missing, extra or reused.");
+        foreach ((string role, CommentThreadFixtureObservationIdentity identity) in request.Roles)
+        {
+            CommentThreadFixtureOwnedIdentity owned = request.CleanupReceipt.OwnedComments[identity.CommentId];
+            string capability = role switch
+            {
+                "edited" => "comment.version.edited",
+                "deleted-root" => "comment.delete.root",
+                "pending" => "comment.moderation.pending",
+                "region-manual-review" => "moderation.region-policy",
+                "approved-nested" => "comment.thread.nested",
+                "approved-reply" or "deleted-root-child" or "deleted-reply" => "comment.thread.reply",
+                _ => role.StartsWith("depth-", StringComparison.Ordinal) ? "comment.thread.depth-boundary" : "comment.thread.root"
+            };
+            bool anonymous = role is "pending" or "region-manual-review";
+            int? account = anonymous ? null : role is "approved-root" or "rejected" or "edited" or "deleted-reply-parent" or "approved-nested" or "deleted-root-child"
+                || (role != "depth-root" && role.StartsWith("depth-", StringComparison.Ordinal)
+                    && int.TryParse(role.AsSpan(6), out int depth) && depth % 2 == 0)
+                ? plan.IdentityReferences.PrimaryAccountId : plan.IdentityReferences.SecondaryAccountId;
+            if (owned.CommentId != identity.CommentId || owned.SemanticRole != role || owned.ArticleId != binding.ArticleId
+                || owned.AccountId != identity.AccountId || owned.ActorMode != identity.ActorMode
+                || owned.OperationPlanDigest != identity.OperationPlanDigest || identity.CapabilityId != capability
+                || identity.AccountId != account || identity.ActorMode != (anonymous ? CommentAuthorModes.ZkAnonymous : CommentAuthorModes.Public))
+                throw new InvalidOperationException("Comment verify role does not bind its exact owned source.");
+        }
+        CommentFixtureCrossDomainSentinel before = await threads.ObserveCrossDomainAsync(
+            binding.ArticleId, [plan.IdentityReferences.PrimaryAccountId, plan.IdentityReferences.SecondaryAccountId],
+            plan.IdentityReferences.AdminPrincipalId, cancellationToken).ConfigureAwait(false);
+        if (!CommentThreadFixturePort.SameCrossDomainSentinel(before, request.CleanupReceipt.CrossDomainBefore))
+            throw new InvalidOperationException("Comment verify prerequisite article/auth/admin/security state drifted.");
+
+        IReadOnlyList<CommentThreadFixtureEntity> entities = await threads.ObserveCurrentAsync(
+            new CommentThreadFixtureObservationPlan("fsusblog.comment-thread-fixture-observation.v1", binding, request.Roles),
+            cancellationToken).ConfigureAwait(false);
+        if (entities.Count != expectedRoles.Length || entities.Select(item => item.SemanticRole).Distinct().Count() != expectedRoles.Length
+            || !entities.Select(item => item.SemanticRole).Order(StringComparer.Ordinal).SequenceEqual(expectedRoles, StringComparer.Ordinal))
+            throw new InvalidOperationException("Comment verify service returned an inexact role graph.");
+        foreach (CommentThreadFixtureEntity entity in entities)
+        {
+            CommentThreadFixtureObservationIdentity source = request.Roles[entity.SemanticRole];
+            if (entity.CommentId != source.CommentId || entity.OperationPlanDigest != source.OperationPlanDigest
+                || entity.CapabilityId != source.CapabilityId
+                || !request.CleanupReceipt.OwnedComments.TryGetValue(entity.CommentId, out CommentThreadFixtureOwnedIdentity? owned)
+                || JsonSerializer.Serialize(ToOwnedComments([entity])[entity.CommentId]) != JsonSerializer.Serialize(owned))
+                throw new InvalidOperationException("Comment verify current version/content/delete/actor identity drifted.");
+            RequireExactThreadRelation(entity, request.Roles);
+        }
+        CommentModerationFixturePlan readPlan = new(
+            "fsusblog.comment-moderation-fixture-plan.v1", binding, plan.IdentityReferences.AdminPrincipalId,
+            [
+                Moderate("approved", "approved-root", request.Roles["approved-root"].CommentId, string.Empty, request.Roles["approved-root"].OperationPlanDigest),
+                Moderate("pending", "pending", request.Roles["pending"].CommentId, string.Empty, request.Roles["pending"].OperationPlanDigest),
+                Moderate("rejected", "rejected", request.Roles["rejected"].CommentId, "fixture_rejected", request.Roles["rejected"].OperationPlanDigest),
+                Moderate("spam", "spam", request.Roles["spam"].CommentId, "fixture_spam", request.Roles["spam"].OperationPlanDigest, requireSignal: true),
+                Region("comment.region.global", "approved", "region-global", request.Roles["region-global"].CommentId, request.Roles["region-global"].OperationPlanDigest),
+                Region("comment.region.manual-review", "pending", "region-manual-review", request.Roles["region-manual-review"].CommentId, request.Roles["region-manual-review"].OperationPlanDigest)
+            ])
+        {
+            AdminActorReferenceDigest = plan.IdentityReferences.AdminActorReferenceDigest
+        };
+        CommentModerationFixtureResult observedModeration = await moderation.ObserveCurrentAsync(readPlan, cancellationToken)
+            .ConfigureAwait(false);
+        string generation = await ReadCommentCacheGenerationAsync(binding.ArticleId, cancellationToken).ConfigureAwait(false);
+        CommentFixtureCrossDomainSentinel after = await threads.ObserveCrossDomainAsync(
+            binding.ArticleId, [plan.IdentityReferences.PrimaryAccountId, plan.IdentityReferences.SecondaryAccountId],
+            plan.IdentityReferences.AdminPrincipalId, cancellationToken).ConfigureAwait(false);
+        if (!CommentThreadFixturePort.SameCrossDomainSentinel(before, after))
+            throw new InvalidOperationException("Comment verify crossed a prerequisite mutation boundary.");
+        return new CommentFixtureVerificationResult("fsusblog.comment-fixture-verification-result.v1", binding,
+            entities, observedModeration, generation, before, after,
+            ReceiptText(auth, "producerReceiptDigest"), ReceiptText(content, "producerReceiptDigest"));
+    }
+
+    private static void RequireExactThreadRelation(CommentThreadFixtureEntity entity,
+        IReadOnlyDictionary<string, CommentThreadFixtureObservationIdentity> roles)
+    {
+        string? parentRole = entity.SemanticRole switch
+        {
+            "approved-reply" => "approved-root",
+            "approved-nested" => "approved-reply",
+            "deleted-root-child" => "deleted-root",
+            "deleted-reply" => "deleted-reply-parent",
+            _ => null
+        };
+        int depth = parentRole == "approved-reply" ? 2 : parentRole is null ? 0 : 1;
+        if (entity.SemanticRole.StartsWith("depth-", StringComparison.Ordinal) && entity.SemanticRole != "depth-root")
+        {
+            if (!int.TryParse(entity.SemanticRole.AsSpan(6), NumberStyles.None, CultureInfo.InvariantCulture, out depth) || depth <= 0)
+                throw new InvalidOperationException("Comment verify depth role is invalid.");
+            parentRole = depth == 1 ? "depth-root" : $"depth-{(depth - 1).ToString(CultureInfo.InvariantCulture)}";
+        }
+        long? parent = parentRole is null ? null : roles[parentRole].CommentId;
+        long root = entity.SemanticRole.StartsWith("depth-", StringComparison.Ordinal) ? roles["depth-root"].CommentId
+            : entity.SemanticRole is "approved-reply" or "approved-nested" ? roles["approved-root"].CommentId
+            : entity.SemanticRole == "deleted-root-child" ? roles["deleted-root"].CommentId
+            : entity.SemanticRole == "deleted-reply" ? roles["deleted-reply-parent"].CommentId : entity.CommentId;
+        if (entity.ParentId != parent || entity.ReplyToCommentId != parent || entity.RootId != root || entity.Depth != depth)
+            throw new InvalidOperationException("Comment verify parent/root/reply/depth relation drifted.");
+    }
+
+    private static JsonElement ValidateSealedReference(CommentFixtureSealedReference reference, string producerId, CommentFixturePlan plan)
+    {
+        JsonElement receipt = reference.Receipt;
+        JsonObject unsigned = JsonNode.Parse(receipt.GetRawText())?.AsObject()
+            ?? throw new InvalidOperationException("Comment verify prerequisite receipt is missing.");
+        string digest = ReceiptText(receipt, "producerReceiptDigest");
+        unsigned.Remove("producerReceiptDigest");
+        using JsonDocument canonical = JsonDocument.Parse(reference.CanonicalBody);
+        if (!JsonElement.DeepEquals(JsonSerializer.SerializeToElement(unsigned), canonical.RootElement)
+            || digest != $"sha256:{Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(reference.CanonicalBody))).ToLowerInvariant()}"
+            || ReceiptText(receipt, "schema") != "fsusblog.fixture-producer-receipt.v1"
+            || ReceiptText(receipt, "producerId") != producerId || ReceiptText(receipt, "strategy") != Strategy
+            || ReceiptText(receipt, "runId") != plan.RunId || ReceiptText(receipt, "namespace") != plan.Namespace
+            || ReceiptText(receipt, "profileId") != plan.ProfileId
+            || ReceiptText(receipt, "expandedCapabilityDigest") != plan.CapabilityCatalogDigest
+            || ReceiptText(receipt, "variantPlanDigest") != plan.VariantCatalogDigest
+            || !IsDigest(ReceiptText(receipt, "serviceGeneration"))
+            || !IsDigest(ReceiptText(receipt.GetProperty("source"), "worktreeFingerprint"))
+            || ReceiptText(receipt.GetProperty("source"), "commit").Length != 40
+            || !receipt.GetProperty("postconditionObservations").EnumerateArray().Any()
+            || receipt.GetProperty("postconditionObservations").EnumerateArray().Any(item => !item.GetProperty("ok").GetBoolean()))
+            throw new InvalidOperationException("Comment verify prerequisite receipt is unsealed, failed or cross-run/profile/source.");
+        return receipt;
+    }
+
+    private static string ReceiptText(JsonElement element, string key)
+        => element.GetProperty(key).GetString() ?? throw new InvalidOperationException("Comment verify receipt field is missing.");
+
+    private static void ValidateVerifiedAuthReferences(JsonElement projection, JsonElement auth, CommentFixturePlan plan)
+    {
+        if (ReceiptText(projection, "schema") != "fsusblog.fixture-identity-references.v1"
+            || !projection.GetProperty("verified").GetBoolean()
+            || ReceiptText(projection, "ownerProducerId") != "auth-session"
+            || ReceiptText(projection, "consumerProducerId") != ProducerId
+            || ReceiptText(projection, "runId") != plan.RunId || ReceiptText(projection, "namespace") != plan.Namespace
+            || ReceiptText(projection, "profileId") != plan.ProfileId
+            || ReceiptText(projection, "sourceReceiptDigest") != ReceiptText(auth, "producerReceiptDigest")
+            || !ValidReferenceDigest(projection))
+            throw new InvalidOperationException("Comment verify auth projection is unsealed or cross-consumer.");
+        JsonElement[] references = projection.GetProperty("references").EnumerateArray().ToArray();
+        string[] expected = ["admin", "primary-author", "secondary-author"];
+        if (references.Length != 3 || !references.Select(item => ReceiptText(item, "role")).Order(StringComparer.Ordinal).SequenceEqual(expected, StringComparer.Ordinal)
+            || !references.Select(item => $"sha256:{ReceiptText(item, "prepareReferenceDigest")}").Order(StringComparer.Ordinal)
+                .SequenceEqual(plan.IdentityReferences.AuthPrepareReferenceDigests, StringComparer.Ordinal))
+            throw new InvalidOperationException("Comment verify auth projection roles/preparation references differ.");
+        foreach (JsonElement reference in references)
+        {
+            string role = ReceiptText(reference, "role");
+            string id = role == "admin" ? plan.IdentityReferences.AdminPrincipalId.ToString(CultureInfo.InvariantCulture)
+                : (role == "primary-author" ? plan.IdentityReferences.PrimaryAccountId : plan.IdentityReferences.SecondaryAccountId).ToString(CultureInfo.InvariantCulture);
+            if (ReceiptText(reference, "schema") != "fsusblog.fixture-identity-reference.v1" || !reference.GetProperty("verified").GetBoolean()
+                || ReceiptText(reference, "ownerProducerId") != "auth-session" || ReceiptText(reference, "consumerProducerId") != ProducerId
+                || ReceiptText(reference, "runId") != plan.RunId || ReceiptText(reference, "namespace") != plan.Namespace
+                || ReceiptText(reference, "profileId") != plan.ProfileId || ReceiptText(reference, "publicId") != id
+                || ReceiptText(reference, "semanticRole") != $"consumer.comment-moderation.{role}"
+                || ReceiptText(reference, "capabilityId") != (role == "admin" ? "auth.admin.full-permission" : "auth.user.active")
+                || $"sha256:{ReceiptText(reference, "producerResultDigest")}" != plan.IdentityReferences.AuthProducerResultDigest
+                || ReceiptText(reference, "sourceReceiptDigest") != ReceiptText(auth, "producerReceiptDigest")
+                || !ValidReferenceDigest(reference)
+                || !auth.GetProperty("observations").GetProperty("database").GetProperty("entities").EnumerateArray()
+                    .Any(item => ReceiptText(item, "id") == id && ReceiptText(item, "semanticRole") == ReceiptText(reference, "semanticRole")
+                        && ReceiptText(item, "fixtureIdentity") == ReceiptText(reference, "fixtureIdentity")))
+                throw new InvalidOperationException("Comment verify auth identity reference is not bound to its sealed owner.");
+            if (role == "admin" && $"sha256:{ReceiptText(reference, "prepareReferenceDigest")}" != plan.IdentityReferences.AdminActorReferenceDigest)
+                throw new InvalidOperationException("Comment verify admin actor reference differs.");
+        }
+    }
+
+    private static bool ValidReferenceDigest(JsonElement value)
+    {
+        JsonObject body = JsonNode.Parse(value.GetRawText())!.AsObject();
+        string digest = ReceiptText(value, "digest");
+        body.Remove("digest");
+        string json = body.ToJsonString(new JsonSerializerOptions { Encoder = System.Text.Encodings.Web.JavaScriptEncoder.UnsafeRelaxedJsonEscaping });
+        return digest == Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json))).ToLowerInvariant();
+    }
+
+    private static void RequireOwnedReference(JsonElement receipt, string kind, string id, string? role)
+    {
+        JsonElement[] matches = receipt.GetProperty("observations").GetProperty("database").GetProperty("entities")
+            .EnumerateArray().Where(item => ReceiptText(item, "kind") == kind && ReceiptText(item, "id") == id
+                && item.TryGetProperty("owned", out JsonElement owned) && owned.GetBoolean()
+                && (role is null || ReceiptText(item, "semanticRole") == $"consumer.comment-moderation.{role}"))
+            .ToArray();
+        if (matches.Length != 1 || !receipt.GetProperty("entityIdentities").EnumerateArray()
+                .Any(item => ReceiptText(item, "kind") == kind && ReceiptText(item, "id") == id))
+            throw new InvalidOperationException("Comment verify prerequisite is not an exact owned sealed reference.");
     }
 
     private RegionModerationDecision ResolveManualReviewRegion(

@@ -326,7 +326,7 @@ public static partial class AuthoringEndpoints
 
         if (result.IsFailure)
         {
-            return AedsJsonResults.Error(aeds, result.Error.Code, result.Error.Message, ToHttpStatusCode(result.Error.Code));
+            return AedsJsonResults.Error(aeds, ApiErrorSemanticMapper.GetDefaultMappingId(result.Error.Code), result.Error.Message);
         }
 
         if (cacheInvalidation is not null)
@@ -952,7 +952,7 @@ public static partial class AuthoringEndpoints
         string adminSessionId = context.User.GetAdminSessionId()!;
         if (!TrustedRequestOrigin.RequireTrustedOriginOrReferer(context))
         {
-            return AedsJsonResults.Error(aeds, ErrorCode.Forbidden, "ORIGIN_NOT_ALLOWED", StatusCodes.Status403Forbidden);
+            return AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default403Forbidden, "ORIGIN_NOT_ALLOWED");
         }
 
         string proofToken = context.Request.Headers.TryGetValue(MfaProofHeader, out var values)

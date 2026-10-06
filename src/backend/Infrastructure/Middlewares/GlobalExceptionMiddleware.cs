@@ -1,5 +1,4 @@
 using System.Diagnostics;
-using System.Net;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
@@ -50,12 +49,17 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
 
         // 4. 【状态码映射】
         ErrorDetail error = CreateClientSafeError(ex);
-        int statusCode = error.Code == ErrorCode.InfraFailure && ex is NotImplementedException
-            ? (int)HttpStatusCode.NotImplemented
-            : BinaryResults.MapStatusCode(error);
+        ApiErrorTransportMappingId mappingId = ex switch
+        {
+            NotImplementedException when error.Code == ErrorCode.InfraFailure
+                => ApiErrorTransportMappingId.Generic501InfraFailure,
+            CacheCoordinationException when error.Code == ErrorCode.InfraFailure
+                => ApiErrorTransportMappingId.Generic503InfraFailure,
+            _ => ApiErrorSemanticMapper.GetDefaultMappingId(error.Code)
+        };
+        int statusCode = ApiErrorSemanticMapper.GetMapping(mappingId).HttpStatus;
         if (ex is CacheCoordinationException coordination)
         {
-            statusCode = (int)HttpStatusCode.ServiceUnavailable;
             context.Response.Headers.RetryAfter = Math.Max(1, coordination.RetryAfterSeconds)
                 .ToString(System.Globalization.CultureInfo.InvariantCulture);
         }
@@ -97,7 +101,7 @@ public partial class GlobalExceptionMiddleware(RequestDelegate _next, ILogger<Gl
             context,
             context.Response.Body,
             ErrorDetail.Create(error.Code, errorMsg, traceId: Activity.Current?.Id),
-            statusCode);
+            mappingId);
     }
 
     private static ErrorDetail CreateClientSafeError(Exception ex)

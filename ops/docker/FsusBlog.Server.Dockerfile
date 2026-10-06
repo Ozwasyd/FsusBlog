@@ -290,6 +290,24 @@ RUN dotnet publish "./FsusBlog.Server.csproj" \
     /p:PublishReadyToRun=false
 
 ## =========================================================================
+# Independent offline tool; never part of the Server publish directory/graph.
+## =========================================================================
+FROM build-${RUNTIME_BASE_FLAVOR} AS migration-build
+ARG BUILD_CONFIGURATION=Release
+ARG TARGET_RUNTIME=linux-musl-x64
+ARG FSUSBLOG_COMMIT_SHA=0000000000000000000000000000000000000000
+WORKDIR /src
+RUN for input in /.editorconfig /.globalconfig /Directory.Build.props /Directory.Build.targets /Directory.Packages.props /NuGet.Config /NuGet.config /nuget.config /global.json; do test ! -e "$input" && test ! -L "$input" || exit 1; done
+COPY --from=backend-inputs /migration/restore/ /src/
+RUN test "$(cat /src/.migration-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$FSUSBLOG_COMMIT_SHA")"
+RUN dotnet restore "./src/migration/FsusBlog.Migration.csproj" --configfile /src/config/build/backend-restore.xml --runtime "$TARGET_RUNTIME" /p:Configuration="$BUILD_CONFIGURATION" /p:SelfContained=true /p:UseAppHost=false /p:PublishSingleFile=false /p:PublishTrimmed=false /p:PublishReadyToRun=false /p:ReadyToRunUseCrossgen2=false /p:FsusBlogCommitSha="$FSUSBLOG_COMMIT_SHA"
+
+FROM migration-build AS migration-publish
+COPY --from=backend-inputs /migration/compile/ /src/
+RUN test "$(cat /src/.migration-input-profile)" = "$(printf '%s\n%s\n%s\n' "$BUILD_CONFIGURATION" "$TARGET_RUNTIME" "$FSUSBLOG_COMMIT_SHA")"
+RUN dotnet publish "./src/migration/FsusBlog.Migration.csproj" -c "$BUILD_CONFIGURATION" -r "$TARGET_RUNTIME" -o /app/migration-publish --no-restore --self-contained true /p:RestoreConfigFile=/src/config/build/backend-restore.xml /p:UseAppHost=false /p:PublishSingleFile=false /p:PublishTrimmed=false /p:PublishReadyToRun=false /p:ReadyToRunUseCrossgen2=false /p:FsusBlogCommitSha="$FSUSBLOG_COMMIT_SHA"
+
+## =========================================================================
 # 阶段 3：前端 Vue 构建
 # Release 镜像只消费外部准备好的 wasm 工件包。
 ## =========================================================================
@@ -305,12 +323,28 @@ ENV FSUSBLOG_USE_LOCAL_FSUSUI=${FSUSBLOG_USE_LOCAL_FSUSUI} \
 WORKDIR /app
 
 COPY src/frontend/package*.json ./
+COPY src/frontend/scripts/fsusui-root.mjs src/frontend/scripts/prepare-local-fsusui-install.mjs ./scripts/
+COPY --from=fsusui /vue/packages /opt/fsusui/vue/packages
 COPY tools/frontend/ /tools/frontend/
 COPY tools/security/comment-privacy-build-contract.mjs /tools/security/comment-privacy-build-contract.mjs
 COPY tools/test-matrix/ /tools/test-matrix/
 
 RUN --mount=type=secret,id=github_packages_token \
     /bin/sh -lc 'set -eu; \
+      case "$FSUSBLOG_USE_LOCAL_FSUSUI" in \
+      1) \
+        tmp_install="$(mktemp -d)"; \
+        cleanup() { rm -rf "${tmp_install}"; }; \
+        trap cleanup EXIT; \
+        node scripts/prepare-local-fsusui-install.mjs prepare --frontend-root /app --fsusui-root /opt/fsusui --output "${tmp_install}/input"; \
+        : > "${tmp_install}/user.npmrc"; : > "${tmp_install}/global.npmrc"; \
+        NPM_CONFIG_USERCONFIG="${tmp_install}/user.npmrc" NPM_CONFIG_GLOBALCONFIG="${tmp_install}/global.npmrc" \
+          npm ci --prefix "${tmp_install}/input" --registry=https://registry.npmjs.org/ \
+            --no-audit --no-fund --no-update-notifier --progress=false --fetch-retries=0; \
+        mv "${tmp_install}/input/node_modules" /app/node_modules; \
+        node scripts/prepare-local-fsusui-install.mjs verify --frontend-root /app --fsusui-root /opt/fsusui; \
+        ;; \
+      0) \
       token="$(cat /run/secrets/github_packages_token)"; \
       if [ -z "${token}" ]; then echo "github_packages_token is required for npm ci" >&2; exit 1; fi; \
       tmp_npmrc="$(mktemp)"; \
@@ -325,7 +359,10 @@ RUN --mount=type=secret,id=github_packages_token \
         --no-fund \
         --no-update-notifier \
         --progress=false \
-        --fetch-retries=0'
+        --fetch-retries=0; \
+        ;; \
+      *) echo "unsupported FSUSBLOG_USE_LOCAL_FSUSUI" >&2; exit 1 ;; \
+      esac'
 
 ARG FSUSBLOG_RELEASE_ID=local-unversioned
 ENV VITE_FSUSBLOG_BUILD_ID=${FSUSBLOG_RELEASE_ID} \
@@ -337,7 +374,6 @@ COPY tools/test/command-manifest-runtime.mjs /tools/test/command-manifest-runtim
 COPY tools/test/bundles/bundle-steps.mjs /tools/test/bundles/bundle-steps.mjs
 COPY tests/matrix.yml /tests/matrix.yml
 COPY tools/yaml/parse-document.mjs /tools/yaml/parse-document.mjs
-COPY --from=fsusui /vue/packages /opt/fsusui/vue/packages
 RUN ln -s /app/node_modules /opt/fsusui/node_modules
 COPY src/frontend/ ./
 COPY src/shared/ /src/shared/
@@ -440,6 +476,13 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=45s --retries=3 \
       curl -fsS -H "Host: $host" http://127.0.0.1:8080/health/live >/dev/null || exit 1
 
 ENTRYPOINT ["./FsusBlog.Server"]
+
+## =========================================================================
+# Task-only image. Inherits the unchanged Server entrypoint, not an auto-migrate command.
+## =========================================================================
+FROM final AS current-native-task
+COPY --from=migration-publish --chown=$APP_UID:$APP_UID /app/migration-publish /app/tools/migration
+LABEL io.fsusblog.task.tool-contract="fsusblog.current-native-task-tool-image.v1"
 
 ## =========================================================================
 # 阶段 5：Debug 最终镜像（仅后端，不含前端 release 构建产物）

@@ -150,6 +150,7 @@ public sealed class BoundedQueueDrainAggregator(
         string? error = null;
         var blockers = new List<string>();
         var seen = new HashSet<string>(StringComparer.Ordinal);
+        IReadOnlyList<BoundedChannelQueueContract> expected = catalog.DrainParticipants ?? [];
         foreach (IBoundedQueueDrainParticipant? participant in _participants)
         {
             if (participant is null)
@@ -209,6 +210,26 @@ public sealed class BoundedQueueDrainAggregator(
                 blockers.Add($"delivery-class-unknown={receipt.QueueId}");
             }
 
+            string expectedDigest = BoundedQueueDrainDigest.Receipt(
+                receipt.QueueId,
+                receipt.DeliveryClass,
+                receipt.RunId,
+                receipt.Generation,
+                receipt.Sequence,
+                receipt.Queued,
+                receipt.InFlight,
+                receipt.DurablePending,
+                receipt.TerminalFailures,
+                receipt.CommitPostcondition,
+                receipt.DropProof);
+            bool trustedObservation = string.Equals(receipt.ContentDigest, expectedDigest, StringComparison.Ordinal)
+                && string.Equals(receipt.RunId, runId, StringComparison.Ordinal)
+                && string.Equals(receipt.QueueId, participant.QueueId, StringComparison.Ordinal)
+                && BoundedQueueDrainEvaluation.IsKnownDeliveryClass(receipt.DeliveryClass)
+                && expected.Any(contract => string.Equals(contract.QueueId, receipt.QueueId, StringComparison.Ordinal)
+                    && string.Equals(contract.DeliveryClass, receipt.DeliveryClass, StringComparison.Ordinal)
+                    && string.Equals(contract.ParticipantAdapterToken, participant.AdapterToken, StringComparison.Ordinal));
+
             lock (_gate)
             {
                 if (!string.Equals(_runId, runId, StringComparison.Ordinal))
@@ -230,10 +251,12 @@ public sealed class BoundedQueueDrainAggregator(
                             ? $"sequence-collision={receipt.QueueId}"
                             : $"generation-drift={receipt.QueueId}");
                     }
-
-                    _lastSeen[receipt.QueueId] = (receipt.Generation, receipt.Sequence, receipt.ContentDigest);
+                    else if (trustedObservation)
+                    {
+                        _lastSeen[receipt.QueueId] = (receipt.Generation, receipt.Sequence, receipt.ContentDigest);
+                    }
                 }
-                else
+                else if (trustedObservation)
                 {
                     _lastSeen[receipt.QueueId] = (receipt.Generation, receipt.Sequence, receipt.ContentDigest);
                 }
@@ -297,18 +320,6 @@ public sealed class BoundedQueueDrainAggregator(
                 blockers.Add($"drop-proof-invalid={receipt.QueueId}");
             }
 
-            string expectedDigest = BoundedQueueDrainDigest.Receipt(
-                receipt.QueueId,
-                receipt.DeliveryClass,
-                receipt.RunId,
-                receipt.Generation,
-                receipt.Sequence,
-                receipt.Queued,
-                receipt.InFlight,
-                receipt.DurablePending,
-                receipt.TerminalFailures,
-                receipt.CommitPostcondition,
-                receipt.DropProof);
             if (!string.Equals(receipt.ContentDigest, expectedDigest, StringComparison.Ordinal))
             {
                 error ??= "content_digest_mismatch";
@@ -328,7 +339,6 @@ public sealed class BoundedQueueDrainAggregator(
             }
         }
 
-        IReadOnlyList<BoundedChannelQueueContract> expected = catalog.DrainParticipants ?? [];
         if (expected.Count == 0)
         {
             error ??= "participant_catalog_empty";

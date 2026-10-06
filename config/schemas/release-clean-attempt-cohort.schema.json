@@ -4,40 +4,300 @@
     "title": "FsusBlog append-only clean attempt cohort",
     "type": "object",
     "additionalProperties": false,
-    "required": ["schema", "cohortId", "buildIdentity", "previousRevisionDigest", "events", "qualificationEligible", "contentDigest"],
+    "required": [
+        "schema",
+        "cohortId",
+        "buildIdentity",
+        "previousRevisionDigest",
+        "events",
+        "qualificationEligible",
+        "contentDigest"
+    ],
     "properties": {
-        "schema": { "const": "fsusblog.release-clean-attempt-cohort.v1" },
-        "cohortId": { "type": "string", "minLength": 1 },
-        "buildIdentity": { "$ref": "#/$defs/digest" },
-        "previousRevisionDigest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
+        "schema": {
+            "const": "fsusblog.release-clean-attempt-cohort.v1"
+        },
+        "cohortId": {
+            "type": "string",
+            "minLength": 1
+        },
+        "buildIdentity": {
+            "$ref": "#/$defs/digest"
+        },
+        "previousRevisionDigest": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/digest"
+                },
+                {
+                    "type": "null"
+                }
+            ]
+        },
         "events": {
             "type": "array",
             "maxItems": 3,
-            "items": { "$ref": "#/$defs/event" }
+            "items": {
+                "$ref": "#/$defs/event"
+            }
         },
-        "qualificationEligible": { "type": "boolean" },
-        "contentDigest": { "$ref": "#/$defs/digest" }
+        "qualificationEligible": {
+            "type": "boolean"
+        },
+        "contentDigest": {
+            "$ref": "#/$defs/digest"
+        }
     },
+    "allOf": [
+        {
+            "if": {
+                "properties": {
+                    "qualificationEligible": {
+                        "const": true
+                    }
+                }
+            },
+            "then": {
+                "properties": {
+                    "events": {
+                        "minItems": 3,
+                        "items": {
+                            "properties": {
+                                "status": {
+                                    "const": "admitted"
+                                },
+                                "evidence": {
+                                    "required": [
+                                        "sourceCommit",
+                                        "worktreeFingerprint",
+                                        "buildIdentity",
+                                        "schedulerRunId",
+                                        "aggregateReceipt",
+                                        "requiredCatalogDigest",
+                                        "members"
+                                    ],
+                                    "properties": {
+                                        "requiredCatalogDigest": {
+                                            "$ref": "#/$defs/digest"
+                                        },
+                                        "members": {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "items": {
+                                                "$ref": "#/$defs/formalMember"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ],
     "$defs": {
-        "digest": { "type": "string", "pattern": "^sha256:[0-9a-f]{64}$" },
+        "digest": {
+            "type": "string",
+            "pattern": "^sha256:[0-9a-f]{64}$"
+        },
         "reference": {
             "type": "object",
             "additionalProperties": false,
-            "required": ["path", "digest"],
-            "properties": { "path": { "type": "string", "minLength": 1 }, "digest": { "$ref": "#/$defs/digest" } }
+            "required": [
+                "path",
+                "digest"
+            ],
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "digest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "fileDigest": {
+                    "$ref": "#/$defs/digest"
+                }
+            }
+        },
+        "formalMember": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "authorityId",
+                "producerId",
+                "schedulerRunId",
+                "sourceCommit",
+                "worktreeFingerprint",
+                "buildIdentity",
+                "retryPolicyId",
+                "aggregateReceipt",
+                "attemptReceipt",
+                "attemptNumber",
+                "firstFailure",
+                "cleanFirstAttempt",
+                "qualificationEligible",
+                "executionEnvelopeDigest",
+                "replayPlanDigest",
+                "temporalContextDigest",
+                "logs",
+                "artifacts",
+                "domainReceiptReference",
+                "evidenceSource"
+            ],
+            "properties": {
+                "authorityId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "producerId": {
+                    "type": "string",
+                    "pattern": "^[a-z][a-z0-9-]*$"
+                },
+                "schedulerRunId": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sourceCommit": {
+                    "type": "string",
+                    "pattern": "^[0-9a-f]{40}$"
+                },
+                "worktreeFingerprint": {
+                    "$ref": "#/$defs/digest"
+                },
+                "buildIdentity": {
+                    "$ref": "#/$defs/digest"
+                },
+                "retryPolicyId": {
+                    "const": "correctness-first-attempt"
+                },
+                "aggregateReceipt": {
+                    "$ref": "#/$defs/reference"
+                },
+                "attemptReceipt": {
+                    "$ref": "#/$defs/reference"
+                },
+                "attemptNumber": {
+                    "const": 1
+                },
+                "firstFailure": {
+                    "const": false
+                },
+                "cleanFirstAttempt": {
+                    "const": true
+                },
+                "qualificationEligible": {
+                    "const": true
+                },
+                "executionEnvelopeDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "replayPlanDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "temporalContextDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "logs": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "stdout",
+                        "stderr"
+                    ],
+                    "properties": {
+                        "stdout": {
+                            "$ref": "#/$defs/reference"
+                        },
+                        "stderr": {
+                            "$ref": "#/$defs/reference"
+                        }
+                    }
+                },
+                "artifacts": {
+                    "type": "array",
+                    "minItems": 1,
+                    "items": {
+                        "$ref": "#/$defs/reference"
+                    }
+                },
+                "domainReceiptReference": {
+                    "$ref": "#/$defs/reference"
+                },
+                "evidenceSource": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "path",
+                        "fileDigest"
+                    ],
+                    "properties": {
+                        "path": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "fileDigest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                }
+            }
         },
         "event": {
             "type": "object",
-            "required": ["schema", "sequence", "slot", "previousEventDigest", "status", "reasons", "evidence", "contentDigest"],
+            "required": [
+                "schema",
+                "sequence",
+                "slot",
+                "previousEventDigest",
+                "status",
+                "reasons",
+                "evidence",
+                "contentDigest"
+            ],
             "properties": {
-                "schema": { "const": "fsusblog.release-clean-attempt-cohort-event.v1" },
-                "sequence": { "type": "integer", "minimum": 1, "maximum": 3 },
-                "slot": { "type": "integer", "minimum": 1, "maximum": 3 },
-                "previousEventDigest": { "oneOf": [{ "$ref": "#/$defs/digest" }, { "type": "null" }] },
-                "status": { "enum": ["admitted", "rejected"] },
-                "reasons": { "type": "array", "items": { "type": "object" } },
-                "evidence": { "type": "object" },
-                "contentDigest": { "$ref": "#/$defs/digest" }
+                "schema": {
+                    "const": "fsusblog.release-clean-attempt-cohort-event.v1"
+                },
+                "sequence": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                },
+                "slot": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "maximum": 3
+                },
+                "previousEventDigest": {
+                    "oneOf": [
+                        {
+                            "$ref": "#/$defs/digest"
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "status": {
+                    "enum": [
+                        "admitted",
+                        "rejected"
+                    ]
+                },
+                "reasons": {
+                    "type": "array",
+                    "items": {
+                        "type": "object"
+                    }
+                },
+                "evidence": {
+                    "type": "object"
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                }
             }
         }
     }

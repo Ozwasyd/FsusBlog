@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/test/bundles/run-bundle.mjs",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "eaa71c89c082f5dcedd17948118b81a85adb15f11f7d0c0c1be8f0689d9ee519"
+        }
+    ]
+}

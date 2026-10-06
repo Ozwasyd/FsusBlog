@@ -84,7 +84,8 @@ export const productionFreshProducerInventory = Object.freeze({
         ]),
         'backend-tests': Object.freeze([
             'services', 'dotnet-restore', 'backend-server-build', 'backend-tests-build',
-            'backend-benchmark-build', 'dotnet-production-union', 'perception-matrix',
+            'migration-tests-build', 'xunit-inventory-adapter-build',
+            'backend-benchmark-build', 'migration-test-execution', 'migration-assembly-verification', 'dotnet-production-union', 'perception-matrix',
             'perception-evidence-finalize', 'backend-coverage-summary'
         ]),
         'frontend-tests': Object.freeze([

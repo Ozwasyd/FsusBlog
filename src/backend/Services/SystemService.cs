@@ -13,6 +13,7 @@ using FsusBlog.Server.Models.ReadModels;
 using FsusBlog.Server.Models.Requests;
 using FsusBlog.Shared.Contracts.NotificationStream;
 using FsusBlog.Shared.Contracts.Outputs;
+using static FsusBlog.Shared.Contracts.Outputs.PublicSiteAuthorPolicy;
 
 using SqlSugar;
 
@@ -39,7 +40,6 @@ public partial class SystemService(
     private const string KeyTitle = "Seo_Title";
     private const string KeyDesc = "Seo_Description";
     private const string KeyKeywords = "Seo_Keywords";
-    private const string KeyAuthor = "Seo_Author";
     private const string KeyOgImage = "Seo_OgImage";
     private const string KeyBaseUrl = "Seo_BaseUrl";
     private const string KeyFaviconSvgUrl = "Seo_FaviconSvgUrl";
@@ -79,7 +79,7 @@ public partial class SystemService(
         KeyTitle,
         KeyDesc,
         KeyKeywords,
-        KeyAuthor,
+        PublicSiteAuthorPolicy.ConfigurationKey,
         KeyOgImage,
         KeyBaseUrl,
         KeyFaviconSvgUrl,
@@ -203,7 +203,7 @@ public partial class SystemService(
             new() { Key = KeyTitle, Value = normalized.Title },
             new() { Key = KeyDesc, Value = normalized.Description },
             new() { Key = KeyKeywords, Value = normalized.Keywords },
-            new() { Key = KeyAuthor, Value = normalized.Author },
+            new() { Key = PublicSiteAuthorPolicy.ConfigurationKey, Value = normalized.Author },
             new() { Key = KeyOgImage, Value = normalized.OgImage },
             new() { Key = KeyBaseUrl, Value = normalized.BaseUrl },
             new() { Key = KeyFaviconSvgUrl, Value = normalized.FaviconSvgUrl },
@@ -513,7 +513,6 @@ public partial class SystemService(
     private static SeoConfigReadModel NormalizeSeoConfig(UpdateSeoConfigRequest dto)
     {
         string title = TrimUtf8Bytes(dto.Title, 50);
-        string author = TrimUtf8Bytes(dto.Author, 20);
         string baseUrl = NormalizeHttpUrlOrDefault(dto.BaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl, 256).TrimEnd('/');
 
         return new SeoConfigReadModel
@@ -521,7 +520,7 @@ public partial class SystemService(
             Title = string.IsNullOrWhiteSpace(title) ? PublicSiteIdentityDefaults.SiteTitle : title,
             Description = TrimText(dto.Description, 200),
             Keywords = TrimUtf8Bytes(dto.Keywords, 256),
-            Author = string.IsNullOrWhiteSpace(author) ? PublicSiteIdentityDefaults.SiteAuthor : author,
+            Author = PublicSiteAuthorPolicy.Resolve(dto.Author),
             OgImage = NormalizeAssetUrlOrDefault(dto.OgImage, DefaultOgImage, 256),
             BaseUrl = baseUrl.Length == 0 ? PublicSiteIdentityDefaults.SiteBaseUrl : baseUrl,
             FaviconSvgUrl = NormalizeAssetUrlOrDefault(dto.FaviconSvgUrl, DefaultFaviconSvgUrl, 256),
@@ -674,36 +673,6 @@ public partial class SystemService(
         return normalized.Length > maxLength ? normalized[..maxLength] : normalized;
     }
 
-    private static string TrimUtf8Bytes(string? value, int maxBytes)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        string normalized = TextHelpers.TrimOrEmpty(value);
-        if (Encoding.UTF8.GetByteCount(normalized) <= maxBytes)
-        {
-            return normalized;
-        }
-
-        StringBuilder builder = new(normalized.Length);
-        int bytes = 0;
-        foreach (Rune rune in normalized.EnumerateRunes())
-        {
-            int runeBytes = Encoding.UTF8.GetByteCount(rune.ToString());
-            if (bytes + runeBytes > maxBytes)
-            {
-                break;
-            }
-
-            builder.Append(rune);
-            bytes += runeBytes;
-        }
-
-        return builder.ToString();
-    }
-
     private async Task InvalidatePagePublicAotAsync(string slug, string operation, string mutationId)
     {
         if (!TryResolveStaticPageKind(slug, out PublicPageKind kind))
@@ -765,7 +734,7 @@ public partial class SystemService(
             Title = GetValue(configs, KeyTitle, PublicSiteIdentityDefaults.SiteTitle),
             Description = GetValue(configs, KeyDesc, PublicSiteIdentityDefaults.SiteDescription),
             Keywords = GetValue(configs, KeyKeywords, PublicSiteIdentityDefaults.SiteKeywords),
-            Author = GetValue(configs, KeyAuthor, PublicSiteIdentityDefaults.SiteAuthor),
+            Author = GetValue(configs, PublicSiteAuthorPolicy.ConfigurationKey, PublicSiteIdentityDefaults.SiteAuthor),
             OgImage = GetDefaultAwareValue(configs, KeyOgImage, DefaultOgImage, s_retiredDefaultOgImages),
             BaseUrl = GetValue(configs, KeyBaseUrl, PublicSiteIdentityDefaults.SiteBaseUrl),
             FaviconSvgUrl = GetDefaultAwareValue(configs, KeyFaviconSvgUrl, DefaultFaviconSvgUrl, s_retiredDefaultFaviconSvgUrls),

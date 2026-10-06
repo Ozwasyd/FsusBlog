@@ -207,19 +207,21 @@ public sealed class PerceptionChallengeV2E2eTests
         private readonly SecurityChallengeProofService _proofService;
         private readonly RecordingChallengePersistence _persistence;
         private readonly ChallengeV2AuditEventQueue _auditQueue;
+        private readonly ChallengeV2Issue2040Owner _auditOwner;
 
         private PerceptionE2eFixture(
             MutableTimeProvider clock,
             SecurityChallengeOrchestrator orchestrator,
             SecurityChallengeProofService proofService,
             RecordingChallengePersistence persistence,
-            ChallengeV2AuditEventQueue auditQueue)
+            ChallengeV2Issue2040Owner auditOwner)
         {
             _clock = clock;
             _orchestrator = orchestrator;
             _proofService = proofService;
             _persistence = persistence;
-            _auditQueue = auditQueue;
+            _auditOwner = auditOwner;
+            _auditQueue = auditOwner.Queue;
         }
 
         public List<CommentCreateRecord> CreatedComments { get; } = [];
@@ -258,9 +260,8 @@ public sealed class PerceptionChallengeV2E2eTests
                 clock);
             var gate = new RecordingPerceptionRedisGate(clock);
             var riskSink = new CapturingRiskSink();
-            var auditQueue = new ChallengeV2AuditEventQueue(
-                Options.Create(new ChallengeV2EventWriterOptions { Capacity = 1024, HighValueCapacity = 128 }),
-                NullLogger<ChallengeV2AuditEventQueue>.Instance);
+            var auditOwner = new ChallengeV2Issue2040Owner(capacity: 1024, highCapacity: 128);
+            ChallengeV2AuditEventQueue auditQueue = auditOwner.Queue;
             var verifyService = new PerceptionChallengeV2VerifyService(tokenProtector, gate, riskSink, auditQueue, clock);
             var provider = new PerceptionMicroInteractionV2Provider(issueService, verifyService, configuration);
             var persistence = new RecordingChallengePersistence();
@@ -272,7 +273,7 @@ public sealed class PerceptionChallengeV2E2eTests
                 proofService,
                 riskSink,
                 envelopeStates);
-            return new PerceptionE2eFixture(clock, orchestrator, proofService, persistence, auditQueue);
+            return new PerceptionE2eFixture(clock, orchestrator, proofService, persistence, auditOwner);
         }
 
         public void Advance(TimeSpan value) => _clock.Advance(value);
@@ -408,6 +409,7 @@ public sealed class PerceptionChallengeV2E2eTests
         public void Dispose()
         {
             _persistence.Dispose();
+            _auditOwner.Dispose();
         }
 
         private static RiskDecision CreateDecision()

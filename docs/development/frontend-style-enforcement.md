@@ -14,6 +14,13 @@ The covered source sets are:
 - `tools/**/*.mjs` and `tests/**/*.mjs` for Node tooling;
 - generated, public artifacts, vendored dependencies, minified files and intentional fixture directories only through explicit policy exclusions.
 
+The suite-convergence test keeps its canonical `tests/tools/` path and consumes
+the three governance module exports from the private local `tools/` package.
+`tests/tools/package-lock.json` binds that file dependency. Before running this
+test or the static-governance Node contracts directly in a fresh checkout, run
+`npm --prefix tests/tools ci --ignore-scripts --no-audit`; the generated
+`node_modules` link is not source or an acceptance artifact.
+
 Run the changed-file gate from the frontend package:
 
 ```bash
@@ -52,6 +59,34 @@ node tools/frontend/check-frontend-style.mjs --mode full
 ```bash
 node tools/frontend/check-frontend-style.mjs --mode strict-full
 ```
+
+Baseline exemptions additionally require all three whole-repository bindings to match:
+the current configuration digest (including the Node runtime), current source-state
+digest, and `generatedFrom` equal to `source-state:<current source-state digest>`.
+Any mismatch invalidates **all** exemptions, not merely the selected file's allowance.
+The mode boundaries are:
+
+- `full` rejects each stale binding explicitly: `baseline configuration digest is
+  stale`, `baseline source-state digest is stale`, and `baseline generatedFrom does
+  not match the current source-state digest`. All mismatches and all selected ESLint
+  and Stylelint findings are aggregated; a clean zero-debt source set still cannot
+  certify a stale full-scan baseline. `--file` limits lint selection, not binding scope.
+- `changed` applies only valid unchanged-file exemptions. Binding drift removes all
+  exemptions but is not itself a global history failure: clean selected source may
+  pass, and every selected file-level finding remains visible.
+- `strict-full` never applies exemptions. Binding drift is not an additional history
+  failure; clean selected source may pass, and all selected debt remains visible.
+- `--update-baseline` runs the separate updater rather than these scan-time binding
+  diagnostics. Source-state and `generatedFrom` are refreshed only after its existing
+  debt/path/identity and reviewed-authority checks succeed. Configuration migration
+  still requires the exact prior digest authorization described below. This mode does
+  not authorize new debt, count increases, equal-count diagnostic replacement, or
+  candidate-authored correction/residual authority.
+
+Missing baselines grant no exemptions. Existing malformed schema/JSON diagnostics and
+configuration/governance validation remain enforced in every mode; the mode boundary
+above does not suppress them. None of these checks promotes a candidate's policy or
+baseline to trusted authority.
 
 Regenerate a reviewed baseline without changing source:
 
@@ -102,6 +137,13 @@ only and never authorize a violation identity replacement or a new baseline path
 The runner refuses a repository-wide `--fix`. `npm --prefix src/frontend run format:fix` fixes changed files only, and AST fixers must be idempotent. ESLint uses a content cache under ignored `.tmp/frontend-style/` so unchanged work is resumed rather than parsed repeatedly.
 
 ## Governance preservation
+
+The pure receipt validator `tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs`
+retains its literal `../fact-extractors/lib/canonicalize.mjs` dependency. The named
+rule-registry exception applies only to that file and specifier. Other files,
+other specifiers and equivalent path aliases retain parent-import rejection.
+The pure dependency firewall remains mandatory and unchanged; this style mapping
+does not authorize filesystem, execution, Markdown or DocClaim capabilities.
 
 The policy pins the count, ID digest and definition digest of all existing `check:*` scripts. Generic lint is additive: a change that removes or rewrites an AEDS, security, privacy, accessibility, UI or performance command fails before linting. Every new generic rule has an owner, source scope and fixability in the rule registry.
 

@@ -68,6 +68,7 @@
             "required": [
                 "backend",
                 "frontend",
+                "mysql",
                 "postgres",
                 "preview",
                 "redis"
@@ -78,6 +79,9 @@
                 },
                 "frontend": {
                     "$ref": "#/$defs/processService"
+                },
+                "mysql": {
+                    "$ref": "#/$defs/mysqlService"
                 },
                 "postgres": {
                     "$ref": "#/$defs/postgresService"
@@ -160,6 +164,125 @@
                         "networkMode",
                         "ports",
                         "resourceLimits"
+                    ]
+                }
+            },
+            "additionalProperties": false
+        },
+        "mysqlService": {
+            "type": "object",
+            "required": [
+                "kind",
+                "imageReference",
+                "version",
+                "databaseIdentityAuthority",
+                "username",
+                "clientOptionsFile",
+                "resourceGrant",
+                "lifecycleBudgets",
+                "versionCommand",
+                "hostNativeAllowed",
+                "requiredIdentityFields"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "container"
+                },
+                "imageReference": {
+                    "type": "string",
+                    "pattern": "^[a-z0-9./_-]+@sha256:[a-f0-9]{64}$"
+                },
+                "version": {
+                    "const": "8.4.11"
+                },
+                "databaseIdentityAuthority": {
+                    "const": "mysql-server-uuid-exact"
+                },
+                "username": {
+                    "const": "fixture_user"
+                },
+                "clientOptionsFile": {
+                    "const": "/run/fsusblog-mysql/client.cnf"
+                },
+                "resourceGrant": {
+                    "type": "object",
+                    "required": [
+                        "cpuUnits",
+                        "memoryHighBytes",
+                        "memoryMaxBytes",
+                        "pidsMax"
+                    ],
+                    "properties": {
+                        "cpuUnits": {
+                            "type": "number",
+                            "minimum": 0.25,
+                            "maximum": 2
+                        },
+                        "memoryHighBytes": {
+                            "type": "integer",
+                            "minimum": 268435456,
+                            "maximum": 1073741824
+                        },
+                        "memoryMaxBytes": {
+                            "type": "integer",
+                            "minimum": 268435456,
+                            "maximum": 1610612736
+                        },
+                        "pidsMax": {
+                            "type": "integer",
+                            "minimum": 64,
+                            "maximum": 512
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "lifecycleBudgets": {
+                    "type": "object",
+                    "required": [
+                        "startupMs",
+                        "commandMs",
+                        "cleanupMs"
+                    ],
+                    "properties": {
+                        "startupMs": {
+                            "type": "integer",
+                            "minimum": 1000,
+                            "maximum": 300000
+                        },
+                        "commandMs": {
+                            "type": "integer",
+                            "minimum": 1000,
+                            "maximum": 60000
+                        },
+                        "cleanupMs": {
+                            "type": "integer",
+                            "minimum": 1000,
+                            "maximum": 180000
+                        }
+                    },
+                    "additionalProperties": false
+                },
+                "versionCommand": {
+                    "const": [
+                        "mysql",
+                        "--version"
+                    ]
+                },
+                "hostNativeAllowed": {
+                    "const": false
+                },
+                "requiredIdentityFields": {
+                    "const": [
+                        "containerId",
+                        "imageReference",
+                        "imageId",
+                        "repositoryDigest",
+                        "serviceVersion",
+                        "networkMode",
+                        "ports",
+                        "resourceLimits",
+                        "databaseIdentity",
+                        "ownership"
                     ]
                 }
             },

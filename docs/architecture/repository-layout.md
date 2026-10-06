@@ -32,6 +32,8 @@ For the complete classification, runtime paths, and fallback constraints, see
 
 `src/shared/Contracts/` is the sole product-source root for cross-stack contracts. Handwritten security-protocol JSON lives in `src/shared/Contracts/Validation/Security/`, and cross-language generators live in `tools/contracts/`; generated C# and TypeScript consumers may live in Shared and frontend, but cannot become authorities. Root `contracts/security/` and `tools/frontend/` do not hold cross-stack security-protocol source or generators.
 
+The fact-extractor runner supplies its canonical JSON digest and the admission owner's minimal-build receipt validator as explicit execution capabilities. The OpenAPI extractor requires them instead of importing parent governance modules. Its standalone producer and reader seal the runner and canonicalization source; canonical admission retains the run-relative receipt and independently verifies both cached and published observation/projection bytes. Missing capabilities or canonical cache reuse fail closed and never select the standalone receipt.
+
 Content-lifecycle document exactness reuses the existing ownership of
 `config/contracts/behavior-contracts.json`, `config/contracts/document-claim-migration-ledger.json`,
 and `config/contracts/generated-fact-sections.json`. `tools/docs/content-doc-exactness.mjs`
@@ -39,7 +41,35 @@ only produces current-run mutation/terminal receipts and independently verifies 
 
 ## Schema migration ownership
 
-`src/migration/` belongs to the independent `FsusBlog.Migration` project: legacy descriptors, catalogs, checksum/history, typed provider DDL, and migration-only conversion rows compile only there and in `tests/migration/`. The project also builds as an `Exe` offline-migration host, and `tools/db/run-online-migrations.sh` with `--server-dll` points to its output. `OfflineMigrationCatalogEntries.generated.cs` is derived from the Server-side `OnlineSchemaMigrationCatalog` by `tools/db/generate-offline-migration-catalog.mjs`; `tools/db/check-offline-migration-catalog-parity.mjs` prevents drift. `src/backend/Infrastructure/SchemaMigration/` retains only current-schema authority/inspector, fail-closed startup verifier, lock, and business-backfill handlers; the Server production graph must not reference the Migration assembly. The machine-readable file/symbol inventory and content digest are at `artifacts/schema-migration/migration-assembly-receipt.json`.
+`src/migration/` belongs to the independent `FsusBlog.Migration` project: legacy descriptors, catalogs, checksum/history, typed provider DDL, and migration-only conversion rows compile only there and in `tests/migration/`. The project also builds as an `Exe` offline-migration host, and `tools/db/run-online-migrations.sh` with `--server-dll` points to its output. `OfflineMigrationCatalogEntries.generated.cs` is derived from Migration-owned `OfflineMigrationClassificationFacts.cs` by `tools/db/generate-offline-migration-catalog.mjs`; `tools/db/check-offline-migration-catalog-parity.mjs` prevents drift. `src/shared/Contracts/Schema/` owns the single neutral current-schema description, identity/generation/projection/comparison and complete typed recipe-effect/owned-target contracts; it contains no provider SQL templates or legacy input. `src/backend/Infrastructure/SchemaMigration/` retains the current entity extractor/inspector, current-owned PostgreSQL recipes, their single fact extractor and read-only projection/artifact exporter, fail-closed startup verifier, lock, and business-backfill handlers; the Server production graph must not reference the Migration assembly. Migration's bootstrap compiler consumes independently bound neutral current facts, not Server code or a second handwritten current field mapping. Same-transaction observation, original apply/journal integration, actual owned export and native three-provider qualification remain pending; unknown capabilities fail closed and this source component does not qualify as full bootstrap. The machine-readable file/symbol inventory and content digest are at `artifacts/schema-migration/migration-assembly-receipt.json`.
+
+`src/shared/Algorithms/Schema/` owns the single current-only PostgreSQL native catalog,
+expression/effect reader and comparer. Its connection boundary is the BCL
+`DbConnection`/`DbTransaction`; it has no provider package, Server/Migration dependency,
+legacy mapping or journal payload/history validation. Server and Migration consume
+the same measurement/comparison implementation. Migration retains its original
+owned-artifact and full journal-chain validation wrapper. The sole neutral
+`CurrentSchemaControlShape` describes the current apply journal's seven columns,
+four constraints and native backing indexes. The current-only
+`PgCurrentSchemaControlShape` renders that shape for original offline Core and
+test-only materialization and delegates native shape validation to the same
+catalog/effect comparer; production Server never creates it.
+Server derives the composite target
+from its sole entity extractor, original recipe fact extractor and these control
+facts, then reads all
+native schema effects on one read-only snapshot. Unknown control tables are not
+admitted by name. A same-name malformed journal refuses, and Server never parses
+its history or payload. The persistent journal is part of the versioned current
+physical closure, not a terminal cleanup exception; complete chain/resume remain
+offline-only. Native qualification is still separate pending work.
+
+Within Migration, `PgLegacyNonArticlePreparation` reuses the original account-subject
+hasher and the bootstrap compiler's entity-default interpretation. Their callers do
+not own another hash algorithm or SQL-default policy. Article preservation binds
+its target predicate and the actual retained current-schema target separately in
+its operation identity, following the existing native bootstrap owner. Compiling
+these original sources does not qualify native preservation, recovery or bootstrap
+acceptance.
 
 ## Configuration ownership
 
@@ -48,6 +78,12 @@ Shared runtime, test, and observability configuration belongs in `config/`; only
 The Change Contract post-merge generated-repair schema is `config/schemas/post-merge-generated-output-repair.schema.json`, explicitly registered by `config/configuration-ownership.json`; the producer allowlist exists only in the trusted `tools/governance/change-contract-registry.mjs` and cannot be inferred from historical directories, mtime, or the newest file. Multi-step repairs with dependencies use `config/schemas/post-merge-generated-output-repair-dag.schema.json`; its trusted registry seals the sole canonical repair and external-naming manifest paths, ordered steps, generator closure, dependency consumption, and complete output ownership, so a v1 single-producer manifest, arbitrary evidence path, or unregistered command cannot substitute. If a merged PR omitted declared external-naming evidence, `config/schemas/post-merge-external-naming-evidence-repair.schema.json` binds the original PR's exact base/head/merge, unchanged source blob/revision, registered surface, and missing artifact digest; an ordinary external-naming manifest must still change with its affected source, and repair may not rewrite source.
 
 Release Reliability separates scenario and action authorities: `config/testing/release-reliability-scenario-catalog.json` owns the exact-seven scenarios, command semantics, environment contract, and structured lifecycle-action references; `config/testing/release-reliability-lifecycle-action-registry.json` alone owns the 35 actions' process calls, timeouts, receipts, state domains, and failure-safe cleanup contract, whose JSON Schema is `config/schemas/release-reliability-lifecycle-action-registry.schema.json`. `config/testing/runtime-state-domain-registry.json` is the closed-world action-state vocabulary. `config/testing/physical-execution-process-policy.json` alone owns tree termination, bounded pipe close, and consecutive zero-member observation, not registry action timeouts. `tools/test/release-reliability-lifecycle-actions.mjs` loads the contract and is the sole outer executor via `tools/test/physical-execution-process-tree.mjs`; it runs each action and seals a process-tree receipt. `tools/test/release-reliability-lifecycle.mjs` only executes actions/observes real state, while `tools/test/verify-release-reliability-lifecycle-action.mjs` independently rereads the raw receipt. Soak/load/data-scale/mutation/resource lanes do not own lifecycle receipts and cannot self-certify precondition, reset, or postcondition. A data-scale lane measures only the fixture/runtime prepared by its dedicated runtime owner; its seed and teardown remain with their respective owner authorities.
+
+The backend inventory's sealed-history repair schema is `config/schemas/post-merge-generated-output-history-repair.schema.json`.
+The trusted change-contract registry owns its exact history, six-file producer closure, canonical manifest/output and policy roster;
+`tools/governance/generated-output-history-repair-v3.mjs` validates that contract through the existing isolated Git/replay adapter.
+Its metadata preparation command does not approve historical provenance or qualify producer execution. See the
+[change contract](../development/change-contract.md#pull-request-contract) for independent bootstrap and repair boundaries.
 
 ## Operations ownership
 
@@ -79,6 +115,27 @@ materializer domain digest 是稳定 cache key，raw progress 另行证明无关
 restore/compile/publish vertex 命中真实 BuildKit cache，backend/MSBuild 输入变化则 miss；
 实际 SDK image 与 root-context witness 还会双向证明 `.env` 等无关文件存在于 build
 context 但没有进入 `/src`。
+
+`backend-docker-inputs.v2` 在同一 inventory 中另列独立 Migration entry root；仅显式
+`--tool migration` 才求值和物化 `migration/restore`、`migration/compile`、
+`migration/publish`。该根复用同一个真实 MSBuild evaluator、隔离环境与 item/import
+核对，Server 的 project graph、三个输入 domain 和默认 final target 不含 Migration。
+`current-native-task` 是 local-only、禁止 registry push 的 task image target：从 final
+继承原 Server entrypoint，只把独立、非 single-file 的 Migration publish 放到
+`/app/tools/migration`。原 build producer 观察实际 image ID 与该目录全部 regular file
+字节，生成 `fsusblog.current-native-task-tool-image.v1` 绑定 assembly、deps、runtimeconfig
+及其余 publish artifacts；缺文件、symlink、错误 source/profile 或不完整测量均拒绝。
+这不是生产 release manifest、current receipt 或 native capability。Publish DLL 本身
+不安装 sealed Host 的四个 owned factory，默认 Host 缺能力仍拒绝；实际编译、image
+measurement、配置组合与三 provider qualification 各自仍须原执行验收。
+Migration 根的四个 retained-reader EmbeddedResource 另以 exact path/LogicalName
+登记在该根，不扩展 Server external items 或整个 tools subtree。原 item evaluator
+必须在 Migration 项目两次真实 profile observation 中看到完整、无重复的四个
+EmbeddedResource；名字漂移、不同 item/project owner、额外复制语义、缺文件及
+symlink source 均拒绝。四份源字节进入同一 selected-input 前后观察与 compile
+domain；唯一原 retained-input producer 源按原 owner 移交，未执行或改写其产物。
+这些嵌入资源只提供原读取算法，不替代 current-target producer，也不授予 Host
+的 source、backup、tool、operation capabilities 或配置组合。
 
 闭包测试的唯一 physical owner 是 lifecycle registry 中的
 `backend-docker-input-closure` real-subprocess entry，由 matrix 的 `static-governance`

@@ -1,5 +1,3 @@
-using System.Threading.Channels;
-
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Shared.Contracts.Security;
@@ -16,18 +14,11 @@ public sealed class ChallengeV2EventWriterTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
-    public async Task WriteAsync_DropsLowValueTelemetryWhenNormalQueueIsFullButKeepsReplayEvent()
+    public async Task WriteAsync_ProtectsLowValueOverflowAndKeepsReplayPriority()
     {
         var logger = new CapturingLogger<ChallengeV2AuditEventQueue>();
-        var queue = new ChallengeV2AuditEventQueue(
-            Options.Create(new ChallengeV2EventWriterOptions
-            {
-                Capacity = 1,
-                HighValueCapacity = 1,
-                BatchSize = 8,
-                FlushWindowMs = 10
-            }),
-            logger);
+        using var owner = new ChallengeV2Issue2040Owner(capacity: 1, logger: logger);
+        ChallengeV2AuditEventQueue queue = owner.Queue;
 
         await queue.WriteAsync(CreateEvent("low-1", SecurityChallengeAttemptOutcomes.Verified), CancellationToken.None);
         await queue.WriteAsync(CreateEvent("low-2", SecurityChallengeAttemptOutcomes.Verified), CancellationToken.None);
@@ -36,9 +27,13 @@ public sealed class ChallengeV2EventWriterTests
         ChallengeV2AuditEventQueueSnapshot snapshot = queue.Snapshot();
         Assert.Equal(1, snapshot.NormalQueuedCount);
         Assert.Equal(1, snapshot.HighValueQueuedCount);
-        Assert.Equal(1, snapshot.DroppedLowValueCount);
+        Assert.Equal(0, snapshot.DroppedLowValueCount);
+        Assert.Equal(1, snapshot.DurablePendingCount);
+        Assert.Equal(3, snapshot.DurableAcceptedCount);
+        Assert.Empty(owner.Recording!.Attempts);
+        Assert.Equal(3, Directory.GetFiles(owner.Root, "*.json", SearchOption.AllDirectories).Length);
         Assert.Equal(0, snapshot.DroppedHighValueCount);
-        Assert.Contains(logger.Messages, static message => message.Contains("challenge-v2-audit-event-dropped", StringComparison.Ordinal));
+        Assert.DoesNotContain(logger.Messages, static message => message.Contains("low-2", StringComparison.Ordinal));
 
         Assert.True(queue.TryRead(out ChallengeV2AuditEvent? replay));
         Assert.NotNull(replay);
@@ -50,22 +45,9 @@ public sealed class ChallengeV2EventWriterTests
     public async Task FlushOnceAsync_WritesQueuedAttemptsInConfiguredBatches()
     {
         var persistence = new RecordingChallengePersistence();
-        await using ServiceProvider provider = new ServiceCollection()
-            .AddScoped<ISecurityChallengePersistenceService>(_ => persistence)
-            .BuildServiceProvider(new ServiceProviderOptions
-            {
-                ValidateScopes = true,
-                ValidateOnBuild = true
-            });
-        var queue = new ChallengeV2AuditEventQueue(
-            Options.Create(new ChallengeV2EventWriterOptions
-            {
-                Capacity = 8,
-                HighValueCapacity = 8,
-                BatchSize = 2,
-                FlushWindowMs = 10
-            }),
-            new CapturingLogger<ChallengeV2AuditEventQueue>());
+        using var owner = new ChallengeV2Issue2040Owner(capacity: 8, persistence: persistence);
+        ServiceProvider provider = owner.Provider;
+        ChallengeV2AuditEventQueue queue = owner.Queue;
         var worker = new ChallengeV2AuditEventWriterWorker(
             queue,
             provider.GetRequiredService<IServiceScopeFactory>(),
@@ -86,29 +68,25 @@ public sealed class ChallengeV2EventWriterTests
     }
 
     [Fact]
-    public async Task WriteAsync_LogsStructuredFallbackWhenHighValueLaneIsFull()
+    public async Task WriteAsync_ProtectsHighValueOverflowWithoutPayloadDiagnostics()
     {
         var logger = new CapturingLogger<ChallengeV2AuditEventQueue>();
-        var queue = new ChallengeV2AuditEventQueue(
-            Options.Create(new ChallengeV2EventWriterOptions
-            {
-                Capacity = 1,
-                HighValueCapacity = 1,
-                BatchSize = 8,
-                FlushWindowMs = 10
-            }),
-            logger);
+        using var owner = new ChallengeV2Issue2040Owner(capacity: 1, logger: logger);
+        ChallengeV2AuditEventQueue queue = owner.Queue;
 
         await queue.WriteAsync(CreateEvent("replay-1", SecurityChallengeAttemptOutcomes.Replayed, "perception_replayed"), CancellationToken.None);
         await queue.WriteAsync(CreateEvent("replay-2", SecurityChallengeAttemptOutcomes.Replayed, "perception_replayed"), CancellationToken.None);
 
         ChallengeV2AuditEventQueueSnapshot snapshot = queue.Snapshot();
         Assert.Equal(1, snapshot.HighValueQueuedCount);
-        Assert.Equal(1, snapshot.DroppedHighValueCount);
-        Assert.Contains(logger.Messages, static message =>
-            message.Contains("challenge-v2-audit-event-fallback", StringComparison.Ordinal) &&
-            message.Contains("replay-2", StringComparison.Ordinal) &&
-            message.Contains("perception_replayed", StringComparison.Ordinal));
+        Assert.Equal(0, snapshot.DroppedHighValueCount);
+        Assert.Equal(1, snapshot.DurablePendingCount);
+        Assert.Equal(2, snapshot.DurableAcceptedCount);
+        Assert.Empty(owner.Recording!.Attempts);
+        Assert.Equal(2, Directory.GetFiles(owner.Root, "*.json", SearchOption.AllDirectories).Length);
+        Assert.DoesNotContain(logger.Messages, static message =>
+            message.Contains("replay-2", StringComparison.Ordinal)
+            || message.Contains("perception_replayed", StringComparison.Ordinal));
     }
 
     private static ChallengeV2AuditEvent CreateEvent(string challengeId, string outcome, string? reason = null)
@@ -137,19 +115,7 @@ public sealed class ChallengeV2EventWriterTests
         public Task<SecurityChallengeAttempt> RecordAttemptAsync(SecurityChallengeAttemptRequest request, CancellationToken cancellationToken = default)
         {
             Attempts.Add(request);
-            return Task.FromResult(new SecurityChallengeAttempt
-            {
-                AttemptId = Guid.NewGuid().ToString("N"),
-                ChallengeId = request.ChallengeId,
-                Outcome = request.Outcome,
-                Reason = request.Reason,
-                PayloadHash = request.PayloadHash,
-                ClientIpHash = request.ClientIpHash,
-                DeviceFpHash = request.DeviceFpHash,
-                TraceId = request.TraceId,
-                Traceparent = request.Traceparent,
-                AttemptedAtUtc = request.AttemptedAtUtc ?? DateTime.UtcNow
-            });
+            return Task.FromResult(ChallengeV2DurableDelivery.GetRequired(request).ToEntity());
         }
 
         public Task<bool> ExpireAsync(string challengeId, string? reason = null, CancellationToken cancellationToken = default)

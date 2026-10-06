@@ -14,50 +14,64 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { xunitTestProjects } from './adapters.mjs';
 import { DEFAULT_ARTIFACT_PATH, isInventoryStale } from './api.mjs';
-import { canonicalStringify, discoverTestInventory } from './discovery.mjs';
+import { canonicalStringify, discoverTestInventory, requireXunitConfiguration } from './discovery.mjs';
 import { validateInventoryArtifact } from './schema.mjs';
-import { xunitProjects } from './xunit-projects.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
-function prepareXunitCompileContext(testProject)
+function prepareXunitCompileContext(configuration)
 {
-    const result = spawnSync(
-        'dotnet',
-        [
-            'build',
-            path.join(root, testProject),
-            '--configuration',
-            'Debug',
-            '--nologo',
-            '--verbosity',
-            'quiet'
-        ],
-        { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
-    );
-    if (result.status !== 0)
+    for (const { project } of xunitTestProjects)
     {
-        const detail = String(result.stderr || result.stdout || result.error?.message || '')
-            .trim()
-            .split(/\r?\n/u)
-            .slice(-20)
-            .join('\n');
-        throw new Error(
-            `canonical xUnit compile context build failed for ${testProject} (exit ${result.status ?? 'spawn'}): ${detail}`
+        const result = spawnSync(
+            'dotnet',
+            [
+                'build',
+                path.join(root, project),
+                '--configuration',
+                configuration,
+                '--nologo',
+                '--verbosity',
+                'quiet'
+            ],
+            { cwd: root, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }
         );
+        if (result.status !== 0)
+        {
+            const detail = String(result.stderr || result.stdout || result.error?.message || '')
+                .trim()
+                .split(/\r?\n/u)
+                .slice(-20)
+                .join('\n');
+            throw new Error(
+                `canonical xUnit compile context build failed for ${project} (exit ${result.status ?? 'spawn'}): ${detail}`
+            );
+        }
     }
 }
 
-function parseArgs(argv)
+export function parseInventoryArguments(argv)
 {
-    const options = { check: false, out: path.join(root, DEFAULT_ARTIFACT_PATH) };
+    const options = { check: false, out: path.join(root, DEFAULT_ARTIFACT_PATH), configuration: 'Debug', help: false };
+    let configurationSeen = false;
     for (let index = 0; index < argv.length; index += 1)
     {
         const arg = argv[index];
         if (arg === '--check')
         {
             options.check = true;
+        }
+        else if (arg === '--configuration')
+        {
+            if (configurationSeen)
+            {
+                throw new Error('duplicate --configuration argument');
+            }
+            configurationSeen = true;
+            options.configuration = requireXunitConfiguration(argv[index + 1] ?? '');
+            index += 1;
         }
         else if (arg === '--out')
         {
@@ -66,8 +80,7 @@ function parseArgs(argv)
         }
         else if (arg === '--help' || arg === '-h')
         {
-            console.log('Usage: node tools/test-inventory/produce.mjs [--check] [--out <path>]');
-            process.exit(0);
+            options.help = true;
         }
         else
         {
@@ -85,12 +98,14 @@ function writeArtifact(artifact, out)
 
 function run()
 {
-    const options = parseArgs(process.argv.slice(2));
-    for (const owner of xunitProjects)
+    const options = parseInventoryArguments(process.argv.slice(2));
+    if (options.help)
     {
-        prepareXunitCompileContext(owner.project);
+        console.log('Usage: node tools/test-inventory/produce.mjs [--check] [--out <path>] [--configuration Debug|Release]');
+        return;
     }
-    const artifact = discoverTestInventory(root);
+    prepareXunitCompileContext(options.configuration);
+    const artifact = discoverTestInventory(root, { configuration: options.configuration });
     validateInventoryArtifact(artifact);
 
     if (options.check)
@@ -101,7 +116,7 @@ function run()
         }
         const stored = JSON.parse(readFileSync(options.out, 'utf8'));
         validateInventoryArtifact(stored);
-        const stale = isInventoryStale(root, stored);
+        const stale = isInventoryStale(root, stored, { configuration: options.configuration });
         if (stale.stale)
         {
             throw new Error(`test inventory --check failed: ${stale.reason}`);
@@ -120,12 +135,15 @@ function run()
     console.log(`[test-inventory] wrote ${options.out} files=${artifact.sourceFiles.length} cases=${artifact.testCases.length} digest=${artifact.inventoryDigest}`);
 }
 
-try
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    run();
-}
-catch (error)
-{
-    console.error(`[test-inventory] ${error.message}`);
-    process.exit(1);
+    try
+    {
+        run();
+    }
+    catch (error)
+    {
+        console.error(`[test-inventory] ${error.message}`);
+        process.exit(1);
+    }
 }

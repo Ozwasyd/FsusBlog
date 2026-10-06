@@ -73,8 +73,9 @@ public sealed class AuthoringCanvasOperationEngine(
                 state.Apply(after);
                 finalFacts[new FactKey(after.Kind, after.Id)] = after;
             }
+            // Journal replay validates complete commands, not only the final batch projection.
+            state.ValidateGlobal();
         }
-        state.ValidateGlobal();
 
         AuthoringCanvasOperationFact[] forwardFacts = finalFacts
             .OrderBy(static pair => pair.Key.Kind)

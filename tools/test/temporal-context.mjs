@@ -1,4 +1,3 @@
-import { createHash } from 'node:crypto';
 import { lstatSync, readFileSync, realpathSync, statSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,123 +5,70 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const policyPath = path.join(repositoryRoot, 'config/testing/temporal-policy.json');
 const ledgerPath = path.join(repositoryRoot, 'config/testing/temporal-callsite-dispositions.json');
-const policy = JSON.parse(readFileSync(policyPath, 'utf8'));
+function readTemporalPolicy()
+{
+    return JSON.parse(readFileSync(immutableRegularFile(path.relative(repositoryRoot, policyPath), 'temporal policy'), 'utf8'));
+}
 
-export const TEMPORAL_CONTEXT_SCHEMA = 'fsusblog.test-temporal-context.v1';
-export const TEMPORAL_PLAN_SCHEMA = 'fsusblog.test-temporal-plan.v1';
-export const TEMPORAL_ACTUAL_SCHEMA = 'fsusblog.test-temporal-actual.v1';
-export const TEMPORAL_RECEIPT_SCHEMA = 'fsusblog.test-temporal-receipt.v1';
-export const TEMPORAL_LEDGER_SCHEMA = 'fsusblog.temporal-callsite-ledger.v1';
+const policy = readTemporalPolicy();
+
+
+import {
+    TEMPORAL_CONTEXT_SCHEMA,
+    TEMPORAL_PLAN_SCHEMA,
+    TEMPORAL_ACTUAL_SCHEMA,
+    TEMPORAL_RECEIPT_SCHEMA,
+    sha256,
+    digestCanonical,
+    assertMonotonicMeasurementSource,
+    createTemporalContract,
+    fail,
+    plainObject,
+    requiredText,
+    requireBusinessEpochObservation,
+    validateBusinessEpochUtc
+} from './temporal-context-contract.mjs';
+
+export {
+    TEMPORAL_CONTEXT_SCHEMA,
+    TEMPORAL_PLAN_SCHEMA,
+    TEMPORAL_ACTUAL_SCHEMA,
+    TEMPORAL_RECEIPT_SCHEMA,
+    TEMPORAL_LEDGER_SCHEMA,
+    TemporalContractError,
+    canonicalJson,
+    sha256,
+    digestCanonical,
+    assertMonotonicMeasurementSource
+} from './temporal-context-contract.mjs';
 
 export const temporalClockKinds = Object.freeze([...policy.clockKinds]);
 export const temporalAuthorityKinds = Object.freeze([...policy.authorityKinds]);
 export const temporalReasonCodes = Object.freeze([...policy.reasonCodes]);
 
-const contextFields = Object.freeze([
-    'sourceCommit',
-    'sourceFingerprint',
-    'producerId',
-    'schedulerRunId',
-    'businessEpochUtc',
-    'businessClockMode',
-    'businessClockStepPolicy',
-    'timezone',
-    'locale',
-    'uiLocale',
-    'backendCulture',
-    'postgresTimezone',
-    'nodeTimezone',
-    'calendar',
-    'firstDayOfWeek',
-    'monotonicClockSource',
-    'timeoutPolicyDigest',
-    'temporalPolicyDigest',
-    'ledgerSource'
-]);
-
-const unresolvedDispositions = new Set(['unknown', 'requires-explicit']);
-
-export class TemporalContractError extends Error
+export function readTemporalReplayAuthority()
 {
-    constructor(reasonCode, message, details = {})
-    {
-        super(`${reasonCode}: ${message}`);
-        this.name = 'TemporalContractError';
-        this.reasonCode = reasonCode;
-        this.details = details;
-    }
+    return { policy: readTemporalPolicy(), ledger: readTemporalLedger() };
 }
 
-function fail(reasonCode, message, details)
+export function validateTemporalLedgerDocument(document)
 {
-    throw new TemporalContractError(reasonCode, message, details);
+    return createTemporalContract({ policy: readTemporalPolicy() }).validateTemporalLedgerDocument(document);
 }
 
-function plainObject(value)
+export function validateTemporalContext(value, options)
 {
-    return value !== null && typeof value === 'object' && !Array.isArray(value);
+    return createTemporalContract(readTemporalReplayAuthority()).validateTemporalContext(value, options);
 }
 
-export function canonicalJson(value)
+export function validateTemporalObservations(context, observations)
 {
-    if (Array.isArray(value))
-    {
-        return `[${value.map(canonicalJson).join(',')}]`;
-    }
-    if (plainObject(value))
-    {
-        return `{${Object.keys(value).sort().map((key) => `${JSON.stringify(key)}:${canonicalJson(value[key])}`).join(',')}}`;
-    }
-    return JSON.stringify(value);
+    return createTemporalContract(readTemporalReplayAuthority()).validateTemporalObservations(context, observations);
 }
 
-export function sha256(value)
+export function verifyTemporalReplay(binding)
 {
-    return `sha256:${createHash('sha256').update(value).digest('hex')}`;
-}
-
-export function digestCanonical(value)
-{
-    return sha256(canonicalJson(value));
-}
-
-function requiredText(value, field, reasonCode = 'temporal.context-invalid')
-{
-    if (typeof value !== 'string' || !value.trim())
-    {
-        fail(reasonCode, `${field} is required`);
-    }
-    return value.trim();
-}
-
-function exactEnum(value, allowed, field)
-{
-    if (!allowed.includes(value))
-    {
-        fail('temporal.context-invalid', `${field} is not a stable enum value`, { field, value });
-    }
-    return value;
-}
-
-function validateDigest(value, field)
-{
-    const normalized = requiredText(value, field);
-    if (!/^sha256:[0-9a-f]{64}$/u.test(normalized))
-    {
-        fail('temporal.context-invalid', `${field} must be a sha256 digest`);
-    }
-    return normalized;
-}
-
-function validateEpoch(value)
-{
-    const epoch = requiredText(value, 'businessEpochUtc');
-    if (!/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,7})?Z$/u.test(epoch)
-      || !Number.isFinite(Date.parse(epoch)))
-    {
-        fail('temporal.context-invalid', 'businessEpochUtc must be an RFC3339 UTC instant');
-    }
-    return epoch;
+    return createTemporalContract(readTemporalReplayAuthority()).verifyTemporalReplay(binding);
 }
 
 function immutableRegularFile(file, label)
@@ -146,42 +92,6 @@ function immutableRegularFile(file, label)
     return realFile;
 }
 
-export function validateTemporalLedgerDocument(document)
-{
-    if (document.schema !== TEMPORAL_LEDGER_SCHEMA || document.authorityKind !== 'immutable-ledger'
-      || !Array.isArray(document.governedSources) || !Array.isArray(document.entries))
-    {
-        fail('temporal.ledger-source-mismatch', 'temporal ledger header is invalid');
-    }
-    const ids = new Set();
-    for (const entry of document.entries)
-    {
-        const callSiteId = requiredText(entry?.callSiteId, 'callSiteId');
-        if (ids.has(callSiteId))
-        {
-            fail('temporal.ledger-source-mismatch', `duplicate call-site ID: ${callSiteId}`);
-        }
-        ids.add(callSiteId);
-        requiredText(entry.path, `${callSiteId}.path`);
-        requiredText(entry.symbol, `${callSiteId}.symbol`);
-        requiredText(entry.sourceAnchor, `${callSiteId}.sourceAnchor`);
-        requiredText(entry.api, `${callSiteId}.api`);
-        exactEnum(entry.clockKind, policy.clockKinds, `${callSiteId}.clockKind`);
-        exactEnum(entry.authorityKind, policy.authorityKinds, `${callSiteId}.authorityKind`);
-        exactEnum(entry.disposition, policy.dispositions, `${callSiteId}.disposition`);
-        if (!['included', 'excluded'].includes(entry.semanticEffect))
-        {
-            fail('temporal.ledger-source-mismatch', `${callSiteId}.semanticEffect is invalid`);
-        }
-        if (!['canonical-injected', 'runtime-monotonic', 'artifact-only', 'operability-only'].includes(entry.ingress))
-        {
-            fail('temporal.ledger-source-mismatch', `${callSiteId}.ingress is invalid`);
-        }
-    }
-    const unresolved = document.entries.filter((entry) => unresolvedDispositions.has(entry.disposition));
-    return { document, unresolved };
-}
-
 export function readTemporalLedger(file = ledgerPath)
 {
     const resolved = immutableRegularFile(path.relative(repositoryRoot, file), 'temporal ledger');
@@ -195,105 +105,14 @@ export function readTemporalLedger(file = ledgerPath)
     };
 }
 
-export function validateTemporalContext(value, { requireQualificationDefaults = true } = {})
-{
-    if (!plainObject(value))
-    {
-        fail('temporal.context-missing', 'temporal context is required');
-    }
-    if (value.schema !== TEMPORAL_CONTEXT_SCHEMA)
-    {
-        fail('temporal.context-invalid', 'temporal context schema is invalid');
-    }
-    const normalized = { schema: TEMPORAL_CONTEXT_SCHEMA };
-    for (const field of contextFields)
-    {
-        if (!(field in value))
-        {
-            fail('temporal.context-invalid', `${field} is required`);
-        }
-        normalized[field] = value[field];
-    }
-    normalized.sourceCommit = requiredText(normalized.sourceCommit, 'sourceCommit');
-    if (!/^[0-9a-f]{40}$/u.test(normalized.sourceCommit))
-    {
-        fail('temporal.context-invalid', 'sourceCommit must be a full commit');
-    }
-    normalized.sourceFingerprint = validateDigest(normalized.sourceFingerprint, 'sourceFingerprint');
-    normalized.producerId = requiredText(normalized.producerId, 'producerId');
-    if (!/^[a-z][a-z0-9-]*$/u.test(normalized.producerId))
-    {
-        fail('temporal.context-invalid', 'producerId is invalid');
-    }
-    normalized.schedulerRunId = requiredText(normalized.schedulerRunId, 'schedulerRunId');
-    normalized.businessEpochUtc = validateEpoch(normalized.businessEpochUtc);
-    exactEnum(normalized.businessClockMode, ['fixed', 'manually-advanced'], 'businessClockMode');
-    exactEnum(normalized.businessClockStepPolicy, ['none', 'explicit-only'], 'businessClockStepPolicy');
-    exactEnum(normalized.monotonicClockSource, policy.qualificationDefaults.monotonicClockSource === 'performance-now'
-        ? ['performance-now', 'process-hrtime-bigint', 'dotnet-stopwatch']
-        : policy.clockKinds, 'monotonicClockSource');
-    validateDigest(normalized.timeoutPolicyDigest, 'timeoutPolicyDigest');
-    validateDigest(normalized.temporalPolicyDigest, 'temporalPolicyDigest');
-    for (const field of ['timezone', 'locale', 'uiLocale', 'backendCulture', 'postgresTimezone', 'nodeTimezone', 'calendar', 'firstDayOfWeek'])
-    {
-        normalized[field] = requiredText(normalized[field], field);
-    }
-    if (!plainObject(normalized.ledgerSource)
-      || normalized.ledgerSource.authorityKind !== 'immutable-ledger'
-      || normalized.ledgerSource.path !== 'config/testing/temporal-callsite-dispositions.json')
-    {
-        fail('temporal.ledger-source-mismatch', 'ledgerSource authority/path is invalid');
-    }
-    normalized.ledgerSource = {
-        authorityKind: 'immutable-ledger',
-        path: normalized.ledgerSource.path,
-        digest: validateDigest(normalized.ledgerSource.digest, 'ledgerSource.digest')
-    };
-    if (requireQualificationDefaults)
-    {
-        for (const field of ['timezone', 'backendCulture', 'postgresTimezone', 'nodeTimezone', 'calendar', 'firstDayOfWeek'])
-        {
-            if (normalized[field] !== policy.qualificationDefaults[field])
-            {
-                fail('temporal.context-invalid', `${field} does not match qualification policy`, {
-                    actual: normalized[field],
-                    expected: policy.qualificationDefaults[field]
-                });
-            }
-        }
-        if (normalized.businessClockMode !== 'fixed'
-        || normalized.businessClockStepPolicy !== 'explicit-only')
-        {
-            fail('temporal.context-invalid', 'qualification business clock must be fixed and explicitly advanced');
-        }
-    }
-    const ledger = readTemporalLedger();
-    if (ledger.unresolved.length > 0)
-    {
-        fail('temporal.ledger-unresolved', 'temporal ledger contains unresolved call sites', {
-            callSiteIds: ledger.unresolved.map((entry) => entry.callSiteId)
-        });
-    }
-    if (normalized.ledgerSource.digest !== ledger.digest)
-    {
-        fail('temporal.ledger-source-mismatch', 'temporal ledger digest does not match immutable source');
-    }
-    const expectedPolicyDigest = digestCanonical(policy);
-    if (normalized.temporalPolicyDigest !== expectedPolicyDigest)
-    {
-        fail('temporal.context-invalid', 'temporal policy digest mismatch');
-    }
-    return Object.freeze(normalized);
-}
-
 export function qualificationTemporalContext(input)
 {
-    const ledger = readTemporalLedger();
+    const { policy: currentPolicy, ledger } = readTemporalReplayAuthority();
     return validateTemporalContext({
         schema: TEMPORAL_CONTEXT_SCHEMA,
-        ...policy.qualificationDefaults,
+        ...currentPolicy.qualificationDefaults,
         ...input,
-        temporalPolicyDigest: digestCanonical(policy),
+        temporalPolicyDigest: digestCanonical(currentPolicy),
         ledgerSource: {
             authorityKind: 'immutable-ledger',
             path: ledger.path,
@@ -304,12 +123,12 @@ export function qualificationTemporalContext(input)
 
 export function perturbationTemporalContext(input)
 {
-    const ledger = readTemporalLedger();
+    const { policy: currentPolicy, ledger } = readTemporalReplayAuthority();
     return validateTemporalContext({
         schema: TEMPORAL_CONTEXT_SCHEMA,
-        ...policy.qualificationDefaults,
+        ...currentPolicy.qualificationDefaults,
         ...input,
-        temporalPolicyDigest: digestCanonical(policy),
+        temporalPolicyDigest: digestCanonical(currentPolicy),
         ledgerSource: {
             authorityKind: 'immutable-ledger',
             path: ledger.path,
@@ -332,21 +151,6 @@ export function loadTemporalContext(env = process.env)
     return validateTemporalContext(document);
 }
 
-function sameBinding(expected, actual, fields, reasonCode)
-{
-    for (const field of fields)
-    {
-        if (canonicalJson(expected?.[field]) !== canonicalJson(actual?.[field]))
-        {
-            fail(reasonCode, `${field} binding mismatch`, {
-                actual: actual?.[field] ?? null,
-                expected: expected?.[field] ?? null,
-                field
-            });
-        }
-    }
-}
-
 export function createTemporalPlan(context)
 {
     const normalized = validateTemporalContext(context);
@@ -363,75 +167,13 @@ export function createTemporalPlan(context)
     return Object.freeze({ ...plan, digest: digestCanonical(plan) });
 }
 
-const observationBindings = Object.freeze([
-    ['nodeTimezone', 'temporal.node-timezone-mismatch'],
-    ['postgresTimezone', 'temporal.postgres-timezone-mismatch'],
-    ['backendCulture', 'temporal.backend-culture-mismatch'],
-    ['timezone', 'temporal.actual-context-mismatch'],
-    ['locale', 'temporal.browser-context-mismatch'],
-    ['uiLocale', 'temporal.browser-context-mismatch'],
-    ['businessEpochUtc', 'temporal.actual-context-mismatch'],
-    ['calendar', 'temporal.actual-context-mismatch'],
-    ['firstDayOfWeek', 'temporal.actual-context-mismatch']
-]);
-
-export function validateTemporalObservations(context, observations = {})
+export function createTemporalActual(context, observations)
 {
     const normalized = validateTemporalContext(context);
-    if (!plainObject(observations))
-    {
-        fail('temporal.actual-context-missing', 'temporal observations must be an object');
-    }
-    for (const [field, reasonCode] of observationBindings)
-    {
-        if (!(field in observations))
-        {
-            continue;
-        }
-        if (canonicalJson(observations[field]) !== canonicalJson(normalized[field]))
-        {
-            fail(reasonCode, `${field} observation does not match planned temporal context`, {
-                actual: observations[field],
-                expected: normalized[field],
-                field
-            });
-        }
-    }
-    if ('monotonicClockSource' in observations)
-    {
-        const observed = requiredText(observations.monotonicClockSource, 'monotonicClockSource');
-        if (observed !== normalized.monotonicClockSource)
-        {
-            fail('temporal.mixed-clock', 'monotonicClockSource observation does not match planned temporal context', {
-                actual: observed,
-                expected: normalized.monotonicClockSource
-            });
-        }
-        assertMonotonicMeasurementSource(observed);
-    }
-    return Object.freeze({ ...observations });
-}
-
-export function assertMonotonicMeasurementSource(source)
-{
-    const normalized = requiredText(source, 'monotonicClockSource', 'temporal.mixed-clock');
-    if (['fixed', 'frozen', 'business-wall', 'date-now', 'dotnet-utc-now'].includes(normalized))
-    {
-        fail('temporal.mixed-clock', 'measurement duration must use a real monotonic source', {
-            source: normalized
-        });
-    }
-    if (!['performance-now', 'process-hrtime-bigint', 'dotnet-stopwatch'].includes(normalized))
-    {
-        fail('temporal.mixed-clock', `unsupported monotonic measurement source: ${normalized}`);
-    }
-    return normalized;
-}
-
-export function createTemporalActual(context, observations = {})
-{
-    const normalized = validateTemporalContext(context);
-    const checkedObservations = validateTemporalObservations(normalized, observations);
+    const checkedObservations = validateTemporalObservations(
+        normalized,
+        requireBusinessEpochObservation(observations)
+    );
     const actual = {
         schema: TEMPORAL_ACTUAL_SCHEMA,
         source: {
@@ -528,54 +270,6 @@ export function createTemporalReceipt({ plan, actual, outcome, generatedAt })
     return Object.freeze({ ...receipt, digest: digestCanonical(receipt) });
 }
 
-export function verifyTemporalReplay({ plan, actual, receipt })
-{
-    if (!plainObject(plan) || plan.schema !== TEMPORAL_PLAN_SCHEMA || !plan.digest)
-    {
-        fail('temporal.plan-binding-missing', 'run-bound temporal plan is missing');
-    }
-    if (!plainObject(actual) || actual.schema !== TEMPORAL_ACTUAL_SCHEMA || !actual.digest)
-    {
-        fail('temporal.actual-context-missing', 'temporal actual observation is missing');
-    }
-    if (!plainObject(receipt) || receipt.schema !== TEMPORAL_RECEIPT_SCHEMA || !receipt.digest)
-    {
-        fail('temporal.receipt-binding-missing', 'temporal receipt is missing');
-    }
-    const { digest: planDigest, ...unsignedPlan } = plan;
-    const { digest: actualDigest, ...unsignedActual } = actual;
-    const { digest: receiptDigest, ...unsignedReceipt } = receipt;
-    if (digestCanonical(unsignedPlan) !== planDigest
-      || digestCanonical(unsignedActual) !== actualDigest
-      || digestCanonical(unsignedReceipt) !== receiptDigest)
-    {
-        fail('temporal.receipt-binding-mismatch', 'plan, actual or receipt self digest mismatch');
-    }
-    const normalizedPlanContext = validateTemporalContext(plan.temporalContext);
-    const normalizedActualContext = validateTemporalContext(actual.temporalContext);
-    sameBinding(plan.source, actual.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
-    sameBinding(plan.run, actual.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
-    sameBinding(plan.producer, actual.producer, ['producerId'], 'temporal.producer-binding-mismatch');
-    sameBinding(normalizedPlanContext, normalizedActualContext, contextFields, 'temporal.actual-context-mismatch');
-    sameBinding(plan.source, receipt.source, ['commit', 'fingerprint'], 'temporal.source-binding-mismatch');
-    sameBinding(plan.run, receipt.run, ['schedulerRunId'], 'temporal.run-binding-mismatch');
-    sameBinding(plan.producer, receipt.producer, ['producerId'], 'temporal.producer-binding-mismatch');
-    validateTemporalObservations(normalizedPlanContext, actual.observations ?? {});
-    assertMonotonicMeasurementSource(normalizedPlanContext.monotonicClockSource);
-    if (receipt.planDigest !== plan.digest
-      || receipt.actualDigest !== actual.digest
-      || receipt.temporalContextDigest !== digestCanonical(normalizedPlanContext))
-    {
-        fail('temporal.receipt-binding-mismatch', 'receipt does not bind exact plan/actual/context');
-    }
-    return {
-        qualificationEligible: true,
-        reasonCode: 'temporal.ok',
-        context: normalizedActualContext,
-        receiptDigest: receipt.digest
-    };
-}
-
 export function monotonicNow(source = policy.qualificationDefaults.monotonicClockSource)
 {
     const normalized = assertMonotonicMeasurementSource(source);
@@ -590,13 +284,28 @@ export function monotonicNow(source = policy.qualificationDefaults.monotonicCloc
     fail('temporal.mixed-clock', `unsupported Node monotonic source: ${normalized}`);
 }
 
-export function formatBusinessEpochUtc(ms)
+export function formatBusinessEpochUtc(ms, minimumFractionDigits = 3)
 {
-    if (!Number.isFinite(ms))
+    if (!Number.isSafeInteger(ms))
     {
         fail('temporal.context-invalid', 'business wall clock instant is invalid');
     }
-    return new Date(ms).toISOString().replace(/\.(\d{3})\d*Z$/u, '.$1Z');
+    if (!Number.isInteger(minimumFractionDigits)
+        || minimumFractionDigits < 0 || minimumFractionDigits > 7)
+    {
+        fail('temporal.context-invalid', 'business wall clock fraction shape is invalid');
+    }
+    const actualInstant = new Date(ms);
+    if (!Number.isFinite(actualInstant.getTime()))
+    {
+        fail('temporal.context-invalid', 'business wall clock instant is outside the ECMAScript range');
+    }
+    const instant = actualInstant.toISOString();
+    const [whole, fraction] = instant.slice(0, -1).split('.');
+    const significantFraction = fraction.replace(/0+$/u, '');
+    const formattedFraction = significantFraction.padEnd(
+        Math.max(significantFraction.length, minimumFractionDigits), '0');
+    return `${whole}${formattedFraction ? `.${formattedFraction}` : ''}Z`;
 }
 
 /**
@@ -605,6 +314,7 @@ export function formatBusinessEpochUtc(ms)
 export function createBusinessWallClock(context)
 {
     const normalized = validateTemporalContext(context);
+    const fractionDigits = normalized.businessEpochUtc.match(/\.(\d+)Z$/u)?.[1].length ?? 0;
     let currentMs = Date.parse(normalized.businessEpochUtc);
     if (!Number.isFinite(currentMs))
     {
@@ -614,13 +324,13 @@ export function createBusinessWallClock(context)
         businessClockMode: normalized.businessClockMode,
         businessClockStepPolicy: normalized.businessClockStepPolicy,
         nowMs: () => currentMs,
-        nowIso: () => formatBusinessEpochUtc(currentMs),
+        nowIso: () => formatBusinessEpochUtc(currentMs, fractionDigits),
         epochSeconds: () => Math.floor(currentMs / 1000),
         advanceMs(deltaMs)
         {
-            if (!Number.isFinite(deltaMs) || deltaMs < 0)
+            if (!Number.isSafeInteger(deltaMs) || deltaMs < 0)
             {
-                fail('temporal.context-invalid', 'business wall clock cannot move backwards');
+                fail('temporal.context-invalid', 'business wall clock requires nonnegative exact millisecond steps');
             }
             if (normalized.businessClockStepPolicy === 'none' && deltaMs !== 0)
             {
@@ -631,8 +341,10 @@ export function createBusinessWallClock(context)
             {
                 fail('temporal.context-invalid', 'fixed business clocks require explicit-only step policy');
             }
-            currentMs += deltaMs;
-            return formatBusinessEpochUtc(currentMs);
+            const advancedMs = currentMs + deltaMs;
+            const observed = formatBusinessEpochUtc(advancedMs, fractionDigits);
+            currentMs = advancedMs;
+            return observed;
         }
     });
 }
@@ -728,14 +440,16 @@ export function projectSessionFixtureBusinessOutcome({
     rememberMe = false
 } = {})
 {
-    const epochMs = Date.parse(businessEpochUtc);
+    const epoch = validateBusinessEpochUtc(businessEpochUtc);
+    const fractionDigits = epoch.match(/\.(\d+)Z$/u)?.[1].length ?? 0;
+    const epochMs = Date.parse(epoch);
     if (!Number.isFinite(epochMs))
     {
         fail('temporal.context-invalid', 'businessEpochUtc is not parseable for session-fixture projection');
     }
     const authenticatedAtEpochSeconds = Math.floor(epochMs / 1000);
     const accessTokenExpiresAtEpochSeconds = authenticatedAtEpochSeconds + (accessTokenExpiresMinutes * 60);
-    const businessNow = formatBusinessEpochUtc(epochMs);
+    const businessNow = formatBusinessEpochUtc(epochMs, fractionDigits);
     return Object.freeze({
         status: 'ok',
         strategy: 'canonical-business-epoch-projection',
@@ -766,12 +480,14 @@ export function projectDataScaleBusinessOutcome({
     const counts = articleCount == null || commentCount == null
         ? resolveDataScaleTierCounts(tier)
         : { articleCount, commentCount };
-    const epochMs = Date.parse(businessEpochUtc);
+    const epoch = validateBusinessEpochUtc(businessEpochUtc);
+    const fractionDigits = epoch.match(/\.(\d+)Z$/u)?.[1].length ?? 0;
+    const epochMs = Date.parse(epoch);
     if (!Number.isFinite(epochMs))
     {
         fail('temporal.context-invalid', 'businessEpochUtc is not parseable for data-scale projection');
     }
-    const businessNow = formatBusinessEpochUtc(epochMs);
+    const businessNow = formatBusinessEpochUtc(epochMs, fractionDigits);
     const articles = [];
     for (let seed = 1; seed <= counts.articleCount; seed += 1)
     {
@@ -868,7 +584,7 @@ export function bindProducerTemporalArtifacts({
 {
     const context = qualificationTemporalContext(contextInput);
     const plan = createTemporalPlan(context);
-    const actual = createTemporalActual(context, observations ?? observeRuntimeTemporalContext(context));
+    const actual = createTemporalActual(context, observations);
     const receipt = createTemporalReceipt({
         plan,
         actual,

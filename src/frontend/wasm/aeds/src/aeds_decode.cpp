@@ -2,6 +2,7 @@
 
 #include "aeds_crc32.hpp"
 #include "aeds_frame.hpp"
+#include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
 namespace FsusBlog::Aeds
@@ -59,6 +60,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "frame_type_unsupported";
         case ErrorCode::FrameTypeRetired:
             return "frame_type_retired";
+        case ErrorCode::FontThemePayloadInvalid:
+            return "font_theme_payload_invalid";
         default:
             return "decode_failed";
     }
@@ -122,6 +125,12 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         {
             return MakeError(ErrorCode::ArticlePayloadInvalid);
         }
+    }
+
+    if (FsusBlog::Pod::FontTheme::IsFontThemeFrame(FrameType)
+        && !FsusBlog::Pod::FontTheme::ParsePayload(FrameType, payload, PayloadLength, nullptr))
+    {
+        return MakeError(ErrorCode::FontThemePayloadInvalid);
     }
 
     DecodeResult ok{};

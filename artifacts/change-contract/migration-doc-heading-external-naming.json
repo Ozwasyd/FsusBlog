@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/db/migration-doc-lint.mjs"
+            ],
+            "reason": "preserve the original FSUSBLOG_REPO_ROOT process input while recognizing the current authoritative migration heading"
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "preserve GitHub workflow and run-step schema keys while executing the heading refusals before the migration lint step"
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve serialized lifecycle registry fields while binding the new migration heading test to its one workflow owner"
+        }
+    ]
+}

@@ -9,7 +9,7 @@ import { fileURLToPath } from 'node:url';
 const repoRoot = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 const checker = join(repoRoot, 'tools/db/check-offline-migration-catalog-parity.mjs');
 const fixturePaths = [
-    'src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationMetadata.cs',
+    'src/migration/OfflineMigrationClassificationFacts.cs',
     'src/migration/OfflineMigrationCatalogEntries.generated.cs',
     'src/migration/Definitions'
 ];

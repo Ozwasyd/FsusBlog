@@ -4,6 +4,10 @@ import { createHash } from 'node:crypto';
 
 const {digestCommentFixtureValue, readCommentFixtureInventory} = await import(new URL('../../test/comment-fixture-contract.mjs', import.meta.url));
 const {fixtureTestSessionHeaders, fixtureTestSessionSchema, resolveFixtureTestSession} = await import(new URL('../runtime-scope.mjs', import.meta.url));
+const { projectVerifiedIdentityReferences } = await import(new URL('./auth-session-producer.mjs', import.meta.url));
+const { validateProducerReceipt } = await import(new URL('../receipt/producer-receipt.mjs', import.meta.url));
+const { canonicalJson, digestCanonical } = await import(new URL('../receipt/canonical.mjs', import.meta.url));
+const {validateBackendTemporalObservation} = await import(new URL('./backend-temporal-observer.mjs', import.meta.url));
 const PRODUCER_ID = 'comment-moderation';
 const STRATEGY = 'transaction-fixture';
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
@@ -160,6 +164,7 @@ export function buildCommentFixturePlan(context)
 
 async function invokeBackend(context, path, body, signal)
 {
+    signal?.throwIfAborted();
     const baseUrl = String(context.handles?.baseUrl ?? context.handles?.debugBackendUrl ?? '').replace(/\/+$/u, '');
     const secret = context.handles?.localCommentFixtureSecret ?? context.handles?.localAuthFixtureSecret ?? '';
     if (!baseUrl || !secret)
@@ -189,6 +194,9 @@ async function invokeBackend(context, path, body, signal)
     {
         payload = null;
     }
+    signal?.throwIfAborted();
+    context.handles?.fixtureArtifactOutlet?.recordRpc(context, { method: 'POST', path,
+        status: response.status, request: body, response: payload });
     if (!response.ok)
     {
         throw createCommentFixtureBackendError(response.status, payload, text, body);
@@ -285,6 +293,7 @@ export function createCommentFixtureBackendError(httpStatus, payload, text, plan
 
 async function observeBackendTemporalContext(context, signal)
 {
+    signal?.throwIfAborted();
     const baseUrl = String(context.handles?.baseUrl ?? context.handles?.debugBackendUrl ?? '').replace(/\/+$/u, '');
     const secret = context.handles?.localPublicContentFixtureSecret ?? context.handles?.localAuthFixtureSecret ?? '';
     if (!baseUrl || !secret)
@@ -308,11 +317,14 @@ async function observeBackendTemporalContext(context, signal)
     {
         payload = null;
     }
+    signal?.throwIfAborted();
+    context.handles?.fixtureArtifactOutlet?.recordRpc(context, { method: 'GET', path: '/__local/temporal-observation',
+        status: response.status, request: null, response: payload });
     if (!response.ok || !payload || typeof payload !== 'object')
     {
         throw new Error(`comment fixture temporal observation failed HTTP ${response.status}: ${text.slice(0, 400)}`);
     }
-    return payload;
+    return validateBackendTemporalObservation(context.temporalContext, payload);
 }
 
 function variantForRole(role, variants)
@@ -795,10 +807,11 @@ function verifyModerationEntities(result)
     }
 }
 
-export async function verifyCommentModeration(context, result)
+function verifyPreparedCommentStructure(context, result)
 {
     try
     {
+        validateBackendTemporalObservation(context.temporalContext, result?.temporalObservation);
         if (!result || result.producerId !== PRODUCER_ID || !Array.isArray(result.entityIdentities)
             || !result.observations?.database || !result.observations?.cache
             || !Array.isArray(result.zkAuthorityEvidence) || result.zkAuthorityEvidence.length !== 2
@@ -836,6 +849,132 @@ export async function verifyCommentModeration(context, result)
     }
     catch (error)
     {
+        return { ok: false, producerId: PRODUCER_ID, reason: error.message };
+    }
+}
+
+function sealedCommentReadReferences(context, plan)
+{
+    const auth = validateProducerReceipt(context.producerReceipts?.['auth-session'], { catalogs: context.catalogs });
+    const content = validateProducerReceipt(context.producerReceipts?.['public-content'], { catalogs: context.catalogs });
+    const identity = context.plan?.executionIdentity;
+    for (const [receipt, producerId] of [[auth, 'auth-session'], [content, 'public-content']])
+    {
+        if (receipt.producerId !== producerId || receipt.runId !== plan.runId || receipt.namespace !== plan.namespace
+            || receipt.profileId !== plan.profileId || !identity?.sourceIdentity?.commit || !identity?.handles?.serviceGeneration
+            || canonicalJson(receipt.source) !== canonicalJson(identity.sourceIdentity)
+            || receipt.serviceGeneration !== identity.handles.serviceGeneration
+            || receipt.expandedCapabilityDigest !== plan.capabilityCatalogDigest
+            || receipt.variantPlanDigest !== plan.variantCatalogDigest
+            || !receipt.postconditionObservations?.length
+            || receipt.postconditionObservations.some((item) => item.ok !== true))
+        {
+            throw new Error('comment verify sealed prerequisite source/run/profile/plan identity mismatch');
+        }
+    }
+    const projected = projectVerifiedIdentityReferences({
+        producerResult: context.producerOutputs?.['auth-session'], producerReceipt: auth,
+        consumerProducerId: PRODUCER_ID
+    });
+    const references = projected.references;
+    if (references.length !== 3
+        || JSON.stringify(references.map((item) => asDigest(item.prepareReferenceDigest)).sort())
+            !== JSON.stringify(plan.identityReferences.authPrepareReferenceDigests)
+        || !references.some((item) => item.role === 'admin' && item.capabilityId === 'auth.admin.full-permission'
+            && String(item.publicId) === String(plan.identityReferences.adminPrincipalId))
+        || !references.some((item) => item.role === 'primary-author' && item.capabilityId === 'auth.user.active'
+            && String(item.publicId) === String(plan.identityReferences.primaryAccountId))
+        || !references.some((item) => item.role === 'secondary-author' && item.capabilityId === 'auth.user.active'
+            && String(item.publicId) === String(plan.identityReferences.secondaryAccountId))
+        || !content.entityIdentities.some((item) => item.kind === 'article' && String(item.id) === String(plan.articleReference.articleId))
+        || !content.observations?.database?.entities.some((item) => item.kind === 'article'
+            && String(item.id) === String(plan.articleReference.articleId) && item.owned === true))
+    {
+        throw new Error('comment verify requires exact sealed consumer auth and owned article references');
+    }
+    const reference = (receipt) => ({ receipt, canonicalBody: canonicalJson(Object.fromEntries(
+        Object.entries(receipt).filter(([key]) => key !== 'producerReceiptDigest')
+    )) });
+    return { authReference: reference(auth), publicReference: reference(content), verifiedAuthReferences: projected };
+}
+
+export async function verifyCommentModeration(context, result, signal = context.handles?.signal)
+{
+    signal?.throwIfAborted();
+    try
+    {
+        const structure = verifyPreparedCommentStructure(context, result);
+        if (!structure.ok)
+        {
+            throw new Error(structure.reason);
+        }
+        const plan = buildCommentFixturePlan(context);
+        if (result.planDigest !== plan.planDigest || !matchesCommentFixturePlanBinding(result.cleanupReceipt?.binding, plan))
+        {
+            throw new Error('comment verify prepared owner is stale or cross-plan');
+        }
+        const references = sealedCommentReadReferences(context, plan);
+        const roles = Object.fromEntries(result.threadEntities.map((item) => [item.semanticRole, {
+            commentId: item.commentId, accountId: item.accountId, actorMode: item.actorMode,
+            operationPlanDigest: item.operationPlanDigest, capabilityId: item.capabilityId
+        }]));
+        const read = await invokeBackend(context, '/api/local/comment-fixture/verify', {
+            schema: 'fsusblog.comment-fixture-verification-request.v1', plan,
+            cleanupReceipt: result.cleanupReceipt, roles, ...references
+        }, signal);
+        if (read?.schema !== 'fsusblog.comment-fixture-verification-result.v1'
+            || !matchesCommentFixturePlanBinding(read.binding, plan)
+            || read.authSourceReceiptDigest !== references.authReference.receipt.producerReceiptDigest
+            || read.publicSourceReceiptDigest !== references.publicReference.receipt.producerReceiptDigest
+            || !sameCrossDomainSentinel(read.crossDomainBefore, result.crossDomainBefore)
+            || !sameCrossDomainSentinel(read.crossDomainBefore, read.crossDomainAfter)
+            || !Array.isArray(read.threadEntities)
+            || canonicalJson(read.threadEntities.map((item) => [item.semanticRole, String(item.commentId)]).sort())
+                !== canonicalJson(result.threadEntities.map((item) => [item.semanticRole, String(item.commentId)]).sort()))
+        {
+            throw new Error('comment verify live gateway observation is missing, cross-owner or inexact');
+        }
+        for (const entity of read.threadEntities)
+        {
+            const owned = result.cleanupReceipt.ownedComments?.[String(entity.commentId)];
+            const prepared = result.threadEntities.find((item) => item.semanticRole === entity.semanticRole);
+            if (!owned || ['semanticRole', 'actorMode', 'contentDigest', 'currentVersion', 'isDeleted', 'operationPlanDigest']
+                .some((key) => entity[key] !== owned[key])
+                || ['commentId', 'articleId', 'accountId'].some((key) => String(entity[key]) !== String(owned[key]))
+                || ['rootId', 'parentId', 'replyToCommentId', 'depth', 'capabilityId']
+                    .some((key) => String(entity[key]) !== String(prepared[key])))
+            {
+                throw new Error('comment verify live thread differs from its exact prepared ownership/version/relation');
+            }
+        }
+        // Only live thread/moderation/cache/sentinel fields feed observations. Original negative,
+        // ZK simulation and runtime restore records remain historical prepare evidence, never a read fallback.
+        const live = normalizeResult({
+            producerId: PRODUCER_ID, strategy: STRATEGY, planDigest: plan.planDigest,
+            inventoryDigest: plan.inventoryDigest, capabilityCatalogDigest: plan.capabilityCatalogDigest,
+            variantCatalogDigest: plan.variantCatalogDigest, temporalContextDigest: plan.temporalContextDigest,
+            producerPlanDigest: plan.producerPlanDigest, cleanupReceipt: result.cleanupReceipt,
+            capabilityProofs: result.capabilityProofs, zkAuthorityEvidence: result.zkAuthorityEvidence,
+            runtimeLease: result.runtimeLease, runtimeRestore: result.runtimeRestore, negativeResults: result.negativeResults,
+            cacheGenerationBefore: result.cacheGenerationBefore,
+            threadEntities: read.threadEntities, moderation: read.moderation, cacheGenerationAfter: read.cacheGeneration,
+            crossDomainBefore: read.crossDomainBefore, crossDomainAfterPrepare: read.crossDomainAfter
+        }, context, plan, result.temporalObservation);
+        const verified = verifyPreparedCommentStructure(context, live);
+        if (!verified.ok)
+        {
+            throw new Error(verified.reason);
+        }
+        return {
+            ok: true, producerId: PRODUCER_ID, observations: live.observations,
+            entityIdentities: live.entityIdentities,
+            authSourceReceiptDigest: read.authSourceReceiptDigest, publicSourceReceiptDigest: read.publicSourceReceiptDigest,
+            readObservationDigest: digestCanonical(read)
+        };
+    }
+    catch (error)
+    {
+        signal?.throwIfAborted();
         return { ok: false, producerId: PRODUCER_ID, reason: error.message };
     }
 }

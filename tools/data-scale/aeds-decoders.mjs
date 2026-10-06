@@ -1,4 +1,4 @@
-import {
+const {
     decodeAedsFrame,
     decodeArticlePage,
     decodeArticleDetail,
@@ -6,7 +6,7 @@ import {
     decodeSearchManifest,
     decodePublicAotPayload,
     encodeAedsFrame
-} from '../../tests/frontend/support/aeds-envelope.mjs';
+} = await import(new URL('../../tests/frontend/support/aeds-envelope.mjs', import.meta.url));
 
 const UTF8_DECODER = new TextDecoder('utf-8');
 const UTF8_ENCODER = new TextEncoder();
@@ -229,6 +229,18 @@ export function decodeCommentArticleCursor(payload)
     };
 }
 
+function requireCommentTimestamp(value, field)
+{
+    const timestamp = typeof value === 'string'
+        && /T.*(?:Z|[+-][0-9]{2}:[0-9]{2})$/u.test(value)
+        ? Date.parse(value) : Number.NaN;
+    if (!Number.isFinite(timestamp))
+    {
+        throw new Error(`${field} requires an explicit timestamp with timezone; the host clock is not a fixture source`);
+    }
+    return BigInt(timestamp);
+}
+
 export function encodeCommentArticleCursor(cursorData)
 {
     const dataList = Array.isArray(cursorData.data) ? cursorData.data : [];
@@ -263,7 +275,7 @@ export function encodeCommentArticleCursor(cursorData)
         const podStart = offset;
         const commentId = BigInt(comment.id ?? 0);
         const rootId = BigInt(comment.rootId ?? 0);
-        const createTimeMs = BigInt(new Date(comment.createTime || Date.now()).getTime());
+        const createTimeMs = requireCommentTimestamp(comment.createTime, 'comment.createTime');
         const contentBytes = UTF8_ENCODER.encode(comment.content ?? '');
         const replies = Array.isArray(comment.repliesPreview) ? comment.repliesPreview : [];
 
@@ -288,7 +300,7 @@ export function encodeCommentArticleCursor(cursorData)
         {
             const replyPodStart = offset;
             const replyId = BigInt(reply.id ?? 0);
-            const replyCreateTimeMs = BigInt(new Date(reply.createTime || Date.now()).getTime());
+            const replyCreateTimeMs = requireCommentTimestamp(reply.createTime, 'reply.createTime');
             const replyBytes = UTF8_ENCODER.encode(reply.content ?? '');
 
             view.setBigInt64(replyPodStart, replyId, true);
@@ -703,10 +715,7 @@ export function buildPostingsBlobForTerms(termPostings)
         for (const hit of entry.hits)
         {
             totalSize += 10 + 3 + 10;
-            for (const pos of (hit.positions ?? []))
-            {
-                totalSize += 15;
-            }
+            totalSize += 15 * (hit.positions?.length ?? 0);
         }
     }
 

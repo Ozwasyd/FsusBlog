@@ -1,3 +1,4 @@
+using FsusBlog.Contracts.Articles;
 using System.Text.Json;
 
 using FsusBlog.Core.Services.Articles;

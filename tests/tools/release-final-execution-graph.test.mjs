@@ -45,6 +45,21 @@ const { createEvidenceParentReceipt } = await import(
 const { snapshotSourceState } = await import(
     pathToFileURL(path.join(root, 'tools/test-matrix/scheduler.mjs')).href
 );
+const { sealSourceIdentity } = await import(
+    new URL('../../tools/fact-extractors/identity.mjs', import.meta.url)
+);
+const { validateCurrentRunEvidenceContext } = await import(
+    new URL('../../tools/test/evidence-location-contract.mjs', import.meta.url)
+);
+const { requireCleanAttemptConsumerAdmission } = await import(
+    new URL('../../tools/release/browser-release-clean-attempt-consumers.mjs', import.meta.url)
+);
+const { cleanAttemptIdentityMismatchReason } = await import(
+    new URL('../../tools/release/clean-first-attempt-verifier.mjs', import.meta.url)
+);
+const { buildReleaseFinalizerSpawnDecision, validateReleaseFinalStaticBoundary } = await import(
+    new URL('../../tools/test-matrix/release-final-static-boundary.mjs', import.meta.url)
+);
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/execution-dependency-contract.json');
 const evidenceContractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
 const canonicalEvidenceInputDigest =
@@ -176,15 +191,23 @@ async function createReleaseFinalSpawnEvidence(runId, fixture)
 // real clean first-attempt correctness run would publish, bound to the
 // attempt-runner aggregate, attempt artifact and verified external authority
 // receipts it creates inside this repository.
-async function createCleanAttemptEvidenceInput()
+async function createCleanAttemptEvidenceInput({ context, sourceIdentity })
 {
     mkdirSync(path.join(root, '.tmp'), { recursive: true });
     const evidenceRoot = mkdtempSync(path.join(root, '.tmp', 'release-final-execution-graph-'));
     const producerId = 'release-final-execution-graph-producer';
-    const schedulerRunId = 'release-final-execution-graph-run';
-    const sourceCommit = '1'.repeat(40);
-    const worktreeFingerprint = `sha256:${'2'.repeat(64)}`;
+    const schedulerRunId = context.schedulerRunId;
+    const sourceCommit = sourceIdentity.sourceCommit;
+    const worktreeFingerprint = `sha256:${sourceIdentity.worktreeFingerprint.replace(/^sha256:/u, '')}`;
+    const buildIdentity = context.buildIdentity.digest;
+    assert.equal(sourceCommit, context.sourceCommit);
     const identity = { sourceCommit, worktreeFingerprint, schedulerRunId, producerId };
+    const membership = {
+        selectedTierIds: ['release-final'],
+        testVectors: ['execution-graph']
+    };
+    const expectedPayload = Buffer.from(`${JSON.stringify({ attempt: 1, scenario: 'success' })}\n`);
+    const expectedPayloadDigest = `sha256:${createHash('sha256').update(expectedPayload).digest('hex')}`;
     const authorityRoot = path.join(evidenceRoot, 'authorities');
     mkdirSync(authorityRoot, { recursive: true });
     const authorityReferences = [];
@@ -224,6 +247,18 @@ async function createCleanAttemptEvidenceInput()
             fileDigest: fileDigest(verificationFile)
         };
     }
+    const authorityDigest = (kind) => authorityReferences.find((reference) => reference.kind === kind).artifactDigest;
+    const expectedCandidate = {
+        ...identity,
+        buildIdentity,
+        executionEnvelopeDigest: authorityDigest('execution-envelope'),
+        replayPlanDigest: authorityDigest('replay-plan'),
+        temporalContextDigest: authorityDigest('temporal-context'),
+        membership,
+        domainReceiptReference: { path: 'payload.json', digest: expectedPayloadDigest }
+    };
+    const expectedCandidateFile = path.join(evidenceRoot, 'expected-candidate.json');
+    writeJson(expectedCandidateFile, expectedCandidate);
     const verifyAuthority = (reference) => ({
         verified: true,
         authorityDigest: reference.artifactDigest,
@@ -257,10 +292,8 @@ async function createCleanAttemptEvidenceInput()
     });
     const aggregateFile = path.join(result.producerRoot, 'aggregate.json');
     const domainFile = path.join(result.producerRoot, 'attempt-1', 'payload.json');
-    const membership = {
-        selectedTierIds: ['release-final'],
-        testVectors: ['execution-graph']
-    };
+    assert.deepEqual(readFileSync(domainFile), expectedPayload);
+    assert.equal(result.attempts[0].artifactDigests['payload.json'], expectedPayloadDigest);
     const inputFile = path.join(evidenceRoot, 'clean-attempt-input.json');
     writeJson(inputFile, {
         schema: cleanAttemptEvidenceInputSchema,
@@ -282,10 +315,265 @@ async function createCleanAttemptEvidenceInput()
             fileDigest: fileDigest(domainFile)
         },
         expectedIdentity: identity,
+        buildIdentity,
         transport: null
     });
-    return { evidenceRoot, inputFile };
+    return { evidenceRoot, inputFile, expectedCandidateFile, expectedCandidate };
 }
+
+test('clean-attempt graph fixture binds an independent current candidate and rejects exact identity mutations', async (context) =>
+{
+    mkdirSync(path.join(root, '.tmp'), { recursive: true });
+    const fixture = mkdtempSync(path.join(root, '.tmp', 'release-final-clean-candidate-'));
+    let spawnEvidence = null;
+    let attemptEvidence = null;
+    context.after(() =>
+    {
+        rmSync(fixture, { recursive: true, force: true });
+        if (spawnEvidence)
+        {
+            rmSync(spawnEvidence.outputRoot, { recursive: true, force: true });
+        }
+        if (attemptEvidence)
+        {
+            rmSync(attemptEvidence.evidenceRoot, { recursive: true, force: true });
+        }
+    });
+    spawnEvidence = await createReleaseFinalSpawnEvidence('release-final-clean-candidate', fixture);
+    const currentContext = validateCurrentRunEvidenceContext(
+        JSON.parse(readFileSync(spawnEvidence.contextFile, 'utf8'))
+    );
+    const currentSource = sealSourceIdentity(root);
+    attemptEvidence = await createCleanAttemptEvidenceInput({ context: currentContext, sourceIdentity: currentSource });
+    const expected = structuredClone(attemptEvidence.expectedCandidate);
+    const input = JSON.parse(readFileSync(attemptEvidence.inputFile, 'utf8'));
+    const environment = {
+        FSUSBLOG_CLEAN_ATTEMPT_EVIDENCE: attemptEvidence.inputFile,
+        FSUSBLOG_CLEAN_ATTEMPT_EXPECTED_CANDIDATE: attemptEvidence.expectedCandidateFile,
+        FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: spawnEvidence.contextFile
+    };
+    const callerBinding = {
+        sourceCommit: currentSource.sourceCommit,
+        worktreeFingerprint: `sha256:${currentSource.worktreeFingerprint.replace(/^sha256:/u, '')}`,
+        schedulerRunId: currentContext.schedulerRunId,
+        buildIdentity: currentContext.buildIdentity.digest
+    };
+    const admit = ({ candidateBinding, environmentPatch = {} } = {}) =>
+    {
+        const activeEnvironment = { ...environment, ...environmentPatch };
+        const activeContext = validateCurrentRunEvidenceContext(
+            JSON.parse(readFileSync(activeEnvironment.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT, 'utf8'))
+        );
+        return requireCleanAttemptConsumerAdmission({
+            consumerId: 'production-correctness',
+            repositoryRoot: root,
+            environment: activeEnvironment,
+            candidateBinding: candidateBinding ?? {
+                sourceCommit: currentSource.sourceCommit,
+                worktreeFingerprint: callerBinding.worktreeFingerprint,
+                schedulerRunId: activeContext.schedulerRunId,
+                buildIdentity: activeContext.buildIdentity.digest
+            }
+        });
+    };
+    const withMutation = (file, document, check) =>
+    {
+        const original = readFileSync(file);
+        try
+        {
+            writeJson(file, document);
+            check();
+        }
+        finally
+        {
+            writeFileSync(file, original);
+        }
+    };
+    const alternate = (field) => field === 'sourceCommit'
+        ? (expected[field] === 'a'.repeat(40) ? 'b' : 'a').repeat(40)
+        : field === 'schedulerRunId' || field === 'producerId'
+            ? `${expected[field]}-different`
+            : `sha256:${(expected[field] === `sha256:${'a'.repeat(64)}` ? 'b' : 'a').repeat(64)}`;
+    const assertMismatch = (check, field, wanted, actual, aggregate = false) =>
+    {
+        assert.throws(check, (error) =>
+        {
+            assert.equal(error.verdict.eligible, false);
+            const verdict = error.verdict.attemptVerdict;
+            assert.equal(verdict.eligible, false);
+            assert.equal(error.reasons[0].code, 'attempt.consumer-identity-mismatch');
+            assert.equal(error.reasons[0].field, field);
+            assert.deepEqual(error.reasons, [cleanAttemptIdentityMismatchReason(
+                aggregate ? verdict.aggregate : verdict.attempt, field, wanted, actual
+            )]);
+            assert.deepEqual(error.verdict.reasons, verdict.reasons);
+            return true;
+        });
+    };
+
+    await context.test('positive preflight binds current source, context run/build and independent payload bytes', () =>
+    {
+        assert.equal(expected.sourceCommit, currentContext.sourceCommit);
+        assert.equal(expected.worktreeFingerprint, callerBinding.worktreeFingerprint);
+        assert.equal(expected.schedulerRunId, currentContext.schedulerRunId);
+        assert.equal(expected.buildIdentity, currentContext.buildIdentity.digest);
+        assert.deepEqual(JSON.parse(readFileSync(attemptEvidence.expectedCandidateFile, 'utf8')), expected);
+        const admission = admit();
+        assert.equal(admission.eligible, true);
+        assert.equal(admission.attemptVerdict.eligible, true);
+    });
+    for (const [name, mutate] of [
+        ['missing buildIdentity', (document) =>
+        {
+            delete document.buildIdentity;
+        }],
+        ['extra input field', (document) =>
+        {
+            document.unexpectedFixtureField = true;
+        }]
+    ])
+    {
+        await context.test(`exact input rejects ${name} before identity admission`, () =>
+        {
+            const document = structuredClone(input);
+            mutate(document);
+            withMutation(attemptEvidence.inputFile, document, () => assert.throws(admit, (error) =>
+            {
+                assert.equal(error.reasonCode, 'attempt.evidence-source-invalid');
+                assert.equal(error.message, 'clean-attempt evidence input fields are not exact');
+                return true;
+            }));
+        });
+    }
+    await context.test('well-formed wrong input build reaches canonical identity mismatch', () =>
+    {
+        const wrong = alternate('buildIdentity');
+        withMutation(attemptEvidence.inputFile, { ...input, buildIdentity: wrong }, () =>
+            assertMismatch(admit, 'buildIdentity', currentContext.buildIdentity.digest, wrong));
+    });
+    const identityFields = ['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'producerId',
+        'buildIdentity', 'executionEnvelopeDigest', 'replayPlanDigest', 'temporalContextDigest'];
+    for (const field of identityFields)
+    {
+        await context.test(`independent expected ${field} cannot be missing`, () =>
+        {
+            const document = structuredClone(expected);
+            delete document[field];
+            withMutation(attemptEvidence.expectedCandidateFile, document, () => assert.throws(admit, (error) =>
+            {
+                assert.equal(error.verdict.eligible, false);
+                assert.equal(error.verdict.attemptVerdict.eligible, false);
+                assert.deepEqual(error.reasons, [{
+                    code: 'attempt.consumer-identity-missing',
+                    message: `consumer must supply the expected ${field}`,
+                    producerId: expected.producerId,
+                    schedulerRunId: expected.schedulerRunId,
+                    sourceCommit: expected.sourceCommit,
+                    field
+                }]);
+                assert.deepEqual(error.verdict.reasons, error.verdict.attemptVerdict.reasons);
+                return true;
+            }));
+        });
+        await context.test(`well-formed expected ${field} drift reaches its exact canonical mismatch`, () =>
+        {
+            const wrong = alternate(field);
+            withMutation(attemptEvidence.expectedCandidateFile, { ...expected, [field]: wrong }, () =>
+                assertMismatch(admit, field, wrong, expected[field],
+                    ['sourceCommit', 'worktreeFingerprint', 'schedulerRunId', 'producerId'].includes(field)));
+        });
+    }
+    await context.test('missing independent expected pointer never falls back to tested evidence identity', () =>
+    {
+        assert.throws(() => admit({ environmentPatch: { FSUSBLOG_CLEAN_ATTEMPT_EXPECTED_CANDIDATE: undefined } }),
+            (error) =>
+            {
+                assert.equal(error.verdict.eligible, false);
+                assert.equal(error.verdict.attemptVerdict.eligible, false);
+                assert.equal(error.reasons[0].code, 'attempt.consumer-identity-missing');
+                assert.equal(error.reasons[0].field, 'sourceCommit');
+                assert.deepEqual(error.verdict.reasons, error.verdict.attemptVerdict.reasons);
+                return true;
+            });
+    });
+    for (const field of Object.keys(callerBinding))
+    {
+        await context.test(`caller ${field} drift cannot self-certify a matching receipt`, () =>
+        {
+            const wrong = alternate(field);
+            assertMismatch(() => admit({ candidateBinding: { ...callerBinding, [field]: wrong } }),
+                field, expected[field], wrong);
+        });
+    }
+    await context.test('empty caller binding cannot escape independent candidate admission', () =>
+    {
+        assertMismatch(() => admit({ candidateBinding: {} }), 'sourceCommit', expected.sourceCommit, null);
+    });
+    await context.test('wrong domain digest fails the existing outer artifact stage after clean identity admission', () =>
+    {
+        const wrong = alternate('buildIdentity');
+        withMutation(attemptEvidence.inputFile, {
+            ...input, domainReceiptReference: { ...input.domainReceiptReference, digest: wrong }
+        }, () => assert.throws(admit, (error) =>
+        {
+            assert.equal(error.verdict.eligible, false);
+            assert.equal(error.verdict.attemptVerdict.eligible, true);
+            assert.equal(error.reasons[0].code, 'attempt.consumer-artifact-mismatch');
+            assert.equal(error.reasons[0].field, 'domainReceiptReference');
+            assert.equal(error.reasons[0].expected, expected.domainReceiptReference.digest);
+            assert.equal(error.reasons[0].actual, wrong);
+            return true;
+        }));
+    });
+    await context.test('unsealed external context mutation is rejected at context preflight', () =>
+    {
+        const document = structuredClone(currentContext);
+        document.buildIdentity.digest = alternate('buildIdentity');
+        withMutation(spawnEvidence.contextFile, document, () =>
+            assert.throws(admit, { message: 'current-run context.contentDigest mismatch' }));
+    });
+    for (const field of ['schedulerRunId', 'buildIdentity'])
+    {
+        await context.test(`rehashed external context ${field} drift still fails independent expected binding`, () =>
+        {
+            const wrong = alternate(field);
+            const document = structuredClone(currentContext);
+            if (field === 'buildIdentity')
+            {
+                document.buildIdentity.digest = wrong;
+            }
+            else
+            {
+                document.schedulerRunId = wrong;
+            }
+            document.contentDigest = governanceContentDigest(document);
+            withMutation(spawnEvidence.contextFile, document, () =>
+                assertMismatch(admit, field, expected[field], wrong));
+        });
+    }
+    await context.test('all mutations restore the original runnable positive and independent expected bytes', () =>
+    {
+        assert.deepEqual(JSON.parse(readFileSync(attemptEvidence.inputFile, 'utf8')), input);
+        assert.deepEqual(JSON.parse(readFileSync(attemptEvidence.expectedCandidateFile, 'utf8')), expected);
+        assert.deepEqual(JSON.parse(readFileSync(spawnEvidence.contextFile, 'utf8')), currentContext);
+        const admission = admit();
+        assert.equal(admission.eligible, true);
+        assert.equal(admission.attemptVerdict.eligible, true);
+    });
+});
+
+test('release-final graph rejects missing frontend-build before any finalizer spawn', () =>
+{
+    const matrix = structuredClone(parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8')));
+    matrix.tiers = matrix.tiers.filter((tier) => tier.id !== 'frontend-build');
+    const errors = validateReleaseFinalStaticBoundary({
+        matrix,
+        scriptSource: readFileSync(path.join(root, 'tools/test/lanes/release-final.sh'), 'utf8'),
+        repositoryRoot: root
+    });
+    assert.ok(errors.includes('finite execution target tools/test/lanes/frontend-build.sh is missing'));
+    assert.equal(buildReleaseFinalizerSpawnDecision({ sealState: 'accepted', boundaryErrors: errors }).spawnCount, 0);
+});
 
 test('carried execution dependency contract seals every tier and command-group edge', () =>
 {
@@ -417,6 +705,67 @@ test('release-final tier separates an empty execution graph from the canonical e
     );
 });
 
+test('matrix validation rejects an unknown release-final evidence producer at the canonical static boundary', () =>
+{
+    const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-unknown-producer-'));
+    try
+    {
+        const matrixFile = path.join(fixture, 'matrix.yml');
+        writeFileSync(matrixFile, replaceTierField(
+            readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'),
+            'release-final',
+            'requiresEvidenceFrom',
+            '[missing-evidence-producer]'
+        ));
+        const result = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate'], {
+            cwd: root,
+            encoding: 'utf8',
+            env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrixFile }
+        });
+        assert.equal(result.error, undefined);
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '', 'invalid producer roster must be rejected before publishing a plan');
+        assert.match(result.stderr, /release-final static boundary rejected matrix parse/u);
+        assert.match(result.stderr, /release-final\.requiresEvidenceFrom must contain exactly 22 canonical evidence inputs; got 1/u);
+        assert.match(result.stderr, /release-final\.requiresEvidenceFrom contains unexpected evidence inputs: missing-evidence-producer/u);
+    }
+    finally
+    {
+        rmSync(fixture, { recursive: true, force: true });
+    }
+});
+
+test('matrix validation rejects a missing frontend build at the sealed execution target boundary', () =>
+{
+    const fixture = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-release-final-missing-build-'));
+    try
+    {
+        const matrixFile = path.join(fixture, 'matrix.yml');
+        const lines = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8').split('\n');
+        const start = lines.findIndex((line) => line === '    - id: frontend-build');
+        assert.notEqual(start, -1);
+        const nextTier = lines.slice(start + 1).findIndex((line) => line.startsWith('    - id: '));
+        assert.notEqual(nextTier, -1);
+        lines.splice(start, nextTier + 1);
+        writeFileSync(matrixFile, lines.join('\n'));
+        const result = spawnSync(process.execPath, ['tools/run-test-matrix.mjs', 'validate'], {
+            cwd: root,
+            encoding: 'utf8',
+            env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrixFile }
+        });
+        assert.equal(result.error, undefined);
+        assert.equal(result.status, 1);
+        assert.equal(result.stdout, '', 'missing execution target must be rejected before publishing a plan');
+        assert.match(result.stderr, /release-final static boundary rejected matrix parse/u);
+        assert.match(result.stderr, /independent release-final execution declaration index drifted/u);
+        assert.match(result.stderr, /finite execution target tools\/test\/lanes\/frontend-build\.sh is missing/u);
+    }
+    finally
+    {
+        rmSync(fixture, { recursive: true, force: true });
+    }
+});
+
 test('release-final exact-set binding rejects deletion, replacement, duplication, and addition', async (context) =>
 {
     const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
@@ -443,6 +792,18 @@ test('release-final exact-set binding rejects deletion, replacement, duplication
             diagnostics: [
                 /missing canonical evidence inputs: browser-contract/u,
                 /unexpected evidence inputs: validate-matrix/u
+            ]
+        },
+        {
+            name: 'nonexistent producer',
+            mutate(tier)
+            {
+                tier.requiresEvidenceFrom[tier.requiresEvidenceFrom.indexOf('browser-contract')] =
+                    'missing-evidence-producer';
+            },
+            diagnostics: [
+                /missing canonical evidence inputs: browser-contract/u,
+                /unexpected evidence inputs: missing-evidence-producer/u
             ]
         },
         {
@@ -540,8 +901,15 @@ test('default and CI execution commands spawn only the finalizer', async () =>
         // ci-release-final is a production-correctness consumer and only
         // proceeds behind fail-closed clean-attempt admission, so the
         // isolated run must supply the current run's file-backed evidence.
-        attemptEvidence = await createCleanAttemptEvidenceInput();
         spawnEvidence = await createReleaseFinalSpawnEvidence(admission.runId, fixture);
+        const currentContext = validateCurrentRunEvidenceContext(
+            JSON.parse(readFileSync(spawnEvidence.contextFile, 'utf8'))
+        );
+        const currentSource = sealSourceIdentity(root);
+        attemptEvidence = await createCleanAttemptEvidenceInput({
+            context: currentContext,
+            sourceIdentity: currentSource
+        });
         const environment = {
             ...process.env,
             PATH: `${bin}:${process.env.PATH}`,
@@ -551,10 +919,24 @@ test('default and CI execution commands spawn only the finalizer', async () =>
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: admission.contentDigest,
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: admission.runId,
             FSUSBLOG_CLEAN_ATTEMPT_EVIDENCE: attemptEvidence.inputFile,
+            FSUSBLOG_CLEAN_ATTEMPT_EXPECTED_CANDIDATE: attemptEvidence.expectedCandidateFile,
             FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: spawnEvidence.contextFile,
             FSUSBLOG_RELEASE_CHECK_RELEASE_FINAL_EVIDENCE_PATH: spawnEvidence.manifestFile,
             FSUSBLOG_RELEASE_RELEASE_FINAL_DOMAIN_EVIDENCE_EVIDENCE_PATH: spawnEvidence.domainFile
         };
+        const cleanAdmission = requireCleanAttemptConsumerAdmission({
+            consumerId: 'production-correctness',
+            repositoryRoot: root,
+            environment,
+            candidateBinding: {
+                sourceCommit: currentSource.sourceCommit,
+                worktreeFingerprint: `sha256:${currentSource.worktreeFingerprint.replace(/^sha256:/u, '')}`,
+                schedulerRunId: currentContext.schedulerRunId,
+                buildIdentity: currentContext.buildIdentity.digest
+            }
+        });
+        assert.equal(cleanAdmission.eligible, true);
+        assert.equal(cleanAdmission.attemptVerdict.eligible, true);
         const matrix = parseMatrix(readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
         const producerTierIds = matrix.tiers.find((tier) => tier.id === 'release-final').requiresEvidenceFrom;
         const isolatedMatrix = readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8');

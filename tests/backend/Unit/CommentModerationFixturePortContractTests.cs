@@ -21,7 +21,12 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
     [Fact]
     public void AcquireRuntimeState_AppliesOwnedManualReviewRegionAndModel()
     {
-        (CommentModerationFixturePort port, ModerationRuntimeStateService runtimeState) = BuildPort();
+        var clock = new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
+        (CommentModerationFixturePort port, ModerationRuntimeStateService runtimeState) = BuildPort(clock);
+        Assert.Equal(clock.UtcNow.UtcDateTime, runtimeState.Current.ChangedAtUtc);
+        Assert.Equal(clock.UtcNow.UtcDateTime, runtimeState.CurrentModel.LoadedAtUtc);
+
+        clock.UtcNow = clock.UtcNow.AddSeconds(2);
 
         CommentModerationRuntimeLease lease = port.AcquireRuntimeState(
             Binding(),
@@ -39,6 +44,9 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
         Assert.Equal(ModerationRegionStates.ManualReviewOnly,
             runtimeState.GetRegionState(RegionCodes.UnitedStates));
         Assert.True(runtimeState.CurrentModel.Enabled);
+        Assert.Equal(clock.UtcNow.UtcDateTime, runtimeState.Current.ChangedAtUtc);
+        Assert.Equal(clock.UtcNow.UtcDateTime, runtimeState.CurrentModel.LoadedAtUtc);
+        Assert.Equal(clock.UtcNow.UtcDateTime.AddMinutes(15), runtimeState.Current.ExpiresAtUtc);
     }
 
     [Fact]
@@ -92,8 +100,9 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
             }));
     }
 
-    private (CommentModerationFixturePort Port, ModerationRuntimeStateService RuntimeState) BuildPort()
+    private (CommentModerationFixturePort Port, ModerationRuntimeStateService RuntimeState) BuildPort(TimeProvider? clock = null)
     {
+        clock ??= new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
         string runtimePath = WriteRuntimePackage();
         IConfigurationRoot configuration = new ConfigurationBuilder()
             .AddInMemoryCollection(new Dictionary<string, string?>
@@ -111,7 +120,8 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
             .Build();
         var runtimeState = new ModerationRuntimeStateService(
             configuration,
-            new TestWebHostEnvironment("Development"));
+            new TestWebHostEnvironment("Development"),
+            clock);
         var port = new CommentModerationFixturePort(
             null!,
             null!,
@@ -120,8 +130,15 @@ public sealed class CommentModerationFixturePortContractTests : IDisposable
             null!,
             runtimeState,
             null!,
-            null!);
+            null!,
+            clock);
         return (port, runtimeState);
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 
     private string WriteRuntimePackage()

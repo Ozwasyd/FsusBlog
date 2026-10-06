@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/matrix.yml",
+        "tools/test-matrix/fixture-profile-contract.mjs",
+        "tools/testing/fixture-catalog.mjs",
+        "tools/testing/generate-fixture-catalog-artifacts.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/fixture-consumer-inventory.generated.json",
+            "sha256": "336646fbb60411a32f7af8ee4d11f6c295b44115356853e300f5a435fdde5fed"
+        },
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "1f93afa0dfd0081798e94f95199b19e3fcbc9d740e3bbe9ff672d4dd6da37458"
+        }
+    ]
+}

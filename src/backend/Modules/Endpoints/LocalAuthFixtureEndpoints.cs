@@ -1,12 +1,13 @@
 // fixture-catalog: producer auth-session
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
 using System.Security.Cryptography;
-using System.IdentityModel.Tokens.Jwt;
 using System.Text;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Helpers;
+using FsusBlog.Server.Infrastructure.Middlewares;
 using FsusBlog.Server.Infrastructure.Security;
 using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Services.Fixtures;
@@ -42,10 +43,25 @@ public static class LocalAuthFixtureEndpoints
         app.MapPost(
                 "/api/local/auth-fixture/prepare",
                 async Task<IResult> (
+                    HttpContext context,
                     [FromBody] AuthFixturePlan request,
                     [FromServices] IAuthFixtureSeeder seeder,
-                    CancellationToken cancellationToken) => Results.Json(
-                        await seeder.PrepareAsync(request, cancellationToken)))
+                    CancellationToken cancellationToken) =>
+                {
+                    context.Response.Headers.CacheControl = "no-store";
+                    try
+                    {
+                        return Results.Json(await seeder.PrepareAsync(request, cancellationToken));
+                    }
+                    catch (AuthFixturePrivatePrepareFailure recovery)
+                    {
+                        return Results.Json(new
+                        {
+                            error = "auth fixture failed with private recovery",
+                            privateCarriers = recovery.RecoveryCarriers()
+                        }, statusCode: 500);
+                    }
+                })
             .AllowAnonymous()
             .AddEndpointFilter(RequireLocalFixtureSecret)
             .AddEndpointFilter(RequireLoopbackCaller);
@@ -60,6 +76,50 @@ public static class LocalAuthFixtureEndpoints
             .AllowAnonymous()
             .AddEndpointFilter(RequireLocalFixtureSecret)
             .AddEndpointFilter(RequireLoopbackCaller);
+
+        async Task<IResult> PrivateHandler(HttpContext context, AuthFixturePrivateVerificationRequest request,
+            IAuthFixtureSeeder seeder, bool cleanup, CancellationToken cancellationToken)
+        {
+            if (request.Identity is null
+                || request.Identity.RunId != context.Request.Headers["X-Fsus-Test-Run-Id"].ToString()
+                || request.Identity.Namespace != context.Request.Headers["X-Fsus-Test-Namespace"].ToString())
+            {
+                return Results.BadRequest("auth private header binding mismatch");
+            }
+            context.Response.Headers.CacheControl = "no-store";
+            try
+            {
+                if (cleanup)
+                {
+                    await seeder.CleanupPrivateAsync(request, cancellationToken);
+                    return Results.Ok(new
+                    {
+                        ok = true
+                    });
+                }
+                return Results.Json(await seeder.VerifyPrivateAsync(request, cancellationToken));
+            }
+            catch (Exception error) when (error is InvalidOperationException or CryptographicException or ArgumentException)
+            {
+                return Results.BadRequest("auth private verification rejected");
+            }
+        }
+        app.MapPost("/api/local/auth-fixture/private/verify", (
+                HttpContext context, [FromBody] AuthFixturePrivateVerificationRequest request,
+                [FromServices] IAuthFixtureSeeder seeder, CancellationToken cancellationToken)
+                => PrivateHandler(context, request, seeder, false, cancellationToken))
+            .AllowAnonymous()
+            .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(LocalAuthFixtureSecretHeaderName,
+                "X-Fsus-Test-Run-Id", "X-Fsus-Test-Namespace"))
+            .AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
+        app.MapPost("/api/local/auth-fixture/private/cleanup", (
+                HttpContext context, [FromBody] AuthFixturePrivateVerificationRequest request,
+                [FromServices] IAuthFixtureSeeder seeder, CancellationToken cancellationToken)
+                => PrivateHandler(context, request, seeder, true, cancellationToken))
+            .AllowAnonymous()
+            .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(LocalAuthFixtureSecretHeaderName,
+                "X-Fsus-Test-Run-Id", "X-Fsus-Test-Namespace"))
+            .AddEndpointFilter(RequireLocalFixtureSecret).AddEndpointFilter(RequireLoopbackCaller);
 
         var handler = async Task<IResult> (
             HttpContext context,

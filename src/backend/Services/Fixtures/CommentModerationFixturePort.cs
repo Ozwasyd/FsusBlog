@@ -255,6 +255,10 @@ public interface ICommentModerationFixturePort
     Task<CommentModerationFixtureResult> ExecuteAsync(
         CommentModerationFixturePlan plan,
         CancellationToken cancellationToken = default);
+
+    Task<CommentModerationFixtureResult> ObserveCurrentAsync(
+        CommentModerationFixturePlan plan,
+        CancellationToken cancellationToken = default);
 }
 
 /// <summary>
@@ -269,7 +273,8 @@ public sealed class CommentModerationFixturePort(
     CommentMutationOutboxWorker outboxWorker,
     IModerationRuntimeStateService runtimeState,
     CommentFixtureCacheProbe cacheProbe,
-    ISqlSugarClient db) : ICommentModerationFixturePort
+    ISqlSugarClient db,
+    TimeProvider timeProvider) : ICommentModerationFixturePort
 {
     private static readonly System.Buffers.SearchValues<char> s_myChars = System.Buffers.SearchValues.Create("0123456789abcdef");
     private const string PlanSchema = "fsusblog.comment-moderation-fixture-plan.v1";
@@ -314,7 +319,7 @@ public sealed class CommentModerationFixturePort(
             manualReviewRegion,
             ModerationRegionStates.ManualReviewOnly,
             $"comment fixture manual-review matrix {binding.RunId}",
-            DateTime.UtcNow.AddMinutes(15),
+            timeProvider.GetUtcNow().UtcDateTime.AddMinutes(15),
             null,
             binding.Owner);
         if (!regionState.IsSuccess)
@@ -516,6 +521,16 @@ public sealed class CommentModerationFixturePort(
             await TransitionAsync(plan.Binding, plan.AdminPrincipalId, operation, cancellationToken).ConfigureAwait(false);
 
         await DrainOutboxAsync(plan.Operations, cancellationToken).ConfigureAwait(false);
+
+        return await ObserveCurrentAsync(plan, cancellationToken).ConfigureAwait(false);
+    }
+
+    /// <summary>Independent reads only: no transition, drain, runtime lease or cache repair.</summary>
+    public async Task<CommentModerationFixtureResult> ObserveCurrentAsync(
+        CommentModerationFixturePlan plan,
+        CancellationToken cancellationToken = default)
+    {
+        ValidatePlan(plan);
 
         var queueMembership = new Dictionary<CommentModerationStatus, QueueSnapshot>
         {

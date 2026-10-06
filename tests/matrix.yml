@@ -8,6 +8,7 @@ governance:
         postBaselines:
             - tests/admin-inline-empty-state-retirement-baseline.json
             - tests/anonymous-nullifier-concurrency-retirement-baseline.json
+            - tests/bounded-runtime-projection-retirement-baseline.json
             - tests/ci-local-matrix-retirement-baseline.json
             - tests/lightweight-acceptance-baseline.json
             - tests/moderation-regions-datalist-retirement-baseline.json
@@ -491,7 +492,12 @@ commandGroups:
               access: "write"
               stage: "postbuild"
               reason: "Consumes the completed frontend dist tree and owns its asset-budget evidence."
-              consumedInputs: ["src/frontend/dist", "config/performance/static-client-payload-budget.v1.json", "config/schemas/static-client-payload-budget.schema.json", "tools/operations/static-client-payload-budget.mjs", "tests/frontend/checks/static/check-asset-size-budget.mjs"]
+              consumedInputs:
+                  - "src/frontend/dist"
+                  - "config/performance/static-client-payload-budget.v1.json"
+                  - "config/schemas/static-client-payload-budget.schema.json"
+                  - "tools/operations/static-client-payload-budget.mjs"
+                  - "tests/frontend/checks/static/check-asset-size-budget.mjs"
               ownedOutputs: [".tmp/frontend/asset-size-budget.json"]
               dependsOn: []
               resources: {cpuWeight: 1, memoryWeight: 0.75, minCpuUnits: 1, exclusiveResources: ["frontend-dist", "frontend-static-output"]}
@@ -1431,6 +1437,7 @@ tiers:
               tools/test/execution-envelope-directories.mjs,
               tools/test/execution-envelope-environment.mjs,
               tools/test/execution-envelope-network.mjs,
+              tools/test/physical-execution-private-dotnet-scratch.mjs,
               tools/test/execution-envelope-receipt.mjs,
               tools/test/execution-envelope-services.mjs,
               tools/test/native/execution-envelope-landlock.c,
@@ -2243,6 +2250,8 @@ tiers:
           - tests/frontend/unit/components/user/MessagesStateMachine.test.ts
           - tests/admin-console-behavior-evidence.json
           - tests/test-retention-replacements.json
+          - tools/test-convergence/post-baseline-history.mjs
+          - tools/post-baseline-history.test.mjs
       ciJob: fast-frontend-unit
       localOnly: false
       nightlyOnly: false
@@ -2629,7 +2638,7 @@ tiers:
       owner: ServerContractAgent
       command: tools/test/lanes/backend-unit.sh
       executionDependsOn: [backend-build-governance]
-      services: []
+      services: [mysql]
       parallelizable: true
       exclusiveResources: [backend-coverlet-instrumentation]
       phase: 1
@@ -2652,9 +2661,31 @@ tiers:
               src/shared,
               tests/backend,
               tests/migration,
+              config/testing/test-execution-service-catalog.json,
+              config/schemas/test-execution-service-catalog.schema.json,
               tests/tools/backend-production-shards.test.mjs,
               tools/test/backend-platform-selection.mjs,
+              tools/test/perception-redis-producer.mjs,
+              tools/dotnet-affected-tests.sh,
               tools/test/run-backend-production-shards.mjs,
+              tools/test/build-migration-tests.mjs,
+              tools/test/run-migration-tests.mjs,
+              tools/db/generate-migration-assembly-receipt.mjs,
+              tools/test-fixtures/services/mysql.mjs,
+              tools/test/mysql-fixture-admission.mjs,
+              tools/test-matrix/mysql-fixture-recovery.mjs,
+              tools/test/execution-envelope-services.mjs,
+              tools/test/migration-build-binding.mjs,
+              tools/test/migration-execution-evidence.mjs,
+              tools/test/vstest-discovery-diagnostic.mjs,
+              tools/test/execution-envelope-environment.mjs,
+              tools/test-inventory,
+              tests/tools/migration-build-binding.test.mjs,
+              tests/tools/migration-discovery-evidence.test.mjs,
+              tests/tools/migration-operational-execution.test.mjs,
+              tests/tools/migration-lane-consumption.test.mjs,
+              tests/tools/migration-production-producer.test.mjs,
+              tests/tools/migration-cache-closure.test.mjs,
               tools/check-backend-test-governance.mjs,
               tools/test/lanes/backend-unit.sh,
               tools/test/lanes,
@@ -2748,6 +2779,7 @@ tiers:
           - src/core/Services/Articles/RevisionCompareContract.cs
           - tests/backend/Unit/AuthoringRevisionCompareServiceTests.cs
           - tests/backend/Unit/RevisionSourceDiffInvariantTests.cs
+          - tests/backend/Unit/RevisionSourceDiffMemoryBudgetTests.cs
           - tests/backend/Unit/RevisionSourceDiffServiceTests.cs
           - tests/backend/Unit/RevisionSourceDiffStructureTests.cs
           - tests/backend/Unit/RevisionSourceDiffTestInfrastructure.cs
@@ -2770,6 +2802,7 @@ tiers:
           - src/core/Services/Articles/RevisionSourceDiffHunks.cs
           - src/core/Services/Articles/RevisionSourceDiffLineInternals.cs
           - src/core/Services/Articles/RevisionSourceDiffLineMatching.cs
+          - src/core/Services/Articles/RevisionSourceDiffMemoryBudget.cs
           - src/core/Services/Articles/RevisionSourceDiffReceipts.cs
           - src/core/Services/Articles/RevisionSourceDiffResults.cs
           - src/core/Services/Articles/RevisionSourceDiffResultVerifier.cs
@@ -2777,6 +2810,7 @@ tiers:
           - src/core/Services/Articles/RevisionSourceDiffValues.cs
           - src/core/Services/Articles/RevisionSourceDiffVerifier.cs
           - src/core/Services/Articles/RevisionSourceDiffVerifierCoordinates.cs
+          - src/core/Services/Articles/RevisionSourceDiffVerifierMemory.cs
           - src/core/Services/Articles/RevisionSourceDiffWordInternals.cs
           - src/core/Services/Articles/RevisionSourceDiffWordMatching.cs
           - src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs
@@ -3037,9 +3071,21 @@ tiers:
       minCpuUnits: 1
       executionKey: backend-fast-summary
       executionVariant: ordinary
-      cacheInputs: [tests/matrix.yml, tools/test/lanes/backend-fast.sh]
+      cacheInputs:
+          [
+              tests/matrix.yml,
+              tools/test/lanes/backend-fast.sh,
+              tools/test/lanes/_suite-support.sh,
+              tools/test/run-migration-tests.mjs,
+              tools/test/mysql-fixture-admission.mjs,
+              tools/test/migration-build-binding.mjs,
+              tools/test/migration-execution-evidence.mjs,
+              tools/test-inventory,
+              tests/tools/migration-lane-consumption.test.mjs,
+              tests/tools/migration-cache-closure.test.mjs,
+          ]
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: false
       requiresPlaywright: none
       cacheProfile: none
@@ -3312,10 +3358,12 @@ tiers:
           - article-embed-publication-static-governance
           - article-embed-relations-static-governance
           - block-anchor-contract-static-governance
+          - article-relations-static-governance
           - revision-compare-authority
           - article-scale-plan-static-governance
           - static-client-payload-baseline-contract
           - article-bulk-authority-static-governance
+          - article-property-definition-authority-static-governance
       artifacts:
           [
               .tmp/gate-logs,
@@ -3351,6 +3399,7 @@ tiers:
           - tools/test/physical-execution-process-tree.mjs
           - tools/test/physical-execution-linux-systemd-adapter.mjs
           - tools/test/physical-execution-linux-systemd-bootstrap.mjs
+          - tools/test/physical-execution-private-dotnet-scratch.mjs
           - tools/test/physical-execution-unix-bootstrap.mjs
           - tools/test/physical-execution-windows-job-adapter.mjs
           - tools/test/physical-execution-windows-job.ps1
@@ -3631,6 +3680,15 @@ tiers:
           - src/shared/Contracts/BlockLinks/BlockAnchorIndependentVerifier.cs
           - src/shared/Contracts/BlockLinks/block-anchor-contract.schema.json
           - docs/architecture/block-anchor-contract.md
+          - tools/governance/check-article-relations.mjs
+          - tests/tools/article-relations.test.mjs
+          - tests/backend/Unit/ArticleRelationContractTests.cs
+          - src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs
+          - src/shared/Contracts/ArticleRelations/ArticleRelationCatalog.cs
+          - src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs
+          - src/shared/Contracts/ArticleRelations/ArticleRelationDigest.cs
+          - config/contracts/article-relation-catalog.json
+          - config/schemas/article-relation-contract.schema.json
           - tools/test/check-article-scale-plan-governance.mjs
           - tests/fixtures/governance/article-scale-plan-governance.json
           - tests/tools/article-scale-plan-governance.test.mjs
@@ -3640,6 +3698,12 @@ tiers:
           - tests/tools/revision-compare-authority.test.mjs
           - tools/governance/check-article-bulk-authorities.mjs
           - tests/tools/article-bulk-authorities.test.mjs
+          - tools/governance/check-article-property-definition-authority.mjs
+          - tests/tools/article-property-definition-authority.test.mjs
+          - src/backend/Services/Authoring/ArticlePropertyDefinitionStore.cs
+          - src/backend/Services/Authoring/ArticlePropertyDefinitionVerifier.cs
+          - src/backend/Services/Authoring/PostgresArticlePropertyDefinitionPersistence.cs
+          - docs/architecture/article-property-definition-authority.md
           - src/backend/Services/Articles/Bulk/ArticleBulkOperationRegistry.cs
           - src/backend/Services/Articles/Bulk/ArticleBulkCanonicalCommandOwners.cs
           - docs/testing/issue-1174-csharp-entrypoint-ownership.md
@@ -3671,6 +3735,9 @@ tiers:
           - tools/dependencies/verify-fsusui-candidate.mjs
           - tools/dependencies/fsusui-candidate-package-smoke.mjs
           - tests/tools/fsusui-candidate.test.mjs
+          - tests/tools/frontend-local-install.test.mjs
+          - src/frontend/scripts/prepare-local-fsusui-install.mjs
+          - src/frontend/scripts/fsusui-root.mjs
           - tests/frontend/checks/static/check-fsusui-boundary.mjs
           - tests/frontend/checks/static/check-fsusui-typecheck-modes.mjs
           - docs/frontend/fsusui-typecheck-modes.md
@@ -3925,6 +3992,9 @@ tiers:
           - tests/backend/security-hardening-evidence.json
           - tests/test-retention-replacements.json
           - tests/tools/test-suite-convergence.test.mjs
+          - tests/tools/package.json
+          - tests/tools/package-lock.json
+          - tools/package.json
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt
           - tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt
           - tests/backend/cleanup-worker-human-read-behavior.md
@@ -3984,6 +4054,15 @@ tiers:
           - tests/tools/content-lifecycle-observation.test.mjs
           - tools/docs/content-doc-exactness.mjs
           - tests/tools/content-doc-exactness.test.mjs
+          - tests/tools/canonical-article-lifecycle-authority.test.mjs
+          - tests/tools/public-content-producer.test.mjs
+          - tools/governance/check-canonical-article-lifecycle-authority.mjs
+          - tools/test-fixtures/receipt/postconditions.mjs
+          - tools/test-fixtures/orchestrator.mjs
+          - tools/test-fixtures/receipt/reuse-verifier.mjs
+          - src/backend/Services/Fixtures/CanonicalArticleProjectionVerifier.cs
+          - src/backend/Services/SearchIndexService.ProjectionEvidence.cs
+          - tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs
       ciJob: fast-static-governance
       localOnly: false
       nightlyOnly: false
@@ -6879,6 +6958,13 @@ tiers:
     - id: runtime-cache-hot-featured-frame
       executionClass: runtime
       fixtureProfile: public-content-lifecycle
+      fixturePrerequisites:
+          - id: typed-admin-session
+            profileId: auth-basic
+            producerId: auth-session
+            capabilityId: auth.admin.full-permission
+            semanticRole: admin.full-permission
+            consumerId: runtime-cache-hot-featured-frame
       fixtureProfileReason: binds-public-content-lifecycle
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: true
@@ -9690,6 +9776,7 @@ tiers:
               tools/test/physical-execution-process-tree.mjs,
               tools/test/physical-execution-linux-systemd-adapter.mjs,
               tools/test/physical-execution-linux-systemd-bootstrap.mjs,
+              tools/test/physical-execution-private-dotnet-scratch.mjs,
               tools/test/physical-execution-unix-bootstrap.mjs,
               tools/test/physical-execution-windows-job-adapter.mjs,
               tools/test/physical-execution-windows-job.ps1,
@@ -10716,9 +10803,11 @@ tiers:
               tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
+              tools/frontend/generate-aeds-protocol.mjs,
+              tests/tools/aeds-protocol-generation.test.mjs,
           ]
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: true
       requiresPlaywright: none
       cacheProfile: backend
@@ -10745,6 +10834,9 @@ tiers:
               .tmp/backend-golden/summary.json,
               tests/backend/Fixtures/aeds-golden-catalog.json,
               tests/backend/Unit/BackendGoldenCatalogTests.cs,
+              tests/tools/aeds-protocol-generation.test.mjs,
+              tools/frontend/generate-aeds-protocol.mjs,
+              src/shared/Contracts/Validation/aeds-protocol.json,
               tests/backend/Unit/PodBinaryCodecTests.cs,
               tests/backend/Unit/AedsFrameNamingTests.cs,
               tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs,

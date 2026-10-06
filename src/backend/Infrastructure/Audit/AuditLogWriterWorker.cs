@@ -23,6 +23,11 @@ public sealed class AuditLogWriterWorker(
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        if (_channel.HasDurableFallback)
+        {
+            await ExecuteJournalAsync(stoppingToken).ConfigureAwait(false);
+            return;
+        }
         var batch = new List<AuditRecord>(BatchSize);
         bool persistenceStarted = false;
 
@@ -86,6 +91,53 @@ public sealed class AuditLogWriterWorker(
         await DrainRemainingAsync(drainCts.Token);
     }
 
+    internal async Task ReplayPendingOnceAsync(CancellationToken cancellationToken)
+    {
+        IAuditDurableJournal journal = _channel.DurableJournal
+            ?? throw new InvalidOperationException("audit_durable_journal_required");
+        await journal.ReplayAsync(WriteBatchOnceAsync, cancellationToken).ConfigureAwait(false);
+    }
+
+    private async Task ExecuteJournalAsync(CancellationToken stoppingToken)
+    {
+        while (!stoppingToken.IsCancellationRequested)
+        {
+            try
+            {
+                await ReplayPendingOnceAsync(stoppingToken).ConfigureAwait(false);
+                await Task.Delay(s_flushWindow, stoppingToken).ConfigureAwait(false);
+            }
+            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            {
+                break;
+            }
+            catch (Exception ex)
+            {
+                _runtimeState.RecordWriteFailure(1);
+                using var _ = AuditLogScope.SkipPersistence();
+                _logger.LogError("audit-log journal replay remains pending. FailureCategory={Category}", ex.GetType().Name);
+                try
+                {
+                    await Task.Delay(s_flushWindow, stoppingToken).ConfigureAwait(false);
+                }
+                catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+                {
+                    break;
+                }
+            }
+        }
+        using var drainCts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+        try
+        {
+            await ReplayPendingOnceAsync(drainCts.Token).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            using var _ = AuditLogScope.SkipPersistence();
+            _logger.LogWarning("audit-log shutdown leaves the durable journal pending. FailureCategory={Category}", ex.GetType().Name);
+        }
+    }
+
     internal async Task WriteBatchOnceAsync(IReadOnlyList<AuditRecord> batch, CancellationToken cancellationToken)
     {
         if (batch.Count == 0)
@@ -97,9 +149,13 @@ public sealed class AuditLogWriterWorker(
             _scopeFactory,
             "audit_flush");
         IAuditLogStore store = scope.ServiceProvider.GetRequiredService<IAuditLogStore>();
+        using var _ = AuditLogScope.SkipPersistence();
         await store.WriteBatchAsync(batch, cancellationToken);
         _runtimeState.RecordWriteSuccess(batch.Count);
-        _channel.MarkCommitted(batch.Count);
+        if (!_channel.HasDurableFallback)
+        {
+            _channel.MarkCommitted(batch.Count);
+        }
     }
 
     private async Task DrainRemainingAsync(CancellationToken cancellationToken)

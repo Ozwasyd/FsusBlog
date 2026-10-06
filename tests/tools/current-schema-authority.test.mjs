@@ -7,14 +7,23 @@ import { fileURLToPath } from 'node:url';
 
 const { validateCurrentSchemaAuthority } = await import(new URL('../../tools/db/check-current-schema-authority.mjs', import.meta.url));
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
-const canonicalRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs';
+const canonicalRelative = 'src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs';
+const extractorRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaCanonicalModel.cs';
+const recipeExtractorRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs';
+const exporterRelative = 'src/backend/Infrastructure/SchemaMigration/CurrentSchemaOwnedProjectionExporter.cs';
+const neutralRelatives = [
+    canonicalRelative,
+    'src/shared/Contracts/Schema/CurrentSchemaModel.cs',
+    'src/shared/Contracts/Schema/SchemaPhysicalTypeProjection.cs',
+    'src/shared/Contracts/Schema/SchemaModelComparer.cs'
+];
 const inspectorRelative = 'src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs';
 const materializerRelative = 'src/backend/Infrastructure/Testing/CurrentSchemaTestMaterializer.cs';
 
 function mutatedRepository(mutate)
 {
     const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-current-schema-authority-'));
-    for (const relative of [canonicalRelative, inspectorRelative])
+    for (const relative of [...neutralRelatives, extractorRelative, inspectorRelative, recipeExtractorRelative, exporterRelative])
     {
         const target = path.join(temporary, relative);
         fs.mkdirSync(path.dirname(target), { recursive: true });
@@ -27,6 +36,22 @@ function mutatedRepository(mutate)
 test('current schema authority has one canonical extractor, three adapters and one verifier', () =>
 {
     assert.deepEqual(validateCurrentSchemaAuthority(root), []);
+});
+
+test('recipe facts retain one original source owner and reject second extractors', () =>
+{
+    const duplicate = mutatedRepository((repository) =>
+    {
+        fs.writeFileSync(path.join(repository, 'src/shared/Contracts/Schema/SecondRecipeExtractor.cs'),
+            'internal static class CurrentSchemaRecipeFactExtractor {}\n');
+    });
+    assert.ok(validateCurrentSchemaAuthority(duplicate).some((error) => error.includes('exactly one production declaration')));
+    const substituted = mutatedRepository((repository) =>
+    {
+        const file = path.join(repository, exporterRelative);
+        fs.writeFileSync(file, fs.readFileSync(file, 'utf8').replace('CurrentSchemaRuntimeRollupTables.Tables.Select', 'callerRecipes.Select'));
+    });
+    assert.ok(validateCurrentSchemaAuthority(substituted).some((error) => error.includes('sole original current-owned recipe catalog')));
 });
 
 test('current schema authority rejects migration catalog input and fixture reconstruction', () =>
@@ -61,6 +86,28 @@ test('current schema authority rejects a hand-written inventory or second genera
         fs.writeFileSync(target, 'var model = CurrentSchemaCanonicalAuthority.Extract(entityTypes);\n');
     });
     assert.ok(validateCurrentSchemaAuthority(secondGenerator).some((error) => error.includes('second current schema producer')));
+});
+
+test('neutral extraction preserves one producer and rejects duplicate or missing owners', () =>
+{
+    const duplicate = mutatedRepository((repository) =>
+    {
+        const target = path.join(repository, 'src/shared/Contracts/Schema/SecondSchemaAuthority.cs');
+        fs.writeFileSync(target, 'public static class CurrentSchemaCanonicalAuthority {}\n');
+    });
+    assert.ok(validateCurrentSchemaAuthority(duplicate).some((error) => error.includes('exactly one production declaration')));
+    const missing = mutatedRepository((repository) =>
+    {
+        fs.unlinkSync(path.join(repository, extractorRelative));
+    });
+    assert.ok(validateCurrentSchemaAuthority(missing).some((error) => error.includes('missing entity current schema extractor')));
+    const secondExtractor = mutatedRepository((repository) =>
+    {
+        const target = path.join(repository, 'src/backend/Services/SecondEntityExtractor.cs');
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.writeFileSync(target, 'var model = CurrentSchemaEntityExtractor.Extract(entityTypes);\n');
+    });
+    assert.ok(validateCurrentSchemaAuthority(secondExtractor).some((error) => error.includes('second current schema producer')));
 });
 
 test('test current schema materializer remains explicit, canonical and pre-runtime', () =>

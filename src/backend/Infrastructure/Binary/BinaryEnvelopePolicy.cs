@@ -14,9 +14,13 @@ internal interface IBinaryEnvelopePolicy
     bool IsBinaryContentType(string contentType);
     bool IsBinaryRequestContentType(string contentType);
     bool IsStreamContentType(string contentType);
-    ErrorCode MapErrorCode(int statusCode);
+    ApiErrorTransportMappingId GetGenericMappingId(int statusCode);
     void ApplyFrameResponse(HttpResponse response, int payloadLength, int? statusCode = null);
-    Task WriteApiErrorAsync(HttpContext context, Stream responseBody, ErrorDetail error, int statusCode);
+    Task WriteApiErrorAsync(
+        HttpContext context,
+        Stream responseBody,
+        ErrorDetail error,
+        ApiErrorTransportMappingId mappingId);
 }
 
 internal sealed class BinaryEnvelopePolicy : IBinaryEnvelopePolicy
@@ -46,8 +50,8 @@ internal sealed class BinaryEnvelopePolicy : IBinaryEnvelopePolicy
         return contentType.StartsWith("application/grpc", StringComparison.OrdinalIgnoreCase);
     }
 
-    public ErrorCode MapErrorCode(int statusCode)
-        => ApiErrorSemanticMapper.MapErrorCode(statusCode);
+    public ApiErrorTransportMappingId GetGenericMappingId(int statusCode)
+        => ApiErrorSemanticMapper.GetGenericMappingId(statusCode);
 
     public void ApplyFrameResponse(HttpResponse response, int payloadLength, int? statusCode = null)
     {
@@ -61,14 +65,19 @@ internal sealed class BinaryEnvelopePolicy : IBinaryEnvelopePolicy
         response.ContentLength = AedsFrameHeader.Size + payloadLength;
     }
 
-    public async Task WriteApiErrorAsync(HttpContext context, Stream responseBody, ErrorDetail error, int statusCode)
+    public async Task WriteApiErrorAsync(
+        HttpContext context,
+        Stream responseBody,
+        ErrorDetail error,
+        ApiErrorTransportMappingId mappingId)
     {
+        ApiErrorSemanticMapper.TransportMapping mapping = ApiErrorSemanticMapper.ValidateError(mappingId, error);
         using var frameWriter = new AedsFrameBufferWriter(256);
-        PodBinaryCodec.WriteApiError(error, frameWriter.PayloadWriter, statusCode);
+        PodBinaryCodec.WriteApiError(error, frameWriter.PayloadWriter, mapping.HttpStatus);
         frameWriter.Seal(AedsFrameType.ApiError);
 
         context.Response.Body = responseBody;
-        ApplyFrameResponse(context.Response, frameWriter.PayloadLength, statusCode);
+        ApplyFrameResponse(context.Response, frameWriter.PayloadLength, mapping.HttpStatus);
         await context.Response.BodyWriter.WriteAsync(frameWriter.WrittenFrame, context.RequestAborted);
         await context.Response.BodyWriter.FlushAsync(context.RequestAborted);
     }

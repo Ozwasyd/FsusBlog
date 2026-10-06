@@ -369,14 +369,14 @@ PrepareSessionFixturesOnce() {
         "$CLIENT_DIR" \
         "$fixtureRoot/sessions" \
         env FSUSBLOG_PLAYWRIGHT_WORKERS="$workers" \
-            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/fixtures/prepare-playwright-sessions.mjs" --workers "$workers"
+        "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tests/frontend/fixtures/prepare-playwright-sessions.mjs" --workers "$workers"
 }
 
 # Unique orchestrator entry for runtime lanes (#1709 + #1710 FixtureReceipt).
 InvokeLaneFixtureOrchestrator() {
     local profileId="${FSUSBLOG_SEALED_FIXTURE_PROFILE_ID:-${1:-}}"
     local profileSource="${FSUSBLOG_FIXTURE_PROFILE_SOURCE:-matrix}"
-    local fixtureRoot orchestratorPlan prepareState fixtureReceipt
+    local fixtureRoot orchestratorPlan prepareState fixtureReceipt artifactDirectory=""
     if [[ -z "$profileId" ]]; then
         Fail "lane fixture orchestrator requires sealed profile id (FSUSBLOG_SEALED_FIXTURE_PROFILE_ID)"
     fi
@@ -386,6 +386,18 @@ InvokeLaneFixtureOrchestrator() {
         export FSUSBLOG_LOCAL_PUBLIC_CONTENT_FIXTURE_SECRET="fsusblog-local-public-content-fixture-secret-${namespaceSlug}-${FSUSBLOG_TEST_RUN_ID:-local}"
     fi
     fixtureRoot="$(FixtureRootPath)"
+    if [[ "$profileSource" == "matrix" && -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" &&
+        ("$profileId" == "public-content-lifecycle" || "$profileId" == "runtime-cache-pagination") ]]; then
+        # The retained state is the cleanup authority, not a reusable success marker.
+        mkdir -p "$fixtureRoot"
+        fixtureRoot="$(
+            umask 077
+            mktemp -d "$fixtureRoot/runtime-cache-invocation.XXXXXXXX"
+        )"
+        artifactDirectory="$fixtureRoot/artifacts"
+        export FSUSBLOG_FIXTURE_ROOT="$fixtureRoot"
+        export FSUSBLOG_PUBLIC_ID_PROJECTION_FILE="$fixtureRoot/public-content-projection.json"
+    fi
     orchestratorPlan="$fixtureRoot/orchestrator-plan.json"
     prepareState="$fixtureRoot/prepare-state.json"
     fixtureReceipt="$fixtureRoot/fixture-receipt.json"
@@ -395,15 +407,28 @@ InvokeLaneFixtureOrchestrator() {
         --source "$profileSource"
         --plan-out "$orchestratorPlan"
         --prepare-state "$prepareState"
+        --private-carrier-dir "$fixtureRoot/auth-private-carriers"
         --namespace "${FSUSBLOG_TEST_NAMESPACE:-}"
         --run-id "${FSUSBLOG_TEST_RUN_ID:-}"
+        --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:?fixture source commit is required}"
+        --source-fingerprint "sha256:${FSUSBLOG_TEST_SOURCE_FINGERPRINT#sha256:}"
+        --service-generation "sha256:${FSUSBLOG_FIXTURE_SERVICE_GENERATION#sha256:}"
         --base-url "${FSUSBLOG_BASE_URL:-${DEBUG_BACKEND_URL:-}}"
         --debug-backend-url "${FSUSBLOG_DEBUG_BACKEND_URL:-${DEBUG_BACKEND_URL:-}}"
         --frontend-url "${PLAYWRIGHT_BASE_URL:-${DEBUG_FRONTEND_URL:-}}"
         --pg-container "${FSUSBLOG_PG_CONTAINER:-}"
         --redis-container "${FSUSBLOG_REDIS_CONTAINER:-${FSUSBLOG_REDIS_CONTAINER_NAME:-}}"
     )
-    if [[ "$profileId" == "none" || "$profileId" == "comments-moderation" ]]; then
+    if [[ -n "$artifactDirectory" ]]; then
+        runArgs+=(--artifact-dir "$artifactDirectory"
+            --artifact-consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID")
+    fi
+    if [[ -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" ]]; then
+        runArgs+=(--runtime-cache-consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID"
+            --runtime-cache-input-dir "$fixtureRoot/runtime-cache-inputs/${FSUSBLOG_TEST_RUN_ID:?}"
+            --public-projection "$fixtureRoot/public-content-projection.json")
+    fi
+    if [[ "$profileId" == "none" || "$profileId" == "comments-moderation" || "$profileId" == "auth-basic" || "$profileId" == "public-content-lifecycle" || "$profileId" == "runtime-cache-pagination" ]]; then
         runArgs+=(--fixture-receipt "$fixtureReceipt")
     else
         # Honest partial: unrelated incomplete profiles remain prepare-state only.
@@ -423,7 +448,31 @@ InvokeLaneFixtureOrchestrator() {
         fi
     fi
     Log "lane fixture orchestrator profile=${profileId} source=${profileSource}"
+    if [[ -n "$artifactDirectory" ]]; then
+        Log "owned fixture recovery state: ${prepareState}"
+    fi
     "${FSUSBLOG_NODE:-node}" "${runArgs[@]}"
+    if [[ "$profileSource" == "matrix" && ("$profileId" == "public-content-lifecycle" || "$profileId" == "runtime-cache-pagination") ]]; then
+        export FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR="$fixtureRoot/runtime-cache-inputs/${FSUSBLOG_TEST_RUN_ID:?}"
+        local -a prerequisiteArgs=()
+        if [[ -n "${FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID:-}" &&
+            "${FSUSBLOG_SEALED_FIXTURE_PREREQUISITES:-[]}" != "[]" ]]; then
+            prerequisiteArgs+=(--prerequisite-inputs "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR/prerequisite-inputs.json")
+        fi
+        if [[ -n "$artifactDirectory" ]]; then
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+                project-runtime-cache-input --receipt "$fixtureReceipt" \
+                --prepare-state "$prepareState" --public-projection "$fixtureRoot/public-content-projection.json" \
+                --consumer-id "$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID" \
+                --out "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR/$FSUSBLOG_SEALED_FIXTURE_CONSUMER_ID.json" \
+                "${prerequisiteArgs[@]}"
+        else
+            "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test-fixtures/cli.mjs" \
+                project-runtime-cache-profile-inputs --receipt "$fixtureReceipt" \
+                --prepare-state "$prepareState" --public-projection "$fixtureRoot/public-content-projection.json" \
+                --out-dir "$FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR" "${prerequisiteArgs[@]}"
+        fi
+    fi
     if [[ "${FSUSBLOG_TEST_SESSION_ISOLATION:-0}" == "1" ]]; then
         PrepareSessionFixturesOnce
     fi
@@ -530,8 +579,8 @@ PrepareFrontendFastGroupTimings() {
     timingScope="${FSUSBLOG_FRONTEND_FAST_TIMING_SCOPE:-${CURRENT_TIER:-frontend-fast}}"
     timingScope="$(printf '%s' "$timingScope" | tr -cs 'A-Za-z0-9_.-' '-' | sed -E 's/^-+|-+$//g')"
     [[ -n "$timingScope" && "$timingScope" != "." && "$timingScope" != ".." ]] || timingScope="frontend-fast"
-        FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.jsonl}"
-        FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.json}"
+    FRONTEND_FAST_GROUP_TIMINGS_JSONL="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSONL:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.jsonl}"
+    FRONTEND_FAST_GROUP_TIMINGS_JSON="${FSUSBLOG_FRONTEND_FAST_GROUP_TIMINGS_JSON:-$FRONTEND_OUTPUT_ROOT/timings/$timingScope.json}"
     mkdir -p "$(dirname "$FRONTEND_FAST_GROUP_TIMINGS_JSONL")"
     : >"$FRONTEND_FAST_GROUP_TIMINGS_JSONL"
     rm -f "$FRONTEND_FAST_GROUP_TIMINGS_JSON"
@@ -994,6 +1043,12 @@ PrepareBackendPlatformPlan() {
     local lane="$1"
     local baseFilter="$2"
     local configuration outputDirectory testAssembly diagnosticRoot planFile runtimePlatform
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/perception-redis-producer.mjs" --ordinary-plan \
+        --lane "$lane" --filter "$baseFilter" \
+        --run-id "${FSUSBLOG_TEST_RUN_ID:-ordinary-$$}" \
+        --source-commit "${FSUSBLOG_TEST_SOURCE_COMMIT:-$(git -C "$ROOT_DIR" rev-parse HEAD)}" \
+        --source-fingerprint "${FSUSBLOG_TEST_SOURCE_FINGERPRINT:-$(node --input-type=module -e 'const { snapshotGitWorktree } = await import(process.argv[1] + "/tools/test-matrix/scheduler.mjs"); process.stdout.write((await snapshotGitWorktree(process.argv[1])).fingerprint)' "$ROOT_DIR")}" \
+        --output "$ROOT_DIR/.tmp/$lane/local-redis-membership-plan.json"
     configuration="$(BackendTestConfiguration)"
     EnsureBackendFilteredBuild
     outputDirectory="$(BackendTestRuntimeOutputDirectory)"
@@ -1027,6 +1082,146 @@ FinalizeBackendPlatformOutcome() {
         --out "$(BackendPlatformOutcomeFile "$lane")"
 }
 
+RunBoundedWarningOnlySourceMutation() (
+    # Explicit development operation only; no ordinary or mutation lane invokes it.
+    # Expected identity comes from the caller, separately from invocation metadata.
+    local expectedCommit="${1:?expected current commit required}" expectedFingerprint="${2:?expected fingerprint required}"
+    local expectedRunId="${3:?expected run ID required}" purpose="${4:?explicit purpose required}"
+    local parentCommit="$expectedCommit" ownerPid="$BASHPID"
+    [[ "$purpose" == development ]] || { Log 'physical helper is development-only; canonical routing is not admitted'; return 2; }
+    parentCommit="${FSUSBLOG_BOUNDED_MUTATION_PARENT_COMMIT:-$expectedCommit}"
+    local workRoot="${FSUSBLOG_BOUNDED_MUTATION_WORK_ROOT:-$ROOT_DIR/.tmp/bounded-warning-only-development}"
+    local availableKb evidenceRoot activeGroup="" activeLauncher="" variant stage status
+    local oracle='FsusBlog.Server.Tests.Unit.AdminAuditDurableAdmissionIssue2040Tests.PersistentReplayFailure_BlocksRealAdminParticipantHealthAndQualification'
+    local sourcePath='src/backend/Infrastructure/Audit/AdminAuditLogChannel.cs'
+    [[ "$parentCommit" =~ ^[a-f0-9]{40}$ ]] || return 2
+    mkdir -p "$workRoot"
+    availableKb="$(df -Pk "$workRoot" | awk 'END {print $4}')"
+    # Fail before archives/builds on the near-full source volume.
+    if [[ ! "$availableKb" =~ ^[0-9]+$ ]] || ((availableKb < 12582912)); then
+        Log "physical warning-only mutation requires 12GiB available in $workRoot"
+        return 2
+    fi
+    [[ "$(uname -s)" == Linux ]] || { Log 'physical mutation requires isolated Linux process/cgroup ownership'; return 2; }
+    command -v setsid >/dev/null || return 2
+    evidenceRoot="$(mktemp -d "$workRoot/warning-only-source-mutation.XXXXXX")"
+    Log "physical warning-only evidence=$evidenceRoot parent=$parentCommit"
+    trap 'if [[ -n "$activeGroup" ]]; then kill -TERM -- "-$activeGroup" 2>/dev/null || true; elif [[ -n "$activeLauncher" ]]; then kill -TERM "$activeLauncher" 2>/dev/null || true; fi; if [[ -n "$activeLauncher" ]]; then wait "$activeLauncher" 2>/dev/null || true; fi' EXIT
+    trap 'exit 130' INT
+    trap 'exit 143' TERM
+    if [[ -n "${FSUSBLOG_BOUNDED_MUTATION_PARENT_INPUTS:-}" ]]; then
+        cp "${FSUSBLOG_BOUNDED_MUTATION_PARENT_INPUTS}/parent."{commit,index,tar} "$evidenceRoot/"
+    else
+        git -C "$ROOT_DIR" cat-file commit "$parentCommit" >"$evidenceRoot/parent.commit"
+        git -C "$ROOT_DIR" ls-tree -rz "$parentCommit" >"$evidenceRoot/parent.index"
+        git -C "$ROOT_DIR" archive --format=tar "$parentCommit" >"$evidenceRoot/parent.tar"
+    fi
+    for variant in baseline mutant; do
+        mkdir "$evidenceRoot/$variant"
+        tar -xf "$evidenceRoot/parent.tar" -C "$evidenceRoot/$variant"
+    done
+    # Only the disposable mutant is changed. The current product and oracle stay frozen.
+    perl -0pi -e 's/await store\.WriteBatchAsync\(audits, cancellationToken\)\.ConfigureAwait\(false\);/cancellationToken.ThrowIfCancellationRequested();\n                _logger.LogWarning("admin-audit mutation omitted required store write. StoreType={StoreType}", store.GetType().Name);/g' \
+        "$evidenceRoot/mutant/$sourcePath"
+    status=0
+    (cd "$evidenceRoot" && git diff --no-index --binary --full-index --no-ext-diff --no-textconv --no-renames \
+        "baseline/$sourcePath" "mutant/$sourcePath") >"$evidenceRoot/mutation.patch" || status=$?
+    [[ "$status" == 1 ]] || return 2
+    cp /sys/fs/cgroup/cpu.max "$evidenceRoot/cpu.max"
+    cp /sys/fs/cgroup/memory.max "$evidenceRoot/memory.max"
+    FSUSBLOG_REPO_ROOT="$ROOT_DIR" FSUSBLOG_MUTATION_EVIDENCE_ROOT="$evidenceRoot" FSUSBLOG_MUTATION_PARENT="$parentCommit" \
+        FSUSBLOG_MUTATION_PURPOSE="$purpose" FSUSBLOG_MUTATION_OWNER_PID="$ownerPid" \
+        Run "${FSUSBLOG_NODE:-node}" --input-type=module - <<'NODE'
+import fs from 'node:fs';
+import crypto from 'node:crypto';
+import path from 'node:path';
+const root = process.env.FSUSBLOG_REPO_ROOT;
+const owners = ['tools/governance/bounded-channel-contracts.mjs', 'tests/tools/bounded-channel-contracts.test.mjs',
+    'tools/test/lanes/_suite-support.sh', 'tests/matrix.yml', 'docs/testing.md',
+    'tests/backend/Fixtures/backend-evidence-path-authority.generated.json'];
+const source = owners.map(file => ({file, digest: `sha256:${crypto.createHash('sha256').update(fs.readFileSync(path.join(root, file))).digest('hex')}`}));
+fs.writeFileSync(path.join(process.env.FSUSBLOG_MUTATION_EVIDENCE_ROOT, 'invocation.json'), JSON.stringify({
+    parentCommit: process.env.FSUSBLOG_MUTATION_PARENT,
+    candidateCommit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+    candidateFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT,
+    runId: process.env.FSUSBLOG_TEST_RUN_ID,
+    purpose: process.env.FSUSBLOG_MUTATION_PURPOSE,
+    ownerProcessId: Number(process.env.FSUSBLOG_MUTATION_OWNER_PID),
+    executionOwnerSources: source
+}, null, 2), {flag: 'wx'});
+NODE
+    local identityArgs=(--expected-current-commit "$expectedCommit" --expected-fingerprint "$expectedFingerprint"
+        --expected-run-id "$expectedRunId" --purpose "$purpose")
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/bounded-channel-contracts.mjs" \
+        --physical-warning-only-proof "$evidenceRoot" "$parentCommit" "${identityArgs[@]}" \
+        --inputs-only --proof-output "$evidenceRoot/inputs.json" || return $?
+    for variant in baseline mutant; do
+        # Independent, fresh source/obj/bin/data roots; never reuse the baseline assembly.
+        for stage in restore build test; do
+            local args=(dotnet "$stage" tests/backend/FsusBlog.Server.Tests.csproj --disable-build-servers -m:1
+                -p:BuildInParallel=false -p:UseSharedCompilation=false -p:NuGetAudit=false)
+            case "$stage" in
+                restore) args+=(--locked-mode --disable-parallel) ;;
+                build) args+=(--no-restore -c Debug --nologo) ;;
+                test) args+=(--no-build --no-restore -c Debug --nologo --filter "FullyQualifiedName=$oracle"
+                    --logger "trx;LogFileName=$variant.trx" --results-directory "$evidenceRoot") ;;
+            esac
+            availableKb="$(df -Pk "$evidenceRoot/$variant" | awk 'END {print $4}')"
+            ((availableKb >= 4194304)) || { Log 'insufficient remaining physical mutation build capacity'; return 2; }
+            printf '%s\0' "${args[@]}" >"$evidenceRoot/$variant.$stage.argv"
+            date -u +%s >"$evidenceRoot/$variant.$stage.start"
+            local prefix="$evidenceRoot/$variant.$stage" readyFd releaseFd readyLine
+            mkfifo "$prefix.ready.pipe" "$prefix.release.pipe"
+            exec {readyFd}<>"$prefix.ready.pipe"
+            exec {releaseFd}<>"$prefix.release.pipe"
+            (
+                cd "$evidenceRoot/$variant"
+                exec env FSUSBLOG_DATA_ROOT="$evidenceRoot/$variant-data" FSUSBLOG_PRODUCTION_BUILD_ROOT="" \
+                    MSBUILDDISABLENODEREUSE=1 DOTNET_CLI_USE_MSBUILD_SERVER=0 DOTNET_PROCESSOR_COUNT=1 \
+                    setsid --wait bash -c 'prefix="$1"; shift
+ps -o pid=,ppid=,pgid=,sid= -p "$BASHPID" >"$prefix.ready"
+printf '"'"'ready\n'"'"' >"$prefix.ready.pipe"
+# No dotnet command may start before independently validated ownership.
+IFS= read -r -t 5 release <"$prefix.release.pipe" || exit 125
+[[ "$release" == release ]] || exit 125
+exec "$@"
+' bounded-mutation-ready \
+                        "$prefix" "$evidenceRoot/$variant/tools/build-with-data-env.sh" "${args[@]}"
+            ) >"$evidenceRoot/$variant.$stage.log" 2>&1 &
+            activeLauncher=$!
+            printf '%s\n' "$activeLauncher" >"$prefix.pid"
+            IFS= read -r -t 5 -u "$readyFd" readyLine || return 2
+            [[ "$readyLine" == ready ]] || return 2
+            ps -eo pid,ppid,pgid,sid,state,args >"$prefix.ready-processes"
+            Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/bounded-channel-contracts.mjs" \
+                --physical-warning-only-ready "$prefix" "$activeLauncher" "$ownerPid" \
+                --proof-output "$prefix.ready-authority.json" || return $?
+            activeGroup="$("${FSUSBLOG_NODE:-node}" -p "JSON.parse(require('fs').readFileSync(process.argv[1], 'utf8')).processGroup" "$prefix.ready-authority.json")"
+            printf 'release\n' >&"$releaseFd"
+            exec {readyFd}>&-
+            exec {releaseFd}>&-
+            status=0
+            wait "$activeLauncher" || status=$?
+            date -u +%s >"$evidenceRoot/$variant.$stage.end"
+            printf '%s\n' "$status" >"$evidenceRoot/$variant.$stage.exit"
+            ps -eo pid,ppid,pgid,sid,state,args >"$evidenceRoot/$variant.$stage.processes"
+            if kill -0 -- "-$activeGroup" 2>/dev/null; then
+                Log "owned process group $activeGroup remains; refusing mutation proof"
+                return 2
+            fi
+            activeGroup=""
+            activeLauncher=""
+            if [[ "$variant" == mutant && "$stage" == test ]]; then
+                [[ "$status" == 1 ]] || return 1
+            else
+                [[ "$status" == 0 ]] || return "$status"
+            fi
+        done
+    done
+    Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/governance/bounded-channel-contracts.mjs" \
+        --physical-warning-only-proof "$evidenceRoot" "$parentCommit" "${identityArgs[@]}" --proof-output "$evidenceRoot/proof.json"
+)
+
 RunBackendUnitLane() {
     if [[ "${FSUSBLOG_TEST_SELECTION:-}" == "affected" ]]; then
         Log "backend-unit selection=affected"
@@ -1043,10 +1238,12 @@ RunBackendUnitLane() {
             return "$status"
         fi
     fi
-    Run "$BUILD_ENV_RUNNER" dotnet test "$MIGRATION_TEST_PROJ" \
-        -c "$(BackendTestConfiguration)" \
-        --nologo \
-        "${DOTNET_BUILD_SHARED_ARGS[@]}"
+    Run "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+        "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/build-migration-tests.mjs"
+    ConfigureDotnetTestProcessors
+    Run "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" --backend-unit
+    Run "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+        "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/generate-migration-assembly-receipt.mjs" --write --backend-unit
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
         --catalog "$ROOT_DIR/tests/fixtures/evidence-projection/integrity-proof-verification.json" \
@@ -1309,16 +1506,42 @@ WriteBackendSplitSummary() {
     local selection="$2"
     local outFile="$ROOT_DIR/.tmp/$lane/summary.json"
     mkdir -p "$(dirname "$outFile")"
-    node - "$outFile" "$lane" "$selection" <<'NODE'
-const fs = require('node:fs')
+    node --input-type=module - "$outFile" "$lane" "$selection" "$ROOT_DIR" <<'NODE'
+import fs from 'node:fs'
+import path from 'node:path'
+import { pathToFileURL } from 'node:url'
 const outFile = process.argv[2]
 const lane = process.argv[3]
 const selection = process.argv[4]
+const root = process.argv[5]
+let migrationExecution = null
+if (['backend-unit', 'backend-fast'].includes(lane)) {
+  const { readMigrationExecution, readMigrationExecutionDependency } = await import(pathToFileURL(path.join(root, 'tools/test/run-migration-tests.mjs')))
+  const read = lane === 'backend-fast' ? readMigrationExecutionDependency : readMigrationExecution
+  const result = await read({
+    root,
+    producer: 'backend-unit',
+    runId: process.env.FSUSBLOG_TEST_RUN_ID,
+    namespace: process.env.FSUSBLOG_TEST_NAMESPACE,
+    sourceState: {
+      commit: process.env.FSUSBLOG_TEST_SOURCE_COMMIT,
+      worktreeFingerprint: process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
+    }
+  })
+  migrationExecution = {
+    receiptFile: path.relative(root, result.receiptFile).replaceAll(path.sep, '/'),
+    receiptDigest: result.receipt.digest,
+    project: result.summary.project,
+    sourceCaseIds: result.summary.sourceCaseIds,
+    executedCaseIds: result.summary.executedCaseIds
+  }
+}
 fs.writeFileSync(outFile, `${JSON.stringify({
   schema: 'fsusblog.backend.split-lane.v1',
   lane,
   selection,
   status: 'success',
+  ...(migrationExecution ? { migrationExecution } : {}),
   generatedAt: new Date().toISOString()
 }, null, 2)}\n`)
 NODE
@@ -1345,6 +1568,7 @@ RunBackendPropertyOnly() {
 }
 
 RunBackendGoldenOnly() {
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/aeds-protocol-generation.test.mjs"
     RunBackendDotnetFilterWithCoverage golden "Category=GoldenContract"
     WriteBackendSplitSummary backend-golden "Category=GoldenContract"
 }
@@ -1525,10 +1749,11 @@ EnsureFrontendFsusUiBaseline() {
     if [[ "$useLocalFsusUi" == "0" ]] || [[ "$useLocalFsusUi" == "false" ]]; then
         Fail "frontend test lanes require the canonical local FsusUI baseline"
     fi
-    export FSUSBLOG_LOCAL_FSUSUI_ROOT="$(
+    FSUSBLOG_LOCAL_FSUSUI_ROOT="$(
         "${FSUSBLOG_NODE:-node}" "$CLIENT_DIR/scripts/fsusui-root.mjs" \
             --repository-root "$ROOT_DIR"
     )"
+    export FSUSBLOG_LOCAL_FSUSUI_ROOT
     Run "${FSUSBLOG_NODE:-node}" \
         "$ROOT_DIR/tests/browser-diagnostics/local-fsusui-identity.mjs" \
         --verify
@@ -1717,7 +1942,6 @@ RunFastOnly() {
     RunFastBackendLane
 }
 
-
 BeginLegacyRuntimeScenarioObservation() {
     local phase="$1"
     if [[ "${FSUSBLOG_RUNTIME_SCENARIO_COMPARE_VARIANT:-}" != "before" ]]; then
@@ -1836,8 +2060,6 @@ RunIntegrationOnly() {
     WriteRuntimeLaneSummary integration
 }
 
-
-
 RunCoverageBackendOnly() {
     Log "tier=coverage-backend | server xUnit coverage collection"
     Run bash "$ROOT_DIR/tools/coverage/collect-backend-coverage.sh"
@@ -1848,13 +2070,10 @@ RunCoverageFrontendOnly() {
     Run bash "$ROOT_DIR/tools/coverage/collect-frontend-coverage.sh"
 }
 
-
-
 RunCoverageMergeOnly() {
     Log "tier=coverage-merge | merge available coverage artifacts"
     Run bash "$ROOT_DIR/tools/coverage/merge-coverage.sh"
 }
-
 
 RunCoverageThresholdOnly() {
     Log "tier=coverage-threshold | enforce merged coverage thresholds"
@@ -1884,7 +2103,6 @@ RunCoverageThresholdOnly() {
         bash "$ROOT_DIR/tools/coverage/check-threshold.sh"
 }
 
-
 RunCoverageGateOnly() {
     Log "tier=coverage-gate | collect + merge + enforce thresholds"
     RunCoverageBackendOnly
@@ -1892,7 +2110,6 @@ RunCoverageGateOnly() {
     RunCoverageMergeOnly
     RunCoverageThresholdOnly
 }
-
 
 RunReleasePublicHydrationPrepareOnly() {
     Log "tier=release-public-hydration | settle AOT hydration writes before release preview readers"
@@ -1939,7 +2156,6 @@ RunReleaseOnly() {
     Log "release browser-only hydration/search/PWA risks are delegated to browser-contract (#1147)"
 }
 
-
 RunAcceptanceOnly() {
     if [[ "${FSUSBLOG_BROWSER_DIAGNOSTICS:-0}" != "1" && "${MATRIX_JOB:-}" != "browser-diagnostics" ]]; then
         Fail "acceptance is diagnostics-only; use ./tools/test.sh browser-diagnostics"
@@ -1971,7 +2187,6 @@ RunAcceptanceOnly() {
     RunInClient npm run check:acceptance:auth
     RunInClient npm run check:acceptance:console
 }
-
 
 RunVisualOnly() {
     Log "tier=visual | dark/mobile visual gates"
@@ -2017,7 +2232,6 @@ RunVisualConsoleOnly() {
     RunVisualGroupCheck console npm run check:visual:console
 }
 
-
 RunSecurityStaticOnly() {
     Log "tier=security-static | matrices/supply-chain/network/SBOM policy gates"
     local -x FSUSBLOG_ADAPTIVE_PARALLEL=1
@@ -2040,7 +2254,23 @@ RunSecurityRuntimeCoreOnly() {
         local label="$1"
         shift
         set +e
-        ("$@")
+        (
+            case "${1:-}" in
+                RunSecurityLegacyIsolatedClientCheck)
+                    shift
+                    RunSecurityLegacyIsolatedClientCheck "$@"
+                    ;;
+                CheckSecurityFirewallEvidence)
+                    shift
+                    CheckSecurityFirewallEvidence "$@"
+                    ;;
+                CheckExternalProductionExposure)
+                    shift
+                    CheckExternalProductionExposure "$@"
+                    ;;
+                *) "$@" ;;
+            esac
+        )
         local status=$?
         set -e
         if ((status != 0)); then
@@ -2064,13 +2294,11 @@ RunSecurityRuntimeCoreOnly() {
     }
 
     # Dispatched indirectly by the securityRuntimeJobs command specifications.
-    # shellcheck disable=SC2317
     CheckSecurityFirewallEvidence() {
         Run "$ROOT_DIR/tools/security/verify-production-firewall-policy-evidence.sh" "$FSUSBLOG_FIREWALL_POLICY_EVIDENCE"
     }
 
     # Dispatched indirectly by the securityRuntimeJobs command specifications.
-    # shellcheck disable=SC2317
     CheckExternalProductionExposure() {
         local -a failures=()
         Run "$ROOT_DIR/tools/security/check-production-exposure-live.sh" || failures+=(live-check)
@@ -2153,7 +2381,6 @@ RunSecurityOnly() {
         "security-runtime-core::RunSecurityRuntimeCoreOnly"
 }
 
-
 RunResilienceOnly() {
     Log "tier=resilience | runtime/upload/search/notification-stream/binary resilience"
     RequireDebugStack
@@ -2183,7 +2410,6 @@ RunResilienceOnly() {
     fi
     WriteRuntimeLaneSummary resilience
 }
-
 
 RunLoadOnly() {
     Log "tier=load | lightweight public/api and notification stream concurrency checks"

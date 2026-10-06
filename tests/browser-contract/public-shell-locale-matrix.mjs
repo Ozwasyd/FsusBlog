@@ -1,7 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile, realpath } from 'node:fs/promises';
-import { stripTypeScriptTypes } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
@@ -15,11 +14,12 @@ import {
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Reuse the existing typed artifact validator rather than creating another authority.
 } from '../../tools/frontend/check-locale-domain-static.mjs';
 
+import { createPublicShellFiniteInputOwner } from './public-shell-finite-input-owner.mjs';
+
 export const publicShellLocaleMatrixSchema = 'fsusblog.public-shell-locale-matrix.v1';
 const defaultRoot = fileURLToPath(new URL('../../', import.meta.url));
 const localeDirectory = 'src/frontend/src/locales';
 const matrixPath = 'tests/browser-contract/public-shell-locale-matrix.mjs';
-const moduleUrls = new Map();
 
 function digest(value)
 {
@@ -44,6 +44,23 @@ export function publicShellLocaleContentDigest(value)
     return digest(JSON.stringify(canonical(value)));
 }
 
+/** Keep the required ja → de → ru race, then make this scene's target the latest selection. */
+export function publicShellLocaleRapidTargets(descriptors, target)
+{
+    assert.ok(descriptors.some((item) => item.code === target), 'rapid target must belong to the enabled catalog');
+    const targets = ['ja', 'de', 'ru'].map((alias) =>
+    {
+        const matches = descriptors.filter((item) => item.aliases.includes(alias));
+        assert.equal(matches.length, 1, `rapid transition alias ${alias} must resolve exactly once`);
+        return matches[0].code;
+    });
+    if (targets.at(-1) !== target)
+    {
+        targets.push(target);
+    }
+    return targets;
+}
+
 /** Load only the pure catalog projections and typed artifacts, never the app runtime. */
 async function loadAuthorities(root)
 {
@@ -54,46 +71,31 @@ async function loadAuthorities(root)
         refs.set(relativePath, { path: relativePath, digest: digest(bytes) });
         return bytes.toString('utf8');
     }
-    async function moduleUrl(relativePath, imports = {})
-    {
-        const original = await source(relativePath);
-        const identity = publicShellLocaleContentDigest({ original, imports });
-        if (moduleUrls.has(identity))
-        {
-            return moduleUrls.get(identity);
-        }
-        let code = stripTypeScriptTypes(original);
-        for (const [specifier, replacement] of Object.entries(imports))
-        {
-            code = code.replaceAll(`'${specifier}'`, `'${replacement}'`);
-        }
-        const url = `data:text/javascript;base64,${Buffer.from(code).toString('base64')}`;
-        moduleUrls.set(identity, url);
-        return url;
-    }
+    const owner = await createPublicShellFiniteInputOwner(root);
     const { catalog, locales } = loadEnabledLocales(root);
     assert.equal(locales.length, 10, 'PublicShell requires exactly ten enabled locales');
     const structure = checkLocaleDomainStatic({ rootDir: root });
     assert.equal(structure.ok, true, JSON.stringify(structure.errors));
-    const catalogUrl = await moduleUrl(`${localeDirectory}/localeCatalog.ts`);
-    const projection = await import(catalogUrl);
+    const projection = await owner.load('localeCatalog');
     assert.deepEqual(projection.ENABLED_LOCALES, catalog.locales.filter((item) => item.status === 'enabled'));
     assert.equal(projection.DEFAULT_LOCALE, catalog.defaultCode);
-    const routeDomains = await import(await moduleUrl(`${localeDirectory}/routeLocaleDomains.ts`));
-    const fonts = await import(await moduleUrl(`${localeDirectory}/localeFontCatalog.ts`));
-    const selector = await import(await moduleUrl('src/frontend/src/components/i18n/projectLocaleSelectorItems.ts', {
-        '@/locales': catalogUrl
-    }));
+    const routeDomains = await owner.load('routeDomains');
+    const fonts = await owner.load('fonts');
+    const selector = await owner.load('selector');
     const artifacts = new Map();
     for (const artifact of buildLocaleDomainArtifacts({ rootDir: root }))
     {
-        const values = await import(await moduleUrl(artifact.relativeFile));
+        const values = await owner.loadDomain(artifact.locale, artifact.domain);
         assert.deepEqual(values.localeDomainIdentity, { locale: artifact.locale, domain: artifact.domain });
         assert.ok(values[artifact.exportName], `missing typed export: ${artifact.relativeFile}`);
         artifacts.set(`${artifact.locale}/${artifact.domain}`, {
             values: values[artifact.exportName],
             ref: artifact.relativeFile
         });
+    }
+    for (const reference of owner.refs())
+    {
+        refs.set(reference.path, { path: reference.path, digest: reference.digest.slice('sha256:'.length) });
     }
     for (const relativePath of [
         'src/shared/Contracts/Localization/locale-catalog.json',
@@ -107,7 +109,8 @@ async function loadAuthorities(root)
         'tests/browser-contract/contract.mjs',
         'tests/browser-contract/fixture.mjs',
         'docs/frontend/public-shell-ownership.md',
-        matrixPath
+        matrixPath,
+        'tests/browser-contract/public-shell-finite-input-owner.mjs'
     ])
     {
         await source(relativePath);
@@ -236,7 +239,7 @@ export async function createPublicShellLocaleMatrix(root = defaultRoot)
                     expectedUiLocale,
                     driver: 'selector-ui',
                     rapidTargets: stage === 'latest-wins' || stage === 'superseded-failure'
-                        ? ['ja', 'de', 'ru'].map((alias) => descriptors.find((item) => item.aliases.includes(alias)).code)
+                        ? publicShellLocaleRapidTargets(descriptors, locale)
                         : [],
                     failureMode,
                     injectionBoundary: failureMode ? 'http-resource' : null

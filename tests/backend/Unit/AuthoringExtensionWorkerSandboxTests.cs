@@ -1,9 +1,11 @@
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -207,19 +209,88 @@ public sealed class AuthoringExtensionWorkerSandboxTests
     [Fact]
     public void LinuxRuntimeSource_EnforcesDeclaredMemoryAndClosedModuleBoundary()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/LinuxBubblewrapAuthoringWorkerRuntime.cs"));
+        string compiled = DescribeCompleteWorkerBoundary(
+            typeof(LinuxBubblewrapWorkerOptions),
+            typeof(LinuxBubblewrapAuthoringWorkerRuntime));
 
-        Assert.Contains("inspectMemoryPolicy(moduleBytes)", source, StringComparison.Ordinal);
-        Assert.Contains("wasm-memory-policy-invalid", source, StringComparison.Ordinal);
-        Assert.Contains("--unshare-all", source, StringComparison.Ordinal);
-        Assert.Contains("imports.length !== 0", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("eval(", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("WebView", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("iframe", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("node:net", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("node:child_process", source, StringComparison.Ordinal);
+        Assert.Contains("inspectMemoryPolicy(moduleBytes)", compiled, StringComparison.Ordinal);
+        Assert.Contains("wasm-memory-policy-invalid", compiled, StringComparison.Ordinal);
+        Assert.Contains("--unshare-all", compiled, StringComparison.Ordinal);
+        Assert.Contains("imports.length !== 0", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("eval(", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebView", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("iframe", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("node:net", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("node:child_process", compiled, StringComparison.Ordinal);
+        AssertClosedWorkerBoundary(compiled);
+    }
+
+    [Theory]
+    [InlineData(typeof(WorkerEvalFixture), typeof(WorkerEvalFixture.Nested), "Read", "eval(")]
+    [InlineData(typeof(WorkerVisualHostFixture), typeof(WorkerVisualHostFixture.Nested), "Read", "WebView")]
+    [InlineData(typeof(WorkerEmbeddedFrameFixture), typeof(WorkerEmbeddedFrameFixture.Nested), "Read", "IFRAME")]
+    [InlineData(typeof(WorkerNetworkFixture), typeof(WorkerNetworkFixture.Nested), "Read", "node:net")]
+    [InlineData(typeof(WorkerChildProcessFixture), typeof(WorkerChildProcessFixture.Nested), "Read", "node:child_process")]
+    [InlineData(typeof(WorkerDeepNestedFixture), typeof(WorkerDeepNestedFixture.Nested.Deeper), "Read", "node:net")]
+    [InlineData(typeof(WorkerConstructorFixture), typeof(WorkerConstructorFixture.Nested), ".ctor", "node:child_process")]
+    [InlineData(typeof(WorkerStaticConstructorFixture), typeof(WorkerStaticConstructorFixture.Nested), ".cctor", "eval(")]
+    public void WorkerBoundary_RejectsCompiledForbiddenNestedMembers(
+        Type runtimeType,
+        Type declaringType,
+        string memberName,
+        string forbiddenFact)
+    {
+        string declaredBody;
+        if (memberName is ".ctor" or ".cctor")
+        {
+            if (memberName == ".cctor")
+            {
+                Assert.NotNull(declaringType.TypeInitializer);
+            }
+            else
+            {
+                Assert.NotEmpty(declaringType.GetConstructors(
+                    BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly));
+            }
+            declaredBody = RuntimeMetadataInspection.DescribeConstructors(declaringType);
+        }
+        else
+        {
+            declaredBody = RuntimeMetadataInspection.DescribeMethods(declaringType, memberName);
+            string previousDescription = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(runtimeType),
+                RuntimeMetadataInspection.DescribeConstructors(runtimeType));
+            Assert.DoesNotContain(forbiddenFact, previousDescription, StringComparison.OrdinalIgnoreCase);
+        }
+
+        Assert.Contains(forbiddenFact, declaredBody, StringComparison.Ordinal);
+        string compiled = DescribeCompleteWorkerBoundary(runtimeType);
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertClosedWorkerBoundary(compiled));
+    }
+
+    [Fact]
+    public void WorkerBoundary_RejectsCompiledIndependentOptionsRoot()
+    {
+        string optionsBody = RuntimeMetadataInspection.DescribeMethods(typeof(WorkerOptionsFixture), "Read");
+        Assert.Contains("node:net", optionsBody, StringComparison.Ordinal);
+        AssertClosedWorkerBoundary(DescribeCompleteWorkerBoundary(typeof(WorkerBenignFixture)));
+
+        string compiled = DescribeCompleteWorkerBoundary(typeof(WorkerOptionsFixture), typeof(WorkerBenignFixture));
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertClosedWorkerBoundary(compiled));
+    }
+
+    [Fact]
+    public void WorkerBoundary_AcceptsCompiledBenignNestedMembers()
+    {
+        Type nestedType = typeof(WorkerBenignFixture.Nested);
+        Assert.NotNull(nestedType.TypeInitializer);
+        string method = RuntimeMetadataInspection.DescribeMethods(nestedType, "Read");
+        string constructors = RuntimeMetadataInspection.DescribeConstructors(nestedType);
+        Assert.Contains("closed-worker-method", method, StringComparison.Ordinal);
+        Assert.Contains("closed-worker-instance", constructors, StringComparison.Ordinal);
+        Assert.Contains("closed-worker-static", constructors, StringComparison.Ordinal);
+
+        AssertClosedWorkerBoundary(DescribeCompleteWorkerBoundary(typeof(WorkerBenignFixture)));
     }
 
     [Fact]
@@ -333,6 +404,119 @@ public sealed class AuthoringExtensionWorkerSandboxTests
             {
                 Directory.Delete(root, true);
             }
+        }
+    }
+
+    private static string DescribeCompleteWorkerBoundary(params Type[] roots)
+    {
+        var descriptions = new List<string>();
+        var pending = new Queue<Type>(roots);
+        foreach (Type root in roots)
+        {
+            descriptions.Add(RuntimeMetadataInspection.DescribeConstructors(root));
+        }
+        while (pending.TryDequeue(out Type? inspectedType))
+        {
+            descriptions.Add(RuntimeMetadataInspection.DescribeType(inspectedType));
+            foreach (Type nested in inspectedType.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+            {
+                pending.Enqueue(nested);
+            }
+        }
+
+        return string.Join('\n', descriptions);
+    }
+
+    private static void AssertClosedWorkerBoundary(string compiled)
+    {
+        Assert.DoesNotContain("eval(", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("WebView", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("iframe", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("node:net", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("node:child_process", compiled, StringComparison.Ordinal);
+    }
+
+    private sealed class WorkerEvalFixture
+    {
+        public static class Nested
+        {
+            public static string Read() => "eval(";
+        }
+    }
+
+    private sealed class WorkerVisualHostFixture
+    {
+        public static class Nested
+        {
+            public static string Read() => "WebView";
+        }
+    }
+
+    private sealed class WorkerEmbeddedFrameFixture
+    {
+        public static class Nested
+        {
+            public static string Read() => "IFRAME";
+        }
+    }
+
+    private sealed class WorkerNetworkFixture
+    {
+        public static class Nested
+        {
+            public static string Read() => "node:net";
+        }
+    }
+
+    private sealed class WorkerChildProcessFixture
+    {
+        public static class Nested
+        {
+            public static string Read() => "node:child_process";
+        }
+    }
+
+    private sealed class WorkerDeepNestedFixture
+    {
+        public static class Nested
+        {
+            public static class Deeper
+            {
+                public static string Read() => "node:net";
+            }
+        }
+    }
+
+    private sealed class WorkerConstructorFixture
+    {
+        public sealed class Nested
+        {
+            public Nested() => GC.KeepAlive("node:child_process");
+        }
+    }
+
+    private sealed class WorkerStaticConstructorFixture
+    {
+        public static class Nested
+        {
+            static Nested() => GC.KeepAlive("eval(");
+        }
+    }
+
+    private static class WorkerOptionsFixture
+    {
+        public static string Read() => "node:net";
+    }
+
+    private sealed class WorkerBenignFixture
+    {
+        public sealed class Nested
+        {
+            static Nested() => GC.KeepAlive("closed-worker-static");
+
+            public Nested() => GC.KeepAlive("closed-worker-instance");
+
+            public static string Read() => "closed-worker-method";
         }
     }
 

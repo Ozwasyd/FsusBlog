@@ -1,0 +1,15 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "third-party-sdk-callback",
+            "paths": [
+                "src/migration/OfflineMigrationSourceObserver.Providers.cs",
+                "tests/migration/OfflineMigrationSourceMaterialCleanupTests.cs",
+                "src/migration/OfflineMigrationCurrentSchemaIssuer.cs",
+                "tests/migration/OfflineMigrationCurrentSchemaIssuerTests.cs"
+            ],
+            "reason": "Preserve the original DbCommand/DbDataReader and MySqlConnector lifecycle signatures while retaining the first body failure and awaiting both disposals. The MySQL SOURCE controls use test-only reflection of the unchanged private helper; PostgreSQL controls call the original internal identity helper. Neither adds a production callback, weakens native driver checks or grants an identity capability."
+        }
+    ]
+}

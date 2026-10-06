@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { existsSync, mkdtempSync, readFileSync, rmSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -20,6 +20,7 @@ const fixtureProject = path.join(
 );
 const adapterProjectDir = path.join(repositoryRoot, 'tools/test-inventory/xunit-roslyn-adapter');
 const adapterProject = path.join(adapterProjectDir, 'FsusBlog.XunitRoslynAdapter.csproj');
+const migrationProject = path.join(repositoryRoot, 'tests/migration/FsusBlog.Migration.Tests.csproj');
 const productionBuildRoot = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-adapter-build-'));
 const adapterEnvironment = {
     ...process.env,
@@ -48,7 +49,7 @@ function buildAdapter()
     assert.equal(existsSync(relocatedAdapterExecutable), true, 'adapter build must honor the isolated output root');
 }
 
-function runAdapter()
+function runAdapter(project = fixtureProject)
 {
     const stdout = execFileSync('dotnet', [
         'run',
@@ -58,12 +59,12 @@ function runAdapter()
         '--no-launch-profile',
         '--',
         repositoryRoot,
-        fixtureProject
+        project
     ], {
         cwd: repositoryRoot,
         encoding: 'utf8',
         env: adapterEnvironment,
-        maxBuffer: 64 * 1024 * 1024
+        maxBuffer: 128 * 1024 * 1024
     });
     return JSON.parse(stdout);
 }
@@ -180,6 +181,90 @@ test('xunit Roslyn adapter extracts Fact, InlineData Theory, MemberData, ClassDa
 
     assert.equal(report.testCases.filter((testCase) => testCase.identity === 'dynamic').length, 2);
     assert.equal(report.testCases.filter((testCase) => testCase.identity === 'static').length, 21);
+});
+
+function migrationCompileContext()
+{
+    return JSON.parse(execFileSync(process.execPath, ['--input-type=module', '-e', [
+        "import { xunitTestProjects } from './tools/test-inventory/adapters.mjs';",
+        "import { readXunitProjectContext } from './tools/test-inventory/discovery.mjs';",
+        "console.log(JSON.stringify(readXunitProjectContext(process.cwd(), xunitTestProjects.find(p => p.directory === 'tests/migration'))));"
+    ].join('\n')], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: adapterEnvironment
+    }));
+}
+
+function buildMigration()
+{
+    execFileSync('dotnet', ['build', migrationProject, '--configuration', 'Debug', '--nologo', '--verbosity', 'quiet'], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        env: adapterEnvironment,
+        stdio: 'pipe'
+    });
+    return migrationCompileContext();
+}
+
+test('xunit migration discovery binds its independent real compile context and all 22 DDL cases', () =>
+{
+    const context = buildMigration();
+    assert.ok(context.output.startsWith(`${productionBuildRoot}${path.sep}`));
+    assert.ok(context.sources.includes('tests/migration/SchemaMigrationDdlPrimitivesTests.cs'));
+    assert.ok(context.sources.every((source) => source.startsWith('tests/migration/')));
+    const report = runAdapter(migrationProject);
+    assert.equal(report.diagnostics.filter((entry) => entry.severity === 'error').length, 0);
+    const cases = report.testCases.filter((entry) => entry.ownerFile === 'tests/migration/SchemaMigrationDdlPrimitivesTests.cs');
+    assert.equal(cases.length, 22);
+    assert.ok(cases.every((entry) => entry.ownerSuite === 'FsusBlog.Migration.Tests.SchemaMigrationDdlPrimitivesTests'));
+    assert.equal(new Set(cases.map((entry) => entry.id)).size, 22);
+    assert.equal(report.testCases.some((entry) => entry.ownerFile.startsWith('tests/backend/')), false);
+});
+
+test('xunit migration compile context rejects a missing actual build output without a fallback', () =>
+{
+    const { output } = buildMigration();
+    const heldOutput = `${output}.task-held`;
+    renameSync(output, heldOutput);
+    try
+    {
+        assert.throws(() => migrationCompileContext(), /xunit project build output is missing for tests\/migration/u);
+    }
+    finally
+    {
+        renameSync(heldOutput, output);
+    }
+});
+
+test('xunit migration Roslyn adapter rejects a missing real project reference and emits no cases', () =>
+{
+    buildMigration();
+    const references = JSON.parse(execFileSync('dotnet', [
+        'msbuild', migrationProject, '-target:ResolveReferences', '-getItem:ReferencePath',
+        '-verbosity:quiet', '/p:BuildProjectReferences=false'
+    ], { cwd: repositoryRoot, encoding: 'utf8', env: adapterEnvironment }));
+    const reference = references.Items.ReferencePath.find((item) => path.basename(item.FullPath) === 'FsusBlog.Migration.dll')?.FullPath;
+    assert.ok(reference?.startsWith(`${productionBuildRoot}${path.sep}`), 'only the task-owned actual migration compile reference may be withheld');
+    const heldReference = `${reference}.task-held`;
+    renameSync(reference, heldReference);
+    try
+    {
+        const result = spawnSync('dotnet', [relocatedAdapterAssembly, repositoryRoot, migrationProject], {
+            cwd: repositoryRoot,
+            encoding: 'utf8',
+            env: adapterEnvironment,
+            maxBuffer: 64 * 1024 * 1024
+        });
+        assert.equal(result.status, 1, `${result.stdout}\n${result.stderr}`);
+        const report = JSON.parse(result.stdout);
+        assert.deepEqual(report.testCases, []);
+        assert.ok(report.diagnostics.some((entry) => entry.severity === 'error' && /reference|semantic|ResolveReferences/iu.test(entry.message)));
+    }
+    finally
+    {
+        renameSync(heldReference, reference);
+    }
 });
 
 test('traits merge with method-level override and skip/platform/fixture metadata is captured', () =>
@@ -317,7 +402,12 @@ test('real xunit project graph rejects a stale lock then regenerates, builds and
     );
     assert.ok(projectGraphEvidence.currentInventory.testCaseCount > 0);
     assert.deepEqual(projectGraphEvidence.currentInventory.errorDiagnostics, []);
-    assert.equal(projectGraphEvidence.currentInventory.hasRuntimeRollupCase, true);
+    const currentBackend = runAdapter(path.join(repositoryRoot, 'tests/backend/FsusBlog.Server.Tests.csproj'));
+    assert.deepEqual(currentBackend.diagnostics.filter((entry) => entry.severity === 'error'), []);
+    assert.equal(currentBackend.testCases.filter((entry) => (
+        entry.ownerFile === 'tests/backend/Unit/CurrentSchemaRuntimeRollupTablesTests.cs'
+        && entry.methodName === 'RuntimeRollupCatalog_MatchesPostCodeFirstMigrationDdl'
+    )).length, 1, 'the actual current backend report must retain the runtime-rollup DDL regression');
 });
 
 test('xunit Roslyn adapter fails closed on stale static member CS0117 after the last build', () =>

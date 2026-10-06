@@ -110,6 +110,63 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
         Assert.Equal("article-bulk.plan-expired", expired.Code);
     }
 
+    [Theory]
+    [InlineData("category.add", -1)]
+    [InlineData("category.add", 0)]
+    [InlineData("category.add", 1)]
+    [InlineData("lifecycle.archive", -1)]
+    [InlineData("lifecycle.archive", 0)]
+    [InlineData("lifecycle.archive", 1)]
+    public async Task AdmissionRechecksExpiryAfterAwaitedPreflightBeforeCreatingJournal(
+        string operationId,
+        int expiryOffsetTicks)
+    {
+        string[] ids = ["article-1"];
+        var time = new MutableTimeProvider(s_now);
+        var selection = new DeterministicSelectionAuthority(ids);
+        var preflight = new DeterministicPreflightAuthority();
+        var planAuthority = new ArticleBulkPlanAuthority(selection, preflight, time);
+        ArticleBulkPlan plan = await planAuthority.CreateAsync(Request(operationId, ids));
+        int selectionCalls = selection.ResolveCalls;
+        int completedPreflights = 0;
+        preflight.AfterObserve = () =>
+        {
+            completedPreflights++;
+            time.UtcNow = plan.ExpiresAtUtc.AddTicks(expiryOffsetTicks);
+        };
+        var journal = new DeterministicJournalAuthority();
+        var framework = new ArticleBulkExecutionFramework(
+            planAuthority,
+            journal,
+            new DeterministicExecutionAuthority(),
+            time);
+
+        if (expiryOffsetTicks < 0)
+        {
+            ArticleBulkAdmission admission = await AdmitAsync();
+            Assert.False(admission.IsExisting);
+            Assert.Equal(ArticleBulkExecutionState.Planned, admission.Head.State);
+            Assert.Equal(ArticleBulkJournalEventKind.Planned, Assert.Single(journal.Events).Kind);
+            Assert.Equal(admission.Request, journal.Request);
+            Assert.Equal(admission.Head, journal.Head);
+        }
+        else
+        {
+            ArticleBulkContractException expired = await Assert.ThrowsAsync<ArticleBulkContractException>(AdmitAsync);
+            Assert.Equal("article-bulk.plan-expired", expired.Code);
+            Assert.Empty(journal.Events);
+            Assert.Null(journal.Request);
+            Assert.Null(journal.Head);
+        }
+        Assert.Equal(1, completedPreflights);
+        Assert.Equal(plan.ExpiresAtUtc.AddTicks(expiryOffsetTicks), time.UtcNow);
+        Assert.Equal(selectionCalls, selection.ResolveCalls);
+
+        Task<ArticleBulkAdmission> AdmitAsync() => framework.AdmitAsync(
+            plan, Confirmation(plan), "plan-store:expiry", "attempt-expiry", "idempotency-expiry",
+            plan.Actor, plan.Source, plan.PolicyDigest, plan.PermissionPolicyDigest);
+    }
+
     [Fact]
     public async Task ExecutorRejectsCurrentIdentityDriftWithoutRerunningDynamicSelection()
     {
@@ -891,6 +948,11 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
     {
         internal string RevisionPrefix { get; set; } = "revision";
         internal string PermissionPrefix { get; set; } = "permission";
+        internal Action? AfterObserve
+        {
+            get;
+            set;
+        }
 
         internal int ObservedCount
         {
@@ -922,6 +984,7 @@ public sealed class ArticleBulkRuntimeContractTests(ITestOutputHelper output)
                     DependencyDigests: [Digest($"dependency-{articleId}")]);
                 await Task.Yield();
             }
+            AfterObserve?.Invoke();
         }
     }
 

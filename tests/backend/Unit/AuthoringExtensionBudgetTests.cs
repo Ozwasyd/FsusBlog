@@ -385,7 +385,149 @@ public sealed class AuthoringExtensionBudgetTests
         Assert.True((await resources.RevokeAllAsync(manifest.Id, 3, CancellationToken.None)).IsEmpty);
     }
 
-    private static BudgetFixture CreateFixture(MeasurementSource measurements)
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(false, true)]
+    [InlineData(true, false)]
+    [InlineData(true, true)]
+    public async Task ExecuteAsync_CancellationAtSuccessfulOperationOrFinalMeasurement_DiscardsValue(
+        bool cancelDuringMeasurement,
+        bool cancelCaller)
+    {
+        using var caller = new CancellationTokenSource();
+        var after = new AuthoringResourceMeasurement(
+            TimeSpan.FromMilliseconds(5), 2048, 10, 20, 0, 30, 40, 50);
+        var measurements = new CallbackMeasurementSource(
+            new AuthoringResourceMeasurement(TimeSpan.Zero, 1024, 0, 0, 0, 0, 0, 0),
+            after,
+            () =>
+            {
+                if (cancelDuringMeasurement && cancelCaller)
+                {
+                    caller.Cancel();
+                }
+            });
+        BudgetFixture fixture = CreateFixture(measurements);
+        var operation = new CallbackOperation(() =>
+        {
+            if (!cancelDuringMeasurement && cancelCaller)
+            {
+                caller.Cancel();
+            }
+        });
+
+        AuthoringBudgetResult<string> result = await fixture.Supervisor.ExecuteAsync(
+            fixture.Identity,
+            fixture.Budget,
+            operation,
+            caller.Token);
+
+        Assert.Equal(1, operation.CallCount);
+        Assert.True(measurements.AfterCalls > 0);
+        Assert.Equal(cancelCaller, caller.IsCancellationRequested);
+        Assert.Equal(cancelCaller && !cancelDuringMeasurement, operation.TokenCancelledAtReturn);
+        Assert.Equal(cancelCaller ? AuthoringBudgetStatus.Cancelled : AuthoringBudgetStatus.Completed, result.Status);
+        Assert.Equal(cancelCaller ? "cancelled" : "completed", result.StableReason);
+        Assert.Equal(cancelCaller ? null : "valid-result", result.Value);
+        Assert.Equal(result.Status, result.Telemetry.Status);
+        Assert.Equal(result.StableReason, result.Telemetry.StableReason);
+        Assert.Equal(5, result.Telemetry.CpuMilliseconds);
+        Assert.Equal(2048, result.Telemetry.PeakMemoryBytes);
+        Assert.Equal(20, result.Telemetry.OutboundBytes);
+        Assert.Same(result.Telemetry, Assert.Single(fixture.Telemetry.Items));
+        Assert.Empty(fixture.Containment.Reasons);
+        Assert.Equal(0, fixture.Core.ProbeCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_FinalMeasurementBreachWithCancellation_PreservesBreachReason()
+    {
+        using var caller = new CancellationTokenSource();
+        BudgetFixture fixture = CreateFixture(new CallbackMeasurementSource(
+            s_zero,
+            new AuthoringResourceMeasurement(TimeSpan.Zero, 20_000, 0, 0, 0, 0, 0, 0),
+            caller.Cancel));
+
+        AuthoringBudgetResult<string> result = await fixture.Supervisor.ExecuteAsync(
+            fixture.Identity,
+            fixture.Budget,
+            new Operation<string>("must-not-escape"),
+            caller.Token);
+
+        Assert.True(caller.IsCancellationRequested);
+        Assert.Equal(AuthoringBudgetStatus.Breached, result.Status);
+        Assert.Equal("memory-budget-exceeded", result.StableReason);
+        Assert.Null(result.Value);
+        Assert.Equal(AuthoringBudgetStatus.Breached, result.Telemetry.Status);
+        Assert.Equal(result.Telemetry, Assert.Single(fixture.Telemetry.Items));
+        Assert.Equal("memory-budget-exceeded", Assert.Single(fixture.Containment.Reasons));
+        Assert.Equal(1, fixture.Core.ProbeCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_CancellationDuringCompletedTelemetry_DoesNotReturnCompletedResult()
+    {
+        using var caller = new CancellationTokenSource();
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(s_zero, s_zero));
+        var telemetry = new CancellingTelemetrySink(caller);
+        var supervisor = new AuthoringExtensionBudgetSupervisor(
+            new MeasurementSource(s_zero, s_zero),
+            fixture.Containment,
+            telemetry,
+            fixture.Core,
+            TimeProvider.System);
+
+        OperationCanceledException failure = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await supervisor.ExecuteAsync(
+                fixture.Identity,
+                fixture.Budget,
+                new Operation<string>("must-not-escape"),
+                caller.Token));
+
+        Assert.Equal(caller.Token, failure.CancellationToken);
+        Assert.Equal(1, telemetry.CallCount);
+        Assert.Empty(fixture.Containment.Reasons);
+        Assert.Equal(0, fixture.Core.ProbeCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_OperationReturnsAfterCallerCancellation_FinalMeasuredBreachStillWins(
+        bool exceedMemory)
+    {
+        using var caller = new CancellationTokenSource();
+        BudgetFixture fixture = CreateFixture(new MeasurementSource(
+            s_zero,
+            new AuthoringResourceMeasurement(TimeSpan.Zero, exceedMemory ? 20_000 : 1024, 0, 0, 0, 0, 0, 0)));
+        var operation = new CallbackOperation(caller.Cancel);
+
+        AuthoringBudgetResult<string> result = await fixture.Supervisor.ExecuteAsync(
+            fixture.Identity,
+            fixture.Budget,
+            operation,
+            caller.Token);
+
+        Assert.Equal(1, operation.CallCount);
+        Assert.True(operation.TokenCancelledAtReturn);
+        Assert.Equal(exceedMemory ? AuthoringBudgetStatus.Breached : AuthoringBudgetStatus.Cancelled, result.Status);
+        Assert.Equal(exceedMemory ? "memory-budget-exceeded" : "cancelled", result.StableReason);
+        Assert.Null(result.Value);
+        Assert.Equal(result.Status, result.Telemetry.Status);
+        Assert.Equal(result.StableReason, result.Telemetry.StableReason);
+        Assert.Same(result.Telemetry, Assert.Single(fixture.Telemetry.Items));
+        Assert.Equal(exceedMemory ? 1 : 0, fixture.Core.ProbeCount);
+        if (exceedMemory)
+        {
+            Assert.Equal("memory-budget-exceeded", Assert.Single(fixture.Containment.Reasons));
+        }
+        else
+        {
+            Assert.Empty(fixture.Containment.Reasons);
+        }
+    }
+
+    private static BudgetFixture CreateFixture(IAuthoringResourceMeasurementSource measurements)
     {
         var containment = new Containment();
         var telemetry = new TelemetrySink();
@@ -439,6 +581,70 @@ public sealed class AuthoringExtensionBudgetTests
             AuthoringBudgetIdentity identity,
             CancellationToken cancellationToken) =>
             ValueTask.FromResult(++_calls % 2 == 1 ? before : after);
+    }
+
+    private sealed class CallbackMeasurementSource(
+        AuthoringResourceMeasurement before,
+        AuthoringResourceMeasurement after,
+        Action onAfter) : IAuthoringResourceMeasurementSource
+    {
+        private int _calls;
+
+        public int AfterCalls
+        {
+            get; private set;
+        }
+
+        public async ValueTask<AuthoringResourceMeasurement> MeasureAsync(
+            AuthoringBudgetIdentity identity,
+            CancellationToken cancellationToken)
+        {
+            if (Interlocked.Increment(ref _calls) == 1)
+            {
+                return before;
+            }
+
+            await Task.Yield();
+            onAfter();
+            AfterCalls++;
+            return after;
+        }
+    }
+
+    private sealed class CallbackOperation(Action onReturn) : IAuthoringBudgetedRuntimeOperation<string>
+    {
+        public int CallCount
+        {
+            get; private set;
+        }
+
+        public bool TokenCancelledAtReturn
+        {
+            get; private set;
+        }
+
+        public ValueTask<string> ExecuteAsync(CancellationToken cancellationToken)
+        {
+            CallCount++;
+            onReturn();
+            TokenCancelledAtReturn = cancellationToken.IsCancellationRequested;
+            return ValueTask.FromResult("valid-result");
+        }
+    }
+
+    private sealed class CancellingTelemetrySink(CancellationTokenSource caller) : IAuthoringBudgetTelemetrySink
+    {
+        public int CallCount
+        {
+            get; private set;
+        }
+
+        public async ValueTask RecordAsync(AuthoringBudgetTelemetry telemetry, CancellationToken cancellationToken)
+        {
+            CallCount++;
+            await Task.Yield();
+            caller.Cancel();
+        }
     }
 
     private sealed class FailingMeasurementSource : IAuthoringResourceMeasurementSource

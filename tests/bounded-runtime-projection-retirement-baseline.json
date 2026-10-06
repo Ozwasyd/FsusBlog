@@ -1,0 +1,66 @@
+{
+    "schema": "fsusblog.issue-acceptance-baseline.v2",
+    "issue": 3543,
+    "sourceCommit": "d6d079b71a59b5ea1379a07857d71d947ce2e171",
+    "deletionCommit": "b5f77fc4030258cfe93ac227dcb494e74c1ff971",
+    "expectedRecords": 8,
+    "expectedMigrated": 8,
+    "records": [
+        {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "sourceBlobOid": "c3dcdabb4ea23b732f89a908ebc08911369c2462",
+            "resultBlobOid": null,
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "sourceBlobOid": "c3dcdabb4ea23b732f89a908ebc08911369c2462",
+            "resultBlobOid": null,
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "sourceBlobOid": "f98b2c21d985771c4fa35d2bc65264a3e407fd6a",
+            "resultBlobOid": "ad083fe195976b32e5c752ed73688f60a155b1f2",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "sourceBlobOid": "f98b2c21d985771c4fa35d2bc65264a3e407fd6a",
+            "resultBlobOid": "ad083fe195976b32e5c752ed73688f60a155b1f2",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "sourceBlobOid": "f98b2c21d985771c4fa35d2bc65264a3e407fd6a",
+            "resultBlobOid": "ad083fe195976b32e5c752ed73688f60a155b1f2",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "sourceBlobOid": "a90ea22fc6e8bb82e2bfda0bd90a96d52ecd91d0",
+            "resultBlobOid": "dd8a20ec57798a6f246d28be6142c471b7b370b2",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+            "path": "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
+            "sourceBlobOid": "eaf8760b594fdab0622829986576d50ce255e8f8",
+            "resultBlobOid": "a46aec2b3a0e08d8514c0085872ed4a4231a96d1",
+            "disposition": "migrated"
+        },
+        {
+            "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+            "path": "tests/backend/Unit/RelatedReadingServiceTests.cs",
+            "sourceBlobOid": "c096025dbcacd0f17147d4b468810252c6b111c9",
+            "resultBlobOid": "225616656a663faaf55b0a1493fe4fcc398b9f04",
+            "disposition": "migrated"
+        }
+    ]
+}

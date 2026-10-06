@@ -1,6 +1,7 @@
 using System.Collections.Immutable;
 using System.Diagnostics;
 using System.Net;
+using System.Reflection;
 using System.Runtime.Versioning;
 using System.Security.Cryptography;
 using System.Text;
@@ -8,6 +9,7 @@ using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -96,6 +98,172 @@ public sealed class AuthoringExtensionServiceBrokerTests
         Assert.Equal(AuthoringServiceResultStatus.Stale, result.Status);
         Assert.Null(result.Response);
         Assert.Equal("stale-document", process.TerminationReason);
+    }
+
+    [Theory]
+    [InlineData(false, -1, AuthoringServiceResultStatus.Completed)]
+    [InlineData(false, 0, AuthoringServiceResultStatus.TimedOut)]
+    [InlineData(false, 1, AuthoringServiceResultStatus.TimedOut)]
+    [InlineData(true, -1, AuthoringServiceResultStatus.Completed)]
+    [InlineData(true, 0, AuthoringServiceResultStatus.TimedOut)]
+    [InlineData(true, 1, AuthoringServiceResultStatus.TimedOut)]
+    public async Task ExecuteAsync_ReturnBoundaryDeadline_IsExclusive(
+        bool advanceAtRevisionGate,
+        long deadlineOffsetTicks,
+        AuthoringServiceResultStatus expectedStatus)
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        DateTimeOffset boundary = default;
+        Action advance = () => clock.UtcNow = boundary.AddTicks(deadlineOffsetTicks);
+        var process = new TestProcess { ResponseBoundary = advanceAtRevisionGate ? null : advance };
+        var gate = new CallbackRevisionGate(_ =>
+        {
+            if (advanceAtRevisionGate)
+            {
+                advance();
+            }
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, brokerTimeProvider: clock, revisionGate: gate);
+        boundary = fixture.Request.Deadline;
+        clock.UtcNow = boundary.AddSeconds(-1);
+
+        AuthoringServiceExecutionResult result = await fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1);
+
+        Assert.Equal(expectedStatus, result.Status);
+        if (expectedStatus == AuthoringServiceResultStatus.Completed)
+        {
+            Assert.Equal([4, 5], result.Response?.Payload);
+            Assert.Null(process.TerminationReason);
+        }
+        else
+        {
+            Assert.Null(result.Response);
+            Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+            Assert.False(process.TerminationTokenWasCancelable);
+        }
+
+        Assert.Equal(!advanceAtRevisionGate && deadlineOffsetTicks >= 0 ? 0 : 1, gate.CallCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_NonCooperativeReturnAfterCallerCancellation_CannotComplete(bool cancelAtRevisionGate)
+    {
+        using var cancellation = new CancellationTokenSource();
+        var process = new TestProcess { ResponseBoundary = cancelAtRevisionGate ? null : cancellation.Cancel };
+        var gate = new CallbackRevisionGate(_ =>
+        {
+            if (cancelAtRevisionGate)
+            {
+                cancellation.Cancel();
+            }
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, revisionGate: gate);
+
+        AuthoringServiceExecutionResult result = await fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1, cancellation.Token);
+
+        Assert.Equal(AuthoringServiceResultStatus.Cancelled, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+        Assert.False(process.TerminationTokenWasCancelable);
+        Assert.Equal(cancelAtRevisionGate ? 1 : 0, gate.CallCount);
+    }
+
+    [Fact]
+    public async Task ExecuteAsync_RevisionGateCancellation_AwaitsOwnedTermination()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var terminationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowTermination = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var process = new TestProcess
+        {
+            Termination = async () =>
+            {
+                terminationStarted.SetResult(true);
+                await allowTermination.Task;
+            }
+        };
+        var gate = new CallbackRevisionGate(token =>
+        {
+            cancellation.Cancel();
+            token.ThrowIfCancellationRequested();
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, revisionGate: gate);
+
+        Task<AuthoringServiceExecutionResult> execution = fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1, cancellation.Token).AsTask();
+        try
+        {
+            await terminationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(execution.IsCompleted);
+            Assert.Equal(0, process.DisposeCount);
+        }
+        finally
+        {
+            allowTermination.TrySetResult(true);
+        }
+
+        AuthoringServiceExecutionResult result = await execution;
+
+        Assert.Equal(AuthoringServiceResultStatus.Cancelled, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+        Assert.False(process.TerminationTokenWasCancelable);
+        Assert.Equal(1, process.DisposeCount);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task ExecuteAsync_ExpiredReturnBoundary_AwaitsOwnedTermination(bool expireAtRevisionGate)
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        DateTimeOffset boundary = default;
+        Action expire = () => clock.UtcNow = boundary;
+        var terminationStarted = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var allowTermination = new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+        var process = new TestProcess
+        {
+            ResponseBoundary = expireAtRevisionGate ? null : expire,
+            Termination = async () =>
+            {
+                terminationStarted.SetResult(true);
+                await allowTermination.Task;
+            }
+        };
+        var gate = new CallbackRevisionGate(_ =>
+        {
+            if (expireAtRevisionGate)
+            {
+                expire();
+            }
+        });
+        ServiceFixture fixture = await CreateFixtureAsync(process, brokerTimeProvider: clock, revisionGate: gate);
+        boundary = fixture.Request.Deadline;
+        clock.UtcNow = boundary.AddSeconds(-1);
+
+        Task<AuthoringServiceExecutionResult> execution = fixture.Broker.ExecuteAsync(
+            fixture.Package, fixture.Target, fixture.Request, 1).AsTask();
+        try
+        {
+            await terminationStarted.Task.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(execution.IsCompleted);
+            Assert.Equal(0, process.DisposeCount);
+        }
+        finally
+        {
+            allowTermination.TrySetResult(true);
+        }
+
+        AuthoringServiceExecutionResult result = await execution;
+        Assert.Equal(AuthoringServiceResultStatus.TimedOut, result.Status);
+        Assert.Null(result.Response);
+        Assert.Equal("cancelled-or-timeout", process.TerminationReason);
+        Assert.False(process.TerminationTokenWasCancelable);
+        Assert.Equal(1, process.DisposeCount);
     }
 
     [Fact]
@@ -358,6 +526,139 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
     [Fact]
     [SupportedOSPlatform("linux")]
+    public async Task IoBroker_ExistingProposalCollisionPreservesOriginalArtifactAndReceipt()
+    {
+        Assert.True(OperatingSystem.IsLinux(), "The production file path verifier is Linux-only.");
+        using var directory = new IoStageDirectory();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        AuthoringFileGrant grant = directory.CreateGrant(now);
+        var validator = new AuthoringServiceGrantValidator(
+            new AddressResolver([]),
+            new LinuxAuthoringFilePathVerifier(),
+            new FixedTimeProvider(now),
+            ImmutableHashSet.Create(StringComparer.Ordinal, directory.Owned));
+        var broker = new AuthoringExtensionServiceIoBroker(validator, new NetworkTransport([]), directory.Staging);
+        ImmutableArray<byte> payload = [4, 5, 6];
+        AuthoringServiceIoReceipt original = await broker.StageProposedWriteAsync(
+            grant, grant.RuntimeIdentity, grant.Purpose, payload);
+        string artifactPath = Path.Combine(directory.Staging, original.ArtifactReference!);
+        Assert.Equal(payload.ToArray(), await File.ReadAllBytesAsync(artifactPath));
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await broker.StageProposedWriteAsync(grant, grant.RuntimeIdentity, grant.Purpose, payload));
+
+        Assert.Equal(payload.ToArray(), await File.ReadAllBytesAsync(artifactPath));
+        Assert.Equal(Convert.ToHexStringLower(SHA256.HashData(payload.AsSpan())), original.ContentSha256);
+        Assert.Equal("write-staged-for-host-approval", original.Outcome);
+        Assert.Single(Directory.EnumerateFiles(directory.Staging));
+        Assert.False(File.Exists(Path.Combine(directory.Owned, grant.RelativePath)));
+        await broker.RevokeStagedWriteAsync(original);
+        Assert.Empty(Directory.EnumerateFiles(directory.Staging));
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
+    public async Task IoBroker_CancelledOwnedWriteIsReleasedAndRemovedWithoutTargetWrite()
+    {
+        Assert.True(OperatingSystem.IsLinux(), "The production file path verifier is Linux-only.");
+        using var directory = new IoStageDirectory();
+        using var cancellation = new CancellationTokenSource();
+        DateTimeOffset now = DateTimeOffset.UtcNow;
+        AuthoringFileGrant grant = directory.CreateGrant(now);
+        var validator = new AuthoringServiceGrantValidator(
+            new AddressResolver([]),
+            new CancelAfterPathResolutionVerifier(cancellation),
+            new FixedTimeProvider(now),
+            ImmutableHashSet.Create(StringComparer.Ordinal, directory.Owned));
+        var broker = new AuthoringExtensionServiceIoBroker(validator, new NetworkTransport([]), directory.Staging);
+
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await broker.StageProposedWriteAsync(
+                grant, grant.RuntimeIdentity, grant.Purpose, [4, 5, 6], cancellation.Token));
+
+        Assert.True(cancellation.IsCancellationRequested);
+        Assert.Empty(Directory.EnumerateFiles(directory.Staging));
+        Assert.False(File.Exists(Path.Combine(directory.Owned, grant.RelativePath)));
+    }
+
+    [Fact]
+    public async Task IoStage_PermissionFailureCleansOnlySuccessfullyCreatedFileAndKeepsFirstCause()
+    {
+        using var directory = new IoStageDirectory();
+        string path = Path.Combine(directory.Staging, "permission-failure");
+        var first = new IOException("injected stage permission failure");
+
+        IOException observed = await Assert.ThrowsAsync<IOException>(async () =>
+            await AuthoringExtensionServiceIoBroker.WriteOwnedProposalAsync(
+                path,
+                new byte[] { 4, 5, 6 },
+                created =>
+                {
+                    Assert.Equal(new byte[] { 4, 5, 6 }, File.ReadAllBytes(created));
+                    throw first;
+                },
+                File.Delete,
+                default));
+
+        Assert.Same(first, observed);
+        Assert.False(File.Exists(path));
+        Assert.False(observed.Data.Contains(AuthoringExtensionServiceIoBroker.StagedWriteCleanupFailuresKey));
+    }
+
+    [Fact]
+    public async Task IoStage_CreateNewFailureNeverInvokesPermissionsOrDeletesPreexistingFile()
+    {
+        using var directory = new IoStageDirectory();
+        string path = Path.Combine(directory.Staging, "existing-proposal");
+        byte[] original = [7, 8, 9];
+        await File.WriteAllBytesAsync(path, original);
+        int permissionCalls = 0;
+        int deleteCalls = 0;
+
+        await Assert.ThrowsAsync<IOException>(async () =>
+            await AuthoringExtensionServiceIoBroker.WriteOwnedProposalAsync(
+                path,
+                new byte[] { 4, 5, 6 },
+                _ => permissionCalls++,
+                _ => deleteCalls++,
+                default));
+
+        Assert.Equal(0, permissionCalls);
+        Assert.Equal(0, deleteCalls);
+        Assert.Equal(original, await File.ReadAllBytesAsync(path));
+    }
+
+    [Fact]
+    public async Task IoStage_CancelledWriteKeepsPrimaryFailureAndRecordsCleanupFailureAfterRelease()
+    {
+        using var directory = new IoStageDirectory();
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        string path = Path.Combine(directory.Staging, "cancelled-owned-proposal");
+        var cleanupFailure = new IOException("injected stage delete failure");
+        int permissionCalls = 0;
+        OperationCanceledException observed = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await AuthoringExtensionServiceIoBroker.WriteOwnedProposalAsync(
+                path,
+                new byte[] { 4, 5, 6 },
+                _ => permissionCalls++,
+                created =>
+                {
+                    using var released = new FileStream(created, FileMode.Open, FileAccess.ReadWrite, FileShare.None);
+                    throw cleanupFailure;
+                },
+                cancellation.Token));
+
+        Assert.Equal(cancellation.Token, observed.CancellationToken);
+        Assert.Equal(0, permissionCalls);
+        Assert.True(File.Exists(path));
+        ImmutableArray<Exception> secondary = Assert.IsType<ImmutableArray<Exception>>(
+            observed.Data[AuthoringExtensionServiceIoBroker.StagedWriteCleanupFailuresKey]);
+        Assert.Same(cleanupFailure, Assert.Single(secondary));
+    }
+
+    [Fact]
+    [SupportedOSPlatform("linux")]
     public async Task LinuxPathVerifier_RejectsBenignSymlinkBoundary()
     {
         Assert.True(OperatingSystem.IsLinux(), "The production file path verifier is Linux-only.");
@@ -397,18 +698,210 @@ public sealed class AuthoringExtensionServiceBrokerTests
     [Fact]
     public void BrokerSource_DoesNotExposeShellDirectIoOrSecretArguments()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceBroker.cs"));
+        Type[] brokerTypes =
+        [
+            typeof(AuthoringProcessOwnershipMechanism),
+            typeof(AuthoringServiceResultStatus),
+            typeof(AuthoringFileGrantOperation),
+            typeof(AuthoringProcessOwnershipReport),
+            typeof(AuthoringServiceHealthReport),
+            typeof(AuthoringNetworkGrant),
+            typeof(AuthoringFileGrant),
+            typeof(AuthoringServiceLaunchDescriptor),
+            typeof(AuthoringServiceRequest),
+            typeof(AuthoringServiceResponse),
+            typeof(AuthoringServiceExecutionResult),
+            typeof(IAuthoringServiceProcess),
+            typeof(IAuthoringOwnedServiceProcessObservation),
+            typeof(IAuthoringServiceProcessRuntime),
+            typeof(IAuthoringNetworkAddressResolver),
+            typeof(IAuthoringFilePathVerifier),
+            typeof(AuthoringServiceGrantValidator),
+            typeof(AuthoringExtensionServiceBroker)
+        ];
+        Assert.All(brokerTypes, AssertNoBrokerSurface);
+    }
 
-        Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("File.Open", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("IServiceProvider", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("EnvironmentVariables", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Arguments", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Password", source, StringComparison.OrdinalIgnoreCase);
-        Assert.DoesNotContain("AccessToken", source, StringComparison.OrdinalIgnoreCase);
+    private static void AssertNoBrokerSurface(Type rootType)
+    {
+        foreach (Type type in EnumerateBrokerTypeTree(rootType))
+        {
+            AssertNoCompiledBrokerSurface(type);
+        }
+    }
+
+    private static void AssertNoCompiledBrokerSurface(Type type)
+    {
+        string compiled = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(type),
+            RuntimeMetadataInspection.DescribeConstructors(type));
+        Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("File.Open", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("IServiceProvider", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("EnvironmentVariables", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Arguments", compiled, StringComparison.Ordinal);
+        Assert.DoesNotContain("Password", compiled, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("AccessToken", compiled, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static IEnumerable<Type> EnumerateBrokerTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateBrokerTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData(typeof(ProcessBoundaryFixture), "Process.Start", StringComparison.Ordinal)]
+    [InlineData(typeof(NetworkBoundaryFixture), "HttpClient", StringComparison.Ordinal)]
+    [InlineData(typeof(FileBoundaryFixture), "File.Open", StringComparison.Ordinal)]
+    [InlineData(typeof(ServiceBoundaryFixture), "IServiceProvider", StringComparison.Ordinal)]
+    [InlineData(typeof(EnvironmentBoundaryFixture), "EnvironmentVariables", StringComparison.Ordinal)]
+    [InlineData(typeof(CommandBoundaryFixture), "Arguments", StringComparison.Ordinal)]
+    [InlineData(typeof(CredentialBoundaryFixture), "Password", StringComparison.OrdinalIgnoreCase)]
+    [InlineData(typeof(SessionBoundaryFixture), "AccessToken", StringComparison.OrdinalIgnoreCase)]
+    public void BrokerBoundary_RejectsUncalledNestedMemberReferences(
+        Type rootType,
+        string forbiddenFact,
+        StringComparison comparison)
+    {
+        Type nested = rootType.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Assert.Contains(nested, EnumerateBrokerTypeTree(rootType));
+        MethodInfo method = nested.GetMethod("Read")!;
+        Assert.Equal(nested, method.DeclaringType);
+        Assert.NotNull(method.GetMethodBody());
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(rootType),
+            RuntimeMetadataInspection.DescribeConstructors(rootType));
+        Assert.DoesNotContain(forbiddenFact, oldRoots, comparison);
+        AssertNoCompiledBrokerSurface(rootType);
+        string nestedBody = RuntimeMetadataInspection.DescribeMethods(nested, "Read");
+        Assert.Contains(forbiddenFact, nestedBody, comparison);
+
+        Xunit.Sdk.XunitException rejection = Assert.ThrowsAny<Xunit.Sdk.XunitException>(
+            () => AssertNoBrokerSurface(rootType));
+
+        Assert.Contains(forbiddenFact, rejection.Message, comparison);
+    }
+
+    [Fact]
+    public void BrokerBoundary_AcceptsBenignNestedMethodsAndConstructors()
+    {
+        Type rootType = typeof(BenignBrokerFixture);
+        Type nested = rootType.GetNestedType("Node", BindingFlags.NonPublic)!;
+        Assert.NotNull(nested);
+        Type descendant = nested.GetNestedType("Leaf", BindingFlags.NonPublic)!;
+        Assert.NotNull(descendant);
+        Assert.Equal(3, EnumerateBrokerTypeTree(rootType).Count());
+        Assert.Contains(descendant, EnumerateBrokerTypeTree(rootType));
+        string oldRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(rootType),
+            RuntimeMetadataInspection.DescribeConstructors(rootType));
+        Assert.Contains("closed-instance-body", oldRoots, StringComparison.Ordinal);
+        Assert.Contains("closed-static-body", oldRoots, StringComparison.Ordinal);
+        Assert.DoesNotContain("closed-nested-body", oldRoots, StringComparison.Ordinal);
+        Assert.DoesNotContain("closed-descendant-body", oldRoots, StringComparison.Ordinal);
+        Assert.Contains("closed-nested-body",
+            RuntimeMetadataInspection.DescribeMethods(nested, "Read"), StringComparison.Ordinal);
+        Assert.Contains("closed-descendant-body",
+            RuntimeMetadataInspection.DescribeMethods(descendant, "Read"), StringComparison.Ordinal);
+
+        AssertNoBrokerSurface(rootType);
+    }
+
+    private sealed class ProcessBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object? Read() => Process.Start("fixture");
+        }
+    }
+
+    private sealed class NetworkBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read() => new System.Net.Http.HttpClient();
+        }
+    }
+
+    private sealed class FileBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read() => File.Open("fixture", FileMode.Open);
+        }
+    }
+
+    private sealed class ServiceBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read(IServiceProvider value) => value;
+        }
+    }
+
+    private sealed class EnvironmentBoundaryFixture
+    {
+        private static class Node
+        {
+            public static object Read() => new ProcessStartInfo().EnvironmentVariables;
+        }
+    }
+
+    private sealed class CommandBoundaryFixture
+    {
+        private static class Node
+        {
+            public static string Read() => new ProcessStartInfo().Arguments;
+        }
+    }
+
+    private sealed class CredentialBoundaryFixture
+    {
+        private static class Node
+        {
+            public static string Read() => BrokerFixtureActions.ReadPassword();
+        }
+    }
+
+    private sealed class SessionBoundaryFixture
+    {
+        private static class Node
+        {
+            public static string Read() => BrokerFixtureActions.ReadAccessToken();
+        }
+    }
+
+    private static class BrokerFixtureActions
+    {
+        public static string ReadPassword() => "closed-credential";
+
+        public static string ReadAccessToken() => "closed-session";
+    }
+
+    private sealed class BenignBrokerFixture
+    {
+        static BenignBrokerFixture() => GC.KeepAlive("closed-static-body");
+
+        private BenignBrokerFixture() => GC.KeepAlive("closed-instance-body");
+
+        private static class Node
+        {
+            public static string Read() => "closed-nested-body";
+
+            private static class Leaf
+            {
+                public static string Read() => "closed-descendant-body";
+            }
+        }
     }
 
     [Fact]
@@ -583,7 +1076,9 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
     private static async ValueTask<ServiceFixture> CreateFixtureAsync(
         TestProcess? process = null,
-        bool currentRevision = true)
+        bool currentRevision = true,
+        TimeProvider? brokerTimeProvider = null,
+        IAuthoringDocumentRevisionGate? revisionGate = null)
     {
         byte[] archive = "archive"u8.ToArray();
         byte[] executable = "service"u8.ToArray();
@@ -654,9 +1149,9 @@ public sealed class AuthoringExtensionServiceBrokerTests
         await lifecycleResources.ActivateAtomicallyAsync(package, [target], 1, CancellationToken.None);
         var broker = new AuthoringExtensionServiceBroker(
             new TestRuntime(process),
-            new RevisionGate(currentRevision),
+            revisionGate ?? new RevisionGate(currentRevision),
             lifecycleResources,
-            new FixedTimeProvider(now));
+            brokerTimeProvider ?? new FixedTimeProvider(now));
         return new ServiceFixture(package, target, request, broker);
     }
 
@@ -710,6 +1205,14 @@ public sealed class AuthoringExtensionServiceBrokerTests
 
         public string ExecutableSha256 { get; set; } = string.Empty;
 
+        public Action? ResponseBoundary { get; init; }
+
+        public Func<ValueTask>? Termination { get; init; }
+
+        public bool TerminationTokenWasCancelable { get; private set; }
+
+        public int DisposeCount { get; private set; }
+
         public string? TerminationReason
         {
             get; private set;
@@ -731,16 +1234,22 @@ public sealed class AuthoringExtensionServiceBrokerTests
                 await Task.Delay(Timeout.InfiniteTimeSpan, cancellationToken);
             }
 
+            ResponseBoundary?.Invoke();
             return new AuthoringServiceResponse(request.SchemaVersion, request.RuntimeIdentity, request.RequestId, [4, 5]);
         }
 
         public ValueTask TerminateTreeAsync(string reason, CancellationToken cancellationToken)
         {
             TerminationReason = reason;
-            return ValueTask.CompletedTask;
+            TerminationTokenWasCancelable = cancellationToken.CanBeCanceled;
+            return Termination?.Invoke() ?? ValueTask.CompletedTask;
         }
 
-        public ValueTask DisposeAsync() => ValueTask.CompletedTask;
+        public ValueTask DisposeAsync()
+        {
+            DisposeCount++;
+            return ValueTask.CompletedTask;
+        }
     }
 
     private sealed class RevisionGate(bool current) : IAuthoringDocumentRevisionGate
@@ -750,6 +1259,29 @@ public sealed class AuthoringExtensionServiceBrokerTests
             long documentEpoch,
             long sourceRevision,
             CancellationToken cancellationToken) => ValueTask.FromResult(current);
+    }
+
+    private sealed class CallbackRevisionGate(Action<CancellationToken> callback) : IAuthoringDocumentRevisionGate
+    {
+        public int CallCount { get; private set; }
+
+        public ValueTask<bool> IsCurrentAsync(
+            string documentId,
+            long documentEpoch,
+            long sourceRevision,
+            CancellationToken cancellationToken)
+        {
+            CallCount++;
+            callback(cancellationToken);
+            return ValueTask.FromResult(true);
+        }
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = now;
+
+        public override DateTimeOffset GetUtcNow() => UtcNow;
     }
 
     private sealed class AddressResolver(ImmutableArray<IPAddress> addresses) : IAuthoringNetworkAddressResolver
@@ -787,6 +1319,50 @@ public sealed class AuthoringExtensionServiceBrokerTests
             CallCount++;
             LastRequest = request;
             return ValueTask.FromResult(new AuthoringPinnedNetworkResponse(200, "application/octet-stream", response));
+        }
+    }
+
+    private sealed class IoStageDirectory : IDisposable
+    {
+        private readonly string _root = Path.Combine(Path.GetTempPath(), $"fsusblog-io-stage-{Guid.NewGuid():N}");
+
+        public IoStageDirectory()
+        {
+            Owned = Path.Combine(_root, "owned");
+            Staging = Path.Combine(_root, "stage");
+            Directory.CreateDirectory(Owned);
+            Directory.CreateDirectory(Staging);
+        }
+
+        public string Owned { get; }
+
+        public string Staging { get; }
+
+        public AuthoringFileGrant CreateGrant(DateTimeOffset now) => new(
+            new string('a', 64),
+            new string('b', 64),
+            Owned,
+            "output.bin",
+            AuthoringFileGrantOperation.ProposeWrite,
+            "export",
+            1024,
+            now.AddMinutes(1));
+
+        public void Dispose() => Directory.Delete(_root, true);
+    }
+
+    [SupportedOSPlatform("linux")]
+    private sealed class CancelAfterPathResolutionVerifier(CancellationTokenSource cancellation) : IAuthoringFilePathVerifier
+    {
+        public async ValueTask<(string CanonicalPath, bool HasReparseBoundary)> ResolveAsync(
+            string canonicalRoot,
+            string relativePath,
+            CancellationToken cancellationToken)
+        {
+            (string path, bool reparse) = await new LinuxAuthoringFilePathVerifier().ResolveAsync(
+                canonicalRoot, relativePath, cancellationToken);
+            cancellation.Cancel();
+            return (path, reparse);
         }
     }
 

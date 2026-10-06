@@ -1,5 +1,6 @@
 using System.Net;
 using System.Reflection;
+using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Text;
 
@@ -12,9 +13,11 @@ using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.PrivateAssets;
+using FsusBlog.Server.Tests.Unit;
 
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Hosting;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Hosting;
@@ -26,6 +29,16 @@ namespace FsusBlog.Server.Tests;
 
 public sealed class PrivateAssetStoreTests
 {
+    private const BindingFlags DeclaredMembers =
+        BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+    private static readonly IReadOnlyDictionary<ushort, OpCode> s_opCodesByValue = typeof(OpCodes)
+        .GetFields(BindingFlags.Public | BindingFlags.Static)
+        .Where(static field => field.FieldType == typeof(OpCode))
+        .Select(static field => (OpCode)field.GetValue(null)!)
+        .GroupBy(static opCode => unchecked((ushort)opCode.Value))
+        .ToDictionary(static group => group.Key, static group => group.First());
+
     [Fact]
     public async Task CreateAsync_StreamsToCanonicalPrivateKeyWithRestrictedPermissions()
     {
@@ -749,26 +762,29 @@ public sealed class PrivateAssetStoreTests
     }
 
     [Fact]
-    public void ProductionGateway_UsesOnlyInternalPrivateStorageAlias()
+    public async Task ProductionGateway_UsesOnlyInternalPrivateStorageAlias()
     {
-        string repositoryRoot = RepositoryRoot();
-        string compose = File.ReadAllText(Path.Combine(repositoryRoot, "ops/docker/docker-compose.production.yml"));
-        string gateway = File.ReadAllText(Path.Combine(repositoryRoot, "ops/gateway/production-openresty.conf"));
+        using var directory = new TemporaryDirectory();
+        ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(directory.Path);
+        AssetRecord record = CreateRecord([2, 4, 6]);
+        var context = new DefaultHttpContext();
+        await using var handle = new PrivateAssetReadHandle(
+            record.Id,
+            record.StorageKey,
+            record.MimeType,
+            record.Extension,
+            record.SizeBytes,
+            record.Sha256!);
 
-        Assert.Contains("location ^~ /assets/private/", gateway, StringComparison.Ordinal);
-        Assert.Contains("access_log off;", gateway, StringComparison.Ordinal);
-        Assert.Contains("location ^~ /_fsus/private-assets/", gateway, StringComparison.Ordinal);
-        Assert.Contains("internal;", gateway, StringComparison.Ordinal);
-        Assert.Contains(
-            "alias /var/lib/fsusblog/storage/shared/assets/private/;",
-            gateway,
-            StringComparison.Ordinal);
-        Assert.DoesNotContain("PrivateAssetRoot", gateway, StringComparison.Ordinal);
-        Assert.DoesNotContain("/app/storage/shared/assets/private", compose, StringComparison.Ordinal);
-        Assert.Contains("FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared", compose, StringComparison.Ordinal);
-        Assert.Contains("FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances", compose, StringComparison.Ordinal);
-        Assert.Contains("fsus-storage:/app/storage", compose, StringComparison.Ordinal);
-        Assert.Contains("device: /var/lib/fsusblog/storage", compose, StringComparison.Ordinal);
+        await new OpenRestyPrivateAssetResponseWriter().WriteAsync(context, handle);
+
+        Assert.Equal(Path.Combine("assets", "public"), Path.GetRelativePath(paths.SharedRoot, paths.PublicAssetRoot));
+        Assert.Equal(Path.Combine("assets", "private"), Path.GetRelativePath(paths.SharedRoot, paths.PrivateAssetRoot));
+        Assert.Equal(
+            OpenRestyPrivateAssetResponseWriter.InternalLocationPrefix + record.StorageKey.Value,
+            context.Response.Headers["X-Accel-Redirect"]);
+        Assert.DoesNotContain(paths.SharedRoot, context.Response.Headers["X-Accel-Redirect"], StringComparison.Ordinal);
+        Assert.DoesNotContain(paths.PrivateAssetRoot, context.Response.Headers["X-Accel-Redirect"], StringComparison.Ordinal);
     }
 
     [Fact]
@@ -833,17 +849,207 @@ public sealed class PrivateAssetStoreTests
     [Fact]
     public void StaticProviderOwners_NeverConsumePrivateAssetRoot()
     {
-        string backendRoot = Path.Combine(RepositoryRoot(), "src/backend");
-        string[] providerOwners = [.. Directory.EnumerateFiles(backendRoot, "*.cs", SearchOption.AllDirectories)
-            .Where(path => File.ReadAllText(path).Contains("UseStaticFiles", StringComparison.Ordinal))];
+        Type[] providerOwners = FindStaticProviderOwners(typeof(PublicWebRuntime).Assembly.GetTypes());
 
-        Assert.NotEmpty(providerOwners);
-        Assert.All(providerOwners, path =>
+        Type[] expectedOwners =
+        [
+            typeof(PublicWebRuntime),
+            typeof(ReleaseAssetStaticFileExtensions),
+            typeof(ReleaseDerivedStaticFileExtensions)
+        ];
+        Assert.Equal(
+            expectedOwners.OrderBy(static type => type.FullName),
+            providerOwners.OrderBy(static type => type.FullName));
+        Assert.All(providerOwners, static owner => Assert.Empty(FindPrivateStaticProviderFacts(owner)));
+    }
+
+    [Fact]
+    public void StaticProviderOwnership_AcceptsPublicRootAndIgnoresStringsNamesAndMethodTokens()
+    {
+        Type[] candidates =
+        [
+            typeof(PublicStaticProviderFixture),
+            typeof(StaticProviderLiteralFixture),
+            typeof(StaticProviderSameNameFixture),
+            typeof(StaticProviderMethodTokenFixture)
+        ];
+
+        Type owner = Assert.Single(FindStaticProviderOwners(candidates));
+
+        Assert.Equal(typeof(PublicStaticProviderFixture), owner);
+        Assert.Empty(FindPrivateStaticProviderFacts(owner));
+    }
+
+    [Fact]
+    public void StaticProviderOwnership_RejectsPrivateRootAndInterfaceSignatures()
+    {
+        Type[] candidates = [typeof(PrivateRootStaticProviderFixture), typeof(PrivateStoreStaticProviderFixture)];
+
+        Assert.Equal(candidates, FindStaticProviderOwners(candidates));
+        Assert.Equal(["PrivateAssetRoot"], FindPrivateStaticProviderFacts(candidates[0]));
+        Assert.Equal(["IPrivateAssetStore"], FindPrivateStaticProviderFacts(candidates[1]));
+    }
+
+    [Fact]
+    public void StaticProviderOwnership_InspectsInstanceStaticAndNestedConstructors()
+    {
+        Type[] candidates =
+        [
+            typeof(ConstructorStaticProviderFixture),
+            typeof(InitializerStaticProviderFixture),
+            typeof(NestedStaticProviderFixture.Provider)
+        ];
+
+        Assert.Equal(candidates, FindStaticProviderOwners(candidates));
+        Assert.All(candidates, static owner => Assert.Equal(["PrivateAssetRoot"], FindPrivateStaticProviderFacts(owner)));
+    }
+
+    private static Type[] FindStaticProviderOwners(IEnumerable<Type> candidates)
+        => [.. candidates.Where(static type => type.IsClass && DeclaredBodies(type).Any(CallsStaticFiles))];
+
+    private static string[] FindPrivateStaticProviderFacts(Type owner)
+    {
+        string runtime = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(owner),
+            RuntimeMetadataInspection.DescribeConstructors(owner));
+        string[] forbidden = ["PrivateAssetRoot", "IPrivateAssetStore"];
+        return [.. forbidden.Where(fact => runtime.Contains(fact, StringComparison.Ordinal))];
+    }
+
+    private static IEnumerable<MethodBase> DeclaredBodies(Type type)
+    {
+        IEnumerable<MethodBase> bodies = type.GetMethods(DeclaredMembers).Cast<MethodBase>()
+            .Concat(type.GetConstructors(DeclaredMembers));
+        return type.TypeInitializer is { } initializer ? bodies.Append(initializer) : bodies;
+    }
+
+    private static bool CallsStaticFiles(MethodBase method)
+    {
+        byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+        if (il is null)
         {
-            string source = File.ReadAllText(path);
-            Assert.DoesNotContain("PrivateAssetRoot", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("IPrivateAssetStore", source, StringComparison.Ordinal);
-        });
+            return false;
+        }
+
+        Type[] typeArguments = method.DeclaringType?.IsGenericType == true
+            ? method.DeclaringType.GetGenericArguments()
+            : Type.EmptyTypes;
+        Type[] methodArguments = method.IsGenericMethod ? method.GetGenericArguments() : Type.EmptyTypes;
+        bool callsStaticFiles = false;
+        for (int offset = 0; offset < il.Length;)
+        {
+            ushort value = il[offset++];
+            if (value == 0xfe)
+            {
+                Assert.True(offset < il.Length);
+                value = (ushort)(0xfe00 | il[offset++]);
+            }
+
+            Assert.True(s_opCodesByValue.TryGetValue(value, out OpCode opCode));
+            if (opCode.OperandType == OperandType.InlineSwitch)
+            {
+                Assert.True(offset + sizeof(int) <= il.Length);
+            }
+
+            int operandSize = opCode.OperandType switch
+            {
+                OperandType.InlineNone => 0,
+                OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                OperandType.InlineVar => 2,
+                OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or OperandType.InlineMethod
+                    or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType
+                    or OperandType.ShortInlineR => 4,
+                OperandType.InlineI8 or OperandType.InlineR => 8,
+                OperandType.InlineSwitch => checked(4 + (BitConverter.ToInt32(il, offset) * 4)),
+                _ => -1
+            };
+            Assert.True(operandSize >= 0 && operandSize <= il.Length - offset);
+            if (opCode == OpCodes.Call || opCode == OpCodes.Callvirt)
+            {
+                MethodBase called = Assert.IsAssignableFrom<MethodBase>(method.Module.ResolveMethod(
+                    BitConverter.ToInt32(il, offset), typeArguments, methodArguments));
+                callsStaticFiles |= called.DeclaringType == typeof(StaticFileExtensions)
+                    && called.Name == nameof(StaticFileExtensions.UseStaticFiles);
+            }
+
+            offset += operandSize;
+        }
+
+        return callsStaticFiles;
+    }
+
+    private static class PublicStaticProviderFixture
+    {
+        public static IApplicationBuilder Configure(IApplicationBuilder app, ReleaseStoragePaths paths)
+        {
+            GC.KeepAlive(paths.PublicAssetRoot);
+            return app.UseStaticFiles();
+        }
+    }
+
+    private static class StaticProviderLiteralFixture
+    {
+        public static string Describe() => "UseStaticFiles PrivateAssetRoot IPrivateAssetStore";
+    }
+
+    private static class StaticProviderSameNameFixture
+    {
+        public static IApplicationBuilder Configure(IApplicationBuilder app) => UseStaticFiles(app);
+
+        private static IApplicationBuilder UseStaticFiles(IApplicationBuilder app) => app;
+    }
+
+    private static class StaticProviderMethodTokenFixture
+    {
+        public static Func<IApplicationBuilder, IApplicationBuilder> Configure() => StaticFileExtensions.UseStaticFiles;
+    }
+
+    private static class PrivateRootStaticProviderFixture
+    {
+        public static IApplicationBuilder Configure(IApplicationBuilder app, ReleaseStoragePaths paths)
+        {
+            GC.KeepAlive(paths.PrivateAssetRoot);
+            return app.UseStaticFiles();
+        }
+    }
+
+    private static class PrivateStoreStaticProviderFixture
+    {
+        public static IApplicationBuilder Configure(IApplicationBuilder app, IPrivateAssetStore privateStore)
+            => app.UseStaticFiles();
+    }
+
+    private sealed class ConstructorStaticProviderFixture
+    {
+        public ConstructorStaticProviderFixture(IApplicationBuilder app, ReleaseStoragePaths paths)
+        {
+            GC.KeepAlive(paths.PrivateAssetRoot);
+            app.UseStaticFiles();
+        }
+    }
+
+    private static class InitializerStaticProviderFixture
+    {
+        static InitializerStaticProviderFixture()
+        {
+            using ServiceProvider services = new ServiceCollection().BuildServiceProvider();
+            var app = new ApplicationBuilder(services);
+            app.UseStaticFiles();
+            ReleaseStoragePaths paths = ReleaseStorageTestPaths.Create(Path.GetTempPath());
+            GC.KeepAlive(paths.PrivateAssetRoot);
+        }
+    }
+
+    private static class NestedStaticProviderFixture
+    {
+        public sealed class Provider
+        {
+            public Provider(IApplicationBuilder app, ReleaseStoragePaths paths)
+            {
+                GC.KeepAlive(paths.PrivateAssetRoot);
+                app.UseStaticFiles();
+            }
+        }
     }
 
     private static LocalPrivateAssetStore CreateStore(string root, TestRecordSource source)
@@ -888,9 +1094,6 @@ public sealed class PrivateAssetStoreTests
             now,
             now);
     }
-
-    private static string RepositoryRoot([System.Runtime.CompilerServices.CallerFilePath] string sourcePath = "")
-        => Path.GetFullPath(Path.Combine(Path.GetDirectoryName(sourcePath)!, "../../.."));
 
     private sealed class TestRecordSource(AssetRecord? record) : IPrivateAssetRecordSource
     {

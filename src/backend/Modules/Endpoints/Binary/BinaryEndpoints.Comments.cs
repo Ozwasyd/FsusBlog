@@ -133,7 +133,9 @@ public static partial class BinaryEndpoints
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "comment_mutation_idempotency_disabled"),
                     aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    ApiErrorSemanticMapper.RequireTransportMappingId(
+                        StatusCodes.Status503ServiceUnavailable,
+                        ErrorCode.InfraFailure));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(
@@ -157,16 +159,14 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Validation, "comment_client_mutation_id_required"),
-                    aeds,
-                    StatusCodes.Status400BadRequest);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status400BadRequest, ErrorCode.Validation));
             }
 
             if (!TryResolveCommentClientMutationId(rawClientMutationId, out string clientMutationId))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Validation, "comment_client_mutation_id_invalid"),
-                    aeds,
-                    StatusCodes.Status400BadRequest);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status400BadRequest, ErrorCode.Validation));
             }
 
             CommentAuthorModeDecision authorMode = await policyService.EvaluateAuthorModeAsync(
@@ -177,16 +177,14 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Validation, authorMode.Status),
-                    aeds,
-                    StatusCodes.Status400BadRequest);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status400BadRequest, ErrorCode.Validation));
             }
 
             if (!string.Equals(authorMode.EffectiveAuthorMode, CommentAuthorModes.Public, StringComparison.Ordinal))
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.Validation, "anonymous_ticket_required"),
-                    aeds,
-                    StatusCodes.Status400BadRequest);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status400BadRequest, ErrorCode.Validation));
             }
 
             string content = request.Content?.Trim() ?? string.Empty;
@@ -287,8 +285,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "comment_recursive_reads_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             CursorBindResult<long> bind = CursorPageBinder.Bind(
                 httpContext.Request,
@@ -344,8 +341,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "comment_recursive_reads_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             CursorBindResult<long> bind = CursorPageBinder.Bind(
                 httpContext.Request,
@@ -407,8 +403,7 @@ public static partial class BinaryEndpoints
             {
                 return BinaryResults.FromError(
                     ErrorDetail.Create(ErrorCode.InfraFailure, "comment_recursive_reads_disabled"),
-                    aeds,
-                    StatusCodes.Status503ServiceUnavailable);
+                    aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
             }
             int siblingWindow = Math.Clamp(window ?? 6, 2, 20);
             string viewerRegion = regionResolver.Resolve(httpContext).Region;
@@ -571,7 +566,7 @@ public static partial class BinaryEndpoints
                 var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
                 if (stepUp is not null)
                 {
-                    return BinaryResults.FromError(stepUp.Value.Error, aeds, stepUp.Value.StatusCode);
+                    return BinaryResults.FromError(stepUp.Value.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUp.Value.StatusCode, (stepUp.Value.Error).Code));
                 }
 
                 success = await commentService.DeleteCommentAsAdminAsync(id, new AdminPrincipalActor(adminPrincipalId, adminSessionId), normalizedReason);
@@ -913,8 +908,7 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_comment_ticket_unavailable"),
-                aeds,
-                StatusCodes.Status503ServiceUnavailable);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
         }
 
         var payload = await ReadBinaryRequestPayloadAsync(
@@ -967,16 +961,14 @@ public static partial class BinaryEndpoints
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "comment_mutation_idempotency_disabled"),
-                aeds,
-                StatusCodes.Status503ServiceUnavailable);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
         }
 
         if (!IsZkProdTicketReady(zkProofService.CurrentZkProdPolicy))
         {
             return BinaryResults.FromError(
                 ErrorDetail.Create(ErrorCode.InfraFailure, "anonymous_comment_submit_unavailable"),
-                aeds,
-                StatusCodes.Status503ServiceUnavailable);
+                aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status503ServiceUnavailable, ErrorCode.InfraFailure));
         }
 
         var payload = await ReadBinaryRequestPayloadAsync(
@@ -1122,7 +1114,7 @@ public static partial class BinaryEndpoints
         }
 
         return result.Code == "comment_version_conflict"
-            ? AedsJsonResults.Error(aeds, ErrorCode.Conflict, result.Code, StatusCodes.Status409Conflict)
+            ? AedsJsonResults.Error(aeds, ApiErrorTransportMappingId.Default409Conflict, result.Code)
             : AedsJsonResults.NotFound(aeds, result.Code);
     }
 

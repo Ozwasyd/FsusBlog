@@ -129,11 +129,19 @@ function dotnetEnvironment()
 
 function runDotnet(arguments_, label)
 {
+    if (producerIdentity)
+    {
+        assertDotnetHostDigest(canonicalDotnet, producerIdentity.dotnetHostSha256);
+    }
     const result = spawnSync(canonicalDotnet, arguments_, {
         cwd: repositoryRoot,
         encoding: 'utf8',
         env: dotnetEnvironment()
     });
+    if (producerIdentity)
+    {
+        assertDotnetHostDigest(canonicalDotnet, producerIdentity.dotnetHostSha256);
+    }
     if (result.status !== 0)
     {
         throw new Error(`[content-shape] ${label} failed: ${(result.stderr || result.stdout).trim()}`);
@@ -147,6 +155,80 @@ function fileIdentity(relative)
     return Object.freeze({ path: relative, sha256: sha256(fs.readFileSync(file)) });
 }
 
+export function assertDotnetHostDigest(host, expectedDigest, readFile = fs.readFileSync)
+{
+    let actualDigest;
+    try
+    {
+        actualDigest = sha256(readFile(host));
+    }
+    catch
+    {
+        throw new Error('[content-shape] canonical dotnet host is not observable during extraction');
+    }
+    if (actualDigest !== expectedDigest)
+    {
+        throw new Error('[content-shape] canonical dotnet host changed during extraction');
+    }
+}
+
+export function validateConfiguredDotnetHost(configuredCandidate, expectedSdk, {
+    exists = fs.existsSync,
+    realpath = fs.realpathSync,
+    readFile = fs.readFileSync,
+    inspectVersion = (candidate) => spawnSync(candidate, ['--version'], {
+        encoding: 'utf8', env: dotnetEnvironment()
+    })
+} = {})
+{
+    if (configuredCandidate === undefined) return null;
+    if (configuredCandidate.length === 0
+        || !path.isAbsolute(configuredCandidate)
+        || !exists(configuredCandidate))
+    {
+        throw new Error('[content-shape] FSUSBLOG_CONTENT_FIELD_DOTNET must name an existing absolute path');
+    }
+    let resolved;
+    let before;
+    try
+    {
+        resolved = realpath(configuredCandidate);
+        before = sha256(readFile(resolved));
+    }
+    catch
+    {
+        throw new Error('[content-shape] FSUSBLOG_CONTENT_FIELD_DOTNET host is not observable');
+    }
+    const observation = inspectVersion(resolved);
+    if (observation.error || observation.status !== 0)
+    {
+        throw new Error('[content-shape] FSUSBLOG_CONTENT_FIELD_DOTNET version is not observable');
+    }
+    if (observation.stdout?.trim() !== expectedSdk)
+    {
+        throw new Error(`[content-shape] FSUSBLOG_CONTENT_FIELD_DOTNET does not match pinned SDK ${expectedSdk}`);
+    }
+    assertDotnetHostDigest(resolved, before, readFile);
+    return resolved;
+}
+
+export function selectCanonicalDotnet(candidates, expectedSdk, inspectVersion = (candidate) =>
+    spawnSync(candidate, ['--version'], { encoding: 'utf8', env: dotnetEnvironment() }))
+{
+    const matches = candidates.filter((candidate) =>
+    {
+        const observation = inspectVersion(candidate);
+        return !observation.error
+            && observation.status === 0
+            && observation.stdout?.trim() === expectedSdk;
+    });
+    if (matches.length !== 1)
+    {
+        throw new Error(`[content-shape] expected exactly one canonical dotnet SDK ${expectedSdk}, found ${matches.length}`);
+    }
+    return matches[0];
+}
+
 function resolveCanonicalDotnet()
 {
     if (canonicalDotnet) return;
@@ -154,24 +236,14 @@ function resolveCanonicalDotnet()
     const expectedSdk = dockerfile.match(/^ARG DOTNET_SDK_VERSION=([^\r\n]+)$/mu)?.[1];
     const expectedRuntime = dockerfile.match(/^ARG DOTNET_RUNTIME_VERSION=([^\r\n]+)$/mu)?.[1];
     if (!expectedSdk || !expectedRuntime) throw new Error('[content-shape] pinned dotnet SDK/runtime version is missing');
-    const configuredCandidate = process.env.FSUSBLOG_CONTENT_FIELD_DOTNET;
-    if (configuredCandidate !== undefined
-        && (configuredCandidate.length === 0
-            || !path.isAbsolute(configuredCandidate)
-            || !fs.existsSync(configuredCandidate)))
-    {
-        throw new Error('[content-shape] FSUSBLOG_CONTENT_FIELD_DOTNET must name an existing absolute path');
-    }
+    const configuredCandidate = validateConfiguredDotnetHost(
+        process.env.FSUSBLOG_CONTENT_FIELD_DOTNET,
+        expectedSdk
+    );
     const candidates = [...new Set([configuredCandidate, '/usr/share/dotnet10/dotnet', '/usr/share/dotnet/dotnet']
         .filter((candidate) => fs.existsSync(candidate)).map((candidate) => fs.realpathSync(candidate)))];
-    const matches = candidates.filter((candidate) => spawnSync(candidate, ['--version'], {
-        encoding: 'utf8', env: dotnetEnvironment()
-    }).stdout?.trim() === expectedSdk);
-    if (matches.length !== 1)
-    {
-        throw new Error(`[content-shape] expected exactly one canonical dotnet SDK ${expectedSdk}, found ${matches.length}`);
-    }
-    canonicalDotnet = matches[0];
+    canonicalDotnet = selectCanonicalDotnet(candidates, expectedSdk);
+    const dotnetHostSha256 = sha256(fs.readFileSync(canonicalDotnet));
     const sdkBase = path.dirname(canonicalDotnet);
     const sdkDirectory = path.join(sdkBase, 'sdk', expectedSdk);
     const compiler = path.join(sdkDirectory, 'Roslyn/bincore/csc.dll');
@@ -188,11 +260,12 @@ function resolveCanonicalDotnet()
     {
         if (!installedRuntimes.includes(runtime)) throw new Error(`[content-shape] pinned runtime is unavailable: ${runtime}`);
     }
+    assertDotnetHostDigest(canonicalDotnet, dotnetHostSha256);
     producerIdentity = {
         schema: 'fsusblog.content-field-producer-identity.v1',
         dotnetSdkVersion: expectedSdk,
         dotnetRuntimeVersion: expectedRuntime,
-        dotnetHostSha256: sha256(fs.readFileSync(canonicalDotnet)),
+        dotnetHostSha256,
         dotnetSdkCommit: sdkCommit,
         dotnetRuntimes: requiredRuntimes,
         roslynCompilerSha256: sha256(fs.readFileSync(compiler)),

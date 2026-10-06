@@ -3,6 +3,7 @@ using System.Reflection.Emit;
 using System.Runtime.CompilerServices;
 
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
 using FsusBlog.Server.Infrastructure.Results;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Modules.Endpoints.Binary;
@@ -236,7 +237,7 @@ internal static class CompiledEndpointContractObserver
                 else if (IsBinaryErrorFactory(called))
                 {
                     facts.BinaryResults.Add(evidence);
-                    int? status = ClosestHttpStatus(recentIntegers);
+                    int? status = ResolveExplicitErrorStatus(called, recentIntegers);
                     if (status is >= 400 and <= 599)
                     {
                         facts.ExplicitErrorStatuses.Add(status.Value);
@@ -333,6 +334,31 @@ internal static class CompiledEndpointContractObserver
                 ? status
                 : null;
 
+    private static int? ResolveExplicitErrorStatus(
+        MethodBase called,
+        IEnumerable<(int Value, int Offset)> values)
+    {
+        if (ClosestHttpStatus(values) is { } explicitStatus)
+        {
+            return explicitStatus;
+        }
+
+        if (called.GetParameters().Any(static parameter =>
+                parameter.ParameterType == typeof(ApiErrorTransportMappingId)))
+        {
+            foreach (int value in values.Reverse().Select(static item => item.Value))
+            {
+                var mappingId = (ApiErrorTransportMappingId)value;
+                if (mappingId != ApiErrorTransportMappingId.None && Enum.IsDefined(mappingId))
+                {
+                    return ApiErrorSemanticMapper.GetMapping(mappingId).HttpStatus;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private static AedsFrameType? SingleFrame(
         IReadOnlyDictionary<AedsFrameType, HashSet<string>> frames,
         string direction,
@@ -356,7 +382,19 @@ internal static class CompiledEndpointContractObserver
     private static string ObserveErrorFrame()
     {
         MethodInfo method = typeof(BinaryResults).GetMethods(BindingFlags.Public | BindingFlags.Static)
-            .Single(static candidate => candidate.Name == nameof(BinaryResults.FromError));
+            .Single(static candidate =>
+            {
+                if (candidate.Name != nameof(BinaryResults.FromError))
+                {
+                    return false;
+                }
+
+                ParameterInfo[] parameters = candidate.GetParameters();
+                return parameters.Length == 3
+                    && parameters[0].ParameterType == typeof(ErrorDetail).MakeByRefType()
+                    && parameters[1].ParameterType == typeof(IAedsEncoder)
+                    && parameters[2].ParameterType == typeof(ApiErrorTransportMappingId);
+            });
         byte[] il = method.GetMethodBody()?.GetILAsByteArray()
             ?? throw new InvalidOperationException("BinaryResults.FromError has no compiled body");
         if (!IntegerConstants(il).Select(static value => (AedsFrameType)value).Contains(AedsFrameType.ApiError))
@@ -507,29 +545,13 @@ internal static class CompiledEndpointContractObserver
 
 internal static class CompiledEndpointContractCensus
 {
-    private static readonly IReadOnlySet<string> s_issue3177NonAedsRoutes = new HashSet<string>(
-        [
-            "GET /api/binary/author/ops/fonts/activations",
-            "GET /api/binary/author/ops/fonts/registry",
-            "GET /api/binary/author/ops/fonts/registry/{fontId}",
-            "GET /api/binary/author/ops/themes/activations",
-            "GET /api/binary/author/ops/themes/activations/{scope}",
-            "GET /api/binary/author/ops/themes/activations/{scope}/history",
-            "GET /api/binary/author/ops/themes/registry",
-            "GET /api/binary/author/ops/themes/registry/{themeId}"
-        ],
-        StringComparer.Ordinal);
-
-    public static void Validate(
-        IReadOnlyList<(string Key, CompiledEndpointContract Contract)> routes,
-        bool requireExactIssue3177Exceptions = false)
+    public static void Validate(IReadOnlyList<(string Key, CompiledEndpointContract Contract)> routes)
     {
         (string Key, CompiledEndpointContract Contract)[] nonAeds = routes
             .Where(static item => !item.Contract.IsAeds)
             .OrderBy(static item => item.Key, StringComparer.Ordinal)
             .ToArray();
         string[] unexpected = nonAeds
-            .Where(item => !s_issue3177NonAedsRoutes.Contains(item.Key))
             .Select(static item => $"{item.Key} requestFrame={item.Contract.RequestFrame ?? "none"} "
                 + $"responseFrame={item.Contract.ResponseFrame ?? "none"} errorFrame={item.Contract.ErrorFrame ?? "none"} "
                 + $"successStatus={item.Contract.SuccessStatus?.ToString(System.Globalization.CultureInfo.InvariantCulture) ?? "none"} "
@@ -541,26 +563,6 @@ internal static class CompiledEndpointContractCensus
             throw new InvalidOperationException(
                 $"production /api/binary census found {unexpected.Length} unexpected non-AEDS route(s):\n"
                 + string.Join('\n', unexpected));
-        }
-
-        string[] issue3177Observed = nonAeds
-            .Select(static item => item.Key)
-            .Where(s_issue3177NonAedsRoutes.Contains)
-            .ToArray();
-        if (requireExactIssue3177Exceptions
-            && !issue3177Observed.SequenceEqual(s_issue3177NonAedsRoutes.Order(StringComparer.Ordinal)))
-        {
-            throw new InvalidOperationException(
-                "pre-#3177 non-AEDS exception set drift: expected="
-                + string.Join(',', s_issue3177NonAedsRoutes.Order(StringComparer.Ordinal))
-                + " observed="
-                + string.Join(',', issue3177Observed));
-        }
-        if (issue3177Observed.Length > 0)
-        {
-            Console.Error.WriteLine(
-                $"[openapi-observation] pre-#3177 known non-AEDS routes excluded count={issue3177Observed.Length}: "
-                + string.Join(',', issue3177Observed));
         }
     }
 }

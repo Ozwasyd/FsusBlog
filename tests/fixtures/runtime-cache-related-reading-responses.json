@@ -1,0 +1,7 @@
+{
+  "description": "AEDS v2 empty ArticleRelatedReading frame and exact negative transport bytes. Checker self-tests only, never runtime acceptance.",
+  "valid": "QUVEUwIQAAAbAAwAAABkAgAAAAAAAAAAAAAAAA==",
+  "wrongType": "QUVEUwIQAAADAAwAAABkAgAAAAAAAAAAAAAAAA==",
+  "badCrc": "QUVEUwIQAAAbAAwAAABlAgAAAAAAAAAAAAAAAA==",
+  "notAeds": "bm90LWFuLUFFRFMtZnJhbWU="
+}

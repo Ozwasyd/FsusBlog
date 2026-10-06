@@ -1618,6 +1618,83 @@ public sealed class OnlineSchemaMigrationCatalog : IOnlineSchemaMigrationCatalog
                     "admin_session_projection_convergence"
                 ]));
 
+        result.Add(
+            "20260915-post-author-recent-history",
+            new OnlineSchemaMigrationMetadata(
+                "20260915-post-author-recent-history",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260915-author-recent-history"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "author_recent_history_closed_schema",
+                    "author_recent_history_owner_site_scope",
+                    "author_recent_history_cas_idempotency",
+                    "author_recent_history_receipt_outbox_audit"
+                ]));
+
+        result.Add(
+            "20260915-post-article-property-definition-authority",
+            new OnlineSchemaMigrationMetadata(
+                "20260915-post-article-property-definition-authority",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Medium,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20260915-article-property-definition-authority"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "article_property_definition_closed_schema",
+                    "article_property_definition_owner_scope",
+                    "article_property_definition_cas_idempotency",
+                    "article_property_definition_receipt_audit_integrity"
+                ]));
+
+        // CompatibleCode describes additive DDL only; old writers must remain isolated from history writes.
+        result.Add(
+            "20261002-post-article-property-definition-command-history",
+            new OnlineSchemaMigrationMetadata(
+                "20261002-post-article-property-definition-command-history",
+                OnlineSchemaMigrationPhase.Expand,
+                new OnlineSchemaCompatibilityWindow(s_legacyMinimumCoordinate, s_protocolMaximumCoordinate),
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OnlineSchemaMigrationRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OnlineSchemaMigrationLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtCoordinate: LegacyCoordinate("20261002-article-property-definition-command-history"),
+                ContractAfterCoordinate: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "article_property_definition_command_history_closed_schema",
+                    "article_property_definition_history_genesis_fail_closed",
+                    "article_property_definition_history_signed_audit_binding",
+                    "article_property_definition_authenticated_forward_replay",
+                    "article_property_definition_history_write_isolation"
+                ]));
+
         return new ReadOnlyDictionary<string, OnlineSchemaMigrationMetadata>(result);
     }
 

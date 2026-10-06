@@ -1,36 +1,40 @@
 #!/usr/bin/env node
-import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
-import path from 'node:path'
-import { spawnSync } from 'node:child_process'
-import { fileURLToPath } from 'node:url'
-import { digestValue } from '../../fact-extractors/lib/canonicalize.mjs'
+import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-export const observationArtifactId = 'config-error-security-policy-observation'
-export const observationRelativeDir = '.tmp/contracts/config-error-security'
-export const observationFileName = 'config-error-security-policy-observation.json'
-export const observationToolProject = 'tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj'
+const { digestValue } = await import(new URL('../../fact-extractors/lib/canonicalize.mjs', import.meta.url));
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..')
+export const observationArtifactId = 'config-error-security-policy-observation';
+export const observationRelativeDir = '.tmp/contracts/config-error-security';
+export const observationFileName = 'config-error-security-policy-observation.json';
+export const observationToolProject = 'tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj';
+export const observationAuthoritySourcePaths = Object.freeze([
+    'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs'
+]);
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 
 const fail = (message) =>
 {
-  throw new Error(`[config-error-security-observation] ${message}`)
-}
+    throw new Error(`[config-error-security-observation] ${message}`);
+};
 
 export function observationPaths(repositoryRoot = root)
 {
-  const directory = path.join(repositoryRoot, observationRelativeDir)
-  return {
-    directory,
-    observationPath: path.join(directory, observationFileName),
-    relativeObservationPath: `${observationRelativeDir}/${observationFileName}`
-  }
+    const directory = path.join(repositoryRoot, observationRelativeDir);
+    return {
+        directory,
+        observationPath: path.join(directory, observationFileName),
+        relativeObservationPath: `${observationRelativeDir}/${observationFileName}`
+    };
 }
 
 export function sha256File(filePath)
 {
-  return createHash('sha256').update(readFileSync(filePath)).digest('hex')
+    return createHash('sha256').update(readFileSync(filePath)).digest('hex');
 }
 
 /**
@@ -38,90 +42,112 @@ export function sha256File(filePath)
  * and canonical repository configuration (not example appsettings, not process env defaults).
  */
 export function produceConfigErrorSecurityObservation({
-  repositoryRoot = root,
-  configuration = 'Release',
-  rebuild = true
+    repositoryRoot = root,
+    configuration = 'Release',
+    rebuild = true
 } = {})
 {
-  const paths = observationPaths(repositoryRoot)
-  mkdirSync(paths.directory, { recursive: true })
+    const paths = observationPaths(repositoryRoot);
+    mkdirSync(paths.directory, { recursive: true });
 
-  const project = path.join(repositoryRoot, observationToolProject)
-  if (!existsSync(project)) fail(`observation tool missing: ${observationToolProject}`)
-
-  if (rebuild)
-  {
-    const build = spawnSync(
-      'dotnet',
-      ['build', project, '-c', configuration, '-v', 'minimal'],
-      { cwd: repositoryRoot, encoding: 'utf8', env: process.env }
-    )
-    if (build.status !== 0)
+    const project = path.join(repositoryRoot, observationToolProject);
+    if (!existsSync(project))
     {
-      fail(`dotnet build failed:\n${build.stdout}\n${build.stderr}`)
+        fail(`observation tool missing: ${observationToolProject}`);
     }
-  }
 
-  const run = spawnSync(
-    'dotnet',
-    [
-      'run',
-      '--project',
-      project,
-      '-c',
-      configuration,
-      '--no-build',
-      '--',
-      '--output',
-      paths.observationPath,
-      '--repository-root',
-      repositoryRoot
-    ],
-    { cwd: repositoryRoot, encoding: 'utf8', env: process.env }
-  )
-  if (run.status !== 0)
-  {
-    fail(`observation host failed:\n${run.stdout}\n${run.stderr}`)
-  }
-  if (!existsSync(paths.observationPath))
-  {
-    fail('observation host did not write observation artifact')
-  }
+    if (rebuild)
+    {
+        const build = spawnSync(
+            'dotnet',
+            ['build', project, '-c', configuration, '-v', 'minimal'],
+            { cwd: repositoryRoot, encoding: 'utf8', env: process.env }
+        );
+        if (build.status !== 0)
+        {
+            fail(`dotnet build failed:\n${build.stdout}\n${build.stderr}`);
+        }
+    }
 
-  const observation = JSON.parse(readFileSync(paths.observationPath, 'utf8'))
-  const artifactDigest = sha256File(paths.observationPath)
-  const receiptBody = {
-    schema: 'fsusblog.config-error-security-observation-build-receipt.v1',
-    artifactId: observationArtifactId,
-    observationPath: paths.relativeObservationPath,
-    observationDigest: observation.observationDigest,
-    artifactDigest,
-    configuration
-  }
-  const receiptDigest = digestValue(receiptBody)
-  const buildIdentity = {
-    artifactId: observationArtifactId,
-    receiptDigest,
-    artifactDigest
-  }
-  const receiptPath = path.join(paths.directory, 'build-receipt.json')
-  writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`)
+    const run = spawnSync(
+        'dotnet',
+        [
+            'run',
+            '--project',
+            project,
+            '-c',
+            configuration,
+            '--no-build',
+            '--',
+            '--output',
+            paths.observationPath,
+            '--repository-root',
+            repositoryRoot
+        ],
+        { cwd: repositoryRoot, encoding: 'utf8', env: process.env }
+    );
+    if (run.status !== 0)
+    {
+        fail(`observation host failed:\n${run.stdout}\n${run.stderr}`);
+    }
+    if (!existsSync(paths.observationPath))
+    {
+        fail('observation host did not write observation artifact');
+    }
 
-  return {
-    observation,
-    observationPath: paths.observationPath,
-    buildIdentity,
-    receiptPath,
-    receiptBody
-  }
+    const observation = JSON.parse(readFileSync(paths.observationPath, 'utf8'));
+    const artifactDigest = sha256File(paths.observationPath);
+    const sourceDigests = Object.fromEntries(observationAuthoritySourcePaths.map((relative) =>
+    {
+        const absolute = path.join(repositoryRoot, relative);
+        if (!existsSync(absolute))
+        {
+            fail(`authority source missing: ${relative}`);
+        }
+        return [relative, sha256File(absolute)];
+    }));
+    const sourceDigest = digestValue(sourceDigests);
+    const receiptBody = {
+        schema: 'fsusblog.config-error-security-observation-build-receipt.v1',
+        artifactId: observationArtifactId,
+        observationPath: paths.relativeObservationPath,
+        observationDigest: observation.observationDigest,
+        artifactDigest,
+        sourceDigests,
+        sourceDigest,
+        configuration
+    };
+    const receiptDigest = digestValue(receiptBody);
+    const buildIdentity = {
+        artifactId: observationArtifactId,
+        receiptDigest,
+        artifactDigest,
+        sourceDigests,
+        sourceDigest
+    };
+    const suppliedBuildIdentity = {
+        artifactId: buildIdentity.artifactId,
+        receiptDigest: buildIdentity.receiptDigest,
+        artifactDigest: buildIdentity.artifactDigest
+    };
+    const receiptPath = path.join(paths.directory, 'build-receipt.json');
+    writeFileSync(receiptPath, `${JSON.stringify({ ...receiptBody, buildIdentity }, null, 2)}\n`);
+
+    return {
+        observation,
+        observationPath: paths.observationPath,
+        buildIdentity: suppliedBuildIdentity,
+        receiptPath,
+        receiptBody
+    };
 }
 
 export function loadProducedConfigErrorSecurityObservation(repositoryRoot = root)
 {
-  const paths = observationPaths(repositoryRoot)
-  if (!existsSync(paths.observationPath))
-  {
-    fail(`missing observation artifact at ${paths.relativeObservationPath}; run produceConfigErrorSecurityObservation first`)
-  }
-  return JSON.parse(readFileSync(paths.observationPath, 'utf8'))
+    const paths = observationPaths(repositoryRoot);
+    if (!existsSync(paths.observationPath))
+    {
+        fail(`missing observation artifact at ${paths.relativeObservationPath}; run produceConfigErrorSecurityObservation first`);
+    }
+    return JSON.parse(readFileSync(paths.observationPath, 'utf8'));
 }

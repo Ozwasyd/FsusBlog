@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tests/tools/behavior-doc-static-admission.test.mjs",
+        "tests/tools/support/runtime-role-minimal-v3-fixture.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/test/system-memory.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "0d4af454313528f22448b11d728e606a32aebd06f14fdb8e0d213e09dbd83d7b"
+        },
+        {
+            "path": "docs/architecture/monolithic-distributed-boundary.md",
+            "sha256": "05c8828306af5ca581b0574c34cf7369f61eae6b21c79a6cdcc71a75267f5675"
+        },
+        {
+            "path": "docs/releases/release-identity.md",
+            "sha256": "cd946168441459f3a97e1ab5695184f42a74f1370925b4a37449a2d14762b57a"
+        }
+    ]
+}

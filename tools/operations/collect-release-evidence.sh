@@ -59,7 +59,7 @@ mkdir -p "$OUT_DIR"
 
 if ((REQUIRE_OK == 1)); then
     CLEAN_ATTEMPT_COHORT_INPUT="${FSUSBLOG_RELEASE_CLEAN_ATTEMPT_COHORT_INPUT:-}"
-    CLEAN_ATTEMPT_BUILD_IDENTITY="${FSUSBLOG_RELEASE_CLEAN_ATTEMPT_BUILD_IDENTITY:-${FSUSBLOG_IMAGE_DIGEST:-}}"
+    CLEAN_ATTEMPT_BUILD_IDENTITY="${FSUSBLOG_RELEASE_CLEAN_ATTEMPT_BUILD_IDENTITY:-}"
     if [[ -z "$CLEAN_ATTEMPT_COHORT_INPUT" || ! -f "$CLEAN_ATTEMPT_COHORT_INPUT" ]]; then
         echo "release qualification requires FSUSBLOG_RELEASE_CLEAN_ATTEMPT_COHORT_INPUT" >&2
         exit 2
@@ -71,6 +71,7 @@ if ((REQUIRE_OK == 1)); then
     node "$ROOT_DIR/tools/release/release-clean-attempt-cohort-cli.mjs" \
         --repository-root "$ROOT_DIR" \
         --input "$CLEAN_ATTEMPT_COHORT_INPUT" \
+        --candidate "${FSUSBLOG_CLEAN_ATTEMPT_EXPECTED_CANDIDATE:?release qualification requires an external candidate}" \
         --output "$OUT_DIR/release-clean-attempt-cohort.json" \
         --cohort-id "$RELEASE_NAMESPACE" \
         --build-identity "$CLEAN_ATTEMPT_BUILD_IDENTITY"
@@ -690,30 +691,13 @@ CoverageSummaryJson() {
 RuntimeTuningJson() {
     local cacheL1TelemetryPolicy publicHotReadCounterMode
     local benchmarkEvidence runtimeMatrixEvidence
-    cacheL1TelemetryPolicy="$(jq -c '.' "$ROOT_DIR/tests/performance/cache-l1-telemetry-policy.json" 2>/dev/null || printf 'null')"
-    publicHotReadCounterMode="$(awk -F'"' '
+    local publicHotReadFilter runtimeTuningFilter
+    publicHotReadFilter=$'
     /"PublicHotRead"[[:space:]]*:/ { in_public_hot_read = 1; next }
     in_public_hot_read && /"CounterMode"[[:space:]]*:/ { print $4; exit }
     in_public_hot_read && /^[[:space:]]*}/ { exit }
-  ' "$ROOT_DIR/src/backend/appsettings.Production.json")"
-    cacheL1TelemetryPolicy="${cacheL1TelemetryPolicy:-null}"
-    publicHotReadCounterMode="${publicHotReadCounterMode:-unknown}"
-    benchmarkEvidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
-    runtimeMatrixEvidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
-    jq -n \
-        --arg readyToRun "${DOTNET_ReadyToRun:-}" \
-        --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
-        --arg tieredPgo "${DOTNET_TieredPGO:-}" \
-        --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
-        --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
-        --arg cacheL1TelemetryPolicy "$cacheL1TelemetryPolicy" \
-        --arg publicHotReadCounterMode "$publicHotReadCounterMode" \
-        --arg benchmarkEvidence "$benchmarkEvidence" \
-        --arg runtimeMatrixEvidence "$runtimeMatrixEvidence" \
-        --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
-        --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
-        --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
-        --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" '
+  '
+    runtimeTuningFilter=$'
     {
       profile: {
         id: (if $profileId == "" then null else $profileId end),
@@ -737,6 +721,26 @@ RuntimeTuningJson() {
       nonDefaultPresetsRequireBenchmarkEvidence: true,
       rollback: "unset RuntimeTuning/DOTNET_* overrides and restart on the same image"
     }'
+    cacheL1TelemetryPolicy="$(jq -c '.' "$ROOT_DIR/tests/performance/cache-l1-telemetry-policy.json" 2>/dev/null || printf 'null')"
+    publicHotReadCounterMode="$(awk -F'"' "$publicHotReadFilter" "$ROOT_DIR/src/backend/appsettings.Production.json")"
+    cacheL1TelemetryPolicy="${cacheL1TelemetryPolicy:-null}"
+    publicHotReadCounterMode="${publicHotReadCounterMode:-unknown}"
+    benchmarkEvidence="$(jq -r '.' <<<"${PERF_ARTIFACT:-null}")"
+    runtimeMatrixEvidence="$(jq -r '.' <<<"${RUNTIME_MATRIX_ARTIFACT:-null}")"
+    jq -n \
+        --arg readyToRun "${DOTNET_ReadyToRun:-}" \
+        --arg quickJitForLoops "${DOTNET_TC_QuickJitForLoops:-}" \
+        --arg tieredPgo "${DOTNET_TieredPGO:-}" \
+        --arg minWorkerThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS:-}" \
+        --arg minCompletionPortThreads "${FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS:-}" \
+        --arg cacheL1TelemetryPolicy "$cacheL1TelemetryPolicy" \
+        --arg publicHotReadCounterMode "$publicHotReadCounterMode" \
+        --arg benchmarkEvidence "$benchmarkEvidence" \
+        --arg runtimeMatrixEvidence "$runtimeMatrixEvidence" \
+        --arg runtimeMatrixStatus "${RUNTIME_MATRIX_STATUS_VALUE:-missing}" \
+        --arg profileId "${FSUSBLOG_RUNTIME_PROFILE_ID:-}" \
+        --arg profileManifestDigest "${FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST:-}" \
+        --arg profileDigest "${FSUSBLOG_RUNTIME_PROFILE_DIGEST:-}" "$runtimeTuningFilter"
 }
 
 PRODUCTION_STATUS="$(CopyIfPresent "$SECURITY_DIR/production-exposure-status.json" production-exposure-status.json)"
@@ -874,6 +878,10 @@ GATE_LOGS="$(CopyIfPresent "$GATE_LOG_DIR" gate-logs)"
 VISUAL_GATE_SKIP="$(CopyIfPresent "$GATE_LOG_DIR/visual-gate-skip.json" visual-gate-skip.json)"
 RUNTIME_TUNING_SUMMARY="$(RuntimeTuningJson)"
 
+CLEAN_ATTEMPT_CANDIDATE='null'
+if [[ -f "$OUT_DIR/clean-attempt-expected-candidate.json" ]]; then
+    CLEAN_ATTEMPT_CANDIDATE='"clean-attempt-expected-candidate.json"'
+fi
 PRODUCTION_STATUS_DIGEST="$(ArtifactDigestJson "$PRODUCTION_STATUS")"
 PRODUCTION_REQUEST_DIGEST="$(ArtifactDigestJson "$PRODUCTION_REQUEST")"
 PRODUCTION_LIVE_DIGEST="$(ArtifactDigestJson "$PRODUCTION_LIVE")"
@@ -1002,6 +1010,7 @@ cat >"$OUT_DIR/manifest.json" <<JSON
 {
   "status": "$MANIFEST_STATUS",
   "releaseStamp": "$STAMP",
+  "releaseNamespace": "$RELEASE_NAMESPACE",
   "generatedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
   "gitRevision": "$(git -C "$ROOT_DIR" rev-parse --short HEAD 2>/dev/null || echo unknown)",
   "commitSha": "${FSUSBLOG_COMMIT_SHA:-$(git -C "$ROOT_DIR" rev-parse HEAD 2>/dev/null || echo unknown)}",
@@ -1014,6 +1023,9 @@ cat >"$OUT_DIR/manifest.json" <<JSON
   "releaseIdentity": $RELEASE_IDENTITY_MANIFEST,
   "publishArtifacts": $(if [[ -f "$SOURCE_RELEASE_EVIDENCE_DIR/publish-artifacts-summary.json" ]]; then jq -c '.' "$SOURCE_RELEASE_EVIDENCE_DIR/publish-artifacts-summary.json"; else jq -n -c '{status: "missing", wwwrootBytes: 0, clientRuntimeBytes: 0, totalPublishBytes: 0, fileCount: 0, largestFiles: []}'; fi),
   "artifacts": {
+    "cleanAttemptCohort": $(if [[ -f "$OUT_DIR/release-clean-attempt-cohort.json" ]]; then printf '"release-clean-attempt-cohort.json"'; else printf 'null'; fi),
+    "cleanAttemptCandidate": $CLEAN_ATTEMPT_CANDIDATE,
+    "cleanAttemptGraph": $(if [[ -f "$OUT_DIR/clean-attempt-archive-graph.json" ]]; then printf '"clean-attempt-archive-graph.json"'; else printf 'null'; fi),
     "productionExposureStatus": $PRODUCTION_STATUS,
     "productionExposureRequest": $PRODUCTION_REQUEST,
     "productionExposureLive": $PRODUCTION_LIVE,
@@ -1085,6 +1097,9 @@ cat >"$OUT_DIR/manifest.json" <<JSON
     "securitySourceDir": "$(realpath --relative-to="$OUT_DIR" "$SECURITY_DIR" 2>/dev/null || true)"
   },
   "artifactDigests": {
+    "cleanAttemptCohort": $(ArtifactDigestJson '"release-clean-attempt-cohort.json"'),
+    "cleanAttemptCandidate": $(ArtifactDigestJson "$CLEAN_ATTEMPT_CANDIDATE"),
+    "cleanAttemptGraph": $(ArtifactDigestJson '"clean-attempt-archive-graph.json"'),
     "productionExposureStatus": $PRODUCTION_STATUS_DIGEST,
     "productionExposureRequest": $PRODUCTION_REQUEST_DIGEST,
     "productionExposureLive": $PRODUCTION_LIVE_DIGEST,

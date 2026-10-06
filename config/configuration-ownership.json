@@ -98,6 +98,32 @@
             "pathType": "file"
         },
         {
+            "id": "article-relation-catalog",
+            "owner": "article-relation-contract-governance",
+            "canonicalPath": "config/contracts/article-relation-catalog.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-article-relations.mjs",
+                "tests/tools/article-relations.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-article-relations.mjs",
+            "changePolicy": "manual-update-with-closed-catalog-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
+            "id": "article-relation-contract-schema",
+            "owner": "article-relation-contract-governance",
+            "canonicalPath": "config/schemas/article-relation-contract.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/check-article-relations.mjs",
+                "tests/tools/article-relations.test.mjs"
+            ],
+            "validationCommand": "node tools/governance/check-article-relations.mjs",
+            "changePolicy": "manual-update-with-closed-schema-and-negative-mutation-validation",
+            "status": "manual"
+        },
+        {
             "id": "behavior-contract-catalog-schema",
             "owner": "behavior-contract-governance",
             "canonicalPath": "config/schemas/behavior-contract-catalog.schema.json",
@@ -198,6 +224,19 @@
             "status": "manual"
         },
         {
+            "id": "fact-section-repair-history-preflight-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/fact-section-repair-history-preflight.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/fact-section-repair-history.mjs",
+                "tests/tools/change-contract.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/change-contract.test.mjs",
+            "changePolicy": "manual-update-with-finite-history-refusal-validation-without-production-admission",
+            "status": "manual"
+        },
+        {
             "id": "post-merge-generated-output-repair-dag-schema",
             "owner": "repository-governance",
             "canonicalPath": "config/schemas/post-merge-generated-output-repair-dag.schema.json",
@@ -209,6 +248,21 @@
             ],
             "validationCommand": "node --test tests/tools/change-contract.test.mjs",
             "changePolicy": "manual-update-with-ordered-dag-history-and-replay-validation",
+            "status": "manual"
+        },
+        {
+            "id": "post-merge-generated-output-history-repair-schema",
+            "owner": "repository-governance",
+            "canonicalPath": "config/schemas/post-merge-generated-output-history-repair.schema.json",
+            "pathType": "file",
+            "consumers": [
+                "tools/governance/change-contract.mjs",
+                "tools/governance/change-contract-registry.mjs",
+                "tools/governance/generated-output-history-repair-v3.mjs",
+                "tests/tools/generated-output-history-repair-v3.test.mjs"
+            ],
+            "validationCommand": "node --test tests/tools/generated-output-history-repair-v3.test.mjs",
+            "changePolicy": "manual-update-with-independent-history-review-and-isolated-replay-validation",
             "status": "manual"
         },
         {
@@ -1517,18 +1571,20 @@
             "status": "manual"
         },
         {
-            "id": "backend-qps-scenario-catalog",
+            "id": "runtime-cache-evidence-catalog",
             "owner": "backend-performance-governance",
-            "canonicalPath": "config/testing/backend-qps-scenario-catalog.json",
+            "canonicalPath": "config/testing/runtime-cache-evidence-catalog.json",
             "pathType": "file",
-            "purpose": "Canonical authority for 13 backend QPS scenarios and static invariant definitions",
+            "purpose": "Canonical authority for 13 runtime cache scenarios and current-schema dynamic evidence budgets",
             "consumers": [
-                "tools/test/run-backend-qps-scenarios.mjs",
-                "tools/test/lanes/backend-qps.sh",
-                "docs/testing/backend-qps-driver-migration-ledger.md"
+                "tools/test/runtime-cache-evidence-contract.mjs",
+                "tools/test/run-runtime-cache-evidence.mjs",
+                "tools/test/check-runtime-cache-evidence.mjs",
+                "tools/test/lanes/runtime-cache-evidence.sh",
+                "docs/testing.md"
             ],
-            "validationCommand": "node tools/test/run-backend-qps-scenarios.mjs --validate-catalog",
-            "changePolicy": "manual-update-with-qps-matrix-validation",
+            "validationCommand": "node --test tests/tools/runtime-cache-evidence-contract.test.mjs tests/tools/runtime-cache-matrix-workflow.test.mjs",
+            "changePolicy": "manual-update-with-runtime-cache-matrix-validation",
             "status": "manual"
         },
         {

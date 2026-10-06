@@ -8,6 +8,7 @@
 #include "aeds_crc32.hpp"
 #include "aeds_decode.hpp"
 #include "aeds_frame.hpp"
+#include "font_theme_admin_pods.hpp"
 
 namespace
 {
@@ -35,6 +36,226 @@ std::vector<std::uint8_t> empty_frame(std::uint16_t frame_type)
     write_u16_le(frame.data() + 8U, frame_type);
     write_u16_le(frame.data() + 14U, FsusBlog::Aeds::ComputeCrc16(nullptr, 0U));
     return frame;
+}
+
+std::vector<std::uint8_t> PayloadFrame(std::uint16_t type, const std::vector<std::uint8_t>& payload)
+{
+    auto frame = empty_frame(type);
+    frame.insert(frame.end(), payload.begin(), payload.end());
+    write_u32_le(frame.data() + 10, static_cast<std::uint32_t>(payload.size()));
+    write_u16_le(frame.data() + 14, FsusBlog::Aeds::ComputeCrc16(payload.data(), payload.size()));
+    return frame;
+}
+
+// Actual wire fixture construction, independent of the production parser.
+std::vector<std::uint8_t> FontThemePayload(std::uint16_t frameType)
+{
+    using FsusBlog::Aeds::FrameType;
+    const auto type = static_cast<FrameType>(frameType);
+    const bool fontDetail = type == FrameType::FontRegistryDetail;
+    const bool themeDetail = type == FrameType::ThemeRegistryDetail;
+    const bool fontSummary = type == FrameType::FontRegistryList || fontDetail;
+    const bool themeSummary = type == FrameType::ThemeRegistryList || themeDetail;
+    const std::size_t mainSize = fontSummary ? (fontDetail ? 100 : 76)
+        : themeSummary ? (themeDetail ? 148 : 84)
+        : type == FrameType::ThemeActivationHistory ? 124 : 64;
+    const std::size_t childSize = fontDetail ? 56 : themeDetail ? 8 : 0;
+    std::vector<std::uint8_t> records(mainSize + childSize, 0);
+    std::vector<std::uint8_t> blob;
+    const auto text = [&](std::size_t offset, std::string_view value)
+    {
+        write_u32_le(records.data() + offset, static_cast<std::uint32_t>(blob.size()));
+        write_u32_le(records.data() + offset + 4, static_cast<std::uint32_t>(value.size()));
+        blob.insert(blob.end(), value.begin(), value.end());
+    };
+    const auto fullInt64 = [&](std::size_t offset)
+    {
+        write_u32_le(records.data() + offset, 0xffffffffu);
+        write_u32_le(records.data() + offset + 4, 0x7fffffffu);
+    };
+    if (fontSummary)
+    {
+        fullInt64(16);
+        write_u32_le(records.data() + 24, 1);
+        write_u32_le(records.data() + 28, 1);
+        records[32] = 1;
+        records[34] = 1;
+        for (const auto offset : {36, 44, 52, 60, 68})
+        {
+            text(offset, "x");
+        }
+        if (fontDetail)
+        {
+            for (const auto offset : {76, 84, 92})
+            {
+                text(offset, "");
+            }
+            fullInt64(100);
+            write_u32_le(records.data() + 108, 400);
+            records[112] = 1;
+            text(116, "normal");
+            text(124, "regular.woff2");
+            text(132, "sha256:a");
+            text(148, "swap");
+        }
+    }
+    else if (themeSummary)
+    {
+        const std::size_t start = themeDetail ? 68 : 20;
+        records[themeDetail ? 57 : 17] = 4;
+        if (themeDetail)
+        {
+            for (const auto offset : {16, 24, 32})
+            {
+                fullInt64(offset);
+            }
+        }
+        for (std::size_t index = 0; index < 8; ++index)
+        {
+            text(start + index * 8, index == 4 ? "" : "x");
+        }
+        if (themeDetail)
+        {
+            text(132, "{}");
+            text(140, "{}");
+            text(148, "light");
+        }
+    }
+    else if (type == FrameType::FontActivationList)
+    {
+        fullInt64(0);
+        for (const auto offset : {16, 24, 32, 40, 48, 56})
+        {
+            text(offset, "x");
+        }
+    }
+    else if (type == FrameType::ThemeActivationHistory)
+    {
+        fullInt64(0);
+        records[36] = 1;
+        records[41] = 1;
+        text(44, "fedcba98-7654-3210-fedc-ba9876543210");
+        text(52, "public");
+        text(116, "admin");
+    }
+    else
+    {
+        fullInt64(0);
+        records[20] = 1;
+        text(24, "public");
+    }
+    std::vector<std::uint8_t> payload(16, 0);
+    write_u32_le(payload.data(), 1);
+    write_u32_le(payload.data() + 4, 1);
+    write_u32_le(payload.data() + 8, static_cast<std::uint32_t>(records.size() + 4 + blob.size()));
+    payload.insert(payload.end(), records.begin(), records.end());
+    const auto blobLengthOffset = payload.size();
+    payload.resize(payload.size() + 4);
+    write_u32_le(payload.data() + blobLengthOffset, static_cast<std::uint32_t>(blob.size()));
+    payload.insert(payload.end(), blob.begin(), blob.end());
+    return payload;
+}
+
+bool FontThemeContract(std::uint16_t type)
+{
+    using FsusBlog::Aeds::FrameType;
+    using FsusBlog::Aeds::ErrorCode;
+    const auto original = FontThemePayload(type);
+    const auto frame = PayloadFrame(type, original);
+    const auto decoded = FsusBlog::Aeds::DecodeFrame(frame.data(), frame.size());
+    FsusBlog::Pod::FontTheme::PayloadView view{};
+    if (!decoded.ok || decoded.frame_type != type || decoded.payload_ptr != frame.data() + FsusBlog::Aeds::kHeaderSize
+        || decoded.payload_len != original.size()
+        || !FsusBlog::Pod::FontTheme::ParsePayload(type, decoded.payload_ptr, decoded.payload_len, &view)
+        || view.Count != 1 || view.Blob < decoded.payload_ptr || view.Blob + view.BlobLength != frame.data() + frame.size())
+    {
+        return false;
+    }
+    for (int mutation = 0; mutation < 10; ++mutation)
+    {
+        auto payload = original;
+        if (mutation == 0)
+        {
+            write_u32_le(payload.data(), 2);
+        }
+        if (mutation == 1)
+        {
+            write_u32_le(payload.data() + 4, 0x7fffffffu);
+        }
+        if (mutation == 2)
+        {
+            payload[12] = 1;
+        }
+        if (mutation == 3)
+        {
+            payload.pop_back();
+        }
+        if (mutation == 4)
+        {
+            payload.push_back(0);
+        }
+        const auto firstRef = type == static_cast<std::uint16_t>(FrameType::FontRegistryList)
+            || type == static_cast<std::uint16_t>(FrameType::FontRegistryDetail) ? 36
+            : type == static_cast<std::uint16_t>(FrameType::ThemeRegistryList) ? 20
+            : type == static_cast<std::uint16_t>(FrameType::ThemeRegistryDetail) ? 68
+            : type == static_cast<std::uint16_t>(FrameType::FontActivationList) ? 16
+            : type == static_cast<std::uint16_t>(FrameType::ThemeActivationHistory) ? 44 : 24;
+        if (mutation == 5)
+        {
+            write_u32_le(payload.data() + 16 + firstRef, 1);
+        }
+        if (mutation == 6)
+        {
+            write_u32_le(payload.data() + 16 + firstRef + 4, 0xffffffffu);
+        }
+        if (mutation == 7)
+        {
+            const auto relative = static_cast<std::size_t>(view.Blob - decoded.payload_ptr);
+            payload[relative] = 0xff;
+        }
+        if (mutation == 8)
+        {
+            const auto timestamp = type == static_cast<std::uint16_t>(FrameType::FontActivationList)
+                || type == static_cast<std::uint16_t>(FrameType::ThemeActivationList)
+                || type == static_cast<std::uint16_t>(FrameType::ThemeActivation) ? 8
+                : type == static_cast<std::uint16_t>(FrameType::ThemeActivationHistory) ? 16 : 0;
+            write_u32_le(payload.data() + 16 + timestamp, 0xffffffffu);
+            write_u32_le(payload.data() + 16 + timestamp + 4, 0x7fffffffu);
+            if (type == static_cast<std::uint16_t>(FrameType::ThemeActivationList)
+                || type == static_cast<std::uint16_t>(FrameType::ThemeActivation))
+            {
+                payload[16 + 21] = 1;
+            }
+        }
+        if (mutation == 9)
+        {
+            if (type == static_cast<std::uint16_t>(FrameType::FontActivationList))
+            {
+                payload[16 + 7] = 0x80;
+            }
+            else
+            {
+                const auto code = type == static_cast<std::uint16_t>(FrameType::FontRegistryList)
+                    || type == static_cast<std::uint16_t>(FrameType::FontRegistryDetail) ? 34
+                    : type == static_cast<std::uint16_t>(FrameType::ThemeRegistryList) ? 17
+                    : type == static_cast<std::uint16_t>(FrameType::ThemeRegistryDetail) ? 57
+                    : type == static_cast<std::uint16_t>(FrameType::ThemeActivationHistory) ? 41 : 20;
+                payload[16 + code] = 99;
+            }
+        }
+        const auto malformed = PayloadFrame(type, payload);
+        if (FsusBlog::Aeds::DecodeFrame(malformed.data(), malformed.size()).error_code != ErrorCode::FontThemePayloadInvalid)
+        {
+            return false;
+        }
+    }
+    auto mismatch = PayloadFrame(static_cast<std::uint16_t>(FrameType::ThemeActivation), original);
+    if (type == static_cast<std::uint16_t>(FrameType::ThemeActivation)
+        || type == static_cast<std::uint16_t>(FrameType::ThemeActivationList))
+    {
+        mismatch = PayloadFrame(static_cast<std::uint16_t>(FrameType::FontRegistryList), original);
+    }
+    return FsusBlog::Aeds::DecodeFrame(mismatch.data(), mismatch.size()).error_code == ErrorCode::FontThemePayloadInvalid;
 }
 
 bool parse_u16(std::string_view text, std::uint16_t& output)
@@ -90,6 +311,13 @@ int main(int argc, char** argv)
                 if (decoded.error_code != FsusBlog::Aeds::ErrorCode::ArticlePayloadInvalid)
                 {
                     return 11;
+                }
+            }
+            else if (FsusBlog::Pod::FontTheme::IsFontThemeFrame(frame_type))
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::FontThemePayloadInvalid || !FontThemeContract(frame_type))
+                {
+                    return 23;
                 }
             }
             else if (!decoded.ok || decoded.frame_type != frame_type || decoded.payload_len != 0U)

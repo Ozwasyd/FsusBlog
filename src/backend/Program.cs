@@ -8,6 +8,41 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Modules.Endpoints;
 using FsusBlog.Server.Services.Fixtures;
 
+if (CurrentSchemaOwnedTargetExportCommand.IsRequested(args))
+{
+    using var cancellation = new CancellationTokenSource();
+    ConsoleCancelEventHandler cancel = (_, eventArgs) =>
+    {
+        eventArgs.Cancel = true;
+        cancellation.Cancel();
+    };
+    Console.CancelKeyPress += cancel;
+    try
+    {
+        Environment.ExitCode = await CurrentSchemaOwnedTargetExportCommand.RunAsync(args, cancellation.Token);
+    }
+    catch (OperationCanceledException)
+    {
+        Console.WriteLine(JsonSerializer.Serialize(new { status = "cancelled", code = "current_schema_export_cancelled" }));
+        Environment.ExitCode = 130;
+    }
+    catch (Exception exception)
+    {
+        string code = exception.Message.Split(':', 2, StringSplitOptions.TrimEntries)[0];
+        Console.WriteLine(JsonSerializer.Serialize(new
+        {
+            status = "failed",
+            code = code.StartsWith("current_schema_", StringComparison.Ordinal) ? code : "current_schema_export_failed"
+        }));
+        Environment.ExitCode = 1;
+    }
+    finally
+    {
+        Console.CancelKeyPress -= cancel;
+    }
+    return;
+}
+
 if (CurrentSchemaTestMaterializationCandidateCommandLine.IsRequested(args))
 {
     try

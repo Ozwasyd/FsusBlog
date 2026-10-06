@@ -60,7 +60,7 @@ public static partial class BinaryEndpoints
             var stepUp = await RequireAdminSensitiveStepUpAsync(httpContext, adminPrincipals);
             if (stepUp is { } stepUpError)
             {
-                return BinaryResults.FromError(stepUpError.Error, aeds, stepUpError.StatusCode);
+                return BinaryResults.FromError(stepUpError.Error, aeds, ApiErrorSemanticMapper.RequireTransportMappingId(stepUpError.StatusCode, (stepUpError.Error).Code));
             }
 
             var payload = await ReadBinaryRequestPayloadAsync(httpContext, aeds, AedsFrameType.AdminChangeUserStatusRequest, cancellationToken);

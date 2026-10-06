@@ -2,6 +2,7 @@ using System.Collections.Concurrent;
 using System.Diagnostics.Metrics;
 using System.Net;
 
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
@@ -10,6 +11,7 @@ using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.Security;
 
 using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.Options;
@@ -19,9 +21,8 @@ using NSubstitute;
 namespace FsusBlog.Server.Tests.Unit;
 
 /// <summary>
-/// Issue #3397: saturated Shield/risk persistence stays queue+shed on public
-/// hot-read. The client still sees the already-computed decision; durable SQL
-/// is not opened on the request path.
+/// Issue #2040 retains the #3397 client/zero-SQL gates while replacing shed with
+/// protected local durable admission. Historical entrypoint names remain covered.
 /// </summary>
 public sealed class PublicHotReadRiskQueueShedTests
 {
@@ -37,12 +38,15 @@ public sealed class PublicHotReadRiskQueueShedTests
 
         SecurityRiskEventWriteQueueSnapshot snapshot = harness.Queue.Snapshot();
         Assert.Equal(1, snapshot.QueuedCount);
-        Assert.Equal(3, snapshot.ShedCount);
+        Assert.Equal(0, snapshot.ShedCount);
+        Assert.Equal(3, snapshot.DurablePendingCount);
+        Assert.Equal(4, snapshot.OutstandingCount);
+        Assert.Equal(4, Directory.GetFiles(Path.Combine(harness.Root, "security-risk-fallback"), "security-risk-*.json").Length);
         Assert.Equal(0, snapshot.SyncFallbackCount);
         Assert.Equal(SecurityRiskHotPathAdmission.ShedDisposition, snapshot.LastDisposition);
         Assert.Equal(0, harness.Store.AppendCount);
         Assert.Equal("unchanged-hot-path-decision", SecurityRiskHotPathAdmission.ClientOutcome);
-        Assert.Equal("shed", SecurityRiskHotPathAdmission.ShedTelemetryResult);
+        Assert.Equal("durable-pending", SecurityRiskHotPathAdmission.ShedTelemetryResult);
         Assert.Equal("queue-depth,shed-count,sync-fallback-count", SecurityRiskHotPathAdmission.TelemetrySample);
     }
 
@@ -61,7 +65,10 @@ public sealed class PublicHotReadRiskQueueShedTests
 
         SecurityRiskEventWriteQueueSnapshot snapshot = harness.Queue.Snapshot();
         Assert.Equal(1, snapshot.QueuedCount);
-        Assert.Equal(64, snapshot.ShedCount);
+        Assert.Equal(0, snapshot.ShedCount);
+        Assert.Equal(64, snapshot.DurablePendingCount);
+        Assert.Equal(65, snapshot.OutstandingCount);
+        Assert.Equal(65, Directory.GetFiles(Path.Combine(harness.Root, "security-risk-fallback"), "security-risk-*.json").Length);
         Assert.Equal(0, snapshot.SyncFallbackCount);
         Assert.Equal(0, harness.Store.AppendCount);
     }
@@ -85,7 +92,9 @@ public sealed class PublicHotReadRiskQueueShedTests
         Assert.False(nextCalled);
         Assert.Equal(StatusCodes.Status429TooManyRequests, context.Response.StatusCode);
         SecurityRiskEventWriteQueueSnapshot snapshot = harness.Queue.Snapshot();
-        Assert.Equal(1, snapshot.ShedCount);
+        Assert.Equal(0, snapshot.ShedCount);
+        Assert.Equal(1, snapshot.DurablePendingCount);
+        Assert.Equal(2, Directory.GetFiles(Path.Combine(harness.Root, "security-risk-fallback"), "security-risk-*.json").Length);
         Assert.Equal(0, snapshot.SyncFallbackCount);
         Assert.Equal(0, harness.Store.AppendCount);
         Assert.Equal("unchanged-hot-path-decision", SecurityRiskHotPathAdmission.ClientOutcome);
@@ -110,22 +119,32 @@ public sealed class PublicHotReadRiskQueueShedTests
         listener.SetMeasurementEventCallback<double>((instrument, value, _, _) => measurements.Add((instrument.Name, value)));
         listener.Start();
 
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 1, BatchSize = 1, FlushWindowMs = 10 }),
-            NullLogger<SecurityRiskEventWriteQueue>.Instance);
+        using RiskQueueHarness harness = CreateHarness(capacity: 1);
+        SecurityRiskEventWriteQueue queue = harness.Queue;
         Assert.True(queue.TryEnqueueOrShed(CreateWrite("queued")));
-        Assert.False(queue.TryEnqueueOrShed(CreateWrite("shed")));
+        Assert.True(queue.TryEnqueueOrShed(CreateWrite("durable-pending")));
 
         Assert.Contains(measurements, static item => item.Name == "fsus.security.risk_event.queue_depth" && item.Value >= 1);
-        Assert.Contains(measurements, static item => item is ("fsus.security.risk_event.shed.count", 1));
+        Assert.DoesNotContain(measurements, static item => item.Name == "fsus.security.risk_event.shed.count" && item.Value != 0);
         Assert.DoesNotContain(measurements, static item => item.Name == "fsus.security.risk_event.sync_fallback.count");
         Assert.Equal(0, queue.Snapshot().SyncFallbackCount);
+        Assert.Equal(0, harness.Store.AppendCount);
+        Assert.Equal(1, queue.Snapshot().DurablePendingCount);
+        Assert.Equal(2, Directory.GetFiles(Path.Combine(harness.Root, "security-risk-fallback"), "security-risk-*.json").Length);
     }
 
     private static RiskQueueHarness CreateHarness(int capacity)
     {
         var store = new CountingRiskStore();
+        string root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(),
+            "fsusblog-public-risk-issue2040-" + Guid.NewGuid().ToString("N"));
+        IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            ["FSUSBLOG_DATA_ROOT"] = root
+        }).Build();
         ServiceProvider provider = new ServiceCollection()
+            .AddSingleton(configuration)
+            .AddSingleton<IAuditRetentionEpochKeyStore>(new LocalAuditRetentionEpochKeyStore(configuration))
             .AddSingleton<ISecurityRiskEventStore>(store)
             .BuildServiceProvider();
         var queue = new SecurityRiskEventWriteQueue(
@@ -154,7 +173,7 @@ public sealed class PublicHotReadRiskQueueShedTests
             provider.GetRequiredService<IServiceScopeFactory>(),
             NullLogger<SecurityRiskEventSink>.Instance,
             TimeProvider.System);
-        return new RiskQueueHarness(queue, sink, store, CreateContext("198.51.100.70"), provider);
+        return new RiskQueueHarness(queue, sink, store, CreateContext("198.51.100.70"), provider, root);
     }
 
     private static PublicReadSecurityGate CreateGate(ISecurityRiskSignalSink sink, RiskDecisionKind kind)
@@ -323,9 +342,15 @@ public sealed class PublicHotReadRiskQueueShedTests
         SecurityRiskEventSink Sink,
         CountingRiskStore Store,
         DefaultHttpContext Context,
-        ServiceProvider Provider) : IDisposable
+        ServiceProvider Provider,
+        string Root) : IDisposable
     {
-        public void Dispose() => Provider.Dispose();
+        public void Dispose()
+        {
+            Queue.Dispose();
+            Provider.Dispose();
+            Directory.Delete(Root, recursive: true);
+        }
     }
 
     private sealed class CountingRiskStore : ISecurityRiskEventStore

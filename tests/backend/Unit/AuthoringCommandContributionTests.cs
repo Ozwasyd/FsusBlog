@@ -1,8 +1,10 @@
 using System.Collections.Immutable;
+using System.Reflection;
+using System.Runtime.CompilerServices;
 using System.Text.Json;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
-using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Server.Tests.Unit;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -249,6 +251,105 @@ public sealed class AuthoringCommandContributionTests
     }
 
     [Theory]
+    [InlineData("admission-revision", -1, false)]
+    [InlineData("admission-revision", 0, false)]
+    [InlineData("admission-revision", 1, false)]
+    [InlineData("admission-revision", 0, true)]
+    [InlineData("admission-lifecycle", -1, false)]
+    [InlineData("admission-lifecycle", 0, false)]
+    [InlineData("admission-lifecycle", 1, false)]
+    [InlineData("admission-lifecycle", 0, true)]
+    [InlineData("result-revision", -1, false)]
+    [InlineData("result-revision", 0, false)]
+    [InlineData("result-revision", 1, false)]
+    [InlineData("result-revision", 0, true)]
+    [InlineData("result-lifecycle", -1, false)]
+    [InlineData("result-lifecycle", 0, false)]
+    [InlineData("result-lifecycle", 1, false)]
+    [InlineData("result-lifecycle", 0, true)]
+    public async Task ExecuteAsync_RechecksDeadlineAndCancellationAfterAdmissionAndResultCallbacks(
+        string boundary,
+        int deadlineOffsetTicks,
+        bool cancel)
+    {
+        var clock = new MutableTimeProvider(DateTimeOffset.UtcNow);
+        using var cancellation = new CancellationTokenSource();
+        var receipts = new LifecycleReceiptStore();
+        int callbackCount = 0;
+        int lifecycleReadCount = 0;
+        Action? changeBoundary = null;
+        int targetCall = boundary.StartsWith("admission-", StringComparison.Ordinal) ? 1 : 2;
+        var revisionGate = new CallbackRevisionGate(callCount =>
+        {
+            if (boundary.EndsWith("-revision", StringComparison.Ordinal) && callCount == targetCall)
+            {
+                changeBoundary!();
+            }
+        });
+        CommandRuntimeFixture fixture = await CreateRuntimeFixtureAsync(
+            revisionGate: revisionGate,
+            timeProvider: clock,
+            receipts: receipts);
+        AuthoringLifecycleReceipt enabled = (await fixture.Lifecycle.RestoreFromReceiptAsync(
+            fixture.Command.ExtensionId))!;
+        Assert.Equal(AuthoringLifecycleState.Running, enabled.State);
+        Assert.Equal(fixture.Context.LifecycleGeneration, enabled.Generation);
+        Assert.True(clock.GetUtcNow() < fixture.Context.Deadline);
+
+        changeBoundary = () =>
+        {
+            callbackCount++;
+            if (cancel)
+            {
+                cancellation.Cancel();
+            }
+            else
+            {
+                clock.SetUtcNow(fixture.Context.Deadline.AddTicks(deadlineOffsetTicks));
+            }
+        };
+        receipts.BeforeRead = async () =>
+        {
+            await Task.Yield();
+            lifecycleReadCount++;
+            if (boundary.EndsWith("-lifecycle", StringComparison.Ordinal) && lifecycleReadCount == targetCall)
+            {
+                changeBoundary();
+            }
+        };
+
+        if (cancel)
+        {
+            await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+                await fixture.Coordinator.ExecuteAsync(fixture.Command, fixture.Context, cancellation.Token));
+        }
+        else if (deadlineOffsetTicks >= 0)
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await fixture.Coordinator.ExecuteAsync(fixture.Command, fixture.Context, cancellation.Token));
+        }
+        else
+        {
+            AuthoringCommandExecutionResponse response = await fixture.Coordinator.ExecuteAsync(
+                fixture.Command,
+                fixture.Context,
+                cancellation.Token);
+            Assert.Equal(fixture.Context.RuntimeIdentity, response.RuntimeIdentity);
+            Assert.Equal(fixture.Context.RequestId, response.RequestId);
+            Assert.Equal(fixture.Context.LifecycleGeneration, response.LifecycleGeneration);
+            Assert.Equal(fixture.Command.ResultSchemaReference, response.ResultSchemaReference);
+            Assert.Equal(new byte[] { 4, 5 }, response.Result);
+            Assert.NotNull(response.MutationPlan);
+        }
+
+        Assert.Equal(1, callbackCount);
+        bool rejectedAtAdmission = targetCall == 1 && (cancel || deadlineOffsetTicks >= 0);
+        Assert.Equal(rejectedAtAdmission ? 0 : 1, fixture.Port.CallCount);
+        Assert.Equal(rejectedAtAdmission ? 1 : 2, revisionGate.CallCount);
+        Assert.Equal(rejectedAtAdmission ? 1 : 2, lifecycleReadCount);
+    }
+
+    [Theory]
     [InlineData("document", "bad\ndocument")]
     [InlineData("selection", "bad\tselection")]
     [InlineData("request", " bad-request")]
@@ -311,27 +412,128 @@ public sealed class AuthoringCommandContributionTests
     [Fact]
     public void ProductionCommandBoundary_DoesNotExposeUiOrMutationBypasses()
     {
-        string source = File.ReadAllText(Path.Combine(
-            BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions/AuthoringCommandContributions.cs"));
+        Type[] commandTypes =
+        [
+            typeof(AuthoringCommandCategory),
+            typeof(AuthoringCommandSurface),
+            typeof(AuthoringCommandContextFact),
+            typeof(AuthoringCommandContextOperator),
+            typeof(AuthoringShortcutModifier),
+            typeof(AuthoringCommandLocalization),
+            typeof(AuthoringCommandContextCondition),
+            typeof(AuthoringShortcutRequest),
+            typeof(AuthoringCommandContribution),
+            typeof(AuthoringShortcutDecision),
+            typeof(AuthoringCommandState),
+            typeof(AuthoringCommandContextSnapshot),
+            typeof(AuthoringCommandAvailability),
+            typeof(AuthoringCommandProjection),
+            typeof(AuthoringCommandExecutionContext),
+            typeof(AuthoringCommandExecutionResponse),
+            typeof(IAuthoringCommandExecutionPort),
+            typeof(AuthoringCommandRegistry),
+            typeof(AuthoringCommandExecutionCoordinator),
+            typeof(AuthoringCommandTransactionAdapter)
+        ];
+        Assert.All(commandTypes, AssertClosedCommandType);
 
-        foreach (string forbidden in new[]
-        {
-            "addEventListener",
-            "keydown",
-            "innerHTML",
-            ".splice(",
-            "IServiceProvider",
-            "Delegate",
-            "dynamic "
-        })
-        {
-            Assert.DoesNotContain(forbidden, source, StringComparison.OrdinalIgnoreCase);
-        }
-
-        Assert.False(ContainsIdentifierToken(source, "document"));
         Assert.False(ContainsIdentifierToken("const message = \"bound to another document.\";", "document"));
         Assert.True(ContainsIdentifierToken("var body = document.body;", "document"));
+    }
+
+    [Theory]
+    [InlineData(typeof(SpliceMethodFixture), ".splice ")]
+    [InlineData(typeof(SpliceConstructorFixture), ".splice ")]
+    [InlineData(typeof(SpliceInitializerFixture), ".splice ")]
+    [InlineData(typeof(NestedSpliceFixture), ".splice ")]
+    [InlineData(typeof(SpliceLiteralFixture), ".splice(")]
+    public void CompiledCommandBoundary_RejectsSpliceReferencesAndLiterals(Type type, string forbidden)
+    {
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertClosedCommandType(type));
+
+        Assert.Contains(forbidden, exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CompiledCommandBoundary_RejectsNestedDocumentParameter()
+    {
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertClosedCommandType(typeof(NestedDocumentFixture)));
+
+        Assert.Contains("document", exception.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CompiledCommandBoundary_RejectsNestedDynamicReturnMetadata()
+    {
+        Type nested = Assert.Single(typeof(NestedDynamicFixture).GetNestedTypes(BindingFlags.NonPublic));
+        MethodInfo method = Assert.Single(nested.GetMethods(BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Static));
+        Assert.Contains(method.ReturnParameter.CustomAttributes, attribute => attribute.AttributeType == typeof(DynamicAttribute));
+
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertClosedCommandType(typeof(NestedDynamicFixture)));
+    }
+
+    [Fact]
+    public void CompiledCommandBoundary_AcceptsOrdinaryNestedMetadata()
+    {
+        AssertClosedCommandType(typeof(OrdinaryNestedFixture));
+    }
+
+    private static void AssertClosedCommandType(Type rootType)
+    {
+        const BindingFlags Declared = BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.NonPublic |
+            BindingFlags.Instance | BindingFlags.Static;
+        foreach (Type type in EnumerateCommandTypeTree(rootType))
+        {
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
+            foreach (string forbidden in new[]
+                     {
+                         "addEventListener",
+                         "keydown",
+                         "innerHTML",
+                         ".splice(",
+                         ".splice ",
+                         "IServiceProvider",
+                         "Delegate",
+                         "Microsoft.CSharp.RuntimeBinder",
+                         "System.Runtime.CompilerServices.CallSite"
+                     })
+            {
+                // Decoded members use Type.Member followed by a space and signature;
+                // retained JavaScript literals still use the original .splice( form.
+                Assert.DoesNotContain(forbidden, compiled, StringComparison.OrdinalIgnoreCase);
+            }
+
+            MemberInfo[] members = type.GetMembers(Declared);
+            Assert.DoesNotContain(members, member => member.Name.Equals("document", StringComparison.OrdinalIgnoreCase));
+            foreach (MethodBase method in members.OfType<MethodBase>())
+            {
+                Assert.DoesNotContain(method.GetParameters(), parameter =>
+                    string.Equals(parameter.Name, "document", StringComparison.OrdinalIgnoreCase));
+            }
+
+            Assert.DoesNotContain(type.CustomAttributes, attribute => attribute.AttributeType == typeof(DynamicAttribute));
+            Assert.DoesNotContain(members, member =>
+                member.CustomAttributes.Any(attribute => attribute.AttributeType == typeof(DynamicAttribute)) ||
+                member is MethodBase method && method.GetParameters().Any(parameter =>
+                    parameter.CustomAttributes.Any(attribute => attribute.AttributeType == typeof(DynamicAttribute))) ||
+                member is MethodInfo methodInfo && methodInfo.ReturnParameter.CustomAttributes.Any(attribute =>
+                    attribute.AttributeType == typeof(DynamicAttribute)));
+        }
+    }
+
+    private static IEnumerable<Type> EnumerateCommandTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateCommandTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
     }
 
     private static bool ContainsIdentifierToken(string source, string identifier) =>
@@ -341,6 +543,75 @@ public sealed class AuthoringCommandContributionTests
             .Any(token =>
                 token.IsKind(SyntaxKind.IdentifierToken) &&
                 string.Equals(token.ValueText, identifier, StringComparison.OrdinalIgnoreCase));
+
+    private static class SpliceTarget
+    {
+        public static int Splice() => 1;
+    }
+
+    private sealed class SpliceMethodFixture
+    {
+        public static int Read() => SpliceTarget.Splice();
+    }
+
+    private sealed class SpliceConstructorFixture
+    {
+        private readonly int _value;
+
+        public SpliceConstructorFixture() => _value = SpliceTarget.Splice();
+
+        public int Read() => _value;
+    }
+
+    private sealed class SpliceInitializerFixture
+    {
+        private static readonly int s_value;
+
+        static SpliceInitializerFixture() => s_value = SpliceTarget.Splice();
+
+        public static int Read() => s_value;
+    }
+
+    private sealed class NestedSpliceFixture
+    {
+        public static int Read() => 1;
+
+        private sealed class UncalledOwner
+        {
+            public static int Read() => SpliceTarget.Splice();
+        }
+    }
+
+    private sealed class SpliceLiteralFixture
+    {
+        public static string Read() => "selection.splice(0, 1)";
+    }
+
+    private sealed class NestedDocumentFixture
+    {
+        private sealed class UncalledOwner
+        {
+            public static object Read(object document) => document;
+        }
+    }
+
+    private sealed class NestedDynamicFixture
+    {
+        private sealed class UncalledOwner
+        {
+            public static dynamic Read() => new object();
+        }
+    }
+
+    private sealed class OrdinaryNestedFixture
+    {
+        public static int Read() => 1;
+
+        private sealed class UncalledOwner
+        {
+            public static object Read(object value) => value;
+        }
+    }
 
     private static AuthoringCommandRegistry CreateRegistry(ImmutableArray<AuthoringCommandContribution> commands) =>
         new(commands, ImmutableHashSet<string>.Empty, ImmutableHashSet<string>.Empty);
@@ -375,12 +646,16 @@ public sealed class AuthoringCommandContributionTests
         ],
         new AuthoringShortcutRequest([AuthoringShortcutModifier.Control], "K"));
 
-    private static async ValueTask<CommandRuntimeFixture> CreateRuntimeFixtureAsync(ExecutionPort? port = null)
+    private static async ValueTask<CommandRuntimeFixture> CreateRuntimeFixtureAsync(
+        ExecutionPort? port = null,
+        IAuthoringDocumentRevisionGate? revisionGate = null,
+        TimeProvider? timeProvider = null,
+        LifecycleReceiptStore? receipts = null)
     {
         VerifiedAuthoringPackage package = CreatePackage();
         AuthoringCommandContribution command = CreateCommand();
         var grantCatalog = new AuthoringCapabilityGrantCatalogStub(CreateActiveGrants(command, "document-1"));
-        var receipts = new LifecycleReceiptStore();
+        receipts ??= new LifecycleReceiptStore();
         var lifecycle = new AuthoringExtensionLifecycleCoordinator(
             new LifecycleResources(),
             new LifecyclePreflight(),
@@ -407,9 +682,10 @@ public sealed class AuthoringCommandContributionTests
         port ??= new ExecutionPort();
         var coordinator = new AuthoringCommandExecutionCoordinator(
             [port],
-            new RevisionGate(true),
+            revisionGate ?? new RevisionGate(true),
             lifecycle,
-            grantCatalog);
+            grantCatalog,
+            timeProvider);
         var context = new AuthoringCommandExecutionContext(
             new string('e', 64),
             "document-1",
@@ -418,7 +694,7 @@ public sealed class AuthoringCommandContributionTests
             "selection-1",
             "request-1",
             enabled.Generation,
-            DateTimeOffset.UtcNow.AddMinutes(1),
+            (timeProvider?.GetUtcNow() ?? DateTimeOffset.UtcNow).AddMinutes(1),
             command.RequiredCapabilities.ToImmutableHashSet(),
             [1, 2, 3]);
         return new CommandRuntimeFixture(
@@ -693,8 +969,20 @@ public sealed class AuthoringCommandContributionTests
     {
         private AuthoringLifecycleReceipt? _latest;
 
-        public ValueTask<AuthoringLifecycleReceipt?> GetLatestAsync(string extensionId, CancellationToken cancellationToken) =>
-            ValueTask.FromResult(_latest);
+        public Func<Task>? BeforeRead
+        {
+            get; set;
+        }
+
+        public async ValueTask<AuthoringLifecycleReceipt?> GetLatestAsync(string extensionId, CancellationToken cancellationToken)
+        {
+            if (BeforeRead is not null)
+            {
+                await BeforeRead();
+            }
+
+            return _latest;
+        }
 
         public ValueTask AppendAsync(AuthoringLifecycleReceipt receipt, CancellationToken cancellationToken)
         {
@@ -710,6 +998,34 @@ public sealed class AuthoringCommandContributionTests
             long documentEpoch,
             long sourceRevision,
             CancellationToken cancellationToken) => ValueTask.FromResult(current);
+    }
+
+    private sealed class CallbackRevisionGate(Action<int> beforeReturn) : IAuthoringDocumentRevisionGate
+    {
+        public int CallCount
+        {
+            get; private set;
+        }
+
+        public async ValueTask<bool> IsCurrentAsync(
+            string documentId,
+            long documentEpoch,
+            long sourceRevision,
+            CancellationToken cancellationToken)
+        {
+            await Task.Yield();
+            beforeReturn(++CallCount);
+            return true;
+        }
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset now) : TimeProvider
+    {
+        private DateTimeOffset _now = now;
+
+        public override DateTimeOffset GetUtcNow() => _now;
+
+        public void SetUtcNow(DateTimeOffset value) => _now = value;
     }
 
     private sealed class GrantStore : IAuthoringCapabilityGrantStore

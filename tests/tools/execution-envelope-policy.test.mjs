@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import test from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const {createExecutionEnvelopePolicyIdentity, executionEnvelopeDigest, executionEnvelopePolicySchemaFile, loadExecutionEnvelopeApplicability, loadExecutionEnvelopePolicy, projectExecutionEnvelopeApplicability, validateExecutionEnvelopeContracts} = await import(new URL('../../tools/test-matrix/execution-envelope-policy.mjs', import.meta.url));
 const {parseMatrix} = await import(new URL('../../tools/test-matrix/parse-matrix.mjs', import.meta.url));
@@ -32,6 +34,64 @@ test('canonical execution envelope covers every correctness producer exactly onc
         entry.producerId === 'frontend-openapi-sync').length, 1);
     assert.equal(catalog.producers.some((entry) =>
         entry.producerId === 'cross-stack-openapi-sync'), false);
+});
+
+test('only matrix governance and validation admit the pinned content-field host input', () =>
+{
+    const admitted = catalog.producers.filter((entry) =>
+        entry.allowedEnvironment.includes('FSUSBLOG_CONTENT_FIELD_DOTNET'));
+    assert.deepEqual(admitted.map((entry) => entry.producerId), [
+        'matrix-governance',
+        'validate-matrix'
+    ]);
+    for (const producerId of ['matrix-governance', 'validate-matrix'])
+    {
+        const removed = valid();
+        const entry = removed.catalog.producers.find((producer) =>
+            producer.producerId === producerId);
+        entry.allowedEnvironment = entry.allowedEnvironment.filter((name) =>
+            name !== 'FSUSBLOG_CONTENT_FIELD_DOTNET');
+        assert.match(
+            validateExecutionEnvelopeContracts(removed).join('\n'),
+            /allowed environment drift|canonical runner applicability drift/u
+        );
+    }
+    const widened = valid();
+    widened.catalog.producers.find((entry) =>
+        entry.producerId === 'frontend-openapi-sync')
+        .allowedEnvironment.push('FSUSBLOG_CONTENT_FIELD_DOTNET');
+    assert.match(
+        validateExecutionEnvelopeContracts(widened).join('\n'),
+        /allowed environment drift|canonical runner applicability drift/u
+    );
+});
+
+test('matrix governance runner passes the host input only for the two admitted producers', (context) =>
+{
+    if (process.platform !== 'linux')
+    {
+        context.skip('canonical shell runner uses Linux bash and /bin/echo');
+        return;
+    }
+    const runner = fileURLToPath(new URL(
+        '../../tools/test/run-matrix-governance-once.sh',
+        import.meta.url
+    ));
+    for (const [producerId, admitted] of [
+        ['matrix-governance', true],
+        ['validate-matrix', true],
+        ['static-matrix-contract', false],
+        ['release-evidence-plan', false]
+    ])
+    {
+        const result = spawnSync('bash', [runner, producerId], {
+            encoding: 'utf8',
+            env: { ...process.env, FSUSBLOG_NODE: '/bin/echo' }
+        });
+        assert.equal(result.status, 0, result.stderr);
+        assert.match(result.stdout, new RegExp(`--producer-id ${producerId}`, 'u'));
+        assert.equal(result.stdout.includes('--env FSUSBLOG_CONTENT_FIELD_DOTNET'), admitted);
+    }
 });
 
 test('policy identity binds policy, catalog, and schema content independently', () =>

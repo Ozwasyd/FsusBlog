@@ -1,5 +1,6 @@
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Server.Infrastructure.Integrity;
 using FsusBlog.Server.Infrastructure.SchemaMigration;

@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionPackages.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpc.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionRpcIoBrokerHandler.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionServiceIoBroker.cs",
+                "src/backend/Infrastructure/AuthoringExtensions/LocalAuthoringPackageStore.cs"
+            ],
+            "reason": "Preserve existing external RPC, grant, package-store and IO broker identifiers while integrating bounded typed broker proposals, the original independently verified non-thread-bound package lifetime, and original owned-stage cleanup. No environment spelling, naming policy or permission authority is changed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/authoring-extension-host-boundary.md"
+            ],
+            "reason": "Preserve maintained Markdown identifiers and original RPC/package/IO owner references while documenting the exact bounded source implementation and pending production consent, native cleanup and runtime integration gates."
+        }
+    ]
+}

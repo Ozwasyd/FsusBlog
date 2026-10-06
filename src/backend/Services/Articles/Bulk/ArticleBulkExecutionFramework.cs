@@ -371,6 +371,8 @@ internal sealed class ArticleBulkExecutionFramework(
             .ReadCurrentAsync(plan, cancellationToken).ConfigureAwait(false);
         ValidateExecutionAuthoritySnapshot(plan, authoritySnapshot);
         await planAuthority.ValidateCurrentArticlesForExecutionAsync(plan, cancellationToken).ConfigureAwait(false);
+        // Authority I/O can cross the expiry boundary after its initial clock check.
+        planAuthority.ValidateForExecution(plan);
         request = request with
         {
             AdmissionAuthorityReceiptDigest = authoritySnapshot.AuthorityReceiptDigest,

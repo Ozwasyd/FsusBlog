@@ -63,6 +63,127 @@ public sealed class AuditLogStore(
 
     public async Task WriteBatchAsync(IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken)
     {
+        if (!records.Any(static record => record.DurableDeliveryId is not null))
+        {
+            await WriteUnjournaledBatchAsync(records, cancellationToken).ConfigureAwait(false);
+            return;
+        }
+        foreach (AuditRecord record in records)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            if (record.DurableDeliveryId is null)
+            {
+                await WriteUnjournaledBatchAsync([record], cancellationToken).ConfigureAwait(false);
+                continue;
+            }
+            await WriteDurableRecordAsync(record, cancellationToken).ConfigureAwait(false);
+        }
+    }
+
+    private async Task WriteDurableRecordAsync(AuditRecord record, CancellationToken cancellationToken)
+    {
+        record = AuditDurableDelivery.NormalizeForStore(record);
+        AuditDurableDelivery.Validate(record);
+        string chainId = ResolveChainId(record);
+        if (_db.Ado.Transaction is not null)
+        {
+            throw new InvalidOperationException("audit_durable_store_requires_owned_transaction");
+        }
+        CancellationToken? previousCancellation = _db.Ado.CancellationToken;
+        _db.Ado.CancellationToken = cancellationToken;
+        try
+        {
+            await _db.Ado.BeginTranAsync().ConfigureAwait(false);
+            // Serialize duplicate delivery and daily chain tail resolution across
+            // independent scopes/processes, using the existing authoring chain fence.
+            await _db.Ado.ExecuteCommandAsync(
+                "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 2361));",
+                new SugarParameter("@Identity", $"audit-delivery:{record.DurableDeliveryId}"))
+                .ConfigureAwait(false);
+            await _db.Ado.ExecuteCommandAsync(
+                "SELECT pg_advisory_xact_lock(hashtextextended(@Identity, 2361));",
+                new SugarParameter("@Identity", $"authoring-audit-chain:{chainId}"))
+                .ConfigureAwait(false);
+            cancellationToken.ThrowIfCancellationRequested();
+            List<AuditLog> existing = await _db.Ado.SqlQueryAsync<AuditLog>(
+                """
+                SELECT source AS "Source", type AS "Type", occurred_at_utc AS "OccurredAtUtc",
+                    actor_type AS "ActorType", actor_id AS "ActorId", actor_role AS "ActorRole",
+                    action AS "Action", target_type AS "TargetType", target_id AS "TargetId",
+                    outcome AS "Outcome", severity AS "Severity", is_high_value AS "IsHighValue",
+                    trace_id AS "TraceId", request_path AS "RequestPath", request_method AS "RequestMethod",
+                    ip_hash AS "IpHash", user_agent_hash AS "UserAgentHash", session_id_hash AS "SessionIdHash",
+                    device_fingerprint_hash AS "DeviceFingerprintHash", reason_code AS "ReasonCode",
+                    event_info AS "EventInfo", context_payload AS "ContextPayload", context_json AS "ContextJson",
+                    chain_id AS "ChainId", prev_hash AS "PrevHash", record_hash AS "RecordHash", record_mac AS "RecordMac"
+                FROM sys_audit_log
+                WHERE context_payload = @Payload
+                LIMIT 2;
+                """,
+                new SugarParameter("@Payload", record.ContextPayload) { DbType = System.Data.DbType.Binary })
+                .ConfigureAwait(false);
+            if (existing.Count > 0)
+            {
+                AuditLog row = existing[0];
+                AuditTamperEvidenceResult expected = AuditTamperEvidence.Sign(record with
+                {
+                    ChainId = chainId,
+                    PrevHash = row.PrevHash,
+                    RecordHash = null,
+                    RecordMac = null
+                }, _tamperKey);
+                AuditTamperEvidenceResult actual = AuditTamperEvidence.Sign(AuditTamperEvidence.FromLog(row) with
+                {
+                    RecordHash = null,
+                    RecordMac = null
+                }, _tamperKey);
+                if (existing.Count != 1 || row.ChainId != chainId
+                    || row.RecordHash != expected.RecordHash || row.RecordMac != expected.RecordMac
+                    || row.RecordHash != actual.RecordHash || row.RecordMac != actual.RecordMac)
+                {
+                    throw new InvalidDataException("audit_durable_commit_postcondition_mismatch");
+                }
+            }
+            else
+            {
+                // A process-local cached tail is not a cross-process commit proof.
+                string? previous = await ResolveChainTailAsync(chainId, cancellationToken).ConfigureAwait(false);
+                AuditRecord signed = SignRecord(record with
+                {
+                    ChainId = chainId,
+                    PrevHash = previous,
+                    RecordHash = null,
+                    RecordMac = null
+                });
+                AuditLogInsertBatchShape shape = s_insertBatchShapes.GetOrAdd(1, BuildInsertBatchShape);
+                var parameters = new SugarParameter[ColumnCount];
+                int offset = 0;
+                AddParameters(parameters, shape.ParameterNames, ref offset, signed);
+                await _db.Ado.ExecuteCommandAsync(shape.Sql, parameters).ConfigureAwait(false);
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            await _db.Ado.CommitTranAsync().ConfigureAwait(false);
+            InvalidateChainTailCache([chainId]);
+        }
+        catch
+        {
+            InvalidateChainTailCache([chainId]);
+            // A cancelled SQL command must not cancel transaction cleanup too.
+            _db.Ado.CancellationToken = null;
+            if (_db.Ado.Transaction is not null)
+            {
+                await _db.Ado.RollbackTranAsync().ConfigureAwait(false);
+            }
+            throw;
+        }
+        finally
+        {
+            _db.Ado.CancellationToken = previousCancellation;
+        }
+    }
+
+    private async Task WriteUnjournaledBatchAsync(IReadOnlyList<AuditRecord> records, CancellationToken cancellationToken)
+    {
         if (records.Count == 0)
         {
             return;
@@ -224,7 +345,7 @@ public sealed class AuditLogStore(
     }
 
     private static AuditRecord EnsureContextJson(AuditRecord record)
-        => record.ContextJson is not null || record.ContextPayload is not { Length: > 0 }
+        => record.DurableDeliveryId is not null || record.ContextJson is not null || record.ContextPayload is not { Length: > 0 }
             ? record
             : record with
             {

@@ -38,7 +38,7 @@ public interface IAuthoringPackageRecoveryStore
         CancellationToken cancellationToken);
 }
 
-public sealed class LocalAuthoringPackageStore : IAuthoringPackageStore, IAuthoringPackageRecoveryStore
+public sealed class LocalAuthoringPackageStore : IAuthoringPackageReadScopeStore, IAuthoringPackageRecoveryStore
 {
     private const int StoreSchemaVersion = 1;
     private const string ArchiveFileName = "archive.fspkg";
@@ -93,6 +93,87 @@ public sealed class LocalAuthoringPackageStore : IAuthoringPackageStore, IAuthor
         finally
         {
             _gate.Release();
+        }
+    }
+
+    public IAuthoringInstalledPackageReadScope AcquireActiveReadScope(string extensionId) =>
+        throw new AuthoringExtensionContractException("Persistent package read scopes require independent asynchronous verification.");
+
+    /// <summary>
+    /// Prepares from actual persistent state, signature, archive and extracted
+    /// content while holding the same non-thread-bound gate and cross-instance
+    /// mutation lock as every package writer. No cached verified DTO authorizes
+    /// this scope. Ownership remains held until synchronous terminal publication
+    /// and Dispose; neither acquisition waits for a busy mutation owner.
+    /// </summary>
+    public async ValueTask<IAuthoringInstalledPackageReadScope> AcquireActiveReadScopeAsync(
+        string extensionId, CancellationToken cancellationToken)
+    {
+        ValidateExtensionId(extensionId);
+        cancellationToken.ThrowIfCancellationRequested();
+        // Unknown/mutable trust providers have no original held lifetime. They
+        // remain usable by existing install tests, but cannot mint this scope.
+        _verifier.RequireReadScopeVerificationOwners();
+        if (!await _gate.WaitAsync(0, cancellationToken))
+        {
+            throw new AuthoringExtensionContractException("Package read scope refused a busy store owner.");
+        }
+
+        var gateLifetime = new ReadGateLifetime(_gate);
+        FileStream? mutationLock = null;
+        try
+        {
+            mutationLock = OpenMutationLock();
+            AuthoringPackageActivationState state = await ReadActivationStateCoreAsync(extensionId, cancellationToken)
+                ?? throw new AuthoringExtensionContractException("Package read scope has no active package.");
+            VerifiedAuthoringPackage package = await GetByIdentityCoreAsync(state.CurrentPackageIdentity, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            if (!string.Equals(package.Contract.Manifest.Id, extensionId, StringComparison.Ordinal) ||
+                !Equals(state, await ReadActivationStateCoreAsync(extensionId, cancellationToken)))
+            {
+                throw new AuthoringExtensionContractException("Package activation changed during independent read-scope verification.");
+            }
+            cancellationToken.ThrowIfCancellationRequested();
+            return new PersistentPackageReadScope(package, mutationLock, gateLifetime);
+        }
+        catch (Exception failure)
+        {
+            AuthoringTerminalReadScopes.Release(failure, mutationLock, gateLifetime);
+            throw;
+        }
+    }
+
+    private sealed class ReadGateLifetime(SemaphoreSlim gate) : IDisposable
+    {
+        private int _released;
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                gate.Release();
+            }
+        }
+    }
+
+    private sealed class PersistentPackageReadScope(
+        VerifiedAuthoringPackage package, FileStream mutationLock, ReadGateLifetime gateLifetime)
+        : IAuthoringInstalledPackageAsyncReadScope
+    {
+        private int _released;
+        public VerifiedAuthoringPackage ActivePackage
+        {
+            get
+            {
+                ObjectDisposedException.ThrowIf(Volatile.Read(ref _released) != 0, this);
+                return package;
+            }
+        }
+        public void Dispose()
+        {
+            if (Interlocked.Exchange(ref _released, 1) == 0)
+            {
+                AuthoringTerminalReadScopes.Release(null, mutationLock, gateLifetime);
+            }
         }
     }
 
@@ -892,9 +973,10 @@ public sealed class LocalAuthoringPackageStore : IAuthoringPackageStore, IAuthor
 
     private FileStream OpenMutationLock()
     {
+        FileStream? stream = null;
         try
         {
-            FileStream stream = new(
+            stream = new FileStream(
                 _mutationLockPath,
                 FileMode.OpenOrCreate,
                 FileAccess.ReadWrite,
@@ -910,8 +992,17 @@ public sealed class LocalAuthoringPackageStore : IAuthoringPackageStore, IAuthor
         }
         catch (IOException exception)
         {
-            throw new AuthoringExtensionContractException(
+            var failure = new AuthoringExtensionContractException(
                 $"Package store mutation authority is already active: {exception.GetType().Name}.");
+            failure.Data["AuthoringPackageMutationLockFailure"] = exception;
+            AuthoringTerminalReadScopes.Release(failure, stream);
+            throw failure;
+        }
+        catch (Exception failure)
+        {
+            // Initialization after open must not leave a held file lock behind.
+            AuthoringTerminalReadScopes.Release(failure, stream);
+            throw;
         }
     }
 

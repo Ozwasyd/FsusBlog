@@ -92,6 +92,13 @@ public static class LocalPublicContentFixtureEndpoints
                     }
                     temporal.RequireExactRequest(requestTemporalContext);
                 }
+                PublicContentVerificationIdentity identity = body.VerificationIdentity
+                    ?? throw new InvalidOperationException("public fixture verification identity is required");
+                if (identity.Namespace != body.Namespace || identity.RunId != body.RunId)
+                {
+                    throw new InvalidOperationException("public fixture prepare identity mismatch");
+                }
+                seeder.ValidateVerificationIdentity(identity);
                 PublicContentFixtureResult result = await seeder.PrepareAsync(
                     body with
                     {
@@ -99,6 +106,8 @@ public static class LocalPublicContentFixtureEndpoints
                         RunId = body.RunId ?? context.Request.Headers[TestRunIdHeaderName].ToString()
                     },
                     cancellationToken).ConfigureAwait(false);
+                result.VerificationProof = seeder.IssueVerificationProof(
+                    identity, result);
                 if (temporal is not null)
                 {
                     System.Data.DataTable observation = await db.Ado.GetDataTableAsync(
@@ -120,7 +129,8 @@ public static class LocalPublicContentFixtureEndpoints
                         System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty;
                     result.TemporalObservation = temporal.Observe(
                         postgresTimezone,
-                        postgresBusinessEpoch);
+                        postgresBusinessEpoch,
+                        context.RequestServices.GetRequiredService<TimeProvider>());
                 }
                 return Results.Json(result);
             }
@@ -146,6 +156,88 @@ public static class LocalPublicContentFixtureEndpoints
             .AddEndpointFilter(RequireLocalFixtureSecret)
             .AddEndpointFilter(RequireLoopbackCaller);
         app.MapPost("/__local/public-content-fixture/prepare", prepareHandler)
+            .AllowAnonymous()
+            .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(
+                LocalPublicContentFixtureSecretHeaderName,
+                TestNamespaceHeaderName,
+                TestRunIdHeaderName))
+            .AddEndpointFilter(RequireLocalFixtureSecret)
+            .AddEndpointFilter(RequireLoopbackCaller);
+
+        app.MapPost("/api/local/public-content-fixture/verify", async Task<IResult> (
+                HttpContext context,
+                [FromBody] PublicContentVerificationRequest request,
+                [FromServices] IPublicContentFixtureSeeder seeder,
+                CancellationToken cancellationToken) =>
+            {
+                if (request.Identity.RunId != context.Request.Headers[TestRunIdHeaderName].ToString()
+                    || request.Identity.Namespace != context.Request.Headers[TestNamespaceHeaderName].ToString())
+                {
+                    return Results.BadRequest("public fixture verification header identity mismatch");
+                }
+                try
+                {
+                    return Results.Json(await seeder.VerifyAsync(request, cancellationToken).ConfigureAwait(false));
+                }
+                catch (InvalidOperationException ex)
+                {
+                    return Results.BadRequest(new
+                    {
+                        message = ex.Message
+                    });
+                }
+            })
+            .AllowAnonymous()
+            .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(
+                LocalPublicContentFixtureSecretHeaderName, TestNamespaceHeaderName, TestRunIdHeaderName))
+            .AddEndpointFilter(RequireLocalFixtureSecret)
+            .AddEndpointFilter(RequireLoopbackCaller);
+
+        // Observation only: the same fixture owner/gates, never a public locale
+        // API or a second preparation/warming path.
+        app.MapPost("/__local/public-content-fixture/published-artifact", async (
+                HttpContext context,
+                [FromServices] IPublicContentFixtureSeeder seeder,
+                CancellationToken cancellationToken) =>
+            {
+                try
+                {
+                    PublicContentPublishedArtifactRequest? request =
+                        await JsonSerializer.DeserializeAsync<PublicContentPublishedArtifactRequest>(
+                            context.Request.Body,
+                            s_requestJsonOptions,
+                            cancellationToken).ConfigureAwait(false);
+                    if (request is null
+                        || request.Namespace != context.Request.Headers[TestNamespaceHeaderName].ToString()
+                        || request.RuntimeRunId != context.Request.Headers[TestRunIdHeaderName].ToString())
+                    {
+                        return Results.BadRequest(new
+                        {
+                            message = "published artifact observation owner headers are invalid"
+                        });
+                    }
+                    JsonElement observation = await seeder.ObservePublishedArtifactAsync(
+                        context,
+                        request,
+                        cancellationToken).ConfigureAwait(false);
+                    context.Response.Headers.CacheControl = "private,no-store";
+                    return Results.Json(observation);
+                }
+                catch (JsonException)
+                {
+                    return Results.BadRequest(new
+                    {
+                        message = "published artifact observation request is invalid"
+                    });
+                }
+                catch (InvalidOperationException exception)
+                {
+                    return Results.Problem(
+                        statusCode: StatusCodes.Status409Conflict,
+                        title: "published artifact observation unavailable",
+                        detail: exception.Message);
+                }
+            })
             .AllowAnonymous()
             .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(
                 LocalPublicContentFixtureSecretHeaderName,
@@ -180,7 +272,8 @@ public static class LocalPublicContentFixtureEndpoints
                         System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
                     Convert.ToString(
                         observation.Rows[0]["business_epoch"],
-                        System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty));
+                        System.Globalization.CultureInfo.InvariantCulture) ?? string.Empty,
+                    context.RequestServices.GetRequiredService<TimeProvider>()));
             })
             .AllowAnonymous()
             .WithMetadata(new DevelopmentOnlyFsusHeaderMetadata(

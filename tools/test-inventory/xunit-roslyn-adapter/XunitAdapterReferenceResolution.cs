@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 using Microsoft.CodeAnalysis;
@@ -28,6 +29,8 @@ internal static partial class XunitAdapterProgram
         string priorTargetPath = ResolveEvaluatedPath(initialProperties, "TargetPath", projectDir);
         string priorIntermediatePath = ResolveEvaluatedPath(initialProperties, "IntermediateOutputPath", projectDir);
         RequireBuiltCompileContext(configuration, priorTargetPath, priorIntermediatePath);
+        string priorTargetDigest = BuiltAssemblyDigest(priorTargetPath);
+        string priorIntermediateDigest = BuiltAssemblyDigest(Path.Combine(priorIntermediatePath, Path.GetFileName(priorTargetPath)));
         // Execute the SDK/imported Compile input graph without invoking Csc.
         // The existing Roslyn compilation below remains the semantic error owner;
         // evaluation alone or ResolveReferences misses target-added Compile items.
@@ -52,6 +55,11 @@ internal static partial class XunitAdapterProgram
             throw new InvalidOperationException("MSBuild Compile changed its previously built output context");
         }
         RequireBuiltCompileContext(configuration, targetPath, intermediateOutputPath);
+        if (BuiltAssemblyDigest(targetPath) != priorTargetDigest
+            || BuiltAssemblyDigest(Path.Combine(intermediateOutputPath, Path.GetFileName(targetPath))) != priorIntermediateDigest)
+        {
+            throw new InvalidOperationException("MSBuild Compile changed its previously built assembly bytes");
+        }
         string[] sourceFiles = CollectSourceFiles(projectDir, root.GetProperty("Items").GetProperty("Compile"));
         string languageVersion = properties.GetProperty("LangVersion").GetString() ?? "";
         if (languageVersion.Length == 0 || !LanguageVersionFacts.TryParse(languageVersion, out LanguageVersion parsedLanguageVersion))
@@ -139,6 +147,13 @@ internal static partial class XunitAdapterProgram
             throw new InvalidOperationException(
                 $"test project {configuration} build output or intermediate context is missing at {targetPath} / {intermediateOutputPath}; run dotnet build with the requested configuration first");
         }
+    }
+
+    private static string BuiltAssemblyDigest(string file)
+    {
+        _ = ReadAssemblySimpleName(file);
+        using FileStream stream = File.OpenRead(file);
+        return Convert.ToHexString(SHA256.HashData(stream));
     }
 
     private static string ResolveEvaluatedPath(JsonElement properties, string name, string projectDir)

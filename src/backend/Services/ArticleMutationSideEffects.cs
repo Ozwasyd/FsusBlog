@@ -24,11 +24,10 @@ public interface IArticleMutationSideEffectCoordinator
 
     Task AfterRestoredAsync(int articleId, ArticleListItemResponse? preview);
 
-    Task AfterPermanentlyDeletedAsync(int articleId, IEnumerable<string> imageUrls, CancellationToken cancellationToken);
+    Task AfterPermanentlyDeletedAsync(int articleId, CancellationToken cancellationToken);
 
     Task AfterTrashClearedAsync(
         IReadOnlyCollection<int> articleIds,
-        IReadOnlyDictionary<int, string> articleBodies,
         CancellationToken cancellationToken);
 
     Task<ArticleMutationReplayResult> ReplayOutboxAsync(
@@ -184,10 +183,9 @@ public sealed record ArticleMutationReplayResult(
 
 public sealed class ArticleAssetCleanupPolicy(ArticleAssetCleanupQueue cleanupQueue)
 {
-    public Task DeleteIllustrationsAsync(IEnumerable<string> imageUrls, CancellationToken cancellationToken = default)
+    public Task RequestCleanupAsync(CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
-        _ = imageUrls;
         cleanupQueue.TryRequestScan();
         return Task.CompletedTask;
     }
@@ -287,7 +285,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
             },
             "article-restore-sync");
 
-    public Task AfterPermanentlyDeletedAsync(int articleId, IEnumerable<string> imageUrls, CancellationToken cancellationToken)
+    public Task AfterPermanentlyDeletedAsync(int articleId, CancellationToken cancellationToken)
         => ExecuteAsync(
             async () =>
             {
@@ -300,13 +298,12 @@ public sealed class ArticleMutationSideEffectCoordinator(
                     () => projections.RemoveTopArticleAsync(articleId),
                     () => delivery.NotifyAsync(articleId, "Deleted"));
 
-                await assetCleanupPolicy.DeleteIllustrationsAsync(imageUrls, cancellationToken);
+                await assetCleanupPolicy.RequestCleanupAsync(cancellationToken);
             },
             "article-permanent-delete-sync");
 
     public Task AfterTrashClearedAsync(
         IReadOnlyCollection<int> articleIds,
-        IReadOnlyDictionary<int, string> articleBodies,
         CancellationToken cancellationToken)
         => ExecuteAsync(
             async () =>
@@ -326,17 +323,7 @@ public sealed class ArticleMutationSideEffectCoordinator(
                 }
 
                 await projections.QueuePublicHotUpdateAsync(null, "article-trash-cleared");
-
-                var imageUrls = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-                foreach (string body in articleBodies.Values)
-                {
-                    foreach (string url in ImageHelper.ExtractIllustrationUrls(body))
-                    {
-                        imageUrls.Add(url);
-                    }
-                }
-
-                await assetCleanupPolicy.DeleteIllustrationsAsync(imageUrls, cancellationToken);
+                await assetCleanupPolicy.RequestCleanupAsync(cancellationToken);
             },
             "article-clear-trash-sync");
 

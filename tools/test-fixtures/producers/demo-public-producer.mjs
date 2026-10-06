@@ -9,7 +9,7 @@ const PRODUCER_ID = 'development-demo';
 const STRATEGY = 'transaction-fixture';
 const DEMO_VARIANT_ID = 'diagnostic.development.demo.dataset';
 
-function baseUrl(context)
+export function resolveDemoBackendUrl(context)
 {
     return String(context.handles?.baseUrl ?? context.handles?.debugBackendUrl ?? process.env.FSUSBLOG_BASE_URL ?? '').replace(/\/+$/u, '');
 }
@@ -47,7 +47,7 @@ function normalizeObservations(raw)
 
 export async function prepareDemoPublic(context, signal)
 {
-    const endpoint = baseUrl(context);
+    const endpoint = resolveDemoBackendUrl(context);
     const secret = context.handles?.localDemoFixtureSecret ?? process.env.FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET ?? '';
     if (!endpoint)
     {
@@ -144,7 +144,7 @@ export async function cleanupDemoPublic(_context, _receipt, _signal)
 {
     const context = _context;
     const receipt = _receipt;
-    const endpoint = baseUrl(context);
+    const endpoint = resolveDemoBackendUrl(context);
     const secret = context.handles?.localDemoFixtureSecret ?? process.env.FSUSBLOG_LOCAL_DEMO_FIXTURE_SECRET ?? '';
     const entities = receipt?.entityIdentities
     ?? receipt?.producerReceipts?.find((item) => item.producerId === PRODUCER_ID)?.entityIdentities

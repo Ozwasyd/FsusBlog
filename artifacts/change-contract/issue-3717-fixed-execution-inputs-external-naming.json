@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/_suite-support.sh"
+            ],
+            "reason": "Preserve the existing process environment keys, child argument and readiness protocol spelling in the changed shell owner while exposing only the identical fixed readiness payload to the existing execution parser."
+        }
+    ]
+}

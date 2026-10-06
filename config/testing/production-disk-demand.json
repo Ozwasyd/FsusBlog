@@ -258,6 +258,38 @@
             ]
         },
         {
+            "producerId": "release-reliability-fresh",
+            "demands": [
+                {
+                    "rootId": "run-output",
+                    "peakAdditionalBytes": 3094675456,
+                    "terminalRetainedBytes": 1610612736,
+                    "rollbackOrRecoveryBytes": 722468864,
+                    "concurrencyClass": "release-reliability-dedicated-data-scale",
+                    "uncertaintyBytes": 3094675456,
+                    "sourceOfEstimate": "Source-derived, not measured; calibration pending. tools/data-scale/seed.sh scale-m fixes 10000 articles and 100000 comments. Conservative uncalibrated per-article/per-comment allocation assumptions, not measured row sizes: 4 * 10000 * 64 KiB for canonical graph/revision/rights/taxonomy, AOT, search and hot-read products + 100000 * 2 KiB comment/probe evidence + 256 MiB runtime receipts/logs = 3094675456 bytes. Recovery: 10000 * 64 KiB graph staging + 64 MiB evidence = 722468864; terminal partial-failure evidence allowance 1536 MiB; uncertainty 100 percent of peak. Includes .tmp/data-scale-runtime and run-output products; no native qualification or measured ceiling claimed."
+                },
+                {
+                    "rootId": "docker-storage",
+                    "peakAdditionalBytes": 4000186368,
+                    "terminalRetainedBytes": 0,
+                    "rollbackOrRecoveryBytes": 1064960000,
+                    "concurrencyClass": "release-reliability-dedicated-data-scale",
+                    "uncertaintyBytes": 4000186368,
+                    "sourceOfEstimate": "Source-derived, not measured; calibration pending. Dedicated scale-m PostgreSQL tables/indexes/WAL allowance with uncalibrated 64 KiB/article and 4 KiB/comment assumptions, not measured row sizes: 3 * (10000 * 64 KiB canonical article/body/revision/content/rights/taxonomy/publication rows + 100000 * 4 KiB comments) + 512 MiB Redis writable volume + 256 MiB backend/helper writable layers = 4000186368 bytes. Recovery allows one additional graph/comment copy (1064960000 bytes); uncertainty 100 percent of peak. Frozen already-admitted images are consumed without pull/build; image acquisition is not authorized by this declaration. Retained zero requires actual terminal removal of task-owned containers and PostgreSQL/Redis volumes."
+                },
+                {
+                    "rootId": "os-temp",
+                    "peakAdditionalBytes": 134217728,
+                    "terminalRetainedBytes": 0,
+                    "rollbackOrRecoveryBytes": 33554432,
+                    "concurrencyClass": "release-reliability-dedicated-data-scale",
+                    "uncertaintyBytes": 134217728,
+                    "sourceOfEstimate": "Source-derived, not measured; calibration pending. 128 MiB allowance for bounded Node subprocess buffers, private port/control sockets and schema/seed temporary files, 32 MiB recovery and 100 percent uncertainty. Runtime artifact files remain charged to run-output; task-owned terminal temporary files must actually be removed."
+                }
+            ]
+        },
+        {
             "producerId": "managed-production-build-gc",
             "demands": [
                 {

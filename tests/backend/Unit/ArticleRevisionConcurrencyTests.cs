@@ -1,5 +1,6 @@
 using System.Reflection;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Common;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;

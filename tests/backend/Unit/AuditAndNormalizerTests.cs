@@ -320,14 +320,21 @@ public class DeferredAuditSerilogSinkTests
     [Fact]
     public void Emit_ResolvesSinkLazilyAndWritesMappedRecord()
     {
-        var channel = new AuditLogChannel();
+        using var owner = new AuditDurableTestOwner();
+        AuditLogChannel channel = owner.Channel;
         var services = new ServiceCollection();
         services.AddSingleton<AuditLogEventMapper>();
         services.AddSingleton(channel);
-        services.AddSingleton<AuditSerilogSink>();
+        int constructions = 0;
+        services.AddSingleton<AuditSerilogSink>(provider =>
+        {
+            constructions++;
+            return new AuditSerilogSink(channel, provider.GetRequiredService<AuditLogEventMapper>());
+        });
         using ServiceProvider provider = services.BuildServiceProvider();
 
         var sink = new DeferredAuditSerilogSink(provider);
+        Assert.Equal(0, constructions);
         var ev = new LogEvent(
             DateTimeOffset.UtcNow,
             LogEventLevel.Information,
@@ -338,6 +345,9 @@ public class DeferredAuditSerilogSinkTests
         sink.Emit(ev);
 
         AuditLogChannelSnapshot snapshot = channel.Snapshot();
-        Assert.Equal(1, snapshot.QueuedCount);
+        Assert.Equal(1, constructions);
+        Assert.Equal(0, snapshot.QueuedCount);
+        Assert.Equal(1, snapshot.DurablePendingCount);
+        Assert.Equal(1, snapshot.DurableAcceptedCount);
     }
 }

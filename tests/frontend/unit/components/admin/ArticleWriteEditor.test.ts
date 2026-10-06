@@ -21,6 +21,11 @@ const AdapterStub = defineComponent({
   template: '<div data-markdown-adapter />'
 })
 
+const OutlineRailStub = defineComponent({
+  name: 'ArticleWriteOutlineRail',
+  template: '<div data-outline-rail />',
+})
+
 describe('ArticleWriteEditor document canvas', () => {
   it('consumes embedded/minimal chrome and keeps live/source off a four-mode header', async () => {
     const wrapper = mount(ArticleWriteEditor, {
@@ -29,7 +34,8 @@ describe('ArticleWriteEditor document canvas', () => {
       },
       global: {
         stubs: {
-          MarkdownEditorAdapter: AdapterStub
+          MarkdownEditorAdapter: AdapterStub,
+          ArticleWriteOutlineRail: OutlineRailStub,
         }
       }
     })
@@ -38,7 +44,7 @@ describe('ArticleWriteEditor document canvas', () => {
     expect(adapter.props('chrome')).toBe('embedded')
     expect(adapter.props('statusDensity')).toBe('minimal')
     expect(adapter.props('showModeSwitcher')).toBe(false)
-    expect(adapter.props('toolbarDensity')).toBe('minimal')
+    expect(adapter.props('toolbarDensity')).toBe('standard')
     expect(adapter.props('mode')).toBe('source')
     expect(adapter.props('labelledBy')).toBe('article-body-heading')
     expect(wrapper.find('.editor-shell__header').exists()).toBe(false)

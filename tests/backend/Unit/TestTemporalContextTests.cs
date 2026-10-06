@@ -163,6 +163,58 @@ public sealed class TestTemporalContextTests
     }
 
     [Fact]
+    public void RuntimeObservation_UsesActualBackendClockAfterCheckingDatabaseEpoch()
+    {
+        WithRuntimeTemporalContext(runtime =>
+        {
+            TestTemporalContext actual = TestTemporalContext.CreateCanonical();
+            JsonElement observed = JsonSerializer.SerializeToElement(runtime.Observe(
+                "UTC",
+                "2024-02-29T23:59:59.000Z",
+                actual.BusinessClock));
+
+            Assert.Equal("2024-02-29T23:59:59.000Z", observed.GetProperty("businessEpochUtc").GetString());
+            Assert.Equal("Invariant", observed.GetProperty("backendCulture").GetString());
+            Assert.Equal("UTC", observed.GetProperty("postgresTimezone").GetString());
+
+            actual.Advance(TimeSpan.FromSeconds(1));
+            InvalidOperationException mismatch = Assert.Throws<InvalidOperationException>(() =>
+                runtime.Observe("UTC", "2024-02-29T23:59:59.000Z", actual.BusinessClock));
+            Assert.Contains("backend business epoch observation", mismatch.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Theory]
+    [InlineData("", "UTC", "Invariant", "Invariant", "not an RFC3339 UTC instant")]
+    [InlineData("2024-03-01T00:00:00.000Z", "UTC", "Invariant", "Invariant", "PostgreSQL business epoch observation")]
+    [InlineData("2024-02-29T23:59:59.000Z", "Asia/Shanghai", "Invariant", "Invariant", "PostgreSQL timezone observation")]
+    [InlineData("2024-02-29T23:59:59.000Z", "UTC", "zh-CN", "Invariant", "backend culture observation")]
+    [InlineData("2024-02-29T23:59:59.000Z", "UTC", "Invariant", "ja-JP", "backend culture observation")]
+    public void RuntimeObservation_RejectsMissingOrDriftingActualSettings(
+        string postgresEpoch,
+        string postgresTimezone,
+        string culture,
+        string uiCulture,
+        string expectedFailure)
+    {
+        WithRuntimeTemporalContext(runtime =>
+        {
+            CultureInfo.CurrentCulture = culture == "Invariant"
+                ? CultureInfo.InvariantCulture
+                : CultureInfo.GetCultureInfo(culture);
+            CultureInfo.CurrentUICulture = uiCulture == "Invariant"
+                ? CultureInfo.InvariantCulture
+                : CultureInfo.GetCultureInfo(uiCulture);
+            InvalidOperationException mismatch = Assert.Throws<InvalidOperationException>(() =>
+                runtime.Observe(
+                    postgresTimezone,
+                    postgresEpoch,
+                    TestTemporalContext.CreateCanonical().BusinessClock));
+            Assert.Contains(expectedFailure, mismatch.Message, StringComparison.Ordinal);
+        });
+    }
+
+    [Fact]
     public void RuntimeContext_RequiresExactSharedFieldsAndExplicitProducerIdentity()
     {
         const string Context =
@@ -222,5 +274,92 @@ public sealed class TestTemporalContextTests
                         JsonNode.Parse(request.ToJsonString())!.AsObject()
                             .Deserialize<JsonElement>()));
             });
+    }
+
+    [Theory]
+    [InlineData("2024-02-29T23:59:59Z")]
+    [InlineData("2024-02-29T23:59:59.1Z")]
+    [InlineData("2024-02-29T23:59:59.12Z")]
+    [InlineData("2024-02-29T23:59:59.123Z")]
+    [InlineData("2024-02-29T23:59:59.1230Z")]
+    [InlineData("2024-02-29T23:59:59.12300Z")]
+    [InlineData("2024-02-29T23:59:59.123000Z")]
+    [InlineData("2024-02-29T23:59:59.1230000Z")]
+    public void RuntimeObservation_FormatsTheActualInstantWithOriginalLosslessPrecision(string businessEpochUtc)
+    {
+        DateTimeOffset instant = DateTimeOffset.Parse(businessEpochUtc, CultureInfo.InvariantCulture);
+        Assert.Equal(0, instant.Ticks % TimeSpan.TicksPerMillisecond);
+        WithRuntimeTemporalContext(runtime =>
+        {
+            var actual = new TestTemporalContext(instant);
+            Assert.Equal(instant, actual.BusinessClock.GetUtcNow());
+            JsonElement observation = JsonSerializer.SerializeToElement(runtime.Observe(
+                "UTC", instant.ToString("O", CultureInfo.InvariantCulture), actual.BusinessClock));
+            Assert.Equal(businessEpochUtc, observation.GetProperty("businessEpochUtc").GetString());
+
+            actual.Advance(TimeSpan.FromMilliseconds(1));
+            Assert.Equal(instant.AddMilliseconds(1), actual.BusinessClock.GetUtcNow());
+            InvalidOperationException changed = Assert.Throws<InvalidOperationException>(() =>
+                runtime.Observe("UTC", instant.ToString("O", CultureInfo.InvariantCulture), actual.BusinessClock));
+            Assert.Contains("backend business epoch observation", changed.Message, StringComparison.Ordinal);
+        }, businessEpochUtc);
+    }
+
+    [Theory]
+    [InlineData("2024-02-29T23:59:59.0001Z")]
+    [InlineData("2024-02-29T23:59:59.1234567Z")]
+    [InlineData("2024-02-29T23:59:59.0000001Z")]
+    public void RuntimeContext_RejectsPrecisionLossBeforeReturningTheBusinessClock(string businessEpochUtc)
+    {
+        DateTimeOffset instant = DateTimeOffset.Parse(businessEpochUtc, CultureInfo.InvariantCulture);
+        Assert.Equal(TimeSpan.Zero, instant.Offset);
+        Assert.NotEqual(0, instant.Ticks % TimeSpan.TicksPerMillisecond);
+        InvalidOperationException loss = Assert.Throws<InvalidOperationException>(() =>
+            WithRuntimeTemporalContext(_ => Assert.Fail("Precision-loss context must not be returned."), businessEpochUtc));
+        Assert.Contains("exceeds exact millisecond precision", loss.Message, StringComparison.Ordinal);
+    }
+
+    private static void WithRuntimeTemporalContext(
+        Action<RuntimeTemporalContext> assertion,
+        string businessEpochUtc = "2024-02-29T23:59:59.000Z")
+    {
+        const string Context =
+            """
+            {
+              "schema": "fsusblog.test-temporal-context.v1",
+              "producerId": "public-content",
+              "businessEpochUtc": "2024-02-29T23:59:59.000Z",
+              "businessClockMode": "fixed",
+              "businessClockStepPolicy": "explicit-only",
+              "timezone": "UTC",
+              "locale": "en-US",
+              "uiLocale": "en-US",
+              "backendCulture": "Invariant",
+              "postgresTimezone": "UTC",
+              "nodeTimezone": "UTC",
+              "calendar": "gregory",
+              "firstDayOfWeek": "monday"
+            }
+            """;
+        CultureInfo previousCulture = CultureInfo.CurrentCulture;
+        CultureInfo previousUiCulture = CultureInfo.CurrentUICulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            CultureInfo.CurrentUICulture = CultureInfo.InvariantCulture;
+            ScopedEnvironmentVariables.Run(
+                [RuntimeTemporalContext.EnvironmentVariable],
+                environment =>
+                {
+                    environment.Set(RuntimeTemporalContext.EnvironmentVariable, Context.Replace(
+                        "2024-02-29T23:59:59.000Z", businessEpochUtc, StringComparison.Ordinal));
+                    assertion(Assert.IsType<RuntimeTemporalContext>(RuntimeTemporalContext.LoadOptional()));
+                });
+        }
+        finally
+        {
+            CultureInfo.CurrentCulture = previousCulture;
+            CultureInfo.CurrentUICulture = previousUiCulture;
+        }
     }
 }

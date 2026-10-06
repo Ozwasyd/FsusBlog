@@ -43,6 +43,21 @@ runner consumes this manifest order directly: all
 `PreCodeFirst` descriptors remain ordered by migration ID before all
 `PostCodeFirst` descriptors, which preserves the historical execution contract.
 
+Plan fingerprint controls bind the first descriptor definition admitted to master,
+preserving every earlier descriptor's ordered ID, phase and checksum. A draft
+fingerprint cannot replace that published source. Oracle reconciliation requires
+the original PR/merge identity and exact descriptor, transaction, step-order,
+SQL-byte and checksum facts; applied history must not be rewritten to fit an oracle.
+
+For [PR #3515](https://github.com/Ozwasyd/FsusBlog/pull/3515), the first published
+recent-history definition is master commit `493abaedad77df5f301222405d7904268bb32e75`,
+blob `5c473c4ae9d1bd3bfa46d7f968eabfb897ae954a`. The original 145-descriptor plan
+remains anchored separately; the complete 146-descriptor plan binds that published
+addition and its receipt timestamp/constraint SQL. The older `6d7e8bfa3` draft
+fingerprint records source history, not an accepted applied-database checksum.
+External draft application, native qualification and complete source-bound assembly
+receipt generation remain separate, unverified obligations.
+
 Descriptor implementations live under
 `src/migration/Definitions/`; release-range catalogs
 live under `src/migration/Catalogs/`. To add a
@@ -64,6 +79,28 @@ providers and migration-owned conversion rows compile in the independent
 only `FsusBlog.Shared`, and carries the SqlSugar provider abstraction required to
 build and test the PostgreSQL, MySQL and SQLite DDL adapters without loading the
 Server or a web host.
+
+The MySQL typed provider resolves add-column and create-index idempotence from
+the selected database's metadata, then prepares one admitted DDL statement.
+It does not emit MariaDB's `ADD COLUMN IF NOT EXISTS` or `CREATE INDEX IF NOT
+EXISTS` syntax. A missing target table, missing indexed column or missing
+selected database is an error, not a successful ensure. An existing column or
+table-scoped index is left unchanged; ensure does not reconcile a different
+existing definition.
+`DropIndex` resolves the unique owning table in the selected database, quotes
+the schema/table identity, and no-ops only when the index is absent. Multiple
+owners fail before a drop, including tables whose names differ only by case;
+deduplication must compare the constructed identities as binary strings.
+
+MySQL string defaults preserve the shared doubled-quote literal value through
+a UTF-8 constant expression, including backslashes under either SQL mode.
+Prepared DDL uses the migration connection's reserved
+`fsus_schema_ddl_statement` / `@fsus_schema_ddl` session state and clears it
+after success; callers must dispose the failed session rather than treating a
+failed batch as completed. MySQL DDL may implicitly commit: a descriptor's
+`Transactional` flag and preview `BEGIN`/`COMMIT` wrapper do not promise DDL
+rollback. Operational plan/apply/verify and backup authority are separate;
+these primitive tests do not certify execution of every historical SQL template.
 
 Server production no longer references `FsusBlog.Migration`. Startup loads the
 #2211 current schema projection through `CurrentSchemaStartupVerifier` and
@@ -114,6 +151,272 @@ destructive work unguarded. `backfill-resume` executes resumable handlers
 declared in the migration assembly (for example
 `AccountSubjectHashOnlineBackfillHandler`).
 
+### Immutable offline planning boundary
+
+The separate `plan` command parses an explicit provider, observed instance/database
+identity to match, source and isolated restore environment files, original backup
+package/manifest/restore-drill references, and a new output path. It does not invoke
+legacy phases, apply SQL, write a migration journal, or start the Server. Release,
+slot, latest-backup, manual-step and legacy-phase selectors are rejected.
+
+Migration-owned `OfflineMigrationPlanContracts` owns the immutable execution payload;
+historical source, backup, step and reader contracts never enter Shared or Server.
+Shared `CurrentSchemaMigrationIdentityContracts` contains only opaque current
+database/provider/artifact/target/verifier identities needed by the current receipt.
+Server consumes that formal receipt and fresh current-schema proof, not executable
+plans or migration assemblies. The migration-owned planner matches complete
+schema/history/business-shape observations
+against a closed, versioned registry with owner, proof tests and entry step. Unknown,
+partial and ambiguous observations are rejected with exact differences, not a nearest
+baseline. The provider-neutral semantic DAG freezes dependencies, step order, idempotency,
+destructiveness, checkpoint policy and all three provider operation references.
+Operation semantic digests identify definitions, not actual row-data verification.
+The independent plan verifier rebuilds that closure from owner inputs and fresh
+observations; merely resealing a modified payload does not authorize it.
+
+Backup admission distinguishes the original database at capture from the isolated
+restore database. The original authenticated backup owner must bind package,
+manifest and drill bytes to the captured source and independently observed restore;
+their complete shapes must match the fresh source. All six original site-package
+artifact digests remain required. Shape alone cannot prove current data: the native
+source observer must also hash every registered source row and column under the
+capture snapshot and independently at fresh plan/restore observation. Equal-length
+content changes must invalidate the backup even when schema, counts and business
+shape predicates do not change. The actual exported capture snapshot, independently
+hashed dump bytes and dump bytes consumed during restore are bound to the original
+database artifact; a new session's exported snapshot ID is not compared as if it were
+the old session's content identity. Freshness is checked at admission using owner
+policy; invocation clock, release, slot, PID and random values do not enter plan
+bytes. Receipt capture/restore times are immutable input evidence, not a newly
+generated plan timestamp. The migration-owned codec verifies integrity only, not backup,
+registry or execution authority. Apply must still revalidate under its exclusive
+database lock and use exact journal progress rather than rediscovering steps.
+
+An artifact reference's `Sha256` hashes the complete original file bytes, including
+the plan's own digest field. `Plan.ContentDigest` instead hashes the canonical
+payload with that self-referential field empty. These identities are distinct;
+journal and current-receipt artifact references must not substitute the semantic
+seal for the actual file hash or hash normalized bytes as if they were the original.
+
+The same host parses `observe-source --provider <provider> --env-file <path>
+--timeout-seconds <canonical-positive-seconds>`. Every new source/capture operation
+requires an explicit finite budget before reading credentials or constructing its
+native capability. ASCII digits without signs, whitespace or leading zeros are
+required; `1..2147483` is the Int32-millisecond representation range, not a business
+budget default or a universal verification ceiling. One linked deadline/token
+covers environment reading, native observation, dump handshake and output. The
+original backup owner keeps its earlier outer deadline and passes its remaining
+budget at each launch; `TimeoutSeconds` records that launch's actual budget, not a
+renewed outer allowance. Existing v2 disaster-recovery backups do not acquire this
+new capture requirement. Console cancellation, SIGTERM/SIGHUP, EOF, faults and
+deadline expiry cannot emit completed capture evidence. The awaited native owner
+must reach actual transaction/command/connection terminal; a timed wait or a
+disposed token alone is not proof of release. Backup child cleanup remains the
+original operation owner's bounded lifecycle, not a borrowed test-policy timeout.
+PostgreSQL capture additionally requires `--capture-session --dump-output <new
+absolute path>`. The observer announces its actual source/exported snapshot before
+the dump; `CapturedAt` comes from the native snapshot establishment, not the later
+completion of the source scan. First and final evidence bind the same timestamp,
+snapshot, full source and launch budget. The original backup owner then runs
+`pg_dump --snapshot`. Only the exact stdin line
+`DUMP_COMPLETED`, after the dump child is truly terminal, releases the callback;
+stdin cannot select a path, source observation, snapshot or hash. The native observer
+independently hashes the pre-bound dump, closes its read-only transaction, and only
+then the host emits completed capture evidence. EOF, unknown control or cancellation
+produces no completed evidence. MySQL/SQLite snapshot capture is explicitly unsupported
+until their actual owner capability exists. Stdio contract fixtures are not native
+database or backup proof, and the source-observer factory currently also refuses
+unconfigured owners rather than interpreting empty input as an empty database.
+
+The migration-owned source-observation component registers the checked-in
+`2026-05-17` representative legacy shape, not an already qualified production dump.
+Its PostgreSQL path closes the actual catalog, all 49 registered columns and every
+row, history and five sequence states under one native read-only snapshot with a
+streamed, bounded content encoder. Three-provider shape registration is not proof
+of three native implementations: missing MySQL/SQLite full-content/snapshot
+capabilities fail closed. The component still needs its unique native-session
+owner and genuine producer/provider execution before operational qualification.
+
+Sealed Apply consumes the exact verified artifact and revalidates source (or
+exact journal progress), backup, target, tool and DAG after its exclusive lock,
+on the same native transaction/session. Control journal entries are insert-only;
+each business unit and its journal append share a database transaction, and forked
+state is published only after commit. Resume reads the exact checkpoint's whole
+chain, not a latest-row shortcut. Bounded step proofs use O(step-count) memory and
+are not a current-schema receipt. Unknown commit or rollback outcomes require
+recovery rather than blind replay. The invocation supplies its explicit finite
+cleanup budget; primary failure and
+cleanup failure are recorded separately, and actual native disposal remains a
+separate integration/terminal proof, not a declaration inferred from a token.
+Current native Apply is PostgreSQL-only; missing compiled bootstrap/legacy
+operations, production admission or non-PG
+capabilities refuse before the first write. Legacy Contract guards are unchanged.
+
+The durable native apply journal remains present after completion: no delete or
+external-chain handoff is inferred from bounded step proofs or a receipt. Its
+single current control definition is `CurrentSchemaControlShape` (seven columns,
+four constraints); original Core creation/validation and the full current runtime
+projection derive from those facts. PostgreSQL explicit names retain the original
+63-byte implicit names without collision fallback. The native primary backing
+index and both unique indexes, raw check/default/predicate expressions,
+nullability/types/lengths, collation, generation/owned sequences and attached
+triggers are measured and compared. A same-name malformed table, additional historical
+table, undeclared raw default (including DEFAULT NULL), inheritance, RLS or rule
+effects, unavailable backing index or changed control constraint
+is not a name-based exemption. Server observes
+schema facts only; journal JSON, history, sequence/parent seals, media states and
+resume remain the original Migration owners' responsibility.
+
+The same sole control facts now also have formal MySQL and SQLite projections:
+seven columns, four constraints and three constraint backing indexes. MySQL uses
+the native `PRIMARY` name and the exact `utf8mb4_0900_bin` collation already required
+by the original journal dialect's create/observe owner; this does not declare a
+new server-version baseline or admit an engine lacking that capability. SQLite's
+original four-column primary key is not an `INTEGER PRIMARY KEY` rowid alias:
+its three `sqlite_autoindex` names follow the sole constraint declaration order,
+with `BINARY` keys. SQLite physical `TEXT` has no length modifier, while the original
+semantic 64/160-character bounds and source/content identities remain intact.
+These descriptions grant neither control-table creation nor a business transaction.
+
+MySQL's physical projection also includes the native unique constraint of each
+explicit unique index, without inventing another backing index. Primary-key columns
+are physically non-null and marked as key members, as required by native MySQL;
+the original logical nullability, owned input bytes and target identity are not
+rewritten. Conflicting native key names, multiple primary keys or unknown key
+columns refuse rather than silently choosing one input fact.
+
+`ProjectOwnedTarget` can project closed neutral relational facts and typed added
+columns, constraints and indexes to MySQL/SQLite without copying entity mappings.
+Unsupported defaults/computed or check expressions, business text collation,
+allocators, independent sequence semantics, immutable-guard failure scope and
+dynamic seed expressions refuse instead of returning a partial current target.
+In particular the actual current recipes still require missing non-PG semantics;
+the structural projection does not make either complete current bootstrap runnable.
+Native DDL/observation, original producer execution, compiled operation registration
+and all three-provider acceptance remain pending. No producer output is hand-edited.
+
+The original portable compiler's `CompileOwnedFacts` reuses the existing complete
+owner/input binding and current type projector. Closed typed added columns and
+unique constraints, together with indexes, are folded into a copied final empty
+table before rendering rather than translated into unsupported ALTER syntax.
+The producer's input, recipe identities and complete target identity are not
+mutated. No second field inventory or control renderer is introduced. Its explicit
+`ProducesCompleteCurrentBootstrap = false` describes the partial command result;
+it is not an admission or registration flag. Raw CHECK/default/predicate expressions,
+unsupported foreign-key semantics, sequence/guard/dynamic seeds and full native
+control/bootstrap postconditions remain unavailable, so these commands cannot
+qualify a complete current bootstrap. Existing narrowly supported literal default
+syntax remains a subset compiler capability, not a new typed-expression authority.
+
+The migration-owned `SqliteCurrentSchemaCatalogObserver` is a read-only SQLite
+bootstrap prerequisite, not an approved bootstrap operation. It measures the
+caller's original native `Serializable` transaction: main schema SQL (including
+checks, views and trigger bodies), generated columns, strict/without-rowid flags,
+complete index key/auxiliary facts, foreign keys and violations, and actual
+`sqlite_sequence` watermarks. It preserves declared provider types without
+inventing a second current entity mapping, changes no pragma and commits nothing.
+Attached/temp namespaces, virtual/shadow-table capabilities and incomplete or
+oversized metadata are refused, not omitted. Its limits are the original source
+observer metadata limits. Native filename is only a namespace observation, never
+a database incarnation. The unique current owner still must supply the complete
+legal SQLite recipe projection and expected effects; original native incarnation,
+apply/DAG registration, backup admission and all-three-provider execution gates
+remain required. This component does not admit a legacy database as empty, issue a
+current receipt, or qualify a full bootstrap. Cancellation/physical interrupt and
+cleanup deadlines remain owned by the caller's native session, not this reader.
+
+`SqliteCurrentSchemaEffectObserver` reuses that same native catalog and the single
+`Shared.Algorithms.SqliteImmutableTriggerObserver` decoder. It records the actual
+unconditional `BEFORE UPDATE` or `BEFORE DELETE` event, `RAISE` action and exact
+literal message; it does not equate `ABORT`, `ROLLBACK`, `FAIL` and `IGNORE`, invent
+a two-event trigger, or choose a SQLite policy for the original PostgreSQL guard.
+Conditional/narrow events, extra statements and unsupported bodies fail closed.
+These are measured effects, not an expected current mapping or a bootstrap grant.
+Complete provider recipes, independent sequence semantics and target/DAG admission
+remain with their original owners; an empty observed effect vector is not success.
+
+The same closed decoder also renders explicit native trigger facts, escaping names
+and literal messages without inventing an action or merging update/delete events.
+`ReadAndMatchTriggerFactsAsync` freezes the supplied vector before observation and
+compares every actual name, table, event, action and message, rejecting missing,
+additional, conditional or different effects in the caller's original transaction.
+Duplicate-name admission uses SQLite's ASCII-only case fold; distinct Unicode
+case pairs remain separate native names, without normalizing event/action/message.
+This comparison does not authenticate expected facts: only the complete original
+current provider projection may supply production expectations. The original
+PostgreSQL exception does not by itself choose SQLite `ABORT` versus `ROLLBACK`;
+no such provider policy, independent allocator, full target or step registration
+is granted by this rendering/measurement adapter.
+
+The remote source integration retains the complete catalog/effect SOURCE controls
+from #1761 and #2217 under the bounded #3705 integration and the last source commit
+`c85ceb9004cbafc545b12c8deb7360fa0a4194a7`. The original strict SQLite sequence storage-type checks remain unchanged; the
+shared decoder uses the current `FsusBlog.Shared.Algorithms` owner. Real native
+SOURCE controls exposed an existing catalog defect: SQLite 3.49.1 returns NULL
+from `SUBSTR` of an empty BLOB, so the original bounded text projection lost the
+legitimate empty namespace filename before `RequiredText` could observe it. The
+projection now preserves a zero-byte non-NULL value as empty text before taking
+the original byte prefix. Actual NULL still remains NULL and is refused by the
+original required-field check. The `(MaximumCellCharacters + 1) * 4` byte prefix,
+row/character budgets, embedded-NUL refusal, strict sequence checks, original
+native connection/transaction and namespace admission remain unchanged.
+
+The supplementary combination of these complete production/control sources and
+prebuilt Migration prerequisite dependencies executed all 72 original controls
+and seven additional empty/NULL, Unicode, oversized-byte and NUL controls with
+79 passes and no skips. The original 57 failures before this fix remain recorded;
+no expected result or native fixture was weakened. This source combination does
+not prove the canonical candidate Migration assembly/build or required matrix.
+Those gates and independent full-provider bootstrap/admission remain separate. No task
+service, production receipt or approved SQLite action policy is implied. Rollback
+removes this isolated decoder/effect integration and its controls while preserving
+the existing catalog reader, owned-domain observer and shared PostgreSQL owners.
+
+The same source assembly also contains the original SQLite owned-domain observer.
+It measures the complete catalog on the borrowed original connection/transaction;
+only the sole apply control and its native indexes are excluded after the original
+whole-shape validator succeeds. Other objects, history, effects and allocator state
+remain visible and refuse the empty-domain precondition. The complete observation
+is retained alongside its domain view. This helper does not authenticate journal
+rows, select an empty source fingerprint, mint an owned writer scope, or register
+the portable commands as a complete bootstrap. Public planning/backup observation
+and original control creation/admission rules are unchanged.
+
+This source combination retains the original complete MySQL physical-fact model,
+comparison and canonical hash/clone closure rather than discarding observed native
+metadata. It changes the current model to `fsusblog.current-schema.v4` and the
+projection generator to `fsusblog.current-schema-projection.v4`; the reflection
+extractor version remains v2. Both composite source/content identities include
+the explicit control version and complete sole shape. Previously sealed v2/v3 owned
+targets, plans and receipts cannot be reinterpreted, auto-resealed or accepted
+through a second version path. A new candidate must invoke the original owned
+projection producer and obtain fresh exact authorized source/backup/DAG/target
+bindings, apply artifacts and independent current verification. An interrupted
+old run retains its original immutable tool/plan/artifacts and whole native chain
+for original-version recovery; changing the version is not permission to guess a
+checkpoint or re-plan partial effects. Rollback requires those original bindings
+and the authenticated backup/recovery procedure, not journal deletion. This
+source repair and unexecuted source cases do not establish native crash/resume,
+backup, three-provider or deployment qualification.
+
+Completed-Apply plan-binding verification independently hashes the original raw
+artifact bytes and rechecks closure against authenticated capture/restore evidence
+at the original journal's first admission time. It must not backfill those inputs
+from the plan or demand that the now-migrated live database still has its old
+shape. Fresh current schema and actual operation postconditions are independently
+verified by the current-receipt owner; the pure binding helper is not a receipt
+issuer or an execution grant.
+
+The current `CreateOwnedReader` fails with
+`schema_offline_plan_evidence_owner_not_configured`: the existing backup manifest
+and drill do not yet prove source instance/fingerprint binding, and the current-only
+schema observer cannot register historical source shapes. Contract-test observations
+are not production registry entries. Until those actual owner capabilities are
+integrated and independently verified, no CLI plan is admitted; the existing
+`schema_offline_contract_not_supported` guard remains unchanged. The typed contract,
+planner and source regressions alone are not three-provider or whole migration
+acceptance, and do not authorize applying a deserialized plan.
+
 `artifacts/schema-migration/migration-assembly-receipt.json` records the old/new
 project, assembly and namespace identities, every old/new source path and declared
 symbol, old/new SHA-256 digests, deleted Server paths, the aggregate content digest
@@ -125,6 +428,39 @@ references, linked or duplicate sources, type forwarding/re-export namespaces,
 provider copies of the current schema model, shared legacy-only fields, web-hosted
 migration tests, graph cycles, dual registration, Server publish leakage, missing
 provider/build evidence and receipt or binding tampering.
+
+The same original producer's `--write` operation now requires the canonical
+scheduler run/source/namespace, the original admitted Migration build and a live
+owned MySQL fixture. It still runs both complete unfiltered commands:
+`dotnet build src/migration/FsusBlog.Migration.csproj -c Release --no-restore`
+and `dotnet test tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore`.
+It writes only private pending receipt/binding and raw command logs. Production
+owns these through its `migration-assembly-verification` step in the original
+first-attempt output root; backend-unit uses its fixed run-private producer root.
+No arbitrary output path, permit JSON, filter or retry-attempt flag is accepted.
+
+After original current-run MySQL cleanup and successful build finalization,
+`node tools/db/generate-migration-assembly-receipt.mjs --publish-current-run`
+uses that same scheduler environment (and `--backend-unit` for the unit producer)
+to verify pending bytes, complete source/test inventories, original owner identity,
+actual released build resources and the exact cleaned MySQL admission. Only the
+original producer publishes the two registered tracked outputs. Partial pair
+publication restores the prior tracked bytes and removes only its identified
+staging files; original private logs remain available for diagnosis. Publication
+records `qualificationEligible: false`: tracked output changes require a fresh
+final-candidate run and independent acceptance. A source-control fixture or a
+historical receipt cannot satisfy that native execution requirement.
+
+The fresh final candidate uses `--verify-current-run` after its original cleanup
+and finalization to consume the newly executed pending evidence against the
+unchanged tracked source/binding. This reads actual current-run pending logs and
+full source fingerprints. After asynchronous build/service admission and before
+publication or a verified return, the producer re-observes the complete original
+source snapshot and rechecks pending/tracked bytes and file identities across that
+read window. Shared inputs outside Migration's local inventory must also remain
+unchanged. It does not rewrite tracked elapsed-time summaries or
+start another publication cycle. Passing this producer read does not replace
+full native/domain/CI or independent acceptance.
 
 The PostgreSQL fixture exercises both an empty database and the representative
 20260517 historical schema twice. For each starting point, the normalized columns,
@@ -143,8 +479,90 @@ and requires `anonymous_account|basic|active`.
 
 ## Canonical Current Schema
 
-`CurrentSchemaCanonicalAuthority` is the only current-schema materializer. It
-extracts the current `SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
+### Explicit production current receipt admission
+
+Production startup requires an explicit absolute `SchemaMigration:CurrentReceipt:Path`,
+its complete file-byte SHA-256 in `SchemaMigration:CurrentReceipt:Sha256`, and the
+candidate assembly's exact nonzero `FsusBlog.SourceCommit` in
+`SchemaMigration:CurrentReceipt:CandidateSourceRevision`. These are not `latest`
+selectors. The receipt's payload self-digest is separate from its artifact-byte hash;
+its verifier source revision is the offline producer identity, not necessarily the
+later Server candidate revision.
+
+`CurrentSchemaReceiptCodec` owns the closed `fsusblog.current-schema-receipt.v1`
+current-only envelope. Its opaque plan, apply, checkpoint, backup and recovery
+references do not load migration histories into the Server. Structural validity,
+a self-digest, or a `verified-current` string alone is not fresh database evidence.
+`CurrentSchemaReceiptAdmission.VerifyAsync` re-reads the explicitly bound artifact
+and the current schema through the original canonical authority, checking the
+five-field target identity, actual physical schema digest and native PostgreSQL
+`system_identifier` plus database OID/name. Unsupported native observers fail
+closed. This route performs no DDL, backfill, journal or migration-history writes.
+Only successful startup admission publishes `CurrentSchemaAdmissionState.Current`;
+an absent state is never readiness. The same read-only verification API does not
+publish readiness when used by an operational consumer.
+The receipt JSON must explicitly contain its closed `status`; omission cannot
+default to success. Receipt admission failures stop hosted business-service startup
+in Development as well as Production, using the fatal admission category rather
+than the ordinary development-only bootstrap logging fallback.
+
+The Migration-owned `OfflineMigrationCurrentSchemaIssuer` requires explicit original
+plan/apply/checkpoint artifacts and a completed exact native journal. Artifact SHA-256
+binds all actual file bytes; `OfflineMigrationJournalAnchor.EntryDigest` binds the
+entry payload's separate semantic seal. The verifier streams the entire original
+invocation (not a prefix ending at a requested checkpoint), validates every explicit
+checkpoint against its native entry, and authenticates the first attempt's UTC
+admission time before revalidating the original backup/registry/DAG bindings.
+The owned artifact reader opens each explicit absolute published path and reads
+its bounded original bytes, checking the whole-file SHA before returning them.
+The Linux x64/arm64 file owner walks non-link directories, rejects non-regular
+leaves and uses nonblocking, non-following open followed by same-descriptor
+regular-file/device/inode validation. FIFO, device, directory or link paths cannot
+reach the ordinary synchronous stream open. An unowned native file platform
+refuses instead of falling back to generic open. This does not establish an
+outer physical deadline for stalled filesystems or replace native terminal proof.
+Before returning original bytes, the reader compares the actual FD's complete
+device/inode, mode, link count, ownership, size and modification/change timestamps
+against its pre-read opaque native observation. It reopens the original path through
+the same anchored non-following walk and compares both the leaf and ancestor
+identities; equal byte hashes cannot conceal a replaced file or directory chain.
+Other original-file consumers reuse this guard with their own existing byte limits.
+Relative paths, `latest` discovery, empty or oversized files, cancellation and
+changed bytes cannot substitute reconstructed records for original artifacts.
+
+Native current schema, instance/database identity, required target postconditions
+and checkpoint replay predicates are re-observed on one PostgreSQL repeatable-read,
+read-only transaction. The issuer passes its actual native instance/database identity to the current-schema
+observer with that exact connection/transaction; an adapter cannot substitute plan
+identity or establish a second capture. Its returned identity must match that observation.
+Expected/actual fact vectors must close in both directions and agree with the original
+committed step proofs; an empty observation, partial
+apply, warning, unknown operation or provider cannot produce `verified-current`.
+The current target is independently derived from its original owner, never the plan
+payload. Only after successful observation and snapshot cleanup does the issuer
+return canonical current-receipt bytes with their separate whole-file SHA-256.
+`VerifyExistingAsync` consumes an explicit original receipt artifact and re-runs
+that native verification before comparing the complete recomputed receipt seal;
+it does not accept a caller's success status or re-use its claimed verifier identity.
+
+The normal issuer factory remains deliberately unavailable until original native
+current-schema, compiled-operation and authenticated-backup owners are
+configured. Missing owners return `current_verify_native_owners_not_configured`
+before native access or publication. Validator unit fixtures exercise structural
+refusal rules only; they neither issue receipts through fake providers nor replace
+the required empty/old database, independent verifier and startup runtime gates.
+
+The test-only materialization receipt remains a separate isolated-run artifact.
+Its schema check uses `CurrentSchemaReadObserver`, not an optional production
+receipt bypass. Offline receipt issuance additionally requires the original sealed
+plan/backup authorities, durable native journal and independent compiled-operation
+postcondition observations. Missing providers or operation owners must refuse
+issuance; the current-only codec and startup consumer cannot supply those facts.
+
+`CurrentSchemaCanonicalAuthority` in `src/shared/Contracts/Schema/` is the only
+neutral current-schema generator, identity hasher, provider projection and
+comparer. The Server-owned `CurrentSchemaEntityExtractor` extracts the current
+`SugarTable`/`SugarColumn`/`SugarIndex` mapping, inherited
 public properties, nullability metadata, defaults, conversions and explicit
 current constraints into a provider-neutral semantic model. Duplicate owners,
 unknown property types, unsupported converters and incomplete constraints fail
@@ -164,16 +582,173 @@ NOT DISTINCT state, plus constraint deferral, validation and foreign-key actions
 PostgreSQL's explicit `timestamp(6)` is normalized only to its equivalent
 unspecified default precision; `timestamp(0)` and every other explicit precision
 remain distinct and fail exact comparison.
+Compiled CLR/ORM `Conversion` remains in the complete logical input and its
+source/content identities; it is not inferred from a native database catalog.
+The single provider/storage projection admits only the current known converter
+vocabulary and compares its physical domain separately. JSON storage type,
+nullability, defaults, indexes and constraints remain exact physical facts; a
+catalog conversion of `none` is not evidence that the compiled JSON conversion
+was absent or replaced. Unknown logical converters refuse projection.
 The independent verifier and cold-readiness comparison reject stale identities,
 content tampering and exact table, column, physical type, nullability, default,
 constraint or index drift.
 
-`tools/db/check-current-schema-authority.mjs` prevents a second production
+The read-only `CurrentSchemaOwnedProjectionExporter` uses those same mappings,
+binds the compiled source commit and actual Server/Shared assembly bytes, and
+references every original current-owned PostgreSQL rollup recipe by its complete
+create/additional-SQL digest. SQL remains with `CurrentSchemaRuntimeRollupTables`;
+it is not copied into Shared or reconstructed from migration descriptors. A
+recipe reference is not its neutral semantic description. The single original
+recipe extractor derives columns, types, defaults, constraints and every additional
+effect (indexes, sequences, immutable guards/triggers, seed insertion, added columns
+and guarded foreign keys) directly from that catalog, without a second business
+field list. Unknown source syntax refuses the entire export. Shared holds typed
+effects and expression semantics, not provider SQL templates. `WriteArtifactAsync`
+publishes a new, non-overwriting `fsusblog.current-schema-owned-target.v1` artifact;
+the single neutral target projection binds both the entity facts and all recipe
+facts. Missing descriptions still refuse before any command is returned.
+The exporter payload is neither an apply grant nor a self-reported current target;
+the offline evidence owner must independently bind its original producer, bytes
+and complete source closure before consumption. No owned target artifact has
+been produced by this source-only change.
+
+The original Server executable exposes `export-current-schema-owned-target
+--output <new-absolute-file>` before Web host, DI or database configuration.
+`OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync` invokes that original producer
+as a child with the explicit retained assembly and source revision, observes its
+actual source metadata/current Shared bytes and before/after producer-file closure,
+and retains stdout, stderr, terminal status and original artifact bytes. Its private
+capability constructor is reached only after an actual exit-zero invocation and
+strict artifact/input/target binding; deserializing caller JSON grants nothing.
+The caller/root process owner still owns full process-tree qualification: a child
+exit observation is not a canonical task-tree terminal receipt. Actual producer
+execution and native acceptance have not been performed for this source component.
+
+The single neutral `ProjectOwnedTarget` folds all original relational recipe facts,
+added columns/constraints and indexes into the provider target. It retains the
+nonrelational sequence/function/trigger effects and bootstrap seed effects
+separately: relational comparison alone does not prove those effects. Seed data
+postconditions belong to apply, not to permanent runtime schema identity. Native
+expression/effect measurement has one current-only PostgreSQL implementation in
+`Shared.Algorithms.Schema`, consumed by both Server and Migration through BCL
+`DbConnection`/`DbTransaction`:
+complete `pg_get_expr` defaults/checks/index predicates, their bound dependencies,
+unowned sequences and function/trigger semantics are observed on the same native
+RepeatableRead transaction. Typed expression comparison retains literal bytes,
+casts, PostgreSQL numeric operand types and exact decimal identity; only proven
+direct integral-column literal comparisons and literal assignments normalize to
+the already compared storage domain. Arithmetic operand types are not erased.
+Unsupported syntax refuses rather than dropping
+checks/defaults. Neutral facts/identity remain in Shared.Contracts; current native
+catalog SQL and expression parsing belong to Shared.Algorithms, with no provider
+package, legacy mapping or journal payload/history validation. The actual physical
+digest still uses the original unmodified native snapshot. The Server reader now
+derives the same composite entity-plus-recipe-plus-control target and compares the complete
+native effects; this source alignment is not verified physical-schema evidence.
+
+`CurrentSchemaBootstrapCompiler` owns PostgreSQL entity and complete-recipe DDL
+compilation from the neutral facts and executes those frozen commands only on
+the caller's existing native connection/transaction. It does not open or commit
+transactions, write a journal, or replace plan/source/backup admission. Missing
+recipe semantics, unsupported defaults/computed capabilities, native provider
+capabilities and command drift refuse explicitly. Recipe compilation additionally
+requires the exact input digest from an independently verified owned artifact;
+producer strings or caller-supplied facts cannot substitute for that evidence.
+The original owner ordering (all tables before additional effects) is preserved.
+`PgCurrentSchemaBootstrapOperation` and its exact compiled-owner registry provide
+a PostgreSQL empty-source component. They consume only an actually invoked owned
+target, bind the current Migration assembly bytes, revalidate retained original
+input/artifact bytes and execute the full original command closure on the caller
+transaction. Producer metadata, retained DLL/artifact reads and the operation's Migration DLL
+hash consume the original file owner's same-FD terminal identity validation; a
+matching hash does not waive replaced-path or ancestor identity refusal.
+Native empty-source and complete target/effect predicates, initial
+seed values and unique seed-key cardinalities are independently read before a
+complete unit is returned. Replay checks the target and stable seed keys, not
+mutable bootstrap values as permanent runtime facts. The original journal owner
+validates its control table through the sole current shape on that same
+transaction. Only the empty-source predicate separates that validated control
+from its business-domain view; final target/issuer/runtime comparison retains the
+complete native snapshot and all raw expressions. No journal mapping or payload
+parser is copied into Server.
+The core retains commit, rollback, journal and original plan/source/backup admission.
+The actual empty-source component retains the original empty source profile's
+`bootstrap-current-schema` entrypoint; naming it does not admit absent provider
+owners, and the historical profile cannot enter this empty-source operation.
+This single-provider step is not a complete admissible DAG. Known-legacy target
+preparation, MySQL/SQLite execution owners and real
+three-provider qualification remain pending. No original producer/native operation
+has been executed for this source component. Source cases include original-vs-compiled PostgreSQL
+schema/effect parity and immutable guard refusal, but have not been executed for
+this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
+or a supported historical database conversion.
+
+The original MySQL catalog query independently awaits its reader and command
+disposals, preserving the first query/shape/budget/cancellation failure via the
+original exception while recording only fixed immutable cleanup codes. Cleanup
+failure after an otherwise successful read still refuses; cancellation is checked
+after the complete awaited cleanup. Its SQL descriptors, metadata limits, original
+30-second command policy and native session/driver guard are unchanged. Direct
+private-query lifecycle SOURCE controls do not qualify native cleanup or a database.
+This remote-source integration remains WIP pending canonical Migration validation,
+independent native acceptance and complete source-bound assembly receipt generation.
+The 19 original SOURCE cases retain exact immutable diagnostic types, fixed values
+and ordering. Their comparison explicitly selects string sequence equality; the
+original default ImmutableArray overload compared distinct backing-array identities.
+A separate four-case overload diagnostic covers equal, reordered, dropped and altered
+values. These mocked cleanup controls are not native service qualification.
+It does not register a whole MySQL legacy migration operation. Rollback reverts this
+catalog-query cleanup change if reader or command custody regresses, retaining the
+existing native session guards and metadata budgets.
+
+`PgCurrentSchemaCatalogObserver`, `PgCurrentSchemaEffectObserver` and
+`PgCurrentSchemaExpressionParser` are the single current native PostgreSQL
+measurement/parser implementation in Shared.Algorithms, not another expected-schema
+authority. Their original queries and decoding/comparison semantics are retained;
+they use the caller's native connection and RepeatableRead transaction, propagate
+cancellation through queries/rows, and never open, commit or capture another session.
+Migration retains the original owned-target/journal wrapper. Server's
+`CurrentSchemaReadObserver` owns a read-only RepeatableRead transaction and binds
+native database identity before and after the complete observation on that same
+connection. It derives its composite target from the original entity inspector
+and recipe fact extractor, without a producer-identity substitute, and refuses
+unknown tables/effects rather than allowing rollup names. Both scopes retain the
+original complete native `ComputeObservationDigest` semantics. A migration journal
+is not approved by a table-name exception: its original owner's legitimate terminal
+runtime contract remains pending. The measurement alone grants nothing; the issuer
+still needs its sole session's observed database identity and independently verified
+owned target. Source-only parity/refusal cases are not actual PostgreSQL evidence,
+and no provider, startup or whole-issue qualification is claimed here.
+
+The original `SchemaModelInspector` current catalog API delegates to that same
+Shared reader; its entity extraction, expected projection and validation interface
+remain unchanged. Standalone reads own a read-only native RR transaction. Schema
+evidence may borrow a caller's actual same-connection RR transaction without
+committing or disposing it; unsupported isolation or a detached transaction refuses.
+The test-only materializer explicitly starts RR before its own DDL transaction and
+uses that schema-evidence path. Production `ReadAdmissionAsync` never borrows a
+writer transaction or accepts the unit native-fact seam: it still owns an actual
+read-only RR snapshot and fresh database identity observations. These source cases
+have not been executed against a native provider.
+
+`tools/db/check-current-schema-authority.mjs` checks both the neutral contract
+and original Server extractor, and prevents a second production
 extractor, hand-written table inventory, fixture reconstruction or migration
 descriptor from becoming current authority. This boundary does not move migration
 descriptor SQL or make provider DDL a second current-schema mapping. The migration
 assembly extraction above changes compile ownership only; descriptor IDs,
 fingerprints, checksums, SQL and execution order remain stable.
+
+Current-owned recipe effects also retain the original independent PostgreSQL
+`CREATE SEQUENCE ... AS bigint` configuration as typed facts: start/increment/minimum
+1, maximum `Int64.MaxValue`, cache 1, non-cyclic, and not a business-column identity.
+The complete recipe/content identity and provider target include these facts;
+missing, altered, duplicate or unused sequence arguments refuse. This preserves
+the original `nextval` behavior, including permitted gaps, without promising
+gapless numbering, commit ordering or stronger crash persistence. MySQL and
+SQLite independent-sequence projections remain explicitly unavailable until the
+same authority owns their physical allocation protocol and actual verification;
+an observed AUTO_INCREMENT column or trigger action does not define that target.
 
 Acceptance runtime bootstrap uses the explicit Server command
 `materialize-current-schema-test` only after its isolated PostgreSQL service is
@@ -193,7 +768,7 @@ five-field identity through the sole
 `CurrentSchemaCanonicalAuthority`, materializes those entity types once, applies
 the PostCodeFirst visit-log and author-analytics rollup `EnsureTable` SQL from
 `CurrentSchemaRuntimeRollupTables` (without referencing the migration assembly),
-then runs `CurrentSchemaStartupVerifier`. Missing rollup tables fail closed instead
+then runs the read-only `CurrentSchemaReadObserver`. Missing rollup tables fail closed instead
 of remaining optional extras. A partial or stale schema fails before any write.
 DDL and verification remain inside one PostgreSQL transaction. Before commit the
 producer atomically publishes only a `prepared`, qualification-ineligible staging
@@ -493,7 +1068,7 @@ owner/site index, document-scoped foreign keys, and digest constraints follow th
 This migration does not copy article content, create article/relation/property
 foreign keys, or import transient graph positions.
 
-When a filename is a canonical N-format UUID, the migration reuses that `AssetId`; canonical D-format is also accepted for existing assets, and all other files receive a new ID. Final reference edges are rebuilt only from current source content. Legacy cleanup due/retry/error states move to the AssetId queue, while assets still referenced at the end are cancelled and returned to `active`. After verification, the migration drops four URL-identity legacy tables; runtime does not dual-write, create view/trigger aliases, or rescan the old structure when a new-table row is missing. Rollback can restore only a verified pre-cutover backup/WAL into an isolated environment; it must not rebuild URL-identity tables in the live schema.
+An existing asset record retains its `AssetId`. Otherwise, only a canonical N-format UUID filename reuses that UUID; D-format and other filenames receive a new deterministic ID from the exact storage key and content digest, so a rolled-back attempt generates the same ID on retry. Final reference edges are rebuilt only from current source content. Legacy cleanup due/retry/error states move to the AssetId queue, while assets still referenced at the end are cancelled and returned to `active`. After verification, the migration drops four URL-identity legacy tables; runtime does not dual-write, create view/trigger aliases, or rescan the old structure when a new-table row is missing. Rollback can restore only a verified pre-cutover backup/WAL into an isolated environment; it must not rebuild URL-identity tables in the live schema.
 
 ## Read Event Retirement
 
@@ -570,3 +1145,20 @@ Rollback without restarting the application is limited to the database index sha
 The migration is safe to retry. Runtime claim takeover uses `INSERT ... ON CONFLICT ... WHERE` and can replace only released/expired leases or an active lease whose expiry boundary has passed. Deployment gates are: invalid-index check in `pg_index`, queue `EXPLAIN (ANALYZE, BUFFERS, FORMAT JSON)` showing bounded keyset work, and claim conflict/expiry integration tests. Observe index bytes, `n_tup_upd`, dead tuples and autovacuum cadence after rollout; the claim table intentionally isolates lease write amplification from the large `comment` table.
 
 No-restart degradation is to stop issuing new claims at the edge and continue read-only queue inspection while existing leases expire. Rollback drops only the four new indexes concurrently; the additive table remains through the N-1 window so an older process cannot lose in-flight ownership evidence. A later destructive cleanup may drop it only after rollback eligibility ends and a backup is verified.
+
+## Physical terminal graph diagnostics
+
+The existing `tools/db/check-migration-terminal-governance.mjs` diagnostic follows
+literal, repository-owned physical `ProjectReference` declarations from Server,
+Migration and Shared, rejects transitive forbidden edges and cycles, and binds
+complete project and C# source bytes rather than a prefix. Symlinks, escaping or
+missing references, conditional/computed declarations and explicit imports cannot
+stand in for an evaluated SDK graph. Its targeted literal/constant loading scan
+does not prove arbitrary C# semantics, generated code or dynamic runtime loading.
+
+A clean physical graph does not qualify terminal acceptance. The existing CLI
+refuses to write an acceptance receipt without evaluated compile/runtime assets,
+compiled loading, nonempty published output, independent PostgreSQL/MySQL/SQLite
+provider results, mutation results and an evaluable benchmark. Source/model tests
+do not supply those observations. These diagnostic changes neither replace the
+current migration operation/fact producers nor alter database migration behavior.

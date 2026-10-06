@@ -1,5 +1,6 @@
 using System.Data.Common;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Data;
 

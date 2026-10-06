@@ -4,6 +4,15 @@ set -euo pipefail
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 cd "$ROOT_DIR"
 
+diagnostics_enabled="${FSUSBLOG_TEST_REDIS_DIAGNOSTICS:-}"
+case "$diagnostics_enabled" in
+    '' | 1) ;;
+    *)
+        echo "[perception-redis-fixture] ERROR: redis_diagnostic_opt_in_invalid" >&2
+        exit 1
+        ;;
+esac
+
 redis_host="${FSUSBLOG_TEST_REDIS_HOST:-127.0.0.1}"
 case "$redis_host" in
     127.0.0.1 | host.docker.internal) ;;
@@ -24,6 +33,10 @@ docker info >/dev/null 2>&1 || {
 }
 
 run_suffix="${FSUSBLOG_TEST_RUN_ID:-$$}-${RANDOM:-0}"
+if [[ "$diagnostics_enabled" == 1 && ! "$run_suffix" =~ ^[A-Za-z0-9_-]{1,128}$ ]]; then
+    echo "[perception-redis-fixture] ERROR: redis_diagnostic_identity_invalid" >&2
+    exit 1
+fi
 container="fsusblog-perception-v3-redis-${run_suffix}"
 redis_prefix="test:perception-v3-local-redis:${run_suffix}:"
 
@@ -64,9 +77,17 @@ trx_dir="$ROOT_DIR/.tmp/test-results/backend"
 trx_file="$trx_dir/perception-character-v3-redis-${run_suffix}.trx"
 redis_lua_case_evidence="$trx_dir/perception-character-v3-redis-lua-cases-${run_suffix}.json"
 redis_budget_evidence="$trx_dir/perception-character-v3-budget-cases-${run_suffix}.json"
+redis_burn_evidence="$trx_dir/perception-character-v3-burn-calls-${run_suffix}.json"
 redis_cutover_evidence="${FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT:-$trx_dir/perception-character-v3-cutover-${run_suffix}.json}"
 mkdir -p "$trx_dir"
-rm -f "$trx_file" "$redis_lua_case_evidence" "$redis_budget_evidence"
+diagnostic_root=''
+if [[ "$diagnostics_enabled" == 1 ]]; then
+    diagnostic_root="$(
+        umask 077
+        mktemp -d "$trx_dir/redis-diagnostics-${run_suffix}.XXXXXX"
+    )"
+fi
+rm -f "$trx_file" "$redis_lua_case_evidence" "$redis_budget_evidence" "$redis_burn_evidence"
 if [[ -z "${FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT:-}" ]]; then
     rm -f "$redis_cutover_evidence"
 fi
@@ -97,10 +118,13 @@ redis_lua_calls_before="$(RedisLuaCalls)"
 test_status=0
 
 FSUSBLOG_TEST_REDIS="${redis_host}:${port},abortConnect=true" \
+    FSUSBLOG_TEST_REDIS_DIAGNOSTICS="$diagnostics_enabled" \
+    FSUSBLOG_TEST_REDIS_DIAGNOSTIC_ROOT="$diagnostic_root" \
     FSUSBLOG_TEST_REDIS_PREFIX="$redis_prefix" \
     FSUSBLOG_TEST_LOCAL_REDIS_RUN_ID="$run_suffix" \
     FSUSBLOG_TEST_REDIS_CASE_EVIDENCE="$redis_lua_case_evidence" \
     FSUSBLOG_TEST_REDIS_BUDGET_EVIDENCE="$redis_budget_evidence" \
+    FSUSBLOG_TEST_REDIS_BURN_EVIDENCE="$redis_burn_evidence" \
     FSUSBLOG_TEST_SOURCE_COMMIT="$source_commit" \
     FSUSBLOG_TEST_SOURCE_FINGERPRINT="$source_fingerprint" \
     FSUSBLOG_V3_CUTOVER_EVIDENCE_OUT="$redis_cutover_evidence" \
@@ -135,6 +159,7 @@ producer_status=0
     --redis-lua-calls-after "$redis_lua_calls_after" \
     --redis-lua-case-evidence "$redis_lua_case_evidence" \
     --redis-budget-evidence "$redis_budget_evidence" \
+    --redis-burn-evidence "$redis_burn_evidence" \
     --cutover-evidence "$redis_cutover_evidence" \
     --cleanup-verified "$cleanup_verified" \
     --output "$output_receipt" || producer_status=$?

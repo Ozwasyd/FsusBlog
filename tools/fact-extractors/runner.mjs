@@ -2,8 +2,10 @@ import { existsSync, mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 
 import {
+    buildIdentitySchema,
     computeConsumedInputDigests,
     digestPath,
+    resolveContainedPath,
     sealSourceIdentity,
     validateBuildIdentity
 } from './identity.mjs';
@@ -22,6 +24,10 @@ import {
     validateOwnershipAgainstBehaviorCatalog,
     validateRegistry
 } from './registry.mjs';
+
+const { observationAuthoritySourcePaths } = await import(
+    new URL('../contracts/lib/config-error-security-observation.mjs', import.meta.url)
+);
 
 const fail = (message) =>
 {
@@ -113,6 +119,7 @@ export async function runExtractor({
     registry = loadRegistry(path.join(repositoryRoot, 'config/contracts/behavior-fact-extractors.json')),
     buildIdentity = null,
     buildReceiptPath = null,
+    minimalBuildReceiptValidator = null,
     useCache = true,
     cacheRoot = null
 } = {})
@@ -125,6 +132,13 @@ export async function runExtractor({
         receiptPath: buildReceiptPath,
         expectedSourceIdentity: identity
     });
+
+    if (extractorId === 'openapi-aeds-fact-extractor'
+        && normalizedBuildIdentity?.schema === buildIdentitySchema
+        && (typeof minimalBuildReceiptValidator !== 'function' || useCache))
+    {
+        fail(`${extractorId} requires uncached canonical minimal-build receipt validation`);
+    }
 
     if (extractor.hermeticPolicy === 'exact-build-receipt' && normalizedBuildIdentity == null)
     {
@@ -197,7 +211,16 @@ export async function runExtractor({
         buildIdentity: normalizedBuildIdentity,
         buildReceiptPath: normalizedBuildReceiptPath,
         sourceCommit: identity.sourceCommit,
-        worktreeFingerprint: identity.worktreeFingerprint
+        worktreeFingerprint: identity.worktreeFingerprint,
+        canonicalDigest: digestValue,
+        observationAuthoritySourcePaths,
+        minimalBuildServices: {
+            buildIdentitySchema,
+            digestPath,
+            resolveContainedPath,
+            validateBuildIdentity,
+            validateMinimalContractBuildReceipt: minimalBuildReceiptValidator
+        }
     });
     const normalized = normalizeExtractorResult(raw, extractor);
 

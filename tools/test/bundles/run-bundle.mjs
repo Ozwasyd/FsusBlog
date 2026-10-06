@@ -34,6 +34,9 @@ const {backendTopologyDefaults} = await import(new URL('../backend-production-to
 const {assertCorrectnessAttemptExecutionOwner, validateCorrectnessAttemptMigration} = await import(new URL('../correctness-attempt-migration.mjs', import.meta.url));
 const {buildLocalStaticManifest, planLocalStaticCommands} = await import(new URL('../local-static-governance.mjs', import.meta.url));
 const {readMeasurementNoiseAuthoritySequence, validateMeasurementNoiseReceipt} = await import(new URL('../measurement-noise-envelope.mjs', import.meta.url));
+const {publishMigrationBuildReady} = await import(new URL('../migration-build-binding.mjs', import.meta.url));
+const {migrationAssemblyPendingPaths} = await import(new URL('../../db/generate-migration-assembly-receipt.mjs', import.meta.url));
+const {migrationExecutionPaths, readMigrationExecution} = await import(new URL('../run-migration-tests.mjs', import.meta.url));
 const {validateShardSummaryArtifacts} = await import(new URL('../run-backend-production-shards.mjs', import.meta.url));
 
 import {
@@ -262,6 +265,8 @@ Object.assign(process.env, productionBuildEnvironment(productionBuildLayout, pro
 const { createFrontendBuildStages } = await import(new URL('../../frontend/build.mjs', import.meta.url));
 const dotnetArtifacts = productionDotnetArtifacts(productionBuildLayout);
 const backendTestDll = dotnetArtifacts.testDll;
+const migrationTestDll = dotnetArtifacts.migrationTestDll;
+const xunitAdapterDll = dotnetArtifacts.xunitAdapterDll;
 const benchmarkDll = dotnetArtifacts.benchmarkDll;
 const backendServerDll = dotnetArtifacts.serverDll;
 const frontendDistRoot = productionBuildLayout.frontendDist;
@@ -2253,6 +2258,24 @@ async function runBackendTests()
             resources: { cpuWeight: 2, memoryWeight: 2, minCpuUnits: 1 },
             afterSuccess: publishBackendTestsReady
         });
+    const migrationTestsBuildStep = commandStep('migration-tests-build',
+        'tools/build-with-data-env.sh dotnet build tests/migration/FsusBlog.Migration.Tests.csproj -c Release --no-restore -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
+        ['backend-build-governance'], {
+            artifacts: [migrationTestDll],
+            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+        });
+    const xunitAdapterBuildStep = commandStep('xunit-inventory-adapter-build',
+        'tools/build-with-data-env.sh dotnet build tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj -c Release --no-restore --no-dependencies -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
+        ['backend-build-governance'], {
+            artifacts: [xunitAdapterDll, runMarkerFile('migration-tests-ready')],
+            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 },
+            afterSuccess: () => publishMigrationBuildReady({
+                root,
+                runId: schedulerRunId(),
+                namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
+                sourceState: currentSourceState()
+            })
+        });
     const benchmarkBuildStep = commandStep('backend-benchmark-build',
         'tools/build-with-data-env.sh dotnet build benchmarks/core/FsusBlog.Core.Benchmarks.csproj -c Release --no-restore --no-dependencies -warnaserror -v minimal /m:"$FSUSBLOG_STEP_CPU_BUDGET" /p:UseSharedCompilation=true /p:NuGetAudit=false',
         ['backend-build-governance'], {
@@ -2264,7 +2287,33 @@ async function runBackendTests()
     // benchmark build cannot be admitted until the union finishes. Build this
     // small prerequisite first so performance work can overlap the long union.
     await executeStep(testsBuildStep);
+    await executeStep(migrationTestsBuildStep);
+    await executeStep(xunitAdapterBuildStep);
     await executeStep(benchmarkBuildStep);
+    const migrationContext = {
+        root,
+        runId: schedulerRunId(),
+        namespace: String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim(),
+        sourceState: currentSourceState()
+    };
+    const migrationPaths = migrationExecutionPaths(migrationContext);
+    const migrationStep = commandStep('migration-test-execution',
+        'tools/build-with-data-env.sh node tools/test/run-migration-tests.mjs', [], {
+            artifacts: [migrationPaths.directory],
+            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 },
+            afterSuccess: () => readMigrationExecution(migrationContext)
+        });
+    const migrationResult = await executeStep(migrationStep);
+    const migrationExecution = await readMigrationExecution(migrationContext);
+    register({ id: migrationStep.id, members: ['backend-unit', 'backend-fast'] }, migrationResult,
+        migrationExecution.summary.sourceCaseIds, [migrationPaths.directory]);
+    const assemblyPending = migrationAssemblyPendingPaths({ ...migrationContext, producer: 'backend-tests',
+        attemptId: String(process.env.FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID ?? '') });
+    await executeStep(commandStep('migration-assembly-verification',
+        'tools/build-with-data-env.sh node tools/db/generate-migration-assembly-receipt.mjs --write', [], {
+            artifacts: [assemblyPending.directory],
+            resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 }
+        }));
     const testStep = commandStep('dotnet-production-union',
         'FSUSBLOG_BACKEND_CPU_BUDGET="$FSUSBLOG_STEP_CPU_BUDGET" node tools/test/run-backend-production-shards.mjs', [], {
             resources: {

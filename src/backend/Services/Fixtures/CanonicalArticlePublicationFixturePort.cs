@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Integrity;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
@@ -432,7 +433,7 @@ public sealed class CanonicalArticlePublicationFixturePort(
         }
     }
 
-    private static Guid DeriveClientMutationId(string runId, string ns, string semanticRole)
+    internal static Guid DeriveClientMutationId(string runId, string ns, string semanticRole)
     {
         byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes($"canonical-publish:{runId}:{ns}:{semanticRole}"));
         Span<byte> guidBytes = stackalloc byte[16];

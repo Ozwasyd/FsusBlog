@@ -98,6 +98,7 @@ internal static class RuntimeDomainServiceCollectionExtensions
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentModerationFixturePort, FsusBlog.Server.Services.Fixtures.CommentModerationFixturePort>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICanonicalArticlePublicationFixturePort, FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationFixturePort>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICanonicalArticleLifecycleFixturePort, FsusBlog.Server.Services.Fixtures.CanonicalArticleLifecycleFixturePort>();
+            services.AddScoped<FsusBlog.Server.Services.Fixtures.CanonicalArticleProjectionVerifier>();
             services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureCapabilityVault, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureCapabilityVault>();
             services.AddSingleton<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureOperationLedger, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureOperationLedger>();
             services.AddScoped<FsusBlog.Server.Services.Fixtures.ICommentAnonymousFixtureProvider, FsusBlog.Server.Services.Fixtures.CommentAnonymousFixtureProvider>();
@@ -196,6 +197,18 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IAuthorArticlePinReconciliationSink, AuthorArticlePinReconciliationSink>();
         services.AddScoped<IAuthorArticlePinProjectionService, AuthorArticlePinProjectionService>();
         services.AddScoped<IAuthorArticlePinApplicationFacade, AuthorArticlePinApplicationFacade>();
+        services.AddScoped<IAuthorRecentArticleHistoryStore, AuthorRecentArticleHistoryStore>();
+        services.AddScoped<SqlAuthorRecentArticleHistoryPermissionAuthority>();
+        services.AddScoped<IAuthorRecentArticleHistoryMutationAuthorizer>(sp =>
+            sp.GetRequiredService<SqlAuthorRecentArticleHistoryPermissionAuthority>());
+        services.AddScoped<IAuthorRecentArticleHistoryPermissionProjectionProvider>(sp =>
+            sp.GetRequiredService<SqlAuthorRecentArticleHistoryPermissionAuthority>());
+        services.AddScoped<IAuthorRecentArticleHistoryCursorCodec, AuthorRecentArticleHistoryCursorCodec>();
+        services.AddSingleton<
+            IAuthorRecentArticleHistoryProjectionCache,
+            DirectAuthorRecentArticleHistoryProjectionCache>();
+        services.AddScoped<IAuthorRecentArticleHistoryProjectionService, AuthorRecentArticleHistoryProjectionService>();
+        services.AddScoped<IAuthorRecentArticleHistoryApplicationFacade, AuthorRecentArticleHistoryApplicationFacade>();
         services.AddScoped<IArticleTemplatePersistence, PostgresArticleTemplatePersistence>();
         services.AddScoped<IArticleTemplateStore, ArticleTemplateStore>();
         services.AddScoped<IArticleTemplatePermissionAuthority, ArticleTemplatePermissionAuthority>();
@@ -204,6 +217,11 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleTemplateExpansionAuthority, PostgresArticleTemplateExpansionAuthority>();
         services.AddScoped<IArticleTemplateExpansionPlanner, ArticleTemplateExpansionPlanner>();
         services.AddScoped<IArticleTemplateExpansionVerifier, ArticleTemplateExpansionVerifier>();
+        services.AddScoped<IArticlePropertyDefinitionPersistence, PostgresArticlePropertyDefinitionPersistence>();
+        services.AddScoped<IArticlePropertyDefinitionStore, ArticlePropertyDefinitionStore>();
+        services.AddScoped<IArticlePropertyDefinitionPermissionAuthority, ArticlePropertyDefinitionPermissionAuthority>();
+        services.AddScoped<IArticlePropertyDefinitionImpactAuthority, UnavailableArticlePropertyDefinitionImpactAuthority>();
+        services.AddScoped<ArticlePropertyDefinitionVerifier>();
         services.AddScoped<IArticleCreatePersistence, PostgresArticleCreatePersistence>();
         services.AddScoped<IArticleCreateStore, ArticleCreateStore>();
         services.AddScoped<AuthoringContentTransferService>();

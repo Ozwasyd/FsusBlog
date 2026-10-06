@@ -155,6 +155,94 @@ public sealed class ArticleBulkRegistryTests
             owner => owner.Id == operation.CommandOwner && owner.OperationIds.Contains(operationId));
     }
 
+    [Theory]
+    [InlineData("category.add", "categoryId", "category-1")]
+    [InlineData("lifecycle.archive", "reasonCode", "reason-code")]
+    [InlineData("property.set", "typedValueDigest", "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")]
+    [InlineData("content-check.run", "checkIds", "valid-check")]
+    public void CompleteCanonicalParameterValuesRemainUnchanged(
+        string operationId,
+        string fieldName,
+        string value)
+    {
+        var normalized = ArticleBulkOperationRegistry.NormalizeParameters(
+            operationId,
+            NormalizationCaseParameters(operationId, value));
+
+        if (fieldName == "checkIds")
+        {
+            Assert.Equal([value], Assert.IsAssignableFrom<IEnumerable<string>>(normalized[fieldName]));
+        }
+        else
+        {
+            Assert.Equal(value, normalized[fieldName]);
+        }
+    }
+
+    [Theory]
+    [InlineData("category.add", "category-1", "\n")]
+    [InlineData("category.add", "category-1", "\r\n")]
+    [InlineData("lifecycle.archive", "reason-code", "\n")]
+    [InlineData("lifecycle.archive", "reason-code", "\r\n")]
+    [InlineData("property.set", "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "\n")]
+    [InlineData("property.set", "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "\r\n")]
+    [InlineData("content-check.run", "valid-check", "\n")]
+    [InlineData("content-check.run", "valid-check", "\r\n")]
+    public void CompleteParameterSchemasRejectTrailingNewlines(
+        string operationId,
+        string validValue,
+        string suffix)
+    {
+        Dictionary<string, JsonElement> parameters = NormalizationCaseParameters(operationId, validValue);
+        ArticleBulkOperationRegistry.NormalizeParameters(operationId, parameters);
+
+        Assert.Equal(
+            "article-bulk.parameter-invalid",
+            Assert.Throws<ArticleBulkContractException>(() => ArticleBulkOperationRegistry.NormalizeParameters(
+                operationId,
+                NormalizationCaseParameters(operationId, validValue + suffix))).Code);
+    }
+
+    [Theory]
+    [InlineData(255)]
+    [InlineData(256)]
+    public void OpaqueIdAcceptsItsOriginalLengthBoundary(int length)
+    {
+        string value = new('a', length);
+
+        var normalized = ArticleBulkOperationRegistry.NormalizeParameters(
+            "category.add",
+            Parameters(("categoryId", value)));
+
+        Assert.Equal(value, normalized["categoryId"]);
+    }
+
+    [Theory]
+    [InlineData(257, "")]
+    [InlineData(256, "\n")]
+    [InlineData(256, "\r\n")]
+    public void OpaqueIdRejectsOverflowAndNewlinesAtItsOriginalBoundary(int length, string suffix)
+    {
+        Assert.Equal(
+            "article-bulk.parameter-invalid",
+            Assert.Throws<ArticleBulkContractException>(() => ArticleBulkOperationRegistry.NormalizeParameters(
+                "category.add",
+                Parameters(("categoryId", new string('a', length) + suffix)))).Code);
+    }
+
+    private static Dictionary<string, JsonElement> NormalizationCaseParameters(string operationId, string value) =>
+        operationId switch
+        {
+            "category.add" => Parameters(("categoryId", value)),
+            "lifecycle.archive" => Parameters(("reasonCode", value)),
+            "property.set" => Parameters(("definitionId", "definition-1"), ("typedValueDigest", value)),
+            "content-check.run" => new Dictionary<string, JsonElement>
+            {
+                ["checkIds"] = JsonSerializer.SerializeToElement(new[] { value })
+            },
+            _ => throw new ArgumentOutOfRangeException(nameof(operationId))
+        };
+
     private static Dictionary<string, JsonElement> Parameters(params (string Name, string Value)[] pairs) =>
         pairs.ToDictionary(
             static pair => pair.Name,

@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import {
     mkdirSync,
     mkdtempSync,
@@ -11,6 +12,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import { gunzipSync } from 'node:zlib';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const checker = path.join(root, 'tools/docs/check-authoritative-development-docs.mjs');
@@ -80,6 +82,68 @@ test('authoritative development documentation authoritative development document
         const result = runChecker(overlay);
         assert.equal(result.status, 0, output(result));
         assert.match(result.stdout, /\[authoritative-development-docs] ok/);
+    });
+});
+
+test('authoritative development documentation assigns only the sealed FsusUI migration archive to its dependency owner', () =>
+{
+    const archivePath = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
+    const manifest = readManifest();
+    const vendor = manifest.pathClassifications.find((entry) => entry.id === 'dependency-migration-archive');
+    assert.ok(vendor.patterns.includes(archivePath));
+    assert.deepEqual(manifest.pathClassifications.filter((entry) => entry.patterns.includes(archivePath))
+        .map((entry) => ({ id: entry.id, owner: entry.owner })), [{ id: 'dependency-migration-archive', owner: 'DependencyOwner' }]);
+    assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
+    assert.ok(!vendor.patterns.includes('config/dependencies/**'));
+
+    const archive = readFileSync(path.join(root, archivePath));
+    const owner = read('tools/dependencies/migrate-fsusui-public-npm.mjs');
+    const digest = owner.match(/FSUSUI_PUBLIC_NPM_MIGRATION_PATCH_SHA256 = '([0-9a-f]{64})'/u)?.[1];
+    assert.ok(digest, 'the existing migration owner must seal the archive bytes');
+    assert.equal(createHash('sha256').update(archive).digest('hex'), digest);
+    assert.match(gunzipSync(archive).toString('utf8'), /^diff --git /u);
+});
+
+test('authoritative development documentation rejects the FsusUI migration archive without its exact dependency ownership', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const manifest = readManifest();
+        const vendor = manifest.pathClassifications.find((entry) => entry.id === 'dependency-migration-archive');
+        vendor.patterns = vendor.patterns.filter((pattern) =>
+            pattern !== 'config/dependencies/fsusui-public-npm-migration.patch.gz');
+        writeManifest(overlay, manifest);
+
+        const result = runChecker(overlay);
+        assert.notEqual(result.status, 0);
+        assert.match(output(result), /config\/dependencies\/fsusui-public-npm-migration\.patch\.gz has no style owner or non-source classification/u);
+    });
+});
+
+test('authoritative development documentation rejects neighboring unowned archives without widening the exact dependency overlay scope', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const neighboringPaths = [
+            'config/dependencies/fsusui-public-npm-migration-copy.patch.gz',
+            'config/dependencies/overlays/fsusui-public-npm-migration.patch.gz',
+            'config/dependencies/unregistered-migration.tar.gz'
+        ];
+        const archive = readFileSync(path.join(root, 'config/dependencies/fsusui-public-npm-migration.patch.gz'));
+        for (const relativePath of neighboringPaths)
+        {
+            const target = path.join(overlay, relativePath);
+            mkdirSync(path.dirname(target), { recursive: true });
+            writeFileSync(target, archive);
+        }
+        const result = runChecker(overlay);
+        assert.notEqual(result.status, 0);
+        const combined = output(result);
+        for (const relativePath of neighboringPaths)
+        {
+            assert.ok(combined.includes(`${relativePath} has no style owner or non-source classification`));
+        }
+        assert.ok(!combined.includes(`${'config/dependencies/fsusui-public-npm-migration.patch.gz'} has no style owner or non-source classification`));
     });
 });
 
@@ -205,6 +269,65 @@ test('authoritative development documentation checker assigns XML configuration 
         assert.equal(result.status, 0, output(result));
     });
 });
+
+test('authoritative development documentation classifies only the exact packed dependency migration input', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const manifest = readManifest();
+        const classification = manifest.pathClassifications.find(
+            (entry) => entry.id === 'dependency-migration-archive'
+        );
+        assert.equal(classification.owner, 'DependencyOwner');
+        assert.deepEqual(classification.patterns, ['config/dependencies/fsusui-public-npm-migration.patch.gz']);
+        assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
+        assert.ok(!manifest.nonSourceSpecialFiles.includes('fsusui-public-npm-migration.patch.gz'));
+
+        const result = runChecker(overlay);
+        assert.equal(result.status, 0, output(result));
+    });
+});
+
+test('authoritative development documentation rejects the packed migration input without its classification', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const manifest = readManifest();
+        manifest.pathClassifications = manifest.pathClassifications.filter(
+            (entry) => entry.id !== 'dependency-migration-archive'
+        );
+        writeManifest(overlay, manifest);
+
+        const result = runChecker(overlay);
+        assert.notEqual(result.status, 0);
+        assert.match(
+            output(result),
+            /config\/dependencies\/fsusui-public-npm-migration\.patch\.gz has no style owner or non-source classification/
+        );
+    });
+});
+
+for (const relativePath of [
+    'config/dependencies/unowned-migration.patch.gz',
+    'tools/dependencies/fsusui-public-npm-migration.patch.gz',
+    'config/dependencies/fsusui-public-npm-migration.patch'
+])
+{
+    test(`authoritative development documentation packed input classification does not exempt ${relativePath}`, () =>
+    {
+        withOverlay((overlay) =>
+        {
+            writeOverlay(overlay, relativePath, 'unclassified migration input');
+
+            const result = runChecker(overlay);
+            assert.notEqual(result.status, 0);
+            assert.ok(
+                output(result).includes(`${relativePath} has no style owner or non-source classification`),
+                output(result)
+            );
+        });
+    });
+}
 
 test('authoritative development documentation checker rejects browserconfig XML without its style owner', () =>
 {

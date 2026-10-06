@@ -5,6 +5,12 @@ import process from 'node:process';
 import { createInterface } from 'node:readline';
 import { fileURLToPath } from 'node:url';
 
+import {
+    finalizePrivateDotnetScratch,
+    preparePrivateDotnetScratch,
+    verifyPrivateDotnetScratchBinding
+} from './physical-execution-private-dotnet-scratch.mjs';
+
 const [controlRoot] = process.argv.slice(2);
 if (!controlRoot)
 {
@@ -14,6 +20,10 @@ if (!controlRoot)
 const command = JSON.parse(fs.readFileSync(`${controlRoot}/command.json`, 'utf8'));
 const commandEnvironment = JSON.parse(fs.readFileSync(`${controlRoot}/environment.json`, 'utf8'));
 const admission = JSON.parse(fs.readFileSync(`${controlRoot}/admission.json`, 'utf8'));
+const privateDotnetScratchBinding = admission.privateDotnetScratch
+    ? Object.fromEntries(Object.entries(admission.privateDotnetScratch)
+        .filter(([key]) => !['unitName', 'hostMountNamespace', 'hostTmpIdentity'].includes(key)))
+    : null;
 const readyFile = `${controlRoot}/ready`;
 const startFile = `${controlRoot}/start`;
 const childFile = `${controlRoot}/child.json`;
@@ -54,6 +64,62 @@ function publishPrivateFile(file, content)
 
 publishPrivateFile(readyFile, `${process.pid}\n`);
 await waitFor(startFile);
+
+let privateDotnetScratchState = null;
+if (admission.privateDotnetScratch)
+{
+    try
+    {
+        verifyPrivateDotnetScratchBinding(privateDotnetScratchBinding, {
+            environment: commandEnvironment,
+            cwd: process.cwd(),
+            controlRoot
+        });
+        privateDotnetScratchState = preparePrivateDotnetScratch({
+            hostNamespace: admission.privateDotnetScratch.hostMountNamespace,
+            unitNamespace: fs.readlinkSync('/proc/self/ns/mnt'),
+            hostTmpIdentity: admission.privateDotnetScratch.hostTmpIdentity,
+            privateTmp: 'yes'
+        });
+        publishPrivateFile(`${controlRoot}/private-dotnet-scratch-prepared.json`, JSON.stringify({
+            binding: privateDotnetScratchBinding,
+            mountNamespace: privateDotnetScratchState.mountNamespace,
+            path: admission.privateDotnetScratch.path,
+            authorityId: admission.authorityId
+        }));
+    }
+    catch (error)
+    {
+        let cleanup = 'not-prepared';
+        if (privateDotnetScratchState)
+        {
+            try
+            {
+                finalizePrivateDotnetScratch(privateDotnetScratchState, {
+                    unitNamespace: fs.readlinkSync('/proc/self/ns/mnt')
+                });
+                cleanup = 'removed';
+            }
+            catch
+            {
+                cleanup = 'unverifiable';
+            }
+        }
+        publishPrivateFile(`${controlRoot}/private-dotnet-scratch-finalized.json`, JSON.stringify({
+            cleanup,
+            reason: error.message,
+            path: admission.privateDotnetScratch.path,
+            binding: privateDotnetScratchBinding,
+            authorityId: admission.authorityId,
+            unitName: admission.privateDotnetScratch.unitName
+        }));
+        const spawnError = { name: error.name, code: error.code ?? null, message: error.message };
+        publishPrivateFile(childFile, `${JSON.stringify({ pid: null, spawnError })}\n`);
+        publishPrivateFile(resultFile, `${JSON.stringify({ exitCode: 125, signal: null, spawnError })}\n`);
+        await waitFor(finalizeFile);
+        process.exit(125);
+    }
+}
 
 const child = spawn(admission.python, ['-I', '-S', fileURLToPath(new URL('./physical-execution-linux-preexec.py', import.meta.url))], {
     detached: true,
@@ -105,6 +171,7 @@ const result = await new Promise((resolve) =>
     {
         child.stdio[3].write(`${JSON.stringify({
             authorityId: admission.authorityId,
+            privateTmpPlan: admission.privateTmpPlan,
             command,
             environmentJson: JSON.stringify(commandEnvironment)
         })}\n`);
@@ -138,3 +205,28 @@ const result = await new Promise((resolve) =>
 });
 publishPrivateFile(resultFile, `${JSON.stringify(result)}\n`);
 await waitFor(finalizeFile);
+if (privateDotnetScratchState)
+{
+    try
+    {
+        const observation = finalizePrivateDotnetScratch(privateDotnetScratchState, {
+            unitNamespace: fs.readlinkSync('/proc/self/ns/mnt')
+        });
+        publishPrivateFile(`${controlRoot}/private-dotnet-scratch-finalized.json`, JSON.stringify({
+            ...observation,
+            binding: privateDotnetScratchBinding,
+            authorityId: admission.authorityId,
+            unitName: admission.privateDotnetScratch.unitName
+        }));
+    }
+    catch (error)
+    {
+        publishPrivateFile(`${controlRoot}/private-dotnet-scratch-finalized.json`, JSON.stringify({
+            cleanup: 'unverifiable',
+            reason: error.message,
+            authorityId: admission.authorityId,
+            unitName: admission.privateDotnetScratch.unitName
+        }));
+        process.exitCode = 125;
+    }
+}

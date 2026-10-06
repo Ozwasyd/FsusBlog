@@ -20,19 +20,19 @@ internal static class AedsJsonResults
         => BinaryResults.FrameRaw(aeds, frameType, "null"u8.ToArray());
 
     public static IResult BadRequest(IAedsEncoder aeds, string message)
-        => Error(aeds, ErrorCode.Validation, message, StatusCodes.Status400BadRequest);
+        => Error(aeds, ApiErrorTransportMappingId.Default400Validation, message);
 
     public static IResult NotFound(IAedsEncoder aeds, string message)
-        => Error(aeds, ErrorCode.NotFound, message, StatusCodes.Status404NotFound);
+        => Error(aeds, ApiErrorTransportMappingId.Default404NotFound, message);
 
     public static IResult Unauthorized(IAedsEncoder aeds)
-        => Error(aeds, ErrorCode.Unauthorized, "UNAUTHORIZED", StatusCodes.Status401Unauthorized);
+        => Error(aeds, ApiErrorTransportMappingId.Default401Unauthorized, "UNAUTHORIZED");
 
     public static IResult PreconditionRequired(IAedsEncoder aeds, string message)
-        => Error(aeds, ErrorCode.Forbidden, message, StatusCodes.Status428PreconditionRequired);
+        => Error(aeds, ApiErrorTransportMappingId.Operation428Forbidden, message);
 
-    public static IResult Error(IAedsEncoder aeds, ErrorCode code, string message, int statusCode = 0)
-        => BinaryResults.FromError(ErrorDetail.Create(code, message), aeds, statusCode);
+    public static IResult Error(IAedsEncoder aeds, ApiErrorTransportMappingId mappingId, string message)
+        => BinaryResults.FromError(ApiErrorSemanticMapper.CreateError(mappingId, message), aeds, mappingId);
 
     public static async Task<AedsJsonRequest<T>> ReadAsync<T>(
         HttpContext context,

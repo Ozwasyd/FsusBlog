@@ -4,11 +4,18 @@ using FsusBlog.Server.Infrastructure.Testing;
 
 namespace FsusBlog.Server.Infrastructure.Security;
 
+/// <summary>
+/// Sets hard limits on retained session entries, principal entries, and estimated resident bytes.
+/// A limit breach makes the projection not-ready instead of evicting an active session.
+/// </summary>
 public sealed record AdminSessionProjectionLimits(
     int MaxSessionEntries,
     int MaxPrincipalEntries,
     long MaxResidentBytes)
 {
+    /// <summary>
+    /// Rejects nonpositive limits before they can govern a projection instance.
+    /// </summary>
     public void Validate()
     {
         if (MaxSessionEntries <= 0)
@@ -28,12 +35,19 @@ public sealed record AdminSessionProjectionLimits(
     }
 }
 
+/// <summary>
+/// Distinguishes an active principal from one that local validation must reject.
+/// </summary>
 public enum AdminSessionProjectionPrincipalStatus : byte
 {
     Active = 0,
     Disabled = 1
 }
 
+/// <summary>
+/// Describes whether a versioned update changed state, repeated or lagged behind it,
+/// or was rejected because its facts, capacity, or same-version content conflicted.
+/// </summary>
 public enum AdminSessionProjectionApplyStatus : byte
 {
     Applied = 0,
@@ -44,12 +58,20 @@ public enum AdminSessionProjectionApplyStatus : byte
     Conflict = 5
 }
 
+/// <summary>
+/// Identifies whether a validation decision came from the local projection.
+/// A decision made before a local lookup has no projection source.
+/// </summary>
 public static class AdminSessionProjectionSources
 {
     public const string None = "none";
     public const string LocalProjection = "local-projection";
 }
 
+/// <summary>
+/// Provides distinct local validation reasons for readiness, identity, principal state,
+/// revocation, expiry, and token-hash checks.
+/// </summary>
 public static class AdminSessionProjectionReasons
 {
     public const string Valid = "ok";
@@ -64,12 +86,20 @@ public static class AdminSessionProjectionReasons
     public const string TokenMismatch = "admin_session_token_mismatch";
 }
 
+/// <summary>
+/// Carries a principal's current status, per-principal version, and delivery generation.
+/// Stale versions cannot replace newer projected state.
+/// </summary>
 public readonly record struct AdminSessionProjectionPrincipalUpdate(
     long PrincipalId,
     AdminSessionProjectionPrincipalStatus Status,
     long Version,
     long Generation);
 
+/// <summary>
+/// Carries one session's identity, fixed-size token hash, expiry and revocation facts,
+/// version, generation, and matching principal update for atomic local admission.
+/// </summary>
 public readonly record struct AdminSessionProjectionSessionUpdate(
     string SessionId,
     long PrincipalId,
@@ -81,16 +111,28 @@ public readonly record struct AdminSessionProjectionSessionUpdate(
     long Generation,
     AdminSessionProjectionPrincipalUpdate Principal);
 
+/// <summary>
+/// Reports the update disposition and highest processed generation, with a rejection detail
+/// when invalid input, capacity, or conflicting same-version facts prevent admission.
+/// </summary>
 public readonly record struct AdminSessionProjectionApplyResult(
     AdminSessionProjectionApplyStatus Status,
     long LastProcessedGeneration,
     string? Detail = null)
 {
+    /// <summary>
+    /// Indicates that the update was applied or was already represented by equal or newer state;
+    /// invalid, capacity-rejected, and conflicting updates are not accepted.
+    /// </summary>
     public bool Accepted => Status is AdminSessionProjectionApplyStatus.Applied
         or AdminSessionProjectionApplyStatus.Duplicate
         or AdminSessionProjectionApplyStatus.Stale;
 }
 
+/// <summary>
+/// Returns a local validation decision and its reason, source, and version coordinates.
+/// Successful decisions also carry the projected idle and absolute expiry times.
+/// </summary>
 public readonly record struct AdminSessionProjectionValidationResult(
     bool IsValid,
     string Reason,
@@ -120,6 +162,10 @@ public readonly record struct AdminSessionProjectionValidationResult(
         => new(false, reason, source, sessionVersion, principalVersion, generation);
 }
 
+/// <summary>
+/// Captures readiness, entry and byte budgets, and local decision counters under the
+/// projection lock. Authority-read count remains zero for this process-local owner.
+/// </summary>
 public readonly record struct AdminSessionProjectionSnapshot(
     bool IsReady,
     string? NotReadyReason,
@@ -143,7 +189,8 @@ public readonly record struct AdminSessionProjectionSnapshot(
     long PrunedSessionCount);
 
 /// <summary>
-/// Thread-safe, process-local authority projection for admin access-session validation.
+/// Process-local authority projection for admin access-session validation.
+/// Mutable projection state is serialized by the same <c>_gate</c> lock for reads and writes.
 /// It owns no Redis, database, filesystem, HTTP, DI, mutation, or touch dependency.
 /// Active sessions are never evicted to admit another update: a budget breach makes
 /// the projection not-ready so subsequent validation remains fail-closed.
@@ -175,6 +222,10 @@ public sealed class AdminSessionProjection
     private long _conflictCount;
     private long _prunedSessionCount;
 
+    /// <summary>
+    /// Creates an empty, not-ready projection after validating positive budgets.
+    /// An injected time provider controls expiry checks; otherwise the system provider is used.
+    /// </summary>
     public AdminSessionProjection(AdminSessionProjectionLimits limits, TimeProvider? timeProvider = null)
     {
         ArgumentNullException.ThrowIfNull(limits);
@@ -183,6 +234,10 @@ public sealed class AdminSessionProjection
         _timeProvider = timeProvider ?? TimeProvider.System;
     }
 
+    /// <summary>
+    /// Marks the projection ready only after its processed generation reaches the supplied
+    /// authority generation; a lagged projection stays not-ready.
+    /// </summary>
     public bool MarkReady(long authorityGeneration)
     {
         if (authorityGeneration < 0)
@@ -206,6 +261,9 @@ public sealed class AdminSessionProjection
         }
     }
 
+    /// <summary>
+    /// Withdraws readiness with a required nonblank reason without discarding retained facts.
+    /// </summary>
     public void MarkNotReady(string reason)
     {
         if (string.IsNullOrWhiteSpace(reason))
@@ -220,6 +278,10 @@ public sealed class AdminSessionProjection
         }
     }
 
+    /// <summary>
+    /// Applies a principal update by per-principal version, rejecting invalid, conflicting,
+    /// or over-budget facts without evicting active sessions.
+    /// </summary>
     public AdminSessionProjectionApplyResult Apply(AdminSessionProjectionPrincipalUpdate update)
     {
         if (!TryCreatePrincipalEntry(update, out PrincipalEntry? candidate, out string? error))
@@ -264,6 +326,10 @@ public sealed class AdminSessionProjection
         }
     }
 
+    /// <summary>
+    /// Applies a session and its matching principal update under one lock. Stale and duplicate
+    /// versions do not rewrite state; conflicts or budget breaches withdraw readiness.
+    /// </summary>
     public AdminSessionProjectionApplyResult Apply(AdminSessionProjectionSessionUpdate update)
     {
         if (!TryCreateSessionEntry(update, out SessionEntry? session, out PrincipalEntry? principal, out string? error))
@@ -336,6 +402,10 @@ public sealed class AdminSessionProjection
         }
     }
 
+    /// <summary>
+    /// Validates a ready local session against principal state, revocation, expiry, and a
+    /// fixed-size token hash without consulting Redis or the database. Expired entries are pruned.
+    /// </summary>
     public AdminSessionProjectionValidationResult Validate(
         string sessionId,
         long principalId,
@@ -417,6 +487,10 @@ public sealed class AdminSessionProjection
         }
     }
 
+    /// <summary>
+    /// Removes revoked or expired sessions and principals left without any session reference.
+    /// Returns the number of removed sessions.
+    /// </summary>
     public int PruneExpiredAndRevoked()
     {
         lock (_gate)
@@ -425,6 +499,10 @@ public sealed class AdminSessionProjection
         }
     }
 
+    /// <summary>
+    /// Returns one lock-consistent view of readiness, residency, limits, and local counters
+    /// without reading an external authority.
+    /// </summary>
     public AdminSessionProjectionSnapshot Snapshot()
     {
         lock (_gate)

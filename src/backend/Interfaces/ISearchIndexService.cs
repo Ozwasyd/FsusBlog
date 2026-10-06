@@ -14,3 +14,23 @@ public interface ISearchIndexService
         CancellationToken cancellationToken = default);
     Task DeleteIndexAsync(int id);
 }
+
+public sealed record SearchProjectionEvidence(
+    string Generation,
+    DateTime GeneratedAtUtc,
+    string ArtifactDigest,
+    bool Found,
+    int ArticleId,
+    long RevisionId,
+    int RevisionNo,
+    long PublicationId,
+    int PublicationNo,
+    string TitleDigest,
+    string DocumentDigest);
+
+public interface ISearchProjectionEvidenceReader
+{
+    Task<SearchProjectionEvidence> ReadAsync(
+        int articleId,
+        CancellationToken cancellationToken = default);
+}

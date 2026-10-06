@@ -34,6 +34,167 @@ RejectPattern() {
     fi
 }
 
+RequireLocationPattern() {
+    local file="$1"
+    local location="$2"
+    local pattern="$3"
+    local label="$4"
+    local identityPattern="${5:-$pattern}"
+    local block
+    if ! block=$(awk -v marker="$location" '
+        BEGIN { split(marker, parts, " "); privatePrefix = parts[3] }
+        {
+            line = $0
+            sub(/#.*/, "", line)
+            trimmed = line
+            sub(/^[[:space:]]*/, "", trimmed)
+            sub(/[[:space:]]*$/, "", trimmed)
+            if (trimmed ~ /^location[[:space:]]/ && index(trimmed, privatePrefix) && trimmed != marker) exit 2
+        }
+        trimmed == marker {
+            found++
+            if (inside) exit 2
+            inside = 1
+        }
+        inside {
+            if (depth == 1 && line ~ /\{/) exit 2
+            if (depth == 1 && line !~ /[{}]/) print line
+            depth += gsub(/\{/, "{", line)
+            depth -= gsub(/\}/, "}", line)
+            if (depth < 0) exit 2
+            if (depth == 0) inside = 0
+        }
+        END { if (found != 1 || inside || depth != 0) exit 2 }
+    ' "$file") || [[ "$(grep -Ec "$pattern" <<<"$block")" -ne 1 ]] || [[ "$(grep -Ec "$identityPattern" <<<"$block")" -ne 1 ]]; then
+        failures+=("${file#"$ROOT_DIR"/}: missing $label in unique $location location")
+    fi
+}
+
+RequireSinglePrivateAlias() {
+    local file="$1"
+    if ! awk '
+        BEGIN { privateRoot = "/var/lib/fsusblog/storage/shared/assets/private" }
+        {
+            line = $0
+            sub(/#.*/, "", line)
+            count = split(line, parts, /[;{}]/)
+            for (i = 1; i <= count; i++) {
+                directive = parts[i]
+                sub(/^[[:space:]]*/, "", directive)
+                sub(/[[:space:]]*$/, "", directive)
+                if (directive ~ /^(alias|root)[[:space:]]/) {
+                    if (split(directive, fields, /[[:space:]]+/) != 2) invalid = 1
+                    path = fields[2]
+                    gsub(/"/, "", path)
+                    if (path !~ /^\// || path ~ /[$\\]|\/\.\.?(\/|$)/) invalid = 1
+                    gsub(/\/+/, "/", path)
+                    gsub(/\/\.\//, "/", path)
+                    sub(/\/$/, "", path)
+                    if (path == "" || path == privateRoot || index(privateRoot, path "/") == 1 || index(path, privateRoot "/") == 1) {
+                        found++
+                        if (directive != "alias /var/lib/fsusblog/storage/shared/assets/private/") invalid = 1
+                    }
+                }
+            }
+        }
+        END { if (found != 1 || invalid) exit 2 }
+    ' "$file"; then
+        failures+=("${file#"$ROOT_DIR"/}: missing sole declared private physical alias")
+    fi
+}
+
+RequireComposePattern() {
+    local file="$1"
+    local selector="$2"
+    local pattern="$3"
+    local label="$4"
+    local identityPattern="${5:-$pattern}"
+    local block
+    if ! block=$(awk -v selector="$selector" '
+        BEGIN { levels = split(selector, keys, "/") }
+        {
+            line = $0
+            sub(/#.*/, "", line)
+            if (line ~ /^[[:space:]]*$/) next
+            match(line, /[^ ]/)
+            indent = RSTART - 1
+            trimmed = substr(line, indent + 1)
+            sub(/[[:space:]]*$/, "", trimmed)
+            if (indent == 0) mountServices = (trimmed == "services:")
+            if (indent <= 4) mountServer = (mountServices && indent == 4 && trimmed == "fsusblog.server:")
+            if (indent <= 8) mountVolumes = (mountServer && indent == 8 && trimmed == "volumes:")
+            if (line ~ /\t/ || (indent % 4 != 0 && !(mountVolumes && indent >= 14 && indent % 4 == 2))) exit 2
+            level = int(indent / 4) + 1
+            for (i = level; i <= levels; i++) active[i] = 0
+            parent = 1
+            for (i = 1; i < level && i <= levels; i++) parent = parent && active[i]
+            if (level <= levels && parent && trimmed == keys[level] ":") {
+                active[level] = 1
+                found[level]++
+            }
+            if (level > levels && parent && (level == levels + 1 || selector == "services/fsusblog.server/volumes")) print line
+        }
+        END { for (i = 1; i <= levels; i++) if (found[i] != 1) exit 2 }
+    ' "$file") || [[ "$(grep -Ec "$pattern" <<<"$block")" -ne 1 ]] || [[ "$(grep -Ec "$identityPattern" <<<"$block")" -ne 1 ]]; then
+        failures+=("${file#"$ROOT_DIR"/}: missing $label in unique $selector owner")
+    fi
+}
+
+RequireUnshadowedPrivateStorage() {
+    local file="$1"
+    if ! awk '
+        function checkTarget(path, declaredStorage, count, components, i, depth, normalized) {
+            gsub(/["\047]/, "", path)
+            if (path !~ /^\// || path ~ /[$\\]/) { invalid = 1; return }
+            count = split(path, components, "/")
+            depth = 0
+            for (i = 1; i <= count; i++) {
+                if (components[i] == "" || components[i] == ".") continue
+                if (components[i] == "..") { if (depth > 0) depth--; continue }
+                normalized[++depth] = components[i]
+            }
+            path = ""
+            for (i = 1; i <= depth; i++) path = path "/" normalized[i]
+            if (path == "") path = "/"
+            if (!declaredStorage && (path == "/" || path == privateRoot || index(privateRoot, path "/") == 1 || index(path, privateRoot "/") == 1)) invalid = 1
+        }
+        function checkLongField(field, key) {
+            if (!match(field, /^([[:alnum:]_]+|"[[:alnum:]_]+"|\047[[:alnum:]_]+\047)[[:space:]]*:/)) { invalid = 1; return }
+            key = substr(field, 1, RLENGTH)
+            gsub(/["\047[:space:]:]/, "", key)
+            field = substr(field, RLENGTH + 1)
+            sub(/^[[:space:]]*/, "", field)
+            if (key == "target") checkTarget(field, 0)
+            else if (key !~ /^(type|source|read_only|consistency|bind|volume|tmpfs|image|propagation|create_host_path|selinux|nocopy|subpath|size|mode)$/) invalid = 1
+        }
+        BEGIN { privateRoot = "/app/storage/shared/assets/private" }
+        {
+            line = $0
+            sub(/#.*/, "", line)
+            if (line ~ /^[[:space:]]*$/) next
+            match(line, /[^ ]/)
+            indent = RSTART - 1
+            trimmed = substr(line, indent + 1)
+            sub(/[[:space:]]*$/, "", trimmed)
+            if (indent == 0) services = (trimmed == "services:")
+            if (indent <= 4) server = (services && indent == 4 && trimmed == "fsusblog.server:")
+            if (indent <= 8) volumes = (server && indent == 8 && trimmed == "volumes:")
+            if (!volumes || indent <= 8) next
+            if (trimmed ~ /^-[[:space:]]/) {
+                sub(/^-[[:space:]]+/, "", trimmed)
+                declaredStorage = (trimmed == "fsus-storage:/app/storage")
+                gsub(/["\047]/, "", trimmed)
+                if (match(trimmed, /:\/[^:]*/)) checkTarget(substr(trimmed, RSTART + 1, RLENGTH - 1), declaredStorage)
+                else if (trimmed ~ /^\//) checkTarget(trimmed, 0)
+                else checkLongField(trimmed)
+            } else checkLongField(trimmed)
+        }
+        END { if (invalid) exit 2 }
+    ' "$file"; then
+        failures+=("${file#"$ROOT_DIR"/}: forbidden private storage mount shadow")
+    fi
+}
+
 RequireFile "$COMPOSE_FILE"
 RequireFile "$GATEWAY_FILE"
 RequireFile "$GATEWAY_UPSTREAM_EXAMPLE"
@@ -42,10 +203,18 @@ RequireFile "$ENV_TEMPLATE"
 if [[ -f "$COMPOSE_FILE" ]]; then
     RequirePattern "$COMPOSE_FILE" '127\.0\.0\.1:\$\{FSUSBLOG_SLOT_PORT:\?[^}]+\}:8080' 'slot-parameterized loopback-only Kestrel port binding'
     RequirePattern "$COMPOSE_FILE" 'container_name:[[:space:]]+\$\{FSUSBLOG_CONTAINER_NAME:\?' 'slot-specific container identity'
-    RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:\?' 'explicit shared public-assets volume'
-    RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared' 'shared storage root outside WebRoot'
-    RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances' 'instance storage root outside WebRoot'
+    RequireComposePattern "$COMPOSE_FILE" 'volumes/fsus-storage' '^[[:space:]]+name:[[:space:]]+\$\{FSUSBLOG_SHARED_PUBLIC_ASSETS_VOLUME:\?[^}]+\}$' 'explicit shared public-assets volume' '^[[:space:]]+name:'
+    RequireComposePattern "$COMPOSE_FILE" 'services/fsusblog.server/environment' '^[[:space:]]+-[[:space:]]+FSUSBLOG_SHARED_STORAGE_ROOT=/app/storage/shared$' 'shared storage root outside WebRoot' '^[[:space:]]+-[[:space:]]+[^[:alnum:]]*FSUSBLOG_SHARED_STORAGE_ROOT([^[:alnum:]_]|$)'
+    RequireComposePattern "$COMPOSE_FILE" 'services/fsusblog.server/environment' '^[[:space:]]+-[[:space:]]+FSUSBLOG_INSTANCE_STORAGE_ROOT=/app/storage/instances$' 'instance storage root outside WebRoot' '^[[:space:]]+-[[:space:]]+[^[:alnum:]]*FSUSBLOG_INSTANCE_STORAGE_ROOT([^[:alnum:]_]|$)'
+    RequireComposePattern "$COMPOSE_FILE" 'services/fsusblog.server/volumes' '^            -[[:space:]]+fsus-storage:/app/storage[[:space:]]*$' 'single shared app storage mount' '(:/app/storage/*([^[:alnum:]_/.]|$)|target:[[:space:]]+[^[:alnum:]/]*/app/storage/*([^[:alnum:]_/.]|$))'
+    RequireUnshadowedPrivateStorage "$COMPOSE_FILE"
+    RequirePattern "$COMPOSE_FILE" '^[[:space:]]+fsus-storage:[[:space:]]*$' 'host-backed shared storage volume'
+    RequireComposePattern "$COMPOSE_FILE" 'volumes/fsus-storage' '^[[:space:]]+driver:[[:space:]]+local$' 'host-backed shared storage volume driver' '^[[:space:]]+driver:'
+    RequireComposePattern "$COMPOSE_FILE" 'volumes/fsus-storage/driver_opts' '^[[:space:]]+type:[[:space:]]+none$' 'host-backed shared storage volume type' '^[[:space:]]+type:'
+    RequireComposePattern "$COMPOSE_FILE" 'volumes/fsus-storage/driver_opts' '^[[:space:]]+o:[[:space:]]+bind$' 'host-backed shared storage volume bind option' '^[[:space:]]+o:'
+    RequireComposePattern "$COMPOSE_FILE" 'volumes/fsus-storage/driver_opts' '^[[:space:]]+device:[[:space:]]+/var/lib/fsusblog/storage[[:space:]]*$' 'shared storage host root' '^[[:space:]]+device:'
     RequirePattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_DATA_PROTECTION_VOLUME:\?' 'explicit shared DataProtection volume'
+    RejectPattern "$COMPOSE_FILE" '/app/storage/shared/assets/private' 'direct private asset directory mount'
     RejectPattern "$COMPOSE_FILE" '/app/wwwroot/uploads' 'legacy WebRoot uploads mount'
     RejectPattern "$COMPOSE_FILE" 'FSUSBLOG_SHARED_UPLOADS_VOLUME' 'retired shared uploads volume variable'
     RejectPattern "$COMPOSE_FILE" '127\.0\.0\.1:8080:8080' 'retired single-slot Kestrel binding'
@@ -86,6 +255,11 @@ if [[ -f "$GATEWAY_FILE" ]]; then
     RequirePattern "$GATEWAY_FILE" 'location[[:space:]]+\^~[[:space:]]+/_fsus/private-assets/' 'private internal sendfile lane'
     RequirePattern "$GATEWAY_FILE" 'alias[[:space:]]+/var/lib/fsusblog/storage/shared/assets/private/;' 'private host-backed alias'
     RequirePattern "$GATEWAY_FILE" 'internal;' 'private alias internal guard'
+    RequireLocationPattern "$GATEWAY_FILE" 'location ^~ /assets/private/ {' '^[[:space:]]*access_log[[:space:]]+off;[[:space:]]*$' 'ticket path access log disabled' '^[[:space:]]*access_log[[:space:]]'
+    RequireLocationPattern "$GATEWAY_FILE" 'location ^~ /_fsus/private-assets/ {' '^[[:space:]]*internal;[[:space:]]*$' 'private alias internal guard' '^[[:space:]]*internal[[:space:];]'
+    RequireLocationPattern "$GATEWAY_FILE" 'location ^~ /_fsus/private-assets/ {' '^[[:space:]]*alias[[:space:]]+/var/lib/fsusblog/storage/shared/assets/private/;[[:space:]]*$' 'private host-backed alias' '^[[:space:]]*(alias|root)[[:space:]]'
+    RequireSinglePrivateAlias "$GATEWAY_FILE"
+    RejectPattern "$GATEWAY_FILE" 'PrivateAssetRoot' 'application private root exposure in gateway'
 fi
 
 if [[ -f "$GATEWAY_UPSTREAM_EXAMPLE" ]]; then
@@ -115,6 +289,7 @@ fi
 if [[ "${FSUSBLOG_SKIP_PRODUCTION_EXPOSURE_TOOL_TEST:-0}" != "1" ]]; then
     "$ROOT_DIR/tools/security/check-production-exposure-prereqs.sh"
     "$ROOT_DIR/tools/security/test-production-exposure-tools.sh"
+    "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/production-network-baseline.test.mjs"
 fi
 
 if ((${#failures[@]} > 0)); then

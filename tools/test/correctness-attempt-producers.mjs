@@ -215,6 +215,9 @@ export function buildCorrectnessAttemptProducerInventory(root = defaultRoot)
             )),
             'tools/test/temporal-context.mjs': sha256(fs.readFileSync(
                 path.join(root, 'tools/test/temporal-context.mjs')
+            )),
+            'tools/test/temporal-context-contract.mjs': sha256(fs.readFileSync(
+                path.join(root, 'tools/test/temporal-context-contract.mjs')
             ))
         },
         entries

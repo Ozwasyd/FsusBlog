@@ -19,7 +19,10 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 const { projectFixtureIds } = await import(new URL("../receipt/projection.mjs", import.meta.url));
+const { digestCanonical } = await import(new URL('../receipt/canonical.mjs', import.meta.url));
+const { runPostcondition } = await import(new URL('../receipt/postconditions.mjs', import.meta.url));
 
+import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 import { repositoryRoot } from './spawn-helper.mjs';
 
 const STRATEGY = 'transaction-fixture';
@@ -218,11 +221,10 @@ export async function preparePublicContent(context, signal)
 
     const observations = normalizeObservations(raw.observations ?? raw.Observations, context);
     assertVariantSemantics(observations.database?.entities ?? [], context);
-    const temporalObservation = raw.temporalObservation ?? raw.TemporalObservation ?? null;
-    if (context.temporalContext && !temporalObservation)
-    {
-        throw new Error('public-content backend did not return a temporal actual observation');
-    }
+    const rawTemporalObservation = raw.temporalObservation ?? raw.TemporalObservation ?? null;
+    const temporalObservation = context.temporalContext
+        ? validateBackendTemporalObservation(context.temporalContext, rawTemporalObservation)
+        : rawTemporalObservation;
     // Stamp execution namespace onto observations so receipt merge never sees a mismatch.
     const ns = context?.namespace ?? context?.plan?.executionIdentity?.namespace ?? null;
     if (ns)
@@ -261,6 +263,7 @@ export async function preparePublicContent(context, signal)
         redisObservation: observations.redis,
         cacheObservation: observations.cache,
         projection: raw.projection ?? raw.Projection ?? null,
+        verificationProof: raw.verificationProof ?? raw.VerificationProof ?? null,
         providedCapabilities: plan.capabilities,
         variantEvidence: buildPublicVariantEvidence(observations, context),
         postconditions: [],
@@ -399,9 +402,33 @@ async function prepareNonCanonicalPublicContent(context, variants)
     });
 }
 
+export function publicContentVerificationIdentity(context)
+{
+    const source = context.sourceIdentity ?? context.plan?.executionIdentity?.sourceIdentity;
+    return {
+        runId: context.runIdentity ?? context.plan?.executionIdentity?.runId,
+        namespace: context.namespace ?? context.plan?.executionIdentity?.namespace,
+        profileId: context.profileIdentity?.profileId ?? context.plan?.profileIdentity?.profileId,
+        sourceCommit: source?.commit,
+        sourceFingerprint: source?.worktreeFingerprint,
+        variantPlanDigest: context.variantPlan?.producerVariantPlanDigest
+    };
+}
+
 export async function verifyPublicContent(context, producerReceipt)
 {
     assertNoStrategyEnv();
+    if (context.temporalContext)
+    {
+        try
+        {
+            validateBackendTemporalObservation(context.temporalContext, producerReceipt?.temporalObservation);
+        }
+        catch (error)
+        {
+            return { ok: false, producerId: PRODUCER_ID, reason: error.message };
+        }
+    }
     if (!producerReceipt?.observations && !producerReceipt?.databaseObservation)
     {
         return { ok: false, producerId: PRODUCER_ID, reason: 'missing observations' };
@@ -415,25 +442,87 @@ export async function verifyPublicContent(context, producerReceipt)
         return { ok: false, producerId: PRODUCER_ID, reason: 'fallback/warning evidence rejected' };
     }
 
-    // Optional live revalidation adapter (fail closed on false).
+    const identity = publicContentVerificationIdentity(context);
     const adapter = context.handles?.publicContentAdapter;
+    let result;
     if (adapter && typeof adapter.verify === 'function')
     {
-        const result = await adapter.verify(context, producerReceipt);
-        if (result?.ok === false)
+        result = await adapter.verify(context, producerReceipt);
+    }
+    else
+    {
+        const baseUrl = context.handles?.baseUrl ?? context.handles?.debugBackendUrl;
+        const secret = context.handles?.localPublicContentFixtureSecret ?? context.handles?.localAuthFixtureSecret;
+        if (!baseUrl || !secret || !producerReceipt.verificationProof)
         {
-            return { ok: false, producerId: PRODUCER_ID, reason: result.reason ?? 'adapter verify failed' };
+            return { ok: false, producerId: PRODUCER_ID, reason: 'public-content independent live verifier required' };
+        }
+        const response = await fetch(`${String(baseUrl).replace(/\/+$/u, '')}/api/local/public-content-fixture/verify`, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-Fsus-Local-Public-Content-Fixture-Secret': secret,
+                'X-Fsus-Test-Namespace': identity.namespace,
+                'X-Fsus-Test-Run-Id': identity.runId
+            },
+            body: JSON.stringify({ identity, proof: producerReceipt.verificationProof }),
+            signal: AbortSignal.timeout(60_000)
+        });
+        if (!response.ok)
+        {
+            return { ok: false, producerId: PRODUCER_ID, reason: `public-content live verifier failed HTTP ${response.status}` };
+        }
+        result = await response.json();
+    }
+    if (result?.ok !== true || !result.identity || digestCanonical(result.identity) !== digestCanonical(identity)
+        || result.proofDigest !== (producerReceipt.verificationProof?.digest ?? null)
+        || !result.observations?.database || !result.observations?.redis || !result.observations?.cache
+        || result.observations.source !== 'independent-service-read')
+    {
+        return { ok: false, producerId: PRODUCER_ID, reason: result?.reason ?? 'public-content independent verification binding/observations mismatch' };
+    }
+    const observations = normalizeObservations(result.observations, context);
+    if (observations.cache.generation !== producerReceipt.observations.cache.generation
+        || observations.cache.entries.some((entry) => entry.matchesDb !== true)
+        || observations.cache.entries.length !== producerReceipt.observations.cache.entries.length)
+    {
+        return { ok: false, producerId: PRODUCER_ID, reason: 'public-content cache/generation drift' };
+    }
+    for (let index = 0; index < observations.cache.entries.length; index += 1)
+    {
+        const current = observations.cache.entries[index];
+        const previous = producerReceipt.observations.cache.entries[index];
+        if (current.endpoint !== previous.endpoint
+            || digestCanonical(current.visibleEntityIds) !== digestCanonical(previous.visibleEntityIds))
+        {
+            return { ok: false, producerId: PRODUCER_ID, reason: 'public-content read/cache drift' };
+        }
+    }
+    const identities = normalizeEntityIdentities(result.entityIdentities, context, observations.database.entities);
+    if (digestCanonical(identities) !== digestCanonical(producerReceipt.entityIdentities))
+    {
+        return { ok: false, producerId: PRODUCER_ID, reason: 'public-content owned entity identity drift' };
+    }
+    for (const variant of context.variantPlan?.variants ?? [])
+    {
+        for (const id of variant.postconditionIds)
+        {
+            const checked = runPostcondition(id, { observations, entityIdentities: identities });
+            if (!checked.ok)
+            {
+                return { ok: false, producerId: PRODUCER_ID, reason: checked.reason };
+            }
         }
     }
 
     return {
         ok: true,
         producerId: PRODUCER_ID,
-        observations: producerReceipt.observations,
-        databaseObservation: producerReceipt.databaseObservation ?? producerReceipt.observations?.database,
-        redisObservation: producerReceipt.redisObservation ?? producerReceipt.observations?.redis,
-        cacheObservation: producerReceipt.cacheObservation ?? producerReceipt.observations?.cache,
-        entityIdentities: producerReceipt.entityIdentities
+        observations,
+        databaseObservation: observations.database,
+        redisObservation: observations.redis,
+        cacheObservation: observations.cache,
+        entityIdentities: identities
     };
 }
 
@@ -494,14 +583,19 @@ async function materializeCoverAssets(context)
     }));
 }
 
-async function invokeLocalCompositionRoot(context, plan, signal)
+export function resolvePublicContentBackendUrl(context)
 {
-    const baseUrl = String(
+    return String(
         context.handles?.baseUrl
     ?? context.handles?.debugBackendUrl
     ?? process.env.FSUSBLOG_BASE_URL
     ?? ''
     ).replace(/\/+$/u, '');
+}
+
+async function invokeLocalCompositionRoot(context, plan, signal)
+{
+    const baseUrl = resolvePublicContentBackendUrl(context);
     if (!baseUrl)
     {
         throw new Error(
@@ -538,6 +632,7 @@ async function invokeLocalCompositionRoot(context, plan, signal)
                 capabilities: plan.capabilities,
                 namespace: context.namespace ?? null,
                 runId: context.runIdentity ?? null,
+                verificationIdentity: publicContentVerificationIdentity(context),
                 temporalContext: context.temporalContext ?? null
             }),
             signal: controller.signal
@@ -582,6 +677,7 @@ function normalizeCompositionPayload(payload, context)
         projection: payload.projection ?? payload.Projection ?? null,
         providedCapabilities: payload.providedCapabilities ?? payload.ProvidedCapabilities ?? [],
         temporalObservation: payload.temporalObservation ?? payload.TemporalObservation ?? null
+        , verificationProof: payload.verificationProof ?? payload.VerificationProof ?? null
     };
 }
 

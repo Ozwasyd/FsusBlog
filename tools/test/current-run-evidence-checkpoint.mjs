@@ -180,8 +180,8 @@ export function parseCurrentRunEvidenceHandoffs(logText)
     return handoffs;
 }
 
-export function attachCurrentRunEvidenceReferenceToCheckpoint({
-    checkpointPath, context, entry, handoff, registry, repositoryRoot
+export async function attachCurrentRunEvidenceReferenceToCheckpoint({
+    checkpointPath, context, entry, handoff, registry, repositoryRoot, expectedRevision
 })
 {
     const absoluteCheckpoint = path.resolve(repositoryRoot, checkpointPath);
@@ -195,11 +195,11 @@ export function attachCurrentRunEvidenceReferenceToCheckpoint({
     assert(checkpoint.sourceState?.commit === context.sourceCommit
         && checkpoint.sourceState?.worktreeFingerprint === context.worktreeFingerprint,
     'scheduler checkpoint source identity mismatch');
-    attachCurrentRunEvidenceHandoff({ checkpoint, context, entry, handoff, registry, repositoryRoot });
-    checkpoint.revision = Math.max(0, Number(checkpoint.revision) || 0) + 1;
-    checkpoint.updatedAt = new Date().toISOString();
-    const temporary = `${absoluteCheckpoint}.next-${process.pid}`;
-    fs.writeFileSync(temporary, `${JSON.stringify(checkpoint, null, 2)}\n`, { flag: 'wx' });
-    fs.renameSync(temporary, absoluteCheckpoint);
-    return checkpoint;
+    // The scheduler owns both the run lock and the checkpoint journal writer.
+    // Its settled-producer path already holds that lock and uses the in-memory
+    // handoff function above; a standalone caller must not overwrite it.
+    const { attachCheckpointCurrentRunEvidence } = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
+    return attachCheckpointCurrentRunEvidence(absoluteCheckpoint, context.schedulerRunId, {
+        context, entry, handoff, registry, repositoryRoot, expectedRevision
+    });
 }

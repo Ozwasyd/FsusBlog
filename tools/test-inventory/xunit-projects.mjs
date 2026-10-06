@@ -3,16 +3,11 @@
  * assemblies keep their own compile context; source paths do not move cases
  * into the Server assembly or constitute runtime execution evidence.
  */
-export const xunitProjects = Object.freeze([
-    Object.freeze({
-        project: 'tests/backend/FsusBlog.Server.Tests.csproj',
-        sourceDirectory: 'tests/backend'
-    }),
-    Object.freeze({
-        project: 'tests/migration/FsusBlog.Migration.Tests.csproj',
-        sourceDirectory: 'tests/migration'
-    })
-]);
+import { xunitTestProjects } from './adapters.mjs';
+
+export const xunitProjects = Object.freeze(xunitTestProjects.map(({ directory, project }) =>
+    Object.freeze({ project, sourceDirectory: directory })));
+
 
 export function xunitProjectForSource(file)
 {

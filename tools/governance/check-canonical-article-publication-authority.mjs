@@ -13,7 +13,7 @@ const defaultRoot = path.resolve(
 export const requiredAuthorityFiles = Object.freeze([
     "src/backend/Services/Fixtures/CanonicalArticlePublicationFixturePort.cs",
     "src/backend/Services/Fixtures/CanonicalArticlePublicationVerifier.cs",
-    "src/backend/Services/Articles/ArticleProductionNormalizers.cs",
+    "src/shared/Contracts/Articles/ArticleProductionNormalizers.cs",
     "src/backend/Services/Articles/ArticleRightsSnapshotBuilder.cs",
     "src/backend/Services/Articles/ArticleRightsPolicyPersistence.cs",
     "src/backend/Services/Articles/ArticleRevisionPersistence.cs",

@@ -17,6 +17,7 @@ import {
 } from '../../tools/test/current-run-evidence-publication.mjs';
 import { packCurrentRunEvidenceTransport } from '../../tools/test/current-run-evidence-transport.mjs';
 import { governanceContentDigest } from '../../tools/test/evidence-location-contract.mjs';
+
 import { createCleanAttemptEvidenceFixture } from './support/clean-attempt-evidence-fixture.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
@@ -471,11 +472,15 @@ test('locator verifies one order-independent receipt and projects exactly seven 
             scenarioIds: [...releaseReliabilityScenarioIds]
         },
         producerId: 'release-reliability-fresh',
-        schedulerRunId: 'release-reliability-clean-run'
+        schedulerRunId: fixture.identity.runId,
+        sourceCommit: commit,
+        worktreeFingerprint,
+        buildIdentity: buildContentDigest
     });
     context.after(() => attemptFixture.cleanup());
     const binding = locate(fixture, calls, {
-        attemptEvidence: attemptFixture.attemptEvidence
+        attemptEvidence: attemptFixture.attemptEvidence,
+        expectedCandidate: attemptFixture.expectedCandidate
     });
     assert.equal(calls.count, 1);
     assert.deepEqual(Object.keys(binding).sort(), [
@@ -743,6 +748,8 @@ test('downloaded qualified receipt artifacts restore into the canonical locator 
     context.after(() => fs.rmSync(root, { recursive: true, force: true }));
     const downloaded = path.join(root, 'downloaded');
     const restored = path.join(root, 'restored');
+    fs.mkdirSync(path.join(restored, 'artifacts/current-run'), { recursive: true });
+    fs.mkdirSync(path.join(restored, 'release-reliability/restored-run'), { recursive: true });
     fs.mkdirSync(path.join(root, 'artifacts/current-run'), { recursive: true });
     fs.mkdirSync(path.join(root, 'release-reliability/restored-run'), { recursive: true });
     const digest = (value) => `sha256:${value.repeat(64)}`;

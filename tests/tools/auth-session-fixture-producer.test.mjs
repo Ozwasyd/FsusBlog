@@ -1,12 +1,29 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { createServer } from 'node:http';
 import test from 'node:test';
 
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
 const {buildProducerReceipt, digestCanonical} = await import(new URL('../../tools/test-fixtures/receipt/index.mjs', import.meta.url));
 const {buildFixtureVariantPlan, buildProducerFixtureVariantPlan, fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 const {authSessionProducerMeta, buildAuthSessionPlan, prepareAuthSession, projectVerifiedIdentityReferences, validateAuthSessionResult, verifyAuthSession} = await import(new URL('../../tools/test-fixtures/producers/auth-session-producer.mjs', import.meta.url));
+const { createAuthSessionPort } = await import(new URL('../../tools/test-fixtures/producers/catalog-ports.mjs', import.meta.url));
+
+test('outlet canonical default auth port: original already-aborted signal reaches producer, no adapter invocation', async () =>
+{
+    const controller = new AbortController();
+    const reason = new Error('default-auth-port-original-abort');
+    controller.abort(reason);
+    let calls = 0;
+    await assert.rejects(createAuthSessionPort().verify({ handles: { authFixtureAdapter: { verify: async () =>
+    {
+        calls++;
+        return { ok: true };
+    } } } }, {}, controller.signal), (error) => error === reason);
+    assert.equal(calls, 0);
+});
+const { observePreparedBackendTemporalContext } = await import(new URL('../../tools/test-fixtures/producers/backend-temporal-observer.mjs', import.meta.url));
 const temporalContext = qualificationTemporalContext({
     sourceCommit: 'a'.repeat(40),
     sourceFingerprint: `sha256:${'b'.repeat(64)}`,
@@ -106,8 +123,128 @@ function resultFor(plan)
         },
         permissionCatalogDigest: 'a'.repeat(64),
         ceremonyEvidenceDigest: 'b'.repeat(64),
-        temporalObservation: { businessEpochUtc: temporalContext.businessEpochUtc }
+        temporalObservation: {
+            businessEpochUtc: temporalContext.businessEpochUtc,
+            backendCulture: 'Invariant',
+            postgresTimezone: 'UTC'
+        }
     };
+}
+
+test('already aborted auth verification does not call an adapter or HTTP transport', async (context) =>
+{
+    const result = validateAuthSessionResult(buildPlan(['auth.user.active']), resultFor(buildPlan(['auth.user.active'])));
+    const controller = new AbortController();
+    const reason = new Error('abort-before-auth-verification');
+    controller.abort(reason);
+    const originalFetch = globalThis.fetch;
+    context.after(() =>
+    {
+        globalThis.fetch = originalFetch;
+    });
+    let calls = 0;
+    const forbidden = async () =>
+    {
+        calls += 1;
+        throw new Error('already aborted verification reached port');
+    };
+    globalThis.fetch = forbidden;
+    await assert.rejects(verifyAuthSession({ handles: { authFixtureAdapter: { verify: forbidden } } }, result,
+        controller.signal), (error) => error === reason);
+    await assert.rejects(verifyAuthSession({ handles: { baseUrl: 'http://127.0.0.1:1', localAuthFixtureSecret: 'unit-only-secret' } },
+        result, controller.signal), (error) => error === reason);
+    assert.equal(calls, 0);
+});
+
+for (const cooperative of [true, false])
+{
+    test(`auth verification propagates cancellation through its existing adapter (cooperative=${cooperative})`, async () =>
+    {
+        const planned = buildPlan(['auth.user.active']);
+        const result = validateAuthSessionResult(planned, resultFor(planned));
+        const controller = new AbortController();
+        const reason = new Error('abort-during-auth-adapter');
+        let calls = 0;
+        const adapter = { async verify(_context, currentResult, signal)
+        {
+            calls += 1;
+            assert.equal(currentResult, result);
+            if (cooperative)
+            {
+                assert.equal(signal, controller.signal);
+            }
+            queueMicrotask(() => controller.abort(reason));
+            await new Promise((resolve) => controller.signal.addEventListener('abort', resolve, { once: true }));
+            if (cooperative)
+            {
+                signal.throwIfAborted();
+            }
+            return { ok: true, receiptDigest: createHash('sha256').update(JSON.stringify(result)).digest('hex') };
+        } };
+        await assert.rejects(verifyAuthSession({ handles: { authFixtureAdapter: adapter } }, result, controller.signal),
+            (error) => error === reason);
+        assert.equal(calls, 1);
+    });
+}
+
+for (const phase of ['pending-headers', 'pending-body'])
+{
+    test(`auth verification cancels its actual existing HTTP transport ${phase}`, async (context) =>
+    {
+        const planned = buildPlan(['auth.user.active']);
+        const result = validateAuthSessionResult(planned, resultFor(planned));
+        const controller = new AbortController();
+        const reason = new Error('abort-during-auth-http');
+        let received;
+        const arrived = new Promise((resolve) =>
+        {
+            received = resolve;
+        });
+        let disconnected;
+        const closed = new Promise((resolve) =>
+        {
+            disconnected = resolve;
+        });
+        let calls = 0;
+        const server = createServer((request, response) =>
+        {
+            calls += 1;
+            assert.equal(request.url, '/api/local/auth-fixture/verify');
+            assert.equal(request.headers['x-fsus-local-auth-fixture-secret'], 'unit-only-secret');
+            response.on('close', disconnected);
+            if (phase === 'pending-body')
+            {
+                response.writeHead(200, { 'Content-Type': 'application/json' });
+                response.write('{"ok":');
+            }
+            received();
+        });
+        context.after(() =>
+        {
+            server.closeAllConnections();
+            server.close();
+        });
+        await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+        const operation = verifyAuthSession({ handles: { baseUrl: `http://127.0.0.1:${server.address().port}`,
+            localAuthFixtureSecret: 'unit-only-secret' } }, result, controller.signal);
+        const rejected = assert.rejects(operation, (error) => error === reason || error.name === 'AbortError');
+        await arrived;
+        controller.abort(reason);
+        let deadline;
+        const outcome = await Promise.race([rejected.then(() => 'cancelled'), new Promise((resolve) =>
+        {
+            deadline = setTimeout(() => resolve('caller-cancellation-lost'), 2_000);
+        })]);
+        clearTimeout(deadline);
+        if (outcome !== 'cancelled')
+        {
+            server.closeAllConnections();
+            await rejected.catch(() => undefined);
+        }
+        assert.equal(outcome, 'cancelled');
+        assert.equal(calls, 1);
+        await closed;
+    });
 }
 
 test('builds independent deterministic identities for every mutually exclusive auth state', () =>
@@ -299,6 +436,16 @@ test('live prepare and verify consume environment secret without persisting it',
 
     globalThis.fetch = async (url, request) =>
     {
+        if (String(url).endsWith('/__local/temporal-observation'))
+        {
+            assert.equal(request.headers['X-Fsus-Local-Temporal-Fixture-Secret'], fixtureSecret);
+            return new Response(JSON.stringify({
+                businessEpochUtc: temporalContext.businessEpochUtc,
+                backendCulture: 'Invariant',
+                postgresTimezone: 'UTC',
+                observationBoundary: 'backend-and-postgres-session'
+            }), { status: 200 });
+        }
         assert.match(String(url), /^http:\/\/127\.0\.0\.1:5088\/api\/local\/auth-fixture\/(?:prepare|verify)$/u);
         assert.equal(request.headers['X-Fsus-Local-Auth-Fixture-Secret'], fixtureSecret);
         assert.doesNotMatch(request.body, new RegExp(fixtureSecret, 'u'));
@@ -333,7 +480,79 @@ test('live prepare and verify consume environment secret without persisting it',
         handles: {}
     });
     assert.doesNotMatch(JSON.stringify(producerResult), new RegExp(fixtureSecret, 'u'));
+    assert.equal(producerResult.temporalObservation.observationBoundary, 'backend-and-postgres-session');
     assert.equal((await verifyAuthSession({ handles: {} }, producerResult)).ok, true);
+});
+
+test('auth fixture rejects missing or drifting actual backend and database context', () =>
+{
+    const plan = buildPlan(['auth.user.active']);
+    for (const field of ['businessEpochUtc', 'backendCulture', 'postgresTimezone'])
+    {
+        const missing = resultFor(plan);
+        delete missing.temporalObservation[field];
+        assert.throws(() => validateAuthSessionResult(plan, missing),
+            new RegExp(`requires actual ${field}`, 'u'));
+        const drifting = resultFor(plan);
+        drifting.temporalObservation[field] = field === 'businessEpochUtc'
+            ? '2030-01-01T00:00:00.000Z'
+            : 'drifting-runtime-setting';
+        assert.throws(() => validateAuthSessionResult(plan, drifting),
+            /observation does not match planned temporal context/u);
+    }
+});
+
+test('backend observer cannot conceal producer drift or replace absent actual settings with the plan', async (testContext) =>
+{
+    const originalFetch = globalThis.fetch;
+    testContext.after(() =>
+    {
+        globalThis.fetch = originalFetch;
+    });
+    const context = {
+        temporalContext,
+        handles: {
+            baseUrl: 'http://127.0.0.1:5088',
+            localAuthFixtureSecret: 'controlled-observer-secret'
+        }
+    };
+    let calls = 0;
+    let actual = {
+        businessEpochUtc: temporalContext.businessEpochUtc,
+        backendCulture: 'Invariant',
+        postgresTimezone: 'UTC'
+    };
+    globalThis.fetch = async () =>
+    {
+        calls += 1;
+        return new Response(JSON.stringify(actual), { status: 200 });
+    };
+    await assert.rejects(observePreparedBackendTemporalContext(context, {}), /actual businessEpochUtc/u);
+    await assert.rejects(observePreparedBackendTemporalContext(context, {
+        businessEpochUtc: '2030-01-01T00:00:00.000Z'
+    }), /observation does not match planned temporal context/u);
+    assert.equal(calls, 0);
+    const prepared = {
+        businessEpochUtc: temporalContext.businessEpochUtc,
+        resolvedTemporalRoleArtifactDigest: `sha256:${'c'.repeat(64)}`
+    };
+    assert.deepEqual(await observePreparedBackendTemporalContext(context, prepared), { ...prepared, ...actual });
+    for (const field of ['businessEpochUtc', 'backendCulture', 'postgresTimezone'])
+    {
+        const complete = { ...actual };
+        delete actual[field];
+        await assert.rejects(observePreparedBackendTemporalContext(context, prepared),
+            new RegExp(`requires actual ${field}`, 'u'));
+        actual = { ...complete, [field]: field === 'businessEpochUtc'
+            ? '2030-01-01T00:00:00.000Z' : 'drifting-runtime-setting' };
+        await assert.rejects(observePreparedBackendTemporalContext(context, prepared),
+            /observation does not match planned temporal context/u);
+        actual = complete;
+    }
+    globalThis.fetch = async () => new Response('not authorized', { status: 401 });
+    await assert.rejects(observePreparedBackendTemporalContext(context, prepared), /failed HTTP 401/u);
+    globalThis.fetch = async () => new Response('not-json', { status: 200 });
+    await assert.rejects(observePreparedBackendTemporalContext(context, prepared), /invalid JSON/u);
 });
 
 test('independent verifier is mandatory and binds the exact producer result digest', async (context) =>

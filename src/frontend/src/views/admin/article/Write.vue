@@ -161,6 +161,7 @@
                                 ref="articleEditorRef"
                                 v-model="articleForm.content"
                                 :command-surfaces="authoringCommandSurfaces"
+                                :article-identity="authoringDocumentIdentity.id"
                                 :document-identity="authoringDocumentIdentity"
                                 :loading="pageLoading"
                                 :saving="submitting"

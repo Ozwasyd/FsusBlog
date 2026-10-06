@@ -43,6 +43,12 @@ Both routes exist only when the environment is exactly `Test` and `SchemaMigrati
 
 ## Error-code enum
 
+### Public status mapping authority
+
+`src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs` owns the enumerable HTTP-status/`ErrorCode` transport mappings. Binary results, middleware and endpoint adapters consume typed `ApiErrorTransportMappingId` values and reject mismatched error codes. Generic status mappings, default statuses for error codes and operation-specific status pairs are distinct; an unregistered generic status fails closed rather than acquiring an implicit public mapping.
+
+The compiled config/error observer and OpenAPI observer consume that production authority. Neither a wildcard/default entry nor a handwritten documentation table establishes the complete public status set. This does not change the AEDS frame, existing error-code values, authentication or response payload layout.
+
 ### Public HTML negative responses
 
 Public HTML does not use an AEDS `ApiError` body. A search query over 2048 characters, normalized `q` over 128 characters, or a non-whitespace control character returns 400; an invalid path or missing/non-public entity returns 404; 410 is reserved for an explicitly permanent deletion; a provider, DB gate, or other transient dependency failure returns 503 with `Retry-After: 5`. These responses are standalone `noindex,follow` HTML with `Cache-Control: no-store`, `X-Robots-Tag: noindex, follow`, and `X-Fsus-Public-Aot-Backfill: none`; they contain no canonical, `og:url`, `BlogPosting`, SPA boot, or hydration payload.
@@ -731,7 +737,7 @@ projection: binary_post_security_challenge.publicErrorRefState
 render: failure-mode-code
 -->
 
-The operation-level public error reference state is `transport-frame-authority-only`.
+The operation-level public error reference state is `operation-status-authority-bound`: each observed error status links to its matching transport mapping in the shared error authority.
 
 <!-- fsus-doc-claim
 claimId: binary-api-aeds-contract.public-error-authority-owner

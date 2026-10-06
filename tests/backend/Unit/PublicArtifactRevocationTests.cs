@@ -1,12 +1,17 @@
 using System.Collections.Concurrent;
 using System.Net;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Text.Json;
 
+using FsusBlog.Server.Infrastructure.Observability;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Options;
+
+using OpenTelemetry.Metrics;
+
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class PublicArtifactRevocationTests
@@ -402,36 +407,19 @@ public sealed class PublicArtifactRevocationTests
     [Fact]
     public void RevocationReadPath_HasNoClassifierCallOrValuesScan()
     {
-        string source = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "PublicReadArtifacts",
-            "PublicArtifactRevocation.cs"));
-        string registry = Slice(
-            source,
-            "public sealed class PublicArtifactRevocationRegistry",
-            "public readonly record struct PublicArtifactRevocationRegistrySnapshot");
-        string lookup = Slice(
-            registry,
-            "internal bool TryResolve",
-            "internal PublicArtifactRevocationRegistrySnapshot MetricsSnapshot");
-        string middleware = source[source.IndexOf(
-            "public static class PublicArtifactRevocationMiddleware",
-            StringComparison.Ordinal)..];
-        string observabilityRegistration = File.ReadAllText(BackendTestPaths.FromRoot(
-            "src",
-            "backend",
-            "Infrastructure",
-            "Observability",
-            "FsusObservabilityServiceCollectionExtensions.cs"));
+        string registry = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(typeof(PublicArtifactRevocationRegistry)),
+            RuntimeMetadataInspection.DescribeConstructors(typeof(PublicArtifactRevocationRegistry)));
+        string lookup = RuntimeMetadataInspection.DescribeMethods(
+            typeof(PublicArtifactRevocationRegistry), "TryResolve");
+        string middleware = RuntimeMetadataInspection.DescribeType(typeof(PublicArtifactRevocationMiddleware));
+        string observabilityRegistration = DescribeRevocationMeterRegistration(
+            typeof(FsusObservabilityServiceCollectionExtensions));
 
         Assert.DoesNotContain("TryCreateRequestFeature", middleware, StringComparison.Ordinal);
         Assert.DoesNotContain(".Values", lookup, StringComparison.Ordinal);
-        Assert.DoesNotContain(
-            "ConcurrentDictionary<int, PublicArtifactTombstone> _active",
-            registry,
-            StringComparison.Ordinal);
+        Assert.DoesNotContain("get_Values", lookup, StringComparison.Ordinal);
+        AssertNoOldActiveDictionary(typeof(PublicArtifactRevocationRegistry));
         Assert.DoesNotContain("legacy", registry, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("fsus.public_artifact_revocation.lookup.hit", registry, StringComparison.Ordinal);
         Assert.Contains("fsus.public_artifact_revocation.lookup.miss", registry, StringComparison.Ordinal);
@@ -439,10 +427,91 @@ public sealed class PublicArtifactRevocationTests
         Assert.Contains("fsus.public_artifact_revocation.apply", registry, StringComparison.Ordinal);
         Assert.Contains("fsus.public_artifact_revocation.clear", registry, StringComparison.Ordinal);
         Assert.Contains("fsus.public_artifact_revocation.active.count", registry, StringComparison.Ordinal);
-        Assert.Contains(
-            "PublicArtifactRevocationRegistry.MeterName",
-            observabilityRegistration,
-            StringComparison.Ordinal);
+        Assert.Contains(PublicArtifactRevocationRegistry.MeterName, observabilityRegistration, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RevocationMeterBinding_AcceptsSdkCallAndLiteralInSameDeclaredBody()
+    {
+        string registration = DescribeRevocationMeterRegistration(typeof(DirectMeterRegistrationFixture));
+
+        Assert.Contains(MeterRegistrationMember, registration, StringComparison.Ordinal);
+        Assert.Contains(PublicArtifactRevocationRegistry.MeterName, registration, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void RevocationMeterBinding_RejectsUnusedConstantDecoy()
+    {
+        FieldInfo decoy = Assert.Single(typeof(DecoyMeterRegistrationFixture).GetFields(
+            BindingFlags.DeclaredOnly | BindingFlags.Public | BindingFlags.Static));
+        Assert.True(decoy.IsLiteral);
+        Assert.Equal(PublicArtifactRevocationRegistry.MeterName, decoy.GetRawConstantValue());
+        string oldClosure = RuntimeMetadataInspection.DescribeMethods(
+            typeof(DecoyMeterRegistrationFixture), nameof(DecoyMeterRegistrationFixture.Register));
+        Assert.Contains(PublicArtifactRevocationRegistry.MeterName, oldClosure, StringComparison.Ordinal);
+        string registration = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(DecoyMeterRegistrationFixture), MeterRegistrationMember);
+        Assert.Contains("other-meter", registration, StringComparison.Ordinal);
+        Assert.DoesNotContain(PublicArtifactRevocationRegistry.MeterName, registration, StringComparison.Ordinal);
+
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            DescribeRevocationMeterRegistration(typeof(DecoyMeterRegistrationFixture)));
+    }
+
+    [Fact]
+    public void RevocationMeterBinding_RejectsLiteralInSeparateCalledMethod()
+    {
+        string oldClosure = RuntimeMetadataInspection.DescribeMethods(
+            typeof(SeparateMeterRegistrationFixture), nameof(SeparateMeterRegistrationFixture.Register));
+        Assert.Contains(MeterRegistrationMember, oldClosure, StringComparison.Ordinal);
+        Assert.Contains(PublicArtifactRevocationRegistry.MeterName, oldClosure, StringComparison.Ordinal);
+        string registration = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(SeparateMeterRegistrationFixture), MeterRegistrationMember);
+        Assert.Contains("other-meter", registration, StringComparison.Ordinal);
+        Assert.DoesNotContain(PublicArtifactRevocationRegistry.MeterName, registration, StringComparison.Ordinal);
+        string literal = RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            typeof(SeparateMeterRegistrationFixture), PublicArtifactRevocationRegistry.MeterName);
+        Assert.DoesNotContain(MeterRegistrationMember, literal, StringComparison.Ordinal);
+
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            DescribeRevocationMeterRegistration(typeof(SeparateMeterRegistrationFixture)));
+    }
+
+    [Theory]
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public void RevocationFieldBinding_RejectsOldActiveDictionaryAcrossVisibilityAndStorage(
+        bool isPublic,
+        bool isStatic)
+    {
+        Type type = CreateFieldFixture(
+            "_active", typeof(ConcurrentDictionary<int, PublicArtifactTombstone>), isPublic, isStatic);
+        FieldInfo field = Assert.Single(type.GetFields(AllDeclaredFields));
+        Assert.Equal("_active", field.Name);
+        Assert.Equal(typeof(ConcurrentDictionary<int, PublicArtifactTombstone>), field.FieldType);
+        Assert.Equal(isPublic, field.IsPublic);
+        Assert.Equal(!isPublic, field.IsPrivate);
+        Assert.Equal(isStatic, field.IsStatic);
+
+        Assert.ThrowsAny<Xunit.Sdk.XunitException>(() => AssertNoOldActiveDictionary(type));
+    }
+
+    [Theory]
+    [InlineData("_exact", true)]
+    [InlineData("_active", false)]
+    public void RevocationFieldBinding_AcceptsDifferentNameOrDictionaryType(string name, bool isRevocationDictionary)
+    {
+        Type fieldType = isRevocationDictionary
+            ? typeof(ConcurrentDictionary<int, PublicArtifactTombstone>)
+            : typeof(ConcurrentDictionary<int, string>);
+        Type type = CreateFieldFixture(name, fieldType, isPublic: true, isStatic: true);
+        FieldInfo field = Assert.Single(type.GetFields(AllDeclaredFields));
+        Assert.Equal(name, field.Name);
+        Assert.Equal(fieldType, field.FieldType);
+
+        AssertNoOldActiveDictionary(type);
     }
 
     [Theory]
@@ -776,6 +845,62 @@ public sealed class PublicArtifactRevocationTests
         Assert.True(document.RootElement.GetProperty("purge_everything").GetBoolean());
     }
 
+    private const string MeterRegistrationMember = "OpenTelemetry.Metrics.MeterProviderBuilder.AddMeter ";
+    private const BindingFlags AllDeclaredFields =
+        BindingFlags.DeclaredOnly | BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
+
+    // Keep the SDK member and emitted literal in one body, without claiming argument dataflow or subscription.
+    private static string DescribeRevocationMeterRegistration(Type type)
+        => RuntimeMetadataInspection.DescribeDeclaredMethodBodiesContaining(
+            type, MeterRegistrationMember, PublicArtifactRevocationRegistry.MeterName);
+
+    private static void AssertNoOldActiveDictionary(Type type)
+        => Assert.DoesNotContain(type.GetFields(AllDeclaredFields), static field =>
+            field.Name == "_active" &&
+            field.FieldType == typeof(ConcurrentDictionary<int, PublicArtifactTombstone>));
+
+    private static Type CreateFieldFixture(string name, Type fieldType, bool isPublic, bool isStatic)
+    {
+        var assemblyName = new AssemblyName("RevocationFieldFixture" + Guid.NewGuid().ToString("N"));
+        AssemblyBuilder assembly = AssemblyBuilder.DefineDynamicAssembly(assemblyName, AssemblyBuilderAccess.RunAndCollect);
+        ModuleBuilder module = assembly.DefineDynamicModule(assemblyName.Name!);
+        TypeBuilder type = module.DefineType("FieldFixture", TypeAttributes.Public | TypeAttributes.Sealed);
+        FieldAttributes attributes = isPublic ? FieldAttributes.Public : FieldAttributes.Private;
+        if (isStatic)
+        {
+            attributes |= FieldAttributes.Static;
+        }
+
+        // CLR metadata fixtures cover legacy public/static names without weakening C# naming rules.
+        type.DefineField(name, fieldType, attributes);
+        return type.CreateType()!;
+    }
+
+    private static class DirectMeterRegistrationFixture
+    {
+        public static void Register(MeterProviderBuilder builder)
+            => builder.AddMeter(PublicArtifactRevocationRegistry.MeterName);
+    }
+
+    private static class DecoyMeterRegistrationFixture
+    {
+        public const string UnusedMeterName = "FsusBlog.PublicArtifactRevocation";
+
+        public static void Register(MeterProviderBuilder builder)
+            => builder.AddMeter("other-meter");
+    }
+
+    private static class SeparateMeterRegistrationFixture
+    {
+        public static void Register(MeterProviderBuilder builder)
+        {
+            builder.AddMeter("other-meter");
+            GC.KeepAlive(ReadMeter());
+        }
+
+        private static string ReadMeter() => PublicArtifactRevocationRegistry.MeterName;
+    }
+
     private static void AssertResolved(
         PublicArtifactRevocationRegistry registry,
         string path,
@@ -793,15 +918,6 @@ public sealed class PublicArtifactRevocationTests
         DefaultHttpContext context = CreateContext(path);
         return Assert.IsType<PublicHotReadRequestFeature>(
             context.Features.Get<PublicHotReadRequestFeature>()).Route;
-    }
-
-    private static string Slice(string source, string startMarker, string endMarker)
-    {
-        int start = source.IndexOf(startMarker, StringComparison.Ordinal);
-        int end = source.IndexOf(endMarker, start, StringComparison.Ordinal);
-        Assert.True(start >= 0, $"missing start marker: {startMarker}");
-        Assert.True(end > start, $"missing end marker: {endMarker}");
-        return source[start..end];
     }
 
     private static DefaultHttpContext CreateContext(string path, bool attachFeature = true)

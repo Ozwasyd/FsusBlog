@@ -65,6 +65,16 @@ Markdownlint is invoked once for the complete selected file set rather than once
 
 Optional Markdown front matter must start with `schema: fsusblog.markdown-document.v1`, use unique non-empty scalar fields, and close before document content. A leading delimiter without that schema fails closed instead of being silently ignored. Inline and reference-style relative links are resolved from the owning document; malformed percent encoding, repository escape and missing targets are reported without aborting the remaining scan.
 
+## Registered document-fragment compatibility
+
+The initial finite `markdownCompatibilityAnchors` policy records preserve nine exact legacy aliases in the current backend-owned `docs/api/schemas-and-errors.md`. Their provenance is the heading translation in `fdc2414d10cf3b211b7427a1d04be5d4af6cfd49`; provenance is traceability, not a qualification or ancestry gate. The source check requires each byte-exact empty `<a id="ID"></a>` line exactly once, in active Markdown immediately before its registered heading and before generated sections. It rejects missing, duplicate, changed, hidden or misplaced aliases without freezing line numbers or the full document digest.
+
+The standard Markdownlint configuration remains unchanged: MD033/default rules stay enabled, inline suppression stays disabled, and no `allowed_elements: ["a"]` or document exclusion is added. For batches containing this registered document, the original native checker invokes the installed Markdownlint CLI's public `main` and original default formatter through one task-owned child. The only options override adds a formatter in the same native checker to retain each original parser `errorRange` (column and token length); it does not add a parser, rule, dependency or alternate authority. The default formatter's raw diagnostics and the raw CLI exit remain intact. A bare CLI still reports its nine MD033 findings and exits 1: only this registered native compatibility classification may admit them after independent governance review.
+
+Classification requires a unique real MD033 opening-token span with the exact registered file, active source line, whole empty-anchor syntax and associated heading. Matching `Element: a`, a line number, a caller label or an abbreviated text-only diagnostic is insufficient. Original raw diagnostics must correspond one-to-one to the structured formatter results; source drift, missing/duplicate span evidence, an abnormal exit or invocation failure refuses admission. Every unclassified diagnostic, including additional a-elements and other HTML, remains a failure. Baseline contents, other overrides, exclusions and existing Markdown rules are not changed.
+
+Portable mode can report source-closure defects but refuses admission of registered aliases without the actual parser spans, even when other external tools are optional. The required-tool path and its actual positive/refusal controls are separate from original mock-transport and portable fixtures. Run `node --test tests/tools/native-tooling-style.test.mjs` with the original Markdownlint CLI available on `PATH`, then the relevant `./tools/lint.sh docs --require-tools` selection. Fixture results do not prove whole-repository zero debt, product/API behavior, generated facts, independent acceptance, merge or promotion. The original test remains a manual diagnostic unless its existing lifecycle owner separately changes registration.
+
 ## Native build presets
 
 The root native CMake project is intentionally separate from Emscripten artifact production. It compiles and tests a host-native CRC contract through the same repository source and `FsusWarnings` interface target.
@@ -86,6 +96,14 @@ cmake --build --preset lint
 `config/development/native-tooling-style-exceptions.json` is the executable exception registry. It consumes the #1157 authority in `config/development/authoritative-development-docs.json`; each executable entry must point to an authority exception, a path classification, or the higher-priority language-syntax class. Each entry also has a narrow path scope, external and internal patterns, and positive/negative mappings. It covers C ABI/Wasm exports, compiler intrinsics, generated protocol layout, environment variables, CMake cache keys, GitHub Actions/schema keys, JSON wire keys and CSS-like caller contracts.
 
 An exception preserves only the boundary spelling. Internal wrappers still return to PascalCase/camelCase. Generated, vendor, lock, minified, report and intentionally invalid fixture paths are excluded explicitly; a linter failure cannot create a new wildcard exception.
+
+The NuGet-produced `tests/migration/packages.lock.json` is registered as the exact
+`lock` / `PackageManager` owner path in both the authority registry and native/tooling
+selection policy. Its package-manager byte layout is preserved in lint and write-format
+modes. This is not a directory-wide or filename-only exclusion: neighboring handwritten
+JSON and nested or additional `packages.lock` paths remain governed. Source-style
+selection does not validate dependencies; the Migration owner still requires NuGet
+locked restore and canonical execution evidence.
 
 ## Migration discipline
 

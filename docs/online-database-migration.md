@@ -17,6 +17,25 @@ resumed explicitly from its durable token. Contract is outside the 15-stage roll
 and can run only after a completed normal release plus its observation/retention and
 backup evidence; it must never be inferred from startup or candidate readiness.
 
+## Offline historical classification custody
+
+The offline classification producer now reads only
+`src/migration/OfflineMigrationClassificationFacts.cs`. The original literal
+catalogue retains all fifteen historical fields, validator names, batch/resume
+settings, rollback/lock-risk data and scalar fences. Its data validator is not a
+Serve admission, deployment identity parser or online readiness evaluator.
+`generate-offline-migration-catalog.mjs` projects the original four classification
+fields; the original parity consumer binds the exact facts digest and Definitions.
+The retained 145-row product was generated against its original frozen inputs,
+not by running a producer again in this source combination.
+
+This bounded combination does not retire the existing Server compatibility
+consumers or claim that their old metadata/window APIs have disappeared. Their
+retirement and the v3 release-consumer integration remain pending. The task-only
+Migration package preserves this candidate's existing Server v2/default image
+chain; neither packaged resources nor source-paired catalogue data installs the
+four owned Host capabilities or qualifies native migration/deployment.
+
 ## Metadata contract
 
 Every `ISchemaMigrationDescriptor` must have one explicit

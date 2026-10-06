@@ -194,6 +194,14 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
     IAuthoringPackageKeyset keyset,
     TimeProvider timeProvider) : IAuthoringPackageTrustVerifier
 {
+    internal void RequireImmutableReadScopeTrust()
+    {
+        if (keyset is not LocalAuthoringPackageKeyset)
+        {
+            throw new AuthoringExtensionContractException("Read scope requires the original owned immutable publisher keyset.");
+        }
+    }
+
     public async ValueTask<AuthoringPackageTrustDecision> VerifyAsync(
         string publisher,
         string keyId,
@@ -271,12 +279,16 @@ public sealed class EcdsaAuthoringPackageTrustVerifier(
             valid = false;
         }
 
+        DateTimeOffset validUntil = valid &&
+            key.RevokedAt is { } futureRevocation && futureRevocation < key.ValidUntil
+            ? futureRevocation
+            : key.ValidUntil;
         return Decision(
             valid ? AuthoringPackageTrustStatus.Trusted : AuthoringPackageTrustStatus.Untrusted,
             publisher,
             keyId,
             now,
-            key.ValidUntil,
+            validUntil,
             keysetIdentity);
     }
 
@@ -403,6 +415,16 @@ public sealed class AuthoringPackageVerifier(
     IAuthoringPackageArchiveReader archiveReader,
     TimeProvider timeProvider)
 {
+    internal void RequireReadScopeVerificationOwners()
+    {
+        if (trustVerifier is not EcdsaAuthoringPackageTrustVerifier trust ||
+            archiveReader is not ZipAuthoringPackageArchiveReader)
+        {
+            throw new AuthoringExtensionContractException("Read scope requires the original signature and archive verification owners.");
+        }
+        trust.RequireImmutableReadScopeTrust();
+    }
+
     public async ValueTask<VerifiedAuthoringPackage> VerifyAsync(
         AuthoringPackageArtifact package,
         AuthoringHostPlatform targetPlatform,
@@ -467,7 +489,7 @@ public sealed class AuthoringPackageVerifier(
             contract.Manifest.ContentSha256,
             package.SourceReference,
             package.ProvenanceReference);
-        return new VerifiedAuthoringPackage(
+        var verified = new VerifiedAuthoringPackage(
             contract,
             package with
             {
@@ -481,6 +503,14 @@ public sealed class AuthoringPackageVerifier(
             },
             trust,
             packageIdentity);
+        now = timeProvider.GetUtcNow();
+        cancellationToken.ThrowIfCancellationRequested();
+        if (trust.EvaluatedAt > now || trust.ValidUntil <= now)
+        {
+            throw new AuthoringExtensionContractException("Package trust validity no longer holds at verification completion.");
+        }
+
+        return verified;
     }
 
     private static void ValidateEntries(

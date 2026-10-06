@@ -1,15 +1,97 @@
 using System.Collections.Immutable;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Services.DocumentExport;
-using FsusBlog.Server.Tests.TestInfrastructure;
 
 namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class DocumentExportContractTests
 {
+    [Theory]
+    [InlineData("self-contained-html")]
+    [InlineData("pdf")]
+    [InlineData("docx")]
+    [InlineData("epub")]
+    public void Task_AcceptsFrozenRendererIdentityFromTheSoleProviderCatalogForEveryFormat(string format)
+    {
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(format);
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(ValidInput() with
+        {
+            RendererId = provider.RendererId,
+            RendererVersion = provider.RendererVersion
+        });
+        DocumentExportTask task = TaskForProvider(input, provider);
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.Equal(provider.RendererId, input.RendererId);
+        Assert.Equal(provider.RendererVersion, input.RendererVersion);
+        DocumentExportContractValidator.ValidateCatalog(DocumentExportContractCatalog.Providers);
+        DocumentExportContractValidator.Validate(input);
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportContractValidator.Validate(receipt, task, input, provider);
+    }
+
+    [Theory]
+    [InlineData("self-contained-html", "renderer-id")]
+    [InlineData("self-contained-html", "renderer-version")]
+    [InlineData("pdf", "renderer-id")]
+    [InlineData("pdf", "renderer-version")]
+    [InlineData("docx", "renderer-id")]
+    [InlineData("docx", "renderer-version")]
+    [InlineData("epub", "renderer-id")]
+    [InlineData("epub", "renderer-version")]
+    public void TaskAndResult_RejectRendererAuthorityDriftEvenWhenInputTaskAndReceiptAreFullyResealed(
+        string format, string field)
+    {
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(format);
+        DocumentExportFrozenInput baseline = DocumentExportContractValidator.Seal(ValidInput() with
+        {
+            RendererId = provider.RendererId,
+            RendererVersion = provider.RendererVersion
+        });
+        DocumentExportTask baselineTask = TaskForProvider(baseline, provider);
+        DocumentExportContractValidator.Validate(baselineTask, baseline);
+        DocumentExportContractValidator.Validate(ValidReceipt(baselineTask, baseline, provider), baselineTask, baseline, provider);
+
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(field switch
+        {
+            "renderer-id" => baseline with { RendererId = provider.RendererId + "-changed" },
+            "renderer-version" => baseline with { RendererVersion = provider.RendererVersion + "-changed" },
+            _ => throw new ArgumentException("Unknown renderer identity mutation.", nameof(field))
+        });
+        DocumentExportTask task = TaskForProvider(input, provider);
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        // Every contract is individually resealed and every reference is updated.
+        // This is an authority refusal, not a stale-digest or format/provider error.
+        DocumentExportContractValidator.Validate(input);
+        Assert.NotEqual(baseline.ContentDigest, input.ContentDigest);
+        Assert.NotEqual(baselineTask.ContentDigest, task.ContentDigest);
+        Assert.Equal(input.ContentDigest, task.InputDigest);
+        Assert.Equal(input.ContentDigest, receipt.InputDigest);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Equal(input.RendererId, receipt.RendererId);
+        Assert.Equal(input.RendererVersion, receipt.RendererVersion);
+        Assert.Equal(provider.FormatId, task.FormatId);
+        Assert.Equal(provider.ProviderId, task.ProviderId);
+        Assert.Equal(provider.ProviderVersion, task.ProviderVersion);
+        Assert.Equal(DocumentExportDigest.Compute(task with { ContentDigest = string.Empty }), task.ContentDigest);
+        Assert.Equal(DocumentExportDigest.Compute(receipt with { ContentDigest = string.Empty }), receipt.ContentDigest);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(task, input));
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(receipt, task, input, provider));
+    }
+
+    private static DocumentExportTask TaskForProvider(DocumentExportFrozenInput input, DocumentExportProviderContract provider)
+        => DocumentExportContractValidator.Seal(ValidTask(input) with
+        {
+            FormatId = provider.FormatId,
+            ProviderId = provider.ProviderId,
+            ProviderVersion = provider.ProviderVersion
+        });
+
     [Fact]
     public void Catalog_DeclaresExactFourFormatsAndOneAvailableImplementation()
     {
@@ -452,35 +534,69 @@ public sealed class DocumentExportContractTests
     [Fact]
     public void StaticGovernance_ContractSliceHasOneRegistryAndNoExecutionOrAlternateParserAuthority()
     {
-        string[] sources =
+        Type catalog = Assert.Single(
+            typeof(DocumentExportContractCatalog).Assembly.GetTypes(),
+            type => type.Name == nameof(DocumentExportContractCatalog));
+        Assert.Same(typeof(DocumentExportContractCatalog), catalog);
+
+        Type[] contractTypes =
         [
-            BackendTestPaths.ReadAllTextFromRoot(
-                "src", "backend", "Services", "DocumentExport", "DocumentExportContracts.cs"),
-            BackendTestPaths.ReadAllTextFromRoot(
-                "src", "backend", "Services", "DocumentExport", "DocumentExportContractValidator.cs"),
-            BackendTestPaths.ReadAllTextFromRoot(
-                "src", "backend", "Services", "DocumentExport", "DocumentExportDigest.cs")
+            typeof(DocumentExportCoordinateKind),
+            typeof(DocumentExportTaskStatus),
+            typeof(DocumentExportFeatureDisposition),
+            typeof(DocumentExportProviderResultStatus),
+            typeof(DocumentExportArticleCoordinate),
+            typeof(DocumentExportAsset),
+            typeof(DocumentExportFrozenInput),
+            typeof(DocumentExportTask),
+            typeof(DocumentExportFeatureSupport),
+            typeof(DocumentExportResourceBudgets),
+            typeof(DocumentExportDeliveryPolicy),
+            typeof(DocumentExportProviderContract),
+            typeof(DocumentExportProviderExecutionBinding),
+            typeof(DocumentExportNormalizationContract),
+            typeof(DocumentExportStaticGovernance),
+            typeof(DocumentExportProviderReceipt),
+            catalog,
+            typeof(DocumentExportContractValidator),
+            typeof(DocumentExportDigest)
         ];
-        Assert.Equal(
-            1,
-            sources.Sum(source => source.Split(
-                "public static class DocumentExportContractCatalog",
-                StringSplitOptions.None).Length - 1));
-        Assert.All(sources, source =>
-        {
-            Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("ProcessStartInfo", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("HttpClient", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("GetLatest", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("HtmlToMarkdown", source, StringComparison.Ordinal);
-            Assert.DoesNotContain("Screenshot", source, StringComparison.Ordinal);
-        });
+        Assert.All(contractTypes, AssertContractTypeHasNoExecutionOrAlternateParserAuthority);
         Assert.All(DocumentExportContractCatalog.ExecutionBindings, binding =>
         {
             Assert.Equal("exact-argv-v1", binding.InvocationPolicy);
             Assert.Equal(["render"], binding.ExactArguments);
             Assert.Equal("prohibited", binding.ShellPolicy);
         });
+    }
+
+    [Theory]
+    [InlineData(typeof(NonCatalogContractFixture), "GetLatest")]
+    [InlineData(typeof(InstanceExecutionFixture), "Process.Start")]
+    [InlineData(typeof(StaticExecutionFixture), "ProcessStartInfo")]
+    [InlineData(typeof(UncalledNestedExecutionFixture), "HttpClient")]
+    [InlineData(typeof(ParserExecutionFixture), "HtmlToMarkdown")]
+    [InlineData(typeof(UncalledNestedCaptureFixture), "Screenshot")]
+    public void StaticGovernance_RejectsCompiledRecordConstructorAndUncalledNestedExecution(
+        Type type,
+        string forbidden)
+    {
+        string compiled = string.Join('\n', EnumerateContractTypeTree(type).SelectMany(candidate => new[]
+        {
+            RuntimeMetadataInspection.DescribeType(candidate),
+            RuntimeMetadataInspection.DescribeConstructors(candidate)
+        }));
+        Assert.Contains(forbidden, compiled, StringComparison.Ordinal);
+
+        Xunit.Sdk.XunitException exception = Assert.ThrowsAny<Xunit.Sdk.XunitException>(() =>
+            AssertContractTypeHasNoExecutionOrAlternateParserAuthority(type));
+        Assert.Contains(forbidden, exception.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void StaticGovernance_AcceptsContractOnlyRecordAndNestedMembers()
+    {
+        AssertContractTypeHasNoExecutionOrAlternateParserAuthority(typeof(BenignContractFixture));
     }
 
     [Fact]
@@ -558,6 +674,303 @@ public sealed class DocumentExportContractTests
             task,
             input,
             provider));
+    }
+
+    private static void AssertContractTypeHasNoExecutionOrAlternateParserAuthority(Type type)
+    {
+        foreach (Type candidate in EnumerateContractTypeTree(type))
+        {
+            string compiled = string.Join('\n',
+                RuntimeMetadataInspection.DescribeType(candidate),
+                RuntimeMetadataInspection.DescribeConstructors(candidate));
+            Assert.DoesNotContain("Process.Start", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("ProcessStartInfo", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HttpClient", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("GetLatest", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("HtmlToMarkdown", compiled, StringComparison.Ordinal);
+            Assert.DoesNotContain("Screenshot", compiled, StringComparison.Ordinal);
+        }
+    }
+
+    // Each existing contract type owns all declared roots, including methods that no parent calls.
+    private static IEnumerable<Type> EnumerateContractTypeTree(Type type)
+    {
+        yield return type;
+        foreach (Type nested in type.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumerateContractTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private sealed record NonCatalogContractFixture(string Id)
+    {
+        public static string GetLatest() => "not-executed";
+    }
+
+    private sealed class InstanceExecutionFixture
+    {
+        public InstanceExecutionFixture()
+        {
+            using System.Diagnostics.Process? process = System.Diagnostics.Process.Start("not-executed");
+            GC.KeepAlive(process);
+        }
+    }
+
+    private static class StaticExecutionFixture
+    {
+        static StaticExecutionFixture()
+            => GC.KeepAlive(new System.Diagnostics.ProcessStartInfo("not-executed"));
+    }
+
+    private static class UncalledNestedExecutionFixture
+    {
+        private static class Nested
+        {
+            public static void Send()
+            {
+                using var client = new System.Net.Http.HttpClient();
+                GC.KeepAlive(client);
+            }
+        }
+    }
+
+    private static class ParserExecutionFixture
+    {
+        public static string Convert() => "HtmlToMarkdown";
+    }
+
+    private static class UncalledNestedCaptureFixture
+    {
+        private static class Nested
+        {
+            public static void Capture() => GC.KeepAlive("Screenshot");
+        }
+    }
+
+    private sealed record BenignContractFixture(string Id)
+    {
+        private static class Nested
+        {
+            public static string Describe() => "contract-only";
+        }
+    }
+
+    [Theory]
+    [InlineData("tool-id")]
+    [InlineData("tool-version")]
+    public void ProviderResultContract_RejectsResealedToolIdentityDrift(string field)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportProviderReceipt baseline = ValidReceipt(task, input, provider);
+        DocumentExportContractValidator.Validate(baseline, task, input, provider);
+        DocumentExportProviderReceipt receipt = DocumentExportContractValidator.Seal(field == "tool-id"
+            ? baseline with { ToolId = "different-tool" }
+            : baseline with { ToolVersion = "different-version" });
+
+        Assert.NotEqual(baseline.ContentDigest, receipt.ContentDigest);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Equal(input.ContentDigest, receipt.InputDigest);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, provider));
+    }
+
+    [Fact]
+    public void ProviderResultContract_RejectsResealedProviderFromAnotherTaskFormat()
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract html = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportContractValidator.Validate(ValidReceipt(task, input, html), task, input, html);
+        DocumentExportProviderContract pdf = DocumentExportContractCatalog.RequireProvider("pdf");
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, pdf);
+
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportContractValidator.ValidateCatalog(DocumentExportContractCatalog.Providers);
+        Assert.NotEqual(task.FormatId, pdf.FormatId);
+        Assert.NotEqual(task.ProviderId, receipt.ProviderId);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Equal(input.ContentDigest, receipt.InputDigest);
+        Assert.Equal(pdf.ToolchainId, receipt.ToolId);
+        Assert.Equal(pdf.OutputMediaType, receipt.OutputMediaType);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, pdf));
+    }
+
+    [Theory]
+    [InlineData("format")]
+    [InlineData("provider")]
+    [InlineData("version")]
+    public void ProviderResultContract_RejectsResealedTaskProviderBindingDrift(string field)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract baseline = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportContractValidator.Validate(ValidReceipt(task, input, baseline), task, input, baseline);
+        DocumentExportProviderContract provider = field switch
+        {
+            "format" => baseline with { FormatId = "pdf" },
+            "provider" => baseline with { ProviderId = "document-export.pdf" },
+            "version" => baseline with { ProviderVersion = "different-version" },
+            _ => throw new ArgumentException("Unknown task provider mutation.", nameof(field))
+        };
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.NotEqual(baseline, provider);
+        Assert.Equal(provider.ProviderId, receipt.ProviderId);
+        Assert.Equal(provider.ProviderVersion, receipt.ProviderVersion);
+        Assert.Equal(task.ContentDigest, receipt.TaskDigest);
+        Assert.Throws<InvalidDataException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, provider));
+    }
+
+    [Theory]
+    [InlineData("owner")]
+    [InlineData("mime")]
+    [InlineData("extension")]
+    [InlineData("renderer-id")]
+    [InlineData("renderer-version")]
+    [InlineData("input-schema")]
+    [InlineData("result-schema")]
+    [InlineData("sandbox")]
+    [InlineData("network")]
+    [InlineData("toolchain-id")]
+    [InlineData("toolchain-version")]
+    [InlineData("normalization")]
+    [InlineData("availability")]
+    [InlineData("budgets")]
+    [InlineData("delivery")]
+    [InlineData("features")]
+    public void ProviderResultContract_RejectsResealedNoncanonicalProviderContract(string field)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract baseline = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportContractValidator.Validate(ValidReceipt(task, input, baseline), task, input, baseline);
+        DocumentExportProviderContract provider = field switch
+        {
+            "owner" => baseline with { ProviderOwner = "different-owner" },
+            "mime" => baseline with { OutputMediaType = "application/other" },
+            "extension" => baseline with { OutputExtension = ".other" },
+            "renderer-id" => baseline with { RendererId = "different-renderer" },
+            "renderer-version" => baseline with { RendererVersion = "different-renderer-version" },
+            "input-schema" => baseline with { InputSchema = "different-input-schema" },
+            "result-schema" => baseline with { ResultSchema = "different-result-schema" },
+            "sandbox" => baseline with { SandboxClass = "different-sandbox" },
+            "network" => baseline with { NetworkPolicy = "different-network-policy" },
+            "toolchain-id" => baseline with { ToolchainId = "different-tool" },
+            "toolchain-version" => baseline with { ToolchainVersion = "different-tool-version" },
+            "normalization" => baseline with { NormalizationPolicy = "different-normalization" },
+            "availability" => baseline with { ImplementationAvailable = false },
+            "budgets" => baseline with
+            {
+                Budgets = baseline.Budgets with { MaxOutputBytes = baseline.Budgets.MaxOutputBytes + 1 }
+            },
+            "delivery" => baseline with
+            {
+                Delivery = baseline.Delivery with { RetentionTtl = baseline.Delivery.RetentionTtl + TimeSpan.FromSeconds(1) }
+            },
+            "features" => baseline with
+            {
+                Features = baseline.Features.Select((feature, index) => index == 0
+                    ? feature with { Disposition = DocumentExportFeatureDisposition.HardFail }
+                    : feature).ToArray()
+            },
+            _ => throw new ArgumentException("Unknown provider contract mutation.", nameof(field))
+        };
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.NotEqual(baseline, provider);
+        Assert.Equal(task.FormatId, provider.FormatId);
+        Assert.Equal(task.ProviderId, provider.ProviderId);
+        Assert.Equal(task.ProviderVersion, provider.ProviderVersion);
+        Assert.Equal(provider.ToolchainId, receipt.ToolId);
+        Assert.Equal(provider.ToolchainVersion, receipt.ToolVersion);
+        Assert.Throws<InvalidOperationException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, provider));
+    }
+
+    [Theory]
+    [InlineData("self-contained-html")]
+    [InlineData("pdf")]
+    [InlineData("docx")]
+    [InlineData("epub")]
+    public void ProviderResultContract_AcceptsExactValueEquivalentProviderForEveryFormat(string format)
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportProviderContract canonical = DocumentExportContractCatalog.RequireProvider(format);
+        DocumentExportProviderContract provider = canonical with
+        {
+            Budgets = canonical.Budgets with { },
+            Delivery = canonical.Delivery with { },
+            Features = canonical.Features.Select(feature => feature with { }).ToArray()
+        };
+        DocumentExportTask task = DocumentExportContractValidator.Seal(ValidTask(input) with
+        {
+            FormatId = canonical.FormatId,
+            ProviderId = canonical.ProviderId,
+            ProviderVersion = canonical.ProviderVersion
+        });
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+
+        Assert.NotSame(canonical, provider);
+        Assert.NotSame(canonical.Features, provider.Features);
+        Assert.True(provider.Features.SequenceEqual(canonical.Features));
+        DocumentExportContractValidator.Validate(task, input);
+        DocumentExportContractValidator.Validate(receipt, task, input, provider);
+    }
+
+    [Fact]
+    public void ProviderResultContract_RejectsNullProvider()
+    {
+        DocumentExportFrozenInput input = ValidInput();
+        DocumentExportTask task = ValidTask(input);
+        DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
+        DocumentExportProviderReceipt receipt = ValidReceipt(task, input, provider);
+        DocumentExportContractValidator.Validate(receipt, task, input, provider);
+
+        ArgumentNullException error = Assert.Throws<ArgumentNullException>(() => DocumentExportContractValidator.Validate(
+            receipt, task, input, null!));
+        Assert.Equal("provider", error.ParamName);
+    }
+
+    private static DocumentExportProviderReceipt ValidReceipt(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportProviderContract provider)
+    {
+        byte[] output = Encoding.UTF8.GetBytes("contract-output");
+        return DocumentExportContractValidator.Seal(new DocumentExportProviderReceipt(
+            DocumentExportContractCatalog.ResultSchema,
+            task.ContentDigest,
+            input.ContentDigest,
+            provider.ProviderId,
+            provider.ProviderVersion,
+            input.RendererId,
+            input.RendererVersion,
+            input.RendererDigest,
+            input.AssetManifestDigest,
+            input.FontManifestDigest,
+            input.ReadingStyleAuthorityDigest,
+            provider.ToolchainId,
+            provider.ToolchainVersion,
+            Digest("sandbox-receipt"),
+            provider.OutputMediaType,
+            provider.OutputExtension,
+            provider.NormalizationPolicy,
+            DocumentExportDigest.ComputeBytes(output),
+            DocumentExportDigest.ComputeBytes(output),
+            output.LongLength,
+            ["headings"],
+            [],
+            [],
+            DocumentExportProviderResultStatus.Succeeded,
+            (long)provider.Delivery.RetentionTtl.TotalSeconds,
+            string.Empty));
     }
 
     internal static DocumentExportFrozenInput ValidInput(string markdown = "# 标题\n\nHello 🌍")

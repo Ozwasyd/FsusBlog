@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/migration/MySqlCurrentSchemaCatalogObserver.cs"
+            ],
+            "reason": "Preserve current MySqlConnector and DbCommand/DbDataReader lifecycle identities, original refusal codes, metadata budgets and current migration documentation; the restored cleanup source and typed sequence controls do not rename external surfaces."
+        }
+    ]
+}

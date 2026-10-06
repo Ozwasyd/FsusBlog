@@ -65,6 +65,16 @@ invariants and links back to those authorities rather than restating them.
 
 HTTP 层契约源是 `src/shared/Contracts/Validation/fsusblog.openapi.json`。该 OpenAPI snapshot 描述 method/path/status/content-type/security 与 `x-fsus-*` AEDS metadata；AEDS frame 名称、header magic/version/size 仍以 `src/shared/Contracts/Validation/aeds-protocol.json` 为唯一权威来源。`tools/frontend/generate-aeds-protocol.mjs` 从该 manifest 同时生成 Core `AedsFrameType`、Shared `AedsFrameHeader`/`AedsFrameType`、TypeScript frame constants 和 C++ `aeds_frame.hpp`；这些生成文件不得手写修改。Core 不再维护第二份 `AedsFrameHeader`，编码器、后端和测试统一引用 Shared 的 packed header。cross-stack matrix、前端 route constants、runtime contract smoke 与 release evidence 通过 `tools/contracts/*` 从这两个源校验或生成。
 
+Compiled request 治理观察使用 closed `fsusblog.api-aeds-observation.v5`：容器的 `item` 递归保留元素/字典值的 nullable、primitive format/enum/bounds 和 CLR schema ref，与容器自身 nullable 分开；原 `itemType`/`itemSchemaRef` 必须与该元素一致。唯一 compiled observer 从实际声明的 `NullabilityInfo` tree 和原类型边界规则取值，未知 reference annotation 或不可精确解析的元素 annotation 拒绝，不推定 nullable。消费者拒绝缺少元素信息的旧 v4；观察及 build receipt、OpenAPI 和 fact projection 须由原 producer 重新生成，不能通过重密封旧输出代替。这只升级治理元数据，不改变 endpoint、AEDS v2 wire、runtime request reader 或 public error 合同。
+
+同一协议生成器也拥有 `tests/backend/Fixtures/aeds-golden-catalog.json`。编号和退休值只来自协议 manifest；`goldenCatalog.defaultEvidence` 与每个 frame 的 `goldenFamily`、`goldenOrder` 显式保存原测试元数据和排列顺序，不能从名称猜测 payload、POD 或 ABI。所有注册 frame 必须具有完整、唯一的 golden 元数据；生成与 `--check` 都覆盖五个输出，不从旧 catalog 反推源。catalog 的生成一致性不替代真实 codec、跨栈探针或完整 matrix 验收。
+
+原 TestOwner `BackendGoldenCatalogTests` 继续持有独立 numeric oracle：旧 236 条 name/value/family 的固定 UTF-8 JSON 投影 SHA-256 包含原顺序，新 Font/Theme 八条使用独立 literal 编号与分类断言。其值不能随 manifest 或生成文件自动更新。原 `backend-golden` 入口在原 `Category=GoldenContract` SDK 测试前执行同一生成器的 Node 控制；这些控制与原 SDK 过滤、覆盖率和阈值共同保留，不能用 renderer 自洽替代 TestOwner 或 ABI 验收。
+
+Font/Theme 管理的八个 GET 均为 typed AEDS v2：`/api/binary/author/ops/fonts/registry`、`/registry/{fontId}`、`/activations` 分别使用 `FontRegistryList`、`FontRegistryDetail`、`FontActivationList`；`/api/binary/author/ops/themes/registry`、`/registry/{themeId}`、`/activations`、`/activations/{scope}`、`/activations/{scope}/history` 分别使用 `ThemeRegistryList`、`ThemeRegistryDetail`、`ThemeActivationList`、`ThemeActivation`、`ThemeActivationHistory`。缩写路径均相对于其 fonts/themes group。各路由继续要求 admin principal 的 `SystemConfig` 权限及 `fixed_ip` 限流，错误仍使用 `ApiError`；没有裸 JSON、`TextDecoder + JSON.parse` 或旧 helper fallback。前端经原生成 OperationID 路由入口消费，生成 OpenAPI/matrix/route 产品必须从当前 compiled endpoint observation 产生，不可用候选源码描述或旧分支产物替代。
+
+这些 payload 使用 Shared `FontThemeAdminPods` 和 `FontThemeAdminContractLimits` 的封闭、packed、bounded schema；C#、C++ 与 TypeScript 同步拒绝未知枚举、非法 presence/reserved、越界或非规范 UTF-8 slice、超限 count、截断和尾随 bytes。64-bit 非负 size/configuration/budget 在 TypeScript 为十进制字符串以保留完整 Int64 精度；时间仍是 UTC Unix 毫秒，nullable 用显式 presence 而非空字符串猜测。它们不改变路由、权限、AEDS header 或既有 Font/Theme 业务安装与激活语义。
+
 公开 HTML、hydration sidecar、PublicHotRead AEDS/HTML、cache/file runtime entry 与浏览器 hydration state 使用统一的 `PublicRepresentationCoordinate` 投影合同。唯一 machine-readable 定义是 `src/shared/Contracts/Validation/public-representation-coordinate.json`；C#、TypeScript 与 Wasm C++ 表面由 `tools/contracts/generate-public-representation-coordinate.mjs` 生成。它引用而不复制 release ID 与 AEDS wire authority，坐标包含 canonical route、source/revision/publication/visibility、renderer/release/assets、AEDS protocol/schema、document/sidecar digest、SEO identity 与 hydration page kind。坐标只在 build/project/publish 阶段密封，请求热路径不得查询数据库或 Redis 补齐坐标。
 
 transport validation 对 manifest 中每条转换只比较固定 `preserves` 字段。任一 renderer/assets/source/document/sidecar digest 不匹配，cache/file materialization 必须 evict-and-rebuild，HotRead 必须保留上一份合格 snapshot或回常规 endpoint，浏览器 hydration 与旧 Service Worker shell 必须走 network canonical route/navigation；不得继续消费部分兼容 payload。结构化 evidence 只使用固定 mismatch layer、transition 与 counter，不记录 route/digest/release 等高基数值。该合同不新增 frame 字段、不调整 AEDS v2 header 或 middleware 顺序，也不声明 #428 范围内的多节点强一致。
@@ -902,6 +912,41 @@ receipt：public delivery 仅接受 frozen-publication edge set（`frozen-edge-a
 authoring 查询仅接受 authoring set；receipt 只携带 per-edge digests 与 status，绝不携带 content 或
 隐藏边计数。`ArticleEmbedRelationVerifier` 独立重验证来源、重推导 edge、重算全部 digest 并检查
 ticket 只覆盖真实变化的边。本 slice 不执行 relation store、cache、AOT 或 UI——#1808 负责持久化。
+
+### Article relation closed contract
+
+`src/shared/Contracts/ArticleRelations/`、`config/contracts/article-relation-catalog.json` 与
+`config/schemas/article-relation-contract.schema.json` 共同定义 portable article relation 的唯一
+closed/versioned contract authority。本 slice 的 kind catalog 精确包含 `outgoing`、`backlink`、
+`broken`、`visibility-risk` 与 `unlinked-mention`，每个 kind 只有一个 semantic owner，并以
+`ArticleRelationContractCoordinate` 绑定 contract、kind、resolution、visibility 与 lifecycle
+catalog 版本。
+
+`ArticleRelationRecord` 绑定 source article/revision、UTF-16 half-open occurrence range、link text、
+stable target article/heading/block identity、target revision/lifecycle/permission、source/query actor
+与 visibility context、resolution status、index version 及 identity/record digest。target identity 不
+使用 URL、route、slug、title 或 rendered heading text；current public scope 只接受 current source、
+published/allowed target 与 anonymous-public context，draft/private/unknown facts fail closed。
+`ArticleRelationSet` 拒绝 orphan、duplicate 或 tampered records。
+
+unlinked mention 只产生可解释的 `ArticleRelationUnlinkedMentionCandidate`：它携带 matched range、
+候选 stable identities、match rule/reason、confidence、ambiguity 与可选 ignore-decision reference，
+并且 `IsAuthoritative` 永远为 `false`。`ArticleRelationLifecycleEvent` 为 create/edit/publish/schedule/
+archive/delete/restore/rollback/import/migration/rename 指定唯一 owner 与 rebuild/invalidate/reresolve
+obligations。index/query/ignore/prepublish/inspector receipts 绑定 worktree/build、parser/renderer、
+article/schema/permission policy、contract coordinate 与 content digest，只记录 identities/statuses/
+digests，不携带 content。
+
+unlinked-mention candidate 的 `Visibility.SourceActor` 必须与 `Source.SourceActor` 的完整
+actor/site/permission context 相等；`QueryActor` 仍是独立查询身份，重新计算 candidate identity
+与 digest 不能解除 source-actor 绑定。lifecycle `Changes` 只接受 `Slug`、`Title`、
+`HeadingIdentity` 的闭合位域：rename 必须是七种非空组合之一，其他事件必须为 `None`。
+未知位即使重新 seal 也拒绝；包含 heading 变更时仍必须同时履行 rebuild/invalidate/reresolve。
+
+`ArticleRelationContractValidator` 与 `ArticleRelationDigest` 是独立的 fail-closed validation/sealing
+authority；本 slice 不实现 Markdown parser、relation producer/rebuild、index/query、prepublish/inspector
+或 UI 行为。后续实现必须消费这些 closed contracts，并在上游 source/editor 与 relation lifecycle
+依赖完成且取得对应真实运行时证据后分别验收。
 
 ### `ArticleListItemResponse`
 
@@ -2240,6 +2285,10 @@ urlset 每页上限为 45,000，超过后根 `/sitemap.xml` 改为 sitemap index
 
 ### Article life cycle
 
+Current article canonical payloads/hashes, rights canonical binding, pure rights input normalization, status transition policy and responsibility draft/validation have one source in `src/shared/Contracts/Articles/`, consumed by Core, Server and offline Migration. Writer normalization still rejects negative excerpt limits and trims bounded text; wire encoding retains its existing non-trimming and zero-clamping behavior. Responsibility persistence, actor admission and publication/content-filter services remain Server-owned. These pure contracts do not grant publication eligibility or fabricate missing rights/responsibility snapshots.
+
+The current raw revision content-block address and stored revision/responsibility field encodings also have a single pure owner in `src/shared/Contracts/Articles/`. Production persistence retains the original null-to-empty Markdown input, UTF-8 byte length and uppercase SHA-256 block key, comma-separated sorted tag IDs without new filtering/deduplication, and Web JSON encoding for responsibility authors/reviewer/sources. These encoders do not change transaction ownership, global content-block sharing, snapshot validation or authoring admission.
+
 `Article.Status` 的 exact set 由 [`design.md`](design.md) 的 generated section 拥有；
 本文件只保留下方由同一 observation 生成的 allowed/forbidden transition projections。
 
@@ -2279,6 +2328,39 @@ Public and management end article response matrix:
 | `/api/binary/admin/article/**` | admin | draft/scheduled/published/archived/deleted 按 `status` 查询参数精确读取 | AEDS `ApiError` frame，错误码与 JSON 语义保持一致 |
 
 旧公开 query 路径（如 `/api/binary/article?page=1`、`/api/binary/article/hot?size=10`）不再 fallback；fast path 返回 `400 no-store`，并通过 `X-Fsus-Required-Route` 提示新的 segment artifact 路径。
+
+### Author recent article history authority (#2230)
+
+作者最近文章历史的唯一权威是服务端 `AuthorRecentArticleHistoryApplicationFacade` 与 PostgreSQL
+`author_recent_history_*` 表。每个事实按 `(ownerAdminPrincipalId, siteScope, articleId)` 归属，`articleId`
+必须是现存服务端 `Article.Id`，并绑定调用时的 `Article.CurrentRevisionId`；route、slug、title、local tab、
+`Article.UpdatedAt`、浏览器 history 和客户端缓存都不是身份或排序来源。closed schema version 为 `1`，每条 entry
+保存 `lastOpenedAtUtc`、`lastEditedAtUtc`、`lastActivatedAtUtc`、`serverRevision`、`lastCommand`、entry revision
+和内容 digest，投影只按这三个服务端事实时间再以 `articleId` 降序稳定排序。
+
+`Open`、`Edit`、`Activate` 通过同一 application/domain port 写入；请求必须携带正数 server revision、唯一
+UUID request id、预期 history collection revision 和 content digest。事务取得 owner/site advisory lock，先做
+`Article.CurrentRevisionId` 与权限校验，再做 collection CAS；同一 request 的相同命令返回原 receipt，payload 不同
+返回 idempotency conflict，过期 CAS 返回 revision conflict。每次提交原子写入 history entry、collection revision、
+receipt、idempotency row、outbox 和 audit row；任一 durable side effect 缺失或 digest 不一致，verifier 只能返回
+`Invalid`，不可生成已验证投影。
+
+读取使用真实服务端 empty projection；没有 entry 时不回退到 `updatedAt`、浏览器 history、route 扫描或本地存储。
+projection provider 在 permission、account/site scope、article deletion 或 archive 状态变化后过滤并失效；被拒绝的
+article 不泄露 title、slug、status、existence 或其它 metadata。cursor 由 ASP.NET Core Data Protection 认证保护，
+并绑定 owner、site、permission/session revision、collection revision 和最新 server fact，执行 bounded keyset
+pagination；offline 本地读取不写 authority，reconnect 只能重放正式 command 并接受服务端 receipt/CAS 结果。receipt
+同时封存 open/edit/activate 三类服务端事实时间，replay 与 independent verifier 都会重读并精确核对 idempotency、
+outbox、audit、permission 和 projection digest；缺失、字段漂移或重封后的 command drift 均 fail closed。此 issue
+只提供服务端 authority、commands、projection、receipt 与 verifier，不提供 client、UI 或 search 行为。返回当前
+projection 前必须通过 direct server read-model cache publication 校验；该边界不保存第二份 history authority，
+publication 拒绝、异常或 digest/page slice 不一致时返回空的 `Unavailable` 投影，不暴露部分缓存结果。
+实际读取与 independent verifier 共用同一快照绑定检查：验证结果必须为有效，且 revision、item count、content digest
+与本次读取快照逐项一致。另一快照的有效结果不能证明本次读取；不匹配时返回空的 `Unavailable`，不发布缓存投影。
+caller-facing verifier 只有在当前权限快照有效且所有 history entry 均可投影时才返回 collection revision、总计数
+与完整 authority digest；任一 entry 被拒绝时返回通用拒绝理由，所有 verifier 事实清空，空集合的有效校验不受影响。
+terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
+但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
 
 ### Admin Author Workbench
 

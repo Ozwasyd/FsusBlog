@@ -6,17 +6,17 @@ using System.Text.Json;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Infrastructure.PublicAot;
 using FsusBlog.Server.Infrastructure.Security;
-using FsusBlog.Server.Infrastructure.Projections;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
 using FsusBlog.Server.Tests.TestInfrastructure;
 
-using Microsoft.Extensions.Logging.Abstractions;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Logging.Abstractions;
 
 using NSubstitute;
 
@@ -80,7 +80,7 @@ public sealed class AccountProfilePreferenceFixturePostgresTests(PostgresSchemaM
             accountMutations,
             Substitute.For<IUserSessionValidationCache>());
         var sourceServices = new ServiceCollection();
-        sourceServices.AddSingleton(db);
+        sourceServices.AddSingleton<ISqlSugarClient>(db);
         await using ServiceProvider sourceProvider = sourceServices.BuildServiceProvider();
         var accountReader = new UserAccountReader(new AccountStateProjection(
             new SqlAccountStateProjectionSource(

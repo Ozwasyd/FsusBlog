@@ -9,9 +9,12 @@
  * into a static case.
  */
 
-import { isXunitProjectSource } from './xunit-projects.mjs';
+export const ADAPTER_VERSION = 'fsusblog.test-inventory.adapters.v2';
 
-export const ADAPTER_VERSION = 'fsusblog.test-inventory.adapters.v1';
+export const xunitTestProjects = Object.freeze([
+    Object.freeze({ directory: 'tests/backend', project: 'tests/backend/FsusBlog.Server.Tests.csproj' }),
+    Object.freeze({ directory: 'tests/migration', project: 'tests/migration/FsusBlog.Migration.Tests.csproj' })
+]);
 
 const posix = (value) => String(value ?? '').replaceAll('\\', '/');
 
@@ -19,8 +22,9 @@ const JS_TEST_FILE = /\.(?:test|spec)\.[cm]?[jt]sx?$/u;
 const FIXTURE_DIRECTORY = /^tests\/.*(?:\/|^)(?:fixtures?|Fixtures)(?:\/|$)/u;
 const NATIVE_CORPUS = /^tests\/native\/corpus\//u;
 const CHECKS_MJS = /^tests\/frontend\/checks\/.*\.mjs$/u;
-const xunitTestFile = (file) => isXunitProjectSource(file) && /(?:Tests|Test)\.cs$/u.test(file);
-const xunitSupportFile = (file) => isXunitProjectSource(file) && /(?:Fixture|Collection)\.cs$/u.test(file);
+const isXunitSource = (file) => xunitTestProjects.some(({ directory }) => file.startsWith(`${directory}/`));
+const isXunitTest = (file) => isXunitSource(file) && /(?:Tests|Test)\.cs$/u.test(file);
+const isXunitSupport = (file) => isXunitSource(file) && /(?:Fixture|Collection)\.cs$/u.test(file);
 const NATIVE_SMOKE = 'tests/native/AedsCrc16SmokeTests.cpp';
 const NATIVE_FUZZ = 'tests/native/AedsCrc16Fuzz.cpp';
 const NATIVE_CMAKE = 'tests/native/CMakeLists.txt';
@@ -73,7 +77,7 @@ export const ADAPTERS = [
         version: 'xunit.v2',
         kind: 'discoverable-test',
         caseIdentity: () => readyStaticCase('xunit-adapter'),
-        matches: xunitTestFile
+        matches: (file) => isXunitTest(file)
     },
     {
         id: 'xunit-support',
@@ -83,7 +87,7 @@ export const ADAPTERS = [
             'xunit-support-adapter',
             'fixture and collection support files never count as discoverable test cases'
         ),
-        matches: xunitSupportFile
+        matches: (file) => isXunitSupport(file)
     },
     {
         id: 'native-smoke',
@@ -191,8 +195,8 @@ export const ADAPTERS = [
       && !FIXTURE_DIRECTORY.test(file)
       && !NATIVE_CORPUS.test(file)
       && !CHECKS_MJS.test(file)
-      && !xunitTestFile(file)
-      && !xunitSupportFile(file)
+      && !isXunitTest(file)
+      && !isXunitSupport(file)
       && ![NATIVE_SMOKE, NATIVE_FUZZ, NATIVE_CMAKE].includes(file)
         )
     }
@@ -237,4 +241,55 @@ export function isInventoryPath(file, source = '')
 export function adapterById(id)
 {
     return ADAPTERS.find((adapter) => adapter.id === id) ?? null;
+}
+
+/** Exact declaration of a selected original project; not an execution grant. */
+export function xunitCompileDeclaration(project, configuration)
+{
+    if (!xunitTestProjects.some((owner) => owner.project === project.project && owner.directory === project.directory)
+        || !['Debug', 'Release'].includes(configuration))
+    {
+        throw new Error('xunit Compile owner requires an original project and closed configuration');
+    }
+    return `xunit:compile:${project.project}:${configuration}`;
+}
+
+export function parseXunitCompileDeclaration(declaration)
+{
+    for (const project of xunitTestProjects)
+    {
+        for (const configuration of ['Debug', 'Release'])
+        {
+            if (declaration === xunitCompileDeclaration(project, configuration))
+            {
+                return { project, configuration };
+            }
+        }
+    }
+    return null;
+}
+
+/** Only an actual case owner in a selected Compile graph calls this projection. */
+export function classifyXunitCompileOwner()
+{
+    const adapter = ADAPTERS.find((owner) => owner.id === 'xunit');
+    return { adapter: adapter.id, adapterVersion: adapter.version, kind: adapter.kind,
+        caseIdentity: adapter.caseIdentity() };
+}
+
+/** Generated Compile cases stay within the original project/configuration layout. */
+export function xunitGeneratedCompilePathIsOwned(file, { project, configuration })
+{
+    if (!file.split('/').includes('obj') && !file.startsWith('.tmp/'))
+    {
+        return true;
+    }
+    if (file.startsWith(`${project.directory}/obj/${configuration}/`))
+    {
+        return true;
+    }
+    const parts = file.split('/');
+    const projectName = project.project.split('/').at(-1).replace(/\.csproj$/u, '');
+    return parts[0] === '.tmp' && parts[1] === 'build' && /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/u.test(parts[2] ?? '')
+        && parts.slice(3, 7).join('/') === `dotnet/${projectName}/obj/${configuration}` && parts.length > 7;
 }

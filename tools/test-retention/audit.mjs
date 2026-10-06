@@ -4,7 +4,9 @@ import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 
 const { isInventoryPath } = await import(new URL('../test-inventory/adapters.mjs', import.meta.url));
+const { xunitProjectForSource } = await import(new URL('../test-inventory/xunit-projects.mjs', import.meta.url));
 const { snapshotGitWorktree } = await import(new URL('../test-matrix/scheduler.mjs', import.meta.url));
+const { LOCAL_REDIS_PLANNED_TESTS } = await import(new URL('../test/perception-redis-producer.mjs', import.meta.url));
 function tierExecutionDependencies(tier)
 {
     return tier?.executionDependsOn ?? tier?.dependsOn ?? [];
@@ -469,13 +471,6 @@ export function vitestTestId(file, name, ordinal = 1)
     return `vitest:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`;
 }
 
-function namedJavascriptTestId(framework, file, name, ordinal = 1)
-{
-    return framework === 'vitest'
-        ? vitestTestId(file, name, ordinal)
-        : `${framework}:${file}#${slug(name)}-${shortHash(`${name}\n${ordinal}`)}`;
-}
-
 function normalizeSemanticSource(source)
 {
     return source
@@ -491,7 +486,7 @@ function riskTagsFor(file, name, source)
         .map(([tag]) => tag);
 }
 
-function record({ id, file, framework, name, source, tierCategory = undefined, methodHistoryId = null, inventoryObligation = null })
+function record({ id, file, framework, name, source, tierCategory = undefined, traits = [], fullyQualifiedName = null, methodHistoryId = null, inventoryObligation = null })
 {
     const normalized = normalizeSemanticSource(source);
     const result = {
@@ -501,6 +496,8 @@ function record({ id, file, framework, name, source, tierCategory = undefined, m
         assertionTargets: [],
         riskTags: riskTagsFor(file, name, source),
         _tierCategory: tierCategory,
+        _traits: traits,
+        _fullyQualifiedName: fullyQualifiedName,
         _semanticSignature: shortHash(`${framework}\n${normalized}`)
     };
     if (methodHistoryId)
@@ -700,6 +697,8 @@ export function extractTestRecords(file, source, inventory = null)
             name: testCase.displayName,
             source: testCase.bodySource ?? source,
             tierCategory: (testCase.traits ?? []).find((trait) => trait.name === 'Category')?.value,
+            traits: testCase.traits ?? [],
+            fullyQualifiedName: xunitFullyQualifiedName(testCase),
             methodHistoryId: xunitMethodHistoryId(testCase.ownerClass, testCase.methodName),
             inventoryObligation: testCase.identity === 'dynamic' ? testCase.dynamicCaseInfo?.inventoryObligation ?? null : null
         }));
@@ -782,6 +781,7 @@ export function isTestInventoryPath(file)
 export function inferTierIdsForFile(file, source = '', explicitCategory = undefined)
 {
     const tiers = new Set();
+    const xunitProject = file.endsWith('.cs') ? xunitProjectForSource(file) : null;
     if (/^tests\/frontend\/unit\/.*\.test\.[cm]?[jt]sx?$/u.test(file))
     {
         tiers.add('frontend-unit-shard');
@@ -797,7 +797,7 @@ export function inferTierIdsForFile(file, source = '', explicitCategory = undefi
         tiers.add('ux-viewport-visual');
         tiers.add('ux-viewport-boundaries');
     }
-    if (/^tests\/backend\/.*\.cs$/u.test(file))
+    if (xunitProject?.project === 'tests/backend/FsusBlog.Server.Tests.csproj')
     {
         const category = explicitCategory === undefined
             ? String(source).match(/\[Trait\(\s*"Category"\s*,\s*"([^"]+)"\s*\)\]/u)?.[1] ?? null
@@ -842,7 +842,114 @@ export function inferTierIdsForFile(file, source = '', explicitCategory = undefi
             tiers.add('coverage-backend');
         }
     }
+    else if (xunitProject?.project === 'tests/migration/FsusBlog.Migration.Tests.csproj')
+    {
+        // The independent assembly executes once and unfiltered. Server
+        // coverage/category lanes and the fast summary do not execute it.
+        tiers.add('backend-unit');
+    }
+    else if (xunitProject)
+    {
+        throw new Error(`xunit project has no retention execution projection: ${xunitProject.project}`);
+    }
     return [...tiers].sort();
+}
+
+function xunitFullyQualifiedName(testCase)
+{
+    return testCase.ownerSuite && testCase.methodName
+        ? `${testCase.ownerSuite.replaceAll('+', '.')}.${testCase.methodName}`
+        : null;
+}
+
+function isCanonicalLocalRedisCase(testCase)
+{
+    const fullyQualifiedName = testCase.fullyQualifiedName ?? xunitFullyQualifiedName(testCase);
+    const fixtures = (testCase.traits ?? []).filter((trait) => trait.name === 'Fixture').map((trait) => trait.value);
+    const canonical = LOCAL_REDIS_PLANNED_TESTS.includes(fullyQualifiedName);
+    if (fixtures.includes('LocalRedis') && !canonical)
+    {
+        throw new Error(`LocalRedis fixture has no canonical producer member: ${fullyQualifiedName ?? testCase.id}`);
+    }
+    if (canonical && (fixtures.length !== 1 || fixtures[0] !== 'LocalRedis'))
+    {
+        throw new Error(`LocalRedis canonical member requires exactly Fixture=LocalRedis: ${fullyQualifiedName}`);
+    }
+    return canonical;
+}
+
+export function resolveLocalRedisRetentionMembership({ inventory, matrix, coverageRegistry })
+{
+    const cases = (inventory?.testCases ?? []).filter((testCase) => (
+        testCase.adapter === 'xunit' && isCanonicalLocalRedisCase(testCase)
+    ));
+    const owners = (matrix?.tiers ?? []).filter((tier) => (
+        tier.cacheInputs?.includes('tools/test/perception-redis-producer.mjs')
+        && tier.cacheInputs?.includes('tools/test/perception-character-v3-redis-fixture.sh')
+    ));
+    if (cases.length === 0 && owners.length === 0)
+    {
+        return new Map();
+    }
+    const names = cases.map(xunitFullyQualifiedName);
+    if (cases.length !== LOCAL_REDIS_PLANNED_TESTS.length
+        || new Set(names).size !== names.length
+        || new Set(cases.map((testCase) => testCase.id)).size !== cases.length
+        || LOCAL_REDIS_PLANNED_TESTS.some((name) => !names.includes(name)))
+    {
+        throw new Error('LocalRedis discovery must contain every current producer member exactly once');
+    }
+    if (owners.length !== 1 || !owners[0].id || !owners[0].command
+        || ['projection', 'summary'].includes(owners[0].executionMode))
+    {
+        throw new Error('LocalRedis requires exactly one executable matrix owner of the existing producer and fixture');
+    }
+    const tierId = owners[0].id;
+    return new Map(cases.map((testCase) =>
+    {
+        const coverage = (coverageRegistry?.entries ?? []).filter((entry) => (
+            entry.evidencePaths?.includes(testCase.ownerFile) && entry.tierIds?.includes(tierId)
+        ));
+        if (coverage.length === 0 || coverage.some((entry) => (
+            !entry.id || entry.tierIds.length !== 1
+        )) || new Set(coverage.map((entry) => entry.id)).size !== coverage.length)
+        {
+            throw new Error(`LocalRedis requires unambiguous canonical coverage ownership: ${testCase.id}`);
+        }
+        return [testCase.id, {
+            fullyQualifiedName: xunitFullyQualifiedName(testCase),
+            ownerFile: testCase.ownerFile,
+            tierIds: [tierId],
+            coverageIds: coverage.map((entry) => entry.id).sort()
+        }];
+    }));
+}
+
+function inferXunitCaseTierIds(testCase, localRedisMembership)
+{
+    if (isCanonicalLocalRedisCase(testCase))
+    {
+        const membership = localRedisMembership.get(testCase.id);
+        const fullyQualifiedName = testCase.fullyQualifiedName ?? xunitFullyQualifiedName(testCase);
+        if (!membership || membership.fullyQualifiedName !== fullyQualifiedName
+            || membership.ownerFile !== testCase.ownerFile || membership.tierIds.length !== 1)
+        {
+            throw new Error(`LocalRedis case requires resolved current canonical ownership: ${testCase.id}`);
+        }
+        return membership.tierIds;
+    }
+    const category = (testCase.traits ?? []).find((trait) => trait.name === 'Category')?.value ?? null;
+    return inferTierIdsForFile(testCase.ownerFile, '', category);
+}
+
+export function inferTierIdsForInventoryFile(file, source, inventory, localRedisMembership)
+{
+    const cases = (inventory?.testCases ?? []).filter((testCase) => testCase.ownerFile === file);
+    if (/^tests\/backend\/.*\.cs$/u.test(file) && cases.length > 0)
+    {
+        return sortedUnique(cases.flatMap((testCase) => inferXunitCaseTierIds(testCase, localRedisMembership)));
+    }
+    return inferTierIdsForFile(file, source);
 }
 
 const tierReplacementScopes = new Set(['tier', 'production-membership']);
@@ -1301,6 +1408,7 @@ export async function auditTestRecords({
     timingHistory,
     failureHistory,
     inventory = null,
+    localRedisMembership = new Map(),
     oracleFacts = null,
     qualityResult = null
 })
@@ -1318,10 +1426,15 @@ export async function auditTestRecords({
             const timings = historyFor(timingHistory, historyId, file);
             const failures = historyFor(failureHistory, historyId, file);
             const inferredRecordTiers = extracted.framework === 'xunit' && /^tests\/backend\/.*\.cs$/u.test(file)
-                ? inferTierIdsForFile(file, '', extracted._tierCategory ?? null)
+                ? inferXunitCaseTierIds({
+                    id: extracted.id, ownerFile: file,
+                    fullyQualifiedName: extracted._fullyQualifiedName, traits: extracted._traits
+                }, localRedisMembership)
+                : extracted.framework === 'xunit' && xunitProjectForSource(file)
+                    ? inferTierIdsForFile(file, '', extracted._tierCategory ?? null)
                 : metadata.tierIds ?? [];
             const tierIds = [...new Set(inferredRecordTiers)].sort();
-            const coverageIds = [...new Set(metadata.coverageIds ?? [])].sort();
+            const coverageIds = [...new Set(localRedisMembership.get(extracted.id)?.coverageIds ?? metadata.coverageIds ?? [])].sort();
             const fact = factsById.get(extracted.id) ?? null;
             const quality = qualityById.get(extracted.id) ?? null;
             const qualityOutcome = quality?.outcome ?? (fact === null ? 'not-applicable' : 'unresolved-failed');
@@ -1365,7 +1478,15 @@ export async function auditTestRecords({
     }
 
     applyEquivalence(records);
-    return records.map(({ _semanticSignature, _retentionClass, _tierCategory, ...item }) => item);
+    return records.map((item) =>
+    {
+        const output = { ...item };
+        for (const field of ['_semanticSignature', '_retentionClass', '_tierCategory', '_traits', '_fullyQualifiedName'])
+        {
+            delete output[field];
+        }
+        return output;
+    });
 }
 
 export function reviewCandidateFiles(candidateFiles, records)

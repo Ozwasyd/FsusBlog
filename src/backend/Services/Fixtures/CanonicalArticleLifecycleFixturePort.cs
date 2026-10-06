@@ -1,9 +1,11 @@
 // fixture-catalog: port canonical-article-lifecycle
 using System.Globalization;
+using System.Runtime.ExceptionServices;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
@@ -166,6 +168,15 @@ public interface ICanonicalArticleLifecycleFixturePort
     Task<CanonicalArticleLifecycleResult> ExecuteAsync(
         CanonicalArticleLifecycleRequest request,
         CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Completes an existing scheduled fixture only after its injected business clock reaches
+    /// the persisted due time. The caller owns clock advancement; this port never advances it.
+    /// </summary>
+    Task<CanonicalArticleLifecycleResult> PublishScheduledAsync(
+        CanonicalArticleLifecycleFixtureBinding binding,
+        CanonicalArticleLifecycleReceipt scheduledReceipt,
+        CancellationToken cancellationToken = default);
 }
 
 public sealed class CanonicalArticleLifecycleValidationException(string code, string? message = null)
@@ -186,11 +197,15 @@ public sealed class CanonicalArticleLifecycleFixturePort(
     public static string CurrentWriterContractDigest { get; } = ComputeDigest(DefaultWriterContract);
     private const string ExecutionAuditSchema = "fsusblog.canonical-article-lifecycle-execution.v1";
     private const string ExecutionAuditTargetType = "article-canonical-lifecycle-execution";
+    internal const string ScheduledRecoveryFailureKey = "canonical_article_lifecycle_scheduled_recovery_failure";
+    internal const string ScheduledRecoveryCompletedKey = "canonical_article_lifecycle_scheduled_recovery_completed";
+    internal const string ScheduledRecoveryQualifiedKey = "canonical_article_lifecycle_scheduled_recovery_qualified";
 
     private sealed record ExecutionAuditEnvelope(
         string Schema,
         string RequestHash,
-        CanonicalArticleLifecycleReceipt Receipt);
+        CanonicalArticleLifecycleReceipt Receipt,
+        IReadOnlyList<string> Capabilities);
 
     public async Task<CanonicalArticleLifecycleResult> ExecuteAsync(
         CanonicalArticleLifecycleRequest request,
@@ -311,11 +326,16 @@ public sealed class CanonicalArticleLifecycleFixturePort(
                     request.Plan,
                     results,
                     cancellationToken).ConfigureAwait(false);
+                CanonicalArticleLifecycleVerificationResult authority = await CanonicalArticleLifecycleVerifier
+                    .VerifyAsync(db, configuration, receipt, cancellationToken, timeProvider)
+                    .ConfigureAwait(false);
+                authority.ThrowIfInvalid();
                 await WriteExecutionAuditAsync(
                     request.Binding.AdminPrincipalId,
                     clientMutationId,
                     requestHash,
                     receipt,
+                    request.Binding.Capabilities,
                     now,
                     cancellationToken).ConfigureAwait(false);
             }).ConfigureAwait(false);
@@ -349,7 +369,7 @@ public sealed class CanonicalArticleLifecycleFixturePort(
         CanonicalArticleLifecycleReceipt committedReceipt = receipt
             ?? throw new InvalidOperationException("canonical_article_lifecycle_transaction_failed");
         CanonicalArticleLifecycleVerificationResult verification = await CanonicalArticleLifecycleVerifier
-            .VerifyAsync(db, configuration, committedReceipt, cancellationToken)
+            .VerifyAsync(db, configuration, committedReceipt, cancellationToken, timeProvider)
             .ConfigureAwait(false);
         if (!verification.IsValid)
         {
@@ -363,7 +383,161 @@ public sealed class CanonicalArticleLifecycleFixturePort(
         return new CanonicalArticleLifecycleResult(committedReceipt, verification, idempotencyReplay);
     }
 
-    private async Task<CanonicalArticleLifecycleReceipt> BuildReceiptAsync(
+    public async Task<CanonicalArticleLifecycleResult> PublishScheduledAsync(
+        CanonicalArticleLifecycleFixtureBinding binding,
+        CanonicalArticleLifecycleReceipt scheduledReceipt,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(binding);
+        ArgumentNullException.ThrowIfNull(scheduledReceipt);
+        binding.Validate();
+        if (scheduledReceipt.RunId != binding.RunId
+            || scheduledReceipt.Namespace != binding.Namespace
+            || scheduledReceipt.ProfileId != binding.ProfileId
+            || scheduledReceipt.AdminPrincipalId != binding.AdminPrincipalId
+            || scheduledReceipt.WriterContractDigest != binding.WriterContractDigest
+            || scheduledReceipt.TemporalContextDigest != binding.TemporalContextDigest)
+        {
+            throw new CanonicalArticleLifecycleValidationException("scheduled_receipt_binding_mismatch");
+        }
+        CanonicalArticleLifecycleOperationReceipt? pending = scheduledReceipt.Operations?.LastOrDefault();
+        if (pending is null
+            || scheduledReceipt.IsDeleted
+            || !(scheduledReceipt.Variant == CanonicalArticleLifecycleVariants.Scheduled
+                && pending.Operation == "create" && pending.AfterStatus == ArticleStatus.Scheduled
+                || scheduledReceipt.Variant == CanonicalArticleLifecycleVariants.PublishedScheduledUpdate
+                && pending.Operation == "scheduled-update" && pending.AfterStatus == ArticleStatus.Published)
+            || pending.ScheduledPublishAt is not DateTime dueAt)
+        {
+            throw new CanonicalArticleLifecycleValidationException("scheduled_receipt_not_pending");
+        }
+        if ((timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime < dueAt)
+        {
+            throw new CanonicalArticleLifecycleValidationException("scheduled_publication_not_due");
+        }
+
+        bool fenceEstablished = false;
+        bool mutationCommitted = false;
+        CanonicalArticleLifecycleResult? result = null;
+        Exception? primaryFailure = null;
+        try
+        {
+            await mutationFence.BeginPublicMutationFenceAsync(null, cancellationToken).ConfigureAwait(false);
+            fenceEstablished = true;
+            var transaction = await db.Ado.UseTranAsync(async () =>
+            {
+                // Serialize with the production transition and re-read the original authority
+                // under the same article lock; a stale or altered receipt cannot add facts.
+                await db.Ado.GetScalarAsync(
+                    "SELECT id FROM article WHERE id = @ArticleId FOR UPDATE;",
+                    new SugarParameter("@ArticleId", scheduledReceipt.ArticleId)).ConfigureAwait(false);
+                cancellationToken.ThrowIfCancellationRequested();
+                ArticleMutationCommand? command = await db.Queryable<ArticleMutationCommand>()
+                    .Where(item => item.ArticleId == scheduledReceipt.ArticleId
+                                && item.AdminPrincipalId == binding.AdminPrincipalId)
+                    .FirstAsync(cancellationToken).ConfigureAwait(false);
+                if (command is null)
+                {
+                    throw new CanonicalArticleLifecycleValidationException("scheduled_origin_command_missing");
+                }
+                ExecutionAuditEnvelope origin = await LoadExecutionAuditAsync(
+                    binding.AdminPrincipalId, command.ClientMutationId, cancellationToken).ConfigureAwait(false);
+                if (origin.Schema != ExecutionAuditSchema || origin.RequestHash != command.RequestHash
+                    || origin.Receipt.ReceiptDigest != scheduledReceipt.ReceiptDigest
+                    || origin.Capabilities is null
+                    || !origin.Capabilities.Order(StringComparer.Ordinal)
+                        .SequenceEqual(binding.Capabilities.Order(StringComparer.Ordinal), StringComparer.Ordinal))
+                {
+                    throw new CanonicalArticleLifecycleValidationException("scheduled_origin_receipt_mismatch");
+                }
+                CanonicalArticleLifecycleVerificationResult before = await CanonicalArticleLifecycleVerifier
+                    .VerifyAsync(db, configuration, scheduledReceipt, cancellationToken, timeProvider)
+                    .ConfigureAwait(false);
+                before.ThrowIfInvalid();
+                DateTime now = (timeProvider ?? TimeProvider.System).GetUtcNow().UtcDateTime;
+                if (now < dueAt)
+                {
+                    throw new CanonicalArticleLifecycleValidationException("scheduled_publication_not_due");
+                }
+                ArticleLifecycleTransitionWriter.Result published = await ArticleLifecycleTransitionWriter.PublishScheduledAsync(
+                    db,
+                    configuration,
+                    new ArticleLifecycleTransitionWriter.ScheduledPublishRequest(
+                        scheduledReceipt.ArticleId,
+                        scheduledReceipt.CurrentRevisionId,
+                        now,
+                        binding.AdminPrincipalId,
+                        scheduledReceipt.SemanticRole),
+                    cancellationToken).ConfigureAwait(false);
+                CanonicalArticleLifecycleReceipt receipt = await BuildReceiptAsync(
+                    binding,
+                    scheduledReceipt.SemanticRole,
+                    scheduledReceipt.Variant,
+                    [.. scheduledReceipt.Operations!, MapOperation(published)],
+                    published,
+                    cancellationToken).ConfigureAwait(false);
+                CanonicalArticleLifecycleVerificationResult verification = await CanonicalArticleLifecycleVerifier
+                    .VerifyAsync(db, configuration, receipt, cancellationToken, timeProvider)
+                    .ConfigureAwait(false);
+                verification.ThrowIfInvalid();
+                result = new CanonicalArticleLifecycleResult(receipt, verification);
+            }).ConfigureAwait(false);
+            if (!transaction.IsSuccess)
+            {
+                if (transaction.ErrorException is Exception transactionError)
+                {
+                    ExceptionDispatchInfo.Capture(transactionError).Throw();
+                }
+                throw new InvalidOperationException("canonical_article_lifecycle_transaction_failed");
+            }
+            if (result is null)
+            {
+                throw new InvalidOperationException("canonical_article_lifecycle_transaction_failed");
+            }
+            mutationCommitted = true;
+        }
+        catch (Exception exception)
+        {
+            primaryFailure = exception;
+            throw;
+        }
+        finally
+        {
+            if (fenceEstablished && !mutationCommitted)
+            {
+                // Preserve the first refusal/fault and its original classification.
+                // The recovery port returning is not proof of durable lease or
+                // physical cleanup; a failed recovery remains an explicit obligation.
+                if (primaryFailure is not null)
+                {
+                    primaryFailure.Data[ScheduledRecoveryCompletedKey] = false;
+                    primaryFailure.Data[ScheduledRecoveryQualifiedKey] = false;
+                }
+                try
+                {
+                    await mutationFence.RecoverAbortedPublicMutationFenceAsync(
+                        null,
+                        "canonical-article-lifecycle-fence-aborted",
+                        cancellationToken).ConfigureAwait(false);
+                    if (primaryFailure is not null)
+                    {
+                        primaryFailure.Data[ScheduledRecoveryCompletedKey] = true;
+                    }
+                }
+                catch (Exception recoveryFailure) when (primaryFailure is not null)
+                {
+                    primaryFailure.Data[ScheduledRecoveryFailureKey] = recoveryFailure;
+                }
+            }
+        }
+        await mutationFence.CommitPublicMutationFenceAsync(
+            null,
+            "canonical-article-lifecycle-authority",
+            cancellationToken).ConfigureAwait(false);
+        return result;
+    }
+
+    private Task<CanonicalArticleLifecycleReceipt> BuildReceiptAsync(
         CanonicalArticleLifecycleFixtureBinding binding,
         CanonicalArticleLifecyclePlan plan,
         IReadOnlyList<ArticleLifecycleTransitionWriter.Result> results,
@@ -374,7 +548,18 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             throw new InvalidOperationException("canonical_article_lifecycle_transaction_failed");
         }
 
-        ArticleLifecycleTransitionWriter.Result last = results[^1];
+        return BuildReceiptAsync(
+            binding, plan.SemanticRole, plan.Variant, results.Select(MapOperation).ToArray(), results[^1], cancellationToken);
+    }
+
+    private async Task<CanonicalArticleLifecycleReceipt> BuildReceiptAsync(
+        CanonicalArticleLifecycleFixtureBinding binding,
+        string semanticRole,
+        string variant,
+        IReadOnlyList<CanonicalArticleLifecycleOperationReceipt> operations,
+        ArticleLifecycleTransitionWriter.Result last,
+        CancellationToken cancellationToken)
+    {
         List<ArticleRevision> revisionRecords = await db.Queryable<ArticleRevision>()
             .Where(item => item.ArticleId == last.ArticleId)
             .OrderBy(item => item.RevisionNo, OrderByType.Asc)
@@ -392,9 +577,6 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             .Select(item => item.Id)
             .ToListAsync(cancellationToken)
             .ConfigureAwait(false);
-        CanonicalArticleLifecycleOperationReceipt[] operations = results
-            .Select(MapOperation)
-            .ToArray();
         string revisionTimelineDigest = ComputeRevisionTimelineDigest(revisionRecords, revisionBlocks);
         return new CanonicalArticleLifecycleReceipt(
             Schema,
@@ -403,8 +585,8 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             binding.RunId,
             binding.Namespace,
             binding.ProfileId,
-            plan.SemanticRole,
-            plan.Variant,
+            semanticRole,
+            variant,
             binding.AdminPrincipalId,
             last.ArticleId,
             operations,
@@ -422,8 +604,8 @@ public sealed class CanonicalArticleLifecycleFixturePort(
                 binding.RunId,
                 binding.Namespace,
                 binding.ProfileId,
-                plan.SemanticRole,
-                plan.Variant,
+                semanticRole,
+                variant,
                 binding.AdminPrincipalId,
                 last.ArticleId,
                 operations,
@@ -447,19 +629,12 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             .FirstAsync(cancellationToken)
             .ConfigureAwait(false);
 
-    private async Task<CanonicalArticleLifecycleResult> ReplayAsync(
-        ArticleMutationCommand command,
-        CanonicalArticleLifecycleRequest request,
+    private async Task<ExecutionAuditEnvelope> LoadExecutionAuditAsync(
+        long adminId,
         string clientMutationId,
-        string requestHash,
         CancellationToken cancellationToken)
     {
-        if (!string.Equals(command.RequestHash, requestHash, StringComparison.Ordinal))
-        {
-            throw new ArticleMutationContentConflictException();
-        }
-
-        string adminPrincipalId = request.Binding.AdminPrincipalId.ToString(CultureInfo.InvariantCulture);
+        string adminPrincipalId = adminId.ToString(CultureInfo.InvariantCulture);
         AuditLog? executionAudit = await db.Queryable<AuditLog>()
             .ClearFilter()
             .Where(item => item.TargetType == ExecutionAuditTargetType
@@ -508,6 +683,22 @@ public sealed class CanonicalArticleLifecycleFixturePort(
                 "canonical_article_lifecycle_replay_receipt_invalid",
                 exception);
         }
+        return envelope;
+    }
+
+    private async Task<CanonicalArticleLifecycleResult> ReplayAsync(
+        ArticleMutationCommand command,
+        CanonicalArticleLifecycleRequest request,
+        string clientMutationId,
+        string requestHash,
+        CancellationToken cancellationToken)
+    {
+        if (!string.Equals(command.RequestHash, requestHash, StringComparison.Ordinal))
+        {
+            throw new ArticleMutationContentConflictException();
+        }
+        ExecutionAuditEnvelope envelope = await LoadExecutionAuditAsync(
+            request.Binding.AdminPrincipalId, clientMutationId, cancellationToken).ConfigureAwait(false);
 
         CanonicalArticleLifecycleReceipt receipt = envelope.Receipt;
         if (!string.Equals(envelope.Schema, ExecutionAuditSchema, StringComparison.Ordinal)
@@ -526,7 +717,7 @@ public sealed class CanonicalArticleLifecycleFixturePort(
         }
 
         CanonicalArticleLifecycleVerificationResult verification = await CanonicalArticleLifecycleVerifier
-            .VerifyAsync(db, configuration, receipt, cancellationToken)
+            .VerifyAsync(db, configuration, receipt, cancellationToken, timeProvider)
             .ConfigureAwait(false);
         verification.ThrowIfInvalid();
         return new CanonicalArticleLifecycleResult(receipt, verification, IdempotencyReplay: true);
@@ -537,11 +728,12 @@ public sealed class CanonicalArticleLifecycleFixturePort(
         string clientMutationId,
         string requestHash,
         CanonicalArticleLifecycleReceipt receipt,
+        IReadOnlyList<string> capabilities,
         DateTime occurredAt,
         CancellationToken cancellationToken)
     {
         string contextJson = JsonSerializer.Serialize(
-            new ExecutionAuditEnvelope(ExecutionAuditSchema, requestHash, receipt));
+            new ExecutionAuditEnvelope(ExecutionAuditSchema, requestHash, receipt, capabilities.Order(StringComparer.Ordinal).ToArray()));
         string eventInfo = ComputeDigest(contextJson);
         await AuthoringSignedAuditWriter.InsertAsync(
             db,
@@ -662,16 +854,8 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             throw new InvalidOperationException("scheduled update changed the old publication before due time");
         }
 
-        results.Add(await ArticleLifecycleTransitionWriter.PublishScheduledAsync(
-            db,
-            configuration,
-            new ArticleLifecycleTransitionWriter.ScheduledPublishRequest(
-                scheduled.ArticleId,
-                scheduled.After.RevisionId!.Value,
-                scheduledAt,
-                binding.AdminPrincipalId,
-                plan.SemanticRole),
-            cancellationToken).ConfigureAwait(false));
+        // The new revision remains pending. A separate due-time call consumes this receipt
+        // after the caller advances the shared business clock, never by substituting dueAt for now.
     }
 
     private async Task ExecuteArchivedAsync(
@@ -965,7 +1149,7 @@ public sealed class CanonicalArticleLifecycleFixturePort(
             result.Version.ResponsibilitySnapshotId,
             result.Version.ResponsibilityVersion,
             result.RollbackSourceRevisionId,
-            result.TransitionedAtUtc ?? result.After.DeletedAt ?? result.Before.DeletedAt ?? DateTime.UtcNow,
+            result.TransitionedAtUtc ?? throw new InvalidOperationException("lifecycle transition business time missing"),
             result.Before.PendingPublicationAt ?? result.Before.ScheduledPublishAt
                 ?? result.After.PendingPublicationAt ?? result.After.ScheduledPublishAt,
             result.ContentDigest,

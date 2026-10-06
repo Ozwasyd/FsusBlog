@@ -12,8 +12,8 @@ function read(relativePath)
 }
 
 const canonicalSources = [
-    'src/core/Integrity/ArticleCanonicalHashV1.cs',
-    'src/core/Integrity/ArticleRightsCanonicalHashV1.cs'
+    'src/shared/Contracts/Articles/ArticleCanonicalHashV1.cs',
+    'src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs'
 ];
 
 test('canonical hash source boundary keeps core free of runtime and external dependencies', () =>
@@ -36,7 +36,7 @@ test('canonical hash source boundary keeps core free of runtime and external dep
         assert.doesNotMatch(source, /\bdynamic\b/u, relativePath);
     }
 
-    const project = read('src/core/FsusBlog.Core.csproj');
+    const project = read('src/core/FsusBlog.Core.csproj') + read('src/shared/FsusBlog.Shared.csproj');
     for (const dependency of ['src/backend', 'FsusBlog.Server', 'SqlSugar', 'Nethereum', 'IPFS', 'Arweave'])
     {
         assert.equal(project.toLowerCase().includes(dependency.toLowerCase()), false, dependency);
@@ -45,7 +45,7 @@ test('canonical hash source boundary keeps core free of runtime and external dep
 
 test('rights canonical writer keeps the governed buffer writer boundary', () =>
 {
-    const source = read('src/core/Integrity/ArticleRightsCanonicalHashV1.cs');
+    const source = read('src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs');
     assert.match(source, /new ArrayBufferWriter<byte>\(/u);
     assert.match(source, /WritePayload\(IBufferWriter<byte> writer/u);
     assert.doesNotMatch(source, /\bJsonSerializer\b/u);

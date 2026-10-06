@@ -15,6 +15,52 @@ const toolchain = {
     node: 'v24.1.0', npm: '11.0.0', dotnet: '10.0.1', vite: '7.0.0', vitest: '4.0.0', playwright: '1.58.0', emsdk: '4.0.0'
 };
 
+test('task-only Migration package binds the whole measured publish roster without native qualification', async () =>
+{
+    const { createCurrentNativeTaskToolImageBinding } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+    const value = { sourceCommit: 'a'.repeat(40), imageId: `sha256:${'b'.repeat(64)}`,
+        targetRuntime: 'linux-musl-x64', measurement: ['FsusBlog.Migration.dll',
+            'FsusBlog.Migration.deps.json', 'FsusBlog.Migration.runtimeconfig.json',
+            'resources/empty.data'].map((file, index) => `${'c'.repeat(64)}\t${index === 3 ? 0 : 12}\t${file}`).join('\n') + '\n' };
+    const result = createCurrentNativeTaskToolImageBinding(value);
+    assert.equal(result.artifacts.length, 4);
+    assert.equal(result.tool.assemblySha256, `sha256:${'c'.repeat(64)}`);
+    assert.equal(result.artifacts.find(item => item.path.endsWith('/resources/empty.data')).bytes, 0);
+    assert.deepEqual(result.serverEntryPoint, ['./FsusBlog.Server']);
+    assert.equal(result.deployableProductionRelease, false);
+    assert.equal(result.nativeQualification, false);
+    assert.equal(result.nativeCapabilityConfiguration, 'not-observed');
+    assert.deepEqual(createCurrentNativeTaskToolImageBinding({ ...value,
+        measurement: value.measurement.trimEnd().split('\n').reverse().join('\n') + '\n' }), result);
+});
+
+test('task-only Migration package refuses missing, unsafe, duplicate and malformed actual file measurements', async () =>
+{
+    const { createCurrentNativeTaskToolImageBinding } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
+    const rows = ['FsusBlog.Migration.dll', 'FsusBlog.Migration.deps.json', 'FsusBlog.Migration.runtimeconfig.json'];
+    const line = file => `${'c'.repeat(64)}\t12\t${file}`;
+    const value = { sourceCommit: 'a'.repeat(40), imageId: `sha256:${'b'.repeat(64)}`,
+        targetRuntime: 'linux-musl-x64', measurement: rows.map(line).join('\n') + '\n' };
+    assert.equal(createCurrentNativeTaskToolImageBinding(value).artifacts.length, 3);
+    for (const missing of rows)
+    {
+        assert.throws(() => createCurrentNativeTaskToolImageBinding({ ...value,
+            measurement: rows.filter(file => file !== missing).map(line).join('\n') }), /missing/u);
+    }
+    for (const extra of [line('../escape'), line('/absolute'), line('nested//empty'), line(rows[0]),
+        `${'c'.repeat(64)}\t9007199254740992\textra`, `${'c'.repeat(64)}\t-1\textra`])
+    {
+        assert.throws(() => createCurrentNativeTaskToolImageBinding({ ...value,
+            measurement: value.measurement + extra }), /unsafe|duplicated|invalid/u);
+    }
+    assert.throws(() => createCurrentNativeTaskToolImageBinding({ ...value,
+        measurement: value.measurement.replace('\t12\tFsusBlog.Migration.dll', '\t0\tFsusBlog.Migration.dll') }), /missing/u);
+    for (const changed of [{ sourceCommit: '0'.repeat(40) }, { imageId: 'latest' }, { targetRuntime: 'unknown' }])
+    {
+        assert.throws(() => createCurrentNativeTaskToolImageBinding({ ...value, ...changed }), /identity/u);
+    }
+});
+
 function verifyMigrationBuildDependency(source)
 {
     const serverBuild = 'dotnet build "$ROOT_DIR/src/backend/FsusBlog.Server.csproj"';
@@ -48,6 +94,11 @@ function verifyMigrationBuildDependency(source)
         migrationCommand,
         /-c Release --no-restore --no-dependencies --no-incremental -warnaserror/u,
         'Migration must use the explicit Release no-dependencies build contract'
+    );
+    assert.match(
+        migrationCommand,
+        /-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        'Migration assembly metadata must exact-bind the production build source commit'
     );
     const testCommand = source.slice(testIndex, source.indexOf('\nfi', testIndex));
     assert.match(
@@ -163,7 +214,7 @@ test('lane builds and binds Migration before the no-dependencies backend test co
 test('lane dependency contract rejects missing, reordered, implicit and unbound Migration builds', () =>
 {
     const lane = fs.readFileSync(new URL('../../tools/test/lanes/production-build-artifacts.sh', import.meta.url), 'utf8');
-    const migrationCommand = / {4}"\$ROOT_DIR\/tools\/test\/run-with-dotnet-release-build-lock\.sh" \\\n {8}"\$ROOT_DIR\/tools\/build-with-data-env\.sh" dotnet build "\$ROOT_DIR\/src\/migration\/FsusBlog\.Migration\.csproj" \\\n {8}-c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false\n/u;
+    const migrationCommand = / {4}"\$ROOT_DIR\/tools\/test\/run-with-dotnet-release-build-lock\.sh" \\\n {8}"\$ROOT_DIR\/tools\/build-with-data-env\.sh" dotnet build "\$ROOT_DIR\/src\/migration\/FsusBlog\.Migration\.csproj" \\\n {8}-c Release --no-restore --no-dependencies --no-incremental -warnaserror -v minimal \/p:NuGetAudit=false \\\n {8}-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"\n/u;
     const match = lane.match(migrationCommand);
     assert.ok(match, 'test fixture must locate the exact Migration build command');
     const withoutMigration = lane.replace(migrationCommand, '');
@@ -188,6 +239,15 @@ test('lane dependency contract rejects missing, reordered, implicit and unbound 
     assert.throws(
         () => verifyMigrationBuildDependency(unboundServerAssembly),
         /assembly metadata must exact-bind/u
+    );
+
+    const unboundMigrationAssembly = lane.replace(match[0], match[0].replace(
+        / \\\n {8}-p:FsusBlogCommitSha="\$\{FSUSBLOG_TEST_SOURCE_COMMIT:\?production build source commit is required\}"/u,
+        ''
+    ));
+    assert.throws(
+        () => verifyMigrationBuildDependency(unboundMigrationAssembly),
+        /Migration assembly metadata must exact-bind/u
     );
 
     for (const input of ['--input src/migration/FsusBlog.Migration.csproj', '--input src/migration/packages.lock.json'])

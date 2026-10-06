@@ -1,4 +1,6 @@
+using System.Text;
 using System.Text.Json.Nodes;
+using System.Text.RegularExpressions;
 
 using NSubstitute;
 
@@ -23,14 +25,35 @@ public sealed class SchemaMigrationDdlPrimitivesTests
 
         Assert.All(commands, static command => Assert.True(command.IsDdl));
         Assert.Equal("CREATE TABLE IF NOT EXISTS article (id bigint);", commands[0].Sql);
-        Assert.Contains(quotedTable, commands[1].Sql, StringComparison.Ordinal);
-        Assert.Contains(expectedColumnDefinition, commands[1].Sql, StringComparison.OrdinalIgnoreCase);
+        string columnSql = dialect == SchemaDdlDialect.MySql ? DecodeMySqlText(commands[1].Sql) : commands[1].Sql;
+        Assert.Contains(quotedTable, columnSql, StringComparison.Ordinal);
+        Assert.Contains(expectedColumnDefinition, columnSql, StringComparison.OrdinalIgnoreCase);
         Assert.Contains("article_archive", commands[2].Sql, StringComparison.Ordinal);
         Assert.Contains("headline", commands[3].Sql, StringComparison.Ordinal);
         Assert.Contains("legacy_title", commands[4].Sql, StringComparison.Ordinal);
         Assert.StartsWith("DROP TABLE", commands[5].Sql, StringComparison.Ordinal);
-        Assert.StartsWith("DROP INDEX", commands[6].Sql, StringComparison.Ordinal);
-        Assert.Contains("CREATE INDEX IF NOT EXISTS", commands[7].Sql, StringComparison.Ordinal);
+        if (dialect == SchemaDdlDialect.MySql)
+        {
+            Assert.Equal("ALTER TABLE `article` ADD COLUMN `title` varchar(64) NULL;", columnSql);
+            Assert.Equal("DROP INDEX `idx_article_title` ON ", DecodeMySqlText(commands[6].Sql));
+            Assert.Equal("CREATE INDEX `idx_article_title` ON `article` (title);", DecodeMySqlText(commands[7].Sql));
+            foreach (int index in new[] { 1, 6, 7 })
+            {
+                Assert.Contains("WHEN DATABASE() IS NULL THEN NULL", commands[index].Sql, StringComparison.Ordinal);
+                Assert.Contains("PREPARE fsus_schema_ddl_statement FROM @fsus_schema_ddl;", commands[index].Sql, StringComparison.Ordinal);
+                Assert.Contains("DEALLOCATE PREPARE fsus_schema_ddl_statement;", commands[index].Sql, StringComparison.Ordinal);
+                Assert.EndsWith("SET @fsus_schema_ddl = NULL;", commands[index].Sql, StringComparison.Ordinal);
+                Assert.DoesNotContain("IF NOT EXISTS", DecodeMySqlText(commands[index].Sql), StringComparison.Ordinal);
+            }
+            Assert.Contains("SELECT DISTINCT CAST(CONCAT(", commands[6].Sql, StringComparison.Ordinal);
+            Assert.Contains("AS BINARY)", commands[6].Sql, StringComparison.Ordinal);
+            Assert.Contains("table_schema = DATABASE()", commands[6].Sql, StringComparison.Ordinal);
+        }
+        else
+        {
+            Assert.StartsWith("DROP INDEX", commands[6].Sql, StringComparison.Ordinal);
+            Assert.Contains("CREATE INDEX IF NOT EXISTS", commands[7].Sql, StringComparison.Ordinal);
+        }
 
         if (dialect == SchemaDdlDialect.PostgreSql)
         {
@@ -90,7 +113,7 @@ public sealed class SchemaMigrationDdlPrimitivesTests
         Assert.All(preview.Steps, static step => Assert.True(step.IsDdl));
         Assert.StartsWith("BEGIN;", preview.Script, StringComparison.Ordinal);
         Assert.EndsWith("COMMIT;", preview.Script, StringComparison.Ordinal);
-        Assert.Contains("ADD COLUMN IF NOT EXISTS `headline` text NULL", preview.Script, StringComparison.OrdinalIgnoreCase);
+        Assert.Equal("ALTER TABLE `article` ADD COLUMN `headline` text NULL;", DecodeMySqlText(preview.Script));
         Assert.Contains("DROP COLUMN `legacy_title`", preview.Script, StringComparison.Ordinal);
     }
 
@@ -163,7 +186,10 @@ public sealed class SchemaMigrationDdlPrimitivesTests
     {
         var step = new DropColumnStep(identifier, "title", DestructiveMigrationProofs.For("20260418-post-content-cleanup"));
 
-        Assert.Throws<ArgumentException>(() => step.BuildCommand(PostgresSchemaDdlProvider.Instance));
+        foreach (SchemaDdlDialect dialect in Enum.GetValues<SchemaDdlDialect>())
+        {
+            Assert.Throws<ArgumentException>(() => step.BuildCommand(SchemaDdlProviders.For(dialect)));
+        }
     }
 
     [Theory]
@@ -176,7 +202,10 @@ public sealed class SchemaMigrationDdlPrimitivesTests
     {
         var step = new EnsureColumnStep("article", "title", definition);
 
-        Assert.Throws<ArgumentException>(() => step.BuildCommand(PostgresSchemaDdlProvider.Instance));
+        foreach (SchemaDdlDialect dialect in Enum.GetValues<SchemaDdlDialect>())
+        {
+            Assert.Throws<ArgumentException>(() => step.BuildCommand(SchemaDdlProviders.For(dialect)));
+        }
     }
 
     [Fact]
@@ -190,13 +219,32 @@ public sealed class SchemaMigrationDdlPrimitivesTests
             "CREATE TABLE article (id bigint); /* bypass */"
         ];
 
-        Assert.All(
-            invalidTableTemplates,
-            sql => Assert.Throws<ArgumentException>(
-                () => new EnsureTableStep("article", sql).BuildCommand(PostgresSchemaDdlProvider.Instance)));
+        foreach (SchemaDdlDialect dialect in Enum.GetValues<SchemaDdlDialect>())
+        {
+            ISchemaDdlProvider provider = SchemaDdlProviders.For(dialect);
+            Assert.All(
+                invalidTableTemplates,
+                sql => Assert.Throws<ArgumentException>(
+                    () => new EnsureTableStep("article", sql).BuildCommand(provider)));
+            Assert.Throws<ArgumentException>(() => new CreateIndexStep(
+                "idx_article_title",
+                "CREATE TABLE article (id bigint);").BuildCommand(provider));
+        }
+    }
+
+    [Theory]
+    [InlineData("CREATE INDEX idx_other ON article (title);")]
+    [InlineData("CREATE INDEX idx_article_title ON another.article (title);")]
+    [InlineData("CREATE INDEX idx_article_title ON article (title); DROP TABLE article;")]
+    [InlineData("CREATE INDEX idx_article_title ON article (title); -- comment")]
+    [InlineData("CREATE INDEX idx_article_title ON article (title) /* comment */;")]
+    [InlineData("CREATE INDEX idx_article_title ON article (title) # comment")]
+    [InlineData("CREATE INDEX idx_article_title ON article;")]
+    public void MySqlIndexTemplate_RejectsWrongIdentityCrossSchemaAndUnsafeSql(string template)
+    {
         Assert.Throws<ArgumentException>(() => new CreateIndexStep(
             "idx_article_title",
-            "CREATE TABLE article (id bigint);").BuildCommand(PostgresSchemaDdlProvider.Instance));
+            template).BuildCommand(MySqlSchemaDdlProvider.Instance));
     }
 
     [Fact]
@@ -233,6 +281,13 @@ public sealed class SchemaMigrationDdlPrimitivesTests
                 }
             }
         }
+    }
+
+    private static string DecodeMySqlText(string sql)
+    {
+        Match literal = Regex.Match(sql, "CONVERT\\(X'(?<hex>[A-F0-9]+)' USING utf8mb4\\)", RegexOptions.CultureInvariant);
+        Assert.True(literal.Success, "MySQL prepared DDL must contain an explicit UTF-8 SQL constant.");
+        return Encoding.UTF8.GetString(Convert.FromHexString(literal.Groups["hex"].Value));
     }
 
     private static IReadOnlyDictionary<string, SchemaMigrationCommand> BuildSnapshot(ISchemaDdlProvider provider)

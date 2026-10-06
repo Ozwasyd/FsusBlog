@@ -4,125 +4,196 @@
         {
             "id": "@stylistic/indent",
             "owner": "FrontendLanguageStyleOwner",
-            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "javascript",
+                "vue-script"
+            ],
             "fixability": "safe"
         },
         {
             "id": "@stylistic/brace-style",
             "owner": "FrontendLanguageStyleOwner",
-            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "javascript",
+                "vue-script"
+            ],
             "fixability": "safe"
         },
         {
             "id": "@stylistic/semi",
             "owner": "FrontendLanguageStyleOwner",
-            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "javascript",
+                "vue-script"
+            ],
             "fixability": "safe"
         },
         {
             "id": "@stylistic/max-statements-per-line",
             "owner": "FrontendLanguageStyleOwner",
-            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "javascript",
+                "vue-script"
+            ],
             "fixability": "manual"
         },
         {
             "id": "import-x/order",
             "owner": "FrontendDependencyBoundaryOwner",
-            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "javascript",
+                "vue-script"
+            ],
             "fixability": "safe"
         },
         {
             "id": "import-x/no-relative-parent-imports",
             "owner": "FrontendDependencyBoundaryOwner",
-            "sourceScopes": ["typescript", "javascript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "javascript",
+                "vue-script"
+            ],
             "fixability": "manual"
         },
         {
             "id": "@typescript-eslint/consistent-type-imports",
             "owner": "FrontendTypeSafetyOwner",
-            "sourceScopes": ["typescript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "vue-script"
+            ],
             "fixability": "safe"
         },
         {
             "id": "@typescript-eslint/naming-convention",
             "owner": "FrontendLanguageStyleOwner",
-            "sourceScopes": ["typescript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "vue-script"
+            ],
             "fixability": "manual"
         },
         {
             "id": "@typescript-eslint/no-floating-promises",
             "owner": "FrontendReliabilityOwner",
-            "sourceScopes": ["typescript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "vue-script"
+            ],
             "fixability": "manual"
         },
         {
             "id": "@typescript-eslint/no-misused-promises",
             "owner": "FrontendReliabilityOwner",
-            "sourceScopes": ["typescript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "vue-script"
+            ],
             "fixability": "manual"
         },
         {
             "id": "@typescript-eslint/no-unsafe-*",
             "owner": "FrontendTypeSafetyOwner",
-            "sourceScopes": ["typescript", "vue-script"],
+            "sourceScopes": [
+                "typescript",
+                "vue-script"
+            ],
             "fixability": "manual"
         },
         {
             "id": "jsdoc/check-types",
             "owner": "ToolingStyleOwner",
-            "sourceScopes": ["node-mjs"],
+            "sourceScopes": [
+                "node-mjs"
+            ],
             "fixability": "manual"
         },
         {
             "id": "vue/html-indent",
             "owner": "FrontendLanguageStyleOwner",
-            "sourceScopes": ["vue-template"],
+            "sourceScopes": [
+                "vue-template"
+            ],
             "fixability": "safe"
         },
         {
             "id": "vue/max-attributes-per-line",
             "owner": "FrontendLanguageStyleOwner",
-            "sourceScopes": ["vue-template"],
+            "sourceScopes": [
+                "vue-template"
+            ],
             "fixability": "safe"
         },
         {
             "id": "vue/component-name-in-template-casing",
             "owner": "FrontendContractOwner",
-            "sourceScopes": ["vue-template"],
+            "sourceScopes": [
+                "vue-template"
+            ],
             "fixability": "safe"
         },
         {
             "id": "vue/prop-name-casing",
             "owner": "FrontendContractOwner",
-            "sourceScopes": ["vue-template", "vue-script"],
+            "sourceScopes": [
+                "vue-template",
+                "vue-script"
+            ],
             "fixability": "manual"
         },
         {
             "id": "@stylistic/indentation",
             "owner": "FrontendStyleOwner",
-            "sourceScopes": ["css", "scss", "vue-style"],
+            "sourceScopes": [
+                "css",
+                "scss",
+                "vue-style"
+            ],
             "fixability": "safe"
         },
         {
             "id": "@stylistic/block-opening-brace-newline-before",
             "owner": "FrontendStyleOwner",
-            "sourceScopes": ["css", "scss", "vue-style"],
+            "sourceScopes": [
+                "css",
+                "scss",
+                "vue-style"
+            ],
             "fixability": "safe"
         },
         {
             "id": "declaration-block-single-line-max-declarations",
             "owner": "FrontendStyleOwner",
-            "sourceScopes": ["css", "scss", "vue-style"],
+            "sourceScopes": [
+                "css",
+                "scss",
+                "vue-style"
+            ],
             "fixability": "manual"
         },
         {
             "id": "scss/dollar-variable-pattern",
             "owner": "FrontendStyleOwner",
-            "sourceScopes": ["scss", "vue-style"],
+            "sourceScopes": [
+                "scss",
+                "vue-style"
+            ],
             "fixability": "manual"
         }
     ],
     "registeredExceptions": [
+        {
+            "id": "pure-receipt-canonicalizer-import",
+            "externalOrEcosystemSurface": "post-runtime pure receipt dependency closure",
+            "rule": "only tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs importing literal ../fact-extractors/lib/canonicalize.mjs",
+            "reason": "retain the enumerable canonical dependency required by the pure firewall; all other parent imports remain errors"
+        },
         {
             "id": "vue-composable-function",
             "externalOrEcosystemSurface": "Vue composable",

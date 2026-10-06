@@ -3,9 +3,39 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { seedPreparedNuget } from './behavior-doc-nuget-preparation.mjs';
 
 export const executionEnvelopeDirectoriesSchema =
     'fsusblog.test-execution-envelope-directories.v1';
+
+// Only this owner can mint an alias capability; serialized fragments are not capabilities.
+const privateTmpCapabilities = new WeakMap();
+
+export function inspectOwnedPrivateTmp(capability, { environment, readWritePaths } = {})
+{
+    const binding = privateTmpCapabilities.get(capability);
+    if (!binding)
+    {
+        throw new Error('private /tmp alias requires the original current-attempt directory capability');
+    }
+    const metadata = fs.lstatSync(binding.source, { bigint: true });
+    if (!metadata.isDirectory() || fs.realpathSync(binding.source) !== binding.source
+        || String(metadata.dev) !== binding.device || String(metadata.ino) !== binding.inode
+        || String(metadata.uid) !== binding.uid || Number(metadata.mode & 0o777n) !== 0o700
+        || fs.realpathSync(binding.ownedRoot) !== binding.ownedRoot
+        || fs.realpathSync(binding.toolCache) !== binding.toolCache
+        || !isWithin(binding.ownedRoot, binding.toolCache)
+        || !isWithin(binding.ownedRoot, binding.source)
+        || (environment && (environment.FSUSBLOG_TOOL_CACHE !== binding.toolCache
+            || environment.FSUSBLOG_TEST_RUN_ID !== binding.runId
+            || environment.TMPDIR !== binding.source || environment.TMP !== binding.source
+            || environment.TEMP !== binding.source))
+        || (readWritePaths && !readWritePaths.includes(binding.source)))
+    {
+        throw new Error('private /tmp alias current-attempt directory identity drifted');
+    }
+    return { ...binding };
+}
 
 function sha256(value)
 {
@@ -134,6 +164,7 @@ export function prepareRunOwnedDirectories({
     producerId,
     attemptId,
     outputs = [],
+    preparedNuget = null,
     authorityRoot = path.join(repositoryRoot, '.tmp/test-execution-envelope/run-owned')
 })
 {
@@ -151,63 +182,111 @@ export function prepareRunOwnedDirectories({
         `${safeSegment(attemptId, 'attempt')}-${process.pid}-${randomUUID()}`
     );
     createPrivateDirectory(ownedRoot);
-    const directories = Object.fromEntries([
-        ['home', 'home'],
-        ['temp', 'tmp'],
-        ['npmCache', 'npm-cache'],
-        ['nugetPackages', 'nuget-packages'],
-        ['dotnetHome', 'dotnet-home'],
-        ['toolCache', 'tool-cache']
-    ].map(([name, relative]) =>
+    try
     {
-        const directory = path.join(ownedRoot, relative);
-        createPrivateDirectory(directory);
-        return [name, assertPhysicalContainment(realAuthorityRoot, directory, name)];
-    }));
-    const externalRoots = {
-        userHome: os.homedir(),
-        systemTemp: os.tmpdir(),
-        sourceWorktree: fs.realpathSync(repositoryRoot)
-    };
-    const writableRoots = writableOutputRoots(fs.realpathSync(cwd), outputs);
-    const fragment = {
-        schema: executionEnvelopeDirectoriesSchema,
-        runId,
-        producerId,
-        attemptId,
-        authorityRoot: realAuthorityRoot,
-        ownedRoot: fs.realpathSync(ownedRoot),
-        directories,
-        writableRoots,
-        externalRoots,
-        ownership: 'current-run-current-attempt',
-        permissions: '0700',
-        aliasAdmission: 'realpath-contained',
-        preInventory: inventory(ownedRoot),
-        postInventory: null,
-        externalWriteObservation: {
-            enforcement: 'landlock-default-deny-write',
-            deniedRoots: Object.values(externalRoots).sort(),
-            allowedRoots: writableRoots,
-            preAllowedRootInventory: inventoryRoots(writableRoots),
-            postAllowedRootInventory: null
-        },
-        cleanup: { status: 'pending', removedOwnedRoot: false }
-    };
-    return {
-        fragment,
-        environment: {
-            HOME: directories.home,
-            USERPROFILE: directories.home,
-            TMPDIR: directories.temp,
-            TEMP: directories.temp,
-            TMP: directories.temp,
-            NPM_CONFIG_CACHE: directories.npmCache,
-            NUGET_PACKAGES: directories.nugetPackages,
-            DOTNET_CLI_HOME: directories.dotnetHome,
-            FSUSBLOG_TOOL_CACHE: directories.toolCache
+        const directories = Object.fromEntries([
+            ['home', 'home'],
+            ['temp', 'tmp'],
+            ['npmCache', 'npm-cache'],
+            ['nugetPackages', 'nuget-packages'],
+            ['dotnetHome', 'dotnet-home'],
+            ['toolCache', 'tool-cache']
+        ].map(([name, relative]) =>
+        {
+            const directory = path.join(ownedRoot, relative);
+            createPrivateDirectory(directory);
+            return [name, assertPhysicalContainment(realAuthorityRoot, directory, name)];
+        }));
+        const externalRoots = {
+            userHome: os.homedir(),
+            systemTemp: os.tmpdir(),
+            sourceWorktree: fs.realpathSync(repositoryRoot)
+        };
+        const writableRoots = writableOutputRoots(fs.realpathSync(cwd), outputs);
+        if (preparedNuget)
+        {
+            if (producerId !== 'behavior-doc-static-admission')
+            {
+                throw new Error('Prepared NuGet ingress is limited to the declared BehaviorDoc producer');
+            }
+            seedPreparedNuget(preparedNuget, directories.nugetPackages);
         }
-    };
+        const fragment = {
+            schema: executionEnvelopeDirectoriesSchema,
+            runId,
+            producerId,
+            attemptId,
+            authorityRoot: realAuthorityRoot,
+            ownedRoot: fs.realpathSync(ownedRoot),
+            directories,
+            writableRoots,
+            externalRoots,
+            ownership: 'current-run-current-attempt',
+            permissions: '0700',
+            aliasAdmission: 'realpath-contained',
+            preInventory: inventory(ownedRoot),
+            postInventory: null,
+            externalWriteObservation: {
+                enforcement: 'landlock-default-deny-write',
+                deniedRoots: Object.values(externalRoots).sort(),
+                allowedRoots: writableRoots,
+                preAllowedRootInventory: inventoryRoots(writableRoots),
+                postAllowedRootInventory: null
+            },
+            cleanup: { status: 'pending', removedOwnedRoot: false }
+        };
+        const privateTmpCapability = Object.freeze({});
+        const tempMetadata = fs.lstatSync(directories.temp, { bigint: true });
+        privateTmpCapabilities.set(privateTmpCapability, Object.freeze({
+            source: directories.temp,
+            destination: '/tmp',
+            ownedRoot: fragment.ownedRoot,
+            toolCache: directories.toolCache,
+            runId,
+            producerId,
+            attemptId,
+            device: String(tempMetadata.dev),
+            inode: String(tempMetadata.ino),
+            uid: String(tempMetadata.uid)
+        }));
+        return {
+            fragment,
+            privateTmpCapability,
+            environment: {
+                HOME: directories.home,
+                USERPROFILE: directories.home,
+                TMPDIR: directories.temp,
+                TEMP: directories.temp,
+                TMP: directories.temp,
+                NPM_CONFIG_CACHE: directories.npmCache,
+                NUGET_PACKAGES: directories.nugetPackages,
+                DOTNET_CLI_HOME: directories.dotnetHome,
+                FSUSBLOG_TOOL_CACHE: directories.toolCache
+            }
+        };
+    }
+    catch (error)
+    {
+        // Preparation can fail before a fragment exists; clean this attempt and retain its first cause.
+        try { fs.rmSync(ownedRoot, { recursive: true, force: true }); }
+        catch (cleanupError) { error.cleanupError = cleanupError; }
+        throw error;
+    }
+}
+
+/** No directory deletion is allowed while the original physical owner cannot verify terminal zero residue. */
+export function finalizeRunOwnedDirectoriesAfterPhysical(prepared, { physicalStarted, physicalExecution })
+{
+    if (physicalStarted && physicalExecution?.postObservation !== 'zero-members')
+    {
+        const recoveryObligation = { ownedRoot: prepared.fragment.ownedRoot,
+            reason: 'original physical owner has not verified a zero-member terminal' };
+        prepared.fragment.cleanup = { status: 'retained-for-physical-recovery', removedOwnedRoot: false };
+        throw Object.assign(new Error('Run-owned directories retained for unverifiable physical residue'), {
+            recoveryObligation, physicalExecution
+        });
+    }
+    return finalizeRunOwnedDirectories(prepared);
 }
 
 export function finalizeRunOwnedDirectories(prepared, {

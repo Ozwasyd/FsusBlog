@@ -4,8 +4,9 @@ import { isUtf8 } from 'node:buffer';
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const repositoryRoot = path.resolve(path.dirname(scriptPath), '../..');
@@ -23,6 +24,43 @@ let policyPath = null;
 let exceptionRegistry = null;
 let baseline = new Map();
 let jsonWithCommentsPatterns = [];
+const markdownAnchorBindings = new Map();
+const markdownSpanPrefix = 'FSUSBLOG-MARKDOWNLINT-SPANS ';
+
+// The original CLI formatter supplies parser ranges; this module owns no linter.
+export default function MarkdownSpanFormatter(options)
+{
+    options.logMessage(`${markdownSpanPrefix}${JSON.stringify(options.results)}`);
+}
+
+async function RunMarkdownSpanAdapter()
+{
+    const [, , , executable, ...argv] = process.argv;
+    const actual = fs.realpathSync(executable);
+    const directory = path.dirname(actual);
+    const packageFile = path.join(directory, 'package.json');
+    const manifest = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
+    if (manifest.name !== 'markdownlint-cli2' || manifest.exports?.['.'] !== './markdownlint-cli2.mjs'
+        || manifest.bin?.['markdownlint-cli2'] !== `./${path.basename(actual)}`)
+    {
+        throw new Error('original markdownlint-cli2 structured formatter API is unavailable');
+    }
+    const modulePath = path.join(directory, 'markdownlint-cli2.mjs');
+    const require = createRequire(pathToFileURL(modulePath));
+    const { main } = await import(pathToFileURL(modulePath).href);
+    process.exitCode = await main({
+        argv,
+        directory: process.cwd(),
+        logMessage: (value) => process.stdout.write(`${value}\n`),
+        logError: (value) => process.stderr.write(`${value}\n`),
+        optionsOverride: {
+            outputFormatters: [
+                [require.resolve('markdownlint-cli2-formatter-default')],
+                [scriptPath]
+            ]
+        }
+    });
+}
 const diagnostics = [];
 let compileCommandDatabases = null;
 const compilerDriverFlags = new Map();
@@ -274,6 +312,28 @@ function ValidatePolicy()
         {
             AddDiagnostic(ToPosix(path.relative(root, policyPath)), 1, 'policy-domain', `missing ${requiredDomain}`);
         }
+    }
+    const records = policy.markdownCompatibilityAnchors;
+    if (!Array.isArray(records) || records.length !== 1)
+    {
+        AddDiagnostic(policyPath, 1, 'markdown-anchor-policy', 'expected the finite maintained API fragment registry');
+        return false;
+    }
+    const record = records[0];
+    const closedKeys = (value, keys) => value !== null && typeof value === 'object'
+        && !Array.isArray(value) && Object.keys(value).sort().join('|') === [...keys].sort().join('|');
+    if (!closedKeys(record, ['documentPath', 'sourceRevision', 'anchors'])
+        || record.documentPath !== 'docs/api/schemas-and-errors.md'
+        || !/^[0-9a-f]{40}$/u.test(record.sourceRevision)
+        || !Array.isArray(record.anchors) || record.anchors.length !== 9
+        || record.anchors.some((entry) => !closedKeys(entry, ['id', 'heading'])
+            || typeof entry.id !== 'string' || !/^[^\s"'<>\x00-\x1f]+$/u.test(entry.id)
+            || typeof entry.heading !== 'string' || !/^#{2,3} [^\r\n]+$/u.test(entry.heading))
+        || new Set(record.anchors.map((entry) => entry.id)).size !== record.anchors.length
+        || new Set(record.anchors.map((entry) => entry.heading)).size !== record.anchors.length)
+    {
+        AddDiagnostic(policyPath, 1, 'markdown-anchor-policy', 'fragment registration requires exact path, unique IDs/headings and source provenance');
+        return false;
     }
     return true;
 }
@@ -1947,8 +2007,69 @@ function CheckMarkdownLink(file, line, destinationValue)
     }
 }
 
+function BindMarkdownAnchors(file, content)
+{
+    const record = policy.markdownCompatibilityAnchors.find((entry) => entry.documentPath === file);
+    if (!record)
+    {
+        return;
+    }
+    const lines = content.split(/\r?\n/u);
+    const firstGenerated = lines.findIndex((line) => line.startsWith('<!-- FSUSBLOG-GENERATED:BEGIN '));
+    const active = new Set();
+    let fence = null;
+    let comment = false;
+    for (let index = 0; index < lines.length; index += 1)
+    {
+        const line = lines[index];
+        const marker = line.match(/^ {0,3}(`{3,}|~{3,})(.*)$/u);
+        if (!comment && marker)
+        {
+            if (!fence)
+            {
+                fence = marker[1];
+            }
+            else if (marker[1][0] === fence[0] && marker[1].length >= fence.length && !marker[2].trim())
+            {
+                fence = null;
+            }
+            continue;
+        }
+        if (fence)
+        {
+            continue;
+        }
+        if (!comment && !line.includes('<!--'))
+        {
+            active.add(index);
+        }
+        for (const markerValue of line.matchAll(/<!--|-->/gu))
+        {
+            comment = markerValue[0] === '<!--';
+        }
+    }
+    const bindings = [];
+    for (const entry of record.anchors)
+    {
+        const whole = `<a id="${entry.id}"></a>`;
+        const indexes = lines.flatMap((line, index) => line === whole ? [index] : []);
+        const index = indexes[0];
+        if (indexes.length !== 1 || !active.has(index) || lines[index - 1] !== ''
+            || lines[index + 1] !== '' || lines[index + 2] !== entry.heading
+            || lines.filter((line) => line === entry.heading).length !== 1
+            || !active.has(index + 2) || (firstGenerated >= 0 && index >= firstGenerated))
+        {
+            AddDiagnostic(file, (index ?? 0) + 1, 'markdown-anchor-source', `missing, duplicate, hidden or misplaced exact alias ${entry.id}`);
+            continue;
+        }
+        bindings.push({ line: index + 1, range: [1, whole.length - '</a>'.length], whole });
+    }
+    markdownAnchorBindings.set(file, { content, bindings, complete: bindings.length === record.anchors.length });
+}
+
 function CheckMarkdown(file, content)
 {
+    BindMarkdownAnchors(file, content);
     const lines = content.split(/\r?\n/u);
     let inFence = false;
     let fenceMarker = '';
@@ -2017,8 +2138,13 @@ function CheckMarkdownTool(files, argumentsValue)
         return;
     }
     const markdownlint = policy.standardTools.markdownLint.command;
+    const registered = files.filter((file) => markdownAnchorBindings.has(file));
     if (!IsCommandAvailable(markdownlint))
     {
+        for (const file of registered)
+        {
+            AddDiagnostic(file, 1, 'markdown-anchor-span', 'actual Markdownlint parser spans are unavailable; portable source checks are not admission');
+        }
         if (argumentsValue.requireTools)
         {
             RequireTool(markdownlint, policy.standardTools.markdownLint.configuration);
@@ -2026,12 +2152,27 @@ function CheckMarkdownTool(files, argumentsValue)
         return;
     }
 
-    const result = Run(markdownlint, [
+    const toolArguments = [
         '--config',
         policy.standardTools.markdownLint.configuration,
         '--no-globs',
         ...files.map((file) => `:${file}`)
-    ]);
+    ];
+    let result;
+    if (registered.length > 0)
+    {
+        const executable = (process.env.PATH ?? '').split(path.delimiter)
+            .map((directory) => path.resolve(directory, markdownlint))
+            .find((file) =>
+            {
+                try { fs.accessSync(file, fs.constants.X_OK); return true; }
+                catch { return false; }
+            });
+        result = Run(process.execPath, [scriptPath, '--markdownlint-spans', executable, ...toolArguments]);
+        CheckMarkdownSpans(files, registered, result);
+        return;
+    }
+    result = Run(markdownlint, toolArguments);
     if (result.status === 0)
     {
         return;
@@ -2052,6 +2193,78 @@ function CheckMarkdownTool(files, argumentsValue)
     {
         ToolFailure(policy.standardTools.markdownLint.configuration, 'markdownlint', result);
     }
+}
+
+function CheckMarkdownSpans(files, registered, result)
+{
+    const payloads = (result.stdout ?? '').split(/\r?\n/u)
+        .filter((line) => line.startsWith(markdownSpanPrefix));
+    const rawLines = (result.stderr ?? '').split(/\r?\n/u).filter(Boolean);
+    let findings;
+    try
+    {
+        if (payloads.length !== 1 || ![0, 1].includes(result.status) || result.error || result.signal)
+        {
+            throw new Error('missing/duplicate structured output or abnormal original CLI terminal');
+        }
+        findings = JSON.parse(payloads[0].slice(markdownSpanPrefix.length));
+        if (!Array.isArray(findings))
+        {
+            throw new Error('invalid original formatter result');
+        }
+        const expectedRaw = findings.map((entry) => `${entry.fileName}:${entry.lineNumber}${entry.errorRange?.[0] ? `:${entry.errorRange[0]}` : ''}${entry.severity ? ` ${entry.severity}` : ''} ${entry.ruleNames.join('/')} ${entry.ruleDescription}${entry.errorDetail ? ` [${entry.errorDetail}]` : ''}${entry.errorContext ? ` [Context: "${entry.errorContext}"]` : ''}`);
+        if (JSON.stringify(rawLines) !== JSON.stringify(expectedRaw)
+            || result.status !== (findings.some((entry) => entry.severity !== 'warning') ? 1 : 0))
+        {
+            throw new Error('raw original diagnostics or exit status do not match parser results');
+        }
+    }
+    catch (error)
+    {
+        AddDiagnostic(policy.standardTools.markdownLint.configuration, 1, 'markdown-anchor-span', error.message);
+        ToolFailure(policy.standardTools.markdownLint.configuration, 'markdownlint', result);
+        return;
+    }
+    const consumed = new Set();
+    for (const file of registered)
+    {
+        const state = markdownAnchorBindings.get(file);
+        if (!state.complete || fs.readFileSync(path.join(root, file), 'utf8') !== state.content)
+        {
+            AddDiagnostic(file, 1, 'markdown-anchor-span', 'registered source closure is incomplete or changed during lint');
+            continue;
+        }
+        for (const binding of state.bindings)
+        {
+            const matches = findings.flatMap((entry, index) => entry.fileName === file
+                && entry.lineNumber === binding.line && entry.ruleNames?.[0] === 'MD033'
+                && entry.ruleDescription === 'Inline HTML' && entry.errorDetail === 'Element: a'
+                && JSON.stringify(entry.errorRange) === JSON.stringify(binding.range)
+                && state.content.split(/\r?\n/u)[entry.lineNumber - 1] === binding.whole ? [index] : []);
+            if (matches.length !== 1 || consumed.has(matches[0]))
+            {
+                AddDiagnostic(file, binding.line, 'markdown-anchor-span', 'exact original parser finding/source span is not uniquely bound');
+            }
+            else
+            {
+                consumed.add(matches[0]);
+            }
+        }
+    }
+    for (let index = 0; index < findings.length; index += 1)
+    {
+        const entry = findings[index];
+        if (!files.includes(entry.fileName) || !Number.isSafeInteger(entry.lineNumber) || entry.lineNumber <= 0
+            || !Array.isArray(entry.ruleNames) || !/^MD\d{3}$/u.test(entry.ruleNames[0]))
+        {
+            AddDiagnostic(policy.standardTools.markdownLint.configuration, 1, 'markdown-anchor-span', 'unbound parser diagnostic');
+        }
+        else if (!consumed.has(index))
+        {
+            AddDiagnostic(entry.fileName, entry.lineNumber, `markdownlint-${entry.ruleNames[0].toLowerCase()}`, `${entry.ruleDescription}${entry.errorDetail ? ` [${entry.errorDetail}]` : ''}${entry.errorContext ? ` [Context: "${entry.errorContext}"]` : ''}`);
+        }
+    }
+    process.stdout.write(`[native-tooling-style] compatibility-aliases=${consumed.size} raw-markdownlint-exit=${result.status}\n`);
 }
 
 function ApplyGenericFormat(file, content)
@@ -2186,12 +2399,24 @@ function Main()
     process.stdout.write(`[native-tooling-style] ok operation=${argumentsValue.operation} domain=${argumentsValue.domain} mode=${argumentsValue.mode} selected=${selected.length} checked=${checked} baseline=${baselineExempt} violations=0\n`);
 }
 
-try
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(scriptPath)
+    && process.argv[2] === '--markdownlint-spans')
 {
-    Main();
+    RunMarkdownSpanAdapter().catch((error) =>
+    {
+        process.stderr.write(`${error.stack ?? error.message}\n`);
+        process.exitCode = 2;
+    });
 }
-catch (error)
+else if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(scriptPath))
 {
-    process.stderr.write(`[native-tooling-style] fatal: ${error.stack ?? error.message}\n`);
-    process.exitCode = 1;
+    try
+    {
+        Main();
+    }
+    catch (error)
+    {
+        process.stderr.write(`[native-tooling-style] fatal: ${error.stack ?? error.message}\n`);
+        process.exitCode = 1;
+    }
 }

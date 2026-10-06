@@ -5,6 +5,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Server.Entities;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
@@ -15,6 +16,7 @@ using FsusBlog.Server.Tests.TestInfrastructure;
 
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Caching.Memory;
+using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
@@ -157,13 +159,14 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var hotPath = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
-        IServiceProvider services = new ServiceCollection()
+        using ServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, ThrowingRiskEventStore>()
             .BuildServiceProvider();
         var logger = new CapturingLogger<SecurityRiskEventSink>();
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+        using var queueOwner = new SecurityRiskPersistenceQueueOwner(
+            new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 },
             new CapturingLogger<SecurityRiskEventWriteQueue>());
+        SecurityRiskEventWriteQueue queue = queueOwner.Queue;
         var sink = new SecurityRiskEventSink(hotPath, cache, cache, policy, CreatePseudonymizer(), queue, services.GetRequiredService<IServiceScopeFactory>(), logger, new MutableTimeProvider(s_baselineNow));
         var workerLogger = new CapturingLogger<SecurityRiskEventWriterWorker>();
         var worker = new SecurityRiskEventWriterWorker(
@@ -190,13 +193,23 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             item.ScoreDelta == 5 &&
             item.TotalScore == 8));
         Assert.Equal(1, queue.Snapshot().QueuedCount);
+        string? itemReference = queue.Snapshot().LastItemReference;
+        Assert.NotNull(itemReference);
+        Assert.Equal(64, itemReference.Length);
+        Assert.All(itemReference, character => Assert.True(character is >= '0' and <= '9' or >= 'a' and <= 'f'));
 
         int flushed = await worker.FlushOnceAsync(CancellationToken.None);
 
         Assert.Equal(1, flushed);
-        Assert.Contains(workerLogger.Messages, static message =>
-            message.Contains("security-risk-persist-failed", StringComparison.Ordinal) &&
-            message.Contains(nameof(SecurityRiskReason.SecurityChallengeRejected), StringComparison.Ordinal));
+        string failureMessage = Assert.Single(workerLogger.Messages);
+        Assert.Equal($"security-risk-persist-failed Item={itemReference} Reason=security-risk:replay-failed", failureMessage);
+        Assert.Null(Assert.Single(workerLogger.Exceptions));
+        foreach (string sensitive in new[] { nameof(SecurityRiskReason.SecurityChallengeRejected), "characterChallenge_invalid",
+            context.TraceIdentifier, context.Request.Path.Value!, context.Request.Headers.UserAgent.ToString(),
+            "198.51.100.20", "store down", queueOwner.Root })
+        {
+            Assert.DoesNotContain(sensitive, failureMessage, StringComparison.Ordinal);
+        }
     }
 
     [Fact]
@@ -208,13 +221,14 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var hotPath = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
-        IServiceProvider services = new ServiceCollection()
+        using ServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore, NeverCompletingRiskEventStore>()
             .BuildServiceProvider();
         NeverCompletingRiskEventStore.AppendStarted = false;
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+        using var queueOwner = new SecurityRiskPersistenceQueueOwner(
+            new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 },
             new CapturingLogger<SecurityRiskEventWriteQueue>());
+        SecurityRiskEventWriteQueue queue = queueOwner.Queue;
         var sink = new SecurityRiskEventSink(
             hotPath,
             cache,
@@ -264,9 +278,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         await using ServiceProvider provider = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore>(_ => store)
             .BuildServiceProvider(new ServiceProviderOptions { ValidateOnBuild = true, ValidateScopes = true });
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 8, BatchSize = 3, FlushWindowMs = 10 }),
+        using var queueOwner = new SecurityRiskPersistenceQueueOwner(
+            new SecurityRiskEventWriterOptions { Capacity = 8, BatchSize = 3, FlushWindowMs = 10 },
             new CapturingLogger<SecurityRiskEventWriteQueue>());
+        SecurityRiskEventWriteQueue queue = queueOwner.Queue;
         var worker = new SecurityRiskEventWriterWorker(
             queue,
             provider.GetRequiredService<IServiceScopeFactory>(),
@@ -300,9 +315,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
                 ValidateOnBuild = true,
                 ValidateScopes = true
             });
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+        using var queueOwner = new SecurityRiskPersistenceQueueOwner(
+            new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 },
             new CapturingLogger<SecurityRiskEventWriteQueue>());
+        SecurityRiskEventWriteQueue queue = queueOwner.Queue;
         var worker = new SecurityRiskEventWriterWorker(
             queue,
             provider.GetRequiredService<IServiceScopeFactory>(),
@@ -332,9 +348,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
                 ValidateOnBuild = true,
                 ValidateScopes = true
             });
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 8, BatchSize = 4, FlushWindowMs = 10 }),
+        using var queueOwner = new SecurityRiskPersistenceQueueOwner(
+            new SecurityRiskEventWriterOptions { Capacity = 8, BatchSize = 4, FlushWindowMs = 10 },
             new CapturingLogger<SecurityRiskEventWriteQueue>());
+        SecurityRiskEventWriteQueue queue = queueOwner.Queue;
         var sink = CreateSink(provider, queue, "198.51.100.31");
         DefaultHttpContext first = CreateContext("198.51.100.31");
         first.User = CreatePrincipal(42, StableAccountSubjectHash);
@@ -371,9 +388,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
                 ValidateOnBuild = true,
                 ValidateScopes = true
             });
-        var queue = new SecurityRiskEventWriteQueue(
-            Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
+        using var queueOwner = new SecurityRiskPersistenceQueueOwner(
+            new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 },
             new CapturingLogger<SecurityRiskEventWriteQueue>());
+        SecurityRiskEventWriteQueue queue = queueOwner.Queue;
         var sink = CreateSink(provider, queue, "198.51.100.32");
         DefaultHttpContext context = CreateContext("198.51.100.32");
         context.User = new ClaimsPrincipal(new ClaimsIdentity(
@@ -442,20 +460,21 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
         var hotPath = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
-        IServiceProvider services = new ServiceCollection()
+        using ServiceProvider services = new ServiceCollection()
             .AddScoped<ISecurityRiskEventStore>(_ => new SecurityRiskEventStore(db))
             .AddScoped<IRiskScoreEngine, RiskScoreEngine>()
             .AddSingleton<TimeProvider>(clock)
             .BuildServiceProvider();
+        using var queueOwner = new SecurityRiskPersistenceQueueOwner(
+            new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 },
+            new CapturingLogger<SecurityRiskEventWriteQueue>());
         var sink = new SecurityRiskEventSink(
             hotPath,
             cache,
             cache,
             policy,
             rotatingPseudonymizer,
-            new SecurityRiskEventWriteQueue(
-                Options.Create(new SecurityRiskEventWriterOptions { Capacity = 4, BatchSize = 2, FlushWindowMs = 10 }),
-                new CapturingLogger<SecurityRiskEventWriteQueue>()),
+            queueOwner.Queue,
             services.GetRequiredService<IServiceScopeFactory>(),
             new CapturingLogger<SecurityRiskEventSink>(),
             clock);
@@ -718,9 +737,51 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             => utcNow;
     }
 
+    private sealed class SecurityRiskPersistenceQueueOwner : IDisposable
+    {
+        internal string Root
+        {
+            get;
+        }
+        internal SecurityRiskEventWriteQueue Queue
+        {
+            get;
+        }
+
+        internal SecurityRiskPersistenceQueueOwner(SecurityRiskEventWriterOptions options,
+            ILogger<SecurityRiskEventWriteQueue> logger)
+        {
+            if (OperatingSystem.IsWindows())
+            {
+                throw new PlatformNotSupportedException("Private Unix root evidence is required.");
+            }
+            Root = Path.Combine(OperatingSystem.IsMacOS() ? "/private/tmp" : Path.GetTempPath(),
+                "fsusblog-persistence-risk-2040-" + Guid.NewGuid().ToString("N"));
+            UnixFileMode mode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
+            Directory.CreateDirectory(Root, mode);
+            Assert.Equal(mode, File.GetUnixFileMode(Root));
+            IConfiguration configuration = new ConfigurationBuilder().AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                ["FSUSBLOG_DATA_ROOT"] = Root
+            }).Build();
+            Queue = new SecurityRiskEventWriteQueue(Options.Create(options), logger, configuration: configuration,
+                keys: new LocalAuditRetentionEpochKeyStore(configuration));
+        }
+
+        public void Dispose()
+        {
+            Queue.Dispose();
+            if (Directory.Exists(Root))
+            {
+                Directory.Delete(Root, recursive: true);
+            }
+        }
+    }
+
     private sealed class CapturingLogger<T> : ILogger<T>
     {
         public List<string> Messages { get; } = [];
+        public List<Exception?> Exceptions { get; } = [];
 
         public IDisposable? BeginScope<TState>(TState state)
             where TState : notnull
@@ -735,7 +796,10 @@ public sealed class SecurityRiskEventPersistenceTests(PostgresSchemaMigrationFix
             TState state,
             Exception? exception,
             Func<TState, Exception?, string> formatter)
-            => Messages.Add(formatter(state, exception));
+        {
+            Messages.Add(formatter(state, exception));
+            Exceptions.Add(exception);
+        }
     }
 
     private sealed class NullScope : IDisposable

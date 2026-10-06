@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/style/check-native-tooling-style.mjs"
+            ],
+            "reason": "Preserve the original native style tool's caller-visible command and environment interface while binding compatibility fragments to actual parser spans; this declaration does not add an environment name or waive a finding."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/development/native-tooling-style-policy.json"
+            ],
+            "reason": "Retain the maintained native style policy's registered JSON surface and its finite compatibility-fragment records; internal renaming cannot alter the consumed policy shape or exact external fragment spellings."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/coding-conventions.md",
+                "docs/development/native-tooling-style-enforcement.md"
+            ],
+            "reason": "Preserve the documented external fragment and markup spellings under the original documentation naming registration; the compatible source-and-span rule does not rename public aliases or allow arbitrary HTML."
+        }
+    ]
+}

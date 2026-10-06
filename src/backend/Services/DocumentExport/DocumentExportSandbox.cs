@@ -547,11 +547,13 @@ public sealed class DocumentExportSandboxRuntime
                     if (observation.Populated)
                     {
                         cgroupKillIssued |= await execution.KillAsync(CancellationToken.None);
-                        for (int attempt = 0; attempt < 100 && observation.Populated; attempt++)
-                        {
-                            await Task.Delay(_authority.CpuPollIntervalMilliseconds, CancellationToken.None);
-                            observation = await execution.ObserveAsync(CancellationToken.None);
-                        }
+                    }
+                    for (int attempt = 0;
+                        attempt < 100 && !DocumentExportSystemdCgroupAuthority.IsDrained(observation);
+                        attempt++)
+                    {
+                        await Task.Delay(_authority.CpuPollIntervalMilliseconds, CancellationToken.None);
+                        observation = await execution.ObserveAsync(CancellationToken.None);
                     }
                     finalCgroupPopulated = observation.Populated;
                     finalProcessesRemaining = observation.PidsCurrent;
@@ -618,36 +620,19 @@ public sealed class DocumentExportSandboxRuntime
             }
         }
 
-        if (cancellationToken.IsCancellationRequested && failure is not OperationCanceledException)
-        {
-            failure = new OperationCanceledException("Document export sandbox cancellation was requested.", cancellationToken);
-            failureCode = "cancelled";
-        }
-        if (!processTreeTerminated
-            || !removed
-            || finalProcessesRemaining != 0
-            || finalCgroupPopulated
-            || !unitRemoved
-            || !cgroupRemoved)
-        {
-            failure = new InvalidDataException(
-                "Document export sandbox cleanup did not reach its qualified state.",
-                failure);
-            failureCode = "cleanup-unqualified";
-        }
-        string status = failure switch
-        {
-            null => "succeeded",
-            OperationCanceledException => "cancelled",
-            DocumentExportBudgetExceededException => "budget-exceeded",
-            _ when !processTreeTerminated
-                || !removed
-                || finalProcessesRemaining != 0
-                || finalCgroupPopulated
-                || !unitRemoved
-                || !cgroupRemoved => "cleanup-required",
-            _ => "failed"
-        };
+        var terminalFailure = ResolveTerminalFailure(
+            failure,
+            failureCode,
+            cancellationToken,
+            processTreeTerminated,
+            removed,
+            finalProcessesRemaining,
+            finalCgroupPopulated,
+            unitRemoved,
+            cgroupRemoved);
+        failure = terminalFailure.Failure;
+        failureCode = terminalFailure.FailureCode;
+        string status = terminalFailure.Status;
         DocumentExportSandboxReceipt unsigned = new(
             DocumentExportContractCatalog.AttemptReceiptSchema,
             runId,
@@ -744,6 +729,59 @@ public sealed class DocumentExportSandboxRuntime
             _ => new DocumentExportSandboxExecutionException(failure.Message, plan, receipt, failure)
         };
     }
+
+    // Uses the same post-cleanup classification as ExecuteAsync; controls do not
+    // replace physical budget enforcement or cleanup qualification.
+    internal static (Exception? Failure, string FailureCode, string Status) ResolveTerminalFailure(
+        Exception? failure,
+        string failureCode,
+        CancellationToken cancellationToken,
+        bool processTreeTerminated,
+        bool removed,
+        int finalProcessesRemaining,
+        bool finalCgroupPopulated,
+        bool unitRemoved,
+        bool cgroupRemoved)
+    {
+        if (ShouldRecordCancellation(failure, cancellationToken))
+        {
+            failure = new OperationCanceledException("Document export sandbox cancellation was requested.", cancellationToken);
+            failureCode = "cancelled";
+        }
+        if (!processTreeTerminated
+            || !removed
+            || finalProcessesRemaining != 0
+            || finalCgroupPopulated
+            || !unitRemoved
+            || !cgroupRemoved)
+        {
+            failure = new InvalidDataException(
+                "Document export sandbox cleanup did not reach its qualified state.",
+                failure);
+            failureCode = "cleanup-unqualified";
+        }
+        string status = failure switch
+        {
+            null => "succeeded",
+            OperationCanceledException => "cancelled",
+            DocumentExportBudgetExceededException => "budget-exceeded",
+            _ when !processTreeTerminated
+                || !removed
+                || finalProcessesRemaining != 0
+                || finalCgroupPopulated
+                || !unitRemoved
+                || !cgroupRemoved => "cleanup-required",
+            _ => "failed"
+        };
+        return (failure, failureCode, status);
+    }
+
+    // Cleanup can outlast the caller deadline; cancellation must not replace
+    // an already observed failure. Physical cleanup qualification still wins.
+    internal static bool ShouldRecordCancellation(
+        Exception? failure,
+        CancellationToken cancellationToken)
+        => failure is null && cancellationToken.IsCancellationRequested;
 
     public static void ValidateReceipt(
         DocumentExportSandboxReceipt receipt,
@@ -1388,7 +1426,7 @@ public sealed class DocumentExportSandboxRuntime
         }
     }
 
-    private static string ClassifyFailure(Exception exception)
+    internal static string ClassifyFailure(Exception exception)
         => exception switch
         {
             DocumentExportBudgetExceededException budget => budget.FailureCode,

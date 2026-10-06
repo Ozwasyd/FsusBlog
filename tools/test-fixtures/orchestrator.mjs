@@ -236,7 +236,8 @@ export function plan(profileIdentity, executionIdentity = {}, { catalogs = readF
 export async function prepare(planDocument, injectedPorts, signal = undefined, {
     catalogs = readFixtureCatalogs(),
     handles = null,
-    previousFixtureReceipt = null
+    previousFixtureReceipt = null,
+    artifactOutlet = null
 } = {})
 {
     if (!planDocument || planDocument.schema !== 'fsusblog.fixture-orchestrator-plan.v1')
@@ -319,7 +320,8 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
 
     const baseHandles = Object.freeze({
         ...(planDocument.executionIdentity?.handles ?? {}),
-        ...(handles ?? {})
+        ...(handles ?? {}),
+        ...(artifactOutlet ? { fixtureArtifactOutlet: artifactOutlet, fixtureArtifactConsumerId: artifactOutlet.consumerId } : {})
     });
 
     try
@@ -384,6 +386,7 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
                 return {
                     producerId,
                     strategy: port.strategy,
+                    context,
                     result: Object.freeze({ ...result, strategy: port.strategy, producerId })
                 };
             }));
@@ -394,6 +397,10 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
                 strategies.push({ producerId: entry.producerId, strategy: entry.strategy });
                 producerOutputs[entry.producerId] = entry.result;
                 producerResults.push(entry.result);
+            }
+            for (const entry of waveResults)
+            {
+                artifactOutlet?.recordPort(entry.context, 'prepare', entry.result);
             }
         }
 
@@ -469,7 +476,9 @@ export async function prepare(planDocument, injectedPorts, signal = undefined, {
                         handles: baseHandles,
                         catalogs
                     });
-                    await port.cleanup(context, producerOutputs[producerId], signal);
+                    const cleanupResult = await port.cleanup(context, producerOutputs[producerId], signal);
+                    throwIfAborted(signal);
+                    artifactOutlet?.recordPort(context, 'cleanup', cleanupResult);
                 }
                 catch (cleanupError)
                 {
@@ -647,7 +656,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
     signal = undefined,
     serviceIdentity = null,
     outputArtifacts = [],
-    handles = null
+    handles = null,
+    artifactOutlet = null
 } = {})
 {
     if (!prepareState || prepareState.schema !== FIXTURE_PREPARE_STATE_SCHEMA)
@@ -679,7 +689,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
     const portPostconditions = [];
     const verifierHandles = Object.freeze({
         ...(planDocument.executionIdentity?.handles ?? {}),
-        ...(handles ?? {})
+        ...(handles ?? {}),
+        ...(artifactOutlet ? { fixtureArtifactOutlet: artifactOutlet, fixtureArtifactConsumerId: artifactOutlet.consumerId } : {})
     });
 
     try
@@ -731,11 +742,13 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 temporalContext: temporalContextForProducer(planDocument, producerId),
                 producerReceipts: sealedProducerReceiptsById
             });
-            const portVerify = await port.verify(context, rawResult);
+            const portVerify = await port.verify(context, rawResult, signal);
+            throwIfAborted(signal);
             const portOk = portVerify === true
         || (portVerify && typeof portVerify === 'object' && portVerify.ok === true);
             if (!portOk)
             {
+                artifactOutlet?.recordRejectedPort(context, portVerify);
                 const reason = portVerify && typeof portVerify === 'object'
                     ? (portVerify.reason ?? portVerify.note ?? 'producer verify returned not-ok')
                     : 'producer verify returned not-ok';
@@ -743,12 +756,14 @@ export async function verify(prepareState, injectedVerifiers = {}, {
             }
             if (portVerify?.structuralOnly === true)
             {
+                artifactOutlet?.recordRejectedPort(context, portVerify);
                 throw new Error(
                     `producer ${producerId} structural-only prepare cannot verify; business observations required (#1712+)`
                 );
             }
             if (portVerify?.fallback === true || portVerify?.warningOnly === true || portVerify?.stale === true)
             {
+                artifactOutlet?.recordRejectedPort(context, portVerify);
                 throw new Error(`producer ${producerId} warning/fallback/stale verify cannot become verified evidence`);
             }
             portPostconditions.push(Object.freeze({
@@ -802,6 +817,8 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 providedCapabilities,
                 observations,
                 entityIdentities: rawResult.entityIdentities ?? portVerify?.entityIdentities ?? [],
+                runId: planDocument.executionIdentity?.runId ?? null,
+                namespace: planDocument.executionIdentity?.namespace ?? null,
                 catalogs
             });
             const temporalBinding = verifyProducerResultTemporalArtifacts(producerId, rawResult);
@@ -832,6 +849,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
                 temporalBinding,
                 catalogs
             });
+            artifactOutlet?.recordPort(context, 'verify', portVerify, postconditionResult.results);
             sealedProducerReceipts.push(producerReceipt);
             sealedProducerReceiptsById[producerId] = producerReceipt;
         }
@@ -846,6 +864,9 @@ export async function verify(prepareState, injectedVerifiers = {}, {
             }
         }
 
+        throwIfAborted(signal);
+        const artifactReferences = artifactOutlet?.publish('verify') ?? [];
+        throwIfAborted(signal);
         terminal.transition('verified');
         terminal.assertPublishable('verified');
 
@@ -854,9 +875,9 @@ export async function verify(prepareState, injectedVerifiers = {}, {
             plan: planDocument,
             producerReceipts: sealedProducerReceipts,
             serviceIdentity,
-            outputArtifacts: outputArtifacts.length
+            outputArtifacts: [...(outputArtifacts.length
                 ? outputArtifacts
-                : (prepareState.outputArtifacts ?? []),
+                : (prepareState.outputArtifacts ?? [])), ...artifactReferences],
             catalogs
         });
     }
@@ -892,7 +913,7 @@ export async function verify(prepareState, injectedVerifiers = {}, {
     }
 }
 
-function planFromState(state)
+export function planFromState(state)
 {
     if (state?.plan)
     {
@@ -930,7 +951,8 @@ function planFromState(state)
 
 export async function cleanup(state, injectedPorts, signal = undefined, {
     catalogs = readFixtureCatalogs(),
-    handles = null
+    handles = null,
+    artifactOutlet = null
 } = {})
 {
     if (!state)
@@ -1011,7 +1033,9 @@ export async function cleanup(state, injectedPorts, signal = undefined, {
     let cleanupFailure = null;
     const baseHandles = Object.freeze({
         ...(planDocument?.executionIdentity?.handles ?? {}),
-        ...(handles ?? {})
+        ...(planDocument?.executionIdentity?.serviceGeneration ? { serviceGeneration: planDocument.executionIdentity.serviceGeneration } : {}),
+        ...(handles ?? {}),
+        ...(artifactOutlet ? { fixtureArtifactOutlet: artifactOutlet, fixtureArtifactConsumerId: artifactOutlet.consumerId } : {})
     });
 
     for (const producerId of producerIds)
@@ -1038,11 +1062,13 @@ export async function cleanup(state, injectedPorts, signal = undefined, {
                 handles: baseHandles,
                 catalogs
             });
-            await port.cleanup(
+            const cleanupResult = await port.cleanup(
                 context,
                 state.producerOutputs?.[producerId] ?? state.producerReceipts?.find((item) => item.producerId === producerId),
                 signal
             );
+            throwIfAborted(signal);
+            artifactOutlet?.recordPort(context, 'cleanup', cleanupResult);
         }
         catch (error)
         {

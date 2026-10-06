@@ -1,12 +1,13 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     RUNTIME_MATRIX_EVIDENCE_SCHEMA,
     RUNTIME_PROFILE_RESULT_SCHEMA,
     captureHardwareIdentity,
@@ -20,15 +21,15 @@ import {
     summarizeRuntimeRuns,
     validateRuntimeMatrixEvidence,
     validateRuntimeProfileResult
-} from '../../tools/runtime-profiles/runtime-publish-evidence.mjs';
-import { resolveAutoBalancedCpuSets } from '../../tools/runtime-profiles/runtime-publish-isolation.mjs';
-import {
+} = await import(new URL('../../tools/runtime-profiles/runtime-publish-evidence.mjs', import.meta.url));
+const { resolveAutoBalancedCpuSets } = await import(new URL('../../tools/runtime-profiles/runtime-publish-isolation.mjs', import.meta.url));
+const {
     readRuntimeProfileManifest,
     resolveRuntimeProfile,
     runtimeProfileBuildArgs,
     sha256Value,
     validateRuntimeProfileManifest
-} from '../../tools/runtime-profiles/runtime-publish-profile.mjs';
+} = await import(new URL('../../tools/runtime-profiles/runtime-publish-profile.mjs', import.meta.url));
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const commitSha = '0123456789abcdef0123456789abcdef01234567';
@@ -1007,6 +1008,168 @@ test('local FsusUI mode keeps the explicit clean checkout and never creates a pu
     const status = spawnSync('git', ['status', '--porcelain'], { cwd: checkout.root, encoding: 'utf8' });
     assert.equal(status.status, 0, status.stderr);
     assert.equal(status.stdout, '');
+});
+
+test('RuntimeTuningJson filter extraction preserves primitive bytes and real shell output, not release acceptance', async t =>
+{
+    const collector = fs.readFileSync(path.join(root, 'tools/operations/collect-release-evidence.sh'), 'utf8');
+    const start = collector.indexOf('RuntimeTuningJson() {');
+    assert.notEqual(start, -1);
+    const end = collector.indexOf('\nPRODUCTION_STATUS=', start);
+    assert.notEqual(end, -1);
+    const currentFunction = collector.slice(start, end);
+    const awkAssignment = currentFunction.match(/ {4}publicHotReadFilter=\$'([\s\S]*?)'\n/u);
+    const jqAssignment = currentFunction.match(/ {4}runtimeTuningFilter=\$'([\s\S]*?)'\n/u);
+    assert.ok(awkAssignment, 'awk program has an independent Bash ANSI-C literal assignment');
+    assert.ok(jqAssignment, 'jq program has an independent Bash ANSI-C literal assignment');
+    assert.equal(awkAssignment[1].includes('\\'), false, 'no ANSI-C escape can change awk program bytes');
+    assert.equal(jqAssignment[1].includes('\\'), false, 'no ANSI-C escape can change jq program bytes');
+    const digest = value => createHash('sha256').update(value).digest('hex');
+    // Immutable b7c7 program bytes and complete original function, not current-source expectations.
+    assert.equal(digest(awkAssignment[1]), 'bffbca7c8a8c77b6d2e935c4e416c54bf4562d6a24ba6b10455eaab5fc0d7147');
+    assert.equal(digest(jqAssignment[1]), 'b1aff87f984ad7695d0f98b3659ff7f13cccca9aed33a0015fee8bb5c24674f5');
+    assert.equal(Buffer.byteLength(awkAssignment[1]), 197);
+    assert.equal(Buffer.byteLength(jqAssignment[1]), 1359);
+    assert.match(currentFunction, /awk -F'"' "\$publicHotReadFilter" "\$ROOT_DIR\/src\/backend\/appsettings\.Production\.json"/u);
+    assert.match(currentFunction, /--arg profileDigest "\$\{FSUSBLOG_RUNTIME_PROFILE_DIGEST:-\}" "\$runtimeTuningFilter"/u);
+    const legacyFunction = currentFunction
+        .replace('    local publicHotReadFilter runtimeTuningFilter\n', '')
+        .replace(awkAssignment[0], '')
+        .replace(jqAssignment[0], '')
+        .replace('awk -F\'"\' "$publicHotReadFilter"', `awk -F'"' '${awkAssignment[1]}'`)
+        .replace('"$runtimeTuningFilter"', `'${jqAssignment[1]}'`);
+    assert.equal(digest(legacyFunction), '10679566aa1729fa26918246b8bb8370d5769974e7b0fc7c0f47d620ad9ad9cc');
+
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-runtime-tuning-primitive-'));
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const marker = path.join(directory, 'must-not-execute');
+    const literal = `$(touch ${marker}); \`touch ${marker}\`; '"; $profileId\nliteral \\ backslash`;
+    const empty = {
+        profile: { id: null, manifestDigest: null, profileDigest: null },
+        readyToRun: null,
+        quickJitForLoops: null,
+        tieredPgo: null,
+        threadPool: { minWorkerThreads: null, minCompletionPortThreads: null },
+        telemetryPolicies: { cacheL1Hit: null, publicHotRead: 'unknown' },
+        benchmarkEvidence: null,
+        runtimeMatrixEvidence: null,
+        runtimeMatrixStatus: 'missing',
+        nonDefaultPresetsRequireBenchmarkEvidence: true,
+        rollback: 'unset RuntimeTuning/DOTNET_* overrides and restart on the same image'
+    };
+    const cases = [
+        { name: 'empty', environment: {}, publicHotRead: {}, expected: empty },
+        {
+            name: 'full',
+            environment: {
+                DOTNET_ReadyToRun: 'true',
+                DOTNET_TC_QuickJitForLoops: 'false',
+                DOTNET_TieredPGO: 'true',
+                FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS: '64',
+                FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS: '32',
+                FSUSBLOG_RUNTIME_PROFILE_ID: 'throughput-glibc',
+                FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST: `sha256:${'a'.repeat(64)}`,
+                FSUSBLOG_RUNTIME_PROFILE_DIGEST: `sha256:${'b'.repeat(64)}`,
+                PERF_ARTIFACT: '"benchmark-fixture"',
+                RUNTIME_MATRIX_ARTIFACT: '"matrix-fixture"',
+                RUNTIME_MATRIX_STATUS_VALUE: 'ok'
+            },
+            policy: { status: 'recorded', value: 7 },
+            publicHotRead: { CounterMode: 'enabled' },
+            expected: {
+                ...empty,
+                profile: {
+                    id: 'throughput-glibc',
+                    manifestDigest: `sha256:${'a'.repeat(64)}`,
+                    profileDigest: `sha256:${'b'.repeat(64)}`
+                },
+                readyToRun: 'true',
+                quickJitForLoops: 'false',
+                tieredPgo: 'true',
+                threadPool: { minWorkerThreads: '64', minCompletionPortThreads: '32' },
+                telemetryPolicies: { cacheL1Hit: { status: 'recorded', value: 7 }, publicHotRead: 'enabled' },
+                benchmarkEvidence: 'benchmark-fixture',
+                runtimeMatrixEvidence: 'matrix-fixture',
+                runtimeMatrixStatus: 'ok'
+            }
+        },
+        {
+            name: 'danger literal',
+            environment: {
+                DOTNET_ReadyToRun: literal,
+                DOTNET_TC_QuickJitForLoops: literal,
+                DOTNET_TieredPGO: literal,
+                FSUSBLOG_RUNTIME_THREADPOOL_MIN_WORKER_THREADS: literal,
+                FSUSBLOG_RUNTIME_THREADPOOL_MIN_COMPLETION_PORT_THREADS: literal,
+                FSUSBLOG_RUNTIME_PROFILE_ID: literal,
+                FSUSBLOG_RUNTIME_PROFILE_MANIFEST_DIGEST: literal,
+                FSUSBLOG_RUNTIME_PROFILE_DIGEST: literal,
+                PERF_ARTIFACT: JSON.stringify(literal),
+                RUNTIME_MATRIX_ARTIFACT: JSON.stringify(literal),
+                RUNTIME_MATRIX_STATUS_VALUE: literal
+            },
+            policy: { literal },
+            publicHotRead: { CounterMode: 'literal-mode' },
+            expected: {
+                ...empty,
+                profile: { id: literal, manifestDigest: literal, profileDigest: literal },
+                readyToRun: literal,
+                quickJitForLoops: literal,
+                tieredPgo: literal,
+                threadPool: { minWorkerThreads: literal, minCompletionPortThreads: literal },
+                telemetryPolicies: { cacheL1Hit: { literal }, publicHotRead: 'literal-mode' },
+                benchmarkEvidence: literal,
+                runtimeMatrixEvidence: literal,
+                runtimeMatrixStatus: literal
+            }
+        },
+        {
+            name: 'unknown counter',
+            environment: { PERF_ARTIFACT: '"null"', RUNTIME_MATRIX_ARTIFACT: 'null' },
+            policy: null,
+            publicHotRead: { CounterMode: 'future-counter' },
+            expected: {
+                ...empty,
+                telemetryPolicies: { cacheL1Hit: null, publicHotRead: 'future-counter' }
+            }
+        }
+    ];
+    const environmentKeys = Object.keys(cases[1].environment);
+    for (const fixture of cases)
+    {
+        await t.test(fixture.name, () =>
+        {
+            const fixtureRoot = path.join(directory, fixture.name);
+            fs.mkdirSync(path.join(fixtureRoot, 'tests/performance'), { recursive: true });
+            fs.mkdirSync(path.join(fixtureRoot, 'src/backend'), { recursive: true });
+            if (Object.hasOwn(fixture, 'policy'))
+            {
+                fs.writeFileSync(path.join(fixtureRoot, 'tests/performance/cache-l1-telemetry-policy.json'), JSON.stringify(fixture.policy));
+            }
+            fs.writeFileSync(path.join(fixtureRoot, 'src/backend/appsettings.Production.json'), JSON.stringify({ PublicHotRead: fixture.publicHotRead }, null, 2));
+            const environment = { ...process.env, ROOT_DIR: fixtureRoot };
+            for (const key of [...environmentKeys, 'BASH_ENV', 'ENV'])
+            {
+                delete environment[key];
+            }
+            Object.assign(environment, fixture.environment);
+            const outputs = [legacyFunction, currentFunction].map(functionSource =>
+                spawnSync('/bin/bash', ['-c', `set -euo pipefail\n${functionSource}\nRuntimeTuningJson\n`], {
+                    cwd: fixtureRoot,
+                    env: environment,
+                    encoding: 'utf8',
+                    timeout: 10_000
+                }));
+            for (const output of outputs)
+            {
+                assert.equal(output.status, 0, output.stderr);
+                assert.equal(output.stderr, '');
+                assert.deepEqual(JSON.parse(output.stdout), fixture.expected);
+            }
+            assert.equal(outputs[1].stdout, outputs[0].stdout, 'real bash/awk/jq output bytes are unchanged');
+            assert.equal(fs.existsSync(marker), false, 'data remains literal and never executes a shell command');
+        });
+    }
 });
 
 test('publish scripts and Dockerfile consume the named profile instead of restoring split hardcoded defaults', () =>

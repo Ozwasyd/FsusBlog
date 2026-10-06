@@ -39,6 +39,12 @@
   "geometry": {
     "maximumDocumentWidthDelta": 8
   },
+  "outline": {
+    "headingCounts": [0, 1, 10, 100, 1000, 10000],
+    "articles": ["a", "b"],
+    "surfaces": ["source", "live", "split"],
+    "drawerBreakpoint": 1023
+  },
   "bodyCommands": {
     "primaryKeys": ["heading", "bold", "italic", "link", "quote", "code"],
     "forbiddenKeys": ["h1", "heading-1"],

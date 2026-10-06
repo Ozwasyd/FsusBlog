@@ -237,10 +237,10 @@ function escapeRegExp(value)
 
 function parseFinalStateTable(markdown)
 {
-    const heading = markdown.match(/^## 字段最终态表\s*$/mu);
+    const heading = markdown.match(/^## Final-state field table\s*$/mu);
     if (!heading)
     {
-        fail('docs/database-migration.md 缺少 "## 字段最终态表" 标题');
+        fail('docs/database-migration.md 缺少 "## Final-state field table" 标题');
         return new Map();
     }
 

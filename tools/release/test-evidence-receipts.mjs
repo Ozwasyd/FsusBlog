@@ -3,31 +3,21 @@ import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 
-import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
-import {
-    createReleaseDomainProjectionBindings,
-    validateReleaseDomainProjectionBindings
-} from './release-domain-final-binding.mjs';
-import {
-    validateReleaseReliabilityQualifiedBinding
-} from './release-reliability-qualified-receipt.mjs';
-import {
-    validateRequiredEvidenceCatalogBinding
-} from '../test-matrix/required-evidence-catalog.mjs';
-import {
-    assertPreRuntimeQualified
-} from '../test-matrix/behavior-evidence-pre-runtime.mjs';
+const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../test/temporal-producer-bindings.mjs', import.meta.url));
+
 import {
     validatePostRuntimeReceipt
-} from '../test-matrix/behavior-evidence-post-runtime.mjs';
-
-export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
-export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
-export const releaseFinalTestEvidenceBindingSchema = 'fsusblog.release-final-test-evidence-binding.v1';
+} from '../test-matrix/behavior-evidence-post-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
+import {
+    assertPreRuntimeQualified
+} from '../test-matrix/behavior-evidence-pre-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
+import {
+    validateRequiredEvidenceCatalogBinding
+} from '../test-matrix/required-evidence-catalog.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
 
 import {
-    browserContractReceiptSchema,
     productionBuildReceiptSchema,
+    productionBuildBinding,
     canonicalize,
     digestValue,
     sortedUnique,
@@ -36,11 +26,30 @@ import {
     sourceStateErrors,
     sameSourceState,
     sortedUniqueErrors,
-    validatePublicPreviewBinding,
-    validatePublicPreviewEvidenceBinding,
-    validateBrowserContractReceipt
+    validateBrowserContractReceipt as validateBrowserContractReceiptContract
 } from './browser-contract-receipt-contract.mjs';
-export { validatePublicPreviewEvidenceBinding, validateBrowserContractReceipt } from './browser-contract-receipt-contract.mjs';
+import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
+import {
+    createReleaseDomainProjectionBindings,
+    validateReleaseDomainProjectionBindings
+} from './release-domain-final-binding.mjs';
+import {
+    validateReleaseReliabilityQualifiedBinding
+} from './release-reliability-qualified-receipt.mjs';
+
+export const browserlessCorrectnessReceiptSchema = 'fsusblog.browserless-correctness-receipt.v1';
+export const browserDiagnosticsReceiptSchema = 'fsusblog.browser-diagnostics-receipt.v2';
+export const releaseFinalTestEvidenceBindingSchema = 'fsusblog.release-final-test-evidence-binding.v1';
+
+export { productionBuildBinding, validatePublicPreviewEvidenceBinding } from './browser-contract-receipt-contract.mjs';
+
+export function validateBrowserContractReceipt(receipt, options = {})
+{
+    return validateBrowserContractReceiptContract(receipt, {
+        ...options,
+        temporalAuthority: readCorrectnessProducerTemporalAuthority()
+    });
+}
 
 
 function tierExecutionDependencies(tier)
@@ -75,35 +84,6 @@ function readBoundBehaviorReceipt(file, receipt, validator)
         throw new Error('release-final behavior receipt object/file mismatch');
     }
     return { receipt: parsed, fileDigest: sha256Bytes(bytes) };
-}
-
-export function productionBuildBinding(receipt, receiptPath)
-{
-    if (receipt?.schema !== productionBuildReceiptSchema)
-    {
-        throw new Error(`unexpected production build receipt schema: ${receipt?.schema ?? 'missing'}`);
-    }
-    if (receipt.status !== 'complete')
-    {
-        throw new Error(`production build receipt is not complete: ${receipt.status}`);
-    }
-    if (receipt.contentDigest !== digestValue(receipt))
-    {
-        throw new Error('production build receipt content digest mismatch');
-    }
-    const sourceErrors = sourceStateErrors(receipt.sourceState, 'production build receipt sourceState');
-    if (sourceErrors.length > 0)
-    {
-        throw new Error(sourceErrors.join('; '));
-    }
-    return {
-        schema: productionBuildReceiptSchema,
-        receipt: String(receiptPath).replaceAll(path.sep, '/'),
-        receiptContentDigest: receipt.contentDigest,
-        sourceState: receipt.sourceState,
-        profile: receipt.build?.profile ?? null,
-        producer: receipt.producer ?? null
-    };
 }
 
 export function productionCorrectnessTierClosure(matrix)
@@ -150,6 +130,7 @@ export function createBrowserlessCorrectnessReceipt({
     authority,
     physicalTestIds = [],
     attemptEvidence = null,
+    expectedCandidate = null,
     now = () => new Date()
 })
 {
@@ -293,7 +274,15 @@ export function createBrowserlessCorrectnessReceipt({
 
     requireCleanAttemptConsumerAdmission({
         consumerId: 'production-correctness',
-        attemptEvidence
+        attemptEvidence,
+        expectedCandidate,
+        candidateBinding: {
+            sourceCommit: build.sourceState.commit,
+            worktreeFingerprint: `sha256:${normalizeFingerprint(build.sourceState.worktreeFingerprint)}`,
+            schedulerRunId: authority.runId ?? authority.plan?.runId,
+            buildIdentity: build.receiptContentDigest,
+            membership: { selectedTierIds: executedTierIds, testVectors: sortedUnique(summaryTestIds) }
+        }
     });
 
     return seal({

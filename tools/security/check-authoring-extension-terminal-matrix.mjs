@@ -2,6 +2,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { isDeepStrictEqual } from 'node:util';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 const args = process.argv.slice(2);
@@ -108,12 +109,20 @@ function verifyFixture(reference, label)
 }
 
 const catalog = readJson(catalogPath, 'authoring extension terminal matrix');
+const canonicalCatalog = readJson(
+    path.join(defaultRoot, 'config/testing/authoring-extension-terminal-matrix.json'),
+    'source-owned canonical terminal matrix');
 if (!catalog)
 {
     process.exitCode = 1;
 }
 else
 {
+    // Overrides are diagnostic inputs, not authority to remove required domains.
+    if (!isDeepStrictEqual(catalog, canonicalCatalog))
+    {
+        errors.push('canonical catalog contract drifted');
+    }
     compareExact(
         'catalog fields',
         Object.keys(catalog).sort(),
@@ -194,9 +203,16 @@ else
         }
     }
 
-    let receipt = null;
     if (evidencePath || receiptPath)
     {
+        // Byte-bound artifact labels do not prove a current-run physical producer.
+        // The canonical CI/domain receipt join is not implemented or registered yet.
+        // Preserve diagnostics, but never promote synthetic or stale files to acceptance.
+        errors.push('terminal receipt join is unavailable: registered current-run producer validators are required');
+        if (blockers.length > 0)
+        {
+            errors.push(`terminal acceptance blocked: ${blockers.join(',')}`);
+        }
         if (!evidencePath)
         {
             errors.push('--write-receipt requires --evidence');
@@ -229,7 +245,6 @@ else
                     artifacts.set(artifact.id, artifact);
                 }
 
-                const artifactDigests = {};
                 for (const id of terminalIds)
                 {
                     const artifact = artifacts.get(id);
@@ -244,7 +259,6 @@ else
                     {
                         errors.push(`terminal evidence ${id} digest mismatched`);
                     }
-                    artifactDigests[id] = artifact.sha256;
                 }
                 for (const id of artifacts.keys())
                 {
@@ -253,38 +267,8 @@ else
                         errors.push(`terminal evidence contains unknown artifact ${id}`);
                     }
                 }
-
-                if (errors.length === 0)
-                {
-                    const sourcePaths = [...new Set([
-                        path.relative(root, catalogPath),
-                        'tools/security/check-authoring-extension-terminal-matrix.mjs',
-                        ...catalog.registries.map((entry) => entry.source),
-                        ...requiredSuites
-                    ])].sort();
-                    const sourceDigests = Object.fromEntries(sourcePaths.map((sourcePath) => [
-                        sourcePath,
-                        digestBytes(readFile(sourcePath, `receipt source ${sourcePath}`))
-                    ]));
-                    receipt = {
-                        schema: 'fsusblog.authoring-extension-terminal-receipt.v1',
-                        status: 'terminal-accepted',
-                        canonicalCommand: catalog.canonicalCommand,
-                        sourceDigests,
-                        registryDigest: digestBytes(Buffer.from(JSON.stringify(catalog.registries))),
-                        artifactDigests,
-                        warnings: []
-                    };
-                    receipt.receiptDigest = digestBytes(Buffer.from(JSON.stringify(receipt)));
-                }
             }
         }
-    }
-
-    if (errors.length === 0 && receiptPath && receipt)
-    {
-        fs.mkdirSync(path.dirname(path.resolve(receiptPath)), { recursive: true });
-        fs.writeFileSync(path.resolve(receiptPath), `${JSON.stringify(receipt, null, 2)}\n`);
     }
 
     if (errors.length === 0)
@@ -294,10 +278,6 @@ else
         for (const blocker of blockers)
         {
             console.log(`[authoring-extension-terminal-matrix] blocker ${blocker}`);
-        }
-        if (receipt)
-        {
-            console.log(`[authoring-extension-terminal-matrix] terminal receipt=${receipt.receiptDigest}`);
         }
     }
 }

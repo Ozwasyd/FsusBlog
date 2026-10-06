@@ -1,11 +1,14 @@
 using System.Collections.Immutable;
 using System.IO.Compression;
+using System.Reflection;
+using System.Reflection.Emit;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+using FsusBlog.Server.Tests.Unit;
 
 namespace FsusBlog.Server.Tests;
 
@@ -160,6 +163,89 @@ public sealed class AuthoringExtensionPackagePersistenceTests
             (await valid.VerifyAsync("acme", "key-1", archive, new byte[64], default)).Status);
     }
 
+    [Theory]
+    [InlineData(10, 60, 0, AuthoringPackageTrustStatus.Trusted, 10)]
+    [InlineData(10, 60, 10, AuthoringPackageTrustStatus.Revoked, 60)]
+    [InlineData(10, 60, 11, AuthoringPackageTrustStatus.Revoked, 60)]
+    [InlineData(10, 5, 0, AuthoringPackageTrustStatus.Trusted, 5)]
+    [InlineData(10, 5, 5, AuthoringPackageTrustStatus.Expired, 5)]
+    [InlineData(null, 60, 0, AuthoringPackageTrustStatus.Trusted, 60)]
+    [InlineData(-1, 60, 0, AuthoringPackageTrustStatus.Revoked, 60)]
+    public async Task EcdsaTrustVerifier_TrustedIntervalDoesNotOutliveKnownRevocation(
+        int? revocationMinutes,
+        int validityMinutes,
+        int evaluationMinutes,
+        AuthoringPackageTrustStatus expectedStatus,
+        int expectedValidityMinutes)
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        byte[] archive = Encoding.UTF8.GetBytes("scheduled revocation archive");
+        byte[] signature = signer.SignData(
+            archive,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        Assert.True(signer.VerifyData(
+            archive,
+            signature,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation));
+        var key = new AuthoringPackagePublisherKey(
+            "acme",
+            "key-1",
+            ImmutableArray.Create(signer.ExportSubjectPublicKeyInfo()),
+            s_now.AddHours(-1),
+            s_now.AddMinutes(validityMinutes),
+            revocationMinutes is { } minutes ? s_now.AddMinutes(minutes) : null);
+        var verifier = new EcdsaAuthoringPackageTrustVerifier(
+            new LocalAuthoringPackageKeyset([key]),
+            new FixedTimeProvider(s_now.AddMinutes(evaluationMinutes)));
+
+        AuthoringPackageTrustDecision decision = await verifier.VerifyAsync(
+            "acme", "key-1", archive, signature, default);
+
+        Assert.Equal(expectedStatus, decision.Status);
+        Assert.Equal(s_now.AddMinutes(evaluationMinutes), decision.EvaluatedAt);
+        Assert.Equal(s_now.AddMinutes(expectedValidityMinutes), decision.ValidUntil);
+        Assert.Equal(key.Publisher, decision.Publisher);
+        Assert.Equal(key.KeyId, decision.KeyId);
+        Assert.Matches("^[0-9a-f]{64}$", decision.KeysetIdentity);
+    }
+
+    [Fact]
+    public async Task EcdsaTrustVerifier_RevocationCutoffPreservesExactTicksAndKeysetIdentity()
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        byte[] archive = Encoding.UTF8.GetBytes("exact revocation cutoff");
+        byte[] signature = signer.SignData(
+            archive,
+            HashAlgorithmName.SHA256,
+            DSASignatureFormat.IeeeP1363FixedFieldConcatenation);
+        DateTimeOffset revokedAt = s_now.AddTicks(1);
+        var keyset = new LocalAuthoringPackageKeyset(
+        [
+            new AuthoringPackagePublisherKey(
+                "acme",
+                "key-1",
+                ImmutableArray.Create(signer.ExportSubjectPublicKeyInfo()),
+                s_now.AddHours(-1),
+                s_now.AddHours(1),
+                revokedAt)
+        ]);
+        var before = new EcdsaAuthoringPackageTrustVerifier(keyset, new FixedTimeProvider(s_now));
+        var atCutoff = new EcdsaAuthoringPackageTrustVerifier(keyset, new FixedTimeProvider(revokedAt));
+
+        AuthoringPackageTrustDecision trusted = await before.VerifyAsync(
+            "acme", "key-1", archive, signature, default);
+        AuthoringPackageTrustDecision revoked = await atCutoff.VerifyAsync(
+            "acme", "key-1", archive, signature, default);
+
+        Assert.Equal(AuthoringPackageTrustStatus.Trusted, trusted.Status);
+        Assert.Equal(revokedAt, trusted.ValidUntil);
+        Assert.Equal(AuthoringPackageTrustStatus.Revoked, revoked.Status);
+        Assert.Equal(revokedAt, revoked.EvaluatedAt);
+        Assert.Equal(trusted.KeysetIdentity, revoked.KeysetIdentity);
+    }
+
     [Fact]
     public async Task EcdsaTrustVerifier_KeysetIdentityBindsCompletePublisherKeyset()
     {
@@ -210,18 +296,364 @@ public sealed class AuthoringExtensionPackagePersistenceTests
     [Fact]
     public void PackageStaticGovernance_HasNoRemoteSelfUpdateOrSecondStoreComposition()
     {
-        string root = Path.Combine(
-            TestInfrastructure.BackendTestPaths.RepositoryRoot,
-            "src/backend/Infrastructure/AuthoringExtensions");
-        string packages = File.ReadAllText(Path.Combine(root, "AuthoringExtensionPackages.cs"));
-        string activation = File.ReadAllText(Path.Combine(root, "AuthoringPackageProductionActivation.cs"));
-        string source = string.Concat(packages, "\n", activation);
+        Type[] packageTypes =
+        [
+            typeof(AuthoringPackageTrustStatus),
+            typeof(AuthoringPackageOperation),
+            typeof(AuthoringPackageOutcome),
+            typeof(AuthoringPackageEntry),
+            typeof(AuthoringPackageArtifact),
+            typeof(AuthoringPackageArchiveContents),
+            typeof(AuthoringPackageTrustDecision),
+            typeof(AuthoringPackagePublisherKey),
+            typeof(VerifiedAuthoringPackage),
+            typeof(AuthoringPackageReceipt),
+            typeof(IAuthoringPackageTrustVerifier),
+            typeof(IAuthoringPackageKeyset),
+            typeof(IAuthoringPackageSourceFetcher),
+            typeof(LocalAuthoringPackageKeyset),
+            typeof(EcdsaAuthoringPackageTrustVerifier),
+            typeof(LocalApprovedAuthoringPackageSourceFetcher),
+            typeof(IAuthoringPackageArchiveReader),
+            typeof(IAuthoringPackageStore),
+            typeof(IAuthoringPackageHealthProbe),
+            typeof(IAuthoringPackageReceiptStore),
+            typeof(AuthoringPackageVerifier),
+            typeof(AuthoringPackageReferencePolicy),
+            typeof(AuthoringPackageClosedJson),
+            typeof(IAuthoringPackageCompatibilityPrecheck),
+            typeof(SchemaStableAuthoringPackageCompatibilityPrecheck),
+            typeof(AuthoringPackageActivationCoordinator)
+        ];
+        Type[] activationTypes =
+        [
+            typeof(AuthoringPackageIntegrityHealthProbe),
+            typeof(AuthoringPackageProductionActivation),
+            typeof(LocalAuthoringPackageRuntime),
+            typeof(LocalAuthoringPackageComposition)
+        ];
+        AssertNoRemotePackageAuthority(packageTypes.Concat(activationTypes));
+        Assert.Contains("github_pat_", RuntimeMetadataInspection.DescribeConstructors(
+            typeof(AuthoringPackageReferencePolicy)), StringComparison.Ordinal);
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            AuthoringPackageReferencePolicy.ValidateSource("approved-source/GITHUB_PAT_secret"));
+        AssertSoleProductionStoreComposition(activationTypes);
+    }
 
-        Assert.DoesNotContain("new HttpClient", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Process.Start", source, StringComparison.Ordinal);
-        Assert.DoesNotContain("Assembly.Load", source, StringComparison.Ordinal);
-        Assert.Contains("\"github_pat_\"", packages, StringComparison.Ordinal);
-        Assert.Equal(1, activation.Split("new LocalAuthoringPackageStore(", StringSplitOptions.None).Length - 1);
+    [Theory]
+    [InlineData("http", "HttpClient")]
+    [InlineData("process", "Process.Start")]
+    [InlineData("assembly", "Assembly.Load")]
+    public void PackageStaticGovernance_UncalledNestedAuthority_RejectsExecutableBody(
+        string fixture,
+        string forbidden)
+    {
+        Type root = fixture switch
+        {
+            "http" => typeof(UncalledHttpFixture),
+            "process" => typeof(UncalledProcessFixture),
+            "assembly" => typeof(UncalledAssemblyFixture),
+            _ => throw new ArgumentOutOfRangeException(nameof(fixture))
+        };
+        string previousRoots = string.Join('\n',
+            RuntimeMetadataInspection.DescribeType(root),
+            RuntimeMetadataInspection.DescribeConstructors(root));
+        Assert.DoesNotContain(forbidden, previousRoots, StringComparison.Ordinal);
+        Type nested = Assert.Single(root.GetNestedTypes(BindingFlags.NonPublic));
+        Assert.Contains(forbidden, RuntimeMetadataInspection.DescribeType(nested), StringComparison.Ordinal);
+        IReadOnlyList<string> members = RuntimeMetadataInspection.DescribeDeclaredMemberReferencesInOrderContaining(
+            nested, forbidden);
+        Assert.Contains(members, member => member.Contains(forbidden, StringComparison.Ordinal));
+
+        var refusal = Assert.Throws<Xunit.Sdk.DoesNotContainException>(() =>
+            AssertNoRemotePackageAuthority([root]));
+        Assert.Contains(forbidden, refusal.Message, StringComparison.Ordinal);
+    }
+
+    [Fact]
+    public void PackageStaticGovernance_UncalledBenignNestedAuthority_IsIncludedAndAccepted()
+    {
+        Type nested = Assert.Single(typeof(UncalledBenignFixture).GetNestedTypes(BindingFlags.NonPublic));
+        Assert.Contains(nested, EnumeratePackageTypeTree(typeof(UncalledBenignFixture)));
+        Assert.Contains("benign-package-body", RuntimeMetadataInspection.DescribeType(nested), StringComparison.Ordinal);
+
+        AssertNoRemotePackageAuthority([typeof(UncalledBenignFixture)]);
+    }
+
+    [Theory]
+    [InlineData("constructor")]
+    [InlineData("initializer")]
+    [InlineData("nested")]
+    public void PackageStaticGovernance_AdditionalStoreSiteOutsideRootMethods_IsRejected(string fixture)
+    {
+        Type root = fixture switch
+        {
+            "constructor" => typeof(InstanceStoreFixture),
+            "initializer" => typeof(InitializedStoreFixture),
+            "nested" => typeof(NestedStoreFixture),
+            _ => throw new ArgumentOutOfRangeException(nameof(fixture))
+        };
+        Assert.DoesNotContain("LocalAuthoringPackageStore..ctor",
+            RuntimeMetadataInspection.DescribeType(root), StringComparison.Ordinal);
+        StoreConstructionSite site = Assert.Single(FindStoreConstructionSites([root]));
+        if (fixture == "constructor")
+        {
+            Assert.True(site.Method.IsConstructor);
+            Assert.False(site.Method.IsStatic);
+        }
+        else if (fixture == "initializer")
+        {
+            Assert.Equal(root.TypeInitializer, site.Method);
+        }
+        else
+        {
+            Assert.NotEqual(root, site.Method.DeclaringType);
+            Assert.Contains(site.Method.DeclaringType!, EnumeratePackageTypeTree(root));
+        }
+
+        Type[] roots = [typeof(LocalAuthoringPackageComposition), root];
+        Assert.Equal(2, FindStoreConstructionSites(roots).Count);
+        Assert.Throws<Xunit.Sdk.SingleException>(() => AssertSoleProductionStoreComposition(roots));
+    }
+
+    [Fact]
+    public void PackageStaticGovernance_TwoExactConstructionsInOneBody_AreTwoSites()
+    {
+        IReadOnlyList<StoreConstructionSite> sites = FindStoreConstructionSites([typeof(TwoStoreSitesFixture)]);
+        Assert.Equal(2, sites.Count);
+        Assert.Equal(sites[0].Method, sites[1].Method);
+        Assert.NotEqual(sites[0].Offset, sites[1].Offset);
+
+        Assert.Throws<Xunit.Sdk.SingleException>(() =>
+            AssertSoleProductionStoreComposition([typeof(LocalAuthoringPackageComposition), typeof(TwoStoreSitesFixture)]));
+    }
+
+    [Fact]
+    public void PackageStaticGovernance_StringConstructorDecoy_CannotEstablishStoreComposition()
+    {
+        string previous = RuntimeMetadataInspection.DescribeType(typeof(StringStoreDecoyFixture));
+        Assert.Equal(1, previous.Split("LocalAuthoringPackageStore..ctor", StringSplitOptions.None).Length - 1);
+        Assert.Empty(FindStoreConstructionSites([typeof(StringStoreDecoyFixture)]));
+
+        Assert.Throws<Xunit.Sdk.SingleException>(() =>
+            AssertSoleProductionStoreComposition([typeof(StringStoreDecoyFixture)]));
+    }
+
+    [Fact]
+    public void PackageStaticGovernance_OtherTypeConstructorDecoy_CannotEstablishStoreComposition()
+    {
+        string previous = RuntimeMetadataInspection.DescribeType(typeof(OtherStoreDecoyFixture));
+        Assert.Equal(1, previous.Split("LocalAuthoringPackageStore..ctor", StringSplitOptions.None).Length - 1);
+        IReadOnlyList<string> members = RuntimeMetadataInspection.DescribeDeclaredMemberReferencesInOrderContaining(
+            typeof(OtherStoreDecoyFixture), "LocalAuthoringPackageStore..ctor");
+        Assert.Contains(members, member => member.Contains(
+            typeof(PackageStoreConstructorDecoy.LocalAuthoringPackageStore).FullName!, StringComparison.Ordinal));
+        Assert.Empty(FindStoreConstructionSites([typeof(OtherStoreDecoyFixture)]));
+
+        Assert.Throws<Xunit.Sdk.SingleException>(() =>
+            AssertSoleProductionStoreComposition([typeof(OtherStoreDecoyFixture)]));
+    }
+
+    [Fact]
+    public void PackageStaticGovernance_BenignDecoys_DoNotMultiplyRealProductionComposition()
+    {
+        Type[] roots =
+        [
+            typeof(LocalAuthoringPackageComposition),
+            typeof(UncalledBenignFixture),
+            typeof(StringStoreDecoyFixture),
+            typeof(OtherStoreDecoyFixture)
+        ];
+        StoreConstructionSite site = Assert.Single(FindStoreConstructionSites(roots));
+        Assert.Equal(typeof(LocalAuthoringPackageComposition), site.Method.DeclaringType);
+        Assert.Equal(nameof(LocalAuthoringPackageComposition.Create), site.Method.Name);
+
+        AssertNoRemotePackageAuthority(roots);
+        AssertSoleProductionStoreComposition(roots);
+    }
+
+    private const BindingFlags PackageDeclaredMembers =
+        BindingFlags.Instance | BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.DeclaredOnly;
+
+    private static IEnumerable<Type> EnumeratePackageTypeTree(Type root)
+    {
+        yield return root;
+        foreach (Type nested in root.GetNestedTypes(BindingFlags.Public | BindingFlags.NonPublic))
+        {
+            foreach (Type descendant in EnumeratePackageTypeTree(nested))
+            {
+                yield return descendant;
+            }
+        }
+    }
+
+    private static void AssertNoRemotePackageAuthority(IEnumerable<Type> roots)
+    {
+        foreach (Type type in roots.SelectMany(EnumeratePackageTypeTree).Distinct())
+        {
+            string description = string.Join('\n', RuntimeMetadataInspection.DescribeType(type),
+                RuntimeMetadataInspection.DescribeConstructors(type));
+            Assert.DoesNotContain("HttpClient", description, StringComparison.Ordinal);
+            Assert.DoesNotContain("Process.Start", description, StringComparison.Ordinal);
+            Assert.DoesNotContain("Assembly.Load", description, StringComparison.Ordinal);
+        }
+    }
+
+    private static void AssertSoleProductionStoreComposition(IEnumerable<Type> roots)
+    {
+        StoreConstructionSite site = Assert.Single(FindStoreConstructionSites(roots));
+        MethodInfo create = typeof(LocalAuthoringPackageComposition).GetMethod(
+            nameof(LocalAuthoringPackageComposition.Create), PackageDeclaredMembers,
+            [typeof(string), typeof(AuthoringHostPlatform), typeof(IEnumerable<AuthoringPackagePublisherKey>),
+                typeof(IEnumerable<AuthoringPackageArtifact>), typeof(TimeProvider)])!;
+        Assert.NotNull(create);
+        Assert.Equal(create, site.Method);
+    }
+
+    // Count only actual newobj instructions for the production constructor, once per
+    // declared body. Text/literals and transitive descriptions cannot establish sites.
+    private static IReadOnlyList<StoreConstructionSite> FindStoreConstructionSites(IEnumerable<Type> roots)
+    {
+        ConstructorInfo constructor = typeof(LocalAuthoringPackageStore).GetConstructor(
+            [typeof(string), typeof(AuthoringPackageVerifier), typeof(AuthoringHostPlatform)])!;
+        Assert.NotNull(constructor);
+        Dictionary<ushort, OpCode> opCodes = typeof(OpCodes).GetFields(BindingFlags.Public | BindingFlags.Static)
+            .Where(field => field.FieldType == typeof(OpCode))
+            .Select(field => (OpCode)field.GetValue(null)!)
+            .GroupBy(code => unchecked((ushort)code.Value))
+            .ToDictionary(group => group.Key, group => group.First());
+        MethodBase[] bodies = roots.SelectMany(EnumeratePackageTypeTree).Distinct()
+            .SelectMany(type => type.GetMethods(PackageDeclaredMembers).Cast<MethodBase>()
+                .Concat(type.GetConstructors(PackageDeclaredMembers))
+                .Concat(type.TypeInitializer is { } initializer ? [initializer] : []))
+            .Distinct().ToArray();
+        var sites = new List<StoreConstructionSite>();
+        foreach (MethodBase method in bodies)
+        {
+            byte[]? il = method.GetMethodBody()?.GetILAsByteArray();
+            if (il is null)
+            {
+                continue;
+            }
+            for (int offset = 0; offset < il.Length;)
+            {
+                int instructionOffset = offset;
+                ushort value = il[offset++];
+                if (value == 0xfe)
+                {
+                    Assert.True(offset < il.Length);
+                    value = (ushort)(0xfe00 | il[offset++]);
+                }
+                Assert.True(opCodes.TryGetValue(value, out OpCode opCode));
+                if (opCode.OperandType == OperandType.InlineSwitch)
+                {
+                    Assert.True(offset + 4 <= il.Length);
+                    Assert.True(BitConverter.ToInt32(il, offset) >= 0);
+                }
+                int size = opCode.OperandType switch
+                {
+                    OperandType.InlineNone => 0,
+                    OperandType.ShortInlineBrTarget or OperandType.ShortInlineI or OperandType.ShortInlineVar => 1,
+                    OperandType.InlineVar => 2,
+                    OperandType.InlineBrTarget or OperandType.InlineField or OperandType.InlineI or OperandType.InlineMethod
+                        or OperandType.InlineSig or OperandType.InlineString or OperandType.InlineTok or OperandType.InlineType
+                        or OperandType.ShortInlineR => 4,
+                    OperandType.InlineI8 or OperandType.InlineR => 8,
+                    OperandType.InlineSwitch when offset + 4 <= il.Length => checked(4 + BitConverter.ToInt32(il, offset) * 4),
+                    _ => -1
+                };
+                Assert.True(size >= 0 && size <= il.Length - offset);
+                if (opCode == OpCodes.Newobj)
+                {
+                    Assert.Equal(OperandType.InlineMethod, opCode.OperandType);
+                    MethodBase? target = method.Module.ResolveMethod(BitConverter.ToInt32(il, offset),
+                        method.DeclaringType?.IsGenericType == true ? method.DeclaringType.GetGenericArguments() : Type.EmptyTypes,
+                        method.IsGenericMethod ? method.GetGenericArguments() : Type.EmptyTypes);
+                    Assert.NotNull(target);
+                    if (constructor.Equals(target))
+                    {
+                        sites.Add(new StoreConstructionSite(method, instructionOffset));
+                    }
+                }
+                offset += size;
+            }
+        }
+        return sites;
+    }
+
+    private sealed record StoreConstructionSite(MethodBase Method, int Offset);
+
+    private static class UncalledHttpFixture
+    {
+        private static class Nested
+        {
+            public static object Create() => new System.Net.Http.HttpClient();
+        }
+    }
+
+    private static class UncalledProcessFixture
+    {
+        private static class Nested
+        {
+            public static object? Create() => System.Diagnostics.Process.Start("unused-package-probe");
+        }
+    }
+
+    private static class UncalledAssemblyFixture
+    {
+        private static class Nested
+        {
+            public static object Create() => Assembly.Load("unused-package-probe");
+        }
+    }
+
+    private static class UncalledBenignFixture
+    {
+        private static class Nested
+        {
+            public static string Read() => "benign-package-body";
+        }
+    }
+
+    private sealed class InstanceStoreFixture
+    {
+        public InstanceStoreFixture() => GC.KeepAlive(new LocalAuthoringPackageStore(
+            "unused-package-probe", null!, AuthoringHostPlatform.ServerLinux));
+    }
+
+    private static class InitializedStoreFixture
+    {
+        static InitializedStoreFixture() => GC.KeepAlive(new LocalAuthoringPackageStore(
+            "unused-package-probe", null!, AuthoringHostPlatform.ServerLinux));
+    }
+
+    private static class NestedStoreFixture
+    {
+        private static class Nested
+        {
+            public static LocalAuthoringPackageStore Create() => new(
+                "unused-package-probe", null!, AuthoringHostPlatform.ServerLinux);
+        }
+    }
+
+    private static class TwoStoreSitesFixture
+    {
+        public static LocalAuthoringPackageStore Create()
+        {
+            var first = new LocalAuthoringPackageStore("unused-package-probe", null!, AuthoringHostPlatform.ServerLinux);
+            GC.KeepAlive(new LocalAuthoringPackageStore("unused-package-probe", null!, AuthoringHostPlatform.ServerLinux));
+            return first;
+        }
+    }
+
+    private static class StringStoreDecoyFixture
+    {
+        public static string Read() => "LocalAuthoringPackageStore..ctor";
+    }
+
+    private static class OtherStoreDecoyFixture
+    {
+        public static object Create() => new PackageStoreConstructorDecoy.LocalAuthoringPackageStore();
     }
 
     [Fact]
@@ -598,6 +1030,191 @@ public sealed class AuthoringExtensionPackagePersistenceTests
                 AuthoringHostPlatform.ServerLinux));
     }
 
+    // SOURCE controls only, not executed qualification. These consume the real
+    // signed archive, immutable ECDSA keyset, composition and persistent scope
+    // owner; no fixture grant, consent or physical execution proof is minted.
+    [Theory]
+    [InlineData("archive.fspkg")]
+    [InlineData("metadata.json")]
+    [InlineData("content/worker/main.wasm")]
+    public async Task PersistentReadScope_RechecksActualArtifactsInsteadOfPreviouslyVerifiedRecord(string relativePath)
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        VerifiedAuthoringPackage previous = Assert.IsType<VerifiedAuthoringPackage>(
+            await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+        string path = Path.Combine(directory.Path, "store", "packages", previous.PackageIdentity,
+            relativePath.Replace('/', Path.DirectorySeparatorChar));
+        byte[] original = File.ReadAllBytes(path);
+        MakeWritable(path);
+        File.WriteAllBytes(path, "tampered persistent bytes"u8.ToArray());
+        try
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await fixture.Runtime.ExecutionResolver.AcquireReadScopeAsync(previous, default));
+        }
+        finally
+        {
+            File.WriteAllBytes(path, original);
+        }
+        using IAuthoringInstalledPackageReadScope current = await fixture.Runtime.ExecutionResolver.AcquireReadScopeAsync(previous, default);
+        Assert.Equal(previous.PackageIdentity, current.ActivePackage.PackageIdentity);
+        Assert.NotSame(previous, current.ActivePackage);
+    }
+
+    [Fact]
+    public async Task PersistentReadScope_HoldsSameStoreAndCrossInstanceMutationOwnersUntilRelease()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        LocalAuthoringPackageRuntime second = LocalAuthoringPackageComposition.Create(directory.Path,
+            AuthoringHostPlatform.ServerLinux, [fixture.Key], [fixture.Artifact], new FixedTimeProvider(s_now));
+        IAuthoringInstalledPackageReadScope scope = await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default);
+        try
+        {
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await second.Store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+            await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                await second.Store.DeactivateAsync("acme.author-tools", scope.ActivePackage.PackageIdentity, default));
+            Assert.Equal(fixture.PackageIdentity, scope.ActivePackage.PackageIdentity);
+        }
+        finally
+        {
+            scope.Dispose();
+        }
+        scope.Dispose();
+        Assert.Throws<ObjectDisposedException>(() => scope.ActivePackage);
+        await second.Store.DeactivateAsync("acme.author-tools", fixture.PackageIdentity, default);
+        Assert.Null(await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+    }
+
+    [Fact]
+    public async Task PersistentReadScope_SameOwnerDeactivateSettlesOnlyAfterScopeRelease()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        IAuthoringInstalledPackageReadScope scope = await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default);
+        Task deactivation = fixture.Runtime.Store.DeactivateAsync("acme.author-tools", fixture.PackageIdentity, default).AsTask();
+        try
+        {
+            Assert.False(deactivation.IsCompleted);
+            Assert.Equal(fixture.PackageIdentity, scope.ActivePackage.PackageIdentity);
+        }
+        finally
+        {
+            scope.Dispose();
+        }
+        await deactivation;
+        Assert.Null(await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PersistentReadScope_UnknownTrustOwnerHasNoCachedAuthorityFallback(bool mutableEcdsaKeyset)
+    {
+        using var directory = new TemporaryDirectory();
+        LocalAuthoringPackageStore store;
+        if (mutableEcdsaKeyset)
+        {
+            SignedScopeFixture signed = await CreateSignedScopeFixtureAsync(directory.Path);
+            var keys = new ReadScopeMutableKeyset([signed.Key]);
+            var verifier = new AuthoringPackageVerifier(
+                new EcdsaAuthoringPackageTrustVerifier(keys, new FixedTimeProvider(s_now)),
+                new ZipAuthoringPackageArchiveReader(), new FixedTimeProvider(s_now));
+            store = new LocalAuthoringPackageStore(Path.Combine(directory.Path, "store"), verifier,
+                AuthoringHostPlatform.ServerLinux);
+        }
+        else
+        {
+            PackageFixture fixture = CreatePackage("1.0.0", "unknown trust lifetime");
+            ProductionRuntime runtime = CreateRuntime(directory.Path, fixture.Trust);
+            await runtime.Activation.InstallOrUpdateAsync(fixture.Artifact);
+            store = runtime.Store;
+        }
+        await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+            await store.AcquireActiveReadScopeAsync("acme.author-tools", default));
+        Assert.NotNull(await store.GetActiveAsync("acme.author-tools", default));
+    }
+
+    [Fact]
+    public async Task PersistentReadScope_CancelledPreparationDoesNotConsumeMutationOwnership()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        using var caller = new CancellationTokenSource();
+        caller.Cancel();
+        OperationCanceledException error = await Assert.ThrowsAnyAsync<OperationCanceledException>(async () =>
+            await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", caller.Token));
+        Assert.Equal(caller.Token, error.CancellationToken);
+        using IAuthoringInstalledPackageReadScope scope = await fixture.Runtime.Store.AcquireActiveReadScopeAsync("acme.author-tools", default);
+        Assert.Equal(fixture.PackageIdentity, scope.ActivePackage.PackageIdentity);
+    }
+
+    [Fact]
+    public async Task PersistentBrokerScope_OriginalSignedOwnerSurvivesContinuationAndBlocksMutation()
+    {
+        using var directory = new TemporaryDirectory();
+        SignedScopeFixture fixture = await CreateSignedScopeFixtureAsync(directory.Path);
+        VerifiedAuthoringPackage package = Assert.IsType<VerifiedAuthoringPackage>(
+            await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+        LocalAuthoringPackageRuntime second = LocalAuthoringPackageComposition.Create(directory.Path,
+            AuthoringHostPlatform.ServerLinux, [fixture.Key], [fixture.Artifact], new FixedTimeProvider(s_now));
+        IAuthoringInstalledPackageAsyncReadScope scope =
+            await fixture.Runtime.ExecutionResolver.AcquireBrokerReadScopeAsync(package, default);
+        try
+        {
+            await Task.Run(async () =>
+            {
+                Assert.Equal(package.PackageIdentity, scope.ActivePackage.PackageIdentity);
+                await Assert.ThrowsAsync<AuthoringExtensionContractException>(async () =>
+                    await second.Store.DeactivateAsync("acme.author-tools", package.PackageIdentity, default));
+            });
+        }
+        finally
+        {
+            await Task.Run(scope.Dispose);
+        }
+        Assert.Throws<ObjectDisposedException>(() => scope.ActivePackage);
+        await second.Store.DeactivateAsync("acme.author-tools", package.PackageIdentity, default);
+        Assert.Null(await fixture.Runtime.Store.GetActiveAsync("acme.author-tools", default));
+    }
+
+    private sealed record SignedScopeFixture(LocalAuthoringPackageRuntime Runtime,
+        AuthoringPackageArtifact Artifact, AuthoringPackagePublisherKey Key, string PackageIdentity);
+
+    private sealed class ReadScopeMutableKeyset(ImmutableArray<AuthoringPackagePublisherKey> keys) : IAuthoringPackageKeyset
+    {
+        public ImmutableArray<AuthoringPackagePublisherKey> Keys { get; set; } = keys;
+        public ValueTask<ImmutableArray<AuthoringPackagePublisherKey>> GetPublisherKeysAsync(
+            string publisher, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(Keys);
+        }
+    }
+
+    private static async ValueTask<SignedScopeFixture> CreateSignedScopeFixtureAsync(string root)
+    {
+        using ECDsa signer = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+        PackageFixture fixture = CreatePackage("1.0.0", "signed read-scope bytes");
+        AuthoringPackageArtifact artifact = fixture.Artifact with
+        {
+            Signature = ImmutableArray.Create(signer.SignData(fixture.Artifact.CanonicalArchive.AsSpan(),
+                HashAlgorithmName.SHA256, DSASignatureFormat.IeeeP1363FixedFieldConcatenation))
+        };
+        var key = new AuthoringPackagePublisherKey("acme", "key-1",
+            ImmutableArray.Create(signer.ExportSubjectPublicKeyInfo()), s_now.AddHours(-1), s_now.AddHours(1));
+        LocalAuthoringPackageRuntime runtime = LocalAuthoringPackageComposition.Create(root,
+            AuthoringHostPlatform.ServerLinux, [key], [artifact], new FixedTimeProvider(s_now));
+        AuthoringPackageReceipt receipt = await runtime.Activation.InstallOrUpdateFromSourceAsync(artifact.SourceReference);
+        return new SignedScopeFixture(runtime, artifact, key, receipt.PackageIdentity);
+    }
+
     private static ProductionRuntime CreateRuntime(string root, LocalTrustVerifier trust)
     {
         var verifier = new AuthoringPackageVerifier(
@@ -806,5 +1423,14 @@ public sealed class AuthoringExtensionPackagePersistenceTests
 
             Directory.Delete(Path, recursive: true);
         }
+    }
+}
+
+// A different top-level owner keeps the constructor outside the descriptor's
+// same-owner call closure, just like the production store referenced by composition.
+internal static class PackageStoreConstructorDecoy
+{
+    public sealed class LocalAuthoringPackageStore
+    {
     }
 }

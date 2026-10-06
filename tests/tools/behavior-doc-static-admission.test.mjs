@@ -78,6 +78,10 @@ function fakeMinimalReceipt(runId, source)
         {
             path: 'Directory.Packages.props',
             digest: 'f'.repeat(64)
+        },
+        {
+            path: 'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs',
+            digest: '9'.repeat(64)
         }
     ];
     return seal({
@@ -119,6 +123,13 @@ function fakeMinimalReceipt(runId, source)
                     artifactPath: declaration.output,
                     artifactDigest: 'd'.repeat(64),
                     configuration: 'Release',
+                    ...(artifactId === 'openapi-aeds-observation'
+                        ? {
+                            openapiPath: `${buildRoot}/observations/fsusblog.openapi.observed.json`,
+                            openapiArtifactPath: '.tmp/contracts/openapi/fsusblog.openapi.observed.json',
+                            openapiDigest: '8'.repeat(64)
+                        }
+                        : {}),
                     ...(artifactId === 'runtime-role-observation'
                         ? {
                             sourceCommit: source.sourceCommit,
@@ -203,6 +214,23 @@ test('directory source digests ignore generated dotnet outputs while binding sou
 
     fs.writeFileSync(path.join(repositoryRoot, 'src/migration/Schema.cs'), 'sealed class Schema { public int Version => 2; }\n');
     assert.notEqual(digestPath(repositoryRoot, 'src/migration'), initial);
+});
+
+test('config/error minimal build identity binds the production mapper source digest', () =>
+{
+    const receipt = fakeMinimalReceipt('minimal-build-config-error-source', {
+        sourceCommit: 'a'.repeat(40),
+        worktreeFingerprint: 'b'.repeat(64)
+    });
+    const identity = buildIdentitiesFromMinimalReceipt(receipt)['config-error-security-policy-observation'];
+    const mapperPath = 'src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs';
+
+    assert.equal(
+        identity.sourceDigests.find(({ path: sourcePath }) => sourcePath === mapperPath)?.digest,
+        '9'.repeat(64)
+    );
+    assert.deepEqual(identity.sourceDigests, receipt.sourceClosureDigests);
+    assert.equal(identity.sourceDigest, digestValue(identity.sourceDigests));
 });
 
 function validAdmissionReceipt({
@@ -307,6 +335,7 @@ function copyMinimalBuildFixture(repositoryRoot)
     const copiedPaths = new Set([
         'config/contracts/behavior-fact-extractors.json',
         'tools/docs/behavior-doc-minimal-contract-build.mjs',
+        'tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs',
         'tools/fact-extractors/identity.mjs',
         'Directory.Build.props',
         'Directory.Packages.props',
@@ -529,6 +558,68 @@ test('sealed receipt rejects every fail-open static result and candidate spawn',
     );
 });
 
+test('OpenAPI projection schema is closed without broadening other minimal hosts', () =>
+{
+    const receipt = validAdmissionReceipt();
+    const schema = JSON.parse(fs.readFileSync(
+        path.join(root, 'config/schemas/behavior-doc-static-admission-receipt.schema.json'),
+        'utf8'
+    ));
+    const expected = {
+        expectedRunId: receipt.run.id,
+        expectedSourceIdentity: {
+            sourceCommit: receipt.source.commit,
+            worktreeFingerprint: receipt.source.worktreeFingerprint
+        },
+        expectedWorktree: root
+    };
+    assert.deepEqual(validateJsonSchema(receipt, schema), []);
+
+    const invalidProjections = [
+        ['openapiPath', '.tmp/contracts/openapi/fsusblog.openapi.observed.json'],
+        ['openapiArtifactPath', '.tmp/contracts/openapi/other.json'],
+        ['openapiDigest', 'A'.repeat(64)],
+        ['schema', 'fsusblog.other-build-receipt.v1'],
+        ['unexpectedProjection', 'unexpected']
+    ];
+    for (const key of ['openapiPath', 'openapiArtifactPath', 'openapiDigest'])
+    {
+        invalidProjections.push([key, undefined]);
+    }
+    for (const [key, invalidValue] of invalidProjections)
+    {
+        const value = structuredClone(receipt);
+        const buildReceipt = value.minimalContractBuild.artifacts['openapi-aeds-observation'].buildReceipt;
+        if (invalidValue === undefined)
+        {
+            delete buildReceipt[key];
+        }
+        else
+        {
+            buildReceipt[key] = invalidValue;
+        }
+        value.minimalContractBuild = seal(value.minimalContractBuild);
+        const sealed = seal(value);
+        assert.notEqual(validateJsonSchema(sealed, schema).length, 0, key);
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(sealed, expected), undefined, key);
+    }
+
+    for (const artifactId of [
+        'runtime-role-observation',
+        'auth-session-permission-observation',
+        'config-error-security-policy-observation',
+        'content-lifecycle-observation'
+    ])
+    {
+        const value = structuredClone(receipt);
+        value.minimalContractBuild.artifacts[artifactId].buildReceipt.openapiDigest = '8'.repeat(64);
+        value.minimalContractBuild = seal(value.minimalContractBuild);
+        const sealed = seal(value);
+        assert.notEqual(validateJsonSchema(sealed, schema).length, 0, artifactId);
+        assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(sealed, expected), undefined, artifactId);
+    }
+});
+
 test('minimal contract build uses only a content-addressed root and never ambient bin output', (t) =>
 {
     const repositoryRoot = tempDirectory('behavior-doc-minimal-build');
@@ -560,7 +651,6 @@ test('minimal contract build uses only a content-addressed root and never ambien
             fs.writeFileSync(assembly, 'fixture-runtime-role-assembly');
             return { status: 0, stdout: '', stderr: '' };
         }
-        const separator = args.indexOf('--');
         const outputIndex = args.indexOf('--output');
         assert.ok(outputIndex > 0);
         fs.mkdirSync(path.dirname(args[outputIndex + 1]), { recursive: true });
@@ -580,6 +670,10 @@ test('minimal contract build uses only a content-addressed root and never ambien
                 }
             })}\n`
             : '{"schema":"fixture"}\n');
+        if (args.includes(hostDeclarations['openapi-aeds-observation'].project))
+        {
+            fs.writeFileSync(path.join(path.dirname(args[outputIndex + 1]), 'fsusblog.openapi.observed.json'), '{"openapi":"unit-fixture"}\n');
+        }
         return { status: 0, stdout: '', stderr: '' };
     };
     const result = runMinimalContractBuild({
@@ -598,6 +692,43 @@ test('minimal contract build uses only a content-addressed root and never ambien
     assert.equal(invocations.filter((args) => args[1] === 'build').length, 1);
     assert.match(result.receipt.buildRoot, /^\.tmp\/behavior-doc-contract-builds\/[a-f0-9]{64}$/u);
     assert.equal(fs.readFileSync(ambient, 'utf8'), '{"stale":true}\n');
+    const projection = result.receipt.artifacts['openapi-aeds-observation'].buildReceipt;
+    for (const file of [projection.openapiPath, projection.openapiArtifactPath])
+    {
+        assert.equal(digestPath(repositoryRoot, file), projection.openapiDigest);
+        assert.equal(fs.readFileSync(path.join(repositoryRoot, file), 'utf8'), '{"openapi":"unit-fixture"}\n');
+    }
+    assert.equal(projection.openapiPath, `${result.receipt.buildRoot}/observations/fsusblog.openapi.observed.json`);
+    const countBeforeReuse = invocations.length;
+    const reused = runMinimalContractBuild({
+        repositoryRoot,
+        runId: 'minimal-build-new-run',
+        sourceIdentity: { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+        spawn: fakeSpawn
+    });
+    assert.equal(reused.cacheHit, true);
+    assert.equal(invocations.length, countBeforeReuse + 1);
+    assert.equal(reused.identityReceiptFile, path.join(repositoryRoot, result.receipt.buildRoot, 'receipts/minimal-build-new-run.json'));
+    assert.equal(reused.receipt.runId, 'minimal-build-new-run');
+    assert.notEqual(reused.receipt.contentDigest, result.receipt.contentDigest);
+    assert.deepEqual(reused.receipt.artifacts, result.receipt.artifacts);
+    const writtenReceipt = JSON.parse(fs.readFileSync(reused.identityReceiptFile, 'utf8'));
+    assert.deepEqual(writtenReceipt, reused.receipt);
+    const noProjectionSpawn = (command, args) =>
+    {
+        const produced = fakeSpawn(command, args);
+        if (args.includes(hostDeclarations['openapi-aeds-observation'].project))
+        {
+            fs.rmSync(path.join(path.dirname(args[args.indexOf('--output') + 1]), 'fsusblog.openapi.observed.json'));
+        }
+        return produced;
+    };
+    assert.throws(() => runMinimalContractBuild({
+        repositoryRoot,
+        runId: 'minimal-build-missing-projection',
+        sourceIdentity: { sourceCommit: 'c'.repeat(40), worktreeFingerprint: 'b'.repeat(64) },
+        spawn: noProjectionSpawn
+    }), /missing consumed input|ENOENT|missing input/u);
 });
 
 test('concurrent admission builds elect one publisher and reject a corrupted reusable build', async (t) =>
@@ -680,6 +811,9 @@ if [[ "$runtime" == "1" ]]; then
   ' "$deployment" "$output"
 else
   printf '{"schema":"fixture"}\\n' > "$output"
+  if [[ "$output" == */openapi-aeds-observation.json ]]; then
+    printf '{"openapi":"unit-fixture"}\\n' > "$(dirname "$output")/fsusblog.openapi.observed.json"
+  fi
 fi
 printf 'end %s\\n' "$$" >> "\${FSUSBLOG_FAKE_DOTNET_LOG}"
 `);

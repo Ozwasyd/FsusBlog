@@ -51,11 +51,25 @@ import {
 import contract from './article-editor-production-contract.json'
 
 type FixtureState = 'empty' | 'loading' | 'error' | 'success' | 'partial'
-type FixtureSurface = 'title' | 'editor' | 'command' | 'inspector' | 'recovery'
+type FixtureSurface = 'title' | 'editor' | 'outline' | 'command' | 'inspector' | 'recovery'
 type AuthoringFixtureState = typeof contract.authoringStates[number]
 const inspectorViews = contract.inspectorViews as ArticleWriteInspectorView[]
 const fixtureStates = contract.states as FixtureState[]
 const authoringStates = contract.authoringStates as AuthoringFixtureState[]
+
+const outlineFixtureContent = (headingCount: number): string => {
+  if (headingCount <= 0) return ''
+  const headings = Array.from({ length: headingCount }, (_, index) => {
+    const depth = index === 0 ? 1 : (index % 4) + 1
+    const title = index === 0
+      ? '文章大纲与当前章节导航'
+      : index === 1
+        ? '一个可访问且足够长的标题，用于验证完整 accessible name 与稳定换行行为'
+        : `第 ${index} 节 · 身份、位置映射与实时编辑`
+    return `${'#'.repeat(depth)} ${title}`
+  })
+  return [headings[0], '正文内容保持在同一文章编辑器实例中。', ...headings.slice(1)].join('\n\n')
+}
 
 const fixtureDigest = (character: string): string => character.repeat(64)
 const fixtureProjection = (
@@ -106,7 +120,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
   const titleKey = requestedTitle && requestedTitle in contract.titles ? requestedTitle : 'empty'
   const theme = params.get('theme') === 'dark' ? 'dark' : 'light'
   const requestedSurface = params.get('surface') as FixtureSurface | null
-  const surface: FixtureSurface = ['editor', 'command', 'inspector', 'recovery'].includes(requestedSurface ?? '')
+  const surface: FixtureSurface = ['editor', 'outline', 'command', 'inspector', 'recovery'].includes(requestedSurface ?? '')
     ? requestedSurface as FixtureSurface
     : 'title'
   const requestedState = params.get('state') as FixtureState | null
@@ -121,6 +135,8 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
   const initialAuthoringState: AuthoringFixtureState = authoringStates.includes(requestedAuthoringState ?? 'ready')
     ? requestedAuthoringState as AuthoringFixtureState
     : 'ready'
+  const outlineHeadingCount = Math.max(0, Math.min(10000, Number.parseInt(params.get('outlineCount') ?? '8', 10) || 0))
+  const outlineArticle = params.get('article') === 'b' ? 'b' : 'a'
 
   document.documentElement.classList.toggle('dark', theme === 'dark')
   document.documentElement.dataset.themeMode = theme
@@ -171,7 +187,9 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
   const app = createApp({
     setup() {
       const title = ref(contract.titles[titleKey])
-      const content = ref('先写下可以验证的正文，再检查预览。')
+      const content = ref(surface === 'outline'
+        ? outlineFixtureContent(outlineHeadingCount)
+        : '先写下可以验证的正文，再检查预览。')
       const recoveryContent = ref('')
       const recoveryCandidates = ref<readonly ArticleRecoveryJournalRecord[]>([])
       const selectedRecoveryId = ref('')
@@ -182,7 +200,10 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
       const state = ref<FixtureState>(fixtureState)
       const editorState = ref<'editing' | 'saving' | 'saved' | 'failed' | 'published'>('editing')
       const authoringState = ref<AuthoringFixtureState>(initialAuthoringState)
-      const authoringDocumentIdentity = ref({ id: 'fixture-article:fixture-tab', epoch: 1 })
+      const outlineArticleIdentity = ref(surface === 'outline'
+        ? `fixture-outline-article-${outlineArticle}`
+        : 'fixture-article:fixture-tab')
+      const authoringDocumentIdentity = ref({ id: outlineArticleIdentity.value, epoch: 1 })
       const articleEditorRef = ref<{ openCommandPalette?: () => void } | null>(null)
       const authoringAuthority = new InMemoryAuthoringCommandProjectionAuthority()
       const authoringCommands = ref<readonly FsusUiAuthoringCommand[]>([])
@@ -549,6 +570,14 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
             epoch: authoringDocumentIdentity.value.epoch + 1
           }
         },
+        __articleEditorFixtureSwitchOutlineArticle: (nextArticle: 'a' | 'b') => {
+          if (surface !== 'outline') return
+          outlineArticleIdentity.value = `fixture-outline-article-${nextArticle}`
+          authoringDocumentIdentity.value = {
+            id: outlineArticleIdentity.value,
+            epoch: authoringDocumentIdentity.value.epoch + 1
+          }
+        },
         __articleEditorFixtureResolveAuthoringCommand: resolvePendingAuthoringCommand,
         __articleEditorFixtureAuthoringInvocationCount: () => authoringInvocationCount.value,
         __articleEditorFixtureOpenInspector: (view: ArticleWriteInspectorView) => {
@@ -717,6 +746,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
               slashMenu: true,
               commandPalette: true
             },
+            articleIdentity: outlineArticleIdentity.value,
             documentIdentity: authoringDocumentIdentity.value,
             loading: editorState.value === 'saving',
             saving: editorState.value === 'saving',
@@ -891,7 +921,7 @@ export async function mountArticleEditorProductionFixture(): Promise<void> {
       return () => h('main', {
         class: 'article-editor-production-fixture',
         'aria-label': '文章编辑器 production fixture'
-      }, surface === 'editor' ? [renderEditor()] : surface === 'command' ? [renderCommand()] : surface === 'inspector' ? [renderInspector()] : surface === 'recovery' ? [renderRecovery()] : [
+      }, surface === 'editor' || surface === 'outline' ? [renderEditor()] : surface === 'command' ? [renderCommand()] : surface === 'inspector' ? [renderInspector()] : surface === 'recovery' ? [renderRecovery()] : [
         h('header', { class: 'article-editor-production-fixture__task' }, [
           h('div', [
             h('h1', '撰写文章'),

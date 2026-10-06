@@ -4,10 +4,52 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const {CONTENT_SHAPE_BOUNDARY_KINDS, CONTENT_SHAPE_SCRIPT_CLASSES, contentFieldSourceBinding, contentShapeBoundaryPlan, contentShapeCatalogDigest, projectContentFieldContracts, readContentShapeAuthority, shapeContentDigest, stableStringify, validateContentShapeAuthority, validateContentShapeGovernance} = await import(new URL('../../tools/testing/content-shape-catalog.mjs', import.meta.url));
+const {CONTENT_SHAPE_BOUNDARY_KINDS, CONTENT_SHAPE_SCRIPT_CLASSES, assertDotnetHostDigest, contentFieldSourceBinding, contentShapeBoundaryPlan, contentShapeCatalogDigest, projectContentFieldContracts, readContentShapeAuthority, selectCanonicalDotnet, sha256, shapeContentDigest, stableStringify, validateConfiguredDotnetHost, validateContentShapeAuthority, validateContentShapeGovernance} = await import(new URL('../../tools/testing/content-shape-catalog.mjs', import.meta.url));
 const {fixtureCatalogDigest, readFixtureCatalogs} = await import(new URL('../../tools/testing/fixture-catalog.mjs', import.meta.url));
 const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const root = path.resolve(import.meta.dirname, '..', '..');
+
+test('explicit content-field host must be pinned, observable, and unchanged', () =>
+{
+    const host = '/isolated/dotnet';
+    const sdk = '10.0.302';
+    const options = {
+        exists: (candidate) => candidate === host,
+        realpath: (candidate) => candidate,
+        readFile: () => Buffer.from('pinned-host'),
+        inspectVersion: () => ({ status: 0, stdout: `${sdk}\n` })
+    };
+    assert.equal(validateConfiguredDotnetHost(undefined, sdk, options), null);
+    assert.equal(validateConfiguredDotnetHost(host, sdk, options), host);
+    for (const candidate of ['', 'relative/dotnet', '/missing/dotnet'])
+    {
+        assert.throws(() => validateConfiguredDotnetHost(candidate, sdk, options),
+            /must name an existing absolute path/u);
+    }
+    assert.throws(() => validateConfiguredDotnetHost(host, sdk, {
+        ...options,
+        inspectVersion: () => ({ status: 0, stdout: '9.0.100\n' })
+    }), /does not match pinned SDK/u);
+    assert.throws(() => validateConfiguredDotnetHost(host, sdk, {
+        ...options,
+        inspectVersion: () => ({ status: null, error: new Error('unmounted') })
+    }), /version is not observable/u);
+    let reads = 0;
+    assert.throws(() => validateConfiguredDotnetHost(host, sdk, {
+        ...options,
+        readFile: () => Buffer.from(reads++ === 0 ? 'before' : 'after')
+    }), /host changed during extraction/u);
+    const digest = sha256(Buffer.from('pinned-host'));
+    assert.doesNotThrow(() => assertDotnetHostDigest(host, digest, options.readFile));
+    assert.throws(() => assertDotnetHostDigest(host, digest, () => Buffer.from('changed')),
+        /host changed during extraction/u);
+    const inspectVersion = () => ({ status: 0, stdout: `${sdk}\n` });
+    assert.equal(selectCanonicalDotnet([host], sdk, inspectVersion), host);
+    assert.throws(() => selectCanonicalDotnet([], sdk, inspectVersion),
+        /exactly one canonical dotnet SDK 10\.0\.302, found 0/u);
+    assert.throws(() => selectCanonicalDotnet([host, '/other/dotnet'], sdk, inspectVersion),
+        /exactly one canonical dotnet SDK 10\.0\.302, found 2/u);
+});
 
 function clonedAuthority()
 {

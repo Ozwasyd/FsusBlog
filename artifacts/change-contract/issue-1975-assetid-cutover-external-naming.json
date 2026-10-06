@@ -1,0 +1,25 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/backend/Infrastructure/SchemaMigration/ContentAssetCutoverBackfill.cs",
+        "src/backend/Services/ArticleMutationSideEffects.cs",
+        "src/backend/Services/ArticleService.LifecycleAndReadModels.cs",
+        "src/migration/ContentAssetCutoverBackfill.cs",
+        "src/migration/ContentAssetCutoverBackfillStep.cs",
+        "src/migration/OfflineMigrationHost.cs",
+        "tools/db/generate-migration-assembly-receipt.mjs"
+      ],
+      "reason": "Preserve the offline migration host environment keys and existing caller-visible process configuration spellings while the moved and updated C# and JavaScript implementation keeps repository-native identifiers internally."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "reason": "Preserve the generated release-final authority schema and serialized dependency-closure keys while updating only the canonical digest for the changed migration receipt producer."
+    }
+  ]
+}

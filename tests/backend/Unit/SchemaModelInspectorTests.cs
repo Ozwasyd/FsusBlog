@@ -2,6 +2,7 @@ using System.ComponentModel.DataAnnotations.Schema;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Infrastructure.Testing;
 
@@ -636,7 +637,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void StartupVerifierSemanticGuard_RejectsTableColumnTypeIndexAndConstraintDrift()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
 
         static SchemaModelSnapshot Snapshot(CurrentSchemaCanonicalModel model)
             => CurrentSchemaCanonicalAuthority.ProjectProvider(model, SchemaProviderKind.PostgreSql);
@@ -791,7 +792,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Extract_ResolvesInheritanceAttributesDefaultsIgnoredMembersAndConstraints()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
         SchemaTableModel table = canonical.SemanticSchema.Tables["synthetic_table"];
 
         Assert.Contains("inherited_id", table.Columns.Keys);
@@ -848,7 +849,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Comparer_BindsForeignKeyReferenceToExactSchema()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
         SchemaModelSnapshot publicReference = CurrentSchemaCanonicalAuthority.ProjectProvider(
             canonical,
             SchemaProviderKind.PostgreSql);
@@ -876,7 +877,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Comparer_RejectsEveryConstraintExecutionSemanticDrift()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
 
         void AssertConstraintDrift(
             string constraintName,
@@ -938,7 +939,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Extract_ModelsDescendingIndexDefaultsExactly()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(DescendingIndexEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(DescendingIndexEntity)]);
         SchemaIndexModel index = canonical.SemanticSchema.Tables["descending_index"].IndexDefinitions["ix_descending_state"];
         SchemaIndexKeyModel key = Assert.Single(index.Keys);
 
@@ -974,7 +975,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Comparer_RejectsEveryIndexSemanticDrift()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
 
         void AssertIndexDrift(Func<SchemaIndexModel, SchemaIndexModel> mutate)
         {
@@ -1018,22 +1019,22 @@ public sealed class SchemaModelInspectorTests
     public void Extract_FailsClosedForDuplicateAndAmbiguousOwnersOrUnsupportedConverters()
     {
         InvalidOperationException duplicateTable = Assert.Throws<InvalidOperationException>(
-            () => CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity), typeof(DuplicateTableEntity)]));
+            () => CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity), typeof(DuplicateTableEntity)]));
         Assert.Contains("Duplicate current schema table owner", duplicateTable.Message, StringComparison.Ordinal);
 
         InvalidOperationException duplicateColumn = Assert.Throws<InvalidOperationException>(
-            () => CurrentSchemaCanonicalAuthority.Extract([typeof(AmbiguousDerivedEntity)]));
+            () => CurrentSchemaEntityExtractor.Extract([typeof(AmbiguousDerivedEntity)]));
         Assert.Contains("Duplicate current schema column owner", duplicateColumn.Message, StringComparison.Ordinal);
 
         InvalidOperationException converter = Assert.Throws<InvalidOperationException>(
-            () => CurrentSchemaCanonicalAuthority.Extract([typeof(UnsupportedConverterEntity)]));
+            () => CurrentSchemaEntityExtractor.Extract([typeof(UnsupportedConverterEntity)]));
         Assert.Contains("Unsupported current schema converter", converter.Message, StringComparison.Ordinal);
     }
 
     [Fact]
     public void ProviderProjection_SeparatesSemanticSchemaFromPhysicalDialect()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
         SchemaModelSnapshot postgresql = CurrentSchemaCanonicalAuthority.ProjectProvider(canonical, SchemaProviderKind.PostgreSql);
         SchemaModelSnapshot mysql = CurrentSchemaCanonicalAuthority.ProjectProvider(canonical, SchemaProviderKind.MySql);
         SchemaModelSnapshot sqlite = CurrentSchemaCanonicalAuthority.ProjectProvider(canonical, SchemaProviderKind.Sqlite);
@@ -1050,7 +1051,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void PostgreSqlProviderProjection_BindsPhysicalTypesCollationAndOwnedSequence()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract(
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract(
             [typeof(PhysicalSemanticsEntity)]);
         SchemaModelSnapshot postgresql = CurrentSchemaCanonicalAuthority.ProjectProvider(
             canonical,
@@ -1082,7 +1083,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Comparer_RejectsEveryPostgreSqlColumnPhysicalSemanticDrift()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract(
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract(
             [typeof(PhysicalSemanticsEntity)]);
 
         void AssertColumnDrift(
@@ -1256,7 +1257,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void ProjectionAndIndependentVerifier_RejectOldIdentityAndTampering()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
         CurrentSchemaProjection projection = CurrentSchemaCanonicalAuthority.Generate(canonical);
         projection.Schema.Tables["synthetic_table"].Columns["defaultname"] =
             projection.Schema.Tables["synthetic_table"].Columns["defaultname"] with
@@ -1268,7 +1269,7 @@ public sealed class SchemaModelInspectorTests
             CurrentSchemaCanonicalAuthority.Generate(new CurrentSchemaCanonicalModel(projection.Schema, projection.Identity)));
         Assert.Contains("content digest mismatch", tamper.Message, StringComparison.Ordinal);
 
-        CurrentSchemaCanonicalModel changed = CurrentSchemaCanonicalAuthority.Extract([typeof(ChangedSyntheticEntity)]);
+        CurrentSchemaCanonicalModel changed = CurrentSchemaEntityExtractor.Extract([typeof(ChangedSyntheticEntity)]);
         Assert.NotEqual(canonical.Identity.ContentDigest, changed.Identity.ContentDigest);
         Assert.NotEqual(canonical.Identity.SourceDigest, changed.Identity.SourceDigest);
 
@@ -1296,9 +1297,9 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void SourceIdentity_CoversClassLevelIndexesAndConstraints()
     {
-        CurrentSchemaCanonicalModel baseline = CurrentSchemaCanonicalAuthority.Extract([typeof(SourceDigestBaselineEntity)]);
-        CurrentSchemaCanonicalModel indexChanged = CurrentSchemaCanonicalAuthority.Extract([typeof(SourceDigestIndexChangedEntity)]);
-        CurrentSchemaCanonicalModel constraintChanged = CurrentSchemaCanonicalAuthority.Extract([typeof(SourceDigestConstraintChangedEntity)]);
+        CurrentSchemaCanonicalModel baseline = CurrentSchemaEntityExtractor.Extract([typeof(SourceDigestBaselineEntity)]);
+        CurrentSchemaCanonicalModel indexChanged = CurrentSchemaEntityExtractor.Extract([typeof(SourceDigestIndexChangedEntity)]);
+        CurrentSchemaCanonicalModel constraintChanged = CurrentSchemaEntityExtractor.Extract([typeof(SourceDigestConstraintChangedEntity)]);
 
         Assert.NotEqual(baseline.Identity.SourceDigest, indexChanged.Identity.SourceDigest);
         Assert.NotEqual(baseline.Identity.ContentDigest, indexChanged.Identity.ContentDigest);
@@ -1309,7 +1310,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Comparer_EmitsExactOwnedDifferences()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
         CurrentSchemaProjection actual = CurrentSchemaCanonicalAuthority.Generate(canonical);
         SchemaTableModel table = actual.Schema.Tables["synthetic_table"];
         table.Columns.Remove("state");
@@ -1329,7 +1330,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void Comparer_ReportsProviderColumnIndexAndConstraintSemanticDrift()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
         SchemaModelSnapshot actual = CurrentSchemaCanonicalAuthority.ProjectProvider(canonical, SchemaProviderKind.PostgreSql);
         SchemaTableModel table = actual.Tables["synthetic_table"];
         table.Columns["state"] = table.Columns["state"] with
@@ -1372,7 +1373,7 @@ public sealed class SchemaModelInspectorTests
     [Fact]
     public void ReadinessComparison_UsesSealedIdentityAndEntersSampling()
     {
-        CurrentSchemaCanonicalModel canonical = CurrentSchemaCanonicalAuthority.Extract([typeof(SyntheticEntity)]);
+        CurrentSchemaCanonicalModel canonical = CurrentSchemaEntityExtractor.Extract([typeof(SyntheticEntity)]);
         CurrentSchemaReadinessBenchmarkReceipt receipt = CurrentSchemaReadinessComparison.Measure(
             canonical,
             static model => new GeneratedCurrentSchemaProjectionAdapter().Observe(model).Schema,

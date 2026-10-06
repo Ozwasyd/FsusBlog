@@ -115,13 +115,18 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
     {
         cancellationToken.ThrowIfCancellationRequested();
 
-        string challengeId = NormalizeRequired(request.ChallengeId, nameof(request.ChallengeId), 64);
-        string outcome = NormalizeOutcome(request.Outcome);
-        DateTime attemptedAt = request.AttemptedAtUtc is { } provided
-            ? (provided.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(provided, DateTimeKind.Utc) : provided.ToUniversalTime())
-            : DateTime.UtcNow;
+        ChallengeV2PreparedAttempt? bound = ChallengeV2DurableDelivery.TryGet(request);
+        if (bound is not null && db.Ado.Transaction is not null)
+        {
+            throw new InvalidOperationException("challenge_audit_requires_owned_transaction");
+        }
+        ChallengeV2PreparedAttempt prepared = bound ?? PrepareAttempt(request, DateTime.UtcNow);
+        SecurityChallengeAttempt attempt = prepared.ToEntity();
+        string challengeId = attempt.ChallengeId;
+        string outcome = attempt.Outcome;
+        DateTime attemptedAt = attempt.AttemptedAtUtc;
         string? requestedAttemptId = NormalizeOptional(request.AttemptId, 64);
-        string attemptId = requestedAttemptId ?? Guid.CreateVersion7().ToString("D");
+        string attemptId = attempt.AttemptId;
 
         if (requestedAttemptId is not null)
         {
@@ -131,77 +136,105 @@ public sealed class SecurityChallengePersistenceService(ISqlSugarClient db) : IS
                 .ConfigureAwait(false);
             if (existing is not null)
             {
-                EnsureSameAttempt(existing, challengeId, outcome, request);
+                EnsureSameAttempt(existing, prepared, bound is not null, request.AttemptedAtUtc is not null);
                 return existing;
             }
         }
 
-        var attempt = new SecurityChallengeAttempt
+        CancellationToken? previousCancellation = db.Ado.CancellationToken;
+        db.Ado.CancellationToken = cancellationToken;
+        try
         {
-            AttemptId = attemptId,
-            ChallengeId = challengeId,
-            Outcome = outcome,
-            Reason = NormalizeOptional(request.Reason, 128),
-            PayloadHash = NormalizeHash(request.PayloadHash, nameof(request.PayloadHash), required: false),
-            ClientIpHash = NormalizeHash(request.ClientIpHash, nameof(request.ClientIpHash), required: false),
-            DeviceFpHash = NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash), required: false),
-            TraceId = NormalizeOptional(request.TraceId, 64),
-            Traceparent = NormalizeOptional(request.Traceparent, 128),
-            AttemptedAtUtc = attemptedAt,
-            CreatedAtUtc = DateTime.UtcNow
-        };
-
-        var transaction = await db.Ado.UseTranAsync(async () =>
-        {
-            await db.Insertable(attempt).ExecuteCommandAsync();
-            SecurityChallengeMetricContext? metric = await ReadChallengeMetricContextAsync(
-                    challengeId,
-                    outcome,
-                    attemptedAt)
-                .ConfigureAwait(false);
-            if (metric is null)
+            var transaction = await db.Ado.UseTranAsync(async () =>
             {
-                metric = await LoadChallengeMetricContextAsync(challengeId).ConfigureAwait(false);
+                if (await db.Insertable(attempt).ExecuteCommandAsync().ConfigureAwait(false) != 1)
+                {
+                    throw new InvalidDataException("challenge_audit_insert_postcondition_mismatch");
+                }
+                SecurityChallengeMetricContext? metric = await ReadChallengeMetricContextAsync(
+                        challengeId,
+                        outcome,
+                        attemptedAt)
+                    .ConfigureAwait(false);
                 if (metric is null)
                 {
-                    throw new InvalidOperationException("Security challenge not found.");
+                    metric = await LoadChallengeMetricContextAsync(challengeId).ConfigureAwait(false);
+                    if (metric is null)
+                    {
+                        throw new InvalidOperationException("Security challenge not found.");
+                    }
                 }
-            }
 
-            return metric;
-        }).ConfigureAwait(false);
+                return metric;
+            }).ConfigureAwait(false);
 
-        if (!transaction.IsSuccess)
-        {
-            if (requestedAttemptId is not null)
+            if (!transaction.IsSuccess)
             {
-                SecurityChallengeAttempt? raced = await db.Queryable<SecurityChallengeAttempt>()
-                    .Where(item => item.AttemptId == attemptId)
-                    .FirstAsync(cancellationToken)
-                    .ConfigureAwait(false);
-                if (raced is not null)
+                cancellationToken.ThrowIfCancellationRequested();
+                if (requestedAttemptId is not null)
                 {
-                    EnsureSameAttempt(raced, challengeId, outcome, request);
-                    return raced;
+                    // A fresh connection is necessary after a lost COMMIT response.
+                    // The failed writer connection/transaction is not a receipt.
+                    using SqlSugarClient observer = db.CopyNew();
+                    SecurityChallengeAttempt? raced = await observer.Queryable<SecurityChallengeAttempt>()
+                        .Where(item => item.AttemptId == attemptId)
+                        .FirstAsync(cancellationToken)
+                        .ConfigureAwait(false);
+                    if (raced is not null)
+                    {
+                        EnsureSameAttempt(raced, prepared, bound is not null, request.AttemptedAtUtc is not null);
+                        return raced;
+                    }
                 }
+
+                throw new InvalidOperationException("Security challenge attempt persistence failed.", transaction.ErrorException);
             }
 
-            throw new InvalidOperationException("Security challenge attempt persistence failed.", transaction.ErrorException);
+            RecordAttemptMetric(transaction.Data, attempt);
+            return attempt;
         }
+        catch (Exception exception) when (bound is not null && cancellationToken.IsCancellationRequested)
+        {
+            // Rollback cannot use the token which cancelled the writer. An owned
+            // transaction is never acknowledged until the full commit is proved.
+            db.Ado.CancellationToken = null;
+            if (db.Ado.Transaction is not null)
+            {
+                await db.Ado.RollbackTranAsync().ConfigureAwait(false);
+            }
+            throw new OperationCanceledException("challenge_audit_writer_cancelled", exception, cancellationToken);
+        }
+        finally
+        {
+            db.Ado.CancellationToken = previousCancellation;
+        }
+    }
 
-        RecordAttemptMetric(transaction.Data, attempt);
-        return attempt;
+    internal static ChallengeV2PreparedAttempt PrepareAttempt(SecurityChallengeAttemptRequest request, DateTime capturedAtUtc)
+    {
+        DateTime captured = ChallengeV2DurableDelivery.SqlTimestamp(capturedAtUtc);
+        var normalized = new SecurityChallengeAttemptRequest(
+            NormalizeRequired(request.ChallengeId, nameof(request.ChallengeId), 64),
+            NormalizeOutcome(request.Outcome),
+            NormalizeOptional(request.Reason, 128),
+            NormalizeHash(request.PayloadHash, nameof(request.PayloadHash), required: false),
+            NormalizeHash(request.ClientIpHash, nameof(request.ClientIpHash), required: false),
+            NormalizeHash(request.DeviceFpHash, nameof(request.DeviceFpHash), required: false),
+            NormalizeOptional(request.TraceId, 64),
+            NormalizeOptional(request.Traceparent, 128),
+            ChallengeV2DurableDelivery.SqlTimestamp(request.AttemptedAtUtc ?? captured),
+            NormalizeOptional(request.AttemptId, 64) ?? Guid.CreateVersion7().ToString("D"));
+        return new(normalized, captured, request.AttemptedAtUtc is not null);
     }
 
     private static void EnsureSameAttempt(
         SecurityChallengeAttempt existing,
-        string challengeId,
-        string outcome,
-        SecurityChallengeAttemptRequest request)
+        ChallengeV2PreparedAttempt prepared,
+        bool includeCreatedAt,
+        bool includeAttemptedAt)
     {
-        if (!string.Equals(existing.ChallengeId, challengeId, StringComparison.Ordinal)
-            || !string.Equals(existing.Outcome, outcome, StringComparison.Ordinal)
-            || !string.Equals(existing.PayloadHash, NormalizeHash(request.PayloadHash, nameof(request.PayloadHash), required: false), StringComparison.Ordinal))
+        if (existing.Id <= 0 || !ChallengeV2DurableDelivery.MatchesStored(prepared, existing,
+            includeCreatedAt, includeAttemptedAt))
         {
             throw new InvalidOperationException("security_challenge_attempt_idempotency_conflict");
         }

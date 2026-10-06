@@ -16,10 +16,11 @@ import {
   createMixedWindowResourceCoordinator,
   resolveMixedWindowResources,
   resolveAdaptiveLoadRounds,
-  resolveQpsWorkerCapacity,
-  runQpsModeQueue,
+  runRuntimeCacheCohort,
+  isCurrentRuntimeCacheCohort,
   settleCohortExecutions
 } from '../../tools/test/run-mixed-performance-window.mjs'
+import { loadRuntimeCacheCatalog } from '../../tools/test/runtime-cache-evidence-contract.mjs'
 
 test('mixed performance window preserves every minimum duration and QPS cohort', () => {
   const plan = buildMixedWindowPlan()
@@ -31,8 +32,11 @@ test('mixed performance window preserves every minimum duration and QPS cohort',
   assert.equal(plan.cohorts.peak.minimumDurationMs, 60_000)
   assert.equal(plan.cohorts.burst.minimumDurationMs, 15_000)
   assert.equal(plan.cohorts.notification.minimumDurationMs, 30_000)
-  assert.equal(plan.cohorts.qps.modes.length, 13)
-  assert.equal(new Set(plan.cohorts.qps.modes).size, 13)
+  assert.equal(plan.cohorts.qps.command, 'tools/test/lanes/runtime-cache-evidence.sh')
+  assert.deepEqual(plan.cohorts.qps.scenarios, loadRuntimeCacheCatalog().scenarios.map((scenario) => scenario.id))
+  assert.equal(plan.cohorts.qps.scenarios.length, 13)
+  assert.equal(new Set(plan.cohorts.qps.scenarios).size, 13)
+  assert.equal(plan.cohorts.qps.modes, undefined)
   assert.equal(plan.cohorts.benchmark.command, 'tools/test/lanes/backend-benchmark-regression.sh')
 })
 
@@ -208,59 +212,32 @@ test('mixed benchmark evidence binds fresh class shards, measurements, checker, 
   assert.ok(evidence.reports.every((report) => report.digest.startsWith('sha256:')))
 })
 
-test('QPS mode workers derive from the cohort CPU and live machine memory', () => {
-  assert.deepEqual(resolveQpsWorkerCapacity({
-    resource: { cpuUnits: 6, memoryGiB: 5 },
-    modeCount: 13,
-    availableCpu: 8,
-    totalMemoryGiB: 16
-  }), {
-    workerCount: 2,
-    cpuLimit: 6,
-    memoryLimit: 2,
-    memoryGiBPerCpu: 2
+test('runtime cache cohort delegates once with the complete grant and current catalog scenarios', async () => {
+  const calls = []
+  const cohort = await runRuntimeCacheCohort({ cpuUnits: 6, memoryGiB: 5 }, {
+    execute: async (command, options) => calls.push({ command, options })
   })
+  assert.deepEqual(calls, [{
+    command: 'tools/test/lanes/runtime-cache-evidence.sh',
+    options: { env: { FSUSBLOG_STEP_CPU_BUDGET: '6', FSUSBLOG_STEP_MEMORY_GIB: '5' } }
+  }])
+  assert.equal(cohort.status, 'ok')
+  assert.equal(cohort.workerCount, 1)
+  assert.equal(cohort.sampleCount, 13)
+  assert.deepEqual(cohort.scenarios, loadRuntimeCacheCatalog().scenarios.map((scenario) => scenario.id))
+  assert.equal(isCurrentRuntimeCacheCohort(cohort), true)
+  assert.equal(isCurrentRuntimeCacheCohort({ ...cohort, scenarios: cohort.scenarios.slice(1) }), false)
 })
 
-test('QPS mode queue rolls all modes through bounded child grants, aggregates last, and reports every failure', async () => {
-  const modes = ['one', 'two', 'three', 'four', 'five']
-  const started = []
-  const completed = []
-  let active = 0
-  let peak = 0
-  let aggregateObservedActive = null
-  await assert.rejects(
-    runQpsModeQueue({
-      modes,
-      resource: { cpuUnits: 4, memoryGiB: 4 },
-      availableCpu: 8,
-      totalMemoryGiB: 16,
-      executeMode: async (mode, env) => {
-        started.push({ mode, cpu: env.FSUSBLOG_STEP_CPU_BUDGET, memory: env.FSUSBLOG_STEP_MEMORY_GIB })
-        active += 1
-        peak = Math.max(peak, active)
-        await new Promise((resolve) => setImmediate(resolve))
-        active -= 1
-        completed.push(mode)
-        if (['two', 'four'].includes(mode)) throw new Error('mode failed')
-      },
-      executeAggregate: async (env) => {
-        aggregateObservedActive = active
-        assert.equal(env.FSUSBLOG_STEP_CPU_BUDGET, '4')
-        assert.equal(env.FSUSBLOG_STEP_MEMORY_GIB, '4')
-        throw new Error('aggregate failed')
-      }
-    }),
-    (error) => {
-      assert.ok(error instanceof AggregateError)
-      assert.equal(error.errors.length, 3)
-      assert.match(error.message, /two: mode failed.*four: mode failed.*aggregate: aggregate failed/u)
-      return true
+test('runtime cache cohort retains canonical lane failures and rejects legacy passed cohorts', async () => {
+  const cohort = await runRuntimeCacheCohort({ cpuUnits: 4, memoryGiB: 4 }, {
+    execute: async () => {
+      throw new AggregateError([new Error('producer failed'), new Error('checker failed')])
     }
-  )
-  assert.equal(peak, 2)
-  assert.equal(aggregateObservedActive, 0)
-  assert.deepEqual(started.map((entry) => entry.mode), modes)
-  assert.deepEqual(completed.sort(), [...modes].sort())
-  assert.ok(started.every((entry) => entry.cpu === '2' && entry.memory === '2'))
+  })
+  assert.equal(cohort.status, 'failed')
+  assert.equal(cohort.sampleCount, null)
+  assert.deepEqual(cohort.failures, ['producer failed', 'checker failed'])
+  assert.equal(isCurrentRuntimeCacheCohort(cohort), false)
+  assert.equal(isCurrentRuntimeCacheCohort({ name: 'qps', status: 'ok', modes: Array(13).fill('cache-hit') }), false)
 })

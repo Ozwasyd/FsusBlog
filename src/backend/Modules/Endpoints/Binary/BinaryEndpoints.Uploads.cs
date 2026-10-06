@@ -57,7 +57,7 @@ public static partial class BinaryEndpoints
 
             if (!httpContext.User.TryGetAdminPrincipalId(out long adminPrincipalId))
             {
-                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), aeds, StatusCodes.Status401Unauthorized);
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Unauthorized, "UNAUTHORIZED"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status401Unauthorized, ErrorCode.Unauthorized));
             }
 
             var result = await fileService.InitUploadSessionAsync(adminPrincipalId, ToServerDto(dto), cancellationToken);
@@ -161,7 +161,7 @@ public static partial class BinaryEndpoints
         if (!httpContext.Request.ContentLength.HasValue ||
             transferEncoding.Contains("chunked", StringComparison.OrdinalIgnoreCase))
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须携带 Content-Length"), aeds, StatusCodes.Status411LengthRequired);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片必须携带 Content-Length"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status411LengthRequired, ErrorCode.Validation));
         }
 
         long payloadLength = httpContext.Request.ContentLength.GetValueOrDefault();
@@ -172,7 +172,7 @@ public static partial class BinaryEndpoints
 
         if (payloadLength > FileService.UploadRequestBodyLimitBytes)
         {
-            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片超过请求体上限"), aeds, StatusCodes.Status413PayloadTooLarge);
+            return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.Validation, "上传分片超过请求体上限"), aeds, ApiErrorSemanticMapper.RequireTransportMappingId(StatusCodes.Status413PayloadTooLarge, ErrorCode.Validation));
         }
 
         string? payloadHash = httpContext.Request.Headers[UploadPayloadHashHeader].FirstOrDefault();

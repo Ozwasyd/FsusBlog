@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 297,
+      "estimatedFacts": 327,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -158,14 +158,22 @@
           "class": "CanonicalArticlePublicationFixturePortIntegrationTests"
         },
         {
+          "path": "Integration/CanonicalArticleLifecycleFixturePortIntegrationTests.cs",
+          "class": "CanonicalArticleLifecycleFixturePortIntegrationTests"
+        },
+        {
           "path": "Integration/RuntimeCacheEvidenceHotFeaturedFrameIntegrationTests.cs",
           "class": "RuntimeCacheEvidenceHotFeaturedFrameIntegrationTests"
+        },
+        {
+          "path": "Integration/ArticlePropertyDefinitionAuthorityIntegrationTests.cs",
+          "class": "ArticlePropertyDefinitionAuthorityIntegrationTests"
         }
       ]
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 454,
+      "estimatedFacts": 458,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",
@@ -455,6 +463,10 @@
         {
           "path": "Integration/AuthorArticlePinStoreIntegrationTests.cs",
           "class": "AuthorArticlePinStoreIntegrationTests"
+        },
+        {
+          "path": "Integration/AuthorRecentArticleHistoryStoreIntegrationTests.cs",
+          "class": "AuthorRecentArticleHistoryStoreIntegrationTests"
         },
         {
           "path": "Unit/ContentAssetDeleteEndpointTests.cs",
