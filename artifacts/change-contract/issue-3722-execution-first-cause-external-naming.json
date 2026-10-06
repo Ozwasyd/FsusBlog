@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/execution-failure-diagnostic.mjs",
+                "tools/test/run-deterministic-command.mjs",
+                "tools/test/run-once.mjs"
+            ],
+            "reason": "Bind exact current registered environment and script adapter spelling on changed execution diagnostic consumers; retain private source/run, cancellation, network, containment and error receipt identities. This ordinary declaration neither promotes old generated authority nor qualifies a failure receipt."
+        }
+    ]
+}

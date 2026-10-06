@@ -206,6 +206,16 @@ public sealed class SchemaMigrationCatalogTests
                 Assert.Equal(AdminSessionProjectionMigrationDefinitions.MigrationId, dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
             });
+        const string RecentHistoryMigrationId = "20260915-post-author-recent-history";
+        Assert.Single(manifest.Descriptors, static descriptor =>
+            descriptor.MigrationId == RecentHistoryMigrationId);
+        ISchemaMigrationDescriptor[] historicalDescriptors = manifest.Descriptors
+            .Where(static descriptor => descriptor.MigrationId != RecentHistoryMigrationId)
+            .ToArray();
+        Assert.Equal(145, historicalDescriptors.Length);
+        Assert.Equal(
+            "D53AB234D57D3C847748434A7A64810A21D8DA44219CFA895360A96B918A4117",
+            ComputePlanFingerprint(historicalDescriptors));
         Assert.Equal(146, manifest.Descriptors.Count);
         const string ExpectedPlanFingerprint = "F2FBD2AF4569856A7435D044AAD13FABD6B32A5F68EF6DEA8C546E8B234E7F04";
         string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);

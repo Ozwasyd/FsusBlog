@@ -1,10 +1,17 @@
 import { describe, expect, it } from 'vitest';
 
 import {
+    AuthoringSessionHost,
+    authoringSessionSnapshotSchema,
+    sealAuthoringSessionSnapshot,
+    type FsusUiPublicEditorSessionFactory
+} from '@/services/authoring/authoringSessionHost';
+import {
     ArticleWorkspaceTabRouter,
     articleWorkspaceSessionReceiptSchema,
     articleWorkspaceTabRouterSchema,
     canonicalArticleWorkspaceRoute,
+    createArticleWorkspaceSessionPort,
     verifyArticleWorkspaceRouterReceipt,
     verifyArticleWorkspaceSessionReceipt,
     type ArticleWorkspaceOpenInput,
@@ -199,6 +206,95 @@ describe('ArticleWorkspaceTabRouter contract (#2295)', () => {
         expect(router.getTab(tab.tabId)?.sessionState).toBe('pending');
     });
 
+    it.each([
+        ['ready', 'editorSessionRef'],
+        ['ready', 'registryRevision'],
+        ['blocked', 'editorSessionRef'],
+        ['blocked', 'registryRevision']
+    ] as const)('rejects a fully resealed %s receipt with foreign %s', async (sessionState, field) => {
+        const router = new ArticleWorkspaceTabRouter();
+        let returnedReceipt: ArticleWorkspaceSessionReceipt | undefined;
+        router.setSessionPort({
+            waitForReady: async (entry) => {
+                expect(entry.lifecycleRevision).toBeGreaterThan(0);
+                const base = {
+                    schema: articleWorkspaceSessionReceiptSchema,
+                    receiptRef: `session-ready:${entry.tabId}:${entry.lifecycleRevision}`,
+                    tabId: entry.tabId,
+                    editorSessionRef: field === 'editorSessionRef' ? 'session:foreign-article' : entry.editorSessionRef,
+                    registryRevision: field === 'registryRevision' ? entry.lifecycleRevision - 1 : entry.lifecycleRevision,
+                    status: sessionState,
+                    reason: sessionState === 'blocked' ? 'session-host-blocked' : null
+                };
+                returnedReceipt = { ...base, contentDigest: calculateDigest(base) };
+                expect(verifyArticleWorkspaceSessionReceipt(returnedReceipt)).toBe(true);
+                expect(returnedReceipt.tabId).toBe(entry.tabId);
+                expect(returnedReceipt[field]).not.toBe(field === 'editorSessionRef' ? entry.editorSessionRef : entry.lifecycleRevision);
+                return returnedReceipt;
+            }
+        });
+        const pushes: string[] = [];
+        const result = await router.openOrActivateAndNavigate(input(36), {
+            currentFullPath: '/user/manage/article/write',
+            push: async (route) => { pushes.push(route); }
+        });
+        expect(result.sessionState).toBe('blocked');
+        expect(result.reason).toBe('session-ready-receipt-invalid');
+        expect(result.sessionReceiptRef).not.toBe(returnedReceipt?.receiptRef);
+        expect(router.getTab(result.tabId!)?.sessionState).toBe('blocked');
+        expect(pushes).toEqual([]);
+    });
+
+    it.each(['ready', 'blocked'] as const)('preserves an exact entry-bound %s receipt and its reason', async (sessionState) => {
+        const router = new ArticleWorkspaceTabRouter();
+        router.setSessionPort({
+            waitForReady: async (entry) => {
+                const base = {
+                    schema: articleWorkspaceSessionReceiptSchema,
+                    receiptRef: `session-ready:${entry.tabId}:${entry.lifecycleRevision}`,
+                    tabId: entry.tabId,
+                    editorSessionRef: entry.editorSessionRef,
+                    registryRevision: entry.lifecycleRevision,
+                    status: sessionState,
+                    reason: sessionState === 'blocked' ? 'session-host-blocked' : null
+                };
+                const receipt = { ...base, contentDigest: calculateDigest(base) };
+                expect(verifyArticleWorkspaceSessionReceipt(receipt)).toBe(true);
+                return receipt;
+            }
+        });
+        await router.openOrActivate(input(37, { tabKind: 'pinned' }));
+        const result = await router.openOrActivate(input(38, { tabKind: 'pinned' }));
+        const entry = router.getRegistry().getEntry(result.tabId!)!;
+        expect(router.getRevision()).toBeGreaterThan(entry.lifecycleRevision);
+        expect(result.sessionState).toBe(sessionState);
+        expect(result.reason).toBe(sessionState === 'blocked' ? 'session-host-blocked' : null);
+        expect(result.sessionReceiptRef).toBe(`session-ready:${entry.tabId}:${entry.lifecycleRevision}`);
+    });
+
+    it('accepts the original host bridge mapping without substituting the host revision', async () => {
+        const host = new AuthoringSessionHost(sessionFactory());
+        const bridge = createArticleWorkspaceSessionPort(host);
+        const router = new ArticleWorkspaceTabRouter();
+        router.setSessionPort(bridge);
+        const opened = await router.openOrActivate(input(39, { tabKind: 'pinned' }));
+        const entry = router.getRegistry().getEntry(opened.tabId!)!;
+        expect(opened.sessionState).toBe('ready');
+        expect(host.getSession(entry.editorSessionRef)?.tabId).toBe(entry.tabId);
+        for (let index = 0; index < 3; index += 1)
+        {
+            const receipt = await bridge.waitForReady(entry);
+            expect(verifyArticleWorkspaceSessionReceipt(receipt)).toBe(true);
+            expect(receipt.tabId).toBe(entry.tabId);
+            expect(receipt.editorSessionRef).toBe(entry.editorSessionRef);
+            expect(receipt.registryRevision).toBe(entry.lifecycleRevision);
+            expect(receipt.status).toBe('ready');
+            expect(receipt.reason).toBeNull();
+            expect(host.exportState().revision).toBeGreaterThan(receipt.registryRevision);
+        }
+        expect((await router.activateTab(entry.tabId)).sessionState).toBe('ready');
+    });
+
     it('prevents route feedback loops and blocks unknown routes without creating a ghost tab', async () => {
         const router = new ArticleWorkspaceTabRouter();
         const opened = await router.openOrActivate(input(40, { tabKind: 'pinned' }));
@@ -289,4 +385,43 @@ describe('ArticleWorkspaceTabRouter contract (#2295)', () => {
 function calculateDigest(value: unknown): string
 {
     return calculateOpenArticleDocumentDigest(value);
+}
+
+// A public-session SOURCE fixture drives the actual host and adapter, not a production composition.
+function sessionFactory(): FsusUiPublicEditorSessionFactory
+{
+    const resources = { editorInstances: 1, renderers: 0, observers: 0, timers: 0,
+        backgroundTasks: 0, networkRequests: 0, memoryUnits: 1 };
+    return {
+        createSession: (entry) => ({
+            editorSessionRef: entry.editorSessionRef,
+            captureSnapshot: (context) => sealAuthoringSessionSnapshot({
+                schema: authoringSessionSnapshotSchema,
+                snapshotRef: 'snapshot:router-bridge',
+                identity: structuredClone(context.identity),
+                editorSessionRef: context.editorSessionRef,
+                documentContext: structuredClone(context.documentContext),
+                permission: context.permission,
+                permissionRef: context.permissionRef,
+                selectionRef: 'selection:router-bridge',
+                selectionDirection: 'none',
+                historyRef: 'history:router-bridge',
+                activeNodeRef: 'active-node:router-bridge',
+                scrollAnchorRef: 'scroll-anchor:router-bridge',
+                outlineRef: 'outline:router-bridge',
+                searchRef: 'search:router-bridge',
+                attachmentStateRef: 'attachment:router-bridge',
+                lastValidRenderRef: 'render:router-bridge',
+                draftStateRef: 'draft:router-bridge',
+                crashJournalRef: 'crash:router-bridge',
+                editorContentDigest: calculateDigest({ editorSessionRef: context.editorSessionRef })
+            }),
+            pauseResources: () => ({ ...resources }),
+            resumeResources: () => ({ ...resources }),
+            inspectResources: () => ({ ...resources }),
+            restoreSnapshot: (snapshot) => ({ status: 'restored', snapshotRef: snapshot.snapshotRef,
+                snapshotDigest: snapshot.snapshotDigest, identityValidated: true, refsValidated: true, reason: null }),
+            disposeAfterSnapshot: () => undefined
+        })
+    };
 }

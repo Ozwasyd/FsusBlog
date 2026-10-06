@@ -29,6 +29,15 @@ public static class PodSizeCatalog
     public static readonly int StringMutationRequestPod = PodContractValidation.SizeOf<StringMutationRequestPod>();
     public static readonly int PasskeyCredentialFriendlyNameUpdateRequestPod = PodContractValidation.SizeOf<PasskeyCredentialFriendlyNameUpdateRequestPod>();
     public static readonly int ApiErrorPod = PodContractValidation.SizeOf<ApiErrorPod>();
+    public static readonly int FontThemePayloadHeaderPod = PodContractValidation.SizeOf<FontThemePayloadHeaderPod>();
+    public static readonly int FontRegistryItemPod = PodContractValidation.SizeOf<FontRegistryItemPod>();
+    public static readonly int FontRegistryDetailPod = PodContractValidation.SizeOf<FontRegistryDetailPod>();
+    public static readonly int FontFacePod = PodContractValidation.SizeOf<FontFacePod>();
+    public static readonly int FontActivationPod = PodContractValidation.SizeOf<FontActivationPod>();
+    public static readonly int ThemeRegistryItemPod = PodContractValidation.SizeOf<ThemeRegistryItemPod>();
+    public static readonly int ThemeRegistryDetailPod = PodContractValidation.SizeOf<ThemeRegistryDetailPod>();
+    public static readonly int ThemeActivationPod = PodContractValidation.SizeOf<ThemeActivationPod>();
+    public static readonly int ThemeActivationHistoryPod = PodContractValidation.SizeOf<ThemeActivationHistoryPod>();
 
     public static readonly int ArticleListItemPod = PodContractValidation.SizeOf<ArticleListItemPod>();
     public static readonly int ArticleDetailPod = PodContractValidation.SizeOf<ArticleDetailPod>();

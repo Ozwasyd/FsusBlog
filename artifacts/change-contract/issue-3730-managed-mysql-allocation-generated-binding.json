@@ -7,7 +7,11 @@
     "outputs": [
         {
             "path": "config/testing/correctness-attempt-producers.json",
-            "sha256": "b8247300ec9efcf75b2e4142c9b0d1a71706ebd84a88ca88848f949690f770bb"
+            "sha256": "4f784e43dad5e6e9b047572e7765c08b142b5c9dcbe3c185b94c2f5df169fed4"
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "c7b79617ab0cda07a118807331de3797b00b690080419dddb6108023be26ec1b"
         }
     ]
 }

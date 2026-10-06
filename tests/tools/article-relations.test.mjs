@@ -2,19 +2,15 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import test from "node:test";
-import { pathToFileURL } from "node:url";
 
-const root = path.resolve(import.meta.dirname, "../..");
-const {
+import {
     checkArticleRelationCatalog,
     checkArticleRelations,
     checkArticleRelationSources,
     readArticleRelationSources
-} = await import(
-    pathToFileURL(
-        path.join(root, "tools/governance/check-article-relations.mjs")
-    ).href
-);
+} from "../../tools/governance/check-article-relations.mjs";
+
+const root = path.resolve(import.meta.dirname, "../..");
 
 const contractsPath =
     "src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs";
