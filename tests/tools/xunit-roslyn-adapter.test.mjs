@@ -91,9 +91,9 @@ function getProjectGraphEvidence()
 }
 test.after(() => rmSync(productionBuildRoot, { recursive: true, force: true }));
 
-test('xunit configuration binds references, constants, generated sources and exact build outputs', () =>
+test('xunit configuration binds references, constants, generated sources and exact build outputs', async () =>
 {
-    const evidence = exerciseXunitConfigurationFixture({
+    const evidence = await exerciseXunitConfigurationFixture({
         repositoryRoot,
         adapterAssembly: relocatedAdapterAssembly
     });
