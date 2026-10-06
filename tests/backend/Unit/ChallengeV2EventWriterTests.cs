@@ -14,6 +14,7 @@ public sealed class ChallengeV2EventWriterTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task WriteAsync_ProtectsLowValueOverflowAndKeepsReplayPriority()
     {
         var logger = new CapturingLogger<ChallengeV2AuditEventQueue>();
@@ -69,6 +70,7 @@ public sealed class ChallengeV2EventWriterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task WriteAsync_ProtectsHighValueOverflowWithoutPayloadDiagnostics()
     {
         var logger = new CapturingLogger<ChallengeV2AuditEventQueue>();
