@@ -385,6 +385,30 @@ public sealed record RequiredQueueHealthSnapshot(
     }
 
     public IReadOnlyList<string> Blockers { get; init; } = [];
+
+    /// <summary>Gets original queue-owner diagnostics, sampled independently of the qualification receipt.</summary>
+    /// <value>Only available owners appear; their cumulative counters must not be summed across participant lanes.</value>
+    public IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> OwnerDiagnostics { get; init; }
+        = new Dictionary<string, RequiredQueueOwnerDiagnosticSnapshot>(StringComparer.Ordinal);
+}
+
+/// <summary>Preserves original owner counters and controlled disposition without exporting retained item identity.</summary>
+public sealed record RequiredQueueOwnerDiagnosticSnapshot(
+    string OwnerId,
+    long Committed,
+    long DurableAccepted,
+    long Requeued,
+    long Sequence,
+    string? LastDisposition)
+{
+    /// <summary>Gets the independent observation kind, outside aggregate qualification.</summary>
+    public string EvidenceKind => "OwnerSnapshot";
+
+    /// <summary>Gets whether these diagnostic values may qualify readiness or drain completion.</summary>
+    public bool QualificationEligible => false;
+
+    /// <summary>Omits retained item material, which may contain private identifiers or event text.</summary>
+    public string? LastItemReference => null;
 }
 
 public sealed record BoundedQueueDrainHealthCheck(
@@ -401,13 +425,17 @@ public sealed record RequiredQueueHealthEntry(
     long Queued,
     long InFlight,
     long DurablePending,
-    long Committed,
-    long DurableAccepted,
-    long Requeued,
+    long? Committed,
+    long? DurableAccepted,
+    long? Requeued,
     long TerminalFailed,
     string? LastDisposition,
     string? LastItemReference,
-    string? LastFailureReason);
+    string? LastFailureReason)
+{
+    /// <summary>Gets the aggregate participant postcondition, distinct from an owner delivery disposition.</summary>
+    public string? CommitPostcondition { get; init; }
+}
 
 public static class ProductionLivenessProbe
 {
@@ -714,6 +742,8 @@ public sealed class ProductionReadinessProbe(
         PublicHotReadRuntimeSnapshot? publicHotRead = await publicHotReadTask;
         PublicHotQuiescenceResult? publicHotQuiescence = await publicHotQuiescenceTask;
         AuditLogRuntimeSnapshot? auditLog = await auditLogTask;
+        // Operations AuditRead does not grant investigation access to retained item material.
+        auditLog = ProjectAuditLogDiagnostics(auditLog);
         RuntimePressureSnapshot pressure = await pressureTask;
         string status = (publicHotRead is null
                 || (string.Equals(publicHotRead.State, nameof(PublicHotReadState.Ready), StringComparison.Ordinal)
@@ -745,7 +775,7 @@ public sealed class ProductionReadinessProbe(
         };
     }
 
-    private (RequiredQueueHealthSnapshot Required, BoundedQueueDrainHealthCheck Drain) CaptureBoundedQueueAuthority()
+    internal (RequiredQueueHealthSnapshot Required, BoundedQueueDrainHealthCheck Drain) CaptureBoundedQueueAuthority()
     {
         if (serviceProvider.GetService<BoundedQueueDrainAggregator>() is not { } aggregator)
         {
@@ -760,11 +790,14 @@ public sealed class ProductionReadinessProbe(
             return (new RequiredQueueHealthSnapshot("failed", new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal))
             {
                 QualificationStatus = "failed",
-                Blockers = failed.Blockers
+                Blockers = failed.Blockers,
+                OwnerDiagnostics = CaptureRequiredQueueOwnerDiagnostics(serviceProvider)
             }, failed);
         }
 
         BoundedQueueDrainAggregateReceipt aggregate = aggregator.Observe();
+        // Optional diagnostic reads must not change the aggregate observation order or availability.
+        IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> ownerDiagnostics = CaptureRequiredQueueOwnerDiagnostics(serviceProvider);
         var queues = new Dictionary<string, RequiredQueueHealthEntry>(StringComparer.Ordinal);
         foreach (BoundedQueueParticipantReceipt participant in aggregate.Participants)
         {
@@ -780,13 +813,16 @@ public sealed class ProductionReadinessProbe(
                 participant.Queued,
                 participant.InFlight,
                 participant.DurablePending,
-                Committed: 0,
-                DurableAccepted: 0,
-                Requeued: 0,
+                Committed: null,
+                DurableAccepted: null,
+                Requeued: null,
                 participant.TerminalFailures,
-                participant.CommitPostcondition.ToString(),
-                participant.QueueId,
-                participant.ErrorCode);
+                LastDisposition: null,
+                LastItemReference: null,
+                participant.ErrorCode)
+            {
+                CommitPostcondition = participant.CommitPostcondition.ToString()
+            };
         }
 
         var drain = new BoundedQueueDrainHealthCheck(
@@ -802,9 +838,66 @@ public sealed class ProductionReadinessProbe(
             RunId = aggregate.RunId,
             ContentDigest = aggregate.ContentDigest,
             QualificationStatus = aggregate.QualificationStatus,
-            Blockers = aggregate.Blockers
+            Blockers = aggregate.Blockers,
+            OwnerDiagnostics = ownerDiagnostics
         }, drain);
     }
+
+    /// <summary>Projects the four existing owners without creating a second readiness or delivery authority.</summary>
+    internal static IReadOnlyDictionary<string, RequiredQueueOwnerDiagnosticSnapshot> CaptureRequiredQueueOwnerDiagnostics(IServiceProvider serviceProvider)
+    {
+        var queues = new Dictionary<string, RequiredQueueOwnerDiagnosticSnapshot>(StringComparer.Ordinal);
+        Capture<AuditLogChannel>("audit-log", static owner =>
+        {
+            AuditLogChannelSnapshot snapshot = owner.Snapshot();
+            return new("audit-log", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+        Capture<AdminAuditLogChannel>("admin-audit-log", static owner =>
+        {
+            AdminAuditLogChannelSnapshot snapshot = owner.Snapshot();
+            return new("admin-audit-log", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+        Capture<SecurityRiskEventWriteQueue>("security-risk-event", static owner =>
+        {
+            SecurityRiskEventWriteQueueSnapshot snapshot = owner.Snapshot();
+            return new("security-risk-event", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+        Capture<ChallengeV2AuditEventQueue>("challenge-v2-event", static owner =>
+        {
+            ChallengeV2AuditEventQueueSnapshot snapshot = owner.Snapshot();
+            return new("challenge-v2-event", snapshot.CommittedCount, snapshot.DurableAcceptedCount, snapshot.RequeuedCount, snapshot.Sequence, ControlledQueueDisposition(snapshot.LastDisposition));
+        });
+
+        void Capture<TOwner>(string ownerId, Func<TOwner, RequiredQueueOwnerDiagnosticSnapshot> project) where TOwner : class
+        {
+            try
+            {
+                if (serviceProvider.GetService<TOwner>() is { } owner)
+                {
+                    queues[ownerId] = project(owner);
+                }
+            }
+            catch (Exception)
+            {
+                // Unavailable diagnostics are omitted, never zero-filled or promoted to qualification.
+                // The aggregate independently retains its original structured observer failure.
+            }
+        }
+
+        return queues;
+    }
+
+    internal static AuditLogRuntimeSnapshot? ProjectAuditLogDiagnostics(AuditLogRuntimeSnapshot? snapshot)
+        => snapshot is null ? null : snapshot with { LastItemReference = null };
+
+    private static string? ControlledQueueDisposition(string? disposition)
+        => disposition switch
+        {
+            null => null,
+            "queued" or "in-flight" or "committed" or "durable-pending" or "durable-accepted"
+                or "requeued" or "rejected" or "terminal-failed" or "closed" => disposition,
+            _ => "unknown"
+        };
 
     private static async Task<PublicHotQuiescenceResult?> ReadPublicHotQuiescenceAsync(
         PublicHotArtifactUpdateQueue? publicHotQueue,

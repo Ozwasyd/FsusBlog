@@ -1,0 +1,13 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "fsusblog.fact-section-repair-history-preflight.v1",
+    "type": "object",
+    "additionalProperties": false,
+    "required": ["schema", "historyId", "frontierCommit", "candidateCommit"],
+    "properties": {
+        "schema": { "const": "fsusblog.fact-section-repair-history-preflight.v1" },
+        "historyId": { "const": "release-aggregate-two-source-history" },
+        "frontierCommit": { "const": "b19b3dc715691b871f0e3cab598ec5da8f27633c" },
+        "candidateCommit": { "type": "string", "pattern": "^[a-f0-9]{40}$" }
+    }
+}

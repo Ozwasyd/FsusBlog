@@ -119,31 +119,31 @@ function authorityDigests(repositoryRoot, catalog, claimReceipt)
     };
 }
 
-export function validateBehaviorDocStaticAdmissionReceipt(receipt, {
-    expectedRunId = null,
-    expectedSourceIdentity = null,
-    expectedWorktree = null
-} = {})
+export function validateBehaviorDocStaticAdmissionReceipt(receipt, options = {})
 {
-    const expectedExtractorIds = expectedWorktree === null
+    const expectedExtractorIds = options.expectedWorktree == null
         ? null
         : loadRegistry(path.join(
-            expectedWorktree,
+            options.expectedWorktree,
             'config/contracts/behavior-fact-extractors.json'
         )).extractors.map((extractor) => extractor.id).sort();
     return validateBehaviorDocStaticAdmissionReceiptValue(receipt, {
-        expectedRunId,
-        expectedSourceIdentity,
-        expectedWorktree,
-        expectedExtractorIds
+        ...options,
+        expectedExtractorIds,
+        readArtifactDigest: digestPath
     });
 }
 
 export function readBehaviorDocStaticAdmissionReceipt(file, expected = {})
 {
-    if (!file || !fs.existsSync(file))
+    const stat = file ? fs.lstatSync(file, { throwIfNoEntry: false }) : null;
+    if (!stat)
     {
         throw new Error('BehaviorDoc admission receipt is missing');
+    }
+    if (!stat.isFile() || stat.isSymbolicLink() || fs.realpathSync(file) !== path.resolve(file))
+    {
+        throw new Error('BehaviorDoc admission receipt must be a physical regular file');
     }
     const receipt = JSON.parse(fs.readFileSync(file, 'utf8'));
     return validateBehaviorDocStaticAdmissionReceipt(receipt, expected);

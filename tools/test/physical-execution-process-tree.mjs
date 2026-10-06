@@ -1,14 +1,22 @@
 import { spawn, spawnSync } from 'node:child_process';
-import { randomUUID } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+const { inspectProductionSystemdResourceBoundary, inspectProductionSystemdServiceBinding, productionSystemdServiceBindingIsComplete,
+    readProductionSystemdResourceBoundaryBinding } = await import(new URL('../test-matrix/production-systemd-resource-boundary.mjs', import.meta.url));
+const { digestCanonical } = await import(new URL('../test-fixtures/receipt/canonical.mjs', import.meta.url));
+import { createNestedExecutionChannel, inspectNestedExecutionChannelCarrier, nestedExecutionChannelIsComplete, nestedExecutionChannelIsOwned,
+    nestedExecutionChannelKey, removeLiveNestedExecutionChannel, removeRecoveredNestedExecutionChannel,
+    runNestedPhysicalExecution } from './physical-execution-nested-channel.mjs';
+import { systemdSenderReadyIsComplete } from './physical-execution-systemd-sender.mjs';
 import {
     collectProcessGroupOrJobIdentity,
     collectProcessIdentity,
-    processGroupMemberIdentities
+    processGroupMemberIdentities,
+    processIdentityStatus
 } from './process-identity.mjs';
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
@@ -16,6 +24,657 @@ const policyFile = path.join(repoRoot, 'config/testing/physical-execution-proces
 const unixBootstrap = path.join(repoRoot, 'tools/test/physical-execution-unix-bootstrap.mjs');
 const defaultResidualRoot = path.join(repoRoot, '.tmp', 'physical-execution-residuals');
 export const physicalExecutionProcessTreeSchema = 'fsusblog.physical-execution-process-tree.v1';
+export const resourceServiceContainmentSchema = 'fsusblog.durable-process-containment.v2';
+export const residentServiceOutputSchema = 'fsusblog.physical-systemd-resident-output.v1';
+export const residentServiceTransferSchema = 'fsusblog.physical-systemd-resident-transfer.v1';
+
+function residentServiceOutputIsComplete(output, carrier)
+{
+    return Boolean(output && Object.keys(output).sort().join(',') === 'controlRoot,files,schema'
+        && output.schema === residentServiceOutputSchema
+        && output.controlRoot && Object.keys(output.controlRoot).sort().join(',') === 'device,inode,path'
+        && output.controlRoot.path === carrier?.path && output.controlRoot.device === carrier.device
+        && output.controlRoot.inode === carrier.inode
+        && output.files && Object.keys(output.files).sort().join(',') === 'stderr,stdout'
+        && ['stdout', 'stderr'].every((name) =>
+        {
+            const file = output.files[name];
+            return file && Object.keys(file).sort().join(',') === 'device,inode,path'
+                && file.path === path.join(carrier.path, `${name}.log`)
+                && Number.isSafeInteger(file.device) && file.device >= 0
+                && Number.isSafeInteger(file.inode) && file.inode > 0;
+        }));
+}
+
+function residentServiceTransferIsComplete(transfer, authority)
+{
+    if (!transfer || Object.keys(transfer).sort().join(',') !==
+        'inventoryDigest,memberIdentities,outputFiles,schema,serviceBindingDigest,supervisorIdentity,transferredAt'
+        || transfer.schema !== residentServiceTransferSchema
+        || transfer.serviceBindingDigest !== digestCanonical(authority.serviceBinding)
+        || !/^sha256:[a-f0-9]{64}$/u.test(transfer.inventoryDigest)
+        || !Number.isFinite(Date.parse(transfer.transferredAt))
+        || !transfer.outputFiles || Object.keys(transfer.outputFiles).sort().join(',') !== 'stderr,stdout'
+        || !['stdout', 'stderr'].every((name) =>
+        {
+            const file = transfer.outputFiles[name];
+            const carrier = authority.residentOutput?.files[name];
+            return file && Object.keys(file).sort().join(',') === 'byteCount,device,digest,inode,path'
+                && file.path === carrier?.path && file.device === carrier.device && file.inode === carrier.inode
+                && Number.isSafeInteger(file.byteCount) && file.byteCount >= 0
+                && /^sha256:[a-f0-9]{64}$/u.test(file.digest);
+        })
+        || !Array.isArray(transfer.memberIdentities) || transfer.memberIdentities.length < 2)
+    {
+        return false;
+    }
+    const pids = transfer.memberIdentities.map((identity) => identity?.pid);
+    return pids.every((pid, index) => Number.isSafeInteger(pid) && pid > 0
+        && (index === 0 || pid > pids[index - 1]))
+        && transfer.memberIdentities.every((identity) => identity.schema === 'fsusblog.process-identity.v1'
+            && identity.status === 'verified' && typeof identity.processStartIdentity === 'string'
+            && identity.processStartIdentity.length > 0)
+        && transfer.supervisorIdentity?.schema === 'fsusblog.process-identity.v1'
+        && transfer.supervisorIdentity.status === 'verified'
+        && transfer.memberIdentities.some((identity) => digestCanonical(identity)
+            === digestCanonical(transfer.supervisorIdentity));
+}
+
+export function resourceServiceContainmentIsComplete(authority)
+{
+    const fields = ['schema', 'platform', 'kind', 'authorityId', 'killPolicy', 'phase', 'createdAt',
+        'serviceBinding', 'commandBudgetMs', 'controlRoot', 'supervisorProcessIdentity', 'nestedChannel', 'creationSender'];
+    const identity = authority?.supervisorProcessIdentity;
+    const carrier = authority?.controlRoot;
+    const hasOutput = Object.hasOwn(authority ?? {}, 'residentOutput');
+    const hasTransfer = Object.hasOwn(authority ?? {}, 'residentTransfer');
+    return Boolean(authority && Object.keys(authority).sort().join(',') ===
+        [...fields, ...(hasOutput ? ['residentOutput'] : []), ...(hasTransfer ? ['residentTransfer'] : [])].sort().join(',')
+        && authority.schema === resourceServiceContainmentSchema && authority.platform === 'linux'
+        && authority.kind === 'systemd-resource-service' && authority.killPolicy === 'control-group'
+        && Number.isFinite(Date.parse(authority.createdAt))
+        && Number.isSafeInteger(authority.commandBudgetMs) && authority.commandBudgetMs > 0
+        && productionSystemdServiceBindingIsComplete(authority.serviceBinding)
+        && ((authority.phase === 'prepared' && authority.creationSender === null)
+            || (authority.phase !== 'prepared' && systemdSenderReadyIsComplete(authority.creationSender)
+                && authority.creationSender.authorityId === authority.authorityId))
+        && (authority.nestedChannel === null || (nestedExecutionChannelIsComplete(authority.nestedChannel)
+            && JSON.stringify(authority.nestedChannel.reference) === JSON.stringify(authority.serviceBinding.reference)))
+        && authority.authorityId === authority.serviceBinding.authorityId
+        && carrier && Object.keys(carrier).sort().join(',') === 'device,inode,path'
+        && typeof carrier.path === 'string' && path.isAbsolute(carrier.path)
+        && Number.isSafeInteger(carrier.device) && carrier.device >= 0
+        && Number.isSafeInteger(carrier.inode) && carrier.inode > 0
+        && (!hasOutput || residentServiceOutputIsComplete(authority.residentOutput, carrier))
+        && (hasTransfer === (authority.phase === 'resident-transferred'))
+        && ((['prepared', 'create-attempted'].includes(authority.phase)
+                && identity === null && authority.serviceBinding.identity === null)
+            || (['pre-exec', 'resident-transferred'].includes(authority.phase) && authority.serviceBinding.identity !== null
+                && identity?.schema === 'fsusblog.process-identity.v1' && identity.status === 'verified'
+                && Number.isSafeInteger(identity.pid) && identity.pid > 0
+                && typeof identity.processStartIdentity === 'string' && identity.processStartIdentity.length > 0
+                && /^sha256:[a-f0-9]{64}$/u.test(identity.executableDigest)
+                && /^sha256:[a-f0-9]{64}$/u.test(identity.commandDigest)
+                && (!hasTransfer || residentServiceTransferIsComplete(authority.residentTransfer, authority)))));
+}
+
+const controlCarrierFiles = new Set(['command.json', 'environment.json', 'admission.json', 'resource-boundary.json',
+    'ready', 'start', 'child.json', 'resource-admitted.json', 'release.json', 'result.json', 'finalize',
+    'sender-plan.json', 'sender-terminal.json',
+    'private-dotnet-scratch-prepared.json', 'private-dotnet-scratch-finalized.json']);
+const residentCleanupJournalName = 'resident-cleanup-plan.json';
+const residentCleanupPendingName = `${residentCleanupJournalName}.pending`;
+
+function controlCarrierRemovalOrder(files)
+{
+    return Object.keys(files).sort((left, right) =>
+        Number(right.includes('.next-')) - Number(left.includes('.next-'))
+        || Number(left === 'resource-boundary.json') - Number(right === 'resource-boundary.json')
+        || left.localeCompare(right));
+}
+
+function controlCarrierFile(file)
+{
+    const stat = fs.lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.uid !== process.getuid()
+        || (stat.mode & 0o077) !== 0 || fs.realpathSync(file) !== file)
+    {
+        throw new Error('physical execution control carrier must contain private, singly linked regular files');
+    }
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        const opened = fs.fstatSync(descriptor);
+        if (opened.dev !== stat.dev || opened.ino !== stat.ino || opened.nlink !== stat.nlink || opened.uid !== stat.uid
+            || opened.mode !== stat.mode || opened.size !== stat.size || opened.ctimeMs !== stat.ctimeMs || opened.mtimeMs !== stat.mtimeMs)
+        {
+            throw new Error('physical execution control carrier file changed during open');
+        }
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor);
+        if (after.size !== opened.size || after.ctimeMs !== opened.ctimeMs || after.mtimeMs !== opened.mtimeMs)
+        {
+            throw new Error('physical execution control carrier file changed during observation');
+        }
+        return { identity: { device: stat.dev, inode: stat.ino, mode: stat.mode, size: stat.size,
+            modified: stat.mtimeMs, changed: stat.ctimeMs, digest: createHash('sha256').update(bytes).digest('hex') }, bytes };
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+}
+
+function residentOutputCarrierIdentity(file, expected, { includeDigest = false } = {})
+{
+    const stat = fs.lstatSync(file);
+    if (!stat.isFile() || stat.isSymbolicLink() || stat.nlink !== 1 || stat.uid !== process.getuid()
+        || (stat.mode & 0o777) !== 0o600 || fs.realpathSync(file) !== file
+        || stat.dev !== expected.device || stat.ino !== expected.inode || file !== expected.path)
+    {
+        throw new Error('physical execution resident output carrier identity changed');
+    }
+    if (!includeDigest)
+    {
+        return { device: stat.dev, inode: stat.ino, mode: stat.mode };
+    }
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        const opened = fs.fstatSync(descriptor);
+        if (opened.dev !== stat.dev || opened.ino !== stat.ino || opened.nlink !== stat.nlink
+            || opened.uid !== stat.uid || opened.mode !== stat.mode || opened.size !== stat.size
+            || opened.ctimeMs !== stat.ctimeMs || opened.mtimeMs !== stat.mtimeMs)
+        {
+            throw new Error('physical execution resident output changed during open');
+        }
+        const digest = createHash('sha256');
+        const buffer = Buffer.alloc(64 * 1024);
+        let read;
+        while ((read = fs.readSync(descriptor, buffer, 0, buffer.length, null)) > 0)
+        {
+            digest.update(buffer.subarray(0, read));
+        }
+        const after = fs.fstatSync(descriptor);
+        if (after.size !== opened.size || after.ctimeMs !== opened.ctimeMs || after.mtimeMs !== opened.mtimeMs)
+        {
+            throw new Error('physical execution resident output changed during observation');
+        }
+        return { device: stat.dev, inode: stat.ino, mode: stat.mode, size: stat.size,
+            modified: stat.mtimeMs, changed: stat.ctimeMs, digest: digest.digest('hex') };
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+}
+
+function controlCarrierSnapshot(authority, { includeOutputDigest = false, allowCleanupJournal = false } = {})
+{
+    if (!resourceServiceContainmentIsComplete(authority))
+    {
+        throw new Error('physical execution control carrier authority is incomplete');
+    }
+    const carrier = authority.controlRoot;
+    if (!/^(?:fsusblog-)?physical-systemd-[A-Za-z0-9]{6}$/u.test(path.basename(carrier.path)))
+    {
+        throw new Error('physical execution control carrier is outside its private creation namespace');
+    }
+    const stat = fs.lstatSync(carrier.path, { throwIfNoEntry: false });
+    if (!stat)
+    {
+        return { status: 'absent', files: {} };
+    }
+    if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid() || (stat.mode & 0o077) !== 0
+        || fs.realpathSync(carrier.path) !== carrier.path || stat.dev !== carrier.device || stat.ino !== carrier.inode)
+    {
+        throw new Error('physical execution control carrier directory identity changed');
+    }
+    const directoryNames = fs.readdirSync(carrier.path).sort();
+    const pending = directoryNames.includes(residentCleanupPendingName);
+    if (pending && (!allowCleanupJournal || !authority.residentOutput
+        || directoryNames.includes(residentCleanupJournalName)))
+    {
+        throw new Error('physical execution resident cleanup has an unknown pending carrier');
+    }
+    if (pending)
+    {
+        controlCarrierFile(path.join(carrier.path, residentCleanupPendingName));
+    }
+    const names = directoryNames.filter((name) => name !== residentCleanupPendingName);
+    if (allowCleanupJournal && authority.residentOutput && names.includes(residentCleanupJournalName))
+    {
+        return residentCleanupCarrierSnapshot(authority, names);
+    }
+    if (names.length === 0)
+    {
+        if (authority.residentOutput && !allowCleanupJournal)
+        {
+            throw new Error('physical execution resident output carrier is missing');
+        }
+        if (pending)
+        {
+            throw new Error('physical execution resident cleanup pending carrier lacks its original files');
+        }
+        return { status: 'retained', files: {} };
+    }
+    if (!names.includes('resource-boundary.json'))
+    {
+        throw new Error('physical execution control carrier lacks its retained binding');
+    }
+    const intent = { ...authority, phase: 'prepared', creationSender: null, supervisorProcessIdentity: null,
+        serviceBinding: { ...authority.serviceBinding, identity: null } };
+    delete intent.residentTransfer;
+    const binding = intent.serviceBinding;
+    const retained = JSON.parse(controlCarrierFile(path.join(carrier.path, 'resource-boundary.json')).bytes.toString('utf8'));
+    if (digestCanonical(retained) !== digestCanonical({ authorityId: intent.authorityId, unitName: binding.unitName,
+        sliceUnitName: binding.parent.unitName, description: binding.description, reference: binding.reference,
+        containmentAuthority: intent }))
+    {
+        throw new Error('physical execution control carrier binding differs from retained authority');
+    }
+    const outputNames = authority.residentOutput ? ['stdout.log', 'stderr.log'] : [];
+    if (outputNames.some((name) => !names.includes(name)))
+    {
+        throw new Error('physical execution resident output carrier is missing');
+    }
+    const temporaryNames = names.filter((name) => !controlCarrierFiles.has(name) && !outputNames.includes(name));
+    if (temporaryNames.length)
+    {
+        const supervisor = controlCarrierFile(path.join(carrier.path, 'ready')).bytes.toString('utf8').trim();
+        if (!/^[1-9][0-9]*$/u.test(supervisor)
+            || temporaryNames.some((name) => !['ready', 'child.json', 'result.json'].some((base) => name === `${base}.next-${supervisor}`)))
+        {
+            throw new Error('physical execution control carrier contains unknown files');
+        }
+    }
+    return { status: 'retained', ...(pending ? { cleanupPending: true } : {}), files: Object.fromEntries(names.map((name) =>
+        [name, outputNames.includes(name)
+            ? residentOutputCarrierIdentity(path.join(carrier.path, name),
+                authority.residentOutput.files[name.slice(0, -'.log'.length)], { includeDigest: includeOutputDigest })
+            : controlCarrierFile(path.join(carrier.path, name)).identity])) };
+}
+
+function residentCleanupCarrierSnapshot(authority, names)
+{
+    const carrier = authority.controlRoot;
+    const journalFile = path.join(carrier.path, residentCleanupJournalName);
+    const journal = JSON.parse(controlCarrierFile(journalFile).bytes.toString('utf8'));
+    if (!journal || Object.keys(journal).sort().join(',') !== 'authorityDigest,controlRoot,files,schema'
+        || journal.schema !== 'fsusblog.physical-resident-cleanup-plan.v1'
+        || journal.authorityDigest !== digestCanonical(authority)
+        || digestCanonical(journal.controlRoot) !== digestCanonical(carrier)
+        || !journal.files || typeof journal.files !== 'object' || Array.isArray(journal.files)
+        || !Object.hasOwn(journal.files, 'resource-boundary.json')
+        || !['stdout.log', 'stderr.log'].every((name) => Object.hasOwn(journal.files, name)))
+    {
+        throw new Error('physical execution resident cleanup plan differs from retained authority');
+    }
+    const order = controlCarrierRemovalOrder(journal.files);
+    const supervisor = journal.files.ready && fs.existsSync(path.join(carrier.path, 'ready'))
+        ? controlCarrierFile(path.join(carrier.path, 'ready')).bytes.toString('utf8').trim() : null;
+    if (order.some((name) => !controlCarrierFiles.has(name) && !['stdout.log', 'stderr.log'].includes(name)
+        && !(supervisor && ['ready', 'child.json', 'result.json'].some((base) => name === `${base}.next-${supervisor}`)))
+        || order.some((name) =>
+        {
+            const file = journal.files[name];
+            const keys = 'changed,device,digest,inode,mode,modified,size';
+            return !file || Object.keys(file).sort().join(',') !== keys
+                || !Number.isSafeInteger(file.device) || file.device < 0
+                || !Number.isSafeInteger(file.inode) || file.inode <= 0
+                || !Number.isSafeInteger(file.size) || file.size < 0
+                || !Number.isFinite(file.changed) || !Number.isFinite(file.modified)
+                || !/^[a-f0-9]{64}$/u.test(file.digest)
+                || (['stdout.log', 'stderr.log'].includes(name)
+                    && (file.device !== authority.residentOutput.files[name.slice(0, -4)].device
+                        || file.inode !== authority.residentOutput.files[name.slice(0, -4)].inode));
+        }))
+    {
+        throw new Error('physical execution resident cleanup plan contains unknown or invalid files');
+    }
+    const present = names.filter((name) => name !== residentCleanupJournalName);
+    if (!Array.from({ length: order.length + 1 }, (_, removed) => order.slice(removed).sort())
+        .some((remaining) => JSON.stringify(remaining) === JSON.stringify(present)))
+    {
+        throw new Error('physical execution resident cleanup does not follow its exact deletion prefix');
+    }
+    const files = Object.fromEntries(present.map((name) =>
+    {
+        const file = path.join(carrier.path, name);
+        const observed = ['stdout.log', 'stderr.log'].includes(name)
+            ? residentOutputCarrierIdentity(file, authority.residentOutput.files[name.slice(0, -4)], { includeDigest: true })
+            : controlCarrierFile(file).identity;
+        if (digestCanonical(observed) !== digestCanonical(journal.files[name]))
+        {
+            throw new Error('physical execution resident cleanup carrier differs from its durable plan');
+        }
+        return [name, observed];
+    }));
+    return { status: 'retained', files, cleanupPlan: journal };
+}
+
+function syncControlCarrierDirectory(carrier)
+{
+    const directory = fs.openSync(carrier.path, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        fs.fsyncSync(directory);
+    }
+    finally
+    {
+        fs.closeSync(directory);
+    }
+}
+
+function retainResidentCleanupPlan(authority, files)
+{
+    const carrier = authority.controlRoot;
+    const journalFile = path.join(carrier.path, residentCleanupJournalName);
+    const pendingFile = path.join(carrier.path, residentCleanupPendingName);
+    const journal = { schema: 'fsusblog.physical-resident-cleanup-plan.v1',
+        authorityDigest: digestCanonical(authority), controlRoot: carrier, files };
+    fs.writeFileSync(pendingFile, `${JSON.stringify(journal)}\n`, { flag: 'wx', mode: 0o600 });
+    const descriptor = fs.openSync(pendingFile, fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        fs.fsyncSync(descriptor);
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+    fs.renameSync(pendingFile, journalFile);
+    syncControlCarrierDirectory(carrier);
+    const retained = residentCleanupCarrierSnapshot(authority, fs.readdirSync(carrier.path).sort());
+    if (digestCanonical(retained.cleanupPlan) !== digestCanonical(journal))
+    {
+        throw new Error('physical execution resident cleanup plan did not survive durable read-back');
+    }
+    return retained;
+}
+
+function syncRetainedResidentCleanupPlan(authority, snapshot)
+{
+    const carrier = authority.controlRoot;
+    const descriptor = fs.openSync(path.join(carrier.path, residentCleanupJournalName),
+        fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+    try
+    {
+        fs.fsyncSync(descriptor);
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
+    syncControlCarrierDirectory(carrier);
+    const retained = controlCarrierSnapshot(authority, { includeOutputDigest: true, allowCleanupJournal: true });
+    if (digestCanonical(retained.files) !== digestCanonical(snapshot.files)
+        || digestCanonical(retained.cleanupPlan) !== digestCanonical(snapshot.cleanupPlan))
+    {
+        throw new Error('physical execution resident cleanup plan changed before retry');
+    }
+    return retained;
+}
+
+function remainingControlCarrierSnapshot(authority, expected)
+{
+    const carrier = authority.controlRoot;
+    const stat = fs.lstatSync(carrier.path);
+    if (!stat.isDirectory() || stat.isSymbolicLink() || stat.uid !== process.getuid()
+        || (stat.mode & 0o077) !== 0 || fs.realpathSync(carrier.path) !== carrier.path
+        || stat.dev !== carrier.device || stat.ino !== carrier.inode)
+    {
+        throw new Error('physical execution control carrier directory identity changed during cleanup');
+    }
+    const names = fs.readdirSync(carrier.path).sort();
+    if (JSON.stringify(names) !== JSON.stringify(Object.keys(expected).sort()))
+    {
+        throw new Error('physical execution control carrier roster changed during cleanup');
+    }
+    return Object.fromEntries(names.map((name) => [name, authority.residentOutput && ['stdout.log', 'stderr.log'].includes(name)
+        ? residentOutputCarrierIdentity(path.join(carrier.path, name),
+            authority.residentOutput.files[name.slice(0, -'.log'.length)], { includeDigest: true })
+        : controlCarrierFile(path.join(carrier.path, name)).identity]));
+}
+
+/** Read back the original private output files without treating a bundle-level PID as service ownership. */
+export function inspectPhysicalExecutionResidentOutput(authority)
+{
+    if (!resourceServiceContainmentIsComplete(authority) || !authority.residentOutput)
+    {
+        throw new Error('resident service output requires its exact retained authority');
+    }
+    const snapshot = controlCarrierSnapshot(authority, { includeOutputDigest: true });
+    if (snapshot.status !== 'retained')
+    {
+        throw new Error('resident service output carrier is absent');
+    }
+    return Object.fromEntries(['stdout', 'stderr'].map((name) =>
+    {
+        const file = snapshot.files[`${name}.log`];
+        return [name, { path: authority.residentOutput.files[name].path, device: file.device,
+            inode: file.inode, byteCount: file.size, digest: `sha256:${file.digest}` }];
+    }));
+}
+
+function resourceArtifactAuthorities(authorities)
+{
+    const services = authorities.filter((authority) => authority.schema === resourceServiceContainmentSchema);
+    const channels = new Map();
+    for (const authority of services)
+    {
+        if (!resourceServiceContainmentIsComplete(authority))
+        {
+            throw new Error('physical execution resource artifact authority is incomplete');
+        }
+        const channel = authority.nestedChannel;
+        if (channel)
+        {
+            if (channels.has(channel.id) && digestCanonical(channels.get(channel.id)) !== digestCanonical(channel))
+            {
+                throw new Error('physical execution retained channel references disagree');
+            }
+            channels.set(channel.id, channel);
+        }
+    }
+    return { services, channels: [...channels.values()] };
+}
+
+export function inspectPhysicalExecutionResourceArtifacts(authorities)
+{
+    const { services, channels } = resourceArtifactAuthorities(authorities);
+    return [
+        ...services.map((authority) => ({ kind: 'service-control', authorityId: authority.authorityId,
+            path: authority.controlRoot.path,
+            status: controlCarrierSnapshot(authority, { allowCleanupJournal: true }).status })),
+        ...channels.map((channel) => ({ kind: 'nested-channel', channelId: channel.id,
+            path: channel.directory.path, status: inspectNestedExecutionChannelCarrier(channel).status }))
+    ];
+}
+
+/** Remove only absent services' exact independently retained carriers under a proven owner state. */
+function cleanupResourceArtifacts(authorities, { validateAuthority }, controllerState)
+{
+    const { services, channels } = resourceArtifactAuthorities(authorities);
+    if (services.length !== authorities.length || typeof validateAuthority !== 'function')
+    {
+        throw new Error('physical execution artifact recovery requires independent resource service ownership');
+    }
+    const assertOwner = () =>
+    {
+        if (validateAuthority()?.status !== 'verified')
+        {
+            throw new Error('physical execution artifact recovery owner validation failed');
+        }
+    };
+    const assertAbsent = (authority) =>
+    {
+        assertOwner();
+        const reference = authority.serviceBinding.reference;
+        const options = { reference, commandBudgetMs: authority.commandBudgetMs };
+        const binding = readProductionSystemdResourceBoundaryBinding(reference.context, options);
+        const controller = binding.owner.controllerIdentity;
+        const boundary = inspectProductionSystemdResourceBoundary(reference.context, options);
+        if ((controllerState === 'dead'
+            ? processIdentityStatus(controller).status !== 'dead' || boundary.status !== 'released'
+            : controllerState !== 'live' || controller.pid !== process.pid
+                || processIdentityStatus(controller).status !== 'live' || boundary.status !== 'retained')
+            || inspectProductionSystemdServiceBinding(authority.serviceBinding, options).status !== 'absent')
+        {
+            throw new Error('physical execution artifact cleanup requires its proven owner state and absent service');
+        }
+    };
+    for (const authority of services)
+    {
+        assertAbsent(authority);
+    }
+    // Preflight the complete roster before removing anything, including shared channel carriers.
+    const snapshots = services.map((authority) => controlCarrierSnapshot(authority,
+        { includeOutputDigest: true, allowCleanupJournal: true }));
+    for (let index = 0; index < services.length; index += 1)
+    {
+        const transfer = services[index].residentTransfer;
+        if (transfer && ['stdout', 'stderr'].some((name) =>
+        {
+            const actual = (snapshots[index].cleanupPlan?.files ?? snapshots[index].files)[`${name}.log`];
+            const expected = transfer.outputFiles[name];
+            return (!actual && Object.keys(snapshots[index].files).length !== 0)
+                || (actual && (actual.device !== expected.device || actual.inode !== expected.inode
+                    || actual.size !== expected.byteCount || `sha256:${actual.digest}` !== expected.digest));
+        }))
+        {
+            throw new Error('physical execution transferred resident output differs from its captured prefix');
+        }
+    }
+    for (const channel of channels)
+    {
+        if (!inspectNestedExecutionChannelCarrier(channel).brokerGone)
+        {
+            throw new Error('physical execution artifact cleanup retains a live channel broker');
+        }
+    }
+    for (let index = 0; index < services.length; index += 1)
+    {
+        const authority = services[index];
+        if (snapshots[index].status === 'absent')
+        {
+            assertAbsent(authority);
+            if (fs.lstatSync(authority.controlRoot.path, { throwIfNoEntry: false }))
+            {
+                throw new Error('physical execution absent control carrier reappeared during cleanup');
+            }
+            continue;
+        }
+        let snapshot = snapshots[index];
+        if (snapshot.cleanupPending)
+        {
+            assertAbsent(authority);
+            const current = controlCarrierSnapshot(authority, { includeOutputDigest: true, allowCleanupJournal: true });
+            if (!current.cleanupPending || digestCanonical(current.files) !== digestCanonical(snapshot.files))
+            {
+                throw new Error('physical execution resident cleanup pending carrier changed before retry');
+            }
+            fs.unlinkSync(path.join(authority.controlRoot.path, residentCleanupPendingName));
+            syncControlCarrierDirectory(authority.controlRoot);
+            snapshot = controlCarrierSnapshot(authority, { includeOutputDigest: true, allowCleanupJournal: true });
+        }
+        if (authority.residentOutput && Object.keys(snapshot.files).length > 0 && !snapshot.cleanupPlan)
+        {
+            assertAbsent(authority);
+            snapshot = retainResidentCleanupPlan(authority, snapshot.files);
+        }
+        else if (snapshot.cleanupPlan)
+        {
+            assertAbsent(authority);
+            snapshot = syncRetainedResidentCleanupPlan(authority, snapshot);
+        }
+        const expected = structuredClone(snapshot.files);
+        const names = controlCarrierRemovalOrder(expected);
+        assertAbsent(authority);
+        for (const name of names)
+        {
+            assertOwner();
+            const observed = snapshot.cleanupPlan
+                ? controlCarrierSnapshot(authority, { includeOutputDigest: true, allowCleanupJournal: true })
+                : { files: remainingControlCarrierSnapshot(authority, expected) };
+            if (digestCanonical(observed.files) !== digestCanonical(expected)
+                || (snapshot.cleanupPlan && digestCanonical(observed.cleanupPlan) !== digestCanonical(snapshot.cleanupPlan)))
+            {
+                throw new Error('physical execution control carrier changed before file removal');
+            }
+            fs.unlinkSync(path.join(authority.controlRoot.path, name));
+            delete expected[name];
+        }
+        if (snapshot.cleanupPlan)
+        {
+            assertAbsent(authority);
+            const observed = controlCarrierSnapshot(authority, { includeOutputDigest: true, allowCleanupJournal: true });
+            if (Object.keys(observed.files).length !== 0
+                || digestCanonical(observed.cleanupPlan) !== digestCanonical(snapshot.cleanupPlan))
+            {
+                throw new Error('physical execution resident cleanup plan changed before final removal');
+            }
+            fs.unlinkSync(path.join(authority.controlRoot.path, residentCleanupJournalName));
+        }
+        assertOwner();
+        const remaining = fs.lstatSync(authority.controlRoot.path, { throwIfNoEntry: false });
+        if (!remaining || !remaining.isDirectory() || remaining.isSymbolicLink()
+            || remaining.uid !== process.getuid() || (remaining.mode & 0o077) !== 0
+            || fs.realpathSync(authority.controlRoot.path) !== authority.controlRoot.path
+            || remaining.dev !== authority.controlRoot.device || remaining.ino !== authority.controlRoot.inode
+            || fs.readdirSync(authority.controlRoot.path).length !== 0)
+        {
+            throw new Error('physical execution control carrier is not the exact empty owned directory');
+        }
+        fs.rmdirSync(authority.controlRoot.path);
+        const parent = fs.openSync(path.dirname(authority.controlRoot.path), fs.constants.O_RDONLY | fs.constants.O_NOFOLLOW);
+        try
+        {
+            fs.fsyncSync(parent);
+        }
+        finally
+        {
+            fs.closeSync(parent);
+        }
+    }
+    for (const channel of channels)
+    {
+        (controllerState === 'live' ? removeLiveNestedExecutionChannel : removeRecoveredNestedExecutionChannel)(channel,
+            { validateAuthority });
+    }
+    const result = inspectPhysicalExecutionResourceArtifacts(authorities);
+    if (result.some((entry) => entry.status !== 'absent'))
+    {
+        throw new Error('physical execution artifact recovery did not prove absence');
+    }
+    return result.map((entry) =>
+    {
+        const index = services.findIndex((authority) => authority.authorityId === entry.authorityId);
+        if (index < 0 || !services[index].residentOutput)
+        {
+            return entry;
+        }
+        return { ...entry, outputFiles: Object.fromEntries(['stdout', 'stderr'].map((name) =>
+            [name, (snapshots[index].cleanupPlan?.files ?? snapshots[index].files)[`${name}.log`]])) };
+    });
+}
+
+/** Dead-controller recovery retains its existing released-parent requirement. */
+export function cleanupPhysicalExecutionResourceArtifacts(authorities, options)
+{
+    return cleanupResourceArtifacts(authorities, options, 'dead');
+}
+
+/** The original live build owner may settle a transferred resident after exact service termination. */
+export function cleanupLivePhysicalExecutionResidentArtifacts(authorities, options)
+{
+    if (!Array.isArray(authorities) || authorities.length === 0
+        || authorities.some((authority) => authority.phase !== 'resident-transferred'))
+    {
+        throw new Error('live resident artifact cleanup requires transferred service authorities');
+    }
+    return cleanupResourceArtifacts(authorities, options, 'live');
+}
 
 function readPolicy(file = policyFile)
 {
@@ -421,12 +1080,80 @@ export function terminatePhysicalExecutionAuthoritySync({
     expectedIdentities = [],
     collectMembers = processGroupMemberIdentities,
     validateMembers = () => ({ status: 'verified' }),
+    validateAuthority = () => ({ status: 'verified' }),
     signalAuthority = (value, signal) => process.kill(-value.groupId, signal),
     platform = process.platform,
     procRoot = '/proc',
     windowsJobTerminator = null
 })
 {
+    if (authority?.schema === resourceServiceContainmentSchema)
+    {
+        let forced = false;
+        try
+        {
+            if (platform !== 'linux' || !resourceServiceContainmentIsComplete(authority))
+            {
+                throw new Error('resource-bound service termination authority is incomplete');
+            }
+            const observe = () =>
+            {
+                const validation = validateAuthority(authority);
+                if (validation?.status !== 'verified')
+                {
+                    throw new Error(validation?.reason ?? 'resource-bound service owner validation failed');
+                }
+                return inspectProductionSystemdServiceBinding(authority.serviceBinding, {
+                    commandBudgetMs: authority.commandBudgetMs
+                });
+            };
+            const effect = (args) =>
+            {
+                if (observe().status === 'absent')
+                {
+                    return;
+                }
+                const result = spawnSync('systemctl', ['--user', ...args, '--', authority.serviceBinding.unitName], {
+                    encoding: 'utf8', stdio: ['ignore', 'pipe', 'pipe'], timeout: authority.commandBudgetMs
+                });
+                if ((result.error || result.status !== 0) && observe().status !== 'absent')
+                {
+                    throw new Error(`resource-bound service termination command failed: ${result.error?.message ?? result.stderr}`);
+                }
+            };
+            const waitAbsent = (budgetMs) =>
+            {
+                const deadline = Date.now() + budgetMs;
+                let observations = 0;
+                do
+                {
+                    observations = observe().status === 'absent' ? observations + 1 : 0;
+                    if (observations >= policy.zeroMemberObservations)
+                    {
+                        return true;
+                    }
+                    waitForObservationInterval(policy.observationIntervalMs);
+                } while (Date.now() <= deadline);
+                return false;
+            };
+            effect(['kill', '--kill-who=all', '--signal=SIGTERM']);
+            let absent = waitAbsent(policy.gracefulTerminationMs);
+            if (!absent)
+            {
+                forced = true;
+                effect(['kill', '--kill-who=all', '--signal=SIGKILL']);
+                effect(['stop']);
+                absent = waitAbsent(policy.forceTerminationMs);
+            }
+            return absent
+                ? { terminated: true, forced, reason, postObservation: 'zero-members' }
+                : { terminated: false, forced, reason: 'exact resource-bound service remains present', postObservation: 'members-remain' };
+        }
+        catch (error)
+        {
+            return { terminated: false, forced, reason: error.message, postObservation: 'unverifiable' };
+        }
+    }
     if (authority?.kind === 'systemd-transient-service' && authority.platform === 'linux')
     {
         const show = () =>
@@ -1201,6 +1928,12 @@ export async function runPhysicalExecution({
     linuxPrivateNetwork = false,
     linuxNetworkPolicy = null,
     linuxReadWritePaths = [],
+    linuxOwnedPrivateTmp = null,
+    resourceBoundary = null,
+    resourceContext = null,
+    processOwner = null,
+    residentServiceOutput = false,
+    nestedChannel = null,
     privateDotnetScratch = null,
     signal,
     platform = process.platform,
@@ -1220,6 +1953,42 @@ export async function runPhysicalExecution({
     if (!Array.isArray(command) || command.length === 0)
     {
         throw new Error('physical execution requires a command');
+    }
+    if (nestedChannel !== null && (!nestedExecutionChannelIsOwned(nestedChannel) || !resourceBoundary || !processOwner
+        || JSON.stringify(nestedChannel.descriptor.reference) !== JSON.stringify(resourceBoundary.reference)))
+    {
+        throw new Error('nested execution requires its original in-process channel owner');
+    }
+    if ((resourceBoundary !== null || processOwner !== null) && (platform !== 'linux' || procRoot !== '/proc'
+        || spawnProcess !== spawn || collectIdentity !== collectProcessIdentity
+        || collectAuthority !== collectProcessGroupOrJobIdentity || collectMembers !== processGroupMemberIdentities))
+    {
+        throw new Error('resource-bound physical execution requires the canonical Linux process owner');
+    }
+    if (process.env[nestedExecutionChannelKey] && (platform !== 'linux' || procRoot !== '/proc'
+        || spawnProcess !== spawn || collectIdentity !== collectProcessIdentity
+        || collectAuthority !== collectProcessGroupOrJobIdentity || collectMembers !== processGroupMemberIdentities))
+    {
+        throw new Error('nested physical execution requires the canonical Linux process owner');
+    }
+    if (resourceBoundary === null && resourceContext !== null)
+    {
+        throw new Error('resource execution context requires its live boundary capability');
+    }
+    if (processOwner !== null && resourceBoundary === null)
+    {
+        throw new Error('durable process ownership requires its live resource boundary');
+    }
+    if (residentServiceOutput && (!resourceBoundary || !processOwner))
+    {
+        throw new Error('resident service output requires the original durable Linux process owner');
+    }
+    if (resourceBoundary !== null && (!Number.isSafeInteger(policy.systemdControlCommandTimeoutMs)
+        || policy.systemdControlCommandTimeoutMs <= 0
+        || !Number.isSafeInteger(policy.systemdResourceStartupTimeoutMs)
+        || policy.systemdResourceStartupTimeoutMs <= 0))
+    {
+        throw new Error('resource-bound physical execution requires the registered systemd control and startup budgets');
     }
     const residuals = residualMarkerFiles(residualRoot);
     if (residuals.length > 0)
@@ -1323,6 +2092,80 @@ export async function runPhysicalExecution({
         collectMembers === processGroupMemberIdentities
     )
     {
+        if (resourceBoundary === null)
+        {
+            const channelValue = process.env[nestedExecutionChannelKey];
+            if (channelValue)
+            {
+                return runNestedPhysicalExecution({ descriptor: JSON.parse(channelValue), command, cwd, env,
+                    linuxPrivateNetwork, linuxNetworkPolicy, linuxReadWritePaths, linuxOwnedPrivateTmp,
+                    privateDotnetScratch, signal, policy, stdout, stderr });
+            }
+            if (/\/fsusblogresource[a-f0-9]{32}\.slice\//u.test(fs.readFileSync('/proc/self/cgroup', 'utf8')))
+            {
+                throw new Error('resource-bound nested execution is missing its original owner channel');
+            }
+        }
+        if (resourceBoundary !== null && processOwner && nestedChannel === null)
+        {
+            let channel;
+            const runOwned = (options) => runPhysicalExecution({ ...options, resourceBoundary, resourceContext,
+                processOwner: { ...processOwner, nestedChannel: channel.descriptor }, nestedChannel: channel,
+                controlEnv, policy, residualRoot });
+            channel = await createNestedExecutionChannel({ boundary: resourceBoundary, controlEnv, policy, signal, linuxOwnedPrivateTmp,
+                runNested: (options) => runOwned(options) });
+            let result;
+            let failure = null;
+            try
+            {
+                result = await runOwned({ command, cwd, env: { ...env, [nestedExecutionChannelKey]: JSON.stringify(channel.descriptor) },
+                    linuxPrivateNetwork, linuxNetworkPolicy, linuxReadWritePaths, linuxOwnedPrivateTmp,
+                    residentServiceOutput, privateDotnetScratch,
+                    signal, stdout, stderr });
+            }
+            catch (error)
+            {
+                failure = error;
+            }
+            try
+            {
+                const nested = await channel.close();
+                if (result)
+                {
+                    result.nestedExecution = nested;
+                }
+                else if (failure?.physicalExecution)
+                {
+                    failure.physicalExecution.nestedExecution = nested;
+                }
+                if (!nested.logComplete)
+                {
+                    failure ??= new Error('nested execution output became unverifiable after caller disconnect');
+                    failure.physicalExecution ??= result;
+                    if (failure.physicalExecution)
+                    {
+                        failure.physicalExecution.logComplete = false;
+                        failure.physicalExecution.logTruncationReason = 'nested-caller-disconnected';
+                    }
+                }
+            }
+            catch (error)
+            {
+                failure ??= error;
+                failure.nestedExecutionCleanupError = error;
+                failure.physicalExecution ??= result;
+                if (failure.physicalExecution)
+                {
+                    failure.physicalExecution.postObservation = 'unverifiable';
+                    failure.physicalExecution.residualBlock = writeResidualMarker(residualRoot, failure.physicalExecution, error.message);
+                }
+            }
+            if (failure)
+            {
+                throw failure;
+            }
+            return result;
+        }
         const adapter = (await import('./physical-execution-linux-systemd-adapter.mjs'))
             .createPhysicalExecutionLinuxSystemdAdapter();
         try
@@ -1335,6 +2178,11 @@ export async function runPhysicalExecution({
                 linuxPrivateNetwork,
                 linuxNetworkPolicy,
                 linuxReadWritePaths,
+                linuxOwnedPrivateTmp,
+                resourceBoundary,
+                resourceContext,
+                processOwner,
+                residentServiceOutput,
                 privateDotnetScratch,
                 signal,
                 policy,
@@ -1343,6 +2191,25 @@ export async function runPhysicalExecution({
                 stderr,
                 schema: physicalExecutionProcessTreeSchema
             });
+            const resourceAdmission = evidence?.resourceExecutionAdmission;
+            const containment = evidence?.containmentAuthority;
+            if (resourceBoundary !== null && (!resourceAdmission
+                || digestCanonical(resourceAdmission.reference) !== digestCanonical(resourceBoundary.reference)
+                || !productionSystemdServiceBindingIsComplete(resourceAdmission.serviceBinding)
+                || resourceAdmission.serviceBinding.identity === null
+                || digestCanonical(resourceAdmission.serviceBinding.reference) !== digestCanonical(resourceBoundary.reference)
+                || resourceAdmission.processIdentity?.schema !== 'fsusblog.process-identity.v1'
+                || resourceAdmission.processIdentity.status !== 'verified'
+                || resourceAdmission.processIdentity.pid !== evidence?.authority?.processGroup?.groupId)
+                || processOwner !== null && (!resourceServiceContainmentIsComplete(containment)
+                    || digestCanonical(containment.serviceBinding) !== digestCanonical(resourceAdmission?.serviceBinding)
+                    || digestCanonical(containment.supervisorProcessIdentity) !== digestCanonical(resourceAdmission?.processIdentity)
+                    || !['pre-exec', ...(residentServiceOutput ? ['resident-transferred'] : [])].includes(containment.phase)))
+            {
+                const error = new Error('physical execution managed admission differs from its original resource and process owners');
+                error.physicalExecution = evidence;
+                throw error;
+            }
             if (
                 evidence?.schema !== physicalExecutionProcessTreeSchema ||
                 evidence.platform !== 'linux' ||
@@ -1351,12 +2218,24 @@ export async function runPhysicalExecution({
                 evidence.authority.processGroup?.kind !== 'process-group' ||
                 evidence.authority.processGroup.groupId
                     !== evidence.authority.processGroup.leaderPid ||
-                evidence.postObservation !== 'zero-members' ||
+                !['zero-members', ...(residentServiceOutput ? ['resident-transferred'] : [])]
+                    .includes(evidence.postObservation) ||
                 evidence.logComplete !== true ||
                 evidence.logTruncationReason !== null ||
                 evidence.forcedPipeClose !== false ||
-                !evidence.lifecycle?.includes('bounded-pipe-close') ||
-                !evidence.lifecycle?.includes('post-observe-zero-members') ||
+                !(residentServiceOutput
+                    ? evidence.containmentAuthority?.residentOutput?.schema === residentServiceOutputSchema
+                        && evidence.lifecycle?.includes('bounded-file-output-capture')
+                        && ['stdout', 'stderr'].every((name) =>
+                            /^sha256:[a-f0-9]{64}$/u.test(evidence.outputFiles?.[name]?.digest ?? ''))
+                    : evidence.lifecycle?.includes('bounded-pipe-close')) ||
+                (evidence.postObservation === 'resident-transferred'
+                    ? evidence.containmentAuthority?.phase !== 'resident-transferred'
+                        || !resourceServiceContainmentIsComplete(evidence.containmentAuthority)
+                        || evidence.cleanup?.status !== 'transferred'
+                        || evidence.lifecycle?.includes('post-observe-zero-members')
+                        || !evidence.lifecycle?.includes('resident-service-transferred')
+                    : !evidence.lifecycle?.includes('post-observe-zero-members')) ||
                 !Array.isArray(evidence.processInventory)
             )
             {
@@ -1375,12 +2254,12 @@ export async function runPhysicalExecution({
                 platform: 'linux',
                 policy,
                 authority: null,
-                lifecycle: ['created', 'containment-authority-not-established'],
+                lifecycle: ['created', 'containment-authority-not-established', 'post-observation-unverifiable'],
                 termination: [],
-                postObservation: 'zero-members',
+                postObservation: 'unverifiable',
                 processInventory: [],
-                logComplete: true,
-                logTruncationReason: null,
+                logComplete: false,
+                logTruncationReason: 'adapter-failed-before-pipe-closure',
                 forcedPipeClose: false,
                 outputCapture: {
                     maximumBytesPerStream: policy.maximumCapturedOutputBytesPerStream,
@@ -1394,17 +2273,27 @@ export async function runPhysicalExecution({
                 stdout: '',
                 stderr: ''
             };
-            if (failureEvidence.postObservation !== 'zero-members')
-            {
-                failureEvidence.residualBlock = writeResidualMarker(
-                    residualRoot,
-                    failureEvidence,
-                    error instanceof Error ? error.message : String(error)
-                );
-            }
             if (error && typeof error === 'object')
             {
                 error.physicalExecution = failureEvidence;
+            }
+            if (failureEvidence.postObservation !== 'zero-members')
+            {
+                try
+                {
+                    failureEvidence.residualBlock = writeResidualMarker(
+                        residualRoot,
+                        failureEvidence,
+                        error instanceof Error ? error.message : String(error)
+                    );
+                }
+                catch (markerError)
+                {
+                    if (error && typeof error === 'object')
+                    {
+                        error.physicalExecutionFinalizeError ??= markerError;
+                    }
+                }
             }
             throw error;
         }

@@ -1,9 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
-import { createRequire, stripTypeScriptTypes } from 'node:module';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+
+import { createPublicShellFiniteInputOwner } from './public-shell-finite-input-owner.mjs';
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const require = createRequire(path.join(root, 'src/frontend/package.json'));
@@ -14,22 +15,15 @@ const text = value => String(value ?? '').replace(/\s+/gu, ' ').trim();
 /** Execute the existing pure codec source; no parallel binary implementation or JSON fallback. */
 export async function loadPublicShellFirstResponseCodec()
 {
-    const frame = await readFile(path.join(root, 'src/frontend/wasm/web/protocol/frame.ts'), 'utf8');
-    const payload = await readFile(path.join(root, 'src/frontend/src/bootstrap/publicAotBinaryPayload.ts'), 'utf8');
-    const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source)).toString('base64')}`;
-    const source = payload.replace("'@wasm/protocol/frame'", `'${moduleUrl(frame)}'`);
-    return import(moduleUrl(source));
+    const owner = await createPublicShellFiniteInputOwner(root);
+    return owner.load('publicAotPayload');
 }
 
 /** Load the unchanged production SEO validator/digest and its real import closure, not a second serializer. */
 export async function loadPublicShellFirstResponseSeoHead()
 {
-    const moduleUrl = source => `data:text/javascript;base64,${Buffer.from(stripTypeScriptTypes(source)).toString('base64')}`;
-    const release = await readFile(path.join(root, 'src/frontend/src/generated/releaseIdContract.ts'), 'utf8');
-    const trusted = await readFile(path.join(root, 'src/frontend/src/security/trustedTypesRuntime.ts'), 'utf8');
-    const seo = await readFile(path.join(root, 'src/frontend/src/router/publicSeoHead.ts'), 'utf8');
-    const trustedUrl = moduleUrl(trusted.replace("'@/generated/releaseIdContract'", `'${moduleUrl(release)}'`));
-    return import(moduleUrl(seo.replace("'@/security/trustedTypesRuntime'", `'${trustedUrl}'`)));
+    const owner = await createPublicShellFiniteInputOwner(root);
+    return owner.load('seoHead');
 }
 
 function publishedString(value, label)

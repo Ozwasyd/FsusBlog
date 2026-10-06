@@ -5,6 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 
 const { currentProcessIdentity, processGroupMemberIdentities, processIdentityStatus } = await import(new URL("../test/process-identity.mjs", import.meta.url));
+const { inspectProductionBuildCapacityOwner, productionBuildCapacityOwnerReferenceIsComplete, retainProductionBuildCapacityOwner } = await import(new URL('./production-build-layout.mjs', import.meta.url));
+const { observeProductionFreshExclusiveLease } = await import(new URL('./production-fresh-exclusive-lease.mjs', import.meta.url));
 
 import {
     producerRemainingDiskDemand,
@@ -154,6 +156,13 @@ function receiptIsComplete(receipt)
     {
         return false;
     }
+    if (receipt.buildOwnerReference !== null && (!productionBuildCapacityOwnerReferenceIsComplete(receipt.buildOwnerReference)
+        || receipt.buildOwnerReference.runId !== receipt.runId
+        || productionDiskDemandDigest(receipt.buildOwnerReference.repositoryRoot) !== receipt.repositoryIdentity
+        || productionDiskDemandDigest(receipt.buildOwnerReference.ownerIdentity) !== productionDiskDemandDigest(receipt.ownerIdentity)))
+    {
+        return false;
+    }
     if (JSON.stringify(receipt.preflightActionCounts) !== JSON.stringify(productionCapacityPreflightActionCounts()))
     {
         return false;
@@ -292,17 +301,72 @@ function processAuthority(receipt)
         : { status: 'identity-mismatch', actual: status.actual };
 }
 
+function assertPrivateReservationDirectory(directory)
+{
+    const metadata = fs.lstatSync(directory);
+    if (!metadata.isDirectory() || metadata.isSymbolicLink() || fs.realpathSync.native(directory) !== directory
+        || (process.platform !== 'win32' && (metadata.uid !== process.getuid() || (metadata.mode & 0o077) !== 0)))
+    {
+        throw new Error('Production capacity reservation directory is not literal and private');
+    }
+}
+
 function activeReservationFiles(authorityRoot)
 {
+    assertPrivateReservationDirectory(authorityRoot);
     const directory = path.join(authorityRoot, 'active');
-    if (!fs.existsSync(directory))
+    if (!fs.lstatSync(directory, { throwIfNoEntry: false }))
     {
         return [];
     }
+    assertPrivateReservationDirectory(directory);
     return fs.readdirSync(directory)
         .filter((name) => name.endsWith('.json'))
         .map((name) => path.join(directory, name))
         .sort();
+}
+
+function readPrivateReservation(file, authorityRoot)
+{
+    for (const directory of [authorityRoot, path.join(authorityRoot, 'active')])
+    {
+        assertPrivateReservationDirectory(directory);
+    }
+    const metadata = fs.lstatSync(file);
+    if (path.dirname(file) !== path.join(authorityRoot, 'active') || !metadata.isFile()
+        || metadata.isSymbolicLink() || metadata.nlink !== 1 || fs.realpathSync.native(file) !== file
+        || metadata.size > 1024 * 1024
+        || (process.platform !== 'win32' && (metadata.uid !== process.getuid() || (metadata.mode & 0o077) !== 0)))
+    {
+        throw new Error('Production capacity reservation journal is not a private, literal, singly linked regular file');
+    }
+    const descriptor = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
+    try
+    {
+        const opened = fs.fstatSync(descriptor);
+        if (opened.dev !== metadata.dev || opened.ino !== metadata.ino || opened.ctimeMs !== metadata.ctimeMs)
+        {
+            throw new Error('Production capacity reservation journal changed during open');
+        }
+        const bytes = fs.readFileSync(descriptor);
+        const after = fs.fstatSync(descriptor);
+        const current = fs.lstatSync(file);
+        if (after.ctimeMs !== opened.ctimeMs || after.size !== opened.size
+            || current.dev !== opened.dev || current.ino !== opened.ino || current.ctimeMs !== opened.ctimeMs)
+        {
+            throw new Error('Production capacity reservation journal changed during observation');
+        }
+        const receipt = JSON.parse(bytes.toString('utf8'));
+        if (!receiptIsComplete(receipt) || path.basename(file) !== `${receipt.reservationId}.json`)
+        {
+            throw new Error('Production capacity reservation journal identity is invalid or tampered');
+        }
+        return receipt;
+    }
+    finally
+    {
+        fs.closeSync(descriptor);
+    }
 }
 
 function recoverOrBlock(file, receipt, {
@@ -318,7 +382,19 @@ function recoverOrBlock(file, receipt, {
     {
         return null;
     }
-    const authority = verifyOwner(receipt);
+    let authority = verifyOwner(receipt);
+    if (authority.status === 'terminal' && receipt.buildOwnerReference)
+    {
+        try
+        {
+            const build = inspectProductionBuildCapacityOwner(receipt.buildOwnerReference);
+            authority = { status: build.status === 'released' ? 'terminal' : 'process-tree-live' };
+        }
+        catch (error)
+        {
+            authority = { status: 'unknown', reason: error.message };
+        }
+    }
     if (authority.status === 'live' || authority.status === 'process-tree-live')
     {
         return receipt;
@@ -352,7 +428,7 @@ function activeReservedByFilesystem(authorityRoot, options)
     const totals = new Map();
     for (const file of activeReservationFiles(authorityRoot))
     {
-        const active = recoverOrBlock(file, readJson(file), options);
+        const active = recoverOrBlock(file, readPrivateReservation(file, authorityRoot), options);
         if (!active || !activeStates.has(active.state))
         {
             continue;
@@ -461,6 +537,7 @@ export function acquireProductionCapacityReservation({
                 processGroupOrJobIdentity: groupOrJob.value,
                 ownerToken,
                 repositoryLeaseOwnerToken: repositoryLeaseOwner.ownerToken,
+                buildOwnerReference: null,
                 planDigest: plan.planDigest,
                 producerDeclarationDigest: plan.producerDeclarationDigest,
                 preflightActionCounts: productionCapacityPreflightActionCounts(),
@@ -493,6 +570,7 @@ export function acquireProductionCapacityReservation({
             processGroupOrJobIdentity: groupOrJob.value,
             ownerToken,
             repositoryLeaseOwnerToken: repositoryLeaseOwner.ownerToken,
+            buildOwnerReference: null,
             planDigest: plan.planDigest,
             producerDeclarationDigest: plan.producerDeclarationDigest,
             preflightActionCounts: productionCapacityPreflightActionCounts(),
@@ -511,48 +589,61 @@ export function acquireProductionCapacityReservation({
         releaseLock();
     }
 
-    const immutableReceiptDigest = productionDiskDemandDigest({
-        reservationId: receipt.reservationId,
-        runId: receipt.runId,
-        candidateIdentityDigest: receipt.candidateIdentityDigest,
-        repositoryIdentity: receipt.repositoryIdentity,
-        ownerIdentity: receipt.ownerIdentity,
-        processGroupOrJobIdentity: receipt.processGroupOrJobIdentity,
-        ownerToken: receipt.ownerToken,
-        repositoryLeaseOwnerToken: receipt.repositoryLeaseOwnerToken,
-        planDigest: receipt.planDigest,
-        producerDeclarationDigest: receipt.producerDeclarationDigest,
-        preflightActionCounts: receipt.preflightActionCounts,
-        filesystems: receipt.filesystems.map(immutableFilesystemReceipt),
-        createdAt: receipt.createdAt
+    const immutableReceipt = (value) => ({
+        reservationId: value.reservationId,
+        runId: value.runId,
+        candidateIdentityDigest: value.candidateIdentityDigest,
+        repositoryIdentity: value.repositoryIdentity,
+        ownerIdentity: value.ownerIdentity,
+        processGroupOrJobIdentity: value.processGroupOrJobIdentity,
+        ownerToken: value.ownerToken,
+        repositoryLeaseOwnerToken: value.repositoryLeaseOwnerToken,
+        buildOwnerReference: value.buildOwnerReference,
+        planDigest: value.planDigest,
+        producerDeclarationDigest: value.producerDeclarationDigest,
+        preflightActionCounts: value.preflightActionCounts,
+        filesystems: value.filesystems?.map(immutableFilesystemReceipt),
+        createdAt: value.createdAt
     });
+    let immutableReceiptDigest = productionDiskDemandDigest(immutableReceipt(receipt));
     const compareOwner = () =>
     {
         const current = readJson(activeFile);
-        const currentImmutableDigest = current && productionDiskDemandDigest({
-            reservationId: current.reservationId,
-            runId: current.runId,
-            candidateIdentityDigest: current.candidateIdentityDigest,
-            repositoryIdentity: current.repositoryIdentity,
-            ownerIdentity: current.ownerIdentity,
-            processGroupOrJobIdentity: current.processGroupOrJobIdentity,
-            ownerToken: current.ownerToken,
-            repositoryLeaseOwnerToken: current.repositoryLeaseOwnerToken,
-            planDigest: current.planDigest,
-            producerDeclarationDigest: current.producerDeclarationDigest,
-            preflightActionCounts: current.preflightActionCounts,
-            filesystems: current.filesystems?.map(immutableFilesystemReceipt),
-            createdAt: current.createdAt
-        });
+        const currentImmutableDigest = current && productionDiskDemandDigest(immutableReceipt(current));
         if (!receiptIsComplete(current)
       || current.ownerToken !== receipt.ownerToken
       || current.reservationId !== receipt.reservationId
-      || current.state !== 'active'
+      || !['active', 'recovery-required'].includes(current.state)
       || currentImmutableDigest !== immutableReceiptDigest)
         {
             throw new Error('Production capacity reservation compare-owner-token failed');
         }
         return current;
+    };
+    const retainBuildOwner = (layout) =>
+    {
+        const release = acquireAuthorityLock(resolvedAuthorityRoot, { now });
+        try
+        {
+            const current = compareOwner();
+            const reference = retainProductionBuildCapacityOwner(layout);
+            const next = seal({ ...current, buildOwnerReference: reference });
+            if (!receiptIsComplete(next) || current.state !== 'active'
+                || (current.buildOwnerReference && productionDiskDemandDigest(current.buildOwnerReference)
+                    !== productionDiskDemandDigest(reference)))
+            {
+                throw new Error('Production capacity cannot replace or cross-bind its build owner');
+            }
+            atomicWrite(activeFile, next);
+            receipt = next;
+            immutableReceiptDigest = productionDiskDemandDigest(immutableReceipt(receipt));
+            compareOwner();
+            return structuredClone(reference);
+        }
+        finally
+        {
+            release();
+        }
     };
     const heartbeat = () =>
     {
@@ -589,6 +680,10 @@ export function acquireProductionCapacityReservation({
             });
         }
         heartbeat();
+        if (receipt.state !== 'active')
+        {
+            throw new Error('Production capacity reservation requires recovery before admitting another producer');
+        }
         const remaining = producerRemainingDiskDemand(plan, producerId);
         const release = acquireAuthorityLock(resolvedAuthorityRoot, { now });
         try
@@ -682,6 +777,33 @@ export function acquireProductionCapacityReservation({
         try
         {
             const current = compareOwner();
+            if (current.buildOwnerReference)
+            {
+                let retentionReason = null;
+                try
+                {
+                    if (inspectProductionBuildCapacityOwner(current.buildOwnerReference).status !== 'released')
+                    {
+                        retentionReason = 'build/process/resource owner is still retained';
+                    }
+                }
+                catch (error)
+                {
+                    retentionReason = `build owner is unverifiable: ${error.message}`;
+                }
+                if (retentionReason)
+                {
+                    receipt = seal({ ...current, state: 'recovery-required',
+                        heartbeatAt: new Date(now()).toISOString(), retentionReason,
+                        filesystems: current.filesystems.map((entry) => ({ ...entry, status: 'recovery-required' })) });
+                    atomicWrite(activeFile, receipt);
+                    const error = new Error(`Production capacity reservation retained: ${retentionReason}`);
+                    error.code = 'PRODUCTION_CAPACITY_RETAINED';
+                    error.receiptFile = activeFile;
+                    error.receiptDigest = receipt.contentDigest;
+                    throw error;
+                }
+            }
             const releasing = seal({
                 ...current,
                 state: 'releasing',
@@ -711,6 +833,85 @@ export function acquireProductionCapacityReservation({
             release();
         }
     };
+    let reconciliationActive = false;
+    const reconcilePriorBuildResources = async () =>
+    {
+        if (releaseReservation.result)
+        {
+            throw new Error('Production capacity reservation is already released');
+        }
+        if (reconciliationActive)
+        {
+            throw new Error('Production capacity prior resource reconciliation is already active');
+        }
+        reconciliationActive = true;
+        try
+        {
+            compareOwner();
+            const candidates = activeReservationFiles(resolvedAuthorityRoot)
+                .filter((file) => file !== activeFile)
+                .map((file) => ({ file, original: readPrivateReservation(file, resolvedAuthorityRoot) }))
+                .filter(({ original }) => activeStates.has(original.state)
+                    && original.repositoryIdentity === receipt.repositoryIdentity && original.buildOwnerReference);
+            const results = [];
+            for (const { file, original } of candidates)
+            {
+                // Discovery is confined to independently retained capacity receipts, never unit-name scans.
+                const assertAdmission = () =>
+                {
+                    const current = compareOwner();
+                    const actual = currentProcessIdentity();
+                    const metadata = fs.lstatSync(resolvedAuthorityRoot);
+                    const lease = observeProductionFreshExclusiveLease({ root: repositoryRoot, runId });
+                    if (current.state !== 'active' || heartbeatFailure
+                        || productionDiskDemandDigest(current.ownerIdentity) !== productionDiskDemandDigest(actual)
+                        || metadata.dev !== authorityMetadata.dev || metadata.ino !== authorityMetadata.ino
+                        || lease.status !== 'active' || lease.owner?.state !== 'active'
+                        || lease.owner.ownerToken !== current.repositoryLeaseOwnerToken
+                        || lease.owner.candidateIdentityDigest !== current.candidateIdentityDigest
+                        || lease.owner.canonicalRepositoryRoot !== path.resolve(repositoryRoot)
+                        || lease.owner.pid !== actual.pid || lease.owner.processStartIdentity !== actual.processStartIdentity
+                        || lease.owner.executableDigest !== actual.executableDigest || lease.owner.commandDigest !== actual.commandDigest)
+                    {
+                        throw new Error('Production capacity resource recovery requires its live admitted owner and repository lease');
+                    }
+                    readPrivateReservation(activeFile, resolvedAuthorityRoot);
+                    const retained = readPrivateReservation(file, resolvedAuthorityRoot);
+                    if (retained.contentDigest !== original.contentDigest
+                        || retained.buildOwnerReference.repositoryRoot !== path.resolve(repositoryRoot)
+                        || processAuthority(retained).status !== 'terminal')
+                    {
+                        throw new Error('Production capacity prior build owner is live, changed or unverifiable');
+                    }
+                };
+                assertAdmission();
+                const { reconcileSchedulerResourceGrants } = await import(new URL('./scheduler.mjs', import.meta.url));
+                const result = await reconcileSchedulerResourceGrants(original.buildOwnerReference, { assertAdmission });
+                const release = acquireAuthorityLock(resolvedAuthorityRoot, { now });
+                try
+                {
+                    assertAdmission();
+                    if (result.status !== 'resources-and-grants-released'
+                        || inspectProductionBuildCapacityOwner(original.buildOwnerReference).status !== 'released'
+                        || recoverOrBlock(file, original, { now }) !== null)
+                    {
+                        throw new Error('Production capacity prior resource recovery remains retained');
+                    }
+                    results.push({ reservationId: original.reservationId, runId: original.runId,
+                        status: result.status });
+                }
+                finally
+                {
+                    release();
+                }
+            }
+            return results;
+        }
+        finally
+        {
+            reconciliationActive = false;
+        }
+    };
     const heartbeatTimer = setInterval(() =>
     {
         try
@@ -734,6 +935,8 @@ export function acquireProductionCapacityReservation({
         assertPlan,
         guardProducer,
         completeProducer,
+        retainBuildOwner,
+        reconcilePriorBuildResources,
         release: releaseReservation
     };
 }

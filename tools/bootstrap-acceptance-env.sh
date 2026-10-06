@@ -931,7 +931,25 @@ ResolveBootstrapChildEnvironment() {
         "${FSUSBLOG_NODE:-node}" --input-type=module - "$ROOT_DIR/tools/test/run-command-manifest.mjs" <<'NODE'
 import process from 'node:process'
 import os from 'node:os'
-import { pathToFileURL } from 'node:url'
+import { fileURLToPath, pathToFileURL } from 'node:url'
+
+if (process.env.FSUSBLOG_DATA_SCALE_CALLER_JOURNAL) {
+  const { readDataScaleBaselineContainerControls } = await import(pathToFileURL(
+    new URL('./data-scale-runtime-caller.mjs', pathToFileURL(process.argv[2])).pathname
+  ).href)
+  const controls = await readDataScaleBaselineContainerControls({
+    repositoryRoot: fileURLToPath(new URL('../../', pathToFileURL(process.argv[2]))),
+    environment: process.env
+  })
+  const role = controls.roles.postgres
+  for (const [key, value] of Object.entries({
+    FSUSBLOG_DOCKER_CPU_UNITS: role.cpuUnits,
+    FSUSBLOG_DOCKER_MEMORY_HIGH_BYTES: role.memoryHighBytes,
+    FSUSBLOG_DOCKER_MEMORY_MAX_BYTES: role.memoryMaxBytes,
+    FSUSBLOG_DOCKER_PIDS_MAX: role.pidsMax
+  })) process.stdout.write(`${key}=${value}\n`)
+  process.exit(0)
+}
 
 const {
   readManifestSchedulerResourceGrant,

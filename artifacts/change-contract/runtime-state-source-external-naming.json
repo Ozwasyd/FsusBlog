@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-runtime/produce-current-run-authorities.mjs"
+            ],
+            "reason": "Preserve the existing caller-visible FSUSBLOG process environment names while restoring the source-bound production build requests."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing/runtime-state-equivalence.md"
+            ],
+            "reason": "Preserve existing documented caller-visible command flags and CSS-like contract spellings while clarifying the original build source binding."
+        }
+    ]
+}

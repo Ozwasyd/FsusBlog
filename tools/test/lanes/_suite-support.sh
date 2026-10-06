@@ -1242,6 +1242,8 @@ RunBackendUnitLane() {
         "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/build-migration-tests.mjs"
     ConfigureDotnetTestProcessors
     Run "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-migration-tests.mjs" --backend-unit
+    Run "$ROOT_DIR/tools/test/run-with-dotnet-release-build-lock.sh" \
+        "$BUILD_ENV_RUNNER" "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/db/generate-migration-assembly-receipt.mjs" --write --backend-unit
     WriteBackendSplitSummary backend-unit "${FSUSBLOG_TEST_SELECTION:-full}"
     Run "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/produce-integrity-proof-evidence.mjs" \
         --catalog "$ROOT_DIR/tests/fixtures/evidence-projection/integrity-proof-verification.json" \
