@@ -1,0 +1,93 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "config/development/authoritative-development-docs.json"
+            ],
+            "reason": "Preserve current authority registry keys and existing owner locations while registering the pure temporal contract source as current implementation ownership."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json"
+            ],
+            "reason": "Preserve correctness-attempt inventory schema and producer identifiers while the original inventory producer binds the current temporal context and pure contract source bytes."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/temporal-callsite-dispositions.json",
+                "config/testing/temporal-policy.json",
+                "config/testing/temporal-producer-bindings.json"
+            ],
+            "reason": "Preserve registered JSON field names, schema identifiers and fixture references while updating temporal callsite, authority and retained-test inventories through their existing owners."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/aeds-only-policy.md"
+            ],
+            "reason": "Preserve current document anchors, named API routes and textual contracts while documenting temporal observation and local-only tooling exemptions; no DOM or shared token names are renamed."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve public error authority terminology and document claim identifiers while clarifying each observed status transport mapping; no wire or authentication names are renamed."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CommentFixtureSeeder.cs",
+                "src/backend/Services/Fixtures/CommentModerationFixturePort.cs",
+                "src/backend/Services/Moderation/ModerationRuntimeStateService.cs",
+                "tools/data-scale/aeds-decoders.mjs",
+                "tools/data-scale/product-backend.mjs",
+                "tools/data-scale/runtime-provisioner-live.mjs",
+                "tools/data-scale/runtime-provisioner.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/release/browser-contract-receipt-contract.mjs",
+                "tools/test-evidence/aot-spa-hydration-observed-facts.mjs",
+                "tools/test-evidence/aot-spa-hydration-raw.mjs",
+                "tools/test-fixtures/producers/account-messaging-producer.mjs",
+                "tools/test-fixtures/producers/account-profile-preference-producer.mjs",
+                "tools/test-fixtures/producers/audit-producer.mjs",
+                "tools/test-fixtures/producers/auth-session-producer.mjs",
+                "tools/test-fixtures/producers/backend-temporal-observer.mjs",
+                "tools/test-fixtures/producers/catalog-ports.mjs",
+                "tools/test-fixtures/producers/comment-moderation-producer.mjs",
+                "tools/test-fixtures/producers/demo-public-producer.mjs",
+                "tools/test-fixtures/producers/public-content-producer.mjs",
+                "tools/test-fixtures/producers/security-fixture-producer.mjs",
+                "tools/test-fixtures/services/mysql.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test/check-temporal-shape-governance.mjs",
+                "tools/test/check-wall-clock-governance.mjs",
+                "tools/test/correctness-attempt-producers.mjs",
+                "tools/test/temporal-context-contract.mjs",
+                "tools/test/temporal-context.mjs",
+                "tools/test/temporal-producer-bindings.mjs",
+                "tools/test/verify-temporal-producers.mjs",
+                "tools/testing/fixture-catalog.mjs"
+            ],
+            "reason": "Preserve caller-visible process environment names while mapping them to internal option and temporal context variables; keep secret, run, epoch and cancellation inputs owned by their existing adapters."
+        },
+        {
+            "id": "acceptance-secret-runtime-environment",
+            "paths": [
+                "tools/bootstrap-acceptance-env.sh"
+            ],
+            "reason": "Preserve acceptance-secret and run-bound environment mappings while replacing private bootstrap duration arithmetic with a shared steady clock; retain cancellation, bounded waits and runtime identity checks."
+        },
+        {
+            "id": "release-locator-current-run-authority",
+            "paths": [
+                "tools/release/test-evidence-receipts.mjs"
+            ],
+            "reason": "Preserve release locator, receipt schema and run-relative identity field names while requiring independently observed temporal receipt facts; retain current locator and source identity ownership."
+        }
+    ]
+}
