@@ -4,6 +4,7 @@ import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIden
 import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
 import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentChildCursorFromPayload, mapCommentCreateResultFromPayload, mapCommentCursorFromPodPayload, mapCommentPermalinkContextFromPayload, mapCommentPolicySnapshotFromPayload, mapCommentTreeRootCursorFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
 import { mapEmptySuccessFromPayload, mapMutationIdFromPayload } from '@/adapters/binary/commonAdapter';
+import { mapFontActivationListFromPayload, mapFontRegistryDetailFromPayload, mapFontRegistryListFromPayload, mapThemeActivationFromPayload, mapThemeActivationHistoryFromPayload, mapThemeActivationListFromPayload, mapThemeRegistryDetailFromPayload, mapThemeRegistryListFromPayload } from '@/adapters/binary/fontThemeAdminAdapter';
 import { mapUserLocalePreferenceFromPayload } from '@/adapters/binary/localePreferenceAdapter';
 import { mapAdminConversationDetailFromPayload, mapAdminConversationListFromPayload, mapConversationDetailFromPayload, mapConversationDetailV2FromPayload, mapConversationDetailV3FromPayload, mapConversationListFromPayload, mapConversationMessageFromPayload, mapConversationStatusMutationResultFromPayload } from '@/adapters/binary/messageAdapter';
 import { mapPasskeyCredentialListFromPayload, mapPasskeyLoginBeginFromPayload, mapPasskeyRegisterBeginFromPayload, mapPasskeySignalStateFromPayload } from '@/adapters/binary/passkeyAdapter';
@@ -86,6 +87,14 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.CategoryList,
     FrameType.TagList,
     FrameType.TaxonomyExactMetadata,
+    FrameType.FontRegistryList,
+    FrameType.FontRegistryDetail,
+    FrameType.FontActivationList,
+    FrameType.ThemeRegistryList,
+    FrameType.ThemeRegistryDetail,
+    FrameType.ThemeActivationList,
+    FrameType.ThemeActivation,
+    FrameType.ThemeActivationHistory,
     FrameType.RecentCommentStats,
     FrameType.RegionStats,
     FrameType.SeoConfig,
@@ -280,6 +289,14 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.CategoryList, mapCategoryListFromPayload],
     [FrameType.TagList, mapTagListFromPayload],
     [FrameType.TaxonomyExactMetadata, mapTaxonomyExactMetadataFromPayload],
+    [FrameType.FontRegistryList, mapFontRegistryListFromPayload],
+    [FrameType.FontRegistryDetail, mapFontRegistryDetailFromPayload],
+    [FrameType.FontActivationList, mapFontActivationListFromPayload],
+    [FrameType.ThemeRegistryList, mapThemeRegistryListFromPayload],
+    [FrameType.ThemeRegistryDetail, mapThemeRegistryDetailFromPayload],
+    [FrameType.ThemeActivationList, mapThemeActivationListFromPayload],
+    [FrameType.ThemeActivation, mapThemeActivationFromPayload],
+    [FrameType.ThemeActivationHistory, mapThemeActivationHistoryFromPayload],
     [FrameType.RecentCommentStats, mapRecentCommentsFromPodPayload],
     [FrameType.RegionStats, mapRegionsFromPodPayload],
     [FrameType.SeoConfig, mapSeoConfigFromPayload],

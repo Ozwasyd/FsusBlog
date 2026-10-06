@@ -1570,6 +1570,7 @@ RunBackendPropertyOnly() {
 }
 
 RunBackendGoldenOnly() {
+    Run "${FSUSBLOG_NODE:-node}" --test "$ROOT_DIR/tests/tools/aeds-protocol-generation.test.mjs"
     RunBackendDotnetFilterWithCoverage golden "Category=GoldenContract"
     WriteBackendSplitSummary backend-golden "Category=GoldenContract"
 }

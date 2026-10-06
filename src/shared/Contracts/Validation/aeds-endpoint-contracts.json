@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "c95c147219a297f6fcdb550a9d4ea836c0eb412c6a681a43dbd7b1dfc6f4b040",
+    "contentDigest": "18ce5e8db6d450bbeb0e742a0c29d8c9b4b6334b985dac781a6e2f20884b3801",
     "operations": [
         {
             "method": "DELETE",
@@ -1095,12 +1095,100 @@
         },
         {
             "method": "GET",
+            "path": "/api/binary/author/ops/fonts/activations",
+            "operationId": "binary_get_author_ops_fonts_activations",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "FontActivationList",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/fonts/registry",
+            "operationId": "binary_get_author_ops_fonts_registry",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "FontRegistryList",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/fonts/registry/{fontId}",
+            "operationId": "binary_get_author_ops_fonts_registry_fontId",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "FontRegistryDetail",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
             "path": "/api/binary/author/ops/health",
             "operationId": "binary_get_author_ops_health",
             "requestFrame": null,
             "requestType": null,
             "requestEncoding": null,
             "responseFrame": "OpsHealth",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/themes/activations",
+            "operationId": "binary_get_author_ops_themes_activations",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ThemeActivationList",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/themes/activations/{scope}",
+            "operationId": "binary_get_author_ops_themes_activations_scope",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ThemeActivation",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/themes/activations/{scope}/history",
+            "operationId": "binary_get_author_ops_themes_activations_scope_history",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ThemeActivationHistory",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/themes/registry",
+            "operationId": "binary_get_author_ops_themes_registry",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ThemeRegistryList",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/ops/themes/registry/{themeId}",
+            "operationId": "binary_get_author_ops_themes_registry_themeId",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ThemeRegistryDetail",
             "errorFrame": "ApiError",
             "successStatus": 200
         },
@@ -2808,7 +2896,7 @@
             "path": "/api/binary/author/articles/{articleId:int}/revisions/{revisionId:long}/responsibility",
             "operationId": "binary_put_author_articles_articleId_int_revisions_revisionId_long_responsibility",
             "requestFrame": "ArticleResponsibilityRequest",
-            "requestType": "FsusBlog.Server.Infrastructure.Integrity.ArticleResponsibilityDraft",
+            "requestType": "FsusBlog.Contracts.Articles.ArticleResponsibilityDraft",
             "requestEncoding": "utf8-json",
             "responseFrame": "ArticleResponsibilityResponse",
             "errorFrame": "ApiError",

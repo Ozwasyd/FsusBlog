@@ -1,0 +1,59 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/backend/Modules/Endpoints/FontAdminEndpoints.cs",
+        "src/backend/Modules/Endpoints/ThemeAdminEndpoints.cs",
+        "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+        "tests/matrix.yml",
+        "tools/contracts/FsusBlog.OpenApiObservation/CompiledEndpointContractObserver.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/OpenApiObservationSelfTest.cs",
+        "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "tools/test/lanes/_suite-support.sh",
+        "tests/tools/aeds-protocol-generation.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "fd71c66dc2752d9e459f1c68c49c7d7228736cd8ff40277de90d37ffe47445d6"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "e3110380e9406140dcbc8d6d3cf71ccf11a492a0d89b36e55f55232be76e4937"
+        },
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "ec89e32d33e126d2cd0f90579525c37cb1cc7ef7decbc292d1fe3d1305400d85"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "c49608b7bfc74466e157017e1d22bb9ef202e006964174fe1d4f9fd957171cd4"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "bd886fa5dbdadbde37f3ab17d4d424cf549ba309df60c36e18a193c29f7f7f60"
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "5926df80b86c71d15771ae8b21f17c1b3178e5f388819ae45401d2a38c146e19"
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "cf91019019f7dee0872c8ba18d0a999205630e05a5af4190dc9a63f7615f6783"
+        },
+        {
+            "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
+            "sha256": "3ab55f6930968c8db434ea6733e7c1a9ac4102cc8c2862ce74821729fd34362f"
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "b6bf43fe315cd1cc736dbd98ba840194aad74071912b194534313f634b86b5f7"
+        },
+        {
+            "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+            "sha256": "7d433da15872c932ff2b00ecaeaa978ccd3563cabe166f7ab5b3b1a2a64b83f5"
+        }
+    ]
+}
