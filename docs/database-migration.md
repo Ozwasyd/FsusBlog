@@ -249,6 +249,33 @@ of three native implementations: missing MySQL/SQLite full-content/snapshot
 capabilities fail closed. The component still needs its unique native-session
 owner and genuine producer/provider execution before operational qualification.
 
+`MySqlArticlePreservationSourceReader` connects the existing bounded article reader
+to the original `OfflineMigrationMySqlNativeSession` owned-read port. Finite limits,
+read budget and source inputs are checked before driver parsing or native I/O. A
+linked deadline governs session creation and the borrowed read and remains live
+through the awaited original cleanup. It does not interrupt the native disposers;
+the reader returns only after successful owned cleanup and a final cancellation
+check. The borrowed path accepts only the original live `OwnedReadContext`, retaining
+its creator cancellation scope and native transaction checks. Raw driver objects,
+isolation labels and caller-created keys cannot grant a MySQL source read. This
+wrapper does not capture or authenticate a backup, publish artifacts, register an
+Apply operation, or qualify native execution; existing provider gates remain required.
+
+The existing `ArticlePreservationStorageWriter` also exposes a MySQL data-only stage
+through the original Apply owner's live read context from its locked read/write Begin.
+It revalidates retained target and published inputs, measures InnoDB tables without
+triggers, bounds parameterized inserts and set-based two-pointer CAS batches, and
+reads back every row and cell, including bounded UTF8 text and microsecond timestamps.
+It performs no DDL or allocator repair and cannot register a complete provider route.
+Creator-linked cancellation and local scope/connection/transaction checks surround
+each awaited command and reader operation. These local checks do not prove a native
+transaction epoch. On this single connection, native proof queries run before a
+command and after its reader and command disposers return successfully; no second
+query runs through a live reader. Failures retain the first cause and cleanup
+observations, and unverified disposal cannot yield a successful stage. The original
+Apply owner still owns commit, rollback and journal append. PostgreSQL remains the
+default data dialect; low-level command fixtures grant no native write capability.
+
 Sealed Apply consumes the exact verified artifact and revalidates source (or
 exact journal progress), backup, target, tool and DAG after its exclusive lock,
 on the same native transaction/session. Control journal entries are insert-only;
