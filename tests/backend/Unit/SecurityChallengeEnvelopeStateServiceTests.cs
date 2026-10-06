@@ -169,15 +169,16 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task CompleteMemberAsync_ConcurrentAdvance_ReservesNextMemberOnce()
     {
         Fixture fixture = CreateFixture();
         await fixture.Service.CreateAsync(CreateState());
         SecurityChallengeEnvelopeMemberRequest request = CreateRequest(s_challengeA, "perceptionCharacterV3");
 
-        SecurityChallengeEnvelopeMemberResult[] results = await Task.WhenAll(
-            fixture.Service.ReserveMemberAsync(request),
-            fixture.Service.ReserveMemberAsync(request));
+        SecurityChallengeEnvelopeMemberResult[] results = await RealConcurrencyHarness.RunAsync(
+            () => fixture.Service.ReserveMemberAsync(request),
+            () => fixture.Service.ReserveMemberAsync(request));
 
         SecurityChallengeEnvelopeMemberResult winner = Assert.Single(results, static result => result.Accepted);
         Assert.Equal(0, winner.MemberIndex);

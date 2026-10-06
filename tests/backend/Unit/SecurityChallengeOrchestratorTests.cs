@@ -153,6 +153,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConcurrentPowCompletion_IssuesV3AtMostOnce()
     {
         var pow = new FakeChallengeProvider("sha256PowV1");
@@ -164,8 +165,9 @@ public sealed class SecurityChallengeOrchestratorTests
             CreateIssueRequest(["sha256PowV1", "perceptionCharacterV3"]))).Envelope);
         SecurityChallengeOrchestrationVerifyRequest request = CreateVerifyRequest(envelope, 0);
 
-        SecurityChallengeOrchestrationVerifyResult[] results = await Task.WhenAll(
-            orchestrator.VerifyAsync(request), orchestrator.VerifyAsync(request));
+        SecurityChallengeOrchestrationVerifyResult[] results = await RealConcurrencyHarness.RunAsync(
+            () => orchestrator.VerifyAsync(request),
+            () => orchestrator.VerifyAsync(request));
 
         Assert.Equal(1, pow.VerifyCalls);
         Assert.Equal(1, v3.IssueCalls);
@@ -557,6 +559,7 @@ public sealed class SecurityChallengeOrchestratorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task VerifyAsync_ConcurrentFinalRetriesShareOnePreparedToken()
     {
         var perception = new FakeChallengeProvider("perceptionLocalizationV2");
@@ -570,9 +573,9 @@ public sealed class SecurityChallengeOrchestratorTests
         SecurityChallengeOrchestrationVerifyResult advanced = await orchestrator.VerifyAsync(CreateVerifyRequest(envelope, 0), CancellationToken.None);
         SecurityChallengeOrchestrationVerifyRequest finalRequest = CreateVerifyRequest(envelope, Assert.IsType<SecurityChallengeAssignment>(advanced.NextAssignment));
 
-        SecurityChallengeOrchestrationVerifyResult[] results = await Task.WhenAll(
-            orchestrator.VerifyAsync(finalRequest, CancellationToken.None),
-            orchestrator.VerifyAsync(finalRequest, CancellationToken.None));
+        SecurityChallengeOrchestrationVerifyResult[] results = await RealConcurrencyHarness.RunAsync(
+            () => orchestrator.VerifyAsync(finalRequest, CancellationToken.None),
+            () => orchestrator.VerifyAsync(finalRequest, CancellationToken.None));
 
         Assert.All(results, result => Assert.True(result.Succeeded, result.Reason));
         Assert.Single(results.Select(static result => result.ProofToken).Distinct(StringComparer.Ordinal));
@@ -701,15 +704,12 @@ public sealed class SecurityChallengeOrchestratorTests
     {
         public string Kind { get; } = kind;
 
-        public int IssueCalls
-        {
-            get; private set;
-        }
+        private int _issueCalls;
+        private int _verifyCalls;
 
-        public int VerifyCalls
-        {
-            get; private set;
-        }
+        public int IssueCalls => Volatile.Read(ref _issueCalls);
+
+        public int VerifyCalls => Volatile.Read(ref _verifyCalls);
 
         public SecurityChallengeProviderVerifyRequest? LastVerifyRequest
         {
@@ -730,7 +730,7 @@ public sealed class SecurityChallengeOrchestratorTests
 
         public Task<SecurityChallengeProviderIssueResult> IssueAsync(SecurityChallengeProviderIssueRequest request, CancellationToken cancellationToken = default)
         {
-            IssueCalls++;
+            Interlocked.Increment(ref _issueCalls);
             LastIssueRequest = request;
             if (IssueResult is { } result)
             {
@@ -757,7 +757,7 @@ public sealed class SecurityChallengeOrchestratorTests
 
         public Task<SecurityChallengeProviderVerifyResult> VerifyAsync(SecurityChallengeProviderVerifyRequest request, CancellationToken cancellationToken = default)
         {
-            VerifyCalls++;
+            Interlocked.Increment(ref _verifyCalls);
             LastVerifyRequest = request;
             return Task.FromResult(VerifyResult);
         }

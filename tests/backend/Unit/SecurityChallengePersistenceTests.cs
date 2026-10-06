@@ -231,6 +231,7 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
     [Fact]
     [Trait("Category", "Concurrency")]
     [Trait("Category", "SecurityStateMachine")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task RecordAttemptAsync_ConcurrentOutcomesCannotDowngradeVerifiedChallenge()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -258,8 +259,8 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
             SecurityChallengeAttemptOutcomes.Revoked
         ];
         using var barrier = new Barrier(concurrentOutcomes.Length);
-        Task<SecurityChallengeAttempt>[] writes = concurrentOutcomes
-            .Select(outcome => StartTogetherAsync(
+        Task<SecurityChallengeAttempt[]> concurrentWrites = RealConcurrencyHarness.RunAsync(concurrentOutcomes,
+            outcome => StartTogetherAsync(
                 barrier,
                 async () =>
                 {
@@ -268,10 +269,9 @@ public sealed class SecurityChallengePersistenceTests(PostgresSchemaMigrationFix
                     return await service.RecordAttemptAsync(
                         CreateAttemptRequest(request.ChallengeId, outcome, $"concurrent-{outcome}"),
                         CancellationToken.None);
-                }))
-            .ToArray();
+                }));
 
-        SecurityChallengeAttempt[] attempts = await Task.WhenAll(writes)
+        SecurityChallengeAttempt[] attempts = await concurrentWrites
             .WaitAsync(TimeSpan.FromSeconds(30));
 
         Assert.Equal(

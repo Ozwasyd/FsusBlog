@@ -342,13 +342,13 @@ public sealed class AnonymousCommentTicketServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task IssueAsync_ConcurrentSameNullifierPrechecksWithoutSpendingNullifier()
     {
         var nullifiers = new ConcurrentPrecheckNullifierService();
         var service = CreateService(nullifierService: nullifiers);
 
-        AnonymousCommentTicketIssueResult[] results = await Task.WhenAll(
-            Enumerable.Range(0, 16).Select(_ => service.IssueAsync(ValidRequest(), CancellationToken.None)));
+        AnonymousCommentTicketIssueResult[] results = await RealConcurrencyHarness.RunAsync(Enumerable.Range(0, 16), _ => service.IssueAsync(ValidRequest(), CancellationToken.None));
 
         Assert.Equal(16, results.Count(static item => item.Issued));
         Assert.Equal(16, nullifiers.PrecheckCount);

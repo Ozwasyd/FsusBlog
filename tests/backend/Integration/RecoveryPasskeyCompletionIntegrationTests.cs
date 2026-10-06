@@ -274,6 +274,7 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConcurrentPersistence_UsesUniqueRecoveryHashForOneLogicalCompletion()
     {
         string connectionString = await PostgresSqlSugarTestClient.CreateConnectionStringAsync(fixture);
@@ -289,14 +290,14 @@ public sealed class RecoveryPasskeyCompletionIntegrationTests(PostgresSchemaMigr
         using var barrier = new Barrier(2);
         string concurrentRecoverySessionHash = new('E', 64);
 
-        RecoveryPasskeyRegistrationResult[] outcomes = await Task.WhenAll(
-            StartTogetherAsync(barrier, () => first.PersistRecoveryRegistrationAsync(
+        RecoveryPasskeyRegistrationResult[] outcomes = await RealConcurrencyHarness.RunAsync(
+            () => StartTogetherAsync(barrier, () => first.PersistRecoveryRegistrationAsync(
                 session,
                 concurrentRecoverySessionHash,
                 new string('F', 64),
                 "challenge-concurrent",
                 Credential(accountId, "concurrent-a", DateTime.UtcNow))),
-            StartTogetherAsync(barrier, () => second.PersistRecoveryRegistrationAsync(
+            () => StartTogetherAsync(barrier, () => second.PersistRecoveryRegistrationAsync(
                 session,
                 concurrentRecoverySessionHash,
                 new string('F', 64),

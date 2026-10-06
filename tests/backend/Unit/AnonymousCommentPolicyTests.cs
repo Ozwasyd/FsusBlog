@@ -145,6 +145,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task AnonymousCommentPolicyService_GetCurrentAsyncYieldsWhilePolicyQueryIsSlow()
     {
         var queryStarted = new TaskCompletionSource(TaskCreationOptions.RunContinuationsAsynchronously);
@@ -166,31 +167,37 @@ public sealed class AnonymousCommentPolicyTests
             BuildConfiguration([]),
             provider.GetRequiredService<IServiceScopeFactory>());
 
-        Task<AnonymousCommentPolicySnapshot> loadTask = service.GetCurrentAsync(CancellationToken.None);
-        await queryStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        Task<int> unrelatedWork = Task.Run(static () => Environment.CurrentManagedThreadId);
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => service.GetCurrentAsync(CancellationToken.None),
+            async loadTask =>
+            {
+                await queryStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+                Task<int> unrelatedWork = Task.Run(static () => Environment.CurrentManagedThreadId);
 
-        Assert.Same(unrelatedWork, await Task.WhenAny(unrelatedWork, Task.Delay(TimeSpan.FromMilliseconds(250))));
-        Assert.False(loadTask.IsCompleted);
+                Assert.Same(unrelatedWork, await Task.WhenAny(unrelatedWork, Task.Delay(TimeSpan.FromMilliseconds(250))));
+                Assert.False(loadTask.IsCompleted);
 
-        releaseQuery.SetResult(new AnonymousCommentPolicy
-        {
-            Id = 1,
-            AnonymousCommentsEnabled = false,
-            PublicCommentsEnabled = true,
-            ZkAnonymousEnabled = true,
-            DefaultAuthorMode = CommentAuthorModes.ZkAnonymous,
-            SupportedDisplayLanguages = "en",
-            ChangedBy = "test",
-            UpdatedReason = "slow-db",
-            UpdatedAtUtc = new DateTime(2026, 6, 24, 0, 0, 0, DateTimeKind.Utc)
-        });
-        AnonymousCommentPolicySnapshot snapshot = await loadTask.WaitAsync(TimeSpan.FromSeconds(1));
+                releaseQuery.SetResult(new AnonymousCommentPolicy
+                {
+                    Id = 1,
+                    AnonymousCommentsEnabled = false,
+                    PublicCommentsEnabled = true,
+                    ZkAnonymousEnabled = true,
+                    DefaultAuthorMode = CommentAuthorModes.ZkAnonymous,
+                    SupportedDisplayLanguages = "en",
+                    ChangedBy = "test",
+                    UpdatedReason = "slow-db",
+                    UpdatedAtUtc = new DateTime(2026, 6, 24, 0, 0, 0, DateTimeKind.Utc)
+                });
+                AnonymousCommentPolicySnapshot snapshot = await loadTask.WaitAsync(TimeSpan.FromSeconds(1));
 
-        Assert.False(snapshot.AnonymousCommentsEnabled);
-        Assert.True(snapshot.PublicCommentsEnabled);
-        Assert.True(snapshot.ZkAnonymousEnabled);
-        Assert.Equal(CommentAuthorModes.ZkAnonymous, snapshot.DefaultAuthorMode);
+                Assert.False(snapshot.AnonymousCommentsEnabled);
+                Assert.True(snapshot.PublicCommentsEnabled);
+                Assert.True(snapshot.ZkAnonymousEnabled);
+                Assert.Equal(CommentAuthorModes.ZkAnonymous, snapshot.DefaultAuthorMode);
+            },
+            () => releaseQuery.TrySetCanceled(),
+            startupTimeout: TimeSpan.FromSeconds(1));
     }
 
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]

@@ -83,6 +83,7 @@ public sealed class RecoveryPasskeyCompletionStateTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ConcurrentDoubleSubmit_AllowsOnlyOneLogicalCompletion()
     {
         const string Token = "recovery-session-concurrent";
@@ -108,17 +109,22 @@ public sealed class RecoveryPasskeyCompletionStateTests
         RecoveryKeyService service = CreateService(cache.Cache, passkeys);
         PasskeyRegisterCompleteCoreModel request = Request(Token, "concurrent");
 
-        Task<Result<RecoveryPasskeyBindOutcome>> firstTask = service.CompletePasskeyBindAsync(Token, request);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
-        Result<RecoveryPasskeyBindOutcome> second = await service.CompletePasskeyBindAsync(Token, request);
-        release.TrySetResult();
-        Result<RecoveryPasskeyBindOutcome> first = await firstTask;
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => service.CompletePasskeyBindAsync(Token, request),
+            async firstTask =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+                Result<RecoveryPasskeyBindOutcome> second = await service.CompletePasskeyBindAsync(Token, request);
+                release.TrySetResult();
+                Result<RecoveryPasskeyBindOutcome> first = await firstTask;
 
-        Assert.True(first.IsSuccess);
-        Assert.False(second.IsSuccess);
-        Assert.Equal(ErrorCode.Conflict, second.Error.Code);
-        Assert.Equal("RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS", second.Error.Message);
-        Assert.Equal(1, completionCalls);
+                Assert.True(first.IsSuccess);
+                Assert.False(second.IsSuccess);
+                Assert.Equal(ErrorCode.Conflict, second.Error.Code);
+                Assert.Equal("RECOVERY_PASSKEY_COMPLETION_IN_PROGRESS", second.Error.Message);
+                Assert.Equal(1, completionCalls);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]

@@ -95,6 +95,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public void CrossMinuteRotation_ReplacesTheWholeWindowOnceUnderConcurrency()
     {
         const int Capacity = 128;
@@ -108,7 +109,7 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
         int writes = 0;
         int capacityDrops = 0;
-        Parallel.For(0, 20_000, index =>
+        RealConcurrencyHarness.Run(0, 20_000, index =>
         {
             RateLimiterRiskSampleDecision decision = sampler.Sample(
                 2_001,
@@ -130,13 +131,14 @@ public sealed class RateLimiterRejectionRiskSamplerTests
 
     [Fact]
     [Trait("Category", "Concurrency")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public void ConcurrentSameBucket_PreservesExactlyFourRiskWrites()
     {
         var sampler = CreateSampler(maxTrackedBuckets: 32);
         int writes = 0;
         int writeLimitDrops = 0;
 
-        Parallel.For(0, 20_000, _ =>
+        RealConcurrencyHarness.Run(0, 20_000, _ =>
         {
             RateLimiterRiskSampleDecision decision = sampler.Sample(3_000, "same-client", "same-route");
             if (decision == RateLimiterRiskSampleDecision.WriteRiskSignal)

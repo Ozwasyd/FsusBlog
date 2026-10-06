@@ -167,6 +167,7 @@ public sealed class TaxonomyExactMetadataTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "taxonomy-missing-entity-notfound-no-cache")]
     public async Task ExactRead_MissingEntity_ReturnsNotFoundAndDoesNotCache()
     {
         IOwnedFrameCache cache = Substitute.For<IOwnedFrameCache>();
@@ -185,6 +186,19 @@ public sealed class TaxonomyExactMetadataTests
             "分类不存在");
 
         Assert.IsType<BinaryFrameResult>(result);
+        using var responseBody = new MemoryStream();
+        var context = new DefaultHttpContext();
+        context.Response.Body = responseBody;
+        await result.ExecuteAsync(context);
+
+        Assert.Equal(StatusCodes.Status404NotFound, context.Response.StatusCode);
+        var decoded = new AedsEncoder().TryDecode(responseBody.ToArray());
+        Assert.True(decoded.IsSuccess, decoded.Error.Message);
+        Assert.Equal(AedsFrameType.ApiError, decoded.Value.FrameType);
+        Assert.True(PodBinaryCodec.TryDecodeApiError(decoded.Value.Payload, out var errorPod));
+        var error = PodBinaryCodec.ToErrorDetail(errorPod);
+        Assert.Equal(ErrorCode.NotFound, error.Code);
+        Assert.Equal("分类不存在", error.Message);
         await cache.DidNotReceive().SetOwnedFrameAsync(
             Arg.Any<CachePolicyId>(),
             Arg.Any<string>(),

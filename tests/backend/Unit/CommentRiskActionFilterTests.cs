@@ -108,6 +108,7 @@ public sealed class CommentRiskActionFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task InvokeAsync_RequestCancellationPropagatesWithoutCallingMutationAndResetsBuffer()
     {
         var aeds = new AedsEncoder();
@@ -120,20 +121,29 @@ public sealed class CommentRiskActionFilterTests
         var filter = new CommentRiskActionFilter(aeds, NullLogger<CommentRiskActionFilter>.Instance);
         bool nextCalled = false;
 
-        Task<object?> pending = filter.InvokeAsync(
-            new TestEndpointFilterInvocationContext(context),
-            _ =>
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            async () =>
             {
-                nextCalled = true;
-                return ValueTask.FromResult<object?>(null);
-            }).AsTask();
-        await body.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
-        cancellation.Cancel();
+                Task<object?> pending = filter.InvokeAsync(
+                    new TestEndpointFilterInvocationContext(context),
+                    _ =>
+                    {
+                        nextCalled = true;
+                        return ValueTask.FromResult<object?>(null);
+                    }).AsTask();
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+            },
+            async pending =>
+            {
+                await body.ReadStarted.Task.WaitAsync(TimeSpan.FromSeconds(1));
+                cancellation.Cancel();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
-        Assert.False(nextCalled);
-        Assert.True(context.Request.Body.CanSeek);
-        Assert.Equal(0, context.Request.Body.Position);
+                await pending;
+                Assert.False(nextCalled);
+                Assert.True(context.Request.Body.CanSeek);
+                Assert.Equal(0, context.Request.Body.Position);
+            },
+            () => cancellation.Cancel());
     }
 
     [Fact]

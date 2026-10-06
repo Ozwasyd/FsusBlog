@@ -173,6 +173,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_ClaimsEachBatchEventWithIndependentOwnerBoundLease()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -211,25 +212,31 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(), state, TimeProvider.System,
             configuration, NullLogger<CommentMutationOutboxWorker>.Instance);
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        List<CommentMutationOutboxEvent> events = verify.Queryable<CommentMutationOutboxEvent>().OrderBy(item => item.Id).ToList();
-        Assert.Equal(2, events.Count);
-        Assert.All(events, item =>
-        {
-            Assert.Equal(CommentMutationOutboxStatus.Processing, item.Status);
-            Assert.False(string.IsNullOrWhiteSpace(item.ClaimToken));
-            Assert.False(string.IsNullOrWhiteSpace(item.ClaimedBy));
-            Assert.Equal(1, item.LeaseGeneration);
-            Assert.NotNull(item.LastHeartbeatAt);
-        });
-        Assert.NotEqual(events[0].ClaimToken, events[1].ClaimToken);
-        release.TrySetResult();
-        Assert.Equal(2, await processing);
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+                List<CommentMutationOutboxEvent> events = verify.Queryable<CommentMutationOutboxEvent>().OrderBy(item => item.Id).ToList();
+                Assert.Equal(2, events.Count);
+                Assert.All(events, item =>
+                {
+                    Assert.Equal(CommentMutationOutboxStatus.Processing, item.Status);
+                    Assert.False(string.IsNullOrWhiteSpace(item.ClaimToken));
+                    Assert.False(string.IsNullOrWhiteSpace(item.ClaimedBy));
+                    Assert.Equal(1, item.LeaseGeneration);
+                    Assert.NotNull(item.LastHeartbeatAt);
+                });
+                Assert.NotEqual(events[0].ClaimToken, events[1].ClaimToken);
+                release.TrySetResult();
+                Assert.Equal(2, await processing);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_OverProductionLease_RenewsEveryBatchEventBeforeItStartsProcessing()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -259,27 +266,33 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(), state, TimeProvider.System,
             new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        await Task.Delay(TimeSpan.FromSeconds(65));
-        using (SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            CommentMutationOutboxEvent second = verify.Queryable<CommentMutationOutboxEvent>()
-                .Single(item => item.CommentId == 508);
-            Assert.Equal(CommentMutationOutboxStatus.Processing, second.Status);
-            Assert.True(second.LeaseExpiresAt > DateTime.UtcNow.AddSeconds(30));
-            Assert.True(second.LastHeartbeatAt > second.ClaimedAt);
-        }
-        CommentMutationOutboxRuntimeSnapshot inFlight = state.CreateSnapshot();
-        Assert.Equal(2, inFlight.OwnedCount);
-        Assert.True(inFlight.RenewedCount >= 2);
-        Assert.True(inFlight.OldestLeaseAgeSeconds >= 50);
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromSeconds(65));
+                using (SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    CommentMutationOutboxEvent second = verify.Queryable<CommentMutationOutboxEvent>()
+                        .Single(item => item.CommentId == 508);
+                    Assert.Equal(CommentMutationOutboxStatus.Processing, second.Status);
+                    Assert.True(second.LeaseExpiresAt > DateTime.UtcNow.AddSeconds(30));
+                    Assert.True(second.LastHeartbeatAt > second.ClaimedAt);
+                }
+                CommentMutationOutboxRuntimeSnapshot inFlight = state.CreateSnapshot();
+                Assert.Equal(2, inFlight.OwnedCount);
+                Assert.True(inFlight.RenewedCount >= 2);
+                Assert.True(inFlight.OldestLeaseAgeSeconds >= 50);
 
-        release.TrySetResult();
-        Assert.Equal(2, await processing);
+                release.TrySetResult();
+                Assert.Equal(2, await processing);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_OwnershipChecksBeforeFirstHeartbeatDoNotRenewLeaseMetrics()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -311,23 +324,29 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(), state, TimeProvider.System, configuration,
             NullLogger<CommentMutationOutboxWorker>.Instance);
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        await Task.Delay(TimeSpan.FromMilliseconds(500));
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromMilliseconds(500));
 
-        CommentMutationOutboxRuntimeSnapshot snapshot = state.CreateSnapshot();
-        Assert.Equal(0, snapshot.RenewedCount);
-        using (SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            CommentMutationOutboxEvent claim = verify.Queryable<CommentMutationOutboxEvent>().Single();
-            Assert.Equal(claim.ClaimedAt, claim.LastHeartbeatAt);
-        }
+                CommentMutationOutboxRuntimeSnapshot snapshot = state.CreateSnapshot();
+                Assert.Equal(0, snapshot.RenewedCount);
+                using (SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    CommentMutationOutboxEvent claim = verify.Queryable<CommentMutationOutboxEvent>().Single();
+                    Assert.Equal(claim.ClaimedAt, claim.LastHeartbeatAt);
+                }
 
-        release.TrySetResult();
-        Assert.Equal(1, await processing);
+                release.TrySetResult();
+                Assert.Equal(1, await processing);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_ClaimLostAfterConsumer_DoesNotRunNextConsumerOrOverwriteNewOwner()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -359,31 +378,37 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(), state, TimeProvider.System,
             new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            CommentMutationOutboxEvent claimed = takeover.Queryable<CommentMutationOutboxEvent>().Single();
-            takeover.Ado.ExecuteCommand(
-                "UPDATE comment_mutation_outbox SET claim_token = 'new-owner-token', claimed_by = 'new-owner', lease_generation = lease_generation + 1 WHERE id = @Id;",
-                new SugarParameter("@Id", claimed.Id));
-        }
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    CommentMutationOutboxEvent claimed = takeover.Queryable<CommentMutationOutboxEvent>().Single();
+                    takeover.Ado.ExecuteCommand(
+                        "UPDATE comment_mutation_outbox SET claim_token = 'new-owner-token', claimed_by = 'new-owner', lease_generation = lease_generation + 1 WHERE id = @Id;",
+                        new SugarParameter("@Id", claimed.Id));
+                }
 
-        release.TrySetResult();
-        Assert.Equal(0, await processing);
-        await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default!);
-        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
-        Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
-        Assert.Equal("new-owner-token", after.ClaimToken);
-        Assert.Equal("new-owner", after.ClaimedBy);
-        CommentMutationOutboxDelivery delivery = verify.Queryable<CommentMutationOutboxDelivery>().Single();
-        Assert.Equal(CommentMutationOutboxDeliveryStatus.Processing, delivery.Status);
-        Assert.NotEqual("new-owner-token", delivery.OwnerClaimToken);
-        Assert.Equal(1, state.CreateSnapshot().LostCount);
+                release.TrySetResult();
+                Assert.Equal(0, await processing);
+                await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default!);
+                using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+                CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
+                Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
+                Assert.Equal("new-owner-token", after.ClaimToken);
+                Assert.Equal("new-owner", after.ClaimedBy);
+                CommentMutationOutboxDelivery delivery = verify.Queryable<CommentMutationOutboxDelivery>().Single();
+                Assert.Equal(CommentMutationOutboxDeliveryStatus.Processing, delivery.Status);
+                Assert.NotEqual("new-owner-token", delivery.OwnerClaimToken);
+                Assert.Equal(1, state.CreateSnapshot().LostCount);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_HeartbeatZeroRowStopsSideEffectsBeforeLeaseSafetyMarginExpires()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -419,20 +444,26 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
         var worker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(), Substitute.For<IBackgroundWorkerLease>(),
             state, TimeProvider.System, configuration, NullLogger<CommentMutationOutboxWorker>.Instance);
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        using (SqlSugarClient disconnect = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            disconnect.Ado.ExecuteCommand("UPDATE comment_mutation_outbox SET claim_token = 'reclaimed-before-expiry' WHERE status = 'processing';");
-        }
-        await Task.Delay(TimeSpan.FromSeconds(2));
-        Assert.Equal(1, state.CreateSnapshot().LostCount);
-        release.TrySetResult();
-        Assert.Equal(0, await processing);
-        await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default);
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                using (SqlSugarClient disconnect = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    disconnect.Ado.ExecuteCommand("UPDATE comment_mutation_outbox SET claim_token = 'reclaimed-before-expiry' WHERE status = 'processing';");
+                }
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                Assert.Equal(1, state.CreateSnapshot().LostCount);
+                release.TrySetResult();
+                Assert.Equal(0, await processing);
+                await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_HeartbeatDatabaseExceptionStopsSideEffectsBeforeLeaseSafetyMarginExpires()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -469,15 +500,20 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             state, TimeProvider.System, configuration, NullLogger<CommentMutationOutboxWorker>.Instance,
             heartbeatFaultInjector: () => new InvalidOperationException("simulated-heartbeat-db-disconnect"));
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        await Task.Delay(TimeSpan.FromSeconds(2));
-        Assert.Equal(1, state.CreateSnapshot().LostCount);
-        release.TrySetResult();
-        Assert.Equal(0, await processing);
-        await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default);
-        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        Assert.Equal(CommentMutationOutboxStatus.Processing, verify.Queryable<CommentMutationOutboxEvent>().Single().Status);
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                Assert.Equal(1, state.CreateSnapshot().LostCount);
+                release.TrySetResult();
+                Assert.Equal(0, await processing);
+                await notifications.DidNotReceiveWithAnyArgs().PublishAddedAsync(default!, default, default);
+                using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+                Assert.Equal(CommentMutationOutboxStatus.Processing, verify.Queryable<CommentMutationOutboxEvent>().Single().Status);
+            },
+            () => release.TrySetResult());
     }
 
     [Fact]
@@ -568,6 +604,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_TwoConcurrentWorkersExecuteSameConsumerSideEffectExactlyOnce()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -588,9 +625,9 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
             new ConfigurationBuilder().Build(), NullLogger<CommentMutationOutboxWorker>.Instance);
 
-        int[] processed = await Task.WhenAll(
-            first.ProcessPendingAsync(CancellationToken.None),
-            second.ProcessPendingAsync(CancellationToken.None));
+        int[] processed = await RealConcurrencyHarness.RunAsync(
+            () => first.ProcessPendingAsync(CancellationToken.None),
+            () => second.ProcessPendingAsync(CancellationToken.None));
 
         Assert.Equal(1, processed.Sum());
         await invalidations.Received(1).InvalidateCommentMutationAsync(Arg.Any<CommentCacheInvalidationScope?>(), Arg.Any<CancellationToken>());
@@ -669,6 +706,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_CancellationStopsHeartbeatAndOldTokenCannotReleaseNewClaim()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -703,44 +741,54 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
             configuration, NullLogger<CommentMutationOutboxWorker>.Instance);
         using var cancellation = new CancellationTokenSource();
-        Task<int> first = firstWorker.ProcessPendingAsync(cancellation.Token);
-        await firstEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        await Task.Delay(TimeSpan.FromMilliseconds(1500));
-        DateTime? heartbeatBeforeCancel;
-        using (SqlSugarClient snapshot = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            heartbeatBeforeCancel = snapshot.Queryable<CommentMutationOutboxEvent>().Single().LastHeartbeatAt;
-        }
-        Assert.NotNull(heartbeatBeforeCancel);
-        cancellation.Cancel();
-        await Task.Delay(TimeSpan.FromSeconds(2));
-        using (SqlSugarClient afterCancel = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            Assert.Equal(heartbeatBeforeCancel, afterCancel.Queryable<CommentMutationOutboxEvent>().Single().LastHeartbeatAt);
-        }
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => firstWorker.ProcessPendingAsync(cancellation.Token),
+            async first =>
+            {
+                await firstEntered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                await Task.Delay(TimeSpan.FromMilliseconds(1500));
+                DateTime? heartbeatBeforeCancel;
+                using (SqlSugarClient snapshot = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    heartbeatBeforeCancel = snapshot.Queryable<CommentMutationOutboxEvent>().Single().LastHeartbeatAt;
+                }
+                Assert.NotNull(heartbeatBeforeCancel);
+                cancellation.Cancel();
+                await Task.Delay(TimeSpan.FromSeconds(2));
+                using (SqlSugarClient afterCancel = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    Assert.Equal(heartbeatBeforeCancel, afterCancel.Queryable<CommentMutationOutboxEvent>().Single().LastHeartbeatAt);
+                }
 
-        using (SqlSugarClient expire = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            expire.Ado.ExecuteCommand(
-                "UPDATE comment_mutation_outbox SET lease_expires_at = @Expired WHERE status = 'processing';",
-                new SugarParameter("@Expired", DateTime.UtcNow.AddSeconds(-1)));
-        }
+                using (SqlSugarClient expire = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    expire.Ado.ExecuteCommand(
+                        "UPDATE comment_mutation_outbox SET lease_expires_at = @Expired WHERE status = 'processing';",
+                        new SugarParameter("@Expired", DateTime.UtcNow.AddSeconds(-1)));
+                }
 
-        var secondWorker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
-            Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
-            configuration, NullLogger<CommentMutationOutboxWorker>.Instance);
-        Assert.Equal(1, await secondWorker.ProcessPendingAsync(CancellationToken.None));
-        releaseFirst.TrySetResult();
-        Assert.Equal(0, await first);
+                var secondWorker = new CommentMutationOutboxWorker(provider.GetRequiredService<IServiceScopeFactory>(),
+                    Substitute.For<IBackgroundWorkerLease>(), new CommentMutationOutboxRuntimeState(), TimeProvider.System,
+                    configuration, NullLogger<CommentMutationOutboxWorker>.Instance);
+                Assert.Equal(1, await secondWorker.ProcessPendingAsync(CancellationToken.None));
+                releaseFirst.TrySetResult();
+                Assert.Equal(0, await first);
 
-        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
-        Assert.Equal(CommentMutationOutboxStatus.Processed, after.Status);
-        Assert.Null(after.ClaimToken);
-        Assert.Equal(2, calls);
+                using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+                CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
+                Assert.Equal(CommentMutationOutboxStatus.Processed, after.Status);
+                Assert.Null(after.ClaimToken);
+                Assert.Equal(2, calls);
+            },
+            () =>
+            {
+                cancellation.Cancel();
+                releaseFirst.TrySetResult();
+            });
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_MarkFailedClaimLossPreservesReplacementOwnerAndIsNotCountedAsFailed()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -768,25 +816,30 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
                 await continueMarkFailed.Task;
             });
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await beforeMarkFailed.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            CommentMutationOutboxEvent claim = takeover.Queryable<CommentMutationOutboxEvent>().Single();
-            takeover.Ado.ExecuteCommand(
-                "UPDATE comment_mutation_outbox SET claim_token = 'replacement-token', claimed_by = 'replacement-worker', lease_generation = lease_generation + 1 WHERE id = @Id;",
-                new SugarParameter("@Id", claim.Id));
-        }
-        continueMarkFailed.TrySetResult();
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await beforeMarkFailed.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    CommentMutationOutboxEvent claim = takeover.Queryable<CommentMutationOutboxEvent>().Single();
+                    takeover.Ado.ExecuteCommand(
+                        "UPDATE comment_mutation_outbox SET claim_token = 'replacement-token', claimed_by = 'replacement-worker', lease_generation = lease_generation + 1 WHERE id = @Id;",
+                        new SugarParameter("@Id", claim.Id));
+                }
+                continueMarkFailed.TrySetResult();
 
-        Assert.Equal(0, await processing);
-        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
-        Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
-        Assert.Equal("replacement-token", after.ClaimToken);
-        Assert.Equal("replacement-worker", after.ClaimedBy);
-        Assert.Equal(1, state.CreateSnapshot().LostCount);
-        Assert.Equal(0, state.CreateSnapshot().FailedCount);
+                Assert.Equal(0, await processing);
+                using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+                CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
+                Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
+                Assert.Equal("replacement-token", after.ClaimToken);
+                Assert.Equal("replacement-worker", after.ClaimedBy);
+                Assert.Equal(1, state.CreateSnapshot().LostCount);
+                Assert.Equal(0, state.CreateSnapshot().FailedCount);
+            },
+            () => continueMarkFailed.TrySetResult());
     }
 
     [Fact]
@@ -909,6 +962,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_CancellationReleaseClaimLossPreservesReplacementOwnerExactlyOnce()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -944,29 +998,43 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             });
         using var cancellation = new CancellationTokenSource();
 
-        Task<int> processing = worker.ProcessPendingAsync(cancellation.Token);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        cancellation.Cancel();
-        await beforeRelease.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            CommentMutationOutboxEvent claim = takeover.Queryable<CommentMutationOutboxEvent>().Single();
-            takeover.Ado.ExecuteCommand(
-                "UPDATE comment_mutation_outbox SET claim_token = 'replacement-token', claimed_by = 'replacement-worker', lease_generation = lease_generation + 1 WHERE id = @Id;",
-                new SugarParameter("@Id", claim.Id));
-        }
-        continueRelease.TrySetResult();
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            async () =>
+            {
+                Task processing = worker.ProcessPendingAsync(cancellation.Token);
+                await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processing);
+            },
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                cancellation.Cancel();
+                await beforeRelease.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    CommentMutationOutboxEvent claim = takeover.Queryable<CommentMutationOutboxEvent>().Single();
+                    takeover.Ado.ExecuteCommand(
+                        "UPDATE comment_mutation_outbox SET claim_token = 'replacement-token', claimed_by = 'replacement-worker', lease_generation = lease_generation + 1 WHERE id = @Id;",
+                        new SugarParameter("@Id", claim.Id));
+                }
+                continueRelease.TrySetResult();
 
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => processing);
-        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
-        Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
-        Assert.Equal("replacement-token", after.ClaimToken);
-        Assert.Equal("replacement-worker", after.ClaimedBy);
-        Assert.Equal(1, state.CreateSnapshot().LostCount);
+                await processing;
+                using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+                CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
+                Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
+                Assert.Equal("replacement-token", after.ClaimToken);
+                Assert.Equal("replacement-worker", after.ClaimedBy);
+                Assert.Equal(1, state.CreateSnapshot().LostCount);
+            },
+            () =>
+            {
+                cancellation.Cancel();
+                continueRelease.TrySetResult();
+            });
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task Worker_HeartbeatAndConsumerClaimLossAreRecordedOnceWithoutRenewalRaces()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -998,31 +1066,36 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
             Substitute.For<IBackgroundWorkerLease>(), state, TimeProvider.System, configuration,
             NullLogger<CommentMutationOutboxWorker>.Instance);
 
-        Task<int> processing = worker.ProcessPendingAsync(CancellationToken.None);
-        await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
-        DateTime renewalDeadline = DateTime.UtcNow.AddSeconds(10);
-        while (state.CreateSnapshot().RenewedCount < 2 && DateTime.UtcNow < renewalDeadline)
-        {
-            await Task.Delay(TimeSpan.FromMilliseconds(100));
-        }
-        Assert.True(state.CreateSnapshot().RenewedCount >= 2);
-        using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
-        {
-            CommentMutationOutboxEvent claim = takeover.Queryable<CommentMutationOutboxEvent>().Single();
-            takeover.Ado.ExecuteCommand(
-                "UPDATE comment_mutation_outbox SET claim_token = 'replacement-token', claimed_by = 'replacement-worker', lease_generation = lease_generation + 1 WHERE id = @Id;",
-                new SugarParameter("@Id", claim.Id));
-        }
-        release.TrySetResult();
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => worker.ProcessPendingAsync(CancellationToken.None),
+            async processing =>
+            {
+                await entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+                DateTime renewalDeadline = DateTime.UtcNow.AddSeconds(10);
+                while (state.CreateSnapshot().RenewedCount < 2 && DateTime.UtcNow < renewalDeadline)
+                {
+                    await Task.Delay(TimeSpan.FromMilliseconds(100));
+                }
+                Assert.True(state.CreateSnapshot().RenewedCount >= 2);
+                using (SqlSugarClient takeover = PostgresSqlSugarTestClient.Create(connectionString))
+                {
+                    CommentMutationOutboxEvent claim = takeover.Queryable<CommentMutationOutboxEvent>().Single();
+                    takeover.Ado.ExecuteCommand(
+                        "UPDATE comment_mutation_outbox SET claim_token = 'replacement-token', claimed_by = 'replacement-worker', lease_generation = lease_generation + 1 WHERE id = @Id;",
+                        new SugarParameter("@Id", claim.Id));
+                }
+                release.TrySetResult();
 
-        Assert.Equal(0, await processing);
-        CommentMutationOutboxRuntimeSnapshot snapshot = state.CreateSnapshot();
-        Assert.Equal(1, snapshot.LostCount);
-        Assert.True(snapshot.RenewedCount >= 2);
-        using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
-        CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
-        Assert.Equal("replacement-token", after.ClaimToken);
-        Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
+                Assert.Equal(0, await processing);
+                CommentMutationOutboxRuntimeSnapshot snapshot = state.CreateSnapshot();
+                Assert.Equal(1, snapshot.LostCount);
+                Assert.True(snapshot.RenewedCount >= 2);
+                using SqlSugarClient verify = PostgresSqlSugarTestClient.Create(connectionString);
+                CommentMutationOutboxEvent after = verify.Queryable<CommentMutationOutboxEvent>().Single();
+                Assert.Equal("replacement-token", after.ClaimToken);
+                Assert.Equal(CommentMutationOutboxStatus.Processing, after.Status);
+            },
+            () => release.TrySetResult());
     }
 
     private static ServiceProvider BuildWorkerServices(string connectionString, ICacheInvalidationDispatcher invalidations)

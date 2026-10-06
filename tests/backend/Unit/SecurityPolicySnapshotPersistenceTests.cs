@@ -91,6 +91,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task ActivateAsync_ConcurrentSamePolicyIdProducesStrictlyMonotonicVersions()
     {
         string connectionString = await CreateConnectionStringAsync();
@@ -102,8 +103,8 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
         var secondService = new SecurityPolicySnapshotService(secondDb, new StaticTimeProvider(s_baselineNow.AddSeconds(1)));
         using var barrier = new Barrier(2);
 
-        SecurityPolicySnapshotRecord[] records = await Task.WhenAll(
-                StartBarrierTaskAsync(
+        SecurityPolicySnapshotRecord[] records = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(
                     barrier,
                     () => firstService.ActivateAsync(
                         SecurityPolicyIds.AntiCrawler,
@@ -112,7 +113,7 @@ public sealed class SecurityPolicySnapshotPersistenceTests(PostgresSchemaMigrati
                         createdByAdminId: 7,
                         reason: "first",
                         CancellationToken.None)),
-                StartBarrierTaskAsync(
+            () => StartBarrierTaskAsync(
                     barrier,
                     () => secondService.ActivateAsync(
                         SecurityPolicyIds.AntiCrawler,

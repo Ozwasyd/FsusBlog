@@ -125,6 +125,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task DeleteAsync_StaleRowVersionFailsWithoutChangingArticleState()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -147,17 +148,22 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             Assert.Equal(1, await command.ExecuteNonQueryAsync());
         }
 
-        Task<bool> deleteTask = service.DeleteAsync(articleId);
-        await Task.Delay(TimeSpan.FromMilliseconds(250));
-        Assert.False(deleteTask.IsCompleted);
-        await concurrentUpdate.CommitAsync();
+        await RealConcurrencyHarness.RunInterleavedAsync(
+            () => service.DeleteAsync(articleId),
+            async deleteTask =>
+            {
+                await Task.Delay(TimeSpan.FromMilliseconds(250));
+                Assert.False(deleteTask.IsCompleted);
+                await concurrentUpdate.CommitAsync();
 
-        bool deleted = await deleteTask.WaitAsync(TimeSpan.FromSeconds(10));
-        Article article = LoadArticle(setupDb, articleId);
-        Assert.False(deleted);
-        Assert.False(article.IsDeleted);
-        Assert.Equal(ArticleStatus.Published, article.Status);
-        Assert.Equal(1, article.Views);
+                bool deleted = await deleteTask.WaitAsync(TimeSpan.FromSeconds(10));
+                Article article = LoadArticle(setupDb, articleId);
+                Assert.False(deleted);
+                Assert.False(article.IsDeleted);
+                Assert.Equal(ArticleStatus.Published, article.Status);
+                Assert.Equal(1, article.Views);
+            },
+            async () => await concurrentUpdate.DisposeAsync());
     }
 
     [Fact]
@@ -198,6 +204,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task DeleteAsync_ConcurrentWritersAllowExactlyOneStateTransition()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -209,13 +216,13 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         }
         using var barrier = new Barrier(2);
 
-        bool[] results = await Task.WhenAll(
-            StartBarrierTaskAsync(barrier, async () =>
+        bool[] results = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 return await CreateService(db).DeleteAsync(42);
             }),
-            StartBarrierTaskAsync(barrier, async () =>
+            () => StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 return await CreateService(db).DeleteAsync(42);
@@ -257,6 +264,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task PermanentlyDeleteArticleAsync_ConcurrentWritersAllowExactlyOneRemoval()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -268,13 +276,13 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         }
         using var barrier = new Barrier(2);
 
-        bool[] results = await Task.WhenAll(
-            StartBarrierTaskAsync(barrier, async () =>
+        bool[] results = await RealConcurrencyHarness.RunAsync(
+            () => StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 return await CreateService(db).PermanentlyDeleteArticleAsync(42);
             }),
-            StartBarrierTaskAsync(barrier, async () =>
+            () => StartBarrierTaskAsync(barrier, async () =>
             {
                 using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
                 return await CreateService(db).PermanentlyDeleteArticleAsync(42);

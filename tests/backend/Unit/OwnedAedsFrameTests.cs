@@ -109,6 +109,7 @@ public sealed class OwnedAedsFrameTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public void ConcurrentRetireAndLeaseDisposal_ReturnPooledBufferOnce()
     {
         var pool = new TrackingArrayPool();
@@ -120,7 +121,7 @@ public sealed class OwnedAedsFrameTests
             .Select(_ => owned.AcquireReadLease())
             .ToArray();
 
-        Parallel.Invoke(
+        RealConcurrencyHarness.Run(
             () => owned.Retire(),
             () => owned.Dispose(),
             () => Parallel.ForEach(leases, static lease => lease.Dispose()),

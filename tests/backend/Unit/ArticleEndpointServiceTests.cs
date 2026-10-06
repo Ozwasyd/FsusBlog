@@ -147,6 +147,7 @@ public sealed partial class ArticleEndpointServiceTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Concurrency, ConcurrencyHarness = "fsusblog.real-concurrency.v1")]
     public async Task GetPageListAsync_ConcurrentColdFrameMiss_CoalescesCoreLoadAndCacheSet()
     {
         const int Callers = 16;
@@ -176,8 +177,8 @@ public sealed partial class ArticleEndpointServiceTests
                 return Result<CorePageResult<ArticleListCoreModel>>.Success(page);
             });
 
-        Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>>[] tasks = Enumerable.Range(0, Callers)
-            .Select(_ => service.GetPageListAsync(
+        Task<ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[]> concurrentResults = RealConcurrencyHarness.RunAsync(Enumerable.Range(0, Callers),
+            _ => service.GetPageListAsync(
                 1,
                 10,
                 categoryId: null,
@@ -185,13 +186,19 @@ public sealed partial class ArticleEndpointServiceTests
                 isDeleted: false,
                 canReadDeleted: true,
                 status: null,
-                canReadPrivate: true))
-            .ToArray();
+                canReadPrivate: true));
 
-        await cache.InitialColdReadsCompleted.WaitAsync(s_concurrentColdFrameWaitTimeout);
-        await firstCoreLoadStarted.Task.WaitAsync(s_concurrentColdFrameWaitTimeout);
-        releaseCore.SetResult(true);
-        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await Task.WhenAll(tasks).WaitAsync(s_concurrentColdFrameWaitTimeout);
+        try
+        {
+            await cache.InitialColdReadsCompleted.WaitAsync(s_concurrentColdFrameWaitTimeout);
+            await firstCoreLoadStarted.Task.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        }
+        finally
+        {
+            releaseCore.TrySetResult(true);
+            await concurrentResults.WaitAsync(s_concurrentColdFrameWaitTimeout);
+        }
+        ArticleEndpointPayload<CorePageResult<ArticleListCoreModel>>[] results = await concurrentResults.WaitAsync(s_concurrentColdFrameWaitTimeout);
 
         Assert.All(results, result => Assert.True(result.HasCachedFrame));
         Assert.Equal(1, Volatile.Read(ref coreLoads));
