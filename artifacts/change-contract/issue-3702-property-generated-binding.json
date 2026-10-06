@@ -1,0 +1,30 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/document-lifecycle.json",
+        "tests/matrix.yml",
+        "src/migration/OfflineMigrationClassificationFacts.cs"
+    ],
+    "outputs": [
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "75faf3549ccc4b44d9e209159f4a3372165eecb533d2e04882c5e48a7e6d3c5e"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "64de0929708478c1c5bf820d59ca9a41e93755b2f7e495fdb3fd96da2b97b0cf"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "cdaa0ad078bbe56f5494c15b916a566de4628693a498b09d3611731d3d916875"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "e7d437734d5001492666bdf3e290388adec242162db4b733dca772dfbfbe8176"
+        },
+        {
+            "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+            "sha256": "ff8a608c55010cc7d956c59dadad1a00de962173070bc8eed554f7ea1c801775"
+        }
+    ]
+}

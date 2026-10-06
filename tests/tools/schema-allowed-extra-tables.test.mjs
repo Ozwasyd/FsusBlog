@@ -154,3 +154,138 @@ test("a PostCodeFirst rollup table missing from the required catalog is rejected
         /event_type_read_stats.*missing from the required catalog/
     );
 });
+
+test("complete PropertyDefinition history tables bind to their registered migration", (t) =>
+{
+    const root = fixture(t);
+    const definition = readFileSync(
+        join(root, "src/migration/Definitions/ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.cs"),
+        "utf8"
+    );
+    const required = readFileSync(
+        join(root, "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs"),
+        "utf8"
+    );
+    assert.match(definition, /const string MigrationId = "20261002-post-article-property-definition-command-history"/);
+    for (const table of ["article_property_definition_history", "article_property_definition_command"])
+    {
+        assert.ok(definition.includes(`CREATE TABLE IF NOT EXISTS ${table} (`));
+        assert.ok(required.includes(`CREATE TABLE IF NOT EXISTS ${table} (`));
+    }
+    const result = check(root);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /\[schema-allowed-extra-tables\] ok/);
+});
+
+for (const replacementId of ["", "20261003-post-article-property-definition-command-history"])
+{
+    test(`PropertyDefinition history migration ID ${replacementId ? "drift" : "absence"} is rejected`, (t) =>
+    {
+        const root = fixture(t);
+        mutate(
+            root,
+            "src/migration/Definitions/ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.cs",
+            (source) =>
+            {
+                const originalId = "20261002-post-article-property-definition-command-history";
+                assert.equal(source.split(originalId).length, 2);
+                return source.replace(originalId, replacementId);
+            }
+        );
+        const result = check(root);
+        assert.notEqual(result.status, 0);
+        for (const table of ["article_property_definition_history", "article_property_definition_command"])
+        {
+            assert.ok(result.stderr.includes(`"${table}" is not created by the PostCodeFirst rollup EnsureTable methods`));
+        }
+    });
+}
+
+for (const table of ["article_property_definition_history", "article_property_definition_command"])
+{
+    test(`required ${table} CREATE TABLE SQL drift is rejected`, (t) =>
+    {
+        const root = fixture(t);
+        mutate(
+            root,
+            "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
+            (source) =>
+            {
+                const tableSql = new RegExp(`(new\\(\\s*"${table}"\\s*,\\s*"""[\\s\\S]*?)"""`, "u");
+                assert.equal([...source.matchAll(new RegExp(tableSql.source, "gu"))].length, 1);
+                return source.replace(tableSql, (block) =>
+                {
+                    assert.ok(block.includes("history_version integer NOT NULL"));
+                    return block.replace("history_version integer NOT NULL", "history_version bigint NOT NULL");
+                });
+            }
+        );
+        const result = check(root);
+        assert.notEqual(result.status, 0);
+        assert.ok(result.stderr.includes(`CREATE TABLE SQL for "${table}" does not match the PostCodeFirst EnsureTable step`));
+    });
+}
+
+for (const replacementId of ["", "20260916-post-author-recent-history"])
+{
+    test(`recent article history migration ID ${replacementId ? "drift" : "absence"} is rejected`, (t) =>
+    {
+        const root = fixture(t);
+        mutate(
+            root,
+            "src/migration/Definitions/AuthorRecentArticleHistoryMigrationDefinitions.cs",
+            (source) =>
+            {
+                const originalId = "20260915-post-author-recent-history";
+                assert.equal(source.split(originalId).length, 2);
+                return source.replace(originalId, replacementId);
+            }
+        );
+        const result = check(root);
+        assert.notEqual(result.status, 0);
+        for (const table of [
+            "author_recent_history_collection",
+            "author_recent_history_entry",
+            "author_recent_history_receipt",
+            "author_recent_history_idempotency",
+            "author_recent_history_outbox",
+            "author_recent_history_audit"
+        ])
+        {
+            assert.ok(result.stderr.includes(`"${table}" is not created by the PostCodeFirst rollup EnsureTable methods`));
+        }
+    });
+}
+
+for (const table of [
+    "author_recent_history_collection",
+    "author_recent_history_entry",
+    "author_recent_history_receipt",
+    "author_recent_history_idempotency",
+    "author_recent_history_outbox",
+    "author_recent_history_audit"
+])
+{
+    test(`required ${table} CREATE TABLE SQL drift is rejected`, (t) =>
+    {
+        const root = fixture(t);
+        mutate(
+            root,
+            "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRuntimeRollupTables.cs",
+            (source) =>
+            {
+                const tableSql = new RegExp(`(new\\(\\s*"${table}"\\s*,\\s*"""[\\s\\S]*?)"""`, "u");
+                assert.equal([...source.matchAll(new RegExp(tableSql.source, "gu"))].length, 1);
+                return source.replace(tableSql, (block) =>
+                {
+                    const declaration = `CREATE TABLE IF NOT EXISTS ${table} (`;
+                    assert.ok(block.includes(declaration));
+                    return block.replace(declaration, `${declaration}\n                unexpected_history_column integer,`);
+                });
+            }
+        );
+        const result = check(root);
+        assert.notEqual(result.status, 0);
+        assert.ok(result.stderr.includes(`CREATE TABLE SQL for "${table}" does not match the PostCodeFirst EnsureTable step`));
+    });
+}

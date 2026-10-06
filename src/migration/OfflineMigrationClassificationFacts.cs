@@ -1701,6 +1701,58 @@ public static class OfflineMigrationClassificationFacts
                     "author_recent_history_receipt_outbox_audit"
                 ]));
 
+        result.Add(
+            "20260915-post-article-property-definition-authority",
+            new OfflineMigrationClassificationFact(
+                "20260915-post-article-property-definition-authority",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Medium,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20260915-article-property-definition-authority"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "article_property_definition_closed_schema",
+                    "article_property_definition_owner_scope",
+                    "article_property_definition_cas_idempotency",
+                    "article_property_definition_receipt_audit_integrity"
+                ]));
+
+        // CompatibleCode describes additive DDL only; old writers must remain isolated from history writes.
+        result.Add(
+            "20261002-post-article-property-definition-command-history",
+            new OfflineMigrationClassificationFact(
+                "20261002-post-article-property-definition-command-history",
+                OfflineMigrationPhase.Expand,
+                s_legacyMinimumCoordinate, s_protocolMaximumCoordinate,
+                RequiresExclusiveMode: false,
+                Destructive: false,
+                RollbackMode: OfflineMigrationHistoricalRollbackMode.CompatibleCode,
+                EstimatedLockRisk: OfflineMigrationHistoricalLockRisk.Low,
+                BatchSize: null,
+                ResumeTokenName: null,
+                IntroducedAtFence: LegacyCoordinate("20261002-article-property-definition-command-history"),
+                ContractAfterFence: null,
+                MinimumRetentionWindow: TimeSpan.Zero,
+                Validators:
+                [
+                    "descriptor_policy",
+                    "n_minus_one_read_write",
+                    "article_property_definition_command_history_closed_schema",
+                    "article_property_definition_history_genesis_fail_closed",
+                    "article_property_definition_history_signed_audit_binding",
+                    "article_property_definition_authenticated_forward_replay",
+                    "article_property_definition_history_write_isolation"
+                ]));
+
         foreach (string id in result.Keys.ToArray())
         {
             result[id] = result[id] with
