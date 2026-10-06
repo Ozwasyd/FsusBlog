@@ -5,7 +5,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { relatedReadingResponseError } from './runtime-cache-scenarios/related-reading-contract.mjs';
+import { relatedReadingResponseError, runtimeCacheResponseError } from './runtime-cache-scenarios/related-reading-contract.mjs';
 const { resolveSourceCommit, resolveWorktreeFingerprint } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
 
 const { validateJsonSchema } = await import(new URL('../test-matrix/schema-validator/validate.mjs', import.meta.url));
@@ -306,6 +306,10 @@ function validateRawRequest(request, label, errors)
     {
         fields.push('responseBodyBase64');
     }
+    if (Object.hasOwn(request, 'responseContentType'))
+    {
+        fields.push('responseContentType');
+    }
     if (!exactKeys(request, fields, label, errors))
     {
         return;
@@ -314,9 +318,18 @@ function validateRawRequest(request, label, errors)
     {
         errors.push(`${label}.responseBodyBase64 must be a string`);
     }
+    if (Object.hasOwn(request, 'responseContentType') && typeof request.responseContentType !== 'string')
+    {
+        errors.push(`${label}.responseContentType must be a string`);
+    }
     if (!idPattern.test(String(request.id ?? '')) || !idPattern.test(String(request.subcaseId ?? '')))
     {
         errors.push(`${label} identity is invalid`);
+    }
+    if (typeof request.path !== 'string' || !request.path.startsWith('/') || request.path.startsWith('//') ||
+        /[\\#\u0000-\u0020]/u.test(request.path))
+    {
+        errors.push(`${label}.path must be an actual relative HTTP observation target`);
     }
     if (!Number.isInteger(request.status) || request.status < 100 || request.status > 599)
     {
@@ -622,6 +635,24 @@ function commandsForSubcase(raw, field, subcaseId)
 function validateScenarioRequirements(receipt, scenario, raw, errors)
 {
     const requirements = scenario.requirements;
+    for (const request of raw?.requests ?? [])
+    {
+        const responseError = runtimeCacheResponseError(scenario.id, request, receipt.input.parameters);
+        if (responseError !== null)
+        {
+            errors.push(`${scenario.id} HTTP/AEDS response ${request.id}: ${responseError}`);
+        }
+    }
+    if (raw && scenario.id === 'pagination')
+    {
+        const expected = [1, 10, 100, 1000].map((page) => `pagination-page-${page}`)
+            .concat([10, 100, 1000, 1001].map((page) => `pagination-cursorless-${page}`)).sort();
+        const actual = raw.requests.map((request) => request.parityGroup).sort();
+        if (!exactArray(actual, expected))
+        {
+            errors.push('pagination must measure each current logical and cursorless page exactly once');
+        }
+    }
     if (receipt.input.requestCount !== scenario.requests)
     {
         errors.push(`request count must equal catalog value ${scenario.requests}`);
