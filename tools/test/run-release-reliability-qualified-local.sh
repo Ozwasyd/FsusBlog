@@ -477,8 +477,12 @@ source_commit="$(git -C "$root" rev-parse HEAD)"
 source_fingerprint="$(node --input-type=module -e 'import { snapshotGitWorktree } from "./tools/test-matrix/scheduler.mjs"; const root = process.argv[1]; process.stdout.write((await snapshotGitWorktree(root)).fingerprint)' "$root")"
 export FSUSBLOG_TEST_RUN_ID="$run_id" FSUSBLOG_TEST_NAMESPACE="$namespace"
 export FSUSBLOG_TEST_SOURCE_COMMIT="$source_commit" FSUSBLOG_TEST_SOURCE_FINGERPRINT="$source_fingerprint"
-invocation_id=""
+invocation_id="${FSUSBLOG_RELEASE_INVOCATION_ID:-}"
+[[ -z "$invocation_id" || "$invocation_id" =~ ^[A-Za-z0-9][A-Za-z0-9_.-]*$ ]] \
+    || { printf '%s\n' 'FSUSBLOG_RELEASE_INVOCATION_ID must be a canonical identifier' >&2; exit 1; }
 if ((runtime_admission_only == 1)); then
+    [[ -z "${FSUSBLOG_DATA_SCALE_CALLER_JOURNAL:-}" ]] \
+        || { printf '%s\n' 'runtime admission-only cannot replace the parent DataScale invocation' >&2; exit 1; }
     invocation_id="$(node -e 'process.stdout.write(require("node:crypto").randomUUID())')"
     export FSUSBLOG_RELEASE_INVOCATION_ID="$invocation_id"
 fi

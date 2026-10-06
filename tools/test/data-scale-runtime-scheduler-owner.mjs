@@ -1,4 +1,5 @@
 import { spawnSync } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -34,6 +35,7 @@ export async function createDataScaleRuntimeSchedulerOwner({
     let pool;
     let caller;
     let disposed = false;
+    const invocationId = randomUUID();
     try
     {
         const buildRoot = environment.FSUSBLOG_PRODUCTION_BUILD_ROOT;
@@ -66,7 +68,20 @@ export async function createDataScaleRuntimeSchedulerOwner({
             repositoryRoot: root, resourceEnforcer, bundleId: admission.currentTierId, admission, resourceGrant
         });
         caller = await startDataScaleRuntimeCaller({
-            root, runsRoot, admission, admissionReference, environment,
+            root, runsRoot, admission, admissionReference,
+            environment: {
+                ...environment,
+                // The original production lane seals this complete Server
+                // domain. Consume those exact producer bytes, rather than
+                // treating an acceptance rebuild as the same artifact.
+                FSUSBLOG_PRODUCTION_BUILD_ROOT: path.join(root, '.tmp/ci-production-build', admission.runId),
+                FSUSBLOG_BACKEND_SERVER_DLL: path.join(root, '.tmp/ci-production-build', admission.runId,
+                    'payload/backend-runtime/FsusBlog.Server.dll'),
+                FSUSBLOG_TEST_FIXTURE_CONFIG: `.tmp/env/${admission.namespace}.env`,
+                FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: admission.runId,
+                FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: invocationId,
+                FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: `${invocationId}.attempt-1`
+            },
             baselineContainerControls: () => pool.baselineContainerControls(),
             runtimeAdmission: {
                 ...pool.dataScale, schedulerResourceGrant: pool.dataScale.resourceGrant,
@@ -86,7 +101,8 @@ export async function createDataScaleRuntimeSchedulerOwner({
             teardown: (options) => teardownDataScaleRuntime({ ...options, repositoryRoot: root })
         });
         return {
-            environment: caller.environment,
+            environment: { ...caller.environment, FSUSBLOG_RELEASE_INVOCATION_ID: invocationId,
+                FSUSBLOG_RELEASE_RUN_ID: admission.runId },
             async dispose({ success = false } = {})
             {
                 if (disposed) return;

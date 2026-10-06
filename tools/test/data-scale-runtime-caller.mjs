@@ -8,17 +8,174 @@ import process from 'node:process';
 const { currentProcessIdentity, processIdentityStatus } = await import(new URL('./process-identity.mjs', import.meta.url));
 const { schedulerTierAdmissionActivity } = await import(new URL('../test-matrix/scheduler-run-owner.mjs', import.meta.url));
 const { productionDiskDemandDigest } = await import(new URL('../test-matrix/production-disk-demand.mjs', import.meta.url));
+const { verifyProductionBuildReceipt } = await import(new URL('../ci/production-build-artifacts.mjs', import.meta.url));
 
 const schema = 'fsusblog.data-scale-runtime-caller.v1';
 const operations = Object.freeze(['provision', 'teardown', 'baseline-container-controls']);
 const maximumBytes = 1024 ** 2;
 const environmentKeys = Object.freeze([
     'FSUSBLOG_RELEASE_RELIABILITY_RUN_ID', 'FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID',
-    'FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID', 'FSUSBLOG_RELEASE_RUNTIME_IMAGE',
-    'FSUSBLOG_TEST_FIXTURE_CONFIG', 'FSUSBLOG_PRODUCTION_BUILD_ROOT', 'FSUSBLOG_BACKEND_SERVER_DLL',
-    'FSUSBLOG_TEST_EXECUTION_SERVICE_CATALOG', 'FSUSBLOG_DATA_SCALE_RUNTIME_PLAN_PATH',
-    'FSUSBLOG_DATA_SCALE_RUNTIME_RECEIPT_PATH'
+    'FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID'
 ]);
+
+function observedArtifact(root, relative)
+{
+    if (typeof relative !== 'string' || path.isAbsolute(relative)
+        || relative !== path.posix.normalize(relative) || relative.split('/').includes('..'))
+    {
+        throw new Error('DataScale caller original artifact locator is invalid');
+    }
+    const file = path.resolve(root, relative);
+    if (!file.startsWith(`${root}${path.sep}`) || !fs.lstatSync(file).isFile()
+        || fs.lstatSync(file).isSymbolicLink() || fs.realpathSync(file) !== file)
+    {
+        throw new Error('DataScale caller original artifact is not a canonical regular file');
+    }
+    const bytes = fs.readFileSync(file);
+    return { path: relative, fileDigest: byteDigest(bytes), bytes };
+}
+
+function parentRuntimeArtifacts(root, admission, environment)
+{
+    const keys = ['FSUSBLOG_PRODUCTION_BUILD_ROOT', 'FSUSBLOG_BACKEND_SERVER_DLL',
+        'FSUSBLOG_TEST_FIXTURE_CONFIG', 'FSUSBLOG_RELEASE_RUNTIME_IMAGE'];
+    if (keys.some((key) => typeof environment[key] !== 'string' || !environment[key].trim()))
+    {
+        throw new Error('DataScale caller requires parent-frozen build, assembly, fixture and image locators');
+    }
+    const frozen = Object.freeze(Object.fromEntries(keys.map((key) => [key, environment[key]])));
+    const relative = (value) => path.relative(root, path.resolve(root, value)).replaceAll(path.sep, '/');
+    const buildReceiptPath = `.tmp/ci-production-build/${admission.runId}/receipt.json`;
+    const topologyPath = `.tmp/release-reliability/${admission.runId}/fixture-authority.json`;
+    const paths = {
+        config: relative(frozen.FSUSBLOG_TEST_FIXTURE_CONFIG),
+        schema: 'src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs',
+        seed: 'tools/data-scale/seed.sh',
+        auditRetentionPolicy: 'src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs'
+    };
+    const catalog = observedArtifact(root, 'config/testing/test-execution-service-catalog.json');
+    const sourceFiles = Object.fromEntries(Object.entries(paths).filter(([key]) => key !== 'config')
+        .map(([key, value]) => [key, observedArtifact(root, value).fileDigest]));
+    let retained = null;
+    return {
+        frozen,
+        validate(identity)
+        {
+            const original = observedArtifact(root, `.tmp/release-reliability/${identity.invocationId}/identity.json`);
+            const document = JSON.parse(original.bytes);
+            if (productionDiskDemandDigest(document) !== productionDiskDemandDigest(identity)
+                || document.contentDigest !== documentDigest(document))
+            {
+                throw new Error('DataScale caller identity differs from the original invocation artifact');
+            }
+            const build = observedArtifact(root, buildReceiptPath);
+            const receipt = verifyProductionBuildReceipt({
+                artifactRoot: path.dirname(path.join(root, buildReceiptPath)),
+                expectedSourceState: admission.sourceState,
+                expectedProducer: { workflow: 'Local production', runId: admission.runId,
+                    runAttempt: 1, job: 'production-build-artifacts' },
+                expectedInputRoot: root,
+                expectedReceiptDigest: identity.build?.contentDigest,
+                repairReadOnlySeal: false
+            }).receipt;
+            if (identity.build?.status !== 'complete' || identity.build.path !== build.path
+                || identity.build.fileDigest !== build.fileDigest || identity.build.contentDigest !== receipt.contentDigest
+                || identity.build.producerRunId !== admission.runId
+                || identity.build.image?.reference !== frozen.FSUSBLOG_RELEASE_RUNTIME_IMAGE
+                || identity.build.image?.imageDigest !== identity.build.imageDigest
+                || identity.build.image?.revision !== admission.sourceState.commit
+                || identity.build.sourceState?.commit !== admission.sourceState.commit
+                || normalizedSourceFingerprint(identity.build.sourceState?.worktreeFingerprint)
+                    !== normalizedSourceFingerprint(admission.sourceState.worktreeFingerprint))
+            {
+                throw new Error('DataScale caller original build receipt/image/source binding mismatch');
+            }
+            const buildRoot = path.resolve(root, frozen.FSUSBLOG_PRODUCTION_BUILD_ROOT);
+            const assembly = path.resolve(root, frozen.FSUSBLOG_BACKEND_SERVER_DLL);
+            if (fs.realpathSync(buildRoot) !== buildRoot || !fs.lstatSync(buildRoot).isDirectory()
+                || !assembly.startsWith(`${buildRoot}${path.sep}`)
+                || path.basename(assembly) !== 'FsusBlog.Server.dll')
+            {
+                throw new Error('DataScale caller assembly escapes the parent-frozen build root');
+            }
+            const domain = receipt.domains.filter((value) => value.name === 'backend-runtime');
+            if (domain.length !== 1) throw new Error('DataScale caller requires the original backend-runtime artifact domain');
+            const assemblyRoot = path.dirname(assembly);
+            const roster = receipt.artifacts.filter((record) => record.path.startsWith(`${domain[0].path}/`));
+            if (!roster.some((record) => record.path === `${domain[0].path}/FsusBlog.Server.dll`))
+            {
+                throw new Error('DataScale caller original manifest has no Server assembly');
+            }
+            const candidate = roster.map((record) =>
+            {
+                const suffix = record.path.slice(domain[0].path.length + 1);
+                const item = observedArtifact(root, relative(path.join(assemblyRoot, suffix)));
+                if (item.bytes.length !== record.size || item.fileDigest !== record.sha256)
+                {
+                    throw new Error('DataScale caller actual candidate assembly closure differs from the original build manifest');
+                }
+                return { path: item.path, fileDigest: item.fileDigest };
+            });
+            const actual = [];
+            const visit = (directory) =>
+            {
+                for (const entry of fs.readdirSync(directory, { withFileTypes: true }))
+                {
+                    const file = path.join(directory, entry.name);
+                    if (entry.isDirectory()) visit(file);
+                    else if (entry.isFile()) actual.push(relative(file));
+                    else throw new Error('DataScale caller candidate assembly closure contains an unsafe entry');
+                }
+            };
+            visit(assemblyRoot);
+            if (JSON.stringify(actual.sort()) !== JSON.stringify(candidate.map((item) => item.path).sort()))
+            {
+                throw new Error('DataScale caller candidate assembly closure has unreceipted files');
+            }
+            const files = Object.fromEntries(Object.entries(paths).map(([key, value]) => [key, observedArtifact(root, value)]));
+            if (Object.entries(sourceFiles).some(([key, fileDigest]) => files[key].fileDigest !== fileDigest))
+            {
+                throw new Error('DataScale caller original fixture source bytes drifted after parent admission');
+            }
+            const topology = observedArtifact(root, topologyPath);
+            const authority = JSON.parse(topology.bytes);
+            const fixture = identity.fixture;
+            if (fixture?.status !== 'complete' || fixture.namespace !== admission.namespace
+                || fixture.root !== `.tmp/fixtures/${admission.namespace}`
+                || fixture.topology?.path !== topology.path || fixture.topology.fileDigest !== topology.fileDigest
+                || authority.schema !== 'fsusblog.release-reliability-runtime-topology.v1'
+                || authority.status !== 'complete' || authority.runId !== admission.runId
+                || authority.namespace !== admission.namespace || authority.root !== fixture.root
+                || authority.contentDigest !== documentDigest(authority)
+                || authority.runtime?.imageDigest !== identity.build.imageDigest
+                || authority.runtime.sourceState?.commit !== admission.sourceState.commit
+                || normalizedSourceFingerprint(authority.runtime.sourceState?.worktreeFingerprint)
+                    !== normalizedSourceFingerprint(admission.sourceState.worktreeFingerprint)
+                || Object.entries(files).some(([key, file]) => fixture[key]?.status !== 'complete'
+                    || fixture[key].path !== file.path || fixture[key].fileDigest !== file.fileDigest
+                    || productionDiskDemandDigest(authority[key === 'schema' ? 'schemaFile' : key])
+                        !== productionDiskDemandDigest({ path: file.path, fileDigest: file.fileDigest }))
+                || productionDiskDemandDigest(fixture.topology?.content) !== productionDiskDemandDigest({
+                    schema: authority.schema, contentDigest: authority.contentDigest,
+                    postgres: authority.postgres, redis: authority.redis,
+                    auditRetentionPolicy: authority.auditRetentionPolicy, runtime: authority.runtime }))
+            {
+                throw new Error('DataScale caller original fixture artifact binding mismatch');
+            }
+            if (observedArtifact(root, catalog.path).fileDigest !== catalog.fileDigest)
+            {
+                throw new Error('DataScale caller original service catalog bytes drifted');
+            }
+            const observation = { identity: original.fileDigest, build: build.fileDigest, topology: topology.fileDigest,
+                fixture: Object.fromEntries(Object.entries(files).map(([key, file]) => [key, file.fileDigest])), candidate };
+            if (retained && productionDiskDemandDigest(observation) !== productionDiskDemandDigest(retained))
+            {
+                throw new Error('DataScale caller original runtime artifact bytes changed after binding');
+            }
+            retained ??= observation;
+        }
+    };
+}
 
 function byteDigest(value)
 {
@@ -116,6 +273,11 @@ function readJournal(file, repositoryRoot)
 function attemptIdentity(identity, environment, journal)
 {
     const attemptId = environment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID;
+    if (identity?.invocationId !== journal.runtimeIdentityEnvironment.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID
+        || attemptId !== journal.runtimeIdentityEnvironment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID)
+    {
+        throw new Error('DataScale caller refuses a different invocation or attempt');
+    }
     if (identity?.schema !== 'fsusblog.release-reliability-run-identity.v1' || identity.status !== 'complete'
     || identity.contentDigest !== documentDigest(identity)
     || identity.runId !== journal.admission.runId
@@ -244,6 +406,15 @@ export async function startDataScaleRuntimeCaller({
     const authority = { repositoryRoot, runsRoot: fs.realpathSync(runsRoot), admission,
         admissionReference, parentProcessIdentity: currentProcessIdentity() };
     immutableAdmission(authority);
+    const artifacts = parentRuntimeArtifacts(repositoryRoot, admission, environment);
+    const parentEnvironment = Object.freeze({ ...environment, ...artifacts.frozen });
+    const runtimeIdentityEnvironment = Object.freeze(transportEnvironment(parentEnvironment));
+    if (runtimeIdentityEnvironment.FSUSBLOG_RELEASE_RELIABILITY_RUN_ID !== admission.runId
+        || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(runtimeIdentityEnvironment.FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID ?? '')
+        || !/^[A-Za-z0-9][A-Za-z0-9_.-]*$/u.test(runtimeIdentityEnvironment.FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID ?? ''))
+    {
+        throw new Error('DataScale caller requires the original parent run, invocation and attempt envelope');
+    }
     // Keep the private control endpoint below Linux's sockaddr_un path bound,
     // including when TMPDIR is the task's longer dev-cache directory.
     const directory = fs.mkdtempSync(path.join(fs.realpathSync(os.tmpdir()), 'dsc-'));
@@ -258,7 +429,7 @@ export async function startDataScaleRuntimeCaller({
     const tokenFile = path.join(directory, 'token');
     const token = randomBytes(32).toString('hex');
     fs.writeFileSync(tokenFile, `${token}\n`, { mode: 0o600, flag: 'wx' });
-    const payload = { schema, ...authority, socketPath, tokenFile, tokenDigest: byteDigest(token),
+    const payload = { schema, ...authority, runtimeIdentityEnvironment, socketPath, tokenFile, tokenDigest: byteDigest(token),
         operations, createdAt: new Date().toISOString() };
     const journal = { ...payload, contentDigest: documentDigest(payload) };
     let attempt = null;
@@ -276,9 +447,10 @@ export async function startDataScaleRuntimeCaller({
         }
         if (operation === 'provision')
         {
+            artifacts.validate(identity);
             if (attempt?.status === 'provisioned') return inspectProduced(repositoryRoot, attempt.produced, operation, binding);
             if (attempt) throw new Error('DataScale caller attempt requires teardown before another provision');
-            attempt = { binding, identity: structuredClone(identity), environment: { ...environment, ...requestedEnvironment },
+            attempt = { binding, identity: structuredClone(identity), environment: { ...parentEnvironment, ...requestedEnvironment },
                 status: 'provisioning', plan: null, planPath: null, runtimeReceipt: null };
             try
             {
@@ -460,6 +632,11 @@ async function requestDataScaleCaller({ operation, repositoryRoot, identity, env
         throw new Error('DataScale caller timeout is invalid');
     }
     const journal = readJournal(configured, repositoryRoot);
+    if (Object.keys(environment ?? {}).some((key) => !environmentKeys.includes(key)
+        && key !== 'FSUSBLOG_DATA_SCALE_CALLER_JOURNAL'))
+    {
+        throw new Error('DataScale caller request contains an unapproved environment key; artifact locators belong to the parent');
+    }
     const requested = operation === 'baseline-container-controls' ? {} : transportEnvironment(environment);
     if (operation !== 'baseline-container-controls') attemptIdentity(identity, requested, journal);
     const token = fs.readFileSync(journal.tokenFile, 'utf8').trim();
@@ -527,6 +704,7 @@ export async function delegateDataScaleRuntimeOperation(options)
 export async function readDataScaleBaselineContainerControls({ repositoryRoot, environment, timeoutMs = 300000 })
 {
     const { result, journal } = await requestDataScaleCaller({ operation: 'baseline-container-controls',
-        repositoryRoot, environment, timeoutMs, identity: null });
+        repositoryRoot, environment: { FSUSBLOG_DATA_SCALE_CALLER_JOURNAL: environment?.FSUSBLOG_DATA_SCALE_CALLER_JOURNAL },
+        timeoutMs, identity: null });
     return validateBaselineContainerControls(result, journal);
 }

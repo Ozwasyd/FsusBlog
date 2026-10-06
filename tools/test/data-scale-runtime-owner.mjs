@@ -807,7 +807,10 @@ async function delegatedOwnerResult({ operation, repositoryRoot, identity, envir
 {
     const { delegateDataScaleRuntimeOperation } = await import('./data-scale-runtime-caller.mjs');
     const snapshot = await delegateDataScaleRuntimeOperation({
-        operation, repositoryRoot, identity, environment
+        operation, repositoryRoot, identity,
+        environment: Object.fromEntries(['FSUSBLOG_DATA_SCALE_CALLER_JOURNAL',
+            'FSUSBLOG_RELEASE_RELIABILITY_RUN_ID', 'FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID',
+            'FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID'].map((key) => [key, environment[key]]))
     });
     const documents = {};
     for (const kind of operation === 'provision' ? ['plan', 'receipt'] : ['receipt'])
@@ -876,6 +879,10 @@ export async function provisionDataScaleRuntime({
     const runtimeImage = inspectImage(inputs.runtimeImageReference, commandOptions);
     const postgresImage = inspectImage(inputs.postgresImageReference, commandOptions);
     const redisImage = inspectImage(inputs.redisImageReference, commandOptions);
+    if (runtimeImage.Id !== identity.build?.imageDigest)
+    {
+        throw new Error('dedicated runtime image differs from the original build identity');
+    }
     if (postgresImage.Id !== inputs.fixturePostgresImageDigest
         || redisImage.Id !== inputs.fixtureRedisImageDigest)
     {

@@ -616,6 +616,12 @@ test('provision and teardown execute the dedicated topology and leave zero resid
         FSUSBLOG_RELEASE_RUNTIME_IMAGE: 'fsusblog/runtime:test',
         FSUSBLOG_TEST_FIXTURE_CONFIG: '.tmp/env/runtime.env'
     };
+    await assert.rejects(provisionDataScaleRuntime({
+        createAdmission: controlledAdmission, repositoryRoot: root,
+        identity: { ...identity, build: { ...identity.build, imageDigest: sha('9') } },
+        environment, execute
+    }), /runtime image differs from the original build identity/u);
+    assert.ok(!calls.some((call) => call[1] === 'run' || call[2] === 'create'));
     created.add(`network:${ownerPlan.resources.networkName}`);
     await assert.rejects(provisionDataScaleRuntime({
         createAdmission: controlledAdmission,

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import net from 'node:net';
 import os from 'node:os';
@@ -10,10 +11,16 @@ const { currentProcessIdentity } = await import(new URL('../../tools/test/proces
 const { productionDiskDemandDigest } = await import(new URL('../../tools/test-matrix/production-disk-demand.mjs', import.meta.url));
 const { RunEvidenceObjectStore } = await import(new URL('../../tools/test-matrix/content-addressed-evidence-store.mjs', import.meta.url));
 const { createSchedulerRunOwner, createSchedulerTierAdmission, schedulerCandidateIdentityDigest, writeSchedulerTierAdmission } = await import(new URL('../../tools/test-matrix/scheduler-run-owner.mjs', import.meta.url));
+const { createProductionBuildReceipt } = await import(new URL('../../tools/ci/production-build-artifacts.mjs', import.meta.url));
 
 function seal(value)
 {
     return { ...value, contentDigest: productionDiskDemandDigest(value) };
+}
+
+function rawHash(value)
+{
+    return createHash('sha256').update(value).digest('hex');
 }
 
 // The scheduler lock, immutable admission, evidence journal, process identity
@@ -44,8 +51,55 @@ function fixture()
     const store = new RunEvidenceObjectStore({ root: path.join(runsRoot, runId, 'evidence-store'), runId, sourceState });
     store.appendJournalEvent({ eventType: 'tier-admitted', tier: admission.currentTierId, step: 'scheduler',
         status: 'running', payload: { operations: [{ kind: 'set', path: ['schedulerAdmissions', admission.currentTierId], value: admissionReference }] } });
+    const write = (relative, value) =>
+    {
+        const file = path.join(root, relative);
+        fs.mkdirSync(path.dirname(file), { recursive: true });
+        fs.writeFileSync(file, value);
+        return { status: 'complete', path: relative,
+            fileDigest: `sha256:${rawHash(value)}` };
+    };
+    const buildRoot = path.join(root, '.tmp/build', `${runId}-acceptance`);
+    const assembly = path.join(buildRoot, 'server/FsusBlog.Server.dll');
+    write(path.relative(root, assembly), 'controlled unit assembly bytes; no native qualification');
+    const artifactRoot = path.join(root, '.tmp/ci-production-build', runId);
+    write(path.relative(root, path.join(artifactRoot, 'payload/backend-runtime/FsusBlog.Server.dll')),
+        fs.readFileSync(assembly));
+    write('unit-source.txt', 'controlled source input');
+    const buildReceipt = createProductionBuildReceipt({ root, artifactRoot, sourceState,
+        producer: { workflow: 'Local production', runId, runAttempt: 1, job: 'production-build-artifacts' },
+        toolchain: Object.fromEntries(['node', 'npm', 'dotnet', 'vite', 'vitest', 'playwright', 'emsdk'].map((key) => [key, 'unit-double'])),
+        domains: [{ name: 'backend-runtime', path: 'payload/backend-runtime' }], inputPaths: ['unit-source.txt'] });
+    const imageReference = `unit@sha256:${'c'.repeat(64)}`;
+    const imageDigest = `sha256:${'c'.repeat(64)}`;
+    const fixtureConfig = write(`.tmp/env/${namespace}.env`, 'controlled unit configuration');
+    const schemaFile = write('src/backend/Infrastructure/SchemaMigration/SchemaModelInspector.cs', 'controlled unit schema source');
+    const seed = write('tools/data-scale/seed.sh', 'controlled unit seed source');
+    const auditRetentionPolicy = write('src/backend/Infrastructure/Audit/AuditRetentionCatalog.cs', 'controlled unit policy source');
+    const projected = (binding) => ({ path: binding.path, fileDigest: binding.fileDigest });
+    const topology = seal({ schema: 'fsusblog.release-reliability-runtime-topology.v1', status: 'complete',
+        runId, namespace, root: `.tmp/fixtures/${namespace}`, config: projected(fixtureConfig),
+        schemaFile: projected(schemaFile), seed: projected(seed), auditRetentionPolicy: projected(auditRetentionPolicy),
+        runtime: { imageDigest, sourceState }, postgres: { imageId: `sha256:${'d'.repeat(64)}` },
+        redis: { imageId: `sha256:${'e'.repeat(64)}` } });
+    const topologyBinding = write(`.tmp/release-reliability/${runId}/fixture-authority.json`, JSON.stringify(topology));
+    write('config/testing/test-execution-service-catalog.json', JSON.stringify({ services: {
+        postgres: { imageReference: `unit-postgres@sha256:${'d'.repeat(64)}` },
+        redis: { imageReference: `unit-redis@sha256:${'e'.repeat(64)}` } } }));
     const identity = seal({ schema: 'fsusblog.release-reliability-run-identity.v1', status: 'complete', runId,
-        invocationId: 'unit-invocation', sourceState: { ...sourceState, worktreeFingerprint: `sha256:${sourceState.worktreeFingerprint}` } });
+        invocationId: 'unit-invocation', sourceState: { ...sourceState, worktreeFingerprint: `sha256:${sourceState.worktreeFingerprint}` },
+        build: { status: 'complete', path: `.tmp/ci-production-build/${runId}/receipt.json`,
+            fileDigest: `sha256:${rawHash(fs.readFileSync(path.join(artifactRoot, 'receipt.json')))}`,
+            contentDigest: buildReceipt.contentDigest, imageDigest,
+            image: { reference: imageReference, imageDigest, revision: sourceState.commit },
+            sourceState, producerRunId: runId },
+        fixture: { status: 'complete', root: topology.root, namespace,
+            config: fixtureConfig, schema: schemaFile, seed, auditRetentionPolicy,
+            topology: { ...topologyBinding, content: { schema: topology.schema, contentDigest: topology.contentDigest,
+                postgres: topology.postgres, redis: topology.redis,
+                auditRetentionPolicy: topology.auditRetentionPolicy, runtime: topology.runtime } } } });
+    const identityFile = path.join(root, '.tmp/release-reliability/unit-invocation/identity.json');
+    write(path.relative(root, identityFile), JSON.stringify(identity));
     const environment = { FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: runId,
         FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: identity.invocationId,
         FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'unit-attempt' };
@@ -55,6 +109,8 @@ function fixture()
     let provisionFailure = false;
     const parent = {
         root, runsRoot, admission, admissionReference, runtimeAdmission,
+        environment: { ...environment, FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot, FSUSBLOG_BACKEND_SERVER_DLL: assembly,
+            FSUSBLOG_TEST_FIXTURE_CONFIG: fixtureConfig.path, FSUSBLOG_RELEASE_RUNTIME_IMAGE: imageReference },
         async provision({ identity: request, environment: requestEnvironment, runtimeAdmission: capability, onPlan })
         {
             assert.equal(capability, runtimeAdmission);
@@ -87,7 +143,8 @@ function fixture()
             return { receipt, receiptPath };
         }
     };
-    return { root, parent, ownerFile, admissionFile: published.file, identity, environment, events,
+    return { root, parent, ownerFile, admissionFile: published.file, identityFile, artifactRoot, assembly,
+        identity, environment, events,
         setCleanupStatus: (value) => { cleanupStatus = value; }, setProvisionFailure: () => { provisionFailure = true; },
         remove: () => fs.rmSync(root, { recursive: true, force: true }) };
 }
@@ -128,6 +185,24 @@ test('DataScale caller performs authenticated real RPC while parent retains capa
     finally { if (server) await server.dispose(); unit.remove(); }
 });
 
+test('DataScale caller consumes the original sealed production Server domain without an acceptance rebuild', async () =>
+{
+    const unit = fixture();
+    let server;
+    try
+    {
+        unit.parent.environment.FSUSBLOG_PRODUCTION_BUILD_ROOT = unit.artifactRoot;
+        unit.parent.environment.FSUSBLOG_BACKEND_SERVER_DLL = path.join(unit.artifactRoot,
+            'payload/backend-runtime/FsusBlog.Server.dll');
+        fs.rmSync(path.dirname(unit.assembly), { recursive: true });
+        server = await startDataScaleRuntimeCaller(unit.parent);
+        await delegate(unit, server);
+        await delegate(unit, server, 'teardown');
+        assert.deepEqual(unit.events, ['provision', 'teardown']);
+    }
+    finally { if (server) await server.dispose(); unit.remove(); }
+});
+
 test('DataScale caller refuses missing, unsafe, tampered and stale scheduler authority before callbacks', async () =>
 {
     const unit = fixture();
@@ -160,6 +235,114 @@ test('DataScale caller refuses missing, unsafe, tampered and stale scheduler aut
         await assert.rejects(delegate(unit, server, 'provision', { identity: seal({ ...unit.identity,
             contentDigest: undefined, sourceState: { ...unit.identity.sourceState, worktreeFingerprint: `sha256:${'f'.repeat(64)}` } }) }), /identity mismatch/u);
         assert.deepEqual(unit.events, []);
+    }
+    finally { if (server) await server.dispose(); unit.remove(); }
+});
+
+test('DataScale parent refuses artifact environment overrides and self-sealed identities before owner callbacks', async () =>
+{
+    const unit = fixture();
+    let server;
+    try
+    {
+        server = await startDataScaleRuntimeCaller(unit.parent);
+        const journal = JSON.parse(fs.readFileSync(server.environment.FSUSBLOG_DATA_SCALE_CALLER_JOURNAL));
+        const token = fs.readFileSync(journal.tokenFile, 'utf8').trim();
+        const { contentDigest: originalDigest, ...original } = unit.identity;
+        void originalDigest;
+        const foreignInvocation = seal({ ...original, invocationId: 'foreign-invocation' });
+        await assert.rejects(delegate(unit, server, 'provision', {
+            identity: foreignInvocation, environment: { ...unit.environment, ...server.environment,
+                FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: foreignInvocation.invocationId }
+        }), /different invocation or attempt/u);
+        await assert.rejects(delegate(unit, server, 'provision', { environment: {
+            ...unit.environment, ...server.environment, FSUSBLOG_RELEASE_RELIABILITY_ATTEMPT_ID: 'foreign-first-attempt'
+        } }), /different invocation or attempt/u);
+        for (const key of ['FSUSBLOG_PRODUCTION_BUILD_ROOT', 'FSUSBLOG_BACKEND_SERVER_DLL',
+            'FSUSBLOG_TEST_FIXTURE_CONFIG', 'FSUSBLOG_RELEASE_RUNTIME_IMAGE'])
+        {
+            const environment = { ...unit.environment, [key]: 'foreign-child-artifact' };
+            await assert.rejects(delegate(unit, server, 'provision', { environment: { ...environment, ...server.environment } }), /unapproved environment key/u);
+            const result = await rawRequest(journal.socketPath, { schema: journal.schema, token,
+                journalDigest: journal.contentDigest, operation: 'provision', identity: unit.identity, environment });
+            assert.equal(result.ok, false);
+            assert.match(result.error, /unapproved environment key/u);
+        }
+        const { contentDigest, ...unsigned } = unit.identity;
+        void contentDigest;
+        const forged = seal({ ...unsigned, build: { ...unsigned.build, contentDigest: `sha256:${'f'.repeat(64)}` } });
+        await assert.rejects(delegate(unit, server, 'provision', { identity: forged }), /original invocation artifact/u);
+        fs.writeFileSync(unit.identityFile, JSON.stringify(forged));
+        await assert.rejects(delegate(unit, server, 'provision', { identity: forged }), /producer output/u);
+        assert.deepEqual(unit.events, []);
+    }
+    finally { if (server) await server.dispose(); unit.remove(); }
+});
+
+test('DataScale parent freezes original artifact locators before child requests arrive', async () =>
+{
+    const unit = fixture();
+    let server;
+    let captured;
+    const fixed = { ...unit.parent.environment };
+    const provision = unit.parent.provision;
+    unit.parent.provision = async (options) =>
+    {
+        captured = options.environment;
+        return provision(options);
+    };
+    try
+    {
+        server = await startDataScaleRuntimeCaller(unit.parent);
+        for (const key of ['FSUSBLOG_PRODUCTION_BUILD_ROOT', 'FSUSBLOG_BACKEND_SERVER_DLL',
+            'FSUSBLOG_TEST_FIXTURE_CONFIG', 'FSUSBLOG_RELEASE_RUNTIME_IMAGE'])
+        {
+            unit.parent.environment[key] = 'changed-after-parent-start';
+        }
+        await delegate(unit, server);
+        for (const [key, value] of Object.entries(fixed)) assert.equal(captured[key], value);
+        await delegate(unit, server, 'teardown');
+    }
+    finally { if (server) await server.dispose(); unit.remove(); }
+});
+
+test('DataScale parent re-observes original receipt, fixture and complete candidate bytes before provisioning', async () =>
+{
+    const unit = fixture();
+    let server;
+    try
+    {
+        server = await startDataScaleRuntimeCaller(unit.parent);
+        const assemblyBytes = fs.readFileSync(unit.assembly);
+        fs.appendFileSync(unit.assembly, 'foreign bytes');
+        await assert.rejects(delegate(unit, server), /actual candidate assembly closure/u);
+        fs.writeFileSync(unit.assembly, assemblyBytes);
+        const extra = path.join(path.dirname(unit.assembly), 'unreceipted.dll');
+        fs.writeFileSync(extra, 'foreign closure');
+        await assert.rejects(delegate(unit, server), /unreceipted files/u);
+        fs.rmSync(extra);
+        const config = path.join(unit.root, unit.parent.environment.FSUSBLOG_TEST_FIXTURE_CONFIG);
+        const configBytes = fs.readFileSync(config);
+        fs.appendFileSync(config, 'changed fixture bytes');
+        await assert.rejects(delegate(unit, server), /original fixture artifact/u);
+        fs.writeFileSync(config, configBytes);
+        const receipt = path.join(unit.artifactRoot, 'receipt.json');
+        fs.renameSync(receipt, `${receipt}.retained`);
+        await assert.rejects(delegate(unit, server), /ENOENT/u);
+        fs.renameSync(`${receipt}.retained`, receipt);
+        const source = path.join(unit.root, 'unit-source.txt');
+        const sourceBytes = fs.readFileSync(source);
+        fs.appendFileSync(source, 'foreign source');
+        await assert.rejects(delegate(unit, server), /input digest mismatch/u);
+        fs.writeFileSync(source, sourceBytes);
+        assert.deepEqual(unit.events, []);
+        await delegate(unit, server);
+        fs.appendFileSync(unit.identityFile, ' ');
+        await assert.rejects(delegate(unit, server), /artifact bytes changed after binding/u);
+        // Cleanup keeps its captured original custody even if the original
+        // input was subsequently tampered; it must not strand the runtime.
+        await delegate(unit, server, 'teardown');
+        assert.deepEqual(unit.events, ['provision', 'teardown']);
     }
     finally { if (server) await server.dispose(); unit.remove(); }
 });
