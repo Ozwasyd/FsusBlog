@@ -40,8 +40,8 @@ FSUSBLOG_RUNTIME_CACHE_FIXTURE_INPUT_DIR="$FIXTURE_DIR/runtime-cache-inputs/${FS
 mkdir -p "$TMP_DIR"
 mkdir -p "$ENV_DIR" "$FIXTURE_DIR"
 
-NowEpochMs() {
-    "${FSUSBLOG_NODE:-node}" -e 'process.stdout.write(String(Date.now()))'
+NowMonotonicMs() {
+    "${FSUSBLOG_NODE:-node}" -e 'process.stdout.write(String(process.hrtime.bigint() / 1_000_000n))'
 }
 
 RandomBase64Key() {
@@ -223,9 +223,9 @@ StartPortLeaseReservationDaemon() {
             >"$PORT_LEASE_DAEMON_LOG" 2>&1 </dev/null &
     fi
     local deadline
-    deadline="$(($(NowEpochMs) + 15000))"
+    deadline="$(($(NowMonotonicMs) + 15000))"
     PORT_LEASE_DAEMON_PID=""
-    while (($(NowEpochMs) < deadline)); do
+    while (($(NowMonotonicMs) < deadline)); do
         if [[ -f "$PORT_LEASE_PID_FILE" && -S "$PORT_LEASE_CONTROL_SOCKET" ]]; then
             PORT_LEASE_DAEMON_PID="$(cat "$PORT_LEASE_PID_FILE" 2>/dev/null || true)"
             if [[ -n "$PORT_LEASE_DAEMON_PID" ]] && kill -0 "$PORT_LEASE_DAEMON_PID" >/dev/null 2>&1; then
@@ -823,7 +823,7 @@ CiProductionHasDomain() {
     [[ ",${FSUSBLOG_CI_PRODUCTION_DOMAINS:-}," == *",${expected},"* ]]
 }
 
-EXECUTION_STARTED_AT_MS="$(NowEpochMs)"
+EXECUTION_STARTED_AT_MS="$(NowMonotonicMs)"
 DEDICATED_RUNTIME_EXECUTION_BUDGET_CAP_MS=240000
 PUBLIC_PREVIEW_CAPTURE_EXECUTION_BUDGET_CAP_MS=1800000
 ResolveExecutionBudgetMs() {
@@ -884,7 +884,7 @@ READINESS_DEADLINE_AT_MS="$EXECUTION_DEADLINE_AT_MS"
 AllocateReadinessDeadline() {
     local label="$1"
     local now remaining phaseBudget
-    now="$(NowEpochMs)"
+    now="$(NowMonotonicMs)"
     remaining=$((EXECUTION_DEADLINE_AT_MS - now))
     if ((remaining <= 0)); then
         Log "$label has no remaining execution deadline"
@@ -1253,7 +1253,8 @@ if (!Number.isInteger(pid) || pid <= 1 || !runId || !namespace || !role || !file
 }
 
 const waitBuffer = new Int32Array(new SharedArrayBuffer(4))
-const deadlineAtMs = Math.min(inheritedDeadlineAtMs, Date.now() + 10_000)
+const monotonicNowMs = () => Number(process.hrtime.bigint() / 1_000_000n)
+const deadlineAtMs = Math.min(inheritedDeadlineAtMs, monotonicNowMs() + 10_000)
 let observed = null
 let lastReason = 'procfs identity unavailable'
 function readProcess() {
@@ -1280,7 +1281,7 @@ function readProcess() {
     stdio: ['ignore', 'pipe', 'pipe']
   }))
 }
-while (Date.now() <= deadlineAtMs) {
+while (monotonicNowMs() <= deadlineAtMs) {
   try {
     const { processGroupId, sessionId, startTimeTicks, environment } = readProcess()
     if (processGroupId === pid
@@ -1308,7 +1309,7 @@ while (Date.now() <= deadlineAtMs) {
       throw error
     }
   }
-  const remainingMs = deadlineAtMs - Date.now()
+  const remainingMs = deadlineAtMs - monotonicNowMs()
   if (remainingMs > 0) Atomics.wait(waitBuffer, 0, 0, Math.min(25, remainingMs))
 }
 if (observed === null) {
@@ -1340,7 +1341,7 @@ SleepWithinDeadline() {
     local deadlineAtMs="$1"
     local pollIntervalMs="$2"
     local now remaining sleepMs
-    now="$(NowEpochMs)"
+    now="$(NowMonotonicMs)"
     remaining=$((deadlineAtMs - now))
     if ((remaining <= 0)); then
         return 1
@@ -1759,7 +1760,7 @@ WaitForUrl() {
     local url="$2"
     local deadlineAtMs="$3"
 
-    while (($(NowEpochMs) < deadlineAtMs)); do
+    while (($(NowMonotonicMs) < deadlineAtMs)); do
         if ProbeUrl "$url"; then
             return 0
         fi
@@ -1775,7 +1776,7 @@ WaitForBinaryUrl() {
     local url="$2"
     local deadlineAtMs="$3"
 
-    while (($(NowEpochMs) < deadlineAtMs)); do
+    while (($(NowMonotonicMs) < deadlineAtMs)); do
         if ProbeBinaryUrl "$url"; then
             return 0
         fi
@@ -1793,7 +1794,7 @@ WaitForManagedBinaryUrl() {
     local pid="$4"
     local logFile="$5"
 
-    while (($(NowEpochMs) < deadlineAtMs)); do
+    while (($(NowMonotonicMs) < deadlineAtMs)); do
         if ProbeBinaryUrl "$url"; then
             return 0
         fi
@@ -1974,7 +1975,7 @@ EnsurePostgres() {
             "$POSTGRES_IMAGE_REFERENCE" >/dev/null
     fi
 
-    while (($(NowEpochMs) < readinessDeadline)); do
+    while (($(NowMonotonicMs) < readinessDeadline)); do
         if docker exec "$POSTGRES_CONTAINER" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
             CompletePortLeaseHandoff postgres 'PostgreSQL host mapping' "container:$(docker inspect --format '{{.Id}}' "$POSTGRES_CONTAINER" 2>/dev/null || true)"
             return
@@ -2024,7 +2025,7 @@ EnsureRedis() {
         docker run -d "${DOCKER_RESOURCE_ARGS[@]}" --name "$REDIS_CONTAINER" -p "127.0.0.1:${REDIS_PORT}:6379" "$REDIS_IMAGE_REFERENCE" >/dev/null
     fi
 
-    while (($(NowEpochMs) < readinessDeadline)); do
+    while (($(NowMonotonicMs) < readinessDeadline)); do
         if docker exec "$REDIS_CONTAINER" redis-cli ping >/dev/null 2>&1; then
             CompletePortLeaseHandoff redis 'Redis host mapping' "container:$(docker inspect --format '{{.Id}}' "$REDIS_CONTAINER" 2>/dev/null || true)"
             return
@@ -2976,7 +2977,7 @@ StartBackgroundIfNeeded() {
         return 1
     fi
 
-    while (($(NowEpochMs) < readinessDeadline)); do
+    while (($(NowMonotonicMs) < readinessDeadline)); do
         if ProbeUrl "$url"; then
             if AdmitDedicatedRuntimePort "$role" "$label" "$pidFile" "$port" 1; then
                 CompletePortLeaseHandoff "$role" "$label" "pid:$(FindPortPid "$port" || true)"
@@ -3197,7 +3198,7 @@ WaitForPowReady() {
     local maxDifficulty="$POW_READY_MAX_DIFFICULTY"
     local difficulty=""
 
-    while (($(NowEpochMs) < EXECUTION_DEADLINE_AT_MS)); do
+    while (($(NowMonotonicMs) < EXECUTION_DEADLINE_AT_MS)); do
         difficulty="$(CurrentPowDifficulty 2>/dev/null || true)"
         if [[ "$difficulty" =~ ^[0-9]+$ ]] && ((difficulty <= maxDifficulty)); then
             Log "pow difficulty ready: ${difficulty}"

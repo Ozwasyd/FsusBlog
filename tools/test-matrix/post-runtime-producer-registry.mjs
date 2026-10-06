@@ -20,29 +20,28 @@ import { createRequire, isBuiltin } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-// eslint-disable-next-line import-x/no-relative-parent-imports
-import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs';
-import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs';
+import { validateBehaviorDocStaticAdmissionReceipt } from '../docs/behavior-doc-static-admission-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { digestValue, isPlainObject } from '../fact-extractors/lib/canonicalize.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     validateBrowserContractReceipt,
     validatePublicPreviewEvidenceBinding
-} from '../release/browser-contract-receipt-contract.mjs';
+} from '../release/browser-contract-receipt-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     projectPublicPreviewQualityRegistry,
     validatePublicPreviewQualityManifestValue
-} from '../release/public-preview-quality-receipt-contract.mjs';
+} from '../release/public-preview-quality-receipt-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     deriveAotSpaHydrationRawFacts,
     normalizeAotSpaHydrationFacts
-} from '../test-evidence/aot-spa-hydration-observed-facts.mjs';
-import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs';
+} from '../test-evidence/aot-spa-hydration-observed-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
+import { deriveBrowserObservedRawFacts } from '../test-evidence/browser-contract-observed-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     deriveProbeRawFacts,
     verifyFacts as verifyProbeFacts
-} from '../test-evidence/runtime-observation-probe-facts.mjs';
+} from '../test-evidence/runtime-observation-probe-facts.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 import {
     projectPreparedPublicIds
-} from '../test-fixtures/receipt/prepared-public-projection-contract.mjs';
+} from '../test-fixtures/receipt/prepared-public-projection-contract.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Pinned reader firewall requires literal static dependencies.
 
 import { parseMatrix } from './parse-matrix.mjs';
 
@@ -2075,6 +2074,20 @@ function probeSourceProjection(repositoryRoot, upstream, sourceState, contract, 
     return identityProjection(upstream);
 }
 
+function readBrowserTemporalAuthority(repositoryRoot)
+{
+    const ledger = readPinnedRepositoryFile(repositoryRoot,
+        'config/testing/temporal-callsite-dispositions.json', 'temporal ledger');
+    return {
+        policy: readJson(repositoryRoot, 'config/testing/temporal-policy.json'),
+        ledger: {
+            document: parseStrictJson(ledger.bytes.toString('utf8'), 'temporal ledger'),
+            digest: `sha256:${createHash('sha256').update(ledger.bytes).digest('hex')}`
+        },
+        producerBindings: readJson(repositoryRoot, 'config/testing/temporal-producer-bindings.json')
+    };
+}
+
 function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, envelope, producerId)
 {
     const label = `producer ${producerId} AOT upstream`;
@@ -2150,7 +2163,10 @@ function aotSourceProjection(repositoryRoot, upstream, sourceState, contract, en
         }
         return retained.get(file);
     };
-    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, { readBytes });
+    const normalized = normalizeAotSpaHydrationFacts(inputs, plan, build, {
+        readBytes,
+        temporalAuthority: readBrowserTemporalAuthority(repositoryRoot)
+    });
     if (digestValue(upstream.rawFacts)
         !== digestValue(deriveAotSpaHydrationRawFacts(inputs, { readBytes })))
     {
@@ -2174,6 +2190,7 @@ function browserSourceProjection(
 {
     const label = `producer ${producerId} browser upstream`;
     const browserErrors = validateBrowserContractReceipt(upstream, {
+        temporalAuthority: readBrowserTemporalAuthority(repositoryRoot),
         expectedCommit: sourceState.sourceCommit,
         expectedFingerprint: sourceState.worktreeFingerprint,
         expectedBuildReceiptDigest: sourceState.buildIdentity

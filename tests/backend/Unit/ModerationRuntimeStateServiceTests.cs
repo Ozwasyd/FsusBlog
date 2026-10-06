@@ -9,9 +9,49 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ModerationRuntimeStateServiceTests
 {
     [Fact]
+    public void RuntimeSnapshots_ReplayInjectedBusinessTimeAndAdvanceOnlyExplicitly()
+    {
+        var clock = new MutableTimeProvider(new DateTimeOffset(2024, 2, 29, 23, 59, 59, TimeSpan.Zero));
+        var first = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"), clock);
+        var replay = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"), clock);
+        Assert.Equal(clock.UtcNow.UtcDateTime, first.Current.ChangedAtUtc);
+        Assert.Equal(clock.UtcNow.UtcDateTime, first.CurrentModel.LoadedAtUtc);
+        Assert.Equal(first.Current.SnapshotId, replay.Current.SnapshotId);
+        Assert.Equal(first.CurrentModel.SnapshotId, replay.CurrentModel.SnapshotId);
+
+        clock.UtcNow = clock.UtcNow.AddSeconds(2);
+        Func<ModerationRuntimeStateService, FsusBlog.Core.Common.Result<ModerationRuntimeSnapshot>>[] mutations =
+        [
+            service => service.SetGlobalState(ModerationGlobalStates.ReadOnly, "clock", null, "admin"),
+            service => service.SetRegionState(RegionCodes.UnitedStates, ModerationRegionStates.ManualReviewOnly, "clock", clock.UtcNow.UtcDateTime.AddMinutes(15), null, "admin"),
+            service => service.SetDictionaryState("global.advertising", false, "clock", null, "admin"),
+            service => service.ReloadModel("admin"),
+            service => service.SetModelRuntime(false, "none", "disabled", "strict", "clock", "admin"),
+            service => service.RollbackModel("admin")
+        ];
+        foreach (var mutate in mutations)
+        {
+            var result = mutate(first);
+            var replayResult = mutate(replay);
+            Assert.True(result.IsSuccess);
+            Assert.True(replayResult.IsSuccess);
+            Assert.Equal(clock.UtcNow.UtcDateTime, result.Value!.ChangedAtUtc);
+            Assert.Equal(System.Text.Json.JsonSerializer.Serialize(result.Value),
+                System.Text.Json.JsonSerializer.Serialize(replayResult.Value));
+        }
+        Assert.Equal(clock.UtcNow.UtcDateTime, first.CurrentModel.LoadedAtUtc);
+    }
+
+    private sealed class MutableTimeProvider(DateTimeOffset utcNow) : TimeProvider
+    {
+        public DateTimeOffset UtcNow { get; set; } = utcNow;
+        public override DateTimeOffset GetUtcNow() => UtcNow;
+    }
+
+    [Fact]
     public void SetModelRuntime_DisablingModelDoesNotDisableDictionaries()
     {
-        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"), TimeProvider.System);
 
         var result = service.SetModelRuntime(
             enabled: false,
@@ -29,7 +69,7 @@ public sealed class ModerationRuntimeStateServiceTests
     [Fact]
     public void SetDictionaryState_DisablingDictionaryDoesNotDisableRegionPolicy()
     {
-        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"), TimeProvider.System);
 
         var result = service.SetDictionaryState(
             "global.advertising",
@@ -46,7 +86,7 @@ public sealed class ModerationRuntimeStateServiceTests
     [Fact]
     public void SetGlobalState_RejectsDisabledPassThroughInProduction()
     {
-        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"), TimeProvider.System);
 
         var result = service.SetGlobalState(
             ModerationGlobalStates.DisabledPassThrough,
@@ -62,7 +102,7 @@ public sealed class ModerationRuntimeStateServiceTests
     [Fact]
     public void SetGlobalState_DisabledToPendingForcesManualReviewWithoutPassThrough()
     {
-        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"), TimeProvider.System);
 
         var result = service.SetGlobalState(
             ModerationGlobalStates.DisabledToPending,
@@ -79,7 +119,7 @@ public sealed class ModerationRuntimeStateServiceTests
     [Fact]
     public void SetRegionState_MainlandStrictChangesRequireConfirmation()
     {
-        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"), TimeProvider.System);
 
         var missingConfirmation = service.SetRegionState(
             RegionCodes.MainlandChina,
@@ -113,7 +153,7 @@ public sealed class ModerationRuntimeStateServiceTests
     public void SetModelRuntime_WhenExternalProviderRequested_RejectsChange()
     {
         IConfigurationRoot config = BuildConfig();
-        var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Development"));
+        var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Development"), TimeProvider.System);
         ModerationRuntimeSnapshot previous = service.Current;
 
         var result = service.SetModelRuntime(
@@ -133,7 +173,7 @@ public sealed class ModerationRuntimeStateServiceTests
     public void ReloadModel_WhenBuiltInRuntimeInvalid_KeepsPreviousSnapshot()
     {
         IConfigurationRoot config = BuildConfig();
-        var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Production"));
+        var service = new ModerationRuntimeStateService(config, new TestWebHostEnvironment("Production"), TimeProvider.System);
         ModerationRuntimeSnapshot previous = service.Current;
         config["Moderation:AntiSpamModel:Enabled"] = "true";
         config["Moderation:AntiSpamModel:RuntimePath"] = "/missing/fsus-antispammodel";
@@ -148,7 +188,7 @@ public sealed class ModerationRuntimeStateServiceTests
     [Fact]
     public void SetModelRuntime_WhenRuntimeMissing_RejectsEnablement()
     {
-        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Production"), TimeProvider.System);
         ModerationRuntimeSnapshot previous = service.Current;
 
         var result = service.SetModelRuntime(
@@ -167,7 +207,7 @@ public sealed class ModerationRuntimeStateServiceTests
     [Fact]
     public void RollbackModel_RestoresPreviousModelSnapshot()
     {
-        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"));
+        var service = new ModerationRuntimeStateService(BuildConfig(), new TestWebHostEnvironment("Development"), TimeProvider.System);
         ModerationModelRuntimeSnapshot original = service.CurrentModel;
         var changed = service.SetModelRuntime(
             enabled: false,

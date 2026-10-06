@@ -7,6 +7,7 @@ const {fixtureTestSessionHeaders, fixtureTestSessionSchema, resolveFixtureTestSe
 const { projectVerifiedIdentityReferences } = await import(new URL('./auth-session-producer.mjs', import.meta.url));
 const { validateProducerReceipt } = await import(new URL('../receipt/producer-receipt.mjs', import.meta.url));
 const { canonicalJson, digestCanonical } = await import(new URL('../receipt/canonical.mjs', import.meta.url));
+const {validateBackendTemporalObservation} = await import(new URL('./backend-temporal-observer.mjs', import.meta.url));
 const PRODUCER_ID = 'comment-moderation';
 const STRATEGY = 'transaction-fixture';
 const digestPattern = /^sha256:[a-f0-9]{64}$/u;
@@ -323,7 +324,7 @@ async function observeBackendTemporalContext(context, signal)
     {
         throw new Error(`comment fixture temporal observation failed HTTP ${response.status}: ${text.slice(0, 400)}`);
     }
-    return payload;
+    return validateBackendTemporalObservation(context.temporalContext, payload);
 }
 
 function variantForRole(role, variants)
@@ -806,10 +807,11 @@ function verifyModerationEntities(result)
     }
 }
 
-function verifyPreparedCommentStructure(result)
+function verifyPreparedCommentStructure(context, result)
 {
     try
     {
+        validateBackendTemporalObservation(context.temporalContext, result?.temporalObservation);
         if (!result || result.producerId !== PRODUCER_ID || !Array.isArray(result.entityIdentities)
             || !result.observations?.database || !result.observations?.cache
             || !Array.isArray(result.zkAuthorityEvidence) || result.zkAuthorityEvidence.length !== 2
@@ -901,7 +903,7 @@ export async function verifyCommentModeration(context, result, signal = context.
     signal?.throwIfAborted();
     try
     {
-        const structure = verifyPreparedCommentStructure(result);
+        const structure = verifyPreparedCommentStructure(context, result);
         if (!structure.ok)
         {
             throw new Error(structure.reason);
@@ -958,7 +960,7 @@ export async function verifyCommentModeration(context, result, signal = context.
             threadEntities: read.threadEntities, moderation: read.moderation, cacheGenerationAfter: read.cacheGeneration,
             crossDomainBefore: read.crossDomainBefore, crossDomainAfterPrepare: read.crossDomainAfter
         }, context, plan, result.temporalObservation);
-        const verified = verifyPreparedCommentStructure(live);
+        const verified = verifyPreparedCommentStructure(context, live);
         if (!verified.ok)
         {
             throw new Error(verified.reason);

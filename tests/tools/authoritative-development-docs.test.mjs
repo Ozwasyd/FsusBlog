@@ -89,10 +89,10 @@ test('authoritative development documentation assigns only the sealed FsusUI mig
 {
     const archivePath = 'config/dependencies/fsusui-public-npm-migration.patch.gz';
     const manifest = readManifest();
-    const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+    const vendor = manifest.pathClassifications.find((entry) => entry.id === 'dependency-migration-archive');
     assert.ok(vendor.patterns.includes(archivePath));
     assert.deepEqual(manifest.pathClassifications.filter((entry) => entry.patterns.includes(archivePath))
-        .map((entry) => ({ id: entry.id, owner: entry.owner })), [{ id: 'vendor', owner: 'DependencyOwner' }]);
+        .map((entry) => ({ id: entry.id, owner: entry.owner })), [{ id: 'dependency-migration-archive', owner: 'DependencyOwner' }]);
     assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
     assert.ok(!vendor.patterns.includes('config/dependencies/**'));
 
@@ -109,7 +109,7 @@ test('authoritative development documentation rejects the FsusUI migration archi
     withOverlay((overlay) =>
     {
         const manifest = readManifest();
-        const vendor = manifest.pathClassifications.find((entry) => entry.id === 'vendor');
+        const vendor = manifest.pathClassifications.find((entry) => entry.id === 'dependency-migration-archive');
         vendor.patterns = vendor.patterns.filter((pattern) =>
             pattern !== 'config/dependencies/fsusui-public-npm-migration.patch.gz');
         writeManifest(overlay, manifest);
@@ -269,6 +269,65 @@ test('authoritative development documentation checker assigns XML configuration 
         assert.equal(result.status, 0, output(result));
     });
 });
+
+test('authoritative development documentation classifies only the exact packed dependency migration input', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const manifest = readManifest();
+        const classification = manifest.pathClassifications.find(
+            (entry) => entry.id === 'dependency-migration-archive'
+        );
+        assert.equal(classification.owner, 'DependencyOwner');
+        assert.deepEqual(classification.patterns, ['config/dependencies/fsusui-public-npm-migration.patch.gz']);
+        assert.ok(!manifest.nonSourceExtensions.includes('.gz'));
+        assert.ok(!manifest.nonSourceSpecialFiles.includes('fsusui-public-npm-migration.patch.gz'));
+
+        const result = runChecker(overlay);
+        assert.equal(result.status, 0, output(result));
+    });
+});
+
+test('authoritative development documentation rejects the packed migration input without its classification', () =>
+{
+    withOverlay((overlay) =>
+    {
+        const manifest = readManifest();
+        manifest.pathClassifications = manifest.pathClassifications.filter(
+            (entry) => entry.id !== 'dependency-migration-archive'
+        );
+        writeManifest(overlay, manifest);
+
+        const result = runChecker(overlay);
+        assert.notEqual(result.status, 0);
+        assert.match(
+            output(result),
+            /config\/dependencies\/fsusui-public-npm-migration\.patch\.gz has no style owner or non-source classification/
+        );
+    });
+});
+
+for (const relativePath of [
+    'config/dependencies/unowned-migration.patch.gz',
+    'tools/dependencies/fsusui-public-npm-migration.patch.gz',
+    'config/dependencies/fsusui-public-npm-migration.patch'
+])
+{
+    test(`authoritative development documentation packed input classification does not exempt ${relativePath}`, () =>
+    {
+        withOverlay((overlay) =>
+        {
+            writeOverlay(overlay, relativePath, 'unclassified migration input');
+
+            const result = runChecker(overlay);
+            assert.notEqual(result.status, 0);
+            assert.ok(
+                output(result).includes(`${relativePath} has no style owner or non-source classification`),
+                output(result)
+            );
+        });
+    });
+}
 
 test('authoritative development documentation checker rejects browserconfig XML without its style owner', () =>
 {

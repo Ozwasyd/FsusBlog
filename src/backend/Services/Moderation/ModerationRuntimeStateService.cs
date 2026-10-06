@@ -10,7 +10,8 @@ namespace FsusBlog.Server.Services.Moderation;
 
 public sealed class ModerationRuntimeStateService(
     IConfiguration configuration,
-    IWebHostEnvironment environment) : IModerationRuntimeStateService
+    IWebHostEnvironment environment,
+    TimeProvider timeProvider) : IModerationRuntimeStateService
 {
     private static readonly HashSet<string> s_validGlobalStates = new(StringComparer.Ordinal)
     {
@@ -45,7 +46,7 @@ public sealed class ModerationRuntimeStateService(
     };
 
     private readonly Lock _gate = new();
-    private ModerationRuntimeSnapshot _snapshot = BuildInitialSnapshot(configuration);
+    private ModerationRuntimeSnapshot _snapshot = BuildInitialSnapshot(configuration, timeProvider.GetUtcNow().UtcDateTime);
     private ModerationModelRuntimeSnapshot? _previousModel;
 
     public ModerationRuntimeSnapshot Current => Volatile.Read(ref _snapshot);
@@ -128,11 +129,12 @@ public sealed class ModerationRuntimeStateService(
 
         lock (_gate)
         {
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             ModerationRuntimeSnapshot next = Current with
             {
-                SnapshotId = BuildSnapshotId("runtime", normalized, DateTime.UtcNow),
+                SnapshotId = BuildSnapshotId("runtime", normalized, now),
                 GlobalState = normalized,
-                ChangedAtUtc = DateTime.UtcNow,
+                ChangedAtUtc = now,
                 ChangedBy = NormalizeActor(changedBy),
                 Reason = TextHelpers.TrimOrNull(reason),
                 ExpiresAtUtc = expiresAtUtc,
@@ -168,6 +170,7 @@ public sealed class ModerationRuntimeStateService(
 
         lock (_gate)
         {
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             var regionStates = new Dictionary<string, string>(Current.RegionStates, StringComparer.Ordinal);
             if (normalizedState == ModerationRegionStates.Enabled)
             {
@@ -180,9 +183,9 @@ public sealed class ModerationRuntimeStateService(
 
             ModerationRuntimeSnapshot next = Current with
             {
-                SnapshotId = BuildSnapshotId("region", $"{normalizedRegion}:{normalizedState}", DateTime.UtcNow),
+                SnapshotId = BuildSnapshotId("region", $"{normalizedRegion}:{normalizedState}", now),
                 RegionStates = regionStates,
-                ChangedAtUtc = DateTime.UtcNow,
+                ChangedAtUtc = now,
                 ChangedBy = NormalizeActor(changedBy),
                 Reason = TextHelpers.TrimOrNull(reason),
                 ExpiresAtUtc = expiresAtUtc,
@@ -210,6 +213,7 @@ public sealed class ModerationRuntimeStateService(
 
         lock (_gate)
         {
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             var disabled = new HashSet<string>(Current.DisabledDictionaryIds, StringComparer.Ordinal);
             if (enabled)
             {
@@ -222,9 +226,9 @@ public sealed class ModerationRuntimeStateService(
 
             ModerationRuntimeSnapshot next = Current with
             {
-                SnapshotId = BuildSnapshotId("dictionary", $"{normalizedId}:{enabled}", DateTime.UtcNow),
+                SnapshotId = BuildSnapshotId("dictionary", $"{normalizedId}:{enabled}", now),
                 DisabledDictionaryIds = disabled,
-                ChangedAtUtc = DateTime.UtcNow,
+                ChangedAtUtc = now,
                 ChangedBy = NormalizeActor(changedBy),
                 Reason = TextHelpers.TrimOrNull(reason),
                 LastError = null
@@ -238,7 +242,8 @@ public sealed class ModerationRuntimeStateService(
     {
         lock (_gate)
         {
-            Result<ModerationModelRuntimeSnapshot> buildResult = BuildModelSnapshotResult(configuration, NormalizeActor(changedBy));
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
+            Result<ModerationModelRuntimeSnapshot> buildResult = BuildModelSnapshotResult(configuration, NormalizeActor(changedBy), now);
             if (buildResult.IsFailure)
             {
                 return Result<ModerationRuntimeSnapshot>.Failure(buildResult.Error);
@@ -249,9 +254,9 @@ public sealed class ModerationRuntimeStateService(
             _previousModel = current;
             ModerationRuntimeSnapshot next = Current with
             {
-                SnapshotId = BuildSnapshotId("model-reload", nextModel.ConfigChecksum, DateTime.UtcNow),
+                SnapshotId = BuildSnapshotId("model-reload", nextModel.ConfigChecksum, now),
                 Model = nextModel,
-                ChangedAtUtc = DateTime.UtcNow,
+                ChangedAtUtc = now,
                 ChangedBy = NormalizeActor(changedBy),
                 LastError = null
             };
@@ -288,16 +293,17 @@ public sealed class ModerationRuntimeStateService(
             }
 
             _previousModel = current;
+            DateTime now = timeProvider.GetUtcNow().UtcDateTime;
             ModerationModelRuntimeSnapshot nextModel = current with
             {
-                SnapshotId = BuildSnapshotId("model", $"{resolvedProvider}:{enabled?.ToString() ?? "same"}", DateTime.UtcNow),
+                SnapshotId = BuildSnapshotId("model", $"{resolvedProvider}:{enabled?.ToString() ?? "same"}", now),
                 Enabled = nextEnabled,
                 Provider = resolvedProvider,
                 ModelProfile = runtime?.ModelProfile ?? TextHelpers.TrimOrNull(modelProfile) ?? current.ModelProfile,
                 ThresholdProfile = TextHelpers.TrimOrNull(thresholdProfile) ?? current.ThresholdProfile,
                 ContractVersion = runtime?.ContractVersion ?? current.ContractVersion,
-                ConfigChecksum = runtime?.ConfigChecksum ?? BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{DateTime.UtcNow:O}"),
-                LoadedAtUtc = DateTime.UtcNow,
+                ConfigChecksum = runtime?.ConfigChecksum ?? BuildChecksum($"{enabled}:{resolvedProvider}:{modelProfile}:{thresholdProfile}:{now:O}"),
+                LoadedAtUtc = now,
                 LoadedBy = NormalizeActor(changedBy),
                 Status = "loaded",
                 LastError = null,
@@ -307,9 +313,9 @@ public sealed class ModerationRuntimeStateService(
             };
             ModerationRuntimeSnapshot next = Current with
             {
-                SnapshotId = BuildSnapshotId("model-runtime", nextModel.ConfigChecksum, DateTime.UtcNow),
+                SnapshotId = BuildSnapshotId("model-runtime", nextModel.ConfigChecksum, now),
                 Model = nextModel,
-                ChangedAtUtc = DateTime.UtcNow,
+                ChangedAtUtc = now,
                 ChangedBy = NormalizeActor(changedBy),
                 Reason = TextHelpers.TrimOrNull(reason),
                 LastError = null
@@ -331,16 +337,16 @@ public sealed class ModerationRuntimeStateService(
             ModerationModelRuntimeSnapshot current = Current.Model;
             ModerationModelRuntimeSnapshot rollback = _previousModel with
             {
-                LoadedAtUtc = DateTime.UtcNow,
+                LoadedAtUtc = timeProvider.GetUtcNow().UtcDateTime,
                 LoadedBy = NormalizeActor(changedBy),
                 Status = "rolled_back"
             };
             _previousModel = current;
             ModerationRuntimeSnapshot next = Current with
             {
-                SnapshotId = BuildSnapshotId("model-rollback", rollback.ConfigChecksum, DateTime.UtcNow),
+                SnapshotId = BuildSnapshotId("model-rollback", rollback.ConfigChecksum, rollback.LoadedAtUtc),
                 Model = rollback,
-                ChangedAtUtc = DateTime.UtcNow,
+                ChangedAtUtc = rollback.LoadedAtUtc,
                 ChangedBy = NormalizeActor(changedBy),
                 LastError = null
             };
@@ -349,10 +355,9 @@ public sealed class ModerationRuntimeStateService(
         }
     }
 
-    private static ModerationRuntimeSnapshot BuildInitialSnapshot(IConfiguration configuration)
+    private static ModerationRuntimeSnapshot BuildInitialSnapshot(IConfiguration configuration, DateTime now)
     {
-        DateTime now = DateTime.UtcNow;
-        Result<ModerationModelRuntimeSnapshot> modelResult = BuildModelSnapshotResult(configuration, "startup");
+        Result<ModerationModelRuntimeSnapshot> modelResult = BuildModelSnapshotResult(configuration, "startup", now);
         ModerationModelRuntimeSnapshot model = modelResult.IsSuccess
             ? modelResult.Value!
             : new ModerationModelRuntimeSnapshot(
@@ -385,7 +390,7 @@ public sealed class ModerationRuntimeStateService(
             modelResult.IsFailure ? modelResult.Error.Message : null);
     }
 
-    private static Result<ModerationModelRuntimeSnapshot> BuildModelSnapshotResult(IConfiguration configuration, string loadedBy)
+    private static Result<ModerationModelRuntimeSnapshot> BuildModelSnapshotResult(IConfiguration configuration, string loadedBy, DateTime now)
     {
         bool enabled = configuration.GetValue<bool>("Moderation:AntiSpamModel:Enabled");
         string channel = TextHelpers.TrimOrNull(configuration["Moderation:AntiSpamModel:RuntimeChannel"]) ?? "stable";
@@ -396,14 +401,14 @@ public sealed class ModerationRuntimeStateService(
         {
             string checksum = BuildChecksum($"disabled:{channel}:{thresholdProfile}:{timeoutMs}:{failOpen}");
             return Result<ModerationModelRuntimeSnapshot>.Success(new ModerationModelRuntimeSnapshot(
-                BuildSnapshotId("model", checksum, DateTime.UtcNow),
+                BuildSnapshotId("model", checksum, now),
                 false,
                 AntiSpamModerationProviders.BuiltIn,
                 configuration["Moderation:AntiSpamModel:ModelProfile"] ?? AntiSpamModerationProviders.BuiltIn,
                 thresholdProfile,
                 configuration["Moderation:AntiSpamModel:ContractVersion"] ?? AntiSpamModerationContract.DefaultVersion,
                 checksum,
-                DateTime.UtcNow,
+                now,
                 NormalizeActor(loadedBy),
                 "disabled",
                 timeoutMs,
@@ -422,14 +427,14 @@ public sealed class ModerationRuntimeStateService(
 
         FsusAntiSpamModelRuntimeSnapshot runtime = runtimeResult.Value!;
         return Result<ModerationModelRuntimeSnapshot>.Success(new ModerationModelRuntimeSnapshot(
-            BuildSnapshotId("model", runtime.ConfigChecksum, DateTime.UtcNow),
+            BuildSnapshotId("model", runtime.ConfigChecksum, now),
             true,
             AntiSpamModerationProviders.BuiltIn,
             runtime.ModelProfile,
             thresholdProfile,
             runtime.ContractVersion,
             runtime.ConfigChecksum,
-            DateTime.UtcNow,
+            now,
             NormalizeActor(loadedBy),
             "loaded",
             timeoutMs,

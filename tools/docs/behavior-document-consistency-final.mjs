@@ -44,19 +44,22 @@ export const zeroLegacyRequiredPathClasses = Object.freeze([
     'output-schema'
 ]);
 
+const qualificationOnlyMachineFieldParts = Object.freeze([
+    ['verified', 'at'],
+    ['expected', 'value'],
+    ['baseline', 'value'],
+    ['waiver']
+]);
 const forbiddenMachineFieldParts = Object.freeze([
     ['last', 'verified', 'commit'],
     ['maximum', 'verification', 'distance'],
     ['last', 'reviewed', 'commit'],
     ['last', 'reviewed', 'at'],
-    ['verified', 'at'],
     ['content', 'baseline', 'sha'],
     ['approved', 'content', 'digest'],
-    ['expected', 'value'],
-    ['baseline', 'value'],
     ['ignore', 'difference'],
     ['allow', 'stale', 'until'],
-    ['waiver']
+    ...qualificationOnlyMachineFieldParts
 ]);
 const booleanSelfCertificationParts = Object.freeze([['verified'], ['reviewed']]);
 function evidenceSelectionRuleParts()
@@ -109,12 +112,7 @@ const normalizeIdentifier = (value) => canonicalMachineText(value).toLowerCase()
 const canonicalField = (parts) => parts.map((part, index) => index === 0 ? part : `${part[0].toUpperCase()}${part.slice(1)}`).join('');
 const fieldMap = (parts) => new Map(parts.map((entry) => [normalizeIdentifier(entry.join('')), canonicalField(entry)]));
 const forbiddenMachineFields = fieldMap(forbiddenMachineFieldParts);
-const qualificationOnlyMachineFields = new Set([
-    ['expected', 'value'],
-    ['baseline', 'value'],
-    ['verified', 'at'],
-    ['waiver']
-].map(canonicalField));
+const qualificationOnlyMachineFields = new Set(qualificationOnlyMachineFieldParts.map(canonicalField));
 const booleanSelfCertificationFields = fieldMap(booleanSelfCertificationParts);
 const evidenceSelectionFields = fieldMap(evidenceSelectionRuleParts());
 const authorityResidueFields = fieldMap(authorityResidueRuleParts());
@@ -445,9 +443,8 @@ function isForbiddenMachineField(normalized, qualification)
     return canonical;
 }
 
-function legacySurfaceName(value, context)
+function legacySurfaceName(value)
 {
-    void context;
     const normalized = normalizeIdentifier(value);
     return legacyStates.some((state) => normalized.includes(state))
         && legacyRoles.some((role) => normalized.includes(role));
@@ -2718,16 +2715,22 @@ function duplicateSummaryAuthorities(tiers)
 
 function exactStringListErrors(label, actual, expected)
 {
-    if (!Array.isArray(actual)) return [`${label} is not an array`]
-    const normalized = [...actual].sort()
-    const duplicateCount = normalized.length - new Set(normalized).size
-    const errors = []
-    if (duplicateCount > 0) errors.push(`${label} contains duplicate entries`)
+    if (!Array.isArray(actual))
+    {
+        return [`${label} is not an array`];
+    }
+    const normalized = [...actual].sort();
+    const duplicateCount = normalized.length - new Set(normalized).size;
+    const errors = [];
+    if (duplicateCount > 0)
+    {
+        errors.push(`${label} contains duplicate entries`);
+    }
     if (JSON.stringify(normalized) !== JSON.stringify(expected))
     {
-        errors.push(`${label} does not match the catalog-selected exact set`)
+        errors.push(`${label} does not match the catalog-selected exact set`);
     }
-    return errors
+    return errors;
 }
 
 function auditStaticComponentBinding({
@@ -2740,27 +2743,27 @@ function auditStaticComponentBinding({
     catalogDigest
 })
 {
-    const errors = []
-    const sourceCommit = admission.source.commit
-    const worktreeFingerprint = normalizeDigest(admission.source.worktreeFingerprint)
-    const expectedFactIds = Object.keys(admission.factObservations).sort()
-    const actualFactIds = facts.map((receipt) => receipt.extractorId).sort()
+    const errors = [];
+    const sourceCommit = admission.source.commit;
+    const worktreeFingerprint = normalizeDigest(admission.source.worktreeFingerprint);
+    const expectedFactIds = Object.keys(admission.factObservations).sort();
+    const actualFactIds = facts.map((receipt) => receipt.extractorId).sort();
 
-    errors.push(...exactStringListErrors('static fact receipt extractor IDs', actualFactIds, expectedFactIds))
+    errors.push(...exactStringListErrors('static fact receipt extractor IDs', actualFactIds, expectedFactIds));
     if (normalizeDigest(owner.contentDigest) !== normalizeDigest(admission.implementationOwner.contentDigest))
     {
-        errors.push('implementation owner receipt does not match static admission')
+        errors.push('implementation owner receipt does not match static admission');
     }
     if (normalizeDigest(owner.catalogDigest) !== normalizeDigest(catalogDigest))
     {
-        errors.push('implementation owner catalog digest mismatch')
+        errors.push('implementation owner catalog digest mismatch');
     }
     if (owner.bindingCount !== admission.implementationOwner.bindingCount)
     {
-        errors.push('implementation owner binding count mismatch')
+        errors.push('implementation owner binding count mismatch');
     }
 
-    const factDigests = []
+    const factDigests = [];
     for (const receipt of facts)
     {
         try
@@ -2768,55 +2771,58 @@ function auditStaticComponentBinding({
             validateFactObservationReceipt(receipt, {
                 expectedSourceCommit: sourceCommit,
                 expectedWorktreeFingerprint: worktreeFingerprint
-            })
+            });
         }
         catch (error)
         {
-            errors.push(`${receipt.extractorId ?? 'unknown fact receipt'}: ${error.message}`)
-            continue
+            errors.push(`${receipt.extractorId ?? 'unknown fact receipt'}: ${error.message}`);
+            continue;
         }
-        const admitted = admission.factObservations[receipt.extractorId]
-        if (!admitted) continue
+        const admitted = admission.factObservations[receipt.extractorId];
+        if (!admitted)
+        {
+            continue;
+        }
         if (normalizeDigest(receipt.contentDigest) !== normalizeDigest(admitted.contentDigest))
         {
-            errors.push(`${receipt.extractorId} content digest does not match static admission`)
+            errors.push(`${receipt.extractorId} content digest does not match static admission`);
         }
         if (normalizeDigest(receipt.extractorDigest) !== normalizeDigest(admitted.extractorDigest))
         {
-            errors.push(`${receipt.extractorId} extractor digest does not match static admission`)
+            errors.push(`${receipt.extractorId} extractor digest does not match static admission`);
         }
         if (normalizeDigest(semanticDigestFromReceipt(receipt)) !== normalizeDigest(admitted.semanticDigest))
         {
-            errors.push(`${receipt.extractorId} semantic digest does not match static admission`)
+            errors.push(`${receipt.extractorId} semantic digest does not match static admission`);
         }
         factDigests.push({
             extractorId: receipt.extractorId,
             contentDigest: normalizeDigest(receipt.contentDigest)
-        })
+        });
     }
-    factDigests.sort((left, right) => left.extractorId.localeCompare(right.extractorId))
+    factDigests.sort((left, right) => left.extractorId.localeCompare(right.extractorId));
 
     if (normalizeDigest(claims.contentDigest) !== normalizeDigest(admission.authorityDigests.claim))
     {
-        errors.push('DocClaim parse receipt does not match static admission')
+        errors.push('DocClaim parse receipt does not match static admission');
     }
     if (normalizeDigest(claims.behaviorCatalogDigest) !== normalizeDigest(catalogDigest))
     {
-        errors.push('DocClaim parse catalog digest mismatch')
+        errors.push('DocClaim parse catalog digest mismatch');
     }
     if (normalizeDigest(claimVerification.contentDigest) !== normalizeDigest(admission.prose.contentDigest))
     {
-        errors.push('DocClaim verification receipt does not match static admission')
+        errors.push('DocClaim verification receipt does not match static admission');
     }
     if (claimVerification.sourceCommit !== sourceCommit
         || normalizeDigest(claimVerification.worktreeFingerprint) !== worktreeFingerprint)
     {
-        errors.push('DocClaim verification source/worktree identity mismatch')
+        errors.push('DocClaim verification source/worktree identity mismatch');
     }
     if (normalizeDigest(claimVerification.catalogDigest) !== normalizeDigest(catalogDigest)
         || normalizeDigest(claimVerification.parseReceiptDigest) !== normalizeDigest(claims.contentDigest))
     {
-        errors.push('DocClaim verification catalog/parse receipt binding mismatch')
+        errors.push('DocClaim verification catalog/parse receipt binding mismatch');
     }
 
     const verificationFactDigests = Array.isArray(claimVerification.factObservationDigests)
@@ -2826,10 +2832,10 @@ function auditStaticComponentBinding({
                 contentDigest: normalizeDigest(entry.contentDigest)
             }))
             .sort((left, right) => left.extractorId.localeCompare(right.extractorId))
-        : []
+        : [];
     if (JSON.stringify(verificationFactDigests) !== JSON.stringify(factDigests))
     {
-        errors.push('DocClaim verification fact receipt roster mismatch')
+        errors.push('DocClaim verification fact receipt roster mismatch');
     }
 
     const expectedProseClaims = (claims.claims ?? [])
@@ -2839,7 +2845,7 @@ function auditStaticComponentBinding({
             behaviorId: claim.declaration?.behaviorId,
             documentPath: claim.location?.documentPath
         }))
-        .sort((left, right) => left.claimId.localeCompare(right.claimId))
+        .sort((left, right) => left.claimId.localeCompare(right.claimId));
     const verifiedProseClaims = Array.isArray(claimVerification.results)
         ? claimVerification.results
             .map((result) => ({
@@ -2849,34 +2855,34 @@ function auditStaticComponentBinding({
                 status: result.status
             }))
             .sort((left, right) => left.claimId.localeCompare(right.claimId))
-        : []
+        : [];
     if (verifiedProseClaims.length !== expectedProseClaims.length
         || verifiedProseClaims.some((result, index) => result.status !== 'verified'
             || result.claimId !== expectedProseClaims[index]?.claimId
             || result.behaviorId !== expectedProseClaims[index]?.behaviorId
             || result.documentPath !== expectedProseClaims[index]?.documentPath))
     {
-        errors.push('DocClaim verification result roster does not exact-match parsed prose claims')
+        errors.push('DocClaim verification result roster does not exact-match parsed prose claims');
     }
     if (admission.prose.verifiedClaimCount !== verifiedProseClaims.length)
     {
-        errors.push('DocClaim verified claim count does not match static admission')
+        errors.push('DocClaim verified claim count does not match static admission');
     }
 
     if (normalizeDigest(generated.contentDigest) !== normalizeDigest(admission.generated.contentDigest))
     {
-        errors.push('generated section receipt does not match static admission')
+        errors.push('generated section receipt does not match static admission');
     }
     if (generated.sourceCommit !== sourceCommit
         || normalizeDigest(generated.worktreeFingerprint) !== worktreeFingerprint)
     {
-        errors.push('generated section source/worktree identity mismatch')
+        errors.push('generated section source/worktree identity mismatch');
     }
     if (normalizeDigest(generated.catalogDigest) !== normalizeDigest(catalogDigest)
         || normalizeDigest(generated.sectionCatalogDigest)
             !== normalizeDigest(admission.authorityDigests.generatedSectionCatalog))
     {
-        errors.push('generated section catalog binding mismatch')
+        errors.push('generated section catalog binding mismatch');
     }
     const generatedFactDigests = Array.isArray(generated.factObservationDigests)
         ? generated.factObservationDigests
@@ -2885,15 +2891,15 @@ function auditStaticComponentBinding({
                 contentDigest: normalizeDigest(entry.contentDigest)
             }))
             .sort((left, right) => left.extractorId.localeCompare(right.extractorId))
-        : []
+        : [];
     if (JSON.stringify(generatedFactDigests) !== JSON.stringify(factDigests))
     {
-        errors.push('generated section fact receipt roster mismatch')
+        errors.push('generated section fact receipt roster mismatch');
     }
     if (admission.generated.documentCount
         !== new Set((generated.sections ?? []).map((section) => section.documentPath)).size)
     {
-        errors.push('generated document count does not match static admission')
+        errors.push('generated document count does not match static admission');
     }
 
     return {
@@ -2903,25 +2909,25 @@ function auditStaticComponentBinding({
         docClaimVerificationReceiptDigest: claimVerification.contentDigest,
         generatedSectionReceiptDigest: generated.contentDigest,
         errors: [...new Set(errors)].sort()
-    }
+    };
 }
 
 function auditPostRuntimeBinding(post, pre, activeContracts)
 {
-    const contracts = activeContracts.filter((contract) => contract.evidenceStage === 'post-runtime')
-    const expectedBehaviorIds = contracts.map((contract) => contract.id).sort()
-    const registry = loadPostRuntimeProducerRegistry()
-    const expectedProducerIds = registry.producers.map((producer) => producer.producerId).sort()
-    const results = post.observedBehaviorResults
-    const errors = []
+    const contracts = activeContracts.filter((contract) => contract.evidenceStage === 'post-runtime');
+    const expectedBehaviorIds = contracts.map((contract) => contract.id).sort();
+    const registry = loadPostRuntimeProducerRegistry();
+    const expectedProducerIds = registry.producers.map((producer) => producer.producerId).sort();
+    const results = post.observedBehaviorResults;
+    const errors = [];
     if (normalizeDigest(post.preRuntimeReceiptDigest) !== normalizeDigest(pre.contentDigest))
     {
-        errors.push('pre-runtime receipt digest mismatch')
+        errors.push('pre-runtime receipt digest mismatch');
     }
-    errors.push(...exactStringListErrors('declared post-runtime behavior IDs', post.behaviorIds, expectedBehaviorIds))
-    errors.push(...exactStringListErrors('declared runtime producer IDs', post.requiredRuntimeProducers, expectedProducerIds))
-    const expectedClaimIds = [...new Set(registry.producers.flatMap((producer) => producer.acceptedClaimRefs))].sort()
-    errors.push(...exactStringListErrors('post-runtime document claim IDs', Object.keys(post.documentClaimDigests), expectedClaimIds))
+    errors.push(...exactStringListErrors('declared post-runtime behavior IDs', post.behaviorIds, expectedBehaviorIds));
+    errors.push(...exactStringListErrors('declared runtime producer IDs', post.requiredRuntimeProducers, expectedProducerIds));
+    const expectedClaimIds = [...new Set(registry.producers.flatMap((producer) => producer.acceptedClaimRefs))].sort();
+    errors.push(...exactStringListErrors('post-runtime document claim IDs', Object.keys(post.documentClaimDigests), expectedClaimIds));
     // The canonical post-runtime validator owns class cardinality, source identity,
     // and observation/claim terminal bindings. One behavior may have several classes.
     // Claim digests identify individual accepted claims, not the pre-runtime bundle.
@@ -2937,7 +2943,7 @@ function auditPostRuntimeBinding(post, pre, activeContracts)
         expectedClaimIds,
         observedClaimIds: Object.keys(post.documentClaimDigests).sort(),
         errors: [...new Set(errors)].sort()
-    }
+    };
 }
 
 export function validateFinalReport(report)

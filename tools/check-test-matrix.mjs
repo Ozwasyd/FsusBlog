@@ -1213,3 +1213,9 @@ for (const testFile of [
     requireCondition(result.status === 0, `${testFile} must pass the browser-boundary governance contract`);
 }
 console.log('[test-matrix] ok');
+
+expectMatrixValidateFailure(
+    removeTier(matrixSourceText, 'test-quality-lint'),
+    'canonical release-final evidence inputs reference missing tiers: test-quality-lint',
+    'release-final must reject missing canonical evidence producers'
+);

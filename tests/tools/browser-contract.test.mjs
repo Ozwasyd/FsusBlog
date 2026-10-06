@@ -448,14 +448,17 @@ test('fixture adapter consumes one immutable namespace without exposing infrastr
 
 test('runner source enforces one managed launch, one context factory, and process-group timeout', async () =>
 {
-    const [runner, scenarios, fixture, lifecycle, prepareFacade, defaultProvider, lane] = await Promise.all([
+    const [runner, scenarios, fixture, lifecycle, prepareFacade, defaultProvider, lane,
+        postgresInitializer, runtimeTemporalContext] = await Promise.all([
         readFile(path.join(root, 'tests/browser-contract/run.mjs'), 'utf8'),
         readFile(path.join(root, 'tests/browser-contract/scenarios.mjs'), 'utf8'),
         readFile(path.join(root, 'tests/browser-contract/fixture.mjs'), 'utf8'),
         readFile(path.join(root, 'tests/browser-contract/fixture-lifecycle.mjs'), 'utf8'),
         readFile(path.join(root, 'tests/browser-contract/prepare-fixture.mjs'), 'utf8'),
         readFile(path.join(root, 'tests/browser-contract/default-fixture-provider.mjs'), 'utf8'),
-        readFile(path.join(root, 'tools/test/lanes/browser-contract.sh'), 'utf8')
+        readFile(path.join(root, 'tools/test/lanes/browser-contract.sh'), 'utf8'),
+        readFile(path.join(root, 'src/backend/Infrastructure/Helpers/Initializer/SqlSugarInitializer.cs'), 'utf8'),
+        readFile(path.join(root, 'src/backend/Infrastructure/Testing/TestTemporalRuntimeContext.cs'), 'utf8')
     ]);
 
     assert.equal((runner.match(/managed\.chromium\.launch\(/gu) ?? []).length, 1);
@@ -464,6 +467,13 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(runner, /verifyProductionBuildReceipt/u);
     assert.match(runner, /createCorrectnessBrowserPlan/u);
     assert.match(runner, /observeCorrectnessBrowser/u);
+    assert.match(runner, /await applyBrowserTemporalClock\(temporalContext, page\)/u);
+    assert.match(runner, /browserBusinessEpochUtc: new Date\(\)\.toISOString\(\)/u);
+    assert.ok(runner.indexOf('await applyBrowserTemporalClock(temporalContext, page)')
+        < runner.indexOf('const browserObservation = await page.evaluate'));
+    assert.ok(runner.indexOf('browserTemporalObservation = observeBrowserTemporalContext')
+        < runner.indexOf('await runner({ browser, context, page'));
+    assert.doesNotMatch(runner, /page\.clock\.(?:install|pauseAt|fastForward)\(/u);
     assert.match(runner, /productFailures\.push/u);
     assert.match(runner, /scenarioReceipt\.classification === 'product'/u);
     assert.doesNotMatch(runner, /max(?:imum)?[-_ ]?(?:errors|failures)|failFast/iu);
@@ -494,11 +504,14 @@ test('runner source enforces one managed launch, one context factory, and proces
     assert.match(defaultProvider, /io\.fsusblog\.test\.preparation-id/u);
     assert.match(defaultProvider, /phase:\s*'preparing'/u);
     assert.match(defaultProvider, /phase:\s*'prepared'/u);
-    assert.match(defaultProvider, /SET fsusblog\.test_business_epoch_utc/u);
-    assert.match(
-        defaultProvider,
-        /current_setting\('fsusblog\.test_business_epoch_utc'\)::timestamptz,\s*1,\s*NULL,\s*'zk_anonymous'/u
-    );
+    assert.match(defaultProvider, /FSUSBLOG_TEMPORAL_CONTEXT_JSON:\s*JSON\.stringify\(temporal\.context\)/u);
+    assert.match(defaultProvider, /temporalObservation:\s*await fetch\(/u);
+    assert.match(defaultProvider, /\/__local\/temporal-observation/u);
+    assert.match(postgresInitializer, /builder\.Options[\s\S]*temporalContext\.PostgresSessionOptions/u);
+    assert.match(runtimeTemporalContext, /-c timezone=\{PostgresTimezone\} -c fsusblog\.test_business_epoch_utc=\{BusinessEpochUtc:O\}/u);
+    assert.match(defaultProvider, /readFixtureReceipt\([\s\S]*requireVerified: true/u);
+    assert.match(defaultProvider, /producerId === 'comment-moderation'/u);
+    assert.match(defaultProvider, /canonical comment FixtureReceipt is stale or cross-run/u);
     assert.match(
         defaultProvider,
         /FSUSBLOG_PUBLIC_AOT_SSR_CLIENT_ROOT:\s*consumerWebRoot/u

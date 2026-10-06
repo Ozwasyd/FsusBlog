@@ -824,10 +824,13 @@ export function validateFixtureVariantEvidence({ result, variantIds, catalogs = 
       && Array.isArray(evidence.entityIds)
       && ((evidence.entityIds.length > 0
         && evidence.entityIds.every((entityId) => observedIds.has(String(entityId))))
-        || (variant.capabilityId === 'public.empty'
+        || ((variant.capabilityId === 'public.empty'
+          || (variant.capabilityId === 'audit.empty'
+            && result.observations?.database?.recordCount === 0))
           && evidence.emptyVerified === true
           && evidence.entityIds.length === 0
-          && entities.length === 0));
+          && entities.length === 0
+          && identities.length === 0));
         if (variant.validityClass === 'negative-invalid')
         {
             if (boundEntities.length !== 0)

@@ -6,8 +6,6 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import {
-    assertDedicatedContainer,
-    assertDedicatedRoots,
     computeDbSemanticDigest,
     computeSha256,
     createDataScaleRuntimePlan,
@@ -255,6 +253,7 @@ export class DataScaleRuntimeProvisioner
         configuredRedisContainer,
         configuredDatabase,
         backendPid = 99999,
+        backendStartTicks,
         baseUrl = 'http://127.0.0.1:18888',
         executableOrImageDigest = 'sha256:3333333333333333333333333333333333333333333333333333333333333333',
         sourceCommit = 'b4690b70ce2871fd8c4197b4a1f8e18d5d3bc11d',
@@ -279,6 +278,11 @@ export class DataScaleRuntimeProvisioner
             configuredRedisContainer,
             configuredDatabase
         });
+
+        if (!/^[0-9]+$/u.test(String(backendStartTicks ?? '')) || BigInt(backendStartTicks) <= 0n)
+        {
+            throw new Error('backend start ticks require explicit observed process identity');
+        }
 
         this.state.backendRunning = true;
         this.state.stepIndex = 6;
@@ -307,7 +311,7 @@ export class DataScaleRuntimeProvisioner
                 baseUrl,
                 executableOrImageDigest,
                 pidOrContainerId: backendPid,
-                startTicks: Date.now() * 10000
+                startTicks: String(backendStartTicks)
             },
             aotRoot: this.plan.roots.aotRoot,
             searchRoot: this.plan.roots.searchRoot,
@@ -435,7 +439,7 @@ export function writeLaneEnvironmentFile(filePath, environment)
 
 function shellSingleQuote(value)
 {
-    return `'${value.replace(/'/gu, `'\"'\"'`)}'`;
+    return `'${value.replace(/'/gu, `'"'"'`)}'`;
 }
 
 /**
@@ -485,7 +489,7 @@ export async function provisionLaneRuntime({
     let receiptPath = null;
     if (mode === 'full')
     {
-        const receipt = await runFullLiveProvisionLifecycle(provisioner, { tier });
+        const receipt = await runFullLiveProvisionLifecycle(provisioner, { tier, environment });
         receiptPath = receipt.path;
     }
 

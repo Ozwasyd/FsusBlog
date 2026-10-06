@@ -46,6 +46,8 @@ try
                 timezoneId: observation.timezoneId,
                 backendCulture: observation.backendCulture,
                 postgresTimezone: observation.postgresTimezone,
+                businessEpochUtc: observation.businessEpochUtc,
+                browserBusinessEpochUtc: observation.browserBusinessEpochUtc,
                 nodeTimezone: observation.nodeTimezone
             });
         }

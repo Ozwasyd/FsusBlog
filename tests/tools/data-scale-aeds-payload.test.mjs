@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import {
+const {
     decodeCommentArticleCursor,
     encodeCommentArticleCursor
-} from '../../tools/data-scale/aeds-decoders.mjs';
-import {
+} = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
+const {
     verifyHttpPayloadProof
-} from '../../tools/data-scale/semantic-proof.mjs';
+} = await import(new URL('../../tools/data-scale/semantic-proof.mjs', import.meta.url));
 
 const CANARIES = Object.freeze({
     article: {
@@ -215,6 +215,38 @@ test('decodes valid comment article cursor and verifies canary comment', () =>
         canaries: CANARIES
     });
     assert.equal(proof.status, 'ok');
+});
+
+test('comment cursor timestamps are explicit and independent of the host clock', () =>
+{
+    const cursor = validDecodedResponses().commentCursor;
+    cursor.data[0].repliesPreview = [{ id: '101', content: 'reply', createTime: '2024-03-01T07:59:59.000+08:00' }];
+    const originalNow = Date.now;
+    Date.now = () =>
+    {
+        throw new Error('unexpected host wall-clock read');
+    };
+    try
+    {
+        const first = encodeCommentArticleCursor(cursor);
+        assert.deepEqual(encodeCommentArticleCursor(cursor), first);
+        const decoded = decodeCommentArticleCursor(first);
+        assert.equal(decoded.data[0].createTime, '2024-02-29T23:59:59.000Z');
+        assert.equal(decoded.data[0].repliesPreview[0].createTime, '2024-02-29T23:59:59.000Z');
+        for (const missing of [undefined, null, '', '2024-02-29T23:59:59.000', 'not-a-date'])
+        {
+            const rootInvalid = structuredClone(cursor);
+            rootInvalid.data[0].createTime = missing;
+            assert.throws(() => encodeCommentArticleCursor(rootInvalid), /comment\.createTime requires an explicit timestamp/u);
+            const replyInvalid = structuredClone(cursor);
+            replyInvalid.data[0].repliesPreview[0].createTime = missing;
+            assert.throws(() => encodeCommentArticleCursor(replyInvalid), /reply\.createTime requires an explicit timestamp/u);
+        }
+    }
+    finally
+    {
+        Date.now = originalNow;
+    }
 });
 
 test('fails when comment cursor belongs to wrong article or lacks canary comment', () =>

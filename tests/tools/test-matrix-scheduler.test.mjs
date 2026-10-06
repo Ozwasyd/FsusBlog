@@ -35,6 +35,7 @@ import {
 } from './support/esm-fixture-materializer-contracts.mjs';
 import { materializeEsmFixture, preflightMaterializedEsmFixture } from './support/esm-fixture-materializer.mjs';
 import { posixCancellationFailureSource } from './support/posix-cancellation-fixture.mjs';
+import { prepareSchedulerCliMatrixFixture } from './support/scheduler-cli-fixture.mjs';
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const schedulerFile = path.join(root, 'tools/test-matrix/scheduler.mjs');
@@ -93,6 +94,18 @@ function createTempDir(name)
 function createRunnerFixture(temp)
 {
     const runner = materializeTestMatrixRunner(root, temp);
+    fs.mkdirSync(path.join(temp, 'tools/fixtures'), { recursive: true });
+    return commitRunnerFixture(temp, runner);
+}
+
+function sealRunnerFixture(temp, matrixFile)
+{
+    prepareSchedulerCliMatrixFixture(root, temp, matrixFile);
+    return commitRunnerFixture(temp, path.join(temp, 'tools/run-test-matrix.mjs'));
+}
+
+function commitRunnerFixture(temp, runner)
+{
     if (!fs.existsSync(path.join(temp, '.git')))
     {
         execFileSync('git', ['init', '--quiet'], { cwd: temp });
@@ -103,13 +116,14 @@ function createRunnerFixture(temp)
         '!/.gitignore',
         '!/.github/',
         '!/config/',
-        '!/tools/'
+        '!/tools/',
+        '!/tests/'
     ].join('\n') + '\n');
     prepareBehaviorDocAdmissionFixtureAuthority({
         sourceRepositoryRoot: root,
         repositoryRoot: temp
     });
-    execFileSync('git', ['add', '--all', '--', '.gitignore', '.github', 'config', 'tools'], {
+    execFileSync('git', ['add', '--all', '--', '.gitignore', '.github', 'config', 'tools', 'tests'], {
         cwd: temp
     });
     execFileSync(
@@ -1186,6 +1200,14 @@ test('fresh scheduler preserves authenticated current-run prerequisite outputs f
             status: prerequisite.status,
             executionKey: 'matrix-governance',
             runBoundReceiptDigest: prerequisiteProjection.receipt.receiptDigest
+        },
+        observations: {
+            businessEpochUtc: '2024-02-29T23:59:59.000Z',
+            timezone: 'UTC',
+            nodeTimezone: 'UTC',
+            locale: 'en-US',
+            monotonicClockSource: 'performance-now',
+            observationBoundary: 'test-producer'
         },
         generatedAt: '2026-07-29T00:00:00.000Z'
     });
@@ -5357,3 +5379,41 @@ test('POSIX cancellation fixture refuses absent, malformed and dead readiness in
             assert.match(result.stderr, /fixture readiness refused/u);
         });
     });
+
+test('sealed scheduler CLI fixture rejects missing finalizer and executable drift before child spawn', (t) =>
+{
+    const temp = createTempDir('scheduler-sealed-boundary');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const runner = createRunnerFixture(temp);
+    const marker = path.join(temp, 'marker.txt');
+    const script = path.join(temp, 'tools/fixtures/marker.mjs');
+    const matrix = path.join(temp, 'matrix.yml');
+    fs.writeFileSync(script, `import fs from 'node:fs';\nfs.writeFileSync(${JSON.stringify(marker)}, 'spawned');\n`);
+    fs.writeFileSync(matrix, [
+        'version: fsusblog-test-matrix-v2',
+        'tiers:',
+        '  - id: backend-unit',
+        '    command: node tools/fixtures/marker.mjs',
+        '    executionDependsOn: []',
+        '    ciJob: fixture'
+    ].join('\n'));
+    sealRunnerFixture(temp, matrix);
+    const run = () => spawnSync(process.execPath, [runner, 'run', 'backend-unit', '--fresh'], {
+        cwd: temp,
+        encoding: 'utf8',
+        env: { ...process.env, FSUSBLOG_MATRIX_FILE: matrix }
+    });
+    const finalizer = path.join(temp, 'tools/test/lanes/release-final.sh');
+    const finalizerBytes = fs.readFileSync(finalizer);
+    fs.rmSync(finalizer);
+    const missing = run();
+    assert.notEqual(missing.status, 0);
+    assert.match(missing.stderr, /ENOENT.*release-final\.sh/u);
+    assert.equal(fs.existsSync(marker), false);
+    fs.writeFileSync(finalizer, finalizerBytes);
+    fs.appendFileSync(script, '// executable drift after fixture sealing\n');
+    const drifted = run();
+    assert.notEqual(drifted.status, 0);
+    assert.match(drifted.stderr, /working-tree bytes differ from the repository index/u);
+    assert.equal(fs.existsSync(marker), false);
+});
