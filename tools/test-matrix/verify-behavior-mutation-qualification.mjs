@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { validateStrykerToolBinding } from '../mutation/stryker-tool.mjs';
 /**
  * Independent verifier for per-behavior mutation qualification receipts
  * (#2187, delivery item 11).
@@ -561,6 +562,21 @@ export function verifyBehaviorMutationQualification(options)
         }
         for (const run of authority.physicalRuns ?? [])
         {
+            if (run.traceExecution?.strykerVersion === '4.14.2-fsusblog.3' || run.toolBinding)
+            {
+                try
+                {
+                    validateStrykerToolBinding(run.toolBinding, {
+                        repositoryRoot: repositoryRootValue,
+                        sourceState: authority.sourceState,
+                        runId: authority.runId
+                    });
+                }
+                catch (error)
+                {
+                    errors.push(`${run.sourceProject} actual tool custody failed: ${error.message}`);
+                }
+            }
             for (const kind of ['rawReport', 'rawTrace'])
             {
                 const entry = run[kind];

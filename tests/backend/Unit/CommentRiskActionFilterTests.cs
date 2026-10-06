@@ -26,6 +26,7 @@ public sealed class CommentRiskActionFilterTests
     [Theory]
     [InlineData(false, RiskActionNames.CommentCreate, "comment.create")]
     [InlineData(true, RiskActionNames.CommentReply, "comment.reply")]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_RealCreateAndReplyFramesSetDynamicActionResetBodyAndPreservePayload(
         bool isReply,
         string expectedAction,
@@ -57,6 +58,7 @@ public sealed class CommentRiskActionFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_MalformedFrameFallsBackToCreateAndResetsSeekableBody()
     {
         var aeds = new AedsEncoder();
@@ -79,6 +81,7 @@ public sealed class CommentRiskActionFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_NonSeekableBodyIsBufferedAndReplyFrameRemainsReadableByMutation()
     {
         var aeds = new AedsEncoder();
@@ -134,6 +137,7 @@ public sealed class CommentRiskActionFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task InvokeAsync_OversizedPreviewDefaultsToCreateWithoutReadingBody()
     {
         var aeds = new AedsEncoder();
@@ -157,6 +161,7 @@ public sealed class CommentRiskActionFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public void RiskControlContextFactory_PrefersDynamicCommentActionOverEndpointDefault()
     {
         var context = new DefaultHttpContext();
@@ -175,6 +180,7 @@ public sealed class CommentRiskActionFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-queue-for-moderation-decision-continues-comment-mutation-with-hidden-manual-review-context")]
     public async Task QueueForModerationDecision_ContinuesCommentMutationWithHiddenManualReviewContext()
     {
         var aeds = new AedsEncoder();

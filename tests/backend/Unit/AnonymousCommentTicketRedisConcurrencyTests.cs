@@ -103,6 +103,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     [Theory]
     [InlineData(false)]
     [InlineData(true)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-consume-ticket-async-malformed-or-tampered-payload-fails-closed-and-does-not-revive-key")]
     public async Task ConsumeTicketAsync_MalformedOrTamperedPayloadFailsClosedAndDoesNotReviveKey(bool tamperVersion)
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);
@@ -128,6 +129,7 @@ public sealed class AnonymousCommentTicketRedisConcurrencyTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-consume-ticket-async-cancellation-and-redis-failure-allow-at-most-one-later-success")]
     public async Task ConsumeTicketAsync_CancellationAndRedisFailureAllowAtMostOneLaterSuccess()
     {
         await using TicketCacheContext context = await TicketCacheContext.CreateAsync(redis, warmL1: false);

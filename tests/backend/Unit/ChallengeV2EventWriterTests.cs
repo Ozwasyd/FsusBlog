@@ -42,6 +42,7 @@ public sealed class ChallengeV2EventWriterTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task FlushOnceAsync_WritesQueuedAttemptsInConfiguredBatches()
     {
         var persistence = new RecordingChallengePersistence();

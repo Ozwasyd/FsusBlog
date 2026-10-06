@@ -23,6 +23,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Positive)]
     public async Task CompleteLoginAsync_TwoDeviceLoginsRemainActive()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -62,6 +63,7 @@ public sealed class UserSessionLoginConcurrencyTests(PostgresSchemaMigrationFixt
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Boundary)]
     public async Task CompleteLoginAsync_ActiveSessionLimitEvictsLeastRecentlyUsedSession()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);

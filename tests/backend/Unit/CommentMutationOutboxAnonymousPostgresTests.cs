@@ -131,6 +131,7 @@ public sealed class CommentMutationOutboxAnonymousPostgresTests(PostgresSchemaMi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-strong-anonymous-submission-worker-retry-and-restart-preserve-committed-comment-and-checkpoints")]
     public async Task StrongAnonymousSubmission_WorkerRetryAndRestartPreserveCommittedCommentAndCheckpoints()
     {
         string connectionString = await CreateAnonymousCommentDatabaseAsync();

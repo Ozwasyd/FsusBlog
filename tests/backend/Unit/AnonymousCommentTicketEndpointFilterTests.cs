@@ -45,6 +45,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     [InlineData(IdentityContamination.CookieAndAuthorization)]
     [InlineData(IdentityContamination.AuthenticatedPrincipal)]
     [InlineData(IdentityContamination.AuthoringBridgeHeader)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-real-endpoint-identity-contamination-rejects-before-every-ticket-boundary")]
     public async Task RealEndpoint_IdentityContaminationRejectsBeforeEveryTicketBoundary(
         IdentityContamination contamination)
     {
@@ -96,6 +97,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     [InlineData(InvalidPayloadKind.MalformedAeds)]
     [InlineData(InvalidPayloadKind.OversizedProof)]
     [InlineData(InvalidPayloadKind.OrdinaryValidation)]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-real-endpoint-identity-contamination-precedes-payload-and-validation-failures")]
     public async Task RealEndpoint_IdentityContaminationPrecedesPayloadAndValidationFailures(
         InvalidPayloadKind payloadKind)
     {
@@ -118,6 +120,7 @@ public sealed class AnonymousCommentTicketEndpointFilterTests
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task RealEndpoint_CleanValidRequestEntersDecodeProofNullifierAndTicketStore()
     {
         await using var server = await AnonymousTicketPipelineServer.CreateAsync();

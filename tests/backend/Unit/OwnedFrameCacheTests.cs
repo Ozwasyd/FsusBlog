@@ -61,6 +61,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task ReplaceAndShutdown_RetireEachOwnerOnceAndResidencyTracksBackingCapacity()
     {
         var pool = new MultiTrackingArrayPool(extraCapacity: 113);
@@ -95,6 +96,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "cancelled-cache-transfer-preserves-reader-and-releases-backing")]
     public async Task CancellationAfterRedisCommit_ConsumesRootButOutstandingReaderRemainsValid()
     {
         var pool = new MultiTrackingArrayPool();
@@ -130,6 +132,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task RedisL2Backfill_OwnsExactSensitiveArrayUntilEvictionAndReaderCompletion()
     {
         byte[] frame = new AedsEncoder().Encode(AedsFrameType.AdminStats, [1, 2, 3]);
@@ -155,6 +158,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "disposed-cache-refuses-and-consumes-sensitive-owner")]
     public async Task AlreadyDisposedCache_ConsumesTransferredSensitiveOwner()
     {
         var pool = new MultiTrackingArrayPool();
@@ -253,6 +257,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "sensitive-aeds-cache-invalid-frame-cleared")]
     public async Task InvalidSensitiveL2Frame_IsClearedAfterValidationFailure()
     {
         byte[] frame = new AedsEncoder().Encode(AedsFrameType.AdminStats, [7, 8, 9]);
@@ -275,6 +280,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "cache-admission-failure-preserves-prior-owner-residency")]
     public async Task MemoryCacheAdmissionFailure_PreservesPreviousOwnerAndCounters()
     {
         var firstPool = new MultiTrackingArrayPool();
@@ -308,6 +314,7 @@ public sealed class OwnedFrameCacheTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task MemoryCacheCompaction_RetiresOwnerExactlyOnce()
     {
         var pool = new MultiTrackingArrayPool();
@@ -517,6 +524,7 @@ public sealed class OwnedFrameCacheTests
 public sealed class OwnedFrameResponseResultTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task PreencodedResult_ReleasesLeaseOnNotModifiedAndHeadPaths()
     {
         await AssertEarlyReturnReleasesAsync("GET", ifNoneMatch: "\"v1\"");
@@ -524,6 +532,7 @@ public sealed class OwnedFrameResponseResultTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-response-failure-releases-lease-once")]
     public async Task PreencodedResult_ReleasesLeaseWhenBodyWriteThrows()
     {
         var pool = new ResponseTrackingArrayPool();
@@ -542,6 +551,7 @@ public sealed class OwnedFrameResponseResultTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "cancelled-response-releases-lease-exactly-once")]
     public async Task PreencodedResult_ReleasesLeaseWhenRequestIsAlreadyCancelled()
     {
         var pool = new ResponseTrackingArrayPool();
@@ -563,6 +573,7 @@ public sealed class OwnedFrameResponseResultTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "aeds-response-single-execution")]
     public async Task PreencodedResult_RejectsConcurrentSecondExecutionAndFirstStillReleasesOnce()
     {
         var pool = new ResponseTrackingArrayPool();

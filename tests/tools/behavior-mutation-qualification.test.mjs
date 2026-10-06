@@ -114,7 +114,9 @@ const EXPECTED_MUTATION_OWNER_FILES = Object.freeze({
         'src/backend/Services/Security/SecurityAdminPolicyService.cs',
         'src/backend/Services/Security/SecurityChallengeOrchestrator.cs',
         'src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs',
-        'src/core/Common/ErrorCode.cs'
+        'src/core/Common/ErrorCode.cs',
+        'src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs',
+        'src/shared/Contracts/Security/SecurityChallengeContracts.cs'
     ]
 });
 

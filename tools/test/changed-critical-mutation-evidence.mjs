@@ -154,6 +154,7 @@ export function createChangedCriticalMutationAuthority({
             reportAbsolutePath: run.reportAbsolutePath
                 ?? absoluteArtifactPath(repositoryRoot, run.paths.report),
             rawTrace: run.rawTrace,
+            toolBinding: run.toolBinding ?? null,
             tracePath: run.paths.trace,
             config: run.config,
             rawConfig: run.rawConfig,
@@ -186,6 +187,7 @@ export function createChangedCriticalMutationAuthority({
                 sha256: sha256(run.rawTrace)
             },
             traceExecution: authority.traceExecution,
+            ...(authority.toolBinding ? { toolBinding: authority.toolBinding } : {}),
             mutateFiles: closure.mutateFiles,
             testFilter: closure.testFilter,
             executed: authority.executedMutants,
@@ -404,10 +406,13 @@ function main()
             rawReport: report.raw,
             reportAbsolutePath: resolve(entry.report),
             rawTrace: trace,
+            toolBinding: entry.toolBinding
+                ? JSON.parse(readFileSync(absoluteArtifactPath(root, entry.toolBinding))) : null,
             paths: {
                 config: entry.config,
                 report: entry.report,
-                trace: entry.trace
+                trace: entry.trace,
+                ...(entry.toolBinding ? { toolBinding: entry.toolBinding } : {})
             }
         };
     });

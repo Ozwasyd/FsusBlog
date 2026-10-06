@@ -15,6 +15,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class SecurityChallengeProtocolActivationGuardTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-activation-durable-receipt-and-fence")]
     public async Task Guard_RemainsClosedUntilDurableExactReceiptThenFailsClosedOnFenceDrift()
     {
         ServiceProvider services = new ServiceCollection().AddDistributedMemoryCache().BuildServiceProvider();
@@ -45,6 +46,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-activation-pool-fingerprint-exact")]
     public async Task Guard_FailsClosedWhenPoolPolicyOrFrontendFingerprintDrifts()
     {
         ServiceProvider services = new ServiceCollection().AddDistributedMemoryCache().BuildServiceProvider();
@@ -77,6 +79,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     [InlineData("Production", false)]
     [InlineData("Development", true)]
     [InlineData("Testing", true)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary, InvariantId = "challenge-activation-local-environment-boundary")]
     public async Task InvalidReleaseSlotOnlyBypassesActivationInExplicitLocalEnvironments(
         string environmentName,
         bool expectedOpen)
@@ -106,6 +109,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-activation-cache-failure-fails-closed")]
     public async Task ProductionCacheFailureFailsClosed()
     {
         IDistributedCache cache = Substitute.For<IDistributedCache>();
@@ -122,6 +126,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-frontend-aeds-fingerprint-exact")]
     public void PublishedFrontendTarget_ExactBuildPassesAndMixedFingerprintFailsReadinessValidation()
     {
         string root = Path.Combine(Path.GetTempPath(), "fsus-v3-target-" + Guid.CreateVersion7().ToString("N"));

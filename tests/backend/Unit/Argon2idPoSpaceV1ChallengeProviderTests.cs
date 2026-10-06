@@ -25,6 +25,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RuntimeServices_RegisterArgon2idPoSpaceProvider()
     {
         var services = new ServiceCollection();
@@ -45,6 +46,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_DisabledMode_FailsClosedWithoutPersisting()
     {
         ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Disabled);
@@ -58,6 +60,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_EnabledMode_ReturnsAssignmentPayloadAndPersistsAuditMetadata()
     {
         ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Enforce);
@@ -93,6 +96,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     [InlineData(19_456, 2, 5, 100)]
     [InlineData(19_456, 2, 1, 99)]
     [InlineData(19_456, 2, 1, 5_001)]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "pospace-parameter-range-required")]
     public async Task IssueAsync_RejectsParameterBounds(int memoryKib, int iterations, int lanes, int targetDurationMs)
     {
         ProviderFixture fixture = CreateFixture(
@@ -110,6 +114,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task IssueAsync_AcceptsExactMaximumParameters()
     {
         ProviderFixture fixture = CreateFixture(
@@ -135,6 +140,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     [InlineData("Lanes", " 1")]
     [InlineData("TargetDurationMs", "NaN")]
     [InlineData("TargetDurationMs", "2147483648")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "pospace-configured-decimal-canonical")]
     public async Task IssueAsync_RejectsNonCanonicalConfiguredDecimals(string key, string value)
     {
         IConfiguration configuration = new ConfigurationBuilder()
@@ -154,6 +160,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task IssueAsync_MissingParameters_UsesLegalGeneratedDefaults()
     {
         IConfiguration configuration = new ConfigurationBuilder()
@@ -174,6 +181,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "pospace-mobile-memory-cap-required")]
     public async Task IssueAsync_MobileUserAgentAboveMobileMemoryLimit_FailsClosed()
     {
         ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Enforce, memoryKib: 19_456);
@@ -188,6 +196,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "pospace-proof-single-use")]
     public async Task VerifyAsync_AcceptsArgon2idProofAndRejectsReplay()
     {
         ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Enforce);
@@ -214,6 +223,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task FixedVector_FrontendProofIsAcceptedAndReplayFailsClosed()
     {
         JsonObject vector = BackendTestPaths.ReadJsonFromRoot("tests", "fixtures", "security", "pospace-v1-vector.json");
@@ -259,6 +269,7 @@ public sealed class Argon2idPoSpaceV1ChallengeProviderTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "pospace-proof-integrity-required")]
     public async Task VerifyAsync_RejectsTamperedProof()
     {
         ProviderFixture fixture = CreateFixture(mode: SecuritySystemModes.Enforce);

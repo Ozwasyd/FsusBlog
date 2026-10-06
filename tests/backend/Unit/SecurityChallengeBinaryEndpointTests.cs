@@ -30,6 +30,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     private const string Traceparent = "00-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa-bbbbbbbbbbbbbbbb-01";
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task IssueAsync_ChallengeDecision_ReturnsChallengeResponseFrame()
     {
         var aeds = new AedsEncoder();
@@ -84,6 +85,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task IssueAsync_CharacterV3Decision_WritesGenericChallengeRiskSignal()
     {
         var aeds = new AedsEncoder();
@@ -121,6 +123,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-v3-closed-until-activation")]
     public async Task BinaryIssueAndVerify_V3StayClosedUntilProtocolActivation_WithoutCallingProvider()
     {
         var aeds = new AedsEncoder();
@@ -213,6 +216,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [InlineData(3)]
     [InlineData(10)]
     [InlineData(13)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-raw-kind-generic-error")]
     public async Task VerifyAsync_UnsupportedOrRetiredRawKind_ReturnsSameGenericApiError(int rawKind)
     {
         var aeds = new AedsEncoder();
@@ -251,6 +255,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [InlineData("provider_missing", "unavailable", StatusCodes.Status503ServiceUnavailable)]
     [InlineData("envelope_state_unavailable", "unavailable", StatusCodes.Status503ServiceUnavailable)]
     [InlineData("assignment_invalid_internal", "rejected", StatusCodes.Status428PreconditionRequired)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-issue-v3-internal-failure-coarse")]
     public async Task IssueAsync_PerceptionCharacterV3InternalFailureReturnsOnlyCoarseError(string internalReason, string expectedPublicReason, int expectedStatus)
     {
         var aeds = new AedsEncoder();
@@ -285,6 +290,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [Theory]
     [InlineData("")]
     [InlineData("older-build")]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-manifest-missing-incompatible-fail")]
     public async Task IssueAsync_MultiMemberWithMissingOrIncompatibleManifest_FailsBeforeProviderIssue(string manifestVersion)
     {
         var aeds = new AedsEncoder();
@@ -321,6 +327,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task IssueAsync_MultiMemberWithCurrentExecutableManifest_ReachesProviderIssue()
     {
         var aeds = new AedsEncoder();
@@ -355,6 +362,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-ui-member-unavailable-fail")]
     public async Task IssueAsync_MultiMemberWithUnavailableUiMember_FailsBeforeProviderIssue()
     {
         var aeds = new AedsEncoder();
@@ -388,6 +396,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-pospace-unsupported-reissue")]
     public async Task IssueAsync_PoSpaceUnsupportedAttributes_UsesServerReissueDecisionOverBinaryContract()
     {
         var aeds = new AedsEncoder();
@@ -434,6 +443,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_AcceptedProviderProof_ReturnsProofTokenFrame()
     {
         var aeds = new AedsEncoder();
@@ -475,6 +485,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task VerifyAsync_AcceptedNonFinalMember_ReturnsProgressWithoutProof()
     {
         var aeds = new AedsEncoder();
@@ -524,6 +535,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-oversized-provider-payload-reject")]
     public async Task VerifyAsync_ProviderPayloadWithOversizedValue_ReturnsApiErrorWithoutCallingOrchestrator()
     {
         var aeds = new AedsEncoder();
@@ -562,6 +574,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Boundary)]
     public void SecurityChallengePayloadParser_EnforcesRuntimeEntryValueAndDepthBounds()
     {
         Type endpointType = typeof(BinaryEndpoints);
@@ -604,6 +617,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [InlineData("perception_steps_invalid")]
     [InlineData("perception_expired")]
     [InlineData("perception_replayed")]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-provider-failure-generic-error")]
     public async Task VerifyAsync_ProviderFailure_ReturnsGenericChallengeFailedApiError(string internalReason)
     {
         var aeds = new AedsEncoder();
@@ -648,6 +662,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [InlineData("provider_missing", "unavailable", StatusCodes.Status503ServiceUnavailable)]
     [InlineData("state_unavailable", "unavailable", StatusCodes.Status503ServiceUnavailable)]
     [InlineData("token_open_failed_internal", "rejected", StatusCodes.Status428PreconditionRequired)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-verify-v3-internal-failure-coarse")]
     public async Task VerifyAsync_PerceptionCharacterV3InternalFailureReturnsOnlyCoarseError(string internalReason, string expectedPublicReason, int expectedStatus)
     {
         var aeds = new AedsEncoder();
@@ -684,6 +699,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-composite-failure-max-attempts")]
     public async Task VerifyAsync_RepeatedCompositeFailures_ReturnGenericFailureWithoutCallingOrchestratorAfterMaxAttempts()
     {
         var aeds = new AedsEncoder();
@@ -733,6 +749,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-rate-limited-malformed-payload")]
     public async Task VerifyAsync_RateLimitedMalformedProviderPayload_ReturnsGenericFailureWithoutCallingOrchestrator()
     {
         var aeds = new AedsEncoder();
@@ -775,6 +792,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task CancelAsync_RevokesEnvelopeAndEveryPersistedMemberIdempotently()
     {
         var aeds = new AedsEncoder();
@@ -836,6 +854,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-cancel-unbound-members-unchanged")]
     public async Task CancelAsync_BindingMissReturnsOpaqueSuccessWithoutTouchingMembers()
     {
         var aeds = new AedsEncoder();
@@ -868,6 +887,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task CancelAsync_PlannedV3RevokesEnvelopeWithoutRequiringUnissuedProviderState()
     {
         var aeds = new AedsEncoder();
@@ -897,6 +917,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-cancel-v3-disabled-fail-closed")]
     public async Task CancelAsync_PerceptionCharacterV3DisabledServicesFailClosedWithoutBreakingRoute()
     {
         var aeds = new AedsEncoder();
@@ -924,6 +945,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [InlineData(PerceptionCharacterV3TransitionKind.ReissueRequired, "revoked_now", "revoked", true)]
     [InlineData(PerceptionCharacterV3TransitionKind.ReissueRequired, "expired_or_revoked", "terminal", true)]
     [InlineData(PerceptionCharacterV3TransitionKind.Rejected, "binding_mismatch", "rejected", false)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public async Task CancelAsync_PerceptionCharacterV3RequiresCurrentServerDeviceAndAuditsSpecificOutcome(
         PerceptionCharacterV3TransitionKind transitionKind,
         string internalReason,
@@ -976,6 +998,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-cancel-redis-failure-unavailable")]
     public async Task CancelAsync_PerceptionCharacterV3RedisFailureReturnsOnlyUnavailableAndAuditsReason()
     {
         var aeds = new AedsEncoder();
@@ -1011,6 +1034,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [Theory]
     [InlineData("incompatible-media-type", "application/json")]
     [InlineData("binary-q-zero", "application/octet-stream;q=0")]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-unacceptable-accept-406")]
     public async Task IssueAsync_UnacceptableAcceptHeader_ReturnsApiError406(
         string caseName,
         string acceptHeader)
@@ -1068,6 +1092,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-incompatible-content-type-error")]
     public async Task IssueAsync_IncompatibleContentType_ReturnsApiError()
     {
         var aeds = new AedsEncoder();
@@ -1091,6 +1116,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-missing-action-route-error")]
     public async Task IssueAsync_MissingActionOrRoute_ReturnsApiError()
     {
         var aeds = new AedsEncoder();
@@ -1120,6 +1146,7 @@ public sealed class SecurityChallengeBinaryEndpointTests
     [InlineData((byte)3)]
     [InlineData((byte)10)]
     [InlineData((byte)13)]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Negative, InvariantId = "challenge-retired-raw-kind-generic-invalid")]
     public async Task VerifyAsync_RetiredRawKindByteThroughAedsFrame_ReturnsGenericInvalidRequestWithoutCallingOrchestrator(
         byte retiredRawKind)
     {

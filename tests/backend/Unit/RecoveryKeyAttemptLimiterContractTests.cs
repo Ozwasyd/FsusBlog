@@ -29,6 +29,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
     private static readonly DateTimeOffset s_baselineNow = new(2026, 7, 11, 8, 0, 0, TimeSpan.Zero);
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "auth-article-verify-async-failed-attempts-escalate-at-threshold-and-recover-after-window-expiry")]
     public async Task VerifyAsync_FailedAttemptsEscalateAtThresholdAndRecoverAfterWindowExpiry()
     {
         var clock = new MutableTimeProvider(s_baselineNow);
@@ -82,6 +83,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-limiter-locked-early-return")]
     public async Task VerifyAsync_LockedIdentityReturnsBeforeCredentialLookup()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -105,6 +107,7 @@ public sealed class RecoveryKeyAttemptLimiterContractTests(PostgresSchemaMigrati
     }
 
     [Fact]
+    [CoversBehavior("authentication-session-permission", BehaviorTestKind.Negative, InvariantId = "recovery-limiter-indistinguishable-failure")]
     public async Task VerifyAsync_ExistingAndMissingCredentialFailuresHaveTheSameObservableResponse()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);

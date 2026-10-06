@@ -14,6 +14,7 @@ public sealed class AdaptivePowGovernorTests
     // ─── CurrentGlobalDifficulty thresholds ───────────────────────────────
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CurrentGlobalDifficulty_ReturnBaseDifficultyWhenIdle()
     {
         var governor = CreateGovernor();
@@ -23,6 +24,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CurrentGlobalDifficulty_UsesConfiguredBaseDifficultyWhenProvided()
     {
         var governor = CreateGovernor(baseDifficulty: 8);
@@ -31,6 +33,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void CurrentGlobalDifficulty_RespectsConfiguredMaxDifficultyUnderLoad()
     {
         var governor = CreateGovernor(baseDifficulty: 8, maxDifficulty: 8);
@@ -41,6 +44,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CurrentGlobalDifficulty_ReturnsElevatedAtLowLoad()
     {
         var governor = CreateGovernor();
@@ -52,6 +56,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CurrentGlobalDifficulty_ReturnsHighLoadAtMediumLoad()
     {
         var governor = CreateGovernor();
@@ -63,6 +68,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void CurrentGlobalDifficulty_ReturnsWarModeAtHighLoad()
     {
         var governor = CreateGovernor();
@@ -76,6 +82,7 @@ public sealed class AdaptivePowGovernorTests
     // ─── RecordInboundRequest ─────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void RecordInboundRequest_IncreasesEffectiveDifficulty()
     {
         var governor = CreateGovernor();
@@ -90,6 +97,7 @@ public sealed class AdaptivePowGovernorTests
     // ─── GetDifficultyForIpAsync ──────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task GetDifficultyForIpAsync_ReturnsGlobalDifficultyForUnknownIp()
     {
         var governor = CreateGovernor();
@@ -101,6 +109,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task GetDifficultyForIpAsync_AddsPenaltyForHighRiskIp()
     {
         // Risk score 20 → two 4-bit penalty steps
@@ -113,6 +122,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task GetDifficultyForIpAsync_CapsAtWarMode()
     {
         // Even a huge risk score must not exceed WAR_MODE = 28 bits
@@ -124,6 +134,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public async Task GetDifficultyForIpAsync_RespectsConfiguredMaxDifficultyForRiskPenalty()
     {
         var governor = CreateGovernor(riskScoreForAnyIp: 9999, baseDifficulty: 8, maxDifficulty: 8);
@@ -134,6 +145,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task GetDifficultyForIpAsync_CacheHitAvoidsCacheQuery()
     {
         // Call the same IP twice – second call should use L1 cache (no extra cache queries)
@@ -152,6 +164,7 @@ public sealed class AdaptivePowGovernorTests
     // ─── Tick ─────────────────────────────────────────────────────────────
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Tick_DoesNotThrow()
     {
         var governor = CreateGovernor();
@@ -160,6 +173,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Tick_CarriesLoadForwardWithEwmaAfterWindowReset()
     {
         var governor = CreateGovernor();
@@ -174,6 +188,7 @@ public sealed class AdaptivePowGovernorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void StableIpHashForTests_IsDeterministicAcrossCalls()
     {
         uint first = AdaptivePowGovernor.StableIpHashForTests("203.0.113.10");

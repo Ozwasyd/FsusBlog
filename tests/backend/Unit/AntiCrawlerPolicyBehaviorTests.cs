@@ -11,6 +11,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AntiCrawlerPolicyBehaviorTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AtomicSnapshotWrite_ReplacesCompleteJsonAndLeavesNoTemporaryFile()
     {
         string directory = Path.Combine(Path.GetTempPath(), $"fsus-crawler-snapshot-{Guid.NewGuid():N}");
@@ -40,6 +41,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     [InlineData("http://developers.google.com/static/search/apis/ipranges/googlebot.json")]
     [InlineData("https://internal-admin/api/secrets")]
     [InlineData("https://169.254.169.254/latest/meta-data/")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anticrawler-unsafe-provider-url-reject")]
     public void UpdateAntiCrawlerOptions_RejectsUnsafeProviderUrls(string configured)
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
@@ -52,6 +54,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     [InlineData("../crawler-ranges.snapshot.json")]
     [InlineData("/tmp/fsus-crawler-ranges.snapshot.json")]
     [InlineData("nested/../../crawler-ranges.snapshot.json")]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anticrawler-snapshot-path-outside-root-reject")]
     public void UpdateAntiCrawlerOptions_RejectsSnapshotPathsOutsideDataRoot(string configured)
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
@@ -61,6 +64,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void UpdateAntiCrawlerOptions_AcceptsOfficialProvidersAndRelativeSnapshotPath()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
@@ -78,6 +82,7 @@ public sealed class AntiCrawlerPolicyBehaviorTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
     public void ListRiskEvents_ClampsUntrustedLimitsAtPublicServiceBoundary()
     {
         var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());

@@ -68,6 +68,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-delivery-checkpoint-rejects-duplicate-event-consumer-pair")]
     public async Task DeliveryCheckpoint_RejectsDuplicateEventConsumerPair()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -93,6 +94,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-worker-reclaims-expired-lease-retries-temporary-failure-and-skips-completed-consumer-on-duplicate")]
     public async Task Worker_ReclaimsExpiredLeaseRetriesTemporaryFailureAndSkipsCompletedConsumerOnDuplicate()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -479,6 +481,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Positive)]
     public async Task Worker_AtomicallyReservesExpiredDeliveryBeforeCacheVersionSideEffect()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -522,6 +525,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-worker-active-foreign-delivery-reservation-fails-closed-without-cache-side-effect")]
     public async Task Worker_ActiveForeignDeliveryReservationFailsClosedWithoutCacheSideEffect()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -598,6 +602,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-worker-completed-delivery-without-matching-digest-does-not-execute-or-process-event")]
     public async Task Worker_CompletedDeliveryWithoutMatchingDigestDoesNotExecuteOrProcessEvent()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -630,6 +635,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-worker-terminal-delivery-failure-prevents-event-completion")]
     public async Task Worker_TerminalDeliveryFailurePreventsEventCompletion()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -784,6 +790,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-worker-mark-processed-claim-loss-preserves-replacement-owner-and-does-not-increment-processed")]
     public async Task Worker_MarkProcessedClaimLossPreservesReplacementOwnerAndDoesNotIncrementProcessed()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -822,6 +829,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-worker-mark-processed-rejects-missing-required-consumer-receipt-without-incrementing-metric")]
     public async Task Worker_MarkProcessedRejectsMissingRequiredConsumerReceiptWithoutIncrementingMetric()
     {
         string connectionString = await CreateDatabaseAsync();
@@ -857,6 +865,7 @@ public sealed class CommentMutationOutboxPostgresTests(PostgresSchemaMigrationFi
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-worker-mark-processed-rejects-non-empty-tampered-required-consumer-digest-without-incrementing-metrics")]
     public async Task Worker_MarkProcessedRejectsNonEmptyTamperedRequiredConsumerDigestWithoutIncrementingMetrics()
     {
         string connectionString = await CreateDatabaseAsync();

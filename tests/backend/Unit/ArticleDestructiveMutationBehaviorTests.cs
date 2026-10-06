@@ -161,6 +161,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-delete-async-establishes-fence-before-delete-and-fails-closed-when-fence-is-unavailable")]
     public async Task DeleteAsync_EstablishesFenceBeforeDeleteAndFailsClosedWhenFenceIsUnavailable()
     {
         string connectionString = classDatabase.ConnectionString;
@@ -230,6 +231,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     }
 
     [Fact]
+    [CoversBehavior("article-comment-lifecycle-outbox", BehaviorTestKind.Negative, InvariantId = "auth-article-permanent-delete-and-clear-trash-never-remove-active-articles")]
     public async Task PermanentDeleteAndClearTrash_NeverRemoveActiveArticles()
     {
         string connectionString = classDatabase.ConnectionString;

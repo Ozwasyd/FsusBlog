@@ -14,6 +14,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     private const string HashC = "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc";
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task CompleteMemberAsync_TwoOrderedMembers_CompletesOnlyAfterSecondMember()
     {
         Fixture fixture = CreateFixture();
@@ -48,6 +49,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-ordered-progress")]
     public async Task ValidateMemberAsync_OutOfOrder_DoesNotConsumeEarlierProgress()
     {
         Fixture fixture = CreateFixture();
@@ -65,6 +67,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-completed-member-single-use")]
     public async Task CompleteMemberAsync_DuplicateEarlierMemberRejected_FinalMemberIsIdempotent()
     {
         Fixture fixture = CreateFixture();
@@ -91,6 +94,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-envelope-invalid-request-reason")]
     public async Task ValidateMemberAsync_BindingMismatchAndUnknownMember_FailClosed()
     {
         Fixture fixture = CreateFixture();
@@ -109,6 +113,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-failed-envelope-terminal")]
     public async Task FailAsync_MakesEnvelopeTerminalAndPreservesNoAggregateCompletion()
     {
         Fixture fixture = CreateFixture();
@@ -124,6 +129,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-replay-terminal-envelope")]
     public async Task FailAsync_VerifiedMemberReplayTerminatesStillActiveEnvelope()
     {
         Fixture fixture = CreateFixture();
@@ -145,6 +151,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-envelope-expiry-enforced")]
     public async Task ValidateMemberAsync_ExpiredEnvelope_FailsClosed()
     {
         var clock = new MutableTimeProvider(s_now);
@@ -184,6 +191,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-issuance-expiry-enforced")]
     public async Task CompleteIssuanceAsync_ExpiryBetweenMembers_ExpiresReservedMember()
     {
         var clock = new MutableTimeProvider(s_now);
@@ -209,6 +217,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-ambiguous-reservation-fails-closed")]
     public async Task CompleteMemberAsync_RedisReplyLossAfterReservation_FailsClosedWithoutSecondReservation()
     {
         Fixture fixture = CreateFixture();
@@ -231,6 +240,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-ambiguous-issuance-not-reopened")]
     public async Task CompleteIssuanceAsync_RedisReplyLossDoesNotReopenIssuedMember()
     {
         Fixture fixture = CreateFixture();
@@ -268,6 +278,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-revoked-envelope-terminal")]
     public async Task RevokeAsync_RevokesIncompleteMembersAndBlocksFinalCompletion()
     {
         Fixture fixture = CreateFixture();
@@ -290,6 +301,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public async Task RevokeAsync_CompletedEnvelopeInvalidatesPreparedProofState()
     {
         Fixture fixture = CreateFixture();
@@ -311,6 +323,7 @@ public sealed class SecurityChallengeEnvelopeStateServiceTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "challenge-member-replay-prevents-proof-completion")]
     public async Task ProofMinting_EarlierMemberReplayTerminatesBeforeProofCompletion()
     {
         Fixture fixture = CreateFixture();

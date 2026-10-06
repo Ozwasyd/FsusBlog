@@ -1,7 +1,10 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFileSync } from 'node:fs';
+import { readFileSync, mkdirSync, mkdtempSync, writeFileSync, rmSync, symlinkSync } from 'node:fs';
+import { resolve, relative, dirname } from 'node:path';
+import { fileURLToPath } from 'node:url';
 import test from 'node:test';
+import { validateStrykerToolPolicy, validateStrykerToolBinding, requireStrykerExecutionIdentity } from '../../tools/mutation/stryker-tool.mjs';
 
 import {
     attributeMutantsToBehaviors,
@@ -390,4 +393,194 @@ test('checked-in nightly and fixed release mutation lanes remain present', () =>
     assert.match(matrix, /- id: release-mutation-critical-slice\n/u);
     assert.ok(defaults['stryker-config'].mutate.length > 1);
     assert.deepEqual(critical['stryker-config'].mutate, ['Algorithms/AedsEncoder.cs']);
+});
+
+test('repository Stryker producer pins official source and overlay identity', () =>
+{
+    const policy = JSON.parse(readFileSync(
+        new URL('../../config/testing/mutation/stryker-tool.v1.json', import.meta.url),
+        'utf8'
+    ));
+    const manifest = JSON.parse(readFileSync(
+        new URL('../../.config/dotnet-tools.json', import.meta.url),
+        'utf8'
+    ));
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ));
+    const expressionTreeOverlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-expression-tree.patch',
+        import.meta.url
+    ));
+
+    assert.equal(validateStrykerToolPolicy(policy, manifest, overlay, expressionTreeOverlay), policy);
+    assert.equal(policy.upstreamCommit, 'cc7fdf3433025a4b63c2c091c07b2177d117359e');
+    assert.equal(policy.upstreamArchiveSha256, 'd50354b9f99fd9d9e4959b2c4cf0dbf5068cc47488a49db77d00e0dbbb32cca0');
+    assert.equal(manifest.tools['dotnet-stryker'].version, '4.14.2');
+    assert.match(expressionTreeOverlay.toString('utf8'), /IsExpressionTreeArgument/u);
+    assert.doesNotMatch(expressionTreeOverlay.toString('utf8'), /MutantStatus\.(?:Ignored|CompileError|Timeout)/u);
+});
+
+test('repository Stryker producer rejects unreviewed patch and version drift', () =>
+{
+    const policy = JSON.parse(readFileSync(
+        new URL('../../config/testing/mutation/stryker-tool.v1.json', import.meta.url),
+        'utf8'
+    ));
+    const manifest = JSON.parse(readFileSync(
+        new URL('../../.config/dotnet-tools.json', import.meta.url),
+        'utf8'
+    ));
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ));
+    const expressionTreeOverlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-expression-tree.patch',
+        import.meta.url
+    ));
+
+    assert.throws(
+        () => validateStrykerToolPolicy(policy, manifest, Buffer.concat([overlay, Buffer.from('x')])),
+        /patch digest/u
+    );
+    assert.throws(
+        () => validateStrykerToolPolicy(
+            policy,
+            manifest,
+            overlay,
+            Buffer.concat([expressionTreeOverlay, Buffer.from('x')])
+        ),
+        /expression-tree patch digest/u
+    );
+    assert.throws(
+        () => validateStrykerToolPolicy(
+            { ...policy, packageVersion: '4.14.2' },
+            manifest,
+            overlay
+        ),
+        /package version/u
+    );
+});
+
+test('all mutation executors use the repository producer without status relaxation', () =>
+{
+    const executors = [
+        '../../tools/test/lanes/_suite-support.sh',
+        '../../tools/test/run-changed-critical-mutation.mjs',
+        '../../tools/test/run-release-mutation-parity-build.mjs'
+    ].map(path => readFileSync(new URL(path, import.meta.url), 'utf8')).join('\n');
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ), 'utf8');
+
+    assert.doesNotMatch(executors, /tool(?:'|\s)+run(?:'|\s)+dotnet-stryker/u);
+    assert.match(executors, /tools\/mutation\/stryker-tool\.mjs/u);
+    assert.match(overlay, /CsharpMutationCandidateValidator/u);
+    assert.doesNotMatch(overlay, /MutantStatus\.(?:Ignored|CompileError|Timeout)/u);
+    assert.doesNotMatch(overlay, /threshold|allowlist|excluded-mutant/iu);
+    assert.match(overlay, /remainingBaselineErrors/u);
+    assert.match(overlay, /introducedErrors/u);
+    assert.match(overlay, /KeepsCandidateWhenOnlyExactBaselineDiagnosticsRemain/u);
+    assert.match(overlay, /RejectsCandidateThatAddsAnErrorAlongsideExactBaselineDiagnostics/u);
+});
+
+test('repository candidate validator subtracts only exact baseline diagnostics', () =>
+{
+    const policy = JSON.parse(readFileSync(
+        new URL('../../config/testing/mutation/stryker-tool.v1.json', import.meta.url),
+        'utf8'
+    ));
+    const manifest = JSON.parse(readFileSync(
+        new URL('../../.config/dotnet-tools.json', import.meta.url),
+        'utf8'
+    ));
+    const overlay = readFileSync(new URL(
+        '../../tools/mutation/patches/stryker-net-4.14.2-candidate-validity.patch',
+        import.meta.url
+    ));
+    const source = overlay.toString('utf8');
+
+    assert.match(source, /GroupBy\(DiagnosticKey, StringComparer\.Ordinal\)/u);
+    assert.match(source, /remainingBaselineErrors\.TryGetValue\(key/u);
+    assert.match(source, /else\s*\n\+\s*\{\s*\n\+\s*introducedErrors\.Add\(error\)/u);
+    assert.match(source, /diagnostic\.Location\.SourceSpan/u);
+    assert.doesNotMatch(source, /originalErrors\.Length\s*!=\s*0/u);
+
+    const weakened = Buffer.from(source.replace(
+        'else\n+            {\n+                introducedErrors.Add(error);\n+            }',
+        'else\n+            {\n+                // fail open\n+            }'
+    ));
+    assert.throws(
+        () => validateStrykerToolPolicy(policy, manifest, weakened),
+        /patch digest/u
+    );
+});
+
+test('repository producer refuses absent current scheduler identity before bootstrap', () => {
+    assert.throws(() => requireStrykerExecutionIdentity({}), /current scheduler identity/u);
+    assert.throws(() => requireStrykerExecutionIdentity({ FSUSBLOG_TEST_RUN_ID: 'old', FSUSBLOG_TEST_SOURCE_COMMIT: 'a'.repeat(40) }), /current scheduler identity/u);
+});
+
+
+test('actual repository tool custody rejects cross-run/source/package/host/dependency tamper', () =>
+{
+    const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
+    const fixtureRoot = resolve(root, '.tmp/mutation/tool-custody-controls');
+    mkdirSync(fixtureRoot, { recursive: true });
+    const directory = mkdtempSync(resolve(fixtureRoot, 'case-'));
+    const local = file => relative(root, file).replaceAll('\\', '/');
+    const digest = value => createHash('sha256').update(value).digest('hex');
+    const packagePath = resolve(directory, 'dotnet-stryker.nupkg');
+    const installedRoot = resolve(directory, 'bin');
+    const executablePath = resolve(installedRoot, 'Stryker.CLI.dll');
+    const dependencyPath = resolve(installedRoot, 'Stryker.Core.dll');
+    const hostPath = resolve(directory, 'dotnet-host');
+    mkdirSync(installedRoot);
+    writeFileSync(packagePath, 'fixture-package');
+    writeFileSync(executablePath, 'fixture-cli');
+    writeFileSync(dependencyPath, 'fixture-core');
+    writeFileSync(hostPath, 'fixture-host');
+    const rawPolicy = readFileSync(resolve(root, 'config/testing/mutation/stryker-tool.v1.json'));
+    const policy = JSON.parse(rawPolicy);
+    const binding = {
+        schema: 'fsusblog.stryker-tool-binding.v1',
+        runId: 'tool-custody-case', sourceState,
+        packageVersion: policy.packageVersion, upstreamCommit: policy.upstreamCommit,
+        policySha256: digest(rawPolicy), patchSha256: policy.patchSha256,
+        expressionTreePatchSha256: policy.expressionTreePatchSha256,
+        package: { path: local(packagePath), sha256: digest(readFileSync(packagePath)) },
+        executable: { path: local(executablePath), sha256: digest(readFileSync(executablePath)) },
+        hostExecutable: { absolutePath: hostPath, realPath: hostPath, sha256: `sha256:${digest(readFileSync(hostPath))}` },
+        installedRoot: local(installedRoot),
+        installedFiles: [executablePath, dependencyPath].map(file => ({ path: local(file), sha256: digest(readFileSync(file)) }))
+    };
+    const inputs = { repositoryRoot: root, sourceState, runId: binding.runId };
+    try
+    {
+        assert.equal(validateStrykerToolBinding(binding, inputs), binding);
+        assert.throws(() => validateStrykerToolBinding(binding, { ...inputs, runId: 'other-run' }), /source\/run\/policy/u);
+        assert.throws(() => validateStrykerToolBinding(binding, { ...inputs, sourceState: { ...sourceState, commit: 'c'.repeat(40) } }), /source\/run\/policy/u);
+        writeFileSync(packagePath, 'tampered-package');
+        assert.throws(() => validateStrykerToolBinding(binding, inputs), /package custody/u);
+        writeFileSync(packagePath, 'fixture-package');
+        writeFileSync(hostPath, 'tampered-host');
+        assert.throws(() => validateStrykerToolBinding(binding, inputs), /host executable/u);
+        writeFileSync(hostPath, 'fixture-host');
+        writeFileSync(dependencyPath, 'tampered-dependency');
+        assert.throws(() => validateStrykerToolBinding(binding, inputs), /dependency closure/u);
+        writeFileSync(dependencyPath, 'fixture-core');
+        const extraPath = resolve(installedRoot, 'unlisted.dll');
+        writeFileSync(extraPath, 'unlisted');
+        assert.throws(() => validateStrykerToolBinding(binding, inputs), /dependency closure/u);
+        rmSync(extraPath);
+        symlinkSync(hostPath, extraPath);
+        assert.throws(() => validateStrykerToolBinding(binding, inputs), /symlink/u);
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
 });

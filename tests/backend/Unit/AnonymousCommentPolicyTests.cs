@@ -15,6 +15,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class AnonymousCommentPolicyTests
 {
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-default-fail-closed")]
     public void AnonymousCommentPolicy_DefaultsToZkFailClosedAndRejectsImplicitPublicMode()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -35,6 +36,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-disabled-rejects-modes")]
     public void AnonymousCommentPolicy_DisabledAnonymousRejectsAnonymousAndZkModes()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration(new Dictionary<string, string?>
@@ -53,6 +55,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AnonymousCommentPolicy_UpdateCanExposeZkAndCuratedLanguages()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -74,6 +77,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void AnonymousCommentPolicy_DefaultsAndValidatesConfigurableCommentLimits()
     {
         var defaults = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -93,6 +97,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-limit-range-reject")]
     public void AnonymousCommentPolicy_UpdateRejectsOutOfRangeCommentLimits()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -121,6 +126,7 @@ public sealed class AnonymousCommentPolicyTests
     }
 
     [Fact]
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Negative, InvariantId = "anon-comment-author-mode-reject")]
     public void AnonymousCommentPolicy_UpdateRejectsInvalidAuthorMode()
     {
         var service = new AnonymousCommentPolicyService(BuildConfiguration([]));
@@ -186,6 +192,22 @@ public sealed class AnonymousCommentPolicyTests
         Assert.True(snapshot.ZkAnonymousEnabled);
         Assert.Equal(CommentAuthorModes.ZkAnonymous, snapshot.DefaultAuthorMode);
     }
+
+    [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
+    [Fact]
+    public void AnonymousCommentPolicy_EntityDefaultsAreFailClosedZkAnonymous()
+    {
+        var entity = new FsusBlog.Server.Entities.AnonymousCommentPolicy();
+
+        Assert.True(entity.AnonymousCommentsEnabled);
+        Assert.True(entity.PublicCommentsEnabled);
+        Assert.Equal("zk_anonymous", entity.DefaultAuthorMode);
+        Assert.Equal("zh-CN,en", entity.SupportedDisplayLanguages);
+        Assert.Equal(string.Empty, entity.SnapshotHash);
+        Assert.Equal("system", entity.ChangedBy);
+    }
+
+
 
     private static IConfiguration BuildConfiguration(Dictionary<string, string?> values)
         => new ConfigurationBuilder()

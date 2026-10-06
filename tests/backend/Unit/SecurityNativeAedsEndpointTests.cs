@@ -9,6 +9,7 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class SecurityNativeAedsEndpointTests
 {
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void TryResolveRoute_KnowsRiskListAndPowRoutes()
     {
         Assert.True(SecurityEndpoints.TryResolveRoute(HttpMethods.Post, new PathString("/risk/ip/reset"), out var resetRoute));
@@ -25,6 +26,7 @@ public sealed class SecurityNativeAedsEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void TryResolveRoute_KnowsRiskControlConsoleRoutes()
     {
         foreach (string path in new[]
@@ -52,6 +54,7 @@ public sealed class SecurityNativeAedsEndpointTests
     }
 
     [Fact]
+    [CoversBehavior("binary-api-aeds-contract", BehaviorTestKind.Positive)]
     public void NormalizeSecurityAuditPayload_ConvertsPerceptionSnapshotToAotSafeObjectGraph()
     {
         var snapshot = new PerceptionSealedV2PolicySnapshot(
