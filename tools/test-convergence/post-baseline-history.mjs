@@ -176,7 +176,7 @@ function unambiguousTestAttribute(masked, name, attributeContext)
     return true;
 }
 
-function historicalMethodPresent(source, className, methodName, maskCSharpTrivia, proveXunit, attributeContext = '')
+function historicalMethodPresent(source, className, methodName, maskCSharpTrivia, proveXunit, attributeContext = '', requireFact = false)
 {
     if (typeof maskCSharpTrivia !== 'function')
     {
@@ -231,7 +231,12 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
         `^[ \\t]*public[ \\t]+(?:async[ \\t]+)?(?:void|Task(?:<[^>\\n]+>)?|ValueTask(?:<[^>\\n]+>)?)[ \\t]+${methodName}[ \\t]*\\(`,
         'gmu'
     ) : new RegExp(`\\b${methodName}\\s*(?:<[^;{}()]*>)?\\s*\\(`, 'gu');
-    for (const classMatch of masked.matchAll(classDeclaration))
+    const classMatches = [...masked.matchAll(classDeclaration)];
+    if (requireFact && [...masked.matchAll(new RegExp(`\\b(?:class|struct|record(?:\\s+(?:class|struct))?)\\s+@?${className}\\b`, 'gu'))].length !== 1)
+    {
+        return false;
+    }
+    for (const classMatch of classMatches)
     {
         if (classMatch[1] !== className)
         {
@@ -255,6 +260,11 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
         {
             continue;
         }
+        if (requireFact && (depths[classMatch.index] !== 0
+            || !/^\s*\{/u.test(masked.slice(classMatch.index + classMatch[0].length))))
+        {
+            continue;
+        }
         const bodyDepth = depths[opening + 1];
         let closing = opening + 1;
         while (closing < masked.length && !(masked[closing] === '}' && depths[closing] === bodyDepth))
@@ -274,10 +284,20 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             continue;
         }
         const body = masked.slice(opening + 1, closing);
-        for (const methodMatch of body.matchAll(declaration))
+        const methodMatches = [...body.matchAll(declaration)];
+        if (requireFact && [...body.matchAll(new RegExp(`\\b${methodName}\\s*(?:<[^;{}()]*>)?\\s*\\(`, 'gu'))]
+            .filter((match) => depths[opening + 1 + match.index] === bodyDepth).length !== 1)
+        {
+            return false;
+        }
+        for (const methodMatch of methodMatches)
         {
             const methodOffset = opening + 1 + methodMatch.index;
             if (depths[methodOffset] !== bodyDepth)
+            {
+                continue;
+            }
+            if (requireFact && !/^\s*\)\s*(?:\{|=>)/u.test(masked.slice(methodOffset + methodMatch[0].length)))
             {
                 continue;
             }
@@ -287,8 +307,14 @@ function historicalMethodPresent(source, className, methodName, maskCSharpTrivia
             {
                 continue;
             }
-            if (!proveXunit || precedingAttributeNames(masked, opening, methodOffset)
-                .some((name) => unambiguousTestAttribute(masked, name, attributeContext)))
+            const attributes = proveXunit ? precedingAttributeNames(masked, opening, methodOffset) : [];
+            const testAttributes = attributes.filter((name) => /^(?:Fact|Theory)(?:Attribute)?$/u.test(name.split('.').at(-1)));
+            if (requireFact && (testAttributes.length !== 1
+                || !/^(?:Fact|FactAttribute)$/u.test(testAttributes[0].split('.').at(-1))))
+            {
+                continue;
+            }
+            if (!proveXunit || attributes.some((name) => unambiguousTestAttribute(masked, name, attributeContext)))
             {
                 return true;
             }
@@ -350,10 +376,55 @@ function historicalAttributeContext(root, commit, maskCSharpTrivia)
     return context.join('\n');
 }
 
+// This is an exact-history assertion against an existing canonical ID, not an
+// inventory producer. Only the unambiguous file-scoped, top-level, no-argument
+// Fact shape can bridge the archived method ID to Roslyn's static case identity.
+export function canonicalFactMatchesHistoricalOwner({ source, id, historicalId, path, maskCSharpTrivia, attributeContext = '' })
+{
+    const historical = /^xunit:(tests\/backend\/Unit\/[A-Za-z0-9_.-]+\.cs)#([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/u.exec(String(historicalId ?? ''));
+    if (!historical || historical[1] !== path || typeof source !== 'string' || typeof maskCSharpTrivia !== 'function')
+    {
+        return false;
+    }
+    const masked = maskCSharpTrivia(source);
+    if (/^[ \t]*#\s*(?:if|elif|else|endif)\b/mu.test(masked))
+    {
+        return false;
+    }
+    const namespaces = [...masked.matchAll(/\bnamespace\s+([A-Za-z_][A-Za-z0-9_]*(?:\.[A-Za-z_][A-Za-z0-9_]*)*)\s*([;{])/gu)];
+    if (namespaces.length !== 1 || namespaces[0][2] !== ';')
+    {
+        return false;
+    }
+    const prefix = masked.slice(0, namespaces[0].index);
+    let depth = 0;
+    for (let index = 0; index < masked.length; index += 1)
+    {
+        if (index === namespaces[0].index && depth !== 0)
+        {
+            return false;
+        }
+        depth += masked[index] === '{' ? 1 : masked[index] === '}' ? -1 : 0;
+        if (depth < 0)
+        {
+            return false;
+        }
+    }
+    if (depth !== 0 || /\b(?:class|struct|record|interface|enum)\b/u.test(prefix))
+    {
+        return false;
+    }
+    const [, , className, methodName] = historical;
+    const expected = `xunit:${path}#${namespaces[0][1]}.${className}.${methodName}#case-0000`;
+    return id === expected && historicalMethodPresent(
+        source, className, methodName, maskCSharpTrivia, true, attributeContext, true
+    );
+}
+
 function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTrivia, readAttributeContext })
 {
     const errors = [];
-    const match = /^xunit:(tests\/backend\/Unit\/[A-Za-z0-9_.-]+\.cs)#([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/u.exec(String(record?.id ?? ''));
+    const match = /^xunit:(tests\/backend\/Unit\/[A-Za-z0-9_.-]+\.cs)#([A-Za-z_][A-Za-z0-9_]*)\.([A-Za-z_][A-Za-z0-9_]*)$/u.exec(String(record?.historicalId ?? record?.id ?? ''));
     if (!match || !safePath(record?.path) || match[1] !== record.path || basename(record.path) !== `${match[2]}.cs`)
     {
         return [`${record?.id ?? '<missing id>'}: v2 history requires an exact legacy xUnit method and owner path`];
@@ -384,6 +455,12 @@ function validateV2Record({ root, record, baseline, anchorCommit, maskCSharpTriv
     catch (error)
     {
         return [`${record.id}: ${error.message}`];
+    }
+    if (record.historicalId !== undefined && !canonicalFactMatchesHistoricalOwner({
+        source, id: record.id, historicalId: record.historicalId, path, maskCSharpTrivia, attributeContext
+    }))
+    {
+        errors.push(`${record.id}: canonical retired identity does not match the exact historical Fact owner`);
     }
     if (!blobOid.test(String(record.sourceBlobOid ?? '')) || record.sourceBlobOid !== sourceOid)
     {

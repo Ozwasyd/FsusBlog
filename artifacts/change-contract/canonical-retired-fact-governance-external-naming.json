@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-convergence/post-baseline-history.mjs"
+            ],
+            "reason": "Preserve the Git process environment spellings GIT_NO_REPLACE_OBJECTS and GIT_GRAFT_FILE for immutable historical reads while internal history and identity variables retain their existing camelCase names."
+        }
+    ]
+}
