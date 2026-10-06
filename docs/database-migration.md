@@ -586,6 +586,24 @@ schema/effect parity and immutable guard refusal, but have not been executed for
 this source-only component. Entity-subset unit or PostgreSQL fixture cases cannot qualify an empty production database upgrade
 or a supported historical database conversion.
 
+The original MySQL catalog query independently awaits its reader and command
+disposals, preserving the first query/shape/budget/cancellation failure via the
+original exception while recording only fixed immutable cleanup codes. Cleanup
+failure after an otherwise successful read still refuses; cancellation is checked
+after the complete awaited cleanup. Its SQL descriptors, metadata limits, original
+30-second command policy and native session/driver guard are unchanged. Direct
+private-query lifecycle SOURCE controls do not qualify native cleanup or a database.
+This remote-source integration remains WIP pending canonical Migration validation,
+independent native acceptance and complete source-bound assembly receipt generation.
+The 19 original SOURCE cases retain exact immutable diagnostic types, fixed values
+and ordering. Their comparison explicitly selects string sequence equality; the
+original default ImmutableArray overload compared distinct backing-array identities.
+A separate four-case overload diagnostic covers equal, reordered, dropped and altered
+values. These mocked cleanup controls are not native service qualification.
+It does not register a whole MySQL legacy migration operation. Rollback reverts this
+catalog-query cleanup change if reader or command custody regresses, retaining the
+existing native session guards and metadata budgets.
+
 `PgCurrentSchemaCatalogObserver`, `PgCurrentSchemaEffectObserver` and
 `PgCurrentSchemaExpressionParser` are the single current native PostgreSQL
 measurement/parser implementation in Shared.Algorithms, not another expected-schema
