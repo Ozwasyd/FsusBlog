@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/run-runtime-cache-evidence.mjs",
+                "tools/test/runtime-cache-evidence-contract.mjs",
+                "tools/test/runtime-cache-scenarios/related-reading-contract.mjs"
+            ],
+            "reason": "Preserve the registered caller-visible environment and shared protocol interface spellings while strengthening the existing runtime-cache observation reader and producer."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/runtime-cache-scenario-receipt.schema.json"
+            ],
+            "reason": "Preserve existing JSON Schema keywords and receipt wire keys; the internal observation adds responseContentType and requires retained binary GET bytes through the existing schema owner."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "config/schemas/runtime-cache-scenario-receipt.schema.json",
+                "docs/testing.md"
+            ],
+            "reason": "Preserve existing registered schema and documented caller-visible contract spellings; no DOM, token or style contract changes."
+        }
+    ]
+}

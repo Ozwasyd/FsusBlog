@@ -48,7 +48,7 @@ function tinyCatalog()
     const catalog = structuredClone(loadRuntimeCacheCatalog());
     for (const scenario of catalog.scenarios)
     {
-        scenario.requests = scenario.subcases.length;
+        scenario.requests = scenario.id === 'pagination' ? 8 : scenario.subcases.length;
         scenario.concurrency = 1;
         scenario.warmupRequests = 0;
         scenario.requirements = {};
@@ -74,7 +74,8 @@ function makeEvidence(scenario, repositoryRoot, options = {})
     const runId = options.runId ?? 'run-1';
     const attemptNumber = options.attemptNumber ?? 1;
     const attemptId = `${runId}.attempt-${attemptNumber}`;
-    const requests = scenario.subcases.map((subcaseId, index) => ({
+    const sampleSubcases = scenario.id === 'pagination' ? ['page-1', 'page-10', 'page-100', 'page-1000', ...Array(4).fill('cursorless-deep')] : scenario.subcases;
+    const requests = sampleSubcases.map((subcaseId, index) => ({
         id: `${scenario.id}.${index + 1}`,
         subcaseId,
         method: 'GET',
@@ -116,10 +117,68 @@ function makeEvidence(scenario, repositoryRoot, options = {})
             request.parityGroup = `related-reading-${articleId}`;
             request.payloadDigest = digest(body);
             request.responseBodyBase64 = body.toString('base64');
+            request.responseContentType = 'application/octet-stream';
             raw.cacheEvents.push({ requestId: request.id, subcaseId: request.subcaseId,
                 sequence: 1, elapsedMilliseconds: 1, family: 'related-reading',
                 identityDigest: digest(`related-reading:${articleId}`),
                 outcome: request.subcaseId === 'hot' ? 'hit' : 'built', source: authority.cache });
+        }
+    }
+    const parameters = {};
+    if (scenario.id === 'article-detail-l1') parameters.route = '/api/binary/article/17.aeds';
+    if (['distributed-invalidation', 'revocation'].includes(scenario.id)) parameters.articleId = 17;
+    if (scenario.id === 'revocation') parameters.sizes = [1, 10, 100, 1000, 10000, 100000];
+    for (const request of requests)
+    {
+        let frameType;
+        let payload = Buffer.alloc(12);
+        if (scenario.id === 'public-hot-read')
+        {
+            request.path = '/api/binary/article/hot/10.aeds';
+            request.parityGroup = `public-hot-read-${request.subcaseId}`;
+            frameType = 3;
+        }
+        if (['article-detail-l1', 'distributed-invalidation', 'revocation'].includes(scenario.id))
+        {
+            if (scenario.id === 'distributed-invalidation' && request.subcaseId === 'comment-mutation')
+            {
+                request.method = 'POST';
+                request.path = '/_fsus/testing/runtime-cache/scenarios/distributed/trigger';
+                request.parityGroup = 'distributed-comment-mutation';
+                continue;
+            }
+            request.path = '/api/binary/article/17.aeds';
+            request.parityGroup = scenario.id === 'article-detail-l1' ? 'article-detail-l1-payload' :
+                scenario.id === 'distributed-invalidation' ? 'distributed-route-convergence' : 'revocation-unrelated-article-17';
+            frameType = 2;
+        }
+        if (scenario.id === 'hot-featured-frame')
+        {
+            request.path = `/api/binary/admin/article/${request.subcaseId}?size=${request.subcaseId === 'hot' ? 49 : 9}`;
+            request.parityGroup = `admin-${request.subcaseId}-whole-frame`;
+            frameType = request.subcaseId === 'hot' ? 3 : 15;
+        }
+        if (scenario.id === 'pagination')
+        {
+            const negative = request.subcaseId === 'cursorless-deep';
+            const page = negative ? [10, 100, 1000, 1001][requests.indexOf(request) - 4] : Number(request.subcaseId.slice(5));
+            request.path = `/api/binary/article/list/home/${page}/10.aeds?sort=latest${!negative && page > 1 ? '&cursor=fixture-opaque-cursor' : ''}`;
+            request.parityGroup = `pagination-${negative ? 'cursorless' : 'page'}-${page}`;
+            request.status = negative ? 400 : 200;
+            frameType = negative ? 251 : 1;
+            if (negative)
+            {
+                payload = Buffer.alloc(584);
+                payload[0] = 1;
+                payload.writeInt32LE(400, 4);
+            }
+        }
+        if (frameType !== undefined)
+        {
+            const body = Buffer.from(encodeAedsFrame(frameType, payload));
+            request.payloadDigest = digest(body);
+            request.responseBodyBase64 = body.toString('base64');
+            request.responseContentType = 'application/octet-stream';
         }
     }
     for (const [subcaseId, count] of Object.entries(scenario.requirements.rebuildCountBySubcase ?? {}))
@@ -163,7 +222,7 @@ function makeEvidence(scenario, repositoryRoot, options = {})
             redis: { version: '8.0', topology: 'isolated-namespace', digest: dependencyDigest }
         },
         machine: { os: 'test', arch: 'arm64', cpuModel: 'fixture', logicalCpuCount: 1, memoryBytes: 1024, runtime: 'node-test' },
-        input: { fixtureDigest, requestCount: requests.length, concurrency: 1, parameters: {} },
+        input: { fixtureDigest, requestCount: requests.length, concurrency: 1, parameters },
         windows: { warmup: { startedAt: timestamp, endedAt: timestamp, requestCount: 0 }, sample: { startedAt: timestamp, endedAt: timestamp, requestCount: requests.length } },
         rawEvidence: {
             schema: raw.schema,
@@ -217,6 +276,103 @@ function writeCompleteSet(repositoryRoot, catalog)
     }
     return { receiptDir, receipts };
 }
+
+for (const [name, mutate, expected] of [
+    ['HTTP failure with valid frame and command counts', (request) => { request.status = 503; }, /HTTP 503/u],
+    ['foreign route with its valid frame', (request) => {
+        request.path = '/api/binary/article/17.aeds';
+        const body = Buffer.from(encodeAedsFrame(2, Buffer.alloc(12)));
+        request.responseBodyBase64 = body.toString('base64');
+        request.payloadDigest = digest(body);
+    }, /binding failed/u],
+    ['wrong Content-Type', (request) => { request.responseContentType = 'application/json'; }, /Content-Type/u],
+    ['missing Content-Type', (request) => { delete request.responseContentType; }, /responseContentType|Content-Type/u],
+    ['missing bytes', (request) => { delete request.responseBodyBase64; }, /responseBodyBase64|missing response bytes/u],
+    ['matching digest over malformed CRC', (request) => {
+        const body = Buffer.from(request.responseBodyBase64, 'base64');
+        body[body.length - 1] ^= 1;
+        request.responseBodyBase64 = body.toString('base64');
+        request.payloadDigest = digest(body);
+    }, /crc_mismatch/u],
+    ['matching digest over foreign frame', (request) => {
+        const body = Buffer.from(encodeAedsFrame(2, Buffer.alloc(12)));
+        request.responseBodyBase64 = body.toString('base64');
+        request.payloadDigest = digest(body);
+    }, /wrong AEDS frame type/u],
+    ['negative changed to ordinary 404', (_request, negative) => { negative.status = 404; }, /expected HTTP 400/u],
+    ['negative changed to positive 200', (_request, negative) => { negative.status = 200; }, /expected HTTP 400/u],
+    ['negative ApiError with wrong code', (_request, negative) => {
+        const payload = Buffer.alloc(584);
+        payload[0] = 2;
+        payload.writeInt32LE(400, 4);
+        const body = Buffer.from(encodeAedsFrame(251, payload));
+        negative.responseBodyBase64 = body.toString('base64');
+        negative.payloadDigest = digest(body);
+    }, /ApiError\(Validation\)/u],
+    ['negative ApiError with wrong embedded status', (_request, negative) => {
+        const payload = Buffer.alloc(584);
+        payload[0] = 1;
+        payload.writeInt32LE(403, 4);
+        const body = Buffer.from(encodeAedsFrame(251, payload));
+        negative.responseBodyBase64 = body.toString('base64');
+        negative.payloadDigest = digest(body);
+    }, /embedded HTTP 400/u],
+    ['duplicate cursor', (request) => { request.path = '/api/binary/article/list/home/10/10.aeds?sort=latest&cursor=one&cursor=two'; }, /duplicate/u],
+    ['negative relabeled as successful page', (_request, negative) => { negative.subcaseId = 'page-10'; }, /binding failed/u]
+])
+{
+    test(`independent checker rejects resealed pagination ${name}`, () =>
+    {
+        const repositoryRoot = createRepository();
+        const catalog = tinyCatalog();
+        const scenario = catalog.scenarios.find((item) => item.id === 'pagination');
+        const evidence = makeEvidence(scenario, repositoryRoot, { catalog, mutateRaw: (raw) =>
+        {
+            mutate(raw.requests[0], raw.requests.find((request) => request.subcaseId === 'cursorless-deep'));
+            // Keep attribution synchronized; only the HTTP/AEDS oracle should reject.
+            for (const row of raw.cacheClassifications) row.subcaseId = raw.requests.find((request) => request.id === row.requestId).subcaseId;
+        } });
+        assert.match(validateRuntimeCacheReceipt(evidence.receipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot }).join('\n'), expected);
+    });
+}
+
+test('full current pagination recipe rejects resealed duplicate or missing cursorless pages with unchanged five-command budgets', () =>
+{
+    const repositoryRoot = createRepository();
+    const catalog = loadRuntimeCacheCatalog();
+    const scenario = catalog.scenarios.find((item) => item.id === 'pagination');
+    const evidence = makeEvidence(scenario, repositoryRoot, { catalog, mutateRaw: (raw) =>
+    {
+        for (const request of raw.requests.filter((item) => item.subcaseId !== 'cursorless-deep'))
+        {
+            const count = request.subcaseId === 'page-1' ? 2 : 1;
+            for (let index = 0; index < count; index += 1) raw.databaseCommands.push({ requestId: request.id,
+                subcaseId: request.subcaseId, fingerprint: digest(`db-${index}`), source: raw.authority.database });
+        }
+    }, mutateReceipt: (receipt) =>
+    {
+        receipt.windows.warmup.requestCount = scenario.warmupRequests;
+        receipt.commandSummary.database = { count: 5, byFingerprint: { [digest('db-0')]: 4, [digest('db-1')]: 1 } };
+        receipt.assertions[0].expected = receipt.assertions[0].actual = { firstPageWithinBudget: true,
+            deepPagesWithinBudget: true, deepPageCommandsConstant: true, countMissObservedOnce: true, positive: true };
+    } });
+    assert.deepEqual(validateRuntimeCacheReceipt(evidence.receipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot }), []);
+    for (const duplicateAll of [false, true])
+    {
+        const clone = structuredClone(evidence);
+        const receipt = rewriteRaw(repositoryRoot, clone, (raw) =>
+        {
+            const negatives = raw.requests.filter((request) => request.subcaseId === 'cursorless-deep');
+            for (const request of duplicateAll ? negatives : negatives.slice(-1))
+            {
+                request.path = '/api/binary/article/list/home/10/10.aeds?sort=latest';
+                request.parityGroup = 'pagination-cursorless-10';
+            }
+        });
+        assert.deepEqual(validateRuntimeCacheReceipt(receipt, { catalog, repositoryRoot, expectedSource: sourceSnapshot }),
+            ['pagination must measure each current logical and cursorless page exactly once']);
+    }
+});
 
 test.after(() =>
 {

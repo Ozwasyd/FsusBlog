@@ -649,6 +649,9 @@
                     "type": "string",
                     "minLength": 1
                 },
+                "responseContentType": {
+                    "type": "string"
+                },
                 "parityGroup": {
                     "$ref": "#/$defs/id"
                 },
@@ -670,7 +673,21 @@
                 "allocatedBytes": {
                     "$ref": "#/$defs/nonNegativeInteger"
                 }
-            }
+            },
+            "allOf": [
+                {
+                    "if": {
+                        "properties": {
+                            "method": { "const": "GET" },
+                            "path": { "type": "string", "pattern": "^/api/binary/" }
+                        },
+                        "required": ["method", "path"]
+                    },
+                    "then": {
+                        "required": ["responseBodyBase64", "responseContentType"]
+                    }
+                }
+            ]
         },
         "redisRollup": {
             "type": "object",
