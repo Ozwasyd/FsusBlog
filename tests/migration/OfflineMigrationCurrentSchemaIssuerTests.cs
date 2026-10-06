@@ -9,6 +9,8 @@ using NSubstitute;
 using FsusBlog.Contracts.Migration;
 using FsusBlog.Contracts.SchemaMigration;
 
+using Xunit;
+
 namespace FsusBlog.Migration.Tests;
 
 // These are production-validator refusal/positive controls, not native issuer

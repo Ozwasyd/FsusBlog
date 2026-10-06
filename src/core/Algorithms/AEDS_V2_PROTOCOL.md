@@ -162,7 +162,15 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `241`: MutationId
 - `242`: UserLocalePreferenceUpdateRequest
 - `243`: TaxonomyExactMetadata
+- `244`: FontRegistryList
+- `245`: FontRegistryDetail
+- `246`: FontActivationList
+- `247`: ThemeRegistryList
+- `248`: ThemeRegistryDetail
+- `249`: ThemeActivationList
+- `250`: ThemeActivation
 - `251`: ApiError
+- `252`: ThemeActivationHistory
 
 `CommentArticleCursor`, `CommentThreadReplyCursor`, and `CommentUserCursor` records do not carry fixed legacy display-name slots. Each item blob stores the content slice first, then appends two length-prefixed `CommentAuthorView` payloads: required `author` and optional `replyToAuthor`. Decoders must reject missing author payloads instead of reconstructing display authors from legacy identity strings.
 
@@ -179,6 +187,8 @@ Any non-zero flag must first be added to `aeds-protocol.json`, the negative cont
 - `UserLocalePreference` payload: 24-byte `UserLocalePreferencePod` (`int64 revision`, `int64 updatedAtUnixMs`, `uint8 mode`, `uint8 hasFixedLocale`, `uint8 fixedLocale`, one reserved zero byte, four reserved zero bytes). `mode=1` is `auto` and requires `hasFixedLocale/fixedLocale=0/0`; `mode=2` is `fixed` and requires `hasFixedLocale=1` plus an enabled canonical locale id.
 - `UserLocalePreferenceUpdateRequest` payload: 16-byte `UserLocalePreferenceUpdateRequestPod` with the same mode/locale/reserved rules and `int64 expectedRevision`; device-scoped writes require revision zero, while account-scoped writes use optimistic revision matching.
 - `ApiError` payload: `ApiErrorPod` (`byte Code`, `byte Category`, `int32 HttpStatus`, fixed UTF-8 `Message`, `Details`, `TraceId`).
+- Font/Theme administration response frames `244`-`250` and `252` use a closed 16-byte `FontThemePayloadHeaderPod` (`int32 version = 1`, `int32 recordCount`, `int32 payloadLength`, `int32 reserved = 0`). `payloadLength` covers every byte after this header. List payloads then contain the exact fixed-size POD array, one `int32 blobByteLength`, and a canonical UTF-8 blob. Detail payloads contain one detail POD, exactly `recordCount` child PODs or mode slice references, the blob length, and the canonical blob. `ThemeActivation` is a singleton with `recordCount = 1`; a missing activation remains a typed record whose scope is present and whose nullable values are absent.
+- Font/Theme slices must be contiguous in field and record order. Required strings are non-empty unless their field explicitly permits empty text; absent optional strings encode both presence `0` and slice `0/0`. Nullable scalars likewise require a zero value when absent. UTF-8 is strict, all boolean/presence bytes are `0` or `1`, reserved bytes are zero, counts and per-field byte lengths are bounded by `FontThemeAdminContractLimits`, and trailing bytes are rejected. Font install state is `1 installed`; Theme install states are `1 Discovered`, `2 Validated`, `3 Installed`, `4 Enabled`, `5 Disabled`, `6 Failed`, `7 RolledBack`, `8 Uninstalled`; Theme activation status is `1 Applied`, `2 Rejected`, `3 RolledBack`, `4 ResetToDefault`. The fixed POD sizes are `FontRegistryItemPod=76`, `FontRegistryDetailPod=100`, `FontFacePod=56`, `FontActivationPod=64`, `ThemeRegistryItemPod=84`, `ThemeRegistryDetailPod=148`, `ThemeActivationPod=64`, and `ThemeActivationHistoryPod=124` bytes.
 - `CategoryWriteRequest` / `TagWriteRequest` payload: current requests use a 136-byte `TaxonomyMetadataMutationRequestPod` (`Utf8Fixed128 Name`, `Utf8SliceRef Description`) followed by the standard `int32 blobByteLength` and UTF-8 description blob. During migration, the backend also accepts the exact legacy 128-byte `NameMutationRequestPod`; legacy create interprets description as null and legacy update preserves the stored description. New-format description input is trimmed, whitespace-only input becomes null, and values over 500 Unicode scalar values are rejected before persistence.
 - `SeoConfigUpdateRequest` payload: same layout as `SeoConfig`.
 - `PageContentUpdateRequest` payload: same layout as `PageContent`.

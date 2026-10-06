@@ -275,7 +275,15 @@ enum class FrameType : std::uint16_t
     MutationId = 241,
     UserLocalePreferenceUpdateRequest = 242,
     TaxonomyExactMetadata = 243,
+    FontRegistryList = 244,
+    FontRegistryDetail = 245,
+    FontActivationList = 246,
+    ThemeRegistryList = 247,
+    ThemeRegistryDetail = 248,
+    ThemeActivationList = 249,
+    ThemeActivation = 250,
     ApiError = 251,
+    ThemeActivationHistory = 252,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -536,7 +544,15 @@ enum class FrameType : std::uint16_t
         case FrameType::MutationId:
         case FrameType::UserLocalePreferenceUpdateRequest:
         case FrameType::TaxonomyExactMetadata:
+        case FrameType::FontRegistryList:
+        case FrameType::FontRegistryDetail:
+        case FrameType::FontActivationList:
+        case FrameType::ThemeRegistryList:
+        case FrameType::ThemeRegistryDetail:
+        case FrameType::ThemeActivationList:
+        case FrameType::ThemeActivation:
         case FrameType::ApiError:
+        case FrameType::ThemeActivationHistory:
             return true;
         default:
             return false;

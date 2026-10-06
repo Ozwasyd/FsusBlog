@@ -240,5 +240,13 @@ public enum AedsFrameType : ushort
     MutationId = 241,
     UserLocalePreferenceUpdateRequest = 242,
     TaxonomyExactMetadata = 243,
-    ApiError = 251
+    FontRegistryList = 244,
+    FontRegistryDetail = 245,
+    FontActivationList = 246,
+    ThemeRegistryList = 247,
+    ThemeRegistryDetail = 248,
+    ThemeActivationList = 249,
+    ThemeActivation = 250,
+    ApiError = 251,
+    ThemeActivationHistory = 252
 }

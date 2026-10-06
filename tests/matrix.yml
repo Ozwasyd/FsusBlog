@@ -10795,9 +10795,11 @@ tiers:
               tools/test/lanes,
               tools/test/run-once.mjs,
               tools/test/resolve-dotnet-test-processors.mjs,
+              tools/frontend/generate-aeds-protocol.mjs,
+              tests/tools/aeds-protocol-generation.test.mjs,
           ]
       requiresBootstrap: none
-      requiresNode: false
+      requiresNode: true
       requiresDotnet: true
       requiresPlaywright: none
       cacheProfile: backend
@@ -10824,6 +10826,9 @@ tiers:
               .tmp/backend-golden/summary.json,
               tests/backend/Fixtures/aeds-golden-catalog.json,
               tests/backend/Unit/BackendGoldenCatalogTests.cs,
+              tests/tools/aeds-protocol-generation.test.mjs,
+              tools/frontend/generate-aeds-protocol.mjs,
+              src/shared/Contracts/Validation/aeds-protocol.json,
               tests/backend/Unit/PodBinaryCodecTests.cs,
               tests/backend/Unit/AedsFrameNamingTests.cs,
               tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs,
