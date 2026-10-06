@@ -36,7 +36,9 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
             AuthorSavedViewMigrationDefinitions.BuildMigration(),
             ArticleTemplateAuthorityMigrationDefinitions.BuildMigration(),
             ArticleCreateAuthorityMigrationDefinitions.BuildMigration(),
-            AuthorRecentArticleHistoryMigrationDefinitions.BuildMigration()
+            AuthorRecentArticleHistoryMigrationDefinitions.BuildMigration(),
+            ArticlePropertyDefinitionAuthorityMigrationDefinitions.BuildMigration(),
+            ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.BuildMigration()
         ];
         var expectedTables = new Dictionary<string, string>(StringComparer.Ordinal);
         var tableMigration = new Dictionary<string, string>(StringComparer.Ordinal);
@@ -164,6 +166,27 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
         Assert.Contains("region_read_stats", CurrentSchemaRuntimeRollupTables.TableNames, StringComparer.Ordinal);
         Assert.Contains("event_type_read_stats", CurrentSchemaRuntimeRollupTables.TableNames, StringComparer.Ordinal);
         Assert.Contains("author_daily_read_stats", CurrentSchemaRuntimeRollupTables.TableNames, StringComparer.Ordinal);
+    }
+
+    [Fact]
+    public void RuntimeRollupCatalog_RequiresHistoryBeforeCommandAndKeepsOriginalReceiptOwner()
+    {
+        string[] names = [.. CurrentSchemaRuntimeRollupTables.TableNames];
+        int owner = Array.IndexOf(names, "article_property_definition_owner");
+        int receipt = Array.IndexOf(names, "article_property_definition_receipt");
+        int history = Array.IndexOf(names, "article_property_definition_history");
+        int command = Array.IndexOf(names, "article_property_definition_command");
+
+        Assert.True(owner >= 0 && receipt >= 0);
+        Assert.True(history > owner && history > receipt);
+        Assert.True(command > history);
+        CurrentSchemaRuntimeRollupTable commandTable = Assert.Single(
+            CurrentSchemaRuntimeRollupTables.Tables,
+            table => table.TableName == "article_property_definition_command");
+        Assert.Contains("REFERENCES article_property_definition_history(owner_user_id, site_scope)", commandTable.CreateSql, StringComparison.Ordinal);
+        Assert.Contains("REFERENCES article_property_definition_receipt(receipt_id)", commandTable.CreateSql, StringComparison.Ordinal);
+        Assert.DoesNotContain("INSERT", commandTable.CreateSql, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("UPDATE", commandTable.CreateSql, StringComparison.OrdinalIgnoreCase);
     }
 }
 

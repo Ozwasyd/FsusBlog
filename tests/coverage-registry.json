@@ -5328,6 +5328,26 @@
             ]
         },
         {
+            "id": "article-property-definition-authority-static-governance",
+            "description": "Article property definitions retain one closed-schema owner store, typed persistence, stable IDs, CAS and idempotency, obligations, and receipt-bound signed audit authority.",
+            "owner": "ContentAgent",
+            "risk": "critical",
+            "evidencePaths": [
+                "src/backend/Services/Authoring/ArticlePropertyDefinitionStore.cs",
+                "src/backend/Services/Authoring/ArticlePropertyDefinitionVerifier.cs",
+                "src/backend/Services/Authoring/PostgresArticlePropertyDefinitionPersistence.cs",
+                "tools/governance/check-article-property-definition-authority.mjs",
+                "tests/tools/article-property-definition-authority.test.mjs",
+                "docs/architecture/article-property-definition-authority.md"
+            ],
+            "assertionType": "static",
+            "failClosedRule": "The original definition-authority checker rejects duplicate stores or persistence, opaque JSON or executable policy, client-side schema authority, display-name article references, foreign writes, missing durable definition elements, or removed canonical registrations.",
+            "minimumRequirement": "The four original Node cases cover the current source and isolated refusal mutations; this source-text lane does not replace the independent replay, signed audit-chain, bounded verification, PostgreSQL, or operational acceptance evidence.",
+            "tierIds": [
+                "static-governance"
+            ]
+        },
+        {
             "id": "runtime-state-order-equivalence",
             "description": "Production runtime steps execute in isolated current-session state across canonical, serial, reverse-ready and five fixed shuffled schedules with caps one, two and machine maximum; exact outcomes and semantic state must agree.",
             "owner": "ServerContractAgent",

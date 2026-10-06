@@ -199,26 +199,47 @@ public sealed class SchemaMigrationCatalogTests
             },
             catalog =>
             {
-                Assert.Equal("current-20260915-author-recent-history", catalog.CatalogId);
+                Assert.Equal("current-20260915-authoring", catalog.CatalogId);
+                Assert.Equal(
+                    new[] {ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId},
+                    catalog.Descriptors.Select(static descriptor => descriptor.MigrationId));
                 Assert.Equal(new DateOnly(2026, 9, 15), catalog.StartVersion);
                 Assert.Equal(new DateOnly(2026, 9, 15), catalog.EndVersion);
                 SchemaMigrationCatalogDependency dependency = Assert.Single(catalog.Dependencies);
                 Assert.Equal(AdminSessionProjectionMigrationDefinitions.MigrationId, dependency.MigrationId);
                 Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase);
+            },
+            catalog =>
+            {
+                Assert.Equal("current-20261002-article-property-definition-command-history", catalog.CatalogId);
+                Assert.Equal(new DateOnly(2026, 10, 2), catalog.StartVersion);
+                Assert.Equal(new DateOnly(2026, 10, 2), catalog.EndVersion);
+                Assert.Equal(
+                    new[] {ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId, AuthorRecentArticleHistoryMigrationDefinitions.MigrationId},
+                    catalog.Dependencies.Select(static dependency => dependency.MigrationId));
+                Assert.All(catalog.Dependencies, dependency =>
+                    Assert.Equal(SchemaMigrationPhase.PostCodeFirst, dependency.Phase));
             });
         const string RecentHistoryMigrationId = "20260915-post-author-recent-history";
         Assert.Single(manifest.Descriptors, static descriptor =>
             descriptor.MigrationId == RecentHistoryMigrationId);
-        ISchemaMigrationDescriptor[] historicalDescriptors = manifest.Descriptors
-            .Where(static descriptor => descriptor.MigrationId != RecentHistoryMigrationId)
+        ISchemaMigrationDescriptor[] preRecentDescriptors = manifest.Descriptors
+            .Where(static descriptor => descriptor.MigrationId != RecentHistoryMigrationId
+                && descriptor.MigrationId != ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId
+                && descriptor.MigrationId != ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId)
             .ToArray();
-        Assert.Equal(145, historicalDescriptors.Length);
+        Assert.Equal(145, preRecentDescriptors.Length);
         Assert.Equal(
             "D53AB234D57D3C847748434A7A64810A21D8DA44219CFA895360A96B918A4117",
-            ComputePlanFingerprint(historicalDescriptors));
-        Assert.Equal(146, manifest.Descriptors.Count);
+            ComputePlanFingerprint(preRecentDescriptors));
+        Assert.Equal(148, manifest.Descriptors.Count);
         const string ExpectedPlanFingerprint = "F2FBD2AF4569856A7435D044AAD13FABD6B32A5F68EF6DEA8C546E8B234E7F04";
-        string actualPlanFingerprint = ComputePlanFingerprint(manifest.Descriptors);
+        ISchemaMigrationDescriptor[] historicalDescriptors = manifest.Descriptors
+            .Where(descriptor => descriptor.MigrationId != ArticlePropertyDefinitionAuthorityMigrationDefinitions.MigrationId
+                && descriptor.MigrationId != ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.MigrationId)
+            .ToArray();
+        Assert.Equal(146, historicalDescriptors.Length);
+        string actualPlanFingerprint = ComputePlanFingerprint(historicalDescriptors);
         Assert.True(
             string.Equals(ExpectedPlanFingerprint, actualPlanFingerprint, StringComparison.Ordinal),
             $"Schema migration plan fingerprint changed: {actualPlanFingerprint}");
@@ -479,7 +500,7 @@ public sealed class SchemaMigrationCatalogTests
 
         Assert.Same(first, second);
         Assert.Same(manifest, first);
-        Assert.Equal(146, first.Count);
+        Assert.Equal(148, first.Count);
         Assert.Equal(first.Count, first.Select(static descriptor => descriptor.MigrationId).Distinct(StringComparer.Ordinal).Count());
         Assert.Equal(
             ComputePlanFingerprint(manifest),

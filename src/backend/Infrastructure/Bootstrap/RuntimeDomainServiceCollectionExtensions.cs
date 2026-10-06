@@ -217,6 +217,11 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddScoped<IArticleTemplateExpansionAuthority, PostgresArticleTemplateExpansionAuthority>();
         services.AddScoped<IArticleTemplateExpansionPlanner, ArticleTemplateExpansionPlanner>();
         services.AddScoped<IArticleTemplateExpansionVerifier, ArticleTemplateExpansionVerifier>();
+        services.AddScoped<IArticlePropertyDefinitionPersistence, PostgresArticlePropertyDefinitionPersistence>();
+        services.AddScoped<IArticlePropertyDefinitionStore, ArticlePropertyDefinitionStore>();
+        services.AddScoped<IArticlePropertyDefinitionPermissionAuthority, ArticlePropertyDefinitionPermissionAuthority>();
+        services.AddScoped<IArticlePropertyDefinitionImpactAuthority, UnavailableArticlePropertyDefinitionImpactAuthority>();
+        services.AddScoped<ArticlePropertyDefinitionVerifier>();
         services.AddScoped<IArticleCreatePersistence, PostgresArticleCreatePersistence>();
         services.AddScoped<IArticleCreateStore, ArticleCreateStore>();
         services.AddScoped<AuthoringContentTransferService>();
