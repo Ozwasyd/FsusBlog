@@ -1,3 +1,4 @@
+using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.Distributed;
@@ -33,7 +34,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     {
         string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
-        CreateTables(db);
+        await CreateTablesAsync(db);
         SeedTaxonomy(db);
         int articleId = SeedArticle(db, isDeleted: false, status: ArticleStatus.Published);
         ArticleService service = CreateService(db);
@@ -68,7 +69,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     {
         string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
-        CreateTables(db);
+        await CreateTablesAsync(db);
         SeedTaxonomy(db);
         int articleId = SeedArticle(db, isDeleted: false, status: ArticleStatus.Published);
         var authority = new InMemoryPublicAotInvalidationGenerationAuthority();
@@ -129,7 +130,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     {
         string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
-        CreateTables(setupDb);
+        await CreateTablesAsync(setupDb);
         SeedTaxonomy(setupDb);
         int articleId = SeedArticle(setupDb, isDeleted: false, status: ArticleStatus.Published);
         using SqlSugarClient serviceDb = PostgresSqlSugarTestClient.Create(connectionString);
@@ -165,7 +166,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     {
         string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString);
-        CreateTables(setupDb);
+        await CreateTablesAsync(setupDb);
         SeedTaxonomy(setupDb);
         int articleId = SeedArticle(setupDb, isDeleted: false, status: ArticleStatus.Published);
         var mutationFence = Substitute.For<IArticlePublicMutationFence>();
@@ -202,7 +203,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         string connectionString = classDatabase.ConnectionString;
         using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
         {
-            CreateTables(setupDb);
+            await CreateTablesAsync(setupDb);
             SeedTaxonomy(setupDb);
             SeedArticle(setupDb, isDeleted: false, status: ArticleStatus.Published, id: 42);
         }
@@ -234,7 +235,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
     {
         string connectionString = classDatabase.ConnectionString;
         using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
-        CreateTables(db);
+        await CreateTablesAsync(db);
         SeedTaxonomy(db);
         int activeId = SeedArticle(db, isDeleted: false, status: ArticleStatus.Draft, id: 41);
         int permanentId = SeedArticle(db, isDeleted: true, status: ArticleStatus.Deleted, id: 42);
@@ -260,7 +261,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         string connectionString = classDatabase.ConnectionString;
         using (SqlSugarClient setupDb = PostgresSqlSugarTestClient.Create(connectionString))
         {
-            CreateTables(setupDb);
+            await CreateTablesAsync(setupDb);
             SeedTaxonomy(setupDb);
             SeedArticle(setupDb, isDeleted: true, status: ArticleStatus.Deleted, id: 42);
         }
@@ -288,6 +289,48 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
         Assert.Equal(42, outbox.AggregateId);
     }
 
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task PermanentDeletion_RemovesOnlyMutableCanvasLinkHeadAndPreservesHistoricalSubjects(bool clearTrash)
+    {
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(classDatabase.ConnectionString);
+        await CreateTablesAsync(db);
+        SeedTaxonomy(db);
+        int source = SeedArticle(db, isDeleted: true, status: ArticleStatus.Deleted, id: 42);
+        int target = SeedArticle(db, isDeleted: true, status: ArticleStatus.Deleted, id: 43);
+        long admin = await db.Insertable(new AdminPrincipal { Handle = "link-lifecycle-fixture",
+            Status = AdminPrincipalStatus.Active, IsRoot = true, Permissions = AdminPermissions.ArticleWrite }).ExecuteReturnBigIdentityAsync();
+        Guid journal = Guid.CreateVersion7();
+        // This fixture tests preserved scalar audit subjects, not HTTP receipt authentication.
+        await db.Ado.ExecuteCommandAsync("""
+            INSERT INTO article_canvas_link_journal(journal_id, owner_admin_principal_id, site_scope,
+                source_article_id, request_id, mode, previous_article_revision, article_revision,
+                original_before_revision, original_after_revision, canvas_id, canvas_revision,
+                canvas_content_digest, edge_id, target_article_id, target_revision, undo_depth, redo_depth,
+                request_digest, receipt_digest, created_at_utc)
+            VALUES (@Journal, @Admin, 'primary-site', @Source, @Request, 0, 1, 2, 1, 2,
+                @Canvas, 1, @Digest, @Edge, @Target, 1, 1, 0, @Digest, @Digest, now());
+            INSERT INTO article_canvas_link_history(owner_admin_principal_id, site_scope, source_article_id,
+                article_revision, last_journal_id, undo_entries, redo_entries, history_digest)
+            VALUES (@Admin, 'primary-site', @Source, 2, @Journal, ARRAY[@Journal]::uuid[], ARRAY[]::uuid[], @Digest);
+            """, new SugarParameter("@Journal", journal), new SugarParameter("@Admin", admin),
+            new SugarParameter("@Source", source), new SugarParameter("@Target", target),
+            new SugarParameter("@Request", Guid.CreateVersion7()), new SugarParameter("@Canvas", Guid.CreateVersion7()),
+            new SugarParameter("@Edge", Guid.CreateVersion7()), new SugarParameter("@Digest", new string('a', 64)));
+        ArticleService service = CreateService(db);
+        if (clearTrash) Assert.Equal(2, await service.ClearTrashAsync());
+        else
+        {
+            Assert.True(await service.PermanentlyDeleteArticleAsync(source));
+            Assert.True(await service.PermanentlyDeleteArticleAsync(target));
+        }
+        Assert.Equal(0, await db.Ado.GetIntAsync("SELECT count(*) FROM article_canvas_link_history"));
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT count(*) FROM article_canvas_link_journal WHERE source_article_id = 42 AND target_article_id = 43"));
+        await db.Deleteable<AdminPrincipal>().Where(principal => principal.Id == admin).ExecuteCommandAsync();
+        Assert.Equal(1, await db.Ado.GetIntAsync("SELECT count(*) FROM article_canvas_link_journal"));
+    }
+
     private static Article LoadArticle(SqlSugarClient db, int articleId)
         => db.Queryable<Article>().ClearFilter().InSingle(articleId)
             ?? throw new InvalidOperationException($"Article {articleId} was not found.");
@@ -297,7 +340,7 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
 
     public Task DisposeAsync() => Task.CompletedTask;
 
-    private static void CreateTables(SqlSugarClient db)
+    private static async Task CreateTablesAsync(SqlSugarClient db)
     {
         PostgresSqlSugarTestClient.InitTables(
             db,
@@ -320,7 +363,10 @@ public sealed class ArticleDestructiveMutationBehaviorTests(
             typeof(ArticleMutationCommand),
             typeof(ArticleViewSeed),
             typeof(ContentAsset),
-            typeof(ArticlePublicTaxonomyProjection));
+            typeof(ArticlePublicTaxonomyProjection),
+            typeof(AdminPrincipal));
+        foreach (var step in ArticleCanvasLinkMigrationDefinitions.BuildMigration().Steps)
+            await step.ExecuteAsync(db, CancellationToken.None);
         // Deletion kernel targets additional projection tables that are not always
         // modelled as SqlSugar entities; keep empty shells so DELETE stays valid.
         db.Ado.ExecuteCommand(

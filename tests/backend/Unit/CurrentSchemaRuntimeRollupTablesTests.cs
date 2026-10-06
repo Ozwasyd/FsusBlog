@@ -2,6 +2,7 @@ using System.Data;
 using System.Globalization;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Contracts.Schema;
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;

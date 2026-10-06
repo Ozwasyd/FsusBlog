@@ -1,6 +1,7 @@
 using System.Security.Cryptography;
 using System.Text;
 
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
 using FsusBlog.Migration.Catalogs;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Entities;

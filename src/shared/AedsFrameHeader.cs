@@ -278,5 +278,21 @@ public enum AedsFrameType : ushort
     MutationId = 241,
     UserLocalePreferenceUpdateRequest = 242,
     TaxonomyExactMetadata = 243,
-    ApiError = 251
+    ApiError = 251,
+    AuthoringCanvasCreateRequest = 253,
+    AuthoringCanvasDocumentHeader = 254,
+    AuthoringCanvasListResponse = 255,
+    AuthoringCanvasNodesResponse = 256,
+    AuthoringCanvasEdgesResponse = 257,
+    AuthoringCanvasApplyRequest = 258,
+    AuthoringCanvasOperationReceipt = 259,
+    AuthoringCanvasUndoRedoRequest = 260,
+    AuthoringCanvasHistoryResponse = 261,
+    AuthoringCanvasDeleteRequest = 262,
+    AuthoringCanvasWriteReceipt = 263,
+    AuthoringCanvasResolveRequest = 264,
+    AuthoringCanvasReferenceResolutionBatch = 265,
+    ArticleCanvasLinkRequest = 266,
+    ArticleCanvasLinkReceipt = 267,
+    ArticleCanvasLinkHistoryResponse = 268
 }

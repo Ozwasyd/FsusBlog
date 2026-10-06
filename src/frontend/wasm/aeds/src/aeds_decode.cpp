@@ -2,6 +2,8 @@
 
 #include "aeds_crc32.hpp"
 #include "aeds_frame.hpp"
+#include "authoring_canvas_wire.generated.hpp"
+#include "article_canvas_link_wire.generated.hpp"
 #include "pod_views.hpp"
 
 namespace FsusBlog::Aeds
@@ -53,6 +55,10 @@ const char* ToErrorString(ErrorCode errorCode)
             return "header_length_mismatch";
         case ErrorCode::PayloadCrcMismatch:
             return "payload_crc_mismatch";
+        case ErrorCode::ArticleCanvasLinkPayloadInvalid:
+            return "article_canvas_link_payload_invalid";
+        case ErrorCode::AuthoringCanvasPayloadInvalid:
+            return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
             return "article_payload_invalid";
         case ErrorCode::FrameTypeUnsupported:
@@ -122,6 +128,18 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         {
             return MakeError(ErrorCode::ArticlePayloadInvalid);
         }
+    }
+
+    if (FrameType >= 253 && FrameType <= 265
+        && !ValidateAuthoringCanvasPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::AuthoringCanvasPayloadInvalid);
+    }
+
+    if (FrameType >= 266 && FrameType <= 268
+        && !ValidateArticleCanvasLinkPayload(FrameType, payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::ArticleCanvasLinkPayloadInvalid);
     }
 
     DecodeResult ok{};

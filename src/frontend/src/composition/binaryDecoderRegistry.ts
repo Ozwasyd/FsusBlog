@@ -1,5 +1,6 @@
 import { mapArticleDetailFromPodPayload, mapArticleFeaturedFromPodPayload, mapArticleHotFromPodPayload, mapArticlePageFromPodPayload, mapArticleSearchFromPodPayload, mapRelatedReadingFromPodPayload, mapTrashClearResponseFromPodPayload } from '@/adapters/binary/articleAdapter';
 import { mapPublicArticleListCardProjection } from '@/adapters/binary/articleProjectionReader';
+import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
 import { mapAuthLoginFlowFromPayload, mapCurrentUserSnapshotFromPayload, mapIdentityAccountSnapshotFromPayload, mapMfaChallengeResultFromPayload, mapMfaProfileFromPayload, mapMfaSetupStartFromPayload, mapMfaSetupVerifyFromPayload, mapPowChallengeFromPayload, mapRecoveryKeyCreateResponseFromPayload, mapRecoveryKeyVerifyResponseFromPayload, mapUserSessionsFromPayload } from '@/adapters/binary/authAdapter';
 import { mapAuthoringJsonFromPayload } from '@/adapters/binary/authoringAdapter';
 import { mapAnonymousCommentTicketResponseFromPayload, mapAnonymousCredentialRevocationArtifactFromPayload, mapAnonymousCredentialRootSnapshotFromPayload, mapAnonymousPrivacyStateSnapshotFromPayload, mapBlindCredentialIssuerMetadataFromPayload, mapBlindCredentialIssueResponseFromPayload, mapCommentChildCursorFromPayload, mapCommentCreateResultFromPayload, mapCommentCursorFromPodPayload, mapCommentPermalinkContextFromPayload, mapCommentPolicySnapshotFromPayload, mapCommentTreeRootCursorFromPayload, mapThreadReplyCursorFromPodPayload, mapUserCommentCursorFromPodPayload } from '@/adapters/binary/commentAdapter';
@@ -34,6 +35,8 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.ArticleSearch,
     FrameType.ArticleFeatured,
     FrameType.ArticleRelatedReading,
+    FrameType.ArticleCanvasLinkReceipt,
+    FrameType.ArticleCanvasLinkHistoryResponse,
     FrameType.HumanReadChallengeResponse,
     FrameType.HumanReadSubmitResponse,
     FrameType.TrashClearResponse,
@@ -357,7 +360,9 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.SiteSubscriptionResponse, mapSiteSubscriptionResponseFromPayload],
     [FrameType.AdminPrincipalSnapshot, mapAuthoringJsonFromPayload],
     [FrameType.EmptySuccess, mapEmptySuccessFromPayload],
-    [FrameType.MutationId, mapMutationIdFromPayload]
+    [FrameType.MutationId, mapMutationIdFromPayload],
+    [FrameType.ArticleCanvasLinkReceipt, decodeArticleCanvasLinkReceipt],
+    [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
 
 export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(
