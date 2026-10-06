@@ -154,13 +154,13 @@ export async function runObserved(file, args, { runRoot, cwd = runRoot, env, des
                 try { process.kill(-child.pid, signal); } catch (error) { if (error.code !== 'ESRCH') failure ??= error; }
             }
         }
-        function refuse(error) {
+        function refuse(error, signal = 'SIGTERM') {
             failure ??= error;
-            stop('SIGTERM');
+            stop(signal);
             killTimer ??= setTimeout(() => stop('SIGKILL'), limits.killGraceMs);
         }
         for (const signal of ['SIGTERM', 'SIGINT']) {
-            const listener = () => refuse(new Error(`caller ${signal}`));
+            const listener = () => refuse(new Error(`caller ${signal}`), signal);
             process.on(signal, listener);
             listeners.push([signal, listener]);
         }

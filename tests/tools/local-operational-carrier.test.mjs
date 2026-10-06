@@ -94,6 +94,17 @@ test('original singlecall child nonzero and callback failure remain observable',
     assert.equal(callbackExecutions[0].terminal, true);
 });
 
+test('original caller SIGINT reaches the owned child and primary signal failure is retained', async () => {
+    const runRoot = fs.mkdtempSync(path.join(root, 'operator-signal-'));
+    const executions = [];
+    const signals = [];
+    await assert.rejects(runObserved(process.execPath, ['-e', 'setInterval(()=>{},1000)'], { runRoot, env: {}, limits: { logBytes: 128, deadlineMs: 3000, killGraceMs: 1000, pollIntervalMs: 10 }, executions, signals, onSpawn() { setTimeout(() => process.emit('SIGINT'), 100); } }), /caller SIGINT/);
+    assert.equal(executions.length, 1);
+    assert.equal(executions[0].terminal, true);
+    assert.equal(executions[0].signal, 'SIGINT');
+    assert.ok(signals.includes('SIGINT'));
+});
+
 test('read-only exporter retains old-boot raw/log/descriptor scopes and rejects arbitrary modes', () => {
     const guest = { taskRoot: '/task/guest', runId: 'current-run', bootId: 'a'.repeat(32), uid: 1234, head: 'b'.repeat(40), tree: 'c'.repeat(40) };
     const captures = buildCaptures(guest);
