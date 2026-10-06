@@ -26,16 +26,46 @@ test('pure receipt contracts reject incomplete identities and non-integer counte
     assert.equal(validateMinimalContractBuildReceipt(receipt.minimalContractBuild), receipt.minimalContractBuild);
     assert.deepEqual(receipt, before);
     const mutations = [
-        (value) => { value.run.id = ''; },
-        (value) => { value.source.commit = 'bad'; },
-        (value) => { value.source.worktreeFingerprint = ''; },
-        (value) => { value.worktree.root = ''; },
-        ...['node', 'dotnet', 'platform', 'architecture'].map((field) => (value) => { value.toolchain[field] = ''; }),
-        (value) => { value.implementationOwner.bindingCount = 1.5; },
-        (value) => { value.generated.documentCount = -1; },
-        (value) => { value.prose.verifiedClaimCount = 0.5; },
-        (value) => { value.mutationFixtures.caseCount = 1.5; },
-        (value) => { value.durationMs = -1; }
+        (value) =>
+        {
+            value.run.id = '';
+        },
+        (value) =>
+        {
+            value.source.commit = 'bad';
+        },
+        (value) =>
+        {
+            value.source.worktreeFingerprint = '';
+        },
+        (value) =>
+        {
+            value.worktree.root = '';
+        },
+        ...['node', 'dotnet', 'platform', 'architecture'].map((field) => (value) =>
+        {
+            value.toolchain[field] = '';
+        }),
+        (value) =>
+        {
+            value.implementationOwner.bindingCount = 1.5;
+        },
+        (value) =>
+        {
+            value.generated.documentCount = -1;
+        },
+        (value) =>
+        {
+            value.prose.verifiedClaimCount = 0.5;
+        },
+        (value) =>
+        {
+            value.mutationFixtures.caseCount = 1.5;
+        },
+        (value) =>
+        {
+            value.durationMs = -1;
+        }
     ];
     for (const mutate of mutations)
     {
