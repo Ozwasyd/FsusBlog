@@ -9,12 +9,11 @@
             "reason": "Preserve existing caller-visible FSUSBLOG_DATA_ROOT and FSUSBLOG release/storage environment spellings in the registered C# source surface. This queue diagnostic projection introduces no environment name, new configuration authority, or shared wire field."
         },
         {
-            "id": "css-like-contract",
+            "id": "auth-security-doc-exactness-authority",
             "paths": [
-                "docs/operations.md",
                 "docs/security.md"
             ],
-            "reason": "Preserve existing CSS-like selectors, kebab-case operations routes and lower-camel diagnostic JSON keys in current documentation. The new descriptions retire unsafe diagnostic placeholders without renaming existing security, style, or transport interfaces."
+            "reason": "Preserve existing audit permission names, diagnostic JSON field spellings and security documentation identifiers under the registered auth/security documentation authority. This projection disclosure clarification adds no permission, pseudonym, wire field, or parallel privacy owner."
         }
     ]
 }
