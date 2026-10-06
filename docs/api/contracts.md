@@ -540,6 +540,53 @@ Authoring 和审核 schema 的 fresh DB 最终态不得创建旧用户归因列�
 
 ---
 
+## Private authoring canvas contracts
+
+The AEDS-only `/api/binary/author/canvases` routes project the sole
+`IAuthoringCanvasDocumentStore`, operation engine and reference resolver.
+Shared pure contracts live in `src/shared/Contracts/AuthoringCanvas`; the
+[document boundary](../architecture/authoring-canvas-document-boundary.md)
+owns persistence, privacy, operation semantics and non-publication rules.
+The server resolves administrator/session identity and `primary-site` ownership;
+mutation inputs carry no owner or actor authority. Every route requires
+`ArticleWrite`, and writes plus resolution POSTs retain the existing PoW filter.
+All responses remain private and use the original typed `ApiError` semantics.
+
+The [AEDS protocol](../../src/core/Algorithms/AEDS_V2_PROTOCOL.md#private-authoring-canvas-payloads)
+defines frames 253–265 and links the single generated POD payload owner. Pages
+carry revision/digest coordinates and at most 256 records. Apply, undo and redo
+bind the actual document and history CAS coordinates; receipts and fresh reads,
+rather than browser previews, authorize success. Resolution accepts persisted
+node identities and never client target facts. No JSON fallback or whole-document
+replacement endpoint exists. The read-only `/{canvasId}/prepare` POST uses
+`AuthoringCanvasApplyRequest` frame 258 for both request and prepared response;
+it supplies authorized reference metadata and performs no mutation. Formal Apply
+still revalidates and seals the exact facts. Administrator private request leases
+cover transport and decode, and unresolved writes retry the exact cached payload
+with the original request ID.
+
+Explicit conversion uses the article owner, not a Canvas graph operation:
+`POST /api/binary/author/articles/{articleId:int}/canvas-links` accepts
+`ArticleCanvasLinkRequest` (266) and returns `ArticleCanvasLinkReceipt` (267);
+`GET` on the same path plus `/history` returns
+`ArticleCanvasLinkHistoryResponse` (268). Both require the authenticated admin
+`ArticleWrite` scope; POST retains PoW. Owner/site identity is supplied by the
+route, never by request fields. Apply binds source and target revision CAS and
+the persisted Canvas edge/revision/digest; undo/redo bind source CAS and the
+actual top journal ID. Article revision, outbox and link receipt/history commit
+together through production `ArticleService`. The receipt carries scoped
+request, journal, original revision and selected-edge provenance. The
+[document boundary](../architecture/authoring-canvas-document-boundary.md#explicit-article-owned-link-conversion)
+defines current-coordinate, idempotency, recovery and history rules.
+
+The single link payload source is `article-canvas-link-wire.json`, produced by
+`tools/contracts/generate-article-canvas-link-wire.mjs` using the existing bounded
+Canvas scalar codec. Each root is capped at 131,072 payload bytes; history
+contains at most 100 receipts per stack. All three stacks consume exact schema
+1 bytes, network GUIDs, LE scalars and decimal-string Int64 values. No JSON
+fallback exists. Wire witnesses and deterministic recovery controls do not
+qualify the actual PostgreSQL transaction, HTTP middleware or rendered UI.
+
 ## Pagination and Cursor Envelope
 
 源码：`src/shared/Contracts/Envelopes/PodEnvelopes.cs`

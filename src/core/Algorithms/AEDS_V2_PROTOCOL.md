@@ -291,3 +291,51 @@ Notification payload values use a small tagged binary representation so the WebS
 3. Read payload block of `PayloadLength`.
 4. Recompute and compare `PayloadCrc16`.
 5. Decode payload using corresponding compact POD schema by `FrameType`.
+
+## Private authoring canvas payloads
+
+Frames `253`–`265` are the closed private canvas roots: create request, document
+header, owner list, node page, edge page, apply request, operation receipt,
+undo/redo request, history window, delete request, write receipt, persisted-node
+resolution request and resolution batch, respectively. `ApiError` remains `251`;
+Font/Theme candidate slots `244`–`250` and `252` are not reused. The private
+read-only prepare endpoint uses frame `258` for both input and prepared intention
+output; that output is not frame `259` operation-receipt authority.
+
+The single payload source is
+`src/shared/Contracts/Validation/authoring-canvas-wire.json`, whose root frame
+bindings must match `aeds-protocol.json`. Run
+`node tools/contracts/generate-authoring-canvas-wire.mjs` to produce the Core
+POD codec, TypeScript codec and C++ payload validator; use `--check` to detect
+stale outputs. Each payload starts with schema byte `1`. GUIDs use 16 RFC/network
+bytes; other scalars are little endian. Strings use an int32 UTF-8 byte length
+with strict Unicode validation and the declared UTF-16 code-unit bound. Null
+presence and booleans are `0` or `1`; enums have closed registries. Unix
+millisecond timestamps retain the existing `PodTimeCodec` semantics. Int64 is
+represented as a decimal string in TypeScript.
+
+The wire producer derives the public TypeScript `authoringCanvasLimits` from
+the existing Shared domain constants through the schema's source references;
+the projection does not define independent domain budgets.
+
+Arrays reject invalid counts before allocation. Before/after operation facts
+share an aggregate limit of 40,002; complete payloads are capped at 8 MiB and
+must be consumed exactly. The production C++ decoder validates these payloads
+after the original frame/header/CRC checks. A malformed private payload is
+`authoring_canvas_payload_invalid`, never JSON, text or a partial decode.
+HTTP ingress retains the existing binary binder's 8 MiB complete-frame cap,
+which includes the 16-byte header in addition to the bounded payload.
+
+## Private article Canvas link payloads
+
+Frames `266`, `267` and `268` are `ArticleCanvasLinkRequest`,
+`ArticleCanvasLinkReceipt` and `ArticleCanvasLinkHistoryResponse` respectively.
+`src/shared/Contracts/Validation/article-canvas-link-wire.json` owns their closed
+layouts and binds the shared article records. Run
+`node tools/contracts/generate-article-canvas-link-wire.mjs` (or `--check`) to
+produce C#, TypeScript and C++ surfaces using the original bounded Canvas scalar
+substrate. Schema byte, network GUID, strict UTF-8, LE scalar and exact-consumption
+rules remain the same. Complete payloads have a 131,072-byte cap; undo/redo arrays
+are each bounded at 100. Production C++ rejects malformed payloads as
+`article_canvas_link_payload_invalid`. The wire carries only typed identifiers,
+revisions and canonical digests, never article source or client-authored Markdown.

@@ -43,7 +43,8 @@ const rollupMigrationIds = [
     "20260904-post-author-article-pins",
     "20260904-post-author-saved-view",
     "20260905-post-article-template-authority",
-    "20260908-post-article-create-authority"
+    "20260908-post-article-create-authority",
+    "20261006-post-article-canvas-link-history"
 ];
 function fail(message)
 {

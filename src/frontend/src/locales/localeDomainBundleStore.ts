@@ -54,7 +54,7 @@ export const LOCALE_DOMAIN_SCHEMA_DIGESTS: Readonly<Record<LocaleDomain, string>
     layout: 'fnv1a64:787733fa4d7dae24',
     messages: 'fnv1a64:91797ababdcdb013',
     security: 'fnv1a64:834e719c9d47690d',
-    admin: 'fnv1a64:0f93986659eabac7',
+    admin: 'fnv1a64:d73ace36548d42ad',
     errors: 'fnv1a64:69d72f2c2060118c'
 });
 

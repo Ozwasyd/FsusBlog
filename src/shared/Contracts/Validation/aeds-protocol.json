@@ -997,6 +997,70 @@
         {
             "name": "ApiError",
             "value": 251
+        },
+        {
+            "name": "AuthoringCanvasCreateRequest",
+            "value": 253
+        },
+        {
+            "name": "AuthoringCanvasDocumentHeader",
+            "value": 254
+        },
+        {
+            "name": "AuthoringCanvasListResponse",
+            "value": 255
+        },
+        {
+            "name": "AuthoringCanvasNodesResponse",
+            "value": 256
+        },
+        {
+            "name": "AuthoringCanvasEdgesResponse",
+            "value": 257
+        },
+        {
+            "name": "AuthoringCanvasApplyRequest",
+            "value": 258
+        },
+        {
+            "name": "AuthoringCanvasOperationReceipt",
+            "value": 259
+        },
+        {
+            "name": "AuthoringCanvasUndoRedoRequest",
+            "value": 260
+        },
+        {
+            "name": "AuthoringCanvasHistoryResponse",
+            "value": 261
+        },
+        {
+            "name": "AuthoringCanvasDeleteRequest",
+            "value": 262
+        },
+        {
+            "name": "AuthoringCanvasWriteReceipt",
+            "value": 263
+        },
+        {
+            "name": "AuthoringCanvasResolveRequest",
+            "value": 264
+        },
+        {
+            "name": "AuthoringCanvasReferenceResolutionBatch",
+            "value": 265
+        },
+        {
+            "name": "ArticleCanvasLinkRequest",
+            "value": 266
+        },
+        {
+            "name": "ArticleCanvasLinkReceipt",
+            "value": 267
+        },
+        {
+            "name": "ArticleCanvasLinkHistoryResponse",
+            "value": 268
         }
     ]
 }

@@ -2,7 +2,7 @@
     "schema": "fsusblog.aeds-endpoint-contracts.v2",
     "protocol": "AEDS",
     "aedsVersion": 2,
-    "contentDigest": "c95c147219a297f6fcdb550a9d4ea836c0eb412c6a681a43dbd7b1dfc6f4b040",
+    "contentDigest": "ce7e372ba1cd3beb31849387d684963d2258da4fd6da1bb272fbb02b3ca41341",
     "operations": [
         {
             "method": "DELETE",
@@ -2921,6 +2921,149 @@
             "requestType": null,
             "requestEncoding": null,
             "responseFrame": "UploadPartAck",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/canvases",
+            "operationId": "binary_author_canvas_list",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "AuthoringCanvasListResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/canvases/{canvasId:guid}",
+            "operationId": "binary_author_canvas_header",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "AuthoringCanvasDocumentHeader",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/canvases/{canvasId:guid}/nodes",
+            "operationId": "binary_author_canvas_nodes",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "AuthoringCanvasNodesResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/canvases/{canvasId:guid}/edges",
+            "operationId": "binary_author_canvas_edges",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "AuthoringCanvasEdgesResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/canvases/{canvasId:guid}/history",
+            "operationId": "binary_author_canvas_history",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "AuthoringCanvasHistoryResponse",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/canvases",
+            "operationId": "binary_author_canvas_create",
+            "requestFrame": "AuthoringCanvasCreateRequest",
+            "requestType": "FsusBlog.Shared.Contracts.AuthoringCanvas.AuthoringCanvasCreateRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthoringCanvasDocumentHeader",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/canvases/{canvasId:guid}/operations",
+            "operationId": "binary_author_canvas_apply",
+            "requestFrame": "AuthoringCanvasApplyRequest",
+            "requestType": "FsusBlog.Shared.Contracts.AuthoringCanvas.AuthoringCanvasApplyRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthoringCanvasOperationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/canvases/{canvasId:guid}/history",
+            "operationId": "binary_author_canvas_history_apply",
+            "requestFrame": "AuthoringCanvasUndoRedoRequest",
+            "requestType": "FsusBlog.Shared.Contracts.AuthoringCanvas.AuthoringCanvasUndoRedoRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthoringCanvasOperationReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "DELETE",
+            "path": "/api/binary/author/canvases/{canvasId:guid}",
+            "operationId": "binary_author_canvas_delete",
+            "requestFrame": "AuthoringCanvasDeleteRequest",
+            "requestType": "FsusBlog.Shared.Contracts.AuthoringCanvas.AuthoringCanvasDeleteRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthoringCanvasWriteReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/canvases/{canvasId:guid}/resolve",
+            "operationId": "binary_author_canvas_resolve",
+            "requestFrame": "AuthoringCanvasResolveRequest",
+            "requestType": "FsusBlog.Shared.Contracts.AuthoringCanvas.AuthoringCanvasResolveRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthoringCanvasReferenceResolutionBatch",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/canvases/{canvasId:guid}/prepare",
+            "operationId": "binary_author_canvas_prepare",
+            "requestFrame": "AuthoringCanvasApplyRequest",
+            "requestType": "FsusBlog.Shared.Contracts.AuthoringCanvas.AuthoringCanvasApplyRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "AuthoringCanvasApplyRequest",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "POST",
+            "path": "/api/binary/author/articles/{articleId:int}/canvas-links",
+            "operationId": "binary_author_article_canvas_link_apply",
+            "requestFrame": "ArticleCanvasLinkRequest",
+            "requestType": "FsusBlog.Contracts.Articles.ArticleCanvasLinkRequest",
+            "requestEncoding": "binary-layout",
+            "responseFrame": "ArticleCanvasLinkReceipt",
+            "errorFrame": "ApiError",
+            "successStatus": 200
+        },
+        {
+            "method": "GET",
+            "path": "/api/binary/author/articles/{articleId:int}/canvas-links/history",
+            "operationId": "binary_author_article_canvas_link_history",
+            "requestFrame": null,
+            "requestType": null,
+            "requestEncoding": null,
+            "responseFrame": "ArticleCanvasLinkHistoryResponse",
             "errorFrame": "ApiError",
             "successStatus": 200
         }

@@ -3,6 +3,8 @@
   "generatedFrom": "src/core/Algorithms/AedsFrameType.cs",
   "defaultEvidence": [
     "tests/backend/Unit/BackendGoldenCatalogTests.cs",
+    "tests/backend/Unit/AuthoringCanvasWireCodecTests.cs",
+    "tests/backend/Unit/ArticleCanvasLinkWireCodecTests.cs",
     "tests/backend/Unit/PodBinaryCodecTests.cs",
     "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs"
   ],
@@ -251,6 +253,22 @@
     { "name": "MutationId", "value": 241, "family": "common-response" },
     { "name": "UserLocalePreferenceUpdateRequest", "value": 242, "family": "locale-preference-request" },
     { "name": "TaxonomyExactMetadata", "value": 243, "family": "taxonomy-response" },
-    { "name": "ApiError", "value": 251, "family": "error-response" }
+    { "name": "ApiError", "value": 251, "family": "error-response" },
+    {"name": "AuthoringCanvasCreateRequest", "value": 253, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasDocumentHeader", "value": 254, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasListResponse", "value": 255, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasNodesResponse", "value": 256, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasEdgesResponse", "value": 257, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasApplyRequest", "value": 258, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasOperationReceipt", "value": 259, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasUndoRedoRequest", "value": 260, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasHistoryResponse", "value": 261, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasDeleteRequest", "value": 262, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasWriteReceipt", "value": 263, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasResolveRequest", "value": 264, "family": "private-authoring-canvas"},
+    {"name": "AuthoringCanvasReferenceResolutionBatch", "value": 265, "family": "private-authoring-canvas"},
+    {"name": "ArticleCanvasLinkRequest", "value": 266, "family": "private-article-canvas-link"},
+    {"name": "ArticleCanvasLinkReceipt", "value": 267, "family": "private-article-canvas-link"},
+    {"name": "ArticleCanvasLinkHistoryResponse", "value": 268, "family": "private-article-canvas-link"}
   ]
 }
