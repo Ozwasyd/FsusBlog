@@ -1,0 +1,115 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/frontend/generate-aeds-protocol.mjs",
+        "src/shared/Contracts/Validation/aeds-protocol.json",
+        "tools/contracts/generate-authoring-canvas-wire.mjs",
+        "tools/contracts/generate-article-canvas-link-wire.mjs",
+        "tools/contracts/generate-article-canvas-link-golden.mjs",
+        "config/development/document-lifecycle.json",
+        "tests/matrix.yml",
+        "src/migration/OfflineMigrationClassificationFacts.cs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-context-contract.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tools/test-matrix/register-public-shell-finite-input.mjs",
+        "tests/browser-contract/public-shell-finite-input-owner.mjs",
+        "src/shared/Contracts/Validation/authoring-canvas-wire.json",
+        "src/shared/Contracts/Validation/article-canvas-link-wire.json",
+        "src/shared/Contracts/Validation/fsusblog.openapi.json",
+        "tests/frontend/fixtures/cross-stack-contract-matrix.json",
+        "src/migration/Definitions/ArticleCanvasLinkMigrationDefinitions.cs",
+        "src/migration/Definitions/ArticlePropertyDefinitionAuthorityMigrationDefinitions.cs",
+        "src/migration/Definitions/ArticlePropertyDefinitionCommandHistoryMigrationDefinitions.cs"
+    ],
+    "outputs": [
+        {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaAllowedExtraLinkNames.generated.cs",
+            "sha256": "f55571dee09b78baabc8135630decb4275e802b68dd9a0540c6d4370b6d4ff9f"
+        },
+        {
+            "path": "src/core/Algorithms/AedsFrameType.cs",
+            "sha256": "0a6eb9a1339e7b81c964ee9405f20cfe7efd25a6b8cdca82c6e2142907124cb9"
+        },
+        {
+            "path": "src/shared/AedsFrameHeader.cs",
+            "sha256": "970f4839fce85aaa19928657dba695db6bfc9e51674a5dadd392d34735a0ab56"
+        },
+        {
+            "path": "src/frontend/wasm/web/protocol/frame.ts",
+            "sha256": "000ec68371b47a5f95899ad78053d942bf94920a6111ef184b7047944997925e"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
+            "sha256": "4b56031a97e33bfa150b15cba6ef1a88b57fea815733e92eaeb5cd8d03e75acc"
+        },
+        {
+            "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
+            "sha256": "18923341a135ffb125a0ca3964c314958e0ac1294147a1d4ee278569e9037e84"
+        },
+        {
+            "path": "src/frontend/src/codecs/binary/articleCanvasLinkWire.generated.ts",
+            "sha256": "ee1db2981e0e0578b192c2c41486201e88c5bfc1f3921e7880ee71ce946c9c4e"
+        },
+        {
+            "path": "src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts",
+            "sha256": "7cba689c84337cce02f3d0cadb90ea57ea3dc7f396877dde022185e53826a8e8"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp",
+            "sha256": "be7368e0e6a5936701c2ee3baf5f04f7d7ccfb5f40dac7b2878d3fe288d019fe"
+        },
+        {
+            "path": "src/frontend/wasm/aeds/include/authoring_canvas_wire.generated.hpp",
+            "sha256": "8106396d6f06df3d138c295935640d9baa8c5109dfd1a8beb3f042c694cc30a6"
+        },
+        {
+            "path": "src/frontend/src/generated/fsusBinaryRoutes.ts",
+            "sha256": "c49608b7bfc74466e157017e1d22bb9ef202e006964174fe1d4f9fd957171cd4"
+        },
+        {
+            "path": "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
+            "sha256": "0b4a3a0b6d490db3db833f8ba0a862f4dbb02984d56e453d563014ce29619b14"
+        },
+        {
+            "path": "tests/frontend/fixtures/cross-stack-contract-matrix.generated.json",
+            "sha256": "7d433da15872c932ff2b00ecaeaa978ccd3563cabe166f7ab5b3b1a2a64b83f5"
+        },
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "e7d9eac18b07f2b338477751d2a26d1ef5dbaf073841ba23d941b55c599a05ee"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "961827776e2580e6e03ce3c45f511e7afc7e879c3b0b383e03b0473950bee629"
+        },
+        {
+            "path": "docs/testing.generated.md",
+            "sha256": "cdaa0ad078bbe56f5494c15b916a566de4628693a498b09d3611731d3d916875"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "140071261ec4d5eebb680026970ae5f07345668d14ba5830cad40795406c7682"
+        },
+        {
+            "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
+            "sha256": "699e9155d7fb18146d68b0d1236d5a357a289283c94c089b2b18c78ba18e6156"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "cf68d3395482fb5b4f8201c1747e7460ad76fd705b11908ea2a89c279f5255ee"
+        },
+        {
+            "path": "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
+            "sha256": "5f1afb86463dc6c09de1e87b9d3fa87adc4c29e65a3e25bb1d168fa4beb7b982"
+        },
+        {
+            "path": "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
+            "sha256": "54dba98163e75f81ce591d04aae0d0243771a7e6076de3841243a56cd0783a24"
+        },
+        {
+            "path": "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
+            "sha256": "77bc9d2d7b446c2ecec9e0587322def2d2896492d66a09e0e1a28d1c643a5e74"
+        }
+    ]
+}
