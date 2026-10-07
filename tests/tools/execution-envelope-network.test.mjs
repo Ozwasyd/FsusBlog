@@ -15,6 +15,7 @@ const policy = loadExecutionNetworkPolicy();
 
 const { inspectOwnedPrivateTmp, finalizeRunOwnedDirectoriesAfterPhysical } = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
 
+const { prepareNetworkSandboxAsync } = await import(new URL('../../tools/test/execution-envelope-network.mjs', import.meta.url));
 test('network policy is default deny with no ambient external endpoint', () =>
 {
     assert.deepEqual(validateExecutionNetworkPolicy(policy), []);
@@ -909,4 +910,261 @@ test('original physical owner binds only current owned /tmp and retains external
     assert.deepEqual([hostAfter.dev, hostAfter.ino], [hostTmp.dev, hostTmp.ino]);
     assert.equal(fs.readlinkSync('/proc/self/ns/mnt'), hostNamespace);
     assert.equal(finalizeNetworkSandbox(sandbox).admission, 'planned-actual-exact');
+});
+
+
+function componentNetworkOwner(context)
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-network-async-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    let retained;
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'component-network-run', producerId: 'component-network-producer', attemptId: 'component-attempt',
+        retainPrepared: (prepared) =>
+        {
+            retained = prepared;
+        } });
+    assert.equal(retained, owner);
+    const toolDirectory = owner.fragment.directories.home;
+    for (const tool of ['strace', 'cc'])
+    {
+        fs.writeFileSync(path.join(toolDirectory, tool), 'component-only executable bytes', { mode: 0o700 });
+    }
+    const environment = { ...owner.environment, PATH: toolDirectory, FSUSBLOG_TEST_RUN_ID: 'component-network-run',
+        FSUSBLOG_TEST_SOURCE_COMMIT: 'a'.repeat(40), FSUSBLOG_TEST_SOURCE_FINGERPRINT: 'sha256:' + 'b'.repeat(64),
+        LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' };
+    const terminals = new WeakMap();
+    const calls = [];
+    let compileFailure = null;
+    const callbacks = {
+        assertPreparationExecution: async ({ request, phase, physicalExecution }) =>
+        {
+            calls.push({ phase, request });
+            assert.equal(request.cwd, root);
+            assert.equal(request.environment.TMPDIR, owner.fragment.directories.temp);
+            assert.equal(request.environment.FSUSBLOG_TEST_RUN_ID, environment.FSUSBLOG_TEST_RUN_ID);
+            assert.equal(request.environment.FSUSBLOG_TEST_SOURCE_COMMIT, environment.FSUSBLOG_TEST_SOURCE_COMMIT);
+            assert.ok(Object.isFrozen(request) && Object.isFrozen(request.environment));
+            if (phase === 'before')
+            {
+                assert.equal(physicalExecution, null);
+                terminals.set(request, null);
+            }
+            else
+            {
+                assert.ok(terminals.has(request));
+                assert.equal(physicalExecution, terminals.get(request));
+            }
+        },
+        executePreparation: async (request) =>
+        {
+            assert.ok(terminals.has(request));
+            calls.push({ phase: 'execute', request });
+            const stdout = request.purpose === 'executable-version' ? 'component-tool-v1\n' : '';
+            const terminal = {
+                schema: 'fsusblog.physical-execution-process-tree.v1', platform: 'linux',
+                policy: { maximumCapturedOutputBytesPerStream: 1_048_576 },
+                authority: { kind: 'linux-cgroup-process-group', established: true },
+                postObservation: 'zero-members', logComplete: true, logTruncationReason: null, forcedPipeClose: false,
+                lifecycle: ['post-observe-zero-members', 'bounded-pipe-close', 'seal-completed-receipt'], termination: [],
+                processInventory: [{ role: 'direct-child', pid: 123, startIdentity: 'component-only-start', exitCode: 0, signal: null }],
+                stdout, stderr: '', outputCapture: { maximumBytesPerStream: 1_048_576,
+                    stdoutBytes: Buffer.byteLength(stdout), stdoutCapturedBytes: Buffer.byteLength(stdout), stdoutTruncated: false,
+                    stderrBytes: 0, stderrCapturedBytes: 0, stderrTruncated: false }
+            };
+            terminals.set(request, terminal);
+            if (request.purpose === 'landlock-helper-build')
+            {
+                if (compileFailure)
+                {
+                    throw Object.assign(compileFailure, { physicalExecution: terminal });
+                }
+                const output = request.command[request.command.indexOf('-o') + 1];
+                assert.equal(output, path.join(owner.fragment.directories.toolCache, 'execution-envelope-landlock'));
+                fs.writeFileSync(output, 'component-only helper bytes', { mode: 0o700 });
+            }
+            return terminal;
+        }
+    };
+    return { root, owner, calls, callbacks, failCompile: (error) =>
+    {
+        compileFailure = error;
+    },
+    input: { command: ['/component/business'], cwd: root, directories: owner.fragment.directories,
+        ownedDirectoryEnvelope: owner, writableRoots: owner.fragment.writableRoots, environment, policy,
+        producerId: 'component-network-producer', attemptId: 'component-attempt', platform: 'linux' } };
+}
+
+test('component async network preparation requires both owner callbacks and never falls back to native spawn', async () =>
+{
+    let executed = false;
+    const input = { command: ['/component/business'], cwd: path.resolve('.'), directories: {}, writableRoots: [],
+        environment: { PATH: '/component/no-tools' }, policy, platform: 'linux' };
+    for (const callbacks of [{}, { executePreparation: async () =>
+    {
+        executed = true;
+    } },
+    { assertPreparationExecution: async () =>
+    {} }])
+    {
+        await assert.rejects(prepareNetworkSandboxAsync({ ...input, ...callbacks }), /held-managed owner port/u);
+    }
+    assert.equal(executed, false);
+});
+
+test('component async network preparation uses original compiler arguments and actual owned directory capability', async (context) =>
+{
+    const fixture = componentNetworkOwner(context);
+    const result = await prepareNetworkSandboxAsync({ ...fixture.input, ...fixture.callbacks });
+    const executions = fixture.calls.filter((call) => call.phase === 'execute');
+    assert.deepEqual(executions.map((call) => call.request.purpose), [
+        'executable-version', 'executable-version', 'landlock-helper-build', 'executable-version'
+    ]);
+    assert.deepEqual(executions[2].request.command, [path.join(fixture.owner.fragment.directories.home, 'cc'),
+        '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-o',
+        path.join(fixture.owner.fragment.directories.toolCache, 'execution-envelope-landlock'),
+        path.resolve(import.meta.dirname, '../../tools/test/native/execution-envelope-landlock.c')]);
+    assert.equal(result.linuxOwnedPrivateTmp, fixture.owner.privateTmpCapability);
+    assert.deepEqual(result.linuxReadWritePaths.filter((entry) => entry.startsWith('/dev/')), ['/dev/null']);
+    assert.equal(result.linuxReadWritePaths.includes('/tmp'), false);
+    assert.equal(result.linuxReadWritePaths.includes('/var/tmp'), false);
+    assert.equal(result.privateDotnetScratch, false);
+    assert.equal(result.fragment.admission, 'pending');
+    assert.equal(result.fragment.actual, null);
+    assert.equal(finalizeRunOwnedDirectories(fixture.owner).cleanup.status, 'complete');
+});
+
+test('component async network build failure retains first cause and original actual terminal without unrestricted retry', async (context) =>
+{
+    const fixture = componentNetworkOwner(context);
+    const primary = new Error('component compiler failed');
+    fixture.failCompile(primary);
+    await assert.rejects(prepareNetworkSandboxAsync({ ...fixture.input, ...fixture.callbacks }), (error) =>
+        error === primary && error.physicalExecution?.postObservation === 'zero-members');
+    assert.deepEqual(fixture.calls.filter((call) => call.phase === 'execute').map((call) => call.request.purpose), [
+        'executable-version', 'executable-version', 'landlock-helper-build'
+    ]);
+    assert.equal(fixture.calls.at(-1).phase, 'after');
+    assert.equal(finalizeRunOwnedDirectories(fixture.owner).cleanup.status, 'complete');
+});
+
+test('original directory producer retention hook keeps the sole actual opaque capability and never-started cleanup', (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-directory-retain-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    let retained;
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root, runId: 'retain-run',
+        producerId: 'retain-producer', attemptId: 'retain-attempt', retainPrepared: (prepared) =>
+        {
+            retained = prepared;
+        } });
+    assert.equal(retained, owner);
+    const binding = inspectOwnedPrivateTmp(retained.privateTmpCapability, {
+        environment: { ...owner.environment, FSUSBLOG_TEST_RUN_ID: 'retain-run' },
+        readWritePaths: Object.values(owner.fragment.directories)
+    });
+    assert.equal(binding.source, owner.fragment.directories.temp);
+    assert.equal(finalizeRunOwnedDirectories(owner).cleanup.status, 'complete');
+    assert.equal(fs.existsSync(owner.fragment.ownedRoot), false);
+});
+
+test('original directory producer retention failure retains first cause and proves actual never-started removal', (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-directory-retain-failure-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const primary = new Error('component owner refused retained preparation');
+    let retained;
+    assert.throws(() => prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root, runId: 'retain-failure',
+        producerId: 'retain-producer', attemptId: 'retain-attempt', retainPrepared: (prepared) =>
+        {
+            retained = prepared;
+            throw primary;
+        } }), (error) => error === primary);
+    assert.ok(retained?.privateTmpCapability);
+    assert.deepEqual(retained.fragment.cleanup, { status: 'complete', removedOwnedRoot: true });
+    assert.equal(fs.existsSync(retained.fragment.ownedRoot), false);
+});
+
+test('original directory producer refuses an asynchronous retention acknowledgement before later tool effects', (context) =>
+{
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-directory-retain-async-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    let retained;
+    assert.throws(() => prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root, runId: 'retain-async',
+        producerId: 'retain-producer', attemptId: 'retain-attempt', retainPrepared: (prepared) =>
+        {
+            retained = prepared;
+            return Promise.resolve();
+        } }), /retention must complete synchronously/u);
+    assert.deepEqual(retained.fragment.cleanup, { status: 'complete', removedOwnedRoot: true });
+    assert.equal(fs.existsSync(retained.fragment.ownedRoot), false);
+});
+
+test('component preparation-only terminal reaches the original directory guard as actually started', async (context) =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import(new URL('../../tools/test/run-deterministic-command.mjs', import.meta.url));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-preparation-terminal-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'terminal-run', producerId: 'terminal-producer', attemptId: 'terminal-attempt' });
+    // This is a supplied component terminal, not an observed native tool proof.
+    const toolTerminal = { postObservation: 'zero-members', component: 'preparation' };
+    const state = combinePreparationAndBusinessTerminal({ physicalStarted: true, physicalExecution: toolTerminal },
+        { physicalStarted: false, physicalExecution: null }, { ownedRoot: owner.fragment.ownedRoot });
+    assert.equal(state.physicalStarted, true);
+    assert.equal(state.physicalExecution, toolTerminal);
+    assert.equal(finalizeRunOwnedDirectoriesAfterPhysical(owner, state).cleanup.status, 'complete');
+    assert.equal(fs.existsSync(owner.fragment.ownedRoot), false);
+});
+
+test('component two-stage zero terminals preserve the business proof without fabricating an aggregate', async () =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import(new URL('../../tools/test/run-deterministic-command.mjs', import.meta.url));
+    const toolTerminal = { postObservation: 'zero-members', component: 'preparation' };
+    const businessTerminal = { postObservation: 'zero-members', component: 'business' };
+    const state = combinePreparationAndBusinessTerminal({ physicalStarted: true, physicalExecution: toolTerminal },
+        { physicalStarted: true, physicalExecution: businessTerminal }, { ownedRoot: '/component-owned-root' });
+    assert.equal(state.physicalStarted, true);
+    assert.equal(state.physicalExecution, businessTerminal);
+    assert.notEqual(state.physicalExecution, toolTerminal);
+});
+
+test('component unknown terminal in either started phase retains the original directory', async (context) =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import(new URL('../../tools/test/run-deterministic-command.mjs', import.meta.url));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-preparation-unknown-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'unknown-run', producerId: 'unknown-producer', attemptId: 'unknown-attempt' });
+    const zero = { postObservation: 'zero-members', component: true };
+    for (const phase of ['preparation', 'business'])
+    {
+        for (const terminal of [null, { postObservation: 'unverifiable' }, { postObservation: 'residual-members' }])
+        {
+            const preparation = { physicalStarted: true, physicalExecution: phase === 'preparation' ? terminal : zero };
+            const business = { physicalStarted: true, physicalExecution: phase === 'business' ? terminal : zero };
+            assert.throws(() => finalizeRunOwnedDirectoriesAfterPhysical(owner,
+                combinePreparationAndBusinessTerminal(preparation, business, { ownedRoot: owner.fragment.ownedRoot })),
+            (error) => error.recoveryObligation?.ownedRoot === owner.fragment.ownedRoot
+                && error.recoveryObligation.reason.startsWith(phase));
+            assert.equal(fs.existsSync(owner.fragment.ownedRoot), true);
+        }
+    }
+    assert.throws(() => combinePreparationAndBusinessTerminal({ physicalStarted: false, physicalExecution: zero },
+        { physicalStarted: false, physicalExecution: null }, { ownedRoot: owner.fragment.ownedRoot }), /preparation terminal/u);
+    assert.equal(fs.existsSync(owner.fragment.ownedRoot), true);
+});
+
+test('standalone null preparation preserves the original business state and directory refusal', async (context) =>
+{
+    const { combinePreparationAndBusinessTerminal } = await import(new URL('../../tools/test/run-deterministic-command.mjs', import.meta.url));
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-standalone-terminal-component-'));
+    context.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    const owner = prepareRunOwnedDirectories({ repositoryRoot: root, cwd: root,
+        runId: 'standalone-run', producerId: 'standalone-producer', attemptId: 'standalone-attempt' });
+    const business = { physicalStarted: true, physicalExecution: null };
+    const state = combinePreparationAndBusinessTerminal(null, business, { ownedRoot: owner.fragment.ownedRoot });
+    assert.equal(state, business);
+    assert.throws(() => finalizeRunOwnedDirectoriesAfterPhysical(owner, state), /unverifiable physical residue/u);
+    assert.equal(fs.existsSync(owner.fragment.ownedRoot), true);
 });

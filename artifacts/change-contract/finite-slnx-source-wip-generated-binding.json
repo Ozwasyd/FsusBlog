@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/behavior-doc-static-admission.test.mjs",
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/configuration/check-solution-source.mjs",
+        "tools/configuration/solution-source.test.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/production-disk-demand.mjs",
+        "tools/test-matrix/protected-behavior-doc-admission.mjs",
+        "tools/test-matrix/source-governance.mjs",
+        "tools/test/execution-envelope-directories.mjs",
+        "tools/test/execution-envelope-environment.mjs",
+        "tools/test/execution-envelope-network.mjs",
+        "tools/test/physical-execution-nested-channel.mjs",
+        "tools/test/physical-execution-process-tree.mjs",
+        "tools/test/run-deterministic-command.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "882c1f980ac68b6da171c9ea4981caaf173c3deb95c20b4c01797d482aa550d4"
+        }
+    ]
+}

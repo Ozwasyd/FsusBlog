@@ -18,6 +18,8 @@ const { parseMatrix } = await import(new URL("../../tools/test-matrix/parse-matr
 const { runDag } = await import(new URL("../../tools/test-matrix/scheduler.mjs", import.meta.url));
 const { validateJsonSchema } = await import(new URL("../../tools/test-matrix/schema-validator/validate.mjs", import.meta.url));
 
+const { readProtectedBehaviorDocAdmissionReceipt, waitProtectedBehaviorDocRunner } = await import(new URL("../../tools/test-matrix/protected-behavior-doc-admission.mjs", import.meta.url));
+
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 
 function tempDirectory(label)
@@ -1315,4 +1317,88 @@ test('package scripts cannot expose a direct BehaviorDoc bypass', (t) =>
     const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     const errors = validateBehaviorDocStaticAdmissionMatrix(matrix, { repositoryRoot });
     assert.ok(errors.some((error) => /package\.json script check:docs-direct bypasses/u.test(error)));
+});
+
+test('protected admission reads the original receipt API with exact run, source and worktree expectations', (t) =>
+{
+    // Sealed unit fixture only: this tests reader wiring, not actual SDK or physical execution.
+    const directory = tempDirectory('protected-admission-reader');
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const receiptFile = path.join(directory, 'receipt.json');
+    const source = { sourceCommit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
+    const runId = 'protected-admission-reader';
+    fs.writeFileSync(receiptFile, JSON.stringify(validAdmissionReceipt({ source, runId, worktree: root })));
+    const read = (overrides = {}) => readProtectedBehaviorDocAdmissionReceipt({
+        receiptFile, runId, source, repositoryRoot: root, ...overrides
+    });
+    assert.equal(read().status, 'ok');
+    assert.throws(() => read({ runId: 'foreign-run' }));
+    assert.throws(() => read({ source: { ...source, sourceCommit: 'c'.repeat(40) } }));
+    assert.throws(() => read({ source: { ...source, worktreeFingerprint: 'd'.repeat(64) } }));
+    assert.throws(() => read({ repositoryRoot: directory }));
+});
+
+test('protected runner remains asynchronous and forwards cancellation before awaiting close', async () =>
+{
+    const { EventEmitter } = await import('node:events');
+    const child = new EventEmitter();
+    const cancellations = [];
+    child.kill = (signal) =>
+    {
+        cancellations.push(signal);
+        return true;
+    };
+    const controller = new AbortController();
+    const pending = waitProtectedBehaviorDocRunner('fixture', [], {}, {
+        signal: controller.signal, spawn: () => child
+    });
+    let settled = false;
+    const observed = pending.then(() =>
+    {
+        settled = true;
+    }, (error) =>
+    {
+        settled = true;
+        return error;
+    });
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settled, false);
+    const cancellationReason = new Error('fixture cancellation');
+    controller.abort(cancellationReason);
+    assert.deepEqual(cancellations, ['SIGTERM']);
+    assert.equal(settled, false);
+    child.emit('exit', 1, 'SIGTERM');
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(settled, false);
+    child.emit('close', 1, 'SIGTERM');
+    const failure = await observed;
+    assert.match(failure.message, /cancelled/u);
+    assert.equal(failure.name, 'AbortError');
+    assert.equal(failure.cause, cancellationReason);
+});
+
+test('protected runner accepts close zero and refuses launch errors or nonzero terminal', async () =>
+{
+    const { EventEmitter } = await import('node:events');
+    for (const mode of ['success', 'failure', 'launch-error'])
+    {
+        const child = new EventEmitter();
+        child.kill = () => true;
+        const result = waitProtectedBehaviorDocRunner('fixture', [], {}, { spawn: () => child });
+        const observed = result.then(() => null, (error) => error);
+        if (mode === 'launch-error')
+        {
+            child.emit('error', new Error('launch-canary'));
+        }
+        child.emit('close', mode === 'success' ? 0 : 1, null);
+        const error = await observed;
+        if (mode === 'success')
+        {
+            assert.equal(error, null);
+        }
+        else
+        {
+            assert.ok(error instanceof Error);
+        }
+    }
 });

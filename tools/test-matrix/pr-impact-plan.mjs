@@ -351,6 +351,7 @@ export const sourceGovernanceExecutionTarget = 'tools/test-matrix/source-governa
 export const sourceGovernanceChildEntries = Object.freeze({
     frontend: 'tools/frontend/check-frontend-style.mjs',
     csharp: 'tools/dotnet/check-csharp-style.mjs',
+    solution: 'tools/configuration/check-solution-source.mjs',
     docs: 'tools/style/check-native-tooling-style.mjs',
     lifecycle: 'tools/docs/generate-document-lifecycle.mjs'
 });
@@ -376,7 +377,8 @@ export const sourceRegressionEntries = Object.freeze([
     'tests/tools/pr-impact-plan.test.mjs',
     'tests/tools/pr-applicable-execution-authority.test.mjs',
     'tools/frontend/source-unit-style-diff.test.mjs',
-    'tests/tools/native-tooling-style.test.mjs'
+    'tests/tools/native-tooling-style.test.mjs',
+    'tools/configuration/solution-source.test.mjs'
 ]);
 
 export function selectSourceRegressionTargets(changedFiles)
@@ -385,7 +387,9 @@ export function selectSourceRegressionTargets(changedFiles)
         || sourceRegressionEntries.includes(file)
         || matchesImpactPath(file, 'tools/frontend/check-frontend-style.mjs')
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
-        || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')) ? [...sourceRegressionEntries] : [];
+        || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
+        || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')) ? [...sourceRegressionEntries]
+        : changedFiles.some(file => file.endsWith('.slnx')) ? ['tools/configuration/solution-source.test.mjs'] : [];
 }
 
 export function sourceGovernanceExecutableEntries()
@@ -408,9 +412,10 @@ export function sourceRegressionArguments(entry)
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files)
+export function unsupportedSourceStageFiles(files, checkedSolutions = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
+        && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 
