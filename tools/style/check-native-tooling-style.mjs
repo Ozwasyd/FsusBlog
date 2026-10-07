@@ -40,12 +40,20 @@ async function RunMarkdownSpanAdapter()
     const directory = path.dirname(actual);
     const packageFile = path.join(directory, 'package.json');
     const manifest = JSON.parse(fs.readFileSync(packageFile, 'utf8'));
-    if (manifest.name !== 'markdownlint-cli2' || manifest.exports?.['.'] !== './markdownlint-cli2.mjs'
-        || manifest.bin?.['markdownlint-cli2'] !== `./${path.basename(actual)}`)
+    const declaredBin = manifest.bin?.['markdownlint-cli2'];
+    const normalizedBin = typeof declaredBin === 'string' ? declaredBin.replace(/^\.\//u, '') : null;
+    if (manifest.name !== 'markdownlint-cli2' || manifest.version !== '0.23.1'
+        || manifest.exports?.['.'] !== './markdownlint-cli2.mjs'
+        || normalizedBin !== path.basename(actual)
+        || fs.realpathSync(packageFile) !== packageFile)
     {
         throw new Error('original markdownlint-cli2 structured formatter API is unavailable');
     }
-    const modulePath = path.join(directory, 'markdownlint-cli2.mjs');
+    const modulePath = fs.realpathSync(path.join(directory, 'markdownlint-cli2.mjs'));
+    if (path.dirname(modulePath) !== directory || path.basename(modulePath) !== 'markdownlint-cli2.mjs')
+    {
+        throw new Error('original markdownlint-cli2 module escaped its actual package directory');
+    }
     const require = createRequire(pathToFileURL(modulePath));
     const { main } = await import(pathToFileURL(modulePath).href);
     process.exitCode = await main({

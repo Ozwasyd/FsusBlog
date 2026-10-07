@@ -76,10 +76,10 @@ export async function runLocalWorkflow({
     }
     const setupRunId = dependencies.createRunId(`ci-workflow/${aggregateJobId}`);
     const { sourceState } = await dependencies.collectSchedulerSourceState();
-    dependencies.executeStaticMatrixPrerequisite(validateTier, { runId: setupRunId, sourceState });
     const behaviorDocAdmission = await dependencies.establishBehaviorDocAdmission({
         runId: setupRunId
     });
+    dependencies.executeStaticMatrixPrerequisite(validateTier, { runId: setupRunId, sourceState, behaviorDocAdmission });
     console.error(
         `[matrix:ci-workflow:${aggregateJobId}]`
         + ` admission=${dependencies.relativeToRoot(behaviorDocAdmission.receiptFile)}`

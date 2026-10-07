@@ -17,17 +17,16 @@ export const localBehaviorDocCandidateBundleIds = Object.freeze([
 ]);
 
 const purePreAdmissionTierContracts = Object.freeze({
-    'validate-matrix': Object.freeze({
-        command: 'tools/test/run-matrix-governance-once.sh validate-matrix',
-        executionDependsOn: []
+    'validate-declarations': Object.freeze({
+        command: 'node tools/run-test-matrix.mjs validate-declarations', executionDependsOn: []
     }),
+    'source-governance': Object.freeze({
+        command: 'node tools/test-matrix/source-governance.mjs', executionDependsOn: ['pr-smart-gate-plan']
+    }),
+
     'pr-smart-gate-plan': Object.freeze({
         command: 'tools/test/lanes/plan-pr-risk.sh',
-        executionDependsOn: ['validate-matrix']
-    }),
-    'test-inventory': Object.freeze({
-        command: 'tools/test/lanes/test-inventory.sh',
-        executionDependsOn: ['validate-matrix']
+        executionDependsOn: ['validate-declarations']
     })
 });
 
@@ -135,7 +134,8 @@ function validatePurePreAdmissionTiers(byId, errors)
                 `${tierId}.executionDependsOn must be [${expected.executionDependsOn.join(', ')}]`
             );
         }
-        if ((tier.services ?? []).length !== 0 || tier.requiresPlaywright !== 'none')
+        if ((tier.services ?? []).length !== 0 || tier.requiresPlaywright !== 'none'
+            || tier.requiresDotnet !== false || tier.requiresBootstrap !== 'none')
         {
             errors.push(`${tierId} must remain process-, service-, container-, and browser-free`);
         }
@@ -210,9 +210,9 @@ export function validateBehaviorDocStaticAdmissionMatrix(matrix, {
             errors.push(`${behaviorDocStaticAdmissionTierId}.${field} must be ${JSON.stringify(value)}`);
         }
     }
-    if (JSON.stringify(tierDependencies(admission)) !== JSON.stringify(['validate-matrix']))
+    if (JSON.stringify(tierDependencies(admission)) !== JSON.stringify(['validate-declarations']))
     {
-        errors.push(`${behaviorDocStaticAdmissionTierId}.executionDependsOn must be [validate-matrix]`);
+        errors.push(`${behaviorDocStaticAdmissionTierId}.executionDependsOn must be [validate-declarations]`);
     }
     if ((admission.services ?? []).length !== 0)
     {

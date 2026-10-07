@@ -1,6 +1,8 @@
 ## Linked Issue
 
-Closes #
+Refs #
+
+<!-- Choose exactly one primary line: Refs #1234 keeps unfinished issue work open; Closes #1234 is for the child issue fully accepted by this PR. Keep ordinary explanations and related issues as Markdown links; use Closes only when the complete issue is accepted. -->
 
 ## Scope Summary
 

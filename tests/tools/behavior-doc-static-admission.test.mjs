@@ -376,7 +376,7 @@ function collectChild(child)
     });
 }
 
-test('matrix and workflow declare one unconditional fixture-free admission before every candidate', () =>
+test('matrix and workflow declare one fixture-free admission before every applicable candidate', () =>
 {
     const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
     assert.deepEqual(validateBehaviorDocStaticAdmissionMatrix(matrix, { repositoryRoot: root }), []);
@@ -426,8 +426,8 @@ test('matrix and workflow declare one unconditional fixture-free admission befor
     assert.deepEqual(errors, []);
 
     const missingDependency = workflowSource.replace(
-        'needs: [validate-matrix, behavior-doc-static-admission]\n        timeout-minutes: 45',
-        'needs: validate-matrix\n        timeout-minutes: 45'
+        'needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]\n        if: github.event_name != \'pull_request\' || needs.plan-pr-risk.outputs.fast_backend == \'true\'\n        timeout-minutes: 45',
+        'needs: [validate-matrix, plan-pr-risk]\n        if: github.event_name != \'pull_request\' || needs.plan-pr-risk.outputs.fast_backend == \'true\'\n        timeout-minutes: 45'
     );
     const mutatedErrors = [];
     validateBehaviorDocStaticAdmissionTopology(parseWorkflow(missingDependency), mutatedErrors);
@@ -1288,35 +1288,19 @@ test('nested runners consume the pinned admission receipt instead of regeneratin
     );
 });
 
-test('docs-only and source-only PR plans always select the admission tier', (t) =>
+test('shared testing policy and affected backend source retain admission; ordinary documents do not claim qualification', async () =>
 {
-    const directory = path.join(root, '.tmp', `behavior-doc-smart-gate-${process.pid}`);
-    fs.rmSync(directory, { recursive: true, force: true });
-    fs.mkdirSync(directory, { recursive: true });
-    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-    for (const [label, changedPath] of [
-        ['docs', 'docs/testing.md'],
-        ['source', 'src/backend/Program.cs']
-    ])
+    const { selectAffectedPrTiers } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+    const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
+    const executionAuthority = JSON.parse(fs.readFileSync(path.join(root, 'tests/fixtures/test-matrix/release-final-execution-target-authority.json'), 'utf8'));
+    for (const changedPath of ['docs/testing.md', 'src/backend/Program.cs'])
     {
-        const changedFile = path.join(directory, `${label}.txt`);
-        const outputFile = path.join(directory, `${label}.json`);
-        fs.writeFileSync(changedFile, `${changedPath}\n`);
-        const result = spawnSync(process.execPath, [
-            'tools/run-test-matrix.mjs',
-            'ci-pr-plan',
-            '--changed-files', path.relative(root, changedFile),
-            '--event-name', 'pull_request',
-            '--out', path.relative(root, outputFile)
-        ], {
-            cwd: root,
-            encoding: 'utf8',
-            timeout: 30_000
-        });
-        assert.equal(result.status, 0, result.stderr);
-        const plan = JSON.parse(fs.readFileSync(outputFile, 'utf8'));
-        assert.ok(plan.selectedTierIds.includes(behaviorDocStaticAdmissionTierId), label);
+        const plan = selectAffectedPrTiers(matrix, [changedPath], { executionAuthority });
+        assert.ok(plan.selectedTierIds.includes(behaviorDocStaticAdmissionTierId), changedPath);
     }
+    const sourceOnly = selectAffectedPrTiers(matrix, ['docs/unindexed-ordinary-note.md'], { executionAuthority });
+    assert.equal(sourceOnly.selectedTierIds.includes(behaviorDocStaticAdmissionTierId), false);
+    assert.ok(sourceOnly.selectedTierIds.includes('source-governance'));
 });
 
 test('package scripts cannot expose a direct BehaviorDoc bypass', (t) =>

@@ -20,21 +20,46 @@ env:
     DOTNET_NOLOGO: "true"
     DOTNET_SKIP_FIRST_TIME_EXPERIENCE: "true"
     FSUSBLOG_REPO_ROOT: ${{ github.workspace }}
+    FSUSBLOG_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/master' }}
+    FSUSBLOG_CI_STAGE: ${{ github.event_name == 'pull_request' && (vars.FSUSBLOG_CI_STAGE || 'qualification') || 'qualification' }}
     FSUSBLOG_TEST_RUN_ID: quality-gate-${{ github.run_id }}-${{ github.run_attempt }}
     GITHUB_PACKAGES_TOKEN: ${{ secrets.GITHUB_PACKAGES_TOKEN || github.token }}
 
 jobs:
-    validate-matrix:
-        name: Validate Test Matrix
+    validate-declarations:
+        name: Validate Global Source Declarations
         runs-on: ubuntu-latest
-        timeout-minutes: 20
-        outputs:
-            backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
-            backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
+        timeout-minutes: 5
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
+            - run: node tools/run-test-matrix.mjs validate-declarations
+
+    validate-matrix:
+        name: Validate Test Matrix
+        runs-on: ubuntu-latest
+        needs: [validate-declarations, plan-pr-risk, behavior-doc-static-admission]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.validate_matrix == 'true'
+        timeout-minutes: 20
+        outputs:
+            backend_qps_collectors_matrix: ${{ steps.backend_qps_collectors_matrix.outputs.matrix }}
+            backend_qps_collectors_max_parallel: ${{ steps.backend_qps_collectors_matrix.outputs.max_parallel }}
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -45,10 +70,13 @@ jobs:
               with:
                   path: ~/.nuget/packages
                   key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: npm --prefix tests/tools ci --ignore-scripts --no-audit --progress=false
             - run: ./tools/test.sh ci-tier validate-matrix --no-deps
-            - run: ./tools/test.sh ci-tier test-inventory --no-deps
             - run: node tools/test/check-physical-execution-consumer-evidence.mjs .tmp/physical-execution-projections/validate-matrix-matrix-governance.json
             - run: node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json
             - run: node tools/check-workflow-matrix-sync.mjs .tmp/ci-plan.json .github/workflows/quality-gate.yml
@@ -78,16 +106,24 @@ jobs:
     behavior-doc-static-admission:
         name: BehaviorDoc Static Admission
         runs-on: ubuntu-latest
-        needs: validate-matrix
+        needs: [validate-declarations, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.behavior_doc_static_admission == 'true'
         timeout-minutes: 20
         outputs:
             receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
             source_commit: ${{ steps.receipt.outputs.source_commit }}
             source_fingerprint: ${{ steps.receipt.outputs.source_fingerprint }}
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -116,12 +152,69 @@ jobs:
                   include-hidden-files: true
                   path: .tmp/behavior-doc-static-admission/**
 
+    test-inventory:
+        name: Compiled Test Inventory
+        runs-on: ubuntu-latest
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.test_inventory == 'true'
+        timeout-minutes: 20
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
+              with:
+                  dotnet-version: 10.0.x
+            - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4
+              with:
+                  path: ~/.nuget/packages
+                  key: nuget-${{ runner.os }}-${{ hashFiles('**/*.csproj', '**/*.props', '**/*.targets', 'global.json', 'NuGet.config') }}
+            - uses: ./.github/actions/consume-behavior-doc-admission
+              with:
+                  source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
+                  receipt-digest: ${{ needs.behavior-doc-static-admission.outputs.receipt_digest }}
+            - run: ./tools/test.sh ci-tier test-inventory --no-deps
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: test-inventory
+                  path: .tmp/release-evidence/test-inventory.json
+                  include-hidden-files: true
+                  if-no-files-found: error
+
     plan-pr-risk:
         name: Plan PR Smart Gate
         runs-on: ubuntu-latest
-        needs: validate-matrix
+        needs: [validate-declarations]
         timeout-minutes: 5
         outputs:
+            coverage_summary: ${{ steps.smart.outputs.coverage_summary }}
+            test_inventory: ${{ steps.smart.outputs.test_inventory }}
+            release_evidence: ${{ steps.smart.outputs.release_evidence }}
+            fast_summary: ${{ steps.smart.outputs.fast_summary }}
+            fast_static_governance: ${{ steps.smart.outputs.fast_static_governance }}
+            frontend_runtime_contracts: ${{ steps.smart.outputs.frontend_runtime_contracts }}
+            frontend_static_governance: ${{ steps.smart.outputs.frontend_static_governance }}
+            fast_frontend_unit: ${{ steps.smart.outputs.fast_frontend_unit }}
+            frontend_build: ${{ steps.smart.outputs.frontend_build }}
+            fast_backend: ${{ steps.smart.outputs.fast_backend }}
+            wasm_build_artifacts: ${{ steps.smart.outputs.wasm_build_artifacts }}
+            behavior_evidence_pre_runtime: ${{ steps.smart.outputs.behavior_evidence_pre_runtime }}
+            backend_mutation: ${{ steps.smart.outputs.backend_mutation }}
+            behavior_test_evidence: ${{ steps.smart.outputs.behavior_test_evidence }}
+            behavior_doc_static_admission: ${{ steps.smart.outputs.behavior_doc_static_admission }}
+            source_governance: ${{ steps.smart.outputs.source_governance }}
+            validate_matrix: ${{ steps.smart.outputs.validate_matrix }}
             pr_smart_gate_summary: ${{ steps.smart.outputs.pr_smart_gate_summary }}
             plan_content_digest: ${{ steps.smart.outputs.plan_content_digest }}
             plan_source_commit: ${{ steps.smart.outputs.plan_source_commit }}
@@ -161,7 +254,10 @@ jobs:
               env:
                   FSUSBLOG_PR_EVENT_NAME: ${{ github.event_name }}
                   FSUSBLOG_PR_BASE_REF: ${{ github.event.pull_request.base.sha || 'origin/master' }}
-              run: ./tools/test.sh ci-tier pr-smart-gate-plan --no-deps
+              run: >-
+                  node tools/run-test-matrix.mjs ci-pr-plan
+                  --event-name "$FSUSBLOG_PR_EVENT_NAME" --base-ref "$FSUSBLOG_PR_BASE_REF"
+                  --out .tmp/pr-plan.json --github-output "$GITHUB_OUTPUT"
             - name: Upload source-bound PR smart gate plan
               uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
               with:
@@ -182,15 +278,52 @@ jobs:
                       .tmp/pr-changed-files.txt
                       .tmp/release-evidence/pr-smart-gate-summary.json
 
-    behavior-test-evidence:
-        name: Behavior Test Evidence
+    source-governance:
+        name: Applicable Source Governance
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission]
-        timeout-minutes: 30
+        needs: [validate-declarations, plan-pr-risk]
+        if: needs.plan-pr-risk.outputs.source_governance == 'true'
+        timeout-minutes: 15
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   fetch-depth: 0
+            - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
+              with:
+                  node-version: 24.x
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
+            - run: npm --prefix tools/frontend/style-toolchain ci --ignore-scripts --no-audit --progress=false
+            - run: node tools/test-matrix/source-governance.mjs
+            - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7
+              if: always()
+              with:
+                  name: source-governance
+                  path: .tmp/source-governance/result.json
+                  if-no-files-found: error
+
+
+    behavior-test-evidence:
+        name: Behavior Test Evidence
+        runs-on: ubuntu-latest
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.behavior_test_evidence == 'true'
+        timeout-minutes: 30
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
+        steps:
+            - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -223,11 +356,19 @@ jobs:
         name: Changed Critical Behavior Mutation
         runs-on: ubuntu-latest
         needs: [behavior-doc-static-admission, behavior-test-evidence, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_mutation == 'true'
         timeout-minutes: 120
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -270,10 +411,20 @@ jobs:
     behavior-evidence-pre-runtime:
         name: Behavior Evidence Pre-Runtime
         runs-on: ubuntu-latest
-        needs: [backend-mutation, behavior-doc-static-admission, behavior-test-evidence]
+        needs: [backend-mutation, behavior-doc-static-admission, behavior-test-evidence, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.behavior_evidence_pre_runtime == 'true'
         timeout-minutes: 10
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -306,10 +457,20 @@ jobs:
     wasm-build-artifacts:
         name: wasm-build-artifacts
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission]
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.wasm_build_artifacts == 'true'
         timeout-minutes: 35
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: ./.github/actions/consume-behavior-doc-admission
               with:
                   source-fingerprint: ${{ needs.behavior-doc-static-admission.outputs.source_fingerprint }}
@@ -332,8 +493,17 @@ jobs:
         outputs:
             source_fingerprint: ${{ steps.receipt.outputs.source_fingerprint }}
             receipt_digest: ${{ steps.receipt.outputs.receipt_digest }}
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -385,6 +555,7 @@ jobs:
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_merge_threshold == 'true'
         timeout-minutes: 10
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_COVERAGE_LINE_THRESHOLD: "35"
             FSUSBLOG_COVERAGE_BRANCH_THRESHOLD: "20"
             FSUSBLOG_COVERAGE_METHOD_THRESHOLD: "30"
@@ -394,8 +565,15 @@ jobs:
             FSUSBLOG_FRONTEND_COVERAGE_LINE_THRESHOLD: "35"
             FSUSBLOG_FRONTEND_COVERAGE_BRANCH_THRESHOLD: "20"
             FSUSBLOG_FRONTEND_COVERAGE_FUNCTION_THRESHOLD: "30"
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -427,11 +605,20 @@ jobs:
     coverage-summary:
         name: Coverage Summary
         runs-on: ubuntu-latest
-        needs: [behavior-doc-static-admission, coverage-merge-threshold]
-        if: always() && needs.behavior-doc-static-admission.result == 'success' && needs.coverage-merge-threshold.result == 'success'
+        needs: [behavior-doc-static-admission, coverage-merge-threshold, plan-pr-risk]
+        if: always() && needs.behavior-doc-static-admission.result == 'success' && needs.coverage-merge-threshold.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.coverage_summary == 'true')
         timeout-minutes: 90
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -459,10 +646,20 @@ jobs:
     fast-backend:
         name: Fast Backend DAG
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission]
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.fast_backend == 'true'
         timeout-minutes: 45
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -509,12 +706,21 @@ jobs:
     frontend-build:
         name: Frontend Build
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission, wasm-build-artifacts]
+        needs: [validate-matrix, behavior-doc-static-admission, wasm-build-artifacts, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.frontend_build == 'true'
         timeout-minutes: 20
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - id: fsusui-baseline
               run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -557,12 +763,21 @@ jobs:
     fast-frontend-unit:
         name: Fast Frontend Unit DAG
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission]
+        needs: [validate-matrix, behavior-doc-static-admission, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.fast_frontend_unit == 'true'
         timeout-minutes: 45
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - id: fsusui-baseline
               run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -606,12 +821,21 @@ jobs:
     frontend-runtime-contracts:
         name: Frontend Runtime Contracts
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission, wasm-build-artifacts]
+        needs: [validate-matrix, behavior-doc-static-admission, wasm-build-artifacts, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.frontend_runtime_contracts == 'true'
         timeout-minutes: 20
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - id: fsusui-baseline
               run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -652,12 +876,21 @@ jobs:
     frontend-static-governance:
         name: Frontend Static Governance
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission, frontend-build]
+        needs: [validate-matrix, behavior-doc-static-admission, frontend-build, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.frontend_static_governance == 'true'
         timeout-minutes: 20
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - id: fsusui-baseline
               run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -704,12 +937,20 @@ jobs:
     fast-static-governance:
         name: Fast Static Governance
         runs-on: ubuntu-latest
-        needs: [validate-matrix, behavior-doc-static-admission]
+        needs: [validate-matrix, test-inventory, behavior-doc-static-admission, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.fast_static_governance == 'true'
         timeout-minutes: 35
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
               with:
                   fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -726,6 +967,10 @@ jobs:
               with:
                   name: validate-matrix
                   path: .
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: test-inventory
+                  path: .tmp/release-evidence
             - run: npm --prefix tools/test-matrix/schema-validator ci --ignore-scripts --no-audit --progress=false
             - run: node --test tests/tools/migration-doc-lint.test.mjs
             - run: node tools/db/migration-doc-lint.mjs
@@ -759,19 +1004,20 @@ jobs:
     fast-summary:
         name: Fast Summary
         runs-on: ubuntu-latest
-        needs:
-            [
-                behavior-doc-static-admission,
-                fast-backend,
-                frontend-build,
-                fast-frontend-unit,
-                frontend-runtime-contracts,
-                frontend-static-governance,
-                fast-static-governance,
-            ]
+        needs: [behavior-doc-static-admission, fast-backend, frontend-build, fast-frontend-unit, frontend-runtime-contracts, frontend-static-governance, fast-static-governance, plan-pr-risk]
+        if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.fast_summary == 'true'
         timeout-minutes: 50
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -828,8 +1074,17 @@ jobs:
         needs: [behavior-doc-static-admission, plan-pr-risk, fast-frontend-unit, fast-static-governance]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.cross_stack_contract == 'true'
         timeout-minutes: 20
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -860,21 +1115,20 @@ jobs:
     integration-runtime:
         name: Integration Runtime
         runs-on: ubuntu-latest
-        needs:
-            [
-                validate-matrix,
-                behavior-doc-static-admission,
-                behavior-evidence-pre-runtime,
-                plan-pr-risk,
-                production-build-artifacts,
-                fast-backend,
-                fast-frontend-unit,
-                frontend-static-governance,
-            ]
+        needs: [validate-matrix, behavior-doc-static-admission, behavior-evidence-pre-runtime, plan-pr-risk, production-build-artifacts, fast-backend, fast-frontend-unit, frontend-static-governance]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.integration_runtime == 'true'
         timeout-minutes: 45
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -935,11 +1189,20 @@ jobs:
     ci-summary:
         name: CI Summary
         runs-on: ubuntu-latest
-        needs: [behavior-doc-static-admission, fast-summary, integration-runtime]
+        needs: [behavior-doc-static-admission, fast-summary, integration-runtime, plan-pr-risk]
         if: always() && needs.behavior-doc-static-admission.result == 'success' && github.event_name != 'pull_request'
         timeout-minutes: 70
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -975,9 +1238,17 @@ jobs:
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.endpoint_depth_runtime == 'true'
         timeout-minutes: 35
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_TEST_NAMESPACE: ci-endpoint-depth-${{ github.run_id }}-${{ github.run_attempt }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1020,8 +1291,17 @@ jobs:
         needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.release_public == 'true'
         timeout-minutes: 25
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1069,8 +1349,17 @@ jobs:
         needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_runtime == 'true'
         timeout-minutes: 40
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1121,8 +1410,17 @@ jobs:
         needs: [behavior-doc-static-admission, plan-pr-risk, frontend-build]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.security_static_fuzz == 'true'
         timeout-minutes: 30
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1172,6 +1470,7 @@ jobs:
             production_receipt_digest: ${{ needs.production-build-artifacts.outputs.receipt_digest }}
             browser_contract_receipt_digest: ${{ steps.contract_receipt.outputs.receipt_digest }}
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_PLAYWRIGHT_WORKERS: "1"
             FSUSBLOG_BROWSER_CONTRACT_SESSIONS: "1"
             FSUSBLOG_BROWSER_CONTRACT_CONCURRENCY: "1"
@@ -1182,8 +1481,15 @@ jobs:
             FSUSBLOG_TEST_SOURCE_COMMIT: ${{ github.sha }}
             FSUSBLOG_TEST_SOURCE_FINGERPRINT: ${{ needs.production-build-artifacts.outputs.source_fingerprint }}
             FSUSBLOG_LOCAL_FSUSUI_ROOT: ${{ github.workspace }}/.tmp/local-fsusui
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - id: fsusui-baseline
               run: node tools/test/fsusui-baseline.mjs --github-output "$GITHUB_OUTPUT"
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
@@ -1276,8 +1582,17 @@ jobs:
         needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.resilience_runtime == 'true'
         timeout-minutes: 35
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1322,8 +1637,17 @@ jobs:
         needs: [behavior-doc-static-admission, plan-pr-risk, production-build-artifacts, integration-runtime]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.load_smoke == 'true'
         timeout-minutes: 35
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1371,9 +1695,17 @@ jobs:
             max-parallel: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_max_parallel) }}
             matrix: ${{ fromJson(needs.plan-pr-risk.outputs.backend_qps_collectors_matrix) }}
         env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
             FSUSBLOG_TEST_NAMESPACE: ci-runtime-cache-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.shard_id }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1417,8 +1749,17 @@ jobs:
         needs: [behavior-doc-static-admission, plan-pr-risk, integration-runtime, backend-qps-collectors]
         if: always() && needs.behavior-doc-static-admission.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.backend_qps == 'true')
         timeout-minutes: 45
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -1446,18 +1787,20 @@ jobs:
     perf-regression:
         name: Perf Regression
         runs-on: ubuntu-latest
-        needs:
-            [
-                behavior-doc-static-admission,
-                plan-pr-risk,
-                validate-matrix,
-                production-build-artifacts,
-                frontend-build,
-            ]
+        needs: [behavior-doc-static-admission, plan-pr-risk, validate-matrix, production-build-artifacts, frontend-build]
         if: github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.perf_regression == 'true'
         timeout-minutes: 35
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
+            FSUSBLOG_CI_PR_SMART_GATE_PLAN: .tmp/pr-plan.json
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-dotnet@26b0ec14cb23fa6904739307f278c14f94c95bf1 # v5
               with:
                   dotnet-version: 10.0.x
@@ -1518,34 +1861,19 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             evidence_transport_manifest_digest: ${{ steps.evidence_transport.outputs.manifest_digest }}
-        needs:
-            - validate-matrix
-            - plan-pr-risk
-            - behavior-doc-static-admission
-            - behavior-evidence-pre-runtime
-            - production-build-artifacts
-            - coverage-summary
-            - fast-backend
-            - frontend-build
-            - fast-frontend-unit
-            - frontend-runtime-contracts
-            - frontend-static-governance
-            - fast-static-governance
-            - fast-summary
-            - cross-stack-contract
-            - endpoint-depth-runtime
-            - integration-runtime
-            - release-public
-            - security-runtime
-            - security-static-fuzz
-            - resilience-runtime
-            - load-smoke
-            - backend-qps
-            - perf-regression
-        if: always() && needs.behavior-doc-static-admission.result == 'success'
+        needs: [validate-matrix, plan-pr-risk, behavior-doc-static-admission, behavior-evidence-pre-runtime, production-build-artifacts, coverage-summary, fast-backend, frontend-build, fast-frontend-unit, frontend-runtime-contracts, frontend-static-governance, fast-static-governance, fast-summary, cross-stack-contract, endpoint-depth-runtime, integration-runtime, release-public, security-runtime, security-static-fuzz, resilience-runtime, load-smoke, backend-qps, perf-regression]
+        if: always() && needs.behavior-doc-static-admission.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.release_evidence == 'true')
         timeout-minutes: 10
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x
@@ -1624,35 +1952,19 @@ jobs:
         runs-on: ubuntu-latest
         outputs:
             evidence_transport_manifest_digest: ${{ steps.verify_evidence_transport.outputs.manifest_digest }}
-        needs:
-            - behavior-doc-static-admission
-            - behavior-evidence-pre-runtime
-            - plan-pr-risk
-            - validate-matrix
-            - production-build-artifacts
-            - coverage-summary
-            - fast-backend
-            - frontend-build
-            - fast-frontend-unit
-            - frontend-runtime-contracts
-            - frontend-static-governance
-            - fast-static-governance
-            - fast-summary
-            - cross-stack-contract
-            - endpoint-depth-runtime
-            - integration-runtime
-            - release-public
-            - security-runtime
-            - security-static-fuzz
-            - resilience-runtime
-            - load-smoke
-            - backend-qps
-            - perf-regression
-            - release-evidence
+        needs: [behavior-doc-static-admission, behavior-evidence-pre-runtime, plan-pr-risk, validate-matrix, production-build-artifacts, coverage-summary, fast-backend, frontend-build, fast-frontend-unit, frontend-runtime-contracts, frontend-static-governance, fast-static-governance, fast-summary, cross-stack-contract, endpoint-depth-runtime, integration-runtime, release-public, security-runtime, security-static-fuzz, resilience-runtime, load-smoke, backend-qps, perf-regression, release-evidence]
         if: always() && needs.behavior-doc-static-admission.result == 'success' && needs.behavior-evidence-pre-runtime.result == 'success' && (github.event_name != 'pull_request' || needs.plan-pr-risk.outputs.production_summary == 'true')
         timeout-minutes: 120
+        env:
+            FSUSBLOG_PR_PLAN_DIGEST: ${{ needs.plan-pr-risk.outputs.plan_content_digest }}
         steps:
             - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+              with:
+                  fetch-depth: 0
+            - uses: actions/download-artifact@37930b1c2abaa49bbe596cd826c3c89aef350131 # v7
+              with:
+                  name: quality-gate-pr-smart-gate-plan
+                  path: .tmp
             - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6
               with:
                   node-version: 24.x

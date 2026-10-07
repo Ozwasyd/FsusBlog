@@ -12,6 +12,7 @@ import {
     validateReviewedResidualConsumption,
     validateReviewedResidualDocument
 } from './reviewed-residual-classification.mjs';
+import { compareSourceUnitFindings } from './source-unit-style-diff.mjs';
 
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
@@ -21,7 +22,7 @@ const registrySchema = 'fsusblog.frontend-style-rule-registry.v1';
 const baselineSchema = 'fsusblog.frontend-style-baseline.v1';
 const baselineCorrectionSchema = 'fsusblog.frontend-style-baseline-corrections.v1';
 const reviewedBaselineAuthorityRef = 'refs/remotes/origin/master';
-const validModes = new Set(['changed', 'full', 'strict-full']);
+const validModes = new Set(['changed', 'full', 'strict-full', 'source-diff']);
 
 let root = defaultRoot;
 let policy = null;
@@ -1152,6 +1153,132 @@ function validateConfiguration()
     validateSpecializedGovernance();
 }
 
+function checkSourceDiff(args, files)
+{
+    if (!args.base || args.fix || args.updateBaseline || args.policy)
+    {
+        throw new Error('source-diff requires explicit --base and the original policy; fixes/baseline writes are forbidden');
+    }
+    const base = command(['git', 'rev-parse', '--verify', `${args.base}^{commit}`]).stdout.trim();
+    command(['git', 'merge-base', '--is-ancestor', base, 'HEAD']);
+    const identities = [...new Set([
+        defaultPolicyPath, policy.ruleRegistry, policy.toolchain.package, policy.toolchain.lock,
+        ...policy.configurationSources.filter((file) => file !== 'tools/frontend/check-frontend-style.mjs')
+    ])].map((file) =>
+    {
+        const prior = command(['git', 'show', `${base}:${file}`]).stdout;
+        const current = fs.readFileSync(path.join(root, file), 'utf8');
+        if (prior !== current)
+        {
+            throw new Error(`source-diff configuration changed: ${file}`);
+        }
+        return { file, sha256: sha256(current) };
+    });
+    const report = { schema: 'fsusblog.frontend-style-source-diff.v1', baseCommit: base,
+        candidateCommit: command(['git', 'rev-parse', 'HEAD']).stdout.trim(),
+        configurationIdentities: identities, qualification: false, files: [], failures: [] };
+    report.toolVersions = Object.fromEntries(['eslint', 'espree'].map((name) =>
+    {
+        const installed = readJson(path.join(root, `tools/frontend/style-toolchain/node_modules/${name}/package.json`), name);
+        const locked = readJson(path.join(root, policy.toolchain.lock), policy.toolchain.lock)?.packages?.[`node_modules/${name}`];
+        if (!installed || !locked || installed.version !== locked.version)
+        {
+            throw new Error(`source-diff installed tool does not match original lock: ${name}`);
+        }
+        return [name, installed.version];
+    }));
+    const scratch = fs.mkdtempSync(path.join(root, '.tmp/frontend-style/source-diff-base-'));
+    try
+    {
+        // The original ESLint CLI loads identical original configuration in a separate base root.
+        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package])
+        {
+            const destination = path.join(scratch, file);
+            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            fs.writeFileSync(destination, command(['git', 'show', `${base}:${file}`]).stdout);
+        }
+        fs.symlinkSync(fs.realpathSync(path.join(root, 'tools/frontend/style-toolchain/node_modules')),
+            path.join(scratch, 'tools/frontend/style-toolchain/node_modules'), 'dir');
+        for (const file of files)
+        {
+            const candidateSource = fs.readFileSync(path.join(root, file), 'utf8');
+            const existsInBase = command(['git', 'ls-tree', base, '--', file]).stdout.length > 0;
+            const baseSource = existsInBase ? command(['git', 'show', `${base}:${file}`]).stdout : null;
+            if (!Buffer.from(candidateSource).equals(fs.readFileSync(path.join(root, file)))
+                || (baseSource !== null && gitBlobDigest(Buffer.from(baseSource)) !== command(['git', 'rev-parse', `${base}:${file}`]).stdout.trim()))
+            {
+                throw new Error(`source-diff requires exact UTF-8 source bytes: ${file}`);
+            }
+            const destination = path.join(scratch, file);
+            fs.mkdirSync(path.dirname(destination), { recursive: true });
+            if (baseSource !== null)
+            {
+                fs.writeFileSync(destination, baseSource);
+            }
+            function lint(workingRoot)
+            {
+                const result = spawnSync(process.execPath, ['--max-old-space-size=512', path.join(root, policy.toolchain.eslint),
+                    '--config', path.join(workingRoot, policy.eslintConfig), '--format', 'json', file],
+                { cwd: workingRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
+                    env: { ...process.env, FSUSBLOG_STYLE_ROOT: workingRoot } });
+                if (result.error || ![0, 1].includes(result.status))
+                {
+                    throw new Error(`source-diff eslint failed: ${result.error?.message ?? result.stderr}`);
+                }
+                const rows = JSON.parse(result.stdout);
+                if (rows.length !== 1 || rows[0].filePath !== path.join(workingRoot, file))
+                {
+                    throw new Error(`source-diff eslint did not inspect exactly ${file}`);
+                }
+                return { exitCode: result.status, reports: rows,
+                    findings: rows[0].messages.map((message) => ({ ...makeViolation('eslint', file, message), message: String(message.message),
+                        severity: Number(message.severity), fatal: Boolean(message.fatal) })) };
+            }
+            const rawBase = baseSource === null ? { exitCode: null, reports: [], findings: [] } : lint(scratch);
+            const rawCandidate = lint(root);
+            const comparison = /\.(?:mjs|cjs|js)$/u.test(file) && toolKinds(file).join(',') === 'eslint'
+                ? compareSourceUnitFindings({ baseSource, candidateSource,
+                    baseFindings: rawBase.findings, candidateFindings: rawCandidate.findings })
+                : { existing: [], unexpected: rawCandidate.findings, failure: null };
+            if (!Buffer.from(candidateSource).equals(fs.readFileSync(path.join(root, file))))
+            {
+                throw new Error(`source-diff candidate changed during inspection: ${file}`);
+            }
+            report.files.push({ file, baseSourceSha256: baseSource === null ? null : sha256(baseSource),
+                candidateSourceSha256: sha256(candidateSource), rawBase, rawCandidate, ...comparison });
+            if (comparison.failure)
+            {
+                fail(`${file}: ${comparison.failure}`);
+            }
+            for (const finding of comparison.unexpected)
+            {
+                fail(`${file}:${finding.line}:${finding.column} ${finding.rule}: ${finding.message}`);
+            }
+        }
+    }
+    catch (error)
+    {
+        fail(error instanceof Error ? error.message : String(error));
+    }
+    finally
+    {
+        fs.rmSync(scratch, { recursive: true, force: true });
+        for (const identity of identities)
+        {
+            if (sha256(fs.readFileSync(path.join(root, identity.file))) !== identity.sha256)
+            {
+                fail(`source-diff configuration changed during inspection: ${identity.file}`);
+            }
+        }
+        report.failures = [...failures];
+        report.sourceCheckPassed = failures.length === 0;
+        fs.writeFileSync(path.join(root, '.tmp/frontend-style/source-diff.json'), `${JSON.stringify(report, null, 4)}\n`);
+    }
+    const violations = report.files.reduce((count, row) => count + row.rawCandidate.findings.length, 0);
+    const unexpected = report.files.reduce((count, row) => count + row.unexpected.length, 0);
+    return { files: files.length, eslintFiles: files.length, stylelintFiles: 0, violations, unexpected };
+}
+
 function main()
 {
     const args = parseArgs(process.argv.slice(2));
@@ -1160,6 +1287,11 @@ function main()
     if (!validModes.has(args.mode))
     {
         throw new Error(`invalid mode ${args.mode}`);
+    }
+    if (args.mode === 'source-diff')
+    {
+        fs.mkdirSync(path.join(root, '.tmp/frontend-style'), { recursive: true });
+        fs.rmSync(path.join(root, '.tmp/frontend-style/source-diff.json'), { force: true });
     }
     if (args.updateBaseline && args.fix)
     {
@@ -1196,6 +1328,19 @@ function main()
     }
 
     const files = selectFiles(args);
+    if (args.mode === 'source-diff')
+    {
+        fs.mkdirSync(path.join(root, '.tmp/frontend-style'), { recursive: true });
+        if (args.files.length > 0 && files.length !== new Set(args.files.map(normalizeFile)).size)
+        {
+            throw new Error('source-diff requires every explicit file to exist and match the configured source sets');
+        }
+        if (files.some((file) => toolKinds(file).join(',') !== 'eslint' || !/\.(?:mjs|cjs|js)$/u.test(file)))
+        {
+            throw new Error('source-diff currently accepts JavaScript ESLint source files only; other source kinds require strict checks');
+        }
+        return checkSourceDiff(args, files);
+    }
     const eslintFiles = files.filter((file) => toolKinds(file).includes('eslint'));
     const stylelintFiles = files.filter((file) => toolKinds(file).includes('stylelint'));
     const violations = [

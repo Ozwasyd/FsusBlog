@@ -573,6 +573,16 @@ function coveredTiersForWorkflowJob(job, tiersById, plannedTierIds = [])
             covered.add('validate-matrix');
             continue;
         }
+        if (command === 'node tools/run-test-matrix.mjs validate-declarations')
+        {
+            covered.add('validate-declarations');
+            continue;
+        }
+        if (command === 'node tools/test-matrix/source-governance.mjs')
+        {
+            covered.add('source-governance');
+            continue;
+        }
         if (command === 'node tools/run-test-matrix.mjs validate' || command === 'node tools/run-test-matrix.mjs preflight')
         {
             covered.add('validate-matrix');
@@ -1087,16 +1097,53 @@ function validateBrowserWorkflowTopology(workflowJobs, errors)
 
 export function validateBehaviorDocStaticAdmissionTopology(workflowJobs, errors)
 {
+    const declarations = workflowJobs.get('validate-declarations');
+    const plan = workflowJobs.get('plan-pr-risk');
+    const source = workflowJobs.get('source-governance');
+    if (!declarations || !plan || !source)
+    {
+        errors.push('workflow must declare global declarations, source-bound plan and source-governance stages');
+    }
+    else
+    {
+        if (declarations.needs.size !== 0 || plan.needs.size !== 1 || !plan.needs.has('validate-declarations'))
+        {
+            errors.push('PR planning must depend only on pure global declarations');
+        }
+        if (source.needs.size !== 2 || !source.needs.has('validate-declarations') || !source.needs.has('plan-pr-risk'))
+        {
+            errors.push('source governance must consume declarations and source-bound plan only');
+        }
+        for (const [id, job] of [['validate-declarations', declarations], ['plan-pr-risk', plan], ['source-governance', source]])
+        {
+            if (job.hasSetupDotnet || job.runs.some(command => /(?:\bdotnet\b|\bdocker\b|\bpodman\b|playwright\s+install|test-inventory\/produce)/u.test(command)))
+            {
+                errors.push(`pure source stage ${id} must not build or start candidate runtime`);
+            }
+        }
+    }
+    for (const [jobId, job] of workflowJobs)
+    {
+        if (['validate-declarations', 'plan-pr-risk', 'ci-summary'].includes(jobId))
+        {
+            continue;
+        }
+        const output = jobId.replaceAll('-', '_');
+        if (!new RegExp(`needs\\.plan-pr-risk\\.outputs\\.${output}\\s*==\\s*'true'`, 'u').test(job.lines.join('\n')))
+        {
+            errors.push(`workflow job ${jobId} must be selected by its source-bound PR plan output`);
+        }
+    }
     const admissionId = 'behavior-doc-static-admission';
     const admission = workflowJobs.get(admissionId);
     if (!admission)
     {
-        errors.push('workflow is missing the unconditional behavior-doc-static-admission job');
+        errors.push('workflow is missing the candidate behavior-doc-static-admission job');
         return;
     }
-    if (admission.needs.size !== 1 || !admission.needs.has('validate-matrix'))
+    if (admission.needs.size !== 2 || !admission.needs.has('validate-declarations') || !admission.needs.has('plan-pr-risk'))
     {
-        errors.push('behavior-doc-static-admission must depend only on validate-matrix');
+        errors.push('behavior-doc-static-admission must depend on pure declarations and source-bound plan');
     }
     const admissionCommand = admission.runs.filter((command) =>
         /(?:^|\s)(?:\.\/)?tools\/test\.sh\s+ci-tier\s+behavior-doc-static-admission\s+--no-deps(?:\s|$)/u
@@ -1120,7 +1167,7 @@ export function validateBehaviorDocStaticAdmissionTopology(workflowJobs, errors)
         );
     }
 
-    const nonCandidates = new Set(['validate-matrix', 'plan-pr-risk', admissionId]);
+    const nonCandidates = new Set(['validate-declarations', 'source-governance', 'plan-pr-risk', admissionId]);
     for (const [jobId, job] of workflowJobs)
     {
         if (nonCandidates.has(jobId))

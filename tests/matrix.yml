@@ -1348,6 +1348,90 @@ localProfiles:
                   ]
               exclusiveResources: []
 tiers:
+    - id: validate-declarations
+      executionClass: coordination
+      evidenceClass: diagnostic
+      qualificationEligible: false
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: node tools/run-test-matrix.mjs validate-declarations
+      executionDependsOn: []
+      services: []
+      parallelizable: true
+      exclusiveResources: []
+      phase: 0
+      cost: low
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: none
+      coverage: []
+      artifacts: []
+      evidence: []
+      ciJob: validate-declarations
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: source-only declaration and applicable checks confer no qualification
+
+    - id: source-governance
+      executionClass: coordination
+      evidenceClass: diagnostic
+      qualificationEligible: false
+      fixtureProfile: none
+      fixtureProfileReason: none-coordination
+      fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
+      fixtureMutatorAllowed: false
+      owner: ServerContractAgent
+      command: node tools/test-matrix/source-governance.mjs
+      executionDependsOn: [pr-smart-gate-plan]
+      services: []
+      parallelizable: true
+      exclusiveResources: []
+      phase: 0
+      cost: low
+      resourceClass: cpu
+      cpuWeight: 1
+      memoryWeight: 1
+      minCpuUnits: 1
+      requiresBootstrap: none
+      requiresNode: true
+      requiresDotnet: false
+      requiresPlaywright: none
+      cacheProfile: none
+      timeoutMinutes: 5
+      shardable: false
+      defaultShards: 1
+      risk: critical
+      cadence: pr
+      requiredFor: none
+      coverage: []
+      artifacts: [.tmp/source-governance/result.json]
+      evidence: []
+      ciJob: source-governance
+      localOnly: false
+      nightlyOnly: false
+      prDefault: true
+      smartGateMode: always
+      retentionClass: must-keep
+      triggerReason: source-only declaration and applicable checks confer no qualification
+
     - id: validate-matrix
       executionClass: coordination
       fixtureProfile: none
@@ -1457,11 +1541,11 @@ tiers:
               tools/test/physical-execution-windows-job.ps1,
               .github/workflows,
           ]
-      executionDependsOn: []
+      executionDependsOn: [behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: []
-      phase: 0
+      phase: 1
       cost: high
       resourceClass: cpu
       cpuWeight: 1
@@ -1469,9 +1553,9 @@ tiers:
       minCpuUnits: 1
       requiresBootstrap: none
       requiresNode: true
-      requiresDotnet: false
+      requiresDotnet: true
       requiresPlaywright: none
-      cacheProfile: none
+      cacheProfile: backend
       timeoutMinutes: 5
       shardable: false
       defaultShards: 1
@@ -1513,7 +1597,7 @@ tiers:
       qualificationEligible: true
       command: node tools/docs/behavior-doc-static-admission.mjs
       outputReceiptSchema: fsusblog.behavior-doc-static-admission-receipt.v1
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-declarations]
       services: []
       parallelizable: false
       exclusiveResources: [behavior-doc-static-admission]
@@ -1878,7 +1962,7 @@ tiers:
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/plan-pr-risk.sh
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-declarations]
       services: []
       parallelizable: true
       exclusiveResources: []
@@ -9890,7 +9974,7 @@ tiers:
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
       command: tools/test/lanes/test-inventory.sh
-      executionDependsOn: [validate-matrix]
+      executionDependsOn: [validate-matrix, behavior-doc-static-admission]
       services: []
       parallelizable: true
       exclusiveResources: [static-web-assets]
@@ -9914,7 +9998,7 @@ tiers:
       coverage: [test-inventory-closure]
       artifacts: [.tmp/release-evidence/test-inventory.json]
       evidence: [.tmp/release-evidence/test-inventory.json]
-      ciJob: validate-matrix
+      ciJob: test-inventory
       localOnly: false
       nightlyOnly: false
       manualOnly: false
