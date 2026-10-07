@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/dotnet/check-csharp-style.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "3a27a37f5a33c70591831be7629d40cfacab22499301d9f406248c00bf384ecf"
+        }
+    ]
+}
