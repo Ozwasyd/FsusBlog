@@ -4575,3 +4575,32 @@ test('fractional byte projection preserves the original enforced grant without e
     assert.ok(allocation.total.memoryHighBytes < 2 * 1024 ** 3 - 0.25);
     assert.equal(enforcer.cleanup().status, 'removed');
 });
+
+test('cgroup memory projection uses exact kernel page granularity without exceeding the declared envelope', () =>
+{
+    for (const pageBytes of [4096, 16384, 65536])
+    {
+        const machine = { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: pageBytes };
+        const limits = resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2.000001 }, machine);
+        assert.equal(limits.memoryHighBytes % pageBytes, 0);
+        assert.equal(limits.memoryMaxBytes % pageBytes, 0);
+        assert.equal(limits.memoryPageBytes, pageBytes);
+        assert.ok(limits.memoryHighBytes <= 2.000001 * 1024 ** 3);
+        assert.ok(limits.memoryMaxBytes <= machine.memoryGiB * 1024 ** 3);
+        assert.ok(limits.memoryMaxBytes > limits.memoryHighBytes);
+        const reservation = { cpuUnits: 1, memoryHighBytes: 512 * 1024 ** 2, memoryMaxBytes: 576 * 1024 ** 2, pidsMax: 128 };
+        const partition = partitionContainerResourceGrant({ cpuUnits: 2, memoryGiB: 2.000001 }, [reservation], machine);
+        assert.equal(partition.process.memoryMaxBytes % pageBytes, 0);
+        assert.equal(partition.process.memoryHighBytes % pageBytes, 0);
+        assert.throws(() => partitionContainerResourceGrant({ cpuUnits: 2, memoryGiB: 2 },
+            [{ ...reservation, memoryHighBytes: reservation.memoryHighBytes - 1 }], machine), /page granularity/u);
+    }
+    const exact = resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2 }, { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: 4096 });
+    assert.equal(exact.memoryHighBytes, 2147483648);
+    assert.equal(exact.memoryMaxBytes, 2337292288);
+    for (const pageBytes of [0, -1, 1000, NaN, '4096', 2 ** 25])
+    {
+        assert.throws(() => resolveCgroupLimits({ cpuUnits: 2, memoryGiB: 2 },
+            { cpuUnits: 8, memoryGiB: 16, memoryPageBytes: pageBytes }), /page size/u);
+    }
+});

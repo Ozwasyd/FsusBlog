@@ -564,7 +564,19 @@ test('scheduler persists incremental journal events and only two compact stage c
     assert.equal(journal.filter((event) => event.eventType === 'tier-completed').length, 3);
     assert.equal(journal.at(0).eventType, 'run-started');
     assert.equal(journal.at(-1).eventType, 'run-completed');
-    assert.deepEqual(journal.map((event) => event.sequence), [1, 2, 3, 4, 5]);
+    const expectedEvents = [
+        ['run-started', 'summary'],
+        ...tiers.flatMap(({ id }) => [
+            ['tier-admitted', id],
+            ['resource-grants-updated', null],
+            ['tier-completed', id],
+            ['resource-grants-updated', null]
+        ]),
+        ['run-completed', 'summary']
+    ];
+    assert.deepEqual(journal.map((event) => [event.sequence, event.eventType, event.tier]),
+        expectedEvents.map(([eventType, id], index) => [index + 1, eventType, id]));
+    assert.deepEqual(result.checkpoint.resourceUtilization.resourceGrants.grants, {});
 });
 
 function tiersId(index)
