@@ -51,6 +51,25 @@ if roots != 1 or depth or not projects:
 print(json.dumps({"projects": projects}))
 `;
 
+// This fixed parser consumes held source bytes only; target imports and bodies
+// never execute. Its resource limits apply only to this owned parser process.
+const pythonAstParser = String.raw`
+import ast, json, resource, sys
+resource.setrlimit(resource.RLIMIT_AS, (128 * 1024 * 1024, 128 * 1024 * 1024))
+resource.setrlimit(resource.RLIMIT_CPU, (2, 2))
+document = json.load(sys.stdin)
+try:
+    ast.parse(document["source"].encode("utf-8"), filename=document["file"], mode="exec")
+except (SyntaxError, ValueError, MemoryError, RecursionError) as error:
+    print(json.dumps({"status": "failure", "errorType": type(error).__name__,
+        "line": getattr(error, "lineno", None), "column": getattr(error, "offset", None)}))
+    sys.exit(1)
+print(json.dumps({"status": "success", "executable": sys.executable, "version": sys.version}))
+`;
+
+const pythonAstLimits = Object.freeze({ fileBytes: 1024 * 1024, batchBytes: 8 * 1024 * 1024,
+    addressSpaceBytes: 128 * 1024 * 1024, cpuSeconds: 2, timeoutMs: 10_000, outputBytes: 16 * 1024 });
+
 function sha256(bytes)
 {
     return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -77,7 +96,7 @@ function git(root, argumentsList, input)
         { input, env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' }, maxBuffer: 32 * 1024 * 1024 });
 }
 
-function bindFile(root, file)
+function bindFile(root, file, maximumBytes = null)
 {
     const absolute = path.join(root, file);
     const ancestors = [{ path: root, stat: fs.lstatSync(root, { bigint: true }) }];
@@ -101,7 +120,37 @@ function bindFile(root, file)
         {
             throw new Error(`solution path requires one regular single-link file: ${file}`);
         }
-        const bytes = fs.readFileSync(descriptor);
+        if (maximumBytes !== null && before.size > BigInt(maximumBytes))
+        {
+            throw new Error(`source syntax input exceeds the bounded file size: ${file}`);
+        }
+        let bytes;
+        if (maximumBytes === null)
+        {
+            bytes = fs.readFileSync(descriptor);
+        }
+        else
+        {
+            const buffer = Buffer.allocUnsafe(Math.min(64 * 1024, maximumBytes + 1));
+            const chunks = [];
+            let total = 0;
+            while (total <= maximumBytes)
+            {
+                const length = Math.min(buffer.length, maximumBytes + 1 - total);
+                const count = fs.readSync(descriptor, buffer, 0, length, null);
+                if (count === 0)
+                {
+                    break;
+                }
+                total += count;
+                if (total > maximumBytes)
+                {
+                    throw new Error(`source syntax input exceeds the bounded file size: ${file}`);
+                }
+                chunks.push(Buffer.from(buffer.subarray(0, count)));
+            }
+            bytes = Buffer.concat(chunks, total);
+        }
         const index = git(root, ['ls-files', '--stage', '-z', '--', `:(literal)${file}`]).toString('utf8');
         const match = index.match(/^(100644|100755) ([a-f0-9]{40}) 0\t([^\0]+)\0$/u);
         if (!match || match[3] !== file || !git(root, ['cat-file', 'blob', match[2]]).equals(bytes)
@@ -132,9 +181,9 @@ function verifyFile(held)
     }
 }
 
-function pythonIdentity()
+function pythonIdentity(directories = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean))
 {
-    for (const directory of (process.env.PATH ?? '').split(path.delimiter).filter(Boolean))
+    for (const directory of directories)
     {
         const candidate = path.join(directory, 'python3');
         try
@@ -267,18 +316,124 @@ export function validateSolutionSourceReceipt({ repositoryRoot, files, expectedH
     return expected;
 }
 
+/** Inspect explicit committed Python source using a fixed isolated AST parser only. */
+export function inspectPythonSource({ repositoryRoot, files })
+{
+    if (['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'].some(key => process.env[key]))
+    {
+        throw new Error('Python source inspection refuses an ambient alternate Git repository or index');
+    }
+    const root = path.resolve(repositoryRoot);
+    if (fs.realpathSync(root) !== root || !fs.lstatSync(root).isDirectory())
+    {
+        throw new Error('Python source inspection requires the actual repository directory');
+    }
+    if (!Array.isArray(files) || !files.length || new Set(files).size !== files.length)
+    {
+        throw new Error('Python source inspection requires distinct explicit files');
+    }
+    files.forEach(file => normalizedPath(file, '.py'));
+    const head = git(root, ['rev-parse', 'HEAD']).toString('utf8').trim();
+    const indexDigest = sha256(git(root, ['ls-files', '--stage', '-z']));
+    const held = [];
+    // The SOURCE port uses the actual system interpreter, not a caller's PATH
+    // program. Its identity is held and rechecked; this is no runtime support grant.
+    const parser = pythonIdentity(['/usr/bin']);
+    const sources = [];
+    let totalBytes = 0;
+    let version = null;
+    try
+    {
+        for (const file of files)
+        {
+            const remainingBytes = pythonAstLimits.batchBytes - totalBytes;
+            const input = bindFile(root, file, Math.min(pythonAstLimits.fileBytes, remainingBytes));
+            held.push(input);
+            totalBytes += input.bytes.length;
+            if (totalBytes > pythonAstLimits.batchBytes)
+            {
+                throw new Error('Python source syntax inputs exceed the bounded batch size');
+            }
+            const source = input.bytes.toString('utf8');
+            if (!Buffer.from(source).equals(input.bytes))
+            {
+                throw new Error(`Python source is not exact UTF-8: ${file}`);
+            }
+            const result = spawnSync(parser.executable, ['-I', '-B', '-S', '-c', pythonAstParser],
+                { input: JSON.stringify({ file, source }), encoding: 'utf8',
+                    maxBuffer: pythonAstLimits.outputBytes, timeout: pythonAstLimits.timeoutMs });
+            if (result.error || result.status !== 0)
+            {
+                throw new Error(`Python AST source refused: ${result.error?.message ?? result.stdout}`);
+            }
+            const parsed = JSON.parse(result.stdout);
+            if (JSON.stringify(Object.keys(parsed).sort()) !== JSON.stringify(['executable', 'status', 'version'])
+                || parsed.status !== 'success' || parsed.executable !== parser.executable
+                || typeof parsed.version !== 'string' || !/^3\.\d+\.\d+ /u.test(parsed.version)
+                || (version !== null && version !== parsed.version))
+            {
+                throw new Error('Python AST worker output does not bind the actual isolated interpreter');
+            }
+            version = parsed.version;
+            sources.push(input.binding);
+        }
+        held.forEach(verifyFile);
+        if (head !== git(root, ['rev-parse', 'HEAD']).toString('utf8').trim()
+            || indexDigest !== sha256(git(root, ['ls-files', '--stage', '-z']))
+            || !sameEpoch(parser.stat, fs.fstatSync(parser.descriptor, { bigint: true }))
+            || !sameEpoch(parser.stat, fs.lstatSync(parser.executable, { bigint: true })))
+        {
+            throw new Error('Python source inspection HEAD/index or parser identity changed');
+        }
+        held.forEach(verifyFile);
+        return { schema: 'fsusblog.python-ast-source-check.v1', head, indexDigest,
+            parser: { executable: parser.executable, sha256: parser.sha256,
+                sourceSha256: sha256(pythonAstParser), version }, limits: { ...pythonAstLimits },
+            sources, status: 'success', qualificationEligible: false };
+    }
+    finally
+    {
+        held.forEach(value => fs.closeSync(value.descriptor));
+        fs.closeSync(parser.descriptor);
+    }
+}
+
+/** Validate the whole AST receipt against independent current source and HEAD. */
+export function validatePythonSourceReceipt({ repositoryRoot, files, expectedHead, receipt })
+{
+    if (typeof expectedHead !== 'string' || !/^[a-f0-9]{40}$/u.test(expectedHead))
+    {
+        throw new Error('Python source receipt requires the independent candidate HEAD');
+    }
+    const expected = inspectPythonSource({ repositoryRoot, files });
+    if (expected.head !== expectedHead || !isDeepStrictEqual(receipt, expected))
+    {
+        throw new Error('Python receipt does not exactly bind the independent current source projection');
+    }
+    return expected;
+}
+
 function main(argv)
 {
     let repositoryRoot;
+    let language;
     const files = [];
     for (let index = 0; index < argv.length; index += 2)
     {
         const value = argv[index + 1];
-        if (!value || !['--root', '--file'].includes(argv[index]))
+        if (!value || !['--root', '--file', '--language'].includes(argv[index]))
         {
             throw new Error('solution checker accepts only --root and explicit --file pairs');
         }
-        if (argv[index] === '--root')
+        if (argv[index] === '--language')
+        {
+            if (language || value !== 'python-ast')
+            {
+                throw new Error('source checker accepts only one fixed python-ast language mode');
+            }
+            language = value;
+        }
+        else if (argv[index] === '--root')
         {
             if (repositoryRoot)
             {
@@ -295,7 +450,8 @@ function main(argv)
     {
         throw new Error('solution checker requires explicit --root');
     }
-    console.log(JSON.stringify(inspectSolutionSource({ repositoryRoot, files })));
+    console.log(JSON.stringify(language ? inspectPythonSource({ repositoryRoot, files })
+        : inspectSolutionSource({ repositoryRoot, files })));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

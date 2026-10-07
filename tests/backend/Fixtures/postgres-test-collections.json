@@ -3,7 +3,7 @@
   "collections": [
     {
       "id": "SchemaMigrationPostgresCollectionA",
-      "estimatedFacts": 327,
+      "estimatedFacts": 331,
       "tests": [
         {
           "path": "Integration/CacheMissLeaseIntegrationTests.cs",
@@ -16,6 +16,10 @@
         {
           "path": "Integration/SchemaMigrationIntegrationTests.cs",
           "class": "SchemaMigrationIntegrationTests"
+        },
+        {
+          "path": "Integration/PgLegacyNonArticleRecoveryIntegrationTests.cs",
+          "class": "PgLegacyNonArticleRecoveryIntegrationTests"
         },
         {
           "path": "Integration/ThemeRegistryPostgresTests.cs",

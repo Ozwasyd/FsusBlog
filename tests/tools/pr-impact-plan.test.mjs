@@ -444,3 +444,15 @@ test('SOURCE frontend routing retains strict original checks for every non-modul
     assert.deepEqual(sourceFrontendCheckGroups(files, 'qualification', 'actual-base'),
         [{ options: ['--mode', 'strict-full'], files }]);
 });
+
+test('Python SOURCE syntax uses the existing isolated checker and only verified inputs escape unsupported', async () =>
+{
+    const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
+        await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+    assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
+    assert.ok(sourceGovernanceExecutableEntries().includes(sourceGovernanceChildEntries.solution));
+    assert.deepEqual(unsupportedSourceStageFiles(['tests/helpers/Example.py']), ['tests/helpers/Example.py']);
+    assert.deepEqual(unsupportedSourceStageFiles(['tests/helpers/Example.py'], [], ['tests/helpers/Foreign.py']), ['tests/helpers/Example.py']);
+    assert.deepEqual(unsupportedSourceStageFiles(['tests/helpers/Example.py'], [], ['tests/helpers/Example.py']), []);
+    assert.ok(selectSourceRegressionTargets(['tests/helpers/Example.py']).includes('tools/configuration/solution-source.test.mjs'));
+});

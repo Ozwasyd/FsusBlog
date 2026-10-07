@@ -1,0 +1,18 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tests/tools/production-resource-enforcement.test.mjs",
+        "tools/configuration/check-solution-source.mjs",
+        "tools/configuration/solution-source.test.mjs",
+        "tools/dotnet/check-csharp-style.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "11ed15eb140b6b8b7e7ebf8f42c9043dcb9363d304e966c56cddcd8a11886ffb"
+        }
+    ]
+}

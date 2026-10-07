@@ -946,3 +946,95 @@ test('full static governance runs only the full C# gate', () =>
     assert.match(implementation, /check-csharp-style\.mjs" --mode full/u);
     assert.doesNotMatch(implementation, /--mode changed/u);
 });
+
+for (const owner of [
+    'tests/migration/OfflineMigrationFingerprintCommandTests.cs',
+    'tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs',
+    'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs'
+])
+{
+    test(`exact import compatibility accepts and normalizes the restored owner ${owner}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            writeFixture(fixtureRoot, owner, compatibleImports);
+            const readResult = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
+            assert.equal(readResult.status, 0, output(readResult));
+            writeFixture(fixtureRoot, owner, migrationImports);
+            const fixResult = runChecker(fixtureRoot, ['--mode', 'full', '--fix', '--file', owner]);
+            assert.equal(fixResult.status, 0, output(fixResult));
+            assert.equal(readFileSync(path.join(fixtureRoot, owner), 'utf8'), compatibleImports);
+        });
+    });
+}
+
+for (const owner of sourceImportCompatibility.entries.map((entry) => entry.path))
+{
+    test(`exact import compatibility rejects an incomplete roster missing ${owner}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            const declaration = {
+                ...sourceImportCompatibility,
+                entries: sourceImportCompatibility.entries.filter((entry) => entry.path !== owner)
+            };
+            writeFixture(fixtureRoot, importCompatibilityPath, `${JSON.stringify(declaration, null, 2)}\n`);
+            writeFixture(fixtureRoot, compatibleImportOwner, compatibleImports);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /import compatibility/u);
+        });
+    });
+}
+
+for (const [name, mutate] of [
+    ['same-count duplicate owner', (entries) => [entries[0], entries[0], ...entries.slice(2)]],
+    ['fifth foreign owner', (entries) => [...entries, { ...entries[0], path: 'tests/migration/OtherTests.cs' }]],
+    ['same-count wildcard owner', (entries) => entries.map((entry, index) => index === 1 ? { ...entry, path: 'tests/migration/*.cs' } : entry)],
+    ['same-count invalid order', (entries) => entries.map((entry, index) => index === 1 ? { ...entry, order: 'unchecked' } : entry)],
+    ['same-count short reason', (entries) => entries.map((entry, index) => index === 1 ? { ...entry, reason: 'short' } : entry)],
+    ['same-count unknown field', (entries) => entries.map((entry, index) => index === 1 ? { ...entry, waive: true } : entry)]
+])
+{
+    test(`exact import compatibility rejects ${name} in the complete roster`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            const declaration = { ...sourceImportCompatibility, entries: mutate(sourceImportCompatibility.entries) };
+            writeFixture(fixtureRoot, importCompatibilityPath, `${JSON.stringify(declaration, null, 2)}\n`);
+            writeFixture(fixtureRoot, compatibleImportOwner, compatibleImports);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', compatibleImportOwner]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), /import compatibility/u);
+        });
+    });
+}
+
+test('exact import compatibility keeps a restored-owner peer unregistered', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const peer = 'tests/migration/OtherPlanningAuthorityReaderTests.cs';
+        writeFixture(fixtureRoot, peer, compatibleImports);
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', peer]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), / using-order:/u);
+        writeFixture(fixtureRoot, peer, migrationImports);
+        const legacyResult = runChecker(fixtureRoot, ['--mode', 'full', '--file', peer]);
+        assert.equal(legacyResult.status, 0, output(legacyResult));
+    });
+});
+
+test('exact import compatibility rejects a restored owner with a symlink leaf', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const owner = 'tests/migration/OfflineMigrationFingerprintCommandTests.cs';
+        writeFixture(fixtureRoot, 'owned/Source.cs', compatibleImports);
+        mkdirSync(path.join(fixtureRoot, 'tests/migration'), { recursive: true });
+        symlinkSync(path.join(fixtureRoot, 'owned/Source.cs'), path.join(fixtureRoot, owner));
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
+        assert.notEqual(result.status, 0, output(result));
+        assert.match(output(result), /import compatibility requires a regular canonical source/u);
+    });
+});
