@@ -258,7 +258,7 @@ test('owned migration drill proves pre-migration recoverability without claiming
     const drill = await source('tools/operations/backup-restore-drill.sh');
     assert.match(drill, /--migration-evidence/);
     assert.match(drill, /sourceDeadline="\$2"; evidenceNonce="\$3"; RunEvidenceWorker/);
-    assert.match(drill, /RunEvidenceWorker\(\) \{[\s\S]*?\n    RunPreMigrationRestore/);
+    assert.match(drill, /RunEvidenceWorker\(\) \{[\s\S]*?\n {4}RunPreMigrationRestore/);
     assert.match(drill, /StartRestoredBackend\s+RunSmokeChecks/);
     assert.match(drill, /--cidfile "\$OUT_DIR\/owned-postgres.cid"/);
     assert.match(drill, /--cidfile "\$OUT_DIR\/owned-redis.cid"/);
@@ -367,7 +367,7 @@ test('original shell adapter owns nonblocking pipe reads and every actual raw wr
     assert.match(adapter, /flags \| 0x800/);
     assert.match(adapter, /stdoutPipe\?\.Dispose\(\);\s+stderrPipe\?\.Dispose\(\);/);
     assert.match(adapter, /"cleanup_unverified:" \+ firstCause/);
-    const cleanup = adapter.match(/private async Task<CleanupOutcome> StopOwnedAndDrainAsync[\s\S]*?\n    private static bool SignalOwned/);
+    const cleanup = adapter.match(/private async Task<CleanupOutcome> StopOwnedAndDrainAsync[\s\S]*?\n {4}private static bool SignalOwned/);
     assert.ok(cleanup);
     assert.match(cleanup[0], /while \(!cleanupDeadline.IsCancellationRequested\)/);
     assert.match(cleanup[0], /await stdoutPipe.TransferNextAsync/);
