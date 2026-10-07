@@ -85,13 +85,13 @@
         },
         {
             "path": "src/frontend/package-lock.json",
-            "contentDigest": "sha256:bce33fb93c0bdddad5c164e22d6e6f2f6f0c13fbabbaa8711641cc90f507acd4",
-            "indexDigest": "sha256:bce33fb93c0bdddad5c164e22d6e6f2f6f0c13fbabbaa8711641cc90f507acd4"
+            "contentDigest": "sha256:5d94ad52c6cdeca6c545be8486a3c1336313fd9693b3e084a285245438e668f4",
+            "indexDigest": "sha256:5d94ad52c6cdeca6c545be8486a3c1336313fd9693b3e084a285245438e668f4"
         },
         {
             "path": "src/frontend/package.json",
-            "contentDigest": "sha256:fc1a4c0746cfc90ca500b3bb21257020c669c267b31ed614795d08f90098ede0",
-            "indexDigest": "sha256:fc1a4c0746cfc90ca500b3bb21257020c669c267b31ed614795d08f90098ede0"
+            "contentDigest": "sha256:d0d70136adbfdfdb0ae9812db5b3db01666306e59ef947a7c09959b48f11fb34",
+            "indexDigest": "sha256:d0d70136adbfdfdb0ae9812db5b3db01666306e59ef947a7c09959b48f11fb34"
         },
         {
             "path": "src/frontend/scripts/fsusui-root.mjs",
@@ -3300,8 +3300,8 @@
         },
         {
             "path": "tools/frontend/style-toolchain/package-lock.json",
-            "contentDigest": "sha256:0ca447aefb372b2c3f09c8701a7c974dc3adb873e9445cfefea03c90dd469e0f",
-            "indexDigest": "sha256:0ca447aefb372b2c3f09c8701a7c974dc3adb873e9445cfefea03c90dd469e0f"
+            "contentDigest": "sha256:60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+            "indexDigest": "sha256:60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
         },
         {
             "path": "tools/frontend/style-toolchain/package.json",
