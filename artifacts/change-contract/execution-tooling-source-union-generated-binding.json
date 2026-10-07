@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/frontend/package-lock.json",
+        "src/frontend/package.json",
+        "tools/frontend/check-frontend-style-source-base.test.mjs",
+        "tools/frontend/check-frontend-style.mjs",
+        "tools/frontend/source-unit-style-diff.mjs",
+        "tools/frontend/source-unit-style-diff.test.mjs",
+        "tools/test/execution-envelope-services.mjs",
+        "tools/test/execution-failure-diagnostic.mjs",
+        "tools/test/physical-execution-nested-channel.mjs",
+        "tools/test/run-deterministic-command.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8ca71b92e72e4de9681718b521f17d80baa55818fb6a3ed6e3b666768c706016"
+        }
+    ]
+}

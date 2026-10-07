@@ -85,13 +85,13 @@
         },
         {
             "path": "src/frontend/package-lock.json",
-            "contentDigest": "sha256:5d94ad52c6cdeca6c545be8486a3c1336313fd9693b3e084a285245438e668f4",
-            "indexDigest": "sha256:5d94ad52c6cdeca6c545be8486a3c1336313fd9693b3e084a285245438e668f4"
+            "contentDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+            "indexDigest": "sha256:a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
         },
         {
             "path": "src/frontend/package.json",
-            "contentDigest": "sha256:d0d70136adbfdfdb0ae9812db5b3db01666306e59ef947a7c09959b48f11fb34",
-            "indexDigest": "sha256:d0d70136adbfdfdb0ae9812db5b3db01666306e59ef947a7c09959b48f11fb34"
+            "contentDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+            "indexDigest": "sha256:a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731"
         },
         {
             "path": "src/frontend/scripts/fsusui-root.mjs",
@@ -3194,9 +3194,14 @@
             "indexDigest": "sha256:b9f8efb8b29c8e96b3ecffaa7c4e3ce299be145e5d91b7e47445d56be275bd34"
         },
         {
+            "path": "tools/frontend/check-frontend-style-source-base.test.mjs",
+            "contentDigest": "sha256:38d38ff09d3f6510352b08958706d8b8b245b466429faf2a02fa0e9021b167dd",
+            "indexDigest": "sha256:38d38ff09d3f6510352b08958706d8b8b245b466429faf2a02fa0e9021b167dd"
+        },
+        {
             "path": "tools/frontend/check-frontend-style.mjs",
-            "contentDigest": "sha256:20ca62086cb07ae549759de695b034120d8c4a5495daf661eb4fab3597ad3a7d",
-            "indexDigest": "sha256:20ca62086cb07ae549759de695b034120d8c4a5495daf661eb4fab3597ad3a7d"
+            "contentDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+            "indexDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75"
         },
         {
             "path": "tools/frontend/check-locale-domain-bundles.mjs",
@@ -3285,13 +3290,13 @@
         },
         {
             "path": "tools/frontend/source-unit-style-diff.mjs",
-            "contentDigest": "sha256:9fdddfc789d10d4fe7f94be00b9cabf21b8e6829232206c3eca7dcf00ea5ebf1",
-            "indexDigest": "sha256:9fdddfc789d10d4fe7f94be00b9cabf21b8e6829232206c3eca7dcf00ea5ebf1"
+            "contentDigest": "sha256:948feb93aa3b03ac7864337247d45328a0fbd703eb2e4fcbce9389d8957cd84e",
+            "indexDigest": "sha256:948feb93aa3b03ac7864337247d45328a0fbd703eb2e4fcbce9389d8957cd84e"
         },
         {
             "path": "tools/frontend/source-unit-style-diff.test.mjs",
-            "contentDigest": "sha256:3dddd48a75a6711ea004e8b7fc2c4ff46efce9662921373a3b5e615f1dddeb79",
-            "indexDigest": "sha256:3dddd48a75a6711ea004e8b7fc2c4ff46efce9662921373a3b5e615f1dddeb79"
+            "contentDigest": "sha256:5949eba248e9a722b81480b24a79208f2472d7619d82aa3eda545f34ecf79048",
+            "indexDigest": "sha256:5949eba248e9a722b81480b24a79208f2472d7619d82aa3eda545f34ecf79048"
         },
         {
             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
@@ -5000,13 +5005,13 @@
         },
         {
             "path": "tools/test/execution-envelope-services.mjs",
-            "contentDigest": "sha256:461f503c1288a34aa67e427de13d4e203a2e247d7b558afc1ed7e03c54f98a0c",
-            "indexDigest": "sha256:461f503c1288a34aa67e427de13d4e203a2e247d7b558afc1ed7e03c54f98a0c"
+            "contentDigest": "sha256:2cd5d94c499a59258936c6196ded244e713cd9b6d7de5d2ed6edd3d153a81898",
+            "indexDigest": "sha256:2cd5d94c499a59258936c6196ded244e713cd9b6d7de5d2ed6edd3d153a81898"
         },
         {
             "path": "tools/test/execution-failure-diagnostic.mjs",
-            "contentDigest": "sha256:7f71099eff9e567dd6093612c83ed4d2d151b634e71ae1998a88b38fc1c7cd62",
-            "indexDigest": "sha256:7f71099eff9e567dd6093612c83ed4d2d151b634e71ae1998a88b38fc1c7cd62"
+            "contentDigest": "sha256:df923668c04484bbb728c2e3ee9376f3915c6e4932c739909f755901b52a8227",
+            "indexDigest": "sha256:df923668c04484bbb728c2e3ee9376f3915c6e4932c739909f755901b52a8227"
         },
         {
             "path": "tools/test/execution-replay-contract.mjs",
@@ -5220,8 +5225,8 @@
         },
         {
             "path": "tools/test/physical-execution-nested-channel.mjs",
-            "contentDigest": "sha256:f8d45a9d419d6a9902d7877ce5e4238538bd815685cca6b898e73480f06dcca0",
-            "indexDigest": "sha256:f8d45a9d419d6a9902d7877ce5e4238538bd815685cca6b898e73480f06dcca0"
+            "contentDigest": "sha256:4d3a9fa97e75724721688914a6aa7c23d37978bc23329cecf5fa0e35aca1e185",
+            "indexDigest": "sha256:4d3a9fa97e75724721688914a6aa7c23d37978bc23329cecf5fa0e35aca1e185"
         },
         {
             "path": "tools/test/physical-execution-private-dotnet-scratch.mjs",
@@ -5350,8 +5355,8 @@
         },
         {
             "path": "tools/test/run-deterministic-command.mjs",
-            "contentDigest": "sha256:c3b47b7d9b1e69f08a2d41ac50e499879463fcbecd1e31dc4c6537bc2080e59f",
-            "indexDigest": "sha256:c3b47b7d9b1e69f08a2d41ac50e499879463fcbecd1e31dc4c6537bc2080e59f"
+            "contentDigest": "sha256:cef2a0012b006db64d361a0de5db475eda98f1b6db5e73ab87841adf0de4f9d7",
+            "indexDigest": "sha256:cef2a0012b006db64d361a0de5db475eda98f1b6db5e73ab87841adf0de4f9d7"
         },
         {
             "path": "tools/test/run-frontend-vitest-rolling-shards.mjs",
@@ -6985,6 +6990,7 @@
                 "tools/fact-extractors/receipt.mjs",
                 "tools/fact-extractors/registry.mjs",
                 "tools/fact-extractors/runner.mjs",
+                "tools/frontend/check-frontend-style-source-base.test.mjs",
                 "tools/frontend/check-frontend-style.mjs",
                 "tools/frontend/reviewed-residual-classification.mjs",
                 "tools/frontend/source-unit-style-diff.mjs",
