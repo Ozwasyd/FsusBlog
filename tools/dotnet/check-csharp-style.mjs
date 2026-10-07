@@ -15,7 +15,12 @@ const baselineSchema = 'fsusblog.csharp-style-baseline.v1';
 const validModes = new Set(['changed', 'full', 'strict-full']);
 const importCompatibilityFile = 'config/development/csharp-import-compatibility.json';
 const importCompatibilitySchema = 'fsusblog.csharp-import-compatibility.v1';
-const importCompatibilityOwner = 'tests/backend/Unit/RedisOperationExecutorTests.cs';
+const importCompatibilityOwners = [
+    'tests/backend/Unit/RedisOperationExecutorTests.cs',
+    'tests/migration/OfflineMigrationFingerprintCommandTests.cs',
+    'tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs',
+    'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs'
+];
 
 let root = defaultRoot;
 let policy = null;
@@ -603,16 +608,17 @@ function loadImportCompatibility()
     const document = readJson(path.join(root, importCompatibilityFile), 'import compatibility declaration');
     const exactKeys = (value, keys) => value !== null && typeof value === 'object'
         && !Array.isArray(value) && Object.keys(value).sort().join('|') === keys.sort().join('|');
-    const entry = document?.entries?.[0];
     if (!exactKeys(document, ['schema', 'entries']) || document.schema !== importCompatibilitySchema
-        || !Array.isArray(document.entries) || document.entries.length !== 1
-        || !exactKeys(entry, ['path', 'order', 'reason']) || entry.path !== importCompatibilityOwner
-        || entry.order !== 'system-third-party-fsusblog'
-        || typeof entry.reason !== 'string' || entry.reason.trim().length < 20)
+        || !Array.isArray(document.entries) || document.entries.length !== importCompatibilityOwners.length
+        || !document.entries.every((entry) => exactKeys(entry, ['path', 'order', 'reason'])
+            && importCompatibilityOwners.includes(entry.path)
+            && entry.order === 'system-third-party-fsusblog'
+            && typeof entry.reason === 'string' && entry.reason.trim().length >= 20)
+        || new Set(document.entries.map((entry) => entry.path)).size !== importCompatibilityOwners.length)
     {
-        throw new Error('import compatibility requires the sole exact owner, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
+        throw new Error('import compatibility requires the complete four exact owners, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
     }
-    return new Set([entry.path]);
+    return new Set(document.entries.map((entry) => entry.path));
 }
 
 function usesImportCompatibility(file)

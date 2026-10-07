@@ -2150,8 +2150,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:f5e414133bf5c80dd40fc17b9e39cb4da5b8da8b79419e7295570fbe2cb2f586",
-            "indexDigest": "sha256:f5e414133bf5c80dd40fc17b9e39cb4da5b8da8b79419e7295570fbe2cb2f586"
+            "contentDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252",
+            "indexDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -2170,8 +2170,8 @@
         },
         {
             "path": "tests/tools/production-resource-enforcement.test.mjs",
-            "contentDigest": "sha256:9bd87394ab3f996e0732dab404ac97546c17e6cae982b274a0ea3878d466cb93",
-            "indexDigest": "sha256:9bd87394ab3f996e0732dab404ac97546c17e6cae982b274a0ea3878d466cb93"
+            "contentDigest": "sha256:4702efea7b724aeeccf0f709f7d79bc7da8db0fc4358aea53e46d3b15144c13a",
+            "indexDigest": "sha256:4702efea7b724aeeccf0f709f7d79bc7da8db0fc4358aea53e46d3b15144c13a"
         },
         {
             "path": "tests/tools/release-deployment-doc-exactness.test.mjs",
@@ -2475,13 +2475,13 @@
         },
         {
             "path": "tools/configuration/check-solution-source.mjs",
-            "contentDigest": "sha256:a6522dc831b86439b2ca4b13efc3c7da266b3846477a69688594b2c19e53b48e",
-            "indexDigest": "sha256:a6522dc831b86439b2ca4b13efc3c7da266b3846477a69688594b2c19e53b48e"
+            "contentDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1",
+            "indexDigest": "sha256:a4a7df8597f598795f7ea22392bad6cb15da3433f2807bc2eb82f373cefabed1"
         },
         {
             "path": "tools/configuration/solution-source.test.mjs",
-            "contentDigest": "sha256:bc63c3eba6aed0101583819b4a4937d89e9c5e795c2a415afe8131a7f779c16d",
-            "indexDigest": "sha256:bc63c3eba6aed0101583819b4a4937d89e9c5e795c2a415afe8131a7f779c16d"
+            "contentDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a",
+            "indexDigest": "sha256:4764ce7b9ff40ac427a8a4307844170c3deb9ec7e1d1dc2c0f783f00fba91b5a"
         },
         {
             "path": "tools/contracts/behavior-contract-catalog.mjs",
@@ -3080,8 +3080,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:ce8193bc485408b40be237ebaec22690aa091aaa3537ae1f32054056b62f11f8",
-            "indexDigest": "sha256:ce8193bc485408b40be237ebaec22690aa091aaa3537ae1f32054056b62f11f8"
+            "contentDigest": "sha256:6c5d3a1abc3e97178cae8b7f36effde6eaf296db8bf0b53effc10b14b065ea85",
+            "indexDigest": "sha256:6c5d3a1abc3e97178cae8b7f36effde6eaf296db8bf0b53effc10b14b065ea85"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -4380,8 +4380,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:368b9ebb937f74df3d8737371fa191e2c39f1b1cd6ab9d8b505fbe3375d7ef7e",
-            "indexDigest": "sha256:368b9ebb937f74df3d8737371fa191e2c39f1b1cd6ab9d8b505fbe3375d7ef7e"
+            "contentDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe",
+            "indexDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6930,8 +6930,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:adba953ae8cdcfc19cfbcffc031ad1387f4224c6fc046aae3e631ea45f9e50a1",
-            "indexDigest": "sha256:adba953ae8cdcfc19cfbcffc031ad1387f4224c6fc046aae3e631ea45f9e50a1",
+            "contentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+            "indexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
             "dependencyClosure": [
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",

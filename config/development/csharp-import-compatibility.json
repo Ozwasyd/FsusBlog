@@ -5,6 +5,21 @@
             "path": "tests/backend/Unit/RedisOperationExecutorTests.cs",
             "order": "system-third-party-fsusblog",
             "reason": "Keep this exact diagnostic unit owner aligned with the current coding-conventions System, third-party, then FsusBlog order without changing the repository-wide migration comparator or historical baseline."
+        },
+        {
+            "path": "tests/migration/OfflineMigrationFingerprintCommandTests.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply the current coding-conventions System, third-party, then FsusBlog order to this exact restored migration test owner; preserve every namespace and the unchanged global migration comparator."
+        },
+        {
+            "path": "tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply the current coding-conventions System, third-party, then FsusBlog order to this exact restored migration test owner; preserve every namespace and the unchanged global migration comparator."
+        },
+        {
+            "path": "tests/migration/PgLegacyCurrentSchemaPreparationTests.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply the current coding-conventions System, third-party, then FsusBlog order to this exact restored migration test owner; preserve every namespace and the unchanged global migration comparator."
         }
     ]
 }

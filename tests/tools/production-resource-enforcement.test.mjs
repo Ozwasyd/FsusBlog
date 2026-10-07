@@ -1307,6 +1307,7 @@ test('real scheduler resource service retains independent creation and pre-exec 
         if (child.status !== 0) throw new Error('owned child failed');
         process.stdout.write('x'.repeat(${outputBytes}));`);
             const phases = [];
+            let refusedRegistration = null;
             const workerTier = { id: 'worker', command: `${JSON.stringify(process.execPath)} ${JSON.stringify(payload)}`,
                 executionDependsOn: [], services: [], parallelizable: true, exclusiveResources: [], phase: 0,
                 resourceClass: 'cpu', cpuUnits: 1, memoryGiB: 0.25, cacheInputs: [],
@@ -1401,6 +1402,7 @@ test('real scheduler resource service retains independent creation and pre-exec 
                     phases.push('pre-exec');
                     if (variant === 'registration-refused')
                     {
+                        refusedRegistration = { identity, authority };
                         throw new Error('injected independent process registration refusal');
                     }
                     const receipt = registerProductionBuildCompiler(layout, identity, authority);
@@ -1496,6 +1498,19 @@ test('real scheduler resource service retains independent creation and pre-exec 
                 assert.equal(result.status, 'failure');
                 assert.equal(fs.existsSync(marker), false, 'a refused or expired admission must never execute payload');
                 assert.equal(result.checkpoint.tiers.worker.physicalExecutionTermination.terminated, true);
+                if (variant === 'registration-refused')
+                {
+                    assert.ok(refusedRegistration);
+                    const deadline = Date.now() + 5000;
+                    while (fs.existsSync(`/proc/${refusedRegistration.identity.pid}`) && Date.now() < deadline)
+                    {
+                        await new Promise((resolve) => setTimeout(resolve, 10));
+                    }
+                    assert.equal(fs.existsSync(`/proc/${refusedRegistration.identity.pid}`), false,
+                        'the exact task launcher must become terminal');
+                    assert.equal(inspectProductionSystemdServiceBinding(refusedRegistration.authority.serviceBinding,
+                        { commandBudgetMs: 5000 }).status, 'absent');
+                }
                 if (variant === 'timeout-before-release')
                 {
                     assert.equal(result.checkpoint.tiers.worker.exitCode, 124);

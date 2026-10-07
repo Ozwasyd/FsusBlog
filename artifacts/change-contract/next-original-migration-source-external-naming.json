@@ -1,0 +1,32 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/configuration/check-solution-source.mjs",
+        "tools/configuration/solution-source.test.mjs",
+        "tools/dotnet/check-csharp-style.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs"
+      ],
+      "reason": "Preserve original process environment spellings in the bounded Python AST checker/wiring and exact C# import-owner style checker; finite declarations do not grant product qualification."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/development/csharp-import-compatibility.json",
+        "tests/backend/Fixtures/postgres-test-collections.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "reason": "Preserve existing PostgreSQL collection, C# import compatibility and canonical execution-authority JSON keys while adding the original four-case row, three exact owners and the sole real producer output; no schema, policy or qualification widening."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/development/csharp-style-enforcement.md"
+      ],
+      "reason": "Keep existing coding-standard inline identifiers and CLI/document examples intact while naming the finite four exact import compatibility owners; no visual or runtime contract change."
+    }
+  ]
+}

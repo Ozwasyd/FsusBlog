@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import { inspectSolutionSource, validateSolutionSourceReceipt } from './check-solution-source.mjs';
+import { inspectPythonSource, inspectSolutionSource, validatePythonSourceReceipt, validateSolutionSourceReceipt } from './check-solution-source.mjs';
 
 function fixture(source, action)
 {
@@ -229,6 +229,408 @@ test('a source change during the final Git binding recheck is refused through th
         finally
         {
             childProcess.execFileSync = original;
+            syncBuiltinESMExports();
+        }
+    });
+});
+
+function pythonFixture(source, action)
+{
+    return fixture(valid, ({ root, directory, git }) =>
+    {
+        const file = 'tools/contracts/Sample/Example.py';
+        fs.writeFileSync(path.join(root, file), source);
+        git('add', '.');
+        const tree = git('write-tree').toString('utf8').trim();
+        const commit = execFileSync('git', ['-C', root, 'commit-tree', tree],
+            { input: 'controlled Python AST source fixture\n', env: { ...process.env,
+                GIT_AUTHOR_NAME: 'Source fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+                GIT_COMMITTER_NAME: 'Source fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' } }).toString('utf8').trim();
+        git('update-ref', 'HEAD', commit);
+        return action({ root, directory, git, file });
+    });
+}
+
+const inspectPython = (root, file) => inspectPythonSource({ repositoryRoot: root, files: [file] });
+
+test('Python AST syntax does not execute imports bodies bytecode or lifecycle', () =>
+{
+    pythonFixture('import nonexistent_source_dependency\nraise RuntimeError("never executed")\n', ({ root, directory, git, file }) =>
+    {
+        const source = path.join(root, file);
+        fs.appendFileSync(source, `open(${JSON.stringify(path.join(directory, 'marker'))}, "w").write("executed")\n`);
+        git('add', '.');
+        const tree = git('write-tree').toString('utf8').trim();
+        const commit = execFileSync('git', ['-C', root, 'commit-tree', tree],
+            { input: 'controlled marker source\n', env: { ...process.env,
+                GIT_AUTHOR_NAME: 'Source fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+                GIT_COMMITTER_NAME: 'Source fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' } }).toString('utf8').trim();
+        git('update-ref', 'HEAD', commit);
+        const before = { head: git('rev-parse', 'HEAD'), index: fs.readFileSync(path.join(root, '.git/index')),
+            refs: git('show-ref'), status: git('status', '--porcelain=v1') };
+        const result = inspectPython(root, file);
+        assert.equal(result.status, 'success');
+        assert.equal(result.qualificationEligible, false);
+        assert.equal(result.sources[0].file, file);
+        assert.equal(result.sources[0].bytes, fs.statSync(source).size);
+        assert.equal(result.parser.executable, fs.realpathSync('/usr/bin/python3'));
+        assert.match(result.parser.version, /^3\.\d+\.\d+ /u);
+        assert.match(result.parser.sha256, /^[a-f0-9]{64}$/u);
+        assert.deepEqual(fs.readdirSync(path.join(directory, 'Sample')), ['Example.csproj', 'Example.py']);
+        assert.equal(fs.existsSync(path.join(directory, 'marker')), false);
+        assert.deepEqual(git('rev-parse', 'HEAD'), before.head);
+        assert.deepEqual(fs.readFileSync(path.join(root, '.git/index')), before.index);
+        assert.deepEqual(git('show-ref'), before.refs);
+        assert.deepEqual(git('status', '--porcelain=v1'), before.status);
+        const checker = fileURLToPath(new URL('./check-solution-source.mjs', import.meta.url));
+        const cli = spawnSync(process.execPath, [checker, '--language', 'python-ast', '--root', root, '--file', file],
+            { encoding: 'utf8' });
+        assert.equal(cli.status, 0, cli.stderr);
+        assert.deepEqual(JSON.parse(cli.stdout), result);
+    });
+});
+
+test('Python AST refuses malformed UTF-8 syntax and bounded input overflow', () =>
+{
+    for (const [source, error] of [[Buffer.from([0xff]), /not exact UTF-8/u],
+        ['def invalid(:\n', /Python AST source refused/u],
+        [Buffer.alloc(1024 * 1024 + 1, 32), /bounded file size/u]])
+    {
+        pythonFixture(source, ({ root, file }) => assert.throws(() => inspectPython(root, file), error));
+    }
+});
+
+test('Python AST reuses regular single-link source HEAD index and path refusals', () =>
+{
+    const source = 'value = 1\n';
+    pythonFixture(source, ({ root, directory, file }) =>
+    {
+        const target = path.join(root, file);
+        fs.renameSync(target, path.join(directory, 'Actual.py'));
+        fs.symlinkSync('../Actual.py', target);
+        assert.throws(() => inspectPython(root, file), /ELOOP/u);
+    });
+    pythonFixture(source, ({ root, directory, file }) =>
+    {
+        fs.renameSync(path.join(directory, 'Sample'), path.join(directory, 'Actual'));
+        fs.symlinkSync('Actual', path.join(directory, 'Sample'));
+        assert.throws(() => inspectPython(root, file), /linked or non-directory ancestor/u);
+    });
+    pythonFixture(source, ({ root, directory, file }) =>
+    {
+        fs.linkSync(path.join(root, file), path.join(directory, 'Alias.py'));
+        assert.throws(() => inspectPython(root, file), /single-link/u);
+    });
+    pythonFixture(source, ({ root, file }) =>
+    {
+        fs.appendFileSync(path.join(root, file), 'changed');
+        assert.throws(() => inspectPython(root, file), /HEAD\/index\/physical/u);
+        assert.throws(() => inspectPython(root, '../Example.py'), /normalized relative/u);
+        assert.throws(() => inspectPythonSource({ repositoryRoot: root, files: [file, file] }), /distinct explicit/u);
+    });
+});
+
+test('Python AST receipt cannot substitute HEAD source parser version limits or extra output', () =>
+{
+    pythonFixture('value = 1\n', ({ root, file }) =>
+    {
+        const actual = inspectPython(root, file);
+        const validate = receipt => validatePythonSourceReceipt({ repositoryRoot: root,
+            files: [file], expectedHead: actual.head, receipt });
+        assert.deepEqual(validate(JSON.parse(JSON.stringify(actual))), actual);
+        const mutations = [
+            value =>
+            {
+                value.head = '0'.repeat(40);
+            },
+            value =>
+            {
+                value.indexDigest = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.sources = [];
+            },
+            value =>
+            {
+                value.sources[0].sha256 = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.sources[0].mode = '100755';
+            },
+            value =>
+            {
+                value.parser.version = '3.0.0 foreign';
+            },
+            value =>
+            {
+                value.parser.sourceSha256 = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.limits.timeoutMs = 0;
+            },
+            value =>
+            {
+                value.extra = true;
+            },
+            value =>
+            {
+                value.sources[0].extra = true;
+            }
+        ];
+        for (const mutate of mutations)
+        {
+            const changed = JSON.parse(JSON.stringify(actual));
+            mutate(changed);
+            assert.throws(() => validate(changed), /independent current source projection/u);
+        }
+        assert.throws(() => validatePythonSourceReceipt({ repositoryRoot: root, files: [file],
+            expectedHead: '0'.repeat(40), receipt: actual }), /independent current source projection/u);
+        assert.throws(() => validatePythonSourceReceipt({ repositoryRoot: root, files: [file], receipt: actual }), /independent candidate HEAD/u);
+    });
+});
+
+test('Python AST held descriptor refuses input replacement during the final index recheck', () =>
+{
+    for (const replace of [false, true])
+    {
+        pythonFixture('value = 1\n', ({ root, file }) =>
+        {
+            const original = childProcess.execFileSync;
+            let indexReads = 0;
+            childProcess.execFileSync = (command, args, options) =>
+            {
+                if (command === 'git' && args.includes('ls-files') && !args.includes('--'))
+                {
+                    indexReads += 1;
+                    if (indexReads === 2)
+                    {
+                        if (replace)
+                        {
+                            fs.renameSync(path.join(root, file), path.join(root, `${file}.original`));
+                        }
+                        fs.writeFileSync(path.join(root, file), 'value = 2\n');
+                    }
+                }
+                return original(command, args, options);
+            };
+            syncBuiltinESMExports();
+            try
+            {
+                assert.throws(() => inspectPython(root, file), /identity changed during inspection/u);
+                assert.equal(indexReads, 2);
+            }
+            finally
+            {
+                childProcess.execFileSync = original;
+                syncBuiltinESMExports();
+            }
+        });
+    }
+});
+
+test('Python AST fixed worker refuses added fields and ignores caller Python import paths', () =>
+{
+    pythonFixture('value = 1\n', ({ root, directory, file }) =>
+    {
+        const original = childProcess.spawnSync;
+        childProcess.spawnSync = (...args) =>
+        {
+            const result = original(...args);
+            if (args[0] === fs.realpathSync('/usr/bin/python3'))
+            {
+                const parsed = JSON.parse(result.stdout);
+                parsed.extra = true;
+                result.stdout = JSON.stringify(parsed);
+            }
+            return result;
+        };
+        syncBuiltinESMExports();
+        try
+        {
+            assert.throws(() => inspectPython(root, file), /worker output/u);
+        }
+        finally
+        {
+            childProcess.spawnSync = original;
+            syncBuiltinESMExports();
+        }
+        fs.writeFileSync(path.join(directory, 'ast.py'), 'raise RuntimeError("foreign import must not run")\n');
+        const previous = process.env.PYTHONPATH;
+        process.env.PYTHONPATH = directory;
+        try
+        {
+            assert.equal(inspectPython(root, file).status, 'success');
+            assert.equal(fs.existsSync(path.join(directory, '__pycache__')), false);
+        }
+        finally
+        {
+            if (previous === undefined)
+            {
+                delete process.env.PYTHONPATH;
+            }
+            else
+            {
+                process.env.PYTHONPATH = previous;
+            }
+        }
+    });
+});
+
+test('Python AST bounded FD reader refuses growth after the small initial stat without reading beyond cap plus one', () =>
+{
+    pythonFixture('value = 1\n', ({ root, file }) =>
+    {
+        const target = path.join(root, file);
+        const sourceStat = fs.statSync(target, { bigint: true });
+        const limit = 1024 * 1024;
+        const originalStat = fs.fstatSync;
+        const originalRead = fs.readSync;
+        const originalReadFile = fs.readFileSync;
+        const originalSpawn = childProcess.spawnSync;
+        let descriptor = null;
+        let initialSize = null;
+        let grew = false;
+        let requested = 0;
+        let returned = 0;
+        let workerSpawns = 0;
+        fs.fstatSync = (actual, options) =>
+        {
+            const result = originalStat(actual, options);
+            if (options?.bigint && result.dev === sourceStat.dev && result.ino === sourceStat.ino)
+            {
+                descriptor = actual;
+                initialSize = result.size;
+            }
+            return result;
+        };
+        fs.readSync = (actual, buffer, offset, length, position) =>
+        {
+            if (actual === descriptor)
+            {
+                if (!grew)
+                {
+                    fs.truncateSync(target, limit + 32);
+                    grew = true;
+                }
+                requested += length;
+            }
+            const count = originalRead(actual, buffer, offset, length, position);
+            if (actual === descriptor)
+            {
+                returned += count;
+            }
+            return count;
+        };
+        fs.readFileSync = (actual, ...args) =>
+        {
+            assert.notEqual(actual, descriptor, 'bounded Python source must not use an unbounded FD read');
+            return originalReadFile(actual, ...args);
+        };
+        childProcess.spawnSync = (...args) =>
+        {
+            workerSpawns += 1;
+            return originalSpawn(...args);
+        };
+        syncBuiltinESMExports();
+        try
+        {
+            assert.throws(() => inspectPython(root, file), /bounded file size/u);
+            assert.equal(initialSize, sourceStat.size);
+            assert.ok(initialSize < BigInt(limit));
+            assert.equal(grew, true);
+            assert.equal(requested, limit + 1);
+            assert.equal(returned, limit + 1);
+            assert.equal(workerSpawns, 0);
+            assert.throws(() => originalStat(descriptor), /EBADF/u);
+        }
+        finally
+        {
+            fs.fstatSync = originalStat;
+            fs.readSync = originalRead;
+            fs.readFileSync = originalReadFile;
+            childProcess.spawnSync = originalSpawn;
+            syncBuiltinESMExports();
+        }
+    });
+});
+
+test('Python AST batch budget refuses the next committed source before reading or parsing beyond eight MiB', () =>
+{
+    pythonFixture('value = 1\n', ({ root, directory, git, file }) =>
+    {
+        const files = [];
+        const buffer = Buffer.alloc(64 * 1024, 35);
+        for (let index = 0; index < 8; index += 1)
+        {
+            const name = `tools/contracts/Sample/Bounded${index}.py`;
+            files.push(name);
+            const descriptor = fs.openSync(path.join(root, name), 'wx');
+            try
+            {
+                for (let chunk = 0; chunk < 16; chunk += 1)
+                {
+                    fs.writeSync(descriptor, buffer);
+                }
+            }
+            finally
+            {
+                fs.closeSync(descriptor);
+            }
+        }
+        files.push(file);
+        git('add', '.');
+        const tree = git('write-tree').toString('utf8').trim();
+        const commit = execFileSync('git', ['-C', root, 'commit-tree', tree],
+            { input: 'controlled bounded Python batch fixture\n', env: { ...process.env,
+                GIT_AUTHOR_NAME: 'Source fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+                GIT_COMMITTER_NAME: 'Source fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' } }).toString('utf8').trim();
+        git('update-ref', 'HEAD', commit);
+        const inodes = new Set(files.map(value => fs.statSync(path.join(root, value), { bigint: true }).ino));
+        const originalStat = fs.fstatSync;
+        const originalRead = fs.readSync;
+        const originalSpawn = childProcess.spawnSync;
+        const descriptors = new Set();
+        let returned = 0;
+        let workerSpawns = 0;
+        fs.fstatSync = (actual, options) =>
+        {
+            const result = originalStat(actual, options);
+            if (options?.bigint && inodes.has(result.ino))
+            {
+                descriptors.add(actual);
+            }
+            return result;
+        };
+        fs.readSync = (actual, ...args) =>
+        {
+            const count = originalRead(actual, ...args);
+            if (descriptors.has(actual))
+            {
+                returned += count;
+            }
+            return count;
+        };
+        childProcess.spawnSync = (...args) =>
+        {
+            workerSpawns += 1;
+            return originalSpawn(...args);
+        };
+        syncBuiltinESMExports();
+        try
+        {
+            assert.throws(() => inspectPythonSource({ repositoryRoot: root, files }), /bounded file size/u);
+            assert.equal(returned, 8 * 1024 * 1024);
+            assert.equal(workerSpawns, 8);
+            assert.equal(fs.existsSync(path.join(directory, 'Sample/__pycache__')), false);
+        }
+        finally
+        {
+            fs.fstatSync = originalStat;
+            fs.readSync = originalRead;
+            childProcess.spawnSync = originalSpawn;
             syncBuiltinESMExports();
         }
     });
