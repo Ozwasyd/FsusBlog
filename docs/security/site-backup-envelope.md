@@ -28,6 +28,12 @@ tools/operations/restore-site.sh \
 
 The restore entry accepts only an authenticated envelope. Missing/mismatched identity, broad permissions, plaintext tar, truncation, tag/header/ciphertext tampering, a manifest-recipient mismatch, or an artifact-digest mismatch blocks before writing the database, uploads, or key ring.
 
+An external drill report is unsigned JSON, not an authenticated statement of historical execution. Matching its package and manifest hashes or independently reading the current restored database cannot alone prove that the original drill actually restored that package. A consumer must obtain actual results from an owned invocation of the original drill or retain that capability as unavailable; inspection does not issue restore/drill authority.
+
+For that owned invocation, the original drill entry accepts `bash tools/operations/backup-restore-drill.sh --migration-evidence --timeout-seconds 60`. Configure `FSUSBLOG_DRILL_MODE=real`, the encrypted site package, external identity, original Migration host and pinned isolated PostgreSQL dependency, a new `FSUSBLOG_DRILL_OUTPUT_DIR` beneath an existing protected parent, and a fresh work directory beneath it. Keeping an active restore target is not an accepted result. The example budget is not a default or approval. One monotonic deadline covers authentication, actual PostgreSQL restore, native restored-content observation, extraction of all five other authenticated artifacts, raw-evidence retention, and cleanup. Only PostgreSQL snapshot-bound evidence is available in this entry; fixture overrides are not actual provider proof.
+
+This entry reports `mode: migration-recoverability`, `scope: pre-migration-backup`, and `baseUrl: null`. It preserves the captured schema and content; it does not run migration apply, start the current Server, create Redis, or claim production DR smoke/residue qualification. A registered legacy source must remain recoverable before conversion; requiring current-schema Server startup or removal of legacy columns here would invert the backup → plan → apply → verify → current receipt/startup sequence. Ordinary `real` DR still runs its complete backend/smoke/residue gates and requires current/previous encrypted Data Protection generations. The migration entry restores every captured encrypted key generation and verifies the manifest count is positive and matches the actual ring, without inventing a missing previous generation.
+
 ## Recipient rotation and retention
 
 Each envelope has one recipient. Rotate in this order:

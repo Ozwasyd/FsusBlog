@@ -1,0 +1,21 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/operations/backup-restore-drill.sh",
+                "tools/operations/backup-site.sh",
+                "tools/operations/restore-site.sh"
+            ],
+            "reason": "Preserve the original caller-visible shell environment keys and command interfaces in the reviewed backup and restore source; no external key is renamed."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/security/site-backup-envelope.md"
+            ],
+            "reason": "Preserve the registered document and contract spellings in the existing security ownership document; the original backup custody clauses are retained."
+        }
+    ]
+}
