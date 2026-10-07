@@ -326,7 +326,7 @@
         "unplugin-auto-import": "^21.0.0",
         "unplugin-vue-components": "^32.0.0",
         "vite": "^8.0.10",
-        "vitest": "^4.1.5",
+        "vitest": "^4.1.11",
         "vue-tsc": "^3.2.7"
     },
     "overrides": {
