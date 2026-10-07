@@ -1,0 +1,31 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/configuration/check-solution-source.mjs",
+                "tools/configuration/solution-source.test.mjs",
+                "tools/docs/prepare-behavior-doc-nuget.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/production-disk-demand.mjs",
+                "tools/test-matrix/protected-behavior-doc-admission.mjs",
+                "tools/test-matrix/source-governance.mjs",
+                "tools/test/execution-envelope-directories.mjs",
+                "tools/test/execution-envelope-environment.mjs",
+                "tools/test/execution-envelope-network.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
+                "tools/test/physical-execution-process-tree.mjs",
+                "tools/test/run-deterministic-command.mjs"
+            ],
+            "reason": "Preserve reviewed external process environment keys, prepared-admission producer/caller bindings and the registered tooling interfaces in the original source; internal APIs retain repository naming and no runtime qualification is issued."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the registered canonical execution-authority JSON field names through the original producer; this real generated output is an existing source/index closure witness and issues no SDK or runtime qualification."
+        }
+    ]
+}

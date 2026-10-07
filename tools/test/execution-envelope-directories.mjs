@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+
 import { seedPreparedNuget } from './behavior-doc-nuget-preparation.mjs';
 
 export const executionEnvelopeDirectoriesSchema =
@@ -165,9 +166,14 @@ export function prepareRunOwnedDirectories({
     attemptId,
     outputs = [],
     preparedNuget = null,
+    retainPrepared = null,
     authorityRoot = path.join(repositoryRoot, '.tmp/test-execution-envelope/run-owned')
 })
 {
+    if (retainPrepared !== null && typeof retainPrepared !== 'function')
+    {
+        throw new Error('run-owned directory retention requires an in-process owner callback');
+    }
     createPrivateDirectory(authorityRoot);
     const realAuthorityRoot = fs.realpathSync(authorityRoot);
     const realRepositoryRoot = fs.realpathSync(repositoryRoot);
@@ -182,6 +188,7 @@ export function prepareRunOwnedDirectories({
         `${safeSegment(attemptId, 'attempt')}-${process.pid}-${randomUUID()}`
     );
     createPrivateDirectory(ownedRoot);
+    let prepared = null;
     try
     {
         const directories = Object.fromEntries([
@@ -249,7 +256,7 @@ export function prepareRunOwnedDirectories({
             inode: String(tempMetadata.ino),
             uid: String(tempMetadata.uid)
         }));
-        return {
+        prepared = {
             fragment,
             privateTmpCapability,
             environment: {
@@ -264,12 +271,38 @@ export function prepareRunOwnedDirectories({
                 FSUSBLOG_TOOL_CACHE: directories.toolCache
             }
         };
+        // Retain the actual object before later tool preparation can fail; never reconstruct a capability from wire facts.
+        const retained = retainPrepared?.(prepared);
+        if (retained && typeof retained.then === 'function')
+        {
+            throw new Error('run-owned directory retention must complete synchronously before preparation effects');
+        }
+        return prepared;
     }
     catch (error)
     {
         // Preparation can fail before a fragment exists; clean this attempt and retain its first cause.
-        try { fs.rmSync(ownedRoot, { recursive: true, force: true }); }
-        catch (cleanupError) { error.cleanupError = cleanupError; }
+        try
+        {
+            fs.rmSync(ownedRoot, { recursive: true, force: true });
+            if (prepared)
+            {
+                const removedOwnedRoot = fs.lstatSync(ownedRoot, { throwIfNoEntry: false }) === undefined;
+                prepared.fragment.cleanup = { status: removedOwnedRoot ? 'complete' : 'failed', removedOwnedRoot };
+                if (!removedOwnedRoot)
+                {
+                    throw new Error('run-owned preparation cleanup did not prove directory absence', { cause: error });
+                }
+            }
+        }
+        catch (cleanupError)
+        {
+            if (prepared)
+            {
+                prepared.fragment.cleanup = { status: 'failed', removedOwnedRoot: false };
+            }
+            error.cleanupError = cleanupError;
+        }
         throw error;
     }
 }

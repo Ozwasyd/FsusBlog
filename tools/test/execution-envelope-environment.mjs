@@ -7,6 +7,7 @@ import process from 'node:process';
 const {createExecutionEnvelopePolicyIdentity, executionEnvelopeDigest} = await import(new URL('../test-matrix/execution-envelope-policy.mjs', import.meta.url));
 export const executionEnvelopeEnvironmentSchema =
     'fsusblog.test-execution-envelope-environment.v1';
+export const managedPreparationPurposes = Object.freeze(['executable-version', 'landlock-helper-build']);
 const environmentNamePattern = /^[A-Za-z_][A-Za-z0-9_]*$/u;
 const sensitiveNamePattern = /(?:AUTH|COOKIE|CREDENTIAL|KEY|PASSWORD|SECRET|TOKEN)/iu;
 const fixedEnvironment = Object.freeze({
@@ -66,7 +67,7 @@ export function resolveExecutablePath(name, {
     throw new Error(`execution envelope executable is missing or not executable: ${name}`);
 }
 
-function versionArguments(name)
+export function versionArguments(name)
 {
     const base = path.basename(name).toLowerCase().replace(/\.exe$/u, '');
     if (base === 'msbuild')
@@ -93,6 +94,11 @@ export function observeExecutableIdentity(name, {
     const absolutePath = resolve(name, { pathValue, platform });
     const realPath = realpath(absolutePath);
     const versionObservation = observeVersion(realPath);
+    return executableIdentityFromObservation(name, absolutePath, realPath, versionObservation, readFile);
+}
+
+function executableIdentityFromObservation(name, absolutePath, realPath, versionObservation, readFile)
+{
     if (versionObservation?.error || versionObservation?.status !== 0)
     {
         throw new Error(
@@ -113,6 +119,206 @@ export function observeExecutableIdentity(name, {
         version,
         sha256: sha256(readFile(realPath))
     });
+}
+
+// This is a consumer of an original held-managed execution port, not a capability issuer.
+// The owner assertion must consult its private admission/terminal state; wire evidence is not authority.
+export async function executeManagedPreparation(request, {
+    executePreparation,
+    assertPreparationExecution
+})
+{
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('execution preparation requires an actual held-managed execution and owner assertion');
+    }
+    if (!managedPreparationPurposes.includes(request?.purpose)
+        || !Array.isArray(request.command) || request.command.length === 0
+        || request.command.some((part) => typeof part !== 'string' || part.includes('\0'))
+        || typeof request.cwd !== 'string' || !path.isAbsolute(request.cwd)
+        || !request.environment || typeof request.environment !== 'object' || Array.isArray(request.environment)
+        || Object.values(request.environment).some((value) => typeof value !== 'string'))
+    {
+        throw new Error('execution preparation requires an explicit original derived tool tuple');
+    }
+    const ownedRequest = Object.freeze({
+        purpose: request.purpose, command: Object.freeze([...request.command]), cwd: request.cwd,
+        environment: Object.freeze({ ...request.environment })
+    });
+    await assertPreparationExecution({ request: ownedRequest, phase: 'before', physicalExecution: null });
+    let physicalExecution = null;
+    let failed = false;
+    let firstFailure;
+    let secondaryFailed = false;
+    let secondaryFailure;
+    const metadataFailures = [];
+    // Ordinary non-wire diagnostics retained by the original private tool owner, never physical/admission proof.
+    const preparationFailure = Object.freeze({
+        get failed()
+        {
+            return failed;
+        },
+        get reason()
+        {
+            return firstFailure;
+        },
+        get secondaryFailed()
+        {
+            return secondaryFailed;
+        },
+        get secondaryReason()
+        {
+            return secondaryFailure;
+        },
+        get physicalExecution()
+        {
+            return physicalExecution;
+        },
+        get metadataFailures()
+        {
+            return Object.freeze([...metadataFailures]);
+        }
+    });
+    const retainCompatibleField = (field, value, preserveExisting = false) =>
+    {
+        if (firstFailure === null || !['object', 'function'].includes(typeof firstFailure))
+        {
+            return;
+        }
+        try
+        {
+            if (!preserveExisting || firstFailure[field] == null)
+            {
+                firstFailure[field] = value;
+            }
+        }
+        catch (error)
+        {
+            metadataFailures.push(Object.freeze({ field, reason: error }));
+        }
+    };
+    try
+    {
+        physicalExecution = await executePreparation(ownedRequest);
+    }
+    catch (error)
+    {
+        failed = true;
+        firstFailure = error;
+        try
+        {
+            physicalExecution = error?.physicalExecution ?? null;
+        }
+        catch (metadataError)
+        {
+            metadataFailures.push(Object.freeze({ field: 'physicalExecution', reason: metadataError }));
+        }
+    }
+    try
+    {
+        await assertPreparationExecution({ request: ownedRequest, phase: 'after', physicalExecution, preparationFailure });
+    }
+    catch (error)
+    {
+        if (failed)
+        {
+            secondaryFailed = true;
+            secondaryFailure = error;
+            retainCompatibleField('preparationOwnerAssertionError', error);
+        }
+        else
+        {
+            failed = true;
+            firstFailure = error;
+        }
+    }
+    if (failed)
+    {
+        retainCompatibleField('physicalExecution', physicalExecution, true);
+        throw firstFailure;
+    }
+    try
+    {
+        validatePreparationOutput(physicalExecution);
+    }
+    catch (error)
+    {
+        failed = true;
+        firstFailure = error;
+        retainCompatibleField('physicalExecution', physicalExecution, true);
+        throw firstFailure;
+    }
+    return physicalExecution;
+}
+
+function validatePreparationOutput(physicalExecution)
+{
+    const child = physicalExecution?.processInventory?.filter((entry) => entry.role === 'direct-child');
+    const capture = physicalExecution?.outputCapture;
+    if (physicalExecution?.schema !== 'fsusblog.physical-execution-process-tree.v1'
+        || physicalExecution.platform !== 'linux'
+        || physicalExecution.authority?.kind !== 'linux-cgroup-process-group'
+        || physicalExecution.authority.established !== true
+        || physicalExecution.postObservation !== 'zero-members'
+        || physicalExecution.logComplete !== true
+        || physicalExecution.logTruncationReason !== null
+        || physicalExecution.forcedPipeClose !== false
+        || !physicalExecution.lifecycle?.includes('post-observe-zero-members')
+        || !physicalExecution.lifecycle?.includes('bounded-pipe-close')
+        || !physicalExecution.lifecycle?.includes('seal-completed-receipt')
+        || !Array.isArray(physicalExecution.termination) || physicalExecution.termination.length !== 0
+        || child?.length !== 1 || !Number.isSafeInteger(child[0].pid) || child[0].pid <= 0
+        || !child[0].startIdentity || child[0].exitCode !== 0 || child[0].signal !== null
+        || typeof physicalExecution.stdout !== 'string' || typeof physicalExecution.stderr !== 'string'
+        || capture?.maximumBytesPerStream !== physicalExecution.policy?.maximumCapturedOutputBytesPerStream
+        || !Number.isSafeInteger(capture?.maximumBytesPerStream) || capture.maximumBytesPerStream <= 0)
+    {
+        throw new Error('execution preparation returned incomplete or failed physical execution evidence');
+    }
+    for (const stream of ['stdout', 'stderr'])
+    {
+        if (capture[`${stream}Truncated`] !== false
+            || !Number.isSafeInteger(capture[`${stream}Bytes`]) || capture[`${stream}Bytes`] < 0
+            || capture[`${stream}Bytes`] !== capture[`${stream}CapturedBytes`]
+            || capture[`${stream}Bytes`] > capture.maximumBytesPerStream
+            || Buffer.byteLength(physicalExecution[stream], 'utf8') > capture.maximumBytesPerStream)
+        {
+            throw new Error(`execution preparation ${stream} capture is incomplete or unbounded`);
+        }
+    }
+}
+
+export async function observeExecutableIdentityAsync(name, {
+    pathValue,
+    environment,
+    cwd,
+    executePreparation,
+    assertPreparationExecution,
+    versionArgs = null,
+    platform = process.platform,
+    resolve = resolveExecutablePath,
+    readFile = fs.readFileSync,
+    realpath = fs.realpathSync
+})
+{
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('asynchronous executable observation requires the original held-managed owner port');
+    }
+    const absolutePath = resolve(name, { pathValue, platform });
+    const realPath = realpath(absolutePath);
+    if (versionArgs !== null && (path.basename(realPath) !== 'ip'
+        || !Array.isArray(versionArgs) || versionArgs.length !== 1 || versionArgs[0] !== '-Version'))
+    {
+        throw new Error('executable version arguments must use the original tool observation rule');
+    }
+    const observation = await executeManagedPreparation({
+        purpose: 'executable-version', command: [realPath, ...(versionArgs ?? versionArguments(realPath))],
+        cwd, environment
+    }, { executePreparation, assertPreparationExecution });
+    return executableIdentityFromObservation(name, absolutePath, realPath, {
+        status: 0, stdout: observation.stdout, stderr: observation.stderr
+    }, readFile);
 }
 
 export function observePathEntries(pathValue, {
@@ -267,6 +473,11 @@ export function prepareCorrectnessEnvironment({
     const observedActualExecutable = observeExecutable(plannedExecutable.absolutePath, {
         pathValue: minimal.childEnvironment.PATH
     });
+    return preparedEnvironmentFromObservations({ command, minimal, plannedExecutable, observedActualExecutable, policy, catalog });
+}
+
+function preparedEnvironmentFromObservations({ command, minimal, plannedExecutable, observedActualExecutable, policy, catalog })
+{
     verifyExecutableIdentity(plannedExecutable, observedActualExecutable);
     const actualExecutable = Object.freeze({
         ...observedActualExecutable,
@@ -288,4 +499,27 @@ export function prepareCorrectnessEnvironment({
         fragment,
         fragmentDigest: executionEnvelopeDigest(fragment)
     });
+}
+
+export async function prepareCorrectnessEnvironmentAsync({
+    command, cwd, parentEnvironment, producerAllowlist, injectedEnvironment, policy, catalog,
+    executePreparation, assertPreparationExecution
+})
+{
+    if (!Array.isArray(command) || command.length === 0)
+    {
+        throw new Error('execution envelope command is missing');
+    }
+    if (typeof executePreparation !== 'function' || typeof assertPreparationExecution !== 'function')
+    {
+        throw new Error('asynchronous correctness preparation requires the original held-managed owner port');
+    }
+    const minimal = createMinimalCorrectnessEnvironment({ parentEnvironment, producerAllowlist, injectedEnvironment, policy });
+    const observationOptions = {
+        pathValue: minimal.childEnvironment.PATH, environment: minimal.childEnvironment, cwd,
+        executePreparation, assertPreparationExecution
+    };
+    const plannedExecutable = await observeExecutableIdentityAsync(command[0], observationOptions);
+    const observedActualExecutable = await observeExecutableIdentityAsync(plannedExecutable.absolutePath, observationOptions);
+    return preparedEnvironmentFromObservations({ command, minimal, plannedExecutable, observedActualExecutable, policy, catalog });
 }

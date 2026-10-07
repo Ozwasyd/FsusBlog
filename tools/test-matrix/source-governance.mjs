@@ -8,6 +8,7 @@ import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding
 import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, validateSourceGovernanceChildExecution } from './release-final-static-boundary.mjs';
 import { snapshotGitWorktree } from './scheduler.mjs';
 const { parseWorkflowJobNeeds } = await import(new URL('../yaml/workflow-structure.mjs', import.meta.url));
+const { validateSolutionSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const plan = JSON.parse(fs.readFileSync(path.join(root, '.tmp/pr-plan.json'), 'utf8'));
@@ -56,8 +57,57 @@ const groups = [
         ? [[sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'scripts', '--operation', 'lint'], files.filter(file => file.endsWith('.sh'))]] : [])
 ];
 const results = [];
+const checkedSolutions = [];
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
+    const solutions = files.filter(file => file.endsWith('.slnx'));
+    if (solutions.length)
+    {
+        const checker = sourceGovernanceChildEntries.solution;
+        verifyChildBeforeSpawn(checker);
+        const result = spawnSync(process.execPath, [checker, '--root', root,
+            ...solutions.flatMap(file => ['--file', file])], { cwd: root, encoding: 'utf8' });
+        let receipt;
+        try
+        {
+            receipt = JSON.parse(result.stdout ?? '');
+        }
+        catch
+        {
+            receipt = null;
+        }
+        const actualFiles = receipt?.solutions?.map(value => value.file);
+        let accepted = !result.error && result.status === 0
+            && receipt?.schema === 'fsusblog.solution-source-check.v1' && receipt.status === 'success'
+            && receipt.qualificationEligible === false && Array.isArray(actualFiles)
+            && actualFiles.length === solutions.length
+            && actualFiles.every((file, index) => file === solutions[index]);
+        let bindingError = null;
+        if (accepted)
+        {
+            try
+            {
+                validateSolutionSourceReceipt({ repositoryRoot: root, files: solutions,
+                    expectedHead: evidence.headCommit, receipt });
+            }
+            catch (error)
+            {
+                bindingError = error.message;
+                accepted = false;
+            }
+        }
+        results.push({ checker, files: solutions, exitCode: result.status,
+            status: accepted ? 'success' : 'failure', qualificationEligible: false, receipt,
+            stderr: result.stderr ?? '', spawnError: result.error?.message ?? null, bindingError });
+        if (accepted)
+        {
+            checkedSolutions.push(...solutions);
+        }
+        else
+        {
+            process.exitCode = 1;
+        }
+    }
     for (const file of files.filter(value => value.endsWith('.sh')))
     {
         // This binds source input through the original recursive regular-path/index reader.
@@ -93,7 +143,7 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
             process.exitCode = 1;
         }
     }
-    const unsupported = unsupportedSourceStageFiles(files);
+    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions);
     if (unsupported.length)
     {
         results.push({ checker: 'unsupported-source-stage-language', files: unsupported,

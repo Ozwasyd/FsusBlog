@@ -207,6 +207,80 @@ export function readProductionDiskDemandCatalog(root, {
     return validateCatalog(JSON.parse(fs.readFileSync(file, 'utf8')));
 }
 
+export function bindBehaviorDocNugetPreparationDiskDemand(catalog, feed)
+{
+    validateCatalog(catalog);
+    if (![feed?.allocatedBytes, feed?.expandedAllocatedBytes].every((value) => Number.isSafeInteger(value) && value > 0)
+        || !/^[a-f0-9]{64}$/u.test(feed?.treeDigest ?? ''))
+    {
+        throw new Error('NuGet preparation requires exact bounded feed resource inventory');
+    }
+    const result = JSON.parse(JSON.stringify(catalog));
+    result.rootBindings['behavior-doc-nuget-preparation'] = 'behaviorDocNugetPreparationRoot';
+    result.rootBindings['behavior-doc-run-owned'] = 'behaviorDocRunOwnedRoot';
+    const original = result.producers.find((entry) => entry.producerId === 'behavior-doc-static-admission');
+    if (!original)
+    {
+        throw new Error('Original BehaviorDoc capacity demands are missing');
+    }
+    const retained = feed.allocatedBytes + feed.expandedAllocatedBytes;
+    if (!Number.isSafeInteger(retained))
+    {
+        throw new Error('NuGet preparation capacity bound overflow');
+    }
+    const scratch = original.demands.find((demand) => demand.rootId === 'os-temp');
+    if (!scratch)
+    {
+        throw new Error('Original BehaviorDoc scratch demand is missing');
+    }
+    const artifact = { rootId: 'behavior-doc-nuget-preparation',
+        concurrencyClass: 'behavior-doc-nuget-preparation',
+        sourceOfEstimate: 'exact locked archive staging plus central-directory expanded allocation bound; tree='
+            + feed.treeDigest + '; original SDK artifact/uncertainty/recovery allowance retained' };
+    for (const field of byteFields)
+    {
+        artifact[field] = original.demands.filter((demand) => demand.rootId !== 'os-temp')
+            .reduce((sum, demand) => sum + demand[field], field === 'uncertaintyBytes' ? 0 : retained);
+        if (!Number.isSafeInteger(artifact[field]))
+        {
+            throw new Error('NuGet preparation capacity declaration overflow');
+        }
+    }
+    result.producers.push({ producerId: 'behavior-doc-nuget-preparation', demands: [artifact,
+        { ...scratch, rootId: 'behavior-doc-run-owned',
+            sourceOfEstimate: scratch.sourceOfEstimate + '; original independent restore temporary allowance retained' }
+    ] });
+    return validateCatalog(result);
+}
+
+export function bindBehaviorDocNugetDiskDemand(catalog, preparation)
+{
+    validateCatalog(catalog);
+    if (!Number.isSafeInteger(preparation?.allocatedBytes) || preparation.allocatedBytes <= 0
+        || !/^[a-f0-9]{64}$/u.test(preparation.treeDigest ?? '')
+        || !/^[a-f0-9]{64}$/u.test(preparation.bindingDigest ?? ''))
+    {
+        throw new Error('Fresh BehaviorDoc requires a bounded, byte-bound offline dependency inventory');
+    }
+    const result = JSON.parse(JSON.stringify(catalog));
+    result.rootBindings['behavior-doc-run-owned'] = 'behaviorDocRunOwnedRoot';
+    const producer = result.producers.find((entry) => entry.producerId === 'behavior-doc-static-admission');
+    const scratch = producer?.demands.find((entry) => entry.rootId === 'os-temp');
+    if (!scratch)
+    {
+        throw new Error('Original BehaviorDoc scratch demand is missing');
+    }
+    scratch.rootId = 'behavior-doc-run-owned';
+    scratch.peakAdditionalBytes += preparation.allocatedBytes;
+    // The copied payload is removed at every attempt terminal path, but peak/recovery are still reserved.
+    scratch.rollbackOrRecoveryBytes += preparation.allocatedBytes;
+    scratch.sourceOfEstimate += '; actual private NuGet inventory allocated bound='
+        + preparation.allocatedBytes + ', tree=' + preparation.treeDigest + ', transfer='
+        + preparation.bindingDigest + '; target allocation unit=' + preparation.allocationBlockSize
+        + '; scratch and replay are on the run-owned filesystem';
+    return validateCatalog(result);
+}
+
 function dependencyClosure(tiers)
 {
     const byId = new Map(tiers.map((tier) => [tier.id, tier]));
@@ -430,6 +504,7 @@ export function defaultProductionDiskRoots(root, {
     return {
         behaviorDocContractBuildCacheRoot,
         behaviorDocObservationRoot,
+        behaviorDocRunOwnedRoot: path.join(root, '.tmp/test-execution-envelope/run-owned'),
         productionFreshOutputRoot: outputRoot,
         productionBuildRoot: buildRoot,
         osTempRoot: os.tmpdir(),
