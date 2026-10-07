@@ -1,0 +1,27 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "tools/dotnet/check-csharp-style.mjs"
+      ],
+      "reason": "Preserve the existing externally spelled process-environment identifiers while restoring bounded original C# source checks; internal checker names keep the repository convention."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/development/csharp-import-compatibility.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "reason": "Preserve the existing closed compatibility declaration keys and the sole original producer execution-authority JSON fields. The source roster is limited to this nine-path delivery; no schema or qualification widening."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/development/csharp-style-enforcement.md"
+      ],
+      "reason": "Preserve the registered contract spellings in the current C# enforcement documentation of the bounded closed import owner declaration; internal identifiers and the two exact NonArticle owner entries retain current conventions."
+    }
+  ]
+}

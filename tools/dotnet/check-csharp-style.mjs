@@ -19,8 +19,16 @@ const importCompatibilityOwners = [
     'tests/backend/Unit/RedisOperationExecutorTests.cs',
     'tests/migration/OfflineMigrationFingerprintCommandTests.cs',
     'tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs',
-    'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs'
+    'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs',
+    'tests/migration/OfflineMigrationBackupAdmissionTests.cs',
+    'tests/migration/PgLegacyNonArticlePreparationTests.cs',
+    'tests/migration/PgLegacyNonArticleRecoveryTests.cs'
 ];
+
+const sharedThirdPartyGroupOwners = new Set([
+    'tests/migration/PgLegacyNonArticlePreparationTests.cs',
+    'tests/migration/PgLegacyNonArticleRecoveryTests.cs'
+]);
 
 let root = defaultRoot;
 let policy = null;
@@ -589,7 +597,7 @@ function isStructuralIndentLine(value)
     return /^(?:public|protected|private|internal|file|namespace|class|struct|record|interface|enum|delegate|if|else|for|foreach|while|switch|case|default|try|catch|finally|do|lock|using|fixed|return|throw|break|continue)\b/u.test(value);
 }
 
-function parseUsingDirective(value)
+function parseUsingDirective(value, sharedThirdPartyGroup = false)
 {
     const match = value.trim().match(/^using\s+(?:(static)\s+)?(?:([A-Za-z_]\w*)\s*=\s*)?([A-Za-z_]\w*(?:\.[A-Za-z_]\w*)*)\s*;/u);
     if (!match)
@@ -599,7 +607,8 @@ function parseUsingDirective(value)
     const [, staticImport, alias, namespace] = match;
     const rootNamespace = namespace.split('.')[0];
     const rank = alias ? 3 : (staticImport ? 2 : (rootNamespace === 'System' ? 0 : 1));
-    const groupKey = alias ? 'alias' : (staticImport ? `static:${rootNamespace}` : rootNamespace);
+    const groupKey = alias ? 'alias' : (staticImport ? `static:${rootNamespace}`
+        : (sharedThirdPartyGroup && rank === 1 && rootNamespace !== 'FsusBlog' ? 'third-party' : rootNamespace));
     return { namespace, sortKey: alias ?? namespace, rank, groupKey, rendered: value.trim() };
 }
 
@@ -616,7 +625,7 @@ function loadImportCompatibility()
             && typeof entry.reason === 'string' && entry.reason.trim().length >= 20)
         || new Set(document.entries.map((entry) => entry.path)).size !== importCompatibilityOwners.length)
     {
-        throw new Error('import compatibility requires the complete four exact owners, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
+        throw new Error('import compatibility requires the complete seven exact owners, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
     }
     return new Set(document.entries.map((entry) => entry.path));
 }
@@ -654,12 +663,15 @@ function compareUsingDirectives(left, right, repositoryLast = false)
         ? 1.5 : directive.rank;
     return rank(left) - rank(right)
     || left.groupKey.localeCompare(right.groupKey)
-    || left.sortKey.localeCompare(right.sortKey);
+    || (left.groupKey === 'third-party' && right.groupKey === 'third-party'
+        ? (left.sortKey < right.sortKey ? -1 : (left.sortKey > right.sortKey ? 1 : 0))
+        : left.sortKey.localeCompare(right.sortKey));
 }
 
 function normalizeUsingDirectives(file)
 {
     const repositoryLast = usesImportCompatibility(file);
+    const sharedThirdPartyGroup = repositoryLast && sharedThirdPartyGroupOwners.has(file);
     const absolute = path.join(root, file);
     const text = fs.readFileSync(absolute, 'utf8');
     const lines = text.split('\n');
@@ -682,7 +694,7 @@ function normalizeUsingDirectives(file)
         return false;
     }
 
-    const directives = indexes.map((index) => parseUsingDirective(lines[index]))
+    const directives = indexes.map((index) => parseUsingDirective(lines[index], sharedThirdPartyGroup))
         .sort((left, right) => compareUsingDirectives(left, right, repositoryLast));
     const replacement = [];
     for (let index = 0; index < directives.length; index += 1)
@@ -793,7 +805,34 @@ function splitTopLevelParameters(value)
 
 function parameterName(parameter)
 {
-    return parameter.replace(/\s*=.*$/u, '').match(/([A-Za-z_]\w*)\s*$/u)?.[1] ?? null;
+    let declaration = parameter.trimStart();
+    while (declaration.startsWith('['))
+    {
+        let depth = 0;
+        let end = -1;
+        for (let index = 0; index < declaration.length; index += 1)
+        {
+            if (declaration[index] === '[')
+            {
+                depth += 1;
+            }
+            else if (declaration[index] === ']')
+            {
+                depth -= 1;
+                if (depth === 0)
+                {
+                    end = index;
+                    break;
+                }
+            }
+        }
+        if (end < 0)
+        {
+            return null;
+        }
+        declaration = declaration.slice(end + 1).trimStart();
+    }
+    return declaration.replace(/\s*=.*$/u, '').match(/([A-Za-z_]\w*)\s*$/u)?.[1] ?? null;
 }
 
 function extractPrimaryConstructorDeclarations(code)
@@ -991,7 +1030,7 @@ function checkRoslynCompatibilityExceptions(file, lines)
     return violations;
 }
 
-function parseMethodDeclaration(trimmed)
+function parseMethodDeclaration(trimmed, codeLines = [], lineIndex = codeLines.length)
 {
     if (!/^(?:public|protected|private|internal)\s+/u.test(trimmed))
     {
@@ -1023,14 +1062,20 @@ function parseMethodDeclaration(trimmed)
         {
             continue;
         }
-        const closeIndex = findMatchingParenthesis(trimmed, openIndex);
+        let declaration = trimmed;
+        let closeIndex = findMatchingParenthesis(declaration, openIndex);
+        for (let index = lineIndex + 1; closeIndex < 0 && index < codeLines.length; index += 1)
+        {
+            declaration += `\n${codeLines[index]}`;
+            closeIndex = findMatchingParenthesis(declaration, openIndex);
+        }
         if (closeIndex < 0)
         {
-            continue;
+            return null;
         }
         return {
             name,
-            parameters: splitTopLevelParameters(trimmed.slice(openIndex + 1, closeIndex))
+            parameters: splitTopLevelParameters(declaration.slice(openIndex + 1, closeIndex))
         };
     }
     return null;
@@ -1046,6 +1091,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         return violations;
     }
     const repositoryLast = usesImportCompatibility(file);
+    const sharedThirdPartyGroup = repositoryLast && sharedThirdPartyGroupOwners.has(file);
     const buffer = fs.readFileSync(absolute);
     if (!isUtf8(buffer))
     {
@@ -1101,7 +1147,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         {
             violations.push(makeViolation(file, lineNumber, 'one-statement', code, 'only one statement is allowed per line'));
         }
-        if (trimmed.endsWith(';') && !trimmed.endsWith(');') && !trimmed.includes('(') && /^(?:const\s+)?[A-Za-z_][\w<>,.?\[\]]*\s+[A-Za-z_]\w*\s*,\s*[A-Za-z_]\w*/u.test(trimmed))
+        if (trimmed.endsWith(';') && !trimmed.endsWith(');') && !trimmed.includes('(') && /^(?:const\s+)?[A-Za-z_][\w<>,.?[\]]*\s+[A-Za-z_]\w*\s*,\s*[A-Za-z_]\w*/u.test(trimmed))
         {
             violations.push(makeViolation(file, lineNumber, 'one-declaration', code, 'only one declaration is allowed per line'));
         }
@@ -1110,7 +1156,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
         {
             namespaceSeen = true;
         }
-        const usingDirective = parseUsingDirective(trimmed);
+        const usingDirective = parseUsingDirective(trimmed, sharedThirdPartyGroup);
         if (usingDirective)
         {
             if (namespaceSeen)
@@ -1136,7 +1182,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
             violations.push(makeViolation(file, lineNumber, 'type-name', typeMatch[1], 'type must use PascalCase'));
         }
 
-        const fieldMatch = trimmed.match(/^(?<access>public|protected|private|internal)\s+(?<modifiers>(?:(?:static|readonly|volatile|const|unsafe|required|new)\s+)*)(?<type>[A-Za-z_][\w<>,.?\[\]]*)\s+(?<name>[A-Za-z_]\w*)\s*(?<terminator>=>|=|;|\{)/u);
+        const fieldMatch = trimmed.match(/^(?<access>public|protected|private|internal)\s+(?<modifiers>(?:(?:static|readonly|volatile|const|unsafe|required|new)\s+)*)(?<type>[A-Za-z_][\w<>,.?[\]]*)\s+(?<name>[A-Za-z_]\w*)\s*(?<terminator>=>|=|;|\{)/u);
         if (fieldMatch?.groups)
         {
             const { access, modifiers, name, terminator } = fieldMatch.groups;
@@ -1183,7 +1229,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
             }
         }
 
-        const method = parseMethodDeclaration(trimmed);
+        const method = parseMethodDeclaration(trimmed, codeLines, index);
         if (method)
         {
             const methodName = method.name;
@@ -1193,17 +1239,17 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
             }
             for (const parameter of method.parameters)
             {
-                const parameterName = parameter.replace(/\s*=.*$/u, '').match(/([A-Za-z_]\w*)\s*$/u)?.[1];
-                if (parameterName && !isCamelCase(parameterName))
+                const name = parameterName(parameter);
+                if (name && !isCamelCase(name))
                 {
-                    violations.push(makeViolation(file, lineNumber, 'parameter-name', parameterName, 'parameter must use camelCase'));
+                    violations.push(makeViolation(file, lineNumber, 'parameter-name', name, 'parameter must use camelCase'));
                 }
             }
         }
 
         const closesPrimaryConstructor = /\)\s*(?::[^;]+)?;\s*$/u.test(trimmed);
         const localMatch = !trimmed.startsWith('using ') && trimmed.endsWith(';') && !closesPrimaryConstructor
-            ? trimmed.match(/^(?:var|[A-Za-z_][\w<>,.?\[\]]*)\s+([A-Za-z_]\w*)\s*=/u)
+            ? trimmed.match(/^(?:var|[A-Za-z_][\w<>,.?[\]]*)\s+([A-Za-z_]\w*)\s*=/u)
             : null;
         if (localMatch && !isCamelCase(localMatch[1]))
         {

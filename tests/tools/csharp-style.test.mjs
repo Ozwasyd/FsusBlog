@@ -950,20 +950,28 @@ test('full static governance runs only the full C# gate', () =>
 for (const owner of [
     'tests/migration/OfflineMigrationFingerprintCommandTests.cs',
     'tests/migration/OfflineMigrationOwnedPlanningAuthorityReaderTests.cs',
-    'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs'
+    'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs',
+    'tests/migration/OfflineMigrationBackupAdmissionTests.cs',
+    'tests/migration/PgLegacyNonArticlePreparationTests.cs',
+    'tests/migration/PgLegacyNonArticleRecoveryTests.cs'
 ])
 {
     test(`exact import compatibility accepts and normalizes the restored owner ${owner}`, () =>
     {
         withFixture((fixtureRoot) =>
         {
-            writeFixture(fixtureRoot, owner, compatibleImports);
+            const source = owner === 'tests/migration/PgLegacyNonArticlePreparationTests.cs'
+                || owner === 'tests/migration/PgLegacyNonArticleRecoveryTests.cs'
+                ? compatibleImports.replace('Logging;\n\nusing NSubstitute;', 'Logging;\nusing NSubstitute;')
+                    .replace('NSubstitute;\n\nusing StackExchange.Redis;', 'NSubstitute;\nusing StackExchange.Redis;')
+                : compatibleImports;
+            writeFixture(fixtureRoot, owner, source);
             const readResult = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
             assert.equal(readResult.status, 0, output(readResult));
             writeFixture(fixtureRoot, owner, migrationImports);
             const fixResult = runChecker(fixtureRoot, ['--mode', 'full', '--fix', '--file', owner]);
             assert.equal(fixResult.status, 0, output(fixResult));
-            assert.equal(readFileSync(path.join(fixtureRoot, owner), 'utf8'), compatibleImports);
+            assert.equal(readFileSync(path.join(fixtureRoot, owner), 'utf8'), source);
         });
     });
 }
@@ -989,7 +997,7 @@ for (const owner of sourceImportCompatibility.entries.map((entry) => entry.path)
 
 for (const [name, mutate] of [
     ['same-count duplicate owner', (entries) => [entries[0], entries[0], ...entries.slice(2)]],
-    ['fifth foreign owner', (entries) => [...entries, { ...entries[0], path: 'tests/migration/OtherTests.cs' }]],
+    ['additional foreign owner', (entries) => [...entries, { ...entries[0], path: 'tests/migration/OtherTests.cs' }]],
     ['same-count wildcard owner', (entries) => entries.map((entry, index) => index === 1 ? { ...entry, path: 'tests/migration/*.cs' } : entry)],
     ['same-count invalid order', (entries) => entries.map((entry, index) => index === 1 ? { ...entry, order: 'unchecked' } : entry)],
     ['same-count short reason', (entries) => entries.map((entry, index) => index === 1 ? { ...entry, reason: 'short' } : entry)],
@@ -1036,5 +1044,211 @@ test('exact import compatibility rejects a restored owner with a symlink leaf', 
         const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
         assert.notEqual(result.status, 0, output(result));
         assert.match(output(result), /import compatibility requires a regular canonical source/u);
+    });
+});
+
+const attributedParameters = `using System.Runtime.InteropServices;
+
+namespace Fixture;
+
+internal static class NativeMethods
+{
+    [DllImport("libc", EntryPoint = "link", SetLastError = true)]
+    private static extern int Link([MarshalAs(UnmanagedType.LPUTF8Str)] string existingPath,
+        [MarshalAs(UnmanagedType.LPUTF8Str)] string newPath);
+}
+`;
+
+test('parameter attributes keep framework enum arguments separate from multiline parameter names', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const file = 'src/sample/NativeMethods.cs';
+        writeFixture(fixtureRoot, file, attributedParameters);
+        const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', file]);
+        assert.equal(result.status, 0, output(result));
+    });
+});
+
+for (const [name, source, evidence] of [
+    ['first multiline parameter', attributedParameters.replace('string existingPath', 'string ExistingPath'), 'ExistingPath'],
+    ['continuation parameter', attributedParameters.replace('string newPath', 'string NewPath'), 'NewPath'],
+    ['named attribute argument', attributedParameters.replace('LPUTF8Str)] string newPath', 'LPUTF8Str, SizeConst = 1)] string NewPath'), 'NewPath'],
+    ['multiple attributes', attributedParameters.replace(')] string newPath', ')][In] string NewPath'), 'NewPath'],
+    ['ordinary parameter', attributedParameters.replace('[MarshalAs(UnmanagedType.LPUTF8Str)] string existingPath', 'string ExistingPath'), 'ExistingPath']
+])
+{
+    test(`parameter attributes still reject an uppercase ${name}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            const file = 'src/sample/NativeMethods.cs';
+            writeFixture(fixtureRoot, file, source);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', file]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), / parameter-name:/u);
+            assert.ok(output(result).includes(`[${evidence}]`), output(result));
+            assert.doesNotMatch(output(result), /\[LPUTF8Str\]/u);
+        });
+    });
+}
+
+const sharedThirdPartyImports = `using System;
+
+using Npgsql;
+using Xunit;
+
+using FsusBlog.Contracts.Migration;
+using FsusBlog.Contracts.Schema;
+
+namespace Fixture;
+
+public sealed class ImportCompatibility
+{
+}
+`;
+
+for (const owner of [
+    'tests/migration/PgLegacyNonArticlePreparationTests.cs',
+    'tests/migration/PgLegacyNonArticleRecoveryTests.cs'
+])
+{
+    test(`exact import compatibility shares the mother-standard third-party group for ${owner}`, () =>
+    {
+        withFixture((fixtureRoot) =>
+        {
+            writeFixture(fixtureRoot, owner, sharedThirdPartyImports);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
+            assert.equal(result.status, 0, output(result));
+            const reversed = sharedThirdPartyImports.replace('using Npgsql;\nusing Xunit;', 'using Xunit;\nusing Npgsql;');
+            writeFixture(fixtureRoot, owner, reversed);
+            const fixed = runChecker(fixtureRoot, ['--mode', 'full', '--fix', '--file', owner]);
+            assert.equal(fixed.status, 0, output(fixed));
+            assert.equal(readFileSync(path.join(fixtureRoot, owner), 'utf8'), sharedThirdPartyImports);
+        });
+    });
+
+    for (const [name, source, rule] of [
+        ['reversed third-party order', sharedThirdPartyImports.replace('using Npgsql;\nusing Xunit;', 'using Xunit;\nusing Npgsql;'), 'using-order'],
+        ['missing System separation', sharedThirdPartyImports.replace('System;\n\nusing Npgsql;', 'System;\nusing Npgsql;'), 'using-group'],
+        ['missing repository separation', sharedThirdPartyImports.replace('Xunit;\n\nusing FsusBlog', 'Xunit;\nusing FsusBlog'), 'using-group'],
+        ['third-party subgroup blank', sharedThirdPartyImports.replace('Npgsql;\nusing Xunit;', 'Npgsql;\n\nusing Xunit;'), 'using-group'],
+        ['repository before third-party', sharedThirdPartyImports.replace('using Npgsql;\nusing Xunit;\n\nusing FsusBlog.Contracts.Migration;\nusing FsusBlog.Contracts.Schema;', 'using FsusBlog.Contracts.Migration;\nusing FsusBlog.Contracts.Schema;\n\nusing Npgsql;\nusing Xunit;'), 'using-order'],
+        ['ordinal third-party order', sharedThirdPartyImports.replace('using Npgsql;\nusing Xunit;', 'using lowercase;\nusing Uppercase;'), 'using-order'],
+        ['reversed static imports', sharedThirdPartyImports.replace('namespace Fixture;', 'using static Vendor.Zeta;\n\nusing static FsusBlog.Alpha;\n\nnamespace Fixture;'), 'using-order'],
+        ['reversed aliases', sharedThirdPartyImports.replace('namespace Fixture;', 'using ZRepo = FsusBlog.Contracts.Migration;\nusing AVendor = Vendor;\n\nnamespace Fixture;'), 'using-order']
+    ])
+    {
+        test(`exact import compatibility rejects ${name} for ${owner}`, () =>
+        {
+            withFixture((fixtureRoot) =>
+            {
+                writeFixture(fixtureRoot, owner, source);
+                const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
+                assert.notEqual(result.status, 0, output(result));
+                assert.ok(output(result).includes(` ${rule}:`), output(result));
+            });
+        });
+    }
+}
+
+test('exact import compatibility keeps shared third-party groups exclusive to the two new owners', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        for (const owner of [
+            ...sourceImportCompatibility.entries.map((entry) => entry.path).slice(0, 5),
+            'tests/migration/PgLegacyNonArticleOtherTests.cs'
+        ])
+        {
+            writeFixture(fixtureRoot, owner, sharedThirdPartyImports);
+            const result = runChecker(fixtureRoot, ['--mode', 'full', '--file', owner]);
+            assert.notEqual(result.status, 0, output(result));
+            assert.match(output(result), / using-group:/u);
+        }
+    });
+});
+
+test('C# source lexer preserves the three character-class regex match contracts', () =>
+{
+    const source = readFileSync(checker, 'utf8');
+    const start = source.indexOf('function checkFile(');
+    const end = source.indexOf('\nfunction loadBaseline()', start);
+    const body = source.slice(start, end);
+    const oldClass = String.raw`[\w<>,.?\[\]]`;
+    const newClass = String.raw`[\w<>,.?[\]]`;
+    const patterns = [...body.matchAll(/\/([^\n]+?)\/u/gu)]
+        .map((match) => match[1])
+        .filter((pattern) => pattern.includes(newClass));
+    assert.equal(patterns.length, 3);
+    assert.equal(body.includes(oldClass), false);
+    const samples = [];
+    for (const type of ['int', 'int[]', 'List<int[]>', 'Dictionary<string,int[]>', 'Type?.Member[,]', 'bad-type', 'Å', '😀'])
+    {
+        samples.push(
+            `${type} first, second;`,
+            `const ${type} first, second;`,
+            `private ${type} _values;`,
+            `private static readonly ${type} s_values = null;`,
+            `public ${type} Values => null;`,
+            `${type} values = null;`,
+            `${type} Values = null;`,
+            `not ${type} values = null;`
+        );
+    }
+    for (const pattern of patterns)
+    {
+        const original = new RegExp(pattern.replace(newClass, oldClass), 'u');
+        const current = new RegExp(pattern, 'u');
+        for (const sample of samples)
+        {
+            assert.deepEqual(current.exec(sample), original.exec(sample), `${pattern}: ${sample}`);
+        }
+    }
+    const originalClass = new RegExp(`^${oldClass}$`, 'u');
+    const currentClass = new RegExp(`^${newClass}$`, 'u');
+    for (let code = 0; code < 128; code += 1)
+    {
+        const character = String.fromCodePoint(code);
+        assert.equal(currentClass.test(character), originalClass.test(character), `ASCII ${code}`);
+    }
+    for (const character of ['Å', '中', '😀', '\ud800'])
+    {
+        assert.equal(currentClass.test(character), originalClass.test(character));
+    }
+});
+
+test('C# source lexer retains real array and generic naming and declaration refusals', () =>
+{
+    withFixture((fixtureRoot) =>
+    {
+        const file = 'src/sample/TypeTokens.cs';
+        const source = `namespace Fixture;
+
+internal sealed class TypeTokens
+{
+    private int[] _values;
+    private Dictionary<string,int[]> _mapping;
+
+    private void Capture()
+    {
+        int[] values = null;
+        Dictionary<string,int[]> mapping = null;
+    }
+}
+`;
+        writeFixture(fixtureRoot, file, source);
+        const accepted = runChecker(fixtureRoot, ['--mode', 'full', '--file', file]);
+        assert.equal(accepted.status, 0, output(accepted));
+        const refusedSource = source.replace('int[] _values', 'int[] Values')
+            .replace('int[] values = null;', 'int[] Values = null;')
+            .replace('Dictionary<string,int[]> mapping = null;', 'Dictionary<string,int[]> mapping = null;\n        int[] first, second;');
+        writeFixture(fixtureRoot, file, refusedSource);
+        const refused = runChecker(fixtureRoot, ['--mode', 'full', '--file', file]);
+        assert.notEqual(refused.status, 0, output(refused));
+        for (const rule of ['private-field-name', 'local-name', 'one-declaration'])
+        {
+            assert.ok(output(refused).includes(` ${rule}:`), output(refused));
+        }
     });
 });
