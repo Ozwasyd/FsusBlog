@@ -1,0 +1,52 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/source-unit-style-diff.mjs",
+                "tools/frontend/source-unit-style-diff.test.mjs",
+                "tools/governance/change-contract.mjs",
+                "tools/style/check-native-tooling-style.mjs",
+                "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+                "tools/test-matrix/local-workflow-runner.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/release-final-static-boundary.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve registered process-environment spellings in the original governance, frontend/native style and source-stage CI owners; no external environment spelling changes."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "The maintained issue-link contract preserves its existing documented DOM and token identifiers; no CSS or caller-visible token spelling changes are introduced."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/governance/change-contract/issue-3729-refs-policy-external-naming-exceptions.json",
+                "config/testing/release-final-execution-authority-index.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/fixtures/governance/change-contract/issue-3729-ci-source-generated-binding.json"
+            ],
+            "reason": "Preserve original independent-index and execution-authority schema keys, plus the existing naming and new generated relationship JSON evidence keys, without another schema owner."
+        },
+        {
+            "id": "github-actions-schema",
+            "paths": [
+                ".github/workflows/quality-gate.yml"
+            ],
+            "reason": "Preserve platform-defined GitHub Actions YAML keys while current source applicability follows the existing CI owner."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/plan-pr-risk.sh"
+            ],
+            "reason": "Preserve exported process-environment key spelling while routing explicit current-source selection through the existing shell caller."
+        }
+    ]
+}

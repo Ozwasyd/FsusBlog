@@ -1027,15 +1027,42 @@ test('native fragment actual CLI configuration errors cannot become compatibilit
 
 // These mock transport controls exercise refusal only, not Markdown parsing or CLI qualification.
 for (const [name, mutate] of [
-    ['column-only', (value) => { value.findings[0].errorRange = [1]; }],
-    ['wrong-length', (value) => { value.findings[0].errorRange[1] += 1; }],
-    ['wrong-line', (value) => { value.findings[0].lineNumber += 1; }],
-    ['missing-finding', (value) => { value.findings.shift(); }],
-    ['duplicate-finding', (value) => { value.findings.push(structuredClone(value.findings[0])); }],
-    ['foreign-file', (value) => { value.findings[0].fileName = 'docs/api/other-schema.md'; }],
-    ['duplicate-report', (value) => { value.reports = 2; }],
-    ['raw-mismatch', (value) => { value.extraRaw = 'unclassified original tool error'; }],
-    ['abnormal-terminal', (value) => { value.status = 2; }]
+    ['column-only', (value) =>
+    {
+        value.findings[0].errorRange = [1];
+    }],
+    ['wrong-length', (value) =>
+    {
+        value.findings[0].errorRange[1] += 1;
+    }],
+    ['wrong-line', (value) =>
+    {
+        value.findings[0].lineNumber += 1;
+    }],
+    ['missing-finding', (value) =>
+    {
+        value.findings.shift();
+    }],
+    ['duplicate-finding', (value) =>
+    {
+        value.findings.push(structuredClone(value.findings[0]));
+    }],
+    ['foreign-file', (value) =>
+    {
+        value.findings[0].fileName = 'docs/api/other-schema.md';
+    }],
+    ['duplicate-report', (value) =>
+    {
+        value.reports = 2;
+    }],
+    ['raw-mismatch', (value) =>
+    {
+        value.extraRaw = 'unclassified original tool error';
+    }],
+    ['abnormal-terminal', (value) =>
+    {
+        value.status = 2;
+    }]
 ])
 {
     test(`native fragment mock span transport refuses ${name} without parser qualification`, () =>
@@ -1055,7 +1082,7 @@ for (const [name, mutate] of [
                 }
             }
             mutate(value);
-            WriteFile(fixtureRoot, 'bin/package.json', JSON.stringify({ name: 'markdownlint-cli2', type: 'module',
+            WriteFile(fixtureRoot, 'bin/package.json', JSON.stringify({ name: 'markdownlint-cli2', version: '0.23.1', type: 'module',
                 exports: { '.': './markdownlint-cli2.mjs' }, bin: { 'markdownlint-cli2': './markdownlint-cli2' } }));
             WriteFile(fixtureRoot, 'bin/markdownlint-cli2', '#!/usr/bin/env node\n');
             fs.chmodSync(path.join(fixtureRoot, 'bin/markdownlint-cli2'), 0o755);
@@ -1082,3 +1109,71 @@ export async function main(options) {
         });
     });
 }
+
+
+test('original Markdown adapter package boundary accepts equivalent bins and refuses foreign package authority', () =>
+{
+    for (const [name, change, success] of [
+        ['bare', value => value, true],
+        ['relative', value =>
+        {
+            value.bin['markdownlint-cli2'] = './markdownlint-cli2-bin.mjs';
+        }, true],
+        ['absolute', value =>
+        {
+            value.bin['markdownlint-cli2'] = '/markdownlint-cli2-bin.mjs';
+        }, false],
+        ['parent', value =>
+        {
+            value.bin['markdownlint-cli2'] = '../markdownlint-cli2-bin.mjs';
+        }, false],
+        ['version', value =>
+        {
+            value.version = '0.23.0';
+        }, false],
+        ['name', value =>
+        {
+            value.name = 'foreign';
+        }, false],
+        ['exports', value =>
+        {
+            value.exports['.'] = '../markdownlint-cli2.mjs';
+        }, false],
+        ['package-symlink', value => value, false],
+        ['module-symlink', value => value, false]
+    ])
+    {
+        WithFixture(fixtureRoot =>
+        {
+            const manifest = { name: 'markdownlint-cli2', version: '0.23.1', type: 'module',
+                exports: { '.': './markdownlint-cli2.mjs' }, bin: { 'markdownlint-cli2': 'markdownlint-cli2-bin.mjs' } };
+            change(manifest);
+            WriteFile(fixtureRoot, 'bin/package.json', JSON.stringify(manifest));
+            WriteFile(fixtureRoot, 'bin/markdownlint-cli2-bin.mjs', '#!/usr/bin/env node\n');
+            WriteFile(fixtureRoot, 'bin/node_modules/markdownlint-cli2-formatter-default/index.js', 'module.exports = {};\n');
+            WriteFile(fixtureRoot, 'bin/markdownlint-cli2.mjs', 'export async function main(options) { options.logMessage("mock adapter entered"); return 0; }\n');
+            if (name === 'package-symlink' || name === 'module-symlink')
+            {
+                const file = name === 'package-symlink' ? 'package.json' : 'markdownlint-cli2.mjs';
+                const original = path.join(fixtureRoot, 'bin', file);
+                const outside = path.join(fixtureRoot, 'outside', file);
+                WriteFile(fixtureRoot, `outside/${file}`, fs.readFileSync(original));
+                fs.unlinkSync(original);
+                fs.symlinkSync(outside, original);
+            }
+            const result = spawnSync(process.execPath, [checker, '--markdownlint-spans',
+                path.join(fixtureRoot, 'bin/markdownlint-cli2-bin.mjs')], { cwd: fixtureRoot, encoding: 'utf8' });
+            if (success)
+            {
+                assert.equal(result.status, 0, `${name}: ${Output(result)}`);
+                assert.match(result.stdout, /mock adapter entered/u);
+            }
+            else
+            {
+                assert.notEqual(result.status, 0, name);
+                assert.match(result.stderr, /structured formatter API is unavailable|module escaped/u);
+                assert.doesNotMatch(result.stdout, /mock adapter entered/u);
+            }
+        });
+    }
+});

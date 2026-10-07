@@ -8,6 +8,7 @@ import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 import { parseMatrix } from './parse-matrix.mjs';
+import { sourceGovernanceExecutionTarget, sourceGovernanceExecutableEntries, sourceGovernanceDataInputs } from './pr-impact-plan.mjs';
 import {
     buildReleaseFinalizerPlan,
     releaseFinalizerCommand
@@ -1973,9 +1974,9 @@ function localDependencyReferences(repositoryRoot, ownerPath, source)
     return [...references].sort();
 }
 
-export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target })
+export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target, additionalTargets = [] })
 {
-    const cacheKey = `${path.resolve(repositoryRoot)}\0${target}`;
+    const cacheKey = `${path.resolve(repositoryRoot)}\0${target}\0${JSON.stringify(additionalTargets)}`;
     const cached = commandTargetInspectionCache.get(cacheKey);
     if (cached && cached.files.every(({ file, relativePath, signature, indexDigest }) =>
     {
@@ -2055,6 +2056,10 @@ export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target
         }
     };
     visit(target);
+    for (const child of additionalTargets)
+    {
+        visit(child);
+    }
     const targetIdentity = inspected.get(target) ?? null;
     const contentDigest = targetIdentity?.contentDigest ?? null;
     const indexDigest = targetIdentity?.indexDigest ?? null;
@@ -2078,7 +2083,31 @@ export function inspectReleaseFinalCommandTarget({ repositoryRoot = root, target
     return structuredClone(result);
 }
 
-function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
+// This is a source declaration projection, not execution or an authority grant.
+export function executionAuthorityDeclarationProjection(matrix)
+{
+    const byTarget = new Map();
+    for (const tier of matrix.tiers ?? [])
+    {
+        const execution = validateDeclarativeExecution(tier.command);
+        if (execution.error)
+        {
+            throw new Error(`${tier.id}: ${execution.error}`);
+        }
+        if (!execution.target)
+        {
+            continue;
+        }
+        const declarations = byTarget.get(execution.target) ?? [];
+        declarations.push({ owner: tier.id, commandKind: tier.commandKind ?? null,
+            executionMode: tier.executionMode ?? null, executableKind: execution.executableKind, argv: execution.argv });
+        byTarget.set(execution.target, declarations);
+    }
+    return [...byTarget].sort(([left], [right]) => left.localeCompare(right))
+        .map(([target, declarations]) => ({ target, declarations: declarations.sort((left, right) => left.owner.localeCompare(right.owner)) }));
+}
+
+function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root, { complete = true } = {})
 {
     const targetDeclarations = new Map();
     for (const { tier, execution } of tierExecutions)
@@ -2105,7 +2134,13 @@ function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
         .sort(([left], [right]) => left.localeCompare(right))
         .map(([target, declarations]) =>
         {
-            const inspection = inspectReleaseFinalCommandTarget({ repositoryRoot, target });
+            const isSourceGovernance = target === sourceGovernanceExecutionTarget;
+            if (isSourceGovernance && (declarations.length !== 1 || declarations[0].owner !== 'source-governance'))
+            {
+                throw new Error('source governance child execution requires its sole declared owner');
+            }
+            const inspection = inspectReleaseFinalCommandTarget({ repositoryRoot, target,
+                additionalTargets: isSourceGovernance ? [...sourceGovernanceExecutableEntries(), ...sourceGovernanceDataInputs] : [] });
             errors.push(...inspection.errors);
             for (const dependency of inspection.dependencyClosure)
             {
@@ -2163,7 +2198,7 @@ function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
             errors.push('independent release-final Node parser identity drifted');
         }
         const declarationsDigest = digestBytes(JSON.stringify(declarationProjection));
-        if (sourceIndex.declarationsDigest !== declarationsDigest)
+        if (complete && sourceIndex.declarationsDigest !== declarationsDigest)
         {
             errors.push(
                 'independent release-final execution declaration index drifted: '
@@ -2173,7 +2208,7 @@ function buildExecutionTargetAuthority(tierExecutions, repositoryRoot = root)
         const targetPathsDigest = digestBytes(JSON.stringify(
             targets.map(({ target }) => target)
         ));
-        if (sourceIndex.targetPathsDigest !== targetPathsDigest)
+        if (complete && sourceIndex.targetPathsDigest !== targetPathsDigest)
         {
             errors.push(
                 'independent release-final execution target-path index drifted: '
@@ -2316,9 +2351,91 @@ function validateScriptSource(scriptSource)
     return errors;
 }
 
-export function validateReleaseFinalStaticBoundary({ matrix, scriptSource, repositoryRoot = root })
+export function validateApplicableExecutionAuthority(actual, expected, selectedOwnerIds, requiredTargetOwners)
+{
+    const errors = [];
+    if (!(selectedOwnerIds instanceof Set))
+    {
+        return ['applicable execution requires independently selected tier owners'];
+    }
+    if (!Array.isArray(requiredTargetOwners))
+    {
+        return ['applicable execution requires the independently declared target/owner roster'];
+    }
+    const requiredTargets = (expected.targets ?? []).filter(target => target.owners.some(owner => selectedOwnerIds.has(owner)));
+    const expectedRoster = requiredTargets.map(target => ({ target: target.target, owners: target.owners.filter(owner => selectedOwnerIds.has(owner)).sort() }));
+    const actualRoster = (actual.targets ?? []).map(target => ({ target: target.target, owners: [...target.owners].sort() }));
+    if (JSON.stringify(actualRoster) !== JSON.stringify(requiredTargetOwners)
+        || JSON.stringify(expectedRoster) !== JSON.stringify(requiredTargetOwners))
+    {
+        errors.push('applicable execution target and selected owner roster is incomplete or changed');
+    }
+    for (const [label, rows, key] of [['expected targets', expected.targets ?? [], 'target'], ['actual targets', actual.targets ?? [], 'target'], ['expected files', expected.closureFiles ?? [], 'path'], ['actual files', actual.closureFiles ?? [], 'path']])
+    {
+        if (new Set(rows.map(row => row[key])).size !== rows.length)
+        {
+            errors.push(`duplicate ${label} in execution authority`);
+        }
+    }
+    const header = value => Object.fromEntries(Object.entries(value)
+        .filter(([key]) => !['targets', 'closureFiles'].includes(key)));
+    if (JSON.stringify(header(actual)) !== JSON.stringify(header(expected)))
+    {
+        errors.push('applicable execution authority schema, source index or parser identity drifted');
+    }
+    const expectedTargets = new Map((expected.targets ?? [])
+        .map(target => [target.target, target]));
+    const expectedFiles = new Map((expected.closureFiles ?? [])
+        .map(file => [file.path, file]));
+    const actualFiles = new Set((actual.closureFiles ?? []).map(file => file.path));
+    for (const target of actual.targets)
+    {
+        for (const dependency of target.dependencyClosure ?? [])
+        {
+            if (!actualFiles.has(dependency))
+            {
+                errors.push(`missing applicable execution dependency: ${dependency}`);
+            }
+        }
+        const expected = expectedTargets.get(target.target);
+        const owners = selectedOwnerIds;
+        const applicableExpected = expected && { ...expected,
+            owners: expected.owners.filter(owner => owners.has(owner)),
+            declarations: expected.declarations.filter(declaration => owners.has(declaration.owner)) };
+        if (JSON.stringify(target) !== JSON.stringify(applicableExpected))
+        {
+            errors.push(`applicable execution target authority drifted: ${target.target}`);
+        }
+    }
+    for (const file of actual.closureFiles)
+    {
+        if (JSON.stringify(file) !== JSON.stringify(expectedFiles.get(file.path)))
+        {
+            errors.push(`applicable execution dependency authority drifted: ${file.path}`);
+        }
+    }
+    return errors;
+}
+
+export function validateReleaseFinalStaticBoundary({ matrix, scriptSource, repositoryRoot = root,
+    declarationsOnly = false, selectedTierIds = null })
 {
     const errors = validateScriptSource(scriptSource);
+    if (selectedTierIds !== null)
+    {
+        const declaredIds = new Set((matrix?.tiers ?? []).map(tier => tier.id));
+        if (!(selectedTierIds instanceof Set) || declarationsOnly)
+        {
+            return [...errors, 'applicable execution requires an explicit tier set after declaration validation'];
+        }
+        for (const id of selectedTierIds)
+        {
+            if (!declaredIds.has(id))
+            {
+                errors.push(`unknown applicable execution tier: ${id}`);
+            }
+        }
+    }
     const plan = buildReleaseFinalizerPlan(matrix);
     errors.push(...plan.errors.map((error) => `execution graph: ${error}`));
 
@@ -2333,9 +2450,12 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource, repos
             `execution declaration ${tier?.id ?? '<missing-id>'} is outside the sealed argv grammar: ${execution.error}`
         );
     }
-    if (invalidTierExecutions.length === 0)
+    if (invalidTierExecutions.length === 0 && !declarationsOnly)
     {
-        const targetAuthority = buildExecutionTargetAuthority(tierExecutions, repositoryRoot);
+        const applicableExecutions = selectedTierIds === null ? tierExecutions
+            : tierExecutions.filter(({ tier }) => selectedTierIds.has(tier.id));
+        const targetAuthority = buildExecutionTargetAuthority(applicableExecutions, repositoryRoot,
+            { complete: selectedTierIds === null });
         errors.push(...targetAuthority.errors.map((error) => `execution target authority: ${error}`));
         let expectedTargetAuthority;
         try
@@ -2352,7 +2472,23 @@ export function validateReleaseFinalStaticBoundary({ matrix, scriptSource, repos
         {
             errors.push('execution target authority fixture is missing or invalid');
         }
-        if (
+        if (selectedTierIds !== null && expectedTargetAuthority)
+        {
+            const targetOwners = new Map();
+            for (const { tier, execution } of applicableExecutions)
+            {
+                if (execution.target)
+                {
+                    const owners = targetOwners.get(execution.target) ?? [];
+                    owners.push(tier.id);
+                    targetOwners.set(execution.target, owners);
+                }
+            }
+            const requiredTargetOwners = [...targetOwners].sort(([left], [right]) => left.localeCompare(right))
+                .map(([target, owners]) => ({ target, owners: owners.sort() }));
+            errors.push(...validateApplicableExecutionAuthority(targetAuthority.authority, expectedTargetAuthority, selectedTierIds, requiredTargetOwners));
+        }
+        else if (
             expectedTargetAuthority
             && JSON.stringify(targetAuthority.authority) !== JSON.stringify(expectedTargetAuthority)
         )
@@ -2621,4 +2757,46 @@ function main()
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     main();
+}
+
+export function validateSourceGovernanceChildExecution(inspection, authority, entry)
+{
+    const errors = [...(inspection.errors ?? [])];
+    if (!sourceGovernanceExecutableEntries().includes(entry) || inspection.target !== entry)
+    {
+        return [...errors, 'unknown source governance child execution'];
+    }
+    const owners = (authority.targets ?? []).filter(target => target.target === sourceGovernanceExecutionTarget);
+    if (owners.length !== 1 || JSON.stringify(owners[0].owners) !== JSON.stringify(['source-governance']))
+    {
+        return [...errors, 'source governance child execution has no sole current owner'];
+    }
+    const owner = owners[0];
+    for (const child of [...sourceGovernanceExecutableEntries(), ...sourceGovernanceDataInputs])
+    {
+        if (!owner.dependencyClosure.includes(child))
+        {
+            errors.push(`source governance execution closure omits child ${child}`);
+        }
+    }
+    const records = [{ path: inspection.target, contentDigest: inspection.contentDigest, indexDigest: inspection.indexDigest },
+        ...(inspection.dependencyClosure ?? [])];
+    for (const input of sourceGovernanceDataInputs)
+    {
+        if (records.filter(record => record.path === input).length !== 1)
+        {
+            errors.push(`source governance child current data input omitted: ${input}`);
+        }
+    }
+    for (const record of records)
+    {
+        const expected = (authority.closureFiles ?? []).filter(file => file.path === record.path);
+        if (!record.contentDigest || !record.indexDigest
+            || !owner.dependencyClosure.includes(record.path) || expected.length !== 1
+            || expected[0].contentDigest !== record.contentDigest || expected[0].indexDigest !== record.indexDigest)
+        {
+            errors.push(`source governance child current source/index closure drifted: ${record.path}`);
+        }
+    }
+    return errors;
 }

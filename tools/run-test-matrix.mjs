@@ -73,6 +73,7 @@ import {
 } from './test-matrix/local-runtime-cleanup.mjs';
 import { runLocalWorkflow } from './test-matrix/local-workflow-runner.mjs';
 import { parseMatrix } from './test-matrix/parse-matrix.mjs';
+import { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage } from './test-matrix/pr-impact-plan.mjs';
 import {
     bindProductionBuildLayoutSource,
     markProductionBuildServiceCreationAttempt,
@@ -442,7 +443,7 @@ const requiredFields = [
     'nightlyOnly'
 ];
 
-function loadMatrix({ validateDependencyFields = true } = {})
+function loadMatrix({ validateDependencyFields = true, declarationsOnly = false } = {})
 {
     if (!fs.existsSync(matrixFile))
     {
@@ -455,7 +456,8 @@ function loadMatrix({ validateDependencyFields = true } = {})
     const releaseFinalStaticBoundaryErrors = validateReleaseFinalStaticBoundary({
         matrix,
         scriptSource: fs.readFileSync(path.join(root, 'tools/test/lanes/release-final.sh'), 'utf8'),
-        repositoryRoot: root
+        repositoryRoot: root,
+        declarationsOnly
     });
     if (releaseFinalStaticBoundaryErrors.length > 0)
     {
@@ -2615,8 +2617,9 @@ function appendCurrentRunBehaviorDocAdmissionBinding({
     }));
 }
 
-function executeStaticMatrixPrerequisite(tier, { runId, sourceState })
+export function executeStaticMatrixPrerequisite(tier, { runId, sourceState, behaviorDocAdmission })
 {
+    verifyBehaviorDocAdmissionState(behaviorDocAdmission);
     const normalizedRunId = String(runId ?? '').trim();
     const normalizedSourceState = {
         commit: String(sourceState?.commit ?? '').trim(),
@@ -2634,7 +2637,10 @@ function executeStaticMatrixPrerequisite(tier, { runId, sourceState })
             ...process.env,
             FSUSBLOG_TEST_RUN_ID: normalizedRunId,
             FSUSBLOG_TEST_SOURCE_COMMIT: normalizedSourceState.commit,
-            FSUSBLOG_TEST_SOURCE_FINGERPRINT: normalizedSourceState.worktreeFingerprint
+            FSUSBLOG_TEST_SOURCE_FINGERPRINT: normalizedSourceState.worktreeFingerprint,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT: behaviorDocAdmission.receiptFile,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: behaviorDocAdmission.contentDigest,
+            FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RUN_ID: behaviorDocAdmission.runId
         },
         shell: true,
         stdio: 'inherit'
@@ -4365,8 +4371,66 @@ function emitTierReproductionHint(tier, options)
     console.error(`[matrix:${tier.id}] To reproduce CI job locally: ${ciJobReproductionCommand(tier.ciJob)}`);
 }
 
+const sourceCoordinationTierIds = new Set(['validate-declarations', 'pr-smart-gate-plan', 'source-governance']);
+
+function requireGlobalSourceDeclarations(matrix)
+{
+    const errors = [...validateImpactDeclarations(matrix), ...validateMatrixSchema(matrix)];
+    if (errors.length)
+    {
+        throw new Error(errors.join('\n'));
+    }
+}
+
+async function runSourceCoordinationTier(matrix, id, args = [], callerContext = null)
+{
+    if (args.includes('--plan-only'))
+    {
+        printPlan(planTier(matrix, id));
+        return;
+    }
+    requireGlobalSourceDeclarations(matrix);
+    if (id === 'validate-declarations')
+    {
+        console.log('[matrix] source declarations validated; execution qualification remains unrun');
+        return;
+    }
+    if (id === 'pr-smart-gate-plan')
+    {
+        // This original lane only reads actual Git and calls the bound planner.
+        const result = spawnSync('bash', ['tools/test/lanes/plan-pr-risk.sh'], { cwd: root, env: process.env, stdio: 'inherit' });
+        if (result.error || result.status !== 0)
+        {
+            throw new Error('bound PR source plan failed');
+        }
+        return;
+    }
+    if (id !== 'source-governance')
+    {
+        throw new Error(`unknown source coordination tier: ${id}`);
+    }
+    if (!args.includes('--no-deps'))
+    {
+        await runSourceCoordinationTier(matrix, 'pr-smart-gate-plan');
+    }
+    await loadSelectedTierIds(matrix, '.tmp/pr-plan.json', callerContext ?? prImpactCallerContext());
+    const sourceContext = callerContext ?? prImpactCallerContext();
+    const result = spawnSync(process.execPath, ['tools/test-matrix/source-governance.mjs'], { cwd: root,
+        env: { ...process.env, FSUSBLOG_BASE_REF: sourceContext.baseRef, FSUSBLOG_PR_EVENT_NAME: sourceContext.eventName,
+            ...prImpactConsumerEnvironment(sourceContext) }, stdio: 'inherit' });
+    if (result.error || result.status !== 0)
+    {
+        throw new Error('applicable source governance failed; qualification remains unrun');
+    }
+}
+
 async function runTier(matrix, tierId, args)
 {
+    if (sourceCoordinationTierIds.has(normalizeTierId(tierId)))
+    {
+        await runSourceCoordinationTier(matrix, normalizeTierId(tierId), args);
+        return;
+    }
     const options = parseRunOptions(args);
     if (shouldUseLocalProfile(matrix, tierId, options))
     {
@@ -4412,20 +4476,9 @@ async function runTier(matrix, tierId, args)
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options);
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root);
     const currentRunPreexecutedTierBindings = [];
-    if (targetTierId === 'validate-matrix')
-    {
-        executeStaticMatrixPrerequisite(target, { runId, sourceState: buildSourceState });
-        return;
-    }
     if (targetTierId === behaviorDocAdmissionTierId)
     {
-        if (!options.noDeps)
-        {
-            executeStaticMatrixPrerequisite(
-                tierMap(matrix).get('validate-matrix'),
-                { runId, sourceState: buildSourceState }
-            );
-        }
+        requireGlobalSourceDeclarations(matrix);
         const admission = await establishBehaviorDocAdmission({
             repositoryRoot: root,
             runId,
@@ -4438,21 +4491,26 @@ async function runTier(matrix, tierId, args)
         );
         return;
     }
+    const behaviorDocAdmission = await establishBehaviorDocAdmission({
+        repositoryRoot: root,
+        runId
+    });
+    if (targetTierId === 'validate-matrix')
+    {
+        executeStaticMatrixPrerequisite(target, { runId, sourceState: buildSourceState, behaviorDocAdmission });
+        return;
+    }
     if (!options.noDeps && all.some((tier) => tier.id === 'validate-matrix'))
     {
         const binding = executeStaticMatrixPrerequisite(
             tierMap(matrix).get('validate-matrix'),
-            { runId, sourceState: buildSourceState }
+            { runId, sourceState: buildSourceState, behaviorDocAdmission }
         );
         if (!options.resume)
         {
             currentRunPreexecutedTierBindings.push(binding);
         }
     }
-    const behaviorDocAdmission = await establishBehaviorDocAdmission({
-        repositoryRoot: root,
-        runId
-    });
     all = bindBehaviorDocAdmissionVerification(all, behaviorDocAdmission);
     appendCurrentRunBehaviorDocAdmissionBinding({
         bindings: currentRunPreexecutedTierBindings,
@@ -4820,7 +4878,7 @@ function ciJobSchedulerMode(tiers)
     return ciJobHasParallelWave(tiers) ? 'parallel' : 'serial';
 }
 
-function loadSelectedTierIds(prPlanFile)
+async function loadSelectedTierIds(matrix, prPlanFile, callerContext = prImpactCallerContext())
 {
     if (!prPlanFile)
     {
@@ -4832,7 +4890,14 @@ function loadSelectedTierIds(prPlanFile)
         throw new Error(`PR smart gate plan does not exist: ${relativeToRoot(abs)}`);
     }
     const plan = JSON.parse(fs.readFileSync(abs, 'utf8'));
-    return new Set(plan.selectedTierIds ?? plan.selectedTiers?.map((tier) => tier.id) ?? []);
+    const identity = await prSmartGateIdentity();
+    const rebuilt = buildPrSmartGatePlan(matrix, { baseRef: callerContext.baseRef, eventName: callerContext.eventName, full: callerContext.full, stage: callerContext.stage }, identity);
+    validatePrImpactPlanBinding(plan, { evidence: rebuilt.changedPathEvidence, actualFingerprint: identity.sourceState.worktreeFingerprint,
+        selectedTierIds: rebuilt.selectedTierIds, selectedJobs: rebuilt.selectedJobs,
+        deferredQualificationTierIds: rebuilt.deferredQualificationTierIds,
+        fullQualificationTierIds: rebuilt.fullQualificationTierIds, callerContext });
+    validateApplicablePrExecution(matrix, plan);
+    return new Set(plan.selectedTierIds);
 }
 
 function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = false)
@@ -4907,10 +4972,10 @@ function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = fa
     };
 }
 
-function ciJobMatrix(matrix, jobId, args)
+async function ciJobMatrix(matrix, jobId, args)
 {
     const options = parseCiJobMatrixOptions(args);
-    const payload = buildCiJobMatrix(matrix, jobId, loadSelectedTierIds(options.prPlanFile));
+    const payload = buildCiJobMatrix(matrix, jobId, await loadSelectedTierIds(matrix, options.prPlanFile));
     const maxParallel = Math.max(...payload.include.map((entry) => Number(entry.max_parallel || 1)));
 
     if (options.githubOutputFile)
@@ -4963,12 +5028,10 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
     const targetTierId = `ci-job/${jobId}`;
     const { runsRoot, runId } = schedulerRunIdentity(targetTierId, options);
     const { sourceState: buildSourceState } = await collectSchedulerSourceState(root);
-    const behaviorDocAdmission = jobId === 'validate-matrix'
-        ? null
-        : existingBehaviorDocAdmission ?? await establishBehaviorDocAdmission({
-            repositoryRoot: root,
-            runId
-        });
+    const behaviorDocAdmission = existingBehaviorDocAdmission ?? await establishBehaviorDocAdmission({
+        repositoryRoot: root,
+        runId
+    });
     if (behaviorDocAdmission)
     {
         tiers = bindBehaviorDocAdmissionVerification(tiers, behaviorDocAdmission);
@@ -5137,6 +5200,11 @@ async function runCiJobScheduled(matrix, jobId, tiers, options, existingBehavior
 
 async function runCiJob(matrix, jobId, args, context = {})
 {
+    if (sourceCoordinationTierIds.has(jobId))
+    {
+        await runSourceCoordinationTier(matrix, jobId, args);
+        return 0;
+    }
     const options = parseCiJobOptions(args);
     const declaredTiers = effectiveCiJobTiers(matrix, jobId);
     if (declaredTiers.length === 0)
@@ -5158,7 +5226,8 @@ async function runCiJob(matrix, jobId, args, context = {})
         {
             const { runId } = schedulerRunIdentity(`ci-job/${jobId}`, options);
             const { sourceState } = await collectSchedulerSourceState(root);
-            executeStaticMatrixPrerequisite(declaredTiers[0], { runId, sourceState });
+            context.behaviorDocAdmission ??= await establishBehaviorDocAdmission({ repositoryRoot: root, runId });
+            executeStaticMatrixPrerequisite(declaredTiers[0], { runId, sourceState, behaviorDocAdmission: context.behaviorDocAdmission });
         }
         const remainingTiers = declaredTiers.filter((tier) => tier.id !== 'validate-matrix');
         if (remainingTiers.length === 0)
@@ -5652,6 +5721,7 @@ function buildCiPlan(matrix, format)
 
 async function runLocalAggregateWorkflow(matrix, aggregateJobId, args)
 {
+    requireGlobalSourceDeclarations(matrix);
     return runLocalWorkflow({
         matrix,
         aggregateJobId,
@@ -5687,6 +5757,7 @@ function parsePrSmartGateOptions(args)
         changedFilesFile: null,
         baseRef: process.env.FSUSBLOG_BASE_REF ?? process.env.GITHUB_BASE_REF ?? 'origin/master',
         eventName: process.env.GITHUB_EVENT_NAME ?? 'local',
+        stage: process.env.FSUSBLOG_CI_STAGE ?? 'qualification',
         full: process.env.FSUSBLOG_SMART_GATE_FULL === '1'
     };
     for (let index = 0; index < args.length; index += 1)
@@ -5732,6 +5803,19 @@ function parsePrSmartGateOptions(args)
         {
             options.eventName = arg.slice('--event-name='.length);
         }
+        else if (arg === '--stage' || arg.startsWith('--stage='))
+        {
+            const stage = arg === '--stage' ? args[++index] : arg.slice('--stage='.length);
+            if (!['qualification', 'source-integration'].includes(stage))
+            {
+                throw new Error('--stage requires qualification or source-integration');
+            }
+            if (process.env.FSUSBLOG_CI_STAGE && process.env.FSUSBLOG_CI_STAGE !== stage)
+            {
+                throw new Error('explicit PR stage disagrees with the independent caller environment');
+            }
+            options.stage = stage;
+        }
         else if (arg === '--full')
         {
             options.full = true;
@@ -5745,6 +5829,7 @@ function parsePrSmartGateOptions(args)
             throw new Error(`unknown PR smart gate option: ${arg}`);
         }
     }
+    effectivePrExecutionStage(options);
     return options;
 }
 
@@ -5764,6 +5849,8 @@ function summaryAuthorityJobIds()
 
 function readChangedFiles(options)
 {
+    const evidence = readGitChangedPaths(root, options.baseRef || 'origin/master');
+    options.changedPathEvidence = evidence;
     if (options.changedFilesFile)
     {
         const abs = path.resolve(root, options.changedFilesFile);
@@ -5771,19 +5858,19 @@ function readChangedFiles(options)
         {
             throw new Error(`changed files input does not exist: ${relativeToRoot(abs)}`);
         }
-        return fs.readFileSync(abs, 'utf8')
+        const supplied = fs.readFileSync(abs, 'utf8')
             .split(/\r?\n/)
             .map((line) => line.trim())
             .filter(Boolean)
             .sort();
+        if (JSON.stringify(supplied) !== JSON.stringify(evidence.changedFiles))
+        {
+            throw new Error('changed files input does not match the actual merge-base Git diff');
+        }
+        return evidence.changedFiles;
     }
 
-    const baseRef = options.baseRef || 'origin/master';
-    const diff = git(['diff', '--name-only', `${baseRef}...HEAD`])
-    ?? git(['diff', '--name-only', `${baseRef}`])
-    ?? git(['diff', '--name-only', 'HEAD~1..HEAD'])
-    ?? '';
-    return diff.split(/\r?\n/).map((line) => line.trim()).filter(Boolean).sort();
+    return evidence.changedFiles;
 }
 
 function wildcardToRegExp(pattern)
@@ -5837,7 +5924,7 @@ function tierSmartGateMode(tier)
     return 'conditional';
 }
 
-function tierTriggerMatches(tier, changedFiles)
+export function tierTriggerMatches(tier, changedFiles)
 {
     const changed = changedFiles ?? [];
     const triggerFiles = tier.triggerFiles ?? [];
@@ -5888,41 +5975,28 @@ function retentionReport(matrix)
 function buildPrSmartGatePlan(matrix, options, identity)
 {
     const changedFiles = readChangedFiles(options);
-    const fullMode = isFullSmartGateMode(options);
+    if (identity.sourceState.commit !== options.changedPathEvidence.headCommit)
+    {
+        throw new Error('PR plan source commit does not match the actual Git candidate');
+    }
+    const impact = selectAffectedPrTiers(matrix, changedFiles, {
+        full: isFullSmartGateMode(options),
+        stage: effectivePrExecutionStage({ ...options, full: isFullSmartGateMode(options) }),
+        executionAuthority: JSON.parse(fs.readFileSync(path.join(root,
+            'tests/fixtures/test-matrix/release-final-execution-target-authority.json'), 'utf8')),
+        jobDependencies: parseWorkflowJobNeeds(fs.readFileSync(path.join(root, '.github/workflows/quality-gate.yml'), 'utf8'),
+            { source: '.github/workflows/quality-gate.yml' })
+    });
+    const fullMode = impact.fullMode;
+    const applicableIds = new Set(impact.selectedTierIds);
     const selectedTiers = [];
     const skippedTiers = [];
 
     for (const tier of matrix.tiers)
     {
         const mode = tierSmartGateMode(tier);
-        let selected;
-        let reason;
-
-        if (fullMode)
-        {
-            selected = true;
-            reason = 'full gate requested by push/workflow_dispatch/release-final';
-        }
-        else if (mode === 'full-only')
-        {
-            selected = false;
-            reason = tier.triggerReason || 'full-only lane skipped for ordinary PR';
-        }
-        else if (mode === 'always' || tier.prDefault === true)
-        {
-            selected = true;
-            reason = tier.triggerReason || 'PR default lane';
-        }
-        else if (tierTriggerMatches(tier, changedFiles))
-        {
-            selected = true;
-            reason = tier.triggerReason || 'changed files matched trigger metadata';
-        }
-        else
-        {
-            selected = false;
-            reason = tier.triggerReason || 'changed files did not match trigger metadata';
-        }
+        const selected = applicableIds.has(tier.id);
+        const reason = impact.reasons[tier.id] ?? 'no affected source input; qualification remains unrun';
 
         const entry = {
             id: tier.id,
@@ -6005,8 +6079,12 @@ function buildPrSmartGatePlan(matrix, options, identity)
     }
 
     const selectedTierIds = new Set(selectedTiers.map((tier) => tier.id));
-    const selectedJobs = [...new Set(selectedTiers.map((tier) => tier.ciJob))].sort();
-    const skippedJobs = [...new Set(skippedTiers.map((tier) => tier.ciJob).filter((job) => !selectedJobs.includes(job)))].sort();
+    const aggregateJobs = Object.values(matrix.aggregateAuthorities ?? {});
+    const selectedJobs = [...new Set([...selectedTiers.map((tier) => tier.ciJob),
+        ...aggregateJobs.filter(authority => authority.summaryTierIds.some(id => selectedTierIds.has(id)))
+            .map(authority => authority.ciJob)])].sort();
+    const skippedJobs = [...new Set([...skippedTiers.map((tier) => tier.ciJob), ...aggregateJobs.map(authority => authority.ciJob)]
+        .filter((job) => !selectedJobs.includes(job)))].sort();
 
     return sealContentDigest({
         schema: 'fsusblog.pr-smart-gate.v1',
@@ -6015,9 +6093,17 @@ function buildPrSmartGatePlan(matrix, options, identity)
         runId: identity.runId,
         runAttempt: identity.runAttempt,
         fullMode,
+        executionStage: effectivePrExecutionStage({ ...options, full: isFullSmartGateMode(options) }),
+        sourceRegressionTargets: impact.sourceRegressionTargets ?? [],
+        deferredQualificationTierIds: impact.deferredQualificationTierIds ?? [],
+        fullQualificationTierIds: matrix.tiers.map(tier => tier.id).sort(),
         eventName: options.eventName,
         baseRef: options.baseRef,
         changedFiles,
+        changedPathEvidence: options.changedPathEvidence,
+        selectionReason: impact.reason,
+        selectionScope: impact.selectionScope,
+        qualificationEligible: false,
         selectedTiers,
         skippedTiers,
         selectedTierIds: [...selectedTierIds].sort(),
@@ -6038,10 +6124,12 @@ async function prSmartGateIdentity()
     {
         throw new Error('PR smart gate plan requires a full lowercase source commit SHA');
     }
-    const snapshot = process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT
-        ? null
-        : await snapshotGitWorktree(root);
+    const snapshot = await snapshotGitWorktree(root);
     const worktreeFingerprint = String(process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT ?? snapshot?.fingerprint ?? '').trim();
+    if (worktreeFingerprint.replace(/^sha256:/u, '') !== snapshot.fingerprint.replace(/^sha256:/u, ''))
+    {
+        throw new Error('provided PR source fingerprint differs from the actual Git worktree snapshot');
+    }
     if (!/^(?:sha256:)?[a-f0-9]{64}$/u.test(worktreeFingerprint))
     {
         throw new Error('PR smart gate plan requires a SHA-256 source fingerprint');
@@ -6122,10 +6210,35 @@ function writePrSmartGateOutputs(matrix, plan, githubOutputFile)
     fs.appendFileSync(abs, `${lines.join('\n')}\n`);
 }
 
+function validateApplicablePrExecution(matrix, plan)
+{
+    const errors = validateReleaseFinalStaticBoundary({ matrix,
+        scriptSource: fs.readFileSync(path.join(root, 'tools/test/lanes/release-final.sh'), 'utf8'),
+        repositoryRoot: root,
+        selectedTierIds: plan.fullMode ? null : new Set(plan.selectedTierIds) });
+    if (errors.length)
+    {
+        throw new Error(`applicable PR execution authority rejected:\n${errors.join('\n')}`);
+    }
+}
+
 async function ciPrPlan(matrix, args)
 {
     const options = parsePrSmartGateOptions(args);
+    if (process.env.FSUSBLOG_CI_PR_SMART_GATE_PLAN && process.env.FSUSBLOG_PR_PLAN_DIGEST)
+    {
+        const existing = process.env.FSUSBLOG_CI_PR_SMART_GATE_PLAN;
+        await loadSelectedTierIds(matrix, existing, prImpactCallerContext(process.env, {
+            baseRef: options.baseRef, eventName: options.eventName,
+            full: isFullSmartGateMode(options), stage: options.stage
+        }));
+        const plan = JSON.parse(fs.readFileSync(path.resolve(root, existing), 'utf8'));
+        writeTextOutput(`${JSON.stringify(plan, null, 2)}\n`, options.outFile ?? prSmartGateSummaryFile, 'matrix:ci-pr-plan');
+        writePrSmartGateOutputs(matrix, plan, options.githubOutputFile);
+        return;
+    }
     const plan = buildPrSmartGatePlan(matrix, options, await prSmartGateIdentity());
+    validateApplicablePrExecution(matrix, plan);
     const defaultOut = options.outFile ?? prSmartGateSummaryFile;
     writeTextOutput(`${JSON.stringify(plan, null, 2)}\n`, defaultOut, 'matrix:ci-pr-plan');
     fs.mkdirSync(path.dirname(prSmartGateSummaryFile), { recursive: true });
@@ -6137,9 +6250,18 @@ async function ciPrSmart(matrix, args)
 {
     const options = parsePrSmartGateOptions(args);
     const plan = buildPrSmartGatePlan(matrix, options, await prSmartGateIdentity());
+    validateApplicablePrExecution(matrix, plan);
     if (options.planOnly === true)
     {
         console.log(JSON.stringify(plan, null, 2));
+        return;
+    }
+    fs.mkdirSync(path.join(root, '.tmp'), { recursive: true });
+    fs.writeFileSync(path.join(root, '.tmp/pr-plan.json'), `${JSON.stringify(plan, null, 2)}\n`);
+    if (plan.selectedTierIds.every(id => sourceCoordinationTierIds.has(id)))
+    {
+        await runSourceCoordinationTier(matrix, 'source-governance', ['--no-deps'], prImpactCallerContext(process.env,
+            { baseRef: options.baseRef, eventName: options.eventName, full: isFullSmartGateMode(options), stage: options.stage, expectedDigest: plan.contentDigest }));
         return;
     }
     const byId = tierMap(matrix);
@@ -6225,6 +6347,11 @@ async function ciPrSmart(matrix, args)
                                 FSUSBLOG_TEST_RUN_ID: runId,
                                 FSUSBLOG_CI_JOB_ID: tier.ciJob,
                                 FSUSBLOG_CI_JOB_SCHEDULER: 'dag',
+                                FSUSBLOG_CI_PR_SMART_GATE_PLAN: '.tmp/pr-plan.json',
+                                ...prImpactConsumerEnvironment(prImpactCallerContext(process.env, {
+                                    baseRef: options.baseRef, eventName: options.eventName,
+                                    full: isFullSmartGateMode(options), stage: options.stage, expectedDigest: plan.contentDigest
+                                })),
                                 FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT:
                                     behaviorDocAdmission.receiptFile,
                                 FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST:
@@ -6488,7 +6615,7 @@ function usage()
   node tools/run-test-matrix.mjs ci-production [--plan-only] [--fresh|--resume] [--max-parallel n]
   node tools/run-test-matrix.mjs ci-release-final [--plan-only] [--fresh|--resume] [--max-parallel n]
   node tools/run-test-matrix.mjs ci-pr-plan [--changed-files file] [--base-ref ref] [--out .tmp/pr-plan.json] [--github-output file]
-  node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--full] [--plan-only]
+  node tools/run-test-matrix.mjs ci-pr-smart [--changed-files file] [--base-ref ref] [--stage qualification|source-integration] [--full] [--plan-only]
   node tools/run-test-matrix.mjs ci-plan [--format github-actions] [--out .tmp/ci-plan.json]
   node tools/run-test-matrix.mjs evidence-plan [--out .tmp/release-evidence/test-plan.json]
 
@@ -6541,8 +6668,35 @@ async function main()
         return;
     }
 
-    const matrix = loadMatrix({ validateDependencyFields: command !== 'validate' });
-    validateCorrectnessAttemptMigration(root);
+    const pureCoordination = ['run', 'ci-tier', 'ci-job'].includes(command) && sourceCoordinationTierIds.has(args[0]);
+    const applicablePlanFile = process.env.FSUSBLOG_CI_PR_SMART_GATE_PLAN;
+    const consumesApplicablePlan = Boolean(applicablePlanFile) && !pureCoordination
+        && !['validate-declarations', 'ci-pr-plan', 'ci-pr-smart'].includes(command);
+    const matrix = loadMatrix({ validateDependencyFields: command !== 'validate',
+        declarationsOnly: consumesApplicablePlan || pureCoordination || ['validate-declarations', 'ci-pr-plan', 'ci-pr-smart', 'ci-job-matrix'].includes(command) });
+    if (consumesApplicablePlan)
+    {
+        const selected = await loadSelectedTierIds(matrix, applicablePlanFile);
+        if ((['run', 'ci-tier'].includes(command) && !selected.has(normalizeTierId(args[0])))
+            || (command === 'ci-job' && !effectiveCiJobTiers(matrix, args[0]).every(tier => selected.has(tier.id))))
+        {
+            throw new Error('requested execution is outside the independently rebuilt applicable PR plan');
+        }
+    }
+    if (command === 'validate-declarations')
+    {
+        const errors = [...validateImpactDeclarations(matrix), ...validateMatrixSchema(matrix)];
+        if (errors.length)
+        {
+            throw new Error(errors.join('\n'));
+        }
+        console.log(`[matrix] global declarations ok (${matrix.tiers.length} tiers); no execution qualification`);
+        return;
+    }
+    if (!pureCoordination && !['ci-pr-plan', 'ci-pr-smart', 'ci-job-matrix'].includes(command))
+    {
+        validateCorrectnessAttemptMigration(root);
+    }
     if (consumesProductionCorrectness(command, args))
     {
         const contextPath = process.env.FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT;
@@ -6611,7 +6765,7 @@ async function main()
     }
     if (command === 'ci-job-matrix')
     {
-        ciJobMatrix(matrix, args[0], args.slice(1));
+        await ciJobMatrix(matrix, args[0], args.slice(1));
         return;
     }
     if (command === 'aggregate')

@@ -4061,10 +4061,15 @@ export function validatePrContract({
             errors.push(`PR body is missing ${heading}`);
         }
     }
-    const closingLines = (parsedBody.sections.get('Linked Issue') ?? '').match(/^Closes\s+#\d+\s*$/gmu) ?? [];
-    if (closingLines.length !== 1)
+    const linkedIssueLines = (parsedBody.sections.get('Linked Issue') ?? '')
+        .split('\n')
+        .filter((line) => /^(?:Closes|Refs)\b/iu.test(line.replace(/^[ \t>*+-]+/u, '')));
+    if (
+        linkedIssueLines.length !== 1
+        || !/^(?:Closes|Refs)[ \t]+#[1-9][0-9]*[ \t]*$/u.test(linkedIssueLines[0])
+    )
     {
-        errors.push('PR body requires one explicit Closes #1234 line');
+        errors.push('PR body Linked Issue requires exactly one Closes #1234 or Refs #1234 line');
     }
     if (!substantiveMarkdownSection(parsedBody.sections.get('Scope Summary') ?? ''))
     {

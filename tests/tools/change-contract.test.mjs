@@ -1786,6 +1786,91 @@ test('squash title uses the same type/scope/header contract without commit foote
     );
 });
 
+test('PR Linked Issue accepts one non-closing reference and canonical closing compatibility', () =>
+{
+    for (const primary of [
+        'Refs #1163',
+        'Closes #1163',
+        'Closes #1163\n\nNative qualification remains WIP.\n\nRelated: [tracking issue](https://github.com/Ozwasyd/FsusBlog/issues/3764)'
+    ])
+    {
+        assert.deepEqual(validatePrContract({
+            title: 'feat(frontend): expose article reading progress',
+            body: pullRequestBody().replace('Closes #1163', primary),
+            labels: ['release-note:added'],
+            actor: 'maintainer',
+            changedFiles: ['src/frontend/src/composables/useReadingProgress.ts']
+        }), []);
+    }
+});
+
+test('PR Linked Issue rejects duplicate, mixed, and malformed primary declarations', () =>
+{
+    for (const primary of [
+        '',
+        'Refs #1163\nRefs #1163',
+        'Closes #1163\nCloses #1164',
+        'Refs #1163\nCloses #1163',
+        'Closes #1163\nRefs #1164',
+        'Refs #1163\nRefs #',
+        'Closes #1163\nCloses: #1164',
+        'Refs #0',
+        'Refs #01163',
+        'Refs #-1163',
+        'Refs #1163, #1164',
+        'Refs #1163 trailing text',
+        'refs #1163',
+        'Refs: #1163',
+        '- Refs #1163',
+        '> Refs #1163'
+    ])
+    {
+        const errors = validatePrContract({
+            title: 'feat(frontend): expose article reading progress',
+            body: pullRequestBody().replace('Closes #1163', primary),
+            labels: ['release-note:added'],
+            actor: 'maintainer',
+            changedFiles: ['src/frontend/src/composables/useReadingProgress.ts']
+        });
+        assert.ok(errors.some((error) => error.includes('Linked Issue requires exactly one')), primary);
+    }
+});
+
+test('PR Linked Issue retains existing duplicate-heading and fenced-section refusal', () =>
+{
+    const referenced = pullRequestBody().replace('Closes #1163', 'Refs #1163');
+    for (const [body, expected] of [
+        [`${referenced}\n## Linked Issue\n\nRefs #1164\n`, 'duplicate section: ## Linked Issue'],
+        [referenced.replace('Refs #1163', '```markdown\nRefs #1163\n```'), 'Linked Issue requires exactly one'],
+        [referenced.replace('Refs #1163', '<!-- Refs #1163 -->'), 'Linked Issue requires exactly one'],
+        ['```markdown\n## Linked Issue\n\nRefs #1163\n```\n' + referenced.replace('## Linked Issue', '### Linked Issue'), 'missing ## Linked Issue'],
+        [referenced.replace('Refs #1163', '').replace('## Scope Summary', '## Scope Summary\n\nRefs #1163'), 'Linked Issue requires exactly one']
+    ])
+    {
+        const errors = validatePrContract({
+            title: 'feat(frontend): expose article reading progress',
+            body,
+            labels: ['release-note:added'],
+            actor: 'maintainer',
+            changedFiles: ['src/frontend/src/composables/useReadingProgress.ts']
+        });
+        assert.ok(errors.some((error) => error.includes(expected)), expected);
+    }
+});
+
+test('non-closing PR reference preserves unrelated classification and review gates', () =>
+{
+    const referenced = pullRequestBody().replace('Closes #1163', 'Refs #1163');
+    const errors = validatePrContract({
+        title: 'feat(frontend): expose article reading progress',
+        body: referenced.replace('- [x] Formatter/linter run', '- [ ] Formatter/linter run'),
+        labels: ['release-note:added'],
+        actor: 'maintainer',
+        changedFiles: ['src/frontend/src/composables/useReadingProgress.ts']
+    });
+    assert.ok(errors.some((error) => error.includes('requires checked checklist field: Formatter/linter run')));
+});
+
 test('PR contract accepts a fully classified user-facing behavior change', () =>
 {
     const errors = validatePrContract({

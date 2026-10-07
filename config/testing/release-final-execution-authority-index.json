@@ -529,6 +529,19 @@
                 "src/frontend/src/views/PublicDynamicPage.vue",
                 "src/frontend/wasm/web/protocol/frame.ts"
             ]
+        },
+        {
+            "owner": "tools/style/check-native-tooling-style.mjs",
+            "sourceDigest": "sha256:603947a4065f7fb617a157dc3ffac7f5b7a9ff59819c8c9fb625a786e7a7fb68",
+            "expressionDigest": "sha256:5cc87864b98ca34840541a357ee2c6a385acac3f2cbb8765cff64e04c4dc241a",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "../../config/development/native-tooling-style-policy.json",
+                "../../config/development/authoritative-development-docs.json",
+                "../../config/development/native-tooling-style-exceptions.json",
+                "../../config/development/native-tooling-style-baseline.json",
+                "../../.markdownlint-cli2.jsonc"
+            ]
         }
     ],
     "runtimeDynamicShellSources": [
@@ -547,7 +560,7 @@
             "dependencies": []
         }
     ],
-    "declarationsDigest": "sha256:4f9e799b32f0ffbb3a2fb17920a9b6ff902c9d1640c3485cc85ccfe55bf7d4fa",
-    "targetPathsDigest": "sha256:1c5dfe845aad135358c747816adcf4c8ce16d9443358d3033d5101fcf8d6f686",
+    "declarationsDigest": "sha256:861fe63f121fc62d2bfb5aff32a9c823bbb2ea0c192e8a7aeab4b6d2e3fffce3",
+    "targetPathsDigest": "sha256:64424b2901b12fbe06f11bca6ffcc34f5a81fcd6f841b240d8c77bf8b780b6a8",
     "producer": "node tools/test-matrix/generate-release-final-execution-authority.mjs"
 }
