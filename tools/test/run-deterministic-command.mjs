@@ -26,7 +26,7 @@ import {
     sealExecutionEnvelopeReceipt,
     verifyExecutionEnvelopeReceipt
 } from './execution-envelope-receipt.mjs';
-import { formatExecutionFailure, selectExecutionFailure } from './execution-failure-diagnostic.mjs';
+import { createExecutionFailureOwner, formatExecutionFailure, observeExecutionFailure, retainExecutionFailure } from './execution-failure-diagnostic.mjs';
 import { runPhysicalExecution } from './physical-execution-process-tree.mjs';
 import {
     buildRunBoundConsumerEvidence,
@@ -54,6 +54,67 @@ const temporalChildObserver = path.join(
     repoRoot,
     'tools/test-fixtures/producers/temporal-child-observer.mjs'
 );
+
+export function preparationFailureProperty(owner, reason, field)
+{
+    try
+    {
+        return reason?.[field] ?? null;
+    }
+    catch (error)
+    {
+        (owner.metadataFailures ??= []).push({ field, reason: error });
+        return null;
+    }
+}
+
+function retainPreparationCompatibility(owner, reason, field, value, preserveExisting = false)
+{
+    if (reason === null || !['object', 'function'].includes(typeof reason))
+    {
+        return;
+    }
+    try
+    {
+        if (!preserveExisting || reason[field] == null)
+        {
+            reason[field] = value;
+        }
+    }
+    catch (error)
+    {
+        (owner.metadataFailures ??= []).push({ field, reason: error });
+    }
+}
+
+export function preparationFailureText(owner, reason)
+{
+    const message = preparationFailureProperty(owner, reason, 'message');
+    try
+    {
+        return String(message ?? reason);
+    }
+    catch (error)
+    {
+        (owner.metadataFailures ??= []).push({ field: 'message', reason: error });
+        return 'unprintable execution failure';
+    }
+}
+
+/** Ordinary diagnostics in the original prepared/CLI owner, not cleanup permission or a physical proof. */
+export function retainPreparationCleanupFailure(owner, firstReason, cleanupReason)
+{
+    const recoveryObligation = preparationFailureProperty(owner, cleanupReason, 'recoveryObligation');
+    const record = Object.freeze({ failed: true, reason: firstReason, cleanupFailed: true,
+        cleanupReason, recoveryObligation });
+    (owner.cleanupFailures ??= []).push(record);
+    retainPreparationCompatibility(owner, firstReason, 'cleanupError', cleanupReason, true);
+    if (recoveryObligation !== null)
+    {
+        retainPreparationCompatibility(owner, firstReason, 'recoveryObligation', recoveryObligation, true);
+    }
+    return record;
+}
 
 function parse(argv)
 {
@@ -361,8 +422,7 @@ async function prepareCorrectnessFragments({
         }
         catch (cleanupError)
         {
-            error.cleanupError = cleanupError;
-            error.recoveryObligation ??= cleanupError.recoveryObligation;
+            retainPreparationCleanupFailure(directoryEnvelope, error, cleanupError);
         }
         throw error;
     }
@@ -544,7 +604,8 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
             return executionEnvelopeBinding;
         }
         postflightAttempted = true;
-        let postflightError = null;
+        let postflightFailed = false;
+        let postflightError;
         networkFragment = networkSandbox.fragment;
         directoryFragment = directoryEnvelope.fragment;
         let actualHostFacts = null;
@@ -556,23 +617,32 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
             }
             catch (error)
             {
+                postflightFailed = true;
                 postflightError = error;
             }
         }
         try
         {
-            if (!postflightError)
+            if (!postflightFailed)
             {
                 networkFragment = finalizeNetworkSandbox(networkSandbox);
             }
         }
         catch (error)
         {
-            postflightError ??= error;
+            if (postflightFailed)
+            {
+                retainPreparationCleanupFailure(directoryEnvelope, postflightError, error);
+            }
+            else
+            {
+                postflightFailed = true;
+                postflightError = error;
+            }
         }
         try
         {
-            if (!postflightError)
+            if (!postflightFailed)
             {
                 actualHostFacts = observeExecutionEnvelopeHostFacts({
                     directory: directoryEnvelope.fragment.ownedRoot
@@ -581,7 +651,15 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
         }
         catch (error)
         {
-            postflightError ??= error;
+            if (postflightFailed)
+            {
+                retainPreparationCleanupFailure(directoryEnvelope, postflightError, error);
+            }
+            else
+            {
+                postflightFailed = true;
+                postflightError = error;
+            }
         }
         try
         {
@@ -589,25 +667,40 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
         }
         catch (error)
         {
-            postflightError ??= error;
+            if (postflightFailed)
+            {
+                retainPreparationCleanupFailure(directoryEnvelope, postflightError, error);
+            }
+            else
+            {
+                postflightFailed = true;
+                postflightError = error;
+            }
         }
-        if (postflightError)
+        if (postflightFailed)
         {
-            writePrivateJson(executionEnvelopeReceiptFile, {
-                schema: 'fsusblog.test-execution-envelope-rejection.v1',
-                qualificationEligible: false,
-                producerId,
-                schedulerRunId: runId,
-                attemptId: options.key,
-                planDigest: plan.envelopeDigest,
-                reason: postflightError.message,
-                recoveryObligation: postflightError.recoveryObligation ?? null,
-                fragments: {
-                    environment: correctnessEnvironment.fragment,
-                    directories: directoryFragment,
-                    network: networkFragment
-                }
-            });
+            try
+            {
+                writePrivateJson(executionEnvelopeReceiptFile, {
+                    schema: 'fsusblog.test-execution-envelope-rejection.v1',
+                    qualificationEligible: false,
+                    producerId,
+                    schedulerRunId: runId,
+                    attemptId: options.key,
+                    planDigest: plan.envelopeDigest,
+                    reason: preparationFailureText(directoryEnvelope, postflightError),
+                    recoveryObligation: preparationFailureProperty(directoryEnvelope, postflightError, 'recoveryObligation'),
+                    fragments: {
+                        environment: correctnessEnvironment.fragment,
+                        directories: directoryFragment,
+                        network: networkFragment
+                    }
+                });
+            }
+            catch (receiptError)
+            {
+                retainPreparationCleanupFailure(directoryEnvelope, postflightError, receiptError);
+            }
             throw postflightError;
         }
         const actual = buildExecutionEnvelope({
@@ -649,7 +742,7 @@ function createCorrectnessFinalizer({ directoryEnvelope, correctnessEnvironment,
     };
 }
 
-async function main(argv)
+async function main(argv, failureState)
 {
     const { options, command } = parse(argv);
     if (!String(options.key ?? '').trim())
@@ -700,7 +793,6 @@ async function main(argv)
     process.once('SIGINT', onSigint);
     process.once('SIGTERM', onSigterm);
     let directoryEnvelope;
-    let firstFailure = null;
     let physicalStarted = false;
     let terminalEvidence = null;
     try
@@ -713,6 +805,8 @@ async function main(argv)
             sourceFingerprint, ...inputs, retainPrepared: (retained) =>
             {
                 directoryEnvelope = retained;
+                retained.cleanupFailures = failureState.cleanupFailures;
+                retained.metadataFailures = failureState.metadataFailures;
             } });
         const preparedPlan = await prepareCorrectnessPlan({ options, command, cwd, producerId, runId, sourceCommit,
             sourceFingerprint, ...inputs, ...fragments, signal: controller.signal });
@@ -753,7 +847,8 @@ async function main(argv)
             }, async () =>
             {
                 let physicalExecution;
-                let executionError = null;
+                let executionFailed = false;
+                let executionError;
                 try
                 {
                     physicalStarted = true;
@@ -774,27 +869,39 @@ async function main(argv)
                 }
                 catch (error)
                 {
+                    executionFailed = true;
                     executionError = error;
-                    physicalExecution = error?.physicalExecution ?? null;
+                    retainExecutionFailure(failureState.diagnosticOwner, error);
+                    physicalExecution = preparationFailureProperty(failureState, error, 'physicalExecution');
                 }
                 terminalEvidence = physicalExecution;
-                let envelopeError = null;
+                let envelopeFailed = false;
+                let envelopeError;
                 try
                 {
                     await finalizeEnvelope();
                 }
                 catch (error)
                 {
+                    envelopeFailed = true;
                     envelopeError = error;
+                    retainExecutionFailure(failureState.diagnosticOwner, error);
                 }
-                const failure = selectExecutionFailure({
-                    executionError,
-                    finalizationError: envelopeError,
-                    physicalExecution
-                });
-                if (failure)
+                if (envelopeFailed)
                 {
-                    throw failure;
+                    if (executionFailed)
+                    {
+                        retainPreparationCleanupFailure(directoryEnvelope ?? failureState, executionError, envelopeError);
+                        throw executionError;
+                    }
+                    failureState.physicalExecution = physicalExecution;
+                    retainPreparationCompatibility(failureState, envelopeError, 'physicalExecution', physicalExecution);
+                    retainPreparationCompatibility(failureState, envelopeError, 'cause', executionError);
+                    throw envelopeError;
+                }
+                if (executionFailed)
+                {
+                    throw executionError;
                 }
                 return physicalExecution;
             });
@@ -823,12 +930,15 @@ async function main(argv)
         }
         catch (error)
         {
-            firstFailure = error;
+            failureState.failed = true;
+            failureState.reason = error;
+            retainExecutionFailure(failureState.diagnosticOwner, error);
             throw error;
         }
         finally
         {
-            let finalizationError = null;
+            let finalizationFailed = false;
+            let finalizationError;
             if (!finalizer.attempted)
             {
                 try
@@ -837,25 +947,32 @@ async function main(argv)
                 }
                 catch (error)
                 {
+                    finalizationFailed = true;
                     finalizationError = error;
+                    retainExecutionFailure(failureState.diagnosticOwner, error);
                 }
             }
             process.off('SIGINT', onSigint);
             process.off('SIGTERM', onSigterm);
-            if (finalizationError)
+            if (finalizationFailed)
             {
-                // eslint-disable-next-line no-unsafe-finally
-                throw selectExecutionFailure({
-                    executionError: firstFailure,
-                    finalizationError,
-                    physicalExecution: terminalEvidence
-                });
+                if (failureState.failed)
+                {
+                    retainPreparationCleanupFailure(directoryEnvelope ?? failureState, failureState.reason, finalizationError);
+                }
+                else
+                {
+                    // eslint-disable-next-line no-unsafe-finally
+                    throw finalizationError;
+                }
             }
         }
     }
     catch (error)
     {
-        firstFailure = error;
+        failureState.failed = true;
+        failureState.reason = error;
+        retainExecutionFailure(failureState.diagnosticOwner, error);
         throw error;
     }
     finally
@@ -872,12 +989,16 @@ async function main(argv)
             }
             catch (cleanupError)
             {
-                // eslint-disable-next-line no-unsafe-finally
-                throw selectExecutionFailure({
-                    executionError: firstFailure,
-                    finalizationError: cleanupError,
-                    physicalExecution: terminalEvidence
-                });
+                retainExecutionFailure(failureState.diagnosticOwner, cleanupError);
+                if (failureState.failed)
+                {
+                    retainPreparationCleanupFailure(directoryEnvelope ?? failureState, failureState.reason, cleanupError);
+                }
+                else
+                {
+                    // eslint-disable-next-line no-unsafe-finally -- No earlier failure exists here; preserve cleanup failure as the original rejection.
+                    throw cleanupError;
+                }
             }
         }
     }
@@ -885,21 +1006,25 @@ async function main(argv)
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
-    main(process.argv.slice(2)).catch((error) =>
+    const failureState = { failed: false, reason: undefined, cleanupFailures: [], metadataFailures: [],
+        diagnosticOwner: createExecutionFailureOwner() };
+    main(process.argv.slice(2), failureState).catch((error) =>
     {
-        console.error(`[physical-execution] ${formatExecutionFailure(error)}`);
-        if (error?.cleanupError)
+        retainExecutionFailure(failureState.diagnosticOwner, error);
+        const diagnostic = observeExecutionFailure(failureState.diagnosticOwner).diagnostic;
+        console.error(`[physical-execution] ${diagnostic.primary.message}\n[execution-failure-diagnostic] ${JSON.stringify(diagnostic)}`);
+        for (const record of [...failureState.cleanupFailures])
         {
-            console.error(`[physical-execution] cleanup-failure ${error.cleanupError.message ?? String(error.cleanupError)}`);
+            console.error(`[physical-execution] cleanup-failure ${formatExecutionFailure(record.cleanupReason)}`);
         }
-        const recovery = error?.recoveryObligation ?? error?.cleanupError?.recoveryObligation;
-        if (recovery)
+        for (const record of [...failureState.metadataFailures])
         {
-            console.error(`[physical-execution] recovery-obligation ${JSON.stringify(recovery)}`);
+            console.error(`[physical-execution] metadata-failure ${formatExecutionFailure(record.reason)}`);
         }
-        process.exitCode = Number.isInteger(error?.exitCode) && error.exitCode > 0 ? error.exitCode : 1;
+        process.exitCode = 1;
     });
 }
+
 async function resolveCorrectnessInputs({ options, producerId, runId, sourceCommit, sourceFingerprint, parentEnvironment = process.env })
 {
     const temporalContext = createRunnerTemporalContext({
@@ -1102,8 +1227,7 @@ export async function prepareAuthenticatedNestedEnvelope({
             }
             catch (cleanupError)
             {
-                error.cleanupError ??= cleanupError;
-                error.recoveryObligation ??= cleanupError.recoveryObligation;
+                retainPreparationCleanupFailure(fragments.directoryEnvelope, error, cleanupError);
             }
         }
         throw error;

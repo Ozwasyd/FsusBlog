@@ -3,6 +3,7 @@
 import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -1153,6 +1154,246 @@ function validateConfiguration()
     validateSpecializedGovernance();
 }
 
+export function materializeSourceDiffBase({ repositoryRoot, baseCommit, scratch, files })
+{
+    if (!/^[0-9a-f]{40}$/u.test(baseCommit))
+    {
+        throw new Error('source-diff base materialization requires an exact Git commit');
+    }
+    function git(args)
+    {
+        const result = spawnSync('git', args, { cwd: repositoryRoot, maxBuffer: 64 * 1024 * 1024 });
+        if (result.error || result.status !== 0)
+        {
+            throw new Error(`source-diff base Git read failed: ${result.error?.message ?? result.stderr}`);
+        }
+        return result.stdout;
+    }
+    const tree = new Map(git(['ls-tree', '-r', '-l', '-z', baseCommit]).toString('utf8').split('\0')
+        .filter(Boolean).map((record) =>
+        {
+            const separator = record.indexOf('\t');
+            const identity = record.slice(0, separator);
+            const file = record.slice(separator + 1);
+            const [mode, kind, blob, size] = identity.trim().split(/\s+/u);
+            return [file, { mode, kind, blob, size: Number(size) }];
+        }));
+    const read = (file) =>
+    {
+        const identity = tree.get(file);
+        if (!identity || identity.kind !== 'blob' || !['100644', '100755'].includes(identity.mode))
+        {
+            throw new Error(`source-diff base resolver input is not a tracked regular file: ${file}`);
+        }
+        if (!Number.isSafeInteger(identity.size) || identity.size < 0 || identity.size > 64 * 1024 * 1024)
+        {
+            throw new Error(`source-diff base resolver input exceeds task scratch budget: ${file}`);
+        }
+        const bytes = git(['cat-file', 'blob', identity.blob]);
+        if (bytes.length !== identity.size || gitBlobDigest(bytes) !== identity.blob)
+        {
+            throw new Error(`source-diff base blob identity mismatch: ${file}`);
+        }
+        return bytes;
+    };
+    const utf8 = (file, bytes) =>
+    {
+        const source = bytes.toString('utf8');
+        if (!Buffer.from(source).equals(bytes))
+        {
+            throw new Error(`source-diff base resolver input is not exact UTF-8: ${file}`);
+        }
+        return source;
+    };
+    const contained = (file) =>
+    {
+        if (path.posix.isAbsolute(file) || file === '..' || file.startsWith('../') || file.includes('\\'))
+        {
+            throw new Error(`source-diff base resolver path escapes repository: ${file}`);
+        }
+        return file;
+    };
+    const pending = [...files];
+    const inspected = new Set();
+    const records = [];
+    const dependencies = [];
+    const unresolved = [];
+    let totalBytes = 0;
+    const parser = createRequire(path.join(repositoryRoot, 'tools/frontend/style-toolchain/package.json'))('espree');
+    function resolveReference(owner, reference)
+    {
+        const relative = contained(path.posix.normalize(path.posix.join(path.posix.dirname(owner), reference)));
+        for (const file of [relative, ...['.js', '.mjs', '.cjs', '.json', '.node'].map((extension) => relative + extension)])
+        {
+            if (tree.has(file))
+            {
+                return file;
+            }
+        }
+        const packageFile = `${relative}/package.json`;
+        if (tree.has(packageFile))
+        {
+            pending.push(packageFile);
+            const metadata = JSON.parse(utf8(packageFile, read(packageFile)));
+            if (typeof metadata.main === 'string' && metadata.main)
+            {
+                const entry = contained(path.posix.normalize(path.posix.join(relative, metadata.main)));
+                for (const file of [entry, `${entry}.js`, `${entry}.json`, `${entry}/index.js`])
+                {
+                    if (tree.has(file))
+                    {
+                        return file;
+                    }
+                }
+            }
+        }
+        return ['index.js', 'index.mjs', 'index.cjs', 'index.json', 'index.node']
+            .map((file) => `${relative}/${file}`).find((file) => tree.has(file)) ?? null;
+    }
+    while (pending.length > 0)
+    {
+        const file = contained(pending.shift());
+        if (inspected.has(file))
+        {
+            continue;
+        }
+        inspected.add(file);
+        const bytes = read(file);
+        totalBytes += bytes.length;
+        if (totalBytes > 64 * 1024 * 1024 || inspected.size > 4096)
+        {
+            throw new Error('source-diff base resolver materialization exceeds task scratch budget');
+        }
+        const destination = path.join(scratch, file);
+        fs.mkdirSync(path.dirname(destination), { recursive: true });
+        fs.writeFileSync(destination, bytes);
+        records.push({ file, ...tree.get(file), sha256: sha256(bytes), bytes: bytes.length });
+        for (let directory = path.posix.dirname(file);; directory = path.posix.dirname(directory))
+        {
+            const packageFile = directory === '.' ? 'package.json' : `${directory}/package.json`;
+            if (tree.has(packageFile))
+            {
+                pending.push(packageFile);
+                break;
+            }
+            if (directory === '.')
+            {
+                break;
+            }
+        }
+        if (!/\.(?:mjs|cjs|js|jsx)$/u.test(file))
+        {
+            continue;
+        }
+        const ast = parser.parse(utf8(file, bytes), { ecmaVersion: 'latest', sourceType: file.endsWith('.cjs') ? 'script' : 'module',
+            ecmaFeatures: { jsx: true, globalReturn: file.endsWith('.cjs') } });
+        function visit(node)
+        {
+            if (!node || typeof node !== 'object')
+            {
+                return;
+            }
+            const source = ['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration', 'ImportExpression'].includes(node.type)
+                ? node.source
+                : node.type === 'CallExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'require'
+                    ? node.arguments[0] : null;
+            if (source?.type === 'Literal' && typeof source.value === 'string' && /^\.{1,2}(?:\/|$)/u.test(source.value))
+            {
+                const dependency = resolveReference(file, source.value);
+                if (dependency)
+                {
+                    dependencies.push({ owner: file, specifier: source.value, path: dependency });
+                    pending.push(dependency);
+                }
+                else
+                {
+                    unresolved.push({ owner: file, reference: source.value });
+                }
+            }
+            for (const value of Object.values(node))
+            {
+                if (Array.isArray(value))
+                {
+                    value.forEach(visit);
+                }
+                else if (value && typeof value === 'object')
+                {
+                    visit(value);
+                }
+            }
+        }
+        visit(ast);
+    }
+    const identities = new Map(records.map((record) => [record.file, record]));
+    return { baseCommit, files: records.sort((left, right) => left.file.localeCompare(right.file)),
+        dependencies: dependencies.map((dependency) => ({ ...dependency,
+            blob: identities.get(dependency.path).blob, sha256: identities.get(dependency.path).sha256 })),
+        unresolved, totalBytes, purpose: 'static ESLint resolver inputs; no imported module execution', qualification: false };
+}
+
+function sourceDiffImportContext({ file, baseSource, candidateSource, baseInputs, identities })
+{
+    const parser = createRequire(path.join(root, 'tools/frontend/style-toolchain/package.json'))('espree');
+    const imports = (source) => parser.parse(source, { ecmaVersion: 'latest', sourceType: 'module' }).body
+        .filter((node) => node.type === 'ImportDeclaration').map((node) => node.source.value);
+    const prior = baseInputs.dependencies.filter((dependency) => dependency.owner === file);
+    const resolveCandidate = createRequire(path.join(root, file));
+    function witness(specifiers, isBase)
+    {
+        const dependencies = specifiers.map((specifier) =>
+        {
+            if (specifier.startsWith('node:'))
+            {
+                return { owner: file, specifier, kind: 'builtin', nodeVersion: process.version };
+            }
+            if (!/^\.{1,2}(?:\/|$)/u.test(specifier))
+            {
+                throw new Error('external installed modules have no repository source witness');
+            }
+            if (isBase)
+            {
+                const matches = prior.filter((dependency) => dependency.specifier === specifier);
+                if (matches.length !== 1)
+                {
+                    throw new Error('base import has no unique tracked source witness');
+                }
+                const { path: dependencyPath, blob, sha256: digest } = matches[0];
+                return { owner: file, specifier, kind: 'repository', path: dependencyPath, blob, sha256: digest };
+            }
+            const target = resolveCandidate.resolve(specifier);
+            const dependencyPath = toPosix(path.relative(root, target));
+            if (dependencyPath.startsWith('../') || path.isAbsolute(dependencyPath))
+            {
+                throw new Error('candidate import escapes repository');
+            }
+            const identity = command(['git', 'ls-tree', 'HEAD', '--', dependencyPath]).stdout.trim().split(/\s+/u);
+            const stat = fs.lstatSync(target);
+            if (!stat.isFile() || stat.nlink !== 1 || !['100644', '100755'].includes(identity[0])
+                || identity[1] !== 'blob' || fs.realpathSync(path.join(root, dependencyPath)) !== target)
+            {
+                throw new Error('candidate import is not a tracked regular source');
+            }
+            const bytes = fs.readFileSync(target);
+            if (gitBlobDigest(bytes) !== identity[2])
+            {
+                throw new Error('candidate import does not match actual HEAD');
+            }
+            return { owner: file, specifier, kind: 'repository', path: dependencyPath, blob: identity[2], sha256: sha256(bytes) };
+        }).sort((left, right) => left.specifier.localeCompare(right.specifier));
+        return { sourcePath: file, configurationIdentities: [...identities].sort((left, right) => left.file.localeCompare(right.file)),
+            dependencies };
+    }
+    try
+    {
+        return { base: witness(imports(baseSource), true), candidate: witness(imports(candidateSource), false) };
+    }
+    catch
+    {
+        // Missing, changed, ambiguous or external inputs keep import-order diagnostics strict.
+        return null;
+    }
+}
+
 function checkSourceDiff(args, files)
 {
     if (!args.base || args.fix || args.updateBaseline || args.policy)
@@ -1177,7 +1418,7 @@ function checkSourceDiff(args, files)
     const report = { schema: 'fsusblog.frontend-style-source-diff.v1', baseCommit: base,
         candidateCommit: command(['git', 'rev-parse', 'HEAD']).stdout.trim(),
         configurationIdentities: identities, qualification: false, files: [], failures: [] };
-    report.toolVersions = Object.fromEntries(['eslint', 'espree'].map((name) =>
+    report.toolVersions = Object.fromEntries(['eslint', 'espree', 'eslint-scope'].map((name) =>
     {
         const installed = readJson(path.join(root, `tools/frontend/style-toolchain/node_modules/${name}/package.json`), name);
         const locked = readJson(path.join(root, policy.toolchain.lock), policy.toolchain.lock)?.packages?.[`node_modules/${name}`];
@@ -1199,6 +1440,8 @@ function checkSourceDiff(args, files)
         }
         fs.symlinkSync(fs.realpathSync(path.join(root, 'tools/frontend/style-toolchain/node_modules')),
             path.join(scratch, 'tools/frontend/style-toolchain/node_modules'), 'dir');
+        report.baseResolverInputs = materializeSourceDiffBase({ repositoryRoot: root, baseCommit: base, scratch,
+            files: files.filter((file) => command(['git', 'ls-tree', base, '--', file]).stdout.length > 0) });
         for (const file of files)
         {
             const candidateSource = fs.readFileSync(path.join(root, file), 'utf8');
@@ -1236,16 +1479,18 @@ function checkSourceDiff(args, files)
             }
             const rawBase = baseSource === null ? { exitCode: null, reports: [], findings: [] } : lint(scratch);
             const rawCandidate = lint(root);
+            const importContext = baseSource === null ? null : sourceDiffImportContext({ file, baseSource, candidateSource,
+                baseInputs: report.baseResolverInputs, identities });
             const comparison = /\.(?:mjs|cjs|js)$/u.test(file) && toolKinds(file).join(',') === 'eslint'
                 ? compareSourceUnitFindings({ baseSource, candidateSource,
-                    baseFindings: rawBase.findings, candidateFindings: rawCandidate.findings })
+                    baseFindings: rawBase.findings, candidateFindings: rawCandidate.findings, importContext })
                 : { existing: [], unexpected: rawCandidate.findings, failure: null };
             if (!Buffer.from(candidateSource).equals(fs.readFileSync(path.join(root, file))))
             {
                 throw new Error(`source-diff candidate changed during inspection: ${file}`);
             }
             report.files.push({ file, baseSourceSha256: baseSource === null ? null : sha256(baseSource),
-                candidateSourceSha256: sha256(candidateSource), rawBase, rawCandidate, ...comparison });
+                candidateSourceSha256: sha256(candidateSource), rawBase, rawCandidate, importContext, ...comparison });
             if (comparison.failure)
             {
                 fail(`${file}: ${comparison.failure}`);

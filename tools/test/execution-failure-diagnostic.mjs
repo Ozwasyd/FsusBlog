@@ -4,6 +4,7 @@ const schema = 'fsusblog.execution-failure-diagnostic.v1';
 const maximumMessageBytes = 1024;
 const maximumCauses = 4;
 const diagnostics = new WeakMap();
+const failureOwners = new WeakMap();
 const sensitiveNamePattern = /(?:AUTH|COOKIE|CREDENTIAL|KEY|PASSWORD|SECRET|TOKEN)/iu;
 
 function diagnosticControl(character)
@@ -75,7 +76,7 @@ function errorRecord(error)
     });
 }
 
-function diagnostic(error, secondary = null)
+function diagnostic(error, secondary = null, secondaryPresent = secondary !== null && secondary !== undefined)
 {
     const causes = [];
     const seen = new Set([error]);
@@ -89,15 +90,15 @@ function diagnostic(error, secondary = null)
     return Object.freeze({
         schema,
         primary: errorRecord(error),
-        secondary: secondary == null ? null : errorRecord(secondary),
+        secondary: !secondaryPresent ? null : errorRecord(secondary),
         causes: Object.freeze(causes),
         causesTruncated: cause != null
     });
 }
 
-function preserveDiagnostic(value, finalizationError)
+function preserveDiagnostic(value, finalizationError, present = finalizationError !== null && finalizationError !== undefined)
 {
-    if (finalizationError == null)
+    if (!present)
     {
         return value;
     }
@@ -120,6 +121,95 @@ function preserveDiagnostic(value, finalizationError)
         causes: room ? Object.freeze([...value.causes, refusal]) : value.causes,
         causesTruncated: value.causesTruncated || !room
     });
+}
+
+/** Diagnostic compatibility only; never invoke an accessor or decide ownership from it. */
+export function executionFailureDataProperty(value, name)
+{
+    return dataProperty(value, name);
+}
+
+export function retainExecutionFailureCompatibility(reason, name, value)
+{
+    if (reason === null || !['object', 'function'].includes(typeof reason))
+    {
+        return;
+    }
+    try
+    {
+        const descriptor = Object.getOwnPropertyDescriptor(reason, name);
+        if (!descriptor && Object.isExtensible(reason))
+        {
+            Object.defineProperty(reason, name, { value, writable: true, configurable: true, enumerable: true });
+        }
+    }
+    catch
+    {
+        /* Compatibility is never an ownership or failure-presence test. */
+    }
+}
+
+/** Per invocation, ordinary non-wire observations. This does not issue execution authority. */
+export function createExecutionFailureOwner()
+{
+    const owner = Object.freeze({});
+    failureOwners.set(owner, { failed: false, reason: undefined, diagnostic: null,
+        recoveryObligation: null, secondaryFailures: Object.freeze([]) });
+    return owner;
+}
+
+function failureState(owner)
+{
+    const state = failureOwners.get(owner);
+    if (!state)
+    {
+        throw new Error('execution failure owner is foreign');
+    }
+    return state;
+}
+
+export function observeExecutionFailure(owner)
+{
+    return Object.freeze({ ...failureState(owner) });
+}
+
+export function retainExecutionFailure(owner, reason)
+{
+    const state = failureState(owner);
+    if (!state.failed)
+    {
+        state.failed = true;
+        state.reason = reason;
+        state.diagnostic = executionFailureDiagnostic(reason) ?? diagnostic(reason);
+    }
+    else if (state.reason !== reason)
+    {
+        state.diagnostic = preserveDiagnostic(state.diagnostic, reason, true);
+        if (state.secondaryFailures.length < maximumCauses)
+        {
+            state.secondaryFailures = Object.freeze([...state.secondaryFailures, reason]);
+        }
+    }
+    if (state.reason !== null && ['object', 'function'].includes(typeof state.reason))
+    {
+        diagnostics.set(state.reason, state.diagnostic);
+    }
+    return state.reason;
+}
+
+
+export function retainExecutionRecovery(owner, value)
+{
+    failureState(owner).recoveryObligation = Object.freeze({ ...value });
+}
+
+export function throwExecutionFailure(owner)
+{
+    const state = failureState(owner);
+    if (state.failed)
+    {
+        throw state.reason;
+    }
 }
 
 /** Select the earlier execution failure without waiving a postflight refusal. */

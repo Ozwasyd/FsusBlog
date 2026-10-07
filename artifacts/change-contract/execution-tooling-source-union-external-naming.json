@@ -1,0 +1,40 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/check-frontend-style-source-base.test.mjs",
+                "tools/frontend/check-frontend-style.mjs",
+                "tools/frontend/source-unit-style-diff.mjs",
+                "tools/frontend/source-unit-style-diff.test.mjs",
+                "tools/test/execution-envelope-services.mjs",
+                "tools/test/execution-failure-diagnostic.mjs",
+                "tools/test/physical-execution-nested-channel.mjs",
+                "tools/test/run-deterministic-command.mjs"
+            ],
+            "reason": "Preserve existing process-environment and tooling identifiers while integrating reviewed source and finite SOURCE baseline checks; ordinary naming metadata grants no execution or product qualification."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "tools/fact-extractors/test-matrix/extract.mjs"
+            ],
+            "reason": "Preserve the registered extractor interface and external fact identifiers. The original two-line temporary-root expression is source custody and grants no observation or producer qualification."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/change-contract.md"
+            ],
+            "reason": "Preserve the maintained change-contract document and its existing caller-facing CSS-like contract spellings while documenting finite SOURCE comparison requirements; this ordinary metadata is not rule or qualification promotion."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the schema and external keys of the sole canonical execution-authority producer. Bind only actual changed execution and SOURCE-checker inputs; this ordinary metadata grants no runtime qualification."
+        }
+    ]
+}

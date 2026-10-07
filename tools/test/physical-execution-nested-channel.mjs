@@ -270,10 +270,99 @@ async function authorize(descriptor, identity)
     return authorizeProductionBuildNestedProcess(descriptor, identity);
 }
 
-function serializedError(error)
+/** These values are ordinary local diagnostics, never resource or terminal evidence. */
+export function nestedFailureProperty(owner, reason, field)
 {
-    return { name: error.name, message: error.message, code: error.code ?? null, exitCode: error.exitCode ?? null,
-        signal: error.signal ?? null, physicalExecution: error.physicalExecution ?? null };
+    try
+    {
+        return reason?.[field] ?? null;
+    }
+    catch (error)
+    {
+        (owner.metadataFailures ??= []).push({ field, reason: error });
+        return null;
+    }
+}
+
+export function nestedFailureText(owner, reason)
+{
+    const message = nestedFailureProperty(owner, reason, 'message');
+    try
+    {
+        return String(message ?? reason);
+    }
+    catch (error)
+    {
+        (owner.metadataFailures ??= []).push({ field: 'message', reason: error });
+        return 'unprintable nested execution failure';
+    }
+}
+
+export function retainNestedFailure(owner, reason, cleanup = false)
+{
+    if (!owner.failed)
+    {
+        owner.failed = true;
+        owner.failure = reason;
+    }
+    else
+    {
+        (owner.secondaryFailures ??= []).push({ reason, cleanup });
+    }
+    if (cleanup && owner.failure !== null && ['object', 'function'].includes(typeof owner.failure))
+    {
+        try
+        {
+            owner.failure.nestedExecutionCleanupError = reason;
+        }
+        catch (error)
+        {
+            (owner.metadataFailures ??= []).push({ field: 'nestedExecutionCleanupError', reason: error });
+        }
+    }
+}
+
+/** Keep the existing six-field wire diagnostic; remote object identity is not transmitted. */
+export function serializedNestedError(owner, error)
+{
+    const name = nestedFailureProperty(owner, error, 'name');
+    const code = nestedFailureProperty(owner, error, 'code');
+    const exitCode = nestedFailureProperty(owner, error, 'exitCode');
+    const signal = nestedFailureProperty(owner, error, 'signal');
+    let physicalExecution = nestedFailureProperty(owner, error, 'physicalExecution');
+    try
+    {
+        physicalExecution = physicalExecution === null ? null : JSON.parse(JSON.stringify(physicalExecution));
+    }
+    catch (reason)
+    {
+        (owner.metadataFailures ??= []).push({ field: 'physicalExecution', reason });
+        physicalExecution = null;
+    }
+    return { name: typeof name === 'string' ? name : 'Error', message: nestedFailureText(owner, error),
+        code: typeof code === 'string' || typeof code === 'number' ? code : null,
+        exitCode: Number.isInteger(exitCode) ? exitCode : null,
+        signal: typeof signal === 'string' ? signal : null, physicalExecution };
+}
+
+/** Only the original local AbortSignal can preserve a local cancellation object's identity. */
+export function rebuiltNestedError(diagnostic, signal)
+{
+    if (signal?.aborted)
+    {
+        return signal.reason;
+    }
+    if (!exactKeys(diagnostic, ['name', 'message', 'code', 'exitCode', 'signal', 'physicalExecution'])
+        || typeof diagnostic.name !== 'string' || typeof diagnostic.message !== 'string')
+    {
+        return new Error('nested execution error diagnostic is invalid');
+    }
+    const error = new Error(diagnostic.message);
+    for (const field of ['name', 'code', 'exitCode', 'signal', 'physicalExecution'])
+    {
+        error[field] = diagnostic[field];
+    }
+    return error;
 }
 
 /** One original owner executes nested requests; the broker supplies kernel peer credentials only. */
@@ -300,7 +389,7 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
     const records = [];
     let closing = false;
     let descriptor;
-    let failure = null;
+    const failureState = { failed: false, failure: undefined, secondaryFailures: [], metadataFailures: [] };
     let diagnostics = '';
     const removeDirectory = () =>
     {
@@ -354,7 +443,7 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
     };
     const fail = (error) =>
     {
-        failure ??= error;
+        retainNestedFailure(failureState, error);
         rejectReady(error);
         abortRequests(error);
     };
@@ -616,7 +705,7 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
         catch (error)
         {
             attempt.phase = 'finalize-failed';
-            attempt.failure = error;
+            retainNestedFailure(attempt, error, true);
             throw error;
         }
     };
@@ -808,7 +897,7 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
                         {
                             attempt.phase = 'prepare-failed';
                         }
-                        attempt.failure = error;
+                        retainNestedFailure(attempt, error);
                         throw error;
                     }
                     return;
@@ -848,8 +937,8 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
                 }
                 catch (error)
                 {
-                    attempt.physicalExecution = error?.physicalExecution ?? null;
-                    attempt.failure = error;
+                    retainNestedFailure(attempt, error);
+                    attempt.physicalExecution = nestedFailureProperty(attempt, error, 'physicalExecution');
                     throw error;
                 }
                 finally
@@ -862,23 +951,29 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
             }
             catch (error)
             {
-                if (error.physicalExecution)
+                retainNestedFailure(request, error);
+                const physicalExecution = nestedFailureProperty(request, error, 'physicalExecution');
+                if (physicalExecution !== null)
                 {
-                    records.push({ authority: error.physicalExecution.containmentAuthority,
-                        postObservation: error.physicalExecution.postObservation, error: error.message,
-                        logComplete: error.physicalExecution.logComplete && (!request.disconnected || request.outputBytes === 0) });
+                    records.push({ authority: nestedFailureProperty(request, physicalExecution, 'containmentAuthority'),
+                        postObservation: nestedFailureProperty(request, physicalExecution, 'postObservation'),
+                        error: nestedFailureText(request, error),
+                        logComplete: nestedFailureProperty(request, physicalExecution, 'logComplete') === true
+                            && (!request.disconnected || request.outputBytes === 0) });
                 }
                 try
                 {
-                    await reply(message.id, { kind: 'error', error: serializedError(error) });
+                    await reply(message.id, { kind: 'error', error: serializedNestedError(request, error) });
                 }
                 catch (transportError)
                 {
+                    retainNestedFailure(request, transportError);
                     fail(transportError);
                 }
             }
         })();
-        request.promise.finally(() => requests.delete(message.id));
+        // A rejected request must not create an unobserved rejection in an ignored finally promise.
+        request.promise.then(() => requests.delete(message.id), () => requests.delete(message.id));
     };
     const reader = (async () =>
     {
@@ -906,6 +1001,7 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
     }
     catch (error)
     {
+        retainNestedFailure(failureState, error);
         closing = true;
         signal?.removeEventListener('abort', abort);
         child.kill('SIGKILL');
@@ -916,7 +1012,7 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
         }
         catch (cleanupError)
         {
-            error.nestedExecutionCleanupError = cleanupError;
+            retainNestedFailure(failureState, cleanupError, true);
         }
         throw error;
     }
@@ -943,9 +1039,16 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
             }
             catch (error)
             {
-                failure ??= error;
+                retainNestedFailure(failureState, error, true);
                 child.kill('SIGKILL');
-                await awaitExit();
+                try
+                {
+                    await awaitExit();
+                }
+                catch (cleanupError)
+                {
+                    retainNestedFailure(failureState, cleanupError, true);
+                }
             }
             await reader;
             for (const attempt of attempts.values())
@@ -964,23 +1067,35 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
                             || fragment.cleanup.removedOwnedRoot !== true
                             || fs.lstatSync(fragment.ownedRoot, { throwIfNoEntry: false })))
                         {
-                            throw attempt.failure ?? new Error('nested execution preparation retained its original directory obligation');
+                            if (attempt.failed)
+                            {
+                                throw attempt.failure;
+                            }
+                            throw new Error('nested execution preparation retained its original directory obligation');
                         }
                     }
                     else if (attempt.phase !== 'finalized')
                     {
-                        throw attempt.failure ?? new Error('nested execution directory finalization remains unverifiable');
+                        if (attempt.failed)
+                        {
+                            throw attempt.failure;
+                        }
+                        throw new Error('nested execution directory finalization remains unverifiable');
                     }
                 }
                 catch (error)
                 {
-                    failure ??= error;
+                    retainNestedFailure(failureState, error, true);
                 }
             }
             const residual = records.some((record) => record.postObservation !== 'zero-members');
-            if (failure || residual)
+            if (failureState.failed || residual)
             {
-                throw failure ?? new Error('nested execution retained an unverified process tree');
+                if (failureState.failed)
+                {
+                    throw failureState.failure;
+                }
+                throw new Error('nested execution retained an unverified process tree');
             }
             removeDirectory();
             return { schema, channelId: descriptor.id, records, postObservation: 'zero-members',
@@ -994,7 +1109,18 @@ export async function createNestedExecutionChannel({ boundary, controlEnv, polic
 async function requestNestedExecution({ descriptor, phase, signal, policy, stdout, stderr })
 {
     const identity = currentProcessIdentity();
-    await authorize(descriptor, identity);
+    try
+    {
+        await authorize(descriptor, identity);
+    }
+    catch (error)
+    {
+        if (signal?.aborted)
+        {
+            throw signal.reason;
+        }
+        throw error;
+    }
     const nonce = randomUUID();
     const socket = net.createConnection(descriptor.socket.path);
     const cancel = () =>
@@ -1077,7 +1203,7 @@ async function requestNestedExecution({ descriptor, phase, signal, policy, stdou
             }
             else if (message.kind === 'error')
             {
-                throw Object.assign(new Error(message.error.message), message.error);
+                throw rebuiltNestedError(message.error, signal);
             }
             else if (message.kind === 'result')
             {
@@ -1089,6 +1215,16 @@ async function requestNestedExecution({ descriptor, phase, signal, policy, stdou
             }
         }
         throw new Error('nested execution owner disconnected before terminal evidence');
+    }
+    catch (error)
+    {
+        // Cancellation keeps its original local reason only after this request's transport has settled.
+        // The controller independently retains actual attempts/terminals; remote DTOs cannot recreate an object identity.
+        if (signal?.aborted)
+        {
+            throw signal.reason;
+        }
+        throw error;
     }
     finally
     {

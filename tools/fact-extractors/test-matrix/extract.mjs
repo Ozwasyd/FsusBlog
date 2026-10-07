@@ -1454,10 +1454,10 @@ export function extract(context)
   {
     return failResult(['runtime-role observation is partial, conflicting, or unsupported'])
   }
-  const replayDirectory = mkdtempSync(path.join(
-    context.repositoryRoot,
-    '.tmp/runtime-role-replay-'
-  ))
+    const replayDirectory = mkdtempSync(path.join(
+        os.tmpdir(),
+        'runtime-role-replay-'
+    ));
   try
   {
     const replayOutput = path.join(replayDirectory, 'runtime-role-observation.json')
@@ -1594,7 +1594,7 @@ export function extract(context)
   let coverageRegistry
   let executionClassContract
   try
-  {
+    {
     matrixText = readText(context.repositoryRoot, 'tests/matrix.yml', allowed)
     matrixSchema = readJson(context.repositoryRoot, 'tests/matrix.schema.json', allowed)
     coverageRegistry = readJson(context.repositoryRoot, 'tests/coverage-registry.json', allowed)
@@ -1603,7 +1603,7 @@ export function extract(context)
       'config/testing/producer-execution-class-contract.json',
       allowed
     )
-  }
+    }
   catch (error)
   {
     return failResult([error instanceof Error ? error.message : String(error)])
@@ -1681,7 +1681,7 @@ export function extract(context)
     .filter((entry) => entry.allowDiagnostic !== true)
     .flatMap((entry) => entry.producerTierIds ?? []))
   try
-  {
+    {
     facts['release-final.aggregate-contract'] = observeReleaseFinalFacts({
       matrix,
       canonical: {
@@ -1697,7 +1697,7 @@ export function extract(context)
       worktreeFingerprint: context.worktreeFingerprint,
       buildIdentity: context.buildIdentity
     })
-  }
+    }
   catch (error)
   {
     return failResult([error instanceof Error ? error.message : String(error)])
@@ -1795,4 +1795,4 @@ export function extract(context)
 
 export const TEST_MATRIX_REQUIRED_FACT_KEYS = requiredFactKeys
 export const TEST_MATRIX_DECLARED_FACT_SOURCES = declaredFactSources
-export const TEST_MATRIX_CONSUMER_INPUTS = consumerInputs
+export const TEST_MATRIX_CONSUMER_INPUTS = consumerInputs;

@@ -186,3 +186,78 @@ test('SOURCE wiring keeps the tested cancellation predicate before the private p
     assert.match(source, /assertPreparationOpen\(\);\s*tool\.phase = 'running';\s*tool\.started = true;/u);
     // This source wiring assertion is not execution of the actual private controller/admission/cleanup race.
 });
+
+// SOURCE COMPONENT_SIMULATION: the production local diagnostic codec/carrier only; no broker or physical owner runs.
+// The old ten SOURCE controls above are unchanged. Importing this module is not a recorded qualification run.
+const { nestedFailureProperty, retainNestedFailure, serializedNestedError, rebuiltNestedError }
+    = await import(new URL('../../tools/test/physical-execution-nested-channel.mjs', import.meta.url));
+
+for (const [label, reason] of [['frozen', Object.freeze(new Error('specific first'))], ['zero', 0], ['false', false],
+    ['empty', ''], ['null', null], ['undefined', undefined]])
+{
+    test(`production nested local carrier preserves ${label} first reason through cleanup and six-field projection`, () =>
+    {
+        const owner = {};
+        const secondary = new Error('cleanup');
+        retainNestedFailure(owner, reason);
+        retainNestedFailure(owner, secondary, true);
+        assert.equal(owner.failed, true);
+        assert.equal(owner.failure, reason);
+        assert.equal(owner.secondaryFailures[0].reason, secondary);
+        assert.equal(owner.secondaryFailures[0].cleanup, true);
+        const diagnostic = serializedNestedError(owner, reason);
+        assert.deepEqual(Object.keys(diagnostic).sort(), ['name', 'message', 'code', 'exitCode', 'signal', 'physicalExecution'].sort());
+        assert.equal(typeof diagnostic.message, 'string');
+        const signal = { aborted: true, reason }; // Includes undefined: explicit presence, not native abort()'s default DOMException.
+        assert.equal(rebuiltNestedError(diagnostic, signal), reason);
+    });
+}
+
+test('production nested mutable compatibility and live remote diagnostic reconstruction are non-authoritative', () =>
+{
+    const owner = {};
+    const first = new Error('specific first');
+    const secondary = new Error('cleanup');
+    retainNestedFailure(owner, first);
+    retainNestedFailure(owner, secondary, true);
+    assert.equal(first.nestedExecutionCleanupError, secondary);
+    const diagnostic = serializedNestedError(owner, first);
+    const remote = rebuiltNestedError(diagnostic, new AbortController().signal);
+    assert.notEqual(remote, first); // Cross-process arbitrary object identity is not promised by the six-field DTO.
+    assert.equal(remote.message, first.message);
+    assert.equal(remote.physicalExecution, null);
+    assert.equal(rebuiltNestedError({ ...diagnostic, forgedPermission: true }, undefined).message,
+        'nested execution error diagnostic is invalid');
+});
+
+test('nested codec retains getter/cycle failures and cannot report unknown physical evidence as zero', () =>
+{
+    const owner = {};
+    const metadataReason = new Error('hostile physical getter');
+    const first = Object.defineProperty({}, 'physicalExecution', { get()
+    {
+        throw metadataReason;
+    } });
+    retainNestedFailure(owner, first);
+    assert.equal(nestedFailureProperty(owner, first, 'physicalExecution'), null);
+    assert.equal(serializedNestedError(owner, first).physicalExecution, null);
+    assert.equal(owner.failure, first);
+    assert.ok(owner.metadataFailures.some((record) => record.reason === metadataReason));
+    const cycle = {};
+    cycle.self = cycle;
+    assert.equal(serializedNestedError(owner, { physicalExecution: cycle }).physicalExecution, null);
+    assert.equal(owner.failure, first);
+});
+
+test('SOURCE request, attempt, startup cleanup and local cancel paths consume the production safe carrier', () =>
+{
+    const source = fs.readFileSync(new URL('../../tools/test/physical-execution-nested-channel.mjs', import.meta.url), 'utf8');
+    assert.match(source, /retainNestedFailure\(attempt, error\);\s*attempt\.physicalExecution = nestedFailureProperty/u);
+    assert.match(source, /retainNestedFailure\(request, error\);/u);
+    assert.match(source, /error: serializedNestedError\(request, error\)/u);
+    assert.match(source, /retainNestedFailure\(failureState, cleanupError, true\);/u);
+    assert.match(source, /throw rebuiltNestedError\(message\.error, signal\);/u);
+    assert.match(source, /if \(failureState\.failed\)\s*\{\s*throw failureState\.failure;\s*\}/u);
+    assert.doesNotMatch(source, /error\.nestedExecutionCleanupError\s*=|if \(error\.physicalExecution\)|failure \?\?=/u);
+    // These are SOURCE wiring assertions, not live transport/cancel/cleanup or SO_PEERCRED qualification.
+});

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
-import { readFileSync, rmSync } from 'node:fs';
+import fs, { readFileSync, rmSync } from 'node:fs';
 import { mkdtemp, mkdir, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
@@ -1313,4 +1313,52 @@ test('tier replacement requires a live target and valid catalog mappings', () =>
         }, currentRecords),
         /missing coverage id/u
     );
+});
+
+test('Migration retention projects its independent executor without Server coverage or summary invocations', async (t) =>
+{
+    const file = 'tests/migration/FutureProviderTests.cs';
+    for (const category of [null, 'Integration', 'Concurrency', 'Property', 'Performance'])
+    {
+        assert.deepEqual(inferTierIdsForFile(file, '', category), ['backend-unit']);
+    }
+    assert.deepEqual(inferTierIdsForFile('tests/backend/Unit/ExampleTests.cs', '', null),
+        ['backend-unit', 'coverage-backend']);
+    assert.deepEqual(inferTierIdsForFile('tests/backend/Unit/ExampleTests.cs', '', 'Concurrency'),
+        ['backend-concurrency', 'backend-nightly']);
+    assert.deepEqual(inferTierIdsForFile('tests/migration-other/ForeignTests.cs', ''), []);
+
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-migration-retention-'));
+    t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+    fs.mkdirSync(path.join(root, 'tests/migration'), { recursive: true });
+    fs.writeFileSync(path.join(root, file), 'public sealed class FutureProviderTests { }\n');
+    const fixtureFile = 'tests/migration/ProviderFixture.cs';
+    fs.writeFileSync(path.join(root, fixtureFile), 'public sealed class ProviderFixture { }\n');
+    // Controlled adapter input exercises the retention consumer, not Roslyn
+    // extraction or a physical Migration test execution.
+    const id = `xunit:${file}#FutureProviderTests.ProviderCase#case-0000`;
+    const records = await auditTestRecords({
+        root,
+        files: [file, fixtureFile],
+        fileMetadata: new Map([[file, {
+            coverageIds: [],
+            tierIds: ['backend-fast', 'coverage-backend', 'static-governance']
+        }]]),
+        timingHistory: new Map(),
+        failureHistory: new Map(),
+        inventory: { testCases: [{
+            id, displayName: 'FutureProviderTests.ProviderCase', kind: 'fact',
+            identity: 'static', adapter: 'xunit', ownerFile: file,
+            ownerClass: 'FutureProviderTests', ownerSuite: 'FutureProviderTests',
+            methodName: 'ProviderCase', bodySource: '{ Assert.True(true); }',
+            traits: [{ name: 'Category', value: 'Integration' }]
+        }] }
+    });
+    const cases = records.filter((entry) => entry.framework === 'xunit');
+    assert.equal(records.length, 2);
+    assert.equal(cases.length, 1);
+    assert.equal(cases[0].id, id);
+    assert.deepEqual(cases[0].tierIds, ['backend-unit']);
+    assert.equal(cases[0].tierInvocationCount, 1);
+    assert.equal(records.find((entry) => entry.path === fixtureFile).framework, 'xunit-support');
 });
