@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/execution-failure-diagnostic.mjs"
+            ],
+            "reason": "Preserve the registered caller-visible process/environment diagnostic spellings in this original source owner. This ordinary declaration changes no environment contract, exempts no private identifier, waives no source style diagnostic and grants no runtime or policy qualification."
+        }
+    ]
+}
