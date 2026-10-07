@@ -1,0 +1,31 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
+        "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+        "src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs",
+        "tools/dotnet/check-csharp-style.mjs"
+      ],
+      "reason": "Preserve the established external process/platform boundary spellings and current source/caller names while restoring the single original native file owner and exact consumer import declarations; internal variables keep current naming."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "config/development/csharp-import-compatibility.json",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "reason": "Preserve the closed compatibility JSON schema and the actual sole canonical producer execution-authority fields; append only the two reviewed exact production owner declarations and bind only actual generated source inputs."
+    },
+    {
+      "id": "css-like-contract",
+      "paths": [
+        "docs/architecture/repository-layout.md",
+        "docs/development/csharp-style-enforcement.md"
+      ],
+      "reason": "Preserve the current documented external paths, platform/command spellings and source ownership clauses while inserting the two complete original native ownership/availability paragraphs and the exact nine-owner import contract."
+    }
+  ]
+}

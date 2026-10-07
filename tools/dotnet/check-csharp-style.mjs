@@ -22,7 +22,9 @@ const importCompatibilityOwners = [
     'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs',
     'tests/migration/OfflineMigrationBackupAdmissionTests.cs',
     'tests/migration/PgLegacyNonArticlePreparationTests.cs',
-    'tests/migration/PgLegacyNonArticleRecoveryTests.cs'
+    'tests/migration/PgLegacyNonArticleRecoveryTests.cs',
+    'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs',
+    'src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs'
 ];
 
 const sharedThirdPartyGroupOwners = new Set([
@@ -625,7 +627,7 @@ function loadImportCompatibility()
             && typeof entry.reason === 'string' && entry.reason.trim().length >= 20)
         || new Set(document.entries.map((entry) => entry.path)).size !== importCompatibilityOwners.length)
     {
-        throw new Error('import compatibility requires the complete seven exact owners, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
+        throw new Error('import compatibility requires the complete nine exact owners, supported order and a meaningful reason; unknown fields and widened declarations are forbidden');
     }
     return new Set(document.entries.map((entry) => entry.path));
 }

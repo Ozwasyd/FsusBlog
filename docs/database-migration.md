@@ -103,7 +103,7 @@ rollback. Operational plan/apply/verify and backup authority are separate;
 these primitive tests do not certify execution of every historical SQL template.
 
 Server production no longer references `FsusBlog.Migration`. Startup loads the
-#2211 current schema projection through `CurrentSchemaStartupVerifier` and
+`#2211` current schema projection through `CurrentSchemaStartupVerifier` and
 fail-closes on semantic schema mismatch before admission, with zero DDL or backfill. The
 online command host refuses descriptor execution from the Server process; the
 independent migration assembly remains the owner of legacy catalogs.
@@ -569,6 +569,18 @@ Other original-file consumers reuse this guard with their own existing byte limi
 Relative paths, `latest` discovery, empty or oversized files, cancellation and
 changed bytes cannot substitute reconstructed records for original artifacts.
 
+The sole native identity primitive is
+`src/shared/Algorithms/IO/NativeRegularFileGuard.cs`. Migration retains its original
+artifact-reader facade and refusal codes. The Server's bound receipt reader also
+uses this owner before opening a stream, reads the exact observed size plus a
+trailing-byte check, and validates the same handle/path identities before returning
+bytes. Its receipt budget remains exactly 1 MiB; the existing whole-file SHA and
+ordered `CurrentSchemaReceiptCodec` seal validation then run in admission. No
+receipt record or JSON status supplies a file identity token. Held database-FD
+validation never reopens or closes a database leaf. Sharing this file primitive
+does not connect the pending scheduler-admitted post-runtime native collector or
+qualify release/deployment acceptance.
+
 Native current schema, instance/database identity, required target postconditions
 and checkpoint replay predicates are re-observed on one PostgreSQL repeatable-read,
 read-only transaction. The issuer passes its actual native instance/database identity to the current-schema
@@ -944,7 +956,7 @@ checkpoint. During or after a qualified Contract, the marker is authoritative. I
 isolate writes and restore a verified backup or apply a forward repair with a
 compatible retained release.
 
-<a id="字段最终态表"></a>
+## 字段最终态表
 
 ## Final-state field table
 

@@ -35,6 +35,16 @@
             "path": "tests/migration/PgLegacyNonArticleRecoveryTests.cs",
             "order": "system-third-party-fsusblog",
             "reason": "Apply the current coding-conventions System, third-party, then FsusBlog order to this exact restored migration test owner; preserve every namespace and the unchanged global migration comparator."
+        },
+        {
+            "path": "src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply the current coding-conventions System, third-party, then FsusBlog order to this exact restored native receipt source consumer; preserve every namespace and the unchanged global migration comparator."
+        },
+        {
+            "path": "src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs",
+            "order": "system-third-party-fsusblog",
+            "reason": "Apply the current coding-conventions System, third-party, then FsusBlog order to this exact restored native receipt source consumer; preserve every namespace and the unchanged global migration comparator."
         }
     ]
 }

@@ -654,6 +654,45 @@ test(
 );
 
 test(
+    'rejected durable registration terminates the stopped launcher without releasing its workload',
+    {
+        skip: process.platform !== 'linux'
+    },
+    async (t) =>
+    {
+        const root = fixture(t, 'scheduler-rejected-registration');
+        const marker = path.join(root, 'unadmitted-workload');
+        const command = `${JSON.stringify(process.execPath)} -e ${JSON.stringify(`require('node:fs').writeFileSync(${JSON.stringify(marker)}, 'executed')`)}`;
+        let registered = null;
+        await assert.rejects(() => runDag({
+            tiers: [tier('rejected', command)],
+            root,
+            runsRoot: path.join(root, 'runs'),
+            runId: 'rejected',
+            mode: 'fresh',
+            maxParallel: 1,
+            snapshotWorktree: stableSnapshot,
+            registerManagedProcess(identity, _tier, authority)
+            {
+                registered = { identity, authority };
+                throw new Error('independent registration refused');
+            }
+        }), /independent registration refused/u);
+        assert.ok(registered);
+        const deadline = Date.now() + 5000;
+        while (fs.existsSync(`/proc/${registered.identity.pid}`) && Date.now() < deadline)
+        {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        assert.equal(fs.existsSync(`/proc/${registered.identity.pid}`), false, 'the exact task launcher must become terminal');
+        const unit = spawnSync('systemctl', ['--user', 'show', registered.authority.unitName, '--property=ActiveState', '--value'], { encoding: 'utf8' });
+        assert.ok([0, 4].includes(unit.status), unit.stderr);
+        assert.equal(unit.stdout.trim(), 'inactive');
+        assert.equal(fs.existsSync(marker), false, 'registration failure must not resume the actual workload');
+    }
+);
+
+test(
     'durable Linux containment kills a detached new-session writer before scheduler success',
     {
         skip: process.platform !== 'linux'

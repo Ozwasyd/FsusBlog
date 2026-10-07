@@ -953,7 +953,9 @@ for (const owner of [
     'tests/migration/PgLegacyCurrentSchemaPreparationTests.cs',
     'tests/migration/OfflineMigrationBackupAdmissionTests.cs',
     'tests/migration/PgLegacyNonArticlePreparationTests.cs',
-    'tests/migration/PgLegacyNonArticleRecoveryTests.cs'
+    'tests/migration/PgLegacyNonArticleRecoveryTests.cs',
+    'src/backend/Infrastructure/SchemaMigration/SchemaMigrationRunner.cs',
+    'src/migration/OfflineMigrationCurrentSchemaArtifactReader.cs'
 ])
 {
     test(`exact import compatibility accepts and normalizes the restored owner ${owner}`, () =>
@@ -1157,7 +1159,9 @@ test('exact import compatibility keeps shared third-party groups exclusive to th
     withFixture((fixtureRoot) =>
     {
         for (const owner of [
-            ...sourceImportCompatibility.entries.map((entry) => entry.path).slice(0, 5),
+            ...sourceImportCompatibility.entries.map((entry) => entry.path).filter((file) =>
+                file !== 'tests/migration/PgLegacyNonArticlePreparationTests.cs'
+                && file !== 'tests/migration/PgLegacyNonArticleRecoveryTests.cs'),
             'tests/migration/PgLegacyNonArticleOtherTests.cs'
         ])
         {
