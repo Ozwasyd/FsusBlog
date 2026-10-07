@@ -304,7 +304,7 @@
         "pinia-plugin-persistedstate": "^4.7.1",
         "qrcode.vue": "^3.9.0",
         "tailwindcss": "^4.2.4",
-        "vue": "^3.5.33",
+        "vue": "^3.5.43",
         "vue-router": "^4.6.4"
     },
     "devDependencies": {
