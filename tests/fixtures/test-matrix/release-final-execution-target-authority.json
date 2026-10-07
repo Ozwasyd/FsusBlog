@@ -2170,8 +2170,8 @@
         },
         {
             "path": "tests/tools/production-resource-enforcement.test.mjs",
-            "contentDigest": "sha256:4702efea7b724aeeccf0f709f7d79bc7da8db0fc4358aea53e46d3b15144c13a",
-            "indexDigest": "sha256:4702efea7b724aeeccf0f709f7d79bc7da8db0fc4358aea53e46d3b15144c13a"
+            "contentDigest": "sha256:fdfd392cb4af4713d256c3a4eb55c6c9325120db480acec482ddc3a1632dd8ef",
+            "indexDigest": "sha256:fdfd392cb4af4713d256c3a4eb55c6c9325120db480acec482ddc3a1632dd8ef"
         },
         {
             "path": "tests/tools/release-deployment-doc-exactness.test.mjs",

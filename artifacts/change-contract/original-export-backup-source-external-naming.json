@@ -1,0 +1,19 @@
+{
+  "schema": "fsusblog.external-naming-exceptions.v1",
+  "exceptions": [
+    {
+      "id": "environment-variable",
+      "paths": [
+        "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs"
+      ],
+      "reason": "Preserve the original mapper process-environment spelling while restoring the complete original typed catalog enum guards; no wire schema, taxonomy or environment semantic is changed."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "reason": "Preserve the original canonical execution-authority JSON fields in the sole real producer output; no policy, roster or qualification widening."
+    }
+  ]
+}
