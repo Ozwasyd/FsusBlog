@@ -203,6 +203,19 @@ def test_verify_mode_returns_actual_bytes_and_same_semantics():
     assert render_in_process(value) == result
 
 
+def test_verify_mode_never_writes_a_replacement_pdf(monkeypatch):
+    value = request()
+    result = render_in_process(value)
+    value["pdfBase64"] = result["pdfBase64"]
+    from weasyprint.document import Document
+
+    def forbidden_writer(*args, **kwargs):
+        raise AssertionError("Verify mode must not generate PDF bytes")
+
+    monkeypatch.setattr(Document, "write_pdf", forbidden_writer)
+    assert tool.execute(value) == result
+
+
 def test_closed_fields_and_profile():
     value = request()
     value["printProfile"] = "arbitrary-css"
@@ -353,3 +366,127 @@ def test_unembedded_font_resource_is_rejected_even_alongside_valid_fonts():
         pdf.save(stream)
     with pytest.raises(tool.PdfRejected, match="unembedded-font"):
         tool.verify_pdf(stream.getvalue(), value)
+
+
+def image_fragment(mode="RGB", image_format="PNG"):
+    image = io.BytesIO()
+    color = (100, 150, 200, 128) if mode == "RGBA" else (100, 150, 200)
+    Image.new(mode, (20, 10), color).save(image, format=image_format)
+    media_type = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp"}[image_format]
+    return f"<img src='data:image/{media_type};base64,{base64.b64encode(image.getvalue()).decode()}'/>"
+
+
+def test_verifier_rejects_missing_frozen_image():
+    value = request("<p>Hello PDF</p>" + image_fragment())
+    render_in_process(value)
+    missing_image = base64.b64decode(render_in_process(request())["pdfBase64"])
+    with pytest.raises(tool.PdfRejected, match="image-semantics"):
+        tool.verify_pdf(missing_image, value)
+
+
+def remove_annotation(data, index):
+    with pikepdf.Pdf.open(io.BytesIO(data)) as pdf:
+        annotations = pdf.pages[0].Annots
+        pdf.pages[0].Annots = pikepdf.Array(
+            annotation
+            for offset, annotation in enumerate(annotations)
+            if offset != index
+        )
+        output = io.BytesIO()
+        pdf.save(output)
+    return output.getvalue()
+
+
+def test_verifier_rejects_missing_internal_link():
+    value = request(
+        "<p><a href='#note'>Reference</a></p><p id='note'>Note</p>", "ReferenceNote"
+    )
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pytest.raises(tool.PdfRejected, match="link-semantics"):
+        tool.verify_pdf(remove_annotation(data, 0), value)
+
+
+def test_verifier_rejects_one_missing_repeated_external_link():
+    target = "https://example.org/"
+    value = request(
+        f"<p><a href='{target}'>First</a> <a href='{target}'>Second</a></p>",
+        "FirstSecond",
+        [target, target],
+    )
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pytest.raises(tool.PdfRejected, match="link-semantics"):
+        tool.verify_pdf(remove_annotation(data, 1), value)
+
+
+def test_verifier_rejects_changed_code_whitespace():
+    value = request(
+        "<pre><code>    value  =  1\n  next = 2</code></pre>", "value = 1 next = 2"
+    )
+    render_in_process(value)
+    changed = request(
+        "<pre><code>value = 1\nnext = 2</code></pre>", "value = 1 next = 2"
+    )
+    data = base64.b64decode(render_in_process(changed)["pdfBase64"])
+    with pytest.raises(tool.PdfRejected, match="code-whitespace-semantics"):
+        tool.verify_pdf(data, value)
+
+
+@pytest.mark.parametrize(
+    "mode,image_format", [("RGBA", "PNG"), ("RGB", "JPEG"), ("RGBA", "WEBP")]
+)
+def test_frozen_image_pixels_alpha_and_repeated_placements_are_verified(
+    mode, image_format
+):
+    image = image_fragment(mode, image_format)
+    value = request(f"<p>Hello PDF</p>{image}{image}")
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pymupdf.open(stream=data) as pdf:
+        assert len(pdf[0].get_image_info()) == 2
+    assert tool.verify_pdf(data, value)["pageCount"] == 1
+
+
+def test_wrapped_and_repeated_external_links_are_all_verified():
+    target = "https://example.org/"
+    label = "Wrapped link words " * 40
+    value = request(
+        f"<p><a href='{target}'>{label}</a></p><p><a href='{target}'>Again</a></p>",
+        label + "Again",
+        [target],
+    )
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pymupdf.open(stream=data) as pdf:
+        assert len(pdf[0].get_links()) > 2
+    assert tool.verify_pdf(data, value)["pageCount"] == 1
+
+
+@pytest.mark.parametrize(
+    "code", ["  a  b\n    c\td  ", "identifier ffi fi ligatures", "  مرحبا  عالم"]
+)
+def test_code_whitespace_tabs_and_logical_ligatures_are_preserved(code):
+    value = request(f"<pre>{code}</pre>", code)
+    result = render_in_process(value)
+    assert (
+        tool.verify_pdf(base64.b64decode(result["pdfBase64"]), value)["pageCount"] == 1
+    )
+
+
+def test_table_footer_before_body_is_explicitly_rejected():
+    fragment = (
+        "<table><thead><tr><th>A</th><th>B</th></tr></thead>"
+        "<tfoot><tr><td>C</td><td>D</td></tr></tfoot>"
+        "<tbody><tr><td>Row</td><td>Value</td></tr></tbody></table>"
+    )
+    value = request(fragment, "ABCDRowValue")
+    with pytest.raises(tool.PdfRejected, match="unsupported-table-footer-order"):
+        tool.validate_request(value)
+    with pytest.raises(tool.PdfRejected, match="unsupported-table-footer-order"):
+        render_in_process(value)
+
+
+def test_table_footer_after_body_is_preserved():
+    fragment = (
+        "<table><thead><tr><th>A</th><th>B</th></tr></thead>"
+        "<tbody><tr><td>Row</td><td>Value</td></tr></tbody>"
+        "<tfoot><tr><td>C</td><td>D</td></tr></tfoot></table>"
+    )
+    assert render_in_process(request(fragment, "ABRowValueCD"))["pageCount"] == 1

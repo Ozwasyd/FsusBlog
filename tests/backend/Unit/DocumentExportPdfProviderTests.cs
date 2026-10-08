@@ -58,6 +58,20 @@ public sealed class DocumentExportPdfProviderTests
         Assert.Equal("שלום", request.ExpectedText);
     }
 
+    [Theory]
+    [InlineData("fa-IR")]
+    [InlineData("ur-PK")]
+    public void PrintDocument_UsesCultureDirectionForPersianAndUrdu(string locale)
+    {
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(WithoutImages() with
+        {
+            Locale = locale
+        });
+        PdfPrintRenderRequest request = PdfPrintDocumentLayout.Compose(Response(input, "<p>Text</p>"), input, 1024 * 1024);
+
+        Assert.Contains($"lang=\"{locale}\" dir=\"rtl\"", request.HtmlDocument, StringComparison.Ordinal);
+    }
+
     [Fact]
     public void PrintDocument_UsesOnlyVisibleSvgTextAsExpectedPdfText()
     {

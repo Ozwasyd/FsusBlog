@@ -1,3 +1,4 @@
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Xml;
@@ -69,8 +70,7 @@ internal static class PdfPrintDocumentLayout
         string style = Encoding.UTF8.GetString(readingStyle)
             .Replace("color-scheme:light;", string.Empty, StringComparison.Ordinal)
             .Replace("@media(max-width:480px){main{padding:1.5rem 1rem}}", string.Empty, StringComparison.Ordinal);
-        string direction = input.Locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase)
-            || input.Locale.StartsWith("he", StringComparison.OrdinalIgnoreCase) ? "rtl" : "ltr";
+        string direction = CultureInfo.GetCultureInfo(input.Locale).TextInfo.IsRightToLeft ? "rtl" : "ltr";
         using var output = new DocumentExportBoundedMemoryStream(maximumBytes, "PDF print document exceeds its budget.", "output-budget");
         WriteUtf8(output, $"<!doctype html>\n<html lang=\"{WebUtility.HtmlEncode(input.Locale)}\" dir=\"{direction}\"><head><meta charset=\"utf-8\" /><title>{WebUtility.HtmlEncode(response.Title)}</title><style>");
         WriteUtf8(output, style);

@@ -17,16 +17,17 @@ import sys
 import tempfile
 import unicodedata
 from collections import Counter
-from contextlib import closing
+from contextlib import closing, contextmanager
 from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 
-tool_version = "weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v1"
+tool_version = "weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v2"
 maximum_input = 32 * 1024 * 1024
 maximum_output = 16 * 1024 * 1024
 maximum_resource = 8 * 1024 * 1024
 maximum_pages = 512
+maximum_image_pixels = 16 * 1024 * 1024
 request_fields = {
     "htmlDocument",
     "fontAssets",
@@ -82,9 +83,22 @@ class ClosureParser(HTMLParser):
         self.table_furniture = {"thead": [], "tfoot": []}
         self.current_furniture = None
         self.furniture_text = []
+        self.external_links = []
+        self.table_order = []
 
     def handle_starttag(self, tag, attributes):
         attributes_map = dict(attributes)
+        if tag == "table":
+            self.table_order.append(False)
+        if self.table_order:
+            if tag == "tfoot":
+                self.table_order[-1] = True
+            elif self.table_order[-1] and (
+                tag == "tbody" or tag == "tr" and self.current_furniture != "tfoot"
+            ):
+                raise PdfRejected("unsupported-table-footer-order")
+        if tag == "a" and safe_link(attributes_map.get("href")):
+            self.external_links.append(attributes_map["href"])
         if tag in {"ul", "ol"}:
             if "reversed" in attributes_map or attributes_map.get("type", "1") != "1":
                 raise PdfRejected("unsupported-list-numbering")
@@ -113,6 +127,8 @@ class ClosureParser(HTMLParser):
             self.furniture_text.append(data)
 
     def handle_endtag(self, tag):
+        if tag == "table" and self.table_order:
+            self.table_order.pop()
         if tag in {"ul", "ol"} and self.lists:
             self.lists.pop()
         if tag == self.current_furniture:
@@ -256,7 +272,8 @@ def prepare_fonts(request, root):
             raise PdfRejected("font-coverage")
 
 
-def render_pdf(request):
+@contextmanager
+def print_layout(request):
     # The enclosing sandbox owns TMPDIR and enforces CPU/RSS/disk/wall/cancel.
     with tempfile.TemporaryDirectory(prefix="pdf-fonts-") as directory:
         root = Path(directory)
@@ -302,18 +319,211 @@ def render_pdf(request):
                             or box.position_y + box.height > page.height + 1
                         ):
                             raise PdfRejected("layout-overflow")
-            data = document.write_pdf()
+            if failures:
+                raise PdfRejected("print-layout-or-resource-warning")
+            yield document
             if failures:
                 raise PdfRejected("print-layout-or-resource-warning")
         finally:
             logger.handlers = previous_handlers
             logger.propagate = previous_propagation
-        if len(data) > maximum_output:
-            raise PdfRejected("output-budget")
-        return data
 
 
-def verify_pdf(data, request):
+def image_signature(image):
+    from PIL import ImageChops
+
+    if image.width * image.height > maximum_image_pixels:
+        raise PdfRejected("image-pixel-budget")
+    rgba = image.convert("RGBA")
+    red, green, blue, alpha = rgba.split()
+    # Hidden RGB under fully transparent pixels is not visible semantics.
+    color = b"".join(
+        ImageChops.multiply(channel, alpha).tobytes() for channel in (red, green, blue)
+    )
+    return (image.width, image.height, digest(color + alpha.tobytes()))
+
+
+def layout_witnesses(document, request):
+    from PIL import Image
+
+    parser = ClosureParser()
+    parser.feed(request["htmlDocument"])
+    # The wire field admits external targets. Occurrences, wrapped rectangles
+    # and internal destinations are checked against every actual layout link.
+    if set(parser.external_links) != set(request["expectedLinks"]):
+        raise PdfRejected("link-semantics")
+    anchors = {}
+    for index, page in enumerate(document.pages):
+        for name, rectangle in page.anchors.items():
+            anchors[name] = (index, rectangle[0] * 0.75, rectangle[1] * 0.75)
+    pages = []
+
+    def boxes(box, in_pre=False):
+        in_pre = in_pre or box.element_tag == "pre"
+        yield box, in_pre
+        for child in box.all_children():
+            yield from boxes(child, in_pre)
+
+    for page in document.pages:
+        links = []
+        for kind, target, rectangle, box in page.links:
+            if kind not in {"external", "internal"}:
+                raise PdfRejected("unsupported-print-link")
+            if kind == "internal" and target not in anchors:
+                raise PdfRejected("unresolved-print-link")
+            links.append(
+                {
+                    "kind": kind,
+                    "target": target,
+                    "rectangle": tuple(value * 0.75 for value in rectangle),
+                    "destination": anchors.get(target) if kind == "internal" else None,
+                }
+            )
+        images = []
+        code_lines = []
+        for box, in_pre in boxes(page._page_box):
+            if in_pre and getattr(box, "text", None):
+                code_lines.append(
+                    {
+                        "text": unicodedata.normalize(
+                            "NFC", box.text.replace("\t", " ")
+                        ),
+                        "x": box.position_x * 0.75,
+                        "baseline": (box.position_y + box.baseline) * 0.75,
+                        "width": box.width * 0.75,
+                    }
+                )
+            if (
+                type(box).__name__.endswith("ReplacedBox")
+                and type(box.replacement).__name__ == "RasterImage"
+            ):
+                with Image.open(io.BytesIO(box.replacement.image_data.data)) as image:
+                    signature = image_signature(image)
+                x, y = box.content_box_x() * 0.75, box.content_box_y() * 0.75
+                images.append(
+                    {
+                        "rectangle": (
+                            x,
+                            y,
+                            x + box.width * 0.75,
+                            y + box.height * 0.75,
+                        ),
+                        "signature": signature,
+                    }
+                )
+        pages.append({"links": links, "images": images, "codeLines": code_lines})
+    return pages
+
+
+def same_rectangle(left, right):
+    return len(left) == len(right) == 4 and all(
+        abs(a - b) <= 0.25 for a, b in zip(left, right)
+    )
+
+
+def validate_layout_links(page, pdf, expected):
+    import pymupdf
+
+    remaining = expected[:]
+    names = pdf.resolve_names()
+    for actual in page.get_links():
+        match = None
+        for index, link in enumerate(remaining):
+            if not same_rectangle(actual["from"], link["rectangle"]):
+                continue
+            if link["kind"] == "external":
+                if actual.get("uri") != link["target"]:
+                    continue
+            else:
+                target_page, x, y = link["destination"]
+                if actual.get("page") != target_page:
+                    continue
+                if actual["kind"] == pymupdf.LINK_NAMED:
+                    if actual.get("nameddest") != link["target"]:
+                        continue
+                    named = names.get(link["target"])
+                    if named is None or named.get("page") != target_page:
+                        continue
+                    target = named.get("to")
+                    y = pdf[target_page].rect.height - y
+                elif actual["kind"] == pymupdf.LINK_GOTO:
+                    target = actual.get("to")
+                else:
+                    continue
+                if (
+                    target is None
+                    or abs(target[0] - x) > 0.25
+                    or abs(target[1] - y) > 0.25
+                ):
+                    continue
+            match = index
+            break
+        if match is None:
+            raise PdfRejected("link-semantics")
+        remaining.pop(match)
+    if remaining:
+        raise PdfRejected("link-semantics")
+
+
+def validate_layout_images(page, signatures, expected):
+    remaining = expected[:]
+    for image in page.get_image_info(xrefs=True):
+        match = next(
+            (
+                index
+                for index, reference in enumerate(remaining)
+                if same_rectangle(image["bbox"], reference["rectangle"])
+                and signatures.get(image["xref"]) == reference["signature"]
+            ),
+            None,
+        )
+        if match is None:
+            raise PdfRejected("image-semantics")
+        remaining.pop(match)
+    if remaining:
+        raise PdfRejected("image-semantics")
+
+
+def validate_code_lines(page, expected):
+    characters = [
+        character
+        for block in page.get_text("rawdict", sort=True)["blocks"]
+        for line in block.get("lines", [])
+        for span in line["spans"]
+        for character in span["chars"]
+    ]
+    for line in expected:
+        # Keep the parser's logical glyph order: a decomposed ligature can put
+        # its zero-width second character at the next glyph's x coordinate.
+        actual = [
+            character
+            for character in characters
+            if abs(character["origin"][1] - line["baseline"]) <= 0.25
+            and line["x"] - 0.1 <= character["origin"][0]
+            and (
+                character["origin"][0] < line["x"] + line["width"] - 0.01
+                or abs(character["bbox"][2] - character["bbox"][0]) <= 0.01
+                and character["origin"][0] <= line["x"] + line["width"] + 0.25
+            )
+        ]
+        text = unicodedata.normalize(
+            "NFC", "".join(character["c"] for character in actual)
+        )
+        if text != line["text"]:
+            raise PdfRejected("code-whitespace-semantics")
+        if actual and (
+            abs(min(character["origin"][0] for character in actual) - line["x"]) > 0.25
+            or abs(
+                max(character["bbox"][2] for character in actual)
+                - line["x"]
+                - line["width"]
+            )
+            > 0.5
+        ):
+            raise PdfRejected("code-whitespace-semantics")
+
+
+def verify_pdf(data, request, witnesses=None):
     """Independent qpdf structure and MuPDF semantics/visible-page validation.
 
     Normalization v1 ignores object numbers, timestamps, document IDs and font
@@ -324,6 +534,7 @@ def verify_pdf(data, request):
     import pymupdf
     import pypdfium2
 
+    validate_request(request)
     if (
         not data.startswith(b"%PDF-")
         or not data.rstrip().endswith(b"%%EOF")
@@ -331,6 +542,7 @@ def verify_pdf(data, request):
     ):
         raise PdfRejected("pdf-header-or-size")
     font_count = 0
+    image_signatures = {}
     with pikepdf.Pdf.open(io.BytesIO(data), attempt_recovery=False) as pdf:
         if (
             pdf.is_encrypted
@@ -357,6 +569,16 @@ def verify_pdf(data, request):
                     raise PdfRejected("pdf-active-content")
                 if isinstance(obj, pikepdf.Stream) and "/F" in obj:
                     raise PdfRejected("pdf-external-stream")
+                if obj.get("/Subtype") == pikepdf.Name("/Image"):
+                    if int(obj["/Width"]) * int(obj["/Height"]) > maximum_image_pixels:
+                        raise PdfRejected("image-pixel-budget")
+                    image = pikepdf.PdfImage(obj).as_pil_image().convert("RGBA")
+                    if "/SMask" in obj:
+                        alpha = (
+                            pikepdf.PdfImage(obj["/SMask"]).as_pil_image().convert("L")
+                        )
+                        image.putalpha(alpha)
+                    image_signatures[obj.objgen[0]] = image_signature(image)
                 if "/S" in obj and str(obj["/S"]) not in {
                     "/URI",
                     "/GoTo",
@@ -379,19 +601,23 @@ def verify_pdf(data, request):
                     font_count += 1
         if font_count == 0:
             raise PdfRejected("screenshot-or-missing-fonts")
+    if witnesses is None:
+        with print_layout(request) as document:
+            witnesses = layout_witnesses(document, request)
     projection = {
         "policy": "normalized-pdf-visible-v1",
         "inputDigest": request["inputDigest"],
         "pages": [],
     }
     extracted = []
-    links_seen = set()
     with (
         pymupdf.open(stream=data, filetype="pdf") as pdf,
         closing(pypdfium2.PdfDocument(data)) as visible_pdf,
     ):
         if len(visible_pdf) != len(pdf):
             raise PdfRejected("independent-page-count")
+        if len(pdf) != len(witnesses):
+            raise PdfRejected("print-page-semantics")
         for page in pdf:
             if (
                 abs(page.rect.width - 595.2756) > 1
@@ -413,6 +639,10 @@ def verify_pdf(data, request):
             if "\ufffd" in text or "\x00" in text:
                 raise PdfRejected("text-tofu")
             extracted.append(text)
+            reference = witnesses[page.number]
+            validate_layout_images(page, image_signatures, reference["images"])
+            validate_layout_links(page, pdf, reference["links"])
+            validate_code_lines(page, reference["codeLines"])
             for span in page.get_texttrace():
                 if span["type"] == 3 or span["opacity"] == 0:
                     raise PdfRejected("invisible-text")
@@ -425,7 +655,6 @@ def verify_pdf(data, request):
                 if target is not None:
                     if not safe_link(target):
                         raise PdfRejected("unsafe-pdf-link")
-                    links_seen.add(target)
                 elif link["kind"] not in {
                     pymupdf.LINK_GOTO,
                     pymupdf.LINK_NAMED,
@@ -457,8 +686,6 @@ def verify_pdf(data, request):
                 }
             )
         validate_text_order(extracted, request)
-        if links_seen != set(request["expectedLinks"]):
-            raise PdfRejected("link-semantics")
         semantic_digest = digest(
             json.dumps(
                 projection, sort_keys=True, ensure_ascii=False, separators=(",", ":")
@@ -476,12 +703,18 @@ def verify_pdf(data, request):
 def execute(request):
     validate_request(request)
     check_versions()
-    data = (
-        render_pdf(request)
-        if request["pdfBase64"] is None
-        else decode_bytes(request["pdfBase64"], maximum_output)
-    )
-    return verify_pdf(data, request)
+    with print_layout(request) as document:
+        witnesses = layout_witnesses(document, request)
+        # Verify mode lays out the same closed HTML for semantic expectations,
+        # then parses the original bytes. It never writes a replacement PDF.
+        data = (
+            document.write_pdf()
+            if request["pdfBase64"] is None
+            else decode_bytes(request["pdfBase64"], maximum_output)
+        )
+        if len(data) > maximum_output:
+            raise PdfRejected("output-budget")
+    return verify_pdf(data, request, witnesses)
 
 
 def closed_object(pairs):

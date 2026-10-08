@@ -16,6 +16,8 @@ heading keep-with-next, three-line widows/orphans, repeating table headings,
 wrapped code, bounded figures, and explicit page-break classes. Paper uses the
 existing light reading palette for both registered input themes. User CSS, print
 arguments, scripts and remote resource reads are not accepted.
+The document direction uses the admitted locale's .NET culture data, including
+Persian `fa-IR` and Urdu `ur-PK`, instead of an Arabic/Hebrew prefix list.
 
 `PdfDocumentExportProvider.ExportAsync` returns `PdfDocumentExportResult`, containing
 the shared provider result plus actual canonical-renderer evidence and observed
@@ -29,6 +31,14 @@ and returns `PdfPrintRenderResponse`. A null `pdfBase64` renders and verifies;
 a non-null value verifies those exact PDF bytes. This is a private format-tool
 adapter, not a second job or receipt protocol. Stdout contains only a bounded
 result; errors contain stable codes without article text, URLs or private paths.
+Both operations lay out the same closed HTML with the frozen fonts. This produces
+expected page geometry, every link rectangle and internal destination, each
+raster-image placement and decoded pixel/alpha signature, and preserved code-line
+whitespace. The independent PDF parsers must match those expectations, including
+repeated targets and images. Wrapped links retain all their annotation rectangles.
+Verify mode never calls the PDF writer or replaces the supplied PDF. Code checks
+preserve logical ligature order; tabs are checked through their rendered space
+and line geometry rather than discarded with other whitespace.
 
 The renderer uses WeasyPrint 66.0, pikepdf 9.11.0, PyMuPDF 1.26.4, pypdfium2
 4.30.0 and fontTools 4.59.2. `Tools/dependencies.lock.json` pins the complete Python dependency set used in the
@@ -62,7 +72,7 @@ rewritten. Page images here are independent verification evidence; the PDF itsel
 contains real font/text and link objects. A screenshot-only PDF is rejected.
 
 Budgets are closed: 32 MiB tool message input, 16 MiB PDF output, 8 MiB per inline
-resource, 32 fonts and 512 pages. The shared sandbox must additionally enforce its
+resource, 16,777,216 decoded pixels per raster image, 32 fonts and 512 pages. The shared sandbox must additionally enforce its
 existing CPU, wall, RSS, disk, process and cancellation budgets. The effective
 limit is the stricter shared/tool bound; no sandbox budget is widened here.
 
@@ -84,7 +94,7 @@ activate PDF. Exact integration requirements:
 2. Register the sole PDF provider owner
    `FsusBlog.Server.Services.DocumentExport.PdfDocumentExportProvider`, tool ID
    `document-export-pdf-toolchain`, version
-   `weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v1`, arguments exactly `["render"]`,
+   `weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v2`, arguments exactly `["render"]`,
    and proposed normalization `normalized-pdf-visible-v1`. The normalization
    catalog must explicitly list object IDs/timestamps/document IDs/font subset
    labels as excluded metadata. The registry constructs the internal provider
@@ -98,6 +108,11 @@ activate PDF. Exact integration requirements:
    pagination cannot meet the verifier contract fail explicitly. Repeated table
    headers and ordinary list markers are validated as generated furniture; marker
    values/counts are preserved. Nondecimal/reversed ordered lists fail explicitly.
+   A canonical `tfoot` followed by `tbody` or more body rows is outside the PDF
+   ordering contract: it fails before rendering with
+   `unsupported-table-footer-order`. Put the footer after all body rows; that
+   order is supported and verified. This format restriction does not change the
+   shared sanitizer's accepted input vocabulary.
    Unusually complex SVG/math/footnote ordering still needs complete canonical
    renderer fixtures; no silent fallback is implemented.
 5. The shared job adapter consumes #2434's `IDocumentExportJobProvider`; no extra
