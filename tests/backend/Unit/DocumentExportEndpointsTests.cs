@@ -1,5 +1,7 @@
 using System.Collections.Immutable;
 using System.Security.Claims;
+using System.Text;
+using System.Text.Json.Nodes;
 
 using FsusBlog.Core.Algorithms;
 using FsusBlog.Core.Common;
@@ -59,12 +61,108 @@ public sealed class DocumentExportEndpointsTests
         IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
         IDocumentExportEndpointBinding binding = Binding();
         binding.ResolveActorAsync(context, Arg.Any<CancellationToken>())
-            .Returns(new DocumentExportJobActor(99, 7, "admin-session"));
+            .Returns(new DocumentExportJobActor(99, Actor().SiteScope, "admin-session"));
 
         IResult result = await BinaryEndpoints.HandleDocumentExportStatusAsync(
             context, jobs, binding, new AedsEncoder(), default);
         await AssertDeniedAsync(context, result);
 
+        Assert.Empty(jobs.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("7")]
+    [InlineData(" https://export.example/site")]
+    [InlineData("https://export.example/site/")]
+    [InlineData("https://export.example/Site")]
+    [InlineData("https://other.example/site")]
+    public async Task NonCanonicalOrOtherConfiguredScope_PerformsZeroJobOrFreezeWrites(string scope)
+    {
+        HttpContext context = AuthenticatedContext();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IDocumentExportEndpointBinding binding = Binding();
+        binding.ResolveActorAsync(context, Arg.Any<CancellationToken>()).Returns(Actor() with
+        {
+            SiteScope = scope
+        });
+        IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(
+            context, jobs, binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
+        Assert.Empty(jobs.ReceivedCalls());
+        await binding.DidNotReceive().FreezeRequestAsync(Arg.Any<HttpContext>(),
+            Arg.Any<DocumentExportJobActor>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("input")]
+    [InlineData("task")]
+    [InlineData("other-site")]
+    public async Task LegacySchemaOrOtherFrozenScope_IsRejectedBeforeJobAdmission(string mutation)
+    {
+        HttpContext context = AuthenticatedContext();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IDocumentExportEndpointBinding binding = Binding();
+        DocumentExportFrozenInput input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput() with
+        {
+            UserId = Actor().UserId,
+            SiteScope = mutation == "other-site" ? "https://other.example/site" : Actor().SiteScope,
+            Schema = mutation == "input" ? "fsusblog.document-export-frozen-input.v2" : DocumentExportContractCatalog.InputSchema
+        });
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            Schema = mutation == "task" ? "fsusblog.document-export-task.v2" : DocumentExportContractCatalog.TaskSchema
+        });
+        binding.FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>()).Returns((task, input));
+        IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(
+            context, jobs, binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
+        Assert.Empty(jobs.ReceivedCalls());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task CanonicalDecoderRefusesNumericSiteMemberWithoutAnyJobWrite(bool keepScope)
+    {
+        HttpContext context = AuthenticatedContext();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IDocumentExportEndpointBinding binding = Binding();
+        DocumentExportFrozenInput canonical = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput() with
+        {
+            UserId = Actor().UserId,
+            SiteScope = Actor().SiteScope
+        });
+        JsonObject value = JsonNode.Parse(DocumentExportDigest.Serialize(canonical))!.AsObject();
+        value["siteId"] = 7;
+        if (!keepScope)
+        {
+            value.Remove("siteScope");
+        }
+        // Exercise the sole contract codec in the controlled frozen-input port;
+        // this does not add a JSON HTTP route or a second parser.
+        binding.FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>()).Returns(_ =>
+        {
+            DocumentExportFrozenInput input = DocumentExportDigest.Deserialize<DocumentExportFrozenInput>(
+                Encoding.UTF8.GetBytes(value.ToJsonString()));
+            return (DocumentExportContractTests.ValidTask(input), input);
+        });
+        IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(
+            context, jobs, binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
+        Assert.Empty(jobs.ReceivedCalls());
+        await binding.Received(1).FreezeRequestAsync(context, Actor(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task MissingConfiguredAuthority_PerformsZeroJobWrites()
+    {
+        HttpContext context = AuthenticatedContext();
+        context.RequestServices = new ServiceCollection().BuildServiceProvider();
+        IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
+        IResult result = await BinaryEndpoints.HandleDocumentExportStatusAsync(
+            context, jobs, Binding(), new AedsEncoder(), default);
+        await AssertDeniedAsync(context, result);
         Assert.Empty(jobs.ReceivedCalls());
     }
 
@@ -103,7 +201,6 @@ public sealed class DocumentExportEndpointsTests
     public async Task Download_ConsumesCanonicalGrantWithoutExposingTokenAndPreservesMime()
     {
         HttpContext context = AuthenticatedContext();
-        context.RequestServices = new ServiceCollection().AddLogging().BuildServiceProvider();
         IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
         jobs.GrantAsync(Actor(), "task", Arg.Any<CancellationToken>())
             .Returns(new DocumentExportDownloadGrant("private-grant-fixture", DateTimeOffset.UtcNow.AddMinutes(1)));
@@ -346,7 +443,7 @@ public sealed class DocumentExportEndpointsTests
             Input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput("# private-endpoint-source") with
             {
                 UserId = Actor().UserId,
-                SiteId = Actor().SiteId,
+                SiteScope = Actor().SiteScope,
                 RendererId = provider.RendererId,
                 RendererVersion = provider.RendererVersion
             });
@@ -389,7 +486,7 @@ public sealed class DocumentExportEndpointsTests
         }
     }
 
-    private static DocumentExportJobActor Actor() => new(42, 7, "admin-session");
+    private static DocumentExportJobActor Actor() => new(42, "https://export.example/site", "admin-session");
 
     private static IDocumentExportEndpointBinding Binding()
     {
@@ -402,6 +499,10 @@ public sealed class DocumentExportEndpointsTests
     private static HttpContext AuthenticatedContext()
         => new DefaultHttpContext
         {
+            RequestServices = new ServiceCollection().AddLogging()
+                .AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(
+                    new Dictionary<string, string?> { ["SITE_BASEURL"] = $" {Actor().SiteScope}/ " }).Build())
+                .BuildServiceProvider(),
             User = new ClaimsPrincipal(new ClaimsIdentity(
             [
                 new Claim("identity_kind", "admin_principal"),
