@@ -4,6 +4,7 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Services/ArticleVault/ArticleVaultAcceptedSourceAdapter.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultMaterializationPreflightVerifier.cs",
                 "src/backend/Services/ArticleVault/PostgresArticleVaultOperationCheckpointStore.cs",
                 "src/migration/Definitions/ArticleVaultOperationMigrationDefinitions.cs",
