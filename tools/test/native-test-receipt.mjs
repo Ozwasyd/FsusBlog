@@ -78,3 +78,37 @@ export function validateNativeReceipt(receipt, profile, target, { expectedCommit
     }
     return errors;
 }
+
+
+import fs from 'node:fs';
+import path from 'node:path';
+
+import { governanceContentDigest } from './evidence-location-contract.mjs';
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1, successStatuses: Object.freeze(['passed']),
+    async describe(receipt)
+    {
+        const { describeOwnerReceipt } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        return { ...describeOwnerReceipt(receipt, {
+            identity: { namespace: 'namespace', runId: 'runId', sourceCommit: 'source.commit', worktreeFingerprint: 'source.worktreeFingerprint' },
+            status: 'outcome', contentDigest: 'contentDigest'
+        }), contentDigest: governanceContentDigest(receipt) };
+    },
+    async verify({ receipt, context, repositoryRoot })
+    {
+        const { verifiedOwnerResult, requireOwnerChecks } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const catalog = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/testing/native-test-assets.json'), 'utf8'));
+        const profiles = catalog.profiles.filter((profile) => profile.id === 'fuzz-sanitizer');
+        const targets = catalog.targets.filter((target) => target.profile === 'fuzz-sanitizer');
+        if (profiles.length !== 1 || targets.length !== 1)
+        {
+            throw new Error('native fuzz-sanitizer owner must be exact-one');
+        }
+        requireOwnerChecks(validateNativeReceipt(receipt, profiles[0], targets[0], { expectedCommit: context.sourceCommit }));
+        if (receipt.outcome !== 'passed')
+        {
+            throw new Error('native receipt did not pass');
+        }
+        return verifiedOwnerResult({ schema: receipt.schema, testId: receipt.testId, source: receipt.source });
+    }
+});

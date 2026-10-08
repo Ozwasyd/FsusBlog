@@ -1,0 +1,68 @@
+{
+    "schemaVersion": 1,
+    "owner": "asset-security-static-contract",
+    "storageOwner": "FsusBlog.Server.Infrastructure.Storage.ReleaseStoragePaths",
+    "roots": [
+        { "property": "PublicAssetRoot", "classification": "public", "proofId": "ReleaseStorageTopologyTests.Layout_AcceptsDisjointRoots" },
+        { "property": "PrivateAssetRoot", "classification": "private", "proofId": "ReleaseStorageTopologyTests.Layout_AcceptsDisjointRoots" },
+        { "property": "UploadSessionRoot", "classification": "session", "proofId": "ReleaseStorageTopologyTests.Layout_AcceptsDisjointRoots" },
+        { "property": "UploadCommitRoot", "classification": "commit", "proofId": "ReleaseStorageTopologyTests.Layout_AcceptsDisjointRoots" }
+    ],
+    "assetServiceSources": [
+        "src/backend/Services/FileService.cs",
+        "src/backend/Services/LocalContentAssetStore.cs",
+        "src/backend/Services/PrivateAssets",
+        "src/backend/Services/Articles/ArticleAssetReferenceStore.cs",
+        "src/backend/Services/Articles/ArticleAssetReferenceWriteBoundary.cs",
+        "src/backend/Services/Authoring/AuthoringAssetLibraryService.cs",
+        "src/backend/Services/Authoring/ContentAssetLibraryProjectionReader.cs"
+    ],
+    "staticMappings": [
+        { "id": "public-illustration", "rootClassification": "public", "source": "src/backend/Infrastructure/Storage/PublicAssetStaticFileExtensions.cs", "member": "UseFsusPublicAssets", "api": "UseStaticFiles", "count": 1, "owner": "PublicAssetStaticFileExtensions", "proofId": "PublicAssetDeliveryTests.RealKestrel_GetHeadAndRefererUseSameImmutableFileWithoutFallback" },
+        { "id": "release-assets", "rootClassification": "immutable", "source": "src/backend/Infrastructure/Storage/ReleaseAssetStaticFileExtensions.cs", "member": "UseFsusReleaseAssets", "api": "UseStaticFiles", "count": 1, "owner": "ReleaseAssetStaticFileExtensions", "proofId": "ReleaseStorageLifecycleTests" },
+        { "id": "release-assets-provider", "rootClassification": "immutable", "source": "src/backend/Infrastructure/Storage/ReleaseAssetStaticFileExtensions.cs", "member": "UseFsusReleaseAssets", "api": "PhysicalFileProvider", "count": 1, "owner": "ReleaseAssetStaticFileExtensions", "proofId": "ReleaseStorageLifecycleTests" },
+        { "id": "release-derived", "rootClassification": "derived", "source": "src/backend/Infrastructure/Storage/ReleaseDerivedStaticFileExtensions.cs", "member": "UseFsusReleaseDerivedArtifacts", "api": "UseStaticFiles", "count": 1, "owner": "ReleaseDerivedStaticFileExtensions", "proofId": "ReleaseStorageLifecycleTests.DerivedArtifacts_PublishByAtomicGenerationAndRetainRollbackGeneration" },
+        { "id": "release-derived-provider", "rootClassification": "derived", "source": "src/backend/Infrastructure/Storage/ReleaseDerivedSearchPointerFileProvider.cs", "member": "ReleaseDerivedSearchPointerFileProvider", "api": "PhysicalFileProvider", "count": 1, "owner": "ReleaseDerivedSearchPointerFileProvider", "proofId": "ReleaseStorageLifecycleTests" },
+        { "id": "webroot-entry-assets", "rootClassification": "webroot-entry", "source": "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs", "member": "UseFsusStaticAssets", "api": "UseStaticFiles", "count": 1, "owner": "PublicWebRuntime", "proofId": "WebApplicationCompositionExtensionsTests.StaticAssets_UseConfiguredPhysicalWebRootInsteadOfCompositeSourceShadow" },
+        { "id": "webroot-entry-provider", "rootClassification": "webroot-entry", "source": "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs", "member": "CreateAuthoritativeWebRootFileProvider", "api": "PhysicalFileProvider", "count": 1, "owner": "PublicWebRuntime", "proofId": "WebApplicationCompositionExtensionsTests.StaticAssets_UseConfiguredPhysicalWebRootInsteadOfCompositeSourceShadow" },
+        { "id": "development-client-assets", "rootClassification": "development-client", "source": "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs", "member": "UseDevelopmentClientAssetFiles", "api": "UseStaticFiles", "count": 1, "owner": "PublicWebRuntime", "proofId": "WebApplicationCompositionExtensionsTests" },
+        { "id": "development-client-provider", "rootClassification": "development-client", "source": "src/backend/Infrastructure/Bootstrap/PublicWebRuntime.cs", "member": "UseDevelopmentClientAssetFiles", "api": "PhysicalFileProvider", "count": 1, "owner": "PublicWebRuntime", "proofId": "WebApplicationCompositionExtensionsTests" }
+    ],
+    "gateway": {
+        "source": "ops/gateway/production-openresty.conf",
+        "publicLocation": "/uploads/illustration/",
+        "privateExternalLocation": "/assets/private/",
+        "privateInternalLocation": "/_fsus/private-assets/",
+        "privateInternalAlias": "/var/lib/fsusblog/storage/shared/assets/private/",
+        "owner": "PrivateAssetAccessService",
+        "proofId": "PrivateAssetDeliveryTests"
+    },
+    "composeSources": [
+        "ops/docker/docker-compose.production.yml",
+        "ops/docker/docker-compose.zero-downtime.yml",
+        "ops/docker/docker-compose.development-backend.yml",
+        "ops/development/dependencies.compose.yml"
+    ],
+    "policy": {
+        "input": "config/security/public-asset-delivery.json",
+        "schema": "config/security/public-asset-delivery.schema.json",
+        "generator": "tools/security/public-asset-policy.mjs",
+        "outputs": ["ops/gateway/production-openresty.conf", "docs/security/public-asset-delivery-policy.generated.md"],
+        "owner": "PublicAssetDeliveryPolicy",
+        "proofId": "public-asset-policy.test.mjs"
+    },
+    "identity": {
+        "canonicalTables": ["content_asset", "content_asset_reference", "content_asset_cleanup_queue"],
+        "referenceTable": "content_asset_reference",
+        "retiredTables": ["article_asset_reference", "article_asset_cleanup_queue", "asset_library_article_ref", "asset_library_item"],
+        "retiredSymbols": ["TryNormalizeImageDeletePath", "ArticleAssetUrlNormalizer", "DeleteImageAsync"],
+        "owner": "ArticleAssetReferenceStore",
+        "proofId": "ContentAssetContractTests.ProductionSource_RejectsRetiredAssetAuthorityAndDuplicateLedger"
+    },
+    "rules": [
+        "asset.roots.canonical", "asset.static.exact-one", "asset.compose.mounts",
+        "asset.private.internal", "asset.public.pipeline", "asset.identity.retired",
+        "asset.identity.single-ledger", "asset.policy.generated", "asset.paths.portable",
+        "asset.warnings.fail", "asset.scanner.off-request"
+    ]
+}

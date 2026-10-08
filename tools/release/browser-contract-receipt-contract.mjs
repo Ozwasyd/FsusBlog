@@ -2,8 +2,8 @@ import crypto from 'node:crypto';
 import path from 'node:path';
 
 // The independent reader requires a statically closed, I/O-free import graph.
-// eslint-disable-next-line import-x/no-relative-parent-imports
-import { verifyProducerTemporalArtifacts } from '../test/temporal-context-contract.mjs';
+
+const { verifyProducerTemporalArtifacts } = await import(new URL('../test/temporal-context-contract.mjs', import.meta.url));
 
 export const browserContractReceiptSchema = 'fsusblog.browser-contract-receipt.v2';
 export const productionBuildReceiptSchema = 'fsusblog.ci-production-build-receipt.v1';
@@ -667,3 +667,28 @@ export function validateBrowserContractReceipt(receipt, {
     }
     return errors;
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1,
+    successStatuses: Object.freeze(['success']),
+    correctnessClasses: Object.freeze(['browser-contract']),
+    describe: async (receipt) => (await import('./required-evidence-owner-contract.mjs')).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'fixtureNamespace', runId: 'runIdentity.runId',
+            sourceCommit: 'sourceState.commit', worktreeFingerprint: 'sourceState.worktreeFingerprint' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt, context, domainInputs })
+    {
+        const { verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
+        requireOwnerChecks(validateBrowserContractReceipt(receipt, {
+            expectedCommit: context.sourceCommit, expectedFingerprint: context.worktreeFingerprint,
+            expectedBuildReceiptDigest: domainInputs?.buildReceiptDigest, requireSuccess: true
+        }));
+        if (!domainInputs?.buildReceiptDigest)
+        {
+            throw new Error('explicit build receipt digest is required');
+        }
+        return verifiedOwnerResult({ schema: receipt.schema, contentDigest: receipt.contentDigest });
+    }
+});

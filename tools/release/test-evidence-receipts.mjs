@@ -5,15 +5,15 @@ import process from 'node:process';
 
 const { readCorrectnessProducerTemporalAuthority } = await import(new URL('../test/temporal-producer-bindings.mjs', import.meta.url));
 
-import {
+const {
     validatePostRuntimeReceipt
-} from '../test-matrix/behavior-evidence-post-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
-import {
+} = await import(new URL('../test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
+const {
     assertPreRuntimeQualified
-} from '../test-matrix/behavior-evidence-pre-runtime.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
-import {
+} = await import(new URL('../test-matrix/behavior-evidence-pre-runtime.mjs', import.meta.url));
+const {
     validateRequiredEvidenceCatalogBinding
-} from '../test-matrix/required-evidence-catalog.mjs'; // eslint-disable-line import-x/no-relative-parent-imports -- Preserve synchronous ESM links in the existing receipt dependency cycle.
+} = await import(new URL('../test-matrix/required-evidence-catalog.mjs', import.meta.url));
 
 import {
     productionBuildReceiptSchema,
@@ -1430,3 +1430,27 @@ export function writeJsonAtomic(file, value)
     fs.writeFileSync(temporary, `${JSON.stringify(value, null, 2)}\n`);
     fs.renameSync(temporary, file);
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1,
+    successStatuses: Object.freeze(['success']),
+    describe: async (receipt) => (await import('./required-evidence-owner-contract.mjs')).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'authority.runId',
+            sourceCommit: 'sourceState.commit', worktreeFingerprint: 'sourceState.worktreeFingerprint' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt, context, domainInputs })
+    {
+        const { verifiedOwnerResult, requireOwnerChecks } = await import('./required-evidence-owner-contract.mjs');
+        if (!domainInputs?.buildReceiptDigest)
+        {
+            throw new Error('explicit build receipt digest is required');
+        }
+        requireOwnerChecks(validateBrowserlessCorrectnessReceipt(receipt, {
+            expectedCommit: context.sourceCommit, expectedFingerprint: context.worktreeFingerprint,
+            expectedBuildReceiptDigest: domainInputs.buildReceiptDigest
+        }));
+        return verifiedOwnerResult({ schema: receipt.schema, contentDigest: receipt.contentDigest });
+    }
+});

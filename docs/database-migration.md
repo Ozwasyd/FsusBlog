@@ -1111,6 +1111,14 @@ When `FSUSBLOG_ANONYMOUS_IDENTITY_MODE=1` is enabled, application code must not 
 
 `20260826-post-content-asset-id-cutover` is an exclusive, transactional one-time Contract migration. In one transaction it creates `content_asset`, `content_asset_reference`, and `content_asset_cleanup_queue`, then enumerates the complete asset set from current articles, drafts, revisions, legacy references, and the public asset root. Each file must have byte length, SHA-256, MIME/extension, and image dimensions recomputed on site; missing files, unresolvable local URL/media, or storage-key/hash conflicts list the locating key and roll back the entire migration.
 
+The legacy offline `migrate --phase contract` entry remains unsupported and
+returns `schema_offline_contract_not_supported` before database access, including
+for a dry run. An evidence path and `--confirm-destructive` do not install the
+missing original backup admission owner. The retained planning/apply path must
+obtain authenticated package bytes and a successful isolated restore through the
+original `backup-site.sh` / `backup-restore-drill.sh` owners; a focused backfill
+fixture or a database dump alone cannot authorize destructive Contract execution.
+
 `20260828-post-authoring-canvas-document` is an additive, transactional
 Post-CodeFirst Expand migration. It creates normalized private canvas document,
 node, frame membership, edge, receipt, and idempotency tables; closed checks,

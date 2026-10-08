@@ -1,5 +1,12 @@
 # Site Backup Envelope Encryption
 
+The snapshot-bound pre-migration drill restores PostgreSQL objects under its
+isolated drill role (`pg_restore --no-owner`), so it does not require the source
+cluster's object-owner roles to exist in the disposable cluster. It still
+authenticates the package and independently compares the restored schema and
+content against the original native snapshot; ownership mapping does not waive
+those checks or authorize a production restore.
+
 `tools/operations/backup-site.sh` no longer emits a directly unpackable site `.tar.gz`. It builds the database, uploads, X.509-wrapped Data Protection ring, sanitized configuration, AOT, and search artifacts in mode-0700/0600 temporary directories, then an independent backup recipient wraps them as `fsusblog-site-backup-envelope-v1`:
 
 - content encryption is AES-256-GCM; key wrapping is RSA-OAEP-SHA256 with a recipient RSA key of at least 3072 bits; and the header is GCM AAD, so any header, ciphertext, or authentication-tag change makes recovery fail.

@@ -31,6 +31,28 @@ function diagnostics(mutator)
     return checkArticleRelationSources(fixture).join("\n");
 }
 
+test("block target schema admits canonical raw anchors and rejects noncanonical prefixed suffixes", () =>
+{
+    const { catalog, schema } = jsonFixtures();
+    const rule = new RegExp(schema.$defs.targetIdentity.properties.blockAnchorIdentity.oneOf[0].pattern, "u");
+    for (const anchor of ["a", "release-notes-2026", "a".repeat(64)])
+    {
+        for (const prefix of ["", "block:", "anchor:"])
+        {
+            assert.equal(rule.test(`${prefix}${anchor}`), true);
+        }
+    }
+    for (const anchor of ["", "UPPERCASE", "bad_suffix", "1leading", "a:alias", "é", "^marker", "#fragment", "a%20", "a b", "a".repeat(65)])
+    {
+        for (const prefix of ["", "block:", "anchor:"])
+        {
+            assert.equal(rule.test(`${prefix}${anchor}`), false);
+        }
+    }
+    schema.$defs.targetIdentity.properties.blockAnchorIdentity.oneOf[0].pattern = "^(?:block|anchor):[^\\s/#?=]+$";
+    assert.match(checkArticleRelationCatalog(catalog, schema).join("\n"), /canonical raw anchors/u);
+});
+
 function jsonFixtures()
 {
     return {

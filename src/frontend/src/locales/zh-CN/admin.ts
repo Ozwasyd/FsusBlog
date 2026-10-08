@@ -1,6 +1,28 @@
 export const localeDomainIdentity = Object.freeze({ locale: 'zh-CN', domain: 'admin' } as const);
 
 export const admin = {
+    articleInspector: {
+        commandGroup: '文章检查器',
+        commands: {
+            publish: '发布设置',
+            rights: '版权设置',
+            check: '内容检查',
+            preview: '预览',
+            versions: '版本',
+            resources: '资源'
+        },
+        unavailable: {
+            noDocument: '尚未打开文档',
+            staleDocument: '文档已变化，请重新选择',
+            permission: '当前会话没有文章编辑权限',
+            readonly: '文档为只读',
+            loading: '正在载入文档',
+            saving: '正在保存，请稍候',
+            modalActive: '请先关闭当前对话框',
+            pending: '正在打开检查器',
+            aborted: '操作已取消'
+        }
+    },
     shell: {
         skipToMain: '跳到主要内容',
         mainSite: '主站',

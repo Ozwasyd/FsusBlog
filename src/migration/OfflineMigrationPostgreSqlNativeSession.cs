@@ -298,13 +298,16 @@ internal static class OfflineMigrationPostgreSqlNativeSession
         }
         string snapshotId = reader.GetString(0);
         RequireSnapshotId(snapshotId);
-        DateTime capturedAt = reader.GetDateTime(1);
-        if (capturedAt.Kind != DateTimeKind.Utc || reader.GetString(2) != "repeatable read" || reader.GetString(3) != "on"
+        // SqlSugar can enable the driver's legacy timestamp mapping. Read the
+        // native timestamptz as an offset-bearing instant rather than assuming
+        // GetDateTime always returns Kind.Utc under that process configuration.
+        DateTimeOffset capturedAt = reader.GetFieldValue<DateTimeOffset>(1).ToUniversalTime();
+        if (capturedAt == default || reader.GetString(2) != "repeatable read" || reader.GetString(3) != "on"
             || await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
         {
             throw new NativeSessionFailure("offline_source_native_snapshot_time_required");
         }
-        return (snapshotId, new DateTimeOffset(capturedAt));
+        return (snapshotId, capturedAt);
     }
 
     internal static void RequireSnapshotId(string snapshotId)

@@ -542,6 +542,15 @@ internal static class OfflineMigrationExecutor
         string releaseId,
         CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
+        // This legacy entry has no original backup/restore admission owner. Refuse
+        // before opening a connection or reading history, even for a dry run; an
+        // evidence filename and explicit confirmation do not supply that owner.
+        if (command.Phase == OfflineMigrationPhase.Contract)
+        {
+            return Failed(command.Phase, ["schema_offline_contract_not_supported"]);
+        }
+
         IReadOnlyList<ISchemaMigrationDescriptor> descriptors =
             SchemaMigrationManifest.Current.Descriptors;
         IReadOnlyDictionary<string, OfflineMigrationClassification> classifications =

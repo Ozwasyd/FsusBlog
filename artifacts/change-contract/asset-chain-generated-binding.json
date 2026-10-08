@@ -1,0 +1,45 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/development/document-lifecycle.json",
+        "config/security/public-asset-delivery.json",
+        "config/security/public-asset-delivery.schema.json",
+        "config/testing/required-evidence-authority-ledger.json",
+        "tools/security/public-asset-policy.mjs",
+        "tools/test/generate-evidence-location-governance.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/development/document-inventory.generated.json",
+            "sha256": "584de7d8c1705d3cb77bdbbfc7cd547b998e9c2447dd7e72c7ed8d03897ca98c"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+        },
+        {
+            "path": "config/testing/current-run-evidence-location-acceptance.json",
+            "sha256": "348a97511e71426a088ab4fa63e102fc8c8d379df9d101f0d376eb69edfebcfc"
+        },
+        {
+            "path": "config/testing/evidence-location-migration-ledger.json",
+            "sha256": "9f54d2a783a17f53f861fe79f3d6eab7177932560a82cb4db8e37c1e894a7c40"
+        },
+        {
+            "path": "config/testing/evidence-locator-registry.json",
+            "sha256": "a865bc917f81ce1faba6440a12ef5028a775a887677faad38801cae8fa7cf239"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "a705a45339873f70d0918488952c31bbe0917f0ef3bb30e66c1720fb2861fa58"
+        },
+        {
+            "path": "docs/security/public-asset-delivery-policy.generated.md",
+            "sha256": "b8857d2c1c6d6ef80458158535db6d312936e5cbe4e2264df5731e64db989acd"
+        },
+        {
+            "path": "ops/gateway/production-openresty.conf",
+            "sha256": "dd16fc2274d3bee924ee6390479af59c2222e5a7099ddc7d12ef2bac0eba4eb2"
+        }
+    ]
+}

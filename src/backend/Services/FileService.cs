@@ -30,8 +30,8 @@ public sealed partial class FileService : IFileService
     private const int MaxChunkSize = 2 * 1024 * 1024;
     private const int UploadStreamBufferSize = 81920;
     private const int ImageSignatureHeaderLength = 512;
-    public const long MaxUploadBytes = 20 * 1024 * 1024;
-    public const long UploadRequestBodyLimitBytes = MaxUploadBytes + 1024 * 1024;
+    public static long MaxUploadBytes => PublicAssetDeliveryPolicy.Default.MaxFileBytes;
+    public static long UploadRequestBodyLimitBytes => MaxUploadBytes + 1024 * 1024;
     private const uint UploadSessionMagic = 0x53505546; // FUPS
     private const byte UploadSessionVersion = 4;
     private const int ManifestFlushPartInterval = 8;

@@ -2,6 +2,7 @@ import type {
     ArticlePreviewResponse,
     ServerDraftSaveRequest
 } from '@/api/authoring';
+import type { ArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
 
 import type { Ref } from 'vue';
 
@@ -12,6 +13,7 @@ export type ArticlePreviewSourceSnapshot = Pick<
 
 interface ArticlePreviewGenerationOptions {
     target: Ref<ArticlePreviewResponse | null>;
+    documentContext: Pick<ArticleDocumentContextAdapter, 'context' | 'isCurrentContext'>;
     readRequest: () => ServerDraftSaveRequest;
     readCurrentSnapshot: () => ArticlePreviewSourceSnapshot;
     createIdentity: (request: ServerDraftSaveRequest) => Promise<string>;
@@ -41,11 +43,23 @@ export function useArticlePreviewGeneration(
     const generate = async (signal: AbortSignal): Promise<ArticlePreviewResponse | null> =>
     {
         const requestGeneration = ++currentGeneration;
+        const requestContext = options.documentContext.context;
+        const isCurrentRequest = (): boolean => !signal.aborted
+            && requestGeneration === currentGeneration
+            && options.documentContext.isCurrentContext(requestContext);
+        if (!isCurrentRequest())
+        {
+            return null;
+        }
         const request = options.readRequest();
         const requestSnapshot = snapshotPreviewSource(request);
         const expectedIdentity = await options.createIdentity(request);
+        if (!isCurrentRequest())
+        {
+            return null;
+        }
         const preview = await options.requestPreview(request, signal);
-        if (signal.aborted)
+        if (!isCurrentRequest())
         {
             return null;
         }

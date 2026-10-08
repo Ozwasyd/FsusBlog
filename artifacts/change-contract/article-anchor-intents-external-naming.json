@@ -1,0 +1,29 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/fsusui-baseline.json",
+                "config/schemas/article-relation-contract.schema.json"
+            ],
+            "reason": "Preserve serialized public source-pin and relation schema field names while updating the exact public prerequisite and canonical anchor admission grammar."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/architecture/overview.md",
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve documented public selector, token and contract spellings while updating canonical anchor, attachment lifecycle and relation boundary ownership."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "tools/governance/check-article-relations.mjs"
+            ],
+            "reason": "Preserve established repository tool and contract surface naming while correcting canonical block identity validation; no environment variable or external identifier is renamed."
+        }
+    ]
+}

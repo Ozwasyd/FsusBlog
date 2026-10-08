@@ -646,7 +646,9 @@ NormalizeRestoredChildDir() {
 
 WaitForPostgres() {
     for ((i = 0; i < 60; i += 1)); do
-        if docker exec "$postgres_container" pg_isready -U fsusblog -d fsusblog >/dev/null 2>&1; then
+        # The official image initializes through a temporary socket-only server.
+        # TCP readiness proves that initialization has reached the final server.
+        if docker exec "$postgres_container" pg_isready -h 127.0.0.1 -U fsusblog -d fsusblog >/dev/null 2>&1; then
             return 0
         fi
         sleep 1
@@ -697,8 +699,11 @@ RestorePostgres() {
     }
 
     if [[ "$sourceBinding" != "null" ]]; then
+        # The isolated drill owns its database role, not the source cluster's
+        # role catalogue. Restore objects under that role; native schema/content
+        # comparison below still verifies the authenticated source snapshot.
         if ! RunSourceCommand "$WORK_DIR/.database-restore.stdout" \
-            docker exec -i "$postgres_container" pg_restore -U fsusblog -d fsusblog --exit-on-error --clean --if-exists <"$POSTGRES_BACKUP"; then
+            docker exec -i "$postgres_container" pg_restore -U fsusblog -d fsusblog --exit-on-error --clean --if-exists --no-owner <"$POSTGRES_BACKUP"; then
             AddBlocker "database-restore-failed"
             return
         fi

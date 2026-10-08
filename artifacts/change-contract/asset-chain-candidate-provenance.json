@@ -1,0 +1,345 @@
+{
+    "kind": "task-authored-source-provenance",
+    "qualification": false,
+    "chainComplete": false,
+    "baseRevision": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "latestFetchedMaster": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+    "sourceBranch": "codex/chain-1975-backup-evidence",
+    "sourceHead": "d148640d9f9b89f72ecb7d806aac9c8b0369833e",
+    "sourceTree": "585e230d0eda201c09e92803b4304f84802c45f4",
+    "createdAtUtc": "2026-10-08T06:15:55.299671+00:00",
+    "purpose": "Provide a new reviewable commit range with valid scope/footer while preserving every published source commit and its identity. Not a runtime/product/release receipt.",
+    "ownedExecutionIssues": [
+        1975,
+        1976,
+        1780,
+        2074,
+        2075,
+        2076,
+        2077,
+        2078,
+        2079,
+        2080,
+        2258,
+        2263,
+        2265
+    ],
+    "trackingOnlyIssues": [
+        1779,
+        1784,
+        1810
+    ],
+    "sourceCommits": [
+        {
+            "commit": "b4ec020cc4ee6dc391eb82b6eb022331b95a6ecf",
+            "subject": "fix(database): refuse unsupported asset contract before database access",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "8df8a0615eb0c592f5e7f125c3caa17af7741b77",
+            "subject": "fix(database): restore native backup snapshot capture",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "197287af0d846de39e7e4ea27be24ff476e73fd7",
+            "subject": "build(backend): align consumer locks with Server dependencies",
+            "originalCherryPickedCommits": [
+                "b104b99d84b91af577336efd6430d492c25683c9"
+            ]
+        },
+        {
+            "commit": "760612e378b1f4847475418dcb487a74dd133f7c",
+            "subject": "fix(operations): restore isolated backup objects under drill role",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "8d4b531c0c3be08e9ac0cf57937f8d0049ad9416",
+            "subject": "test(assets): reject retired identities and duplicate runtime ledgers",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "b402deab0459fb8a8bdc7e32a4cbfcd436d2b6b8",
+            "subject": "test(assets): reject string overloads on the deletion port",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "cf7a2d8f242daa078da5649a83aadd454dfba542",
+            "subject": "fix(operations): wait for final PostgreSQL restore service",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "4c715181922de9245aca40a383c9ecb4a608cc33",
+            "subject": "test(assets): use native token kind in overload guard",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "13d40dbc8958e6a8868d809e9bb251708ff884cc",
+            "subject": "test(backend): use constant bootstrap environment arguments",
+            "originalCherryPickedCommits": [
+                "a95de1defd39a46f34992bed9eee3c150d990456"
+            ]
+        },
+        {
+            "commit": "896a848508064f955fd0197a6b1fcb4faef900d8",
+            "subject": "feat(assets): add isolated public delivery and shared gateway policy",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "03a0823fe004d47c97f1e10bbceae966d41ba9ef",
+            "subject": "test(assets): centralize static contract and expose unsafe mounts",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "e639055af341936e66baeb61f6c62f2ce1e6cccb",
+            "subject": "test(assets): refuse incomplete identity rule declarations",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "99d4e9c03cd8db96c7b02c3340a67527bf95faf6",
+            "subject": "feat(release): add exact authority binding and owner verifier APIs",
+            "originalCherryPickedCommits": [
+                "23d91ba42b0e2bbf7adab14c608a57d4b45edcad"
+            ]
+        },
+        {
+            "commit": "9df2e966df3c44bd0ab71d78c2b65131d37fdad0",
+            "subject": "refactor(release): align owner verifier imports and source checks",
+            "originalCherryPickedCommits": [
+                "607b730ba0188afdc4c2b9e4c23efa035e6db401"
+            ]
+        },
+        {
+            "commit": "7e45007334bace57c2d130d5fc4f3269fc460a4c",
+            "subject": "chore(release): bind generated and naming review evidence",
+            "originalCherryPickedCommits": [
+                "362e2c4c563370f2925af6f7cc6f4c928b5f3bf9"
+            ]
+        },
+        {
+            "commit": "6feb2c706732bae4c7a3fc9456441d60985feae3",
+            "subject": "chore(release): reseal source governance after review metadata",
+            "originalCherryPickedCommits": [
+                "a49ba20b0fa5336b43d1595a648ad5fe41bc2d78"
+            ]
+        },
+        {
+            "commit": "ccd0a7183e8593ec39fb519e7ea4fbb1a5298792",
+            "subject": "fix(governance): retain one canonical lifecycle fixture owner",
+            "originalCherryPickedCommits": [
+                "f7b29774ae4aebad286539cc033aa736b9dbe613"
+            ]
+        },
+        {
+            "commit": "c389dd808ea31bc8e2e7a0931498b3d8b9d75630",
+            "subject": "fix(governance): consolidate complementary retention mappings",
+            "originalCherryPickedCommits": [
+                "86841bac2fb0cdbeb8baa02b218869529abbf093"
+            ]
+        },
+        {
+            "commit": "a505bd3b9d222e9632001b111f4ec8b40d22e393",
+            "subject": "fix(governance): bind migration to the current canonical producer roster",
+            "originalCherryPickedCommits": [
+                "eeb4e84096571ecb3a989629825f2508e2de7b71"
+            ]
+        },
+        {
+            "commit": "e39c2623d363c14bf44e1fd3d4f76b3d24840085",
+            "subject": "test(assets): declare strict array types in identity schema",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "675e65a55dc02b1eda5c37fe14caa66930cb6168",
+            "subject": "test(frontend): probe public article anchor prerequisites",
+            "originalCherryPickedCommits": [
+                "5519fddb92ab12cb24584f853d607d8b545d3153"
+            ]
+        },
+        {
+            "commit": "0c86c2d1adc3963c4e83d9ed71a6d95ccd10996c",
+            "subject": "build(frontend): pin public article position map source",
+            "originalCherryPickedCommits": [
+                "e55b75059594d3dc5d06e521cb5c85d7219dc062"
+            ]
+        },
+        {
+            "commit": "a261477e6f698f7d9b28f052a1a12acbc18879a1",
+            "subject": "feat(frontend): consume public article anchors and scroll intent",
+            "originalCherryPickedCommits": [
+                "96e524f3580e363b8c5b818842489a72114121bf"
+            ]
+        },
+        {
+            "commit": "2c2ff8745bad2eb44c061a9a4bfbf95607688da3",
+            "subject": "feat(frontend): bind created attachment intents to public input plans",
+            "originalCherryPickedCommits": [
+                "1c0da98e7fc8f33bf557300a3428746fcabfb67d"
+            ]
+        },
+        {
+            "commit": "bd342e2fa11eaa9da8553e579a1f722f63fc08e0",
+            "subject": "fix(frontend): reject invalid public article position maps",
+            "originalCherryPickedCommits": [
+                "5ed69fbc0a269d79df8c10b6c26601b40a4b3f58"
+            ]
+        },
+        {
+            "commit": "71f3417992e85643189f21572afa929d4b2855af",
+            "subject": "feat(frontend): project inspector commands into the public palette",
+            "originalCherryPickedCommits": [
+                "139887ca9391f1bacb8a1faaf6fef6cf4115b006"
+            ]
+        },
+        {
+            "commit": "5a7c0de9ddb6c7332a32b74fc629b1192af5a07c",
+            "subject": "chore(frontend): declare preserved authoring external names",
+            "originalCherryPickedCommits": [
+                "16a4960e24e3215708c3c0221f9f609808c3bf2c"
+            ]
+        },
+        {
+            "commit": "a4973fd24ee03db4c056d21f5e9a6ea652770c63",
+            "subject": "chore(assets): bind generated policy review artifacts",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "1b5b3a41123bfacdcc6efd3b1c2f6dbfd2146e96",
+            "subject": "chore(assets): consolidate supplied naming declarations for review",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "73029492b690d8db1e29849681dad9d3d7e6b485",
+            "subject": "chore(governance): align asset review metadata with trusted path rules",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "da3e06ac25521e38e886ce1c439686e170cfbabe",
+            "subject": "chore(frontend): integrate exact article render prerequisite",
+            "originalCherryPickedCommits": [
+                "e8109c1906301c49da8eb587d331a37722d64c07"
+            ]
+        },
+        {
+            "commit": "dede99d484ad3ef851eab9722bed2d6b9f445486",
+            "subject": "fix(contracts): validate canonical block relation anchors",
+            "originalCherryPickedCommits": [
+                "865246ea3c6114b25a8a4445c7e74c5eb2867a7d"
+            ]
+        },
+        {
+            "commit": "f54c6bad072af18cd0ad6105528cfc40bdc22c99",
+            "subject": "feat(frontend): bind attachment lifecycle to public transactions",
+            "originalCherryPickedCommits": [
+                "06d000434da9d001b51be852eddc7189ca8c640c"
+            ]
+        },
+        {
+            "commit": "a73543a40b08e7be1faa561e5626dabf57e8c93b",
+            "subject": "feat(article-preview): preserve current draft responsibility authority",
+            "originalCherryPickedCommits": [
+                "6f5e2a4d4cdc0a2c79b41a732bfc58201b5d1876"
+            ]
+        },
+        {
+            "commit": "fec17344b842faa1a99e2a04ccc6adab0ff0d2e1",
+            "subject": "fix(frontend): retain upload cleanup until server acknowledgment",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "25a4f6fc60ccfe8fd88f116d4e19290cd7e03371",
+            "subject": "fix(frontend): reject preview work outside its document context",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "982430c1c696e51715e1fb9587acbc2f61ec8902",
+            "subject": "feat(backend): observe committed uploads against bytes and asset ledger",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "6ec674832a918f8e927acad0af4ead8b1eb66584",
+            "subject": "docs(frontend): describe upload cleanup and preview context guards",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "27a85653ce4c9a5d72d0240298fc6442547b7ead",
+            "subject": "docs: separate architecture dependency heading",
+            "originalCherryPickedCommits": [
+                "4ca95f8b167327a26b8da654f824093701dfa0f6"
+            ]
+        },
+        {
+            "commit": "451cd2c824bbd6dc5712cb63d9a5726bcfd6ba22",
+            "subject": "chore(governance): bind current asset handoff review metadata",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "db70154d483a50616b0291dce978c0bac7b8ba88",
+            "subject": "chore(governance): preserve unique naming exception ownership",
+            "originalCherryPickedCommits": []
+        },
+        {
+            "commit": "a356b2d8eb4c32e5ac975877a26191e2b48ab3e3",
+            "subject": "chore(governance): declare integrated contract naming surfaces",
+            "originalCherryPickedCommits": [
+                "0c5ab1c7a2180eddfbbcdf599d2b952577b274bd"
+            ]
+        },
+        {
+            "commit": "a367d4d6fd2a9bd0d4c7cbc50c2f56385e8e87f8",
+            "subject": "feat(frontend): preserve editor continuity through public owner events",
+            "originalCherryPickedCommits": [
+                "d42a49191309b545a8e9b4e60d965162586ef37b"
+            ]
+        },
+        {
+            "commit": "404a9e636c2f2519fa37900293792627fc42b532",
+            "subject": "feat(frontend): compose authoring runtime on the canonical editor binding",
+            "originalCherryPickedCommits": [
+                "af7e6746db5abe31e11c115d662e533342da04fb"
+            ]
+        },
+        {
+            "commit": "9dff443dfeac8a97ac464c9f9951f27469c335aa",
+            "subject": "feat(frontend): admit one bounded hundred-image attachment batch",
+            "originalCherryPickedCommits": [
+                "af9b610badbd40d00360d21d8b205b6c892009e5"
+            ]
+        },
+        {
+            "commit": "a46afffd2998265d6502431970fa8e00b7c18efc",
+            "subject": "feat(frontend): add scoped author command palette entry",
+            "originalCherryPickedCommits": [
+                "b061528a0474d55c7c14ec6bdbcfc0efe079ab08",
+                "5bfe8f16a37ba868537d89fc6c396d914fcf3987"
+            ]
+        },
+        {
+            "commit": "e0b742998b90a817c71d70d62536f95a44f3df77",
+            "subject": "fix(frontend): preserve typed palette delegation under strict tooling",
+            "originalCherryPickedCommits": [
+                "21eb0e74b339be8839ab065ca311940b0f912adf",
+                "6cffda62a4cb3a4d473f59682a123dcc6adbc407"
+            ]
+        },
+        {
+            "commit": "d148640d9f9b89f72ecb7d806aac9c8b0369833e",
+            "subject": "feat(frontend): connect delegated command entry to the sole Writer host",
+            "originalCherryPickedCommits": [
+                "6bac4acccd5120e73e9001db06144a216168a9c8"
+            ]
+        }
+    ],
+    "authorizedIntegration": {
+        "suppliedUnifiedHead": "6bac4acccd5120e73e9001db06144a216168a9c8",
+        "conflictingOriginalCommit": "af7e6746db5abe31e11c115d662e533342da04fb",
+        "path": "docs/architecture/overview.md",
+        "resolution": "Parent explicitly authorized bounded prerequisite integration. Retain both current upload cleanup/preview facts and incoming canonical unified-runtime/remount limitations; generated sections unchanged.",
+        "resolutionEvidence": "2246-authorized-overview-resolution.diff"
+    },
+    "acceptanceLimits": [
+        "Original migration destructive native execution/current build/terminal receipt unqualified.",
+        "Complete private uniform status/claims/exact-once contract and AOT root decisions unresolved.",
+        "Full attachment/provider/rights/Vault operation/revision receipts and native browser/UX/performance qualification incomplete.",
+        "Source qualification gates remain independent; clean commit history is not passing product acceptance."
+    ]
+}

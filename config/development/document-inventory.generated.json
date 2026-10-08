@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:3c5418c9c684ad1404f5be6ed4528a034b7fab57df767a91e47992a1a3e753e0",
+    "policyDigest": "sha256:d610129fbefbc7bcc4ca2358a900858e1ad14242bcea7b8a58653648b67a39e6",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -3175,6 +3175,20 @@
             "supersededBy": null,
             "relatedIssues": [],
             "producer": null
+        },
+        {
+            "path": "docs/security/public-asset-delivery-policy.generated.md",
+            "title": "Public Asset Delivery Policy.generated",
+            "kind": "markdown",
+            "status": "generated",
+            "owner": "security",
+            "sourceOfTruth": false,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                1780
+            ],
+            "producer": "tools/security/public-asset-policy.mjs"
         },
         {
             "path": "docs/security/public-hot-read-cross-cutting-controls.md",
