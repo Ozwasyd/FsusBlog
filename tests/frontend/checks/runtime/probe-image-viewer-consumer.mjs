@@ -7,6 +7,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // Diagnostic prerequisite probe for #1892. Failures remain failures; this is
 // neither product acceptance nor permission to patch the consumer's viewer.
+// FSUSBLOG_PROBE_BROWSER selects chromium (default) or installed WebKit.
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const frontendRoot = path.join(repositoryRoot, 'src/frontend');
 const { resolveRuntimeBrowserTimeoutPlan } = await import(pathToFileURL(
@@ -18,13 +19,14 @@ const navigationTimeoutMs = Math.max(30_000, timeoutPlan.navigationTimeoutMs);
 const readinessTimeoutMs = Math.max(45_000, timeoutPlan.requestTimeoutMs * 2);
 const require = createRequire(path.join(frontendRoot, 'package.json'));
 const { renderToString } = require('@vue/server-renderer');
-const { chromium } = require('playwright');
+const { chromium, webkit } = require('playwright');
 const { createServer } = require('vite');
 const { resolveLocalFsusUiRepositoryRoot } = await import(pathToFileURL(
     path.join(frontendRoot, 'scripts/fsusui-root.mjs')
 ).href);
 const args = process.argv.slice(2);
 const mode = args[0];
+const browserEngine = process.env.FSUSBLOG_PROBE_BROWSER ?? 'chromium';
 if (!['local', 'published'].includes(mode) || args.length !== 2)
 {
     throw new Error('usage: node tests/frontend/checks/runtime/probe-image-viewer-consumer.mjs local|published OUTPUT_DIRECTORY');
@@ -38,6 +40,7 @@ const report = {
     schema: 'fsusblog.image-viewer-consumer-probe.v1',
     runId: `${new Date().toISOString()}-${process.pid}`,
     mode,
+    browserEngine,
     blogSha: git(repositoryRoot, 'rev-parse', 'HEAD'),
     blogDirty: git(repositoryRoot, 'status', '--porcelain'),
     probeSha256: digest(fileURLToPath(import.meta.url)),
@@ -54,7 +57,7 @@ const report = {
     checks: [],
     limitations: [
         'Diagnostic consumer fixture; no full article-route or independent UX acceptance.',
-        'Chromium automation does not establish real-device, WebKit, Firefox or screen-reader acceptance.',
+        'One browser engine does not establish other-engine, real-device or screen-reader acceptance.',
         'Published and local outcomes are independent; a missing published artifact is blocked.'
     ]
 };
@@ -70,6 +73,10 @@ let page;
 const errors = [];
 try
 {
+    if (!['chromium', 'webkit'].includes(browserEngine))
+    {
+        throw new Error(`unsupported browser engine: ${browserEngine}`);
+    }
     process.env.FSUSBLOG_USE_LOCAL_FSUSUI = mode === 'local' ? '1' : '0';
     const localRoot = mode === 'local' ? resolveLocalFsusUiRepositoryRoot({
         repositoryRoot,
@@ -171,11 +178,14 @@ probe.app.mount('#app');`);
     await server.listen();
     const address = server.httpServer.address();
     const url = `http://127.0.0.1:${address.port}/__image_viewer_probe`;
-    browser = await chromium.launch({
-        executablePath: process.env.FSUSBLOG_PROBE_CHROMIUM ?? '/usr/bin/chromium',
+    const browserType = browserEngine === 'webkit' ? webkit : chromium;
+    browser = await browserType.launch({
+        ...(browserEngine === 'chromium' ? {
+            executablePath: process.env.FSUSBLOG_PROBE_CHROMIUM ?? '/usr/bin/chromium',
+            args: ['--no-sandbox']
+        } : {}),
         headless: true,
-        timeout: Math.max(30_000, timeoutPlan.requestTimeoutMs),
-        args: ['--no-sandbox']
+        timeout: Math.max(30_000, timeoutPlan.requestTimeoutMs)
     });
     report.browser = browser.version();
     const context = await browser.newContext({ viewport: { width: 375, height: 844 }, hasTouch: true });
@@ -274,32 +284,78 @@ probe.app.mount('#app');`);
     check('focus return', focusAfterClose.id === 'probe-trigger', focusAfterClose);
     check('close cleanup', await page.locator('img').count() === 0 && focusAfterClose.overflow !== 'hidden', focusAfterClose);
     await open();
-    // Read-only public roles and bounding boxes: no private selectors or CSS repairs.
+    // Public roles and measured hit areas; no private selectors or CSS repairs.
     const { SAFE_AREA_PROFILES } = await import(path.join(localRoot ?? resolveLocalFsusUiRepositoryRoot({ repositoryRoot }), 'scripts/safe-area-profiles.mjs'));
-    for (const profile of Object.values(SAFE_AREA_PROFILES))
-    {
-        await page.setViewportSize(profile.viewport);
-        await page.evaluate((insets) =>
+    const measureControls = () => page.getByRole('button').evaluateAll((buttons) => buttons
+        .filter((button) => !button.id.startsWith('probe-'))
+        .map((button) =>
         {
-            for (const [side, value] of Object.entries(insets))
-            {
-                globalThis.document.documentElement.style.setProperty(`--fsus-safe-area-inset-${side}`, `${value}px`);
-            }
-        }, profile.insets);
-        await page.waitForTimeout(350);
-        const bounds = await page.getByRole('button').evaluateAll((buttons) => buttons
-            .filter((button) => !button.id.startsWith('probe-'))
-            .map((button) =>
-            {
-                const box = button.getBoundingClientRect();
-                const topmost = globalThis.document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
-                return { x: box.x, y: box.y, width: box.width, height: box.height, reachable: button.contains(topmost) };
-            }));
+            const box = button.getBoundingClientRect();
+            const topmost = globalThis.document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2);
+            return { x: box.x, y: box.y, width: box.width, height: box.height, reachable: button.contains(topmost) };
+        }));
+    const reachableWithin = (bounds, profile) =>
+    {
         const { width, height } = profile.viewport;
         const { top, right, bottom, left } = profile.insets;
-        check(`safe-area ${profile.id}`, bounds.length > 0 && bounds.every((box) =>
-            box.x >= left && box.y >= top && box.x + box.width <= width - right && box.y + box.height <= height - bottom && box.reachable), { profile, bounds });
+        return bounds.length > 0 && bounds.every((box) => box.width >= 44 && box.height >= 44
+            && box.x >= left && box.y >= top && box.x + box.width <= width - right
+            && box.y + box.height <= height - bottom && box.reachable);
+    };
+    for (const theme of ['light', 'dark'])
+    {
+        await page.evaluate((value) => globalThis.document.documentElement.classList.toggle('dark', value === 'dark'), theme);
+        for (const reducedMotion of ['no-preference', 'reduce'])
+        {
+            await page.emulateMedia({ reducedMotion });
+            for (const profile of Object.values(SAFE_AREA_PROFILES))
+            {
+                await page.setViewportSize(profile.viewport);
+                await page.evaluate((insets) =>
+                {
+                    for (const [side, value] of Object.entries(insets))
+                    {
+                        globalThis.document.documentElement.style.setProperty(`--fsus-safe-area-inset-${side}`, `${value}px`);
+                    }
+                }, profile.insets);
+                await page.waitForTimeout(350);
+                const bounds = await measureControls();
+                check(`safe-area ${theme}/${reducedMotion}/${profile.id}`, reachableWithin(bounds, profile), { profile, bounds });
+            }
+        }
     }
+    // Fault injection is confined to this diagnostic page and restored exactly.
+    // Measure real DOM failures to prove that zero-area and escaping controls fail.
+    const negativeProfile = SAFE_AREA_PROFILES['short-visual'];
+    const negativeControl = page.getByRole('button', { name: '关闭大图', exact: true });
+    const priorStyle = await negativeControl.getAttribute('style');
+    try
+    {
+        for (const [name, transform] of [['zero-area', 'scale(0)'], ['safe-boundary escape', 'translateX(-1000px)']])
+        {
+            await negativeControl.evaluate((button, value) => button.style.setProperty('transform', value, 'important'), transform);
+            const bounds = await measureControls();
+            check(`geometry negative control: ${name}`, !reachableWithin(bounds, negativeProfile), { profile: negativeProfile, bounds });
+        }
+    }
+    finally
+    {
+        await negativeControl.evaluate((button, value) =>
+        {
+            if (value === null)
+            {
+                button.removeAttribute('style');
+            }
+            else
+            {
+                button.setAttribute('style', value);
+            }
+        }, priorStyle);
+    }
+    const restoredBounds = await measureControls();
+    check('geometry negative control restoration', reachableWithin(restoredBounds, negativeProfile), { profile: negativeProfile, bounds: restoredBounds });
+    await page.evaluate(() => globalThis.document.documentElement.classList.remove('dark'));
+    await page.emulateMedia({ reducedMotion: 'no-preference' });
     await page.setViewportSize({ width: 375, height: 844 });
     await page.screenshot({ path: path.join(outputRoot, 'local-open.png') });
     await page.getByRole('button', { name: '下一张', exact: true }).tap();
