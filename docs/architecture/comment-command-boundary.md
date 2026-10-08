@@ -122,3 +122,21 @@ a fresh event GUID; they are not deterministic persisted identities or receipts.
 Persistence and delivery fields remain the outbox writer and worker's responsibility.
 The envelope still has no exact comment-revision field. These APIs do not reserve a
 nullifier, create rows, prove atomicity or satisfy transaction/derived-edge acceptance.
+
+## Production-shared revision construction
+
+`CommentCommandService.BuildRevision(commentId, version, operation, normalizedContent,
+createdAtUtc, actorMode, actorAccountId, actorAdminPrincipalId)` returns the same
+unpersisted revision used by production create, author edit and author delete.
+The caller supplies the allocated comment ID, explicit version, operation, time
+and admitted actor facts. The constructor retains the exact content bytes and the
+existing lowercase SHA-256 of their UTF-8 encoding. It does not normalize again:
+create retains its original trim behavior, while author edit still converts CRLF
+to LF and trims before calling the shared constructor.
+
+The returned revision ID remains zero; the native persistence writer allocates
+the revision row ID. This constructor creates no row, authenticates no actor and
+signs no receipt. Article-policy premoderation still maps create to `Pending`
+with `article_policy_premoderated`; revision extraction does not change that
+transaction decision. Native atomicity and exact persisted revision observation
+remain separate acceptance requirements.

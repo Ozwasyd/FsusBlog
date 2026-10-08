@@ -4,9 +4,10 @@
         {
             "id": "environment-variable",
             "paths": [
-                "src/backend/Services/CommentService.cs"
+                "src/backend/Services/CommentService.cs",
+                "src/backend/Services/CommentAuthorManagementService.cs"
             ],
-            "reason": "Preserve existing production configuration names while exposing the same initial outbox constructor and event selection."
+            "reason": "Preserve existing production configuration names while sharing initial outbox construction and the same create/edit/delete revision constructor."
         },
         {
             "id": "css-like-contract",
