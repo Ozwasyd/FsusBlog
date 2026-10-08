@@ -708,7 +708,12 @@ representation onto `IsNullable=false`. PostgreSQL 17 retains its original colum
 representation without those catalog rows. Unknown, missing or changed `n` facts
 refuse; they are not ignored or treated as extra permitted objects. This preserves
 the v5 model and current control semantics; fresh producer/verifier byte bindings
-and independent native qualification remain required.
+and independent native qualification remain required. The original `default-null`
+native negative retains a real NULL-valued default expression and measures its
+`pg_attrdef` object before requiring refusal. Bare `SET DEFAULT NULL` (including
+literal casts) removes that object on the tested PostgreSQL; it cannot stand in
+for an actual undeclared default. The original case identity and no-default
+refusal gate are retained.
 
 The original Server executable exposes `export-current-schema-owned-target
 --output <new-absolute-file>` before Web host, DI or database configuration.

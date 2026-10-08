@@ -340,7 +340,7 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             string sql = drift switch
             {
                 "default" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT 'changed';",
-                "default-null" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT NULL;",
+                "default-null" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload SET DEFAULT NULLIF('same', 'same');",
                 "collation" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload TYPE text COLLATE \"C\";",
                 "check" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_sequence_check; ALTER TABLE public.{Journal} ADD CONSTRAINT {Journal}_sequence_check CHECK (sequence >= 0);",
                 "index" => $"ALTER TABLE public.{Journal} DROP CONSTRAINT {Journal}_entry_digest_key; CREATE UNIQUE INDEX {Journal}_entry_digest_key ON public.{Journal} (entry_digest DESC);",
@@ -356,6 +356,19 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
                 _ => throw new InvalidOperationException("Unknown native control drift.")
             };
             await db.Ado.ExecuteCommandAsync(sql);
+            if (drift == "default-null")
+            {
+                // Bare SET DEFAULT NULL removes pg_attrdef on current PostgreSQL.
+                // This original negative needs a retained, actually NULL-valued
+                // default object so the measured no-default contract is violated.
+                PgCurrentSchemaEffectObservation effects = await PgCurrentSchemaEffectObserver.ReadControlTableAsync(
+                    (System.Data.Common.DbConnection)db.Ado.Connection,
+                    (System.Data.Common.DbTransaction)caller, Journal, CancellationToken.None);
+                PgCurrentRawExpression retained = Assert.Single(effects.Expressions, static expression =>
+                    expression.Kind == "default" && expression.Name == "entry_payload");
+                Assert.StartsWith("NULLIF(", retained.Expression, StringComparison.Ordinal);
+                Assert.Equal(1, await db.Ado.GetIntAsync("SELECT (NULLIF('same', 'same') IS NULL)::integer;"));
+            }
             await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() => observer.ReadAsync(CancellationToken.None));
             if (drift == "same-shape-standalone-index")
             {
