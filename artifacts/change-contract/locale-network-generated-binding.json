@@ -5,12 +5,14 @@
         "tests/browser-contract/public-shell-locale-lifecycle-evidence.mjs",
         "tests/browser-contract/public-shell-locale-network.mjs",
         "tests/browser-contract/public-shell-locale-runtime-bindings.mjs",
-        "tools/test-matrix/verify-public-shell-locale.mjs"
+        "tools/test-matrix/verify-public-shell-locale.mjs",
+        "tools/contracts/generate-locale-catalog.mjs",
+        "tools/contracts/check-locale-catalog.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "3e355e288855c56b7d6332aef1473715980b1261bc812740bc5a091cd7b171fc"
+            "sha256": "ef0829eb03740527e8ba85be4e600d021aa6d2cebdd4b5f1d7a832d07f092359"
         }
     ]
 }

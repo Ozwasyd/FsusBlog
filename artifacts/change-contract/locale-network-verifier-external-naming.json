@@ -4,16 +4,19 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test-matrix/verify-public-shell-locale.mjs"
+                "tools/test-matrix/verify-public-shell-locale.mjs",
+                "tools/contracts/generate-locale-catalog.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
             ],
-            "reason": "Preserve the verifier's existing FSUSBLOG_BROWSER_CONTRACT_RECEIPT process input while rechecking immutable locale network budgets; no environment or CLI spelling changes."
+            "reason": "Preserve the existing environment inputs while consuming the supplied canonical catalog and migration source capabilities and rechecking immutable locale network budgets."
         },
         {
             "id": "json-wire-key",
             "paths": [
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "config/testing/correctness-attempt-producers.json"
             ],
-            "reason": "Preserve the canonical execution-authority wire schema while its trusted producer reseals the exact changed locale-domain and network-verifier source closure under the indexed Node parser."
+            "reason": "Preserve supplied canonical producer-inventory and execution-authority wire keys; generated-history acceptance of the inventory remains an independent gate."
         }
     ]
 }
