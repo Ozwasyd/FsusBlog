@@ -207,9 +207,9 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
             + " WHERE idx.oid=i.indexrelid AND am.amname='btree' AND idx.reloptions IS NULL)"
             + " AND NOT EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indclass) classid"
             + " JOIN pg_catalog.pg_opclass op ON op.oid=classid WHERE NOT op.opcdefault)"
-            + " AND NOT EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indcollation) WITH ORDINALITY coll(collation,position)"
-            + " JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum=i.indkey[(coll.position-1)::int]"
-            + " WHERE coll.collation<>a.attcollation)";
+            + " AND NOT EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indcollation) WITH ORDINALITY coll(collation_oid,ordinal_position)"
+            + " JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum=i.indkey[(coll.ordinal_position-1)::int]"
+            + " WHERE coll.collation_oid<>a.attcollation)";
         return PostgreSqlUnsupported.Replace(constraint, "AND p.contype<>'p' AND p.conrelid<>pg_catalog.to_regclass(" + journal + "))",
                 StringComparison.Ordinal)
             .Replace(index, "WHERE n.nspname='public' AND NOT i.indisprimary AND NOT (c.oid=pg_catalog.to_regclass("
@@ -568,9 +568,9 @@ public sealed partial class OfflineMigrationSourceObserver : IOfflineMigrationSn
                     OR EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indoption) option WHERE option<>0)
                     OR EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indclass) classid JOIN pg_catalog.pg_opclass op ON op.oid=classid
                         WHERE NOT op.opcdefault)
-                    OR EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indcollation) WITH ORDINALITY coll(collation,position)
-                        JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum=i.indkey[(coll.position-1)::int]
-                        WHERE coll.collation<>a.attcollation))) +
+                    OR EXISTS (SELECT 1 FROM pg_catalog.unnest(i.indcollation) WITH ORDINALITY coll(collation_oid,ordinal_position)
+                        JOIN pg_catalog.pg_attribute a ON a.attrelid=c.oid AND a.attnum=i.indkey[(coll.ordinal_position-1)::int]
+                        WHERE coll.collation_oid<>a.attcollation))) +
             (SELECT COUNT(*) FROM pg_catalog.pg_trigger t JOIN pg_catalog.pg_class c ON c.oid=t.tgrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace
                 WHERE n.nspname='public' AND NOT t.tgisinternal) +
             (SELECT COUNT(*) FROM pg_catalog.pg_policy p JOIN pg_catalog.pg_class c ON c.oid=p.polrelid JOIN pg_catalog.pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public') +

@@ -28,6 +28,60 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class ContentAssetCutoverAcceptanceTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task BackupSourceObservation_ExecutesNativeCatalogQueriesAndRefusesUnknownSchema()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var observer = new OfflineMigrationSourceObserver();
+        var source = await observer.ObserveAsync(
+            FsusBlog.Contracts.Migration.CurrentSchemaProviderKind.PostgreSql,
+            connectionString,
+            deadline.Token);
+
+        Assert.Contains(source.Schema, static fact => fact.Name == "objects.unsupported" && fact.Value == "0");
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        Assert.Equal(0, db.Ado.GetInt(OfflineMigrationSourceObserver.ValidatedJournalUnsupportedSql()));
+
+        db.Ado.ExecuteCommand("CREATE TABLE backup_source_unknown (id integer PRIMARY KEY);");
+        await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(() => observer.ObserveAsync(
+            FsusBlog.Contracts.Migration.CurrentSchemaProviderKind.PostgreSql,
+            connectionString,
+            deadline.Token));
+    }
+
+    [Fact]
+    public async Task BackupSnapshot_UsesNativeUtcInstantAndReleasesInterruptedSession()
+    {
+        string databaseName = await fixture.CreateDatabaseAsync();
+        string connectionString = fixture.BuildDatabaseConnectionString(databaseName);
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+        var observer = new OfflineMigrationSourceObserver();
+        bool captureReached = false;
+        DateTimeOffset before = DateTimeOffset.UtcNow;
+
+        await Assert.ThrowsAsync<InvalidOperationException>(() => observer.CapturePostgreSqlSnapshotAsync(
+            connectionString,
+            (source, snapshotId, capturedAt, token) =>
+            {
+                Assert.Equal(TimeSpan.Zero, capturedAt.Offset);
+                Assert.InRange(capturedAt, before, DateTimeOffset.UtcNow);
+                Assert.NotEmpty(snapshotId);
+                Assert.Equal(FsusBlog.Contracts.Migration.CurrentSchemaProviderKind.PostgreSql, source.Database.Provider);
+                captureReached = true;
+                throw new InvalidOperationException("controlled_backup_capture_interruption");
+            },
+            deadline.Token));
+
+        Assert.True(captureReached);
+        using SqlSugarClient db = PostgresSqlSugarTestClient.Create(connectionString);
+        Assert.Equal(0, db.Ado.GetInt("""
+            SELECT COUNT(*) FROM pg_stat_activity
+            WHERE datname = current_database() AND pid <> pg_backend_pid() AND xact_start IS NOT NULL;
+            """));
+    }
+
+    [Fact]
     public void Migration_IsSingleTransactionalBackfillBeforeLegacyRetirement()
     {
         ISchemaMigrationDescriptor migration = ContentAssetCutoverMigrationDefinitions.BuildMigration();
