@@ -64,13 +64,13 @@ test('production DecodeFrame preserves exact AEDS2 header/CRC/errors and writing
  for(const name of ['snapshot-values-5','update-values-5','receipt-values-5']){const row=item(name),payload=bytes(name);for(let end=0;end<payload.length;end++)rows.push(`15 ${frame(row.frameType,payload.subarray(0,end)).toString('hex')}`);if(row.frameType!==273)for(let offset=0;offset<payload.length;offset++){const mutation=Buffer.from(payload);mutation[offset]^=1;rows.push(`15 ${frame(row.frameType,mutation).toString('hex')}`);}}
  const valid=frame(272,bytes('snapshot-values-5'));
  for(const [offset,value,error] of [[0,0,2],[4,1,4],[5,0,5],[10,0,3],[14,valid[14]^1,6]]){const bad=Buffer.from(valid);bad[offset]=value;rows.push(`${error} ${bad.toString('hex')}`);}
- rows.push('1 -',`3 ${valid.subarray(0,valid.length-1).toString('hex')}`,`8 ${frame(275,Buffer.alloc(0)).toString('hex')}`,`8 ${frame(65535,Buffer.alloc(0)).toString('hex')}`,`9 ${frame(186,Buffer.alloc(0)).toString('hex')}`,`10 ${frame(244,Buffer.alloc(0)).toString('hex')}`,`13 ${frame(269,Buffer.alloc(0)).toString('hex')}`,`14 ${frame(270,Buffer.alloc(0)).toString('hex')}`);
+ rows.push('1 -',`3 ${valid.subarray(0,valid.length-1).toString('hex')}`,`16 ${frame(275,Buffer.alloc(0)).toString('hex')}`,`8 ${frame(65534,Buffer.alloc(0)).toString('hex')}`,`8 ${frame(65535,Buffer.alloc(0)).toString('hex')}`,`9 ${frame(186,Buffer.alloc(0)).toString('hex')}`,`10 ${frame(244,Buffer.alloc(0)).toString('hex')}`,`13 ${frame(269,Buffer.alloc(0)).toString('hex')}`,`14 ${frame(270,Buffer.alloc(0)).toString('hex')}`);
  const directory=mkdtempSync(path.join(tmpdir(),'fsus-writing-aid-production-'));
  try{
   const input=path.join(directory,'cases.txt'),executable=path.join(directory,'fixture');writeFileSync(input,rows.join('\n')+'\n');
   const build=spawnSync(process.env.CXX??'g++',['-std=c++23','-Wall','-Wextra','-Werror','-I',path.join(root,'src/frontend/wasm/aeds/include'),path.join(root,'tests/fixtures/protocol/writing-aid-preference-wire-native.cpp'),...['aeds_decode.cpp','aeds_crc32.cpp','pod_parse_article.cpp'].map(name=>path.join(root,'src/frontend/wasm/aeds/src',name)),'-o',executable],{encoding:'utf8'});assert.equal(build.status,0,build.stdout+build.stderr);
   const run=spawnSync(executable,[input,String(rows.length)],{encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);assert.equal(run.stdout.trim(),`production dispatcher=${rows.length} cases, error15 and borrowed views verified`);
   assert.equal(spawnSync(executable,[input,String(rows.length+1)]).status,4);for(const count of ['0','1extra'])assert.equal(spawnSync(executable,[input,count]).status,2);
-  for(const malformed of ['0 0\n','0 gg\n','16 00\n','0 00 extra\n']){const file=path.join(directory,'malformed.txt');writeFileSync(file,malformed);assert.equal(spawnSync(executable,[file,'1']).status,2);}
+  for(const malformed of ['0 0\n','0 gg\n','17 00\n','0 00 extra\n']){const file=path.join(directory,'malformed.txt');writeFileSync(file,malformed);assert.equal(spawnSync(executable,[file,'1']).status,2);}
  }finally{rmSync(directory,{recursive:true,force:true});assert.equal(existsSync(directory),false);}
 });

@@ -33,7 +33,7 @@ int main(int argc, char** argv)
         unsigned expectedError;
         std::string hex;
         std::string extra;
-        if (!(row >> expectedError >> hex) || row >> extra || expectedError > 15 || (hex != "-" && hex.size() % 2 != 0)) return 2;
+        if (!(row >> expectedError >> hex) || row >> extra || expectedError > 16 || (hex != "-" && hex.size() % 2 != 0)) return 2;
         std::vector<std::uint8_t> bytes;
         if (hex != "-") for (std::size_t i = 0; i < hex.size(); i += 2)
         {
@@ -52,6 +52,7 @@ int main(int argc, char** argv)
         if (expectedError != 0 && (decoded.payload_ptr != nullptr || decoded.payload_len != 0)) return 3;
         if (expectedError == 15 && (decoded.error == nullptr || std::string(decoded.error) != "writing_aid_preference_payload_invalid"
             || std::string(FsusBlog::Aeds::ToErrorString(FsusBlog::Aeds::ErrorCode::WritingAidPreferencePayloadInvalid)) != "writing_aid_preference_payload_invalid")) return 3;
+        if (expectedError == 16 && (decoded.error == nullptr || std::string(decoded.error) != "upload_asset_preview_payload_invalid")) return 3;
         ++checked;
     }
     if (checked != expectedCount) return 4;
