@@ -1152,6 +1152,8 @@ function parseDelegateDeclaration(codeLines, lineIndex)
     }
     const declaration = [header.slice(start[0].length), ...codeLines.slice(lineIndex + 1)].join('\n');
     let angles = 0;
+    let genericStart = -1;
+    let completedGenericStart = -1;
     let brackets = 0;
     let parentheses = 0;
     for (let index = 0; index < declaration.length; index += 1)
@@ -1160,18 +1162,9 @@ function parseDelegateDeclaration(codeLines, lineIndex)
         if (character === '(' && angles === 0 && brackets === 0 && parentheses === 0)
         {
             let prefix = declaration.slice(0, index).trimEnd();
-            if (prefix.endsWith('>'))
+            if (prefix.endsWith('>') && completedGenericStart >= 0)
             {
-                let depth = 0;
-                for (let end = prefix.length - 1; end >= 0; end -= 1)
-                {
-                    depth += prefix[end] === '>' ? 1 : prefix[end] === '<' ? -1 : 0;
-                    if (depth === 0)
-                    {
-                        prefix = prefix.slice(0, end).trimEnd();
-                        break;
-                    }
-                }
+                prefix = prefix.slice(0, completedGenericStart).trimEnd();
             }
             const name = prefix.match(/(?:^|\s)(@?[A-Za-z_]\w*)$/u);
             // "ref readonly (T, T)" starts a return tuple, not a delegate
@@ -1185,13 +1178,23 @@ function parseDelegateDeclaration(codeLines, lineIndex)
                 };
             }
         }
-        if (character === '<')
+        // Attribute arguments can contain comparison operators. Their
+        // brackets/parentheses do not open or close a generic parameter list.
+        if (character === '<' && brackets === 0 && parentheses === 0)
         {
+            if (angles === 0)
+            {
+                genericStart = index;
+            }
             angles += 1;
         }
-        else if (character === '>')
+        else if (character === '>' && brackets === 0 && parentheses === 0)
         {
             angles = Math.max(0, angles - 1);
+            if (angles === 0)
+            {
+                completedGenericStart = genericStart;
+            }
         }
         else if (character === '[')
         {

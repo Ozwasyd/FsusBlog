@@ -1472,6 +1472,8 @@ const delegateDeclarations = [
     ['qualified', 'internal delegate System.Int32 ReadValue();', 'ReadValue'],
     ['alias-qualified generic', 'internal delegate global::System.Collections.Generic.Dictionary<string, int[]> ReadValues();', 'ReadValues'],
     ['generic variance', 'internal delegate TResult Convert<in T, out TResult>(T value);', 'Convert'],
+    ['attributed generic less-than', 'internal delegate TResult Convert<T, [Flag(1 < 2)] TResult>(T value);', 'Convert'],
+    ['attributed generic greater-than', 'internal delegate TResult Convert<T, [Flag(2 > 1)] TResult>(T value);', 'Convert'],
     ['nullable array', 'internal delegate int?[] ReadValues();', 'ReadValues'],
     ['tuple', 'internal delegate (int Left, System.Int32 Right) ReadPair();', 'ReadPair'],
     ['ref return', 'internal delegate ref int ReadValue();', 'ReadValue'],
