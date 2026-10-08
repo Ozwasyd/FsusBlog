@@ -17,115 +17,11 @@ namespace FsusBlog.Core.Cache;
 /// </summary>
 public static partial class PodBinaryCodec
 {
-    private static void WriteArticleListItem(ref BinaryPodWriter writer, ArticleListCoreModel item, bool includeVersionCoordinates)
-    {
-        writer.WritePod(item.Pod);
-        writer.WriteInt32(item.Tags.Count);
-        foreach (TagCoreModel tag in item.Tags)
-        {
-            writer.WritePod(PodProjector.ProjectTag(tag.Id, tag.Name));
-        }
-
-        _ = PodProjector.ProjectArticleList(
-            item.Id,
-            item.Views,
-            item.CreateTime,
-            item.Category.Id,
-            item.Category.Name,
-            item.Title,
-            item.Summary,
-            item.IsDeleted,
-            out ReadOnlyMemory<byte> payload);
-
-        writer.WriteBytes(payload.Span);
-        if (includeVersionCoordinates)
-        {
-            writer.WriteInt64(item.CurrentRevisionId);
-            writer.WriteInt32(item.RevisionNo);
-            writer.WriteInt64(item.CurrentPublicationId.GetValueOrDefault());
-            writer.WriteInt32(item.PublicationNo.GetValueOrDefault());
-        }
-    }
-
     private static byte[] EncodeToArray(int initialCapacity, Action<IBufferWriter<byte>> write)
     {
         using var writer = new PooledByteBufferWriter(initialCapacity);
         write(writer);
         return writer.ToArray();
-    }
-
-    private static bool TryReadArticleListItem(
-        ref BinaryPodReader reader,
-        bool hasVersionCoordinates,
-        out ArticleListCoreModel item)
-    {
-        if (!reader.TryReadPod(out ArticleListItemPod pod) || !reader.TryReadInt32(out int tagCount) || tagCount < 0)
-        {
-            item = default;
-            return false;
-        }
-
-        var tags = new List<TagCoreModel>(tagCount);
-        for (int i = 0; i < tagCount; i++)
-        {
-            if (!reader.TryReadPod(out TagPod tagPod))
-            {
-                item = default;
-                return false;
-            }
-
-            tags.Add(new TagCoreModel(tagPod.Id, PodUtf8Codec.FromFixed128(tagPod.Name)));
-        }
-
-        if (!reader.TryReadBytes(out ReadOnlySpan<byte> payloadSpan))
-        {
-            item = default;
-            return false;
-        }
-
-        string title = PodUtf8Codec.FromFixed256(pod.Title);
-        string categoryName = PodUtf8Codec.FromFixed128(pod.Category.Name);
-        string summary = PodProjector.ReadSlice(pod.Summary, payloadSpan);
-        DateTime createTime = PodTimeCodec.FromUnixMs(pod.CreateTimeUnixMs);
-        bool? isDeleted = pod.HasIsDeleted == 1 ? pod.IsDeleted == 1 : null;
-
-        long currentRevisionId = 0;
-        int revisionNo = 0;
-        long? currentPublicationId = null;
-        int? publicationNo = null;
-        if (hasVersionCoordinates)
-        {
-            if (!reader.TryReadInt64(out currentRevisionId) ||
-                !reader.TryReadInt32(out revisionNo) ||
-                !reader.TryReadInt64(out long publicationId) ||
-                !reader.TryReadInt32(out int decodedPublicationNo))
-            {
-                item = default;
-                return false;
-            }
-
-            currentPublicationId = publicationId > 0 ? publicationId : null;
-            publicationNo = decodedPublicationNo > 0 ? decodedPublicationNo : null;
-        }
-
-        item = new ArticleListCoreModel(
-            pod,
-            pod.Id,
-            title,
-            summary,
-            null,
-            null,
-            pod.Views,
-            createTime,
-            new ArticleCategoryCoreModel(pod.Category.Id, categoryName),
-            tags,
-            isDeleted,
-            CurrentRevisionId: currentRevisionId,
-            RevisionNo: revisionNo,
-            CurrentPublicationId: currentPublicationId,
-            PublicationNo: publicationNo);
-
-        return true;
     }
 
     private ref struct BinaryPodReader(ReadOnlySpan<byte> source)

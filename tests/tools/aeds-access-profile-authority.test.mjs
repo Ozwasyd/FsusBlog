@@ -111,3 +111,14 @@ test('access profile refuses a second wire authority and retired fallback fields
     authority.articleList = { cursorVersions: [1, 2] };
     assert.throws(() => renderAedsAccessProfileOutputs(authority), /aeds_access_profile_schema_invalid/);
 });
+
+test('ArticleSearch wire generation refuses retired versions and record sizes', async () =>
+{
+    const authority = JSON.parse(await readFile(resolve(root, 'src/shared/Contracts/Validation/aeds-protocol.json'), 'utf8'));
+    for (const [key, value] of [['recordBytes', 52], ['version', 3]])
+    {
+        const mutated = structuredClone(authority);
+        mutated.payloadLayouts.ArticleSearch[key] = value;
+        assert.throws(() => renderAedsProtocolOutputs(mutated), /article_search_current_wire_layout_invalid/);
+    }
+});

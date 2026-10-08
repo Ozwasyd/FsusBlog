@@ -2227,6 +2227,24 @@ public class PodBinaryCodecTests
         Assert.False(ok);
     }
 
+    [Fact]
+    public void ArticleSearch_RetiredAndMalformedLayouts_FailClosed()
+    {
+        byte[] payload = PodBinaryCodec.EncodeArticleSearch([MakeListItem()]);
+        Assert.Equal(AedsArticleSearchWire.Magic, BinaryPrimitives.ReadInt32LittleEndian(payload));
+        Assert.False(PodBinaryCodec.TryDecodeArticleSearch(payload.AsMemory(8), out _));
+        Assert.False(PodBinaryCodec.TryDecodeArticleSearch([.. payload, 0], out _));
+        foreach (int offset in new[] { AedsArticleSearchWire.CurrentRevisionIdOffset, AedsArticleSearchWire.RevisionNoOffset })
+        {
+            byte[] invalid = payload.ToArray();
+            BinaryPrimitives.WriteInt32LittleEndian(invalid.AsSpan(AedsArticleSearchWire.HeaderBytes + offset), 0);
+            Assert.False(PodBinaryCodec.TryDecodeArticleSearch(invalid, out _));
+        }
+        byte[] old = payload.ToArray();
+        BinaryPrimitives.WriteInt32LittleEndian(old.AsSpan(4), 3);
+        Assert.False(PodBinaryCodec.TryDecodeArticleSearch(old, out _));
+    }
+
     // ── ArticleSearch round-trip ─────────────────────────────────────────────
 
     [Fact]
