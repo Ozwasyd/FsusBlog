@@ -1,7 +1,7 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
 
-import { readVaultEmbedSyntax, verifyVaultEmbedSyntax } from '@/articleVault/embedSyntaxReader';
+import { readVaultEmbedSyntax, verifyVaultEmbedSyntax } from '@/services/articleVault/embedSyntaxReader';
 
 const digest = (source: string) => createHash('sha256').update(source).digest('hex');
 const target = 'article:01991e72-a611-7d16-9fd4-38f7d2e65498';
