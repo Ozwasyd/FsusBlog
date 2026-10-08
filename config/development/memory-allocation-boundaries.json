@@ -3752,7 +3752,7 @@
             "migrationDisposition": "No payload tier migration permission granted.",
             "exclusionReason": "Pure transition and fixture results do not establish P01 calibration, scoped source qualification, product performance or automatic activation",
             "observationHeadroom": "Measure CPU/allocation/retention against actual frozen P01/P02 limits before runtime acceptance; fixture targets are not production defaults",
-            "testOwner": "tests/backend/Unit/MemoryGovernorTests.cs and tests/backend/Unit/MemoryGovernorAdmissionTests.cs",
+            "testOwner": "tests/backend/Unit/MemoryGovernorTests.cs",
             "permissions": {
                 "disk": false,
                 "device": false,

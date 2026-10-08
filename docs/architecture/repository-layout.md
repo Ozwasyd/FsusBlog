@@ -220,7 +220,7 @@ scoped sources and operating/performance acceptance remain required.
 explicit frozen baseline, current governor decision, runtime identity and release
 qualification inputs. `TickAsync` is an explicit control-plane operation, not a new
 scheduler. Missing prerequisites return UnmetBaseline/UnmetGovernor without invoking
-a backend; Disabled starts no probe or reservation. A admitted callback owns its
+a backend; Disabled starts no probe or reservation. An admitted callback owns its
 actual completion: caller cancellation or deadline expiry cannot release scratch
 while an uncooperative probe continues. Policy/identity generations reject late
 results. Retry windows, cooldown and circuit bounds come from the supplied policy;
