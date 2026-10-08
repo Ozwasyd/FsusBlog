@@ -14,7 +14,7 @@
             "reason": "Preserve existing canonical transaction, receipt, catalog and schema JSON keys with real current-master producer bindings."
         },
         {
-            "id": "environment-variable",
+            "id": "shell-environment-variable",
             "paths": [
                 "tools/test/run-matrix-governance-once.sh"
             ],
