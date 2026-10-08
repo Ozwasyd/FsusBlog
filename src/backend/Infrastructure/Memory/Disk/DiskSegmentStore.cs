@@ -78,9 +78,8 @@ public sealed class DiskSegmentStore : IDisposable
                 cancellationToken.ThrowIfCancellationRequested();
                 byte[] scratch = new byte[_limits.ChunkBytes];
                 _root.Validate();
-                using (FileStream file = _root.CreateFile(segment.Name))
+                using (FileStream file = _root.CreateFile(segment.Name, () => segment.FileExists = true))
                 {
-                    segment.FileExists = true;
                     int count = records.Count;
                     if (count <= 0 || count > _limits.MaxRecordsPerSegment || count > admittedCount)
                     {

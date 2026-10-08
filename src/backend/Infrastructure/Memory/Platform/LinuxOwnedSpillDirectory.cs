@@ -65,11 +65,11 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         }
     }
 
-    internal FileStream Create(string name)
+    internal FileStream Create(string name, Action? onCreated = null)
     {
         Validate();
         int descriptor = OpenAt(_directory, name, 2 | 0x40 | 0x80 | NoFollowFlag | CloseOnExecFlag, 0x180);
-        return StreamFromDescriptor(descriptor, FileAccess.ReadWrite);
+        return StreamFromDescriptor(descriptor, FileAccess.ReadWrite, onCreated);
     }
 
     internal FileStream Read(string name)
@@ -210,7 +210,7 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         }
     }
 
-    private static FileStream StreamFromDescriptor(int descriptor, FileAccess access)
+    private static FileStream StreamFromDescriptor(int descriptor, FileAccess access, Action? onCreated = null)
     {
         if (descriptor < 0)
         {
@@ -219,6 +219,9 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         var handle = new SafeFileHandle(descriptor, ownsHandle: true);
         try
         {
+            // Record ownership immediately after exclusive native creation, before any
+            // managed wrapper or metadata validation can fail and leave an orphan file.
+            onCreated?.Invoke();
             RequireOwned(Inspect(handle), RegularType);
             return new FileStream(handle, access, bufferSize: 1, isAsync: false);
         }
