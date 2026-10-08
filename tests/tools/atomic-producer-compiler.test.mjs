@@ -5,6 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 import { digestCanonical, sealContentDigest, sha256 } from '../../tools/test/attempt-provenance.mjs';
+import { executeWeightedStepDag, StepDagExecutionError, StepTerminalError } from '../../tools/test/bundles/bundle-steps.mjs';
 import { compileAtomicProducerDag, verifyCompiledAtomicProducerDag } from '../../tools/test-matrix/atomic-producers/compiler.mjs';
 import { AtomicProducerExecutionError, executeCompiledAtomicProducerDag, verifyAtomicTerminalVector } from '../../tools/test-matrix/atomic-producers/execution.mjs';
 
@@ -235,13 +236,142 @@ test('terminal vector tamper and resealed blocked-as-success substitutions are r
     assert.throws(() => verifyAtomicTerminalVector(sealContentDigest(body), vector), /expected identity/u);
 }));
 
-test('global interrupt refuses before spawn while the shared pending-finalizer capability is missing', async () => withEvidence(async (directory) =>
+test('global abort after a real child starts runs cleanup once and seals all terminal dispositions', { timeout: 10000 }, async () => withEvidence(async (directory) =>
+{
+    const marker = path.join(directory, 'started');
+    const fixture = atomicFixture({ alphaScenario: 'marker-wait', startedMarker: marker });
+    const controller = new AbortController();
+    const original = new StepTerminalError('cancelled', 'explicit-cancel', 'ORIGINAL_PRIMARY');
+    const secondary = new Error('CLEANUP_FAILURE');
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+        throw secondary;
+    } });
+    options.capacity.signal = controller.signal;
+    // Attach rejection handling before waiting for the real process marker.
+    const observed = executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (error) => error);
+    try
+    {
+        const deadline = Date.now() + 3000;
+        while (!fs.existsSync(marker) && Date.now() < deadline)
+        {
+            await new Promise((resolve) => setTimeout(resolve, 10));
+        }
+        assert.ok(fs.existsSync(marker), 'owned child started within three seconds');
+    }
+    finally
+    {
+        controller.abort(original);
+    }
+    const error = await observed;
+    assert.ok(error instanceof AtomicProducerExecutionError);
+    assert.equal(error.cause.cause, original);
+    assert.ok(error.cause.errors.includes(original));
+    assert.ok(error.cause.errors.includes(secondary));
+    assert.equal(cleanupCount, 1);
+    const vector = error.terminalVector;
+    assert.equal(vector.receipts.length, 6);
+    assert.ok(vector.receipts.every((receipt) => !['pending', 'running'].includes(receipt.terminalState)));
+    assert.equal(byProducer(vector)['alpha-check'].terminalState, 'cancelled');
+    assert.equal(byProducer(vector)['cleanup-inventory'].terminalState, 'failed');
+    assert.equal(vector.interruption.message, 'ORIGINAL_PRIMARY');
+    const attempt = JSON.parse(fs.readFileSync(byProducer(vector)['alpha-check'].attemptRef.path, 'utf8'));
+    assert.equal(attempt.failureKind, 'runner-cancelled');
+    assert.equal(attempt.attemptNumber, 1);
+}));
+
+test('returned failure refs without Error keep their typed primary cause ahead of cleanup errors', async () =>
+{
+    for (const terminalState of ['failed', 'timed-out', 'cancelled'])
+    {
+        const cleanup = new Error('CLEANUP_FAILURE');
+        let cleanupCount = 0;
+        const error = await executeWeightedStepDag([
+            { id: 'primary', resources: { cpuWeight: 1, memoryWeight: 1, minCpuUnits: 1 } },
+            { id: 'cleanup', dependsOn: ['primary'], alwaysRunFinalizer: true, finalizerPurpose: 'cleanup', resources: { coordinationOnly: true } }
+        ], { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 }, async (step) =>
+        {
+            if (step.id === 'primary')
+            {
+                return { terminalState, reasonCode: 'ORIGINAL_PRIMARY', primaryFailureRefs: ['primary'] };
+            }
+            cleanupCount += 1;
+            throw cleanup;
+        }).then(() => null, (failure) => failure);
+        assert.ok(error instanceof StepDagExecutionError);
+        assert.ok(error.cause instanceof StepTerminalError);
+        assert.equal(error.cause.terminalState, terminalState);
+        assert.equal(error.cause.reasonCode, 'ORIGINAL_PRIMARY');
+        assert.deepEqual(error.cause.primaryFailureRefs, ['primary']);
+        assert.equal(error.errors[1], cleanup);
+        assert.equal(cleanupCount, 1);
+        assert.deepEqual(error.states, { primary: terminalState, cleanup: 'failed' });
+    }
+});
+
+test('assertion mismatch and timeout retain attempt failure causes when cleanup also fails', async () => withEvidence(async (directory) =>
+{
+    for (const scenario of ['product-failure', 'timeout'])
+    {
+        const fixture = atomicFixture({ alphaScenario: scenario });
+        const secondary = new Error('CLEANUP_FAILURE');
+        const options = atomicExecutionOptions(fixture, path.join(directory, scenario), { onCleanup: () =>
+        {
+            throw secondary;
+        } });
+        options.producerContexts['alpha-check'].timeoutMs = 100;
+        const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+            .then(() => null, (failure) => failure);
+        assert.ok(error instanceof AtomicProducerExecutionError);
+        assert.equal(error.cause.cause.reasonCode, scenario === 'timeout' ? 'runner-timeout' : 'assertion-mismatch');
+        assert.ok(error.cause.errors.includes(secondary));
+        assert.equal(byProducer(error.terminalVector)['beta-check'].terminalState, 'success');
+    }
+}));
+
+test('producer-only cancellation keeps the original Error when cleanup also fails', async () => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture({ alphaScenario: 'timeout' });
+    const controller = new AbortController();
+    const original = new StepTerminalError('cancelled', 'explicit-cancel', 'ORIGINAL_PRIMARY');
+    const secondary = new Error('CLEANUP_FAILURE');
+    const options = atomicExecutionOptions(fixture, directory, {
+        signalByProducer: { 'alpha-check': controller.signal },
+        onCleanup: () =>
+        {
+            throw secondary;
+        }
+    });
+    controller.abort(original);
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.equal(error.cause.cause, original);
+    assert.ok(error.cause.errors.includes(secondary));
+    assert.equal(byProducer(error.terminalVector)['beta-check'].terminalState, 'success');
+}));
+
+test('pre-aborted DAG performs finalization once with no fabricated attempt receipts', async () => withEvidence(async (directory) =>
 {
     const fixture = atomicFixture();
-    const options = atomicExecutionOptions(fixture, directory);
-    options.capacity.signal = new AbortController().signal;
-    await assert.rejects(executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options), /global-interrupt finalizer capability/u);
-    assert.deepEqual(fs.readdirSync(directory), []);
+    const controller = new AbortController();
+    const original = new Error('cancel before admission');
+    let cleanupCount = 0;
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
+    options.capacity.signal = controller.signal;
+    controller.abort(original);
+    const error = await executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options)
+        .then(() => null, (failure) => failure);
+    assert.equal(error.cause.cause, original);
+    assert.equal(cleanupCount, 1);
+    assert.equal(error.terminalVector.receipts.length, 6);
+    const physical = error.terminalVector.receipts.filter((receipt) => receipt.kind === 'atomic-producer');
+    assert.ok(physical.every((receipt) => receipt.terminalState === 'cancelled' && receipt.attemptRef === null));
 }));
 
 test('attempt runner exception records internal error and releases grants while sibling and cleanup complete', async () => withEvidence(async (directory) =>

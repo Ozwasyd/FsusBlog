@@ -5,7 +5,13 @@ import process from 'node:process';
 const scenario = process.argv[2];
 const testId = process.argv[3];
 
-if (scenario === 'timeout')
+if (scenario === 'marker-wait')
+{
+    fs.writeFileSync(process.argv[4], 'started');
+    setTimeout(() =>
+    {}, 3500);
+}
+else if (scenario === 'timeout')
 {
     setInterval(() =>
     {}, 1000);

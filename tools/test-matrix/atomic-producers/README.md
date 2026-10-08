@@ -111,18 +111,18 @@ current complete composite-child observations are required from their canonical
 owners. No existing lane, workflow, command, membership or execution edge is
 changed here. Domain migrations and consumer registration remain separate.
 
-The shared scheduler exits on a global abort before admitting pending finalizers
-and does not return a terminal vector for that path. This adapter rejects an
-explicit global scheduler signal before spawning; per-producer cancellation is
-supported by the existing attempt runner. A scheduler-owner capability is
-required for complete global interrupt, capacity-safety and resource-provider
-internal-error terminalization. The adapter preserves those missing receipts
-rather than synthesizing them. Required-artifact declaration enforcement remains
-with the canonical producer/attempt authority; this adapter consumes its receipt
-and does not reseal or promote a clean receipt after an external failure.
+The bounded scheduler correction preserves the original global interruption,
+settles active producers through their owner signals, cancels pending physical
+admission, then runs declared settled joins and leaf finalizers. The bridge combines
+global and producer signals for the original attempt runner. Every declared node
+retains a terminal receipt, and cleanup failures remain secondary to physical
+failures or cancellation. Capacity-safety and resource-provider internal errors
+still require their canonical owner's terminalization capability. Required-artifact
+declaration enforcement remains with the canonical producer/attempt authority;
+this adapter consumes its receipt without promoting it after an external failure.
 
 Current full inventory, generated current-doc admission, local/Fresh/resume/CI
-consumer adoption, canonical runtime state integration, complete cancellation
+consumer adoption, canonical runtime state integration, broader cancellation
 acceptance and independent review remain open. Exact local fixture execution
 does not substitute for those conditions.
 

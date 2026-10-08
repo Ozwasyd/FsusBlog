@@ -3,7 +3,7 @@ import path from 'node:path';
 
 import { digestCanonical, sealContentDigest, validateExternalAuthorityReferences } from '../../test/attempt-provenance.mjs';
 import { runProducerAttempts } from '../../test/attempt-runner.mjs';
-import { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionError } from '../../test/bundles/bundle-steps.mjs';
+import { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionError, StepTerminalError } from '../../test/bundles/bundle-steps.mjs';
 
 import { verifyCompiledAtomicProducerDag } from './compiler.mjs';
 import { isAtomicExecutable, resolveAtomicReplayPlan } from './contract.mjs';
@@ -18,7 +18,7 @@ export class AtomicProducerExecutionError extends Error
     }
 }
 
-function attemptOutcome(result)
+function attemptOutcome(result, signal)
 {
     const receipt = result.attempts[0];
     if (result.attempts.length !== 1 || receipt.attemptNumber !== 1 || receipt.maxAttempts !== 1
@@ -32,6 +32,11 @@ function attemptOutcome(result)
                 : 'failed';
     return {
         terminalState,
+        reason: terminalState === 'success' ? undefined
+            : terminalState === 'cancelled' && signal?.aborted ? signal.reason
+                : new StepTerminalError(terminalState, receipt.failureKind,
+                    `atomic producer ${receipt.producerId}: ${receipt.failureKind}`,
+                    { primaryFailureRefs: [receipt.producerId] }),
         reasonCode: terminalState === 'success' ? 'clean-first-attempt' : receipt.failureKind,
         primaryFailureRefs: terminalState === 'success' ? [] : [receipt.producerId],
         evidenceRef: path.join(result.producerRoot, 'aggregate.json'),
@@ -96,7 +101,11 @@ function terminalVector(compiled, scheduler, attempts, context)
         sourceCommit: context.sourceCommit,
         worktreeFingerprint: context.worktreeFingerprint,
         qualificationEligible: false,
-        status: receipts.every((receipt) => receipt.terminalState === 'success') ? 'success' : 'failed',
+        interruption: scheduler.interruption ? {
+            reasonCode: scheduler.interruption.reasonCode ?? 'global-interrupt',
+            message: scheduler.interruption.message ?? String(scheduler.interruption)
+        } : null,
+        status: !scheduler.interruption && receipts.every((receipt) => receipt.terminalState === 'success') ? 'success' : 'failed',
         receipts
     });
 }
@@ -117,10 +126,6 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
         throw new Error('atomic execution requires a closed current-run context');
     }
     const currentCapacity = typeof capacity === 'function' ? capacity() : capacity;
-    if (currentCapacity?.signal !== undefined && currentCapacity.signal !== null)
-    {
-        throw new Error('global-interrupt finalizer capability is unavailable in the shared weighted scheduler');
-    }
     if (verified.steps.some((step) => step.executionClass === 'runtime') && !currentCapacity?.stateConflictPolicy)
     {
         throw new Error('runtime execution requires the canonical state conflict policy');
@@ -201,9 +206,13 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
             {
                 try
                 {
-                    const attempt = await runProducerAttempts(preflight.get(step.id));
+                    const input = preflight.get(step.id);
+                    const liveCapacity = typeof capacity === 'function' ? capacity() : capacity;
+                    const signals = [input.signal, liveCapacity?.signal].filter(Boolean);
+                    const signal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
+                    const attempt = await runProducerAttempts({ ...input, signal });
                     attempts.set(step.id, attempt);
-                    result = attemptOutcome(attempt);
+                    result = attemptOutcome(attempt, signal);
                 }
                 catch (error)
                 {

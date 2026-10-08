@@ -12,7 +12,7 @@ export function atomicReference(material)
 }
 
 /** Synthetic owner projections for isolated contract tests, never qualification. */
-export function atomicFixture({ alphaScenario = 'success', betaScenario = 'success' } = {})
+export function atomicFixture({ alphaScenario = 'success', betaScenario = 'success', startedMarker } = {})
 {
     const authorities = {
         physicalOwnership: [],
@@ -41,6 +41,10 @@ export function atomicFixture({ alphaScenario = 'success', betaScenario = 'succe
     {
         const testId = canonicalTestId({ framework: 'node-test', source: 'tests/tools/atomic-producer-compiler.test.mjs', name: ['isolated-fixture', id] });
         const command = [process.execPath, commandFixture, scenario, testId];
+        if (scenario === 'marker-wait')
+        {
+            command.push(startedMarker);
+        }
         const closure = sealContentDigest({
             id: `${id}-inputs`,
             commandSourceId: `${id}-command`,
