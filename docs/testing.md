@@ -1759,3 +1759,19 @@ request and sealed timing/status projection; the first terminal task and failure
 remain unchanged. Duplicate retry requests are idempotent and old attempt ACKs
 cannot release the current attempt's slot. These ledger controls remain separate
 from real sandbox stop receipts and durable crash recovery acceptance.
+
+`DocumentExportSourceFreezerIntegrationTests` runs the production live-session
+permission authority against task-isolated PostgreSQL. It checks permission and
+session revocation before and during a source read, principal/site/article
+isolation, explicit historical revision and publication identity, draft key,
+server revision and document epoch, missing snapshots and byte tampering. Source
+packages in these controls use the existing canonical package seal; the package
+reader is a controlled port, so these tests do not prove full authoring storage
+or product admission. Frozen packages own their source and snapshot bytes.
+The freezer requires a trusted numeric-site/configured-site binding and rechecks
+the same permission/session digest after reading. SourceVersion means the draft's
+ServerRevision or the immutable revision's RevisionNo; publication also requires
+the exact release ID/reference. It never selects the current revision pointer.
+Typed property and asset inventories still require their canonical frozen reader
+ports before this source package can become a complete provider input. No public
+API or automatic admission is activated by these source controls.
