@@ -29,6 +29,7 @@ public static class AuthorSavedViewContract
     public const string CreatedAtField = "article.created-at";
     public const string UpdatedAtField = "article.updated-at";
     public const string PublishedAtField = "article.published-at";
+    public const string ScheduledAtField = "article.scheduled-at";
     public const string AuthorSearchField = "author-search.current";
 
     private static readonly ReadOnlyDictionary<AuthorSavedViewFieldKind, AuthorSavedViewFieldDescriptor> s_fields =
@@ -66,7 +67,7 @@ public static class AuthorSavedViewContract
                 ["identity.equals", "identity.any-of"]),
             [AuthorSavedViewFieldKind.Date] = ExactField(
                 AuthorSavedViewFieldKind.Date,
-                [CreatedAtField, UpdatedAtField, PublishedAtField],
+                [CreatedAtField, UpdatedAtField, PublishedAtField, ScheduledAtField],
                 [
                     "value.is-missing",
                     "value.is-present",
