@@ -5,9 +5,10 @@
             "id": "environment-variable",
             "paths": [
                 "tools/governance/generated-output-digest-repair-repository.mjs",
+                "tools/test-inventory/discovery.mjs",
                 "tools/test/correctness-attempt-migration.mjs"
             ],
-            "reason": "preserve the existing Git and sparse runtime environment spellings while retaining exact filesystem identities in the canonical replay adapter; preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            "reason": "preserve the existing Git and sparse runtime environment spellings while retaining exact filesystem identities in the canonical replay adapter; preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster; preserve canonical SDK and execution environment spellings while interpreting observed MSBuild intermediate path separators at the original projection boundary"
         },
         {
             "id": "css-like-contract",
