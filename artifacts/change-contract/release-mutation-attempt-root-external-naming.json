@@ -26,7 +26,6 @@
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "config/testing/correctness-attempt-producers.json",
-                "config/testing/release-reliability-lifecycle-action-registry.json",
                 "tests/backend/packages.lock.json"
             ],
             "reason": "Preserve the exact NuGet-generated dependency schema from the supplied supporting lock correction."
