@@ -41,6 +41,9 @@ repeated targets and images. Wrapped links retain all their annotation rectangle
 Verify mode never calls the PDF writer or replaces the supplied PDF. Code checks
 preserve logical ligature order; tabs are checked through their rendered space
 and line geometry rather than discarded with other whitespace.
+For plain RTL text, actual PDF ToUnicode glyph clusters retain their internal
+character order during reading-order reconstruction, including lam-alef. Expected
+article text never supplies replacement letters; a substituted letter order fails.
 
 The renderer uses WeasyPrint 66.0, pikepdf 9.11.0, PyMuPDF 1.26.4, pypdfium2
 4.30.0 and fontTools 4.59.2. `Tools/dependencies.lock.json` pins the complete Python dependency set used in the

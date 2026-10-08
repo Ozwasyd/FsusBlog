@@ -523,6 +523,58 @@ def validate_code_lines(page, expected):
             raise PdfRejected("code-whitespace-semantics")
 
 
+def read_body_text(page, body):
+    # MuPDF's logical-text pass can reverse the characters *inside* an RTL
+    # ligature. Use the actual ToUnicode glyph cluster, retaining its declared
+    # character order, rather than swapping letters based on expected content.
+    traces = page.get_texttrace()
+    lines = []
+    for block in page.get_text("rawdict", clip=body, sort=True)["blocks"]:
+        for line in block.get("lines", []):
+            characters = [
+                character for span in line["spans"] for character in span["chars"]
+            ]
+            text = "".join(character["c"] for character in characters)
+            directional = [
+                unicodedata.bidirectional(character)
+                for character in text
+                if not character.isspace()
+            ]
+            if any(direction in {"R", "AL"} for direction in directional) and all(
+                direction in {"R", "AL", "NSM", "ON", "BN"} for direction in directional
+            ):
+                baselines = {character["origin"][1] for character in characters}
+                clusters = []
+                for span in traces:
+                    previous = None
+                    for codepoint, glyph, origin, rectangle in span["chars"]:
+                        if not (
+                            any(
+                                abs(origin[1] - baseline) <= 0.25
+                                for baseline in baselines
+                            )
+                            and line["bbox"][0] - 0.25
+                            <= origin[0]
+                            <= line["bbox"][2] + 0.25
+                        ):
+                            previous = None
+                            continue
+                        if glyph == -1 and previous is not None:
+                            previous["text"] += chr(codepoint)
+                        else:
+                            previous = {"text": chr(codepoint), "x": origin[0]}
+                            clusters.append(previous)
+                if clusters:
+                    text = "".join(
+                        cluster["text"]
+                        for cluster in sorted(
+                            clusters, key=lambda cluster: -cluster["x"]
+                        )
+                    )
+            lines.append(text)
+    return "\n".join(lines) + "\n"
+
+
 def verify_pdf(data, request, witnesses=None):
     """Independent qpdf structure and MuPDF semantics/visible-page validation.
 
@@ -631,11 +683,7 @@ def verify_pdf(data, request, witnesses=None):
             # SVG text is a separate PDF XObject and can occur later in object
             # order than its visible position. Sort text blocks by reading
             # position while retaining each block's logical Unicode order.
-            text = "".join(
-                block[4]
-                for block in page.get_text("blocks", clip=body, sort=True)
-                if block[6] == 0
-            )
+            text = read_body_text(page, body)
             if "\ufffd" in text or "\x00" in text:
                 raise PdfRejected("text-tofu")
             extracted.append(text)

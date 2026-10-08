@@ -484,6 +484,15 @@ def test_rtl_document_keeps_program_code_indentation(locale, text):
     assert tool.verify_pdf(data, value)["pageCount"] == 1
 
 
+def test_rtl_ligature_order_cannot_hide_letter_substitution():
+    value = request("<p dir='rtl'>سلام</p>", "سلام")
+    render_in_process(value)
+    substituted = request("<p dir='rtl'>سالم</p>", "سالم")
+    data = base64.b64decode(render_in_process(substituted)["pdfBase64"])
+    with pytest.raises(tool.PdfRejected, match="text-order-or-content"):
+        tool.verify_pdf(data, value)
+
+
 def test_table_footer_before_body_is_explicitly_rejected():
     fragment = (
         "<table><thead><tr><th>A</th><th>B</th></tr></thead>"
