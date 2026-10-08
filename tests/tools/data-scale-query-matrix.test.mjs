@@ -113,6 +113,9 @@ test('semantic owner declarations bind real source contracts without adding case
                 'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationRequest', 'System.Threading.CancellationToken']);
         assert.ok(row.blockers.includes('original_same_run_publication_receipt_and_current_invocation_missing'));
     }
+    const aot = consistency.requirements.find((row) => row.kind === 'aot-consistency');
+    assert.deepEqual(aot.routePatterns, ['/article/{articleId}']);
+    assert.ok(aot.businessOwners.some((owner) => owner.entrypoint.endsWith('PublicRouteIdentity.BuildCanonicalPath')));
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, article: ['invented-kind'] } }), /undeclared/u);
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { ...kinds, comment: ['public-list', 'public-list'] } }), /unique/u);
     assert.throws(() => buildQuerySemanticOwnerInventory({ binding, kinds: { article: ['detail'] } }), /vocabulary/u);

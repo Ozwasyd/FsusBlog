@@ -219,8 +219,10 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
                         sourceRef('src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs',
                             'FsusBlog.Server.Infrastructure.PublicAot.IPublicAotInvalidationGenerationAuthority.LoadAsync'),
                         sourceRef('src/backend/Infrastructure/PublicAot/PublicAotInvalidationGenerationAuthority.cs',
-                            'FsusBlog.Server.Infrastructure.PublicAot.PublicAotInvalidationGenerationState.Current')];
-                    routePatterns = ['/api/public/navigation-snapshot.aeds'];
+                            'FsusBlog.Server.Infrastructure.PublicAot.PublicAotInvalidationGenerationState.Current'),
+                        sourceRef('src/backend/Infrastructure/PublicAot/PublicRouteIdentity.cs',
+                            'FsusBlog.Server.Infrastructure.PublicAot.PublicRouteIdentity.BuildCanonicalPath')];
+                    routePatterns = ['/article/{articleId}'];
                     blockers.push('original_aot_artifact_and_route_identity_missing');
                     break;
                 case 'article:hot-read-consistency':
