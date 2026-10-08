@@ -156,6 +156,27 @@ The eight types of cases are fixed as missing, corrupt header, truncated, MIME-e
 
 The end-to-end test selects `png-alpha` from MediaShapeCatalog, obtains verified receipt/bytes through the canonical generator and AssetId store, then derives all eight types of negative cases, and verifies that the positive ledger and bytes root are completely unchanged before and after running. The remaining unit tests still target a single rejection condition with minimal sealed receipt, but not as an end-to-end acceptance replacement.
 
+## Continuous managed socket handoff
+
+The existing Production Fresh port allocator exposes an explicit development
+`continuousHandoff` mode. Its native launch operation asks the original Python
+reservation process to pass its already-bound, non-reusable socket descriptor to
+one managed child. The reservation retains its IPv4 duplicate and IPv6 guard
+through the attempt; `release-before-bind` is refused in this mode. Completion
+checks the authorized child's PID start identity, actual inherited socket inode
+and listening port. A supplied PID discovered on a port cannot replace this
+authorization. Failed or canceled pending attempts drain their own child before
+releasing reservations; successful completion retains the application's socket
+when the reservation duplicates are closed.
+
+Focused checks are `node --test tests/tools/production-fresh-continuous-handoff.test.mjs`.
+These checks exercise real subprocesses and sockets. They do not establish a
+five-role bootstrap, business AEDS canary, sealed readiness receipt, current-run
+consumer admission, or runtime qualification. Legacy allocation callers remain
+unchanged until the bootstrap integrates the admitted final Docker publisher
+and native listener adapters. Neither HTTP success nor this development socket
+proof may be promoted to Production Fresh readiness.
+
 ## Runtime state-domain catalog
 
 `config/testing/runtime-state-domain-catalog.json` is the sole runtime-state access authority. Domains must come from `config/testing/runtime-state-domain-registry.json`; executable runtime steps declare reads, writes, deletes, invalidations, creates, resets, predecessors, postconditions, and machine-verifiable source/test evidence. Coordination-only steps use `stateAccess: none`. The catalog is exact in both directions against `runtimeSteps()` and its validator runs as matrix governance; neither scheduler, lane scripts, nor documentation may keep a second conflict table. Runtime bundle producers write source/run-bound reset receipts after observing their real postconditions, and every `resetBefore`/`resetAfter` consumer verifies the receipt identity plus observation digests before proceeding.
