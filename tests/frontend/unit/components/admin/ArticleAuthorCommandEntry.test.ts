@@ -36,6 +36,128 @@ async function harness(commands: readonly FsusUiAuthoringCommand[] = []) {
 }
 
 describe('article command entry with real alias-resolved FsusUI editor', () => {
+    it.each([{ ctrlKey: true, metaKey: false }, { ctrlKey: false, metaKey: true }])(
+        'consumes scoped repeats without opening or recapturing the real palette %j', async (modifier) => {
+            const test = await harness();
+            const textarea = test.editor.get('textarea').element as HTMLTextAreaElement;
+            textarea.focus();
+            textarea.setSelectionRange(2, 8, 'backward');
+            const repeated = () => {
+                const event = new KeyboardEvent('keydown', {
+                    key: 'p', repeat: true, bubbles: true, cancelable: true, ...modifier
+                });
+                textarea.dispatchEvent(event);
+                expect(event.defaultPrevented).toBe(true);
+            };
+            repeated();
+            await nextTick();
+            expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+            textarea.dispatchEvent(new KeyboardEvent('keydown', {
+                key: 'p', bubbles: true, cancelable: true, ...modifier
+            }));
+            repeated();
+            repeated();
+            await nextTick();
+            expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+            const input = document.body.querySelector<HTMLInputElement>('[role="dialog"] [role="combobox"]')!;
+            input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+            await vi.waitFor(() => {
+                expect(document.activeElement).toBe(textarea);
+                expect(textarea.selectionStart).toBe(2);
+                expect(textarea.selectionEnd).toBe(8);
+                expect(textarea.selectionDirection).toBe('backward');
+            });
+            expect(test.editor.emitted('update:modelValue')).toBeUndefined();
+        }
+    );
+
+    it.each([
+        { ctrlKey: true, metaKey: false, repeat: false },
+        { ctrlKey: true, metaKey: false, repeat: true },
+        { ctrlKey: false, metaKey: true, repeat: false },
+        { ctrlKey: false, metaKey: true, repeat: true }
+    ])('retains shortcut ownership after real palette focus teleports %j', async (modifier) => {
+        const test = await harness();
+        const textarea = test.editor.get('textarea').element as HTMLTextAreaElement;
+        textarea.focus();
+        textarea.setSelectionRange(2, 8, 'backward');
+        textarea.dispatchEvent(new KeyboardEvent('keydown', {
+            key: 'p', ctrlKey: true, bubbles: true, cancelable: true
+        }));
+        await nextTick();
+        const input = document.body.querySelector<HTMLInputElement>('[role="dialog"] [role="combobox"]')!;
+        expect(test.host.contains(input)).toBe(false);
+        expect(document.activeElement).toBe(input);
+        input.value = 'Retain this query';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await nextTick();
+        const event = new KeyboardEvent('keydown', {
+            key: 'p', bubbles: true, cancelable: true, ...modifier
+        });
+        input.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(true);
+        await nextTick();
+        expect(input.value).toBe('Retain this query');
+        expect(document.activeElement).toBe(input);
+        expect(document.body.querySelectorAll('[role="dialog"]')).toHaveLength(1);
+        input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', bubbles: true, cancelable: true }));
+        await vi.waitFor(() => {
+            expect(document.activeElement).toBe(textarea);
+            expect(textarea.selectionStart).toBe(2);
+            expect(textarea.selectionEnd).toBe(8);
+            expect(textarea.selectionDirection).toBe('backward');
+        });
+        expect(test.editor.emitted('update:modelValue')).toBeUndefined();
+    });
+
+    it('leaves unrelated-page shortcuts native while the palette is open', async () => {
+        const test = await harness();
+        await test.entry.get('button').trigger('click');
+        const unrelated = document.createElement('input');
+        document.body.append(unrelated);
+        cleanups.push(() => unrelated.remove());
+        unrelated.focus();
+        const event = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true, cancelable: true });
+        unrelated.dispatchEvent(event);
+        expect(event.defaultPrevented).toBe(false);
+        expect(document.activeElement).toBe(unrelated);
+        expect(test.editor.emitted('update:modelValue')).toBeUndefined();
+    });
+
+    it('leaves teleported shortcuts native when disabled and respects prior cancellation', async () => {
+        const test = await harness();
+        await test.entry.get('button').trigger('click');
+        const input = document.body.querySelector<HTMLInputElement>('[role="dialog"] [role="combobox"]')!;
+        input.value = 'Keep cancelled query';
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        await nextTick();
+        test.enabled.value = false;
+        const disabled = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, repeat: true, bubbles: true, cancelable: true });
+        input.dispatchEvent(disabled);
+        expect(disabled.defaultPrevented).toBe(false);
+        test.enabled.value = true;
+        const cancelled = new KeyboardEvent('keydown', { key: 'p', ctrlKey: true, bubbles: true, cancelable: true });
+        cancelled.preventDefault();
+        input.dispatchEvent(cancelled);
+        await nextTick();
+        expect(input.value).toBe('Keep cancelled query');
+        expect(test.editor.emitted('update:modelValue')).toBeUndefined();
+    });
+
+    it.each([{ isComposing: true }, { keyCode: 229 }, { altKey: true }, { shiftKey: true }])(
+        'preserves native guards inside the teleported palette %j', async (guard) => {
+            const test = await harness();
+            await test.entry.get('button').trigger('click');
+            const input = document.body.querySelector<HTMLInputElement>('[role="dialog"] [role="combobox"]')!;
+            const event = new KeyboardEvent('keydown', {
+                key: 'p', ctrlKey: true, repeat: true, bubbles: true, cancelable: true, ...guard
+            });
+            input.dispatchEvent(event);
+            expect(event.defaultPrevented).toBe(false);
+            expect(test.editor.emitted('update:modelValue')).toBeUndefined();
+        }
+    );
+
     it('offers a visible accessible button and delegates to the existing command-only palette', async () => {
         const test = await harness();
         const button = test.entry.get('button');
