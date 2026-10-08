@@ -286,3 +286,38 @@ inventory. The current DB article ID, history permission digest and structure
 `IdentityDigest` cannot fill these fields. There is no default provider or invented
 upstream method. Source/provider timing and bounded cached-fact revalidation require
 real runtime qualification; the controlled 10,000-row fixtures are not such evidence.
+
+
+## Incoming anchor impact preparation
+
+`ArticleBlockAnchorImpactPlanner.FreezeAsync` consumes the sole actual relation
+index and the existing independently observed query metadata port. It freezes
+request identity, exact target/current revisions, index/source leases, original
+source ranges, permission/editability facts and an internal operation fingerprint.
+Current link candidates use the existing single-literal parser and Markdown builder
+while retaining their original route and label. Published references are always
+immutable. Read-only current references and default removal with current references
+remain blocked; explicit leave-broken intent retains the original links.
+
+Historical-only references also require a fresh current article read. Current
+read permission does not admit past revision content: the candidate retains an
+explicit canonical historical-permission admission requirement before exposure.
+All current metadata coordinates are frozen separately from immutable past sources.
+
+Every required source is revalidated before preparation returns. The index's
+`RevalidateArticleAsync` also checks the target's original family when there are no
+incoming relations. Prepare-only `RevalidateAsync` recomputes original facts and
+refuses drift. Incomplete aggregate occurrence records (more than first/last),
+overlapping ranges, unavailable reads or changed permission/revision observations
+return no partial plan. Planning is bounded to the original index article/record/text
+limits, uses sequential metadata/fact reads and never scans source bodies. Real
+providers must serve bounded canonical cached facts; fixtures do not qualify runtime
+latency, privacy timing or storage admission.
+
+A frozen incoming-impact candidate is **not an executable refactor**. Every plan
+still requires original anchor inventory/collision and exact marker-range admission,
+explicit removal-policy admission, and the canonical expected-revision article/editor
+transaction covering target plus incoming sources. The existing single-draft writer
+normalizes content and provides no offered cross-article atomic/recovery protocol.
+No writer, marker mutation, history/outbox/audit/reindex receipt or collision authority
+is fabricated. Execution and package round-trip acceptance remain open.

@@ -160,6 +160,20 @@ public sealed class ArticleRelationIndex
         return new(_actor, snapshot.IndexGeneration, snapshot.SourceGeneration, target, kind, records.ToImmutable());
     }
 
+    /// <summary>Revalidates an exact original article family even when it has no incoming relations.</summary>
+    public Task RevalidateArticleAsync(
+        string articleIdentity,
+        long expectedIndexGeneration,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        Require(ArticleRelationContractValidator.Validate(new ArticleRelationTargetIdentity(
+            articleIdentity, ArticleRelationTargetKind.Article, null, null)).IsValid, "article_relation_index_query_invalid");
+        ArticleRelationIndexSnapshot snapshot = Capture(expectedIndexGeneration, true)!;
+        Require(snapshot.Articles.ContainsKey(articleIdentity), "article_relation_index_article_unavailable");
+        return RevalidateFamiliesAsync(snapshot, [articleIdentity], cancellationToken);
+    }
+
     /// <summary>Reads embed candidates in an explicit scope from the same committed source families.</summary>
     public ArticleRelationIndexEmbedInspection InspectEmbedTarget(
         ArticleEmbedTargetIdentity target,
