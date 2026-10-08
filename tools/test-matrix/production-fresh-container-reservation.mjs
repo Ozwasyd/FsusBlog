@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { createHash, randomBytes } from 'node:crypto';
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { promisify } from 'node:util';
+import { isDeepStrictEqual, promisify } from 'node:util';
 
 const execute = promisify(execFile);
 const labelPrefix = 'io.fsusblog.test.';
@@ -144,6 +144,108 @@ async function publisherIdentity(port, containerPort, containerAddress)
     return { ...matches[0], socketInode: inode, bindAddress: '127.0.0.1', port, protocol: 'tcp' };
 }
 
+function directoryIdentity(stat)
+{
+    return { device: stat.dev, inode: stat.ino, uid: stat.uid, mode: stat.mode & 0o777 };
+}
+
+async function verifyGateDirectory(gateDirectory, expected)
+{
+    const resolved = path.resolve(gateDirectory);
+    if (resolved !== gateDirectory || !/^container-reservation-[a-zA-Z0-9]+$/u.test(path.basename(resolved)) ||
+        await fs.realpath(resolved) !== resolved)
+    {
+        throw new Error('container reservation gate path drift; refusing mutation');
+    }
+    const observed = await fs.lstat(resolved);
+    if (!observed.isDirectory() || observed.isSymbolicLink() ||
+        !isDeepStrictEqual(directoryIdentity(observed), expected.directory) || observed.uid !== process.getuid() ||
+        (observed.mode & 0o077) !== 0 ||
+        !isDeepStrictEqual(directoryIdentity(await fs.lstat(path.dirname(resolved))), expected.root))
+    {
+        throw new Error('container reservation gate identity drift; refusing mutation');
+    }
+    const scriptPath = path.join(resolved, 'entrypoint.sh');
+    const script = await fs.lstat(scriptPath);
+    if (!script.isFile() || script.isSymbolicLink() || script.nlink !== 1 ||
+        !isDeepStrictEqual(directoryIdentity(script), expected.script) ||
+        hash(await fs.readFile(scriptPath)) !== expected.scriptDigest)
+    {
+        throw new Error('container reservation gate script drift; refusing mutation');
+    }
+}
+
+async function observePublisher(container, expected)
+{
+    const mapping = container.NetworkSettings.Ports[`${expected.containerPort}/tcp`];
+    if (!container.State.Running || mapping?.length !== 1 || mapping[0].HostIp !== '127.0.0.1' ||
+        mapping[0].HostPort !== String(expected.port)) throw new Error('container reservation mapping drift');
+    const addresses = Object.values(container.NetworkSettings.Networks).map((network) => network.IPAddress).filter(Boolean);
+    if (addresses.length !== 1) throw new Error('container reservation network identity is ambiguous');
+    const gateMounts = container.Mounts.filter((mount) => mount.Destination === gateTarget);
+    if (gateMounts.length !== 1 || gateMounts[0].Source !== expected.gateDirectory || gateMounts[0].RW !== false)
+    {
+        throw new Error('container reservation gate mount drift');
+    }
+    return {
+        runId: container.Config.Labels[`${labelPrefix}run-id`],
+        namespace: container.Config.Labels[`${labelPrefix}namespace`],
+        taskId: container.Config.Labels[`${labelPrefix}reservation-task`],
+        role: container.Config.Labels[`${labelPrefix}reservation-role`],
+        name: container.Name.slice(1), port: expected.port, containerPort: expected.containerPort,
+        containerId: container.Id, containerCreatedAt: container.Created, containerProcessId: container.State.Pid,
+        containerStartedAt: container.State.StartedAt, imageReference: container.Config.Image,
+        imageId: container.Image, imageDigest: container.Config.Image.split('@')[1],
+        reservationTokenDigest: container.Config.Labels[`${labelPrefix}reservation-token`],
+        labels: container.Config.Labels, gateOwner: expected.gateOwner,
+        resources: {
+            cpuNanoUnits: container.HostConfig.NanoCpus, memoryHighBytes: container.HostConfig.MemoryReservation,
+            memoryMaxBytes: container.HostConfig.Memory, pidsMax: container.HostConfig.PidsLimit
+        },
+        publisher: await publisherIdentity(expected.port, expected.containerPort, addresses[0])
+    };
+}
+
+/** Called only by canonical allocator recovery after its reservation daemon death check. */
+export async function recoverReleaseContainerPublisher({ ownerIdentity, gateDirectory })
+{
+    if (!ownerIdentity || !/^[a-f0-9]{64}$/u.test(ownerIdentity.containerId ?? '') ||
+        !['postgres', 'redis'].includes(ownerIdentity.role) || !ownerIdentity.gateOwner ||
+        !/^fsusblog-(?:test|ci)-[a-zA-Z0-9_.-]+$/u.test(ownerIdentity.name ?? ''))
+    {
+        throw new Error('container reservation recovery requires a complete recorded owner identity');
+    }
+    await verifyGateDirectory(gateDirectory, ownerIdentity.gateOwner);
+    let container;
+    try { container = await inspectContainer(ownerIdentity.containerId); }
+    catch (error)
+    {
+        if (!/No such (?:object|container)/u.test(error.stderr ?? '')) throw error;
+    }
+    const previous = container ? await observePublisher(container, { ...ownerIdentity, gateDirectory }) : null;
+    if (previous && !isDeepStrictEqual(previous, ownerIdentity))
+    {
+        throw new Error('container reservation recovery owner identity drift; refusing mutation');
+    }
+    await verifyGateDirectory(gateDirectory, ownerIdentity.gateOwner);
+    if (container)
+    {
+        const confirmed = await observePublisher(await inspectContainer(ownerIdentity.containerId), { ...ownerIdentity, gateDirectory });
+        if (!isDeepStrictEqual(confirmed, ownerIdentity))
+        {
+            throw new Error('container reservation recovery identity changed during verification; refusing mutation');
+        }
+        await docker(['rm', '--force', '--volumes', ownerIdentity.containerId]);
+    }
+    // Recheck the gate after daemon removal; a drift must never delete a replacement directory.
+    await verifyGateDirectory(gateDirectory, ownerIdentity.gateOwner);
+    await fs.rm(gateDirectory, { recursive: true });
+    return {
+        containerId: ownerIdentity.containerId, containerOutcome: container ? 'removed-exact-owner' : 'exact-id-not-found',
+        gateDirectory, gateOutcome: 'removed-exact-owner', observedOwnerIdentity: previous
+    };
+}
+
 /**
  * Called by the single port allocator after its admission and IPv6 guard.
  * The final container itself reserves IPv4; activation never replaces it or its publisher.
@@ -171,10 +273,13 @@ export async function reserveContainerPublisher(options)
     const tokenDigest = hash(token);
     const gateDirectory = await fs.mkdtemp(path.join(root, 'container-reservation-'));
     const gateIdentity = await fs.lstat(gateDirectory);
+    const gateOwner = { directory: directoryIdentity(gateIdentity), root: directoryIdentity(rootStat) };
     try
     {
         await fs.chmod(gateDirectory, 0o700);
         await fs.writeFile(path.join(gateDirectory, 'entrypoint.sh'), gateScript, { mode: 0o500, flag: 'wx' });
+        gateOwner.script = directoryIdentity(await fs.lstat(path.join(gateDirectory, 'entrypoint.sh')));
+        gateOwner.scriptDigest = hash(gateScript);
     }
     catch (error)
     {
@@ -221,12 +326,7 @@ export async function reserveContainerPublisher(options)
     }
     async function assertGateOwned()
     {
-        const observed = await fs.lstat(gateDirectory);
-        if (!observed.isDirectory() || observed.isSymbolicLink() || observed.dev !== gateIdentity.dev ||
-            observed.ino !== gateIdentity.ino || observed.uid !== gateIdentity.uid || (observed.mode & 0o077) !== 0)
-        {
-            throw new Error('container reservation gate identity drift; refusing mutation');
-        }
+        await verifyGateDirectory(gateDirectory, gateOwner);
     }
     async function close()
     {
@@ -274,20 +374,8 @@ export async function reserveContainerPublisher(options)
         {
             throw new Error('container reservation resource envelope drift');
         }
-        const mapping = container.NetworkSettings.Ports[`${options.containerPort}/tcp`];
-        if (!container.State.Running || mapping?.length !== 1 || mapping[0].HostIp !== '127.0.0.1' ||
-            mapping[0].HostPort !== String(options.port)) throw new Error('container reservation mapping drift');
-        const addresses = Object.values(container.NetworkSettings.Networks).map((network) => network.IPAddress).filter(Boolean);
-        if (addresses.length !== 1) throw new Error('container reservation network identity is ambiguous');
-        const publisher = await publisherIdentity(options.port, options.containerPort, addresses[0]);
-        const observed = {
-            runId: options.runId, namespace: options.namespace, role: options.role,
-            containerId, containerCreatedAt: container.Created, containerProcessId: container.State.Pid,
-            containerStartedAt: container.State.StartedAt, imageReference: options.imageReference,
-            imageId: container.Image, imageDigest: options.imageReference.split('@')[1],
-            reservationTokenDigest: tokenDigest, resources, publisher
-        };
-        if (ownerIdentity && JSON.stringify(observed) !== JSON.stringify(ownerIdentity))
+        const observed = await observePublisher(container, { ...options, gateDirectory, gateOwner });
+        if (ownerIdentity && !isDeepStrictEqual(observed, ownerIdentity))
         {
             throw new Error('container reservation continuous identity drift');
         }

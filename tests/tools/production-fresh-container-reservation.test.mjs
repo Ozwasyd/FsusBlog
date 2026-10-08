@@ -1,12 +1,12 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawn } from 'node:child_process';
 import fs from 'node:fs/promises';
 import net from 'node:net';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { randomUUID } from 'node:crypto';
-import { reserveContainerPublisher, validateContainerReservationOptions } from '../../tools/test-matrix/production-fresh-container-reservation.mjs';
+import { recoverReleaseContainerPublisher, reserveContainerPublisher, validateContainerReservationOptions } from '../../tools/test-matrix/production-fresh-container-reservation.mjs';
 
 const resources = ['--cpus', '1', '--memory-reservation', '67108864', '--memory', '268435456', '--pids-limit', '128'];
 const valid = {
@@ -196,9 +196,92 @@ test('real final publishers retain socket and attempt identity through business 
         assert.throws(() => docker(['inspect', cancelledId]));
         await assert.rejects(cancelled.activate(), /released/u);
         assert.equal((await fs.readdir(gateRoot)).length, 2);
+        // Recover the exact reservation after a real owner process is killed, without a live helper object.
+        const recoveryOptions = {
+            ...valid, gateRoot, port: await choosePort(), imageReference: reservations[1].ownerIdentity.imageReference,
+            name: `fsusblog-test-publisher-recovery-${attempt}`
+        };
+        const child = spawn(process.execPath, ['--input-type=module', '-e',
+            'import {reserveContainerPublisher} from "./tools/test-matrix/production-fresh-container-reservation.mjs"; const r=await reserveContainerPublisher(JSON.parse(process.env.RESERVATION_OPTIONS)); console.log(JSON.stringify({ownerIdentity:r.ownerIdentity,gateDirectory:r.gateDirectory})); setInterval(()=>{},1000);'],
+        { env: { ...process.env, RESERVATION_OPTIONS: JSON.stringify(recoveryOptions) }, stdio: ['ignore', 'pipe', 'pipe'] });
+        let recovery;
+        try
+        {
+            recovery = await new Promise((resolve, reject) =>
+            {
+                let output = '';
+                let errors = '';
+                const timer = setTimeout(() => reject(new Error('recovery owner preparation timed out')), 10000);
+                child.stderr.on('data', (chunk) => { errors += chunk.toString(); });
+                child.stdout.on('data', (chunk) =>
+                {
+                    output += chunk.toString();
+                    if (output.includes('\n'))
+                    {
+                        clearTimeout(timer);
+                        resolve(JSON.parse(output.split('\n')[0]));
+                    }
+                });
+                child.once('exit', (code) =>
+                {
+                    clearTimeout(timer);
+                    reject(new Error(`recovery owner exited ${code}: ${errors}`));
+                });
+            });
+        }
+        finally
+        {
+            const exited = new Promise((resolve) => child.once('exit', resolve));
+            child.kill('SIGKILL');
+            await exited;
+        }
+        // Altered run/generation and gate path cannot remove this reservation.
+        await assert.rejects(recoverReleaseContainerPublisher({
+            ...recovery, ownerIdentity: { ...recovery.ownerIdentity, runId: 'another-run' }
+        }), /identity drift/u);
+        docker(['inspect', recovery.ownerIdentity.containerId]);
+        const displaced = `${recovery.gateDirectory}-displaced`;
+        await fs.rename(recovery.gateDirectory, displaced);
+        await fs.symlink(displaced, recovery.gateDirectory);
+        try { await assert.rejects(recoverReleaseContainerPublisher(recovery), /path drift/u); }
+        finally
+        {
+            await fs.unlink(recovery.gateDirectory);
+            await fs.rename(displaced, recovery.gateDirectory);
+        }
+        const scriptPath = path.join(recovery.gateDirectory, 'entrypoint.sh');
+        const originalScript = await fs.readFile(scriptPath);
+        await fs.chmod(scriptPath, 0o700);
+        await fs.writeFile(scriptPath, '#!/bin/sh\nexit 0\n');
+        await fs.chmod(scriptPath, 0o500);
+        try { await assert.rejects(recoverReleaseContainerPublisher(recovery), /script drift/u); }
+        finally
+        {
+            await fs.chmod(scriptPath, 0o700);
+            await fs.writeFile(scriptPath, originalScript);
+            await fs.chmod(scriptPath, 0o500);
+        }
+        const recovered = await recoverReleaseContainerPublisher(JSON.parse(JSON.stringify(recovery)));
+        assert.equal(recovered.containerOutcome, 'removed-exact-owner');
+        assert.equal(recovered.gateOutcome, 'removed-exact-owner');
+        assert.throws(() => docker(['inspect', recovery.ownerIdentity.containerId]));
+        await assert.rejects(fs.lstat(recovery.gateDirectory), { code: 'ENOENT' });
+        const recoveredPort = await bind(recoveryOptions.port);
+        await new Promise((resolve) => recoveredPort.close(resolve));
+        const disappeared = await reserveContainerPublisher({
+            ...valid, gateRoot, port: await choosePort(), imageReference: reservations[1].ownerIdentity.imageReference,
+            name: `fsusblog-test-publisher-disappeared-${attempt}`
+        });
+        docker(['rm', '--force', '--volumes', disappeared.ownerIdentity.containerId]);
+        const absent = await recoverReleaseContainerPublisher({ ownerIdentity: disappeared.ownerIdentity, gateDirectory: disappeared.gateDirectory });
+        assert.equal(absent.containerOutcome, 'exact-id-not-found');
+        evidence.push({ recoveryOwnerKilled: true, recovered, absent, mismatchedIdentityAndSymlinkRejected: true });
         // A container restart cannot reuse the old continuous listener identity.
         docker(['restart', reservations[1].ownerIdentity.containerId]);
         await assert.rejects(reservations[1].observe(), /identity drift/u);
+        await assert.rejects(recoverReleaseContainerPublisher({
+            ownerIdentity: reservations[1].ownerIdentity, gateDirectory: reservations[1].gateDirectory
+        }), /identity drift/u);
     }
     finally
     {
