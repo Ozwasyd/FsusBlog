@@ -1,0 +1,86 @@
+{
+  "sdk": "10.0.302",
+  "runtime": "10.0.10",
+  "sourceCandidate": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+  "exitCode": 1,
+  "errors": [
+    {
+      "path": "tests/backend/Unit/AuthoringExtensionRpcBrokerTests.cs",
+      "line": 505,
+      "column": 17,
+      "code": "CS0246",
+      "message": "The type or namespace name 'CanonicalAuthoringFilePathVerifier' could not be found (are you missing a using directive or an assembly reference?)"
+    },
+    {
+      "path": "tests/backend/Unit/TaxonomyExactMetadataTests.cs",
+      "line": 200,
+      "column": 22,
+      "code": "CS0103",
+      "message": "The name 'ErrorCode' does not exist in the current context"
+    },
+    {
+      "path": "tests/backend/Unit/SecurityAdminPolicyDefaultsTests.cs",
+      "line": 1006,
+      "column": 14,
+      "code": "CS1061",
+      "message": "'ConfigurationBuilder' does not contain a definition for 'AddInMemoryCollection' and no accessible extension method 'AddInMemoryCollection' accepting a first argument of type 'ConfigurationBuilder' could be found (are you missing a using directive or an assembly reference?)"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "line": 14,
+      "column": 9,
+      "code": "CS0619",
+      "message": "'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.'"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "line": 15,
+      "column": 9,
+      "code": "CS0619",
+      "message": "'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.'"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "line": 16,
+      "column": 9,
+      "code": "CS0619",
+      "message": "'Assert.Throws<T>(Func<Task>)' is obsolete: 'You must call Assert.ThrowsAsync<T> (and await the result) when testing async code.'"
+    },
+    {
+      "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "line": 121,
+      "column": 28,
+      "code": "CS0246",
+      "message": "The type or namespace name 'IArticlePublicationValidator' could not be found (are you missing a using directive or an assembly reference?)"
+    },
+    {
+      "path": "tests/backend/Unit/CanonicalArticleLifecycleScheduledFailureTests.cs",
+      "line": 130,
+      "column": 33,
+      "code": "CS0246",
+      "message": "The type or namespace name 'ArticleWriteValidationException' could not be found (are you missing a using directive or an assembly reference?)"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "line": 14,
+      "column": 9,
+      "code": "xUnit2014",
+      "message": "Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014)"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "line": 15,
+      "column": 9,
+      "code": "xUnit2014",
+      "message": "Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014)"
+    },
+    {
+      "path": "tests/backend/Unit/RealConcurrencyHarnessTests.cs",
+      "line": 16,
+      "column": 9,
+      "code": "xUnit2014",
+      "message": "Do not use Assert.Throws() to check for asynchronously thrown exceptions. Use Assert.ThrowsAsync instead. (https://xunit.net/xunit.analyzers/rules/xUnit2014)"
+    }
+  ],
+  "runtimeExecuted": false
+}

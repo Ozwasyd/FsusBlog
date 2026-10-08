@@ -1,0 +1,111 @@
+[
+  {
+    "originCommit": "b104b99d84b91af577336efd6430d492c25683c9",
+    "replayCommit": "bff92731236493619f6c061f2e6bde239093783a",
+    "sourceBlobsIdentical": true,
+    "files": [
+      {
+        "path": "benchmarks/core/packages.lock.json",
+        "sourceAndReplayBlob": "2fd0bc8ff2ac8ae9b4c828422d87abac16006d4a"
+      },
+      {
+        "path": "tests/backend/packages.lock.json",
+        "sourceAndReplayBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5"
+      }
+    ]
+  },
+  {
+    "originCommit": "f7b29774ae4aebad286539cc033aa736b9dbe613",
+    "replayCommit": "a5f9457b60e247e0b5d59ef7d3887063d0f8a7bd",
+    "sourceBlobsIdentical": true,
+    "files": [
+      {
+        "path": "tests/governance/test-lifecycle-registry.json",
+        "sourceAndReplayBlob": "2d3aeb80583a485134ceaa83c6bf2124d0fafdce"
+      }
+    ]
+  },
+  {
+    "originCommit": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+    "replayCommit": "1d0b17fb9db287abe7e2d4493f3f384f8a0d5b26",
+    "sourceBlobsIdentical": true,
+    "files": [
+      {
+        "path": "tests/test-retention-replacements.json",
+        "sourceAndReplayBlob": "00f850a2fbbc5e5afe1c1c201e0b1f21117beee3"
+      }
+    ]
+  },
+  {
+    "originCommit": "a95de1defd39a46f34992bed9eee3c150d990456",
+    "replayCommit": "c3a7adf8b4e2c89cdb41ba607ddcd743b3d2fda2",
+    "sourceBlobsIdentical": true,
+    "files": [
+      {
+        "path": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "sourceAndReplayBlob": "658d0fe76ba668127527fe2a3a678c1e44484942"
+      }
+    ]
+  },
+  {
+    "originCommit": "e724251e44222c1c36388984f71f88e901a02c48",
+    "replayCommit": "552a289eba86f21670576277360355a77f71b26a",
+    "sourceBlobsIdentical": true,
+    "files": [
+      {
+        "path": "tests/backend/Unit/CanonicalArticleProjectionVerifierTests.cs",
+        "sourceAndReplayBlob": "5a6cfb1c24caa11f3cc2aa3125c559d45476622d"
+      }
+    ]
+  },
+  {
+    "originCommit": "eeb4e84096571ecb3a989629825f2508e2de7b71",
+    "replayCommit": "8582d0a59b5ff899db31b69a277b95d643928d91",
+    "sourceBlobsIdentical": true,
+    "files": [
+      {
+        "path": "artifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "sourceAndReplayBlob": "c93fadbc5d82b9d444dc23030ac7278a74abbc4b"
+      },
+      {
+        "path": "artifacts/change-contract/shared-governance-external-naming.json",
+        "sourceAndReplayBlob": "ed09f1c2a4c141f62417da655b40f841617e37ed"
+      },
+      {
+        "path": "config/testing/correctness-attempt-producers.json",
+        "sourceAndReplayBlob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac"
+      },
+      {
+        "path": "docs/testing.md",
+        "sourceAndReplayBlob": "e3062ecab19312529aaed2c9e6770852ecbd7647"
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "sourceAndReplayBlob": "691db20881755f406956fbe3f41c203238210674"
+      },
+      {
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "sourceAndReplayBlob": "7110d2c2f8f462a1aec26a5f745919871b0179e6"
+      }
+    ]
+  },
+  {
+    "originCommit": "e38a0badac3867560b5d0fdc1b8d1c648d15ee37",
+    "replayCommit": "1a7307d6dc807da7035b8c5cba8c9e5c7e09eb47",
+    "sourceBlobsIdentical": true,
+    "files": [
+      {
+        "path": "artifacts/change-contract/current-correctness-inventory-generated-binding.json",
+        "sourceAndReplayBlob": "7fbad6778c3e10c40cf6243397b75e28e0d7c4a3"
+      },
+      {
+        "path": "artifacts/change-contract/shared-governance-external-naming.json",
+        "sourceAndReplayBlob": "356396bad1803951494b3b44afc4b2633a245a37"
+      },
+      {
+        "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "sourceAndReplayBlob": "5acd7ceb23f9b17e959588e53a8a06acab7b49d7"
+      }
+    ]
+  }
+]

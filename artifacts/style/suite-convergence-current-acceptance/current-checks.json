@@ -1,0 +1,50 @@
+{
+  "runId": "2026-10-08T03:46:20.403977+00:00",
+  "checks": [
+    {
+      "name": "current-ast-retention",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-replacement-transaction.mjs",
+        "check-diff",
+        "origin/master"
+      ],
+      "exitCode": 1,
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92"
+    },
+    {
+      "name": "current-convergence",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/check-test-suite-convergence.mjs",
+        "--out",
+        "/tmp/fsusblog-3593/support-final/current-convergence.json"
+      ],
+      "exitCode": 1,
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92"
+    },
+    {
+      "name": "current-trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "exitCode": 0,
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92"
+    },
+    {
+      "name": "current-roster-controls",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/correctness-attempt-migration.test.mjs"
+      ],
+      "exitCode": 0,
+      "testedCommit": "5f7e3260997585fd93e919d8ebba3d274b19ce92"
+    }
+  ]
+}

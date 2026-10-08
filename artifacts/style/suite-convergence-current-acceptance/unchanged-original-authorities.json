@@ -1,0 +1,17 @@
+[
+  {
+    "path": "tests/test-retention-before.json",
+    "baseAndCandidateBlob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+    "unchanged": true
+  },
+  {
+    "path": "config/development/frontend-style-baseline.json",
+    "baseAndCandidateBlob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+    "unchanged": true
+  },
+  {
+    "path": "config/development/frontend-style-policy.json",
+    "baseAndCandidateBlob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+    "unchanged": true
+  }
+]

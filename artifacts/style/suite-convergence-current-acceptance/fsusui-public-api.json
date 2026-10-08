@@ -1,0 +1,441 @@
+{
+  "reportedSourceCommit": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "actualPublicApiDocuments": [
+    {
+      "path": "vue/packages/element-plus/package.json",
+      "blob": "2ef25ec987f7da549b4788303aa4eec26791005e",
+      "sha256": "e869928c42ed32578ebbc269e1fb66293a85a64324f484ce7dc142afae9e884c",
+      "url": "https://github.com/Ozwasyd/FsusUI/blob/f2b3bb89ffe5f749da26c388f058efdbb6aee864/vue/packages/element-plus/package.json",
+      "name": "element-plus",
+      "version": "1.5.1",
+      "exports": {
+        ".": {
+          "types": "./es/index.d.ts",
+          "import": "./es/index.mjs",
+          "require": "./lib/index.js"
+        },
+        "./global": {
+          "types": "./global.d.ts"
+        },
+        "./es": {
+          "types": "./es/index.d.ts",
+          "import": "./es/index.mjs"
+        },
+        "./lib": {
+          "types": "./lib/index.d.ts",
+          "require": "./lib/index.js"
+        },
+        "./render-pipeline": {
+          "types": "./es/render-pipeline.d.ts",
+          "import": "./es/render-pipeline.mjs",
+          "require": "./lib/render-pipeline.js"
+        },
+        "./result": {
+          "types": "./es/result.d.ts",
+          "import": "./es/result.mjs",
+          "require": "./lib/result.js"
+        },
+        "./theme": {
+          "types": "./es/theme.d.ts",
+          "import": "./es/theme.mjs",
+          "require": "./lib/theme.js"
+        },
+        "./icons-vue": {
+          "types": "./es/icons-vue.d.ts",
+          "import": "./es/icons-vue.mjs",
+          "require": "./lib/icons-vue.js"
+        },
+        "./wasm": {
+          "types": "./es/wasm.d.ts",
+          "import": "./es/wasm.mjs",
+          "require": "./lib/wasm.js"
+        },
+        "./markdown-runtime": {
+          "types": "./es/markdown-runtime.d.ts",
+          "import": "./es/markdown-runtime.mjs",
+          "require": "./lib/markdown-runtime.js"
+        },
+        "./motion": {
+          "types": "./es/motion.d.ts",
+          "import": "./es/motion.mjs",
+          "require": "./lib/motion.js"
+        },
+        "./perception-challenge": {
+          "types": "./es/perception-challenge.d.ts",
+          "import": "./es/perception-challenge.mjs",
+          "require": "./lib/perception-challenge.js"
+        },
+        "./dist/public-shell-critical.css": "./dist/public-shell-critical.css",
+        "./dist/fsus.css": "./dist/fsus.css",
+        "./dist/el-fsus-theme.css": "./dist/el-fsus-theme.css",
+        "./dist/index.css": "./dist/index.css",
+        "./theme-chalk/*": "./theme-chalk/*",
+        "./es/index": {
+          "types": "./es/index.d.ts",
+          "import": "./es/index.mjs"
+        },
+        "./lib/index": {
+          "types": "./lib/index.d.ts",
+          "require": "./lib/index.js"
+        },
+        "./es/icons-vue": {
+          "types": "./es/icons-vue.d.ts",
+          "import": "./es/icons-vue.mjs"
+        },
+        "./lib/icons-vue": {
+          "types": "./lib/icons-vue.d.ts",
+          "require": "./lib/icons-vue.js"
+        },
+        "./es/wasm": {
+          "types": "./es/wasm.d.ts",
+          "import": "./es/wasm.mjs"
+        },
+        "./lib/wasm": {
+          "types": "./lib/wasm.d.ts",
+          "require": "./lib/wasm.js"
+        },
+        "./es/wasm/*": null,
+        "./lib/wasm/*": null,
+        "./es/components": {
+          "types": "./es/components/index.d.ts",
+          "import": "./es/components/index.mjs"
+        },
+        "./es/components/*": {
+          "types": [
+            "./es/components/*.d.ts",
+            "./es/components/*/index.d.ts"
+          ],
+          "import": "./es/components/*.mjs"
+        },
+        "./es/components/*.mjs": {
+          "types": "./es/components/*.d.ts",
+          "import": "./es/components/*.mjs"
+        },
+        "./lib/components": {
+          "types": "./lib/components/index.d.ts",
+          "require": "./lib/components/index.js"
+        },
+        "./lib/components/*": {
+          "types": [
+            "./lib/components/*.d.ts",
+            "./lib/components/*/index.d.ts"
+          ],
+          "require": "./lib/components/*.js"
+        },
+        "./lib/components/*.js": {
+          "types": "./lib/components/*.d.ts",
+          "require": "./lib/components/*.js"
+        },
+        "./es/constants": {
+          "types": "./es/constants/index.d.ts",
+          "import": "./es/constants/index.mjs"
+        },
+        "./es/constants/*": {
+          "types": [
+            "./es/constants/*.d.ts",
+            "./es/constants/*/index.d.ts"
+          ],
+          "import": "./es/constants/*.mjs"
+        },
+        "./es/constants/*.mjs": {
+          "types": "./es/constants/*.d.ts",
+          "import": "./es/constants/*.mjs"
+        },
+        "./lib/constants": {
+          "types": "./lib/constants/index.d.ts",
+          "require": "./lib/constants/index.js"
+        },
+        "./lib/constants/*": {
+          "types": [
+            "./lib/constants/*.d.ts",
+            "./lib/constants/*/index.d.ts"
+          ],
+          "require": "./lib/constants/*.js"
+        },
+        "./lib/constants/*.js": {
+          "types": "./lib/constants/*.d.ts",
+          "require": "./lib/constants/*.js"
+        },
+        "./es/directives": {
+          "types": "./es/directives/index.d.ts",
+          "import": "./es/directives/index.mjs"
+        },
+        "./es/directives/*": {
+          "types": [
+            "./es/directives/*.d.ts",
+            "./es/directives/*/index.d.ts"
+          ],
+          "import": "./es/directives/*.mjs"
+        },
+        "./es/directives/*.mjs": {
+          "types": "./es/directives/*.d.ts",
+          "import": "./es/directives/*.mjs"
+        },
+        "./lib/directives": {
+          "types": "./lib/directives/index.d.ts",
+          "require": "./lib/directives/index.js"
+        },
+        "./lib/directives/*": {
+          "types": [
+            "./lib/directives/*.d.ts",
+            "./lib/directives/*/index.d.ts"
+          ],
+          "require": "./lib/directives/*.js"
+        },
+        "./lib/directives/*.js": {
+          "types": "./lib/directives/*.d.ts",
+          "require": "./lib/directives/*.js"
+        },
+        "./es/hooks": {
+          "types": "./es/hooks/index.d.ts",
+          "import": "./es/hooks/index.mjs"
+        },
+        "./es/hooks/*": {
+          "types": [
+            "./es/hooks/*.d.ts",
+            "./es/hooks/*/index.d.ts"
+          ],
+          "import": "./es/hooks/*.mjs"
+        },
+        "./es/hooks/*.mjs": {
+          "types": "./es/hooks/*.d.ts",
+          "import": "./es/hooks/*.mjs"
+        },
+        "./lib/hooks": {
+          "types": "./lib/hooks/index.d.ts",
+          "require": "./lib/hooks/index.js"
+        },
+        "./lib/hooks/*": {
+          "types": [
+            "./lib/hooks/*.d.ts",
+            "./lib/hooks/*/index.d.ts"
+          ],
+          "require": "./lib/hooks/*.js"
+        },
+        "./lib/hooks/*.js": {
+          "types": "./lib/hooks/*.d.ts",
+          "require": "./lib/hooks/*.js"
+        },
+        "./es/locale": {
+          "types": "./es/locale/index.d.ts",
+          "import": "./es/locale/index.mjs"
+        },
+        "./es/locale/*": {
+          "types": [
+            "./es/locale/*.d.ts",
+            "./es/locale/*/index.d.ts"
+          ],
+          "import": "./es/locale/*.mjs"
+        },
+        "./es/locale/*.mjs": {
+          "types": "./es/locale/*.d.ts",
+          "import": "./es/locale/*.mjs"
+        },
+        "./lib/locale": {
+          "types": "./lib/locale/index.d.ts",
+          "require": "./lib/locale/index.js"
+        },
+        "./lib/locale/*": {
+          "types": [
+            "./lib/locale/*.d.ts",
+            "./lib/locale/*/index.d.ts"
+          ],
+          "require": "./lib/locale/*.js"
+        },
+        "./lib/locale/*.js": {
+          "types": "./lib/locale/*.d.ts",
+          "require": "./lib/locale/*.js"
+        },
+        "./es/motion": {
+          "types": "./es/motion.d.ts",
+          "import": "./es/motion.mjs"
+        },
+        "./es/motion/*": {
+          "types": [
+            "./es/motion/*.d.ts",
+            "./es/motion/*/index.d.ts"
+          ],
+          "import": "./es/motion/*.mjs"
+        },
+        "./es/motion/*.mjs": {
+          "types": "./es/motion/*.d.ts",
+          "import": "./es/motion/*.mjs"
+        },
+        "./lib/motion": {
+          "types": "./lib/motion.d.ts",
+          "require": "./lib/motion.js"
+        },
+        "./lib/motion/*": {
+          "types": [
+            "./lib/motion/*.d.ts",
+            "./lib/motion/*/index.d.ts"
+          ],
+          "require": "./lib/motion/*.js"
+        },
+        "./lib/motion/*.js": {
+          "types": "./lib/motion/*.d.ts",
+          "require": "./lib/motion/*.js"
+        },
+        "./es/utils": {
+          "types": "./es/utils/index.d.ts",
+          "import": "./es/utils/index.mjs"
+        },
+        "./es/utils/*": {
+          "types": [
+            "./es/utils/*.d.ts",
+            "./es/utils/*/index.d.ts"
+          ],
+          "import": "./es/utils/*.mjs"
+        },
+        "./es/utils/*.mjs": {
+          "types": "./es/utils/*.d.ts",
+          "import": "./es/utils/*.mjs"
+        },
+        "./lib/utils": {
+          "types": "./lib/utils/index.d.ts",
+          "require": "./lib/utils/index.js"
+        },
+        "./lib/utils/*": {
+          "types": [
+            "./lib/utils/*.d.ts",
+            "./lib/utils/*/index.d.ts"
+          ],
+          "require": "./lib/utils/*.js"
+        },
+        "./lib/utils/*.js": {
+          "types": "./lib/utils/*.d.ts",
+          "require": "./lib/utils/*.js"
+        }
+      }
+    },
+    {
+      "path": "vue/packages/element-plus/index.ts",
+      "blob": "7ef52162c8fc7c7dd223545fa3786e460b7ec687",
+      "sha256": "31d54befdb6ffe767e9ec47ee094a6f1ee0a38d6244d4447dc6131da221a30aa",
+      "url": "https://github.com/Ozwasyd/FsusUI/blob/f2b3bb89ffe5f749da26c388f058efdbb6aee864/vue/packages/element-plus/index.ts",
+      "exportStatements": [
+        "export * from '@element-plus/components'",
+        "export * from '@element-plus/constants'",
+        "export * from '@element-plus/directives'",
+        "export * from '@element-plus/hooks'",
+        "export * from './make-installer'",
+        "export * from './render-pipeline-policies'",
+        "export * from './result'",
+        "export { ElEmptyState } from '@element-plus/components/empty-state'",
+        "export { ElSiteHeader } from '@element-plus/components/site-header'",
+        "export {",
+        "export type {",
+        "export {",
+        "export type {",
+        "export const install = installer.install",
+        "export const version = installer.version",
+        "export { groupedInstaller } from './defaults'",
+        "export default installer",
+        "export { default as dayjs } from 'dayjs'"
+      ]
+    },
+    {
+      "path": "vue/packages/components/index.ts",
+      "blob": "402c80168ba315ac4e14961a8013cc208803acf4",
+      "sha256": "517ba975128dcee601af5342a84ffb8559beffdf7dc7932a15a18875056df6c3",
+      "url": "https://github.com/Ozwasyd/FsusUI/blob/f2b3bb89ffe5f749da26c388f058efdbb6aee864/vue/packages/components/index.ts",
+      "exportStatements": [
+        "export * from './affix'",
+        "export * from './alert'",
+        "export * from './autocomplete'",
+        "export * from './avatar'",
+        "export * from './backtop'",
+        "export * from './badge'",
+        "export * from './breadcrumb'",
+        "export * from './button'",
+        "export * from './calendar'",
+        "export * from './card'",
+        "export * from './carousel'",
+        "export * from './cascader'",
+        "export * from './cascader-panel'",
+        "export * from './check-tag'",
+        "export * from './checkbox'",
+        "export * from './col'",
+        "export * from './collapse'",
+        "export * from './collapse-transition'",
+        "export * from './color-picker'",
+        "export * from './collection-primitives'",
+        "export * from './config-provider'",
+        "export * from './container'",
+        "export * from './countdown'",
+        "export * from './date-picker'",
+        "export * from './descriptions'",
+        "export * from './dialog'",
+        "export * from './divider'",
+        "export * from './drawer'",
+        "export * from './dropdown'",
+        "export * from './empty'",
+        "export * from './empty-state'",
+        "export * from './form'",
+        "export * from './icon'",
+        "export * from './image'",
+        "export * from './image-viewer'",
+        "export * from './inbox-primitives'",
+        "export * from './input'",
+        "export * from './input-number'",
+        "export * from './link'",
+        "export * from './metric-primitives'",
+        "export * from './menu'",
+        "export * from './overlay'",
+        "export * from './page-header'",
+        "export * from './pagination'",
+        "export * from './perception-challenge'",
+        "export * from './popconfirm'",
+        "export * from './popper'",
+        "export * from './progress'",
+        "export * from './public-shell'",
+        "export * from './radio'",
+        "export * from './rate'",
+        "export * from './responsive-collection'",
+        "export * from './result'",
+        "export * from './row'",
+        "export * from './scrollbar'",
+        "export * from './select'",
+        "export * from './select-v2'",
+        "export * from './settings-primitives'",
+        "export * from './skeleton'",
+        "export * from './site-header'",
+        "export * from './slider'",
+        "export * from './space'",
+        "export * from './statistic'",
+        "export * from './steps'",
+        "export * from './switch'",
+        "export * from './table'",
+        "export * from './table-v2'",
+        "export * from './tabs'",
+        "export * from './tag'",
+        "export * from './task-page-header'",
+        "export * from './text'",
+        "export * from './theme-mode-toggle'",
+        "export * from './time-picker'",
+        "export * from './time-select'",
+        "export * from './timeline'",
+        "export * from './tooltip'",
+        "export * from './tooltip-v2'",
+        "export * from './transfer'",
+        "export * from './tree'",
+        "export * from './tree-select'",
+        "export * from './tree-v2'",
+        "export * from './upload'",
+        "export * from './virtual-list'",
+        "export * from './visual-hidden'",
+        "export * from './watermark'",
+        "export * from './infinite-scroll'",
+        "export * from './loading'",
+        "export * from './markdown-editor'",
+        "export * from './markdown-renderer'",
+        "export * from './message'",
+        "export * from './message-box'",
+        "export * from './notification'",
+        "export * from './popover'"
+      ]
+    }
+  ],
+  "runtimeAccepted": false,
+  "limit": "Read actual upstream declared export API only; child production output and compiled C# consumer are not requalified."
+}

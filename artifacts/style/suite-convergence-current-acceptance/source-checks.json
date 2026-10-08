@@ -1,0 +1,72 @@
+{
+  "runId": "2026-10-08T03:35:36.111499+00:00",
+  "checks": [
+    {
+      "name": "original-controls",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/tools/test-replacement-transaction.test.mjs",
+        "tools/post-baseline-history.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "roster-controls",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/correctness-attempt-migration.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "strict-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/test-suite-convergence.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "ast-retention",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-replacement-transaction.mjs",
+        "check-diff",
+        "origin/master"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "convergence",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/check-test-suite-convergence.mjs",
+        "--out",
+        "/tmp/fsusblog-3593/support-final/convergence.json"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "startedCommit": "1a7307d6dc807da7035b8c5cba8c9e5c7e09eb47",
+  "endedCommit": "f96aedafe8ce01118f53a854d466fc3271cbb48c",
+  "bindingLimit": "Source checks began before the metadata-only naming manifest commit. Both source revisions are recorded; this is not exact-final-head qualification."
+}
