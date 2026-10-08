@@ -11,6 +11,8 @@
             data-document-export-center
         >
             <form
+                v-if="state.permitted.value"
+                ref="requestForm"
                 :aria-busy="state.busy.value"
                 @submit.prevent="start"
             >
@@ -116,10 +118,11 @@
                 <template v-if="state.submission.value.phase === 'pending'">正在提交，请等待服务器确认。</template>
                 <template v-else-if="state.submission.value.phase === 'uncertain'">请求结果待核实；再次核实使用原请求身份，不会改用其他格式。</template>
                 <template v-else-if="state.submission.value.phase === 'rejected'">请求被拒绝，请检查来源与权限。</template>
-                <template v-else-if="!state.permitted.value">权限已撤销，任务与结果不可用。</template>
+                <template v-else-if="!state.permitted.value">权限已失效或任务不可用，当前私密视图已清除。</template>
             </p>
             <ElButton
                 v-if="state.submission.value.phase === 'uncertain'"
+                :disabled="state.busy.value || !state.permitted.value"
                 @click="state.retrySubmission"
             >核实原请求</ElButton>
 
@@ -127,7 +130,11 @@
                 aria-labelledby="document-export-tasks"
                 :aria-busy="state.loading.value"
             >
-                <h2 id="document-export-tasks">任务</h2>
+                <h2
+                    id="document-export-tasks"
+                    ref="tasksTitle"
+                    tabindex="-1"
+                >任务</h2>
                 <p>关闭面板不会取消任务。</p>
                 <p
                     v-if="state.queryFailure.value"
@@ -137,7 +144,7 @@
                     :disabled="!state.permitted.value || state.loading.value"
                     @click="state.refresh()"
                 >刷新任务</ElButton>
-                <p v-if="state.views.value.length === 0 && !state.loading.value && !state.queryFailure.value">暂无任务</p>
+                <p v-if="state.views.value.length === 0 && !state.loading.value && !state.queryFailure.value">本页暂无可用任务</p>
                 <div
                     v-if="state.views.value.length"
                     class="document-export-center__list"
@@ -159,7 +166,10 @@
                         :disabled="state.offset.value === 0 || state.loading.value || !state.permitted.value"
                         @click="state.refresh(Math.max(0, state.offset.value - state.pageSize))"
                     >上一页</ElButton>
-                    <span>第 {{ Math.floor(state.offset.value / state.pageSize) + 1 }} 页</span>
+                    <span
+                        role="status"
+                        aria-live="polite"
+                    >第 {{ Math.floor(state.offset.value / state.pageSize) + 1 }} 页，本页 {{ state.views.value.length }} 项</span>
                     <ElButton
                         :disabled="state.views.value.length < state.pageSize || state.loading.value || !state.permitted.value"
                         @click="state.refresh(state.offset.value + state.pageSize)"
@@ -169,6 +179,7 @@
 
             <section
                 v-if="state.selectedView.value"
+                ref="detailSection"
                 aria-labelledby="document-export-detail"
                 :data-export-task="state.selectedView.value.taskId"
                 :data-export-input-digest="state.selectedView.value.inputDigest"
@@ -198,7 +209,7 @@
                 </ul>
                 <template v-if="state.selectedView.value.output">
                     <p>{{ state.selectedView.value.output.filename ?? '文件名待下载授权确认' }} · {{ state.selectedView.value.output.bytes }} bytes · {{ state.selectedView.value.output.mediaType }}</p>
-                    <p>保留至 {{ state.selectedView.value.output.expiresAt }}；{{ state.selectedView.value.output.deleted ? '已撤销，清理状态见任务状态' : '私密结果未自动加密' }}</p>
+                    <p>保留至 {{ state.selectedView.value.output.expiresAt }}；{{ state.selectedView.value.output.deleted ? '下载授权已撤销；清理状态见任务状态' : '私密结果未自动加密' }}</p>
                 </template>
                 <div class="document-export-center__actions">
                     <ElButton
@@ -220,32 +231,35 @@
                     <ElButton
                         :disabled="!state.actionAllowed('delete', state.selectedView.value)"
                         @click="state.act('delete', state.selectedView.value.taskId)"
-                    >删除结果</ElButton>
+                    >{{ state.selectedView.value.status === 10 ? '请求清理' : '删除结果' }}</ElButton>
                 </div>
-                <p
-                    v-if="state.actionState.value.phase === 'pending'"
-                    role="status"
-                >等待服务器确认 {{ state.actionName.value }}。</p>
-                <p
-                    v-if="state.actionState.value.phase === 'uncertain'"
-                    role="status"
-                >操作结果待核实，未确认取消、删除或下载完成。</p>
-                <ElButton
-                    v-if="state.actionState.value.phase === 'uncertain'"
-                    @click="state.reconcile"
-                >核实任务</ElButton>
-                <ElButton
-                    v-if="state.actionState.value.phase === 'uncertain' && ['cancel', 'delete', 'status'].includes(state.actionName.value)"
-                    @click="state.retryAction"
-                >重试原操作</ElButton>
             </section>
+
+            <p
+                v-if="state.actionState.value.phase === 'pending'"
+                role="status"
+            >等待服务器确认 {{ state.actionName.value }}。</p>
+            <p
+                v-if="state.actionState.value.phase === 'uncertain'"
+                role="status"
+            >操作结果待核实，未确认取消、删除或下载完成。</p>
+            <ElButton
+                v-if="state.actionState.value.phase === 'uncertain'"
+                :disabled="state.busy.value || !state.permitted.value"
+                @click="state.reconcile"
+            >核实任务</ElButton>
+            <ElButton
+                v-if="state.actionState.value.phase === 'uncertain' && ['cancel', 'delete', 'status'].includes(state.actionName.value)"
+                :disabled="state.busy.value || !state.permitted.value"
+                @click="state.retryAction"
+            >重试原操作</ElButton>
         </div>
     </ElDrawer>
 </template>
 
 <script setup lang="ts" generic="TSnapshot, TRequest">
 import { ElAutoResizer, ElButton, ElCheckbox, ElDrawer, ElOption, ElRadio, ElRadioGroup, ElSelect, ElTableV2 } from '@ozwasyd/element-plus';
-import { computed, h, nextTick, onBeforeUnmount, ref, watch } from 'vue';
+import { computed, h, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue';
 
 
 import { documentExportStatusLabel } from '@/components/document-export/documentExportUiPort';
@@ -271,6 +285,12 @@ const layout = ref('');
 const theme = ref('');
 const confirmed = ref(false);
 const detailTitle = ref<HTMLElement | null>(null);
+const detailSection = ref<HTMLElement | null>(null);
+const tasksTitle = ref<HTMLElement | null>(null);
+const requestForm = ref<HTMLElement | null>(null);
+let detailHadFocus = false;
+let formHadFocus = false;
+let focusSequence = 0;
 const format = computed(() => props.port.catalog.find((item) => item.id === formatId.value));
 const source = computed(() => props.port.sources.find((item) => item.id === sourceId.value));
 const selectionValid = computed(() => source.value !== undefined && format.value?.available === true
@@ -293,14 +313,54 @@ watch([() => props.identity, () => props.port], () =>
     center.dispose();
     center = useDocumentExport(props.port);
     revision.value += 1;
+    clearSelection();
+    center.setOpen(props.visible);
+});
+function clearSelection(): void
+{
     sourceId.value = '';
     formatId.value = '';
     layout.value = '';
     theme.value = '';
     confirmed.value = false;
-    center.setOpen(props.visible);
+}
+watch(() => state.value.permitted.value, (permitted) =>
+{
+    if (!permitted)
+    {
+        clearSelection();
+    }
 });
-onBeforeUnmount(() => center.dispose());
+watch([() => state.value.selectedView.value?.taskId, () => state.value.permitted.value], ([taskId, permitted]) =>
+{
+    if (props.visible && ((taskId === undefined && detailHadFocus) || (!permitted && formHadFocus)))
+    {
+        detailHadFocus = false;
+        formHadFocus = false;
+        const sequence = focusSequence;
+        void nextTick(() =>
+        {
+            if (props.visible && state.value.selectedView.value === null && focusSequence === sequence)
+            {
+                tasksTitle.value?.focus();
+            }
+        });
+    }
+});
+function rememberFocus(event: FocusEvent): void
+{
+    // A pending action disables its button and may move focus to body before
+    // denial removes private content. Keep its last focus owner until another focusin.
+    focusSequence += 1;
+    detailHadFocus = event.target instanceof Node && detailSection.value?.contains(event.target) === true;
+    formHadFocus = event.target instanceof Node && requestForm.value?.contains(event.target) === true;
+}
+onMounted(() => document.addEventListener('focusin', rememberFocus, true));
+onBeforeUnmount(() =>
+{
+    document.removeEventListener('focusin', rememberFocus, true);
+    center.dispose();
+});
 
 const columns = [
     {
@@ -311,7 +371,7 @@ const columns = [
             onClick: () =>
             {
                 state.value.select(rowData.taskId);
-                void nextTick(() => detailTitle.value?.focus({ preventScroll: true }));
+                void nextTick(() => detailTitle.value?.focus());
             }
         }, () => rowData.source)
     },

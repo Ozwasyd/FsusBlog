@@ -6,7 +6,7 @@ import type { DocumentExportPresentation, DocumentExportUiPort } from '@/compone
 import { useDocumentExport } from '@/composables/useDocumentExport';
 
 const disposals: (() => void)[] = [];
-afterEach(() => { disposals.splice(0).forEach((dispose) => dispose()); });
+afterEach(() => { disposals.splice(0).forEach((dispose) => dispose()); vi.useRealTimers(); });
 
 function view(taskId = 'task', status = 3, version = 1): DocumentExportPresentation {
     return {
@@ -215,4 +215,185 @@ describe('one canonical export receipt view', () => {
         expect(documentExportCanDownload({ ...result, status: 6, output: { ...result.output, expiresAt: '2001-01-01' } }, Date.now())).toBe(false);
         expect(documentExportStatusLabel(status)).toBeTruthy();
     });
+    it('visits all 1000 receipts with a constant twenty-item window', async () => {
+        const { center, port } = createPort(Array.from({ length: 1000 }, (_, index) => view(`task-${index}`, 7)));
+        await open(center);
+        const seen = new Set<string>();
+        for (let offset = 0; offset < 1000; offset += 20) {
+            await center.refresh(offset);
+            expect(center.views.value).toHaveLength(20);
+            center.views.value.forEach((item) => seen.add(item.taskId));
+            center.select(`task-${offset}`);
+            expect(center.selectedView.value?.taskId).toBe(`task-${offset}`);
+        }
+        expect(seen.size).toBe(1000);
+        await center.refresh(1000);
+        expect(center.views.value).toEqual([]);
+        expect(center.selectedView.value).toBeNull();
+        expect(vi.mocked(port.list).mock.calls.every(([, limit]) => limit === 20)).toBe(true);
+        expect(port.request).not.toHaveBeenCalled();
+    });
+
+    it('ignores old private list responses across close/reopen and user/site changes', async () => {
+        const { center, port } = createPort();
+        let finishOld!: (page: readonly DocumentExportPresentation[]) => void;
+        port.list = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }))
+            .mockResolvedValue([view('new-context', 7)]);
+        center.setOpen(true);
+        center.setOpen(false);
+        center.changeIdentity();
+        center.setOpen(true);
+        await Promise.resolve();
+        expect(center.views.value[0]?.taskId).toBe('new-context');
+        finishOld([view('private-old-context')]);
+        await Promise.resolve();
+        expect(center.views.value.map((item) => item.taskId)).toEqual(['new-context']);
+        expect(center.queryFailure.value).toBe('');
+        expect(port.cancel).not.toHaveBeenCalled();
+    });
+
+    it('does not let an old denial revoke a newly reopened identity', async () => {
+        const { center, port } = createPort();
+        let denyOld!: (reason: unknown) => void;
+        port.list = vi.fn().mockImplementationOnce(() => new Promise((_resolve, reject) => { denyOld = reject; }))
+            .mockResolvedValue([view('new-context', 7)]);
+        center.setOpen(true);
+        center.changeIdentity();
+        await Promise.resolve();
+        denyOld('revoked');
+        await Promise.resolve();
+        expect(center.permitted.value).toBe(true);
+        expect(center.views.value[0]?.taskId).toBe('new-context');
+    });
+
+    it('discards a late admission receipt after identity changes', async () => {
+        const { center, port } = createPort();
+        let finish!: (snapshot: DocumentExportPresentation) => void;
+        port.request = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+        const request = center.submit({ sourceId: 'exact-draft-12', formatId: 'pdf', layout: 'reading', theme: 'light' });
+        await Promise.resolve();
+        center.changeIdentity();
+        finish(view('private-old-admission'));
+        await request;
+        expect(center.submission.value.phase).toBe('idle');
+        expect(center.selectedView.value).toBeNull();
+        expect(center.views.value).toEqual([]);
+    });
+
+    it('keeps a newer authority receipt when late admission returns and queries the first page', async () => {
+        const { center, port } = createPort([view('task', 7, 3)]);
+        let finish!: (snapshot: DocumentExportPresentation) => void;
+        port.request = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+        await open(center);
+        const request = center.submit({ sourceId: 'exact-draft-12', formatId: 'pdf', layout: 'reading', theme: 'light' });
+        await Promise.resolve();
+        finish(view('task', 1, 1));
+        await request;
+        expect(center.selectedView.value?.version).toBe(3);
+        expect(center.selectedView.value?.status).toBe(7);
+        expect(port.list).toHaveBeenLastCalledWith(0, 20);
+    });
+
+    it('invalidates a pending cancellation on identity change without claiming cancellation', async () => {
+        const { center, port } = createPort();
+        let finish!: (snapshot: DocumentExportPresentation) => void;
+        port.cancel = vi.fn(() => new Promise((resolve) => { finish = resolve; }));
+        await open(center);
+        center.select('task');
+        const cancellation = center.act('cancel', 'task');
+        await Promise.resolve();
+        expect(center.selectedView.value?.status).toBe(3);
+        center.changeIdentity();
+        finish(view('private-old-cancel', 5, 2));
+        await cancellation;
+        expect(center.selectedView.value).toBeNull();
+        expect(center.actionState.value.phase).toBe('idle');
+    });
+
+    it('stops polling while closed and queries again when reopened without cancelling', async () => {
+        vi.useFakeTimers();
+        const { center, port } = createPort();
+        await open(center);
+        const observed = vi.mocked(port.list).mock.calls.length;
+        center.setOpen(false);
+        await vi.advanceTimersByTimeAsync(10000);
+        expect(port.list).toHaveBeenCalledTimes(observed);
+        center.setOpen(true);
+        await Promise.resolve();
+        expect(port.list).toHaveBeenCalledTimes(observed + 1);
+        expect(port.cancel).not.toHaveBeenCalled();
+    });
+
+    it('queries the authority at output expiry without manufacturing an expired receipt', async () => {
+        vi.useFakeTimers();
+        vi.setSystemTime(new Date('2026-10-08T10:00:00Z'));
+        const result = { ...view('task', 6), output: { filename: null, bytes: 4, mediaType: 'application/pdf', expiresAt: '2026-10-08T10:00:01Z', deleted: false } };
+        const { center, port } = createPort([result]);
+        await open(center);
+        center.select('task');
+        expect(center.actionAllowed('download', center.selectedView.value!)).toBe(true);
+        const observed = vi.mocked(port.list).mock.calls.length;
+        await vi.advanceTimersByTimeAsync(1000);
+        expect(port.list).toHaveBeenCalledTimes(observed + 1);
+        expect(center.selectedView.value?.status).toBe(6);
+        expect(center.actionAllowed('download', center.selectedView.value!)).toBe(false);
+        expect(port.download).not.toHaveBeenCalled();
+    });
+
+    it.each([null, { filename: null, bytes: 0, mediaType: 'application/pdf', expiresAt: '2001-01-01', deleted: true }])('lets the authority retry cleanup without download authorization', async (output) => {
+        const receipt = { ...view('task', 10, 2), output, reason: 'cleanup-required' };
+        const { center, port } = createPort([receipt]);
+        port.delete = vi.fn().mockResolvedValue({ ...receipt, version: 3 });
+        await open(center);
+        center.select('task');
+        expect(center.actionAllowed('download', center.selectedView.value!)).toBe(false);
+        expect(center.actionAllowed('delete', center.selectedView.value!)).toBe(true);
+        await center.act('delete', 'task');
+        expect(port.delete).toHaveBeenCalledWith('task');
+        expect(center.selectedView.value?.status).toBe(10);
+        expect(port.download).not.toHaveBeenCalled();
+    });
+
+    it('does not send invalid pagination coordinates to the authority', async () => {
+        const { center, port } = createPort();
+        await open(center);
+        const observed = vi.mocked(port.list).mock.calls.length;
+        for (const offset of [-1, 0.5, NaN, Infinity, Number.MAX_SAFE_INTEGER + 1]) {
+            await center.refresh(offset);
+        }
+        expect(port.list).toHaveBeenCalledTimes(observed);
+        expect(center.offset.value).toBe(0);
+    });
+
+    it('ignores the old observation when the same identity closes and reopens', async () => {
+        const { center, port } = createPort();
+        let finishOld!: (page: readonly DocumentExportPresentation[]) => void;
+        port.list = vi.fn().mockImplementationOnce(() => new Promise((resolve) => { finishOld = resolve; }))
+            .mockResolvedValue([view('reopened-observation', 7)]);
+        center.setOpen(true);
+        center.setOpen(false);
+        center.setOpen(true);
+        await Promise.resolve();
+        finishOld([view('old-observation')]);
+        await Promise.resolve();
+        expect(center.views.value.map((item) => item.taskId)).toEqual(['reopened-observation']);
+        expect(port.cancel).not.toHaveBeenCalled();
+    });
+
+    it('returns to the first authority page after admission from a later page', async () => {
+        const roster = Array.from({ length: 40 }, (_, index) => view(`old-${index}`, 7));
+        const { center, port } = createPort(roster);
+        await open(center);
+        await center.refresh(20);
+        expect(center.offset.value).toBe(20);
+        const admitted = view('admitted', 1);
+        port.request = vi.fn().mockImplementation(async () => { roster.unshift(admitted); return admitted; });
+        await center.submit({ sourceId: 'exact-draft-12', formatId: 'pdf', layout: 'reading', theme: 'light' });
+        await Promise.resolve();
+        expect(port.list).toHaveBeenLastCalledWith(0, 20);
+        expect(center.offset.value).toBe(0);
+        expect(center.selectedView.value?.taskId).toBe('admitted');
+        expect(center.views.value).toHaveLength(20);
+    });
+
 });
