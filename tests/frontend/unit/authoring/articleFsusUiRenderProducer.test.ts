@@ -1,0 +1,112 @@
+import { describe, expect, it } from 'vitest';
+import {
+    MARKDOWN_RENDERER_VERSION,
+    createMarkdownEditorProjection,
+    createMarkdownOutlineEntries,
+    markdownRenderIdentitiesEqual,
+    resolveMarkdownSourceIdentity,
+    stabilizeMarkdownEditorProjection,
+    renderMarkdownResultWithRuntime
+} from '@ozwasyd/element-plus/markdown-runtime';
+import { ArticleFsusUiRenderProducer } from '@/services/authoring/articleFsusUiRenderProducer';
+import {
+    ArticleRenderCache, createArticleDocumentContextAdapter, calculateOpenArticleDocumentDigest as digest,
+    validateArticleRenderReceipt, type ArticleRenderIdentity
+} from '@/services/authoring';
+
+const configuration = { allowLatex: true, allowMermaid: true, baseUrl: null };
+const identity: ArticleRenderIdentity = {
+    rendererVersion: MARKDOWN_RENDERER_VERSION, projectionVersion: MARKDOWN_RENDERER_VERSION,
+    featureConfigurationDigest: digest(configuration), themeDigest: digest({ theme: 'light' }), locale: 'zh-CN'
+};
+const setup = (initialSource = '# Article\n\nBody', maxResultBytes = 65536) =>
+{
+    let source = initialSource;
+    const adapter = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1', editorSessionId: 'session:consumer',
+        siteScope: 'site:consumer', userScope: 'user:consumer', content: source });
+    const producer = new ArticleFsusUiRenderProducer(() => source, configuration, maxResultBytes);
+    const cache = new ArticleRenderCache(adapter, identity, producer,
+        { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 8 });
+    return { cache, adapter, producer, source: () => source, update: (next: string) => { source = next; adapter.updateSource(source); } };
+};
+
+describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
+    it('executes canonical renderer/projection and public heading tree without mocks', async () => {
+        const source = '# Heading\n\nText';
+        const rendered = await renderMarkdownResultWithRuntime({ source, mode: 'article' });
+        expect(rendered.ok).toBe(true);
+        if (!rendered.ok) throw new Error(JSON.stringify(rendered.error));
+        expect(['SIMD-128', 'SCALAR-BASIC']).toContain(rendered.value.engine);
+        const projection = createMarkdownEditorProjection(source);
+        expect(markdownRenderIdentitiesEqual(projection, rendered.value), JSON.stringify({ projection: projection.identity, render: {
+            parser: rendered.value.parser, sourceIdentity: rendered.value.sourceIdentity, rendererVersion: rendered.value.rendererVersion,
+            rawSource: rendered.value.rawSource, normalizedSource: rendered.value.normalizedSource
+        } })).toBe(true);
+        const stable = stabilizeMarkdownEditorProjection(projection, { id: 'document:consumer', epoch: 1 });
+        expect(createMarkdownOutlineEntries(stable)).toHaveLength(1);
+        expect(rendered.value.html).toContain('Heading');
+    });
+    it('commits the actual canonical result and verifies its digest/ref before cache use', async () => {
+        const { cache, producer } = setup();
+        const receipt = await cache.refresh();
+        expect(receipt.status).toBe('committed');
+        expect(validateArticleRenderReceipt(receipt)).toBe(true);
+        const result = cache.state.content!.result;
+        const retained = producer.resolve(result)!;
+        expect(retained.render.html).toContain('Article');
+        expect(retained.projection.identity.sourceIdentity).toBe(resolveMarkdownSourceIdentity(retained.render.rawSource));
+        expect(retained.render.sourceIdentity).toBe(resolveMarkdownSourceIdentity({
+            source: retained.render.rawSource, mode: 'editor', ...configuration
+        }));
+        expect(producer.resolve({ ...result, resultDigest: 'f'.repeat(64) })).toBeNull();
+        expect(result.resultDigest).toBe(digest(retained));
+        expect(Object.isFrozen(retained.projection.nodes)).toBe(true);
+        cache.dispose();
+        expect(producer.resolve(result)).toBeNull();
+    });
+    it('keeps same-document stale canonical content and never exposes A to same-source B', async () => {
+        const { cache, producer, adapter, update } = setup();
+        expect((await cache.refresh()).status).toBe('committed');
+        const old = cache.state.content!.result;
+        update('# Next article text');
+        await cache.autoRefresh({ allowed: false, reason: 'large-document-paused' });
+        expect(producer.resolve(cache.state.content!.result)?.render.html).toContain('Article');
+        expect(cache.state.stale).toBe(true);
+        adapter.switchDocument({ articleId: 2, draftId: 'article:2', content: '# Next article text' });
+        expect(cache.state.content).toBeNull();
+        expect(producer.resolve(old)).toBeNull();
+        expect((await cache.refresh()).status).toBe('committed');
+        expect(producer.resolve(cache.state.content!.result)?.render.html).toContain('Next article text');
+        cache.dispose();
+    });
+    it('preserves parser-owned malformed-node fallback instead of discarding the document', async () => {
+        const { cache, producer } = setup('# Good\n\n```mermaid\ngraph TD; A-->B');
+        const receipt = await cache.refresh();
+        expect(receipt.status).toBe('committed');
+        expect(cache.state.content!.result.status).toBe('partial');
+        const result = cache.state.content!.result;
+        const retained = producer.resolve(result)!;
+        expect(result.fallbackRefs).toEqual([...new Set(retained.projection.diagnostics.map(item => item.blockIdentity))]);
+        expect(retained.render.html).toContain('Good');
+        cache.dispose();
+    });
+    it('rejects actual body retention overflow, source and feature/version mismatch', async () => {
+        const tiny = setup('# Article', 1);
+        expect((await tiny.cache.refresh()).reason).toBe('render-retention-limit');
+        expect(tiny.cache.state.content).toBeNull();
+        tiny.cache.dispose();
+        const { cache } = setup();
+        cache.setIdentity({ ...identity, featureConfigurationDigest: 'f'.repeat(64) });
+        expect((await cache.refresh()).reason).toBe('render-identity-mismatch');
+        cache.setIdentity({ ...identity, rendererVersion: 'unavailable:v2' });
+        expect((await cache.refresh()).reason).toBe('render-identity-mismatch');
+        cache.dispose();
+    });
+    it('accepts an empty canonical render without substituting old content', async () => {
+        const { cache, producer } = setup('');
+        expect(cache.state.content).toBeNull();
+        expect((await cache.refresh()).status).toBe('committed');
+        expect(producer.resolve(cache.state.content!.result)?.render.rawSource).toBe('');
+        cache.dispose();
+    });
+});

@@ -3,6 +3,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { cachePath, producerPath, verifyRenderCacheSources } from './check-article-render-cache-governance.mjs';
+
 await import('./check-article-document-context-governance.mjs');
 
 const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
@@ -913,6 +915,11 @@ if (!articleWriteEditorDensitySource.includes('toolbar-density="standard"'))
 if (articleWriteEditorDensitySource.includes('toolbar-density="minimal"'))
 {
     fail(articleWriteEditorPathForDensity, 1, 'ArticleWriteEditor must not pass toolbar-density=minimal (FsusUI caps visible primaries at 2)');
+}
+
+for (const reason of verifyRenderCacheSources(read(path.join(repoRoot, cachePath)), read(path.join(repoRoot, producerPath))))
+{
+    fail(path.join(repoRoot, cachePath), 1, `Render cache authority: ${reason}`);
 }
 
 if (failures.length > 0)

@@ -664,6 +664,29 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
     private taskSequence = 0;
     private receiptSequence = 0;
     private disposed = false;
+    private readonly contextListeners = new Set<(context: ArticleDocumentContext | null) => void>();
+
+    public subscribeContext(listener: (context: ArticleDocumentContext | null) => void): () => void
+    {
+        if (this.disposed)
+        {
+            listener(null);
+            return () => undefined;
+        }
+        this.contextListeners.add(listener);
+        return () =>
+        {
+            this.contextListeners.delete(listener);
+        };
+    }
+
+    private notifyContext(): void
+    {
+        for (const listener of this.contextListeners)
+        {
+            listener(this.disposed ? null : this.current);
+        }
+    }
 
     public constructor(options: ArticleDocumentContextAdapterOptions)
     {
@@ -794,6 +817,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         });
         const receipt = this.createReceipt('switch', input.reason ?? 'entity-switch', previous, canceledTaskRefs);
         this.receiptsLog.push(receipt);
+        this.notifyContext();
         return clone(receipt);
     }
 
@@ -830,6 +854,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             userScope: this.current.userScope,
             content
         });
+        this.notifyContext();
         return this.current;
     }
 
@@ -856,6 +881,7 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
             userScope: this.current.userScope,
             contentDigest: this.current.contentDigest
         });
+        this.notifyContext();
         return this.current;
     }
 
@@ -903,6 +929,8 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
         }
         const canceledTaskRefs = this.cancelAll('dispose');
         this.disposed = true;
+        this.notifyContext();
+        this.contextListeners.clear();
         const receipt = this.createReceipt('dispose', 'dispose', this.current, canceledTaskRefs);
         this.receiptsLog.push(receipt);
         return clone(receipt);

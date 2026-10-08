@@ -78,6 +78,33 @@ FsusUI supplies the visual system and reusable UI foundation. FsusBlog owns appl
 
 The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, so any FsusUI boundary warning fails before merge.
 
+### Article last-valid render lifecycle
+
+`ArticleRenderCache` consumes the existing `ArticleDocumentContextAdapter` and
+retains one closed, versioned render-reference entry per owning document/session.
+Article, draft, epoch, user, site, session, renderer, projection, feature, theme,
+and locale changes invalidate the entry. Only an older source revision in the
+same document can be stale; the machine state retains its content reference
+alongside refresh actions, failure reason and last-valid time. It never writes
+HTML or projection data back to the draft. Entry bytes, age, canonical result
+bytes and receipt count have explicit caller-supplied bounds.
+
+`ArticleFsusUiRenderProducer` consumes the public renderer/projection APIs through
+the existing FsusUI boundary. Its canonical result references are released on
+replacement, expiry, context switch and disposal. Every refresh registers a
+context task and checks its request, source and configuration identities again
+before commit. Cancellation settles immediately and rejects late results. The
+public FsusUI renderer currently has no signal argument, so this does not claim
+interruption of its underlying computation. Render source identity includes
+mode/features/base URL; projection source identity uses the public source-only
+contract. Both are verified separately without rewriting either identity.
+
+Automatic refresh consumes the product owner's policy decision. This service
+does not define thresholds, change capabilities or migrate surfaces. Product
+policy wiring, stale-banner UI, heavy-feature activation and position mapping
+remain with their respective owners; an unobserved layout or long task has no
+fabricated observation reference.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
