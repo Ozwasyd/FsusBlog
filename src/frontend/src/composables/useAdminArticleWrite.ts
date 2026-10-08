@@ -1155,6 +1155,7 @@ export function useAdminArticleWrite()
 
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
+        documentContext: articleDocumentContextAdapter,
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         ),
