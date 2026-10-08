@@ -1,5 +1,6 @@
 import type { ArticleRevisionResponsibilitySnapshotResponse } from '@/api/authoring';
-import { validateArticleDocumentContext, type ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
+import { createArticleDocumentContext, validateArticleDocumentContext, type ArticleDocumentContext,
+    type ArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
 import { calculateOpenArticleDocumentDigest as digest } from '@/services/authoring/openArticleDocumentRegistry';
 import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility';
 
@@ -28,6 +29,7 @@ export type ArticleDraftResponsibilityDisclosure = Readonly<{
 }>;
 
 const producedSnapshots = new WeakSet<ArticleDraftResponsibilitySnapshot>();
+const boundDisclosures = new WeakMap<ArticleDraftResponsibilityDisclosure, () => boolean>();
 const trim = (value: string | null | undefined): string | null => value?.trim() ? value.trim() : null;
 
 // Display filtering mirrors ArticleResponsibilityGovernance.PublicUrl, without DNS/reachability claims.
@@ -150,13 +152,24 @@ export function createArticleDraftResponsibilitySnapshot(
 
 /** Admits only an immutable producer projection bound to the caller's current document context. */
 export function admitArticleDraftResponsibilitySnapshot(
-    value: ArticleDraftResponsibilityDisclosure
+    value: ArticleDraftResponsibilityDisclosure,
+    reading?: Readonly<{ articleId: number | null; content?: string; }>
 ): boolean
 {
-    const { context, responsibilityDigest, snapshot } = value;
-    return validateArticleDocumentContext(context) && producedSnapshots.has(snapshot)
-        && snapshot.contextDigest === context.contextDigest && snapshot.sourceRevision === context.sourceRevision
-        && snapshot.responsibilityDigest === responsibilityDigest;
+    try
+    {
+        const { context, responsibilityDigest, snapshot } = value;
+        return boundDisclosures.get(value)?.() === true
+            && validateArticleDocumentContext(context) && producedSnapshots.has(snapshot)
+            && snapshot.contextDigest === context.contextDigest && snapshot.sourceRevision === context.sourceRevision
+            && snapshot.responsibilityDigest === responsibilityDigest
+            && (!reading || (context.articleId === reading.articleId
+                && (reading.content === undefined || createArticleDocumentContext({ ...context, content: reading.content }).contentDigest === context.contentDigest)));
+    }
+    catch
+    {
+        return false;
+    }
 }
 
 /** Binds a result to current responsibility input, including metadata edits that leave Markdown unchanged. */
@@ -164,10 +177,17 @@ export function bindArticleDraftResponsibilitySnapshot(
     context: ArticleDocumentContext,
     source: ArticleDraftResponsibilitySource | null,
     siteAuthor: string,
-    snapshot: ArticleDraftResponsibilitySnapshot
+    snapshot: ArticleDraftResponsibilitySnapshot,
+    authority: Pick<ArticleDocumentContextAdapter, 'isCurrentContext'>,
+    readCurrent: () => Readonly<{ source: ArticleDraftResponsibilitySource | null; siteAuthor: string; }>
 ): ArticleDraftResponsibilityDisclosure
 {
-    return Object.freeze({ context, responsibilityDigest: digest({ source, siteAuthor }), snapshot });
+    const responsibilityDigest = digest({ source, siteAuthor });
+    const disclosure = Object.freeze({ context, responsibilityDigest, snapshot });
+    // The live owner stays out of serialized props and rendered markup. Historical contexts are not authority.
+    boundDisclosures.set(disclosure, () => authority.isCurrentContext(context)
+        && responsibilityDigest === digest(readCurrent()));
+    return disclosure;
 }
 
 /** Independently compares display and private-input digests to a fresh projection from the same authority input. */

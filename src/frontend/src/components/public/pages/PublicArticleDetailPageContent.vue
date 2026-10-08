@@ -101,11 +101,11 @@
                 :link-mode="linkMode"
             />
             <ArticleResponsibilityDisclosure
-                :article-id="safeArticleId"
+                :article-id="draftResponsibility === undefined ? safeArticleId : draftArticleId"
                 :fallback-author="authorName"
                 :initial-authors="responsibilityAuthors"
                 :initial-manifest="responsibilityManifest"
-                :draft-responsibility="draftResponsibility"
+                :draft-responsibility="admittedDraftResponsibility"
             />
             <slot name="header-actions" />
         </header>
@@ -311,10 +311,13 @@ const props = withDefaults(defineProps<{
 const { messages, t } = useI18nText();
 
 const siteTitle = usePublicSiteTitle();
+const draftArticleId = computed(() => props.articleId === null ? null : safeArticleId.value);
+const admittedDraftResponsibility = computed(() => props.draftResponsibility === undefined ? undefined
+    : props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility,
+        { articleId: draftArticleId.value, content: props.bodyContent }) ? props.draftResponsibility : null);
 const effectiveResponsibilityAuthors = computed(() => (
     props.draftResponsibility !== undefined
-        ? props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility)
-            ? props.draftResponsibility.snapshot.authors : []
+        ? admittedDraftResponsibility.value?.snapshot.authors ?? []
         : props.responsibilityAuthors?.length
             ? props.responsibilityAuthors
             : [{ name: props.authorName.trim() || 'Fsu', profileUrl: null }]

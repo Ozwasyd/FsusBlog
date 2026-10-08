@@ -104,7 +104,7 @@ const publishedManifest = ref<ArticleResponsibilityPublicView | null>(props.init
 const publishedState = ref<'fallback' | 'ready' | 'unavailable'>(publishedManifest.value ? 'ready' : 'fallback');
 const isDraft = computed(() => props.draftResponsibility !== undefined);
 const draftSnapshot = computed(() => (
-    props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility)
+    props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility, { articleId: props.articleId })
         ? props.draftResponsibility.snapshot : null
 ));
 const manifest = computed(() => isDraft.value ? draftSnapshot.value : publishedManifest.value);

@@ -85,7 +85,7 @@ describe('publication preview existing public consumer capability (#2283)', () =
             updateReason: 'Draft evidence', effectiveAt: null, conclusionImpact: 'clarified', responsiblePersonConfirmed: true
         };
         const snapshot = createArticleDraftResponsibilitySnapshot(adapter.context, responsibility, 'Draft site author');
-        const assembly = await assemblyFor(input, bindArticleDraftResponsibilitySnapshot(adapter.context, responsibility, 'Draft site author', snapshot));
+        const assembly = await assemblyFor(input, bindArticleDraftResponsibilitySnapshot(adapter.context, responsibility, 'Draft site author', snapshot, adapter, () => ({ source: responsibility, siteAuthor: 'Draft site author' })));
         const app = createSSRApp({ render: () => renderPublicAotPage(assembly) });
         app.component('ElMarkdownRenderer', ElMarkdownRenderer);
         const html = await renderToString(app);
@@ -98,5 +98,26 @@ describe('publication preview existing public consumer capability (#2283)', () =
         expect(html).toContain('Public body');
         expect(html).not.toContain('data-article-verification-link');
         expect(html).not.toContain('/integrity/article/42/responsibility');
+    });
+    it.each(['another-article', 'another-source'])('rejects draft attribution beside %s in actual public SSR', async mutation => {
+        const original = article();
+        const adapter = createArticleDocumentContextAdapter({ articleId: original.id, draftId: `article:${original.id}`,
+            editorSessionId: 'session:private-authority', siteScope: 'site:private-authority', userScope: 'user:private-authority', content: original.content });
+        const responsibility = { inheritSiteAuthor: true, authors: [], reviewer: null, sources: [],
+            updateSummary: 'Private draft attribution', updateReason: 'Private evidence', effectiveAt: null,
+            conclusionImpact: 'clarified', responsiblePersonConfirmed: true };
+        const disclosure = bindArticleDraftResponsibilitySnapshot(adapter.context, responsibility, 'Private draft author',
+            createArticleDraftResponsibilitySnapshot(adapter.context, responsibility, 'Private draft author'), adapter, () => ({ source: responsibility, siteAuthor: 'Private draft author' }));
+        const input = mutation === 'another-article' ? article(43) : { ...original, content: '# Different public body' };
+        const assembly = await assemblyFor(input, disclosure);
+        const app = createSSRApp({ render: () => renderPublicAotPage(assembly) });
+        app.component('ElMarkdownRenderer', ElMarkdownRenderer);
+        const html = await renderToString(app);
+        expect(html).not.toContain('Private draft author');
+        expect(html).not.toContain('Private draft attribution');
+        expect(html).not.toContain('Private evidence');
+        expect(html).not.toContain('Contract author');
+        expect(html).toContain('data-manifest-state="invalid"');
+        expect(html).not.toContain('data-article-verification-link');
     });
 });

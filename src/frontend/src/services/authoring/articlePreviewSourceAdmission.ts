@@ -20,6 +20,8 @@ export interface ArticlePreviewSourceInput {
     readonly responsibility: ArticleDraftResponsibilitySource | null;
     readonly siteAuthor: string;
     readonly attachmentLifecycleHistory: readonly ArticleAttachmentLifecycleSnapshot[];
+    /** Digest of the host's complete current authoring request; this is invalidation, not asset/rights qualification. */
+    readonly authoringInputDigest?: string;
 }
 
 /** Minimal consumer projection of the real ArticleEditorRuntimeBinding public API. */
@@ -190,10 +192,15 @@ export class ArticlePreviewSourceAdmission
         {
             throw new Error('article-preview-attachment-history-invalid');
         }
+        if (input.authoringInputDigest !== undefined && !/^[a-f0-9]{64}$/u.test(input.authoringInputDigest))
+        {
+            throw new Error('article-preview-authoring-input-invalid');
+        }
         const responsibility = createArticleDraftResponsibilitySnapshot(input.context, input.responsibility, input.siteAuthor);
         const attachmentLifecycleHistoryDigest = digest(input.attachmentLifecycleHistory);
         return Object.freeze({ context: input.context, responsibility, attachmentLifecycleHistoryDigest,
             inputDigest: digest({ contextDigest: input.context.contextDigest,
-                responsibilityDigest: responsibility.responsibilityDigest, attachmentLifecycleHistoryDigest }) });
+                responsibilityDigest: responsibility.responsibilityDigest, attachmentLifecycleHistoryDigest,
+                authoringInputDigest: input.authoringInputDigest ?? null }) });
     }
 }

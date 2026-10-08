@@ -252,9 +252,14 @@ reachability evidence. The snapshot contains no publication or proof coordinate.
 
 An explicit `draftResponsibility` input to the existing reading assembly selects
 draft authority. The disclosure accepts only a producer snapshot matching its
-supplied current context, does not read the published manifest, and does not
+current live owner and the reading page's article identity and source bytes,
+does not read the published manifest, and does not
 render a publication verification link. `bindArticleDraftResponsibilitySnapshot`
-also binds the expected digest from current responsibility/site-author inputs;
+requires the existing owner's current-context check and a reader for current
+responsibility/site-author inputs. Both remain private runtime capabilities;
+copied or serialized disclosures cannot authorize attribution. Owner disposal
+and revision changes reject historical disclosures. The binding also compares
+the expected digest with freshly read responsibility/site-author inputs;
 metadata-only edits reject an older result even when Markdown/context is
 unchanged. Missing, stale or forged inputs never
 fall back to published authors. The public path retains its existing fetch and
@@ -284,6 +289,18 @@ preview leases use its `beginToolTask('publish-preview')`; no additional authori
 binding, renderer or editor instance is created. Disposing the consumer cancels
 its own preview lease while the Writer host retains runtime release and
 continuity ownership. A tool switch or owner change rejects the old result.
+
+The production preview generator uses this admission while its Writer binding
+is available. Before the editor port is available it borrows the same existing
+canonical owner through `attach`; either path releases only its own consumer.
+The request combines the caller cancellation signal with its source lease and
+rereads the complete authoring request digest, including rights, taxonomy and
+draft revision inputs, before response commit. A rejected or failed request keeps
+the last admitted preview. The current form has no responsibility source input;
+its missing responsibility stays explicit. These invalidation checks do not
+create asset qualification, an authorized asset observation transport or publish
+operation coordinates, and do not promote the server normalization response to
+complete prepublication acceptance.
 
 ## Standalone document export boundary
 

@@ -20,10 +20,27 @@ const source = (): ArticleDraftResponsibilitySource => ({ inheritSiteAuthor: fal
     ], updateSummary: 'Draft change', updateReason: 'New evidence', effectiveAt: null,
     conclusionImpact: 'changed', responsiblePersonConfirmed: true });
 const draft = (adapter = owner(), input: ArticleDraftResponsibilitySource | null = source()) => bindArticleDraftResponsibilitySnapshot(
-    adapter.context, input, 'Site author', createArticleDraftResponsibilitySnapshot(adapter.context, input, 'Site author'));
+    adapter.context, input, 'Site author', createArticleDraftResponsibilitySnapshot(adapter.context, input, 'Site author'), adapter, () => ({ source: input, siteAuthor: 'Site author' }));
 afterEach(() => vi.unstubAllGlobals());
 
 describe('draft responsibility public composition (#2283)', () => {
+    it('rejects retained disclosures after actual owner revision/disposal and current responsibility replacement', () => {
+        const adapter = owner();
+        let current = { source: source(), siteAuthor: 'Site author' };
+        const value = bindArticleDraftResponsibilitySnapshot(adapter.context, current.source, current.siteAuthor,
+            createArticleDraftResponsibilitySnapshot(adapter.context, current.source, current.siteAuthor), adapter, () => current);
+        expect(admitArticleDraftResponsibilitySnapshot(value)).toBe(true);
+        current = { ...current, source: { ...current.source, updateSummary: 'Replacement metadata' } };
+        expect(admitArticleDraftResponsibilitySnapshot(value)).toBe(false);
+        current = { source: source(), siteAuthor: 'Site author' };
+        expect(admitArticleDraftResponsibilitySnapshot(value)).toBe(true);
+        adapter.updateSource('same source', adapter.context.sourceRevision + 1);
+        expect(admitArticleDraftResponsibilitySnapshot(value)).toBe(false);
+        const next = draft(adapter);
+        expect(admitArticleDraftResponsibilitySnapshot(next)).toBe(true);
+        adapter.dispose();
+        expect(admitArticleDraftResponsibilitySnapshot(next)).toBe(false);
+    });
     it.each([null, 42])('renders a %s draft snapshot without requesting published responsibility or inventing proof coordinates', async articleId => {
         const fetch = vi.fn();
         vi.stubGlobal('fetch', fetch);
@@ -78,9 +95,9 @@ describe('draft responsibility public composition (#2283)', () => {
         expect(admitArticleDraftResponsibilitySnapshot({ ...value, context: owner(43).context })).toBe(false);
         const metadataEdit = { ...source(), updateSummary: 'New metadata, same source' };
         expect(admitArticleDraftResponsibilitySnapshot(bindArticleDraftResponsibilitySnapshot(
-            adapter.context, metadataEdit, 'Site author', value.snapshot))).toBe(false);
+            adapter.context, metadataEdit, 'Site author', value.snapshot, adapter, () => ({ source: metadataEdit, siteAuthor: 'Site author' })))).toBe(false);
         expect(admitArticleDraftResponsibilitySnapshot(bindArticleDraftResponsibilitySnapshot(
-            adapter.context, source(), 'New site author', value.snapshot))).toBe(false);
+            adapter.context, source(), 'New site author', value.snapshot, adapter, () => ({ source: source(), siteAuthor: 'New site author' })))).toBe(false);
         adapter.updateSource('same source', adapter.context.sourceRevision + 1);
         expect(admitArticleDraftResponsibilitySnapshot({ ...value, context: adapter.context })).toBe(false);
         await wrapper.setProps({ draftResponsibility: { ...value, context: adapter.context } });

@@ -75,6 +75,8 @@ import {
 } from '@/services/authoring/articleDocumentContext';
 import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
+import { ArticlePreviewSourceAdmission } from '@/services/authoring/articlePreviewSourceAdmission';
+import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
@@ -1156,6 +1158,15 @@ export function useAdminArticleWrite()
     const articlePreviewGeneration = useArticlePreviewGeneration({
         target: privatePreview,
         documentContext: articleDocumentContextAdapter,
+        sourceAdmission: () =>
+        {
+            const read = () => ({ context: articleDocumentContextAdapter.context, source: articleForm.content,
+                // This form has no responsibility authority input. Missing stays explicit; no published fallback.
+                responsibility: null, siteAuthor: '', attachmentLifecycleHistory: authoringAttachments.lifecycleReceipts,
+                authoringInputDigest: calculateOpenArticleDocumentDigest(currentPrepublishIdentity()) });
+            return editorRuntimeBinding ? ArticlePreviewSourceAdmission.attachRuntime(editorRuntimeBinding, read)
+                : ArticlePreviewSourceAdmission.attach(read);
+        },
         readRequest: () => buildServerDraftRequest(
             buildDraftSnapshot(createArticleRecoveryClientRevision(), 'server')
         ),
