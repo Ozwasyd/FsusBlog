@@ -502,7 +502,7 @@ public sealed class AuthoringExtensionRpcBrokerTests
         }
         var network = new Network();
         var broker = new AuthoringExtensionServiceIoBroker(new AuthoringServiceGrantValidator(new Addresses(),
-            new CanonicalAuthoringFilePathVerifier(), clock, ImmutableHashSet.Create(StringComparer.Ordinal, root)), network, staging);
+            new LinuxAuthoringFilePathVerifier(), clock, ImmutableHashSet.Create(StringComparer.Ordinal, root)), network, staging);
         var transaction = new NoTransaction();
         var revision = new Revision();
         var envelope = new AuthoringRpcEnvelope(2, operation is null ? AuthoringRpcMethod.NetworkBrokerRequest : AuthoringRpcMethod.FileBrokerRequest,

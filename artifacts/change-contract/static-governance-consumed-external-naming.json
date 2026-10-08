@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/release-reliability-lifecycle-action-registry.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the existing machine-consumed lifecycle, test-owner and NuGet keys while consuming the coordinator-verified deadline, registry and dependency prerequisites for static governance verification."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-matrix/scheduler.mjs"
+            ],
+            "reason": "Preserve the supplied canonical execution owner and environment authority spellings while consuming the independently verified complete producer roster prerequisite."
+        }
+    ]
+}
