@@ -33,10 +33,10 @@ public sealed class CommentScaleResolvedArticleAdapterTests
         Assert.Equal(f.Article.ContentDigest, result.ArticlePlanDigest);
         Assert.Equal(f.Plan.ContentDigest, result.CommentPlanDigest);
         Assert.Empty(result.Comments);
-        ArticleScaleRowPlan body = Assert.Single(f.Graph.Rows.Where(row => row.Kind == ArticleScaleRowKind.ArticleBody));
+        ArticleScaleRowPlan body = Assert.Single(f.Graph.Rows, row => row.Kind == ArticleScaleRowKind.ArticleBody);
         Assert.Equal(f.Input.MarkdownContent, body.Fields["MarkdownContent"]);
         Assert.Equal(f.Input.TemporalRoles[ArticleScaleTemporalRoles.ArticleCreated].ToString("O"), body.Fields["UpdatedAt"]);
-        ArticleScaleRowPlan article = Assert.Single(f.Graph.Rows.Where(row => row.Kind == ArticleScaleRowKind.Article));
+        ArticleScaleRowPlan article = Assert.Single(f.Graph.Rows, row => row.Kind == ArticleScaleRowKind.Article);
         Assert.Equal(f.Input.Title, article.Fields["Title"]);
         Assert.True(CanonicalArticleGraphVerifier.VerifyArticleGraph(f.Article, f.Graph).IsValid);
     }
