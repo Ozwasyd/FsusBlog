@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# Canonical renderer AttemptResources property formatting for DOCX #2430.
+89dfd7bf585caf080d0e6f4544bafcedae412c82
