@@ -45,7 +45,9 @@ node tests/frontend/checks/runtime/check-plugin-collection-probe.mjs both
 Run this command from the repository root with the frontend dependencies and
 Playwright Chromium installed. `local` and `published` select one source;
 `both` runs the same contract against each. Local aliases use the repository's
-existing resolver. Published mode requires the real installed package and never
+existing resolver. The checker generates its HTML bootstrap and byte-identical
+fixture copies in each run's disposable directory; production fixture source
+and contract assertions stay in this repository. Published mode requires the real installed package and never
 falls back to local source. Reports, accessibility trees and screenshots go to
 one new `.tmp/chain-1894/plugin-collection-*` directory per invocation. Exit 1
 means an observed contract failure; exit 2 means a blocked source/runtime.

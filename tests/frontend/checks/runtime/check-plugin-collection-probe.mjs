@@ -22,6 +22,28 @@ const runId = `plugin-collection-${new Date().toISOString().replaceAll(':', '-')
 const output = path.join(root, '.tmp/chain-1894', runId);
 fs.mkdirSync(output, { recursive: true });
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
+const runtimeFixture = path.join(output, 'fixture');
+fs.mkdirSync(runtimeFixture);
+const fixtureBootstrap = `<!doctype html>
+<html lang="zh-CN">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <title>Plugin collection public API probe</title>
+    </head>
+    <body>
+        <div id="app"></div>
+        <script type="module" src="./main.ts"></script>
+    </body>
+</html>
+`;
+fs.writeFileSync(path.join(runtimeFixture, 'index.html'), fixtureBootstrap);
+const runtimeFixtureFiles = fs.readdirSync(fixture).map((file) =>
+{
+    const bytes = fs.readFileSync(path.join(fixture, file));
+    fs.writeFileSync(path.join(runtimeFixture, file), bytes);
+    return { source: path.relative(root, path.join(fixture, file)), output: path.relative(root, path.join(runtimeFixture, file)), sha256: digest(bytes) };
+});
 const git = (directory, ...args) => execFileSync('git', args, { cwd: directory, encoding: 'utf8' }).trim();
 const identity = (directory) => ({
     root: directory,
@@ -44,6 +66,8 @@ const report = {
     qualificationEligible: false,
     candidateScope,
     source: identity(root),
+    fixtureBootstrap: { output: path.relative(root, path.join(runtimeFixture, 'index.html')), sha256: digest(fixtureBootstrap) },
+    runtimeFixtureFiles,
     sourceFiles: probeFiles.map((file) => ({ path: file, sha256: digest(fs.readFileSync(path.join(root, file))) })),
     expectedTestBaseline: JSON.parse(fs.readFileSync(path.join(root, 'config/testing/fsusui-baseline.json'), 'utf8')),
     browser: null,
@@ -415,7 +439,7 @@ try
             }
             server = await createServer({
                 configFile: false,
-                root: fixture,
+                root: runtimeFixture,
                 plugins: [vue(), jsx()],
                 resolve: {
                     dedupe: ['vue'],
