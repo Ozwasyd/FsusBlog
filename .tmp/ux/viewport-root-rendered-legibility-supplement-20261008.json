@@ -1,0 +1,10 @@
+{
+  "uiCurrentHandoffHead": "a0047666e559724ffefc2b1aac2402563ddbb2c2",
+  "uiImmutableOriginalEvidenceHead": "957863ff82943840178c8e3d17e5c86093764de1",
+  "uiActualTestedCandidate": "d182cf93cbb852006047bc2b7eea0ba28daa4955",
+  "uiActualProductSource": "69705ac1ca5d3c07fa955486646a1861ba5bb50a",
+  "original172SealedEntriesAnd5125RawEntriesUnchanged": true,
+  "supplement": "tests/conformance/visual/artifacts/issue-828/explicit-modes/rendered-legibility-handoff.md",
+  "observedLimit": "Inspected667x375 zoom2 inline-expanded has90px header but clips portions of brand/nav/search text. Existing native focus/scroll/hit and44px target proof does not sign readable content/UX. Same independent reviewer must inspect;828/ProductUX stayopen. No product source or sealed file changed.",
+  "qualificationEligible": false
+}
