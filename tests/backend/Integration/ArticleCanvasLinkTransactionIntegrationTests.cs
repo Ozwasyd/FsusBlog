@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.Security.Claims;
+
 using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Core.Services.Articles;
@@ -10,9 +11,13 @@ using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Shared.Contracts.AuthoringCanvas;
+
 using Microsoft.Extensions.Logging.Abstractions;
+
 using NSubstitute;
+
 using SqlSugar;
+
 using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Integration;
@@ -29,6 +34,10 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
     {
         var data = await SeedAsync();
         using SqlSugarClient db = data.Db;
+        Assert.NotNull(data.RequestContext.HttpContext);
+        Assert.True(data.RequestContext.HttpContext.User.Identity?.IsAuthenticated);
+        Assert.Equal(data.Owner.AdminPrincipalId.ToString(CultureInfo.InvariantCulture),
+            data.RequestContext.HttpContext.User.FindFirst("admin_id")?.Value);
         IArticleCanvasLinkWriter writer = data.Service;
         ArticleCanvasLinkHistoryResponse initial = await writer.ReadHistoryAsync(data.Owner, data.Request.SourceArticleId);
         Assert.Equal(0, initial.HistoryArticleRevision);
@@ -68,7 +77,8 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
             CREATE TRIGGER reject_link BEFORE INSERT ON article_canvas_link_journal
                 FOR EACH ROW EXECUTE FUNCTION reject_link_journal();
             """);
-        await Assert.ThrowsAnyAsync<Exception>(() => ((IArticleCanvasLinkWriter)data.Service).ConvertAsync(data.Owner, data.Request));
+        Exception failure = await Assert.ThrowsAnyAsync<Exception>(() => ((IArticleCanvasLinkWriter)data.Service).ConvertAsync(data.Owner, data.Request));
+        Assert.Contains("isolated journal failure", failure.ToString(), StringComparison.Ordinal);
         Assert.Equal("before", await SourceAsync(db, data.Request.SourceArticleId));
         Assert.Equal(beforeRevision, await RevisionAsync(db, data.Request.SourceArticleId));
         Assert.Equal(beforeOutbox, await CountAsync(db, "article_mutation_outbox"));
@@ -88,7 +98,10 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
             "source", "later edit", "summary", null, data.CategoryId, [], (int)ArticleStatus.Draft, BaseRevisionId: applied.ArticleRevision)));
         long current = await RevisionAsync(db, applied.SourceArticleId);
         await Assert.ThrowsAsync<AuthoringCanvasValidationException>(() => writer.ConvertAsync(data.Owner,
-            HistoryRequest(applied, ArticleCanvasLinkMode.Undo) with { ExpectedArticleRevision = current }));
+            HistoryRequest(applied, ArticleCanvasLinkMode.Undo) with
+            {
+                ExpectedArticleRevision = current
+            }));
         Assert.Equal("later edit", await SourceAsync(db, applied.SourceArticleId));
         Assert.Equal(1, await CountAsync(db, "article_canvas_link_journal"));
     }
@@ -103,7 +116,11 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
         for (int index = 0; index < 100; index++)
         {
             ArticleCanvasLinkReceipt receipt = await writer.ConvertAsync(data.Owner, request);
-            request = request with { RequestId = Guid.CreateVersion7(), ExpectedArticleRevision = receipt.ArticleRevision };
+            request = request with
+            {
+                RequestId = Guid.CreateVersion7(),
+                ExpectedArticleRevision = receipt.ArticleRevision
+            };
         }
         ArticleCanvasLinkHistoryResponse history = await writer.ReadHistoryAsync(data.Owner, request.SourceArticleId);
         Assert.Equal(100, history.UndoEntries.Count);
@@ -134,7 +151,10 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
         Assert.Equal(applied.ArticleRevision, await RevisionAsync(db, applied.SourceArticleId));
         Assert.Equal(outbox, await CountAsync(db, "article_mutation_outbox"));
         await Assert.ThrowsAsync<AuthoringCanvasIdempotencyConflictException>(() => writer.ConvertAsync(data.Owner,
-            data.Request with { ExpectedTargetRevision = data.Request.ExpectedTargetRevision + 1 }));
+            data.Request with
+            {
+                ExpectedTargetRevision = data.Request.ExpectedTargetRevision + 1
+            }));
     }
 
     [Fact]
@@ -149,11 +169,19 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
         var nodes = await data.Documents.ReadNodesAsync(data.Owner, data.Header.Id, null, 256);
         AuthoringCanvasNode node = Assert.Single(nodes.Items, value => value.TargetArticleId == data.Request.TargetArticleId);
         _ = await data.Documents.PutNodeAsync(new PutAuthoringCanvasNodeCommand(data.Header.Id, data.Owner,
-            data.Header.Revision, Guid.CreateVersion7(), node with { Type = AuthoringCanvasNodeType.HeadingReference,
-                TargetHeadingIdentity = "target-anchor", ReferenceState = AuthoringCanvasReferenceState.Unresolved }));
+            data.Header.Revision, Guid.CreateVersion7(), node with
+            {
+                Type = AuthoringCanvasNodeType.HeadingReference,
+                TargetHeadingIdentity = "target-anchor",
+                ReferenceState = AuthoringCanvasReferenceState.Unresolved
+            }));
         AuthoringCanvasDocumentHeader header = (await data.Documents.GetAsync(data.Owner, data.Header.Id))!;
-        ArticleCanvasLinkRequest request = data.Request with { CanvasRevision = header.Revision,
-            CanvasContentDigest = header.ContentDigest, ExpectedTargetRevision = targetRevision };
+        ArticleCanvasLinkRequest request = data.Request with
+        {
+            CanvasRevision = header.Revision,
+            CanvasContentDigest = header.ContentDigest,
+            ExpectedTargetRevision = targetRevision
+        };
         var rejected = await Assert.ThrowsAsync<AuthoringCanvasValidationException>(
             () => ((IArticleCanvasLinkWriter)data.Service).ConvertAsync(data.Owner, request));
         Assert.Equal("article_canvas_link_public_coordinate_unavailable", rejected.Code);
@@ -163,7 +191,11 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
         Assert.True(await data.Service.UpdateAsync(data.Request.TargetArticleId, new ArticleWriteRequestCoreModel(
             "target", "# Target ^target-anchor", "summary", null, data.CategoryId, [], (int)ArticleStatus.Published,
             BaseRevisionId: targetRevision)));
-        request = request with { RequestId = Guid.CreateVersion7(), ExpectedTargetRevision = await RevisionAsync(db, request.TargetArticleId) };
+        request = request with
+        {
+            RequestId = Guid.CreateVersion7(),
+            ExpectedTargetRevision = await RevisionAsync(db, request.TargetArticleId)
+        };
         ArticleCanvasLinkReceipt applied = await ((IArticleCanvasLinkWriter)data.Service).ConvertAsync(data.Owner, request);
         Assert.Equal(request.ExpectedTargetRevision, applied.TargetRevision);
         Assert.Contains("#target-anchor)", await SourceAsync(db, request.SourceArticleId), StringComparison.Ordinal);
@@ -222,7 +254,10 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
         }
         else
         {
-            owner = owner with { AdminPrincipalId = owner.AdminPrincipalId + 1 };
+            owner = owner with
+            {
+                AdminPrincipalId = owner.AdminPrincipalId + 1
+            };
         }
         IArticleCanvasLinkWriter writer = data.Service;
         long outbox = await CountAsync(db, "article_mutation_outbox");
@@ -259,7 +294,8 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
         => db.Ado.GetStringAsync("SELECT markdown_content FROM article_body WHERE article_id = @Id", new SugarParameter("@Id", id));
 
     private async Task<(SqlSugarClient Db, ArticleService Service, AuthoringCanvasDocumentStore Documents,
-        AuthoringCanvasOwner Owner, AuthoringCanvasDocumentHeader Header, ArticleCanvasLinkRequest Request, int CategoryId)> SeedAsync()
+        AuthoringCanvasOwner Owner, AuthoringCanvasDocumentHeader Header, ArticleCanvasLinkRequest Request, int CategoryId,
+        IHttpContextAccessor RequestContext)> SeedAsync()
     {
         SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
         PostgresSqlSugarTestClient.InitTables(db, typeof(Article), typeof(ArticleBody), typeof(ArticleTag), typeof(Category), typeof(Tag),
@@ -267,13 +303,19 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
             typeof(ArticleRightsPolicy), typeof(ArticleRightsSnapshot), typeof(ArticleResponsibilitySnapshot), typeof(ArticleRightsProof),
             typeof(ArticlePublicationRecord), typeof(ArticleMutationOutboxEvent), typeof(ArticleMutationCommand), typeof(AdminPrincipal));
         foreach (var migration in new[] { AuthoringCanvasDocumentMigrationDefinitions.BuildMigration(), ArticleCanvasLinkMigrationDefinitions.BuildMigration() })
-            foreach (var step in migration.Steps) await step.ExecuteAsync(db, CancellationToken.None);
+            foreach (var step in migration.Steps)
+                await step.ExecuteAsync(db, CancellationToken.None);
         int category = await db.Insertable(new Category { Name = "isolated-link-category" }).ExecuteReturnIdentityAsync();
-        long admin = await db.Insertable(new AdminPrincipal { Handle = "isolated-link-admin", Status = AdminPrincipalStatus.Active,
-            IsRoot = true, Permissions = AdminPermissions.ArticleWrite }).ExecuteReturnBigIdentityAsync();
+        long admin = await db.Insertable(new AdminPrincipal
+        {
+            Handle = "isolated-link-admin",
+            Status = AdminPrincipalStatus.Active,
+            IsRoot = true,
+            Permissions = AdminPermissions.ArticleWrite
+        }).ExecuteReturnBigIdentityAsync();
         var owner = new AuthoringCanvasOwner(admin, "primary-site");
         var documents = new AuthoringCanvasDocumentStore(db, TimeProvider.System);
-        ArticleService service = CreateService(db, admin, documents);
+        ArticleService service = CreateService(db, admin, documents, out IHttpContextAccessor requestContext);
         int source = await service.CreateAsync(new ArticleWriteRequestCoreModel("source", "before", "summary", null, category, [], (int)ArticleStatus.Draft));
         int target = await service.CreateAsync(new ArticleWriteRequestCoreModel("target", "target body", "summary", null, category, [], (int)ArticleStatus.Draft));
         Guid canvas = Guid.CreateVersion7();
@@ -287,21 +329,28 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
         AuthoringCanvasDocumentHeader header = (await documents.GetAsync(owner, canvas))!;
         return (db, service, documents, owner, header, new ArticleCanvasLinkRequest(Guid.CreateVersion7(), source,
             await RevisionAsync(db, source), ArticleCanvasLinkMode.Apply, Guid.Empty, canvas, header.Revision, header.ContentDigest,
-            edge, target, await RevisionAsync(db, target)), category);
+            edge, target, await RevisionAsync(db, target)), category, requestContext);
     }
 
     private static ArticleService CreateService(
         SqlSugarClient db,
-        long adminId, AuthoringCanvasDocumentStore documents)
+        long adminId, AuthoringCanvasDocumentStore documents, out IHttpContextAccessor requestContext)
     {
         var redis = Substitute.For<IConnectionMultiplexer>();
         redis.GetDatabase(Arg.Any<int>(), Arg.Any<object?>()).Returns(Substitute.For<IDatabase>());
         var runtimeKeyScope = Substitute.For<IRuntimeKeyScope>();
         runtimeKeyScope.PrefixKey(Arg.Any<string>()).Returns(call => call.Arg<string>());
-        var context = new DefaultHttpContext { User = new ClaimsPrincipal(new ClaimsIdentity(
+        var context = new DefaultHttpContext
+        {
+            User = new ClaimsPrincipal(new ClaimsIdentity(
             [new Claim("admin_id", adminId.ToString(CultureInfo.InvariantCulture)),
              new Claim("identity_kind", AnonymousIdentityRuntime.AdminPrincipalKind),
-             new Claim("admin_sid", "isolated-provider-fixture")], "fixture")) };
+             new Claim("admin_sid", "isolated-provider-fixture")], "fixture"))
+        };
+        // An AsyncLocal assignment made inside SeedAsync does not flow back to its awaiting caller.
+        // Bind this fixture's explicit request context while retaining the production identity checks.
+        requestContext = Substitute.For<IHttpContextAccessor>();
+        requestContext.HttpContext.Returns(context);
 
         return new ArticleService(
             _db: db,
@@ -314,7 +363,7 @@ public sealed class ArticleCanvasLinkTransactionIntegrationTests(PostgresSchemaM
             _cacheMissCoordinator: Substitute.For<ICacheMissCoordinator>(),
             _dbConcurrencyGate: new ImmediateDbConcurrencyGate(),
             _runtimeKeyScope: runtimeKeyScope,
-            _httpContextAccessor: new HttpContextAccessor { HttpContext = context },
+            _httpContextAccessor: requestContext,
             _logger: NullLogger<ArticleService>.Instance,
             _publicAotInvalidationService: Substitute.For<IPublicAotInvalidationService>(),
             _cacheInvalidationDispatcher: Substitute.For<ICacheInvalidationDispatcher>(),
