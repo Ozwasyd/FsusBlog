@@ -1,3 +1,5 @@
+using System.Runtime.Versioning;
+
 using FsusBlog.Server.Infrastructure.Memory.Capabilities;
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Disk;
@@ -6,6 +8,7 @@ using Xunit;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[SupportedOSPlatform("linux")]
 public sealed class OwnedSpillRootTests
 {
     [Fact]
@@ -138,7 +141,10 @@ public sealed class OwnedSpillRootTests
     {
         internal const UnixFileMode OwnerMode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;
         internal string Parent { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"mem-root-test-{Guid.NewGuid():N}");
-        internal string Path { get; }
+        internal string Path
+        {
+            get;
+        }
         internal Guid Owner { get; } = Guid.NewGuid();
 
         internal RootFixture()

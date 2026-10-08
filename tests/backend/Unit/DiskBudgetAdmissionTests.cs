@@ -47,7 +47,10 @@ public sealed class DiskBudgetAdmissionTests
         using IMemoryAllocationCharge live = staging.Commit(new(Guid.NewGuid()),
             [new(fixture.Disk, MemoryResourceUnit.Bytes, 70)]).Value!;
         fixture.Coordinator.ReviseLimits(2, fixture.Limits(30));
-        fixture.Sample = fixture.Sample with { PolicyRevision = 2 };
+        fixture.Sample = fixture.Sample with
+        {
+            PolicyRevision = 2
+        };
         Assert.True(fixture.Coordinator.Snapshot().OverTarget);
         Assert.Equal(70, fixture.Coordinator.Snapshot().Used["volume"]);
         Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 2, 1)).Failure);
@@ -81,11 +84,20 @@ public sealed class DiskBudgetAdmissionTests
     {
         var fixture = new Fixture();
         DiskCapacityObservation valid = fixture.Sample;
-        fixture.Sample = valid with { Backing = DiskBackingKind.MemoryBacked };
+        fixture.Sample = valid with
+        {
+            Backing = DiskBackingKind.MemoryBacked
+        };
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
-        fixture.Sample = valid with { Backing = DiskBackingKind.Unknown };
+        fixture.Sample = valid with
+        {
+            Backing = DiskBackingKind.Unknown
+        };
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
-        fixture.Sample = valid with { ValidUntil = DateTimeOffset.MinValue };
+        fixture.Sample = valid with
+        {
+            ValidUntil = DateTimeOffset.MinValue
+        };
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
         fixture.Sample = valid with
         {
@@ -111,7 +123,10 @@ public sealed class DiskBudgetAdmissionTests
             AvailableBytes = fixture.Observation(fixture.Volume, MemoryResourceUnit.Bytes, 20)
         };
         Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
-        fixture.Sample = fixture.Sample with { PolicyRevision = 99 };
+        fixture.Sample = fixture.Sample with
+        {
+            PolicyRevision = 99
+        };
         Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
     }
@@ -123,9 +138,18 @@ public sealed class DiskBudgetAdmissionTests
         internal ResourceDomainId Alias { get; } = new(Guid.NewGuid());
         internal ResourceDomainId Host { get; } = new(Guid.NewGuid());
         internal ResourceDomainId Slot { get; } = new(Guid.NewGuid());
-        internal MemoryReservationCoordinator Coordinator { get; }
-        internal DiskCapacityObservation Sample { get; set; }
-        internal DiskBudgetAdmission Admission { get; }
+        internal MemoryReservationCoordinator Coordinator
+        {
+            get;
+        }
+        internal DiskCapacityObservation Sample
+        {
+            get; set;
+        }
+        internal DiskBudgetAdmission Admission
+        {
+            get;
+        }
 
         internal Fixture()
         {

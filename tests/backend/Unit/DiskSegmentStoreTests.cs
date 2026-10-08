@@ -1,4 +1,5 @@
 using System.Buffers.Binary;
+using System.Runtime.Versioning;
 
 using FsusBlog.Server.Infrastructure.Memory.Accounting;
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
@@ -8,6 +9,7 @@ using Xunit;
 
 namespace FsusBlog.Server.Tests.Unit;
 
+[SupportedOSPlatform("linux")]
 public sealed class DiskSegmentStoreTests
 {
     [Fact]
@@ -15,7 +17,10 @@ public sealed class DiskSegmentStoreTests
     {
         using var fixture = new Fixture();
         MemoryContentIdentity first = Identity();
-        MemoryContentIdentity second = first with { Representation = new(Guid.NewGuid()) };
+        MemoryContentIdentity second = first with
+        {
+            Representation = new(Guid.NewGuid())
+        };
         var records = new DiskSegmentWriteRecord[]
         {
             new(first, new ShortReadStream([1, 2, 3, 99, 99]), 3),
@@ -31,7 +36,10 @@ public sealed class DiskSegmentStoreTests
         Assert.Equal(new byte[] { 1, 2, 3 }, copy.ToArray());
         Assert.Equal(64 + 2 * 96 + 5, fixture.Coordinator.Snapshot().Used["volume"]);
         Assert.Equal(MemoryFailure.StaleLocation,
-            fixture.Store.Acquire(published.Value.SegmentId, first with { Generation = new(2) }).Failure);
+            fixture.Store.Acquire(published.Value.SegmentId, first with
+            {
+                Generation = new(2)
+            }).Failure);
     }
 
     [Fact]
@@ -373,9 +381,18 @@ public sealed class DiskSegmentStoreTests
     private sealed class Fixture : IDisposable
     {
         internal string Path { get; } = System.IO.Path.Combine(System.IO.Path.GetTempPath(), $"mem-segment-test-{Guid.NewGuid():N}");
-        internal OwnedSpillRoot Root { get; }
-        internal DiskSegmentStore Store { get; }
-        internal MemoryReservationCoordinator Coordinator { get; }
+        internal OwnedSpillRoot Root
+        {
+            get;
+        }
+        internal DiskSegmentStore Store
+        {
+            get;
+        }
+        internal MemoryReservationCoordinator Coordinator
+        {
+            get;
+        }
         private readonly DiskSegmentLimits _limits = new(8, 4, 4096, 32768, 128, 16);
 
         internal Fixture(long diskCap = 100000, long hostCap = 100000, Action? duringAdmission = null)

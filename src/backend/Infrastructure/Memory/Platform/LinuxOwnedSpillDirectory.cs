@@ -1,8 +1,8 @@
 using System.Runtime.InteropServices;
 
-using Microsoft.Win32.SafeHandles;
-
 using FsusBlog.Server.Infrastructure.Memory.Disk;
+
+using SafeFileHandle = Microsoft.Win32.SafeHandles.SafeFileHandle;
 
 namespace FsusBlog.Server.Infrastructure.Memory.Platform;
 
@@ -57,9 +57,9 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         FileIdentity heldIdentity = Inspect(_directory);
         RequireOwned(currentIdentity, DirectoryType);
         RequireOwned(heldIdentity, DirectoryType);
-        if (currentIdentity.DeviceMajor != _identity.DeviceMajor || currentIdentity.DeviceMinor != _identity.DeviceMinor
-            || currentIdentity.Inode != _identity.Inode || heldIdentity.Inode != _identity.Inode
-            || heldIdentity.DeviceMajor != _identity.DeviceMajor || heldIdentity.DeviceMinor != _identity.DeviceMinor)
+        if (currentIdentity._deviceMajor != _identity._deviceMajor || currentIdentity._deviceMinor != _identity._deviceMinor
+            || currentIdentity._inode != _identity._inode || heldIdentity._inode != _identity._inode
+            || heldIdentity._deviceMajor != _identity._deviceMajor || heldIdentity._deviceMinor != _identity._deviceMinor)
         {
             throw new DiskFileSystemException("use replaced spill root", 0, DiskFileSystemFailure.OwnershipChanged);
         }
@@ -150,8 +150,11 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
     internal LinuxDiskSample Sample()
     {
         Validate();
-        if (FileSystemStats(_directory, out FileSystemStat fileSystem) != 0
-            || VolumeStats(_directory, out VolumeStat volume) != 0)
+        if (FileSystemStats(_directory, out FileSystemStat fileSystem) != 0)
+        {
+            ThrowNative("sample filesystem kind");
+        }
+        if (VolumeStats(_directory, out VolumeStat volume) != 0)
         {
             ThrowNative("sample owned volume");
         }
@@ -159,14 +162,14 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         long inodes;
         try
         {
-            bytes = checked((long)volume.AvailableBlocks * (long)volume.FragmentSize);
-            inodes = checked((long)volume.AvailableFiles);
+            bytes = checked((long)volume._availableBlocks * (long)volume._fragmentSize);
+            inodes = checked((long)volume._availableFiles);
         }
         catch (OverflowException exception)
         {
             throw new IOException("Filesystem counters exceed supported bounds.", exception);
         }
-        DiskBackingKind backing = fileSystem.Type switch
+        DiskBackingKind backing = fileSystem._type switch
         {
             0x01021994 or 0x858458f6 or 0x958458f6 => DiskBackingKind.MemoryBacked,
             0xef53 or 0x58465342 or 0x9123683e or 0x2fc12fc1 => DiskBackingKind.Independent,
@@ -174,8 +177,8 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
             // Their free-space counters alone cannot certify independent escape capacity.
             _ => DiskBackingKind.Unknown
         };
-        return new($"linux-device:{_identity.DeviceMajor}:{_identity.DeviceMinor}", bytes, inodes,
-            backing, (volume.Flags & 1) != 0);
+        return new($"linux-device:{_identity._deviceMajor}:{_identity._deviceMinor}", bytes, inodes,
+            backing, (volume._flags & 1) != 0);
     }
 
     public void Dispose() => _directory.Dispose();
@@ -238,7 +241,7 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
         {
             ThrowNative("inspect filesystem identity");
         }
-        if ((identity.Mask & 0x10f) != 0x10f)
+        if ((identity._mask & 0x10f) != 0x10f)
         {
             throw new IOException("Filesystem did not return required type/mode/link/inode identity.");
         }
@@ -247,8 +250,8 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
 
     private static void RequireOwned(FileIdentity identity, ushort type)
     {
-        if ((identity.Mode & TypeMask) != type || identity.UserId != EffectiveUserId()
-            || (identity.Mode & 0x12) != 0 || (type == RegularType && identity.LinkCount != 1))
+        if ((identity._mode & TypeMask) != type || identity._userId != EffectiveUserId()
+            || (identity._mode & 0x12) != 0 || (type == RegularType && identity._linkCount != 1))
         {
             throw new UnauthorizedAccessException("Spill resource must be owned, unshared, and not writable by group or others.");
         }
@@ -272,35 +275,35 @@ internal sealed class LinuxOwnedSpillDirectory : IDisposable
     [StructLayout(LayoutKind.Explicit, Size = 256)]
     private struct FileIdentity
     {
-        [FieldOffset(0)] internal uint Mask;
-        [FieldOffset(16)] internal uint LinkCount;
-        [FieldOffset(20)] internal uint UserId;
-        [FieldOffset(28)] internal ushort Mode;
-        [FieldOffset(32)] internal ulong Inode;
-        [FieldOffset(136)] internal uint DeviceMajor;
-        [FieldOffset(140)] internal uint DeviceMinor;
+        [FieldOffset(0)] internal uint _mask;
+        [FieldOffset(16)] internal uint _linkCount;
+        [FieldOffset(20)] internal uint _userId;
+        [FieldOffset(28)] internal ushort _mode;
+        [FieldOffset(32)] internal ulong _inode;
+        [FieldOffset(136)] internal uint _deviceMajor;
+        [FieldOffset(140)] internal uint _deviceMinor;
     }
 
     [StructLayout(LayoutKind.Explicit, Size = 120)]
     private struct FileSystemStat
     {
-        [FieldOffset(0)] internal long Type;
+        [FieldOffset(0)] internal long _type;
     }
 
     [StructLayout(LayoutKind.Sequential, Size = 112)]
     private struct VolumeStat
     {
-        internal ulong BlockSize;
-        internal ulong FragmentSize;
-        internal ulong Blocks;
-        internal ulong FreeBlocks;
-        internal ulong AvailableBlocks;
-        internal ulong Files;
-        internal ulong FreeFiles;
-        internal ulong AvailableFiles;
-        internal ulong FileSystemId;
-        internal ulong Flags;
-        internal ulong NameMaximum;
+        internal ulong _blockSize;
+        internal ulong _fragmentSize;
+        internal ulong _blocks;
+        internal ulong _freeBlocks;
+        internal ulong _availableBlocks;
+        internal ulong _files;
+        internal ulong _freeFiles;
+        internal ulong _availableFiles;
+        internal ulong _fileSystemId;
+        internal ulong _flags;
+        internal ulong _nameMaximum;
     }
 
     [DllImport("libc", EntryPoint = "open", SetLastError = true)]

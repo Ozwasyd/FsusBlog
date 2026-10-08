@@ -40,8 +40,14 @@ public sealed class DiskSegmentLease : IDisposable
         PayloadStream = new PayloadView(file, entry.PayloadOffset, entry.PayloadBytes);
     }
 
-    public DiskSegmentEntry Entry { get; }
-    internal Stream PayloadStream { get; }
+    public DiskSegmentEntry Entry
+    {
+        get;
+    }
+    internal Stream PayloadStream
+    {
+        get;
+    }
 
     public MemoryOperationResult<DiskSegmentCopy> CopyTo(Stream privateStaging,
         CancellationToken cancellationToken = default)
@@ -177,7 +183,11 @@ public sealed class DiskSegmentLease : IDisposable
         public override bool CanSeek => false;
         public override bool CanWrite => false;
         public override long Length => length;
-        public override long Position { get => _position; set => throw new NotSupportedException(); }
+        public override long Position
+        {
+            get => _position;
+            set => throw new NotSupportedException();
+        }
         public override int Read(byte[] buffer, int bufferOffset, int count)
         {
             file.Position = checked(offset + _position);

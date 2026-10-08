@@ -24,8 +24,14 @@ public sealed class DiskFileSystemException : IOException
         Kind = kind;
     }
 
-    public int NativeError { get; }
-    public DiskFileSystemFailure Kind { get; }
+    public int NativeError
+    {
+        get;
+    }
+    public DiskFileSystemFailure Kind
+    {
+        get;
+    }
     public MemoryFailure OperationFailure => Kind switch
     {
         DiskFileSystemFailure.SpaceOrInodesExhausted or DiskFileSystemFailure.QuotaExceeded

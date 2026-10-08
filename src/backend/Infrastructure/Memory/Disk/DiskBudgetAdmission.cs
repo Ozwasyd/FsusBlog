@@ -69,9 +69,18 @@ public sealed class DiskBudgetAdmission
         SlotDomain = slotDomain;
     }
 
-    public ResourceDomainId DiskDomain { get; }
-    public ResourceDomainId HostDomain { get; }
-    public ResourceDomainId SlotDomain { get; }
+    public ResourceDomainId DiskDomain
+    {
+        get;
+    }
+    public ResourceDomainId HostDomain
+    {
+        get;
+    }
+    public ResourceDomainId SlotDomain
+    {
+        get;
+    }
 
     public MemoryOperationResult<MemoryReservation> TryReserve(DiskBudgetRequest request)
     {
