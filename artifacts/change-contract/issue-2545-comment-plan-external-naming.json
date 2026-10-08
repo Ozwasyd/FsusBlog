@@ -7,12 +7,16 @@
                 "src/backend/Services/ArticleCommentPolicyService.cs",
                 "src/backend/Services/CommentModerationService.cs",
                 "src/backend/Services/CommentService.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.Delivery.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.Mutations.cs",
+                "src/backend/Services/Fixtures/CommentThreadFixturePort.cs",
                 "src/backend/Services/Fixtures/DataScale/CanonicalCommentGraphModels.cs",
+                "src/backend/Services/Fixtures/DataScale/CommentScaleDeliveryBatchReader.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScalePlan.cs",
                 "src/backend/Services/Fixtures/DataScale/CommentScalePolicyResolver.cs",
                 "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
             ],
-            "reason": "Consume canonical production policy source 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43 unchanged and call its public pure methods from the fixture policy-facts stage. These paths fall under the registered src/**/*.cs process-environment consumer surface; no environment key is added or renamed. Existing C# identifiers retain repository naming."
+            "reason": "Consume exact canonical production pure policy source 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43 and observation ports 6656a73e5588f09e11f1320c43ca3f8fd153c7e3/b570346e5e374ae2f53807e9666cc41c42fa2afd without editing their rules. The owned fixture modules only consume actual policy/delivery facts. These paths fall under the registered src/**/*.cs environment consumer surface; no external environment key or naming policy is added."
         },
         {
             "id": "json-wire-key",
@@ -24,9 +28,10 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/architecture/comment-command-boundary.md"
+                "docs/architecture/comment-command-boundary.md",
+                "docs/testing.md"
             ],
-            "reason": "Consume the canonical comment-command boundary documentation from source 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43 unchanged, retaining registered external contract spelling."
+            "reason": "Consume unchanged canonical comment-command and mutation/delivery-observation documentation hunks from 617c4e162b5faaa3af1e7deb965f1dbe94c9ec43,6656a73e5588f09e11f1320c43ca3f8fd153c7e3 and b570346e5e374ae2f53807e9666cc41c42fa2afd, preserving registered external contract spelling and existing document content."
         }
     ]
 }
