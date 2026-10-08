@@ -299,10 +299,15 @@ public sealed class AuthoringExtensionExecutionResolverTests
             typeof(ITrustedAuthoringAdapterSourceVerifier),
             typeof(CheckedInAuthoringAdapterSourceVerifier),
             typeof(IAuthoringInstalledPackageAuthority),
+            typeof(IAuthoringInstalledPackageReadScope),
+            typeof(IAuthoringInstalledPackageAsyncReadScope),
+            typeof(IAuthoringPackageReadScopeStore),
+            typeof(IAuthoringInstalledPackageReadScopeAuthority),
             typeof(ActiveAuthoringInstalledPackageAuthority),
             typeof(LoadedAssemblyTrustedAuthoringAdapterModuleVerifier),
             typeof(ClosedTrustedAuthoringAdapterRegistry),
-            typeof(AuthoringExecutionResolver)
+            typeof(AuthoringExecutionResolver),
+            typeof(AuthoringTerminalReadScopes)
         ];
         Assert.All(resolverTypes, AssertNoResolverSurface);
     }
