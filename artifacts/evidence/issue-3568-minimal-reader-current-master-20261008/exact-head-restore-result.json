@@ -1,0 +1,19 @@
+{
+  "candidate": "29e362e7b9dbd10cb3b2ab9b904d74f19eaae0c9",
+  "startedAtUTC": "2026-10-08T11:16:16.267538+00:00",
+  "command": [
+    "dotnet",
+    "restore",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--locked-mode",
+    "--force",
+    "-p:NuGetAudit=true"
+  ],
+  "exitCode": 0,
+  "log": "/workspace/FsusBlog/.tmp/issue-3568-minimal-reader-current-master-20261008/exact-head-audit-on-locked-restore.log",
+  "sha256": "58ba8bf4e5fd33eb40c76646956ba6c4d92ab4667e1c45478e03eb0381a2fab0",
+  "auditWarnings": [
+    "/workspace/.task-worktrees/issue-3568-minimal-reader-current-master/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q",
+    "/workspace/.task-worktrees/issue-3568-minimal-reader-current-master/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/.task-worktrees/issue-3568-minimal-reader-current-master/tests/backend/FsusBlog.Server.Tests.csproj]"
+  ]
+}

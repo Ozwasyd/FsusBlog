@@ -1,0 +1,74 @@
+{
+  "schema": "task-scoped-evidence-export.v1",
+  "sourceBranch": "codex/issue-3568-minimal-reader-master-20261008",
+  "sourceCandidate": "29e362e7b9dbd10cb3b2ab9b904d74f19eaae0c9",
+  "base": "7f128208dc59b408adda9089ff4e0a805ef2777d",
+  "scope": "Independent additive evidence branch; two-path source candidate unchanged",
+  "files": [
+    {
+      "path": "final-handoff.json",
+      "sha256": "10c38baba0115b310009ae62a9b2842cbc4b631aa7c1610d18249626a219c1ee",
+      "bytes": 4581
+    },
+    {
+      "path": "master-package-input-comparison.json",
+      "sha256": "68d9407ac499bdb3b917304563f28bf4e198cf1d92f5881d8214c904aff19f2f",
+      "bytes": 12680
+    },
+    {
+      "path": "exact-scope-and-package-proof.json",
+      "sha256": "0135ac19b53280afb231f48f5a96d62a8bd002be7a41a3fecd14af4fc5ec2026",
+      "bytes": 13819
+    },
+    {
+      "path": "exact-head-restore-result.json",
+      "sha256": "23420649cd67e713d6f59c85361d5b7719952b40f0ce1ef5c438f629cab16e00",
+      "bytes": 1176
+    },
+    {
+      "path": "exact-head-source-result.json",
+      "sha256": "e4a3d69aa5980bddb30519679209d9e60bb033fb3be8c3e8112b63b03d57c0f0",
+      "bytes": 6139
+    },
+    {
+      "path": "exact-head-pr-plan.json",
+      "sha256": "6a3cd5275f246794bbf63e7ff837dd44c7aa4f88af4a86e8c1bd85249312d972",
+      "bytes": 69857
+    },
+    {
+      "path": "exact-head-audit-on-locked-restore.log",
+      "sha256": "58ba8bf4e5fd33eb40c76646956ba6c4d92ab4667e1c45478e03eb0381a2fab0",
+      "bytes": 1490
+    },
+    {
+      "path": "exact-head-source-stage.log",
+      "sha256": "b24126c17ce5de292cdc2078f8dd5d6c2313c80ac8cc1eaa3cee51c24fef784c",
+      "bytes": 65
+    },
+    {
+      "path": "exact-head-trusted-range.log",
+      "sha256": "f32a9bdd62d3e4afe235d3709fc3999a702384b7b2b0f113882c8dffa88db395",
+      "bytes": 117
+    },
+    {
+      "path": "official-sdk-info.log",
+      "sha256": "e4747beb0e1009fff0bc3888db25b2882ab8027a6413d24fbc3a215e18cf1c61",
+      "bytes": 1263
+    },
+    {
+      "path": "schema-validator-official-setup.log",
+      "sha256": "a7bd39eeea6ae0dd7c36f31bbefc812cbb9db57f81f7fba816c3ae31e00c4c2d",
+      "bytes": 27
+    },
+    {
+      "path": "initial-exact-head-source-stage.log",
+      "sha256": "b741300b757b4cbe8fe6ee70688b4dd1ff27c5f24c93fabeb32cb9d78237ad82",
+      "bytes": 1130
+    },
+    {
+      "path": "initial-exact-head-trusted-range.log",
+      "sha256": "27d60a00ea80972b2fd65ca466700aae6dc40662f0949f42486f6f8d5aec74ab",
+      "bytes": 108
+    }
+  ]
+}
