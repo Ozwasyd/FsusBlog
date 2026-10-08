@@ -22,6 +22,97 @@ public sealed class ArticleVaultDependencyExecutionPreflightTests
     }
 
     [Fact]
+    public void ReadyPullUpdateCannotUseGraphOrBytesFromTheSavedServerCoordinate()
+    {
+        Scenario scenario = CreateScenario();
+        VaultArticleCoordinate saved = scenario.Request.ArticleManifests[0].Coordinates.Local;
+        var savedCoordinates = new VaultArticleCoordinates(saved, saved, saved);
+        ArticleVaultArticleManifest article = scenario.Request.ArticleManifests[0] with
+        {
+            Coordinates = savedCoordinates,
+            State = VaultArticleState.Clean
+        };
+        article = article with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(article)
+        };
+        ArticleVaultRootManifest root = scenario.Request.RootManifest with
+        {
+            Articles = [scenario.Request.RootManifest.Articles[0] with
+            {
+                ManifestSha256 = article.ContentSha256
+            }]
+        };
+        root = root with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(root)
+        };
+        PortableDependencyManifest oldGraph = PortableDependencyCodec.Seal(scenario.Inputs[0].Manifest with
+        {
+            SourceSide = VaultDependencySourceSide.Server,
+            Coordinates = savedCoordinates
+        });
+        Assert.True(PortableDependencyVerifier.ValidateStructure(oldGraph).IsValid);
+
+        byte[] freshBytes = Encoding.UTF8.GetBytes("fresh remote source\n");
+        VaultArticleCoordinate fresh = Seal(saved with
+        {
+            ServerRevision = 9,
+            Source = ArticleVaultManifestCodec.CaptureSourceBytes(freshBytes)
+        });
+        PortableDependencyManifest freshGraph = oldGraph with
+        {
+            Source = fresh.Source!,
+            Coordinates = new VaultArticleCoordinates(saved, saved, fresh)
+        };
+        string graphSha256 = PortableDependencyCodec.GraphDigest(freshGraph);
+        fresh = Seal(fresh with
+        {
+            DependencySha256 = graphSha256
+        });
+        freshGraph = PortableDependencyCodec.Seal(freshGraph with
+        {
+            Coordinates = new VaultArticleCoordinates(saved, saved, fresh),
+            GraphSha256 = graphSha256
+        });
+        ArticleVaultServerObservation observation = scenario.Request.ServerObservations[0] with
+        {
+            ServerCoordinate = fresh
+        };
+        observation = observation with
+        {
+            ContentSha256 = ArticleVaultSyncPlanCodec.ComputeContentSha256(observation)
+        };
+        ArticleVaultPlanRequest request = scenario.Request with
+        {
+            RootManifest = root,
+            ArticleManifests = [article],
+            ServerObservations = [observation],
+            Direction = VaultSyncDirection.Pull
+        };
+        ArticleVaultPlanVerificationContext context = scenario.Context with
+        {
+            Direction = request.Direction
+        };
+        ArticleVaultPlanBuildResult built = ArticleVaultSyncPlanner.Build(request);
+        Assert.True(built.IsSuccess, string.Join(',', built.Errors));
+        ArticleVaultSyncPlan plan = built.Plan!;
+        Assert.Equal(VaultSyncPlanStatus.Ready, plan.Status);
+        Assert.Equal(VaultSyncDecision.PullUpdate, Assert.Single(Assert.Single(plan.Groups).Items).Decision);
+        VaultDependencyPlanInput[] freshInputs = [new(freshGraph, freshBytes, [], [], Digest)];
+        VaultDependencyPlanBuildResult freshDependencies = ArticleVaultDependencyPlanner.Build(
+            plan, request, context, freshInputs, s_budgets);
+        Assert.NotNull(freshDependencies.Plan);
+        Assert.True(ArticleVaultDependencyPlanner.VerifyCurrent(freshDependencies.Plan,
+            plan, request, context, freshInputs, s_budgets).IsValid);
+
+        VaultDependencyPlanInput[] staleInputs = [new(oldGraph, scenario.Inputs[0].SourceBytes, [], [], Digest)];
+        Assert.Null(ArticleVaultDependencyPlanner.Build(plan, request, context, staleInputs, s_budgets).Plan);
+        Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(freshDependencies.Plan,
+            plan, request, context, staleInputs, s_budgets).IsValid);
+    }
+
+    [Fact]
     public void MissingOrTamperedExtensionNeverAdmitsTheArticlePayload()
     {
         Scenario scenario = CreateScenario();
