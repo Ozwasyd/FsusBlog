@@ -319,6 +319,20 @@ for (const relativePath of [
         {
             writeOverlay(overlay, relativePath, 'unclassified migration input');
 
+            if (relativePath === 'config/dependencies/fsusui-public-npm-migration.patch')
+            {
+                const manifest = readManifest();
+                assert.ok(manifest.nonSourceExtensions.includes('.patch'));
+                const registeredExtension = runChecker(overlay);
+                assert.equal(registeredExtension.status, 0, output(registeredExtension));
+
+                // Isolate the packed-input classification from the existing .patch non-source classification.
+                manifest.nonSourceExtensions = manifest.nonSourceExtensions.filter(
+                    (extension) => extension !== '.patch'
+                );
+                writeManifest(overlay, manifest);
+            }
+
             const result = runChecker(overlay);
             assert.notEqual(result.status, 0);
             assert.ok(
