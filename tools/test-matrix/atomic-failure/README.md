@@ -19,6 +19,14 @@ actual prerequisite receipts and prevent blocked producers from spawning.
 exactly with this projection, including DAG digest, invocation count, needs,
 fail-fast, artifact bindings and structured aggregate consumption.
 
+`projectCompiledAtomicCiMaterial` consumes the original compiler's
+`verifyCompiledAtomicProducerDag`, the exact matrix/authority inputs and canonical
+`ci-plan.jobs[].tiers` projection. It derives the material view without maintaining
+another parent/job map. This API requires the atomic framework source capability
+to be installed; its independently tested dependency is
+`65fac897f0efa039c7b99331b3ef0faeef380ba7`. Missing or ambiguous canonical CI ownership
+and runtime `stateAccessRef` without its canonical fact bridge are refused.
+
 The graph input is an extracted **DATA_ONLY view**, not a declaration catalog or
 compiler. Its explicit `graphRef` and `dagDigest` identify the upstream compiled
 graph. Nodes retain IDs, logical parents, closed execution kind, evidence class,

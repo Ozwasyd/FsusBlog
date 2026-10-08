@@ -2,6 +2,40 @@ import { admitMaterial, checkGraphMaterial, checkProjectionDigest, currentRefere
     requireFact, sameFact, sealProjection, stableIds } from './projection-contract.mjs';
 
 /**
+ * Consume the canonical #2248 compiler when its exact source capability is
+ * installed. CI jobs come from ci-plan's logical tier assignments, not a new
+ * job map. Runtime state facts need a separate canonical handoff; they cannot
+ * be inferred from a stateAccessRef or considered conflict-free here.
+ */
+export async function projectCompiledAtomicCiMaterial(input, hostLimits)
+{
+    const material = admitMaterial(input, hostLimits);
+    exactFields(material, ['compiled', 'matrix', 'authorities', 'ciPlan', 'graphRef', 'context', 'selectedIds'],
+        'compiled CI consumer input');
+    const { verifyCompiledAtomicProducerDag } = await import(new URL('../atomic-producers/compiler.mjs', import.meta.url));
+    const compiled = verifyCompiledAtomicProducerDag(material.compiled, material.matrix, material.authorities);
+    sameFact(material.graphRef.objectDigest, compiled.contentDigest, 'compiled graph reference digest');
+    requireFact(Array.isArray(material.ciPlan.jobs), 'canonical CI plan jobs required');
+    const declarations = new Map(material.matrix.atomicProducerDeclarations.nodes.map((node) => [node.producerId, node]));
+    const kinds = { 'atomic-producer': 'producer', 'hard-prerequisite': 'hard-prerequisite',
+        'settled-join': 'settled-join', 'logical-projection': 'settled-join', 'always-run-finalizer': 'finalizer' };
+    const nodes = compiled.steps.map((step) =>
+    {
+        const owners = material.ciPlan.jobs.filter((job) => Array.isArray(job.tiers) && job.tiers.includes(step.logicalParentId));
+        requireFact(owners.length === 1, 'compiled logical parent must have exact-one canonical CI job');
+        requireFact(!step.stateAccessRef, 'canonical runtime state-access fact bridge unavailable');
+        const declaration = declarations.get(step.id);
+        requireFact(kinds[step.kind] && declaration, 'compiled kind/declaration mismatch');
+        return { id: step.id, logicalParentId: step.logicalParentId, kind: kinds[step.kind],
+            evidenceClass: ['atomic-producer', 'hard-prerequisite'].includes(step.kind) ? declaration.evidenceClass : 'coordination',
+            dependsOn: [...step.dependsOn], settledDependsOn: [...step.settledDependsOn], ciJobId: owners[0].id,
+            stateAccess: [], exclusiveResources: [...(step.resources.exclusiveResources ?? [])] };
+    });
+    return projectAtomicCiMaterial({ context: material.context, selectedIds: material.selectedIds,
+        graph: { graphRef: material.graphRef, dagDigest: compiled.contentDigest, nodes } }, hostLimits);
+}
+
+/**
  * Derive a non-executable CI transport/job projection from explicit compiled facts.
  * Job dependencies settle even on failure: the canonical invocation must decide
  * hard blocked propagation from receipts, avoiding GitHub's job-wide skip cascade.
