@@ -31,7 +31,7 @@ import {
   TEST_MATRIX_CONSUMER_INPUTS
 } from '../../tools/fact-extractors/test-matrix/extract.mjs'
 import { runtimeRoleProject } from '../../tools/contracts/lib/runtime-role-observation.mjs'
-import { resolveDockerComposeOracleIdentity } from '../../tools/governance/check-monolithic-distributed-architecture.mjs';
+const { resolveDockerComposeOracleIdentity } = await import(new URL('../../tools/governance/check-monolithic-distributed-architecture.mjs', import.meta.url));
 
 const extractorId = 'test-matrix-fact-extractor'
 const sourceIdentity = sealSourceIdentity(root)
@@ -824,27 +824,35 @@ test('5) adding a production bundle changes topologyDigest', () =>
 
 test('6) dependency cycle fails closed', () =>
 {
-  const directory = fixtureRepository()
-  try
-  {
-    const matrixPath = path.join(directory, 'tests/matrix.yml')
-    let text = readFileSync(matrixPath, 'utf8')
-    // Force a cycle between validate-matrix and static-governance by rewriting both edges.
-    text = text.replace(
-      /    - id: validate-matrix\n[\s\S]*?executionDependsOn: \[[^\]]*\]/u,
-      (block) => block.replace(/executionDependsOn: \[[^\]]*\]/u, 'executionDependsOn: [static-governance]')
-    )
-    // static-governance already depends on validate-matrix in the real matrix.
-    writeFileSync(matrixPath, text)
-    const result = extractFrom(directory)
-    assert.equal(result.status, 'failed')
-    assert.ok(result.failureReasons.some((reason) => /cycle/iu.test(reason)))
-  }
-  finally
-  {
-    rmSync(directory, { recursive: true, force: true })
-  }
-})
+    const directory = fixtureRepository();
+    try
+    {
+        const matrixPath = path.join(directory, 'tests/matrix.yml');
+        let text = readFileSync(matrixPath, 'utf8');
+        // Construct both edges instead of relying on a transitive dependency in the current matrix.
+        for (const [tierId, dependencyId] of [
+            ['validate-matrix', 'static-governance'],
+            ['static-governance', 'validate-matrix']
+        ])
+        {
+            const tierPattern = new RegExp(`    - id: ${tierId}\\n[\\s\\S]*?executionDependsOn: \\[[^\\]]*\\]`, 'u');
+            assert.equal([...text.matchAll(new RegExp(tierPattern.source, 'gu'))].length, 1);
+            const mutated = text.replace(tierPattern, (block) => block.replace(
+                /executionDependsOn: \[[^\]]*\]/u, `executionDependsOn: [${dependencyId}]`
+            ));
+            assert.notEqual(mutated, text, `${tierId} dependency mutation did not apply`);
+            text = mutated;
+        }
+        writeFileSync(matrixPath, text);
+        const result = extractFrom(directory);
+        assert.equal(result.status, 'failed');
+        assert.ok(result.failureReasons.some((reason) => /dependency graph cycle: (?:validate-matrix->static-governance->validate-matrix|static-governance->validate-matrix->static-governance)(?:$| \|)/u.test(reason)));
+    }
+    finally
+    {
+        rmSync(directory, { recursive: true, force: true });
+    }
+});
 
 test('7) command group membership drop changes observation digest', () =>
 {
