@@ -1,0 +1,98 @@
+{
+  "recordKind": "informational historical execution observation",
+  "issue": 3620,
+  "qualificationEligible": false,
+  "runId": "chain3620-20261008T041800Z-d4ffe65f77ec",
+  "testedSourceSha": "d4ffe65f77ec90282b432a92bd5d0e76e3837bcf",
+  "startMasterSha": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "finalFetchedMasterSha": "8b1c739cacef47995f441f096835863d377dc347",
+  "branch": "codex/chain-3620-linux-observation",
+  "tools": {
+    "node": "24.16.0",
+    "dotnetSdk": "10.0.401",
+    "dotnetRuntime": "10.0.12"
+  },
+  "artifacts": [
+    {
+      "path": "backend-restore.log.gz",
+      "exitCode": 0,
+      "outcome": "passed",
+      "rawSha256": "ac54e7c579d274eea48fc3de49fdc308cf71e023eb3532927d2c97f82f114eb3",
+      "compressedSha256": "2e1655623d3393f82a207fd4f655ae3745cf72121445f859b1b8e1cef83e4f5e",
+      "rawBytes": 260
+    },
+    {
+      "path": "migration-restore.log.gz",
+      "exitCode": 0,
+      "outcome": "passed",
+      "rawSha256": "7589fe0e0d9825ba2f935cca51ef2f6b6be18d04ac1e3a27292c945dcba18b57",
+      "compressedSha256": "39c3fc774dc2c9bc99584a2aba276d5d260321da523eebebfee8204f39856109",
+      "rawBytes": 175
+    },
+    {
+      "path": "controls.log.gz",
+      "exitCode": 0,
+      "outcome": "68 passed; zero failed/skipped",
+      "rawSha256": "0885c52959ed1ad780b5dfc9a0672bdb06fbd2e447417aa58915872c81f40587",
+      "compressedSha256": "85f108a375765de4d65105f14e88ac4030f5a684e0cdead2abe777026e87bc1a",
+      "rawBytes": 7954
+    },
+    {
+      "path": "backend-debug-build.log.gz",
+      "exitCode": 1,
+      "outcome": "1065 warnings; four CS0182 errors",
+      "rawSha256": "af8786f08c8674bb3af152d468b28eda4e191e8b1d5ca146772a73dbb3d78a46",
+      "compressedSha256": "09dd96688538518dccfb6417c59669268525def9530a7494d7f31fc928f9cc63",
+      "rawBytes": 558834
+    },
+    {
+      "path": "migration-debug-build.log.gz",
+      "exitCode": 1,
+      "outcome": "1554 warnings; two CS0246 errors",
+      "rawSha256": "79eb441f27043dd492133d4ec05c02821139a70402394bf28fefe1463f20cb2f",
+      "compressedSha256": "92cd53a21c718e46a1c1a6f32d3e7f0ac57fe1a94c2ee5b2002c7c01c2ff7e77",
+      "rawBytes": 852098
+    },
+    {
+      "path": "registry-retention.log.gz",
+      "exitCode": 1,
+      "outcome": "45 passed; one failed; zero skipped",
+      "rawSha256": "add7100d88ebdbb894c6ce8881c42b94918bba2bd0532ac1d42f223f70f68794",
+      "compressedSha256": "41d9d8f9d34c1692bf868af4b09bb8526014724517d52e04c379d3d23c2bec20",
+      "rawBytes": 6340
+    },
+    {
+      "path": "backend-unit.log.gz",
+      "exitCode": 1,
+      "outcome": "original Linux cgroup admission rejected /..",
+      "rawSha256": "039fdd5aa82a2ba13c4c125bbcd3f4c2971906cf9e642a5ddc0b2f598c19ec8a",
+      "compressedSha256": "17f7bcd991b9c094461f2e44f90e7a625fb8fe4f48dbc319682c9b198e0ac423",
+      "rawBytes": 230
+    },
+    {
+      "path": "change-contract.log.gz",
+      "exitCode": 1,
+      "outcome": "generated source binding and naming scope admission failures",
+      "rawSha256": "aced7b1d34c33b6a652a13f486dba0fcdadf52783de30d5fda59f703cdf51104",
+      "compressedSha256": "9905ef8fff0836f8eeddfa93c619d6d6f55fe7c26a4dda0aa8bc31b49e77f3bc",
+      "rawBytes": 1261
+    },
+    {
+      "path": "commit-range.log.gz",
+      "exitCode": 1,
+      "outcome": "four imported messages lack Refs footer",
+      "rawSha256": "6910290ac421ba0c8f49d4b0225e2151868c7c3f69684dd28ac053720bec8f65",
+      "compressedSha256": "4c642f9da5d528589d56110f1b333e126d0e470952e9df2138107033b2a9ba3e",
+      "rawBytes": 436
+    },
+    {
+      "path": "source-bytes.log.gz",
+      "exitCode": 0,
+      "outcome": "four current paths byte-identical to supplied trees",
+      "rawSha256": "f4b8f6a9505fda5d84791f5b8bc356bef8ebf7b43d472130ac4188dd3d353ef7",
+      "compressedSha256": "a4d2614d7a2cbc66195d2d5cbd1e6b368b6a29e0ebb21a5e5752eb19952434bd",
+      "rawBytes": 417
+    }
+  ],
+  "nativeCleanupAccepted": false
+}
