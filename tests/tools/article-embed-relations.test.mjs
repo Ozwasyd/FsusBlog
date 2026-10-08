@@ -1,11 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import {
+const {
     checkArticleEmbedRelations,
     checkArticleEmbedRelationSources,
     readArticleEmbedRelationSources
-} from "../../tools/governance/check-article-embed-relations.mjs";
+} = await import(new URL("../../tools/governance/check-article-embed-relations.mjs", import.meta.url));
 
 const contractsPath =
     "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs";
