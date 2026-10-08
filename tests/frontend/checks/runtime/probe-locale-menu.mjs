@@ -122,6 +122,9 @@ try
     await expect(probe('trigger')).toBeVisible();
     await probe('manual-open').click();
     await expect(probe('menu')).toBeVisible();
+    await settleMenu();
+    report.observations.defaultRowHeight = await probe('english').evaluate((element) => element.getBoundingClientRect().height);
+    expect(report.observations.defaultRowHeight).toBe(34);
     report.observations.publicOpen = (await state()).visible;
     report.observations.triggerAssociation = await probe('trigger').evaluate((element) => ({
         expanded: element.getAttribute('aria-expanded'),
@@ -332,7 +335,9 @@ try
     for (const variant of [
         { width: 375, theme: 'light', rtl: false, forcedColors: 'none', reducedMotion: 'no-preference', zoom: 1 },
         { width: 1440, theme: 'dark', rtl: true, forcedColors: 'none', reducedMotion: 'reduce', zoom: 1 },
-        { width: 375, theme: 'dark', rtl: true, forcedColors: 'active', reducedMotion: 'reduce', zoom: 2 }
+        { width: 375, theme: 'dark', rtl: true, forcedColors: 'active', reducedMotion: 'reduce', zoom: 2 },
+        { width: 375, theme: 'light', rtl: false, forcedColors: 'none', reducedMotion: 'reduce', zoom: 2 },
+        { width: 320, theme: 'light', rtl: false, forcedColors: 'none', reducedMotion: 'reduce', zoom: 2, expanded: true }
     ])
     {
         await page.setViewportSize({ width: variant.width, height: 900 });
@@ -347,24 +352,67 @@ try
         {
             await consumer('rtl').click();
         }
+        if (variant.expanded)
+        {
+            await consumer('expanded').click();
+        }
         await trigger.focus();
         await page.keyboard.press('ArrowDown');
         await expect(item('ru-RU')).toBeFocused();
         await expect(page.getByRole('menuitemradio')).toHaveCount(10);
+        await expect(menu.locator('.locale-selector__item-native')).toHaveCount(10);
+        await expect(menu.locator('.locale-selector__item-english')).toHaveCount(variant.expanded ? 10 : 9);
         report.observations.consumerAccessibilitySnapshot = await menu.ariaSnapshot();
         await page.keyboard.press('Home');
         await expect(item('zh-CN')).toBeFocused();
         await page.keyboard.press('End');
         await expect(item('ru-RU')).toBeFocused();
         const overflow = await page.evaluate(() => globalThis.document.documentElement.scrollWidth > globalThis.document.documentElement.clientWidth);
+        const viewportGeometry = await menu.evaluate((element) =>
+        {
+            const rect = element.getBoundingClientRect();
+            const panel = element.closest('.el-popper').getBoundingClientRect();
+            const root = globalThis.document.documentElement;
+            const width = globalThis.innerWidth;
+            return {
+                innerWidth: width,
+                clientWidth: root.clientWidth,
+                scrollWidth: root.scrollWidth,
+                visualWidth: globalThis.visualViewport?.width,
+                cssZoom: globalThis.getComputedStyle(root).zoom,
+                menu: { left: rect.left, right: rect.right, width: rect.width },
+                panel: { left: panel.left, right: panel.right, top: panel.top, bottom: panel.bottom, width: panel.width, height: panel.height },
+                overflowingElements: [...globalThis.document.body.querySelectorAll('*')].filter((node) =>
+                {
+                    const box = node.getBoundingClientRect();
+                    return box.width > 0 && (box.right > width + 1 || box.left < -1);
+                }).slice(0, 12).map((node) => ({ tag: node.tagName, class: node.className, text: node.textContent.slice(0, 60) }))
+            };
+        });
         const clippedLabels = await page.locator('[data-locale-selector-item]').evaluateAll((items) => items.filter((element) =>
         {
             const row = element.getBoundingClientRect();
-            const copy = element.querySelector('.locale-selector__item-copy')?.getBoundingClientRect();
-            return copy && (copy.top < row.top || copy.bottom > row.bottom || copy.left < row.left || copy.right > row.right);
+            const labels = [...element.querySelectorAll('.locale-selector__item-native, .locale-selector__item-english')];
+            return labels.length === 0 || labels.some((label) =>
+            {
+                const copy = label.getBoundingClientRect();
+                return copy.top < row.top || copy.bottom > row.bottom || copy.left < row.left || copy.right > row.right;
+            });
         }).map((element) => element.getAttribute('data-locale-code')));
+        const geometryNegativeControl = await item('zh-CN').evaluate((element) =>
+        {
+            const labels = [...element.querySelectorAll('.locale-selector__item-native, .locale-selector__item-english')];
+            element.classList.remove('is-multiline');
+            const row = element.getBoundingClientRect();
+            const clips = labels.some((label) => label.getBoundingClientRect().bottom > row.bottom);
+            element.classList.add('is-multiline');
+            return clips;
+        });
+        expect(geometryNegativeControl).toBe(true);
+        const panelOverflow = viewportGeometry.panel.left < -1 || viewportGeometry.panel.right > variant.width + 1
+            || viewportGeometry.panel.top < -1 || viewportGeometry.panel.bottom > 901;
         await page.screenshot({ path: path.join(evidenceRoot, `consumer-${variant.width}-${variant.theme}-zoom${variant.zoom}.png`), fullPage: true });
-        report.observations.consumerVariants.push({ ...variant, cssZoomOnly: true, overflow, clippedLabels });
+        report.observations.consumerVariants.push({ ...variant, cssZoomOnly: true, overflow, clippedLabels, viewportGeometry, panelOverflow, geometryNegativeControl });
         await page.keyboard.press('Escape');
         await expect(trigger).toBeFocused();
         await expect(menu).not.toBeAttached();
@@ -408,6 +456,7 @@ try
         ...(!observations.outsideClose ? ['outside-close'] : []),
         ...(observations.consumerVariants.some((variant) => variant.overflow) ? ['consumer-horizontal-overflow'] : []),
         ...(observations.consumerVariants.some((variant) => variant.clippedLabels.length) ? ['consumer-label-clipping'] : []),
+        ...(observations.consumerVariants.some((variant) => variant.panelOverflow) ? ['consumer-panel-viewport-overflow'] : []),
         ...(observations.linkKeyboardHash !== '#linked-locale' ? ['public-url-command-adapter'] : []),
         ...Object.entries(observations.keyboard).filter(([, passed]) => !passed).map(([key]) => `keyboard-${key}`),
         ...(!observations.disabledItemIgnored ? ['disabled-item-activation'] : [])

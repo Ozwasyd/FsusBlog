@@ -10,6 +10,7 @@
         <ElDropdown
             ref="dropdown"
             trigger="click"
+            viewport-bounded
             max-height="70vh"
             :hide-on-click="false"
             :disabled="disabled"
@@ -60,8 +61,10 @@
                         v-for="item in items"
                         :key="item.code"
                         :command="item"
+                        :text-value="item.nativeName"
                         :checked="isSelected(item)"
                         :disabled="disabled"
+                        multiline
                         data-locale-selector-item
                         :data-locale-code="item.code"
                         :data-selected="isSelected(item) ? 'true' : 'false'"
@@ -69,30 +72,29 @@
                         :aria-current="isSelected(item) ? 'true' : undefined"
                         :dir="item.direction"
                     >
-                        <span class="locale-selector__item-copy safe-inline-wrap">
-                            <span class="locale-selector__item-native">{{ item.nativeName }}</span>
-                            <span
-                                v-if="item.englishName && item.englishName !== item.nativeName"
-                                class="locale-selector__item-english"
-                            >
+                        <span class="locale-selector__item-native">{{ item.nativeName }}</span>
+                        <template
+                            v-if="item.englishName && item.englishName !== item.nativeName"
+                            #description
+                        >
+                            <span class="locale-selector__item-english">
                                 {{ item.englishName }}
                             </span>
-                        </span>
-                        <span
-                            class="locale-selector__item-status"
-                            aria-hidden="true"
-                        >
+                        </template>
+                        <template #suffix>
                             <Loading
                                 v-if="isPending(item)"
                                 class="locale-selector__spinner"
                                 data-locale-selector-item-pending
+                                aria-hidden="true"
                             />
                             <Check
                                 v-else-if="isSelected(item)"
                                 class="locale-selector__check"
                                 data-locale-selector-item-check
+                                aria-hidden="true"
                             />
-                        </span>
+                        </template>
                     </ElDropdownItem>
                     <li
                         v-if="errorMessage"
@@ -235,32 +237,6 @@ watch([() => props.open, () => props.disabled, dropdown], ([open, disabled]) =>
     min-width: 0;
     max-width: 100%;
     flex-direction: column;
-}
-
-.locale-selector__item-copy
- {
-    display: flex;
-    min-width: 0;
-    flex-direction: column;
-    white-space: normal;
-    overflow-wrap: anywhere;
-}
-
-.locale-selector__item-native
- {
-    font-weight: 600;
-}
-
-.locale-selector__item-english
- {
-    font-size: 0.75rem;
-    color: var(--fsusblog-text-muted);
-}
-
-.locale-selector__item-status
- {
-    display: inline-flex;
-    margin-inline-start: auto;
 }
 
 .locale-selector__spinner,
