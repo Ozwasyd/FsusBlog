@@ -152,12 +152,13 @@ test('all twenty-four original semantic declarations retain unresolved contracts
     assert.equal(result.missingKinds.length, 17);
 });
 
-test('all fifty-three business source references preserve current exact bytes and declaration identity', () =>
+test('all eighty-five business source references preserve current exact bytes and declaration identity', () =>
 {
     const result = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding());
     const original = buildQuerySemanticOwnerInventory({ binding: syntheticInventoryBinding(), kinds: expectedQueryKinds() });
     const references = result.semanticOwners.requirements.flatMap((entry) => entry.businessOwners);
-    assert.equal(references.length, 53);
+    assert.equal(references.length, 85);
+    assert.equal(new Set(references.map((reference) => reference.path)).size, 19);
     assert.deepEqual(result.semanticOwners, original);
     for (const reference of references)
     {
@@ -168,6 +169,64 @@ test('all fifty-three business source references preserve current exact bytes an
     const { contentDigest, ...declarationContent } = result.semanticOwners;
     assert.equal(contentDigest, computeSha256(declarationContent));
     // These are source declarations; methods and consistency verifiers are not executed here.
+});
+
+test('full-thread and deleted-thread requirements retain their distinct original read boundaries', () =>
+{
+    const { requirements } = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding()).semanticOwners;
+    const methods = (kind) => requirements.find((entry) => entry.domain === 'comment' && entry.kind === kind)
+        .businessOwners.map((owner) => owner.entrypoint.split('.').at(-1));
+    assert.deepEqual(methods('public-thread'), ['GetTreeRootsAsync', 'GetChildrenAsync', 'GetPermalinkContextAsync', 'GetRepliesAsync']);
+    assert.deepEqual(methods('deleted-root'), ['GetTreeRootsAsync', 'GetPermalinkContextAsync']);
+    assert.deepEqual(methods('deleted-reply'), ['GetChildrenAsync', 'GetRepliesAsync', 'GetPermalinkContextAsync']);
+    for (const kind of ['public-thread', 'deleted-root', 'deleted-reply'])
+    {
+        const requirement = requirements.find((entry) => entry.domain === 'comment' && entry.kind === kind);
+        assert.ok(requirement.blockers.includes('canonical_thread_edges_and_deleted_placeholder_coordinates_missing'));
+        assert.equal(requirement.canonicalRoleBindings, null);
+    }
+});
+
+test('public region visibility retains all read surfaces and the original region normalizer', () =>
+{
+    const { requirements } = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding()).semanticOwners;
+    for (const kind of ['approved-visibility', 'region-filter'])
+    {
+        const requirement = requirements.find((entry) => entry.domain === 'comment' && entry.kind === kind);
+        assert.deepEqual(requirement.businessOwners.map((owner) => owner.entrypoint.split('.').at(-1)), [
+            'GetTreeRootsAsync', 'GetChildrenAsync', 'GetPermalinkContextAsync', 'GetRepliesAsync', 'Resolve', 'NormalizeRegion'
+        ]);
+        assert.ok(requirement.blockers.includes('canonical_status_region_and_publication_coordinates_missing'));
+    }
+});
+
+test('pending rejected and hidden visibility keep public admin and attributable boundaries together', () =>
+{
+    const { requirements } = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding()).semanticOwners;
+    for (const kind of ['pending-visibility', 'rejected-visibility', 'hidden-visibility'])
+    {
+        const requirement = requirements.find((entry) => entry.domain === 'comment' && entry.kind === kind);
+        assert.deepEqual(requirement.businessOwners.map((owner) => owner.entrypoint.split('.').at(-1)), [
+            'GetTreeRootsAsync', 'GetChildrenAsync', 'GetPermalinkContextAsync', 'GetRepliesAsync',
+            'ListCommentModerationQueuePageAsync', 'GetAttributableAsync', 'GetUserCommentsAsync',
+            'GetUserCommentsForArticleAsync', 'ToCoreModel'
+        ]);
+        assert.equal(requirement.actorConstraint, 'AllowAnonymous / AdminPermissions.CommentModerate / RequireAnonymousAccountPrincipal');
+        assert.ok(requirement.blockers.includes('canonical_actor_status_and_permission_visibility_coordinates_missing'));
+        assert.equal(requirement.inputs, null);
+    }
+});
+
+test('permission requirements retain the actual admin moderation route without anonymous fallback', () =>
+{
+    const { requirements } = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding()).semanticOwners;
+    for (const kind of ['moderation-queue', 'permission-filter'])
+    {
+        const requirement = requirements.find((entry) => entry.domain === 'comment' && entry.kind === kind);
+        assert.deepEqual(requirement.routePatterns, ['/api/binary/author/comments/moderation']);
+        assert.deepEqual(requirement.businessOwners.map((owner) => owner.entrypoint.split('.').at(-1)), ['ListCommentModerationQueuePageAsync']);
+        assert.equal(requirement.actorConstraint, 'AdminPermissions.CommentModerate');
+    }
 });
 
 test('three consistency declarations preserve the original verifier signature and same-run receipt blocker', () =>

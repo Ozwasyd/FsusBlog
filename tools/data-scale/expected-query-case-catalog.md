@@ -101,7 +101,7 @@ receipt or query-runner admission is supplied by this seam.
 
 `inspectExpectedQueryOwnerInventory(binding)` calls the original
 `buildQueryCaseInventory(binding)` from published query owner source
-`e7d7a880b5bfd61958c647e2311f88ecb237e500`. It preserves the original inventory
+`143f9176eea697b7687c3e5e842b64ca6f15674c`. It preserves the original inventory
 and its source-byte owner identities, then reports missing kinds using only
 the closed schema vocabulary. It retains unresolved canonical role bindings,
 scenario applicability and per-case blockers. Raw collector input fields,
@@ -125,6 +125,14 @@ availability does not add executed cases or supply missing producer inputs.
 Original `inputs`, `canonicalRoleBindings` and `scenarioApplicability` stay
 null. No receipts, coordinates or normalized graph roles are manufactured.
 
+The current original declarations retain 85 source references across 19 source
+files. Full public thread reads include roots, children, permalink context and
+replies. Deleted-root and deleted-reply requirements keep their distinct read
+boundaries. Pending/rejected/hidden visibility retain public, moderation queue,
+attributable actor and projection owners. Region resolution/normalization and
+the admin permission route remain explicit original authorities. None of these
+source declarations supplies actual final moderation or visibility facts.
+
 Consistency intake still needs actual same-run/business-epoch publication and
 revision/content coordinates plus cache/AOT/HotRead generation and bytes.
 The existing outer public-content source/run identity and temporal observation
@@ -137,6 +145,48 @@ particular, middle/last comment cursors and nested expansion declare
 `public-thread`. Seventeen required kinds still lack case mappings, while
 source owner declarations cover all twenty-four kinds.
 The earlier synthetic control mapping is not production coverage evidence.
+
+## Native producer role intake
+
+The test/evidence-only
+[typed consumer](query-producer-role-intake/QueryProducerRoleIntake.cs) connects
+the actual `ArticleScaleGraphIdentityBindings` from #2542 source
+`1440291b065a8e30b6d5f64ed864c090d5a9d79e` and
+`CommentScaleResolvedGraphIntent` from #2545 source
+`8822207ec995f4346eed20f27393b172dd51343a`. It compares article plan digest,
+semantic article role, original native reference schema/digest and the native
+article coordinate. It retains the original objects and inspects one occurrence
+without materializing the complete scale plan. It creates no serialized receipt,
+expected values, role registry or query runner.
+
+`Inspect(articleBindings, commentIntent)` always returns blocked admission.
+Article allocation bindings explicitly lack physical allocation provenance;
+comment intents contain symbolic parent/reply requests and planned moderation,
+without actual comment IDs or final thread/status/visibility coordinates. The
+existing bulk transport result proves neither a sealed graph receipt nor its
+source/run/business-epoch binding. Reference equality, an empty comment
+occurrence or a committed row count cannot waive those missing capabilities.
+
+`ThrowBeforeQueryExecution()` refuses even if a caller clears the diagnostic
+list. The original runner owner must place this call before expected mapping
+and query capture, alongside its original receipt/current-invocation checks.
+The current shared runner does not call it yet; this split does not edit that
+owner's file or claim execution isolation from an unconnected component.
+Replacing this unconditional refusal requires the original producers' actual
+sealed physical receipt admission APIs and exact query coordinates. An invented
+callback, receipt shape or caller-supplied ID map is not an admission substitute.
+
+The [compiled refusal controls](query-producer-role-intake/check.sh) use the
+two exact original Git source commits. They compile against the complete real
+comment backend and link the exact #2542 identity binding source, whose original
+article plan dependency is byte-identical. No producer object, native ID,
+digest or receipt is fabricated by those controls. The output proves typed
+source linkage and missing-input refusal only; actual producer linkage cases,
+physical acceptance, production queries and 1M qualification remain unrun.
+
+```sh
+bash tools/data-scale/query-producer-role-intake/check.sh --help
+```
 
 ## Current integration limits
 
