@@ -4,6 +4,8 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Services/Authoring/ArticleRelationIndex.cs",
+                "src/backend/Services/Authoring/ArticleRelationIndexContracts.cs",
                 "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
                 "src/shared/Contracts/BlockLinks/BlockTargetQueryContracts.cs",
                 "src/shared/Contracts/BlockLinks/BlockTargetQueryDigest.cs",

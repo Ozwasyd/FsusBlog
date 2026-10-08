@@ -111,7 +111,56 @@ permission evidence or proof of parser provenance. The opaque continuation must 
 admitted by the server pagination owner. Contract tests do not establish service
 privacy/timing, cancellation, database pagination, 100000-anchor scale or receipts.
 
-The permission-safe producer (#2441), sole relation producer/query (#2237/#2238 and
-#2443), transactional impact execution (#2447) and real package round-trip (#2450)
-remain separate integration obligations. This contract does not implement or certify
-those capabilities.
+## Canonical relation index
+
+`ArticleRelationIndex` is the backend relation-set index algorithm over the existing
+`ArticleRelationSet` / `ArticleRelationRecord` schema. Article, heading and block
+targets use that same catalog, validator and digest. Its target lookup projects the
+same immutable records; it is not a block-only side store. It does not parse Markdown,
+infer identities from URLs, change source bytes or generate permission facts.
+
+`IArticleRelationIndexSource.ReadAsync` supplies complete ordinal article-family
+pages at one source generation. `ReadArticleAsync` supplies a complete family for
+incremental lifecycle replacement and current-source revalidation. Both bind the
+exact actor/site/permission context. Families carry monotonic source sequences,
+current/draft sets and immutable publication sets from the canonical producer.
+The index owns copies of relation lists and verifies their existing seals before
+sorting through the existing canonical set sealer. Source seals remain consistency
+checks rather than proof of observed parser or permission provenance.
+
+`RebuildAsync(expectedIndexGeneration)` stages bounded pages and publishes only after
+source-generation revalidation and an atomic in-process generation check.
+`ApplyAsync(articleIdentity, expectedIndexGeneration)` rereads the producer, replaces
+the complete family and rejects stale sequences, conflicting duplicate observations,
+generation gaps and concurrent replacement. A source-generation gap requires full
+rebuild. Exact repeated observations do not increment the index generation.
+Cancellation, budget overflow and source drift leave the prior snapshot intact.
+
+Publication source sets cannot be changed or removed by either path. Current/draft
+replacement does not mutate retained snapshots. Relation-set ordering is canonical,
+so incremental replacement and full rebuild produce the same set digests for the same
+source facts. Route slugs are absent from relation identity; a route-only observation
+does not rewrite a stable target. A renamed anchor remains broken at its old identity
+when the canonical producer supplies `MissingAnchor`; the index never repairs links
+or selects a different anchor. Resolution/lifecycle diagnostics are preserved from
+the existing contract rather than being synthesized by an index read.
+
+Limits are 100 articles per source page, 10,000 article families, 100,000 source sets
+and relations, and 32 Mi characters of stored occurrence text. These are in-process
+algorithm limits. Fixture tests execute the 0/1/10,000 article and 100,000-edge cases;
+they do not qualify durable storage, production source paging or crash recovery.
+
+`InspectTarget` reads exact target/kind candidates from the actual immutable index.
+`RevalidateSourceAsync` recomputes inspection parity against that index, rejects
+fabricated or stale records, and sequentially rereads each affected family from the
+original producer at the frozen source generation. It also revalidates empty results.
+These APIs follow the unadmitted inspection/revalidation boundary of the supplied
+`AuthorFullTextSearchQueryEvaluator` source; its text-search candidates are not block
+query results. No item/count here may be exposed as a permission-safe response or
+used as an executable impact plan without current authorization admission.
+
+The canonical parse/link producer adapter, fresh permission admission, durable
+registration, permission-safe target query (#2441), remaining block-specific
+resolution/lifecycle production (#2443), transactional impact execution (#2447) and
+real package round-trip (#2450) remain integration work. The index and its fixture
+ports do not certify those capabilities.
