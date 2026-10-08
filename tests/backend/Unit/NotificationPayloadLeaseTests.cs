@@ -1,5 +1,6 @@
 using FsusBlog.Server.Infrastructure.Memory.Transient;
 using FsusBlog.Server.Infrastructure.NotificationStream;
+using FsusBlog.Server.Tests.Helpers;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -8,7 +9,7 @@ public sealed class NotificationPayloadLeaseTests
     [Fact]
     public async Task T40_OnePayloadRemainsChargedThroughFastAndSlowRecipientCompletion()
     {
-        var (ledger, host, _) = TransientBufferPoolTests.CreateLedger(64);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(64);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.WebSocketFanout, new(64, 8, 0, 0));
         byte[] source = [1, 2, 3, 4, 5];
         SharedNotificationStreamFrame frame = NotificationPayloadLease.TryCreate(pool, source).Value!;
@@ -47,7 +48,7 @@ public sealed class NotificationPayloadLeaseTests
     [Fact]
     public async Task T41_ShutdownDisposesQueuedHoldsButKeepsInFlightOwnerAndReplayObligation()
     {
-        var (ledger, host, _) = TransientBufferPoolTests.CreateLedger(64);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(64);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.WebSocketFanout, new(64, 8, 0, 0));
         SharedNotificationStreamFrame frame = NotificationPayloadLease.TryCreate(pool, new byte[17]).Value!;
         var connection = new NotificationStreamConnection("shutdown", "user", [], 2, queueByteCapacity: 64);
@@ -76,7 +77,7 @@ public sealed class NotificationPayloadLeaseTests
     [Fact]
     public void T40_ByteLimitIsIndependentOfFrameCount()
     {
-        var (ledger, host, _) = TransientBufferPoolTests.CreateLedger(64);
+        var (ledger, host, _) = TransientMemoryTestLedger.Create(64);
         using var pool = new TransientBufferPool(ledger, host, TransientWorkload.WebSocketFanout, new(64, 8, 0, 0));
         SharedNotificationStreamFrame frame = NotificationPayloadLease.TryCreate(pool, new byte[17]).Value!;
         var connection = new NotificationStreamConnection("bytes", "user", [], 8, queueByteCapacity: 16);
