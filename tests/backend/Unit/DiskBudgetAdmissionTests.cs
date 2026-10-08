@@ -16,7 +16,7 @@ public sealed class DiskBudgetAdmissionTests
         var successes = new List<MemoryReservation>();
         Parallel.For(0, 16, index =>
         {
-            var result = (index % 2 == 0 ? fixture.Admission : alias).TryReserve(new(20, 2, 1));
+            var result = (index % 2 == 0 ? fixture.Admission : alias).TryReserve(new(20, 2, 1, 1));
             if (result.Succeeded)
             {
                 lock (successes)
@@ -43,9 +43,9 @@ public sealed class DiskBudgetAdmissionTests
     public void PolicyReductionRetainsLiveStorageAndStopsGrowth()
     {
         var fixture = new Fixture();
-        using MemoryReservation staging = fixture.Admission.TryReserve(new(70, 2, 1)).Value!;
+        using MemoryReservation staging = fixture.Admission.TryReserve(new(70, 2, 1, 1)).Value!;
         using IMemoryAllocationCharge live = staging.Commit(new(Guid.NewGuid()),
-            [new(fixture.Disk, MemoryResourceUnit.Bytes, 70)]).Value!;
+            [new(fixture.Disk, MemoryResourceUnit.Bytes, 70), new(fixture.Inode, MemoryResourceUnit.Inodes, 1)]).Value!;
         fixture.Coordinator.ReviseLimits(2, fixture.Limits(30));
         fixture.Sample = fixture.Sample with
         {
@@ -53,7 +53,7 @@ public sealed class DiskBudgetAdmissionTests
         };
         Assert.True(fixture.Coordinator.Snapshot().OverTarget);
         Assert.Equal(70, fixture.Coordinator.Snapshot().Used["volume"]);
-        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 2, 1)).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 2, 1, 1)).Failure);
         live.Dispose();
         Assert.False(fixture.Coordinator.Snapshot().OverTarget);
     }
@@ -62,12 +62,12 @@ public sealed class DiskBudgetAdmissionTests
     public void ApplicationCapAndSafetyReserveAreIndependent()
     {
         var fixture = new Fixture();
-        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(81, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(81, 1, 1, 1)).Failure);
         fixture.Sample = fixture.Sample with
         {
             AvailableBytes = fixture.Observation(fixture.Volume, MemoryResourceUnit.Bytes, 99)
         };
-        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
     }
 
@@ -75,7 +75,7 @@ public sealed class DiskBudgetAdmissionTests
     public void InsufficientHostCapacityRejectsTheCompleteVector()
     {
         var fixture = new Fixture();
-        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(20, 101, 1)).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(20, 101, 1, 1)).Failure);
         Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
     }
 
@@ -88,29 +88,29 @@ public sealed class DiskBudgetAdmissionTests
         {
             Backing = DiskBackingKind.MemoryBacked
         };
-        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         fixture.Sample = valid with
         {
             Backing = DiskBackingKind.Unknown
         };
-        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         fixture.Sample = valid with
         {
             ValidUntil = DateTimeOffset.MinValue
         };
-        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         fixture.Sample = valid with
         {
             QuotaBytes = new(fixture.Volume, MemoryResourceUnit.Bytes, MemoryObservationState.Unknown,
                 null, "fixture:quota-unavailable", valid.QuotaBytes.SampledAt)
         };
-        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         fixture.Sample = valid with
         {
-            AvailableInodes = new(fixture.Slot, MemoryResourceUnit.OperationSlots, MemoryObservationState.Unknown,
+            AvailableInodes = new(fixture.InodeCapacity, MemoryResourceUnit.Inodes, MemoryObservationState.Unknown,
                 null, "fixture:inode-unavailable", valid.AvailableInodes.SampledAt)
         };
-        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
     }
 
@@ -122,13 +122,131 @@ public sealed class DiskBudgetAdmissionTests
         {
             AvailableBytes = fixture.Observation(fixture.Volume, MemoryResourceUnit.Bytes, 20)
         };
-        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         fixture.Sample = fixture.Sample with
         {
             PolicyRevision = 99
         };
-        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+    }
+
+    [Fact]
+    public void AliasAdmissionsCompeteForOnePersistentInodeCapacityIndependentOfSlots()
+    {
+        var fixture = new Fixture(inodeCap: 2);
+        DiskBudgetAdmission alias = fixture.Create(fixture.Alias, fixture.InodeAlias);
+        var owners = new List<MemoryReservation>();
+        Parallel.For(0, 16, index =>
+        {
+            var result = (index % 2 == 0 ? fixture.Admission : alias).TryReserve(new(1, 1, 1, 1));
+            if (result.Succeeded)
+            {
+                lock (owners)
+                {
+                    owners.Add(result.Value!);
+                }
+            }
+            else
+            {
+                Assert.Equal(MemoryFailure.BudgetRejected, result.Failure);
+            }
+        });
+        Assert.Equal(2, owners.Count);
+        Assert.Equal(2, fixture.Coordinator.Snapshot().Used["application-inodes"]);
+        Assert.Equal(2, fixture.Coordinator.Snapshot().Used["volume-inodes"]);
+        Assert.Equal(2, fixture.Coordinator.Snapshot().Used["slots"]);
+        Assert.Equal(2, fixture.Coordinator.Snapshot().Used["volume"]);
+        foreach (MemoryReservation owner in owners)
+        {
+            owner.Dispose();
+        }
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public void ReducedInodeCapRetainsLiveFileButAllowsHostAndSlotOnlyReads()
+    {
+        var fixture = new Fixture(inodeCap: 1);
+        using MemoryReservation staging = fixture.Admission.TryReserve(new(40, 2, 1, 1)).Value!;
+        using IMemoryAllocationCharge live = staging.Commit(new(Guid.NewGuid()),
+            [new(fixture.Disk, MemoryResourceUnit.Bytes, 40), new(fixture.Inode, MemoryResourceUnit.Inodes, 1)]).Value!;
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["volume-inodes"]);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Used["slots"]);
+        fixture.Coordinator.ReviseLimits(2, fixture.Limits(80, inodeCap: 0));
+        fixture.Sample = fixture.Sample with
+        {
+            PolicyRevision = 2,
+            AvailableInodes = fixture.Observation(fixture.InodeCapacity, MemoryResourceUnit.Inodes, 0)
+        };
+        Assert.True(fixture.Coordinator.Snapshot().OverTarget);
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["volume-inodes"]);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
+        var read = fixture.Admission.TryReserve(new(0, 2, 3));
+        Assert.True(read.Succeeded);
+        using (read.Value!)
+        {
+            Assert.Equal(1, fixture.Coordinator.Snapshot().Used["volume-inodes"]);
+            Assert.Equal(3, fixture.Coordinator.Snapshot().Used["slots"]);
+            Assert.Equal(2, fixture.Coordinator.Snapshot().Used["host"]);
+        }
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["volume-inodes"]);
+        live.Dispose();
+        Assert.False(fixture.Coordinator.Snapshot().OverTarget);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public void ZeroInodesDoNotBecomeZeroIoSlotsOrBlockReadOnlyAdmission()
+    {
+        var fixture = new Fixture(inodeCap: 0);
+        var read = fixture.Admission.TryReserve(new(0, 1, 16));
+        Assert.True(read.Succeeded);
+        using (read.Value!)
+        {
+            Assert.Equal(16, fixture.Coordinator.Snapshot().Used["slots"]);
+            Assert.Equal(0, fixture.Coordinator.Snapshot().Used["volume-inodes"]);
+            Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(0, 1, 1)).Failure);
+        }
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Theory]
+    [InlineData("unit")]
+    [InlineData("domain")]
+    [InlineData("unknown")]
+    public void InodeObservationMustHaveExplicitCorrectUnitDomainAndAvailabilityForGrowth(string change)
+    {
+        var fixture = new Fixture();
+        fixture.Sample = fixture.Sample with
+        {
+            AvailableInodes = change switch
+            {
+                "unit" => fixture.Observation(fixture.InodeCapacity, MemoryResourceUnit.OperationSlots, 16),
+                "domain" => fixture.Observation(fixture.Slot, MemoryResourceUnit.Inodes, 16),
+                "unknown" => new(fixture.InodeCapacity, MemoryResourceUnit.Inodes, MemoryObservationState.Unknown,
+                    null, "fixture:no-inode-signal", DateTimeOffset.UtcNow),
+                _ => throw new ArgumentOutOfRangeException(nameof(change))
+            }
+        };
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Admission.TryReserve(new(1, 1, 1, 1)).Failure);
+        if (change == "unknown")
+        {
+            var read = fixture.Admission.TryReserve(new(0, 1, 1));
+            Assert.True(read.Succeeded);
+            read.Value!.Dispose();
+        }
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public void PositiveDiskGrowthRequiresAnExplicitPersistentInodeReservation()
+    {
+        var fixture = new Fixture();
+        Assert.Equal(MemoryFailure.BoundsViolation, fixture.Admission.TryReserve(new(1, 1, 1)).Failure);
+        Assert.Equal(MemoryFailure.BoundsViolation, fixture.Admission.TryReserve(new(1, 1, 1, -1)).Failure);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
     }
 
     private sealed class Fixture
@@ -138,6 +256,9 @@ public sealed class DiskBudgetAdmissionTests
         internal ResourceDomainId Alias { get; } = new(Guid.NewGuid());
         internal ResourceDomainId Host { get; } = new(Guid.NewGuid());
         internal ResourceDomainId Slot { get; } = new(Guid.NewGuid());
+        internal ResourceDomainId InodeCapacity { get; } = new(Guid.NewGuid());
+        internal ResourceDomainId Inode { get; } = new(Guid.NewGuid());
+        internal ResourceDomainId InodeAlias { get; } = new(Guid.NewGuid());
         internal MemoryReservationCoordinator Coordinator
         {
             get;
@@ -151,29 +272,33 @@ public sealed class DiskBudgetAdmissionTests
             get;
         }
 
-        internal Fixture()
+        internal Fixture(long inodeCap = 16)
         {
             var topology = new MemoryResourceTopology([
                 new(Volume, "volume", MemoryResourceUnit.Bytes, null),
                 new(Disk, "application", MemoryResourceUnit.Bytes, Volume),
                 new(Alias, "application", MemoryResourceUnit.Bytes, Volume),
                 new(Host, "host", MemoryResourceUnit.Bytes, null),
-                new(Slot, "slots", MemoryResourceUnit.OperationSlots, null)
+                new(Slot, "slots", MemoryResourceUnit.OperationSlots, null),
+                new(InodeCapacity, "volume-inodes", MemoryResourceUnit.Inodes, null),
+                new(Inode, "application-inodes", MemoryResourceUnit.Inodes, InodeCapacity),
+                new(InodeAlias, "application-inodes", MemoryResourceUnit.Inodes, InodeCapacity)
             ]);
-            Coordinator = new(topology, Limits(80), 1, 64, 128);
+            Coordinator = new(topology, Limits(80, inodeCap), 1, 64, 128);
             Sample = new("volume", Observation(Volume, MemoryResourceUnit.Bytes, 100),
                 Observation(Volume, MemoryResourceUnit.Bytes, 100),
-                Observation(Slot, MemoryResourceUnit.OperationSlots, 16), DiskBackingKind.Independent,
+                Observation(InodeCapacity, MemoryResourceUnit.Inodes, inodeCap), DiskBackingKind.Independent,
                 DateTimeOffset.UtcNow.AddMinutes(1), 1);
             Admission = Create(Disk);
         }
 
-        internal DiskBudgetAdmission Create(ResourceDomainId disk)
-            => new(Coordinator, disk, Volume, Host, Slot, 80, 20, () => Sample);
+        internal DiskBudgetAdmission Create(ResourceDomainId disk, ResourceDomainId? inode = null)
+            => new(Coordinator, disk, Volume, Host, Slot, inode ?? Inode, InodeCapacity, 80, 20, () => Sample);
 
-        internal MemoryResourceLimit[] Limits(long diskCap)
+        internal MemoryResourceLimit[] Limits(long diskCap, long inodeCap = 16)
             => [new(Volume, MemoryResourceUnit.Bytes, diskCap), new(Disk, MemoryResourceUnit.Bytes, diskCap),
-                new(Host, MemoryResourceUnit.Bytes, 100), new(Slot, MemoryResourceUnit.OperationSlots, 16)];
+                new(Host, MemoryResourceUnit.Bytes, 100), new(Slot, MemoryResourceUnit.OperationSlots, 16),
+                new(InodeCapacity, MemoryResourceUnit.Inodes, inodeCap), new(Inode, MemoryResourceUnit.Inodes, inodeCap)];
 
         internal MemoryResourceObservation Observation(ResourceDomainId domain, MemoryResourceUnit unit, long value)
             => new(domain, unit, MemoryObservationState.Available, value, "fixture:scoped", DateTimeOffset.UtcNow);

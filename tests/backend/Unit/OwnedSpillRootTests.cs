@@ -117,6 +117,8 @@ public sealed class OwnedSpillRootTests
         Assert.StartsWith("linux-device:", one.CapacityIdentity);
         Assert.Equal(MemoryObservationState.Available, one.AvailableBytes.State);
         Assert.Equal(MemoryObservationState.Available, one.AvailableInodes.State);
+        Assert.Equal(MemoryResourceUnit.Inodes, one.AvailableInodes.Unit);
+        Assert.Equal(inodes, one.AvailableInodes.Domain);
         Assert.Equal(MemoryObservationState.Unknown, one.QuotaBytes.State);
         Assert.Null(one.QuotaBytes.Value);
     }
