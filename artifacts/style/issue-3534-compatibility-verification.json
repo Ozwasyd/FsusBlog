@@ -1,0 +1,634 @@
+{
+    "schema": "fsusblog.issue-3534-compatibility-source-evidence.v1",
+    "recordedAt": "2026-10-08T04:49:19.849362+00:00",
+    "runId": "issue-3534-compatibility-20261008-08ba6ecd1",
+    "status": "source-capabilities-verified-acceptance-incomplete",
+    "baseCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "testedSourceAndCoupledOutputCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+    "metadataOnlyCorrectionCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+    "latestFetchedMaster": "87209d571a93254dcacfe9093753002e8c98822a",
+    "githubPrSnapshot": {
+        "baseCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+        "headCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+        "draft": true
+    },
+    "branch": "codex/issue-3534-style-admission-v2-20261008",
+    "draftPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3837",
+    "assignment": {
+        "executionIssues": [
+            3534
+        ],
+        "trackingIssues": [],
+        "allOwnedIssuesAccounted": true
+    },
+    "environment": {
+        "node": "24.16.0",
+        "npm": "11.13.0",
+        "eslint": "10.8.0",
+        "espree": "10.4.0",
+        "typescript": "6.0.3",
+        "playwrightCore": "1.59.1",
+        "markdownlintCli2": "0.23.1",
+        "officialTaskLocalTools": true,
+        "githubCI": "disabled; user explicitly authorized applicable exact-candidate local checks as substitute; no workflow dispatched or awaited",
+        "runtimeProductQualification": "not issued; source-only scope; older separate SDK/compiler/matrix probes remain at their original identities"
+    },
+    "canonicalPrerequisite": {
+        "owner": 3659,
+        "suppliedSource": "c52d22a7cdf6ae468b5eb73aa79873f553be5a84",
+        "suppliedBranch": "codex/chain-3659-current-acceptance",
+        "integration": "485d2431381d22e5cb46ff9cf5b8208df918d94b",
+        "resolution": "Incoming absent manifest retained exactly as provenance; source/tests integrated without conflicts. Lock bytes and frozen parser descriptors unchanged."
+    },
+    "ownedCompatibilityCommits": [
+        {
+            "sha": "7393f936fbed9c0ad9bc8ab276ba6bee16d46e30",
+            "capability": "exact explicit URL scanner import with all14 full-program rejection controls"
+        },
+        {
+            "sha": "f2ed82adf84fa560c611ef0dc6d102fac3436cd1",
+            "capability": "canonical helper0644, requalified IO AST and actual umask/interrupted/repeated cleanup"
+        },
+        {
+            "sha": "30aa8a6660b881b61e15cffdd31fd18ed36c789a",
+            "capability": "native lexical node:url constructor binding"
+        },
+        {
+            "sha": "b4dfcb7dab1219106deb40ee4393b447054e42b5",
+            "capability": "reject nonruntime type-only/type-annotation/loader-attribute grammar"
+        }
+    ],
+    "qualificationControls": {
+        "cases": {
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "parser": "6.0.3",
+            "baseTopLevelCases": 49,
+            "currentTopLevelCases": 51,
+            "allOriginalCasesPreserved": true,
+            "addedCases": [
+                "owned scanner fixture fixes parser modes across umasks and cleans interrupted repeated writes",
+                "zero-legacy lock admission preserves bytes while requiring strict duplicate-free JSON"
+            ],
+            "fixtureVariantCount": 60,
+            "positiveVariants": [
+                "complete",
+                "renamed-title",
+                "helper-comment",
+                "explicit-url",
+                "explicit-url-alias"
+            ],
+            "negativeVariants": [
+                "active-second-use",
+                "helper-clears-input",
+                "helper-other-root",
+                "helper-parser-change",
+                "helper-mode-change",
+                "helper-mode-removed",
+                "fake-import",
+                "findings-replaced",
+                "missing-assertion",
+                "wrong-rule",
+                "caught-assertion",
+                "unreachable-assertions",
+                "assert-shadow",
+                "global-write",
+                "global-delete",
+                "global-increment",
+                "global-alias",
+                "explicit-url-wrong-source",
+                "explicit-url-normalized-alias",
+                "explicit-url-wrong-base",
+                "explicit-url-property-base",
+                "explicit-url-computed-base",
+                "explicit-url-nonliteral",
+                "explicit-url-template",
+                "explicit-url-loader",
+                "explicit-url-no-await",
+                "explicit-url-mutable-binding",
+                "explicit-url-type-annotation",
+                "explicit-url-default-binding",
+                "explicit-url-rest-binding",
+                "explicit-url-wrong-export",
+                "explicit-url-intrinsic-binding",
+                "explicit-url-constructor-shadow",
+                "explicit-url-unbound-constructor",
+                "explicit-url-fake-constructor-import",
+                "explicit-url-type-only-constructor",
+                "explicit-url-attributed-constructor",
+                "explicit-url-destructured-shadow",
+                "explicit-url-constructor-alias",
+                "explicit-url-constructor-mutation",
+                "explicit-url-scanner-shadow",
+                "explicit-url-namespace-shadow",
+                "explicit-url-object-write",
+                "explicit-url-array-write",
+                "explicit-url-default-write",
+                "explicit-url-duplicate-binding",
+                "explicit-url-scanner-byte-change",
+                "static-scanner-byte-change",
+                "explicit-url-scanner-link",
+                "explicit-url-helper-link",
+                "static-scanner-link",
+                "static-helper-link",
+                "static-type-only-scanner",
+                "static-type-only-specifier",
+                "static-attributed-scanner"
+            ],
+            "rulesVerifiedPerVariant": 14
+        },
+        "fixtureRulesPerVariant": 14,
+        "helperShape": "8d358833a3261d31aa585a37d3f34c1e27a078c1cdc8779729df23287f8d3421",
+        "callbackShape": "355a8d983d2d52070759c70b2d4e9a94e53f068f9556ffaac32ae6ab2507ad4d",
+        "lockWriterPositive": "actual strict duplicate-free JSON admission accepts four-space/tabs/compact/whitespace without rewriting source bytes",
+        "lockWriterNegative": [
+            "comments",
+            "malformed",
+            "invalid UTF8",
+            "duplicate keys",
+            "escaped duplicate keys"
+        ],
+        "protectedBindings": "scanner/assert/helper/native URL; actual scope, destructuring writes and shadow/mutation refusals retained",
+        "originalNegativeControlsPreserved": true,
+        "cleanup": "real child umask022/077; all6 raw parser bytes/modes/link counts validated; repeated dispose twice and partial-write EEXIST/ENOTDIR leave no owned temp directories"
+    },
+    "formatMigration": {
+        "formatCommit": "9044e70088d31898ba5b961a3a88b177e235c079",
+        "subsequentBlameRegistration": "00889c42d32b986b558d3488f2abee924c256fdb",
+        "separateFromSemanticRepairs": true,
+        "originalCandidateSeal": {
+            "path": "artifacts/style/issue-3534-compatibility/pre-compatibility-idempotence.json",
+            "sha256": "b412c1a60ef521866b3022dd23853422644f3a4cce6bce0cd55e0fd07fd663cb",
+            "byteIdenticalToPublishedOriginal": true,
+            "originalCommit": "b1f0fd6160289b2bab60eca55592050c42b07e83"
+        },
+        "freshIdempotence": {
+            "sourceCommit": "b4dfcb7dab1219106deb40ee4393b447054e42b5",
+            "passes": [
+                {
+                    "iteration": 1,
+                    "exitCode": 0,
+                    "beforeTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a",
+                    "afterTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a"
+                },
+                {
+                    "iteration": 2,
+                    "exitCode": 0,
+                    "beforeTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a",
+                    "afterTreeSha256": "0ea5c06da9eab8f2bb17a064320ffe734c137b5d8f031812ee72c2141a81449a"
+                }
+            ],
+            "priorEvidenceByteIdentical": true
+        },
+        "independentReview": "pending; no self-issued review receipt"
+    },
+    "fixedPoint": {
+        "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+        "results": [
+            {
+                "iteration": 1,
+                "exitCode": 0,
+                "beforeSha256": "4237c8279817520073460a521dafea11436c2652073fe7e3e1df3d92cc6a0c03",
+                "afterSha256": "4237c8279817520073460a521dafea11436c2652073fe7e3e1df3d92cc6a0c03",
+                "byteIdentical": true
+            },
+            {
+                "iteration": 2,
+                "exitCode": 0,
+                "beforeSha256": "4237c8279817520073460a521dafea11436c2652073fe7e3e1df3d92cc6a0c03",
+                "afterSha256": "4237c8279817520073460a521dafea11436c2652073fe7e3e1df3d92cc6a0c03",
+                "byteIdentical": true
+            }
+        ]
+    },
+    "sourceIdentities": [
+        {
+            "path": "tools/docs/behavior-document-consistency-final.mjs",
+            "sha256": "69ff46e1e1ee39df89d200c08563defcb7b012043d86b1417183b6d63d4b64ef",
+            "gitBlob": "50adce739354051c3357018320f6e78700648470",
+            "unchangedFromStartingMaster": false
+        },
+        {
+            "path": "tests/tools/behavior-document-consistency-final.test.mjs",
+            "sha256": "3cd3dbe7d504f7e6f8b07dea1c839efac50a7c4293d4cb0f1dab7b3265d8bda5",
+            "gitBlob": "16fdd9ad2f47450ae266814b86daf5dd0abf0069",
+            "unchangedFromStartingMaster": false
+        },
+        {
+            "path": "tests/tools/support/zero-legacy-scanner-fixture.mjs",
+            "sha256": "26483a1875cd7cf39c75097a646c22a464b83473fcc631ed5c337091f71d7ad4",
+            "gitBlob": "2febb2b5993c07118d973e706222f5442d2e4652",
+            "unchangedFromStartingMaster": false
+        },
+        {
+            "path": "docs/testing.md",
+            "sha256": "335c672deb867251cb75a41f26129ee22e3679d005298dd5b27443281a487ce9",
+            "gitBlob": "dc9baee209f319844c8010e613fe66d004c7f8c8",
+            "unchangedFromStartingMaster": false
+        },
+        {
+            "path": "src/frontend/package.json",
+            "sha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+            "gitBlob": "3adbc430bdca54a3b2ba73683cb02ad2a73b6bae",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "src/frontend/package-lock.json",
+            "sha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+            "gitBlob": "18adea02bb0dc2abb27a64c6073de9151f616c39",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "4237c8279817520073460a521dafea11436c2652073fe7e3e1df3d92cc6a0c03",
+            "gitBlob": "068ecae8486e36a5fc0e024b9f90afa044c359c0",
+            "unchangedFromStartingMaster": false
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+            "gitBlob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+            "unchangedFromStartingMaster": false
+        },
+        {
+            "path": "eslint.config.mjs",
+            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de",
+            "gitBlob": "f3ddc42af7c5672ae5111a922ed474102637a679",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+            "gitBlob": "e025c8826fc4436b23bc77f44d27ea429eeccc32",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "tools/frontend/check-frontend-style.mjs",
+            "sha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+            "gitBlob": "9ad32515a023d564ca3db6942dabea7e2058d248",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "config/development/frontend-style-policy.json",
+            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+            "gitBlob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "config/development/frontend-style-rule-registry.json",
+            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+            "gitBlob": "459b501e13eb867aa4ba13025408377fefe73432",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "config/development/frontend-style-baseline.json",
+            "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+            "gitBlob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+            "unchangedFromStartingMaster": true
+        },
+        {
+            "path": "config/development/frontend-style-reviewed-residual.json",
+            "sha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+            "gitBlob": "082fe1ef336d2a5677baf7dd0d5d799eed6a988b",
+            "unchangedFromStartingMaster": true
+        }
+    ],
+    "installedFrozenParserIdentities": [
+        {
+            "path": "src/frontend/node_modules/playwright-core/package.json",
+            "sha256": "d4b8727c495ff2632084e922ee1c7f19a608ed23d86e8f3b0ba0ff317eea58ec",
+            "mode": "0o644",
+            "links": 1,
+            "realPathMatches": true
+        },
+        {
+            "path": "src/frontend/node_modules/playwright-core/lib/utilsBundleImpl/index.js",
+            "sha256": "21d4f662e119524abcdfed152b715181017085bb8edc99ea4829b97aca1d5eec",
+            "mode": "0o644",
+            "links": 1,
+            "realPathMatches": true
+        },
+        {
+            "path": "src/frontend/node_modules/typescript/package.json",
+            "sha256": "9332e97c30d3e53ed54910b89207ed657fb444066484df6e5b6965bf130865e9",
+            "mode": "0o644",
+            "links": 1,
+            "realPathMatches": true
+        },
+        {
+            "path": "src/frontend/node_modules/typescript/lib/typescript.js",
+            "sha256": "569177652966bd528c319171c7dd22860dbf72bde116cbc4f644f1d02bb12e39",
+            "mode": "0o644",
+            "links": 1,
+            "realPathMatches": true
+        }
+    ],
+    "results": [
+        {
+            "command": "umask 022; node --test tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "71/71, zero skips; real writer/helper/path/byte/mode/link/dependency/AST and all14 fixture controls",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-scanner-022.log.gz",
+            "rawSha256": "35a8dcfeb7d689cd80ae1c082939dfe8c9addbd81578a169f1f2d334f15aed73",
+            "compressedSha256": "ed23146d2a917831385322f910da853d93406fcf0b2eeccaf10c5e1b31e2000d",
+            "rawBytes": 7223,
+            "logCompletedAt": "2026-10-08T04:36:44.136189+00:00"
+        },
+        {
+            "command": "umask 077; node --test tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "71/71, zero skips; real writer/helper/path/byte/mode/link/dependency/AST and all14 fixture controls",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-scanner-077.log.gz",
+            "rawSha256": "bd872925e824a1eba571ec9037babc3038dafa3bd9209429240c5a7f3e281743",
+            "compressedSha256": "f803757246a24be580bca368b174dec8f49a0c0805ab2ff02bfbe93f335a4adb",
+            "rawBytes": 7219,
+            "logCompletedAt": "2026-10-08T04:36:43.908184+00:00"
+        },
+        {
+            "command": "node --test tests/tools/doc-claim.test.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "16/16, zero skips",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-docclaim.log.gz",
+            "rawSha256": "ed01041b549c4d0825bb47092e5e130c0c9232b48251b63ced09455694d90490",
+            "compressedSha256": "18e02219fa7c5f85acb37b6949a8e40b36ad565dc2832cb57bce06aff4312566",
+            "rawBytes": 1506,
+            "logCompletedAt": "2026-10-08T04:36:25.315825+00:00"
+        },
+        {
+            "command": "node --test tests/tools/release-final-static-boundary.test.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "103/103, zero skips",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-boundary-regressions.log.gz",
+            "rawSha256": "e00740745c040bc79153620f68009efca15d61a1a1405d4c05344a5ab96ee10e",
+            "compressedSha256": "9f75679f3bf66a4b8a267724911437f7575b8285821c21a6767b884b491a9ca7",
+            "rawBytes": 8113,
+            "logCompletedAt": "2026-10-08T04:38:37.434503+00:00"
+        },
+        {
+            "command": "node tools/test-matrix/release-final-static-boundary.mjs --check",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original static boundary passes; not product/runtime acceptance",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-boundary-check.log.gz",
+            "rawSha256": "32f0b04d2e845959cdf094c1752ea08620444d962a9f8b58ab674433ed52970f",
+            "compressedSha256": "43dc74b777e1d7f4dd34050c0f2be89b3d1655dd5cd1fa20fc8c1304848a7acc",
+            "rawBytes": 270,
+            "logCompletedAt": "2026-10-08T04:38:06.141851+00:00"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file tools/docs/behavior-document-consistency-final.mjs --file tests/tools/behavior-document-consistency-final.test.mjs --file tests/tools/support/zero-legacy-scanner-fixture.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Three selected source files, zero violations/new findings",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-changed-style.log.gz",
+            "rawSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+            "compressedSha256": "60dbfbc30341a628169b27ffccfc595369bfe3552fe2cc690b69acc9c3426f1e",
+            "rawBytes": 68,
+            "logCompletedAt": "2026-10-08T04:40:52.301321+00:00"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/docs/behavior-document-consistency-final.mjs --file tests/tools/behavior-document-consistency-final.test.mjs --file tests/tools/support/zero-legacy-scanner-fixture.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Three selected source files, zero violations/new findings",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-strict-style.log.gz",
+            "rawSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+            "compressedSha256": "60dbfbc30341a628169b27ffccfc595369bfe3552fe2cc690b69acc9c3426f1e",
+            "rawBytes": 68,
+            "logCompletedAt": "2026-10-08T04:36:32.743968+00:00"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode full --file tools/docs/behavior-document-consistency-final.mjs --file tests/tools/behavior-document-consistency-final.test.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Exactly three global baseline refusals: stale configuration digest, stale source-state digest and generatedFrom; no owner style violations",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-selected-full-style.log.gz",
+            "rawSha256": "29f49c52aafb206437588b198eea890df1ec8402a5683c64c9e1b356fadadfb2",
+            "compressedSha256": "0166dd3d252682106b2127cc461951d77f72225aa39d5168e7bb6d6ba00ead22",
+            "rawBytes": 198,
+            "logCompletedAt": "2026-10-08T04:36:32.683967+00:00"
+        },
+        {
+            "command": "node tools/style/check-native-tooling-style.mjs --mode changed --file docs/testing.md --require-tools",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Actual official markdownlint-cli2 0.23.1; one selected document, zero violations",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-docs-style.log.gz",
+            "rawSha256": "60d6a0fd0e363daa8e735fe0a5c5481545d13d1cbbb45cb56488ae88e08c8da2",
+            "compressedSha256": "c5d1da282356b0244e1f39f47dce7439fe016f222793afaa3b7f3403ecc7ba1d",
+            "rawBytes": 110,
+            "logCompletedAt": "2026-10-08T04:36:23.927799+00:00"
+        },
+        {
+            "command": "node --check tools/docs/behavior-document-consistency-final.mjs; node --check tests/tools/behavior-document-consistency-final.test.mjs; node --check tests/tools/support/zero-legacy-scanner-fixture.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "All three actual source programs parse",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-syntax.log.gz",
+            "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "compressedSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "rawBytes": 0,
+            "logCompletedAt": "2026-10-08T04:36:22.007762+00:00"
+        },
+        {
+            "command": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original pinned producer output byte-identical before/after, repeat 1",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-fixedpoint-1.log.gz",
+            "rawSha256": "a22d88572b43d15e2eb1938a4e58ef526c61c58f05418412c3fa3d56a6253fd7",
+            "compressedSha256": "1e2fc96ca59707f64fd014c7d0f86ebef3a3645c8fbabba381a17bb96e69207d",
+            "rawBytes": 258,
+            "logCompletedAt": "2026-10-08T04:42:18.199146+00:00"
+        },
+        {
+            "command": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original pinned producer output byte-identical before/after, repeat 2",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-fixedpoint-2.log.gz",
+            "rawSha256": "e9354499b699807e8c6c0e6a9649843612a33932de5f73966cd4c1f902d0ee4a",
+            "compressedSha256": "2b44e30e7d2cc13530aaeed35f28147d5f91de0d3ccf14c8ebe32ecdf2c7d624",
+            "rawBytes": 258,
+            "logCompletedAt": "2026-10-08T04:43:53.841204+00:00"
+        },
+        {
+            "command": "node artifacts/style/issue-3534-whitespace-format.mjs",
+            "testedCommit": "b4dfcb7dab1219106deb40ee4393b447054e42b5",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Fresh AST/raw-token/literal/comment-equivalent actual pass; source tree unchanged",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-idempotence-1.log.gz",
+            "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "compressedSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "rawBytes": 0,
+            "logCompletedAt": "2026-10-08T04:26:51.863728+00:00"
+        },
+        {
+            "command": "node artifacts/style/issue-3534-whitespace-format.mjs",
+            "testedCommit": "b4dfcb7dab1219106deb40ee4393b447054e42b5",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Fresh AST/raw-token/literal/comment-equivalent actual pass; source tree unchanged",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-idempotence-2.log.gz",
+            "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "compressedSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "rawBytes": 0,
+            "logCompletedAt": "2026-10-08T04:26:54.039775+00:00"
+        },
+        {
+            "command": "node tools/frontend/reviewed-residual-classification.mjs",
+            "testedCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "149 paths /329 parent-import diagnostics /0other; authority unchanged",
+            "artifact": "artifacts/style/issue-3534-compatibility/current-residual.log.gz",
+            "rawSha256": "682897450ec7bf2cd214d50205e51f3f347ccadcf6d0c342adaa0815f1cabff6",
+            "compressedSha256": "d63f12d9b7abc477636fc4d84fe4b6b7fc3ebe03b491e679b710009c2bac300f",
+            "rawBytes": 72,
+            "logCompletedAt": "2026-10-08T04:47:24.993773+00:00"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --repository",
+            "testedCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original repository contract:12 types/34 scopes",
+            "artifact": "artifacts/style/issue-3534-compatibility/current-repository-contract.log.gz",
+            "rawSha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885",
+            "compressedSha256": "d7f981890ec0783808b8ecd5a49b52fab6f5038536bd91dde8776cd137d46a8d",
+            "rawBytes": 51,
+            "logCompletedAt": "2026-10-08T04:47:23.917750+00:00"
+        },
+        {
+            "command": "node tools/test/generate-correctness-attempt-producers.mjs --check",
+            "testedCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "Original full canonical inventory unchanged; no roster truncation",
+            "artifact": "artifacts/style/issue-3534-compatibility/current-inventory-check.log.gz",
+            "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "compressedSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "rawBytes": 0,
+            "logCompletedAt": "2026-10-08T04:47:22.461718+00:00"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --range b1f0fd6160289b2bab60eca55592050c42b07e83..HEAD",
+            "testedCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+            "exitCode": 0,
+            "status": "passed",
+            "result": "All newly owned compatibility, integration and evidence commits satisfy original headers",
+            "artifact": "artifacts/style/issue-3534-compatibility/current-owned-range-contract.log.gz",
+            "rawSha256": "c5e0e38ccca0463ef35186d606b6063a0c1665a431ada59d39f12dd64bea5a98",
+            "compressedSha256": "202e8cf6805ce2c77a2f69039c5485ce8f572144a2ec241130ab3fda55c13498",
+            "rawBytes": 81,
+            "logCompletedAt": "2026-10-08T04:48:05.158650+00:00"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --range 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8..HEAD",
+            "testedCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Only previously supplied de18f33c939a2f4809dc8a9846e9d0d93a32e606 and fb3f43035b9bbdd17aea029ca51d6fca86bd3273 lack Refs footer; no force rewrite",
+            "artifact": "artifacts/style/issue-3534-compatibility/current-complete-range-contract.log.gz",
+            "rawSha256": "82967e8621d9916c31eee24a5b86447acd26ca86d3ec9715808679a5821e4125",
+            "compressedSha256": "d55c997403106b5e5c5bc1fb95d3e1a66f04aae263bde8b7ba5696a642e29de3",
+            "rawBytes": 218,
+            "logCompletedAt": "2026-10-08T04:48:05.422655+00:00"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --github-event .tmp/issue-3534-compatibility/pr-current-event.json",
+            "testedCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+            "exitCode": 1,
+            "status": "failed",
+            "result": "Naming evidence correction passes; only eight unchanged supplied generator source bindings plus aggregate all-sources-changed refusal remain",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-pr-contract-corrected.log.gz",
+            "rawSha256": "9a1d71a62b28c70ec011281e8d28d33621d2e3d6b60935fe70377241f97b5e91",
+            "compressedSha256": "e4fe95467183ecf07682d19e8542666e47516228cf1fede30ed7992c45423766",
+            "rawBytes": 970,
+            "logCompletedAt": "2026-10-08T04:47:24.081753+00:00"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --github-event .tmp/issue-3534-compatibility/pr-final-event.json",
+            "testedCommit": "08ba6ecd16b916b536188c384e6e5b3e08a12fb8",
+            "exitCode": 1,
+            "status": "failed-superseded-by-correction",
+            "result": "Earlier metadata probe also refused unmatched docs path; corrected separately without registry changes",
+            "artifact": "artifacts/style/issue-3534-compatibility/final-pr-contract.log.gz",
+            "rawSha256": "eae8b6a647494314f3dbfe4fd205ab41a889cb0c62ea19bdf05479bc76c2edcc",
+            "compressedSha256": "314e85d4466a5e6ca9867f46e133c0612aa2844ab270d4d50f1625a30ff4b1d3",
+            "rawBytes": 1183,
+            "logCompletedAt": "2026-10-08T04:42:30.847419+00:00"
+        },
+        {
+            "command": "git diff --name-status 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8..87209d571a93254dcacfe9093753002e8c98822a",
+            "testedCommit": "b233c65c6c060f41336064d3be7053447f866f63",
+            "exitCode": 0,
+            "status": "observed-not-acceptance",
+            "result": "Fresh fetched master has five changed/additional paths; source/style owners unchanged. Release action registry changed; new-master integration/recheck is pending.",
+            "artifact": "artifacts/style/issue-3534-compatibility/master-advance.log.gz",
+            "rawSha256": "7a213dc53b5de5905fef1bbf3e1dca384889eea2ff0f788ad5939f7781f09a7b",
+            "compressedSha256": "d798f2db867f2fa315f04035ec66cde44db86a6342d17466ee4c498f7292500a",
+            "rawBytes": 270,
+            "logCompletedAt": "2026-10-08T04:47:45.654222+00:00"
+        }
+    ],
+    "acceptance": [
+        {
+            "criterion": 1,
+            "status": "passed-on-starting-baseline",
+            "evidence": "Original exact source/policy/baseline/602-diagnostic seal retained at original immutable identities; refreshed master drift separately reported."
+        },
+        {
+            "criterion": 2,
+            "status": "locally-verified-independent-review-pending",
+            "evidence": "Separate AST/raw-token/comment equivalent mechanical commit, exact classification and later blame registration preserved; fresh actual two passes and archived byte-identical prior seal."
+        },
+        {
+            "criterion": 3,
+            "status": "passed",
+            "evidence": "149 paths /329 parent-import diagnostics /0other; trusted residual unchanged."
+        },
+        {
+            "criterion": 4,
+            "status": "failed-full-style-global-baseline-binding",
+            "evidence": "Changed/strict owner style0; scanner71 twice, DocClaim16, boundary103/check and generator two repeats pass. Original fullstyle still refuses three global baseline bindings."
+        },
+        {
+            "criterion": 5,
+            "status": "pending-independent-review-merge-current-master-recheck",
+            "evidence": "Draft remains open. Global phase barrier respected; no merge, deploy or issue closure. #3533 cannot count full style acceptance."
+        }
+    ],
+    "remainingHandoffs": [
+        {
+            "owner": "existing trusted style/baseline owner via coordinator",
+            "need": "Exact authorized source commit and independent candidate-bound evidence for the three original full-style baseline bindings; no debt/policy waiver."
+        },
+        {
+            "owner": "root #3521 via coordinator",
+            "need": "Original shared generated-history admission for eight unchanged source bindings and correction/disposition of the two supplied missing-Refs commit headers without blind rewrite."
+        },
+        {
+            "owner": "independent reviewer and later authorized integration phase",
+            "need": "PR review followed by permitted integration/current-master recheck; latest master action-registry drift is not incorporated or accepted."
+        }
+    ],
+    "notAdditionalIssueCriteria": "No disabled remote CI, unrelated backend build/matrix, or runtime/product qualification is invented as an extra #3534 criterion. Prior peripheral failures remain frozen in issue-3534-continuation.json.",
+    "evidencePublicationRule": "Later evidence commit must only add these packet/log files over metadataOnlyCorrectionCommit; compare tree to prove every pre-existing tracked path remains identical. Tests are bound to exact testedSourceAndCoupledOutputCommit, not relabeled to publication head."
+}
