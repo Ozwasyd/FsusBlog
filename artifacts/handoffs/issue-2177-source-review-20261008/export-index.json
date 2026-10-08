@@ -1,0 +1,158 @@
+{
+  "kind": "ordinary-source-review-evidence-export-index-not-a-qualified-receipt",
+  "exportedAtUtc": "2026-10-08T08:44:05.584562+00:00",
+  "evidenceBranch": "codex/issue-2177-review-evidence-20261008",
+  "evidenceBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "reviewedSourceCommit": "b325e08d63d7802ee62d8707a5b901d43ceda8c9",
+  "reviewedSourceBranch": "codex/issue-2177-review-source-20261008",
+  "files": [
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/review-eligibility-handoff.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/review-eligibility-handoff.json",
+      "sha256": "cc4f0e402484f1e405d07822b74607ade6eb62ddb3987283ed075b5638afc51a",
+      "bytes": 30971,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/comment-query-api-handoff.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/comment-query-api-handoff.json",
+      "sha256": "1b579c51cd37c23c0d10826e738a1bde2c6fd6d030a54ceda4efae67e4a1fe1e",
+      "bytes": 12380,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/assignment-status-41.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/assignment-status-41.json",
+      "sha256": "124941685d70b783784e86c458a9c7d5ca37667c0b5876731a70902dd248c2f6",
+      "bytes": 127596,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/range-contract.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/range-contract.json",
+      "sha256": "94949c812efbc38865ed9a857e64586de825ec4707a10335ddab8a7361031890",
+      "bytes": 564,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/range-contract.log",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/range-contract.log",
+      "sha256": "4cc6d8f588a334811a2d8151c69c2d6b3d34bd527e432d328250150db2648297",
+      "bytes": 81,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/source-stage.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/source-stage.json",
+      "sha256": "134181583a3808784a898cf92a962c14e8ce8e55a2a6843efcd72cecc54fc0b4",
+      "bytes": 604,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/source-stage.log",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/source-stage.log",
+      "sha256": "f984aca46a9a2bc1acb766794555090e2a741b366a13536d84addd476b0a5377",
+      "bytes": 387,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/source-stage-pinned-tools.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/source-stage-pinned-tools.json",
+      "sha256": "55f41b84ba5b2fcba9b3613af0ca74257aa3bef6c159335b94e838b89c7e6f9d",
+      "bytes": 571,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/source-stage-pinned-tools.log",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/source-stage-pinned-tools.log",
+      "sha256": "85065abc1a767d6cd767cc31fc05230490de851b5fbdb3254661bcbe40398f3d",
+      "bytes": 256,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/source-governance-result.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/source-governance-result.json",
+      "sha256": "d9970fef9ec3bd8fbf17d369c36dff87bdd4d57ae3dacad53fb11f53fa94a7b7",
+      "bytes": 7885,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/pr-plan.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/pr-plan.json",
+      "sha256": "927dcfa87b0b60ba0b8b143c799b562938cf055a428a99c290e400284aee0b67",
+      "bytes": 71196,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/local-review-contract-final.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/local-review-contract-final.json",
+      "sha256": "ee75ec372df92c2765dcc23a6759f3a8419863dfbc7f0d6085e84c6f13bb8f6c",
+      "bytes": 449,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/local-review-contract-final.log",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/local-review-contract-final.log",
+      "sha256": "e32f120318f8bed0a3a3d2e53e1bd6366bb9aa10438785ace08147336d5372b4",
+      "bytes": 42,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/local-pr-event.json",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/local-pr-event.json",
+      "sha256": "461952b14b8b4d9d1687d7b612c6d561c1bf87509c3b8c43b37f43a310f2c9b6",
+      "bytes": 7352,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/local-pr-body.txt",
+      "originArtifact": "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/local-pr-body.txt",
+      "sha256": "0adef0b9ec5b593fcffa424588da3af5c47afd519d4c85f5b6ad9012700a04c0",
+      "bytes": 6476,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/compiled-pure-comment.json",
+      "originArtifact": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/compiled-pure-comment.json",
+      "sha256": "e213f0e9d913741da1bc3541142fd270c1ec8a185d3f5b805ff82724965bf193",
+      "bytes": 1153,
+      "copiedByteExact": true
+    },
+    {
+      "path": "artifacts/handoffs/issue-2177-source-review-20261008/compiled-pure-comment.trx",
+      "originArtifact": "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008/compiled-pure-comment.trx",
+      "sha256": "3ed50a1ab695973e8186d638a12afc971189835ff6d764d4733030d8cb0cd921",
+      "bytes": 114800,
+      "copiedByteExact": true
+    }
+  ],
+  "localPaths": "Original artifacts remain byte-exact; local references resolve through this exported inventory, not through another executor filesystem.",
+  "historicalControlBinding": {
+    "testedCommit": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+    "sdk": "10.0.302",
+    "passed": 75,
+    "skipped": 0,
+    "exitCode": 0,
+    "applicableByByteIdentity": [
+      "docs/architecture/comment-command-boundary.md",
+      "src/backend/Services/ArticleCommentPolicyService.cs",
+      "src/backend/Services/CommentModerationService.cs",
+      "src/backend/Services/CommentService.cs",
+      "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+      "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+      "tests/backend/Unit/CommentPurePolicyContractTests.cs"
+    ],
+    "notByteEqual": [
+      "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json"
+    ],
+    "limitation": "Historical behavior controls for the unchanged owners; no fresh current-base compile, runtime reseal, proof/nullifier, DB transaction, security, derived edge, product or release qualification."
+  },
+  "initialSourceFailureRetained": true,
+  "testsRerunForExport": false,
+  "ordinaryEvidenceOnly": true,
+  "noPrivateRuntimeData": "Contains source hashes, API contracts, issue status, commands and pure unit-test TRX. No token/cookie/storage/projected credential/nullifier/private actor artifacts exported.",
+  "qualificationEligible": false,
+  "queueGrant": false,
+  "prCreated": false,
+  "wholeAssignmentComplete": false
+}

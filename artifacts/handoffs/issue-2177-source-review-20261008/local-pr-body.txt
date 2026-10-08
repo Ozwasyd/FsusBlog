@@ -1,0 +1,106 @@
+## Linked Issue
+
+Refs #2177
+
+Source consumers: [#1725 tracking](https://github.com/Ozwasyd/FsusBlog/issues/1725), [#2542](https://github.com/Ozwasyd/FsusBlog/issues/2542), [#2545](https://github.com/Ozwasyd/FsusBlog/issues/2545).
+
+## Scope Summary
+
+- Expose the existing production-shared pure author-mode, article-policy composition/write decision and reply-recipient methods for compiled callers. Add an explicit model-settings overload of initial moderation; the production instance delegates to the same decision with its original priority and lazy configuration behavior preserved.
+- Public APIs: AnonymousCommentPolicyService.EvaluateAuthorMode(snapshot, requestedMode, optIn); ArticleCommentPolicyService.Compose(articleId, site, article, thread) and EvaluateWrite(policy, authorMode, utcNow); CommentModerationService.ResolveInitialState(actor, region, modelEnabled, modelProviderAvailable); CommentCommandService.ResolveReplyRecipientId(targetAccountId, actorAccountId).
+- Exact clean source head b325e08d63d7802ee62d8707a5b901d43ceda8c9, current master base aaba7b8c84ecfb336c71443e30d9fd82d21fb16d; own published 617c4e162 and ea870fe5a source only reapplied without conflict. Unrelated f481 ancestry is excluded. Naming exceptions are narrowed to this exact eight-file scope.
+- This source-only slice is explicitly requested to unblock downstream planning. It does not implement or qualify the remaining #2177 transaction port, later mutation timelines, derived edges or rerun; #1725 has no independent implementation and remains tracking-only.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [ ] Generated output
+- [x] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+## Tests Run
+
+- [x] Other: actual Git-bound SOURCE stage C# lexical check passes all six changed C# files (zero violations); document lifecycle passes. Current candidate has eight changed paths.
+- [x] Other: exact current-base commit range and whitespace checks pass.
+- [x] Other: complete current Git-bound SOURCE stage passed after official markdownlint-cli2 0.23.1 task-scoped setup; six C# owners, one document lint and lifecycle pass. First missing-tool failure remains retained. Local prepared eight-file metadata contract passes. Complete product qualification remains OPEN.
+- [x] Targeted backend tests: historical exact ea870fe5a public policy controls passed 75/75, zero skipped using SDK 10.0.302. Production/test bytes are unchanged in this isolated increment; historical TRX is retained with its original SHA and is not relabeled as current candidate runtime acceptance.
+- [ ] Other: no new compiled/native/transaction/security/receipt/runtime qualification; original issue prerequisites and complete qualification remain OPEN.
+- [ ] Other: local prepared review metadata only; no queue grant, PR creation, remote workflow, merge or closure.
+
+## UI Evidence
+
+- [ ] Screenshots or video attached for UI changes
+- [ ] Mobile layout checked
+- [ ] Dark mode checked
+- [ ] Accessibility and reduced-motion impact considered
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] `.git-blame-ignore-revs` updated when applicable
+- Formatter identity: none
+- Formatter version: none
+- Formatter command: none
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+- Exceptions manifest: artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: no performance or runtime qualification claim.
+
+## Release Note
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: expose production shared comment policy inputs
+
+## Generated Output
+
+- Generator source: none
+- Generated outputs: none
+- Digest/evidence: none
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: draft source capability review and exact commit handoff only.
+- Rollback: revert the bounded API exposure increment on pure decision, precedence or configuration behavior regression.
+- Deferred work: remaining #2177 transaction/receipt/atomicity and original prerequisite admission. Independently published #2178/#2179 source APIs retain their own evidence and qualification limits.
+- Known limitations: EvaluateWrite is article policy only; actor admission must precede it. Region rejection precedes initial moderation. Pure APIs authenticate no actor, reserve no nullifier, allocate no persisted row and do not validate actual thread visibility.
+
+## Notes For Reviewers
+
+The coordinating parent's high-fanout request authorizes a bounded owned source capability to unblock #2545 planning without global/runtime acceptance. Changes belong to #2177 production-shared initial policy source; no independent #1725 tracking implementation or other chain implementation is added. Existing public transition/scope APIs and typed schema records remain unchanged. Article/time inputs must come from their exact canonical owners; no private epoch, article title/row-order discovery, fake proof or fixture qualification is introduced.
+
+No endpoint, AEDS/wire contract, database migration, product UI, screenshot, formatter-only migration, blame-ignore addition, policy threshold, generated output or acceptance gate is changed. Matching review checkboxes are not-applicable assessments. The maintained command-boundary document records pure API limitations. No merge, issue closure, deployment or package publication.

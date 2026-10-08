@@ -1,0 +1,181 @@
+{
+  "kind": "read-only-source-api-handoff-not-qualified-receipt",
+  "consumerOwner": "#1640 sole registry owner",
+  "inspectedCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "createdAt": "2026-10-08T08:27:36.423232+00:00",
+  "sourceIdentities": [
+    {
+      "path": "src/backend/Services/CommentQueryService.cs",
+      "sha256": "09a27e6c1a9e8e51ae77ba46544d8dcdf2363d1a1bd439d92b370346adec053b",
+      "gitBlob": "4658d108db03e6296e6181d2084565197b77dce9",
+      "lastSourceCommit": "8a5d3df8302f4b9ad113353f237e2422a0c66c79"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringUseCasePorts.cs",
+      "sha256": "965da488e63cc5e7dd230e51a4714db9541cce98a5c2f1373582f9521f3cd08d",
+      "gitBlob": "4949260cd3e0bc30778dc542a1776c1860531c03",
+      "lastSourceCommit": "d3bd114d8d0bd80372aa10dafcf7089d9b013858"
+    },
+    {
+      "path": "src/backend/Services/Authoring/AuthoringModerationWorkflowService.cs",
+      "sha256": "3b2007b90842e449f4d7c4c1fe474fb21ad91500795609551f3544c8ea42cde2",
+      "gitBlob": "2e71e5b646d75ad868a296307143c449476db688",
+      "lastSourceCommit": "9d0125088bd9aab4796ffe65f317827426962ebf"
+    },
+    {
+      "path": "src/backend/Services/Authoring/CommentModerationQueueStore.cs",
+      "sha256": "215f4dd4223e2ff72beff3e0d9e7195156f512dd4076044a07ef4316715dceca",
+      "gitBlob": "8334d947b542c4cff6d6842bf5814de670efa78a",
+      "lastSourceCommit": "36634e2ab0504b387e64e83138c5a2c9dde65220"
+    },
+    {
+      "path": "src/backend/Services/Authoring/CommentModerationQueueService.cs",
+      "sha256": "1ea9a8c876942011d0cdfebce9518ebbaaf9f1da422fd99b337110f55223dd6f",
+      "gitBlob": "4b5db4a343aedd33179b3524dce5e39ba136f01c",
+      "lastSourceCommit": "36634e2ab0504b387e64e83138c5a2c9dde65220"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Comments.cs",
+      "sha256": "9d95bfe5111e4dc30ba2ca462fc704e502209ae2ffc38c38d68fdf0caacf8b40",
+      "gitBlob": "314f34519b6229a41fa0865b96d7c17d4cf94e2a",
+      "lastSourceCommit": "7a0995940e23d8db81e67ea9f45cf9ed8fe776e3"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.cs",
+      "sha256": "1f884d5f548492381397c3f3279ec673dbff9f9429492a0eccf88afaeac64684",
+      "gitBlob": "06ddd49afd88972c6272f2b979fbcfe66ca45d2e",
+      "lastSourceCommit": "98e490f6d03bafa254b66a9ccb03ee453a012b1a"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.ModerationRoutes.cs",
+      "sha256": "bdd9354ad4fa9fbcaa9ca0cb63ccf2e7aa52046ae734b3b06114234d7f761f46",
+      "gitBlob": "2bdc7e56c5f7b782425736ef9e17e3415da3b938",
+      "lastSourceCommit": "7a0995940e23d8db81e67ea9f45cf9ed8fe776e3"
+    },
+    {
+      "path": "src/backend/Modules/Endpoints/AuthoringEndpoints.cs",
+      "sha256": "586060a81ff349f42f300f431db3ea8e88d132cf9b7fe23d4bb35a16952f9452",
+      "gitBlob": "aa7c0c69ca6910cd864e4e3f904a45e24401952e",
+      "lastSourceCommit": "7a0995940e23d8db81e67ea9f45cf9ed8fe776e3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+      "sha256": "6f4a0e610597a2351c3c7faedd917026b931703e7a3a38d81e8e1c871ff738d5",
+      "gitBlob": "7af02597d32ff704729b24dd06d139ea5c1003f6",
+      "lastSourceCommit": "63fdf66d3c6ac6d70ab9695e72ce80d8e3ce07e3"
+    },
+    {
+      "path": "src/backend/Infrastructure/Auth/AnonymousAccountAuthorizationExtensions.cs",
+      "sha256": "31f2188b9e22357cbcbe14a47be5257325d3a50f186b79e1a558992238fd52cc",
+      "gitBlob": "b312a76477fc17c58bbabe6b351bff6332e49277",
+      "lastSourceCommit": "63fdf66d3c6ac6d70ab9695e72ce80d8e3ce07e3"
+    },
+    {
+      "path": "src/backend/Services/Moderation/RegionLegalModerationService.cs",
+      "sha256": "9572e9b4f0abe68d295068dcfdaa641efbf6cbf1c47a1d721841ee9f24315581",
+      "gitBlob": "93c3131d76479d783e23d00abad3ae3f0683116d",
+      "lastSourceCommit": "63fdf66d3c6ac6d70ab9695e72ce80d8e3ce07e3"
+    },
+    {
+      "path": "src/backend/Models/Dtos/CommentDto.cs",
+      "sha256": "d6626536e687bfa3b1c22aab9012584826080ec721a692d9defbf05a049fe95f",
+      "gitBlob": "1477e5751408e4a4da2dbb7603e2d71532b63384",
+      "lastSourceCommit": "9f6323ac4a8ac2de18984172772d9eb7679171b1"
+    },
+    {
+      "path": "src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs",
+      "sha256": "e0d53016208e88aaa5d7a3c343ab340712d8093d240b59120f439589872edd75",
+      "gitBlob": "e1b0157139779c1a8a58a4c702f8709cd5579e21",
+      "lastSourceCommit": "63fdf66d3c6ac6d70ab9695e72ce80d8e3ce07e3"
+    }
+  ],
+  "cases": {
+    "public-thread": {
+      "api": "ICommentQueryService.GetTreeRootsAsync(int articleId, CursorPageRequest<long> request, int previewLimit=3, string viewerRegion=\"GLOBAL\") -> Task<CursorResponse<CommentTreeRootDto>>",
+      "routes": [
+        "GET /api/binary/comment/{articleId:int}",
+        "GET /api/binary/comment/{articleId:int}/children/{parentId:long}",
+        "GET /api/binary/comment/{articleId:int}/context/{commentId:long}",
+        "GET /api/binary/comment/{articleId:int}/thread/{rootId:long}"
+      ],
+      "roles": [
+        "article",
+        "thread-root",
+        "parent",
+        "target-comment",
+        "resolved-viewer-region"
+      ],
+      "order": "Root id DESC/cursor <; children and replies id ASC/cursor >; preview 1..10; permalink siblingWindow clamped by service. Recursive endpoint flag false -> 503; AEDS v2, cursor/rate/risk guards."
+    },
+    "moderation-queue": {
+      "api": "IAuthoringModerationQueue.ListCommentModerationQueuePageAsync(CommentModerationStatus? status, int limit, string? cursor, CancellationToken ct=default) -> Task<CommentModerationQueueResponse>; ListCommentModerationQueueAsync(status=null,limit=50,ct) delegates first page",
+      "route": "GET /api/binary/author/comments/moderation?status=<0..3>&limit=<1..100>&cursor=<canonical queue cursor>",
+      "roles": [
+        "admin-principal-with-comment.moderate",
+        "comment-status",
+        "page-cursor"
+      ],
+      "order": "status null/Pending uses real queue: appeal priority DESC (pending appeal=2, open/reviewing report=1, ordinary=0), risk DESC, waiting UTC ASC, comment id ASC. Explicit Approved/Rejected/Hidden uses nondeleted status filter, CreateTime DESC then Take(limit); current implementation does not apply cursor on that branch. Invalid status/cursor -> bad request; no actor or permission validation inside service itself."
+    },
+    "approved-visibility": {
+      "api": "public tree/children/permalink/replies",
+      "contract": "Directly visible only Approved=1 and !is_deleted, live published article, matching current publication published_at <= actual DateTime.UtcNow, no blocked viewer region. Ancestors of directly-visible descendants retained as redacted placeholders."
+    },
+    "pending-visibility": {
+      "api": "public queries exclude direct Pending=0; privileged queue null/Pending and owned GetAttributableAsync expose their actual projections",
+      "contract": "A nonapproved ancestor with approved descendant can appear as placeholder; do not assert whole chain absent solely from status."
+    },
+    "rejected-visibility": {
+      "api": "public queries exclude direct Rejected=2; privileged explicit-status queue and owned attribution query available",
+      "contract": "Retained ancestor placeholders obey same chain rule."
+    },
+    "hidden-visibility": {
+      "api": "public queries exclude direct Hidden=3; privileged explicit-status queue and owned attribution query available",
+      "contract": "Retained ancestor placeholders obey same chain rule; spam is not a state."
+    },
+    "region-filter": {
+      "api": "public query string viewerRegion, normalized by IRegionLegalModerationService; actual endpoints use IClientRegionResolver.Resolve(HttpContext).Region",
+      "contract": "Blocked-region exact match rejects direct visibility; UNKNOWN conservatively rejects every comment with any blocked-region row. GLOBAL is the direct service default, not a normalized-role entitlement. Ancestor chain placeholders possible."
+    },
+    "actor-filter": {
+      "api": "GetAttributableAsync(int userId, CursorPageRequest<long> request, int? articleId=null) -> Task<CursorResponse<UserCommentResponse>>",
+      "route": "GET /api/binary/comment/me?articleId=<optional>",
+      "contract": "Route selects authenticated AccountPrincipalContext.AccountId via core adapter, RequireAnonymousAccountPrincipal() (identity_kind=anonymous_account canonical constant). SQL UserId==userId AND AuthorMode==public AND !article.IsDeleted; optional article filter; comment id DESC/cursor<. Includes own nonapproved/deleted status facts. No arbitrary actorId route; public query methods have no actor filter input."
+    },
+    "permission-filter": {
+      "api": "moderation queue route",
+      "contract": "RequireAdminPermission(CommentModerate) requires authenticated user, identity_kind=canonical admin-principal constant, admin_id claim and admin_permission=comment.moderate. The interface itself takes no actor and is not an authorization boundary. Public tree AllowAnonymous + public_read limiter and risk filter; anonymous caller is not a normalized role receipt."
+    },
+    "deleted-root": {
+      "api": "GetTreeRootsAsync and GetPermalinkContextAsync",
+      "contract": "Deleted root alone disappears. If an approved visible descendant remains, visible_chain re-adds ancestors and projects IsDeleted=true, deleted content/author placeholders without original text/author. Public DTO contains IsEdited, not exact revision."
+    },
+    "deleted-reply": {
+      "api": "GetChildrenAsync/GetRepliesAsync/GetPermalinkContextAsync",
+      "contract": "Deleted leaf absent; ancestor with visible descendant retained as placeholder. Reply target not directly visible projects deleted author. Unavailable target/context returns unavailable; preserve actual API behavior, no fixture repair."
+    }
+  },
+  "missingAuthority": [
+    "No normalized semantic-role receipt parameter or qualified #1713/#1714/#1712 role binding in these query APIs. Actual scalar IDs must be selected from admitted canonical evidence by the upstream reader owner; do not infer roles from opaque IDs, row order, titles or anonymous callers.",
+    "No public comment exact revision in DTO; raw query facts do not qualify current fixture/edge/version admission.",
+    "No newly executed query DB/transport/native/semantic/cohort QA; source contracts only. Qualification remains false."
+  ],
+  "missingSourceDistinction": "Existing real query, queue, actor and permission transport guards exist. Missing case runner/registry mapping remains #1640 owner work; exact normalized role receipt/reader authority remains its actual upstream owners, not a reason to create another query runner. #2178/#2179 capabilities are separate raw mutation/observation APIs, not substitutes.",
+  "accountComposer": {
+    "suppliedExactCommit": "138c1254918d365d35b6019e1bd6d4a418bcafa3",
+    "consumed": false,
+    "suppliedEvidence": "224 controls, six-file style/SOURCE/contracts; immutable DTO verify then same DTO cleanup; cleanupCompletionVerified=false",
+    "canonicalGapsByOwnedIssue": {
+      "2170": "Owned: real Cookie/device-private storage projections and first-request AOT source/verification, requiring #2051 and genuine current #2169 source facts. Does not own new account preference/cleanup ports.",
+      "2151": "aggregate entitled auth projection/lifecycle where applicable; do not duplicate downstream composer verification",
+      "2680": "auth ownership inventory/cutover, gated by #2151",
+      "2694": "truth consumer inventory/cutover, gated by its canonical replacements"
+    },
+    "externalCanonicalBoundaryGap": {
+      "issue": 2169,
+      "state": "closed boundary re-read; no acceptance inferred from closure",
+      "missingSource": "Current canonical preference CleanupAsync verifies before restore, returns Task without independent post-restoration completion observation. Belongs to existing preference fact/cleanup owner, not #2170 projection or downstream composer verification. Aggregate verified cleanup/receipt remains producer owner scope."
+    }
+  },
+  "caseRoleLabelsAuthority": "Case roles are descriptions of actual API input meanings, not invented schema fields or normalized-role receipt IDs. Actual receipt-qualified role identity is missing and must come from the existing upstream owner."
+}

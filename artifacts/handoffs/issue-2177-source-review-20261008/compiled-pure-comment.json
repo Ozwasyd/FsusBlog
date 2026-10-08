@@ -1,0 +1,24 @@
+{
+  "sha": "ea870fe5a14fe2b8a62067ec17b9c790c7042bd5",
+  "runId": "pure-comment-5bf81f03-dc84-49c4-bb72-99ffc3e8ad50",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false",
+    "--filter",
+    "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests",
+    "--logger",
+    "trx;LogFileName=compiled-pure-comment.trx",
+    "--results-directory",
+    "/workspace/FsusBlog-2177-pure-source/.tmp/issue-2177-pure-source-20261008"
+  ],
+  "startedAt": "2026-10-08T05:51:42.790257+00:00",
+  "seconds": 154.60653143299896,
+  "exitCode": 0,
+  "logSha256": "1b0d085b10a91c35e43314ad501efcf17756d3954c9357fcf70f647790558765",
+  "authority": "current compiled pure/source capability, not DB transaction or terminal qualification"
+}

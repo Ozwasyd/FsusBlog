@@ -1,0 +1,11 @@
+{
+  "sha": "b325e08d63d7802ee62d8707a5b901d43ceda8c9",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--github-event",
+    "/workspace/FsusBlog-2177-review-source/.tmp/issue-2177-review-source-20261008/local-pr-event.json"
+  ],
+  "exitCode": 0,
+  "artifactScope": "local prepared review metadata; no actual PR or queue grant"
+}
