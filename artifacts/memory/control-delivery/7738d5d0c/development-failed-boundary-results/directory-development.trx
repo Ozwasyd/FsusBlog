@@ -1,0 +1,133 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<TestRun id="31310bb7-a4f8-45b4-b10b-d2194766656d" name="@5f086e157d19 2026-10-08 14:15:24" xmlns="http://microsoft.com/schemas/VisualStudio/TeamTest/2010">
+  <Times creation="2026-10-08T14:15:24.6899773+00:00" queuing="2026-10-08T14:15:24.6899774+00:00" start="2026-10-08T14:15:21.7799579+00:00" finish="2026-10-08T14:15:24.7788758+00:00" />
+  <TestSettings name="default" id="258d0d33-b59a-4614-a04b-98c8f697b958">
+    <Deployment runDeploymentRoot="_5f086e157d19_2026-10-08_14_15_24" />
+  </TestSettings>
+  <Results>
+    <UnitTestResult executionId="795eeaa8-fcab-4f4d-8286-9494e69e9839" testId="917edc58-3e05-0963-a7d8-2d746b0ac1c2" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;max\n&quot;, limit: True, state: Unknown, value: null, unlimited: True)" computerName="5f086e157d19" duration="00:00:00.0000113" startTime="2026-10-08T14:15:24.6645765+00:00" endTime="2026-10-08T14:15:24.6646233+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="795eeaa8-fcab-4f4d-8286-9494e69e9839" />
+    <UnitTestResult executionId="df8d174b-17c1-46a9-ae22-365edbbf5858" testId="b1160211-a6b3-3b21-7c31-87b2fc73a2bb" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;12 34&quot;, limit: False, state: Malformed, value: null, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0000052" startTime="2026-10-08T14:15:24.6648113+00:00" endTime="2026-10-08T14:15:24.6648554+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="df8d174b-17c1-46a9-ae22-365edbbf5858" />
+    <UnitTestResult executionId="5fd56aa9-f218-4b9d-8e3d-850a9494281d" testId="53f5c207-bd0c-96df-b4f8-cc74afdb9d38" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;12\0&quot;, limit: False, state: Malformed, value: null, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0000061" startTime="2026-10-08T14:15:24.6649520+00:00" endTime="2026-10-08T14:15:24.6650044+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5fd56aa9-f218-4b9d-8e3d-850a9494281d" />
+    <UnitTestResult executionId="396638db-7d04-40f7-9e37-ed1b7b675f1f" testId="b2630f42-6103-da5f-3cc2-8c91dcaed53f" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;9223372036854775808&quot;, limit: False, state: Malformed, value: null, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0000631" startTime="2026-10-08T14:15:24.6646970+00:00" endTime="2026-10-08T14:15:24.6647418+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="396638db-7d04-40f7-9e37-ed1b7b675f1f" />
+    <UnitTestResult executionId="78a7f1f2-ce17-45b2-a4b2-8dfe7f3a0431" testId="4e0af416-025d-25a5-e7ac-87bfb0d45dc7" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;-1&quot;, limit: True, state: Malformed, value: null, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0001135" startTime="2026-10-08T14:15:24.6644308+00:00" endTime="2026-10-08T14:15:24.6644833+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="78a7f1f2-ce17-45b2-a4b2-8dfe7f3a0431" />
+    <UnitTestResult executionId="4a53f88c-74f8-45f9-be5a-1d648dc5f1e7" testId="f89c9ced-71c5-7a4c-d24d-6f3a3e877f6a" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScopeNamespaceAndAncestorBoundsAreCheckedBeforeAnyControllerRead" computerName="5f086e157d19" duration="00:00:00.0094280" startTime="2026-10-08T14:15:24.6374846+00:00" endTime="2026-10-08T14:15:24.6393273+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="4a53f88c-74f8-45f9-be5a-1d648dc5f1e7" />
+    <UnitTestResult executionId="67a79290-ce98-40ca-9a38-63d59af107f6" testId="914f2b49-7e98-d50e-9e1e-fe605dadf245" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;&quot;, limit: False, state: Unknown, value: null, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0000186" startTime="2026-10-08T14:15:24.6732083+00:00" endTime="2026-10-08T14:15:24.6732723+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="67a79290-ce98-40ca-9a38-63d59af107f6" />
+    <UnitTestResult executionId="7bb21f38-edfe-402f-9eee-5b684199fe02" testId="78a182b2-cdc3-7eaf-08c9-9df1c8ed93b5" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;0\n&quot;, limit: False, state: Available, value: 0, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0011103" startTime="2026-10-08T14:15:24.6650879+00:00" endTime="2026-10-08T14:15:24.6651304+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="7bb21f38-edfe-402f-9eee-5b684199fe02" />
+    <UnitTestResult executionId="831d4977-bf77-492d-9644-61e1c734bbd2" testId="58f61af2-3dc0-f5f1-7b63-148c5d018a45" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;max\n&quot;, limit: False, state: Malformed, value: null, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0139799" startTime="2026-10-08T14:15:24.6480225+00:00" endTime="2026-10-08T14:15:24.6482553+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="831d4977-bf77-492d-9644-61e1c734bbd2" />
+    <UnitTestResult executionId="2cc1cd9c-7312-4d32-8352-6f02a4edecda" testId="5ec0d31a-e173-ded4-8c71-35719b8a1a96" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.LiveKernelDirectoryIdentityAndRawScalarsRemainUnqualifiedWithoutProcessBinding" computerName="5f086e157d19" duration="00:00:00.0477500" startTime="2026-10-08T14:15:24.6737013+00:00" endTime="2026-10-08T14:15:24.7127400+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="2cc1cd9c-7312-4d32-8352-6f02a4edecda">
+      <Output>
+        <StdOut>{"ProcessId":543005,"CapturedAt":"2026-10-08T14:15:24.6853371+00:00","ActualMountRecord":"164 163 0:24 /.. /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime master:8 - cgroup2 cgroup2 rw,nsdelegate","Identity":{"Version":2,"Inode":148,"MountId":164,"DeviceMajor":0,"DeviceMinor":24,"Qualification":0},"RawUsage":{"State":1,"Value":9331499008,"Unlimited":false,"Identity":{"Version":2,"Inode":148,"MountId":164,"DeviceMajor":0,"DeviceMinor":24,"Qualification":0}},"RawHardLimit":{"State":1,"Value":17179869184,"Unlimited":false,"Identity":{"Version":2,"Inode":148,"MountId":164,"DeviceMajor":0,"DeviceMinor":24,"Qualification":0}},"RawHigh":{"State":0,"Value":null,"Unlimited":true,"Identity":{"Version":2,"Inode":148,"MountId":164,"DeviceMajor":0,"DeviceMinor":24,"Qualification":0}},"RawSwap":{"State":1,"Value":0,"Unlimited":false,"Identity":{"Version":2,"Inode":148,"MountId":164,"DeviceMajor":0,"DeviceMinor":24,"Qualification":0}},"RawSwapLimit":{"State":0,"Value":null,"Unlimited":true,"Identity":{"Version":2,"Inode":148,"MountId":164,"DeviceMajor":0,"DeviceMinor":24,"Qualification":0}},"ProcessBindingQualified":false,"GrowthAuthorized":false}</StdOut>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="5686e2ae-87d0-457e-bb0f-f48a33d58012" testId="e4431076-2001-89b4-67ab-52dd14b47354" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot; 9223372036854775807\n&quot;, limit: True, state: Available, value: 9223372036854775807, unlimited: False)" computerName="5f086e157d19" duration="00:00:00.0023734" startTime="2026-10-08T14:15:24.6487942+00:00" endTime="2026-10-08T14:15:24.6594672+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Failed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="5686e2ae-87d0-457e-bb0f-f48a33d58012">
+      <Output>
+        <ErrorInfo>
+          <Message>Assert.Equal() Failure: Values differ
+Expected: Available
+Actual:   Malformed</Message>
+          <StackTrace>   at FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(String text, Boolean limit, MemoryObservationState state, Nullable`1 value, Boolean unlimited) in /workspace/.tmp-mem-3444-compliant/tests/backend/Unit/LinuxCgroupDirectoryReaderTests.cs:line 37
+   at InvokeStub_LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(Object, Span`1)
+   at System.Reflection.MethodBaseInvoker.InvokeWithManyArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)</StackTrace>
+        </ErrorInfo>
+      </Output>
+    </UnitTestResult>
+    <UnitTestResult executionId="6a9f4292-ea5f-4b4a-a2a4-9cbb751c196e" testId="15dfd379-c3ec-f829-74cc-5264488de6c4" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.DeniedDirectoryNeverBecomesAvailableOrNumericalZero" computerName="5f086e157d19" duration="00:00:00.0036683" startTime="2026-10-08T14:15:24.6734944+00:00" endTime="2026-10-08T14:15:24.6735733+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="6a9f4292-ea5f-4b4a-a2a4-9cbb751c196e" />
+    <UnitTestResult executionId="8642043d-a6a1-4aa0-b3ca-11a09a14c204" testId="0c85bc69-1ee1-b9e8-866b-1dd80da3f252" testName="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.OrdinaryFilesAndDirectorySymlinksCannotImpersonateKernelControllerFiles" computerName="5f086e157d19" duration="00:00:00.0027670" startTime="2026-10-08T14:15:24.7131787+00:00" endTime="2026-10-08T14:15:24.7149181+00:00" testType="13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b" outcome="Passed" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" relativeResultsDirectory="8642043d-a6a1-4aa0-b3ca-11a09a14c204" />
+  </Results>
+  <TestDefinitions>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;12 34&quot;, limit: False, state: Malformed, value: null, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b1160211-a6b3-3b21-7c31-87b2fc73a2bb">
+      <Execution id="df8d174b-17c1-46a9-ae22-365edbbf5858" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;max\n&quot;, limit: True, state: Unknown, value: null, unlimited: True)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="917edc58-3e05-0963-a7d8-2d746b0ac1c2">
+      <Execution id="795eeaa8-fcab-4f4d-8286-9494e69e9839" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.OrdinaryFilesAndDirectorySymlinksCannotImpersonateKernelControllerFiles" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="0c85bc69-1ee1-b9e8-866b-1dd80da3f252">
+      <Execution id="8642043d-a6a1-4aa0-b3ca-11a09a14c204" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="OrdinaryFilesAndDirectorySymlinksCannotImpersonateKernelControllerFiles" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;max\n&quot;, limit: False, state: Malformed, value: null, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="58f61af2-3dc0-f5f1-7b63-148c5d018a45">
+      <Execution id="831d4977-bf77-492d-9644-61e1c734bbd2" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;9223372036854775808&quot;, limit: False, state: Malformed, value: null, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="b2630f42-6103-da5f-3cc2-8c91dcaed53f">
+      <Execution id="396638db-7d04-40f7-9e37-ed1b7b675f1f" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.LiveKernelDirectoryIdentityAndRawScalarsRemainUnqualifiedWithoutProcessBinding" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="5ec0d31a-e173-ded4-8c71-35719b8a1a96">
+      <Execution id="2cc1cd9c-7312-4d32-8352-6f02a4edecda" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="LiveKernelDirectoryIdentityAndRawScalarsRemainUnqualifiedWithoutProcessBinding" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScopeNamespaceAndAncestorBoundsAreCheckedBeforeAnyControllerRead" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="f89c9ced-71c5-7a4c-d24d-6f3a3e877f6a">
+      <Execution id="4a53f88c-74f8-45f9-be5a-1d648dc5f1e7" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScopeNamespaceAndAncestorBoundsAreCheckedBeforeAnyControllerRead" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;&quot;, limit: False, state: Unknown, value: null, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="914f2b49-7e98-d50e-9e1e-fe605dadf245">
+      <Execution id="67a79290-ce98-40ca-9a38-63d59af107f6" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;-1&quot;, limit: True, state: Malformed, value: null, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="4e0af416-025d-25a5-e7ac-87bfb0d45dc7">
+      <Execution id="78a7f1f2-ce17-45b2-a4b2-8dfe7f3a0431" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.DeniedDirectoryNeverBecomesAvailableOrNumericalZero" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="15dfd379-c3ec-f829-74cc-5264488de6c4">
+      <Execution id="6a9f4292-ea5f-4b4a-a2a4-9cbb751c196e" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="DeniedDirectoryNeverBecomesAvailableOrNumericalZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;12\0&quot;, limit: False, state: Malformed, value: null, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="53f5c207-bd0c-96df-b4f8-cc74afdb9d38">
+      <Execution id="5fd56aa9-f218-4b9d-8e3d-850a9494281d" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot;0\n&quot;, limit: False, state: Available, value: 0, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="78a182b2-cdc3-7eaf-08c9-9df1c8ed93b5">
+      <Execution id="7bb21f38-edfe-402f-9eee-5b684199fe02" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+    <UnitTest name="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: &quot; 9223372036854775807\n&quot;, limit: True, state: Available, value: 9223372036854775807, unlimited: False)" storage="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/debug/net10.0/fsusblog.server.tests.dll" id="e4431076-2001-89b4-67ab-52dd14b47354">
+      <Execution id="5686e2ae-87d0-457e-bb0f-f48a33d58012" />
+      <TestMethod codeBase="/workspace/.tmp-mem-3444-compliant/tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll" adapterTypeName="executor://xunit/VsTestRunner3/netcore/" className="FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests" name="ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero" />
+    </UnitTest>
+  </TestDefinitions>
+  <TestEntries>
+    <TestEntry testId="917edc58-3e05-0963-a7d8-2d746b0ac1c2" executionId="795eeaa8-fcab-4f4d-8286-9494e69e9839" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b1160211-a6b3-3b21-7c31-87b2fc73a2bb" executionId="df8d174b-17c1-46a9-ae22-365edbbf5858" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="53f5c207-bd0c-96df-b4f8-cc74afdb9d38" executionId="5fd56aa9-f218-4b9d-8e3d-850a9494281d" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="b2630f42-6103-da5f-3cc2-8c91dcaed53f" executionId="396638db-7d04-40f7-9e37-ed1b7b675f1f" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="4e0af416-025d-25a5-e7ac-87bfb0d45dc7" executionId="78a7f1f2-ce17-45b2-a4b2-8dfe7f3a0431" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="f89c9ced-71c5-7a4c-d24d-6f3a3e877f6a" executionId="4a53f88c-74f8-45f9-be5a-1d648dc5f1e7" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="914f2b49-7e98-d50e-9e1e-fe605dadf245" executionId="67a79290-ce98-40ca-9a38-63d59af107f6" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="78a182b2-cdc3-7eaf-08c9-9df1c8ed93b5" executionId="7bb21f38-edfe-402f-9eee-5b684199fe02" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="58f61af2-3dc0-f5f1-7b63-148c5d018a45" executionId="831d4977-bf77-492d-9644-61e1c734bbd2" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="5ec0d31a-e173-ded4-8c71-35719b8a1a96" executionId="2cc1cd9c-7312-4d32-8352-6f02a4edecda" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="e4431076-2001-89b4-67ab-52dd14b47354" executionId="5686e2ae-87d0-457e-bb0f-f48a33d58012" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="15dfd379-c3ec-f829-74cc-5264488de6c4" executionId="6a9f4292-ea5f-4b4a-a2a4-9cbb751c196e" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestEntry testId="0c85bc69-1ee1-b9e8-866b-1dd80da3f252" executionId="8642043d-a6a1-4aa0-b3ca-11a09a14c204" testListId="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+  </TestEntries>
+  <TestLists>
+    <TestList name="Results Not in a List" id="8c84fa94-04c1-424b-9868-57a2d4851a1d" />
+    <TestList name="All Loaded Results" id="19431567-8539-422a-85d7-44ee4e166bda" />
+  </TestLists>
+  <ResultSummary outcome="Failed">
+    <Counters total="13" executed="13" passed="12" failed="1" error="0" timeout="0" aborted="0" inconclusive="0" passedButRunAborted="0" notRunnable="0" notExecuted="0" disconnected="0" warning="0" completed="0" inProgress="0" pending="0" />
+    <Output>
+      <StdOut>[xUnit.net 00:00:00.00] xUnit.net VSTest Adapter v3.1.5+1b188a7b0a (64-bit .NET 10.0.12)
+[xUnit.net 00:00:00.34]   Discovering: FsusBlog.Server.Tests
+[xUnit.net 00:00:02.40]   Discovered:  FsusBlog.Server.Tests
+[xUnit.net 00:00:02.44]   Starting:    FsusBlog.Server.Tests
+[xUnit.net 00:00:02.51]       Assert.Equal() Failure: Values differ
+[xUnit.net 00:00:02.51]       Expected: Available
+[xUnit.net 00:00:02.51]       Actual:   Malformed
+[xUnit.net 00:00:02.51]       Stack Trace:
+[xUnit.net 00:00:02.51]         /workspace/.tmp-mem-3444-compliant/tests/backend/Unit/LinuxCgroupDirectoryReaderTests.cs(37,0): at FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(String text, Boolean limit, MemoryObservationState state, Nullable`1 value, Boolean unlimited)
+[xUnit.net 00:00:02.51]            at InvokeStub_LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(Object, Span`1)
+[xUnit.net 00:00:02.51]            at System.Reflection.MethodBaseInvoker.InvokeWithManyArgs(Object obj, BindingFlags invokeAttr, Binder binder, Object[] parameters, CultureInfo culture)
+[xUnit.net 00:00:02.57]   Finished:    FsusBlog.Server.Tests
+</StdOut>
+    </Output>
+    <RunInfos>
+      <RunInfo computerName="5f086e157d19" outcome="Error" timestamp="2026-10-08T14:15:24.6706805+00:00">
+        <Text>[xUnit.net 00:00:02.51]     FsusBlog.Server.Tests.Unit.LinuxCgroupDirectoryReaderTests.ScalarsKeepUnknownUnlimitedAndMalformedDistinctFromActualZero(text: " 9223372036854775807\n", limit: True, state: Available, value: 9223372036854775807, unlimited: False) [FAIL]</Text>
+      </RunInfo>
+    </RunInfos>
+  </ResultSummary>
+</TestRun>
