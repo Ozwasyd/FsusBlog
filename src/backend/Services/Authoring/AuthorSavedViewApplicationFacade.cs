@@ -109,13 +109,22 @@ public sealed class AuthorSavedViewApplicationFacade(
             throw new AuthorSavedViewAccessDeniedException();
         }
 
-        T result = await operation(identity.Owner, cancellationToken).ConfigureAwait(false);
-        cancellationToken.ThrowIfCancellationRequested();
-        if (ResolveIdentity() != identity)
+        T result;
+        try
         {
-            // A committed write is recovered with its original idempotency key. A changed
-            // request identity must never receive the prior user's private response.
-            throw new AuthorSavedViewAccessDeniedException();
+            result = await operation(identity.Owner, cancellationToken).ConfigureAwait(false);
+        }
+        finally
+        {
+            // Revalidate both successful and faulted store awaits: conflicts can
+            // contain the prior user's private revision just like successful reads.
+            // With an unchanged request this leaves the original failure intact.
+            cancellationToken.ThrowIfCancellationRequested();
+            if (ResolveIdentity() != identity)
+            {
+                // A committed write is recovered with its original idempotency key.
+                throw new AuthorSavedViewAccessDeniedException();
+            }
         }
         return result;
     }

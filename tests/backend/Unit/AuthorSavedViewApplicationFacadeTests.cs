@@ -134,6 +134,207 @@ public sealed class AuthorSavedViewApplicationFacadeTests
         Assert.Equal(duringAwait.Token, Assert.Single(fixture.Store.Calls).Token);
     }
 
+    [Theory]
+    [InlineData("principal")]
+    [InlineData("session")]
+    [InlineData("site")]
+    [InlineData("permission")]
+    [InlineData("missing-context")]
+    public async Task RealStoreConflictAfterIdentityDrift_DoesNotExposeActualRevision(string drift)
+    {
+        var fixture = new Fixture();
+        var persistence = new GatedConflictPersistence();
+        AuthorSavedViewApplicationFacade facade = RealStoreFacade(fixture, persistence);
+        Task<AuthorSavedViewWriteReceipt> pending = facade.UpdateAsync(persistence.Command);
+        try
+        {
+            await persistence.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.False(pending.IsCompleted);
+            if (drift == "site")
+            {
+                fixture.Configuration["SITE_BASEURL"] = "https://new.test";
+            }
+            else if (drift == "missing-context")
+            {
+                fixture.Accessor.HttpContext = null;
+            }
+            else
+            {
+                fixture.Accessor.HttpContext!.User = Principal(
+                    drift == "session" ? "new-session" : "session-42",
+                    drift == "principal" ? "81" : "42",
+                    permitted: drift != "permission");
+            }
+        }
+        finally
+        {
+            persistence.Release.TrySetResult();
+        }
+
+        await Assert.ThrowsAsync<AuthorSavedViewAccessDeniedException>(() => pending);
+        AuthorSavedViewRevisionConflictException original = Assert.IsType<AuthorSavedViewRevisionConflictException>(
+            persistence.Failure);
+        Assert.Equal(732, original.ActualRevision);
+    }
+
+    [Fact]
+    public async Task RealStoreConflictAfterCancellation_ReturnsCallerCancellation()
+    {
+        var fixture = new Fixture();
+        var persistence = new GatedConflictPersistence();
+        using var cancellation = new CancellationTokenSource();
+        Task<AuthorSavedViewWriteReceipt> pending = RealStoreFacade(fixture, persistence)
+            .UpdateAsync(persistence.Command, cancellation.Token);
+        try
+        {
+            await persistence.Entered.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            Assert.False(pending.IsCompleted);
+            cancellation.Cancel();
+        }
+        finally
+        {
+            persistence.Release.TrySetResult();
+        }
+
+        OperationCanceledException returned = await Assert.ThrowsAnyAsync<OperationCanceledException>(() => pending);
+        Assert.Equal(cancellation.Token, returned.CancellationToken);
+        Assert.Equal(732, Assert.IsType<AuthorSavedViewRevisionConflictException>(persistence.Failure).ActualRevision);
+    }
+
+    [Fact]
+    public async Task RealStoreConflictWithStableIdentity_PreservesOriginalExceptionAndStack()
+    {
+        var fixture = new Fixture();
+        var persistence = new GatedConflictPersistence();
+        Task<AuthorSavedViewWriteReceipt> pending = RealStoreFacade(fixture, persistence)
+            .UpdateAsync(persistence.Command);
+        persistence.Release.TrySetResult();
+
+        AuthorSavedViewRevisionConflictException returned = await Assert.ThrowsAsync<AuthorSavedViewRevisionConflictException>(
+            () => pending);
+        Assert.Same(persistence.Failure, returned);
+        Assert.Equal(19, returned.ExpectedRevision);
+        Assert.Equal(732, returned.ActualRevision);
+        Assert.Contains("EnsureViewRevision", returned.StackTrace);
+    }
+
+    [Theory]
+    [InlineData("storage")]
+    [InlineData("cancellation")]
+    public async Task StableRequest_PreservesUnrelatedStorePrimaryFailure(string failure)
+    {
+        var fixture = new Fixture();
+        Exception original = failure == "storage"
+            ? new IOException("store unavailable")
+            : new OperationCanceledException("store cancelled independently");
+        fixture.Store.BeforeReturn = () => throw original;
+
+        Exception returned = await Assert.ThrowsAnyAsync<Exception>(() => fixture.Facade.UpdateAsync(new(
+            Guid.NewGuid(), s_owner, 17, 19, Guid.NewGuid(), Query())));
+
+        Assert.Same(original, returned);
+        Assert.Contains(nameof(CapturingStore), returned.StackTrace);
+        Assert.Single(fixture.Store.Calls);
+    }
+
+    private static AuthorSavedViewApplicationFacade RealStoreFacade(
+        Fixture fixture,
+        GatedConflictPersistence persistence)
+        => new(new AuthorSavedViewStore(persistence,
+            new AuthorSavedViewQueryValidator(new AuthorSavedViewDependencyCatalog([])), TimeProvider.System),
+            fixture.Accessor, fixture.Configuration);
+
+    // A delayed persistence boundary lets the real store generate its CAS failure
+    // after the request changes. It supplies no success receipt or verifier result.
+    private sealed class GatedConflictPersistence : IAuthorSavedViewPersistence
+    {
+        public TaskCompletionSource Entered
+        {
+            get;
+        } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public TaskCompletionSource Release
+        {
+            get;
+        } = new(TaskCreationOptions.RunContinuationsAsynchronously);
+        public Exception? Failure
+        {
+            get; private set;
+        }
+        public UpdateAuthorSavedViewCommand Command
+        {
+            get;
+        } = new(
+            Guid.NewGuid(), s_owner, 17, 19, Guid.NewGuid(), Query());
+
+        public async Task<T> ExecuteAsync<T>(
+            AuthorSavedViewOwner owner,
+            Func<IAuthorSavedViewPersistenceTransaction, CancellationToken, Task<T>> operation,
+            CancellationToken cancellationToken = default)
+        {
+            Assert.Equal(s_owner, owner);
+            Entered.TrySetResult();
+            await Release.Task.WaitAsync(TimeSpan.FromSeconds(10));
+            try
+            {
+                return await operation(new ConflictTransaction(Command.ViewId), cancellationToken);
+            }
+            catch (Exception exception)
+            {
+                Failure = exception;
+                throw;
+            }
+        }
+
+        public Task<AuthorSavedView?> ReadViewAsync(
+            AuthorSavedViewOwner owner, Guid viewId, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AuthorSavedViewPage> ReadPageAsync(
+            AuthorSavedViewOwner owner, AuthorSavedViewPageCursor? cursor, int limit,
+            CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+
+        public Task<AuthorSavedViewVerificationHistory> ReadVerificationHistoryAsync(
+            AuthorSavedViewOwner owner, CancellationToken cancellationToken = default)
+            => throw new NotSupportedException();
+    }
+
+    private sealed class ConflictTransaction(Guid viewId) : IAuthorSavedViewPersistenceTransaction
+    {
+        public AuthorSavedViewCollection Collection
+        {
+            get;
+        } = AuthorSavedViewCollection.Empty(s_owner) with
+        {
+            Revision = 17
+        };
+        public IReadOnlyList<AuthorSavedView> Views
+        {
+            get;
+        } =
+        [
+            new(viewId, s_owner, AuthorSavedViewContract.SchemaVersion, 732, "Private view", Query(),
+                "unused", "unused", false, 0, AuthorSavedViewLifecycleState.Active,
+                DateTime.UnixEpoch, DateTime.UnixEpoch, "unused")
+        ];
+
+        public Task<AuthorSavedViewWriteReceipt?> ReadReceiptAsync(
+            Guid requestId, CancellationToken cancellationToken = default)
+            => Task.FromResult<AuthorSavedViewWriteReceipt?>(null);
+
+        public Task CommitAsync(AuthorSavedViewPersistenceMutation mutation,
+            AuthorSavedViewWriteReceipt receipt, CancellationToken cancellationToken = default)
+            => throw new InvalidOperationException("The stale command must never commit.");
+
+        public void SetProposedOrderKey(long value) => throw new NotSupportedException();
+
+        public bool TryTakeProposedOrderKey(out long value)
+        {
+            value = 0;
+            return false;
+        }
+    }
+
     private static async Task InvokeCommandsAsync(
         AuthorSavedViewApplicationFacade facade,
         AuthorSavedViewOwner owner,
@@ -175,7 +376,9 @@ public sealed class AuthorSavedViewApplicationFacadeTests
     private static AuthorSavedViewQuery Query()
         => new(AuthorSavedViewContract.SchemaVersion, [],
             new(new(AuthorSavedViewFieldKind.Date, AuthorSavedViewContract.UpdatedAtField),
-                AuthorSavedViewSortDirection.Descending, AuthorSavedViewNullPlacement.Last, "temporal"), [], 25);
+                AuthorSavedViewSortDirection.Descending, AuthorSavedViewNullPlacement.Last, "temporal",
+                TimeZoneId: "UTC"),
+            [new(AuthorSavedViewFieldKind.LifecycleStatus, AuthorSavedViewContract.LifecycleStatusField)], 25);
 
     private static ClaimsPrincipal Principal(
         string? session = "session-42",
