@@ -11,6 +11,8 @@ using FsusBlog.Server.Modules.Endpoints.Binary;
 using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
 
+using Microsoft.Extensions.Configuration;
+
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
 
