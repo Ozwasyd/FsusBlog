@@ -7,6 +7,65 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed partial class RevisionComparePlannerTests
 {
     [Fact]
+    public void MetadataRegistry_PreservesNullEmptyAndLiteralNullAsDistinctPackages()
+    {
+        RevisionCompareMetadataValue absent = RevisionCompareMetadataRegistry.NullableString("summary", null);
+        RevisionCompareMetadataValue empty = RevisionCompareMetadataRegistry.NullableString("summary", "");
+        RevisionCompareMetadataValue literal = RevisionCompareMetadataRegistry.NullableString("summary", "null");
+        RevisionCompareMetadataValue escaped = RevisionCompareMetadataRegistry.NullableString("summary", "\"\\\n中文");
+
+        Assert.Equal("null", absent.CanonicalValue);
+        Assert.Equal("\"\"", empty.CanonicalValue);
+        Assert.Equal("\"null\"", literal.CanonicalValue);
+        Assert.Equal("\"\\\n中文", System.Text.Json.JsonSerializer.Deserialize<string>(escaped.CanonicalValue));
+        Assert.Equal(4, new[] { absent, empty, literal, escaped }.Select(value =>
+            RevisionComparePackageSeal.Create(7, RevisionCompareSourceKind.HistoricalRevision, "revision:11", 11, 1,
+                null, null, Encoding.UTF8.GetBytes("body"), [value], Snapshots()).PackageDigest).Distinct().Count());
+    }
+
+    [Theory]
+    [InlineData("summary", RevisionCompareMetadataValueType.NullableString, "not-json")]
+    [InlineData("summary", RevisionCompareMetadataValueType.NullableString, "123")]
+    [InlineData("summary", RevisionCompareMetadataValueType.NullableString, " null ")]
+    [InlineData("category-id", RevisionCompareMetadataValueType.Int32, "01")]
+    [InlineData("category-id", RevisionCompareMetadataValueType.Int32, "2147483648")]
+    [InlineData("tag-ids", RevisionCompareMetadataValueType.Int32List, "1,1")]
+    [InlineData("tag-ids", RevisionCompareMetadataValueType.Int32List, "2,1")]
+    [InlineData("tag-ids", RevisionCompareMetadataValueType.Int32List, "0,1")]
+    [InlineData("status", RevisionCompareMetadataValueType.Int32, "5")]
+    [InlineData("status", RevisionCompareMetadataValueType.Int32, "-1")]
+    [InlineData("scheduled-publish-at", RevisionCompareMetadataValueType.NullableInstant, "2026-01-01T00:00:00.0000000")]
+    public void PackageSeal_RejectsNoncanonicalTypedValues(string fieldId,
+        RevisionCompareMetadataValueType valueType, string canonicalValue)
+    {
+        var value = new RevisionCompareMetadataValue(fieldId, valueType, canonicalValue, false);
+
+        RevisionCompareContractException error = Assert.Throws<RevisionCompareContractException>(() =>
+            RevisionComparePackageSeal.Create(7, RevisionCompareSourceKind.HistoricalRevision, "revision:11", 11, 1,
+                null, null, Encoding.UTF8.GetBytes("body"), [value], Snapshots()));
+
+        Assert.Equal("revision_compare_metadata_invalid", error.Code);
+    }
+
+    [Fact]
+    public void MetadataRegistry_RejectsDuplicateTagsAndUndefinedStatusWithoutChangingValidValues()
+    {
+        Assert.Equal("1,3", RevisionCompareMetadataRegistry.Int32List("tag-ids", [3, 1]).CanonicalValue);
+        Assert.Equal("", RevisionCompareMetadataRegistry.Int32List("tag-ids", []).CanonicalValue);
+        Assert.Throws<RevisionCompareContractException>(() => RevisionCompareMetadataRegistry.Int32List("tag-ids", [1, 1]));
+        Assert.Throws<RevisionCompareContractException>(() => RevisionCompareMetadataRegistry.Int32List("tag-ids", [0]));
+        Assert.Throws<RevisionCompareContractException>(() => RevisionCompareMetadataRegistry.Int32("status", 5));
+        for (int status = 0; status <= 4; status++)
+        {
+            Assert.Equal(status.ToString(System.Globalization.CultureInfo.InvariantCulture),
+                RevisionCompareMetadataRegistry.Int32("status", status).CanonicalValue);
+        }
+        var utc = new DateTime(2026, 1, 1, 0, 0, 0, DateTimeKind.Utc);
+        Assert.Equal(RevisionCompareMetadataRegistry.NullableInstant("scheduled-publish-at", utc),
+            RevisionCompareMetadataRegistry.NullableInstant("scheduled-publish-at", DateTime.SpecifyKind(utc, DateTimeKind.Unspecified)));
+    }
+
+    [Fact]
     public async Task CreateAsync_RejectsUnknownMetadataFieldWithoutReadingSources()
     {
         var reader = new DelegateReader((_, _, _) => throw new InvalidOperationException("reader should not run"));
