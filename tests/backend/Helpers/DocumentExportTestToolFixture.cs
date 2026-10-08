@@ -392,7 +392,7 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
             char *layout_profile = json_string(request, "layoutProfile");
             char *theme_profile = json_string(request, "themeProfile");
             char *locale = json_string(request, "locale");
-            if (strcmp(schema, "fsusblog.document-export-renderer-request.v2") ||
+            if (strcmp(schema, "fsusblog.document-export-renderer-request.v3") ||
                 strcmp(layout_profile, "document-reading-v1") ||
                 (strcmp(theme_profile, "light-v1") && strcmp(theme_profile, "dark-v1")) ||
                 !locale[0] || !strstr(request, "\"markdownUtf8\":") ||
@@ -405,7 +405,7 @@ internal sealed class DocumentExportTestToolFixture : IDisposable
             FILE *output = fopen("/sandbox/output/response.json", "wb");
             if (!output) return 67;
             fprintf(output,
-                "{\"schema\":\"fsusblog.document-export-renderer-response.v2\","
+                "{\"schema\":\"fsusblog.document-export-renderer-response.v3\","
                 "\"inputId\":\"%s\",\"inputDigest\":\"%s\",\"sourceDigest\":\"%s\","
                 "\"assetManifestDigest\":\"%s\",\"fontManifestDigest\":\"%s\","
                 "\"readingStyleAuthorityDigest\":\"%s\","
