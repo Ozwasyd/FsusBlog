@@ -1,0 +1,2 @@
+[code-intent] 1 error(s) across 5523 checked file(s):
+- src/frontend/wasm/aeds/include/font_theme_admin_pods.hpp:338 unbounded performance claim 'no allocation' must be structural or evidence-registered
