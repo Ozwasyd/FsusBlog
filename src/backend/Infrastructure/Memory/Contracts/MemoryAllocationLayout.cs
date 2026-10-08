@@ -53,7 +53,8 @@ public sealed class MemoryAllocationLayout
         {
             return MemoryOperationResult<MemoryAllocationLayout>.Reject(MemoryFailure.BoundsViolation);
         }
-        return MemoryOperationResult<MemoryAllocationLayout>.Success(new(logicalBytes, aligned, capacityBytes, alignmentBytes));
+        return MemoryOperationResult<MemoryAllocationLayout>.Success(
+            new MemoryAllocationLayout(logicalBytes, aligned, capacityBytes, alignmentBytes));
     }
 
     public static MemoryOperationResult<MemoryAllocationLayout> TryPlan(long count, long elementBytes,
