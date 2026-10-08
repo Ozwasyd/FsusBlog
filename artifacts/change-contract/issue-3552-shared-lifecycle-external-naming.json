@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "preserve the serialized canonical lifecycle registry keys while consuming the coordinator-verified single-owner prerequisite from issue 3521"
+        }
+    ]
+}

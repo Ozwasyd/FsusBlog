@@ -319,6 +319,13 @@ for (const relativePath of [
         {
             writeOverlay(overlay, relativePath, 'unclassified migration input');
 
+            // Isolate the exact archive classification from pre-existing extension exceptions.
+            const manifest = readManifest();
+            manifest.nonSourceExtensions = manifest.nonSourceExtensions.filter(
+                (extension) => extension !== path.posix.extname(relativePath)
+            );
+            writeManifest(overlay, manifest);
+
             const result = runChecker(overlay);
             assert.notEqual(result.status, 0);
             assert.ok(
