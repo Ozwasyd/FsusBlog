@@ -43,7 +43,8 @@ public static class ArticleVaultAgentCommandReceipts
             || (reasonCode is not null && (reasonCode.Length is < 1 or > 64
                 || !reasonCode.All(static character => char.IsAsciiLetterOrDigit(character) || character == '_')))
             || (canonicalResultSha256 is not null && !ArticleVaultAgentProtocol.IsDigest(canonicalResultSha256))
-            || (status == ArticleVaultAgentCommandStatus.Completed ? canonicalResultSha256 is null : canonicalResultSha256 is not null)
+            || (status is ArticleVaultAgentCommandStatus.Completed or ArticleVaultAgentCommandStatus.Cancelled
+                ? canonicalResultSha256 is null : status == ArticleVaultAgentCommandStatus.Admitted && canonicalResultSha256 is not null)
             || (status is ArticleVaultAgentCommandStatus.Blocked or ArticleVaultAgentCommandStatus.Cancelled && reasonCode is null))
         {
             throw new InvalidDataException("agent_command_receipt_input_invalid");
@@ -72,7 +73,8 @@ public static class ArticleVaultAgentCommandReceipts
             || (receipt.ReasonCode is not null && (receipt.ReasonCode.Length is < 1 or > 64
                 || !receipt.ReasonCode.All(static character => char.IsAsciiLetterOrDigit(character) || character == '_')))
             || (receipt.CanonicalResultSha256 is not null && !ArticleVaultAgentProtocol.IsDigest(receipt.CanonicalResultSha256))
-            || (receipt.Status == ArticleVaultAgentCommandStatus.Completed ? receipt.CanonicalResultSha256 is null : receipt.CanonicalResultSha256 is not null)
+            || (receipt.Status is ArticleVaultAgentCommandStatus.Completed or ArticleVaultAgentCommandStatus.Cancelled
+                ? receipt.CanonicalResultSha256 is null : receipt.Status == ArticleVaultAgentCommandStatus.Admitted && receipt.CanonicalResultSha256 is not null)
             || (receipt.Status is ArticleVaultAgentCommandStatus.Blocked or ArticleVaultAgentCommandStatus.Cancelled && receipt.ReasonCode is null)
             || receipt.ContentSha256 != ArticleVaultAgentProtocol.Digest(receipt with
             {
