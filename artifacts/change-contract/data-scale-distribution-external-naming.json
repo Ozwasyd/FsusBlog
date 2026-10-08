@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/data-scale/distribution-assignment.mjs",
+                "tools/data-scale/distribution-catalog.mjs",
+                "tools/data-scale/distribution-contract.mjs",
+                "tools/data-scale/distribution-query-binding.mjs",
+                "tools/data-scale/distribution-statistics.mjs"
+            ],
+            "reason": "The trusted registry assigns every tools MJS source to this existing environment naming scope. Preserve inherited Node and canonical fixture interfaces while using camelCase for internal distribution identifiers; these modules introduce no new environment settings."
+        }
+    ]
+}
