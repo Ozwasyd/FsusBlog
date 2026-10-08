@@ -7,6 +7,7 @@
                 "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs",
                 "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringResolver.cs",
+                "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringRefreshPolicy.cs",
                 "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringVerifier.cs",
                 "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs"
             ],

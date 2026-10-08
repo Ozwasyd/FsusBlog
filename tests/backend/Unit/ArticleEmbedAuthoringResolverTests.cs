@@ -700,6 +700,340 @@ public sealed class ArticleEmbedAuthoringResolverTests
             resolution).Valid);
     }
 
+    [Theory]
+    [InlineData(ArticleEmbedTargetKind.Article)]
+    [InlineData(ArticleEmbedTargetKind.Heading)]
+    [InlineData(ArticleEmbedTargetKind.Block)]
+    public void RefreshComparisonUsesExactCurrentCoordinateWithoutChangingSource(ArticleEmbedTargetKind mode)
+    {
+        var previous = RefreshInput(mode, 9);
+        var current = RefreshInput(mode, 10);
+        ArticleEmbedDependencyCoordinate recorded = previous.Resolution.Results[0].Result.Coordinate!;
+        ArticleEmbedProviderRequest originalRequest = current.Requests[0];
+        string originalResolutionDigest = current.Resolution.ResolutionDigest;
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            current.Requests, current.Snapshot, s_budgets, current.Resolution, originalRequest.RequestId,
+            recorded, out bool changed);
+
+        Assert.True(comparison.IsValid, comparison.ReasonCode);
+        Assert.True(changed);
+        Assert.Same(originalRequest, current.Requests[0]);
+        Assert.Equal(previous.Requests[0].Directive, originalRequest.Directive);
+        Assert.Equal(previous.Requests[0].ContentDigest, originalRequest.ContentDigest);
+        Assert.Equal(9, recorded.ResolvedRevision);
+        Assert.Equal(originalResolutionDigest, current.Resolution.ResolutionDigest);
+        Assert.Equal(10, current.Resolution.Results[0].Result.Coordinate!.ResolvedRevision);
+    }
+
+    [Fact]
+    public void RefreshComparisonDoesNotUseLatestObservedHintAsANewCoordinate()
+    {
+        var input = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9) with
+        {
+            LatestObservedRevision = 10
+        });
+        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(input.Requests, snapshot, s_budgets);
+        Assert.True(current.Results[0].UpdateAvailable);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            input.Requests, snapshot, s_budgets, current, input.Requests[0].RequestId,
+            input.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.True(comparison.IsValid);
+        Assert.False(changed);
+        Assert.Equal(9, current.Results[0].Result.Coordinate!.ResolvedRevision);
+    }
+
+    [Fact]
+    public void RefreshComparisonAllowsAuthorizedPrivateDraftWithoutPublicationAdmission()
+    {
+        var previous = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        var snapshot = Snapshot(PublicFacts(ArticleA, 10) with
+        {
+            Visibility = ArticleEmbedVisibilityStatus.Private,
+            Lifecycle = ArticleEmbedLifecycleStatus.Draft
+        });
+        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(previous.Requests, snapshot, s_budgets);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            previous.Requests, snapshot, s_budgets, current, previous.Requests[0].RequestId,
+            previous.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.True(comparison.IsValid);
+        Assert.True(changed);
+        Assert.Equal(ArticleEmbedPublicationEligibility.AuthoringOnly, current.Results[0].Eligibility);
+        Assert.Equal(ArticleEmbedVisibilityStatus.Private, current.Results[0].Result.Visibility);
+    }
+
+    [Theory]
+    [InlineData("missing")]
+    [InlineData("permission")]
+    [InlineData("revision")]
+    [InlineData("heading")]
+    [InlineData("block")]
+    public void RefreshComparisonBlocksUnavailableCurrentProjection(string failure)
+    {
+        ArticleEmbedTargetKind mode = failure switch
+        {
+            "heading" => ArticleEmbedTargetKind.Heading,
+            "block" => ArticleEmbedTargetKind.Block,
+            _ => ArticleEmbedTargetKind.Article
+        };
+        var previous = RefreshInput(mode, 9);
+        ArticleEmbedTargetFacts facts = PublicFacts(ArticleA, 10);
+        facts = failure switch
+        {
+            "permission" => facts with { Permission = ArticleEmbedPermissionStatus.Denied },
+            "revision" => facts with { SourceRevision = 11 },
+            _ => facts
+        };
+        var snapshot = failure == "missing" ? Snapshot() : Snapshot(facts);
+        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(previous.Requests, snapshot, s_budgets);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            previous.Requests, snapshot, s_budgets, current, previous.Requests[0].RequestId,
+            previous.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.False(changed);
+        Assert.Null(current.Results[0].Result.Coordinate);
+    }
+
+    [Theory]
+    [InlineData("host")]
+    [InlineData("range")]
+    [InlineData("permission")]
+    public void RefreshComparisonRequiresRevalidationAfterBindingDrift(string drift)
+    {
+        var input = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        ArticleEmbedProviderRequest[] requests = input.Requests;
+        ArticleEmbedAuthoritySnapshot snapshot = input.Snapshot;
+        if (drift == "range")
+        {
+            requests = [ArticleEmbedContractValidator.Seal(requests[0] with
+            {
+                Directive = requests[0].Directive with { RawRange = new ArticleEmbedSourceRange(40, 72) }
+            })];
+        }
+        else
+        {
+            snapshot = ArticleEmbedAuthoringContractValidator.Seal(snapshot with
+            {
+                HostDocument = drift == "host" ? s_document with
+                {
+                    Epoch = 99
+                } : snapshot.HostDocument,
+                Actor = drift == "permission" ? s_actor with
+                {
+                    PermissionContextDigest = DigestD
+                } : snapshot.Actor
+            });
+        }
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            requests, snapshot, s_budgets, input.Resolution, requests[0].RequestId,
+            input.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.False(changed);
+    }
+
+    [Fact]
+    public void RefreshComparisonRejectsCancelledCurrentRequest()
+    {
+        using var cancellation = new CancellationTokenSource();
+        var snapshot = Snapshot(PublicFacts(ArticleA, 9));
+        ArticleEmbedProviderRequest[] requests =
+            [Request("request:cancel-refresh", ArticleA, ArticleEmbedTargetKind.Article, 0, cancellationToken: cancellation.Token)];
+        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        cancellation.Cancel();
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            requests, snapshot, s_budgets, current, requests[0].RequestId,
+            current.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.False(changed);
+    }
+
+    [Fact]
+    public void RefreshComparisonDoesNotAcceptAnUnrelatedRecordedTarget()
+    {
+        var input = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        var snapshot = Snapshot(PublicFacts(ArticleB, 9));
+        ArticleEmbedProviderRequest[] otherRequests = [Request("request:other", ArticleB, ArticleEmbedTargetKind.Article, 0)];
+        ArticleEmbedAuthoringResolution other = ArticleEmbedAuthoringResolver.Resolve(otherRequests, snapshot, s_budgets);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            input.Requests, input.Snapshot, s_budgets, input.Resolution, input.Requests[0].RequestId,
+            other.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.Equal("article_embed_refresh_recorded_coordinate_mismatch", comparison.ReasonCode);
+        Assert.False(changed);
+    }
+
+    [Theory]
+    [InlineData(ArticleEmbedTargetKind.Article, ArticleEmbedTargetKind.Heading)]
+    [InlineData(ArticleEmbedTargetKind.Heading, ArticleEmbedTargetKind.Block)]
+    [InlineData(ArticleEmbedTargetKind.Block, ArticleEmbedTargetKind.Article)]
+    public void RefreshComparisonDoesNotGuessBetweenModes(ArticleEmbedTargetKind previousMode, ArticleEmbedTargetKind currentMode)
+    {
+        var previous = RefreshInput(previousMode, 9);
+        var current = RefreshInput(currentMode, 10);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            current.Requests, current.Snapshot, s_budgets, current.Resolution, current.Requests[0].RequestId,
+            previous.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.Equal("article_embed_refresh_recorded_coordinate_mismatch", comparison.ReasonCode);
+        Assert.False(changed);
+    }
+
+    [Fact]
+    public void RefreshComparisonRejectsTamperedRecordedDigest()
+    {
+        var input = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        var tampered = input.Resolution.Results[0].Result.Coordinate! with
+        {
+            DependencyDigest = DigestA
+        };
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            input.Requests, input.Snapshot, s_budgets, input.Resolution, input.Requests[0].RequestId, tampered,
+            out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.False(changed);
+    }
+
+    [Fact]
+    public void RefreshComparisonSelectsOnlyOneExplicitRequestDespiteAnUnrelatedFailure()
+    {
+        var previous = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        ArticleEmbedProviderRequest[] requests =
+        [
+            previous.Requests[0],
+            Request("request:unavailable", ArticleC, ArticleEmbedTargetKind.Article, 40)
+        ];
+        var snapshot = Snapshot(PublicFacts(ArticleA, 10, nested: [Nested(ArticleB, ArticleEmbedTargetKind.Article, 10)]),
+            PublicFacts(ArticleB, 7));
+        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+        string unchangedDigest = current.ResolutionDigest;
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            requests, snapshot, s_budgets, current, requests[0].RequestId,
+            previous.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.True(comparison.IsValid, comparison.ReasonCode);
+        Assert.True(changed);
+        Assert.Equal(ArticleEmbedErrorCode.Missing, current.Results[1].Result.Error!.Code);
+        Assert.Equal(unchangedDigest, current.ResolutionDigest);
+        Assert.Equal(7, Assert.Single(current.Results[0].Children).Coordinate!.ResolvedRevision);
+    }
+
+    [Fact]
+    public void RefreshComparisonRejectsAbsentCandidateWithoutAnUpdateHint()
+    {
+        var input = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            input.Requests, input.Snapshot, s_budgets, null, input.Requests[0].RequestId,
+            input.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.False(changed);
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void RefreshComparisonBlocksFailedNestedDependencies(bool budgetFailure)
+    {
+        var previous = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        var snapshot = Snapshot(PublicFacts(ArticleA, 10, nested: [Nested(ArticleA, ArticleEmbedTargetKind.Article, 10)]));
+        var budgets = budgetFailure ? s_budgets with
+        {
+            MaxExpandedNodes = 1
+        } : s_budgets;
+        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(previous.Requests, snapshot, budgets);
+        Assert.Equal(ArticleEmbedProviderResultStatus.Resolved, current.Results[0].Result.Status);
+        Assert.Equal(ArticleEmbedProviderResultStatus.Failed, current.Results[0].Children[0].Status);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            previous.Requests, snapshot, budgets, current, previous.Requests[0].RequestId,
+            previous.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.False(changed);
+    }
+
+    [Theory]
+    [InlineData("unknown")]
+    [InlineData("duplicate")]
+    public void RefreshComparisonRequiresOneExactRequestSelection(string selection)
+    {
+        var previous = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        ArticleEmbedProviderRequest[] requests =
+        [
+            previous.Requests[0],
+            Request(selection == "duplicate" ? previous.Requests[0].RequestId : "request:b", ArticleB, ArticleEmbedTargetKind.Article, 40)
+        ];
+        var snapshot = Snapshot(PublicFacts(ArticleA, 10), PublicFacts(ArticleB, 7));
+        ArticleEmbedAuthoringResolution current = ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets);
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            requests, snapshot, s_budgets, current, selection == "unknown" ? "request:absent" : requests[0].RequestId,
+            previous.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.Equal(selection == "unknown" ? "article_embed_refresh_request_missing"
+            : "article_embed_refresh_request_ambiguous", comparison.ReasonCode);
+        Assert.False(changed);
+    }
+
+    [Fact]
+    public void RefreshComparisonRejectsCyclicCandidateCollectionsBeforeDigestWork()
+    {
+        var input = RefreshInput(ArticleEmbedTargetKind.Article, 9);
+        var children = new List<ArticleEmbedResolvedNode>();
+        var node = new ArticleEmbedResolvedNode(
+            Nested(ArticleA, ArticleEmbedTargetKind.Article, 10), input.Requests[0].Target,
+            ArticleEmbedProviderResultStatus.Resolved, input.Resolution.Results[0].Result.Coordinate, null, children);
+        children.Add(node);
+        var malformed = input.Resolution with
+        {
+            Results = [input.Resolution.Results[0] with { Children = children }]
+        };
+
+        ArticleEmbedValidationResult comparison = ArticleEmbedAuthoringRefreshPolicy.TryCompare(
+            input.Requests, input.Snapshot, s_budgets, malformed, input.Requests[0].RequestId,
+            input.Resolution.Results[0].Result.Coordinate, out bool changed);
+
+        Assert.False(comparison.IsValid);
+        Assert.Equal("article_embed_refresh_candidate_unbounded_or_missing", comparison.ReasonCode);
+        Assert.False(changed);
+    }
+
+    private static (ArticleEmbedProviderRequest[] Requests, ArticleEmbedAuthoritySnapshot Snapshot,
+        ArticleEmbedAuthoringResolution Resolution) RefreshInput(ArticleEmbedTargetKind mode, long revision)
+    {
+        string token = mode switch
+        {
+            ArticleEmbedTargetKind.Heading => $"{ArticleA}#{HeadingA}",
+            ArticleEmbedTargetKind.Block => $"{ArticleA}#exact-anchor",
+            _ => ArticleA
+        };
+        ArticleEmbedProviderRequest[] requests = [Request("request:refresh", token, mode, 0)];
+        var snapshot = Snapshot(PublicFacts(ArticleA, revision,
+            headings: [new ArticleEmbedHeadingFact(HeadingA, Projection("projection:heading"))],
+            blocks: [new ArticleEmbedBlockFact("exact-anchor", Projection("projection:block"))]));
+        return (requests, snapshot, ArticleEmbedAuthoringResolver.Resolve(requests, snapshot, s_budgets));
+    }
+
     private static ArticleEmbedProviderRequest Request(
         string requestId,
         string token,
