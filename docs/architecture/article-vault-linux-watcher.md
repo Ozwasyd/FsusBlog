@@ -140,11 +140,50 @@ Relative resolution uses `openat2` with beneath, no-symlink and no-mount-crossin
 constraints. Missing kernel interfaces fail closed. Native metadata queries reject
 casefold directories and unavailable directory semantics, including root, control
 tree and each source parent. Only the fixed control manifest is read for binding;
-source content and mutations remain with their respective owners. Revalidation is
+stable source reads and source mutations remain with their respective owners. Revalidation is
 an observation: a later external rename can still intervene before a writer uses
 a parent. Each content owner must perform its own root-anchored resolve/use and
 completion checks. These APIs do not grant stable-read, atomic-write, lease,
 exclusive control-tree ownership or native qualification.
+
+`OpenDirectoryForEnumeration(relativeDirectoryPath)` issues a read-only directory
+descriptor under that same root for the existing rescan owner. `.` names the held
+root; other inputs must be portable relative directory paths. Unknown source
+directories can be opened, while `.fsus`, root escape, link/mount crossings and
+unavailable filesystem semantics fail closed. The root owner does not enumerate
+entries or infer portable identities. The rescan owner must enumerate the actual
+descriptor, preserve unknown names as facts and revalidate before and after use.
+
+`OpenOwnedParentMetadata(sourceRelativePath)` derives the registered source parent
+and opens a read-only metadata descriptor that can service directory flush
+syscalls. The existing `OpenOwnedParent` continues to return an `O_PATH` descriptor.
+The native operation owner invokes the flush and accounts for its actual errors.
+
+`OpenMutationBoundary(instruction, expectedOldMetadata)` binds the original
+canonical instruction to the live root/agent, exact registered source projection,
+plan/result/operation/journal references and original byte identities. Existing
+sources must match actual descriptor identity, length and permission metadata;
+bounded expected-old byte comparisons also check statx change/modify times and
+revalidate the issued source and parent. A missing leaf is acceptable only for an
+explicit expected-absent operation and a verified existing parent. Denial is never
+treated as deletion. This comparison guard produces no stable snapshot receipt.
+
+The returned process-owned boundary can create one private `O_EXCL` temporary
+file in the source parent, with an instruction-bound name and random nonce. It
+does not overwrite the source. Its metadata-parent callback lets the canonical
+native owner use a real directory descriptor for flush. Repeated creation is
+refused; closing the boundary closes handles and preserves named artifacts for
+recovery. Failed post-creation guards can leave a temporary artifact; the operation
+owner must retain that exact path and handle unknown outcome, rather than deleting
+by a raced name. Unknown artifact discovery still blocks; no prefix-ignore rule
+was added.
+
+`CanExecuteConditionalReplacement` and `CanCommitBase` remain false. Final source
+create/replace/remove needs the canonical native owner's external-writer exclusion,
+expected-old conditional namespace primitive, completed accepted metadata and
+permission admission, flush/readback and journal/base receipt. A check followed by
+unconditional rename is insufficient. No permissions are changed, no source is
+replaced, and no denied protected-lease QA or platform qualification is inferred.
 
 The original Linux project registers the dedicated owner filter in the existing
 package inventory:

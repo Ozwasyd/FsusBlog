@@ -1,4 +1,6 @@
 using System.Diagnostics;
+using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Runtime.Versioning;
 
 using FsusBlog.ArticleVault.Linux;
@@ -42,6 +44,84 @@ public sealed class LinuxVaultRootDescriptorTests
         Assert.True(scope.AnalyzeProjection("articles/source.md", []).RequiresNativeAdmission);
         Assert.Equal("portable-descriptor-source", scope.AnalyzeProjection("articles/source.md", []).PortableArticleIdentity);
     }
+
+    [Fact]
+    public void EnumerationDirectory_UnknownSourcesStayDiscoverableAndControlTreeIsRejected()
+    {
+        using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
+        ArticleVaultRootManifest manifest = RegisterSource(root, "articles/source.md");
+        Directory.CreateDirectory(Path.Combine(root.Path, "new-source-directory"));
+        File.WriteAllText(Path.Combine(root.Path, "new-source-directory", "unregistered.md"), "unknown fixture\n");
+        using LinuxVaultRootPathScope scope = LinuxVaultRootPathScope.Open(root.Path, manifest, "descriptor-test-agent");
+        using SafeFileHandle directory = scope.OpenDirectoryForEnumeration("new-source-directory");
+        Assert.False(directory.IsInvalid);
+        scope.RevalidateForUse(directory);
+        Assert.Equal(VaultPathStructuralClass.Blocked,
+            scope.AnalyzeProjection("new-source-directory/unregistered.md", []).Classification);
+        Assert.Equal("linux_vault_enumeration_directory_invalid", Assert.Throws<LinuxVaultWatcherException>(
+            () => scope.OpenDirectoryForEnumeration(".fsus")).ReasonCode);
+        Assert.Equal("linux_vault_enumeration_directory_invalid", Assert.Throws<LinuxVaultWatcherException>(
+            () => scope.OpenDirectoryForEnumeration(root.Path)).ReasonCode);
+        directory.Dispose();
+        Assert.Equal("linux_vault_descriptor_not_issued_or_closed", Assert.Throws<LinuxVaultWatcherException>(
+            () => scope.RevalidateForUse(directory)).ReasonCode);
+    }
+
+    [Fact]
+    public void ParentMetadataDescriptor_ServicesDirectoryFlushAndRetainsPathIdentityChecks()
+    {
+        using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
+        ArticleVaultRootManifest manifest = RegisterSource(root, "articles/source.md");
+        using LinuxVaultRootPathScope scope = LinuxVaultRootPathScope.Open(root.Path, manifest, "descriptor-test-agent");
+        using SafeFileHandle pathOnly = scope.OpenOwnedParent("articles/source.md");
+        Assert.Equal(-1, FlushDirectory(pathOnly));
+        Assert.Equal(9, Marshal.GetLastPInvokeError());
+        using SafeFileHandle metadata = scope.OpenOwnedParentMetadata("articles/source.md");
+        scope.RevalidateForUse(metadata);
+        Assert.Equal(0, FlushDirectory(metadata));
+        scope.RevalidateForUse(metadata);
+    }
+
+    [Fact]
+    public void OperationBoundary_CreateTemporaryPreservesAbsentSourceAndDoesNotGrantReplacement()
+    {
+        using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
+        ArticleVaultRootManifest manifest = RegisterSource(root, "articles/source.md");
+        File.Delete(Path.Combine(root.Path, "articles", "source.md"));
+        using LinuxVaultRootPathScope scope = LinuxVaultRootPathScope.Open(root.Path, manifest, "descriptor-test-agent");
+        var instruction = new ArticleVaultMaterializationInstruction(
+            ArticleVaultMaterializationInstructionCodec.Schema, ArticleVaultMaterializationInstructionCodec.Version,
+            scope.Scope.SiteIdentity, scope.Scope.VaultIdentity, scope.Scope.DeviceIdentity, scope.Scope.AgentIdentity,
+            "sealed-plan", LinuxVaultTestRoot.DigestA, manifest.ContentSha256, "accepted-result", LinuxVaultTestRoot.DigestA,
+            "group-one", "operation-one", "portable-descriptor-source",
+            new("articles/source.md", ArticleVaultManifestCodec.ComputeProjectionSha256("articles/source.md")),
+            VaultMaterializationSourceAction.Create, null, ArticleVaultManifestCodec.CaptureSourceBytes("new source\n"u8),
+            null, LinuxVaultTestRoot.DigestA, "journal-one", string.Empty);
+        instruction = instruction with
+        {
+            ContentSha256 = ArticleVaultMaterializationInstructionCodec.ComputeContentSha256(instruction)
+        };
+        Assert.Equal("linux_vault_mutation_instruction_binding_invalid", Assert.Throws<LinuxVaultWatcherException>(
+            () => scope.OpenMutationBoundary(instruction with { AgentIdentity = "foreign-agent" }, null)).ReasonCode);
+        using LinuxVaultMutationBoundary boundary = scope.OpenMutationBoundary(instruction, null);
+        using SafeFileHandle temporary = boundary.CreateTemporarySource();
+        RandomAccess.Write(temporary, "new source\n"u8, 0);
+        RandomAccess.FlushToDisk(temporary);
+        scope.RevalidateForUse(temporary);
+        Assert.False(File.Exists(Path.Combine(root.Path, "articles", "source.md")));
+        Assert.Equal("linux_vault_mutation_temporary_already_created", Assert.Throws<LinuxVaultWatcherException>(
+            () => boundary.CreateTemporarySource()).ReasonCode);
+        Assert.False(boundary.CanExecuteConditionalReplacement);
+        Assert.False(boundary.CanCommitBase);
+        Assert.True(boundary.RequiresExternalWriterExclusion);
+        boundary.UseParentMetadata(handle => Assert.Equal(0, FlushDirectory(handle)));
+        boundary.Dispose();
+        Assert.True(temporary.IsClosed);
+        Assert.True(File.Exists(Path.Combine(root.Path, boundary.TemporaryRelativePath)));
+    }
+
+    [DllImport("libc", EntryPoint = "fsync", SetLastError = true)]
+    private static extern int FlushDirectory(SafeFileHandle descriptor);
 
     [Theory]
     [InlineData("/outside.md")]
@@ -231,5 +311,23 @@ public sealed class LinuxVaultRootDescriptorTests
         File.WriteAllBytes(Path.Combine(root.Path, ArticleVaultSchemas.RootManifestPath),
             ArticleVaultManifestCodec.Serialize(manifest));
         return manifest;
+    }
+}
+
+[Trait("Category", "LinuxArticleVaultRootPath")]
+public sealed class LinuxVaultRootOperationApiBoundaryTests
+{
+    [Fact]
+    public void NativeScopeAndOperationCannotBeConstructedFromSerializedBindingsOrAbsolutePerCommandRoots()
+    {
+        Assert.Empty(typeof(LinuxVaultMutationBoundary).GetConstructors());
+        Assert.Empty(typeof(LinuxVaultRootPathScope).GetConstructors());
+        MethodInfo factory = typeof(LinuxVaultRootPathScope).GetMethod(nameof(LinuxVaultRootPathScope.OpenMutationBoundary))!;
+        Assert.Equal([typeof(ArticleVaultMaterializationInstruction), typeof(VaultFileMetadataObservation)],
+            factory.GetParameters().Select(static parameter => parameter.ParameterType));
+        Assert.Equal(typeof(SafeFileHandle), typeof(LinuxVaultRootPathScope)
+            .GetMethod(nameof(LinuxVaultRootPathScope.OpenDirectoryForEnumeration))!.ReturnType);
+        Assert.DoesNotContain(typeof(LinuxVaultMutationBoundary).GetMethods(BindingFlags.Public | BindingFlags.Instance),
+            static method => method.Name is "ReplaceSource" or "CommitBase" or "DeleteSource" or "AuthorizeWriter");
     }
 }

@@ -6,9 +6,10 @@ namespace FsusBlog.ArticleVault.Linux;
 
 /// <summary>
 /// Holds one root admitted by the existing Linux native verifier. Subsequent path inspection accepts
-/// only root-relative projections; the scope performs no watching, source reads or materialization.
+/// only root-relative projections. Operation preparation compares expected-old bytes at its native
+/// use boundary; stable snapshot production, watching and source replacement have separate owners.
 /// </summary>
-public sealed class LinuxVaultRootPathScope : IDisposable
+public sealed partial class LinuxVaultRootPathScope : IDisposable
 {
     private const int MaximumIssuedDescriptors = 64;
     private readonly LinuxVaultRootVerifier.VerifiedLinuxVaultRoot _root;
@@ -141,6 +142,14 @@ public sealed class LinuxVaultRootPathScope : IDisposable
         => OpenIssued(sourceRelativePath, directory: true);
 
     /// <summary>
+    /// Opens the registered source parent read-only for metadata operations. Unlike the O_PATH
+    /// parent, this descriptor can service directory metadata/flush syscalls. It grants no mutation
+    /// admission, and actual flushing and its error handling remain the operation owner's work.
+    /// </summary>
+    public SafeFileHandle OpenOwnedParentMetadata(string sourceRelativePath)
+        => OpenIssued(sourceRelativePath, directory: true, directoryMetadata: true);
+
+    /// <summary>
     /// Reopens the issued relative path beneath the held root and compares both actual descriptor
     /// identities. Moving an issued parent out of the root invalidates this observation. An external
     /// rename after this check remains possible; this method is not an atomic check-and-write API.
@@ -159,8 +168,7 @@ public sealed class LinuxVaultRootPathScope : IDisposable
             }
 
             RevalidateRoot();
-            VerifyPath(issued.SourceRelativePath);
-            VerifyDirectorySemantics(issued.SourceRelativePath);
+            VerifyIssuedPath(issued);
             using SafeFileHandle current = LinuxVaultPathNative.OpenRelative(
                 _rootDescriptor, issued.DescriptorRelativePath, issued.Directory);
             if (!issued.Identity.SameObject(LinuxVaultPathNative.Identify(issuedDescriptor))
@@ -170,7 +178,7 @@ public sealed class LinuxVaultRootPathScope : IDisposable
             }
 
             RevalidateRoot();
-            VerifyDirectorySemantics(issued.SourceRelativePath);
+            VerifyIssuedPath(issued);
         }
     }
 
@@ -195,7 +203,7 @@ public sealed class LinuxVaultRootPathScope : IDisposable
         }
     }
 
-    private SafeFileHandle OpenIssued(string relativePath, bool directory)
+    private SafeFileHandle OpenIssued(string relativePath, bool directory, bool directoryMetadata = false)
     {
         lock (_gate)
         {
@@ -224,7 +232,8 @@ public sealed class LinuxVaultRootPathScope : IDisposable
             string descriptorPath = directory
                 ? separator < 0 ? "." : relativePath[..separator]
                 : relativePath;
-            SafeFileHandle descriptor = LinuxVaultPathNative.OpenRelative(_rootDescriptor, descriptorPath, directory);
+            SafeFileHandle descriptor = LinuxVaultPathNative.OpenRelative(_rootDescriptor, descriptorPath, directory,
+                directoryMetadataProbe: directoryMetadata);
             try
             {
                 var issued = new IssuedDescriptor(relativePath, descriptorPath, directory,
@@ -333,6 +342,19 @@ public sealed class LinuxVaultRootPathScope : IDisposable
 
     private void ThrowIfDisposed() => ObjectDisposedException.ThrowIf(_disposed, this);
 
+    private void VerifyIssuedPath(IssuedDescriptor issued)
+    {
+        if (issued.Enumeration)
+        {
+            VerifyEnumerationPath(issued.DescriptorRelativePath);
+        }
+        else
+        {
+            VerifyPath(issued.SourceRelativePath);
+            VerifyDirectorySemantics(issued.SourceRelativePath);
+        }
+    }
+
     private sealed record IssuedDescriptor(string SourceRelativePath, string DescriptorRelativePath,
-        bool Directory, LinuxVaultPathNative.DescriptorIdentity Identity);
+        bool Directory, LinuxVaultPathNative.DescriptorIdentity Identity, bool Enumeration = false);
 }

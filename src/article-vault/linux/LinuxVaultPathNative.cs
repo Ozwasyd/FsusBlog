@@ -1,4 +1,8 @@
+using System.Buffers.Binary;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
+
+using FsusBlog.Shared.Contracts.ArticleVault;
 
 using Microsoft.Win32.SafeHandles;
 
@@ -135,6 +139,73 @@ internal static class LinuxVaultPathNative
             status._inode, status._mode);
     }
 
+    internal static SourceState ObserveSource(SafeFileHandle descriptor)
+    {
+        RequireSupportedPlatform();
+        const uint SourceMask = 0x17df;
+        if (StatDescriptor(descriptor, string.Empty, AtEmptyPath | AtNoFollow, SourceMask, out Statx status) != 0
+            || (status._mask & SourceMask) != SourceMask)
+        {
+            throw Failure("linux_vault_mutation_metadata_unavailable");
+        }
+
+        if ((status._mode & FileTypeMask) != RegularFileType || status._links != 1
+            || status._size > ArticleVaultSnapshotAssessor.MaxSourceBytes)
+        {
+            throw new LinuxVaultWatcherException("linux_vault_mutation_source_kind_links_or_size_rejected");
+        }
+
+        byte[] permissions = new byte[12];
+        BinaryPrimitives.WriteUInt32LittleEndian(permissions, status._mode);
+        BinaryPrimitives.WriteUInt32LittleEndian(permissions.AsSpan(4), status._uid);
+        BinaryPrimitives.WriteUInt32LittleEndian(permissions.AsSpan(8), status._gid);
+        string identity = string.Create(System.Globalization.CultureInfo.InvariantCulture,
+            $"device{status._deviceMajor}_{status._deviceMinor}_mount{status._mountIdentity}_inode{status._inode}");
+        var metadata = new VaultFileMetadataObservation(identity, checked((long)status._size),
+            Convert.ToHexStringLower(SHA256.HashData(permissions)), true, (status._mode & 0x124) != 0);
+        return new(metadata, status._changedSeconds, status._changedNanoseconds,
+            status._modifiedSeconds, status._modifiedNanoseconds);
+    }
+
+    internal static SafeFileHandle CreateTemporary(SafeFileHandle parent, string leaf)
+    {
+        RequireSupportedPlatform();
+        if (leaf.Contains('/') || !ArticleVaultPathStructureValidator.ValidateRelativePath(leaf).IsValid)
+        {
+            throw new LinuxVaultWatcherException("linux_vault_mutation_temporary_name_invalid");
+        }
+
+        var how = new OpenHow
+        {
+            _flags = (ulong)(OpenCloseOnExec | OpenNoFollow | 0x2 | 0x40 | 0x80),
+            _mode = 0x180,
+            _resolve = ResolveBeneath | ResolveNoSymlinks | ResolveNoMountCrossing
+        };
+        bool added = false;
+        try
+        {
+            parent.DangerousAddRef(ref added);
+            long descriptor = OpenAt2(OpenAt2SystemCall, checked((int)parent.DangerousGetHandle()),
+                leaf, in how, (nuint)Marshal.SizeOf<OpenHow>());
+            if (descriptor < 0)
+            {
+                throw Failure("linux_vault_mutation_temporary_create_failed");
+            }
+
+            return new SafeFileHandle(new nint(descriptor), ownsHandle: true);
+        }
+        finally
+        {
+            if (added)
+            {
+                parent.DangerousRelease();
+            }
+        }
+    }
+
+    internal sealed record SourceState(VaultFileMetadataObservation Metadata,
+        long ChangedSeconds, uint ChangedNanoseconds, long ModifiedSeconds, uint ModifiedNanoseconds);
+
     private static void RequireSupportedPlatform()
     {
         if (!OperatingSystem.IsLinux()
@@ -186,8 +257,16 @@ internal static class LinuxVaultPathNative
     private struct Statx
     {
         [FieldOffset(0)] internal uint _mask;
+        [FieldOffset(16)] internal uint _links;
+        [FieldOffset(20)] internal uint _uid;
+        [FieldOffset(24)] internal uint _gid;
         [FieldOffset(28)] internal ushort _mode;
         [FieldOffset(32)] internal ulong _inode;
+        [FieldOffset(40)] internal ulong _size;
+        [FieldOffset(96)] internal long _changedSeconds;
+        [FieldOffset(104)] internal uint _changedNanoseconds;
+        [FieldOffset(112)] internal long _modifiedSeconds;
+        [FieldOffset(120)] internal uint _modifiedNanoseconds;
         [FieldOffset(136)] internal uint _deviceMajor;
         [FieldOffset(140)] internal uint _deviceMinor;
         [FieldOffset(144)] internal ulong _mountIdentity;
