@@ -8,9 +8,6 @@ internal static partial class FSEventsNative
 {
     private const string Library = "FsusBlog.ArticleVault.MacOS";
 
-    [UnmanagedFunctionPointer(CallingConvention.Cdecl)]
-    internal delegate void Callback(nint context, nint path, uint flags, ulong eventId, int error);
-
     [LibraryImport(Library, EntryPoint = "FsusVaultMacOpen", StringMarshalling = StringMarshalling.Utf8)]
     internal static partial nint Open(string root, out ulong fileId, out uint device, out int caseSensitive, out int error);
 
