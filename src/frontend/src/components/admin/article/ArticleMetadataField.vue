@@ -292,7 +292,7 @@ onBeforeUnmount(() =>
  {
     display: grid;
     min-width: 0;
-    gap: var(--space-2);
+    gap: var(--fsus-space-2);
     overflow-wrap: anywhere;
 }
 
@@ -305,13 +305,13 @@ onBeforeUnmount(() =>
  {
     margin: 0;
     overflow-wrap: anywhere;
-    color: var(--text-secondary);
+    color: var(--el-text-color-secondary);
 }
 
 .article-metadata-field__actions
  {
     display: flex;
     flex-wrap: wrap;
-    gap: var(--space-2);
+    gap: var(--fsus-space-2);
 }
 </style>
