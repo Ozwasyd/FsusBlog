@@ -1112,11 +1112,12 @@ qualification; successful native scheduler MySQL allocation and canonical locked
 remain prerequisites.
 
 Correctness attempt migration validates the complete current producer inventory
-against its canonical matrix, physical and reliability authorities before checking
-execution-envelope ownership. Its cardinality follows that exact roster rather
-than a historical fixed count. Missing, extra, duplicate or crossed-authority
-entries remain failures even when their enclosing digest is recomputed. A freshly
-generated inventory refresh is source evidence, not a qualification receipt.
+against its canonical matrix, physical and reliability authorities, then requires
+exactly 225 producers before checking execution-envelope ownership. A canonical
+inventory containing 226 producers still fails the fixed-count check. Missing,
+extra, duplicate or crossed-authority entries remain failures even when their
+enclosing digest is recomputed. A freshly generated inventory refresh is source
+evidence, not a qualification receipt.
 
 Before local physical scheduling, the existing runner projects each non-resident
 bundle's service requirements from its exact logical members. Duplicate or
