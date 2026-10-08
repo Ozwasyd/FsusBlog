@@ -5084,10 +5084,10 @@
         },
         {
             "file": "tests/tools/linux-cgroup-membership-locator.test.mjs",
-            "owner": "manual-diagnostic:tests/tools/linux-cgroup-membership-locator.test.mjs",
-            "executionCategory": "manual-diagnostic",
-            "lifecycle": "manual-diagnostic",
-            "physicalExecutionCount": 0,
+            "owner": "repository-governance:test-asset-behavior",
+            "executionCategory": "repository-governance",
+            "lifecycle": "canonical-execution",
+            "physicalExecutionCount": 1,
             "classifications": [
                 "behavior"
             ]
