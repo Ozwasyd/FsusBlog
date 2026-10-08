@@ -140,6 +140,25 @@ test('published real writer source exposes its observed 1000-graph bound without
         /distribution_noncanonical_json/u);
 });
 
+test('current-schema native PK transport retains the exact reviewed taxonomy and typed interfaces', () =>
+{
+    const previous = readArticleBulkWriterSourceReference({ repositoryRoot,
+        sourceCommit: '8f171ad68df48d139fb31f02d1f3e80dde5330ba' });
+    const current = readArticleBulkWriterSourceReference({ repositoryRoot,
+        sourceCommit: '21a20129b3127fdcfb6f34bff7f80b1ef8b5f239' });
+    assert.equal(current.taxonomySourceReviewed, true);
+    assert.equal(current.resolvedSourceReviewed, true);
+    assert.equal(current.executionCapability, false);
+    const changed = current.files.filter((file, index) => file.gitBlob !== previous.files[index].gitBlob);
+    assert.deepEqual(changed.map((file) => file.path.split('/').at(-1)), ['DataScaleProviderBulkTransport.cs']);
+    assert.equal(changed[0].gitBlob, '563a312261c74ae9eaa0ab8d2facbcc51c96d6fe');
+    const request = createDistributionArticleWriterRequest({ ...options(), sourceReference: current, batchSize: 1000 });
+    assert.equal(request.ownerRequest.existingTaxonomyInput.schema, 'DataScaleArticleTaxonomySchema');
+    assert.ok(request.blockers.includes('article_writer_js_typed_intake_bridge_missing'));
+    assert.equal(request.executionEligible, false);
+    assert.equal(request.releaseEvidenceEligible, false);
+});
+
 test('actual new owner source provides typed resolved intake and replaces obsolete missing API blockers', () =>
 {
     const published = readArticleBulkWriterSourceReference({

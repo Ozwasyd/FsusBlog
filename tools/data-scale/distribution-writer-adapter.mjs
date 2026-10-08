@@ -42,6 +42,10 @@ const taxonomySourceBlobs = Object.freeze({
     'DataScalePhysicalBatchReadback.cs': '9a3ce317fbab2ac2d6e633ee5f485d12be04d28b',
     'DataScaleProviderBulkTransport.cs': '9287154857b82acce13375006661d45c4661e3f2'
 });
+const currentSchemaTaxonomySourceBlobs = Object.freeze({
+    ...taxonomySourceBlobs,
+    'DataScaleProviderBulkTransport.cs': '563a312261c74ae9eaa0ab8d2facbcc51c96d6fe'
+});
 
 function requireCondition(condition, code)
 {
@@ -99,7 +103,7 @@ export function readArticleBulkWriterSourceReference(options)
     }
     const matches = (blobs) => Object.entries(blobs).every(([file, blob]) =>
         files.some((entry) => entry.path === `${sourceDirectory}${file}` && entry.gitBlob === blob));
-    const taxonomySourceReviewed = matches(taxonomySourceBlobs);
+    const taxonomySourceReviewed = matches(taxonomySourceBlobs) || matches(currentSchemaTaxonomySourceBlobs);
     const resolvedSourceReviewed = matches(resolvedSourceBlobs) || taxonomySourceReviewed;
     const body = {
         schema: sourceSchema,

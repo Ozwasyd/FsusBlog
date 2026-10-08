@@ -1,0 +1,280 @@
+{
+    "kind": "current-source-contract-gap-routing-not-threshold-or-runtime-receipt",
+    "catalogDigest": "sha256:d52bafb29e5b0a04e51db9e06446c7f6d59ce77c89f951caed5ce43b90393c3c",
+    "firstUnresolvedMetricIds": [
+        "taxonomy.category-cardinality",
+        "taxonomy.tag-cardinality",
+        "taxonomy.empty-category-share",
+        "taxonomy.large-category-share",
+        "taxonomy.small-category-share",
+        "taxonomy.tag-tail-share",
+        "taxonomy.multi-tag-share",
+        "taxonomy.zero-tag-share"
+    ],
+    "allUnresolvedMetricIds": [
+        "hotness.p50",
+        "hotness.p90",
+        "hotness.p99",
+        "taxonomy.category-cardinality",
+        "taxonomy.tag-cardinality",
+        "taxonomy.empty-category-share",
+        "taxonomy.large-category-share",
+        "taxonomy.small-category-share",
+        "taxonomy.tag-tail-share",
+        "taxonomy.multi-tag-share",
+        "taxonomy.zero-tag-share",
+        "thread.zero-comment-share",
+        "thread.small-thread-share",
+        "thread.wide-root-share",
+        "thread.depth-5-share",
+        "thread.depth-10-share",
+        "thread.max-depth-boundary-share",
+        "thread.child-limit-boundary-share",
+        "thread.deleted-root-descendant-share",
+        "moderation.variant-share",
+        "id.gap-share",
+        "id.out-of-order-share",
+        "delete-gap.share",
+        "lifecycle.variant.Published.share",
+        "lifecycle.variant.Scheduled.share",
+        "lifecycle.variant.PublishedWithScheduledUpdate.share",
+        "lifecycle.variant.Archived.share",
+        "lifecycle.variant.Deleted.share"
+    ],
+    "metricCount": 28,
+    "scenarioCount": 8,
+    "groups": [
+        {
+            "authorityRef": "hotness-observation-export",
+            "owners": [
+                2550,
+                2551
+            ],
+            "integrationOwner": 2542,
+            "classification": "contract-decision-and-producer-export",
+            "metrics": [
+                "hotness.p50",
+                "hotness.p90",
+                "hotness.p99"
+            ],
+            "existingFields": [
+                "ArticleScaleResolvedInput.Views:int",
+                "ArticleScaleResolvedInput.HotnessAuthorityReference",
+                "ArticleScaleAssignmentCoverage.ComputeInputDigest"
+            ],
+            "contractDecisions": [
+                "raw Views count versus explicit normalized unit",
+                "per-scenario p50/p90/p99 intervals",
+                "zero-view applicability",
+                "article population and nearest-rank definition"
+            ],
+            "requiredExportFields": [
+                "catalog/scenario/source identity",
+                "semantic article roster and Views assignment digest",
+                "hotness producer version/reference",
+                "measurement unit",
+                "algorithmVersion",
+                "sampleSet/denominator",
+                "minSampleCount",
+                "interval"
+            ],
+            "implementationStatus": "Original typed fields exist; missing complete producer export and/or explicit scenario statistical contract. No runtime or release receipt is asserted."
+        },
+        {
+            "authorityRef": "article-taxonomy-role-export",
+            "owners": [
+                2539,
+                2541
+            ],
+            "trackingOwner": 1731,
+            "classification": "contract-decision-and-missing-role-export",
+            "metrics": [
+                "taxonomy.category-cardinality",
+                "taxonomy.tag-cardinality",
+                "taxonomy.empty-category-share",
+                "taxonomy.large-category-share",
+                "taxonomy.small-category-share",
+                "taxonomy.tag-tail-share",
+                "taxonomy.multi-tag-share",
+                "taxonomy.zero-tag-share"
+            ],
+            "existingFields": [
+                "ArticleScaleArtifactBindings.Taxonomy",
+                "ArticleScaleArtifactReference.Schema/AuthorityId/ShapeId/ContentDigest",
+                "ArticleScaleResolvedInput.CategoryId",
+                "ArticleScaleResolvedInput.TagIds"
+            ],
+            "contractDecisions": [
+                "category/tag cardinality targets and intervals",
+                "large/small bucket classes",
+                "tag-tail rank boundary",
+                "share numerators/denominators",
+                "cardinality algorithm in count units"
+            ],
+            "requiredExportFields": [
+                "complete stable category/tag semantic role catalogs including empty buckets",
+                "role-to-native-identity mapping",
+                "per-article semantic category/tag assignments",
+                "artifact and producer source/version/digest",
+                "per-scenario targets/units/applicability/intervals"
+            ],
+            "suppliedPersistenceSource": "8f171ad68df48d139fb31f02d1f3e80dde5330ba",
+            "suppliedTypes": [
+                "internal DataScaleArticleTaxonomySchema(ArticleTag,Category,Tag)",
+                "DataScaleArticleTaxonomyProjection.Attach",
+                "DataScaleArticlePhysicalProjection.Compile(...,resolvedBatch,taxonomySchema)",
+                "DataScalePostgresArticleProducer.ProduceAsync(...,resolvedBatch,taxonomySchema)"
+            ],
+            "suppliedCapability": "Current ArticleTag persistence, composite native PK validation, all historical/current external category/tag key validation, complete owned article link-set readback including zero tags, existing replay/rollback integration. This is inspected owner source, not adapter DB qualification.",
+            "validationPhase": "Inside product transaction after native article sequence reservation; invalid taxonomy can consume sequence gaps while product writes are refused.",
+            "implementationStatus": "Current taxonomy persistence is supplied. Complete semantic category/tag inventories including empty categories, bucket/tail classifications and scenario acceptance contracts are missing.",
+            "suppliedCurrentSchemaSource": "21a20129b3127fdcfb6f34bff7f80b1ef8b5f239"
+        },
+        {
+            "authorityRef": "comment-scale-plan",
+            "owners": [
+                2545
+            ],
+            "trackingOwner": 1732,
+            "productionRulesOwner": 1725,
+            "classification": "contract-decision-and-missing-plan-export",
+            "metrics": [
+                "thread.zero-comment-share",
+                "thread.small-thread-share",
+                "thread.wide-root-share",
+                "thread.depth-5-share",
+                "thread.depth-10-share",
+                "thread.max-depth-boundary-share",
+                "thread.child-limit-boundary-share",
+                "thread.deleted-root-descendant-share",
+                "moderation.variant-share"
+            ],
+            "existingFields": [
+                "Comment.ArticleId/ParentId/RootId/ReplyToCommentId/Depth/IsDeleted/ModerationStatus/CurrentVersion",
+                "CommentModerationStatus.Pending/Approved/Rejected/Hidden",
+                "CommentThreads:MaxDepth",
+                "CommentThreads:MaxChildrenPerNode"
+            ],
+            "contractDecisions": [
+                "article/thread/root/comment denominator for each metric",
+                "small/wide class definitions",
+                "depth equality versus at-least-depth",
+                "deleted-root applicability",
+                "legal variant proportions and intervals",
+                "explicit moderation state/variant metrics"
+            ],
+            "requiredExportFields": [
+                "original sealed v2 CommentScalePlan for explicit scenario/tier, contentDigest and explicit Mutations",
+                "real article/comment counts and scenario/repetition allocations",
+                "complete canonical CommentScaleGraphFactBindings stream keyed by supplied occurrence tuples",
+                "independently expected temporal/content artifact references",
+                "legal finalized depth/child-limit and moderation/privacy applicability needed for complete graph admission",
+                "producer source/version/digest"
+            ],
+            "specificGap": "Supply one original sealed v2 plan for an explicit scenario/tier, its independent original temporal/content artifacts and complete occurrence binding stream. Do not infer counts from the synthetic6-comment/3-article tests or manufacture a second occurrence compiler.",
+            "implementationStatus": "Plan v2 validation, occurrence intent expansion, article bindings, production policy resolution and artifact verification APIs are supplied. Missing actual non-synthetic namedscale sealed plan/count inventory and complete occurrence fact-binding stream; given requested edges still do not prove legal depth/child-limit or final graph admission.",
+            "suppliedSourceCommit": "83299c6891eb06c101bb31badd589c4adf780180",
+            "suppliedCapabilities": [
+                "CommentScalePlanContract.Parse/ComputeDigest/Inspect v2; explicit Mutations required",
+                "CanonicalCommentGraphFactory.ResolveIntentStream/ResolveIntentBatches; actual given-plan occurrence/repetition expansion, bounded256",
+                "CommentScaleGraphOccurrence/CommentScaleRequestCoordinate canonical tuple identities",
+                "CommentScaleArticleBindingAdapter.Bind/BindResolved",
+                "CommentScalePolicyResolver.Resolve; actual merged production pure policies",
+                "original verifyCommentScaleContentArtifact/verifyCommentScaleTemporalArtifact"
+            ]
+        },
+        {
+            "authorityRef": "production-id-plan-export",
+            "commentOwner": 1619,
+            "nativeArticleOwner": 2542,
+            "classification": "contract-decision-and-scoped-producer-export",
+            "metrics": [
+                "id.gap-share",
+                "id.out-of-order-share",
+                "delete-gap.share"
+            ],
+            "existingFields": [
+                "ArticleScaleGraphIdentityBindings.PlanDigest/SemanticArticleId/Ids/Digest",
+                "DataScaleNativeIdentityObservation.Table/Column/OwnedSequence/RoleIds"
+            ],
+            "contractDecisions": [
+                "separate native article identity and Snowflake comment identity",
+                "gap reference sequence/population/unit",
+                "allocation order versus publication/arrival order",
+                "deleted-gap numerator/denominator",
+                "per-scenario allocator-compatible intervals"
+            ],
+            "requiredExportFields": [
+                "native article reservation provenance and semantic role bindings",
+                "comment algorithmVersion/canonical encode-decode core identity",
+                "epoch/nodeBits/sequenceBits/maxNodeId/maxSequencePerMillisecond",
+                "fixtureReservedNodeId/productionAssignedNodeIds authoritative inventory",
+                "businessEpochUtc/logicalSequence/idsDigest/policyDigest",
+                "complete root/nested mappings",
+                "production core parity evidence"
+            ],
+            "scopeLimit": "Published PG native article reservation is real and consumed by original writer; it is not canonical comment Snowflake parity or scenario ID/gap policy.",
+            "implementationStatus": "Original typed fields exist; missing complete producer export and/or explicit scenario statistical contract. No runtime or release receipt is asserted."
+        },
+        {
+            "authorityRef": "article-lifecycle-distribution-export",
+            "owners": [
+                2539,
+                2541
+            ],
+            "trackingOwner": 1731,
+            "classification": "existing-allocation-authority-export-and-acceptance-allowance",
+            "metrics": [
+                "lifecycle.variant.Published.share",
+                "lifecycle.variant.Scheduled.share",
+                "lifecycle.variant.PublishedWithScheduledUpdate.share",
+                "lifecycle.variant.Archived.share",
+                "lifecycle.variant.Deleted.share"
+            ],
+            "existingFields": [
+                "ArticleScalePlan.ArticleCount/StateDistribution",
+                "ArticleScaleVariantAllocation.Variant/Count/Contract",
+                "ArticleScaleVariantContractCatalog",
+                "ArticleScaleDistributionCatalog.Create"
+            ],
+            "contractDecisions": [
+                "per-scenario acceptance allowance against original owner counts",
+                "share population and applicability"
+            ],
+            "requiredExportFields": [
+                "validated original ArticleScalePlan/contentDigest",
+                "scaleTier/namespace/articleCount",
+                "original per-variant counts and contract identity",
+                "semantic article-to-variant assignments",
+                "original serializer/digest authority"
+            ],
+            "implementationStatus": "Original allocation authority exists and is consumed by the owned typed projection and partial compiler. Full scenario acceptance allowances and complete resolved assignments remain missing."
+        }
+    ],
+    "thresholdPolicy": "No threshold inferred from fixture values, modulo fallback, default status or observed samples. Contract decisions stay with distribution contract owners; shared producer facts are requested from existing owners.",
+    "leafRecommendation": {
+        "2550": "Keep OPEN: missing declared metric intervals and complete authoritative shape/role references.",
+        "2551": "Keep OPEN: bounded body/script and exact lifecycle reference compilation is partial. Missing dimensions, comment counts and complete resolved assignments remain real source gaps; 1M remains unsupported by the original plan.",
+        "excludedReason": "No closure decision depends on downstream DB/query runtime acceptance."
+    },
+    "mergedSourceCommits": {
+        "4021": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "4023": "cb6f4e4a174ac65735707c7e44286352803e742b"
+    },
+    "additionalNonMetricGaps": [
+        "comment count remains null",
+        "media no-cover scale applicability remains blocked",
+        "no original million-article tier",
+        "article body/script and exact lifecycle reference compilation is partial; full article/comment semantic assignments remain missing"
+    ],
+    "sourceCapabilityUpdate": "Taxonomy persistence and current-schema MySQL/SQLite generated-PK primitives are supplied. Full role inventories, complete semantic assignments, explicit statistical contracts and durable all-provider host integration remain unresolved. No schema migration is requested.",
+    "suppliedWriterSource": "21a20129b3127fdcfb6f34bff7f80b1ef8b5f239",
+    "contractAuthority": "tools/data-scale/distribution-catalog.mjs",
+    "remainingRequirementFields": [
+        "interval.min",
+        "interval.max",
+        "algorithmVersion",
+        "sampleSet/denominator",
+        "authorityRef"
+    ]
+}

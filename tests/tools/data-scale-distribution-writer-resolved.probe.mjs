@@ -7,7 +7,8 @@ const { readArticleBulkWriterSourceReference } = await import(new URL('../../too
 
 const ownerCommits = Object.freeze([
     'c2847aaae1c1230a87435a26c13eae465d6b681c',
-    '8f171ad68df48d139fb31f02d1f3e80dde5330ba'
+    '8f171ad68df48d139fb31f02d1f3e80dde5330ba',
+    '21a20129b3127fdcfb6f34bff7f80b1ef8b5f239'
 ]);
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const options = new Map();
@@ -52,7 +53,7 @@ if (observedCommit !== ownerCommit || dirty !== '')
 const source = readArticleBulkWriterSourceReference({ repositoryRoot: ownerRoot, sourceCommit: ownerCommit });
 const missing = source.files.filter((file) => file.status !== 'present');
 if (!source.resolvedSourceReviewed
-    || (ownerCommit === ownerCommits[1] ? !source.taxonomySourceReviewed || missing.length !== 0
+    || (ownerCommit !== ownerCommits[0] ? !source.taxonomySourceReviewed || missing.length !== 0
         : missing.length !== 1 || !missing[0].path.endsWith('/DataScaleArticleTaxonomyProjection.cs')))
 {
     throw new Error('probe_reviewed_typed_owner_source_required');

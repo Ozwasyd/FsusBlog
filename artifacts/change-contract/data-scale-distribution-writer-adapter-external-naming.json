@@ -4,9 +4,10 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/data-scale/distribution-assignment.mjs",
                 "tools/data-scale/distribution-writer-adapter.mjs"
             ],
-            "reason": "The trusted registry assigns tools MJS sources to the existing environment naming scope. Preserve the original serializer and actual typed writer/taxonomy API names while using camelCase internally; reviewed source references add no environment settings, IDs, persistence authority or JS writer bridge."
+            "reason": "The trusted registry assigns tools MJS sources to the existing environment naming scope. Preserve the original serializer, existing catalog field names and actual typed writer/taxonomy APIs while using camelCase internally. The bounded partial compiler and exact reviewed source profiles introduce no environment settings, native IDs, new writer or execution qualification."
         }
     ]
 }
