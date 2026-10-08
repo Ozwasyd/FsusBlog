@@ -92,7 +92,7 @@ internal sealed class GpuMetalSession : IGpuDriverSession, IGpuMetalAllocationOb
             {
                 if (buffer == 0)
                 {
-                    throw new GpuDriverException("new-metal-private-buffer", -1);
+                    throw new GpuAllocationRejectedException();
                 }
                 _devices.Add(address, bytes);
                 return address;
@@ -134,7 +134,7 @@ internal sealed class GpuMetalSession : IGpuDriverSession, IGpuMetalAllocationOb
             {
                 if (buffer == 0)
                 {
-                    throw new GpuDriverException("new-metal-shared-buffer", -1);
+                    throw new GpuAllocationRejectedException();
                 }
                 // Only shared MTLBuffer.contents supplies a real CPU address; private handles remain opaque.
                 var address = new GpuHostAddress(_api.Contents(buffer));

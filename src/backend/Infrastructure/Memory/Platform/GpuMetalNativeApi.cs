@@ -161,8 +161,12 @@ internal sealed class GpuMetalNativeApi : IGpuMetalApi
         using var pool = Pool();
         // MTLResourceStorageModePrivate = 2 << 4; shared upload uses CPUCacheModeWriteCombined = 1.
         ulong options = shared ? cpuReadback ? 0UL : 1UL : 32UL;
-        nint buffer = Nonzero(_buffer(device, Selector("newBufferWithLength:options:"), bytes, options),
-            "new-metal-buffer");
+        nint buffer = _buffer(device, Selector("newBufferWithLength:options:"), bytes, options);
+        if (buffer == 0)
+        {
+            // newBuffer returns nil when allocation cannot be made; no object was created.
+            throw new GpuAllocationRejectedException();
+        }
         try
         {
             Require(buffer, "allocatedSize");

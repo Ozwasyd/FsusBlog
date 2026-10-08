@@ -56,3 +56,11 @@ public sealed class GpuDriverException : Exception
         get;
     }
 }
+
+/// <summary>A driver-confirmed allocation rejection that created no native resource.</summary>
+public sealed class GpuAllocationRejectedException : Exception
+{
+    public GpuAllocationRejectedException() : base("The driver rejected allocation without creating a resource.")
+    {
+    }
+}
