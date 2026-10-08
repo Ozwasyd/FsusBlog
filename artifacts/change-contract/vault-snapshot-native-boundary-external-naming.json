@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/article-vault/observations/LinuxVaultSnapshotNative.cs",
+                "src/article-vault/observations/LinuxVaultSnapshotReader.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultAtomicWriteAssessment.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultEventNormalizer.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultMaterializationInstruction.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultObservationContracts.cs"
+            ],
+            "reason": "Declare the exact C# files covered by the trusted naming surface. Preserve canonical Linux statx UAPI entry point, Vault schema and existing reason-code literals while internal identifiers follow repository C# conventions. No process environment access or additional naming exception is introduced."
+        }
+    ]
+}
