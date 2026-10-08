@@ -213,8 +213,8 @@ no shared registry, schema or authority file is independently edited.
 
 `createBrowserContractAssertionReport` in
 `browser-contract-assertion-report.mjs` supplies the missing ordinary report
-recorder. It reopens independently held sealed plan/catalog bytes and a held
-runner byte reference. Its authority argument contains the four binding fields
+recorder. It reopens independently held sealed plan/catalog bytes. Its authority
+argument contains the four binding fields
 above; it does not invent identities, planned members or correctness declarations.
 This emitter creates report data. The existing adapter and runner binding still
 own consumer validation and runtime admission.
@@ -232,7 +232,8 @@ and prevents report sealing, preserving a preceding product rejection.
 
 `skipAssertion(memberId)` records an explicit unexecuted skip. Required skips
 remain unsuccessful. `interrupt(kind)` records a structured infrastructure
-event; `finalize(diagnostics)` seals a complete report and blocks only assertions
+event; `finalize({ runnerReference, diagnostics })` reopens the final held native
+receipt bytes after original runner finalization, seals a complete report and blocks only assertions
 which never started. In-flight, unclassified or incompletely captured assertions
 cannot be replaced by blocked members. Diagnostic metadata stays diagnostic;
 the held `runnerReceipt` reference is retained. Output has the existing report
@@ -249,3 +250,10 @@ IDs/results from errors, logs or scenario success does not meet that contract.
 No existing Browser assertion, scenario, project, worker or retry is changed by
 this source increment. Ordinary callback fixtures verify emission; a physical
 browser report and qualified temporal/run evidence remain unverified.
+
+The supplied plan/catalog attempt fields must agree with independently held
+terminal attempt eligibility; producing that binding belongs to the original
+attempt/plan owner. The recorder never predicts or rewrites those eligibility
+fields. A real finalized native reference is acquired after assertions and
+cleanup through the existing receipt owner, rather than requiring an already
+final receipt before any assertion executes.

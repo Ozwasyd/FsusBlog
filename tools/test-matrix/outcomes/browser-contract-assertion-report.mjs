@@ -46,14 +46,12 @@ function readDocument(repositoryRoot, reference, schema, fields, authority)
  * a qualified outcome. Native runner verification remains with the consumer.
  */
 export function createBrowserContractAssertionReport({
-    repositoryRoot, authority: heldAuthority, catalogReference, planReference, runnerReference
+    repositoryRoot, authority: heldAuthority, catalogReference, planReference
 })
 {
     exactKeys(heldAuthority, bindingFields, 'held report authority');
     const authority = structuredClone(heldAuthority);
     requireCondition(authority.identity?.producerId === browserContractOutcomeProducerId, 'producer mismatch');
-    readBrowserContractOutcomeArtifact(repositoryRoot, runnerReference);
-    const runner = structuredClone(runnerReference);
     const catalog = readDocument(repositoryRoot, catalogReference, 'fsusblog.browser-contract-outcome-catalog.v1', ['members'], authority);
     const plan = readDocument(repositoryRoot, planReference, 'fsusblog.browser-contract-outcome-plan.v1', ['catalogDigest', 'members'], authority);
     same(plan.members, catalog.members, 'plan/catalog members');
@@ -200,8 +198,8 @@ export function createBrowserContractAssertionReport({
             requireCondition(finalized === null && interruption === null && kind.startsWith('infra.'), 'interruption is invalid');
             interruption = failure(kind);
         },
-        /** Seal complete terminals; infrastructure interruption fills only unstarted members. */
-        finalize(diagnostics = {})
+        /** Bind the final native bytes after execution; fill only unstarted interrupted members. */
+        finalize({ runnerReference, diagnostics = {} } = {})
         {
             requireCondition(active.size === 0 && unresolved.size === 0, 'started assertion lacks a recorded terminal');
             if (finalized !== null)
@@ -209,6 +207,8 @@ export function createBrowserContractAssertionReport({
                 return structuredClone(finalized);
             }
             requireCondition(interruption !== null || terminals.size === planned.size, 'assertion terminals are incomplete');
+            readBrowserContractOutcomeArtifact(repositoryRoot, runnerReference);
+            const runner = structuredClone(runnerReference);
             const members = plannedIds.map((id) => terminals.get(id) ?? {
                 ...Object.fromEntries(memberFields.map((field) => [field, planned.get(id)[field]])),
                 executed: false, status: 'blocked', artifactIds: [], failures: []

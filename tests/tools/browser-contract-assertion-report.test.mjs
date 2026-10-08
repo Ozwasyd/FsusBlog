@@ -39,8 +39,13 @@ function fixture(t, { failedAttempt = false, optionalSecond = false } = {})
         members, catalogDigest: catalog.contentDigest });
     const catalogReference = write('catalog.json', catalog);
     const planReference = write('plan.json', plan);
-    const runnerReference = write('runner.json', { fixture: 'byte-held native source; native validation belongs to runner binding' });
-    const recorder = createBrowserContractAssertionReport({ repositoryRoot, authority, catalogReference, planReference, runnerReference });
+    const recorder = createBrowserContractAssertionReport({ repositoryRoot, authority, catalogReference, planReference });
+    let runnerReference;
+    function finalize(diagnostics = {})
+    {
+        runnerReference ??= write('runner.json', { fixture: 'byte-held finalized source; native validation belongs to runner binding' });
+        return recorder.finalize({ runnerReference, diagnostics });
+    }
     const capture = (index) => async () => [{ id: `dom-${index}`, ...write(`dom-${index}.json`, { actualObservedDom: index }) }];
     function adapt(report)
     {
@@ -50,13 +55,18 @@ function fixture(t, { failedAttempt = false, optionalSecond = false } = {})
             { kind: 'browser-contract-report', ...reportReference }
         ] } });
     }
-    return { recorder, capture, adapt, runnerReference };
+    return { recorder, capture, adapt, finalize,
+        get runnerReference()
+        {
+            return runnerReference;
+        } };
 }
 
 test('actual assertion callbacks and declared byte captures emit a complete sealed report', async (t) =>
 {
     const f = fixture(t);
     const calls = [];
+    assert.equal(f.runnerReference, undefined);
     for (const index of [0, 1])
     {
         const value = await f.recorder.runAssertion(`member-${index}`, {
@@ -70,12 +80,12 @@ test('actual assertion callbacks and declared byte captures emit a complete seal
         });
         assert.equal(value, index);
     }
-    const report = f.recorder.finalize({ producer: 'controlled original callbacks' });
+    const report = f.finalize({ producer: 'controlled original callbacks' });
     assert.deepEqual(calls, [0, 1]);
     assert.deepEqual(report.diagnostics.runnerReceipt, f.runnerReference);
     assert.equal(report.groupStatus, 'success');
     assert.equal(f.adapt(report).outcome.status, 'success');
-    assert.deepEqual(f.recorder.finalize(), report);
+    assert.deepEqual(f.finalize(), report);
 });
 
 test('original product assertion error is rethrown and emitted with its planned assertion identity', async (t) =>
@@ -98,7 +108,7 @@ test('original product assertion error is rethrown and emitted with its planned 
         capture: f.capture(0)
     }), (error) => error === original);
     await f.recorder.runAssertion('member-1', { assertion: () => productAssert(true, 'second actual assertion'), capture: f.capture(1) });
-    const report = f.recorder.finalize();
+    const report = f.finalize();
     assert.equal(report.members[0].failures[0].kind, 'product.assertion');
     assert.equal(report.members[0].failures[0].identity.assertionId, 'assertion-0');
     assert.equal(report.groupStatus, 'failed');
@@ -120,7 +130,7 @@ test('structured infrastructure event preserves the executed assertion and block
         }
     }), (error) => error === original);
     f.recorder.interrupt('infra.browser-crash');
-    const report = f.recorder.finalize();
+    const report = f.finalize();
     assert.deepEqual(report.members.map((member) => [member.executed, member.status]), [[true, 'failed'], [false, 'blocked']]);
     assert.equal(report.interruption.identity.attemptNumber, 1);
     assert.deepEqual(f.adapt(report).outcome.membership.blockedMemberIds, ['member-1']);
@@ -131,7 +141,7 @@ test('explicit optional assertion skip emits the actual unexecuted terminal', as
     const f = fixture(t, { optionalSecond: true });
     await f.recorder.runAssertion('member-0', { assertion: () => true, capture: f.capture(0) });
     f.recorder.skipAssertion('member-1');
-    const report = f.recorder.finalize();
+    const report = f.finalize();
     assert.equal(report.members[1].executed, false);
     assert.equal(report.members[1].status, 'skipped');
     assert.equal(f.adapt(report).outcome.status, 'success');
@@ -145,12 +155,12 @@ test('in-flight assertion and incomplete producer coverage cannot produce a term
     {
         finish = resolve;
     }), capture: f.capture(0) });
-    assert.throws(() => f.recorder.finalize(), /started assertion lacks/u);
+    assert.throws(() => f.finalize(), /started assertion lacks/u);
     finish('observed');
     await running;
-    assert.throws(() => f.recorder.finalize(), /terminals are incomplete/u);
+    assert.throws(() => f.finalize(), /terminals are incomplete/u);
     await f.recorder.runAssertion('member-1', { assertion: () => true, capture: f.capture(1) });
-    assert.equal(f.recorder.finalize().groupStatus, 'success');
+    assert.equal(f.finalize().groupStatus, 'success');
 });
 
 test('unclassified original producer rejection stays unresolved and cannot become an unstarted blocked member', async (t) =>
@@ -162,7 +172,7 @@ test('unclassified original producer rejection stays unresolved and cannot becom
         throw original;
     } }), (error) => error === original);
     f.recorder.interrupt('infra.process-signal');
-    assert.throws(() => f.recorder.finalize(), /started assertion lacks/u);
+    assert.throws(() => f.finalize(), /started assertion lacks/u);
 });
 
 test('capture failure preserves the original product rejection and leaves report sealing incomplete', async (t) =>
@@ -187,5 +197,5 @@ test('capture failure preserves the original product rejection and leaves report
             throw new Error('capture failed');
         }
     }), (error) => error === original);
-    assert.throws(() => f.recorder.finalize(), /started assertion lacks/u);
+    assert.throws(() => f.finalize(), /started assertion lacks/u);
 });
