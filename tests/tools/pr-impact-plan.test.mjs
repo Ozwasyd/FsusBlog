@@ -371,7 +371,7 @@ test('flat solution checker and its refusal controls are explicit source executi
     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
         await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
     assert.equal(sourceGovernanceChildEntries.solution, 'tools/configuration/check-solution-source.mjs');
-    assert.equal(sourceGovernanceExecutableEntries().length, 10);
+    assert.equal(sourceGovernanceExecutableEntries().length, 12);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
