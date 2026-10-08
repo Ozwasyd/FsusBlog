@@ -415,3 +415,26 @@ test('declared correctness cannot be relabeled diagnostic after an assertion fai
     f.report.artifacts[0].role = 'diagnostic';
     assert.throws(f.adapt, /diagnostic promotion/u);
 });
+
+test('member and digest sets retain canonical order across mixed-case Unicode identifiers and input permutation', (t) =>
+{
+    const f = fixture(t);
+    for (const [index, id] of ['ä', 'Z', 'a', 'é'].entries())
+    {
+        const original = f.plan.members[index].id;
+        f.plan.members[index].id = id;
+        f.catalog.members[index].id = id;
+        f.report.members[index].id = id;
+        f.report.artifacts.find((artifact) => artifact.memberId === original).memberId = id;
+    }
+    const first = f.adapt();
+    const membership = first.outcome.membership;
+    assert.deepEqual(membership.members.map((member) => member.id), membership.plannedMemberIds);
+    assert.deepEqual(membership.executedMemberIds, membership.plannedMemberIds);
+    assert.deepEqual(membership.passedMemberIds, membership.plannedMemberIds);
+    f.plan.members.reverse();
+    f.catalog.members.reverse();
+    f.report.members.reverse();
+    f.report.artifacts.reverse();
+    assert.deepEqual(first.outcome, f.adapt().outcome);
+});
