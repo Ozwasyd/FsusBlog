@@ -38,10 +38,9 @@ internal static class DocumentExportHtmlVerifier
         byte[] expectedStyleDigest = SHA256.HashData(expectedStyle);
         string expectedStyleHash = Convert.ToBase64String(expectedStyleDigest);
         string expectedCsp = BuildCsp(expectedStyleHash);
-        string expectedDirection = input.Locale.StartsWith("ar", StringComparison.OrdinalIgnoreCase)
-            || input.Locale.StartsWith("he", StringComparison.OrdinalIgnoreCase)
-                ? "rtl"
-                : "ltr";
+        string expectedDirection = System.Globalization.CultureInfo.GetCultureInfo(input.Locale).TextInfo.IsRightToLeft
+            ? "rtl"
+            : "ltr";
 
         XmlReaderSettings settings = new()
         {
@@ -65,6 +64,7 @@ internal static class DocumentExportHtmlVerifier
         int viewportCount = 0;
         int cspCount = 0;
         int authorityCount = 0;
+        bool inHead = false;
         bool inStyle = false;
         using IncrementalHash styleDigest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
 
@@ -88,7 +88,7 @@ internal static class DocumentExportHtmlVerifier
                         {
                             case "html":
                                 htmlCount++;
-                                if (reader.Depth != 0
+                                if (reader.NamespaceURI.Length != 0 || reader.Depth != 0
                                     || reader.GetAttribute("lang") != input.Locale
                                     || reader.GetAttribute("dir") != expectedDirection
                                     || reader.AttributeCount != 2)
@@ -97,7 +97,12 @@ internal static class DocumentExportHtmlVerifier
                                 }
                                 break;
                             case "head":
+                                if (reader.NamespaceURI.Length != 0 || reader.Depth != 1)
+                                {
+                                    throw new InvalidDataException("The HTML head must belong directly to the document root.");
+                                }
                                 headCount++;
+                                inHead = true;
                                 break;
                             case "body":
                                 bodyCount++;
@@ -109,6 +114,17 @@ internal static class DocumentExportHtmlVerifier
                                 articleCount++;
                                 break;
                             case "title":
+                                // SVG titles name diagrams; only the canonical HTML
+                                // title directly owned by this page's head is metadata.
+                                if (reader.NamespaceURI == "http://www.w3.org/2000/svg")
+                                {
+                                    break;
+                                }
+                                if (reader.NamespaceURI.Length != 0 || !inHead || reader.Depth != 2
+                                    || reader.AttributeCount != 0)
+                                {
+                                    throw new InvalidDataException("The page title must belong directly to the HTML head.");
+                                }
                                 titleCount++;
                                 break;
                             case "style":
@@ -128,6 +144,10 @@ internal static class DocumentExportHtmlVerifier
                         }
                         break;
                     case XmlNodeType.EndElement:
+                        if (reader.LocalName == "head" && reader.NamespaceURI.Length == 0 && reader.Depth == 1)
+                        {
+                            inHead = false;
+                        }
                         if (reader.LocalName == "style")
                         {
                             inStyle = false;
@@ -168,6 +188,11 @@ internal static class DocumentExportHtmlVerifier
     private static void VerifyElement(XmlReader reader)
     {
         string name = reader.LocalName;
+        if (reader.IsEmptyElement && reader.NamespaceURI != "http://www.w3.org/2000/svg"
+            && name is not ("meta" or "img" or "br" or "hr"))
+        {
+            throw new InvalidDataException("Non-void HTML elements require explicit closing tags for HTML5 semantics.");
+        }
         if (name is "script" or "link" or "base" or "iframe" or "frame" or "object" or "embed"
             or "form" or "input" or "button" or "textarea" or "select" or "audio" or "video" or "source")
         {
