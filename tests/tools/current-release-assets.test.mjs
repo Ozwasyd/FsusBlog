@@ -251,71 +251,93 @@ test('independent observation check rejects coherent bad-asset reseals without g
     }
 });
 
-test('actual worker source prepares verified assets but disconnected native admission refuses takeover and cleans only staging', async context =>
+for (const bootstrapMode of ['exact-configuration', 'detached-projection', 'configuration-key-substitution', 'tampered-projection'])
 {
-    const data = fixture(context);
-    const current = await consumer(data);
-    const events = new Map();
-    let claimed = 0;
-    let skipped = 0;
-    const sandbox = { TextEncoder, TextDecoder, Uint8Array, URL, Response, Request, Headers, atob, btoa,
-        structuredClone, crypto: crypto.webcrypto, caches: current.cacheStorage,
-        location: { origin, href: `${origin}/sw.js?build=${releaseId}` },
-        addEventListener: (name, listener) => events.set(name, listener),
-        clients: { claim: async () =>
-        {
-            claimed++;
-        } }, skipWaiting: async () =>
-        {
-            skipped++;
-        },
-        FsusCurrentReleaseBrowserConfiguration: {
-            projectionUrl: `/release-assets/${releaseId}/release-browser-projection.json`, projectionSha256: hash(encode(data.projection)),
-            candidateId: data.projection.candidateId, manifestContentDigest: data.projection.manifestContentDigest,
-            trust: { keyId: data.trust.keyId, publicKeySha256: data.trust.publicKeySha256, publicKeySpkiBase64: data.trust.publicKeySpkiBase64 }
-        },
-        fetch: async (url, options) =>
-        {
-            if (url.endsWith('/release-browser-projection.json'))
-            {
-                return new Response(encode(data.projection));
-            }
-            if (url.endsWith('/asset-manifest.json'))
-            {
-                return new Response(encode(data.inventory));
-            }
-            return current.fetchBytes(url, options);
-        } };
-    sandbox.self = sandbox;
-    const realm = vm.createContext(sandbox);
-    const imported = [];
-    sandbox.importScripts = url =>
+    test(`actual worker source refuses takeover and cleans only staging (${bootstrapMode})`, async context =>
     {
-        assert.ok(url.startsWith(`/release-assets/${releaseId}/`), 'bootstrap must stay in the exact immutable release');
-        imported.push(url);
-        vm.runInContext(fs.readFileSync(path.resolve(import.meta.dirname,
-            '../../src/frontend/public', url.slice(`/release-assets/${releaseId}/`.length)), 'utf8'), realm);
-    };
-    vm.runInContext(fs.readFileSync(path.resolve(import.meta.dirname, '../../src/frontend/public/sw.js'), 'utf8'), realm);
-    assert.deepEqual(imported, [`/release-assets/${releaseId}/generated/release-id-contract.js`,
-        `/release-assets/${releaseId}/current-release-assets.js`]);
-    let completion;
-    events.get('install')({ waitUntil: promise =>
-    {
-        completion = promise;
-    } });
-    await assert.rejects(completion, /native_current_schema_admission_bridge_unconfigured/u);
-    assert.equal(skipped, 0);
-    assert.equal(claimed, 0);
-    assert.deepEqual(await current.cacheStorage.keys(), ['unowned-old-cache', 'active-verified-cache']);
-    let response;
-    events.get('fetch')({ request: new Request(`${origin}/release-assets/20260710010101-aaaaaaaaaaaa/assets/current.js`),
-        respondWith: promise =>
+        const data = fixture(context);
+        const current = await consumer(data);
+        const events = new Map();
+        let claimed = 0;
+        let skipped = 0;
+        const sandbox = { TextEncoder, TextDecoder, Uint8Array, URL, Response, Request, Headers, atob, btoa,
+            structuredClone, crypto: crypto.webcrypto, caches: current.cacheStorage,
+            location: { origin, href: `${origin}/release-assets/${releaseId}/sw.js?build=${releaseId}` },
+            addEventListener: (name, listener) => events.set(name, listener),
+            clients: { claim: async () =>
+            {
+                claimed++;
+            } }, skipWaiting: async () =>
+            {
+                skipped++;
+            },
+            FsusCurrentReleaseBrowserConfiguration: {
+                projectionUrl: `/release-assets/${releaseId}/release-browser-projection.json`, projectionSha256: hash(encode(data.projection)),
+                candidateId: data.projection.candidateId, manifestContentDigest: data.projection.manifestContentDigest,
+                trust: { keyId: data.trust.keyId, publicKeySha256: data.trust.publicKeySha256, publicKeySpkiBase64: data.trust.publicKeySpkiBase64 }
+            },
+            fetch: async (url, options) =>
+            {
+                if (url.endsWith('/release-browser-projection.json'))
+                {
+                    assert.deepEqual({ ...options }, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
+                    if (bootstrapMode === 'tampered-projection')
+                    {
+                        const tampered = structuredClone(data.projection);
+                        tampered.source.commitSha = 'a'.repeat(40);
+                        return new Response(encode(tampered));
+                    }
+                    return new Response(encode(data.projection));
+                }
+                if (url.endsWith('/asset-manifest.json'))
+                {
+                    return new Response(encode(data.inventory));
+                }
+                return current.fetchBytes(url, options);
+            } };
+        if (['detached-projection', 'tampered-projection'].includes(bootstrapMode))
         {
-            response = promise;
+            delete sandbox.FsusCurrentReleaseBrowserConfiguration;
+        }
+        if (bootstrapMode === 'configuration-key-substitution')
+        {
+            sandbox.FsusCurrentReleaseBrowserConfiguration.trust.publicKeySha256 = hash('substituted');
+        }
+        sandbox.self = sandbox;
+        const realm = vm.createContext(sandbox);
+        const imported = [];
+        sandbox.importScripts = url =>
+        {
+            assert.ok(url.startsWith(`/release-assets/${releaseId}/`), 'bootstrap must stay in the exact immutable release');
+            imported.push(url);
+            vm.runInContext(fs.readFileSync(path.join(data.source, url.slice(`/release-assets/${releaseId}/`.length)), 'utf8'), realm);
+        };
+        vm.runInContext(fs.readFileSync(path.resolve(import.meta.dirname, '../../src/frontend/public/sw.js'), 'utf8'), realm);
+        assert.deepEqual(imported, [`/release-assets/${releaseId}/generated/release-id-contract.js`,
+            `/release-assets/${releaseId}/current-release-assets.js`,
+            `/release-assets/${releaseId}/generated/current-release-trust.js`]);
+        let completion;
+        events.get('install')({ waitUntil: promise =>
+        {
+            completion = promise;
         } });
-    assert.equal((await response).status, 503);
-});
+        const expectedError = bootstrapMode === 'configuration-key-substitution'
+            ? /current_release_browser_configuration_invalid/u
+            : bootstrapMode === 'tampered-projection' ? /projection_digest_mismatch/u
+            : /native_current_schema_admission_bridge_unconfigured/u;
+        await assert.rejects(completion, expectedError);
+        assert.equal(skipped, 0);
+        assert.equal(claimed, 0);
+        assert.deepEqual(await current.cacheStorage.keys(), ['unowned-old-cache', 'active-verified-cache']);
+        let response;
+        events.get('fetch')({ request: new Request(`${origin}/release-assets/20260710010101-aaaaaaaaaaaa/assets/current.js`),
+            respondWith: promise =>
+            {
+                response = promise;
+            } });
+        assert.equal((await response).status, 503);
+    });
+}
 
 test('warm cache wrong hash and staged unknown asset cannot be used as evidence or fallback', async context =>
 {

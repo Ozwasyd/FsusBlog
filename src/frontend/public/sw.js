@@ -11,6 +11,7 @@ const FRONTEND_BUILD_ID = self.FsusReleaseIdContract && self.FsusReleaseIdContra
 if (FRONTEND_BUILD_ID)
 {
     self.importScripts(`/release-assets/${FRONTEND_BUILD_ID}/current-release-assets.js`);
+    self.importScripts(`/release-assets/${FRONTEND_BUILD_ID}/generated/current-release-trust.js`);
 }
 const CACHE_NAMESPACE = FRONTEND_BUILD_ID ? `:${FRONTEND_BUILD_ID}` : '';
 const STATIC_CACHE = `fsus-static-v5${CACHE_NAMESPACE}`;
@@ -940,34 +941,36 @@ async function clearNamedCache(cacheName, keys)
 
 async function requireCurrentReleaseBrowserAdmission()
 {
-    // The original activation owner must supply this bootstrap under independently
-    // pinned build trust. Its post-build candidate values cannot be embedded in
-    // the hash-bound worker itself (that would make candidate sealing circular).
-    // Never infer trust from a message, projection response or old cache.
+    // Trust is fixed before the build is inventoried. Candidate values come from
+    // the signed detached projection, avoiding a candidate/worker digest cycle.
+    // Optional exact configuration can further constrain identity, never supply trust.
     const configuration = self.FsusCurrentReleaseBrowserConfiguration;
     const assets = self.FsusCurrentReleaseAssets;
-    if (!configuration || !assets || !FRONTEND_BUILD_ID)
+    const trust = self.FsusCurrentReleaseBrowserTrust;
+    if (!trust || !assets || !FRONTEND_BUILD_ID)
     {
         throw new Error('current_release_browser_admission_unconfigured');
     }
     const expectedFields = ['projectionUrl', 'projectionSha256', 'candidateId', 'manifestContentDigest', 'trust'];
-    if (JSON.stringify(Object.keys(configuration).sort()) !== JSON.stringify(expectedFields.sort())
-        || configuration.projectionUrl !== `/release-assets/${FRONTEND_BUILD_ID}/release-browser-projection.json`
+    const projectionUrl = `/release-assets/${FRONTEND_BUILD_ID}/release-browser-projection.json`;
+    if (configuration && (JSON.stringify(Object.keys(configuration).sort()) !== JSON.stringify(expectedFields.sort())
+        || configuration.projectionUrl !== projectionUrl
+        || assets.canonicalize(configuration.trust) !== assets.canonicalize(trust)
         || ![configuration.projectionSha256, configuration.candidateId, configuration.manifestContentDigest]
-            .every(value => /^sha256:[a-f0-9]{64}$/u.test(value)))
+            .every(value => /^sha256:[a-f0-9]{64}$/u.test(value))))
     {
         throw new Error('current_release_browser_configuration_invalid');
     }
-    const response = await fetch(configuration.projectionUrl, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
+    const response = await fetch(projectionUrl, { cache: 'no-store', credentials: 'omit', redirect: 'error' });
     const bytes = await assets.readBoundedResponse(response, 1024 * 1024);
-    if (await assets.hash(bytes) !== configuration.projectionSha256)
+    if (configuration && await assets.hash(bytes) !== configuration.projectionSha256)
     {
         throw new Error('current_release_browser_projection_drift');
     }
-    const projection = await assets.verifyProjection(bytes, { ...configuration.trust,
+    const projection = await assets.verifyProjection(bytes, { ...trust,
         isReleaseId: self.FsusReleaseIdContract.isCanonicalReleaseId });
-    if (projection.releaseId !== FRONTEND_BUILD_ID || projection.candidateId !== configuration.candidateId
-        || projection.manifestContentDigest !== configuration.manifestContentDigest)
+    if (projection.releaseId !== FRONTEND_BUILD_ID || configuration && (projection.candidateId !== configuration.candidateId
+        || projection.manifestContentDigest !== configuration.manifestContentDigest))
     {
         throw new Error('current_release_browser_candidate_mismatch');
     }

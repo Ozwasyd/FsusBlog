@@ -113,7 +113,13 @@ export function toTrustedServiceWorkerScriptUrl(moduleUrl: string): unknown
       && IMMUTABLE_BUILD_ID.test(buildId)
       && isCanonicalReleaseId(buildId)
       && !MUTABLE_BUILD_IDS.has(buildId);
-    if (resolved.pathname !== SERVICE_WORKER_MODULE_PATH
+    const currentWorker = /^\/release-assets\/([^/]+)\/sw\.js$/u.exec(resolved.pathname);
+    const hasCurrentWorkerIdentity = currentWorker !== null
+    && buildIds.length === 1
+    && isCanonicalReleaseId(currentWorker[1])
+    && currentWorker[1] === buildId
+    && resolved.search === `?build=${buildId}`;
+    if (resolved.pathname !== SERVICE_WORKER_MODULE_PATH && !hasCurrentWorkerIdentity
     || resolved.hash
     || [...resolved.searchParams.keys()].some(key => key !== 'build')
     || !hasValidBuildId)

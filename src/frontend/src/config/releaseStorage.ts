@@ -5,7 +5,7 @@ import {
 
 export function normalizeFrontendBuildId(value?: string | null): string | null
 {
-    const candidate = value?.trim() || '';
+    const candidate = value?.trim() ?? '';
     return isCanonicalReleaseId(candidate)
         ? candidate
         : null;
@@ -55,6 +55,6 @@ export function resolveServiceWorkerScriptUrl(
     const base = (baseUrl || '/').replace(/\/?$/, '/');
     const identity = resolveFrontendBuildIdentity(buildId, production);
     return isCanonicalReleaseId(identity)
-        ? `${base}sw.js?build=${encodeURIComponent(identity)}`
+        ? `${base}release-assets/${identity}/sw.js?build=${encodeURIComponent(identity)}`
         : `${base}sw.js`;
 }

@@ -127,6 +127,22 @@ describe('trustedTypesRuntime', () => {
       .toBe(new URL('/sw.js', globalThis.location.href).href)
     expect(String(toTrustedServiceWorkerScriptUrl('/sw.js?build=20260716010203-0123456789ab')))
       .toBe(new URL('/sw.js?build=20260716010203-0123456789ab', globalThis.location.href).href)
+    const currentWorker = '/release-assets/20260716010203-0123456789ab/sw.js?build=20260716010203-0123456789ab'
+    expect(String(toTrustedServiceWorkerScriptUrl(currentWorker)))
+      .toBe(new URL(currentWorker, globalThis.location.href).href)
+    for (const invalidWorker of [
+      '/release-assets/20260716010203-0123456789ab/sw.js',
+      '/release-assets/20260716010203-0123456789ab/sw.js?build=20260711010101-0123456789ab',
+      '/release-assets/latest/sw.js?build=20260716010203-0123456789ab',
+      '/release-assets/20260716010203-0123456789ab/sw.js?build=%320260716010203-0123456789ab',
+      '/release-assets/20260230010203-0123456789ab/sw.js?build=20260230010203-0123456789ab',
+      `${currentWorker}&build=20260716010203-0123456789ab`,
+      `${currentWorker}&replace=1`,
+      `${currentWorker}#replace`,
+      `https://evil.example${currentWorker}`
+    ]) {
+      expect(() => toTrustedServiceWorkerScriptUrl(invalidWorker)).toThrow('service_worker_artifact_invalid')
+    }
     expect(() => toTrustedServiceWorkerScriptUrl('/sw.js?build=latest'))
       .toThrow('service_worker_artifact_invalid')
     expect(() => toTrustedServiceWorkerScriptUrl('/sw.js?replace=1'))

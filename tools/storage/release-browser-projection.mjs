@@ -55,3 +55,43 @@ export function releaseBrowserTrust(publicKey, keyId)
     return { keyId, publicKeySha256: digest(key.export({ type: 'spki', format: 'pem' })),
         publicKeySpkiBase64: key.export({ type: 'spki', format: 'der' }).toString('base64') };
 }
+
+// Emit before the frontend inventory/build is sealed. Public key bytes are
+// independently pinned input; candidate/projection digests are deliberately absent.
+export function createReleaseBrowserTrustScript(publicKeyBytes, keyId, publicKeySha256)
+{
+    if (!Buffer.isBuffer(publicKeyBytes) || publicKeyBytes.length === 0 || publicKeyBytes.length > 64 * 1024
+        || digest(publicKeyBytes) !== publicKeySha256
+        || typeof keyId !== 'string' || !/^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/u.test(keyId))
+    {
+        throw new Error('browser build trust requires pinned public key bytes and exact key identity');
+    }
+    const trust = releaseBrowserTrust(publicKeyBytes, keyId);
+    if (trust.publicKeySha256 !== publicKeySha256)
+    {
+        throw new Error('browser build trust requires canonical admitted public PEM bytes');
+    }
+    return `Object.defineProperty(globalThis, 'FsusCurrentReleaseBrowserTrust', { value: Object.freeze(${canonicalize(trust)}), writable: false, configurable: false });\n`;
+}
+
+// Emit after sealing. The projection is detached from the inventoried frontend
+// bytes, avoiding a candidate -> worker -> candidate digest cycle.
+export function createCurrentReleaseBrowserArtifacts(options, signingKey)
+{
+    const projection = createReleaseBrowserProjection(options, signingKey);
+    const verified = verifyReleaseManifestArtifacts({ ...options, releaseIdContract: RELEASE_ID_CONTRACT });
+    const signing = options.manifest.identity.signing;
+    const trustScript = createReleaseBrowserTrustScript(options.readBytes(signing.publicKey.reference, signing.publicKey.sha256),
+        signing.keyId, signing.publicKey.sha256);
+    if (verified.currentAssets.find(asset => asset.path === 'generated/current-release-trust.js')?.sha256 !== digest(trustScript)
+        || !['current-release-assets.js', 'generated/release-id-contract.js'].every(assetPath =>
+            verified.currentAssets.some(asset => asset.path === assetPath)))
+    {
+        throw new Error('current browser artifacts require the matching inventoried prebuild trust and bootstrap consumers');
+    }
+    const projectionBytes = Buffer.from(canonicalize(projection));
+    return { projection, projectionBytes, projectionSha256: digest(projectionBytes),
+        projectionUrl: `/release-assets/${projection.releaseId}/release-browser-projection.json`,
+        candidateId: projection.candidateId, manifestContentDigest: projection.manifestContentDigest,
+        runtimeQualificationEligible: false };
+}

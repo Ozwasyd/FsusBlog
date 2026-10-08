@@ -15,7 +15,9 @@ describe('release storage identity', () => {
     expect(resolveReleaseSearchManifestUrl('/', buildId))
       .toBe(`/release-derived/${buildId}/search/index.manifest.aeds`)
     expect(resolveServiceWorkerScriptUrl('/', buildId))
-      .toBe(`/sw.js?build=${buildId}`)
+      .toBe(`/release-assets/${buildId}/sw.js?build=${buildId}`)
+    expect(resolveServiceWorkerScriptUrl('/', buildId, true))
+      .toBe(`/release-assets/${buildId}/sw.js?build=${buildId}`)
   })
 
   it('rejects traversal or mutable aliases and preserves development URLs', () => {

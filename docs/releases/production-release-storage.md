@@ -64,15 +64,15 @@ These checks provide source artifact evidence; they do not provide browser insta
 native schema admission, readiness or Service Worker activation evidence.
 
 
-The checked-in worker now rejects install and activate with
-`current_release_browser_admission_unconfigured` before `skipWaiting`,
-`clients.claim` or any lifecycle cache deletion. A canonical build query, caller
-status, fixture flag or cached response cannot admit it. Successful installation
-still needs a public signed projection from the sole release owner binding the
-candidate, inventory bytes, contract versions and SW identity, plus the original
-Server native same-candidate admission/readiness bridge. The operational manifest
-and database identities must remain private. Source refusal tests do not replace
-the remaining cold/warm browser, interrupted update and request-byte acceptance.
+Without independently fixed build trust the worker rejects install and activate
+with `current_release_browser_admission_unconfigured`. With that trust and a valid
+detached signed projection it prepares only the verified current inventory, then
+rejects `native_current_schema_admission_bridge_unconfigured` before `skipWaiting`
+or `clients.claim`. A build query, caller status, fixture flag or cached response
+cannot admit it. Successful installation still needs the original Server native
+same-candidate admission/readiness bridge. Operational manifests and database
+identities stay private. Source refusal controls do not replace cold/warm browser,
+interrupted update or request-byte acceptance.
 
 `tools/storage/release-browser-projection.mjs` derives a signed public credential
 only after the original manifest verifier has read the trusted key/policy,
@@ -97,22 +97,44 @@ The SW fetch handler routes static asset requests through this consumer. Private
 requests still enter the original credential-preserving network-only path first.
 Generic cache-clear messages and development unregister cleanup cannot delete the
 verified current static namespace; the explicit privacy panic wipe is preserved.
-There is no browser trust bootstrap producer or native readiness bridge wired into
-the production build yet. The original owner must emit the closed
-`FsusCurrentReleaseBrowserConfiguration` through its activation bootstrap with
-explicit public projection URL/hash, candidate/content identity and independent
-build-pinned trust. Post-build candidate values must not be embedded in the sealed
-worker artifact itself: that would make the candidate/SW digest circular. Until that
-and the native admission bridge are implemented and independently accepted, install
-and activate refuse before takeover and discard only owned staging. The focused
-Node/WebCrypto/Cache-adapter controls are source evidence, not browser or release
-qualification. Compatibility/retention tools remain pending replacement acceptance.
+The browser artifact producer fixes public trust before the frontend is inventoried
+and emits the signed detached projection after the sole release manifest is sealed.
+`create-release-browser-artifacts.mjs --mode trust` requires explicit `--public-key`,
+`--public-key-sha256`, `--key-id` and `--out`; place its immutable script at
+`generated/current-release-trust.js` in the frontend source before sealing. Its
+read-only global contains admitted key identity, public PEM digest and SPKI bytes;
+no candidate digest or private key is embedded in the worker/build. Projection mode
+requires `--release-manifest`, `--release-manifest-sha256`, `--trust-policy`,
+`--trust-policy-sha256`, `--signing-key`, `--signing-key-sha256` and `--out`. It
+independently verifies the signed source, requires the inventoried prebuild trust
+script to match that same admitted key, and emits canonical projection bytes for
+`/release-assets/<build>/release-browser-projection.json`. Output parents must
+already exist and be canonical; existing differing artifacts cannot be overwritten.
+These explicit artifact writes do not publish a release or grant runtime admission.
+
+The worker consumes that fixed trust and the same-build signed projection URL
+without requiring post-build candidate values in its own sealed bytes. An optional
+exact `FsusCurrentReleaseBrowserConfiguration` may further pin projection/hash and
+candidate/content identity, but its trust must equal the prebuild pin and cannot
+replace it. Candidate values must not be embedded in inventoried bootstrap bytes:
+that would make the candidate/SW digest circular. Production build/publication
+registration remains with the original integration owner; the producer is not yet
+wired there, and the native readiness bridge remains unconfigured. Install/activate
+refuse before takeover and discard only owned staging. Node/WebCrypto/Cache-adapter
+controls are source evidence, not browser or release qualification.
+Compatibility/retention tools remain pending replacement acceptance.
 
 Worker bootstrap imports the release-ID contract and current asset verifier from
 the same `/release-assets/<build>/` immutable namespace. A safe URL-segment check
 only bounds the first import; the original release-ID contract still owns
 canonical identity validation. Noncanonical build IDs cannot import the verifier
 or acquire current admission. Root aliases are not bootstrap asset fallbacks.
+The URL consumer now selects `/release-assets/<build>/sw.js?build=<build>`.
+Trusted Types allows that immutable same-origin worker only with one canonical
+matching build parameter, rejecting mixed IDs, duplicate/extra parameters,
+fragments, aliases and other origins. Existing root worker acceptance remains for
+the retained legacy/dev path until actual replacement acceptance. Root-wide scope
+requires the original serving integration's `Service-Worker-Allowed: /` header.
 
 ## Current storage ownership planning
 
