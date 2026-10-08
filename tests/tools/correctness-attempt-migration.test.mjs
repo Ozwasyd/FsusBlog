@@ -22,7 +22,7 @@ test('all current canonical correctness producers bind attempt and external auth
         producerCount: expected.entries.length,
         migratedCount: expected.entries.length,
         qualificationEligibleCount: expected.entries.length,
-        inventoryDigest: verification.inventoryDigest,
+        inventoryDigest: expected.contentDigest,
         replayProducerInventoryDigest: verification.replayProducerInventoryDigest,
         executionEnvelopeProducerCount: 130,
         authorityKinds: ['execution-envelope', 'replay-plan', 'temporal-context'],
