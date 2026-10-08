@@ -256,10 +256,15 @@ main {
 
 .plugin-identity,
 .plugin-status {
-    display: grid;
+    display: flex;
+    flex-direction: column;
     min-width: 0;
     white-space: normal;
     overflow-wrap: anywhere;
+}
+
+.plugin-status {
+    align-items: flex-end;
 }
 
 [data-testid="collection"] {
