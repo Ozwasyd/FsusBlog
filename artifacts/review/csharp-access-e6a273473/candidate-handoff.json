@@ -1,0 +1,398 @@
+{
+  "kind": "separate-bounded-access-source-candidate-not-policy-or-gpu-acceptance",
+  "observedAtUtc": "2026-10-08T13:41:39.665185+00:00",
+  "newDistinctCorrection": "singular Access classification only; old3650 CLOSED/completed and its Miss-only authority retained",
+  "canonicalSoleWriter": "root coordinator explicitly confirmed and reserved paths",
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "earlyUsableCore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "head": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "tree": "4c39ed4d2d8a6cbe5b859a0b8b0d08e7cbb574c3",
+  "branch": "codex/csharp-singular-access-source-20261008",
+  "remoteHeadVerified": true,
+  "gpuDiagnosticCandidate": "5b4305a92a015e17768bd2b37098f638b2ce8f1e",
+  "gpuProductionEdits": [],
+  "closed3650RetroactiveChange": false,
+  "fullChangedPaths": [
+    {
+      "path": "artifacts/change-contract/gpu-access-csharp-external-naming.json",
+      "mode": "100644",
+      "blobSha": "556fff135ce609af33a9c802293281be3bf79532",
+      "sha256": "1d802f04e27469d6799b2020a862c8783edc24ee204ff0379145798c12ec456c"
+    },
+    {
+      "path": "artifacts/change-contract/gpu-access-csharp-policy-binding.json",
+      "mode": "100644",
+      "blobSha": "80c207a1daf58264a53580cef491ecbf27e489a3",
+      "sha256": "3667f69681037f9383221ec99e5ccd1870c0e6d7cde185903eb8accb8555b100"
+    },
+    {
+      "path": "config/development/csharp-style-baseline.json",
+      "mode": "100644",
+      "blobSha": "7834677659ffbc7a3dd5edfaf90891e6210fff54",
+      "sha256": "1fa5e85aaa16f4a1264f075dee5ecc181e799156ee4f791f96d4e55ae678ed6e"
+    },
+    {
+      "path": "config/development/csharp-style-policy.json",
+      "mode": "100644",
+      "blobSha": "822c2219d353530910527cc86d37ceb66bcbfa7a",
+      "sha256": "1c8ded64fa6a603370a946ff5f21608847c2bd495089b620e23eb2f41fd1db2f"
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "mode": "100644",
+      "blobSha": "73e7871cb867d5e29f4f2ccf9983e6d441cd0934",
+      "sha256": "b4ebfd3aca18c51f67349a594b6dff54785a3f7d92a58bbf81e4f28adaa87978"
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "mode": "100644",
+      "blobSha": "75f2dd2b5de984550ba6f43604e2f71228a75be1",
+      "sha256": "7f97e75e739cb9c516fa455cd7dd8c3ddd5bd3c84f55e3bb8052ddc81bcb3bf6"
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "mode": "100644",
+      "blobSha": "9067e263c6e385efd2975c0ffb51a7ac4232de41",
+      "sha256": "7e2d3c07954ed8b0146a26f3a8eab92b118be0bb4788838b8df5f5d4fa51521e"
+    },
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "mode": "100644",
+      "blobSha": "3688b8fa26034bdc831bfe72518e34af32f30cc4",
+      "sha256": "a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+    }
+  ],
+  "completeDiffFile": "complete-source.diff",
+  "completeDiffSha256": "0a89f1e7ec617178573a979ec64ca17153cf43418ef1180c4ba9fb3594de4f36",
+  "baseline": {
+    "authority": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+    "onlyPolicySha256Changed": true,
+    "violationCount": 33,
+    "fileCount": 16,
+    "allSchemaGeneratedFromSourceRuleViolationBytesPreserved": true,
+    "newPolicySha256": "1c8ded64fa6a603370a946ff5f21608847c2bd495089b620e23eb2f41fd1db2f",
+    "newBaselineSha256": "1fa5e85aaa16f4a1264f075dee5ecc181e799156ee4f791f96d4e55ae678ed6e",
+    "newOperation": "--rebind-access-baseline-policy",
+    "legacyMissOperation": "--rebind-baseline-policy remains exact b19 Miss-only; newPolicy and mixed operations refused",
+    "actualCurrentHeadProducerExit": 0,
+    "idempotentCurrentHeadTrackedDiff": false
+  },
+  "actualChecks": {
+    "original-complete-103": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+      "headAfter": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+      "argv": [
+        "node",
+        "--test",
+        "tests/tools/csharp-style.test.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T13:24:39.168039+00:00",
+      "endedAtUtc": "2026-10-08T13:26:12.338923+00:00",
+      "exitCode": 0,
+      "log": "original-complete-103.log",
+      "logSha256": "c166e5f64c399ce4d3ff36143032df3ab17129158308bd98dfa8e7af067ed5fe"
+    },
+    "official-access-syntax": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+      "headAfter": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+      "argv": [
+        "dotnet",
+        "build",
+        ".tmp/csharp-access/syntax-authority/Syntax.csproj",
+        "--nologo",
+        "-v",
+        "minimal"
+      ],
+      "startedAtUtc": "2026-10-08T13:28:55.499094+00:00",
+      "endedAtUtc": "2026-10-08T13:29:03.224916+00:00",
+      "exitCode": 0,
+      "log": "official-access-syntax.log",
+      "logSha256": "4987872a7413bf0c903d7779ea1302be0f9e31f471c869622c184cd5c395ec8f"
+    },
+    "original-canonical-authority-producer": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+      "headAfter": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+      "argv": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T13:25:31.680038+00:00",
+      "endedAtUtc": "2026-10-08T13:28:41.106749+00:00",
+      "exitCode": 0,
+      "log": "original-canonical-authority-producer.log",
+      "logSha256": "c35ea69e67f89c5ae982717bad3398f108a77b9fc16cf2f2684b4f35a7344ff1"
+    },
+    "unchanged-gpu-whole-file-lexical": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-access-source/.tmp/csharp-access/gpu-probe",
+        "--mode",
+        "full"
+      ],
+      "startedAtUtc": "2026-10-08T13:33:54.587100+00:00",
+      "endedAtUtc": "2026-10-08T13:33:54.776783+00:00",
+      "exitCode": 0,
+      "log": "unchanged-gpu-whole-file-lexical.log",
+      "logSha256": "0baf5a8a4b46f77fb4bc47da34000da2b3ed57530be40c992cec5ffed2c45020"
+    },
+    "exact-source-stage": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "argv": [
+        "node",
+        "tools/run-test-matrix.mjs",
+        "ci-pr-smart",
+        "--stage",
+        "source-integration",
+        "--base-ref",
+        "6e287562b3f861d3eb81dcb23f93e6243205abd8"
+      ],
+      "startedAtUtc": "2026-10-08T13:30:43.711808+00:00",
+      "endedAtUtc": "2026-10-08T13:31:26.432537+00:00",
+      "exitCode": 1,
+      "log": "exact-source-stage.log",
+      "logSha256": "2f131df0a2d183503ff25216129bfc8db181cb129e7b31d769fe4dafc9ac6fdf"
+    },
+    "exact-source-stage-installed-tools": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "argv": [
+        "node",
+        "tools/run-test-matrix.mjs",
+        "ci-pr-smart",
+        "--stage",
+        "source-integration",
+        "--base-ref",
+        "6e287562b3f861d3eb81dcb23f93e6243205abd8"
+      ],
+      "startedAtUtc": "2026-10-08T13:33:54.877591+00:00",
+      "endedAtUtc": "2026-10-08T13:34:58.255103+00:00",
+      "exitCode": 0,
+      "log": "exact-source-stage-installed-tools.log",
+      "logSha256": "2d7f13c3d2b95d633b75c45d416c86f3d8c5468c71e892c1b50314435db53d40"
+    },
+    "trusted-prospective-pr-contract": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-access-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-access-source",
+        "--github-event",
+        "/tmp/fsusblog-csharp-access-source/.tmp/csharp-access/prepared-pr-event.json"
+      ],
+      "startedAtUtc": "2026-10-08T13:38:03.105191+00:00",
+      "endedAtUtc": "2026-10-08T13:38:07.924713+00:00",
+      "exitCode": 0,
+      "log": "trusted-prospective-pr-contract.log",
+      "logSha256": "e32f120318f8bed0a3a3d2e53e1bd6366bb9aa10438785ace08147336d5372b4"
+    },
+    "trusted-actual-commit-range": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-access-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-access-source",
+        "--range",
+        "6e287562b3f861d3eb81dcb23f93e6243205abd8..e6a273473b275dee0c4c2993ebd54e17a882ba33"
+      ],
+      "startedAtUtc": "2026-10-08T13:38:08.067697+00:00",
+      "endedAtUtc": "2026-10-08T13:38:12.427674+00:00",
+      "exitCode": 0,
+      "log": "trusted-actual-commit-range.log",
+      "logSha256": "451348db58ed7cc2ee2a9dd4804056c0c55491167e725aa263e5de990406c91a"
+    },
+    "exact-bounded-access-rebind": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "full",
+        "--rebind-access-baseline-policy"
+      ],
+      "startedAtUtc": "2026-10-08T13:42:19.182832+00:00",
+      "endedAtUtc": "2026-10-08T13:42:19.270013+00:00",
+      "exitCode": 0,
+      "log": "exact-bounded-access-rebind.log",
+      "logSha256": "5d243cfbd0a8a54b5f53a82c9e764b76f69d0479b49a1069bee9571176571aea"
+    }
+  },
+  "sourceGovernance": {
+    "status": "success",
+    "head": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+    "qualificationEligible": false,
+    "leafResults": [
+      {
+        "checker": "tools/frontend/check-frontend-style.mjs",
+        "files": [
+          "tests/tools/csharp-style.test.mjs",
+          "tools/dotnet/check-csharp-style.mjs"
+        ],
+        "exitCode": 0
+      },
+      {
+        "checker": "tools/style/check-native-tooling-style.mjs",
+        "files": [
+          "docs/development/csharp-style-enforcement.md"
+        ],
+        "exitCode": 0
+      },
+      {
+        "checker": "tools/docs/generate-document-lifecycle.mjs --check",
+        "exitCode": 0
+      },
+      {
+        "checker": "tests/tools/pr-impact-plan.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tests/tools/pr-applicable-execution-authority.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tools/frontend/source-unit-style-diff.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tests/tools/native-tooling-style.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      },
+      {
+        "checker": "tools/configuration/solution-source.test.mjs",
+        "exitCode": 0,
+        "qualificationEligible": false
+      }
+    ],
+    "pureRegressions": {
+      "ports": [
+        27,
+        8,
+        30,
+        10,
+        18
+      ],
+      "passed": 93,
+      "skipped": 0
+    },
+    "fullQualificationRemainsOpen": true
+  },
+  "testedCoreAndPackagedSourceEquivalence": [
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "testedCoreBlob": "3688b8fa26034bdc831bfe72518e34af32f30cc4",
+      "packagedHeadBlob": "3688b8fa26034bdc831bfe72518e34af32f30cc4",
+      "identical": true
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "testedCoreBlob": "9067e263c6e385efd2975c0ffb51a7ac4232de41",
+      "packagedHeadBlob": "9067e263c6e385efd2975c0ffb51a7ac4232de41",
+      "identical": true
+    },
+    {
+      "path": "config/development/csharp-style-policy.json",
+      "testedCoreBlob": "822c2219d353530910527cc86d37ceb66bcbfa7a",
+      "packagedHeadBlob": "822c2219d353530910527cc86d37ceb66bcbfa7a",
+      "identical": true
+    },
+    {
+      "path": "config/development/csharp-style-baseline.json",
+      "testedCoreBlob": "7834677659ffbc7a3dd5edfaf90891e6210fff54",
+      "packagedHeadBlob": "7834677659ffbc7a3dd5edfaf90891e6210fff54",
+      "identical": true
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "testedCoreBlob": "73e7871cb867d5e29f4f2ccf9983e6d441cd0934",
+      "packagedHeadBlob": "73e7871cb867d5e29f4f2ccf9983e6d441cd0934",
+      "identical": true
+    }
+  ],
+  "canonicalProducerDiff": {
+    "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+    "candidate": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+    "actualProducerOutputSha256": "7f97e75e739cb9c516fa455cd7dd8c3ddd5bd3c84f55e3bb8052ddc81bcb3bf6",
+    "authorityTargets": 102,
+    "authorityClosureFiles": 1128,
+    "onlyChangedFields": [
+      "$.closureFiles[612].contentDigest",
+      "$.closureFiles[612].indexDigest",
+      "$.closureFiles[838].contentDigest",
+      "$.closureFiles[838].indexDigest"
+    ],
+    "changedClosureFiles": [
+      {
+        "path": "tools/dotnet/check-csharp-style.mjs",
+        "old": {
+          "path": "tools/dotnet/check-csharp-style.mjs",
+          "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+          "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
+        },
+        "new": {
+          "path": "tools/dotnet/check-csharp-style.mjs",
+          "contentDigest": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23",
+          "indexDigest": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+        },
+        "sourceChangedByThisCandidate": true
+      },
+      {
+        "path": "tools/test-inventory/discovery.mjs",
+        "old": {
+          "path": "tools/test-inventory/discovery.mjs",
+          "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
+          "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+        },
+        "new": {
+          "path": "tools/test-inventory/discovery.mjs",
+          "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+          "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
+        },
+        "sourceChangedByThisCandidate": false
+      }
+    ],
+    "baselineLiteralDigestOnlyReplacement": true,
+    "preservedViolationCount": 33,
+    "preservedFileCount": 16,
+    "allSourceRuleViolationDigestsUnchanged": true,
+    "producerBlobUnchanged": "3a94146cb8d98aa9ceac65bedcb9e8e183e3aa8d",
+    "initialAttributionProbe": "Expected only checker2fields but actual producer also refreshed unchanged master discovery2fields; failed attribution assertion retained and corrected by checking actual source identities. No output was edited or source restored."
+  },
+  "toolchainSetup": "first private frontend npmci401 retained; supported actualLocalFsusUi transient public-locked projection490packages, tracked frontend manifest/lock unchanged, no FsusUI writes. Missing original configured frontend style toolchain caused initialSOURCE failure; locked257package install then actualsameheadSOURCE93pass. OfficialNode24.16/SDK10.0.302; originalrequiredMarkdownCLI onPATH.",
+  "preparedPr": {
+    "body": "prepared-pr-body.md",
+    "event": "prepared-pr-event.json",
+    "title": "fix(governance): classify singular access enums precisely",
+    "contract": "prospective only; trusted base6e originalchecker exit0/8files. No realPR/event or LIVE gate claimed."
+  },
+  "independentReview": "required and not yet performed; parent receives this frozen source for a new exact-diff review",
+  "notRun": [
+    "fullCSharp/globalmatrix/qualification",
+    "GPU116 tests or nativeGPU execution",
+    "security-held audit",
+    "new103run at e6 (actual0b inputs byte-identical; no relabeling)"
+  ],
+  "operations": "No GitHubAPI content writes, PR creation/comments/issue closure/merge, policy promotion or deploy; only task-scoped source/metadata commits and authorizedcodepush. GPU source unchanged.",
+  "historicalAttributionCorrection": "metadata commit initially described checker-only closure; actual canonical output also refreshed inherited stale master Discovery digest. Complete diff/provenance disclose four fields across two dependencies. No Discovery source change and no output hand edit."
+}

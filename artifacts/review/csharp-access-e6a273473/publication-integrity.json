@@ -1,0 +1,36 @@
+{
+  "kind": "portable-publication-read-only-integrity-not-execution-qualification",
+  "candidate": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "testedCore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "originalArtifactsVerified": 27,
+  "completeBinaryDiffVerified": true,
+  "candidatePathBlobAndContentDigestsVerified": 8,
+  "coreCandidateRelevantBlobsIdentical": 5,
+  "baselineAuthority": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+  "baselineLiteralSinglePolicyDigestReplacementVerified": true,
+  "baselineSchemaAndGeneratedFromVerified": true,
+  "authorityOnlyChangedFields": [
+    "$.closureFiles[612].contentDigest",
+    "$.closureFiles[612].indexDigest",
+    "$.closureFiles[838].contentDigest",
+    "$.closureFiles[838].indexDigest"
+  ],
+  "discoverySourceBaseHeadIdentical": true,
+  "producerBlobUnchangedVerified": true,
+  "testSuitesRepeated": false,
+  "whitespaceChecks": {
+    "verbatimPatchEmbeddingExitCode": 2,
+    "requiredSingleSpaceContextLines": [
+      90,
+      92,
+      95,
+      97,
+      100,
+      323
+    ],
+    "frozenSourceRangeExitCode": 0,
+    "evidenceExceptVerbatimPatchExitCode": 0,
+    "rawPatchBytesPreserved": true
+  }
+}

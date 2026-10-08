@@ -1,0 +1,12 @@
+✔ singular Miss enums and plural flags retain both naming refusal controls (550.20632ms)
+✔ policy-only rebind preserves the real original baseline and refuses substituted inputs (1740.387318ms)
+✔ singular Access retains the eight ordinary and flags controls (597.126359ms)
+✔ Access-only rebind preserves the merged Miss baseline and refuses substituted inputs (2628.002364ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5639.896926

@@ -1,0 +1,16 @@
+{
+  "originalRegistryAttempt": "npm ci on actual tracked manifest/lock returned401 for private FsusUI package; error retained in /workspace/.setup/npm-cache/_logs/2026-10-08T13_24_40_264Z-debug-0.log",
+  "supportedProjection": "existing src/frontend/scripts/prepare-local-fsusui-install.mjs prepare with actual /workspace/FsusUI; npm ci ignore-scripts on disposable projected public-locked inputs added490 packages",
+  "trackedInputsUnchanged": {
+    "src/frontend/package.json": {
+      "beforeSha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+      "afterSha256": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731"
+    },
+    "src/frontend/package-lock.json": {
+      "beforeSha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258",
+      "afterSha256": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+    }
+  },
+  "crossRepositoryWrites": false,
+  "fullFrontendOrFsusUiRuntimeQualification": false
+}

@@ -1,0 +1,384 @@
+diff --git a/artifacts/change-contract/gpu-access-csharp-external-naming.json b/artifacts/change-contract/gpu-access-csharp-external-naming.json
+new file mode 100644
+index 000000000..556fff135
+--- /dev/null
++++ b/artifacts/change-contract/gpu-access-csharp-external-naming.json
+@@ -0,0 +1,28 @@
++{
++    "schema": "fsusblog.external-naming-exceptions.v1",
++    "exceptions": [
++        {
++            "id": "json-wire-key",
++            "paths": [
++                "config/development/csharp-style-baseline.json",
++                "config/development/csharp-style-policy.json",
++                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
++            ],
++            "reason": "Preserve the original policy/baseline JSON fields while adding only the singular Access directory entry and rebinding its policy digest through the pinned original owner operation. Bind the exact owned checker in the shared execution authority using its unchanged canonical producer."
++        },
++        {
++            "id": "css-like-contract",
++            "paths": [
++                "docs/development/csharp-style-enforcement.md"
++            ],
++            "reason": "Preserve existing .editorconfig and command spellings in the current mother-style contract; only document the separate Access semantic and digest binding operation."
++        },
++        {
++            "id": "environment-variable",
++            "paths": [
++                "tools/dotnet/check-csharp-style.mjs"
++            ],
++            "reason": "Retain existing process environment names and GIT_NO_REPLACE_OBJECTS for fixed Git authority verification; no symbol/path exception or general policy admission is added."
++        }
++    ]
++}
+diff --git a/artifacts/change-contract/gpu-access-csharp-policy-binding.json b/artifacts/change-contract/gpu-access-csharp-policy-binding.json
+new file mode 100644
+index 000000000..80c207a1d
+--- /dev/null
++++ b/artifacts/change-contract/gpu-access-csharp-policy-binding.json
+@@ -0,0 +1,17 @@
++{
++    "schema": "fsusblog.generated-output-binding.v1",
++    "sources": [
++        "tools/dotnet/check-csharp-style.mjs",
++        "config/development/csharp-style-policy.json"
++    ],
++    "outputs": [
++        {
++            "path": "config/development/csharp-style-baseline.json",
++            "sha256": "1fa5e85aaa16f4a1264f075dee5ecc181e799156ee4f791f96d4e55ae678ed6e"
++        },
++        {
++            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
++            "sha256": "7f97e75e739cb9c516fa455cd7dd8c3ddd5bd3c84f55e3bb8052ddc81bcb3bf6"
++        }
++    ]
++}
+diff --git a/config/development/csharp-style-baseline.json b/config/development/csharp-style-baseline.json
+index 17ff74d0e..783467765 100644
+--- a/config/development/csharp-style-baseline.json
++++ b/config/development/csharp-style-baseline.json
+@@ -1,7 +1,7 @@
+ {
+     "schema": "fsusblog.csharp-style-baseline.v1",
+     "generatedFrom": "56511df07ea301a23fcc055114c9369660954b4e",
+-    "policySha256": "b341da309ee50cdc61626212053b8a5b2548309294051bf59e9e6927b4baf292",
++    "policySha256": "1c8ded64fa6a603370a946ff5f21608847c2bd495089b620e23eb2f41fd1db2f",
+     "violationCount": 33,
+     "fileCount": 16,
+     "files": [
+diff --git a/config/development/csharp-style-policy.json b/config/development/csharp-style-policy.json
+index bd9f1fef0..822c2219d 100644
+--- a/config/development/csharp-style-policy.json
++++ b/config/development/csharp-style-policy.json
+@@ -357,7 +357,8 @@
+             "Level",
+             "Phase",
+             "Class",
+-            "Miss"
++            "Miss",
++            "Access"
+         ],
+         "compatibilityExceptions": [
+             {
+diff --git a/docs/development/csharp-style-enforcement.md b/docs/development/csharp-style-enforcement.md
+index e2ae6e964..73e7871cb 100644
+--- a/docs/development/csharp-style-enforcement.md
++++ b/docs/development/csharp-style-enforcement.md
+@@ -59,7 +59,7 @@ The text checker deliberately covers only syntax it can classify without contrad
+ 
+ ## Naming and external contracts
+ 
+-C# identifiers follow the repository mapping: PascalCase types/members/methods/local functions, `I` + PascalCase interfaces, camelCase parameters/locals, `_camelCase` instance fields, `s_camelCase` static fields, `t_camelCase` thread-static fields and PascalCase constants. Test and benchmark methods may retain a single underscore between PascalCase scenario segments because those names are test/evidence identifiers accepted by Roslyn; production methods do not receive that exception, and consecutive underscores remain forbidden everywhere. Non-flags enums are singular and flags enums are plural. The single `enumNaming.acceptedSingularSuffixes` directory includes `Miss`; `Misses` remains plural. Contextual `record with` inside an executable scope or expression continuation is a with-expression; declarations such as `record with;` and `record class with;` still require PascalCase. Roslyn and compilation remain the syntax authority.
++C# identifiers follow the repository mapping: PascalCase types/members/methods/local functions, `I` + PascalCase interfaces, camelCase parameters/locals, `_camelCase` instance fields, `s_camelCase` static fields, `t_camelCase` thread-static fields and PascalCase constants. Test and benchmark methods may retain a single underscore between PascalCase scenario segments because those names are test/evidence identifiers accepted by Roslyn; production methods do not receive that exception, and consecutive underscores remain forbidden everywhere. Non-flags enums are singular and flags enums are plural. The single `enumNaming.acceptedSingularSuffixes` directory includes `Miss` and `Access`; `Misses` and `Accesses` remain plural. Singular `Access` describes one access mode and is rejected on flags enums. Contextual `record with` inside an executable scope or expression continuation is a with-expression; declarations such as `record with;` and `record class with;` still require PascalCase. Roslyn and compilation remain the syntax authority.
+ 
+ External spelling is preserved at the boundary instead of leaking into C# identifiers. For example, `[JsonPropertyName("user_id")] public string UserId` keeps the wire key while retaining a PascalCase property. The same adapter rule applies to ORM columns, HTTP headers, Redis keys, environment variables and ABI symbols. A rename that changes an API, AEDS, database or security contract is a semantic change and is never part of formatting migration.
+ 
+@@ -86,3 +86,5 @@ The read-only text checker follows the outer method parameter list across lines
+ `node tools/dotnet/check-csharp-style.mjs --mode full --rebind-baseline-policy` is the explicit producer for the `Miss` semantic-directory extension. It verifies the original policy and baseline regular Git objects at authority `b19b3dc715691b871f0e3cab598ec5da8f27633c`, including their pinned object IDs and SHA-256 digests with replacement refs disabled. Only the canonical policy bytes with `Miss` appended are admitted. The existing baseline must be byte-identical to that original or its exact rebound output. The producer updates only `policySha256`, preserving schema, generatedFrom, counts, paths, source/rule/violation digests and every other byte. Missing, corrupted or substituted inputs and combinations with fix, update-baseline or file selection are refused. Repeating the producer is idempotent. Normal checking still rejects a stale policy digest.
+ 
+ This producer does not create debt, rescan source, qualify the candidate policy, or replace full style, Roslyn, independent review and PR gates. The candidate must pass those gates before policy promotion; unchanged historical debt remains transparent.
++
++`node tools/dotnet/check-csharp-style.mjs --mode full --rebind-access-baseline-policy` is a separate bounded operation for the `Access` semantic-directory extension. Its immutable authority is merged commit `b9c076e4b763130075218ff9d50f9a6c36784f59`: the complete Miss policy and its existing baseline. It admits only the canonical policy with `Access` appended and changes only the baseline's policy digest, with the same object, digest, regular-input and argument refusals. The original Miss-only operation is unchanged in scope; neither operation accepts the other's policy or can be combined with the other. All original baseline identities and violation evidence remain intact. Producing a binding does not approve the new policy or qualify GPU behavior.
+diff --git a/tests/fixtures/test-matrix/release-final-execution-target-authority.json b/tests/fixtures/test-matrix/release-final-execution-target-authority.json
+index 47f9d4303..75f2dd2b5 100644
+--- a/tests/fixtures/test-matrix/release-final-execution-target-authority.json
++++ b/tests/fixtures/test-matrix/release-final-execution-target-authority.json
+@@ -3080,8 +3080,8 @@
+         },
+         {
+             "path": "tools/dotnet/check-csharp-style.mjs",
+-            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+-            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
++            "contentDigest": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23",
++            "indexDigest": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+         },
+         {
+             "path": "tools/fact-extractors/governance.mjs",
+@@ -4210,8 +4210,8 @@
+         },
+         {
+             "path": "tools/test-inventory/discovery.mjs",
+-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
+-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
++            "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
++            "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
+         },
+         {
+             "path": "tools/test-inventory/package.json",
+diff --git a/tests/tools/csharp-style.test.mjs b/tests/tools/csharp-style.test.mjs
+index 6cd1a6de0..9067e263c 100644
+--- a/tests/tools/csharp-style.test.mjs
++++ b/tests/tools/csharp-style.test.mjs
+@@ -1342,7 +1342,9 @@ test('policy-only rebind preserves the real original baseline and refuses substi
+         const originalBytes = original.stdout;
+         assert.equal(crypto.createHash('sha256').update(originalBytes).digest('hex'),
+             '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
+-        const candidatePolicy = `${JSON.stringify(sourcePolicy, null, 4)}\n`;
++        const missPolicy = structuredClone(sourcePolicy);
++        missPolicy.enumNaming.acceptedSingularSuffixes = missPolicy.enumNaming.acceptedSingularSuffixes.filter((suffix) => suffix !== 'Access');
++        const candidatePolicy = `${JSON.stringify(missPolicy, null, 4)}\n`;
+         writeFixture(fixtureRoot, policyPath, candidatePolicy);
+         const run = (args = []) => spawnSync(process.execPath, [checker, '--root', fixtureRoot,
+             '--mode', 'full', '--rebind-baseline-policy', ...args], { cwd: fixtureRoot, encoding: 'utf8' });
+@@ -1421,7 +1423,7 @@ test('policy-only rebind preserves the real original baseline and refuses substi
+             assert.equal(run(extra).status, 1);
+             assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
+         }
+-        const expanded = structuredClone(sourcePolicy);
++        const expanded = structuredClone(missPolicy);
+         expanded.excludedPaths.push('src/**');
+         writeFixture(fixtureRoot, policyPath, `${JSON.stringify(expanded, null, 4)}\n`);
+         assert.equal(run().status, 1);
+@@ -1462,3 +1464,149 @@ public sealed record AttributedRecord(string Name)
+         assert.equal(result.status, 0, output(result));
+     });
+ });
++
++
++test('singular Access retains the eight ordinary and flags controls', () =>
++{
++    withFixture((fixtureRoot) =>
++    {
++        for (const [name, flags, rule] of [
++            ['GpuPeerAllocationAccess', false, null],
++            ['GpuPeerAllocationAccesses', false, 'enum-name'],
++            ['GpuPeerAllocationAccesses', true, null],
++            ['GpuPeerAllocationAccess', true, 'flags-enum-name'],
++            ['PublicHotReadServingMiss', false, null],
++            ['PublicHotReadServingMisses', false, 'enum-name'],
++            ['Permissions', true, null],
++            ['Permission', true, 'flags-enum-name']
++        ])
++        {
++            writeFixture(fixtureRoot, 'src/sample/Enum.cs', `using System;\n\nnamespace Fixture;\n\n${flags ? '[Flags]\n' : ''}public enum ${name}\n{\n    Read,\n    ExclusiveWrite\n}\n`);
++            const result = runChecker(fixtureRoot, ['--mode', 'full']);
++            assert.equal(result.status, rule ? 1 : 0, output(result));
++            if (rule)
++            {
++                assert.match(output(result), new RegExp(` ${rule}:`, 'u'));
++            }
++        }
++    });
++});
++
++
++test('Access-only rebind preserves the merged Miss baseline and refuses substituted inputs', () =>
++{
++    withFixture((fixtureRoot) =>
++    {
++        const policyPath = 'config/development/csharp-style-policy.json';
++        const baselinePath = 'config/development/csharp-style-baseline.json';
++        const original = spawnSync('git', ['show', 'b9c076e4b763130075218ff9d50f9a6c36784f59:' + baselinePath], {
++            cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
++        });
++        assert.equal(original.status, 0, original.stderr);
++        const originalBytes = original.stdout;
++        assert.equal(crypto.createHash('sha256').update(originalBytes).digest('hex'),
++            '4351155657a6f448d27f2e7eb54dfd430d2a9246b8e0b4f463f5143ace6b204e');
++        const candidatePolicy = `${JSON.stringify(sourcePolicy, null, 4)}\n`;
++        writeFixture(fixtureRoot, policyPath, candidatePolicy);
++        const run = (args = []) => spawnSync(process.execPath, [checker, '--root', fixtureRoot,
++            '--mode', 'full', '--rebind-access-baseline-policy', ...args], { cwd: fixtureRoot, encoding: 'utf8' });
++        writeFixture(fixtureRoot, baselinePath, originalBytes);
++        const stale = spawnSync(process.execPath, [checker, '--root', fixtureRoot, '--mode', 'full'], {
++            cwd: fixtureRoot, encoding: 'utf8'
++        });
++        assert.equal(stale.status, 1, output(stale));
++        assert.match(output(stale), /policy digest is stale/u);
++        const accepted = run();
++        assert.equal(accepted.status, 0, output(accepted));
++        const rebound = readFileSync(path.join(fixtureRoot, baselinePath), 'utf8');
++        const expected = JSON.parse(originalBytes);
++        expected.policySha256 = crypto.createHash('sha256').update(candidatePolicy).digest('hex');
++        assert.deepEqual(JSON.parse(rebound), expected);
++        assert.equal(run().status, 0);
++        const ordinary = spawnSync(process.execPath, [checker, '--root', fixtureRoot, '--mode', 'full'], {
++            cwd: fixtureRoot, encoding: 'utf8'
++        });
++        assert.equal(ordinary.status, 0, output(ordinary));
++        for (const mutate of [
++            (value) =>
++            {
++                value.schema = 'wrong';
++            },
++            (value) =>
++            {
++                value.generatedFrom = 'wrong';
++            },
++            (value) =>
++            {
++                value.violationCount += 1;
++            },
++            (value) =>
++            {
++                value.fileCount += 1;
++            },
++            (value) =>
++            {
++                value.policySha256 = '0'.repeat(64);
++            },
++            (value) =>
++            {
++                value.files[0].sourceSha256 = '0'.repeat(64);
++            },
++            (value) =>
++            {
++                value.files[0].violationDigest = '0'.repeat(64);
++            },
++            (value) =>
++            {
++                value.files[0].rules['type-name'] += 1;
++            },
++            (value) =>
++            {
++                value.files[0].path = 'src/other.cs';
++            },
++            (value) =>
++            {
++                value.files.push(value.files[0]);
++            }
++        ])
++        {
++            const corrupted = JSON.parse(originalBytes);
++            mutate(corrupted);
++            const bytes = `${JSON.stringify(corrupted, null, 4)}\n`;
++            writeFixture(fixtureRoot, baselinePath, bytes);
++            const result = run();
++            assert.equal(result.status, 1, output(result));
++            assert.match(output(result), /intact original baseline/u);
++            assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), bytes);
++        }
++        writeFixture(fixtureRoot, baselinePath, originalBytes);
++        for (const extra of [['--rebind-baseline-policy'], ['--fix'], ['--update-baseline'], ['--file', 'src/Other.cs'], ['--mode', 'strict-full'], ['--base', 'HEAD'], ['--policy', path.join(fixtureRoot, 'config/csharp-style-policy.json')]])
++        {
++            assert.equal(run(extra).status, 1);
++            assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
++        }
++        const legacy = spawnSync(process.execPath, [checker, '--root', fixtureRoot,
++            '--mode', 'full', '--rebind-baseline-policy'], { cwd: fixtureRoot, encoding: 'utf8' });
++        assert.equal(legacy.status, 1, output(legacy));
++        assert.match(output(legacy), /canonical Miss suffix extension/u);
++        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
++        const withoutAccess = structuredClone(sourcePolicy);
++        withoutAccess.enumNaming.acceptedSingularSuffixes.pop();
++        writeFixture(fixtureRoot, policyPath, `${JSON.stringify(withoutAccess, null, 4)}\n`);
++        assert.equal(run().status, 1);
++        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
++        writeFixture(fixtureRoot, policyPath, candidatePolicy);
++        const expanded = structuredClone(sourcePolicy);
++        expanded.excludedPaths.push('src/**');
++        writeFixture(fixtureRoot, policyPath, `${JSON.stringify(expanded, null, 4)}\n`);
++        assert.equal(run().status, 1);
++        assert.equal(readFileSync(path.join(fixtureRoot, baselinePath), 'utf8'), originalBytes);
++        writeFixture(fixtureRoot, policyPath, candidatePolicy);
++        rmSync(path.join(fixtureRoot, baselinePath));
++        assert.equal(run().status, 1);
++        writeFixture(fixtureRoot, 'original-baseline.json', originalBytes);
++        symlinkSync(path.join(fixtureRoot, 'original-baseline.json'), path.join(fixtureRoot, baselinePath));
++        assert.equal(run().status, 1);
++        assert.equal(readFileSync(path.join(fixtureRoot, 'original-baseline.json'), 'utf8'), originalBytes);
++    });
++});
+diff --git a/tools/dotnet/check-csharp-style.mjs b/tools/dotnet/check-csharp-style.mjs
+index 7a716357c..3688b8fa2 100644
+--- a/tools/dotnet/check-csharp-style.mjs
++++ b/tools/dotnet/check-csharp-style.mjs
+@@ -55,6 +55,11 @@ function parseArgs(argv)
+             parsed.rebindBaselinePolicy = true;
+             continue;
+         }
++        if (argument === '--rebind-access-baseline-policy')
++        {
++            parsed.rebindAccessBaselinePolicy = true;
++            continue;
++        }
+         if (argument === '--update-baseline')
+         {
+             parsed.updateBaseline = true;
+@@ -1507,11 +1512,13 @@ function writeBaseline(violations)
+     console.log(`[csharp-style] baseline updated violations=${violations.length} path=${policy.baseline}`);
+ }
+ 
+-// This one-time producer admits only the original reviewed baseline and the
+-// issue-3650 Miss suffix extension. It never rescans or increases allowed debt.
++// The two explicit operations have separate immutable authorities. The original
++// Miss operation stays Miss-only; Access starts from its merged baseline.
++// Neither operation rescans source or increases allowed debt.
+ function rebindBaselinePolicy(args)
+ {
+-    if (args.fix || args.updateBaseline || args.mode !== 'full' || args.files.length > 0 || args.base)
++    if (args.fix || args.updateBaseline || args.mode !== 'full' || args.files.length > 0 || args.base
++        || (args.rebindBaselinePolicy && args.rebindAccessBaselinePolicy))
+     {
+         throw new Error('policy rebind cannot be mixed with fix, update-baseline or file selection; use full mode');
+     }
+@@ -1535,7 +1542,10 @@ function rebindBaselinePolicy(args)
+     }
+     requireRegularInput(defaultPolicyPath);
+     requireRegularInput('config/development/csharp-style-baseline.json');
+-    const authority = 'b19b3dc715691b871f0e3cab598ec5da8f27633c';
++    const accessRebind = args.rebindAccessBaselinePolicy === true;
++    const authority = accessRebind
++        ? 'b9c076e4b763130075218ff9d50f9a6c36784f59'
++        : 'b19b3dc715691b871f0e3cab598ec5da8f27633c';
+     function authorityBlob(relativePath, objectId, digest)
+     {
+         const result = spawnSync('git', ['-C', defaultRoot, 'ls-tree', authority, '--', relativePath], {
+@@ -1555,17 +1565,20 @@ function rebindBaselinePolicy(args)
+         return blob.stdout.toString('utf8');
+     }
+     const originalPolicy = authorityBlob(defaultPolicyPath,
+-        '5cc03bb337ddcba71cb049e8f9ca47637d7ecb26',
+-        '29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200');
++        accessRebind ? 'bd9f1fef0fbc4c1cca02037df7800f0bddd31f21' : '5cc03bb337ddcba71cb049e8f9ca47637d7ecb26',
++        accessRebind ? 'b341da309ee50cdc61626212053b8a5b2548309294051bf59e9e6927b4baf292'
++            : '29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200');
+     const originalBaseline = authorityBlob('config/development/csharp-style-baseline.json',
+-        '44931fca7b3950cbaa54ba0a8f13097174c8cd42',
+-        '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
++        accessRebind ? '17ff74d0e03920f582c59ae1e870311d9d5105fd' : '44931fca7b3950cbaa54ba0a8f13097174c8cd42',
++        accessRebind ? '4351155657a6f448d27f2e7eb54dfd430d2a9246b8e0b4f463f5143ace6b204e'
++            : '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
+     const expectedPolicy = JSON.parse(originalPolicy);
+-    expectedPolicy.enumNaming.acceptedSingularSuffixes.push('Miss');
++    const suffix = accessRebind ? 'Access' : 'Miss';
++    expectedPolicy.enumNaming.acceptedSingularSuffixes.push(suffix);
+     const policyBytes = fs.readFileSync(policyFile, 'utf8');
+     if (policyBytes !== `${JSON.stringify(expectedPolicy, null, 4)}\n`)
+     {
+-        throw new Error('policy rebind permits only the canonical Miss suffix extension');
++        throw new Error(`policy rebind permits only the canonical ${suffix} suffix extension`);
+     }
+     const target = path.join(root, expectedPolicy.baseline);
+     const rebound = originalBaseline.replace(JSON.parse(originalBaseline).policySha256, sha256(policyBytes));
+@@ -1692,7 +1705,7 @@ function main()
+         return null;
+     }
+     validatePolicy();
+-    if (args.rebindBaselinePolicy)
++    if (args.rebindBaselinePolicy || args.rebindAccessBaselinePolicy)
+     {
+         if (failures.length > 0)
+         {

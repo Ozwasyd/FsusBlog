@@ -1,0 +1,19 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "argv": [
+    "node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "6e287562b3f861d3eb81dcb23f93e6243205abd8"
+  ],
+  "startedAtUtc": "2026-10-08T13:33:54.877591+00:00",
+  "endedAtUtc": "2026-10-08T13:34:58.255103+00:00",
+  "exitCode": 0,
+  "log": "exact-source-stage-installed-tools.log",
+  "logSha256": "2d7f13c3d2b95d633b75c45d416c86f3d8c5468c71e892c1b50314435db53d40"
+}

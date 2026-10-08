@@ -1,0 +1,17 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "argv": [
+    "node",
+    "tools/dotnet/check-csharp-style.mjs",
+    "--mode",
+    "full",
+    "--rebind-access-baseline-policy"
+  ],
+  "startedAtUtc": "2026-10-08T13:42:19.182832+00:00",
+  "endedAtUtc": "2026-10-08T13:42:19.270013+00:00",
+  "exitCode": 0,
+  "log": "exact-bounded-access-rebind.log",
+  "logSha256": "5d243cfbd0a8a54b5f53a82c9e764b76f69d0479b49a1069bee9571176571aea"
+}

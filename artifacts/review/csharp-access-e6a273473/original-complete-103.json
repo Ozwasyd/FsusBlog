@@ -1,0 +1,15 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "headAfter": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "argv": [
+    "node",
+    "--test",
+    "tests/tools/csharp-style.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-08T13:24:39.168039+00:00",
+  "endedAtUtc": "2026-10-08T13:26:12.338923+00:00",
+  "exitCode": 0,
+  "log": "original-complete-103.log",
+  "logSha256": "c166e5f64c399ce4d3ff36143032df3ab17129158308bd98dfa8e7af067ed5fe"
+}

@@ -1,0 +1,49 @@
+{
+  "base": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "candidate": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "actualProducerOutputSha256": "7f97e75e739cb9c516fa455cd7dd8c3ddd5bd3c84f55e3bb8052ddc81bcb3bf6",
+  "authorityTargets": 102,
+  "authorityClosureFiles": 1128,
+  "onlyChangedFields": [
+    "$.closureFiles[612].contentDigest",
+    "$.closureFiles[612].indexDigest",
+    "$.closureFiles[838].contentDigest",
+    "$.closureFiles[838].indexDigest"
+  ],
+  "changedClosureFiles": [
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "old": {
+        "path": "tools/dotnet/check-csharp-style.mjs",
+        "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+        "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
+      },
+      "new": {
+        "path": "tools/dotnet/check-csharp-style.mjs",
+        "contentDigest": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23",
+        "indexDigest": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+      },
+      "sourceChangedByThisCandidate": true
+    },
+    {
+      "path": "tools/test-inventory/discovery.mjs",
+      "old": {
+        "path": "tools/test-inventory/discovery.mjs",
+        "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
+        "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+      },
+      "new": {
+        "path": "tools/test-inventory/discovery.mjs",
+        "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+        "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
+      },
+      "sourceChangedByThisCandidate": false
+    }
+  ],
+  "baselineLiteralDigestOnlyReplacement": true,
+  "preservedViolationCount": 33,
+  "preservedFileCount": 16,
+  "allSourceRuleViolationDigestsUnchanged": true,
+  "producerBlobUnchanged": "3a94146cb8d98aa9ceac65bedcb9e8e183e3aa8d",
+  "initialAttributionProbe": "Expected only checker2fields but actual producer also refreshed unchanged master discovery2fields; failed attribution assertion retained and corrected by checking actual source identities. No output was edited or source restored."
+}

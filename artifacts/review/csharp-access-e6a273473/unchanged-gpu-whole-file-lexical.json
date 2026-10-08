@@ -1,0 +1,18 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "argv": [
+    "node",
+    "tools/dotnet/check-csharp-style.mjs",
+    "--root",
+    "/tmp/fsusblog-csharp-access-source/.tmp/csharp-access/gpu-probe",
+    "--mode",
+    "full"
+  ],
+  "startedAtUtc": "2026-10-08T13:33:54.587100+00:00",
+  "endedAtUtc": "2026-10-08T13:33:54.776783+00:00",
+  "exitCode": 0,
+  "log": "unchanged-gpu-whole-file-lexical.log",
+  "logSha256": "0baf5a8a4b46f77fb4bc47da34000da2b3ed57530be40c992cec5ffed2c45020"
+}

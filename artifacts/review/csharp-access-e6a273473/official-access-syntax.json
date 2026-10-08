@@ -1,0 +1,18 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "headAfter": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "argv": [
+    "dotnet",
+    "build",
+    ".tmp/csharp-access/syntax-authority/Syntax.csproj",
+    "--nologo",
+    "-v",
+    "minimal"
+  ],
+  "startedAtUtc": "2026-10-08T13:28:55.499094+00:00",
+  "endedAtUtc": "2026-10-08T13:29:03.224916+00:00",
+  "exitCode": 0,
+  "log": "official-access-syntax.log",
+  "logSha256": "4987872a7413bf0c903d7779ea1302be0f9e31f471c869622c184cd5c395ec8f"
+}

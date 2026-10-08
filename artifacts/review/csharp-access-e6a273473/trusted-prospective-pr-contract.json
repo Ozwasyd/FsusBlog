@@ -1,0 +1,18 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "headAfter": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "argv": [
+    "node",
+    "/tmp/fsusblog-csharp-access-trusted-base/tools/governance/check-change-contract.mjs",
+    "--root",
+    "/tmp/fsusblog-csharp-access-source",
+    "--github-event",
+    "/tmp/fsusblog-csharp-access-source/.tmp/csharp-access/prepared-pr-event.json"
+  ],
+  "startedAtUtc": "2026-10-08T13:38:03.105191+00:00",
+  "endedAtUtc": "2026-10-08T13:38:07.924713+00:00",
+  "exitCode": 0,
+  "log": "trusted-prospective-pr-contract.log",
+  "logSha256": "e32f120318f8bed0a3a3d2e53e1bd6366bb9aa10438785ace08147336d5372b4"
+}
