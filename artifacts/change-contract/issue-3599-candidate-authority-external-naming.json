@@ -2,13 +2,6 @@
     "schema": "fsusblog.external-naming-exceptions.v1",
     "exceptions": [
         {
-            "id": "shell-environment-variable",
-            "paths": [
-                "tools/check-gate-integrity.sh"
-            ],
-            "reason": "Preserve the existing FSUSBLOG_GATE_INTEGRITY_ROOT process interface while selecting the canonical parser implementation from the checker checkout."
-        },
-        {
             "id": "json-wire-key",
             "paths": [
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
