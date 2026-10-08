@@ -4,13 +4,10 @@ import process from 'node:process';
 
 import {
     loadTemporalContext,
-    validateTemporalObservations
+    readTemporalReplayAuthority
 } from './temporal-context.mjs';
-import {
-    observeBrowserTemporalContext,
-    validateTemporalProducerBindings,
-    verifyPostgresTemporalObservation
-} from './temporal-producer-bindings.mjs';
+import { validateTemporalProducerBindings } from './temporal-producer-bindings.mjs';
+import { validateTemporalSourceObservation } from './temporal-source-observation-contract.mjs';
 
 function option(name)
 {
@@ -35,30 +32,7 @@ try
             throw new Error('--observation is required');
         }
         const observation = JSON.parse(readFileSync(observationFile, 'utf8'));
-        if (kind === 'postgres')
-        {
-            verifyPostgresTemporalObservation(context, observation);
-        }
-        else if (kind === 'browser')
-        {
-            observeBrowserTemporalContext(context, {
-                locale: observation.locale,
-                timezoneId: observation.timezoneId,
-                backendCulture: observation.backendCulture,
-                postgresTimezone: observation.postgresTimezone,
-                businessEpochUtc: observation.businessEpochUtc,
-                browserBusinessEpochUtc: observation.browserBusinessEpochUtc,
-                nodeTimezone: observation.nodeTimezone
-            });
-        }
-        else if (kind === 'node' || kind === 'backend')
-        {
-            validateTemporalObservations(context, observation);
-        }
-        else
-        {
-            throw new Error(`unsupported temporal verifier kind: ${kind}`);
-        }
+        validateTemporalSourceObservation({ kind, context, observation }, readTemporalReplayAuthority());
         process.stdout.write(`[temporal-producers] ${kind}=ok\n`);
     }
 }

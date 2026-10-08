@@ -1,9 +1,15 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import path from 'node:path';
+import process from 'node:process';
 import { test } from 'node:test';
+import { fileURLToPath } from 'node:url';
 
 const { validateTemporalSourceObservation } = await import(new URL(
     '../../tools/test/temporal-source-observation-contract.mjs', import.meta.url));
-const { defaultTimeoutPolicyDigest, qualificationTemporalContext, readTemporalReplayAuthority } = await import(new URL(
+const { defaultTimeoutPolicyDigest, materializeTemporalEnvironment, qualificationTemporalContext, readTemporalReplayAuthority } = await import(new URL(
     '../../tools/test/temporal-context.mjs', import.meta.url));
 
 function fixture()
@@ -51,6 +57,27 @@ function fixture()
 function verify(kind, observation, values = fixture())
 {
     return validateTemporalSourceObservation({ kind, context: values.context, observation }, values.authority);
+}
+
+function cliFixture(t)
+{
+    const values = fixture();
+    const scratch = mkdtempSync(path.join(tmpdir(), 'temporal-source-ingress-'));
+    t.after(() => rmSync(scratch, { recursive: true, force: true }));
+    const env = { ...process.env, ...materializeTemporalEnvironment(values.context) };
+    delete env.FSUSBLOG_TEMPORAL_CONTEXT_FILE;
+    const cliPath = fileURLToPath(new URL('../../tools/test/verify-temporal-producers.mjs', import.meta.url));
+    return {
+        ...values,
+        run(kind, observationJson)
+        {
+            const file = path.join(scratch, 'observation.json');
+            writeFileSync(file, observationJson);
+            return spawnSync(process.execPath, [cliPath, '--kind', kind, '--observation', file], {
+                cwd: scratch, env, encoding: 'utf8', timeout: 10_000
+            });
+        }
+    };
 }
 
 test('source verifier accepts complete actual observations without copying plan-only fields', () =>
@@ -190,4 +217,55 @@ test('source verifier consumes explicit immutable authority and rejects context 
         assert.throws(() => verify(kind, values.observations.backend, values),
             { reasonCode: 'temporal.context-invalid' });
     }
+});
+
+test('canonical temporal CLI requires complete actual observations for all runtime kinds', (t) =>
+{
+    const values = cliFixture(t);
+    for (const [kind, observation] of Object.entries(values.observations))
+    {
+        const complete = values.run(kind, JSON.stringify(observation));
+        assert.equal(complete.error, undefined);
+        assert.equal(complete.status, 0, complete.stderr);
+        assert.equal(complete.stdout, `[temporal-producers] ${kind}=ok\n`);
+        assert.equal(complete.stderr, '');
+
+        const empty = values.run(kind, '{}');
+        assert.equal(empty.error, undefined);
+        assert.equal(empty.status, 1);
+        assert.equal(empty.stdout, '');
+        assert.match(empty.stderr, /temporal.actual-context-missing/u);
+
+        const drift = values.run(kind, JSON.stringify({
+            ...observation, businessEpochUtc: '2024-03-01T00:00:00.000Z'
+        }));
+        assert.equal(drift.error, undefined);
+        assert.equal(drift.status, 1);
+        assert.equal(drift.stdout, '');
+        assert.match(drift.stderr, /temporal.actual-context-mismatch/u);
+    }
+});
+
+test('canonical temporal CLI keeps malformed ingress and unsupported kinds fail closed', (t) =>
+{
+    const values = cliFixture(t);
+    const malformed = values.run('backend', '{');
+    assert.equal(malformed.error, undefined);
+    assert.equal(malformed.status, 1);
+    assert.equal(malformed.stdout, '');
+    assert.match(malformed.stderr, /temporal.context-invalid/u);
+    const unsupported = values.run('unknown', JSON.stringify(values.observations.backend));
+    assert.equal(unsupported.error, undefined);
+    assert.equal(unsupported.status, 1);
+    assert.equal(unsupported.stdout, '');
+    assert.match(unsupported.stderr, /unsupported temporal source observation kind/u);
+});
+
+test('canonical temporal CLI preserves catalog verification output', (t) =>
+{
+    const result = cliFixture(t).run('catalog', '{}');
+    assert.equal(result.error, undefined);
+    assert.equal(result.status, 0, result.stderr);
+    assert.match(result.stdout, /^\[temporal-producers\] producers=9 implementations=29 digest=sha256:[a-f0-9]{64}\n$/u);
+    assert.equal(result.stderr, '');
 });

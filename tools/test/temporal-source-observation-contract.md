@@ -28,17 +28,18 @@ responsible for authenticated collection, source/run/producer binding, real
 clock operation and independent replay. Caller-supplied observations cannot
 grant runtime acceptance through this function.
 
-The existing `tools/test/verify-temporal-producers.mjs` owner can adopt this API
+The existing `tools/test/verify-temporal-producers.mjs` command uses this API
 for every observation kind after loading the context and observation JSON:
 
 ```javascript
 validateTemporalSourceObservation({ kind, context, observation }, readTemporalReplayAuthority());
 ```
 
-Keep the existing catalog branch, error reporting and command output. Replace
-only the per-kind observation dispatch with this call; do not add a parallel
-runtime collector or change the shared pure validator's partial-observation API.
-Canonical matrix registration belongs to its current owner. Until that adoption
-and registration occur, the existing CLI's empty backend/node observation gap
-remains open. Native, database, browser, complete matrix and product acceptance
-remain independent of these source controls.
+The command retains its existing catalog branch, error reporting and command
+output. Only the per-kind observation dispatch uses this complete-ingress call;
+there is no parallel runtime collector and the shared pure validator retains its
+partial-observation API. Canonical matrix registration belongs to its current
+owner. Actual command controls cover complete, empty and drifting observations
+for each kind, malformed JSON, unsupported kinds and catalog verification.
+Native, database, browser, complete matrix and product acceptance remain
+independent of these source and command-ingress controls.
