@@ -44,7 +44,7 @@ internal static class ArticleVaultOperationMigrationDefinitions
                         FOREIGN KEY (operation_identity, previous_sha256)
                             REFERENCES article_vault_operation_checkpoint(operation_identity, content_sha256),
                         CHECK ((sequence = 0 AND previous_sha256 IS NULL)
-                            OR (sequence > 0 AND previous_sha256 ~ '^[0-9a-f]{64}$'))
+                            OR (sequence > 0 AND previous_sha256 IS NOT NULL AND previous_sha256 ~ '^[0-9a-f]{64}$'))
                     );
 
                     CREATE FUNCTION reject_article_vault_operation_history_mutation()
