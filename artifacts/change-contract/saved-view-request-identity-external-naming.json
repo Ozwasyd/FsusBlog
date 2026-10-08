@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs",
+                "src/backend/Services/Authoring/AuthorSavedViewStore.cs"
+            ],
+            "reason": "The facade consumes existing SITE_BASEURL through ResolveSiteScope; the exact consumed saved-view UTC microsecond repair preserves domain/wire names and framework timestamp constants. Neither source path introduces process settings or changes the finite existing environment naming boundary."
+        }
+    ]
+}

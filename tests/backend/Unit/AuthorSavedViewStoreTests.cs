@@ -638,6 +638,39 @@ public sealed class AuthorSavedViewStoreTests
         Assert.DoesNotContain("permission_snapshot", sql, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(7)]
+    [InlineData(9)]
+    public async Task Authority_NormalizesClockBeforeReceiptDigestAndViewTimestamps(int subMicrosecondTicks)
+    {
+        DateTime now = new(638962848000000000 + subMicrosecondTicks, DateTimeKind.Utc);
+        DateTime expected = new(now.Ticks - now.Ticks % TimeSpan.TicksPerMicrosecond, DateTimeKind.Utc);
+        var persistence = new LocalProductionBoundaryPersistence();
+        var store = new AuthorSavedViewStore(persistence, Validator(), new FixedUtcTimeProvider(now));
+        var command = new CreateAuthorSavedViewCommand(Guid.CreateVersion7(), s_owner,
+            0, Guid.CreateVersion7(), "Timestamp", Query(25));
+        AuthorSavedViewWriteReceipt created = await store.CreateAsync(command);
+        Assert.Equal(expected, created.OccurredAtUtc);
+        AuthorSavedViewVerificationHistory history = await persistence.ReadVerificationHistoryAsync(s_owner);
+        AuthorSavedViewWriteReceipt persisted = Assert.Single(history.Receipts);
+        Assert.Equal(expected, persisted.OccurredAtUtc);
+        Assert.Equal(created.ContentDigest, AuthorSavedViewStorageContract.ComputeReceiptDigest(persisted));
+        AuthorSavedView stored = Assert.IsType<AuthorSavedView>(await store.GetAsync(s_owner, command.ViewId));
+        Assert.Equal(expected, stored.CreatedAtUtc);
+        Assert.Equal(expected, stored.UpdatedAtUtc);
+        Assert.True((await store.VerifyAsync(s_owner)).Valid);
+        AuthorSavedViewWriteReceipt replay = await store.CreateAsync(command);
+        Assert.True(replay.IdempotentReplay);
+        Assert.Equal(created.ContentDigest, replay.ContentDigest);
+    }
+
+    private sealed class FixedUtcTimeProvider(DateTime now) : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow() => new(now);
+    }
+
     private static AuthorSavedViewStore Store(LocalProductionBoundaryPersistence persistence)
         => new(persistence, Validator(), TimeProvider.System);
 
