@@ -22,7 +22,7 @@ public sealed class CryptographyBoundaryTests
     {
         var random = new RecordingRandomSource();
 
-        var policy = new SecurityAdminPolicyService(new ConfigurationBuilder().Build(), random);
+        var policy = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()), random);
 
         Assert.NotEmpty(policy.Current.SnapshotId);
         Assert.True(random.RequestedLengths.Count >= 4);

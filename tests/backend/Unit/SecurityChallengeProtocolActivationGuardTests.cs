@@ -211,7 +211,7 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     }
 
     internal static ISecurityRiskPolicyProvider PolicyProvider(string version = PolicyVersion)
-        => new FixedRiskPolicyProvider(new SecurityRiskPolicySnapshotV2(
+        => new FixedRiskPolicyProvider(new SecurityRiskPolicy(
             "risk-policy-snapshot-1",
             version,
             DateTimeOffset.UtcNow,
@@ -321,12 +321,9 @@ public sealed class SecurityChallengeProtocolActivationGuardTests
     internal const string PoolManifestDigest = "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
     internal const string PolicyVersion = "policy-a";
 
-    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicySnapshotV2 policy)
+    private sealed class FixedRiskPolicyProvider(SecurityRiskPolicy policy)
         : ISecurityRiskPolicyProvider
     {
-        public SecurityRiskPolicySnapshot CurrentRiskPolicy
-            => SecurityRiskPolicySnapshotV2Adapter.ToLegacy(policy);
-
-        public SecurityRiskPolicySnapshotV2 CurrentRiskPolicyV2 => policy;
+        public SecurityRiskPolicy CurrentRiskPolicy => policy;
     }
 }

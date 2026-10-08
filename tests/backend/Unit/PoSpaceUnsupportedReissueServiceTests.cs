@@ -271,7 +271,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
             "risk-policy-v2",
             ["risk_threshold"]);
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy(string characterChallengeMode)
+    private static SecurityRiskPolicy CreatePolicy(string characterChallengeMode)
     {
         var action = new SecurityRiskActionPolicy(
             "*",
@@ -280,7 +280,7 @@ public sealed class PoSpaceUnsupportedReissueServiceTests
             1,
             null,
             false);
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk:test",
             "risk-policy-v2",
             s_now,

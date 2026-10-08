@@ -51,9 +51,9 @@ public interface ISecurityAdminPolicyService :
 
     PowPolicySnapshot RollbackPowOptions(string changedBy);
 
-    SecurityRiskPolicySnapshotV2 UpdateRiskControlPolicy(RiskControlPolicyUpdateRequest request, string changedBy);
+    SecurityRiskPolicy UpdateRiskControlPolicy(RiskControlPolicyUpdateRequest request, string changedBy);
 
-    SecurityRiskPolicySnapshotV2 RollbackRiskControlPolicy(string changedBy);
+    SecurityRiskPolicy RollbackRiskControlPolicy(string changedBy);
 
     PerceptionSealedV2PolicySnapshot UpdatePerceptionSealedV2Policy(PerceptionSealedV2PolicyUpdateRequest request, string changedBy);
 
@@ -63,7 +63,7 @@ public interface ISecurityAdminPolicyService :
 
     void ApplyPowPolicySnapshot(PowPolicySnapshot snapshot);
 
-    void ApplyRiskControlPolicySnapshot(SecurityRiskPolicySnapshotV2 snapshot);
+    void ApplyRiskControlPolicySnapshot(SecurityRiskPolicy snapshot);
 
     void ApplyPerceptionSealedV2PolicySnapshot(PerceptionSealedV2PolicySnapshot snapshot);
 

@@ -501,18 +501,18 @@ public sealed class SecurityPolicySnapshotHostedService(
                 policy.ApplyPowPolicySnapshot(pow.Document);
             }
 
-            SecurityPolicyLoadResult<SecurityRiskPolicySnapshotV2> riskControl =
-                await snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicySnapshotV2>(SecurityPolicyIds.RiskControl, cancellationToken);
-            if (riskControl.Success && riskControl.Document is not null)
-            {
-                policy.ApplyRiskControlPolicySnapshot(riskControl.Document);
-            }
-
             SecurityPolicyLoadResult<PerceptionSealedV2PolicySnapshot> perceptionV2 =
                 await snapshots.LoadActiveOrLastKnownGoodAsync<PerceptionSealedV2PolicySnapshot>(SecurityPolicyIds.PerceptionSealedV2, cancellationToken);
             if (perceptionV2.Success && perceptionV2.Document is not null)
             {
                 policy.ApplyPerceptionSealedV2PolicySnapshot(perceptionV2.Document);
+            }
+
+            SecurityPolicyLoadResult<SecurityRiskPolicy> riskControl =
+                await snapshots.LoadActiveOrLastKnownGoodAsync<SecurityRiskPolicy>(SecurityPolicyIds.RiskControl, cancellationToken);
+            if (riskControl.Success && riskControl.Document is not null)
+            {
+                policy.ApplyRiskControlPolicySnapshot(riskControl.Document);
             }
         }
         catch (Exception ex) when (ex is not OperationCanceledException)

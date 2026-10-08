@@ -834,13 +834,13 @@ public sealed class SecurityRiskEventSink(
 
         string? existing = await cacheReader.GetStringAsync(CachePolicyId.SecurityPowRisk, identity, cancellationToken);
         return int.TryParse(existing, NumberStyles.Integer, CultureInfo.InvariantCulture, out int value)
-            ? Math.Clamp(value, 0, policy.Current.Options.MaxRiskScore)
+            ? Math.Clamp(value, 0, policy.CurrentRiskPolicy.MaxRiskScore)
             : 0;
     }
 
     private bool ShouldSkipPersistence(SecurityRiskSignal signal)
         => string.Equals(signal.Source, SecurityRiskSources.AntiCrawler, StringComparison.OrdinalIgnoreCase)
-            && string.Equals(SecuritySystemModes.Normalize(policy.Current.Options.Mode), SecuritySystemModes.Disabled, StringComparison.Ordinal);
+            && string.Equals(SecuritySystemModes.Normalize(policy.CurrentRiskPolicy.SubsystemModes[SecurityRiskSources.AntiCrawler]), SecuritySystemModes.Disabled, StringComparison.Ordinal);
 
     private SecurityRiskEventWrite BuildWrite(SecurityRiskSignal signal, int totalScore)
     {

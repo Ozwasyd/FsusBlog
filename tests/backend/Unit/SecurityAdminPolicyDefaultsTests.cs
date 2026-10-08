@@ -13,7 +13,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Constructor_SeedsExactDefaultAntiCrawlerRules()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         Dictionary<string, AntiCrawlerRuleResponse> rules = service.ListRules()
             .ToDictionary(rule => rule.Id, StringComparer.Ordinal);
@@ -71,7 +71,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Constructor_SeedsPolicySnapshotsWithConfigurationProvenance()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         Assert.StartsWith("anti-crawler-", service.Current.SnapshotId, StringComparison.Ordinal);
         Assert.Equal("configuration", service.Current.UpdatedBy);
@@ -91,7 +91,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Constructor_UsesExactDefaultAntiCrawlerOptions()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         AntiCrawlerPolicyOptions options = service.Current.Options;
 
         Assert.Equal("enforce", options.Mode);
@@ -136,7 +136,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Constructor_UsesExactDefaultPowOptions()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         PowPolicyOptions options = service.CurrentPow.Options;
 
         Assert.Equal("enforce", options.Mode);
@@ -153,7 +153,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Constructor_UsesExactDefaultPerceptionV2Options()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         PerceptionSealedV2PolicyOptions options = service.CurrentPerceptionSealedV2.Options;
 
         Assert.True(options.Enabled);
@@ -202,7 +202,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
             ("AntiCrawler:SocialPreviewAllowedPathPrefixes", "/public/, /feed/"),
             ("AntiCrawler:BlockedUserAgentKeywords", "scrapy, megacrawler"));
 
-        var service = new SecurityAdminPolicyService(configuration);
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(configuration));
         AntiCrawlerPolicyOptions options = service.Current.Options;
 
         Assert.Equal("observe", options.Mode);
@@ -244,7 +244,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
             ("Security:CrawlerCidrs:MinUpdateIntervalMinutes", "120"),
             ("Security:CrawlerCidrs:UpdateIntervalMinutes", "60"));
 
-        var service = new SecurityAdminPolicyService(configuration);
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(configuration));
 
         Assert.Equal(120, service.Current.Options.CidrUpdateIntervalMinutes);
         Assert.Equal(120, service.Current.Options.CidrMinUpdateIntervalMinutes);
@@ -257,7 +257,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
         IConfiguration configuration = BuildConfiguration(
             ("Security:AntiCrawler:Mode", "observe"));
 
-        var service = new SecurityAdminPolicyService(configuration);
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(configuration));
 
         Assert.Equal("observe", service.Current.Options.Mode);
     }
@@ -274,7 +274,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
             ("Pow:ReplayProtectionEnabled", "false"),
             ("Pow:RiskScoreLinkEnabled", "false"));
 
-        var service = new SecurityAdminPolicyService(configuration);
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(configuration));
         PowPolicyOptions options = service.CurrentPow.Options;
 
         Assert.Equal("observe", options.Mode);
@@ -299,7 +299,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
             ("Security:PerceptionV2:MinSolveDurationMs", "1250"),
             ("Security:PerceptionV2:MaxSolveDurationMs", "120000"));
 
-        var service = new SecurityAdminPolicyService(configuration);
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(configuration));
         PerceptionSealedV2PolicyOptions options = service.CurrentPerceptionSealedV2.Options;
 
         Assert.False(options.Enabled);
@@ -316,7 +316,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ListRiskEvents_ReturnsNewestFirstAcrossRingBufferWraparound()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         DateTimeOffset baseTime = DateTimeOffset.Parse("2026-07-11T08:00:00Z");
         for (int index = 0; index < 600; index++)
         {
@@ -353,7 +353,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ListRiskEvents_FiltersBySourceAndReason()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         DateTimeOffset baseTime = DateTimeOffset.Parse("2026-07-11T08:00:00Z");
         RecordEvent(service, "keep-1", baseTime, SecurityRiskSources.AntiCrawler, "policy");
         RecordEvent(service, "drop-source", baseTime.AddSeconds(1), SecurityRiskSources.PublicRead, "policy");
@@ -370,7 +370,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_CoversAllMatchTypeBranchesAndCrawlerDetection()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         service.AddRule(new AntiCrawlerRuleRequest("ip-rule", true, "ip", "10.0.0.1", "block", 50, null), "test");
         service.AddRule(new AntiCrawlerRuleRequest("path-rule", true, "path", "/admin", "block", 50, null), "test");
         service.AddRule(new AntiCrawlerRuleRequest("method-rule", true, "method", "POST", "block", 50, null), "test");
@@ -396,7 +396,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_DetectsSearchCrawlerAndSocialPreviewUserAgents()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         Assert.True(service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "Googlebot/2.1", "1.2.3.4", null, 0)).WouldVerifyCrawler);
         Assert.True(service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "bingbot/2.0", "1.2.3.4", null, 0)).WouldVerifyCrawler);
@@ -421,13 +421,13 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_DisabledModeAllowsAllAndObserveModeReportsMatchedRules()
     {
-        var service = new SecurityAdminPolicyService(BuildConfiguration(("AntiCrawler:Mode", "disabled")));
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(BuildConfiguration(("AntiCrawler:Mode", "disabled"))));
         service.AddRule(new AntiCrawlerRuleRequest("block-rule", true, "user-agent", "python", "block", 100, null), "test");
 
         AntiCrawlerSimulationResult disabledResult = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "python", "1.2.3.4", null, 0));
         Assert.Equal("disabled_allow", disabledResult.FinalAction);
 
-        var observeService = new SecurityAdminPolicyService(BuildConfiguration(("AntiCrawler:Mode", "observe")));
+        var observeService = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(BuildConfiguration(("AntiCrawler:Mode", "observe"))));
         observeService.AddRule(new AntiCrawlerRuleRequest("block-rule", true, "user-agent", "python", "block", 100, null), "test");
 
         AntiCrawlerSimulationResult observeResult = observeService.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "python", "1.2.3.4", null, 0));
@@ -441,7 +441,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_AllowlistedEntryOverridesBlocklistInEnforceMode()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         service.AddEntry("block", new AntiCrawlerListEntryRequest("1.2.3.4", "ip", "test", true), "test");
         service.AddEntry("allow", new AntiCrawlerListEntryRequest("1.2.3.4", "ip", "test", true), "test");
 
@@ -455,7 +455,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_BlocklistedEntryBlocksInEnforceMode()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         service.AddEntry("block", new AntiCrawlerListEntryRequest("1.2.3.4", "ip", "test", true), "test");
 
         AntiCrawlerSimulationResult result = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "Mozilla", "1.2.3.4", null, 0));
@@ -467,7 +467,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_RequireChallengeWhenScoreBetweenThresholds()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         service.AddRule(new AntiCrawlerRuleRequest("risky", true, "user-agent", "custom-test-agent", "challenge", 55, null), "test");
 
         AntiCrawlerSimulationResult result = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "custom-test-agent", "1.2.3.4", null, 0));
@@ -480,7 +480,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void AddRule_NormalizesMatchTypeAndActionAndClampsScore()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         AntiCrawlerRuleResponse rule = service.AddRule(
             new AntiCrawlerRuleRequest("Test", true, "IP", "10.0.0.1", "BLOCK", 250, "notes"), "tester");
@@ -496,7 +496,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void UpdateRule_ModifiesExistingRuleWithNormalizedFields()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         AntiCrawlerRuleResponse original = service.AddRule(
             new AntiCrawlerRuleRequest("Test", true, "path", "/old", "block", 10, null), "tester");
 
@@ -516,7 +516,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void UpdateRule_ReturnsNullForUnknownId()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         Assert.Null(service.UpdateRule("nonexistent",
             new AntiCrawlerRuleRequest("Test", true, "ip", "1.2.3.4", "block", 10, null), "tester"));
     }
@@ -525,7 +525,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void DeleteRule_RemovesExistingRule()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         AntiCrawlerRuleResponse rule = service.AddRule(
             new AntiCrawlerRuleRequest("Temp", true, "ip", "1.2.3.4", "block", 10, null), "tester");
 
@@ -538,7 +538,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ListEntries_ReturnsCorrectListByType()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         service.AddEntry("allow", new AntiCrawlerListEntryRequest("10.0.0.1", "ip", "trusted", true), "tester");
         service.AddEntry("block", new AntiCrawlerListEntryRequest("10.0.0.2", "ip", "blocked", true), "tester");
 
@@ -551,7 +551,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void UpdateAntiCrawlerOptions_NormalizesPathPrefixesAndKeywords()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         AntiCrawlerPolicySnapshot updated = service.UpdateAntiCrawlerOptions(
             new AntiCrawlerOptionsUpdateRequest(
@@ -595,7 +595,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ListRiskSnapshots_OrdersByScoreThenUpdatedAt()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         DateTimeOffset baseTime = DateTimeOffset.Parse("2026-07-11T08:00:00Z");
 
         service.UpsertRiskSnapshot(new SecurityRiskSnapshotResponse("low", 10, "test", "anti-crawler", baseTime, baseTime.AddHours(1)));
@@ -614,7 +614,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void RollbackAntiCrawlerOptions_RevertsToPreviousSnapshot()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         string originalMode = service.Current.Options.Mode;
 
         service.UpdateAntiCrawlerOptions(
@@ -634,7 +634,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void RollbackPowOptions_RevertsToPreviousSnapshot()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         int originalDifficulty = service.CurrentPow.Options.DefaultDifficulty;
 
         service.UpdatePowOptions(
@@ -650,7 +650,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void BuildSecurityOverview_AggregatesCurrentState()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         RecordEvent(service, "ev-1", DateTimeOffset.UtcNow, SecurityRiskSources.AntiCrawler, "policy");
 
         SecurityOverviewResponse overview = service.BuildSecurityOverview(
@@ -666,7 +666,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void BuildAntiCrawlerOverview_CountsAllEventCategories()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
         service.RecordRiskEvent(new AntiCrawlerRiskEventResponse(
@@ -692,16 +692,16 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void UpdateRiskControlPolicy_AppliesChangesAndRollback()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
-        SecurityRiskPolicySnapshotV2 updated = service.UpdateRiskControlPolicy(
+        SecurityRiskPolicy updated = service.UpdateRiskControlPolicy(
             new RiskControlPolicyUpdateRequest(
                 "strict", true, false, true, true, 150, "tester"), "tester");
 
         Assert.Equal("strict", updated.GlobalMode);
         Assert.Contains(SecurityRiskSources.PoSpace, updated.SubsystemModes.Keys);
 
-        SecurityRiskPolicySnapshotV2 rolled = service.RollbackRiskControlPolicy("tester");
+        SecurityRiskPolicy rolled = service.RollbackRiskControlPolicy("tester");
         Assert.NotEqual(updated.SnapshotId, rolled.SnapshotId);
     }
 
@@ -709,7 +709,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ApplyAntiCrawlerPolicySnapshot_PersistsExternalSnapshot()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         var original = service.Current;
 
         var externalSnapshot = new AntiCrawlerPolicySnapshot(
@@ -729,7 +729,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ApplyPowPolicySnapshot_PersistsExternalSnapshot()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         var original = service.CurrentPow;
 
         var externalSnapshot = new PowPolicySnapshot(
@@ -749,7 +749,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void NormalizeRuleAction_AllInputsProduceExactOutput()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         AntiCrawlerRuleResponse allow = service.AddRule(
             new AntiCrawlerRuleRequest("a", true, "ip", "1.2.3.4", "allow", 10, null), "t");
@@ -780,7 +780,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_RequireChallengeBoundaryAtExactThresholds()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         // Default: RequireChallengeScore=50, BlockScore=100
         // Add a rule that brings score to exactly 50 → require_challenge
@@ -812,7 +812,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_CurrentRiskScoreClampsToMaxRiskScore()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         // CurrentRiskScore + delta should clamp to MaxRiskScore (200)
         AntiCrawlerSimulationResult result = service.Simulate(
@@ -825,7 +825,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void BuildPowOverview_CountsPowEventsWithinLastHour()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         DateTimeOffset now = DateTimeOffset.UtcNow;
 
         // Event within the last hour with PowInvalid reason
@@ -855,7 +855,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void UpdatePerceptionSealedV2Policy_ClampsSolveDurationRange()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         PerceptionSealedV2PolicySnapshot updated = service.UpdatePerceptionSealedV2Policy(
             new PerceptionSealedV2PolicyUpdateRequest(
@@ -879,7 +879,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void RollbackPerceptionSealedV2Policy_RevertsToPreviousSnapshot()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         bool originalEnabled = service.CurrentPerceptionSealedV2.Options.Enabled;
 
         service.UpdatePerceptionSealedV2Policy(
@@ -896,8 +896,8 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ApplyRiskControlPolicySnapshot_PersistsExternalSnapshot()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
-        var original = service.CurrentRiskPolicyV2;
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
+        var original = service.CurrentRiskPolicy;
 
         var externalSnapshot = original with
         {
@@ -907,15 +907,15 @@ public sealed class SecurityAdminPolicyDefaultsTests
 
         service.ApplyRiskControlPolicySnapshot(externalSnapshot);
 
-        Assert.Equal("external-risk", service.CurrentRiskPolicyV2.SnapshotId);
-        Assert.Equal("strict", service.CurrentRiskPolicyV2.GlobalMode);
+        Assert.Equal("external-risk", service.CurrentRiskPolicy.SnapshotId);
+        Assert.Equal("strict", service.CurrentRiskPolicy.GlobalMode);
     }
 
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     [Fact]
     public void ApplyPerceptionSealedV2PolicySnapshot_PersistsExternalSnapshot()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         var original = service.CurrentPerceptionSealedV2;
 
         var externalSnapshot = original with
@@ -934,7 +934,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void UpdateAntiCrawlerOptions_PreservesUnchangedFields()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         int originalBlockScore = service.Current.Options.BlockScore;
         int originalMaxRiskScore = service.Current.Options.MaxRiskScore;
 
@@ -954,7 +954,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void UpdateAntiCrawlerOptions_CidrIntervalClampsToMinimum()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         // Set min interval to 120, then try to set interval to 60 → should clamp to 120
         AntiCrawlerPolicySnapshot updated = service.UpdateAntiCrawlerOptions(
@@ -971,7 +971,7 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void ListEntries_AddEntryNormalizesListType()
     {
-        var service = new SecurityAdminPolicyService(new ConfigurationBuilder().Build());
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
         AntiCrawlerListEntryResponse entry = service.AddEntry(
             "blocklist", new AntiCrawlerListEntryRequest("1.2.3.4", "ip", "test", true), "tester");
