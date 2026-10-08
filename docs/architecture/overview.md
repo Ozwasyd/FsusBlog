@@ -88,9 +88,20 @@ identity validation before accepting its budgets or delivery policy; tool ID/ver
 must also equal that provider's registered toolchain. Recomputed artifact digests do
 not authorize provider, renderer or policy substitutions.
 
+Independent result admission requires each observed warning feature's declared
+preserved-fallback warning and refuses a successful result with an observed
+hard-fail feature. A byte-identical normalization declaration requires equal
+semantic and output digests; normalized formats retain their declared semantic
+identity independently of byte identity.
+
 The provider registry is the sole composition point for the implemented provider. Its replaceable canonical-renderer adapter invokes the exact sandbox-registered renderer with the fixed `render` argument. The HTML provider does not parse Markdown: it accepts the canonical renderer's digest-bound semantic fragment, applies a closed streaming HTML/SVG sanitizer, embeds frozen images and fonts, and independently verifies the completed document and receipt. The artifact carries a hash-bound CSP, has no script or runtime network dependency, and uses private authorized delivery with a 24-hour cleanup TTL; it is not a public static-root artifact.
 
 Sandbox finalization preserves the first observed budget or execution failure if caller cancellation arrives during cleanup. With no earlier failure, requested cancellation is still recorded. Physical cleanup must independently qualify the empty process tree, removed run directory, transient unit and cgroup; an unqualified cleanup remains fail closed and cannot become a qualified budget or cancellation receipt.
+
+Sandbox plans require the canonical lower-case 32-digit run identity. Both success
+and failure receipt admission bind that identity to the plan, including failures
+before a process starts. Resealing a different run's unit or cgroup identity does
+not authorize the receipt.
 
 Cgroup drain requires both an observed zero business-process count and an unpopulated cgroup. Finalization reobserves a still-positive count within the existing bounded cleanup polling schedule even when population is already empty; authority cleanup refuses either nonempty signal and never substitutes a synthetic zero count.
 

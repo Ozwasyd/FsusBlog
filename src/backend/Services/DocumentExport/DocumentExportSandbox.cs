@@ -794,6 +794,7 @@ public sealed class DocumentExportSandboxRuntime
     {
         ArgumentNullException.ThrowIfNull(receipt);
         if (receipt.Schema != DocumentExportContractCatalog.AttemptReceiptSchema
+            || receipt.RunId != plan.RunId
             || receipt.PlanDigest != plan.ContentDigest
             || receipt.TaskDigest != task.ContentDigest
             || receipt.InputDigest != input.ContentDigest
@@ -904,6 +905,7 @@ public sealed class DocumentExportSandboxRuntime
     {
         ArgumentNullException.ThrowIfNull(receipt);
         if (receipt.Schema != DocumentExportContractCatalog.AttemptReceiptSchema
+            || receipt.RunId != plan.RunId
             || receipt.PlanDigest != plan.ContentDigest
             || receipt.TaskDigest != task.ContentDigest
             || receipt.InputDigest != input.ContentDigest
@@ -1030,6 +1032,8 @@ public sealed class DocumentExportSandboxRuntime
             ContentDigest = string.Empty
         };
         if (plan.Schema != DocumentExportContractCatalog.SandboxPlanSchema
+            || !Guid.TryParseExact(plan.RunId, "N", out Guid runId)
+            || plan.RunId != runId.ToString("N")
             || plan.TaskDigest != task.ContentDigest
             || plan.InputDigest != input.ContentDigest
             || plan.SourceDigest != input.SourceDigest

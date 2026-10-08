@@ -176,6 +176,15 @@ public sealed class DocumentExportSandboxTests : IDisposable
                 _fixture.HostBuildDigest,
                 "failed",
                 "execution-failed");
+            Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateFailureReceipt(
+                ResealReceiptWithDifferentRunId(exception.Receipt),
+                exception.Plan,
+                task,
+                input,
+                _fixture.Tool,
+                _fixture.HostBuildDigest,
+                "failed",
+                "execution-failed"));
         }
         finally
         {
@@ -334,6 +343,15 @@ public sealed class DocumentExportSandboxTests : IDisposable
             "budget-exceeded",
             failureCode);
         Assert.Equal(1, exception.Receipt!.AttemptNumber);
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateFailureReceipt(
+            ResealReceiptWithDifferentRunId(exception.Receipt),
+            exception.Plan!,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            "budget-exceeded",
+            failureCode));
         return exception;
     }
 
@@ -482,6 +500,49 @@ public sealed class DocumentExportSandboxTests : IDisposable
         };
         Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateReceipt(
             providerTamper,
+            result.Plan,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            result.OutputBytes));
+
+        DocumentExportSandboxRuntime.ValidatePlan(
+            result.Plan,
+            task,
+            input,
+            DocumentExportContractCatalog.RequireProvider(task.FormatId),
+            _fixture.Tool,
+            _fixture.HostBuildDigest);
+        string[] invalidRunIds =
+        [
+            null!,
+            string.Empty,
+            result.Plan.RunId[..31],
+            result.Plan.RunId + "0",
+            "A0000000000000000000000000000000",
+            "g0000000000000000000000000000000",
+            Guid.ParseExact(result.Plan.RunId, "N").ToString("D"),
+            result.Plan.RunId + "\n",
+            "../" + result.Plan.RunId
+        ];
+        foreach (string invalidRunId in invalidRunIds)
+        {
+            DocumentExportSandboxPlan planTamper = DocumentExportSandboxRuntime.SealPlan(
+                result.Plan with
+                {
+                    RunId = invalidRunId
+                });
+            Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidatePlan(
+                planTamper,
+                task,
+                input,
+                DocumentExportContractCatalog.RequireProvider(task.FormatId),
+                _fixture.Tool,
+                _fixture.HostBuildDigest));
+        }
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateReceipt(
+            ResealReceiptWithDifferentRunId(result.Receipt),
             result.Plan,
             task,
             input,
@@ -914,6 +975,32 @@ public sealed class DocumentExportSandboxTests : IDisposable
     }
 
     public void Dispose() => _fixture.Dispose();
+
+    private static DocumentExportSandboxReceipt ResealReceiptWithDifferentRunId(DocumentExportSandboxReceipt receipt)
+    {
+        string differentRunId = (receipt.RunId[0] == '0' ? "1" : "0") + receipt.RunId[1..];
+        DocumentExportSandboxReceipt tampered = receipt with
+        {
+            RunId = differentRunId,
+            ContentDigest = string.Empty
+        };
+        if (receipt.RootProcessId > 0)
+        {
+            string differentUnitName = $"fsusblog-document-export-{differentRunId}.service";
+            string differentControlGroup = receipt.ControlGroup[..(receipt.ControlGroup.LastIndexOf('/') + 1)]
+                + differentUnitName;
+            tampered = tampered with
+            {
+                UnitName = differentUnitName,
+                ControlGroup = differentControlGroup,
+                ControlGroupDigest = DocumentExportDigest.Compute(differentControlGroup)
+            };
+        }
+        return tampered with
+        {
+            ContentDigest = DocumentExportDigest.Compute(tampered)
+        };
+    }
 
     private void AssertFailureReceipt(
         DocumentExportSandboxPlan plan,
