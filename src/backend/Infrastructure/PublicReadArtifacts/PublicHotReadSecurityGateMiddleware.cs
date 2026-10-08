@@ -29,7 +29,7 @@ public sealed class PublicReadSecurityGate(
 
         bool isPublicHotReadL0 = httpContext.Features.Get<PublicHotReadRequestFeature>()?.RequiresSecurityGate == true;
         RiskControlContext riskContext = riskContextFactory.Create(httpContext);
-        SecurityRiskPolicySnapshotV2 riskPolicy = riskPolicyProvider.CurrentRiskPolicyV2;
+        SecurityRiskPolicy riskPolicy = riskPolicyProvider.CurrentRiskPolicy;
         if (riskContext.VerifiedCrawler || riskContext.SocialPreviewBot)
         {
             RiskDecision crawlerDecision = riskDecisionService.Decide(riskContext, riskPolicy, 0);
@@ -179,7 +179,7 @@ public sealed class PublicReadSecurityGate(
                 },
                 httpContext);
 
-    private static bool IsEnforcingRiskMode(SecurityRiskPolicySnapshotV2 policy, string actionName)
+    private static bool IsEnforcingRiskMode(SecurityRiskPolicy policy, string actionName)
     {
         SecurityRiskActionPolicy actionPolicy = policy.ResolveActionPolicy(actionName);
         string mode = SecuritySystemModes.Normalize(actionPolicy.ModeOverride ?? policy.GlobalMode);
@@ -188,7 +188,7 @@ public sealed class PublicReadSecurityGate(
 
     private static RiskDecision FailClosedForUnknownProjection(
         RiskControlContext context,
-        SecurityRiskPolicySnapshotV2 policy,
+        SecurityRiskPolicy policy,
         IRiskDecisionService decisionService,
         RiskDecision resolved)
     {

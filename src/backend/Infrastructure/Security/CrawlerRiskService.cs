@@ -90,8 +90,10 @@ public sealed class CrawlerRiskService(
         CancellationToken cancellationToken = default)
     {
         AntiCrawlerPolicyOptions antiCrawlerOptions = securityPolicy.Current.Options;
+        SecurityRiskPolicy riskPolicy = securityPolicy.CurrentRiskPolicy;
+        string antiCrawlerMode = riskPolicy.SubsystemModes[SecurityRiskSources.AntiCrawler];
         bool isAntiCrawlerSignal = string.Equals(signal.Source, SecurityRiskSources.AntiCrawler, StringComparison.OrdinalIgnoreCase);
-        if (isAntiCrawlerSignal && string.Equals(SecuritySystemModes.Normalize(antiCrawlerOptions.Mode), SecuritySystemModes.Disabled, StringComparison.Ordinal))
+        if (isAntiCrawlerSignal && string.Equals(SecuritySystemModes.Normalize(antiCrawlerMode), SecuritySystemModes.Disabled, StringComparison.Ordinal))
         {
             return 0;
         }
@@ -108,7 +110,7 @@ public sealed class CrawlerRiskService(
             scoreDelta = 0;
         }
 
-        if (string.Equals(SecuritySystemModes.Normalize(antiCrawlerOptions.Mode), SecuritySystemModes.Observe, StringComparison.Ordinal)
+        if (string.Equals(SecuritySystemModes.Normalize(antiCrawlerMode), SecuritySystemModes.Observe, StringComparison.Ordinal)
             && isAntiCrawlerSignal)
         {
             scoreDelta = 0;
@@ -126,10 +128,10 @@ public sealed class CrawlerRiskService(
                 CachePolicyId.SecurityPowRisk,
                 ip,
                 scoreDelta,
-                antiCrawlerOptions.MaxRiskScore,
+                riskPolicy.MaxRiskScore,
                 effectiveTtl,
                 cancellationToken);
-            next = (int)Math.Clamp(updated, 0, antiCrawlerOptions.MaxRiskScore);
+            next = (int)Math.Clamp(updated, 0, riskPolicy.MaxRiskScore);
             FsusObservability.RecordRiskScoreAtomicUpdate(
                 FsusObservability.GetElapsed(startedAt),
                 riskScoreRedisRoundTrips: 1,
@@ -138,7 +140,7 @@ public sealed class CrawlerRiskService(
         else if (scoreDelta < 0)
         {
             current = await GetRiskScoreForIpAsync(ip, cancellationToken);
-            next = Math.Clamp(current + scoreDelta, 0, antiCrawlerOptions.MaxRiskScore);
+            next = Math.Clamp(current + scoreDelta, 0, riskPolicy.MaxRiskScore);
             if (next > 0)
             {
                 await cacheWriter.SetStringAsync(CachePolicyId.SecurityPowRisk, ip, next.ToString(System.Globalization.CultureInfo.InvariantCulture), effectiveTtl, cancellationToken);
@@ -235,7 +237,7 @@ public sealed class CrawlerRiskService(
     /// <param name="cancellationToken">Token that cancels score lookup.</param>
     /// <returns><see langword="true"/> when the current score requires a challenge; otherwise <see langword="false"/>.</returns>
     public async Task<bool> IsHighRiskAsync(HttpContext context, CancellationToken cancellationToken = default)
-        => await GetRiskScoreAsync(context, cancellationToken) >= securityPolicy.Current.Options.RequireChallengeScore;
+        => await GetRiskScoreAsync(context, cancellationToken) >= securityPolicy.CurrentRiskPolicy.ResolveActionPolicy(RiskActionNames.PublicRead).Thresholds.ChallengeScore;
 
     /// <summary>
     /// Clears the hot risk score associated with a client IP identity.
@@ -275,7 +277,7 @@ public sealed class CrawlerRiskService(
         int current = 0;
         if (!string.IsNullOrWhiteSpace(existing) && int.TryParse(existing, out int value))
         {
-            current = Math.Clamp(value, 0, securityPolicy.Current.Options.MaxRiskScore);
+            current = Math.Clamp(value, 0, securityPolicy.CurrentRiskPolicy.MaxRiskScore);
             if (current > 0)
             {
                 return current;

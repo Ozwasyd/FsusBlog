@@ -20,7 +20,7 @@ public sealed class RiskDecisionServiceTests
         Assert.Equal(RiskDecisionKind.Allow, decision.Kind);
         Assert.Equal(49, decision.RiskScore);
         Assert.Empty(decision.RequiredChallenges);
-        Assert.Equal(SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion, decision.PolicyVersion);
+        Assert.Equal(SecurityRiskPolicyFactory.DefaultPolicyVersion, decision.PolicyVersion);
     }
 
     [Fact]
@@ -79,7 +79,7 @@ public sealed class RiskDecisionServiceTests
         };
         listener.SetMeasurementEventCallback<long>((instrument, _, _, _) => measurements.Add(instrument.Name));
         listener.Start();
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(
+        SecurityRiskPolicy policy = CreatePolicy(
             SecuritySystemModes.Enforce,
             new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
             {
@@ -158,7 +158,7 @@ public sealed class RiskDecisionServiceTests
         {
             [RiskActionNames.AdminSecurityWrite] = CreateActionPolicy(RiskActionNames.AdminSecurityWrite, challengeKind)
         };
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
+        SecurityRiskPolicy policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AdminSecurityWrite), policy, 50);
 
@@ -176,7 +176,7 @@ public sealed class RiskDecisionServiceTests
                 RiskActionNames.AdminSecurityWrite,
                 "adminPasskeyStepUpV1")
         };
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
+        SecurityRiskPolicy policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
 
         RiskDecision decision = _service.Decide(
             CreateContext(RiskActionNames.AdminSecurityWrite),
@@ -201,7 +201,7 @@ public sealed class RiskDecisionServiceTests
         {
             [RiskActionNames.AuthLogin] = authPolicy
         };
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
+        SecurityRiskPolicy policy = CreatePolicy(SecuritySystemModes.Enforce, overrides);
 
         RiskDecision low = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 49);
         RiskDecision medium = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 50);
@@ -221,7 +221,7 @@ public sealed class RiskDecisionServiceTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PerceptionSealedV2Matrix_CoversRiskBandsWithoutIssuingCriticalChallenges()
     {
-        SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+        SecurityRiskPolicy policy = SecurityRiskPolicyFactory.Create(CreateRiskInputs());
 
         RiskDecision low = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 19);
         RiskDecision pow = _service.Decide(CreateContext(RiskActionNames.CommentCreate), policy, 20);
@@ -248,7 +248,7 @@ public sealed class RiskDecisionServiceTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_CriticalRiskRouting_UsesActionSpecificEarlyControl()
     {
-        SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot()) with
+        SecurityRiskPolicy policy = SecurityRiskPolicyFactory.Create(CreateRiskInputs()) with
         {
             SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -275,7 +275,7 @@ public sealed class RiskDecisionServiceTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_CriticalNotificationSubscribe_RejectsWhenPoSpaceCannotRoute()
     {
-        SecurityRiskPolicySnapshotV2 policy = SecurityRiskPolicySnapshotV2Adapter.FromLegacy(CreateLegacySnapshot());
+        SecurityRiskPolicy policy = SecurityRiskPolicyFactory.Create(CreateRiskInputs());
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.NotificationSubscribe), policy, 80);
 
@@ -297,7 +297,7 @@ public sealed class RiskDecisionServiceTests
         {
             [RiskActionNames.AuthLogin] = authPolicy
         };
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(SecuritySystemModes.Observe, overrides);
+        SecurityRiskPolicy policy = CreatePolicy(SecuritySystemModes.Observe, overrides);
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
 
@@ -311,7 +311,7 @@ public sealed class RiskDecisionServiceTests
     public void Decide_CharacterChallengeSubsystemDisabled_DoesNotIssueCharacterChallengeChallenge()
     {
         SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin);
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy(
+        SecurityRiskPolicy policy = CreatePolicy(
             SecuritySystemModes.Enforce,
             new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
             {
@@ -334,7 +334,7 @@ public sealed class RiskDecisionServiceTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceSubsystemDisabled_DowngradesToCharacterChallenge()
     {
-        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled);
+        SecurityRiskPolicy policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled);
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
 
@@ -348,7 +348,7 @@ public sealed class RiskDecisionServiceTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceAndCharacterChallengeSubsystemsDisabled_DoesNotIssueFallbackChallenge()
     {
-        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled) with
+        SecurityRiskPolicy policy = CreatePoSpacePolicy(SecuritySystemModes.Disabled) with
         {
             SubsystemModes = new Dictionary<string, string>(StringComparer.Ordinal)
             {
@@ -369,7 +369,7 @@ public sealed class RiskDecisionServiceTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceSubsystemEnabledOnDesktop_ReturnsPoSpace()
     {
-        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
+        SecurityRiskPolicy policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
 
         RiskDecision decision = _service.Decide(CreateContext(RiskActionNames.AuthLogin), policy, 75);
 
@@ -381,7 +381,7 @@ public sealed class RiskDecisionServiceTests
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
     public void Decide_PoSpaceSubsystemEnabledOnMobile_DowngradesToCharacterChallenge()
     {
-        SecurityRiskPolicySnapshotV2 policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
+        SecurityRiskPolicy policy = CreatePoSpacePolicy(SecuritySystemModes.Enforce);
 
         RiskDecision decision = _service.Decide(
             CreateContext(RiskActionNames.AuthLogin, userAgent: "Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)"),
@@ -416,6 +416,9 @@ public sealed class RiskDecisionServiceTests
             new RiskControlRegionContext(RiskControlContextStatuses.Missing, "UNKNOWN", null, "missing"),
             verifiedCrawler,
             socialPreviewBot);
+
+    private static SecurityRiskPolicyInputs CreateRiskInputs()
+        => new(SecuritySystemModes.Enforce, true, 200);
 
     private static AntiCrawlerPolicySnapshot CreateLegacySnapshot()
         => new(
@@ -455,7 +458,7 @@ public sealed class RiskDecisionServiceTests
                 BlockedUserAgentKeywords: [],
                 SecurityChallengeReference: "security.pow"));
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy(
+    private static SecurityRiskPolicy CreatePolicy(
         string mode,
         IReadOnlyDictionary<string, SecurityRiskActionPolicy>? overrides = null)
     {
@@ -477,9 +480,9 @@ public sealed class RiskDecisionServiceTests
             }
         }
 
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk:test",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UnixEpoch,
             mode,
             200,
@@ -512,7 +515,7 @@ public sealed class RiskDecisionServiceTests
             null,
             AnonymousWriteAllowed: false);
 
-    private static SecurityRiskPolicySnapshotV2 CreatePoSpacePolicy(string poSpaceMode)
+    private static SecurityRiskPolicy CreatePoSpacePolicy(string poSpaceMode)
     {
         SecurityRiskActionPolicy defaultAction = CreateActionPolicy("*", "security.pow");
         SecurityRiskActionPolicy authPolicy = CreateCharacterChallengeActionPolicy(RiskActionNames.AuthLogin) with
@@ -520,9 +523,9 @@ public sealed class RiskDecisionServiceTests
             HardChallengeKinds = ["argon2idPoSpaceV1"],
             HardChallengeEscalationLevel = 3
         };
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "risk:test",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UnixEpoch,
             SecuritySystemModes.Enforce,
             200,

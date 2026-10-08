@@ -149,7 +149,7 @@ public static partial class BinaryEndpoints
             ActionStatus = RiskControlContextStatuses.Resolved
         };
         int riskScore = await riskScoreReader.GetRiskScoreAsync(httpContext, cancellationToken);
-        SecurityRiskPolicySnapshotV2 policy = riskPolicyProvider.CurrentRiskPolicyV2;
+        SecurityRiskPolicy policy = riskPolicyProvider.CurrentRiskPolicy;
         RiskDecision decision = riskDecisionService.Decide(riskContext, policy, riskScore);
         RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
         if (!PoSpaceUnsupportedReissueParser.TryParse(
@@ -512,7 +512,7 @@ public static partial class BinaryEndpoints
             ActionStatus = RiskControlContextStatuses.Resolved
         };
         RiskControlProofBinding binding = RiskControlProofBindingFactory.Create(riskContext);
-        string policyVersion = riskPolicyProvider.CurrentRiskPolicyV2.PolicyVersion;
+        string policyVersion = riskPolicyProvider.CurrentRiskPolicy.PolicyVersion;
         string kind = SecurityChallengeContracts.ToWireName(request.Kind);
         SecurityChallengeOrchestrationVerifyResult verified = await challengeOrchestrator.VerifyAsync(
             new SecurityChallengeOrchestrationVerifyRequest(

@@ -191,9 +191,9 @@ public sealed class PublicHotReadRiskQueueShedTests
         var reader = Substitute.For<ISecurityRiskScoreReader>();
         reader.GetRiskScoreAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(50);
         ISecurityRiskPolicyProvider policyProvider = Substitute.For<ISecurityRiskPolicyProvider>();
-        policyProvider.CurrentRiskPolicyV2.Returns(CreateRiskPolicy());
+        policyProvider.CurrentRiskPolicy.Returns(CreateRiskPolicy());
         var decision = Substitute.For<IRiskDecisionService>();
-        decision.Decide(Arg.Any<RiskControlContext>(), Arg.Any<SecurityRiskPolicySnapshotV2>(), Arg.Any<int>())
+        decision.Decide(Arg.Any<RiskControlContext>(), Arg.Any<SecurityRiskPolicy>(), Arg.Any<int>())
             .Returns(new RiskDecision(
                 kind,
                 RiskActionNames.PublicRead,
@@ -202,7 +202,7 @@ public sealed class PublicHotReadRiskQueueShedTests
                 50,
                 1,
                 ["security.pow"],
-                SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+                SecurityRiskPolicyFactory.DefaultPolicyVersion,
                 ["unit"]));
         return new PublicReadSecurityGate(
             projection,
@@ -277,7 +277,7 @@ public sealed class PublicHotReadRiskQueueShedTests
             "detail",
             "trace-hot-read-3397");
 
-    private static SecurityRiskPolicySnapshotV2 CreateRiskPolicy()
+    private static SecurityRiskPolicy CreateRiskPolicy()
     {
         var action = new SecurityRiskActionPolicy(
             RiskActionNames.PublicRead,
@@ -286,9 +286,9 @@ public sealed class PublicHotReadRiskQueueShedTests
             1,
             null,
             AnonymousWriteAllowed: true);
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "runtime",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UtcNow,
             SecuritySystemModes.Enforce,
             200,

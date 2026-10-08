@@ -116,6 +116,8 @@ public sealed class SecurityRiskTaxonomyTests
             .Returns(12L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var logger = new CapturingLogger<CrawlerRiskService>();
         var service = new CrawlerRiskService(cache, cache, cache, cache, policy, logger);
         DefaultHttpContext context = CreateContext("198.51.100.18");
@@ -152,6 +154,8 @@ public sealed class SecurityRiskTaxonomyTests
             .Returns("4");
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var service = new CrawlerRiskService(cache, cache, cache, cache, policy, new CapturingLogger<CrawlerRiskService>());
         DefaultHttpContext context = CreateContext("198.51.100.19");
 

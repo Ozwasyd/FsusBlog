@@ -40,7 +40,7 @@ public sealed partial class RequiresRiskControlFilter(
         }
 
         int riskScore = await riskScoreReader.GetRiskScoreAsync(httpContext, httpContext.RequestAborted);
-        SecurityRiskPolicySnapshotV2 policy = riskPolicyProvider.CurrentRiskPolicyV2;
+        SecurityRiskPolicy policy = riskPolicyProvider.CurrentRiskPolicy;
         RiskDecision decision = riskDecisionService.Decide(riskContext, policy, riskScore);
 
         return decision.Kind switch

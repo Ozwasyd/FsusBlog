@@ -112,7 +112,7 @@ public sealed class PublicHotReadSecurityGateTests
         var sink = new CapturingRiskSink();
         IPublicHotReadRiskProjection projection = Substitute.For<IPublicHotReadRiskProjection>();
         IRiskDecisionService decision = CreateDecisionService(RiskDecisionKind.Allow);
-        SecurityRiskPolicySnapshotV2 policy = CreatePolicy();
+        SecurityRiskPolicy policy = CreatePolicy();
         policy = policy with
         {
             ActionOverrides = new Dictionary<string, SecurityRiskActionPolicy>(StringComparer.Ordinal)
@@ -203,7 +203,7 @@ public sealed class PublicHotReadSecurityGateTests
             context.Items[PublicHotReadRiskProjectionItemKeys.Source]);
         _ = decision.Received(1).Decide(
             Arg.Any<RiskControlContext>(),
-            Arg.Any<SecurityRiskPolicySnapshotV2>(),
+            Arg.Any<SecurityRiskPolicy>(),
             0);
     }
 
@@ -272,7 +272,7 @@ public sealed class PublicHotReadSecurityGateTests
         ISecurityRiskSignalSink riskSignalSink,
         IRiskDecisionService riskDecisionService,
         IPowService? powService = null,
-        SecurityRiskPolicySnapshotV2? policy = null,
+        SecurityRiskPolicy? policy = null,
         ISecurityRiskScoreReader? riskScoreReader = null)
         => new(
             riskProjection,
@@ -348,17 +348,17 @@ public sealed class PublicHotReadSecurityGateTests
         return projection;
     }
 
-    private static ISecurityRiskPolicyProvider CreatePolicyProvider(SecurityRiskPolicySnapshotV2? policy = null)
+    private static ISecurityRiskPolicyProvider CreatePolicyProvider(SecurityRiskPolicy? policy = null)
     {
         var provider = Substitute.For<ISecurityRiskPolicyProvider>();
-        provider.CurrentRiskPolicyV2.Returns(policy ?? CreatePolicy());
+        provider.CurrentRiskPolicy.Returns(policy ?? CreatePolicy());
         return provider;
     }
 
     private static IRiskDecisionService CreateDecisionService(RiskDecisionKind kind)
     {
         var service = Substitute.For<IRiskDecisionService>();
-        service.Decide(Arg.Any<RiskControlContext>(), Arg.Any<SecurityRiskPolicySnapshotV2>(), Arg.Any<int>())
+        service.Decide(Arg.Any<RiskControlContext>(), Arg.Any<SecurityRiskPolicy>(), Arg.Any<int>())
             .Returns(new RiskDecision(
                 kind,
                 RiskActionNames.PublicRead,
@@ -367,12 +367,12 @@ public sealed class PublicHotReadSecurityGateTests
                 50,
                 1,
                 ["security.pow"],
-                SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+                SecurityRiskPolicyFactory.DefaultPolicyVersion,
                 ["unit"]));
         return service;
     }
 
-    private static SecurityRiskPolicySnapshotV2 CreatePolicy()
+    private static SecurityRiskPolicy CreatePolicy()
     {
         var action = new SecurityRiskActionPolicy(
             RiskActionNames.PublicRead,
@@ -381,9 +381,9 @@ public sealed class PublicHotReadSecurityGateTests
             1,
             null,
             AnonymousWriteAllowed: true);
-        return new SecurityRiskPolicySnapshotV2(
+        return new SecurityRiskPolicy(
             "runtime",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+            SecurityRiskPolicyFactory.DefaultPolicyVersion,
             DateTimeOffset.UtcNow,
             SecuritySystemModes.Enforce,
             200,

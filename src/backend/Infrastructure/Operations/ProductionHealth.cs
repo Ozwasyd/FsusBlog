@@ -290,7 +290,9 @@ public sealed record ProductionRiskControlHealthCheck(
     bool PerceptionAeadKey,
     string PerceptionMode,
     SecurityChallengeV2PerformanceBudgetSnapshot PerceptionPerformanceBudget,
-    string? Error = null) : IProductionHealthCheck;
+    string? Error = null,
+    string? PolicySnapshotId = null,
+    string? PolicyDigest = null) : IProductionHealthCheck;
 
 internal sealed record RedisConsumeOnceReadiness(bool Ok);
 
@@ -948,7 +950,7 @@ public sealed class ProductionReadinessProbe(
     {
         try
         {
-            SecurityRiskPolicySnapshotV2? policy = serviceProvider.GetService<ISecurityRiskPolicyProvider>()?.CurrentRiskPolicyV2;
+            SecurityRiskPolicy? policy = serviceProvider.GetService<ISecurityRiskPolicyProvider>()?.CurrentRiskPolicy;
             string? policyVersion = policy?.PolicyVersion;
             bool activePolicy = policy is not null
                 && !string.IsNullOrWhiteSpace(policy.SnapshotId)
@@ -981,7 +983,9 @@ public sealed class ProductionReadinessProbe(
                 perceptionAeadKey,
                 perceptionMode,
                 perceptionBudget,
-                ok ? null : "risk_control_dependency_unavailable");
+                ok ? null : "risk_control_dependency_unavailable",
+                policy?.SnapshotId,
+                policy?.Digest);
         }
         catch (Exception ex) when (ex is not OperationCanceledException)
         {
@@ -1001,7 +1005,7 @@ public sealed class ProductionReadinessProbe(
         }
     }
 
-    private string ResolvePerceptionMode(SecurityRiskPolicySnapshotV2? policy)
+    private string ResolvePerceptionMode(SecurityRiskPolicy? policy)
     {
         if (policy is null)
         {
@@ -1110,7 +1114,7 @@ public sealed class ProductionReadinessProbe(
 
     internal static bool ChallengeProviderRegistryReady(
         IReadOnlyList<string> providers,
-        SecurityRiskPolicySnapshotV2? policy)
+        SecurityRiskPolicy? policy)
     {
         if (providers.Count == 0)
         {

@@ -28,6 +28,8 @@ public sealed class CrawlerRiskServiceRiskReductionTests
             .Returns(85L);
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var service = new CrawlerRiskService(cache, cache, cache, cache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.16");
@@ -72,6 +74,8 @@ public sealed class CrawlerRiskServiceRiskReductionTests
         IUnifiedCache cache = Substitute.For<IUnifiedCache>();
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var service = new CrawlerRiskService(cache, cache, cache, cache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.15");
@@ -118,6 +122,8 @@ public sealed class CrawlerRiskServiceRiskReductionTests
             .Returns("60");
         ISecurityAdminPolicyService policy = Substitute.For<ISecurityAdminPolicyService>();
         policy.Current.Returns(CreatePolicySnapshot());
+        policy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(
+            CreatePolicySnapshot().Options.Mode, true, CreatePolicySnapshot().Options.MaxRiskScore)).Seal());
         var service = new CrawlerRiskService(cache, cache, cache, cache, policy, NullLogger<CrawlerRiskService>.Instance);
         var context = new DefaultHttpContext();
         context.Connection.RemoteIpAddress = IPAddress.Parse("198.51.100.17");

@@ -1,3 +1,4 @@
+import type { SecuritySystemModesValue, SecurityRiskPolicyOutcomesValue, SecurityRiskPolicyReasonsValue } from '@/contracts/securityRiskPolicyCatalog.generated';
 import { encodeJsonRequest } from '@/codecs/binary/jsonRequestEncoder';
 import {
     encodeSecurityChallengeCancelRequest,
@@ -33,7 +34,7 @@ export type {
     SecurityChallengeVerifyResponse
 } from '@/contracts/binaryApi';
 
-export type SecurityMode = 'disabled' | 'observe' | 'enforce' | 'strict' | 'lockdown';
+export type SecurityMode = SecuritySystemModesValue;
 
 export interface AntiCrawlerPolicyOptions {
     mode: SecurityMode;
@@ -256,22 +257,34 @@ export interface SecurityRiskActionThresholds {
     blockScore: number;
 }
 
+export interface SecurityRiskDecisionBand {
+    outcome: SecurityRiskPolicyOutcomesValue;
+    minScore: number;
+    maxScore: number;
+    challengeKinds: string[];
+    escalationLevel: number;
+    reason: SecurityRiskPolicyReasonsValue;
+}
+
 export interface SecurityRiskActionPolicy {
     actionName: string;
     thresholds: SecurityRiskActionThresholds;
     challengeKind: string;
     escalationLevel: number;
-    modeOverride: SecurityMode | string | null;
+    modeOverride: SecurityMode | null;
     anonymousWriteAllowed: boolean;
     hardChallengeKinds: string[];
     hardChallengeEscalationLevel: number;
+    decisionMatrix: string;
+    decisionBands: SecurityRiskDecisionBand[];
 }
 
-export interface SecurityRiskPolicySnapshotV2 {
+export interface SecurityRiskPolicy {
+    digest: string;
     snapshotId: string;
     policyVersion: string;
     updatedAtUtc: string;
-    globalMode: SecurityMode | string;
+    globalMode: SecurityMode;
     maxRiskScore: number;
     strictRiskMultiplierPercent: number;
     lastKnownGoodSnapshotId: string | null;
@@ -337,7 +350,7 @@ export interface PerceptionSealedV2MetricsResponse {
 export interface PerceptionSealedV2ConsoleResponse {
     policy: PerceptionSealedV2PolicySnapshot;
     metrics: PerceptionSealedV2MetricsResponse;
-    activeRiskPolicy: SecurityRiskPolicySnapshotV2;
+    activeRiskPolicy: SecurityRiskPolicy;
 }
 
 export interface SecurityRiskEventAggregateResponse {
@@ -401,7 +414,7 @@ export interface SecurityPolicyVersionSummaryResponse {
 }
 
 export interface RiskControlConsoleResponse {
-    activePolicy: SecurityRiskPolicySnapshotV2;
+    activePolicy: SecurityRiskPolicy;
     risk: SecurityRiskOverviewResponse;
     riskEventAggregate: SecurityRiskEventAggregateResponse[];
     challengeMetrics: SecurityChallengeMetricsResponse;
@@ -443,7 +456,7 @@ export interface RiskControlSimulationResponse {
 }
 
 export interface SecurityPolicyConsoleResponse {
-    activePolicy: SecurityRiskPolicySnapshotV2;
+    activePolicy: SecurityRiskPolicy;
     antiCrawler: AntiCrawlerPolicySnapshot;
     pow: PowPolicySnapshot;
     policyVersions: SecurityPolicyVersionSummaryResponse[];
@@ -619,7 +632,7 @@ export const getSecurityPolicyConsole = (config?: ApiRequestConfig) =>
     requestSecurityBinary<SecurityPolicyConsoleResponse>('/policies/overview', FrameType.SecurityOverview, config);
 
 export const getRiskControlOptions = (config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityRiskPolicySnapshotV2>('/risk-control/options', FrameType.SecurityOverview, config);
+    requestSecurityBinary<SecurityRiskPolicy>('/risk-control/options', FrameType.SecurityOverview, config);
 
 export const getPerceptionSealedV2Console = (config?: ApiRequestConfig) =>
     requestSecurityBinary<PerceptionSealedV2ConsoleResponse>('/perception-v2/overview', FrameType.SecurityOverview, config);

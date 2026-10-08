@@ -34,7 +34,7 @@ internal interface IPoSpaceUnsupportedReissueService
     Task<PoSpaceUnsupportedReissueResult> ReissueAsync(
         PoSpaceUnsupportedReissueRequest request,
         RiskDecision currentDecision,
-        SecurityRiskPolicySnapshotV2 currentPolicy,
+        SecurityRiskPolicy currentPolicy,
         CancellationToken cancellationToken = default);
 }
 
@@ -95,7 +95,7 @@ internal sealed class PoSpaceUnsupportedReissueService(
     public async Task<PoSpaceUnsupportedReissueResult> ReissueAsync(
         PoSpaceUnsupportedReissueRequest request,
         RiskDecision currentDecision,
-        SecurityRiskPolicySnapshotV2 currentPolicy,
+        SecurityRiskPolicy currentPolicy,
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -191,7 +191,7 @@ internal sealed class PoSpaceUnsupportedReissueService(
                 detail),
             cancellationToken);
 
-    private RiskDecision SelectReplacement(RiskDecision current, SecurityRiskPolicySnapshotV2 policy)
+    private RiskDecision SelectReplacement(RiskDecision current, SecurityRiskPolicy policy)
     {
         if (current.Kind is not (RiskDecisionKind.Challenge or RiskDecisionKind.StepUp)
             || !current.RequiredChallenges.Contains(Argon2idPoSpaceV1ChallengeProvider.WireKind, StringComparer.Ordinal))

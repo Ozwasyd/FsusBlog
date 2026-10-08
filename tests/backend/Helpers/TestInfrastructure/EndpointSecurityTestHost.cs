@@ -226,7 +226,7 @@ public sealed class EndpointSecurityTestServerOptions
             DateTimeOffset.UtcNow.AddMinutes(-1),
             DateTimeOffset.UtcNow.AddMinutes(4),
             "test-nonce",
-            SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion);
+            SecurityRiskPolicyFactory.DefaultPolicyVersion);
 }
 
 public sealed class EndpointSecurityTestServer : IDisposable
@@ -459,7 +459,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
         var riskDecision = Substitute.For<IRiskDecisionService>();
         riskDecision.Decide(
                 Arg.Any<RiskControlContext>(),
-                Arg.Any<SecurityRiskPolicySnapshotV2>(),
+                Arg.Any<SecurityRiskPolicy>(),
                 Arg.Any<int>())
             .Returns(call =>
             {
@@ -474,7 +474,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
                     options.RiskDecision is RiskDecisionKind.Challenge or RiskDecisionKind.StepUp
                         ? [ChallengeKind]
                         : [],
-                    SecurityRiskPolicySnapshotV2Adapter.DefaultPolicyVersion,
+                    SecurityRiskPolicyFactory.DefaultPolicyVersion,
                     ["endpoint-test"]);
             });
 
@@ -503,7 +503,7 @@ public sealed class EndpointSecurityTestServer : IDisposable
 
         AntiCrawlerPolicySnapshot antiCrawler = CreateAntiCrawlerPolicy(options.FixedIpPermitLimit);
         var riskPolicy = Substitute.For<ISecurityRiskPolicyProvider>();
-        riskPolicy.CurrentRiskPolicyV2.Returns(SecurityRiskPolicySnapshotV2Adapter.FromLegacy(antiCrawler));
+        riskPolicy.CurrentRiskPolicy.Returns(SecurityRiskPolicyFactory.Create(new SecurityRiskPolicyInputs(antiCrawler.Options.Mode, antiCrawler.Options.PublicReadChallengeEnabled, antiCrawler.Options.MaxRiskScore)));
 
         string dataProtectionRoot = CreateDataProtectionRoot();
         const string DataProtectionCertificatePassword = "endpoint-security-test-certificate-password";

@@ -147,7 +147,7 @@ public sealed class SecurityFixtureCompositionRootIntegrationTests(
                 ["Security:AntiCrawler:MaxRiskScore"] = "200"
             })
             .Build();
-        var policy = new SecurityAdminPolicyService(configuration);
+        var policy = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(configuration));
         var risk = new CrawlerRiskService(
             cache,
             cache,

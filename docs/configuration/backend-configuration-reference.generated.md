@@ -5,7 +5,7 @@
 
 ASP.NET Core precedence remains: base appsettings < Production overlay < environment/Compose < explicit command line.
 
-- Application settings: 228
+- Application settings: 230
 - Tracked environment variables: 242
 - Mounted file classes: 4
 
@@ -213,6 +213,8 @@ ASP.NET Core precedence remains: base appsettings < Production overlay < environ
 | `Security:PerceptionSealedToken:Keys:k1` | `Security__PerceptionSealedToken__Keys__k1` | Security and risk control setting: k1 | `secret-string` | Production | conditional: when the owning feature is enabled | yes | environment, repository-production-overlay, secret-store; empty-only | feature-gate: security feature validator | `<external secret; never a usable tracked value>` |
 | `Security:Pow:SigningKey` | `Security__Pow__SigningKey` | Security and risk control setting: SigningKey | `secret-string` | Development, Production | required: Production | yes | environment, repository-base, repository-production-overlay, secret-store; empty-only | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
 | `Security:RecoveryKeyPepper` | `Security__RecoveryKeyPepper` | Security and risk control setting: RecoveryKeyPepper | `secret-string` | Development, Production | required: Production | yes | environment, repository-base, repository-production-overlay, secret-store; empty-only | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
+| `Security:RiskControl:GlobalMode` | `Security__RiskControl__GlobalMode` | Required current canonical risk policy mode; subsystem-only and legacy-only configuration cannot admit startup. | `string` | Development, Production | required: all environments | no | environment, repository-base, repository-production-overlay; safe-non-secret-default | startup: SecurityAdminPolicyService | `<value matching the declared type>` |
+| `Security:RiskControl:MaxRiskScore` | `Security__RiskControl__MaxRiskScore` | Canonical risk-score bound; current default is 200 and valid values are 90 through 2000. | `integer` | Development, Production | optional: optional | no | environment, repository-base, repository-production-overlay; safe-non-secret-default | startup: SecurityAdminPolicyService | `<integer>` |
 | `Security:RiskPseudonymization:CurrentEpoch` | `Security__RiskPseudonymization__CurrentEpoch` | Security and risk control setting: CurrentEpoch | `integer` | Production | required: Production | no | environment, repository-production-overlay; safe-non-secret-default | startup: ProductionStartupValidator | `<integer>` |
 | `Security:RiskPseudonymization:CurrentKey` | `Security__RiskPseudonymization__CurrentKey` | Security and risk control setting: CurrentKey | `secret-string` | Production | required: Production | yes | environment, repository-production-overlay, secret-store; empty-only | startup: ProductionStartupValidator | `<external secret; never a usable tracked value>` |
 | `Security:RiskPseudonymization:PreviousAcceptUntilUtc` | None | Security and risk control setting: PreviousAcceptUntilUtc | `nullable-datetime` | Production | optional: optional | no | repository-production-overlay; safe-non-secret-default | consumer: security feature validator | `<value matching the declared type>` |

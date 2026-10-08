@@ -6340,6 +6340,68 @@
       "deprecation": null
     },
     {
+      "key": "Security:RiskControl:GlobalMode",
+      "owner": "security",
+      "purpose": "Required current canonical risk policy mode; subsystem-only and legacy-only configuration cannot admit startup.",
+      "valueType": "string",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__RiskControl__GlobalMode"
+      ],
+      "secret": false,
+      "requiredStatus": "required",
+      "requiredWhen": "all environments",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "SecurityAdminPolicyService"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
+      "key": "Security:RiskControl:MaxRiskScore",
+      "owner": "security",
+      "purpose": "Canonical risk-score bound; current default is 200 and valid values are 90 through 2000.",
+      "valueType": "integer",
+      "environments": [
+        "Development",
+        "Production"
+      ],
+      "allowedSources": [
+        "environment",
+        "repository-base",
+        "repository-production-overlay"
+      ],
+      "environmentVariables": [
+        "Security__RiskControl__MaxRiskScore"
+      ],
+      "secret": false,
+      "requiredStatus": "optional",
+      "requiredWhen": "optional",
+      "repositoryValuePolicy": "safe-non-secret-default",
+      "allowEmptyBaseValue": false,
+      "validation": {
+        "kind": "startup",
+        "owner": "SecurityAdminPolicyService"
+      },
+      "documentation": "docs/security.md",
+      "consumer": "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+      "runtimeOnly": false,
+      "deprecation": null
+    },
+    {
       "key": "Seo:BaseUrl",
       "owner": "public-origin",
       "purpose": "Canonical public origin setting: BaseUrl",
