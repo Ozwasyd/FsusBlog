@@ -1,0 +1,48 @@
+✔ owner starts preparing with exact non-null run, source and namespace (12.593548ms)
+✔ PID reuse does not retain an active build owner (16.133664ms)
+✔ a reused owner PID cannot inherit unrelated live descendants (71.956978ms)
+✔ scheduler exit keeps a reparented child writer active through persisted group monitoring (348.352022ms)
+✔ unknown identities, incomplete markers, and active writers fail closed (114.901512ms)
+✔ a complete root rejects a later write instead of treating its marker as authority (19.117266ms)
+✔ owner receipt is canonical and excludes raw command arguments from the sealed manifest (12.989222ms)
+✔ scheduler lock source mismatch and process-group leader reuse fail closed (43.356538ms)
+✔ exited compiler with expired scheduler owner becomes stale (147.648965ms)
+✔ GC owner CAS preserves a replacement active root that appears after the stale decision (12.174968ms)
+✔ PID reuse alone reclaims a stale run-once owner (1104.674026ms)
+✔ executable path mismatch alone reclaims a stale run-once owner (31.060126ms)
+✔ executable byte digest mismatch alone reclaims a stale run-once owner (30.309653ms)
+✔ command digest mismatch alone reclaims a stale run-once owner (30.087795ms)
+✔ Windows collector binds creation, executable and command while rejecting PPID snapshots as Job authority (2.069158ms)
+✔ macOS collector uses microsecond start identity and full-width space-safe command fields (3.798373ms)
+✔ macOS identity distinguishes same-second PID reuse and never accepts truncated or unavailable identity (1.80938ms)
+✔ cross-platform collector never degrades to PID-only identity (1.449957ms)
+✔ Linux group observation requires healthy proc authority before classifying an absent PID as dead (4.837387ms)
+✔ Linux group observation rejects a PID that reappears while boot identity is collected (3.135479ms)
+✔ Linux group observation refuses unreadable boot identity or proc root (2.026283ms)
+✔ Linux group stat permission errors remain unverifiable even when the PID directory is absent (3.093073ms)
+✔ Linux group observation preserves a live authority and distinguishes a reaped real child (1317.434606ms)
+✔ Linux proc stat parsing survives parenthesized command names and discovers a real child identity (94.2144ms)
+✔ a live owner cannot be replaced by a different heartbeat token (116.759129ms)
+✔ a complete live owner is retained despite an old heartbeat and old filesystem mtimes (6.546087ms)
+✔ heartbeat requires both the owner token and exact process identity and rejects non-monotonic or future time (10.607137ms)
+✔ reclaim compare-before-delete preserves a replacement owner that wins the token race (12.966871ms)
+✔ temporarily unreadable identity honors grace then reports owner-unverifiable (4.885337ms)
+✔ missing owner metadata observes grace and then fails closed instead of deleting the lock (9.915254ms)
+✔ future owner timestamps use a bounded observation grace and cannot retain a lock forever (5.302073ms)
+✔ run-once state persists and validates the dedicated lock lifecycle policy receipt (70.29793ms)
+✔ finalizer unit model retains successful result and cleans each port once in reverse order (33.889301ms)
+✔ finalizer unit model rejects cleanup-only failure instead of returning a successful result (14.415962ms)
+✔ finalizer unit model preserves ordinary original rejection before secondary cleanup (31.173673ms)
+✔ finalizer unit model preserves frozen original rejection before secondary cleanup (10.056659ms)
+✔ finalizer unit model preserves primitive original rejection before secondary cleanup (1.485865ms)
+✔ finalizer unit model preserves zero original rejection before secondary cleanup (6.12287ms)
+✔ finalizer unit model preserves undefined original rejection before secondary cleanup (1.675922ms)
+✔ finalizer unit model retains cancelled rejection while recording failed cleanup terminal state (2.935075ms)
+ℹ tests 40
+ℹ suites 0
+ℹ pass 40
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3537.09121

@@ -1,0 +1,30 @@
+✔ PID reuse alone reclaims a stale run-once owner (272.803609ms)
+✔ executable path mismatch alone reclaims a stale run-once owner (10.903533ms)
+✔ executable byte digest mismatch alone reclaims a stale run-once owner (14.27668ms)
+✔ command digest mismatch alone reclaims a stale run-once owner (10.617983ms)
+✔ Windows collector binds creation, executable and command while rejecting PPID snapshots as Job authority (2.281252ms)
+✔ macOS collector uses microsecond start identity and full-width space-safe command fields (2.579739ms)
+✔ macOS identity distinguishes same-second PID reuse and never accepts truncated or unavailable identity (1.160192ms)
+✔ cross-platform collector never degrades to PID-only identity (0.470212ms)
+✔ Linux group observation requires healthy proc authority before classifying an absent PID as dead (1.502398ms)
+✔ Linux group observation rejects a PID that reappears while boot identity is collected (1.493618ms)
+✔ Linux group observation refuses unreadable boot identity or proc root (2.475871ms)
+✔ Linux group stat permission errors remain unverifiable even when the PID directory is absent (0.587989ms)
+✔ Linux group observation preserves a live authority and distinguishes a reaped real child (808.140854ms)
+✔ Linux proc stat parsing survives parenthesized command names and discovers a real child identity (60.145263ms)
+✔ a live owner cannot be replaced by a different heartbeat token (105.677168ms)
+✔ a complete live owner is retained despite an old heartbeat and old filesystem mtimes (2.007765ms)
+✔ heartbeat requires both the owner token and exact process identity and rejects non-monotonic or future time (11.10246ms)
+✔ reclaim compare-before-delete preserves a replacement owner that wins the token race (5.099028ms)
+✔ temporarily unreadable identity honors grace then reports owner-unverifiable (2.000366ms)
+✔ missing owner metadata observes grace and then fails closed instead of deleting the lock (4.901084ms)
+✔ future owner timestamps use a bounded observation grace and cannot retain a lock forever (5.224004ms)
+✔ run-once state persists and validates the dedicated lock lifecycle policy receipt (5.473309ms)
+ℹ tests 22
+ℹ suites 0
+ℹ pass 22
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1505.979421
