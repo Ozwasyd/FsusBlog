@@ -36,6 +36,8 @@ reads check BigInt filesystem identity before and after reading; the collector
 reobserves bytes and Git inventory before sealing. Unsafe hidden index flags,
 shallow repositories, special files, missing objects and escaping paths fail.
 Collection never installs, builds, checks out, cleans or stashes inputs.
+Git object lookups reject partial/promisor stores and disable lazy fetching and
+configured fsmonitor hooks for each invocation without editing Git configuration.
 
 The shared scheduler and Reliability consumers have not adopted this API in this
 increment. Their owners must replace their current source snapshot boundary,
