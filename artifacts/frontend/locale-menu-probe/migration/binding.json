@@ -20,13 +20,13 @@
   },
   "commands": [
     {
-      "command": "node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI EVIDENCE_ROOT",
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/chain-1891-d4c916-final",
       "exitCode": 2,
       "status": "failed capability gates",
       "artifact": "local-probe.json"
     },
     {
-      "command": "node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend EVIDENCE_ROOT",
+      "command": "PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend /tmp/chain-1891-b8b886-published",
       "exitCode": 3,
       "status": "blocked locked package unavailable",
       "artifact": "published-probe.json"
@@ -46,7 +46,7 @@
       "artifact": "fsusui-unit.log"
     },
     {
-      "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file [four changed implementation files and runtime probe]",
+      "command": "node tools/frontend/check-frontend-style.mjs --mode changed --file src/frontend/src/components/ui/LocaleSelector.vue --file src/frontend/src/components/ui/localeSelectorTypes.ts --file src/frontend/src/components/i18n/LocaleSelectorRuntimeAdapter.vue --file src/frontend/src/components/i18n/useLocaleSelectorRuntime.ts --file tests/frontend/checks/runtime/probe-locale-menu.mjs",
       "exitCode": 0,
       "status": "five files checked",
       "artifact": "style.log"
@@ -83,7 +83,8 @@
       "command": "vue-tsc: broader consumer config including runtime adapter",
       "exitCode": 2,
       "status": "failed missing dependencies and wider app errors; no full acceptance claim",
-      "artifact": "broader-consumer-typecheck.log"
+      "artifact": "broader-consumer-typecheck.log",
+      "sourceIdentity": "Historical dirty diagnostic workspace, not exact-candidate qualification evidence"
     },
     {
       "command": "npm run build",
@@ -91,7 +92,8 @@
       "testedCommit": "b8b886fc25e4fc711a6e6a7a9570acb6bbab9276",
       "exitCode": 1,
       "status": "blocked incomplete install: @tailwindcss/vite missing in both Vite build stages",
-      "artifact": "build.log"
+      "artifact": "build.log",
+      "testedFsusUiCommit": "377d0a884087d22a2346489c84e7115a5e76c110"
     }
   ],
   "failed": [
