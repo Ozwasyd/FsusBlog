@@ -159,7 +159,6 @@
                 "tests/article-vault/macos/packages.lock.json",
                 "tests/article-vault/windows/packages.lock.json",
                 "tests/backend/Fixtures/aeds-golden-catalog.json",
-                "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve the canonical external contract spelling within these exact registered source paths; source identifiers follow repository naming and no public protocol or authority is changed."
