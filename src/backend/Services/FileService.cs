@@ -321,6 +321,31 @@ public sealed partial class FileService : IFileService
             string expectedPayloadHash = NormalizeHash(payloadHash);
             bool usesWorkingFile = UsesRandomAccessWorkingFile(record);
             string partPath = GetPartPath(normalizedUploadId, partNumber);
+            List<int> uploadedParts = EnsureUploadedParts(record);
+            if (uploadedParts.Contains(partNumber))
+            {
+                Result<AcknowledgedPartComparison> comparison = await BoundaryExecutor.ExecuteResultAsync(
+                    () => CompareAcknowledgedPartAsync(part,
+                        usesWorkingFile ? GetWorkingFilePath(normalizedUploadId, record) : partPath,
+                        usesWorkingFile ? expectedOffset : 0, expectedPartBytes, cancellationToken),
+                    _ => ErrorDetail.Create(ErrorCode.InfraFailure, "已确认分片验证失败"),
+                    _logger, $"upload-part-retry:{normalizedUploadId}:{partNumber}");
+                if (!comparison.IsSuccess)
+                    return Result<UploadPartAckDto>.Failure(comparison.Error);
+                if (expectedPayloadHash.Length > 0 && comparison.Value.Sha256 != expectedPayloadHash)
+                    return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "分片校验失败");
+                if (!comparison.Value.ExactBytes)
+                    return Result<UploadPartAckDto>.Failure(ErrorCode.Conflict, "已确认分片内容不可变更");
+                return Result<UploadPartAckDto>.Success(new UploadPartAckDto
+                {
+                    UploadId = normalizedUploadId,
+                    PartNumber = partNumber,
+                    Offset = offset,
+                    Size = checked((int)expectedPartBytes),
+                    UploadedPartCount = uploadedParts.Count,
+                    UploadedBytes = uploadedParts.Sum(number => GetExpectedPartSize(record, number))
+                });
+            }
             Result<string> writeResult = await BoundaryExecutor.ExecuteResultAsync(
                 async () => usesWorkingFile
                     ? await WritePartToWorkingFileAndComputeHashAsync(
@@ -354,7 +379,6 @@ public sealed partial class FileService : IFileService
                 return Result<UploadPartAckDto>.Failure(ErrorCode.Validation, "分片校验失败");
             }
 
-            List<int> uploadedParts = EnsureUploadedParts(record);
             string previousStatus = record.Status;
             bool isNewPart = !uploadedParts.Contains(partNumber);
             if (isNewPart)
@@ -452,6 +476,7 @@ public sealed partial class FileService : IFileService
                 CommittedUploadResolution completed = await TryResolveCommittedUploadAsync(
                     assetId,
                     expectedHash,
+                    record.OwnerAdminPrincipalId,
                     cancellationToken);
                 if (completed.Found)
                 {
@@ -546,6 +571,10 @@ public sealed partial class FileService : IFileService
         try
         {
             await CopyFileDurablyAsync(sourcePath, commitTempPath, cancellationToken);
+            Result<ContentAssetMediaMetadata> candidate = await ValidatePrivateCommitCopyAsync(
+                commitTempPath, assembled, targetFormat, cancellationToken);
+            if (!candidate.IsSuccess)
+                return Result<UploadCompleteDto>.Failure(candidate.Error);
             try
             {
                 File.Move(commitTempPath, finalPath, overwrite: false);
@@ -555,6 +584,7 @@ public sealed partial class FileService : IFileService
                 CommittedUploadResolution concurrentCommit = await TryResolveCommittedUploadAsync(
                     assetId,
                     assembled.Sha256,
+                    ownerAdminPrincipalId,
                     cancellationToken);
                 if (!concurrentCommit.Found)
                 {
@@ -568,10 +598,10 @@ public sealed partial class FileService : IFileService
 
                 Result concurrentLedger = await RegisterCommittedAssetAsync(
                     assetId,
-                    finalPath,
                     storageKey,
                     ownerAdminPrincipalId,
                     assembled,
+                    candidate.Value,
                     targetFormat,
                     cancellationToken);
                 return concurrentLedger.IsSuccess
@@ -581,10 +611,10 @@ public sealed partial class FileService : IFileService
 
             Result committedLedger = await RegisterCommittedAssetAsync(
                 assetId,
-                finalPath,
                 storageKey,
                 ownerAdminPrincipalId,
                 assembled,
+                candidate.Value,
                 targetFormat,
                 cancellationToken);
             if (!committedLedger.IsSuccess)
@@ -620,10 +650,10 @@ public sealed partial class FileService : IFileService
 
     private async Task<Result> RegisterCommittedAssetAsync(
         AssetId assetId,
-        string finalPath,
         AssetStorageKey storageKey,
         long ownerAdminPrincipalId,
         AssembledUploadFile assembled,
+        ContentAssetMediaMetadata media,
         string targetFormat,
         CancellationToken cancellationToken)
     {
@@ -637,16 +667,6 @@ public sealed partial class FileService : IFileService
         if (assetId.Value == Guid.Empty)
         {
             return Result.Failure(ErrorCode.InfraFailure, "上传成品资产标识非法");
-        }
-
-        byte[] committedBytes = await File.ReadAllBytesAsync(finalPath, cancellationToken).ConfigureAwait(false);
-        if (!ContentAssetMediaInspector.TryInspect(
-                NormalizeExtension(targetFormat),
-                committedBytes,
-                out ContentAssetMediaMetadata media)
-            || !string.Equals(media.MediaType, MimeTypeForExtension(NormalizeExtension(targetFormat)), StringComparison.Ordinal))
-        {
-            return Result.Failure(ErrorCode.Validation, "上传成品图片尺寸无法可靠识别");
         }
 
         int width = media.Width;
@@ -709,6 +729,7 @@ public sealed partial class FileService : IFileService
     private async Task<CommittedUploadResolution> TryResolveCommittedUploadAsync(
         AssetId assetId,
         string expectedSha256,
+        long ownerAdminPrincipalId,
         CancellationToken cancellationToken)
     {
         string uploadId = assetId.Value.ToString("N");
@@ -758,6 +779,10 @@ public sealed partial class FileService : IFileService
         }
 
         AssetStorageKey storageKey = AssetStorageKey.Parse($"illustration/{Path.GetFileName(finalPath)}");
+        Result ledger = await ValidateExistingCommittedLedgerAsync(
+            assetId, finalPath, storageKey, ownerAdminPrincipalId, cancellationToken);
+        if (!ledger.IsSuccess)
+            return new CommittedUploadResolution(true, Result<UploadCompleteDto>.Failure(ledger.Error));
         string publicUrl = _publicAssetUrlCodec.ToPublicPath(storageKey);
         return new CommittedUploadResolution(
             true,

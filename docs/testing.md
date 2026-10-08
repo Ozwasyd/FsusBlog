@@ -1752,3 +1752,34 @@ against the expected candidate HEAD before accepting any `.py` path. Unchecked
 Python paths remain unsupported. This checks AST syntax only; compiled, import,
 native, runtime, and release qualification remain unrun, and the default
 qualification and full-stage routes are unchanged.
+
+## Original upload lifecycle development regression
+
+`AssetUploadLifecycleAcceptanceTests` uses the public `FileService` constructor,
+original owner/token sessions, real PostgreSQL databases and original isolated
+`ReleaseStoragePaths` filesystem roots. It covers single/multipart, out-of-order
+chunks, acknowledged-chunk retries, failed chunk/commit postconditions, repeated
+and concurrent commit, malformed media metadata, ledger tamper and pre-cancellation.
+It invokes no cleanup worker and creates no final aggregate or qualification receipt.
+
+```bash
+FSUSBLOG_TEST_RUN_ID=upload-lifecycle-current \
+FSUSBLOG_UPLOAD_LIFECYCLE_ARTIFACTS=/tmp/fsus-upload-lifecycle-evidence \
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore \
+  --filter FullyQualifiedName~AssetUploadLifecycleAcceptanceTests
+```
+
+Use the repository's actual digest-pinned PostgreSQL service setup. Each case owns
+a fresh database and uniquely marked filesystem root. Subresults bind current git
+HEAD, actual source-file hashes, any dirty source patch, contract/policy hashes,
+session/bitmap/working/object hashes and actual ledger postconditions. Tokens and
+original file bytes are excluded. Passed-case teardown removes only its marked
+root; failed-case roots and JSON observations are retained. If the canonical test
+project cannot compile, report that failure separately; linked development test
+runs do not repair or satisfy its gate.
+
+This bounded regression does not satisfy #2077 prerequisites #2074/#1779, HTTP
+and gateway nonexposure, multi-process crash/restart, cross-volume journal, Windows
+junctions, the complete path/platform matrix or promotion/ledger fault qualification.
+Those gates remain open; source and standalone regression results cannot substitute
+for their acceptance.
