@@ -13,7 +13,9 @@ public sealed class PgCurrentSchemaExpressionParserTests
         ["state"] = new("state", false, false, false, null, "string"),
         ["not"] = new("not", false, false, false, null, "string"),
         ["revision"] = new("revision", false, false, false, null, "long"),
-        ["active"] = new("active", false, false, false, null, "boolean")
+        ["active"] = new("active", false, false, false, null, "boolean"),
+        ["wide"] = new("wide", false, false, false, null, "double", PhysicalType: "double precision"),
+        ["narrow"] = new("narrow", false, false, false, null, "single", PhysicalType: "real")
     };
 
     [Theory]
@@ -156,6 +158,71 @@ public sealed class PgCurrentSchemaExpressionParserTests
         Assert.True(SchemaExpressionIdentity.Equal(expected, actual));
         Assert.False(SchemaExpressionIdentity.Equal(expected,
             PgCurrentSchemaExpressionParser.ParseObservedDefault("'2'::" + physicalType, column, s_columns)));
+    }
+
+    [Theory]
+    [InlineData("wide >= 0.1", "wide >= (0.1)::double precision")]
+    [InlineData("0.1 <= wide", "(0.1)::double precision <= wide")]
+    [InlineData("wide <= 4", "wide <= (4)::double precision")]
+    [InlineData("wide >= -10000000", "wide >= ('-10000000'::integer)::double precision")]
+    [InlineData("wide BETWEEN -10000000 AND 10000000", "wide >= ('-10000000'::integer)::double precision AND wide <= 10000000::double precision")]
+    [InlineData("wide >= -0.1234567890123456789", "wide >= '-0.12345678901234568'::double precision")]
+    [InlineData("wide >= 1::numeric", "wide >= 1::double precision")]
+    [InlineData("wide >= 9007199254740993", "wide >= 9007199254740992::double precision")]
+    public void DirectDoubleColumnComparison_UsesTheNativeFloatingOperandDomain(string original, string observed)
+    {
+        Assert.True(SchemaExpressionIdentity.Equal(Parse(original), Parse(observed)));
+    }
+
+    [Theory]
+    [InlineData("wide >= 0.1", "wide >= 0.10000000000000002")]
+    [InlineData("wide >= 0.1", "wide >= ('0.1'::real)::double precision")]
+    [InlineData("wide >= 9007199254740992", "wide >= 9007199254740994")]
+    [InlineData("wide >= 1", "wide >= (1 / 2)")]
+    [InlineData("wide >= 1", "wide >= (1::numeric / 2)")]
+    [InlineData("wide / 2 > 0", "wide / 2::double precision > 0")]
+    [InlineData("wide >= 1", "CAST(wide AS real) >= 1")]
+    [InlineData("narrow >= 0.1", "narrow >= '0.1'::real")]
+    [InlineData("wide >= 1", "wide >= '1e0'::bigint::double precision")]
+    [InlineData("wide >= -(-2147483648)", "wide >= 2147483648")]
+    [InlineData("wide >= 0.14", "wide >= CAST(0.14 AS numeric(2,1))")]
+    public void FloatingComparison_DoesNotErasePrecisionOverflowArithmeticOrOtherDomains(string original, string observed)
+    {
+        Assert.False(SchemaExpressionIdentity.Equal(Parse(original), Parse(observed)));
+    }
+
+    [Theory]
+    [InlineData("wide >= 1e1000")]
+    [InlineData("wide >= 1e-1000")]
+    public void FloatingComparison_UnrepresentableLiteralCannotAcquireZeroOrFiniteIdentity(string expression)
+    {
+        Assert.Throws<InvalidOperationException>(() => Parse(expression));
+    }
+
+    [Theory]
+    [InlineData("'{}'", "'{}'::jsonb")]
+    [InlineData("'[]'", "'[]'::jsonb")]
+    [InlineData("'null'", "'null'::jsonb")]
+    [InlineData("NULL", "NULL::jsonb")]
+    public void JsonbDefaultAssignment_BindsOnlyTheDeclaredPhysicalStorageDomain(string original, string observed)
+    {
+        var column = new SchemaColumnModel("payload", false, false, false, null, "json", original, PhysicalType: "jsonb");
+        Assert.True(SchemaExpressionIdentity.Equal(PgCurrentSchemaExpressionParser.ParseExpectedDefault(column, s_columns),
+            PgCurrentSchemaExpressionParser.ParseObservedDefault(observed, column, s_columns)));
+    }
+
+    [Theory]
+    [InlineData("'{}'", "'[]'::jsonb")]
+    [InlineData("'{}'", "'null'::jsonb")]
+    [InlineData("'null'", "NULL::jsonb")]
+    [InlineData("'{}'", "'{}'::json")]
+    [InlineData("'{}'", "'{}'::text[]")]
+    [InlineData("""'{"a":1}'""", """'{"a":2}'::jsonb""")]
+    public void JsonbDefaultAssignment_PreservesLiteralNullAndExplicitOtherCastDifferences(string original, string observed)
+    {
+        var column = new SchemaColumnModel("payload", false, false, false, null, "json", original, PhysicalType: "jsonb");
+        Assert.False(SchemaExpressionIdentity.Equal(PgCurrentSchemaExpressionParser.ParseExpectedDefault(column, s_columns),
+            PgCurrentSchemaExpressionParser.ParseObservedDefault(observed, column, s_columns)));
     }
 
     private static SchemaExpressionNode Parse(string expression) => PgCurrentSchemaExpressionParser.Parse(expression, s_columns);

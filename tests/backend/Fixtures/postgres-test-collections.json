@@ -177,7 +177,7 @@
     },
     {
       "id": "SchemaMigrationPostgresCollectionB",
-      "estimatedFacts": 545,
+      "estimatedFacts": 546,
       "tests": [
         {
           "path": "Integration/AccountEnrollmentIntegrationTests.cs",

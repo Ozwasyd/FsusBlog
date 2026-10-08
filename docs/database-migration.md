@@ -685,6 +685,19 @@ refuse. MySQL and SQLite do not acquire an expression-key implementation from
 this PostgreSQL capability. Fresh v5 target/source identities are required; old
 artifacts remain unchanged and cannot grant current admission.
 
+For a direct comparison against an independently typed double-precision column,
+only a closed literal operand is interpreted in PostgreSQL's `float8` domain.
+The existing physical-float64 node preserves the exact IEEE operand bits. Proven
+in-range integer casts and unmodified numeric literals can enter that conversion;
+intermediate `real` precision, numeric typmods, arithmetic, overflow and column
+casts retain their original facts. Unsupported overflow/underflow cannot acquire
+a finite or zero threshold identity. This comparison context does not change
+unbound arithmetic or the single-precision operator domain. An untyped string
+default on a declared `jsonb` column receives its assignment cast while retaining
+the complete literal bytes; explicit other casts, changed values, SQL NULL and
+JSON null stay distinct. There is no JSON rewriting or general equivalence
+fallback. Fresh original producer/verifier bytes remain required under model v5.
+
 The original apply-journal control's non-nullability remains owned by its seven
 canonical column facts. PostgreSQL 18 additionally records each inline `NOT NULL`
 declaration in `pg_constraint` with type `n`. The sole native catalog observer

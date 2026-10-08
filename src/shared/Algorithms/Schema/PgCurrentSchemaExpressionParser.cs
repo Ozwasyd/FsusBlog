@@ -51,6 +51,11 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         if (IntegralRange(column.DataType) is not null && IntegralLiteral(value) is not null)
             return NormalizeIntegralStorageLiteral(value, column);
+        // An untyped string default is assigned to the declared jsonb storage
+        // domain. Retain its complete literal bytes and all explicit other casts;
+        // this is not JSON rewriting or an equivalence evaluator.
+        if (column.DataType == "json" && column.PhysicalType == "jsonb" && value.Kind == "string")
+            return Node("cast", "jsonb", value);
         if (column.DataType is not ("single" or "double")) return value;
         string type = column.DataType == "single" ? "real" : "double precision";
         if (value.Kind == "cast" && value.Value == type && value.Arguments.Count == 1) value = value.Arguments[0];
@@ -338,9 +343,9 @@ public sealed class PgCurrentSchemaExpressionParser
         {
             return arguments[1].Value == "true" ? arguments[0] : Node("operator", "not", arguments[0]);
         }
-        // A direct integral-column comparison is mathematical for an exact,
-        // in-range integral constant. This does not normalize arithmetic operands:
-        // integer division, overflow and overload resolution retain native types.
+        // A direct bound-column comparison supplies a closed literal conversion
+        // context. Arithmetic operands retain integer division, overflow and native
+        // overload facts instead of acquiring a column's assignment domain.
         if (operation is "=" or "<>" or ">" or "<" or ">=" or "<=")
         {
             NormalizeColumnComparison(arguments, 0, 1);
@@ -353,10 +358,41 @@ public sealed class PgCurrentSchemaExpressionParser
     {
         SchemaExpressionNode column = arguments[columnIndex];
         SchemaExpressionNode literal = arguments[literalIndex];
-        if (column.Kind == "column" && IntegralLiteral(literal) is { } number
-            && IntegralRange(_columns[column.Value].DataType) is { } range
+        if (column.Kind != "column")
+            return;
+        SchemaColumnModel storage = _columns[column.Value];
+        if (IntegralLiteral(literal) is { } number && IntegralRange(storage.DataType) is { } range
             && number >= range.Minimum && number <= range.Maximum)
-            arguments[literalIndex] = NormalizeIntegralStorageLiteral(literal, _columns[column.Value]);
+            arguments[literalIndex] = NormalizeIntegralStorageLiteral(literal, storage);
+        else if (storage.DataType == "double" && NormalizeDoubleComparisonLiteral(literal, storage) is { } floating)
+            arguments[literalIndex] = floating;
+    }
+
+    private static SchemaExpressionNode? NormalizeDoubleComparisonLiteral(SchemaExpressionNode value, SchemaColumnModel column)
+    {
+        // Only a direct double-column comparison proves this implicit conversion.
+        // A real intermediate, typmod, arithmetic or column cast remains explicit.
+        if (value.Kind == "cast" && value.Value == "double precision" && value.Arguments.Count == 1)
+            value = value.Arguments[0];
+        if (IntegralLiteral(value) is { } integer)
+            value = Number(integer.ToString(CultureInfo.InvariantCulture), "numeric");
+        else if (value.Kind == "cast" && value.Value == "numeric" && value.Arguments.Count == 1
+            && value.Arguments[0].Kind == "number")
+            value = value.Arguments[0];
+        else if (value.Kind == "operator" && value.Value == "negate" && value.Arguments.Count == 1
+            && value.Arguments[0].Kind == "number")
+            value = Number("-" + value.Arguments[0].Value, "numeric");
+        if (value.Kind is not ("number" or "string"))
+            return null;
+        if (value.Kind == "string" && !Regex.IsMatch(value.Value,
+            @"\A[+-]?(?:[0-9]+(?:\.[0-9]*)?|\.[0-9]+)(?:[eE][+-]?[0-9]+)?\z", RegexOptions.CultureInvariant))
+            return null;
+        SchemaExpressionNode normalized = NormalizeDefaultLiteral(value, column);
+        // A host parse rounded to zero cannot prove a nonzero native threshold.
+        if (normalized.Value is "0000000000000000" or "8000000000000000"
+            && NormalizeNumber(value.Value) != "0")
+            throw Refused();
+        return normalized;
     }
 
     /// <summary>Normalizes only supported literal assignment to the verified integral storage domain; arithmetic is not erased.</summary>
