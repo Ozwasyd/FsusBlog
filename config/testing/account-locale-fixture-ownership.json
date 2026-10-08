@@ -1,0 +1,252 @@
+{
+    "capabilityOwners": [
+        {
+            "capabilityId": "preferences.locale.account-device-conflict",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "preference-locale-account-device-conflict"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ]
+        },
+        {
+            "capabilityId": "preferences.locale.auto",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "preference-locale-auto"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ]
+        },
+        {
+            "capabilityId": "preferences.locale.device-explicit",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "preference-locale-device-explicit"
+            ],
+            "stateDomains": [
+                "browser.storage-state",
+                "fixture.auth-identities",
+                "postgres.settings"
+            ]
+        },
+        {
+            "capabilityId": "preferences.locale.fixed.non-default",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "preference-locale-fixed-non-default"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ]
+        },
+        {
+            "capabilityId": "preferences.locale.fixed.zh-cn",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "preference-locale-fixed-default"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ]
+        },
+        {
+            "capabilityId": "preferences.locale.revision-conflict",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "preference-locale-revision-conflict"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.settings"
+            ]
+        },
+        {
+            "capabilityId": "preferences.locale.two-device-sync",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "preference-locale-two-device-sync"
+            ],
+            "stateDomains": [
+                "browser.storage-state",
+                "fixture.auth-identities",
+                "postgres.settings"
+            ]
+        },
+        {
+            "capabilityId": "profile.public-handle.conflict",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "profile-public-handle-conflict"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ]
+        },
+        {
+            "capabilityId": "profile.public-handle.empty",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "profile-public-handle-empty"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ]
+        },
+        {
+            "capabilityId": "profile.public-handle.set",
+            "dependsOn": [
+                "auth.user.active"
+            ],
+            "ownerProducerId": "account-profile-preferences",
+            "postconditionIds": [
+                "profile-public-handle-set"
+            ],
+            "stateDomains": [
+                "fixture.auth-identities",
+                "postgres.auth",
+                "redis.cache.private"
+            ]
+        }
+    ],
+    "consumers": [],
+    "generatedBy": "tools/test/account-locale-fixture-inventory.mjs",
+    "identityRoles": [
+        "preference-account-device-conflict",
+        "preference-auto",
+        "preference-device-explicit",
+        "preference-fixed-default",
+        "preference-fixed-non-default",
+        "preference-revision-conflict",
+        "preference-two-device",
+        "profile-conflict-challenger",
+        "profile-conflict-owner",
+        "profile-empty",
+        "profile-set"
+    ],
+    "implementationPaths": [
+        "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+        "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+        "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+    ],
+    "notAuthoritative": true,
+    "producerId": "account-profile-preferences",
+    "profileBindings": [
+        {
+            "capabilityIds": [
+                "preferences.locale.account-device-conflict",
+                "preferences.locale.auto",
+                "preferences.locale.device-explicit",
+                "preferences.locale.fixed.non-default",
+                "preferences.locale.fixed.zh-cn",
+                "preferences.locale.revision-conflict",
+                "preferences.locale.two-device-sync",
+                "profile.public-handle.conflict",
+                "profile.public-handle.empty",
+                "profile.public-handle.set"
+            ],
+            "profileId": "account-profile-preferences"
+        }
+    ],
+    "qualification": false,
+    "schema": "fsusblog.account-locale-fixture-ownership.v1",
+    "sourceApi": {
+        "cleanupReturn": "Task",
+        "gateway": "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs",
+        "implementation": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs",
+        "interface": "IAccountProfilePreferenceFixtureService",
+        "methods": [
+            "CleanupAsync",
+            "PrepareAsync",
+            "VerifyAsync"
+        ]
+    },
+    "sourceInputs": [
+        {
+            "digest": "sha256:527d41dbe1a28ef2a304d3a8975e6db231657aa33951117150e823d5be1900da",
+            "path": "config/schemas/account-locale-fixture-ownership.schema.json"
+        },
+        {
+            "digest": "sha256:49e1e2c00d786af04aca7b456e242224b8d8296ad34fffb56c245d3d56939a28",
+            "path": "config/testing/fixture-capability-catalog.json"
+        },
+        {
+            "digest": "sha256:8d4e741c3f9b6d918f46f7aa05899f69df681f3a38b311aa018c0ba5051d47cf",
+            "path": "config/testing/fixture-consumer-inventory.generated.json"
+        },
+        {
+            "digest": "sha256:ff09c8442aaa358e2022148ed6b0c4df4dbd21ac91e547ee66e398f0f8b229d4",
+            "path": "config/testing/fixture-producer-registry.json"
+        },
+        {
+            "digest": "sha256:c7c84b166437a19df6adb4571d9dfa5a4c75fcfcdd3175349541ad31a3b2cece",
+            "path": "config/testing/fixture-profile-catalog.json"
+        },
+        {
+            "digest": "sha256:00efba615667a8cbbe55a375dd7ca076ad6c6428108b3b786dda60446fadf615",
+            "path": "src/backend/Modules/Endpoints/LocalAccountProfilePreferenceFixtureEndpoints.cs"
+        },
+        {
+            "digest": "sha256:75d033666224e9c36338df9019298ab78c49074eca049a2c99f04755e28cf794",
+            "path": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs"
+        },
+        {
+            "digest": "sha256:ca009996d00b3ae1c3dc08e9e121cc47d02c9a2e2a2c8ea2e7c0aac344532b31",
+            "path": "tools/test-fixtures/account-device-composition.mjs"
+        },
+        {
+            "digest": "sha256:a9e479ccab295a37af2222f205c12f7c7b510abcda1a537b08281849e824e447",
+            "path": "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
+        },
+        {
+            "digest": "sha256:c3032f1bc98073b031848b87572aaf80c4e0d432667cf73574aa5372ebe9a7f6",
+            "path": "tools/test-fixtures/receipt/postconditions.mjs"
+        },
+        {
+            "digest": "sha256:256147ac2193a357293e7733868517e8258d8de7b6291c40755b90ed6b96581d",
+            "path": "tools/test/account-locale-fixture-inventory.mjs"
+        }
+    ],
+    "strategy": "transaction-fixture",
+    "unresolvedAuthorities": [
+        "canonical-cleanup-completion-readback",
+        "verified-device-and-public-aot"
+    ]
+}

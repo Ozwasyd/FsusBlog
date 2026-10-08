@@ -12,6 +12,9 @@ import { createHash } from 'node:crypto';
 
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
+
+const { assertAccountLocaleOwnershipCurrent } = await import(new URL('../../test/account-locale-fixture-inventory.mjs', import.meta.url));
+const { assertAccountCleanupOwnership, assertAccountPreparedCleanupOwnership, composeAccountDeviceRequests } = await import(new URL('../account-device-composition.mjs', import.meta.url));
 const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForPostgres, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const producerId = 'account-profile-preferences';
 const strategy = 'transaction-fixture';
@@ -70,6 +73,11 @@ function selectedCapabilities(context)
     {
         throw new Error('account profile/preference producer received zero owned capabilities');
     }
+    // Reject ambiguous or diagnostic variants before a backend command can mutate.
+    for (const capability of sorted)
+    {
+        variantForCapability(context, capability);
+    }
     return Object.freeze(sorted);
 }
 
@@ -103,6 +111,10 @@ function identityReferences(context)
             ?? `fxacct:${namespace}:${runId}`,
         'fixture owner'
     );
+    if (owner !== `fxacct:${namespace}:${runId}`)
+    {
+        throw new Error('account profile/preference owner must exact-match the current namespace and run');
+    }
     const roles = new Set();
     const publicIds = new Set();
     const producerResultDigest = String(authResult?.producerResultDigest
@@ -200,15 +212,36 @@ function endpointContext(context)
             'account profile/preference composition root requires an explicit backend URL and fixture secret'
         );
     }
+    let endpoint;
+    try
+    {
+        endpoint = new URL(baseUrl);
+    }
+    catch
+    {
+        throw new Error('account profile/preference backend URL is invalid');
+    }
+    if (!['http:', 'https:'].includes(endpoint.protocol) || endpoint.username || endpoint.password)
+    {
+        throw new Error('account profile/preference backend URL requires an HTTP origin without credentials');
+    }
     return Object.freeze({ baseUrl, secret });
 }
 
 async function invoke(context, action, body, signal)
 {
+    signal?.throwIfAborted();
     const adapter = context.handles?.accountProfilePreferenceAdapter;
     if (adapter && typeof adapter[action] === 'function')
     {
-        return adapter[action](body, context, signal);
+        try
+        {
+            return await adapter[action](body, context, signal);
+        }
+        catch (error)
+        {
+            throw new Error(`account profile/preference ${action} authority invocation failed`, { cause: error });
+        }
     }
     const { baseUrl, secret } = endpointContext(context);
     const headers = {
@@ -241,8 +274,12 @@ async function invoke(context, action, body, signal)
     if (!response.ok)
     {
         throw new Error(
-            `account profile/preference ${action} failed HTTP ${response.status}: ${payload?.detail ?? text.slice(0, 400)}`
+            `account profile/preference ${action} failed HTTP ${response.status}`
         );
+    }
+    if (action === 'cleanup' && response.status !== 204)
+    {
+        throw new Error('canonical account cleanup endpoint requires HTTP 204');
     }
     return payload;
 }
@@ -368,6 +405,7 @@ function normalizeResult(raw, context, capabilities, resolvedTemporalRoles)
 export async function prepareAccountProfilePreferences(context, signal)
 {
     assertNoLegacyOverride();
+    assertAccountLocaleOwnershipCurrent();
     const capabilities = selectedCapabilities(context);
     const identities = identityReferences(context);
     const resolvedTemporalRoles = resolveTemporalRolesForProducer({
@@ -400,11 +438,16 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
     {
         return { ok: false, producerId, reason: 'missing composition receipt' };
     }
+    let verificationStage = 'temporal';
     try
     {
         validateBackendTemporalObservation(context.temporalContext, producerResult.temporalObservation);
         validateBackendTemporalObservation(context.temporalContext, producerResult.compositionReceipt.temporalObservation);
+        verificationStage = 'identity';
         const verifiedIdentityReferences = verifyIdentityReferences(context, producerResult);
+        verificationStage = 'cleanup-ownership';
+        assertAccountCleanupOwnership(context, producerResult, verifiedIdentityReferences);
+        verificationStage = 'live';
         const verification = await invoke(
             context,
             'verify',
@@ -414,7 +457,27 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         if (verification?.ok !== true
             || verification.contentDigest !== producerResult.compositionReceipt.contentDigest)
         {
-            return { ok: false, producerId, reason: verification?.failure ?? 'live verification failed' };
+            return { ok: false, producerId, reason: 'live verification failed', failureDigest: stableDigest(verification ?? null) };
+        }
+        if (!Array.isArray(verification.verifiedCapabilities)
+            || JSON.stringify([...verification.verifiedCapabilities].sort())
+                !== JSON.stringify([...producerResult.providedCapabilities].sort()))
+        {
+            return { ok: false, producerId, reason: 'live verification capability coverage is incomplete' };
+        }
+        verificationStage = 'composition';
+        const deviceProjectionRequests = composeAccountDeviceRequests(context, producerResult, verifiedIdentityReferences);
+        if (deviceProjectionRequests.length > 0)
+        {
+            // The source service resolves locale inputs but does not observe a real
+            // browser first request/Public AOT. #2170 must supply that authority.
+            return {
+                ok: false,
+                producerId,
+                reason: 'verified device/Public AOT authority #2170 is unavailable',
+                accountSourcesVerified: true,
+                deviceProjectionRequests
+            };
         }
         return {
             ok: true,
@@ -431,11 +494,22 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         return {
             ok: false,
             producerId,
-            reason: error instanceof Error ? error.message : String(error)
+            reason: `account profile/preference ${verificationStage} verification failed`,
+            failureDigest: stableDigest({
+                name: error instanceof Error ? error.name : typeof error,
+                message: error instanceof Error ? error.message : null,
+                cause: error?.cause instanceof Error
+                    ? { name: error.cause.name, message: error.cause.message } : null
+            })
         };
     }
 }
 
+/**
+ * Reverify the exact account model source and invoke the existing Task cleanup.
+ * Return redacted invocation evidence with cleanupCompletionVerified=false;
+ * independent cleanup readback and device/private-projection cleanup remain gates.
+ */
 export async function cleanupAccountProfilePreferences(context, producerResult, signal)
 {
     assertNoLegacyOverride();
@@ -443,7 +517,88 @@ export async function cleanupAccountProfilePreferences(context, producerResult, 
     {
         throw new Error('account profile/preference cleanup requires the exact composition receipt');
     }
-    await invoke(context, 'cleanup', producerResult.compositionReceipt, signal);
+    // Preserve the original DTO key order: the backend digest includes dictionary
+    // serialization order. Keep one immutable source across verification/cleanup.
+    const compositionReceipt = structuredClone(producerResult.compositionReceipt);
+    function freezeSource(value)
+    {
+        if (value && typeof value === 'object')
+        {
+            Object.values(value).forEach(freezeSource);
+            Object.freeze(value);
+        }
+    }
+    freezeSource(compositionReceipt);
+    const sourceResult = { ...producerResult, compositionReceipt };
+    if (Object.hasOwn(context.producerReceipts ?? {}, 'auth-session'))
+    {
+        const verifiedIdentities = verifyIdentityReferences(context, sourceResult);
+        assertAccountCleanupOwnership(context, sourceResult, verifiedIdentities);
+    }
+    else
+    {
+        // Prepare compensation precedes receipt publication. Bind the original
+        // provisional allocation, then let the canonical backend verify/restore it.
+        const authResult = context.producerOutputs?.['auth-session'];
+        if (authResult?.producerId !== 'auth-session' || !Array.isArray(authResult.identityPrepareReferences))
+        {
+            throw new Error('account cleanup requires the original auth-session prepare allocation');
+        }
+        const allocated = identityReferences(context);
+        const byRole = new Map(authResult.identityPrepareReferences
+            .filter((reference) => reference.consumerProducerId === producerId)
+            .map((reference) => [reference.role, reference]));
+        const prepared = compositionReceipt.identityReferences;
+        if (!Array.isArray(prepared) || prepared.length !== allocated.references.length
+            || prepared.some((reference) =>
+            {
+                const allocation = allocated.references.find((item) => item.role === reference.role);
+                const source = byRole.get(reference.role);
+                return !allocation || !source || allocation.digest !== source.digest
+                    || reference.digest !== allocation.digest
+                    || reference.publicId !== allocation.publicId
+                    || reference.fixtureIdentity !== allocation.fixtureIdentity
+                    || reference.ownerProducerId !== allocation.ownerProducerId;
+            }))
+        {
+            throw new Error('account cleanup allocation does not match the original prepare source');
+        }
+        assertAccountPreparedCleanupOwnership(context, sourceResult, {
+            namespace: context.namespace,
+            runId: context.runIdentity,
+            profileId: context.profileIdentity?.profileId,
+            references: allocated.references
+        });
+    }
+    const verification = await invoke(context, 'verify', compositionReceipt, signal);
+    if (verification?.ok !== true || verification.contentDigest !== compositionReceipt.contentDigest
+        || !Array.isArray(verification.verifiedCapabilities)
+        || JSON.stringify([...verification.verifiedCapabilities].sort())
+            !== JSON.stringify([...compositionReceipt.providedCapabilities].sort()))
+    {
+        const failure = new Error('account cleanup requires exact current canonical source verification');
+        failure.verificationFailureDigest = stableDigest(verification ?? null);
+        throw failure;
+    }
+    const completion = await invoke(context, 'cleanup', compositionReceipt, signal);
+    if (completion != null)
+    {
+        const failure = new Error('canonical account CleanupAsync must return no completion receipt');
+        failure.cleanupInvocationCompleted = true;
+        failure.completionDigest = stableDigest(completion);
+        throw failure;
+    }
+    // CleanupAsync returns Task/HTTP 204. Its completion is invocation evidence;
+    // no independent post-cleanup readback or device/auth cleanup receipt exists.
+    return Object.freeze({
+        notAuthoritative: true,
+        producerId,
+        accountModelSourceDigest: compositionReceipt.contentDigest,
+        canonicalSourceVerifiedBeforeCleanup: true,
+        cleanupInvocationCompleted: true,
+        cleanupCompletionVerified: false,
+        deviceAotVerified: false
+    });
 }
 
 export const accountProfilePreferenceProducerMeta = Object.freeze({
