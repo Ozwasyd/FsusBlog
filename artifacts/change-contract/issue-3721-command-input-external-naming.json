@@ -25,7 +25,10 @@
                 "tools/style/command-wrapper-compile-binding.mjs",
                 "tools/style/command-wrapper-input-ast.mjs",
                 "tools/style/command-wrapper-input-model.mjs",
-                "tools/style/command-wrapper-input-ast-v2.mjs"
+                "tools/style/command-wrapper-input-ast-v2.mjs",
+                "tools/style/command-wrapper-caller-probe-v2.mjs",
+                "tools/style/command-wrapper-compile-probe-v2.mjs",
+                "tests/tools/command-wrapper-current-profile.test.mjs"
             ],
             "reason": "Preserve process environment keys, compiler and analyzer CLI arguments and external tooling or JSON spellings while retaining all internal naming requirements."
         }

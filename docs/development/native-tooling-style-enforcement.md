@@ -96,6 +96,32 @@ caller profile or actual confinement.
 
 Run `node --test tests/tools/command-wrapper-metadata-input.test.mjs` with real Clang for this additional component probe. It returns no analyzer options and always reports `qualificationEligible: false` and `policyPromotion: false`. The required-tools checker, original v1 modules, caller roster and compiler/analyzer/header seals do not select v2 and remain unchanged. Neither these source probes nor the execution-envelope's link-time fault adapters establish real Landlock/systemd confinement, complete caller admission or trusted policy promotion. Integrating v2 into authority requires independent review, a separately versioned complete current compile/caller profile and the original positive/refusal/native/runtime gates.
 
+The [current compiler probe](../../tools/style/command-wrapper-compile-probe-v2.mjs)
+adds the current `sys/stat.h` include to a separately versioned finite directive
+sequence and applies the metadata AST productions after real strict compilation.
+It binds complete GCC and Clang header/macro observations, own-token parity,
+compiler/subprogram/spec identities, and before/after revalidation. A relocated
+Clang installation requires its exact observed resource directory plus every
+individual resource header identity; arbitrary include flags remain refused.
+The [current caller probe](../../tools/style/command-wrapper-caller-probe-v2.mjs)
+uses the existing finite source inspector to retain all original caller anchors
+and follow their complete current imports. It records the actual indexed files,
+candidate commit and parser executable, refuses missing/redirected/drifted files,
+and rechecks the closure. Its joined source profile requires the caller and
+compiler observations to describe the same C bytes. Caller-supplied digests or
+approval records cannot replace those observations.
+
+Run `node --test tests/tools/command-wrapper-current-profile.test.mjs` with real
+`cc`, Clang and strace. The tests observe the unchanged production compile through
+strace and exercise the current method's positive, drift and cleanup controls.
+The resulting profile is an **unpromoted proposal** requiring independent
+semantic review of every source owner and toolchain input. It always reports
+`callerInputAdmission: false`, `qualificationEligible: false`,
+`policyPromotion: false` and empty analyzer options. These methods do not update
+the v1 registry, select an analyzer model, grant a trusted native pass or qualify
+Landlock/systemd runtime confinement. A task's GCC/Clang observations cannot
+silently replace the independently approved native profile.
+
 The current source-integration candidate preserves the master caller's exact
 millisecond and actual-observation temporal contract, pinned matrix host input,
 and private .NET scratch namespace/cleanup ownership. Its finite caller roster
