@@ -217,19 +217,14 @@ public sealed class AuthorFullTextSearchQueryEvaluator(AuthorFullTextSearchIndex
             or AuthorSearchClauseKind.FieldText or AuthorSearchClauseKind.FieldPhrase))
         {
             string text = clause.Values[0];
-            string digest = AuthorFullTextSearchContract.Digest(text);
-            const string Parser = "author-query-clause-tokenization";
-            const string Epoch = "query-clause";
-            var range = new AuthorSearchSourceRange(AuthorFullTextSearchContract.SourceCoordinateAuthority,
-                Parser, Epoch, 1, digest, 0, text.Length, 0, Encoding.UTF8.GetByteCount(text));
-            ImmutableArray<AuthorSearchToken> tokens = AuthorFullTextSearchTokenizer.Tokenize(text, range, Parser, Epoch);
-            if (tokens.IsEmpty)
+            ImmutableArray<string> terms = AuthorFullTextSearchTokenizer.TokenizeQueryValue(text);
+            if (terms.IsEmpty)
             {
                 throw new AuthorSearchContractException("author_search_query_has_no_searchable_tokens");
             }
             compiled.Add(new(clause.Field,
                 clause.Kind is AuthorSearchClauseKind.QuotedPhrase or AuthorSearchClauseKind.FieldPhrase,
-                [.. tokens.Select(static token => token.Term)]));
+                terms));
         }
         if (compiled.Count == 0)
         {

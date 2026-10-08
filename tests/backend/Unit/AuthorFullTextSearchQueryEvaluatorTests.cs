@@ -158,7 +158,7 @@ public sealed class AuthorFullTextSearchQueryEvaluatorTests
     }
 
     [Fact]
-    public async Task Revalidation_Rejects_Article_Changes_Even_Without_Generation_Advance()
+    public async Task Revalidation_Rejects_Article_Replacement_With_Current_Generation_Advance()
     {
         var source = new Source([new(1, AuthorSearchFieldKind.Title, "red")]);
         using AuthorFullTextSearchIndex index = await Build(source);
@@ -168,8 +168,8 @@ public sealed class AuthorFullTextSearchQueryEvaluatorTests
         source.Sequence = 2;
         source.Fields = [new(1, AuthorSearchFieldKind.Title, "blue")];
         await index.ApplyAsync(1, 2, AuthorSearchIndexLifecycleEvent.Edit);
-        Assert.Equal(1, index.RequireCurrentGeneration());
-        Assert.Equal("author_search_index_source_snapshot_stale",
+        Assert.Equal(2, index.RequireCurrentGeneration());
+        Assert.Equal("author_search_index_read_scope_or_generation_stale",
             (await Assert.ThrowsAsync<AuthorSearchContractException>(() => evaluator.RevalidateIndexAsync(query, result))).Message);
     }
 
