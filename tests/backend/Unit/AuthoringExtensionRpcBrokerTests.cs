@@ -4,9 +4,9 @@ using System.Runtime.InteropServices;
 using System.Security.Cryptography;
 using System.Text.Json;
 
-using Xunit;
-
 using FsusBlog.Server.Infrastructure.AuthoringExtensions;
+
+using Xunit;
 
 namespace FsusBlog.Server.Tests;
 
