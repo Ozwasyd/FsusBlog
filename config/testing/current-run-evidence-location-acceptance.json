@@ -1,16 +1,16 @@
 {
     "schema": "fsusblog.current-run-evidence-location-acceptance.v1",
     "sourceDigests": {
-        "config/testing/evidence-locator-registry.json": "sha256:0b1bba1f3bf253b8e49b535c88f9ab3ff3c43f371d9e0debf55be85b67e8d364",
-        "config/testing/evidence-location-migration-ledger.json": "sha256:f045cf9a96284d0aa8fa268ecc3f6ef79206497b1e345ba739352f82dc88f907",
+        "config/testing/evidence-locator-registry.json": "sha256:a865bc917f81ce1faba6440a12ef5028a775a887677faad38801cae8fa7cf239",
+        "config/testing/evidence-location-migration-ledger.json": "sha256:6f6f81391834ab73c160648a472a76a557d42dda6088ba49644cd68d4a10d1f1",
         "tools/test/evidence-location-scanner.mjs": "sha256:fba2fe9d1e0376cb55a26dbde9db25ff052319c3865ea640af99ac396adadadd",
         "tools/test/current-run-evidence-locator.mjs": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
         "tools/test/current-run-evidence-transport.mjs": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
-        "tools/test/generate-evidence-location-governance.mjs": "sha256:c584dbbdc89befefb386e052bc2f40ddbba085e2a40e7eae6534d35ef525781c"
+        "tools/test/generate-evidence-location-governance.mjs": "sha256:99f40ec565fe484ef1c36fd930eb0f7e0d5cbeed4eee3f1a588e3e68d44f65d7"
     },
-    "registryDigest": "sha256:4675927bb6e875636d8e93cc60799ae579e73f5cc065542608bbd353c6ed528f",
-    "ledgerDigest": "sha256:22ae6492c25c1b85d9bfbb84b8adfc34cec17149dc44f8dd78d865b941163337",
-    "scannerDigest": "sha256:bbc9c43d079a15b93acfc2a753461b8913a866d0bbb87363bc8747225cbe7db9",
+    "registryDigest": "sha256:5b0014edc8ed8c889b537f8be89efab31700648a3cec7920c70376681fd69aca",
+    "ledgerDigest": "sha256:bd46a51a99c54f3413d2ba5fb673b413935a8d4c13ddc6d8caa4b85e7e6b26f0",
+    "scannerDigest": "sha256:6a88270cdfa59246506112725a72e0132958ca99db6d987e0e68a53b55a64118",
     "locatorDigest": "sha256:4adddfe04b45a9f0323fca2a23318aa3b4d85e79f5d3aa0d2e00bb9ec0fffda3",
     "transportDigest": "sha256:8e03601c519d3ace8ce405de7e0d5b4f877dc6cf6dcb6d3b287918db406f79cc",
     "consumerInventory": [
@@ -218,6 +218,13 @@
             "publicationMode": "hooked"
         },
         {
+            "consumerId": "evidence-consumer.operations.archive-compiled-artifacts",
+            "authorityId": "evidence-consumer.operations.archive-compiled-artifacts.current-run",
+            "producerId": "evidence-consumer.operations.archive-compiled-artifacts.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
             "consumerId": "evidence-consumer.operations.check-evidence-metrics",
             "authorityId": "evidence-consumer.operations.check-evidence-metrics.current-run",
             "producerId": "evidence-consumer.operations.check-evidence-metrics.producer",
@@ -284,6 +291,13 @@
             "consumerId": "evidence-consumer.release.clean-attempt-evidence-source",
             "authorityId": "evidence-consumer.release.clean-attempt-evidence-source.current-run",
             "producerId": "evidence-consumer.release.clean-attempt-evidence-source.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.release.clean-attempt-evidence-transport",
+            "authorityId": "evidence-consumer.release.clean-attempt-evidence-transport.current-run",
+            "producerId": "evidence-consumer.release.clean-attempt-evidence-transport.producer",
             "locatorMode": "explicit-run-path",
             "publicationMode": "hooked"
         },
@@ -400,6 +414,20 @@
             "publicationMode": "hooked"
         },
         {
+            "consumerId": "evidence-consumer.test-fixtures.receipt.private-io",
+            "authorityId": "evidence-consumer.test-fixtures.receipt.private-io.current-run",
+            "producerId": "evidence-consumer.test-fixtures.receipt.private-io.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-fixtures.receipt.projection",
+            "authorityId": "evidence-consumer.test-fixtures.receipt.projection.current-run",
+            "producerId": "evidence-consumer.test-fixtures.receipt.projection.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
             "consumerId": "evidence-consumer.test-matrix.artifact-digest-table",
             "authorityId": "evidence-consumer.test-matrix.artifact-digest-table.current-run",
             "producerId": "evidence-consumer.test-matrix.artifact-digest-table.producer",
@@ -438,6 +466,13 @@
             "consumerId": "evidence-consumer.test-matrix.produce-behavior-test-evidence",
             "authorityId": "evidence-consumer.test-matrix.produce-behavior-test-evidence.current-run",
             "producerId": "evidence-consumer.test-matrix.produce-behavior-test-evidence.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.test-matrix.public-shell-locale-evidence",
+            "authorityId": "evidence-consumer.test-matrix.public-shell-locale-evidence.current-run",
+            "producerId": "evidence-consumer.test-matrix.public-shell-locale-evidence.producer",
             "locatorMode": "explicit-run-path",
             "publicationMode": "hooked"
         },
@@ -540,6 +575,13 @@
             "publicationMode": "hooked"
         },
         {
+            "consumerId": "evidence-consumer.test.native-test-receipt",
+            "authorityId": "evidence-consumer.test.native-test-receipt.current-run",
+            "producerId": "evidence-consumer.test.native-test-receipt.producer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
             "consumerId": "evidence-consumer.test.produce-integrity-proof-evidence",
             "authorityId": "evidence-consumer.test.produce-integrity-proof-evidence.current-run",
             "producerId": "evidence-consumer.test.produce-integrity-proof-evidence.producer",
@@ -636,10 +678,164 @@
             "producerId": "release-final-domain-evidence-parent",
             "locatorMode": "explicit-run-path",
             "publicationMode": "parent"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.behavior-document-consistency-final",
+            "authorityId": "current-run.behavior-document-consistency-final",
+            "producerId": "behavior-document-consistency-final",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.behavior-evidence-post-runtime",
+            "authorityId": "current-run.behavior-evidence-post-runtime",
+            "producerId": "behavior-evidence-post-runtime",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.behavior-evidence-pre-runtime",
+            "authorityId": "current-run.behavior-evidence-pre-runtime",
+            "producerId": "behavior-evidence-pre-runtime",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.browser-contract",
+            "authorityId": "current-run.browser-contract",
+            "producerId": "browser-contract",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.coverage-gate-strict",
+            "authorityId": "current-run.coverage-gate-strict",
+            "producerId": "coverage-gate-strict",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.native-fuzz-sanitizer",
+            "authorityId": "current-run.native-fuzz-sanitizer",
+            "producerId": "native-fuzz-sanitizer",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.perception-character-v3-release-gate",
+            "authorityId": "current-run.perception-character-v3-release-gate",
+            "producerId": "perception-character-v3-release-gate",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.production-correctness",
+            "authorityId": "current-run.production-correctness",
+            "producerId": "production-correctness",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.production-xss-release",
+            "authorityId": "current-run.production-xss-release",
+            "producerId": "production-xss-release",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-admin-console",
+            "authorityId": "release-domain.projection.release-admin-console",
+            "producerId": "frontend-unit-shard",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-aot-generation",
+            "authorityId": "release-domain.projection.release-aot-generation",
+            "producerId": "release-evidence",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-auth-flow",
+            "authorityId": "release-domain.projection.release-auth-flow",
+            "producerId": "frontend-unit-shard",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-authoring-flow",
+            "authorityId": "release-domain.projection.release-authoring-flow",
+            "producerId": "test-quality-lint",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-closeout",
+            "authorityId": "current-run.release-closeout",
+            "producerId": "release-closeout",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-error-boundary",
+            "authorityId": "release-domain.projection.release-error-boundary",
+            "producerId": "test-quality-lint",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-final-flaky-governance",
+            "authorityId": "current-run.release-final-flaky-governance",
+            "producerId": "release-final-flaky-governance",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-final-shard-completeness",
+            "authorityId": "current-run.release-final-shard-completeness",
+            "producerId": "release-final-shard-completeness",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-private-preview",
+            "authorityId": "release-domain.projection.release-private-preview",
+            "producerId": "test-quality-lint",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-reliability-fresh",
+            "authorityId": "release-reliability.qualified-receipt",
+            "producerId": "release-reliability-fresh",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.release-static-asset-digest-coherence",
+            "authorityId": "release-domain.projection.release-static-asset-digest-coherence",
+            "producerId": "release-evidence",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.runtime-order-equivalence",
+            "authorityId": "current-run.runtime-order-equivalence",
+            "producerId": "runtime-order-equivalence",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
+        },
+        {
+            "consumerId": "evidence-consumer.required-evidence.test-quality-lint",
+            "authorityId": "current-run.test-quality-lint",
+            "producerId": "test-quality-lint",
+            "locatorMode": "explicit-run-path",
+            "publicationMode": "hooked"
         }
     ],
-    "consumerCount": 89,
-    "findingCount": 504,
+    "consumerCount": 117,
+    "findingCount": 627,
     "warnings": [],
-    "contentDigest": "sha256:414af4eab5c824697e75a5c8716fa19c15be47dbc1ec258f04873bcc8529e86f"
+    "contentDigest": "sha256:b690d746b7fc9471c59ee7cefa77c37ca88f51bf3e0b436e41a4720523ff1390"
 }

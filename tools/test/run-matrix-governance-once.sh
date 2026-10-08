@@ -9,6 +9,9 @@ DOTNET_HOST_ENV_ARGS=()
 if [[ "$CONSUMER_ID" == matrix-governance || "$CONSUMER_ID" == validate-matrix ]]; then
     DOTNET_HOST_ENV_ARGS=(--env FSUSBLOG_CONTENT_FIELD_DOTNET)
 fi
+if [[ "$CONSUMER_ID" == validate-matrix ]]; then
+    DOTNET_HOST_ENV_ARGS+=(--env DOTNET_ROOT)
+fi
 
 exec "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/run-deterministic-command.mjs" \
     --key matrix-governance \

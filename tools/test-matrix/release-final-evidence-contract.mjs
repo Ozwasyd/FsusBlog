@@ -5,6 +5,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { createRequiredEvidenceDependencies, requiredEvidencePlanDigest, validateRequiredEvidenceMatrix } from './required-evidence-dependencies.mjs';
+
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const canonicalFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-inputs.json');
 const contractFile = path.join(root, 'tests/fixtures/test-matrix/release-final-evidence-contract.json');
@@ -188,7 +190,8 @@ export function validateReleaseFinalEvidenceBinding(matrix, canonical = loadCano
 export function buildReleaseFinalizerPlan(
     matrix,
     target = 'release-final',
-    canonical = loadCanonicalReleaseFinalEvidenceInputs()
+    canonical = loadCanonicalReleaseFinalEvidenceInputs(),
+    { identity, ledger } = {}
 )
 {
     const errors = validateCanonicalReleaseFinalEvidenceInputs(canonical)
@@ -279,7 +282,21 @@ export function buildReleaseFinalizerPlan(
     }
     errors.push(...validateReleaseFinalEvidenceBinding(matrix, canonical));
 
-    return {
+    let requiredEvidenceDependencies = null;
+    try
+    {
+        errors.push(...validateRequiredEvidenceMatrix(matrix, ledger));
+        if (errors.length === 0)
+        {
+            requiredEvidenceDependencies = createRequiredEvidenceDependencies(matrix, identity, ledger);
+        }
+    }
+    catch (error)
+    {
+        errors.push(error.message);
+    }
+
+    const plan = {
         schema: 'fsusblog.release-finalizer-plan.v1',
         target,
         authorityId: target,
@@ -290,8 +307,10 @@ export function buildReleaseFinalizerPlan(
         command: releaseFinalizerCommand,
         artifactOnly: true,
         executesTestCommands: false,
+        requiredEvidenceDependencies,
         errors
     };
+    return { ...plan, contentDigest: requiredEvidencePlanDigest(plan) };
 }
 
 function main()

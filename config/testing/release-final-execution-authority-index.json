@@ -542,6 +542,30 @@
                 "../../config/development/native-tooling-style-baseline.json",
                 "../../.markdownlint-cli2.jsonc"
             ]
+        },
+        {
+            "owner": "tools/release/required-evidence-verifier-registry.mjs",
+            "sourceDigest": "sha256:29a67fa953c3d835c5bd5ac894a7efca7b0c801255be739cb322598eeae0823f",
+            "expressionDigest": "sha256:7c8fe398cd82d5ea80560281e00f6154b09b15615233da0a8b56ac03f861e51b",
+            "kind": "runtime-module-path",
+            "dependencies": [
+                "tools/ci/check-flaky-registry.mjs",
+                "tools/ci/check-job-summaries.mjs",
+                "tools/coverage/check-release-final-coverage.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/operations/check-release-evidence-manifest.mjs",
+                "tools/release/browser-contract-receipt-contract.mjs",
+                "tools/release/test-evidence-receipts.mjs",
+                "tools/security/production-xss-evidence.mjs",
+                "tools/security/run-perception-character-v3-release-gate.mjs",
+                "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+                "tools/test-matrix/behavior-evidence-pre-runtime.mjs",
+                "tools/test-matrix/release-domain-projection-receipt.mjs",
+                "tools/test-quality/artifact.mjs",
+                "tools/test-runtime/order-equivalence.mjs",
+                "tools/test/native-test-receipt.mjs",
+                "tools/test/verify-release-reliability-receipt.mjs"
+            ]
         }
     ],
     "runtimeDynamicShellSources": [

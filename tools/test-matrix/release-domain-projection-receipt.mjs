@@ -231,3 +231,54 @@ export function collectReleaseFinalDomainProjectionReceipts({
         };
     });
 }
+
+
+export const requiredEvidenceVerifier = Object.freeze({
+    version: 1,
+    successStatuses: Object.freeze(['success']),
+    describe: async (receipt) => (await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url))).describeOwnerReceipt(receipt, {
+        identity: { namespace: 'namespace', runId: 'runId', sourceCommit: 'sourceState.commit',
+            worktreeFingerprint: 'sourceState.worktreeFingerprint', buildIdentity: 'buildIdentity', policyIdentity: 'policyIdentity' },
+        status: 'status', contentDigest: 'contentDigest'
+    }),
+    async verify({ receipt, entry, context, domainInputs, repositoryRoot })
+    {
+        const { verifiedOwnerResult } = await import(new URL('../release/required-evidence-owner-contract.mjs', import.meta.url));
+        const { readOwnerEvidenceReference, readOwnerEvidenceFile } = await import(new URL('../release/required-evidence-owner-input.mjs', import.meta.url));
+        const { projectEvidence } = await import('./evidence-projection.mjs');
+        const { validateDomainReceiptAgainstReport } = await import('./release-domain-report.mjs');
+        const catalog = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
+            'tests/fixtures/evidence-projection', `${entry.authorityId}.json`), 'utf8'));
+        const ledger = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
+            'config/testing/release-domain-assertion-dispositions.json'), 'utf8'));
+        validateReleaseDomainProjectionReceipt({ receipt, catalog, ledger,
+            sourceState: { commit: context.sourceCommit, worktreeFingerprint: context.worktreeFingerprint },
+            runId: context.schedulerRunId, namespace: receipt.namespace,
+            policyIdentity: releasePolicyIdentity(path.join(repositoryRoot,
+                'config/testing/release-domain-assertion-dispositions.json')) });
+        for (const artifact of receipt.artifacts)
+        {
+            readOwnerEvidenceFile({ path: artifact.path, digest: artifact.digest }, { repositoryRoot, context });
+        }
+        const producer = readOwnerEvidenceReference(domainInputs?.producer, { repositoryRoot, context });
+        if (domainInputs.producer.path !== receipt.producer.receipt
+            || producer.receipt.contentDigest !== receipt.producer.receiptContentDigest)
+        {
+            throw new Error('projection explicit original producer reference mismatch');
+        }
+        const report = readOwnerEvidenceReference(receipt.producer.assertionReport, { repositoryRoot, context });
+        const inputs = { catalog, producerReceipt: producer.receipt,
+            producerReceiptPath: domainInputs.producer.path,
+            sourceState: { commit: context.sourceCommit, worktreeFingerprint: context.worktreeFingerprint },
+            runId: context.schedulerRunId, namespace: receipt.namespace, buildIdentity: receipt.buildIdentity,
+            policyIdentity: receipt.policyIdentity, repositoryRoot };
+        validateDomainReceiptAgainstReport({ ...inputs, ledger, assertionReport: report.receipt });
+        const replay = projectEvidence({ ...inputs, generatedAt: receipt.generatedAt });
+        if (replay.contentDigest !== receipt.contentDigest)
+        {
+            throw new Error('original producer projection replay mismatch');
+        }
+        return verifiedOwnerResult({ schema: receipt.schema, contentDigest: receipt.contentDigest,
+            producerDigest: producer.digest, assertionReportDigest: report.digest });
+    }
+});

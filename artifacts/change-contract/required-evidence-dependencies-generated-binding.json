@@ -1,0 +1,44 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test-matrix/required-evidence-dependencies.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/run-test-matrix.mjs",
+        "tools/ci/check-job-summaries.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test/lanes/static-governance.sh",
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "tests/matrix.yml",
+        "tools/test-matrix/execution-dependency-contract.mjs",
+        "config/testing/release-reliability-scenario-catalog.json",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "config/testing/replay-qualification-producers.json",
+        "tools/test/attempt-runner.mjs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-context-contract.mjs",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/testing/generate-test-execution-envelope-applicability.mjs",
+        "config/testing/producer-execution-class-contract.json",
+        "config/schemas/test-execution-envelope-applicability.schema.json",
+        "tools/test/run-matrix-governance-once.sh",
+        "tests/tools/execution-envelope-policy.test.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "3751c87244176b62cb37defd6e1a8ce317e230842ae638e8a697bc2ff2336f0f"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "4c3a815cd7821da5c173aaff41d9e29c0b208e059e505c65d623b258f0ac4889"
+        },
+        {
+            "path": "config/testing/test-execution-envelope-applicability.json",
+            "sha256": "281b08ee27e9866f2514499ff78113e3da588a1644ddaab95a984ab22ccfecd7"
+        }
+    ]
+}

@@ -30,9 +30,24 @@ import {
 } from './release-final-diagnostics.mjs';
 import { createReleaseFinalDomainEvidence } from './release-final-domain-evidence.mjs';
 import { validateReleaseManifest } from './release-manifest.mjs';
-import { writeJsonAtomic } from './test-evidence-receipts.mjs';
+import {
+    createReleaseFinalVerifiedAuthorityBinding,
+    verifyReleaseFinalVerifiedAuthorityBinding,
+    writeJsonAtomic
+} from './test-evidence-receipts.mjs';
 import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
+
+// Shared local/CI source-stage entry. Production publication still needs the
+// canonical scheduler CAS/commit reader; an in-memory verification result
+// cannot acquire release qualification or replace the existing authority.
+export async function consumeReleaseFinalVerifiedBindings(options)
+{
+    const binding = await createReleaseFinalVerifiedAuthorityBinding(options);
+    return verifyReleaseFinalVerifiedAuthorityBinding(binding, options);
+}
+
+export { assessReleaseFinalTerminalPrerequisites } from './test-evidence-receipts.mjs';
 
 function artifactPath(manifestFile, artifact)
 {

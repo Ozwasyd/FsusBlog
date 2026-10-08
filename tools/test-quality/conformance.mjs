@@ -382,3 +382,43 @@ export function runConformanceCorpus(repositoryRoot)
         rmSync(fixture.root, { recursive: true, force: true });
     }
 }
+
+// Read-only replay of the conformance result's owner rules. Physical adapter
+// execution belongs to the producer; release binding never reruns it.
+export function verifyConformanceArtifact(repositoryRoot, artifact)
+{
+    const source = readFileSync(path.join(repositoryRoot, corpusRoot, 'manifest.json'), 'utf8');
+    const manifest = JSON.parse(source);
+    if (artifact?.schema !== CONFORMANCE_SCHEMA || artifact.contentDigest !== contentDigest(artifact)
+        || artifact.manifestDigest !== digest(source) || artifact.corpusVersion !== manifest.version)
+    {
+        throw new Error('conformance schema/digest/current corpus mismatch');
+    }
+    assertCorpusResults(artifact.cases);
+    if (!Array.isArray(artifact.cases) || artifact.cases.length !== manifest.fixtures.length)
+    {
+        throw new Error('conformance case set mismatch');
+    }
+    for (const expected of manifest.fixtures)
+    {
+        const matches = artifact.cases.filter((item) => item.displayName === expected.displayName);
+        if (matches.length !== 1)
+        {
+            throw new Error('missing/duplicate conformance fixture');
+        }
+        const actual = matches[0];
+        if (actual.expectedOutcome !== expected.expectedOutcome
+            || actual.expectedLine !== expected.expectedLine
+            || (expected.testId && actual.expectedTestId !== expected.testId)
+            || JSON.stringify(actual.expectedRules) !== JSON.stringify(expected.expectedRules.toSorted()))
+        {
+            throw new Error('conformance expectations differ from the canonical corpus');
+        }
+    }
+    const mutations = mutationSensitivity(artifact.cases, manifest.mutations);
+    if (JSON.stringify(mutations) !== JSON.stringify(artifact.killedMutations))
+    {
+        throw new Error('conformance mutation replay mismatch');
+    }
+    return artifact;
+}
