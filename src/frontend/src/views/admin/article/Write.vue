@@ -491,6 +491,7 @@
                     <template #versions>
                         <ArticleRevisionPanel
                             :is-edit="isEdit"
+                            :active="activeInspector === 'versions'"
                             :revisions="articleRevisions"
                             :selected-revision="selectedRevision"
                             :selected-label="selectedRevisionLabel"
@@ -498,6 +499,11 @@
                             :rollbacking="revisionRollbacking"
                             :status-text="revisionStatusText"
                             :compare-text="revisionCompareText"
+                            :current-revision-id="currentRevisionId"
+                            :current-draft-key="draftKey"
+                            :current-draft-revision="serverDraftRevision"
+                            :current-content="articleForm.content"
+                            :context-identity="authoringDocumentContext.contextDigest"
                             @refresh="() => refreshArticleRevisions()"
                             @select-revision="selectArticleRevision"
                             @rollback="rollbackSelectedRevision"
@@ -823,6 +829,9 @@ const {
     revisionRollbacking,
     revisionStatusText,
     revisionCompareText,
+    draftKey,
+    serverDraftRevision,
+    authoringDocumentContext,
     privatePreview,
     privatePreviewLoading,
     privatePreviewStatusText,

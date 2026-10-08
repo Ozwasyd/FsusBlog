@@ -25,7 +25,7 @@ const request: ArticleRevisionCompareRequest = {
 
 function response(): ArticleRevisionCompareResponse
 {
-    const reference = (sourceKind: 1 | 2, revisionId: string) => ({ sourceKind, revisionId, sourceIdentity: `revision:${revisionId}`,
+    const reference = (sourceKind: 1 | 2, revisionId: string) => ({ sourceKind, revisionId, sourceIdentity: `revision:${revisionId}:1`,
         revisionNo: 1, serverRevision: null, documentEpoch: null, sourceDigest: digest, packageDigest: digest, sourceByteLength: 0 });
     return {
         planReceipt: {
@@ -74,7 +74,10 @@ describe('article revision compare transport', () =>
         (value: ArticleRevisionCompareResponse) => { value.planReceipt.cancellationIdentity = 'old-action'; },
         (value: ArticleRevisionCompareResponse) => { value.sourceDiff.receipt.planDigest = 'b'.repeat(64); },
         (value: ArticleRevisionCompareResponse) => { value.planReceipt.comparePackageReference.revisionId = '5'; },
+        (value: ArticleRevisionCompareResponse) => { value.planReceipt.comparePackageReference.sourceIdentity = 'revision:5:1'; },
         (value: ArticleRevisionCompareResponse) => { value.sourceDiff.receipt.chunkCount = 1; },
+        (value: ArticleRevisionCompareResponse) => { value.sourceDiff.receipt.budgetDigest = 'invalid'; },
+        (value: ArticleRevisionCompareResponse) => { value.sourceDiff.isSuccess = false; },
         (value: ArticleRevisionCompareResponse) => { value.sourceDiff.attemptReceipt.semanticContentDigest = 'b'.repeat(64); },
         (value: ArticleRevisionCompareResponse) => { value.planReceipt.planDigest = ''; }
     ])('rejects stale, partial or mismatched service envelopes', async (mutate) =>
@@ -83,6 +86,54 @@ describe('article revision compare transport', () =>
         mutate(value);
         binary.mockResolvedValue(value);
         await expect(compareArticleRevisionSources(42, request)).rejects.toThrow('ARTICLE_REVISION_COMPARE_RECEIPT_INVALID');
+    });
+
+    it('keeps the original planner and source engine budget digest domains separate', async () =>
+    {
+        const value = response();
+        value.sourceDiff.receipt.budgetDigest = 'b'.repeat(64);
+        binary.mockResolvedValue(value);
+        await expect(compareArticleRevisionSources(42, request)).resolves.toBe(value);
+        expect(value.planReceipt.budgetDigest).not.toBe(value.sourceDiff.receipt.budgetDigest);
+    });
+
+    it('joins the exact draft key in the original source identity including embedded colons', async () =>
+    {
+        const draftRequest = structuredClone(request);
+        draftRequest.base = { kind: 0, draftKey: 'draft:42', expectedServerRevision: '4', documentEpoch: 'server-epoch' };
+        const value = response();
+        value.planReceipt.basePackageReference = { ...value.planReceipt.basePackageReference, sourceKind: 0, revisionId: null,
+            revisionNo: null, serverRevision: '4', documentEpoch: 'server-epoch', sourceIdentity: `draft:1:draft:42:4:${digest}` };
+        binary.mockResolvedValue(value);
+        await expect(compareArticleRevisionSources(42, draftRequest)).resolves.toBe(value);
+        value.planReceipt.basePackageReference.sourceIdentity = `draft:1:other:42:4:${digest}`;
+        await expect(compareArticleRevisionSources(42, draftRequest)).rejects.toThrow('ARTICLE_REVISION_COMPARE_RECEIPT_INVALID');
+    });
+
+    it('preserves exact metadata int64/ticks and explicitly accepts partial coverage', async () =>
+    {
+        const value = response();
+        const cell = { kind: 6 as const, text: null, number: '638961048000000001', boolean: null, ids: [] };
+        value.metadataDiff = { receipt: { engineVersion: 'revision-metadata-diff-v1', projectionVersion: 'authoring-snapshot-typed-projection-v1',
+            registryDigest: digest, status: 1, coverage: 2, reason: 'metadata_diff_missing_authority', planDigest: digest,
+            basePackageDigest: digest, comparePackageDigest: digest, fieldCount: 1, missingAuthorities: ['historical_lifecycle_missing_authority'], contentDigest: digest },
+        fields: [{ fieldId: 'responsibility.created-at', beforePackageDigest: digest, afterPackageDigest: digest, authority: 'responsibility-snapshot',
+            normalization: 'utc-ticks', displayFormat: 'utc-instant', sensitive: false, before: cell, after: { ...cell, number: '638961048000000002' }, change: 3, addedIds: [], removedIds: [] }],
+        timing: { elapsedTicks: '9007199254740993', frequency: '1000000000' }, isSuccess: false, isReviewable: true };
+        const metadataRequest = { ...request, options: { ...request.options, metadataFieldIds: ['title'] } };
+        binary.mockResolvedValue(value);
+        const actual = await compareArticleRevisionSources(42, metadataRequest);
+        expect(actual.metadataDiff?.fields[0].before.number).toBe('638961048000000001');
+        expect(actual.metadataDiff?.isSuccess).toBe(false);
+        value.metadataDiff.fields[0].before.number = 638961048000000001 as unknown as string;
+        await expect(compareArticleRevisionSources(42, metadataRequest)).rejects.toThrow('ARTICLE_REVISION_COMPARE_RECEIPT_INVALID');
+    });
+
+    it('rejects absent requested metadata rather than treating it as unchanged', async () =>
+    {
+        const metadataRequest = { ...request, options: { ...request.options, metadataFieldIds: ['title'] } };
+        binary.mockResolvedValue(response());
+        await expect(compareArticleRevisionSources(42, metadataRequest)).rejects.toThrow('ARTICLE_REVISION_COMPARE_RECEIPT_INVALID');
     });
 
     it('propagates transport denial and cancellation without partial success', async () =>

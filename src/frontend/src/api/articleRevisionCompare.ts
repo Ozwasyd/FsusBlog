@@ -144,7 +144,50 @@ export interface RevisionSourceDiffReceipt {
     contentDigest: string;
 }
 
+export interface ArticleRevisionMetadataDiffValue {
+    kind: 0 | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8;
+    text: string | null;
+    number: string | null;
+    boolean: boolean | null;
+    ids: number[];
+}
+
+export interface ArticleRevisionMetadataDiffResponse {
+    receipt: {
+        engineVersion: string;
+        projectionVersion: string;
+        registryDigest: string;
+        status: 0 | 1;
+        coverage: 1 | 2;
+        reason: string;
+        planDigest: string;
+        basePackageDigest: string;
+        comparePackageDigest: string;
+        fieldCount: number;
+        missingAuthorities: string[];
+        contentDigest: string;
+    };
+    fields: {
+        fieldId: string;
+        beforePackageDigest: string;
+        afterPackageDigest: string;
+        authority: string;
+        normalization: string;
+        displayFormat: string;
+        sensitive: boolean;
+        before: ArticleRevisionMetadataDiffValue;
+        after: ArticleRevisionMetadataDiffValue;
+        change: 0 | 1 | 2 | 3 | 4 | 5 | 6;
+        addedIds: number[];
+        removedIds: number[];
+    }[];
+    timing: { elapsedTicks: string; frequency: string; };
+    isSuccess: boolean;
+    isReviewable: boolean;
+}
+
 export interface ArticleRevisionCompareResponse {
+    metadataDiff?: ArticleRevisionMetadataDiffResponse | null;
     planReceipt: ArticleRevisionComparePlanReceipt;
     sourceDiff: {
         status: 0;
@@ -175,6 +218,49 @@ export interface ArticleRevisionCompareResponse {
     };
 }
 
+function isBoundMetadata(value: ArticleRevisionCompareResponse, requested: boolean): boolean
+{
+    const metadata = value.metadataDiff;
+    if (!metadata)
+    {
+        return !requested;
+    }
+    const receipt = metadata.receipt;
+    const long = (number: unknown, positive = false): boolean =>
+    {
+        if (typeof number !== 'string' || !/^(?:0|-?[1-9]\d*)$/u.test(number))
+        {
+            return false;
+        }
+        const exact = BigInt(number);
+        return exact >= (positive ? 1n : -9223372036854775808n) && exact <= 9223372036854775807n;
+    };
+    const typedValue = (cell: ArticleRevisionMetadataDiffValue): boolean => !!cell && Number.isInteger(cell.kind)
+        && cell.kind >= 0 && cell.kind <= 8 && Array.isArray(cell.ids)
+        && cell.ids.every(id => Number.isSafeInteger(id) && id > 0)
+        && (cell.number === null || long(cell.number))
+        && (![4, 6, 7].includes(cell.kind) || long(cell.number))
+        && (cell.kind !== 3 || typeof cell.text === 'string')
+        && (cell.kind !== 5 || typeof cell.boolean === 'boolean');
+    return !!receipt && metadata.isReviewable === true
+        && [0, 1].includes(receipt.status) && receipt.coverage === (receipt.status === 0 ? 1 : 2)
+        && metadata.isSuccess === (receipt.status === 0)
+        && receipt.planDigest === value.planReceipt.planDigest
+        && receipt.basePackageDigest === value.planReceipt.basePackageDigest
+        && receipt.comparePackageDigest === value.planReceipt.comparePackageDigest
+        && /^[a-f0-9]{64}$/u.test(receipt.contentDigest) && /^[a-f0-9]{64}$/u.test(receipt.registryDigest)
+        && Array.isArray(metadata.fields) && metadata.fields.length === receipt.fieldCount
+        && new Set(metadata.fields.map(field => field.fieldId)).size === metadata.fields.length
+        && Array.isArray(receipt.missingAuthorities) && (receipt.status !== 0 || receipt.missingAuthorities.length === 0)
+        && long(metadata.timing?.elapsedTicks) && BigInt(metadata.timing.elapsedTicks) >= 0n
+        && long(metadata.timing?.frequency, true)
+        && metadata.fields.every(field => typeof field.fieldId === 'string' && field.fieldId.length > 0
+            && field.beforePackageDigest === receipt.basePackageDigest && field.afterPackageDigest === receipt.comparePackageDigest
+            && typeof field.sensitive === 'boolean' && typeof field.authority === 'string'
+            && Number.isInteger(field.change) && field.change >= 0 && field.change <= 6
+            && typedValue(field.before) && typedValue(field.after));
+}
+
 // These are envelope joins, never a second source/metadata diff implementation.
 function isBoundResponse(value: ArticleRevisionCompareResponse, request: ArticleRevisionCompareRequest): boolean
 {
@@ -183,24 +269,48 @@ function isBoundResponse(value: ArticleRevisionCompareResponse, request: Article
     const receipt = diff?.receipt;
     const digest = (input: unknown): input is string => typeof input === 'string' && /^[a-f0-9]{64}$/u.test(input);
     const matchesSelector = (reference: ArticleRevisionComparePackageReference | undefined, selector: ArticleRevisionCompareSelector): boolean =>
-        !!reference && reference.sourceKind === selector.kind
-            && (selector.kind === 0
-                ? reference.serverRevision === selector.expectedServerRevision && reference.documentEpoch === selector.documentEpoch
-                : reference.revisionId === selector.revisionId)
-            && (!selector.expectedSourceDigest || reference.sourceDigest === selector.expectedSourceDigest);
-    return !!plan && !!diff && !!receipt && plan.status === 0 && diff.status === 0
+    {
+        if (reference?.sourceKind !== selector.kind || typeof reference.sourceIdentity !== 'string'
+            || reference.sourceIdentity.length > 256)
+        {
+            return false;
+        }
+        if (selector.kind === 0)
+        {
+            // Original package reader: draft:{principal}:{exact key}:{revision}:{context digest}.
+            // The client joins the selected key and coordinate; it never supplies a principal.
+            const identity = /^draft:([1-9]\d*):([\s\S]*):([1-9]\d*):([a-f0-9]{64})$/u.exec(reference.sourceIdentity);
+            if (!identity || identity[1].length > 19 || BigInt(identity[1]) > 9223372036854775807n
+                || identity[2] !== selector.draftKey || identity[3] !== selector.expectedServerRevision
+                || reference.revisionId !== null || reference.revisionNo !== null
+                || reference.serverRevision !== selector.expectedServerRevision || reference.documentEpoch !== selector.documentEpoch)
+            {
+                return false;
+            }
+        }
+        else if (reference.revisionId !== selector.revisionId || !Number.isSafeInteger(reference.revisionNo)
+            || reference.revisionNo! <= 0 || reference.revisionNo! > 2147483647
+            || reference.serverRevision !== null || reference.documentEpoch !== null
+            || reference.sourceIdentity !== `revision:${reference.revisionId}:${reference.revisionNo}`)
+        {
+            return false;
+        }
+        return !selector.expectedSourceDigest || reference.sourceDigest === selector.expectedSourceDigest;
+    };
+    return !!plan && !!diff && !!receipt && plan.status === 0 && diff.status === 0 && diff.isSuccess === true
         && receipt.status === 0 && diff.attemptReceipt?.status === 0
         && [plan.planDigest, plan.budgetDigest, plan.admissionDigest, plan.contentDigest,
             plan.basePackageDigest, plan.comparePackageDigest, plan.permissionScopeDigest,
             plan.metadataSchemaDigest, plan.optionsDigest, receipt.baseSourceDigest,
-            receipt.compareSourceDigest, receipt.contentDigest, diff.attemptReceipt.contentDigest].every(digest)
+            receipt.compareSourceDigest, receipt.budgetDigest, receipt.contentDigest, diff.attemptReceipt.contentDigest].every(digest)
         && matchesSelector(plan.basePackageReference, request.base)
         && matchesSelector(plan.comparePackageReference, request.compare)
         && plan.basePackageReference.packageDigest === plan.basePackageDigest
         && plan.comparePackageReference.packageDigest === plan.comparePackageDigest
         && plan.cancellationIdentity === request.cancellationIdentity
         && plan.planDigest === receipt.planDigest
-        && plan.budgetDigest === receipt.budgetDigest
+        // The original source engine hashes budgets plus source options; the
+        // planner hashes budgets alone. Their domain digests must stay distinct.
         && plan.admissionDigest === receipt.admissionDigest
         && plan.basePackageReference?.sourceDigest === receipt.baseSourceDigest
         && plan.comparePackageReference?.sourceDigest === receipt.compareSourceDigest
@@ -222,7 +332,7 @@ export async function compareArticleRevisionSources(
         `/articles/${articleId}/revisions/compare`, FrameType.ArticleRevisionCompareResponse,
         config, { method: 'POST', requestFrame: FrameType.ArticleRevisionCompareRequest, request });
     config?.signal?.throwIfAborted();
-    if (!isBoundResponse(response, request))
+    if (!isBoundResponse(response, request) || !isBoundMetadata(response, request.options.metadataFieldIds.length > 0))
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'ARTICLE_REVISION_COMPARE_RECEIPT_INVALID');
     }
