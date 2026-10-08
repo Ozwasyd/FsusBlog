@@ -89,6 +89,14 @@
             "exitCode": 0,
             "status": "blocked",
             "reason": "No independent review submitted"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs validate",
+            "cwd": "/tmp/fsusblog-3593/trusted-base",
+            "testedCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+            "exitCode": 1,
+            "status": "failed",
+            "reason": "Exact-master replay returns the same parser identity and authority closure mismatch as candidate"
         }
     ],
     "capabilities": {
@@ -151,6 +159,10 @@
         {
             "path": "artifacts/style/suite-convergence-validation/retention-gate.log",
             "sha256": "40b9d160684375ac2c53f37230e329297732521a854df80f486cfa441b05d1e9"
+        },
+        {
+            "path": "artifacts/style/suite-convergence-validation/base-matrix-validate.log",
+            "sha256": "33f2089ae1f5f86634ceab232141cd64bc93bc3098dd26b355b3bfdcba1e8b1a"
         }
     ]
 }
