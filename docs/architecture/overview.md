@@ -60,6 +60,49 @@ FsusBlog uses layered cache behavior:
 
 Cache invalidation is part of the application contract. Article, taxonomy, public shell, and admin-side mutations must invalidate the matching public and internal caches instead of relying on stale TTL behavior alone.
 
+Article source/render positioning has one command owner in
+`services/authoring/articleAnchorContext.ts`. It consumes FsusUI public semantic
+maps and committed transaction position maps, with the existing document context
+as its identity and revision authority. Snapshots and receipts bind source ranges,
+semantic nodes, affinity, direction, viewport offset, surface/tool identity, and
+user intent. Restore orders exact, rebased, semantic-neighbor, then explicitly
+approximate percentage outcomes. A revision transition without a contiguous
+public transaction chain fails closed.
+
+Manual wheel, trackpad, touch, drag, or selection pauses automatic positioning.
+Input and explicit navigation resume immediately; idle resumes after 1200 ms.
+Optional synchronization defaults off, follows the user-selected pane, and ignores
+programmatic generations and events within 16 ms. Commands clamp viewport offsets
+to the current viewport height and use instant positioning for reduced motion.
+Surface/tool consumers execute these commands; the adapter owns no DOM, parser,
+render cache, preference persistence, or product entry point.
+
+The attachment input boundary in `services/authoring/articleAttachmentContext.ts`
+consumes the public FsusUI picker capture and clipboard priority policy. Its
+created-stage handles seal file metadata, ordered public item identity, provider
+version, the shared anchor context and the canonical task envelope; runtime
+signals cancel on document/source changes or disposal. Pending insertion plans
+come from FsusUI and carry the current expected revision and document identity.
+Created handles are bounded to 64 and never execute upload IO.
+
+Created-stage handles are not provider completion admission. Insertion cancels
+the created lease and establishes a new anchored provider request. The adapter
+subscribes to the canonical document owner, consumes public transaction maps,
+and renews context-bound leases while preserving each independent provider
+signal. Missing maps, partial deletion, removed nodes and document switches
+reject late completion; undo/redo cannot revive a cancelled request. Resolve,
+remove and replace use public FsusUI plans; retry creates a fresh request and
+signal. Closed lifecycle receipts retain predecessor and transaction identities,
+never file bytes or upload tokens.
+
+`useAdminArticleWrite.authoringAttachmentRuntime` is the controlled entry on the
+existing document binding. It commits accepted public transaction revisions before
+the later model-update event, creates semantic bindings through the public anchor
+map factory, and cancels requests when the bound editor is released. This data
+boundary does not upload files, parse captions, or migrate legacy placeholders.
+Native product input composition, redo successor admission and independent
+full attachment acceptance remain outstanding.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:

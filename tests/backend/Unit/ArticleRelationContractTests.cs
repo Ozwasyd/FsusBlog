@@ -1,4 +1,5 @@
 using FsusBlog.Shared.Contracts.ArticleRelations;
+using FsusBlog.Shared.Contracts.BlockLinks;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -100,6 +101,71 @@ public sealed class ArticleRelationContractTests
                 ArticleRelationRevisionKind.Draft,
                 ArticleRelationLifecycleState.Published,
                 ArticleRelationPermissionState.Allowed)).ReasonCode);
+    }
+
+    [Fact]
+    public void BlockTargetIdentity_AcceptsCanonicalAnchorsAndPreservesEstablishedPrefixBytes()
+    {
+        string[] canonicalAnchors = ["a", "release-notes-2026", new('a', 64)];
+        foreach (string anchor in canonicalAnchors)
+        {
+            Assert.True(BlockAnchorId.TryCreate(anchor, out _).IsValid);
+            foreach (string prefix in new[] { string.Empty, "block:", "anchor:" })
+            {
+                string identity = string.Concat(prefix, anchor);
+                var target = new ArticleRelationTargetIdentity(
+                    ArticleB, ArticleRelationTargetKind.Block, null, identity);
+                Assert.True(ArticleRelationContractValidator.Validate(target).IsValid);
+
+                ArticleRelationRecord relation = ArticleRelationContractValidator.Seal(Outgoing() with
+                {
+                    Target = Outgoing().Target with
+                    {
+                        TargetIdentity = target
+                    }
+                });
+                Assert.True(ArticleRelationContractValidator.Validate(relation).IsValid);
+                Assert.Equal(identity, relation.Target.TargetIdentity!.BlockAnchorIdentity);
+            }
+        }
+
+        var raw = new ArticleRelationTargetIdentity(
+            ArticleB, ArticleRelationTargetKind.Block, null, "release-notes");
+        Assert.NotEqual(raw, raw with
+        {
+            BlockAnchorIdentity = "anchor:release-notes"
+        });
+        Assert.NotEqual(raw, raw with
+        {
+            BlockAnchorIdentity = "block:release-notes"
+        });
+    }
+
+    [Fact]
+    public void BlockTargetIdentity_RejectsNoncanonicalRawAndPrefixedAnchorSuffixes()
+    {
+        string[] invalidAnchors = [
+            string.Empty, "UPPERCASE", "bad_suffix", "1leading", "a:alias", "é",
+            "^marker", "#fragment", "a%20", "a b", new('a', 65)
+        ];
+        foreach (string anchor in invalidAnchors)
+        {
+            Assert.False(BlockAnchorId.TryCreate(anchor, out _).IsValid);
+            foreach (string prefix in new[] { string.Empty, "block:", "anchor:" })
+            {
+                var target = new ArticleRelationTargetIdentity(
+                    ArticleB, ArticleRelationTargetKind.Block, null, string.Concat(prefix, anchor));
+                Assert.Equal(
+                    "article_relation_target_identity_invalid",
+                    ArticleRelationContractValidator.Validate(target).ReasonCode);
+            }
+        }
+
+        foreach (string identity in new[] { "anchor:http", "block:article-title", "anchor:article-slug" })
+        {
+            Assert.False(ArticleRelationContractValidator.Validate(new ArticleRelationTargetIdentity(
+                ArticleB, ArticleRelationTargetKind.Block, null, identity)).IsValid);
+        }
     }
 
     [Fact]

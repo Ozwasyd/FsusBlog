@@ -28,6 +28,19 @@ Identity and profile settings must consume the generic settings/resource primiti
 
 `authoringCommands.ts` owns the internal/experimental authoring-extension projection boundary. It validates closed host metadata, binds lifecycle/document/revision/selection identity, and submits accepted mutations through the public FsusUI transaction dispatcher; it does not define a browser transport, duplicate the FsusUI command registry, or expose FsusUI internals to extensions.
 
+The article writer projects its existing inspector views through
+`useArticleWriteInspectorCommands` and this same public command type. The
+projection invokes the formal inspector owner with current document, admin
+permission and modal state checks. Its closed receipt confirms an active,
+focused inspector view only; it does not confirm remote data loading, draft
+saving or publication. Cancellation suppresses late command focus and results;
+underlying inspector loaders retain their existing lifecycle owner.
+
+`articlePositionMaps.ts` preserves the public transaction/map/selection types for
+the article anchor consumer. FsusUI owns node identities, ranges, affinity and
+position mapping; the Blog consumer owns document binding and scroll intent.
+Source aliases and a changed test pin do not establish npm package publication.
+
 ## Blog Shells
 
 `components/ui/` contains Blog-owned shells and composition primitives, for example dialog wrappers, markdown editor wrappers, MFA/passkey setup modals, `SemanticTime` and `ThemeModeToggle`.
