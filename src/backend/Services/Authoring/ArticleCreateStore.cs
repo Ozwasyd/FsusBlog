@@ -96,6 +96,15 @@ public sealed class ArticleCreateStore(
         }
 
         ArticleTemplateDefaults defaults = plan.Defaults;
+        // Reference verification does not provide a transaction receiver. These defaults
+        // must remain rejected until the canonical create aggregate can actually persist them.
+        if (defaults.PropertyDefaults.Count > 0
+            || defaults.RightsProfile is not null
+            || defaults.ResponsibilityProfile is not null
+            || defaults.PrepublishProfile is not null)
+        {
+            throw new ArticleCreateValidationException("article_create_defaults_receiver_unavailable");
+        }
         string markdown = Encoding.UTF8.GetString(plan.ExpandedSource);
         return new ArticleCreatePayload(
             Title: plan.Input.Title ?? defaults.TitlePlaceholder ?? string.Empty,
