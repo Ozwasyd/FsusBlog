@@ -189,7 +189,11 @@ internal static class CollectorControls
         Task? lateTask = null;
         string latePath = await RunRequest("collector-late-command", _ =>
         {
-            lateTask = Task.Run(async () => { await releaseLate.Task; await RawQuery(record: true); });
+            lateTask = Task.Run(async () =>
+            {
+                await releaseLate.Task;
+                await RawQuery(record: true);
+            });
             return Task.CompletedTask;
         });
         releaseLate.SetResult();
@@ -202,7 +206,11 @@ internal static class CollectorControls
         Task? supersededTask = null;
         string supersededPath = await RunRequest("collector-superseded", _ =>
         {
-            supersededTask = Task.Run(async () => { await releaseSuperseded.Task; await RawQuery(record: true); });
+            supersededTask = Task.Run(async () =>
+            {
+                await releaseSuperseded.Task;
+                await RawQuery(record: true);
+            });
             return Task.CompletedTask;
         });
         await RunRequest("collector-superseded", _ => RawQuery(record: true));
