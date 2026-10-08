@@ -9,6 +9,8 @@ import { renderMarkdownResultWithRuntime } from '@/fsusui/markdown';
 import { createPublicArticleDetailPageAssembly } from '@/public-renderers/pageAssemblies';
 import { renderPublicAotPage } from '@/public-renderers/scaffold';
 import { createArticleDetailPageViewContract } from '@/view-contracts/articleDetail';
+import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
+import { bindArticleDraftResponsibilitySnapshot, createArticleDraftResponsibilitySnapshot, type ArticleDraftResponsibilityDisclosure } from '@/view-contracts/articleDraftResponsibility';
 
 import { articleRightsFixture } from '../fixtures/articleRights';
 
@@ -20,7 +22,7 @@ const article = (id = 42): ArticleDetailResponse => ({
     category: { id: 2, name: 'Engineering' }, tags: [{ id: 3, name: 'Contracts' }], rights: articleRightsFixture
 });
 
-const assemblyFor = async (input: ArticleDetailResponse) =>
+const assemblyFor = async (input: ArticleDetailResponse, draftResponsibility?: ArticleDraftResponsibilityDisclosure) =>
 {
     const result = await renderMarkdownResultWithRuntime({ source: input.content, mode: 'article' });
     if (!result.ok)
@@ -30,7 +32,7 @@ const assemblyFor = async (input: ArticleDetailResponse) =>
     return createPublicArticleDetailPageAssembly({
         detailView: createArticleDetailPageViewContract(input, 0, false), articleId: input.id,
         authorName: 'Contract author', responsibilityAuthors: [{ name: 'Contract author', profileUrl: null }],
-        responsibilityManifest: null, articleSummary: input.summary ?? '', canonicalUrl: null,
+        responsibilityManifest: null, draftResponsibility, articleSummary: input.summary ?? '', canonicalUrl: null,
         hasBodyContent: true, bodyContent: input.content, initialRender: result.value
     });
 };
@@ -73,5 +75,28 @@ describe('publication preview existing public consumer capability (#2283)', () =
         if (!editor.ok) throw new Error('editor-consumer-render-failed');
         expect((second.assembly.props.initialRender as { sourceIdentity: string; }).sourceIdentity)
             .not.toBe(editor.value.sourceIdentity);
+    });
+    it('uses the same actual public assembly for current draft responsibility without published verification', async () => {
+        const input = article();
+        const adapter = createArticleDocumentContextAdapter({ articleId: input.id, draftId: `article:${input.id}`,
+            editorSessionId: 'session:preview', siteScope: 'site:preview', userScope: 'user:preview', content: input.content });
+        const responsibility = {
+            inheritSiteAuthor: true, authors: [], reviewer: null, sources: [], updateSummary: 'Current draft change',
+            updateReason: 'Draft evidence', effectiveAt: null, conclusionImpact: 'clarified', responsiblePersonConfirmed: true
+        };
+        const snapshot = createArticleDraftResponsibilitySnapshot(adapter.context, responsibility, 'Draft site author');
+        const assembly = await assemblyFor(input, bindArticleDraftResponsibilitySnapshot(adapter.context, responsibility, 'Draft site author', snapshot));
+        const app = createSSRApp({ render: () => renderPublicAotPage(assembly) });
+        app.component('ElMarkdownRenderer', ElMarkdownRenderer);
+        const html = await renderToString(app);
+        expect(assembly.component).toBe(PublicArticleDetailPageContent);
+        expect(html).toContain('data-responsibility-authority="draft"');
+        expect(html).toContain('Draft site author');
+        expect(html).toContain('itemprop="author" content="Draft site author"');
+        expect(html).not.toContain('Contract author');
+        expect(html).toContain('Current draft change');
+        expect(html).toContain('Public body');
+        expect(html).not.toContain('data-article-verification-link');
+        expect(html).not.toContain('/integrity/article/42/responsibility');
     });
 });

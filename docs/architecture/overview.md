@@ -173,6 +173,31 @@ and stale-banner wiring, heavy-feature activation and position mapping remain
 with their respective owners. The threshold service changes no capabilities or
 surfaces; an unobserved layout or long task has no fabricated observation ref.
 
+### Draft responsibility in the public reading composition
+
+`createArticleDraftResponsibilitySnapshot` projects the existing authoring
+responsibility draft/revision fields into immutable display data, binding the
+document context digest, source revision and responsibility input digest.
+It retains the current public responsibility composition and its display
+filtering rules (public people and sources, bounded lists and update notes).
+Private sources are omitted; incomplete responsibility remains explicit.
+Display filtering is not asset verification, prepublish qualification or URL
+reachability evidence. The snapshot contains no publication or proof coordinate.
+
+An explicit `draftResponsibility` input to the existing reading assembly selects
+draft authority. The disclosure accepts only a producer snapshot matching its
+supplied current context, does not read the published manifest, and does not
+render a publication verification link. `bindArticleDraftResponsibilitySnapshot`
+also binds the expected digest from current responsibility/site-author inputs;
+metadata-only edits reject an older result even when Markdown/context is
+unchanged. Missing, stale or forged inputs never
+fall back to published authors. The public path retains its existing fetch and
+verification behavior, with aborted and late requests discarded on authority
+change or unmount. The enclosing preview request must still verify the supplied
+context against the existing editor owner before admitting this input; the
+display projection does not create another document owner or prove route
+authorization, complete draft composition or editor continuity.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
