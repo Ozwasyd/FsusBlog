@@ -1,0 +1,11 @@
+[change-contract] generated binding path is not changed in this PR: config/testing/release-reliability-scenario-catalog.json
+[change-contract] generated binding path is not changed in this PR: tests/matrix.yml
+[change-contract] generated binding path is not changed in this PR: tools/test-matrix/production-fresh-run-bound-outputs.mjs
+[change-contract] generated binding path is not changed in this PR: config/testing/replay-qualification-producers.json
+[change-contract] generated binding path is not changed in this PR: config/testing/test-execution-envelope-applicability.json
+[change-contract] generated binding path is not changed in this PR: tools/test/attempt-runner.mjs
+[change-contract] generated binding path is not changed in this PR: tools/test/temporal-context.mjs
+[change-contract] generated binding path is not changed in this PR: tools/test/temporal-context-contract.mjs
+[change-contract] Generated source and output paths must all be changed in this PR
+[change-contract] External naming path is outside registered exception json-wire-key: tests/test-retention-replacements.json
+[change-contract] External naming manifest paths must exactly match all changed registered naming surfaces

@@ -1,0 +1,57 @@
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+hint: Support for <GIT_DIR>/info/grafts is deprecated
+hint: and will be removed in a future Git version.
+hint:
+hint: Please use "git replace --convert-graft-file"
+hint: to convert the grafts into replace refs.
+hint:
+hint: Turn this message off by running
+hint: "git config set advice.graftFileDeprecated false"
+✔ #2348 canonical MFA retirement retains before identities without post-baseline self-admission (450.944495ms)
+✔ matrix is the single current command and retention governance authority (108.419738ms)
+✔ backend source-locking owner accepts runtime artifacts and rejects production docs and test source (3.216222ms)
+✔ backend source-locking owner does not mistake a temporary JSON artifact for repository source (0.973844ms)
+✔ backend source-locking owner reconstructs segmented repository paths (0.59558ms)
+✔ replacement merge accepts identical declarations and reports conflicting owners (0.645578ms)
+✔ replacement chains remain acyclic without a fixed historical edge count (0.589365ms)
+✔ issue-local replacement manifest count is exact (0.15847ms)
+✔ retention audit reports every undeclared deletion and missing replacement target in one pass (0.675584ms)
+✔ retention audit accepts a declared deletion whose replacement exists after convergence (0.287579ms)
+✔ compact retention audit resolves hashed deletions, replacement targets, and path bindings (3.252717ms)
+✔ retention audit inherits pre-baseline declarations but rejects a wrong baseline path (0.234104ms)
+✔ final after snapshot must be independently run-bound and source-bound (1.124278ms)
+✔ final evidence contracts report every invalid status field (0.465786ms)
+✔ child issue evidence requires the exact closed #1032 through #1050 set (1.876017ms)
+✔ path migration expansion emits every exact baseline test ID (0.334683ms)
+✔ convergence plan enforces all child issues exactly once and only earlier dependencies (0.772077ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3818.782763

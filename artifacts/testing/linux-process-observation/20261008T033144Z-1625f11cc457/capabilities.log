@@ -1,0 +1,27 @@
+2026-10-08T03:31:44.036146+00:00
+$ uname -srmo
+Linux 6.18.44 x86_64 GNU/Linux
+exit=0
+
+$ systemctl --user show-environment
+Failed to connect to user scope bus via local transport: $DBUS_SESSION_BUS_ADDRESS and $XDG_RUNTIME_DIR not defined (consider using --machine=<user>@.host --user to connect to bus of other user)
+exit=1
+
+$ test -w /sys/fs/cgroup/cgroup.subtree_control
+exit=1
+
+$ findmnt -no TARGET,FSTYPE,OPTIONS /sys/fs/cgroup
+/sys/fs/cgroup cgroup2 ro,nosuid,nodev,noexec,relatime,nsdelegate
+exit=0
+
+$ cat /proc/self/cgroup
+0::/
+exit=0
+
+$ docker image inspect mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d --format {{.Id}}
+
+Error response from daemon: No such image: mysql@sha256:0744ee5ef89ce6ccfa13de3e579fe6b9e27f93dd70da9c06d2c908b1b193fb8d
+exit=1
+
+Visible cgroup2 mountinfo:
+176 175 0:24 /.. /sys/fs/cgroup ro,nosuid,nodev,noexec,relatime master:8 - cgroup2 cgroup2 rw,nsdelegate
