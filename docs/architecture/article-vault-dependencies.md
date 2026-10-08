@@ -113,12 +113,29 @@ resume, materialize or commit base.
 Native owner commit `8b2634d06d543246bc3208076be6c3db2f84e651` was inspected and does
 contain the Linux peer/grant dispatcher and canonical operation adapter. Consumption
 still requires the coordinated handoff and applicable native runtime qualification.
-Current-resolution fact acquisition, decision/candidate admission, real dedicated
-backup protection authority remain open. The checkpoint owner commit
+Current-resolution fact acquisition and decision/candidate admission remain open.
+The recovery owner `b8277a23a6a721c5b0ea3f8c918fa32251d325cd` now supplies the actual
+AES-256-GCM backup verifier. Explicit protection composition reuses the existing
+`IAuditRetentionEpochKeyStore.TryReadAsync` with the fixed recovery domain; it creates,
+derives, rotates and destroys no keys. Encrypted storage automatically composes this
+provider when the host's existing key facility is registered. Missing key-owner
+registration or an unavailable exact key remains a refusal. Key custody/lifecycle
+and native encrypted snapshot origin are separate unqualified boundaries. The checkpoint owner commit
 `39459f8162c775b79747a35228cd38b3c5b5faf6` now invokes canonical `StageAsync`
 before checkpoint insertion and again before the same transaction commits; the
 root registers `IArticleVaultRecoveryOperationCheckpointWriter` to that same scoped
 checkpoint store. Explicit encrypted storage composition requires an already
-registered real protection authority and shares the sole recovery storage instance.
+registered trusted protection authority or the existing application key facility
+and shares the sole recovery storage instance.
 These authority gaps are distinct from ordinary branch conflicts.
 Historical browser reads do not qualify current execution or product acceptance.
+
+The actual server observer already produces a metadata projection digest over title,
+summary, cover, category and tags. That digest is not the canonical V1 metadata
+manifest's serialized identity. The revision reader supplies those finite fields and
+snapshots but not slug/portable taxonomy/property definitions or the complete V1
+manifest bytes bound to the observation. The original sync planner continues to
+classify BothModified as Blocked; the new-operation adapter preserves all observed
+coordinates and candidate refusal. Root decision/executable-candidate integration
+remains incomplete until a legitimate current candidate can be bound without clearing
+SOURCE HOLD or inventing those missing facts.

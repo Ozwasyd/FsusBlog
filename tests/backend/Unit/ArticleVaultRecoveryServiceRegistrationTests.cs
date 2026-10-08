@@ -1,4 +1,5 @@
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Infrastructure.Bootstrap;
 using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Services.Authoring;
@@ -117,6 +118,56 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
         Assert.Same(scope.ServiceProvider.GetRequiredService<PostgresArticleVaultRecoveryStorage>(),
             scope.ServiceProvider.GetRequiredService<IArticleVaultTransactionalRecoveryJournalStore>());
         Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IArticleVaultTransactionalRecoveryJournalStore>());
+    }
+
+    [Fact]
+    public void BackupProtectionComposition_RequiresExistingKeyOwnerAndSharesTheActualProvider()
+    {
+        var services = new ServiceCollection();
+        Assert.Equal("article_vault_recovery_key_owner_unavailable", Assert.Throws<InvalidOperationException>(
+            () => services.AddFsusArticleVaultRecoveryBackupProtection()).Message);
+        Assert.Empty(services);
+        var keys = Substitute.For<IAuditRetentionEpochKeyStore>();
+        services.AddSingleton(keys);
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        services.AddFsusArticleVaultRecoveryBackupProtection();
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultRecoveryBackupProtection());
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        });
+        Assert.Same(provider.GetRequiredService<ArticleVaultRecoveryBackupProtectionAuthority>(),
+            provider.GetRequiredService<IArticleVaultRecoveryBackupProtectionAuthority>());
+        Assert.Same(keys, provider.GetRequiredService<IAuditRetentionEpochKeyStore>());
+        Assert.Single(services, static descriptor => descriptor.ServiceType == typeof(IAuditRetentionEpochKeyStore));
+        Assert.Empty(keys.ReceivedCalls());
+    }
+
+    [Fact]
+    public void EncryptedRecoveryComposition_BindsExistingKeysToActualProtectionWithoutCreatingOrReadingKeys()
+    {
+        var services = new ServiceCollection();
+        var keys = Substitute.For<IAuditRetentionEpochKeyStore>();
+        services.AddSingleton(keys);
+        services.AddSingleton(Substitute.For<IArticleVaultExecutionStore>());
+        services.AddSingleton(Substitute.For<IArticleVaultResolutionProposalStore>());
+        services.AddSingleton(Substitute.For<IArticleVaultOperationCheckpointStore>());
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        using NpgsqlDataSource dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Database=vault-di-only;Username=vault-di-only");
+        services.AddSingleton(dataSource);
+        services.AddFsusArticleVaultEncryptedRecoveryStorage();
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        });
+        using IServiceScope scope = provider.CreateScope();
+        Assert.IsType<ArticleVaultRecoveryBackupProtectionAuthority>(
+            scope.ServiceProvider.GetRequiredService<IArticleVaultRecoveryBackupProtectionAuthority>());
+        Assert.Same(scope.ServiceProvider.GetRequiredService<PostgresArticleVaultRecoveryStorage>(),
+            scope.ServiceProvider.GetRequiredService<IArticleVaultTransactionalRecoveryJournalStore>());
+        Assert.Empty(keys.ReceivedCalls());
     }
 
     [Fact]

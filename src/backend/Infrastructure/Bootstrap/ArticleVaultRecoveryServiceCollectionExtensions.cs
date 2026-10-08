@@ -1,4 +1,5 @@
 using FsusBlog.Core.Services.Articles;
+using FsusBlog.Server.Infrastructure.Audit;
 using FsusBlog.Server.Services.ArticleVault;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Shared.Contracts.ArticleVault;
@@ -29,18 +30,37 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
         return services;
     }
 
-    /// <summary>Requires the host's real dedicated protection authority; never derives a substitute key.</summary>
+    /// <summary>Uses the existing application key facility without creating a key store or recovery key.</summary>
+    public static IServiceCollection AddFsusArticleVaultRecoveryBackupProtection(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        if (!services.Any(static descriptor => descriptor.ServiceType == typeof(IAuditRetentionEpochKeyStore)))
+        {
+            throw new InvalidOperationException("article_vault_recovery_key_owner_unavailable");
+        }
+        if (services.Any(static descriptor => descriptor.ServiceType == typeof(ArticleVaultRecoveryBackupProtectionAuthority)
+            || descriptor.ServiceType == typeof(IArticleVaultRecoveryBackupProtectionAuthority)))
+        {
+            throw new InvalidOperationException("article_vault_recovery_protection_already_registered");
+        }
+        services.AddSingleton<ArticleVaultRecoveryBackupProtectionAuthority>();
+        services.AddSingleton<IArticleVaultRecoveryBackupProtectionAuthority>(
+            provider => provider.GetRequiredService<ArticleVaultRecoveryBackupProtectionAuthority>());
+        return services;
+    }
+
+    /// <summary>Requires the existing key facility or an explicit trusted protection authority; never derives keys.</summary>
     public static IServiceCollection AddFsusArticleVaultEncryptedRecoveryStorage(this IServiceCollection services)
     {
         ArgumentNullException.ThrowIfNull(services);
-        if (!services.Any(static descriptor => descriptor.ServiceType == typeof(IArticleVaultRecoveryBackupProtectionAuthority)))
-        {
-            throw new InvalidOperationException("article_vault_recovery_protection_authority_unavailable");
-        }
         if (services.Any(static descriptor => descriptor.ServiceType == typeof(PostgresArticleVaultRecoveryStorage)
             || descriptor.ServiceType == typeof(IArticleVaultTransactionalRecoveryJournalStore)))
         {
             throw new InvalidOperationException("article_vault_recovery_journal_store_already_registered");
+        }
+        if (!services.Any(static descriptor => descriptor.ServiceType == typeof(IArticleVaultRecoveryBackupProtectionAuthority)))
+        {
+            services.AddFsusArticleVaultRecoveryBackupProtection();
         }
         services.AddScoped<PostgresArticleVaultRecoveryStorage>();
         services.AddScoped<IArticleVaultTransactionalRecoveryJournalStore>(

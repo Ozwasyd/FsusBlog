@@ -3127,10 +3127,19 @@ resources fail composition rather than creating a fallback. Duplicate stores and
 conflicting site composition are refused. `IArticleVaultRecoveryOperationCheckpointWriter`
 resolves to the same canonical checkpoint store; its recovery append stages journal
 facts in that writer's transaction and revalidates before commit. Explicit
-`AddFsusArticleVaultEncryptedRecoveryStorage()` requires a host-supplied real
-`IArticleVaultRecoveryBackupProtectionAuthority` and exposes the sole storage through
-`IArticleVaultTransactionalRecoveryJournalStore`. Missing protection prevents this
-composition; no Data Protection/key-generation fallback is registered. Transaction
+`AddFsusArticleVaultRecoveryBackupProtection()` composes the actual canonical
+`ArticleVaultRecoveryBackupProtectionAuthority` with the existing application
+`IAuditRetentionEpochKeyStore` and time provider; it installs no new key store and
+reads only the exact existing `article-vault-recovery` domain key. The bounded
+AES-256-GCM envelope authenticates complete scope, policy, key and plaintext identity,
+checks TTL/cancellation before and after reading/decrypting, and clears returned key
+and plaintext buffers. Cryptographic success does not establish native snapshot
+origin or key custody/lifecycle qualification. `AddFsusArticleVaultEncryptedRecoveryStorage()`
+uses an explicitly registered trusted protection authority or composes this actual
+provider from the host's existing key facility, then exposes the sole storage through
+`IArticleVaultTransactionalRecoveryJournalStore`. Missing key ownership prevents
+automatic composition; an unavailable exact key prevents backup authentication.
+No Data Protection/key-generation fallback is registered. Transaction
 bookkeeping does not grant decision/candidate, native recovery or base admission.
 
 `POST /api/binary/author/vault/recovery/history` requires the actual authenticated
