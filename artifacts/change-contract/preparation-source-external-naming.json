@@ -16,7 +16,6 @@
                 "tools/test-matrix/runtime-state-domain-catalog.mjs",
                 "tools/test/bundles/measurement-step-command.mjs",
                 "tools/test/bundles/run-bundle.mjs",
-                "tools/test/bundles/runtime-performance-preparation.sh",
                 "tools/test/performance-admission.mjs",
                 "tools/test/quiescence-measurement-consumer.mjs",
                 "tools/test/quiescence-measurement-inventory.mjs",
@@ -24,6 +23,13 @@
                 "tools/test/runtime-performance-preparation.mjs"
             ],
             "reason": "Preserve canonical runtime/locator/resident identity and environment spellings while binding explicit preparation inputs to the existing barrier/holder and append-only output owners. Refuse missing physical catalog and actual prepare-only production transport before spawn; no new observer, scheduler, lease or security owner."
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/bundles/runtime-performance-preparation.sh"
+            ],
+            "reason": "Preserve the existing FSUSBLOG_NODE environment spelling at the physical preparation entrypoint; delegate to its owned source guard before any preparation process starts."
         },
         {
             "id": "json-wire-key",
