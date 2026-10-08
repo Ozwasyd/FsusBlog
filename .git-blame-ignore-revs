@@ -30,3 +30,6 @@ bf5028585074ead295baf02d36f7ce9ccf0525eb
 
 # Reviewed resolver getter whitespace on current ordinary master; Related to #3566.
 0bb1418a930280ee722bd679c4a5fdb2abe692cd
+
+# Reviewed canonical lifecycle getter whitespace; Related to #3566 and #3654.
+56bf1f2c7e623eeba0682779934d3e6d6163150c
