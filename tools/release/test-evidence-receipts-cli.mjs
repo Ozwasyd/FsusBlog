@@ -9,8 +9,11 @@ import { fileURLToPath } from 'node:url';
 
 import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-store.mjs';
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
+import { readCurrentSchedulerCorrectness } from '../test-matrix/scheduler-correctness-finalizer.mjs';
+import { readCanonicalSchedulerCheckpoint } from '../test-matrix/scheduler.mjs';
 
 import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
+import { createCorrectnessProvisionalReceipt } from './correctness-provisional-receipt.mjs';
 import { correctnessAggregateAuthorityLevel } from './correctness-scheduler-authority.mjs';
 import {
     browserlessCorrectnessReceiptSchema,
@@ -389,11 +392,12 @@ function collectJobSummaries(expectedCommit, env = process.env, { schedulerRunId
 export function schedulerAuthority(runId, tierIds, sourceState, { repositoryRoot = root } = {})
 {
     const checkpointFile = path.join(repositoryRoot, '.tmp/test-runs', runId, 'checkpoint.json');
-    if (!fs.existsSync(checkpointFile))
+    const canonical = readCanonicalSchedulerCheckpoint(checkpointFile);
+    if (!canonical)
     {
         throw new Error(`scheduler checkpoint is missing: ${path.relative(root, checkpointFile)}`);
     }
-    const checkpoint = readJson(checkpointFile);
+    const checkpoint = canonical.checkpoint;
     if (checkpoint.runId !== runId)
     {
         throw new Error('scheduler checkpoint run identity mismatch');
@@ -432,6 +436,8 @@ export function schedulerAuthority(runId, tierIds, sourceState, { repositoryRoot
         runId,
         schedulerRunIds: [runId],
         checkpoint: path.relative(repositoryRoot, checkpointFile).replaceAll(path.sep, '/'),
+        canonicalCheckpointRef: canonical.compactStateRef,
+        canonicalCheckpointDigest: canonical.checkpointDigest,
         aggregateStatus,
         authoritative: false
     };
@@ -561,6 +567,69 @@ function rejectPolicySkippedSummaryClaims(summaries, policyTierIds, plan)
     }
 }
 
+/** Aggregate producers can publish only this attempt's provisional packet. The scheduler seals success later. */
+export function publishCorrectnessProvisional(contextFile, { repositoryRoot = root, env = process.env } = {})
+{
+    const runId = String(env.FSUSBLOG_TEST_RUN_ID ?? '').trim();
+    const attemptId = String(env.FSUSBLOG_CORRECTNESS_TARGET_ATTEMPT_ID ?? '').trim();
+    if (!runId || !attemptId || !contextFile)
+    {
+        throw new Error('contract.missing-correctness-provisional-context: explicit run/attempt/context required');
+    }
+    const canonical = readCanonicalSchedulerCheckpoint(path.join(repositoryRoot, '.tmp/test-runs', runId, 'checkpoint.json'));
+    const checkpoint = canonical?.checkpoint;
+    const attempt = checkpoint?.correctnessAttempt;
+    if (checkpoint?.status !== 'running' || attempt?.status !== 'running' || attempt.targetAttemptId !== attemptId
+        || path.resolve(String(env.FSUSBLOG_CORRECTNESS_PROVISIONAL_PACKET ?? '')) !== attempt.provisionalPacketFile)
+    {
+        throw new Error('contract.correctness-provisional-attempt-mismatch');
+    }
+    const stat = fs.lstatSync(contextFile);
+    if (!stat.isFile() || stat.isSymbolicLink())
+    {
+        throw new Error('correctness provisional context must be an explicit regular file');
+    }
+    const context = JSON.parse(fs.readFileSync(contextFile, 'utf8'));
+    if (context.runId !== runId || context.targetAttemptId !== attemptId
+        || context.aggregateStatus !== attempt.status
+        || context.createdFromCheckpointRevision !== attempt.createdFromCheckpointRevision
+        || JSON.stringify(canonicalize(context.sourceState)) !== JSON.stringify(canonicalize(checkpoint.sourceState)))
+    {
+        throw new Error('contract.correctness-provisional-context-mismatch');
+    }
+    const provisional = createCorrectnessProvisionalReceipt(context);
+    const packet = { context, provisional };
+    const bytes = `${JSON.stringify(packet, null, 2)}\n`;
+    const file = attempt.provisionalPacketFile;
+    if (path.dirname(file) !== attempt.root || fs.realpathSync(attempt.root) !== attempt.root)
+    {
+        throw new Error('correctness provisional packet escaped its owned attempt root');
+    }
+    if (fs.existsSync(file))
+    {
+        const existing = fs.lstatSync(file);
+        if (!existing.isFile() || existing.isSymbolicLink() || fs.readFileSync(file, 'utf8') !== bytes)
+        {
+            throw new Error('correctness provisional packet cannot overwrite attempt history');
+        }
+    }
+    else
+    {
+        const descriptor = fs.openSync(file, 'wx', 0o600);
+        try
+        {
+            fs.writeFileSync(descriptor, bytes);
+            fs.fsyncSync(descriptor);
+        }
+        finally
+        {
+            fs.closeSync(descriptor);
+        }
+    }
+    console.log(`[test-evidence] correctness provisional attempt=${attemptId} digest=${provisional.contentDigest} file=${file}`);
+    return packet;
+}
+
 function createCorrectness(options)
 {
     const build = findProductionBuildReceipt(options.buildReceipt);
@@ -598,6 +667,20 @@ function createCorrectness(options)
     if (!authority)
     {
         throw new Error('browserless correctness generator has no current scheduler or GitHub needs authority');
+    }
+    if (schedulerRunId && process.env.FSUSBLOG_CORRECTNESS_TARGET_ATTEMPT_ID)
+    {
+        const contextFile = String(process.env.FSUSBLOG_CORRECTNESS_PROVISIONAL_CONTEXT ?? '').trim();
+        if (!contextFile)
+        {
+            throw new Error('contract.missing-correctness-provisional-context: terminal dependencies require owner-produced context');
+        }
+        const packet = publishCorrectnessProvisional(path.resolve(root, contextFile));
+        if (packet.context.buildReceiptDigest !== build.receipt.contentDigest)
+        {
+            throw new Error('contract.correctness-provisional-build-mismatch');
+        }
+        return;
     }
     const receipt = createBrowserlessCorrectnessReceipt({
         matrix,
@@ -651,9 +734,24 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         {
             createCorrectness(options);
         }
+        else if (options.command === 'create-provisional')
+        {
+            publishCorrectnessProvisional(options.file);
+        }
         else if (options.command === 'validate-correctness')
         {
-            validateFile(options, validateBrowserlessCorrectnessReceipt, 'correctness');
+            const runId = String(process.env.FSUSBLOG_TEST_RUN_ID ?? '').trim();
+            if (!runId)
+            {
+                throw new Error('contract.missing-correctness-consumer-run: explicit canonical run required');
+            }
+            const checkpointFile = path.join(root, '.tmp/test-runs', runId, 'checkpoint.json');
+            const result = readCurrentSchedulerCorrectness({ checkpointFile, readCanonical: readCanonicalSchedulerCheckpoint });
+            if (options.file && readJson(options.file).contentDigest !== result.receipt.contentDigest)
+            {
+                throw new Error('contract.correctness-consumer-file-not-current: legacy/orphan receipt is diagnostic only');
+            }
+            console.log(`[test-evidence] correctness terminal verified run=${runId} digest=${result.receipt.contentDigest}`);
         }
         else if (options.command === 'validate-browser-contract')
         {
@@ -665,7 +763,7 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
         }
         else
         {
-            throw new Error(`usage: ${path.basename(process.argv[1])} create-correctness|validate-correctness|validate-browser-contract|validate-diagnostics [file]`);
+            throw new Error(`usage: ${path.basename(process.argv[1])} create-correctness|create-provisional|validate-correctness|validate-browser-contract|validate-diagnostics [file]`);
         }
     }
     catch (error)
