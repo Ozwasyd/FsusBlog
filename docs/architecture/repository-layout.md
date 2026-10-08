@@ -97,7 +97,9 @@ The producer is `tools/governance/memory-allocation-inventory.mjs`. It binds the
 Git commit, complete index digest, tracked-change digest, source bytes, dependency
 manifests, ownership inputs, and producer bytes to a worktree fingerprint. Its reader
 reopens the candidate and independently compares lexical discovery with ripgrep.
-Generated and vendor matches stay in the denominator. Output contains source locations
+Generated and vendor path candidates stay in the denominator; filenames do not certify
+source ownership, and unclassified surfaces remain owner-resolution-required.
+Output contains source locations
 and digests, rather than payloads or credentials. A changed source, replacement SHA,
 altered trace, omitted match, or forged resolved count is refused.
 
