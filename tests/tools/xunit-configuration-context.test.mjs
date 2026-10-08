@@ -65,6 +65,63 @@ test('xunit evaluated Compile projection owns linked and selected generated sour
     });
 });
 
+test('xunit MSBuild intermediate projection accepts mixed separators within the repository', () =>
+{
+    withFixture(({ root, project, context }) =>
+    {
+        for (const intermediate of ['../obj\\Release', '..\\obj/Release\\', '../obj/Release'])
+        {
+            const changed = structuredClone(context);
+            changed.Properties.IntermediateOutputPath = intermediate;
+            const projected = projectXunitCompileContext(root, project, changed, 'Release');
+            assert.equal(projected.intermediateOutput, path.join(root, 'obj/Release/Main.dll'));
+            assert.deepEqual(projected.sources, ['linked/Linked.cs', 'obj/Release/Generated.cs']);
+        }
+    });
+});
+
+test('xunit MSBuild intermediate projection rejects separator escapes and foreign drive roots', () =>
+{
+    withFixture(({ root, project, context }) =>
+    {
+        const outside = mkdtempSync(path.join(os.tmpdir(), 'fsus-xunit-outside-intermediate-'));
+        try
+        {
+            writeFileSync(path.join(outside, 'Main.dll'), 'outside assembly');
+            const relative = path.relative(path.join(root, 'tests'), outside);
+            for (const intermediate of [relative, relative.split(path.sep).join('\\'), outside,
+                ...(path.sep === '/' ? ['C:\\foreign\\obj', 'C:foreign\\obj'] : [])])
+            {
+                const changed = structuredClone(context);
+                changed.Properties.IntermediateOutputPath = intermediate;
+                assert.throws(() => projectXunitCompileContext(root, project, changed, 'Release'),
+                    /intermediate.*repository boundary/u);
+            }
+        }
+        finally
+        {
+            rmSync(outside, { recursive: true, force: true });
+        }
+    });
+});
+
+test('xunit normalized intermediate projection refuses path aliases and retains Compile source identity refusal', () =>
+{
+    withFixture(({ root, project, context, linked }) =>
+    {
+        mkdirSync(path.join(root, 'tests'), { recursive: true });
+        symlinkSync(path.join(root, 'obj/Release'), path.join(root, 'tests/alias'));
+        const aliased = structuredClone(context);
+        aliased.Properties.IntermediateOutputPath = 'alias';
+        assert.throws(() => projectXunitCompileContext(root, project, aliased, 'Release'), /intermediate.*path alias/u);
+        rmSync(linked);
+        symlinkSync(path.join(root, 'obj/Release/Generated.cs'), linked);
+        const changed = structuredClone(context);
+        changed.Properties.IntermediateOutputPath = '..\\obj/Release';
+        assert.throws(() => projectXunitCompileContext(root, project, changed, 'Release'), /Compile source cannot use path aliases/u);
+    });
+});
+
 test('xunit evaluated context rejects a different configuration and missing selected output or intermediate assembly', () =>
 {
     withFixture(({ root, project, context }) =>
