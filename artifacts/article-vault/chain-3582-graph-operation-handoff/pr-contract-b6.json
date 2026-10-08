@@ -1,0 +1,16 @@
+{
+    "actualHead": "b6e7f62e7a7f8cc4e14fae1adcefc391c79ce918",
+    "actualBase": "3466db03e0421f4e90d36528b9062cdf7446abda",
+    "draft": true,
+    "url": "https://github.com/Ozwasyd/FsusBlog/pull/3900",
+    "title": "feat(contracts): add coordinate-bound Vault readers and conflict classification",
+    "bodySha256": "0c561a969497e841b377e8b3bb3eeef792412505304348043c83b9d220c230ea",
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--github-event",
+        ".tmp/chain-3582-expanded/current-360/pr-event-b6.json"
+    ],
+    "exitCode": 0,
+    "scope": "Actual remote PR metadata contract only; no full CI, independent review, runtime/native/product qualification."
+}

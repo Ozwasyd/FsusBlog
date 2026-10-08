@@ -40,7 +40,7 @@
         "tests/backend/bin/Release/net10.0/FsusBlog.Shared.dll": "3b4f86c0d2f709e509abc0e3c0738b0c3ec5ee142e31e4c2b10d693399ec5f01"
     },
     "artifacts": {
-        "README.md": "324d4e0b97ea37e3481fe61d3e3f342350be9f364367d19b2b237ad03bad48b0",
+        "README.md": "94dfc6825e668263d0d03c641b3f542b7faf93ee0a4d33fbacb0075c928eb03d",
         "consumption.json": "6622a90954bd779fed6328f63bcf561c7cb837069d3b4704edd94147b3e65668",
         "graph-after/after.json": "5591f4500b318667ce51b8153d1f4546cbb610b5461460e83142727082a398bf",
         "graph-after/before.json": "83934cebc2ef8b33e8a5999d6cc52bd4e4e6d73c43bfdc21eb1222ab7db966a4",
@@ -51,12 +51,14 @@
         "graph-after/source.cs.txt": "ed936a0c3e06c70c952d847ffe4b0d831c968b592fd51be723d31da953ea94db",
         "issue-accounting.json": "692f8ff3ca597477d5f9e74aa9135b10fb7b3066100ec578ab6b842d2535f7f9",
         "issue-accounting.md": "7b73ba4b26bab677244a2a07f0ee7c8fe3af979c94d83c2261124fa2cafa64a0",
+        "pr-contract-b6.json": "f8f62a98036ebe2e7d31b23f3ac617fae7a05dc79c6d8eb17a10cdc7c5f4de0c",
+        "pr-contract-b6.log.txt": "ec9f8dff786b056d9abf026205aa278fe0b90347a1f50c219f338e630cca7b76",
         "tested-360/backend-class-counts.json": "d879ba4e57ea208a93250d3c11e9d6939cda65e7c26bf13e9101115c0f0cd547",
         "tested-360/backend-result.json": "b1501f6cf32ead9a68df8d2f3f744a77a760da0451bc69dd6761446eb5fa3159",
         "tested-360/backend.log.txt.gz": "c2cc3ec0d9c3dbbcc9065714df9448e236d9ad6335e3a0af014c981f60607297",
         "tested-360/broader-backend-result.json": "30daca8d6da8c38a0cdfd6d1d8dc78efeeda4b40487c1ec73a33918bd27c88e0",
         "tested-360/broader-backend.log.txt.gz": "696d1ca15613abdca211d26324a31ec4a3b69693782251406d104bceb42006ca",
-        "tested-360/controls.trx": "a3441af814ee5676d4f323eeef92f57fdc9a1ce741d14b5652d049e2f9c5dc98",
+        "tested-360/controls.trx.txt.gz": "71e73eb0e9e4d7582c70d51aed1c310d5a0e86a91d597d3f4c87ec21e602e313",
         "tested-360/convergence-result.json": "a5a84bdda1e005b3b0254d1a288b34f12198319b92c2fc2972c3537ae0fbbaa7",
         "tested-360/convergence.log.txt.gz": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
         "tested-360/matrix-result.json": "6a75461e5fc8404ef9ee20a7cd62c4023e7c98034f2ef18af0050c519b792901",
@@ -85,6 +87,9 @@
         "tested-360/broader-backend.log.txt.gz": {
             "uncompressedSha256": "1a4f62018e5657f59e5d61418c6f27467cf467b126a7a10a7769ee228b1ceef5"
         },
+        "tested-360/controls.trx.txt.gz": {
+            "uncompressedSha256": "a3441af814ee5676d4f323eeef92f57fdc9a1ce741d14b5652d049e2f9c5dc98"
+        },
         "tested-360/convergence.log.txt.gz": {
             "uncompressedSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
         },
@@ -106,5 +111,10 @@
         "tested-360/whole-node-style.log.txt.gz": {
             "uncompressedSha256": "be53d38d22a92dae3794d155176f58989afcd88754262b8c3a86262b735cb1e5"
         }
+    },
+    "actualPrMetadataContract": {
+        "head": "b6e7f62e7a7f8cc4e14fae1adcefc391c79ce918",
+        "exitCode": 0,
+        "artifact": "pr-contract-b6.json"
     }
 }

@@ -31,7 +31,7 @@ Official SDK 10.0.302 and Node 24.16.0 executed the original controls against th
 | Original full matrix / convergence | Failed: finite authority bindings / two replacement declarations |
 | Complete supplied-owner C# / Node style | Failed; raw owner diagnostics retained |
 
-Current actual PR metadata initially failed because the root ordinary naming declaration missed six newly consumed paths. The exact six-path repair is in the same delivery; it changes no naming policy or frozen authority. Immutable earlier commit-range failures remain historical blockers; history was not rewritten. API content writes remain paused, so the remote PR description has not been changed.
+Current actual PR metadata initially failed because the root ordinary naming declaration missed six newly consumed paths. The exact six-path repair passed the actual remote-head PR contract at `b6e7f62e7a7f8cc4e14fae1adcefc391c79ce918`: 282 files, exit 0, actual base `3466db03e0421f4e90d36528b9062cdf7446abda`. It changes no naming policy or frozen authority. Immutable earlier commit-range failures remain historical blockers; history was not rewritten. API content writes remain paused, so the remote PR description has not been changed.
 
 ## Graph counterexample before and after
 
