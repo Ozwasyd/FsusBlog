@@ -110,6 +110,9 @@ try
             { find: /^vue-router$/, replacement: join(frontend, 'node_modules/vue-router') }] },
         server: { host: '127.0.0.1', port: 0, fs: { allow: [repositoryRoot, fsusUIRoot] } } });
     await server.listen();
+    await server.transformRequest('/main.mjs');
+    await server.transformRequest('/baseline.vue');
+    await server.waitForRequestsIdle();
     browser = await chromium.launch({ headless: true });
     report.browser = { version: browser.version(), executablePath: chromium.executablePath() };
     const url = server.resolvedUrls.local[0];
