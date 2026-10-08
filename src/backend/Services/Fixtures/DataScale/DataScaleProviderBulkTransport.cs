@@ -50,6 +50,257 @@ internal static class DataScaleProviderBulkTransport
     private const long MaximumTextBytes = 64L * 1024 * 1024;
     private const int MaximumRowsPerCommand = 256;
 
+    // Current-schema native staging: complete canonical values, no ID column or product
+    // placeholders. Each native statement explicitly echoes its role with its own generated
+    // ID, so identical inputs and arbitrary result ordering cannot require range prediction.
+    // A packet is bounded SQL, not an ORM/HTTP call per article. Native statement counts
+    // remain explicit: MySQL lacks INSERT RETURNING and needs a tagged scalar per insert.
+    internal static async Task<DataScaleGeneratedIdentityExecution> InsertGeneratedRowsAsync(
+        DbConnection connection, DbTransaction transaction, DataScaleBulkProvider provider,
+        DataScaleGeneratedIdentityRows input, CancellationToken cancellationToken,
+        DataScaleGeneratedIdentityExecution? originalCommitted = null)
+    {
+        if (provider is not (DataScaleBulkProvider.MySql or DataScaleBulkProvider.Sqlite)
+            || transaction.Connection != connection || transaction.IsolationLevel != IsolationLevel.Serializable)
+        {
+            throw new InvalidOperationException("generated_identity_provider_or_transaction_mismatch");
+        }
+        ValidateRows(connection, provider, [input.Values]);
+        if (input.Roles.Count != input.Values.Rows.Count || input.Roles.Sum(group => (long)group.SemanticRoles.Count) > MaximumRows)
+        {
+            throw new InvalidOperationException("generated_identity_role_bound_exceeded");
+        }
+        DataScaleBulkTableRows values = Snapshot([input.Values])[0];
+        var groups = input.Roles.Select(group => group with
+        {
+            SemanticRoles = Array.AsReadOnly(group.SemanticRoles.ToArray())
+        }).ToArray();
+        ValidateRows(connection, provider, [values]);
+        ValidateIdentifier(input.PrimaryKey.Name);
+        if (input.PrimaryKey.Type is not (DbType.Int32 or DbType.Int64) || values.Rows.Count == 0
+            || groups.Length != values.Rows.Count || values.Columns.Any(column => column.Name == input.PrimaryKey.Name))
+        {
+            throw new InvalidOperationException("generated_identity_key_or_role_shape_invalid");
+        }
+        var requested = new Dictionary<string, DataScaleNativeIdentityRoleGroup>(StringComparer.Ordinal);
+        var aliases = new HashSet<string>(StringComparer.Ordinal);
+        long roleBytes = 0;
+        foreach (DataScaleNativeIdentityRoleGroup group in groups)
+        {
+            if (string.IsNullOrWhiteSpace(group.AllocationRole) || group.AllocationRole.Length > 1024
+                || group.SemanticRoles.Count is < 1 or > 256 || !group.SemanticRoles.Contains(group.AllocationRole, StringComparer.Ordinal)
+                || !requested.TryAdd(group.AllocationRole, group)
+                || group.SemanticRoles.Any(role => string.IsNullOrWhiteSpace(role) || role.Length > 1024 || !aliases.Add(role)))
+            {
+                throw new InvalidOperationException("generated_identity_role_roster_invalid");
+            }
+            roleBytes += Encoding.UTF8.GetByteCount(group.AllocationRole) + group.SemanticRoles.Sum(role => (long)Encoding.UTF8.GetByteCount(role));
+        }
+        if (aliases.Count > MaximumRows || roleBytes > MaximumTextBytes)
+        {
+            throw new InvalidOperationException("generated_identity_role_bound_exceeded");
+        }
+        await ValidateGeneratedKeyAsync(connection, transaction, provider, values, input.PrimaryKey, cancellationToken).ConfigureAwait(false);
+        // The enclosing host authenticates originalCommitted with its original checkpoint.
+        // This transport never invents custody or reallocates a missing/changed original row.
+        if (originalCommitted is not null)
+        {
+            var originalIds = new Dictionary<string, long>(originalCommitted.RoleIds, StringComparer.Ordinal);
+            if (!aliases.SetEquals(originalIds.Keys) || groups.Any(group => group.SemanticRoles.Any(
+                alias => originalIds[alias] <= 0 || input.PrimaryKey.Type == DbType.Int32 && originalIds[alias] > int.MaxValue
+                    || originalIds[alias] != originalIds[group.AllocationRole]))
+                || groups.Select(group => originalIds[group.AllocationRole]).Distinct().Count() != groups.Length)
+            {
+                throw new InvalidOperationException("generated_identity_original_role_mismatch");
+            }
+            var expectedRows = new DataScaleBulkTableRows(values.Table, new[] { input.PrimaryKey }.Concat(values.Columns).ToArray(),
+                values.Rows.Select((row, index) => (IReadOnlyList<object?>)new object?[] { originalIds[groups[index].AllocationRole] }.Concat(row).ToArray()).ToArray());
+            var expectedOriginal = new DataScaleArticlePhysicalBatch([expectedRows], new Dictionary<string, int> { [values.Table] = 0 }, [],
+                new Dictionary<string, long>());
+            var restored = await DataScalePhysicalBatchReadback.ObserveAsync(connection, transaction, provider, expectedOriginal, cancellationToken).ConfigureAwait(false);
+            if (restored.Violations.Count != 0 || restored.SemanticDigest != DataScalePhysicalBatchReadback.ExpectedDigest(expectedOriginal))
+            {
+                throw new InvalidOperationException("generated_identity_original_rows_changed_or_missing");
+            }
+            return new(new System.Collections.ObjectModel.ReadOnlyDictionary<string, long>(originalIds), expectedRows, 0, 0, true);
+        }
+        string savepoint = "generated_rows_" + Guid.NewGuid().ToString("N");
+        await transaction.SaveAsync(savepoint, cancellationToken).ConfigureAwait(false);
+        var returned = new Dictionary<string, long>(StringComparer.Ordinal);
+        var nativeIds = new HashSet<long>();
+        int commands = 0;
+        try
+        {
+            int parameterLimit = provider == DataScaleBulkProvider.Sqlite ? 999 : 2000;
+            int rowsPerCommand = Math.Min(MaximumRowsPerCommand, parameterLimit / (values.Columns.Count + 1));
+            string Quote(string name) => provider == DataScaleBulkProvider.MySql ? "`" + name + "`" : "\"" + name + "\"";
+            for (int offset = 0; offset < groups.Length; offset += rowsPerCommand)
+            {
+                int count = Math.Min(rowsPerCommand, groups.Length - offset);
+                await using DbCommand insert = connection.CreateCommand();
+                insert.Transaction = transaction;
+                insert.CommandTimeout = 30;
+                var sql = new StringBuilder();
+                for (int row = 0; row < count; row++)
+                {
+                    sql.Append("INSERT INTO ").Append(Quote(values.Table)).Append('(')
+                        .AppendJoin(',', values.Columns.Select(column => Quote(column.Name))).Append(") VALUES(");
+                    for (int column = 0; column < values.Columns.Count; column++)
+                    {
+                        string parameterName = "@v" + row + "_" + column;
+                        if (column != 0)
+                        {
+                            sql.Append(',');
+                        }
+                        sql.Append(parameterName);
+                        DbParameter parameter = insert.CreateParameter();
+                        parameter.ParameterName = parameterName;
+                        parameter.DbType = values.Columns[column].Type;
+                        parameter.Value = values.Rows[offset + row][column] ?? DBNull.Value;
+                        insert.Parameters.Add(parameter);
+                    }
+                    string roleName = "@role" + row;
+                    DbParameter role = insert.CreateParameter();
+                    role.ParameterName = roleName;
+                    role.DbType = DbType.String;
+                    role.Value = groups[offset + row].AllocationRole;
+                    insert.Parameters.Add(role);
+                    sql.Append(')').Append(provider == DataScaleBulkProvider.MySql ? ";SELECT " : " RETURNING ")
+                        .Append(roleName).Append(" AS fsus_native_role,")
+                        .Append(provider == DataScaleBulkProvider.MySql ? "LAST_INSERT_ID()" : Quote(input.PrimaryKey.Name))
+                        .Append(" AS fsus_native_id;");
+                }
+                insert.CommandText = sql.ToString();
+                commands++;
+                await using DbDataReader reader = await insert.ExecuteReaderAsync(cancellationToken).ConfigureAwait(false);
+                do
+                {
+                    if (reader.FieldCount == 0)
+                    {
+                        continue;
+                    }
+                    if (reader.FieldCount != 2 || reader.GetName(0) != "fsus_native_role" || reader.GetName(1) != "fsus_native_id")
+                    {
+                        throw new InvalidOperationException("generated_identity_result_shape_mismatch");
+                    }
+                    while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+                    {
+                        string role = reader.GetString(0);
+                        long id = reader.GetInt64(1);
+                        if (!requested.ContainsKey(role) || id <= 0 || input.PrimaryKey.Type == DbType.Int32 && id > int.MaxValue
+                            || !returned.TryAdd(role, id) || !nativeIds.Add(id))
+                        {
+                            throw new InvalidOperationException("generated_identity_result_role_or_id_mismatch");
+                        }
+                    }
+                }
+                while (await reader.NextResultAsync(cancellationToken).ConfigureAwait(false));
+            }
+            if (returned.Count != requested.Count)
+            {
+                throw new InvalidOperationException("generated_identity_result_incomplete");
+            }
+            var physical = new DataScaleBulkTableRows(values.Table, new[] { input.PrimaryKey }.Concat(values.Columns).ToArray(),
+                values.Rows.Select((row, index) => (IReadOnlyList<object?>)new object?[] { returned[groups[index].AllocationRole] }.Concat(row).ToArray()).ToArray());
+            var expected = new DataScaleArticlePhysicalBatch([physical], new Dictionary<string, int> { [values.Table] = 0 }, [],
+                new Dictionary<string, long>());
+            var observed = await DataScalePhysicalBatchReadback.ObserveAsync(connection, transaction, provider, expected, cancellationToken).ConfigureAwait(false);
+            if (observed.Violations.Count != 0 || observed.SemanticDigest != DataScalePhysicalBatchReadback.ExpectedDigest(expected))
+            {
+                throw new InvalidOperationException("generated_identity_inserted_values_not_exact");
+            }
+            var ids = new Dictionary<string, long>(StringComparer.Ordinal);
+            foreach (DataScaleNativeIdentityRoleGroup group in groups)
+            {
+                foreach (string alias in group.SemanticRoles)
+                {
+                    ids.Add(alias, returned[group.AllocationRole]);
+                }
+            }
+            await transaction.ReleaseAsync(savepoint, cancellationToken).ConfigureAwait(false);
+            return new(new System.Collections.ObjectModel.ReadOnlyDictionary<string, long>(ids), physical, commands,
+                groups.Length * (provider == DataScaleBulkProvider.MySql ? 2 : 1));
+        }
+        catch (Exception error)
+        {
+            using var cleanup = new CancellationTokenSource(TimeSpan.FromSeconds(30));
+            try
+            {
+                await transaction.RollbackAsync(savepoint, cleanup.Token).ConfigureAwait(false);
+                await transaction.ReleaseAsync(savepoint, cleanup.Token).ConfigureAwait(false);
+            }
+            catch (Exception rollback)
+            {
+                throw new AggregateException("generated_identity_transaction_requires_disposal", error, rollback);
+            }
+            throw;
+        }
+    }
+
+    private static async Task ValidateGeneratedKeyAsync(DbConnection db, DbTransaction transaction, DataScaleBulkProvider provider,
+        DataScaleBulkTableRows rows, DataScaleBulkColumn key, CancellationToken token)
+    {
+        await ValidateNativePrimaryKeysAsync(db, transaction, provider, rows.Table, [key.Name], token).ConfigureAwait(false);
+        await using DbCommand command = db.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandTimeout = 30;
+        if (provider == DataScaleBulkProvider.MySql)
+        {
+            command.CommandText = $"SHOW CREATE TABLE `{rows.Table}`";
+            await using DbDataReader ddl = await command.ExecuteReaderAsync(token).ConfigureAwait(false);
+            if (!await ddl.ReadAsync(token).ConfigureAwait(false) || !ddl.GetString(1).StartsWith("CREATE TABLE ", StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException("generated_identity_temporary_table_refused");
+            }
+        }
+        if (provider == DataScaleBulkProvider.Sqlite)
+        {
+            command.CommandText = "SELECT COUNT(*) FROM temp.sqlite_schema WHERE name=@table";
+        }
+        else
+        {
+            command.CommandText = "SELECT COUNT(*) FROM information_schema.TRIGGERS WHERE TRIGGER_SCHEMA=DATABASE() AND EVENT_OBJECT_TABLE=@table";
+        }
+        DbParameter table = command.CreateParameter();
+        table.ParameterName = "@table";
+        table.Value = rows.Table;
+        command.Parameters.Add(table);
+        if (Convert.ToInt64(await command.ExecuteScalarAsync(token).ConfigureAwait(false)) != 0)
+        {
+            throw new InvalidOperationException("generated_identity_shadow_or_trigger_refused");
+        }
+        command.CommandText = provider == DataScaleBulkProvider.Sqlite
+            ? $"SELECT name,type,pk,hidden FROM pragma_table_xinfo('{rows.Table}','main')"
+            : "SELECT COLUMN_NAME,COLUMN_TYPE,EXTRA,0 FROM information_schema.COLUMNS WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@table";
+        var actual = new HashSet<string>(StringComparer.Ordinal);
+        bool generated = false;
+        await using (DbDataReader reader = await command.ExecuteReaderAsync(token).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(token).ConfigureAwait(false))
+            {
+                string name = reader.GetString(0);
+                actual.Add(name);
+                if (name == key.Name)
+                {
+                    generated = provider == DataScaleBulkProvider.Sqlite
+                        ? reader.GetString(1) == "INTEGER" && reader.GetInt64(2) == 1 && reader.GetInt64(3) == 0
+                        : reader.GetString(1) == (key.Type == DbType.Int32 ? "int" : "bigint") && reader.GetString(2) == "auto_increment";
+                }
+            }
+        }
+        if (!generated || !actual.SetEquals(rows.Columns.Select(column => column.Name).Append(key.Name)))
+        {
+            throw new InvalidOperationException("generated_identity_native_key_or_complete_columns_mismatch");
+        }
+        command.CommandText = provider == DataScaleBulkProvider.Sqlite
+            ? "SELECT wr FROM pragma_table_list WHERE schema='main' AND name=@table"
+            : "SELECT ENGINE='InnoDB' FROM information_schema.TABLES WHERE TABLE_SCHEMA=DATABASE() AND TABLE_NAME=@table";
+        if (Convert.ToInt64(await command.ExecuteScalarAsync(token).ConfigureAwait(false)) != (provider == DataScaleBulkProvider.Sqlite ? 0 : 1))
+        {
+            throw new InvalidOperationException("generated_identity_native_table_kind_mismatch");
+        }
+    }
+
     internal static async Task<DataScaleBulkExecution> ExecuteAtomicBatchAsync(
         DbConnection connection,
         DataScaleBulkProvider provider,
@@ -328,6 +579,28 @@ internal static class DataScaleProviderBulkTransport
         IReadOnlyList<DataScaleBulkTableRows> tables,
         string digest)
     {
+        ValidateConnection(connection, provider);
+        if (digest is null || digest.Length != 71 || !digest.StartsWith("sha256:", StringComparison.Ordinal)
+            || digest.AsSpan(7).ContainsAnyExcept("0123456789abcdef"))
+        {
+            throw new ArgumentException("bulk_expected_digest_invalid", nameof(digest));
+        }
+        ValidateRows(connection, provider, tables);
+    }
+
+    private static void ValidateRows(DbConnection connection, DataScaleBulkProvider provider,
+        IReadOnlyList<DataScaleBulkTableRows> tables)
+    {
+        ValidateConnection(connection, provider);
+        if (tables.Count > MaximumTables || tables.Select(table => table.Table).Distinct(StringComparer.Ordinal).Count() != tables.Count)
+        {
+            throw new ArgumentException("bulk_table_count_or_duplicate_invalid", nameof(tables));
+        }
+        ValidateRowValues(tables);
+    }
+
+    private static void ValidateConnection(DbConnection connection, DataScaleBulkProvider provider)
+    {
         string expectedConnection = provider switch
         {
             DataScaleBulkProvider.PostgreSql => "Npgsql.NpgsqlConnection",
@@ -339,15 +612,10 @@ internal static class DataScaleProviderBulkTransport
         {
             throw new InvalidOperationException("bulk_provider_connection_mismatch");
         }
-        if (digest is null || digest.Length != 71 || !digest.StartsWith("sha256:", StringComparison.Ordinal)
-            || digest.AsSpan(7).ContainsAnyExcept("0123456789abcdef"))
-        {
-            throw new ArgumentException("bulk_expected_digest_invalid", nameof(digest));
-        }
-        if (tables.Count > MaximumTables || tables.Select(table => table.Table).Distinct(StringComparer.Ordinal).Count() != tables.Count)
-        {
-            throw new ArgumentException("bulk_table_count_or_duplicate_invalid", nameof(tables));
-        }
+    }
+
+    private static void ValidateRowValues(IReadOnlyList<DataScaleBulkTableRows> tables)
+    {
         long rows = 0;
         long bytes = 0;
         foreach (DataScaleBulkTableRows table in tables)
