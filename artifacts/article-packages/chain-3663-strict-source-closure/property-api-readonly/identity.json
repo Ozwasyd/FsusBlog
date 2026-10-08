@@ -1,0 +1,15 @@
+{
+    "observedPr": 3839,
+    "observedSha": "1cf2163da72853847d8ad7cee9a3d0220a775ecb",
+    "mode": "read-only inspection; not consumed; awaiting parent exact identity and evidence",
+    "paths": [
+        "src/backend/Services/Authoring/IArticlePropertyValueAuthority.cs",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.Read.cs",
+        "src/backend/Services/Authoring/ArticlePropertyValuePersistence.cs",
+        "src/backend/Services/ArticleService.ArticlePropertyValues.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueReadContracts.cs",
+        "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+        "src/backend/Services/Authoring/AuthoringArticleCurrentSourceReader.cs",
+        "artifacts/chain-3735/property-3665-minimal-handoff.md"
+    ]
+}

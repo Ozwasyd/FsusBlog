@@ -1,0 +1,15 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "--info"
+    ],
+    "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T15:13:35.013045+00:00",
+    "endUtc": "2026-10-08T15:13:35.202336+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/strict-source-closure/final-sdk.log"
+}

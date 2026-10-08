@@ -1,0 +1,7 @@
+{
+    "treeSha256": "8070277f4bc845d43bd60a5da695c1ee6b9d0680940c024345a1dee2c671ea78",
+    "paths": [
+        "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs"
+    ],
+    "matchesFirst": true
+}

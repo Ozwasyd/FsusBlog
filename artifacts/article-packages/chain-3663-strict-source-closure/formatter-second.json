@@ -1,0 +1,21 @@
+{
+    "command": [
+        "dotnet",
+        "format",
+        "whitespace",
+        ".",
+        "--folder",
+        "--include",
+        "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "--verbosity",
+        "minimal"
+    ],
+    "testedSha": "18542ad2a23e7214e643c3299d72f19d3c9b99b2",
+    "cleanBefore": false,
+    "startUtc": "2026-10-08T15:10:09.030866+00:00",
+    "endUtc": "2026-10-08T15:10:10.680632+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": false,
+    "log": "/workspace/chain-3663-evidence/strict-source-closure/formatter-second.log"
+}

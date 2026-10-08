@@ -1,0 +1,211 @@
+{
+    "schema": "fsusblog.article-package.source-closure-evidence.v1",
+    "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+    "branch": "codex/chain-3663-strict-source-closure",
+    "base": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+    "verifiedMasterBeforeWork": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "capturedAtUtc": "2026-10-08T15:13:35.423850+00:00",
+    "sourceCount": 105,
+    "allWholeSourceFilesFromOneCandidate": true,
+    "strictBuild": {
+        "warnings": 0,
+        "errors": 0
+    },
+    "tests": {
+        "total": "571",
+        "executed": "571",
+        "passed": "571",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+    },
+    "testsByClass": {
+        "FsusBlog.Server.Tests.Unit.ArticlePackagePropertyMapperTests": 69,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageInventoryTests": 87,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidatePlannerTests": 54,
+        "FsusBlog.Server.Tests.Unit.ArticlePropertyValueFoundationTests": 43,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageFrozenExportCandidateWriterTests": 60,
+        "FsusBlog.Server.Tests.Unit.ArticlePackageManifestCandidateCodecTests": 91,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestMetadataCodecTests": 64,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestPropertyCodecTests": 38,
+        "FsusBlog.Tests.Unit.ArticlePackageManifestTaxonomyCodecTests": 35,
+        "FsusBlog.Tests.Unit.ArticlePackageAssetMetadataMapperTests": 30
+    },
+    "checks": {
+        "final-locked-restore": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "restore",
+                "/workspace/chain-3663-evidence/strict-source-closure/harness/PropertyCodec.Tests.csproj",
+                "--locked-mode",
+                "-warnaserror",
+                "-p:NuGetAudit=true",
+                "-p:NuGetAuditMode=all",
+                "-p:NuGetAuditLevel=low"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:11:04.794416+00:00",
+            "endUtc": "2026-10-08T15:11:06.309678+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-locked-restore.log"
+        },
+        "final-strict-build": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "build",
+                "/workspace/chain-3663-evidence/strict-source-closure/harness/PropertyCodec.Tests.csproj",
+                "--no-restore",
+                "--no-incremental",
+                "-warnaserror"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:11:36.713721+00:00",
+            "endUtc": "2026-10-08T15:11:47.085785+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-strict-build.log"
+        },
+        "final-tests": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "test",
+                "/workspace/chain-3663-evidence/strict-source-closure/harness/PropertyCodec.Tests.csproj",
+                "--no-build",
+                "--no-restore",
+                "--filter",
+                "FullyQualifiedName~ArticlePackageManifestPropertyCodecTests|FullyQualifiedName~ArticlePackagePropertyMapperTests|FullyQualifiedName~ArticlePropertyValueFoundationTests|FullyQualifiedName~ArticlePackageAssetMetadataMapperTests|FullyQualifiedName~ArticlePackageManifestTaxonomyCodecTests|FullyQualifiedName~ArticlePackageInventoryTests|FullyQualifiedName~ArticlePackageManifestMetadataCodecTests|FullyQualifiedName~ArticlePackageManifestCandidateCodecTests|FullyQualifiedName~ArticlePackageManifestCandidatePlannerTests|FullyQualifiedName~ArticlePackageFrozenExportCandidateWriterTests",
+                "--logger",
+                "trx",
+                "--results-directory",
+                "/workspace/chain-3663-evidence/strict-source-closure/final-trx"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:12:05.582108+00:00",
+            "endUtc": "2026-10-08T15:12:15.268813+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-tests.log"
+        },
+        "final-style": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/dotnet/check-csharp-style.mjs",
+                "--root",
+                "/workspace/FsusBlog-strict-source-closure-3663",
+                "--mode",
+                "strict-full",
+                "--file",
+                "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+                "--file",
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:11:05.591566+00:00",
+            "endUtc": "2026-10-08T15:11:12.261977+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-style.log"
+        },
+        "final-commit-range": {
+            "command": [
+                "node",
+                "/workspace/FsusBlog-manifest-authority-3663/tools/governance/check-change-contract.mjs",
+                "--root",
+                "/workspace/FsusBlog-strict-source-closure-3663",
+                "--range",
+                "0c0f3583b21dabefcffc5717ad8665521a61b775..HEAD"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:11:05.585916+00:00",
+            "endUtc": "2026-10-08T15:11:07.243707+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-commit-range.log"
+        },
+        "final-sdk": {
+            "command": [
+                "tools/build-with-data-env.sh",
+                "dotnet",
+                "--info"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:13:35.013045+00:00",
+            "endUtc": "2026-10-08T15:13:35.202336+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/final-sdk.log"
+        },
+        "published-source-push": {
+            "command": [
+                "git",
+                "push",
+                "-u",
+                "origin",
+                "codex/chain-3663-strict-source-closure"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:11:49.014693+00:00",
+            "endUtc": "2026-10-08T15:11:50.403304+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/published-source-push.log"
+        },
+        "published-source-remote-sha": {
+            "command": [
+                "git",
+                "ls-remote",
+                "--heads",
+                "origin",
+                "refs/heads/codex/chain-3663-strict-source-closure"
+            ],
+            "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+            "cleanBefore": true,
+            "startUtc": "2026-10-08T15:12:06.843688+00:00",
+            "endUtc": "2026-10-08T15:12:07.365573+00:00",
+            "exitCode": 0,
+            "shaUnchanged": true,
+            "cleanAfter": true,
+            "log": "/workspace/chain-3663-evidence/strict-source-closure/published-source-remote-sha.log"
+        }
+    },
+    "qualification": "Audited locked managed component compilation and affected source checks only; not whole branch/project, native/provider/full matrix, independent runtime or issue acceptance.",
+    "notRun": [
+        "Original held audits/full matrices; deliberately not rerun under parent instruction",
+        "Full backend/project-wide strict qualification",
+        "Database/native/provider/product runtime and independent acceptance"
+    ],
+    "priorDocsBaseline": "26 inherited docs diagnostics from 0c run remain unwaived; not rerun or reclassified",
+    "externalSqlSugarAssembly": {
+        "path": "/workspace/toolchains/chain-3663/cache/nuget/packages/sqlsugarcorenodrive/5.1.4.213/lib/netstandard2.1/SqlSugar.dll",
+        "sha256": "ba53b69b965b6c40a0d394959c228fd1e09f635a890b1699bd3a9282110e02d9"
+    },
+    "testAssemblySha256": "a2e08afa3d2487b92f19a87db52a87757184135618cd6e2e3ce72d4dc84080dc"
+}

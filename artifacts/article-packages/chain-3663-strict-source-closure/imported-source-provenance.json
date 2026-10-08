@@ -1,0 +1,163 @@
+[
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportContracts.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "cb06db591c0d92cff15bfd354b555d62dc7c2db0",
+        "sha256": "56ff4b4fefbda4cb6735c3744ceffca2e1fa517453abd79418115b6b20224dc6",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportContractValidator.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "226a8474e31c3e8bbb368d733c579d5eeb96cd27",
+        "sha256": "8c172701134838a6f95799499dd8cbb3f2567b69f3143e5e38c0cf0a47d832fa",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportDigest.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "65216fa69647ea5d1f2e6c054a31c9ce2a33c705",
+        "sha256": "28af4dd196bf26b8ef9ef8eaad08cb1fdbd2fd4bb8467491349e06e09ff292ca",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "2720bdac3a8a5eead591850e6f7b5d41c9a55f7b",
+        "sha256": "4e384356e940c93bd91435b697c73131bbdf779987a39d610b85dfce3a8b73c8",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportReadingStyleAuthority.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "1b5d3eb21493f39bf6b04a39f3f002f29a42d02c",
+        "sha256": "ca676357c42e221183629559c78d8c34b31689674d1d8a64a37c3988ade6414a",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "f68ff390616677381acfc94c453e2f8fb2deb075",
+        "sha256": "f2aeded2a3f2871a967669e477f7e181fc1f9a5a21b6db0d3a5ae971f2a37ff0",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportSandbox.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "3e02b525543e3549efa8c7f67c7815a3bb0f52b9",
+        "sha256": "8fc9092eae846d5104bfeedae31d2a1798f429e58ee87883208c2660085ec734",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "c1405f729d867faa50e6fc2853f9fdaafc803568",
+        "sha256": "7221e4e73a813fcbb508b777b0e2cb07e958afd1e903633a819e5cafa30ae2a8",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "66ccf42d575b552b367cf6e04efa06d016e3c211",
+        "sha256": "54197f267fa4918ea2e465ecf98d6dfa24b79dc38d62edaa16bc937d8dcabf11",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "76e138b24e6683122428213b85369defd6b4954b",
+        "sha256": "4fadb4e4baa59ea8ad1895eda3a9b783902c8f60afdcbb5abdf3964f7af10805",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "87717b19a47f13785db210fe6ad562975a83bd3a",
+        "sha256": "cce25d174cb57f583517b3244b0094c1f42fefa937cf7b77d871c208ddb93ffc",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "cdda19bf6060b066bb37e2a57ab5860b10faeb08",
+        "sha256": "8c10c2b3c0cb05d0b12b3acb73e9d0695d6bb28a757e5a058205535f5ea60229",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "26b1b154ae3bfe9593034120558e0451ead78999",
+        "sha256": "f151c0c326d0d10d711334eb34f32385dd19850ab563a3d9976931e63d46196e",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "f170da71f9b77cf0ea6b6c61fbb0be470c2c7950",
+        "sha256": "90499592a4218416d4a9ae430268ef8106abc1abfe93a34df3dbd9e0a841ab6e",
+        "changedFrom0c0": true
+    },
+    {
+        "path": "src/backend/Services/Authoring/AuthorRecentArticleHistoryContracts.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "bb30057f5064e87f457f4b4862f764268f2f2930",
+        "sha256": "08888f875489afba6bf7c05628ad6de5210b4ee1fbde38ce4ee457b6baa0cea1",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "079fec9acefe66d3907ef679426e965af5bd56a5",
+        "sha256": "baab85c7f9203ad22f81758da0e4a9bc156773ae812ddb020b2f268d485b753b",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContracts.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "4a7f73272fe8ef102b0eb1165c13db38e00060db",
+        "sha256": "523d26cd4cca1d1c8762ed6aaddd1b57f6d7fb3ea70bfc73514a75ca917b11e0",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "2cb45472972850c768a38a8245daba4afa1a0fa3",
+        "sha256": "0ba180c8b11bf16dd012f27c4b650054a1d40b6f1fdb09ff80a7cbc0eb6b7af5",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "e5f87e8ef1e59ae3f1e7f57d48596cbc6f50d94a",
+        "sha256": "9bd93c9585e4bb4614faeef31fd9bec10d1ad628c35611f4dc5c52fb0a83fec7",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "a7c8ef21ce617e9a399d97c6c8f3c2fe50284f51",
+        "sha256": "d39a102feaf531a1254500fd960ceb21c5a1927bc8a60a157b359c89c9d8177c",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "475b9c958b035885b958fa0d171a618e8cb81fd8",
+        "sha256": "8b584aeee6656c856cd7aafc929ad55fc2d5401ad9a236dfb631329b7ea7a98e",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "57c46558d141c8b86636218433ca3078b8cac6fc",
+        "sha256": "02351d3a2dfd3b411789c3bb5b6920e889b9645996febeb185f3948f28606723",
+        "changedFrom0c0": false
+    },
+    {
+        "path": "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs",
+        "sourceRevision": "d74d423c9635757455765df72be0f1c443061195",
+        "sourceBlob": "31c708b5fb98dc5b117fafa630d0d9559ef072d2",
+        "sha256": "7b4021c8363cf1579ec98d0e080f3ea247150ccbb2b1a16e5b1dbee482fe147e",
+        "changedFrom0c0": true
+    }
+]

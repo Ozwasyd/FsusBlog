@@ -1,0 +1,72 @@
+[
+    {
+        "ref": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "blob": "66cc1a34192a805df743f885d31942d167f2f429"
+    },
+    {
+        "ref": "0c0f3583b21dabefcffc5717ad8665521a61b775",
+        "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "blob": "6c3296c082f2d7c1732034effd9315d9cdd8a635"
+    },
+    {
+        "ref": "d74d423c9635757455765df72be0f1c443061195",
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "blob": "f68ff390616677381acfc94c453e2f8fb2deb075"
+    },
+    {
+        "ref": "d74d423c9635757455765df72be0f1c443061195",
+        "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "blob": "6c3296c082f2d7c1732034effd9315d9cdd8a635"
+    },
+    {
+        "ref": "ff3f4fd62fa9604cfecd0ae2028cf376df6c37bb^",
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "blob": "bf406ee734a03ffcff3e87e626735510d7fb3cbb"
+    },
+    {
+        "ref": "ff3f4fd62fa9604cfecd0ae2028cf376df6c37bb^",
+        "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "blob": "6c3296c082f2d7c1732034effd9315d9cdd8a635"
+    },
+    {
+        "ref": "ff3f4fd62fa9604cfecd0ae2028cf376df6c37bb",
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "blob": "a397d4a7ffd5c2b22818dff5deba99b23b528818"
+    },
+    {
+        "ref": "ff3f4fd62fa9604cfecd0ae2028cf376df6c37bb",
+        "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "blob": "6c3296c082f2d7c1732034effd9315d9cdd8a635"
+    },
+    {
+        "ref": "c33a47e7860edb080082700190901285fd245b6f^",
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "blob": "709a0b40c84ef6e2a4562aa06dda1e807b63a916"
+    },
+    {
+        "ref": "c33a47e7860edb080082700190901285fd245b6f^",
+        "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "blob": "6c3296c082f2d7c1732034effd9315d9cdd8a635"
+    },
+    {
+        "ref": "c33a47e7860edb080082700190901285fd245b6f",
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "blob": "709a0b40c84ef6e2a4562aa06dda1e807b63a916"
+    },
+    {
+        "ref": "c33a47e7860edb080082700190901285fd245b6f",
+        "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "blob": "088c12503a683bfd2bbfa6b336e90d0c9816fc58"
+    },
+    {
+        "ref": "31542bc59d98f99d8432553f8c9d2b8b86139a74",
+        "path": "src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs",
+        "blob": "709a0b40c84ef6e2a4562aa06dda1e807b63a916"
+    },
+    {
+        "ref": "31542bc59d98f99d8432553f8c9d2b8b86139a74",
+        "path": "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+        "blob": "837b11c183d886cb69d748301b4cdc63544955fd"
+    }
+]

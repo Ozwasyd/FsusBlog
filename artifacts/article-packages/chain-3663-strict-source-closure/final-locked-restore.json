@@ -1,0 +1,21 @@
+{
+    "command": [
+        "tools/build-with-data-env.sh",
+        "dotnet",
+        "restore",
+        "/workspace/chain-3663-evidence/strict-source-closure/harness/PropertyCodec.Tests.csproj",
+        "--locked-mode",
+        "-warnaserror",
+        "-p:NuGetAudit=true",
+        "-p:NuGetAuditMode=all",
+        "-p:NuGetAuditLevel=low"
+    ],
+    "testedSha": "cb01ec851e132bdf3e69596d2b5077c56f5350b2",
+    "cleanBefore": true,
+    "startUtc": "2026-10-08T15:11:04.794416+00:00",
+    "endUtc": "2026-10-08T15:11:06.309678+00:00",
+    "exitCode": 0,
+    "shaUnchanged": true,
+    "cleanAfter": true,
+    "log": "/workspace/chain-3663-evidence/strict-source-closure/final-locked-restore.log"
+}

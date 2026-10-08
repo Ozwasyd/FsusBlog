@@ -1,0 +1,132 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0</TargetFramework>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <Nullable>enable</Nullable>
+        <IsTestProject>true</IsTestProject>
+        <NuGetAudit>true</NuGetAudit>
+        <NuGetAuditMode>all</NuGetAuditMode>
+        <NuGetAuditLevel>low</NuGetAuditLevel>
+    </PropertyGroup>
+    <ItemGroup>
+        <FrameworkReference Include="Microsoft.AspNetCore.App" />
+        <PackageReference Include="Microsoft.NET.Test.Sdk" Version="18.5.1" />
+        <PackageReference Include="xunit" Version="2.9.3" />
+        <PackageReference Include="NSubstitute" Version="5.3.0" />
+        <PackageReference Include="xunit.runner.visualstudio" Version="3.1.5" />
+        <Reference Include="SqlSugar">
+            <HintPath>/workspace/toolchains/chain-3663/cache/nuget/packages/sqlsugarcorenodrive/5.1.4.213/lib/netstandard2.1/SqlSugar.dll</HintPath>
+        </Reference>
+        <Using Include="Xunit" />
+        <Using Include="FsusBlog.Server.Infrastructure.Auth" />
+        <Using Include="Microsoft.AspNetCore.Builder" />
+        <Using Include="Microsoft.AspNetCore.Routing" />
+    </ItemGroup>
+    <ItemGroup>
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractDigest.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/ArticleEmbedContractValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/ArticleEmbedTargetCodec.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/BlockLinks/BlockAnchorCodec.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/BlockLinks/BlockAnchorContractDigest.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/BlockLinks/BlockAnchorContractValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/BlockLinks/BlockAnchorContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/BlockLinks/BlockAnchorIndependentVerifier.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/BlockLinks/BlockAnchorMarkdown.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleRelations/ArticleRelationCatalog.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleRelations/ArticleRelationContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleRelations/ArticleRelationDigest.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyValueValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyDefinitionContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyDefinitionCoreModels.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyDefinitionCommands.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyDefinitionCommandHistory.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePropertyDefinitionAuthorityContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Infrastructure/Auth/AdminPermissions.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Infrastructure/Auth/AnonymousIdentityRuntime.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Infrastructure/Helpers/TextHelpers.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Entities/User.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/core/Common/HexText.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Entities/AuditLog.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackagePropertyMapperTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePropertyValueFoundationTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/Articles/ArticleCanonicalHashV1.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageTitleSummaryMapperTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageSourceByteTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageManifestCandidateCodecTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageManifestCandidatePlannerTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageInventoryTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageChecksumTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageImportCandidateByteTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageImportCandidatePlanTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageImportZipCandidateTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportContractValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportDigest.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportFrozenEmbeds.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportReadingStyleAuthority.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/CanonicalDocumentRendererAdapter.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportSandbox.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportAttemptResources.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportAttemptDeadline.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportSystemdCgroupAuthority.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/SelfContainedHtmlDocumentExportProvider.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportHtmlSanitizer.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/DocumentExportHtmlVerifier.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/DocumentExport/Jobs/DocumentExportJobContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/AuthorRecentArticleHistoryContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationDigest.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Publication/ArticleEmbedPublicationContractValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationDigest.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContractValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedFrozenDependencyProjection.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs" Condition="Exists('/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs')" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs" Condition="Exists('/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageFrozenExportCandidateWriterTests.cs')" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/Articles/ArticleRightsCanonicalHashV1.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/Articles/ArticleRightsRequestCoreModel.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/Articles/ArticleResponsibilityContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/Articles/ArticleResponsibilityGovernance.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageManifestMetadataCodecTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageManifestTaxonomyCodecTests.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Contracts/Assets/AssetId.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Contracts/Assets/AssetStorageKey.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Contracts/Assets/ContentAssetContract.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Contracts/Assets/ContentAssetSchemaValidator.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Contracts/Assets/ContentAssetMediaInspector.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Entities/ContentAssetEntities.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePackageAssetMetadataMapper.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs" />
+        <Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageAssetMetadataMapperTests.cs" />
+    </ItemGroup>
+    <ItemGroup><Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs" /></ItemGroup>
+    <ItemGroup><Compile Include="/workspace/FsusBlog-strict-source-closure-3663/src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs" /></ItemGroup>
+    <ItemGroup><Compile Include="/workspace/FsusBlog-strict-source-closure-3663/tests/backend/Unit/ArticlePackageManifestPropertyCodecTests.cs" /></ItemGroup>
+</Project>
