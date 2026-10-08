@@ -229,20 +229,27 @@ public static class ArticleVaultResolutionPlanner
 
     public static ArticleVaultResolutionPlan Deserialize(ReadOnlySpan<byte> bytes)
     {
+        ArticleVaultResolutionPlanResult result = TryDeserialize(bytes);
+        return result.Plan ?? throw new InvalidDataException(result.ReasonCode);
+    }
+
+    /// <summary>Uses the sole closed codec and returns an explicit refusal without granting admission.</summary>
+    public static ArticleVaultResolutionPlanResult TryDeserialize(ReadOnlySpan<byte> bytes)
+    {
         if (bytes.Length > ArticleVaultGitFactDecoder.MaxOutputBytes)
         {
-            throw new InvalidDataException("article_vault_resolution_size_limit");
+            return new(null, "article_vault_resolution_size_limit");
         }
 
         try
         {
             ArticleVaultResolutionPlan? plan = ArticleVaultManifestCodec.DeserializeCanonical<ArticleVaultResolutionPlan>(bytes);
             ArticleVaultValidationResult result = ValidateStructure(plan);
-            return result.IsValid ? plan! : throw new InvalidDataException(result.ReasonCode);
+            return result.IsValid ? new(plan, null) : new(null, result.ReasonCode);
         }
         catch (JsonException)
         {
-            throw new InvalidDataException("article_vault_resolution_schema_invalid");
+            return new(null, "article_vault_resolution_schema_invalid");
         }
     }
 

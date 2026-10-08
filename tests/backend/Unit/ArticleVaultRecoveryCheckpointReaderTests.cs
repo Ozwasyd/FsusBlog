@@ -18,7 +18,7 @@ public sealed class ArticleVaultRecoveryCheckpointReaderTests
     {
         Type[] owners =
         [typeof(ArticleVaultResolutionPlanner), typeof(ArticleVaultRecoveryJournalVerifier), typeof(ArticleVaultGitFactDecoder),
-            typeof(ArticleVaultRecoveryCheckpointReader)];
+            typeof(ArticleVaultRecoveryCheckpointReader), typeof(ArticleVaultRecoveryStoredProposalReader)];
         RuntimeMetadataInspection.RuntimeMemberSite[] references = owners
             .SelectMany(static owner => new[] { owner }.Concat(owner.GetNestedTypes(System.Reflection.BindingFlags.Public
                 | System.Reflection.BindingFlags.NonPublic)))

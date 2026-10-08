@@ -89,9 +89,13 @@ public static class ArticleVaultRecoveryJournalVerifier
         }
 
         VaultRecoveryBackupPolicy policy = journal.BackupPolicy;
-        if (policy.MaxBytes is <= 0 or > MaxBackupBytes || !policy.EncryptionRequired
+        if (policy.MaxBytes is <= 0 or > MaxBackupBytes || !policy.EncryptionRequired || policy.DeleteAfterUnixMs <= 0
             || policy.PrivacyClass != "private-source" || policy.CleanupPolicyIdentity != "owned-encrypted-backup-expiry-v1"
+            // An expired backup must block use, not erase a late failure/recovery obligation.
+            // These three states retain metadata only; active/completed materialization still
+            // requires the original live backup window and actual independent admission.
             || policy.DeleteAfterUnixMs <= journal.CreatedAtUnixMs
+                && journal.State is not (VaultRecoveryState.RecoveryRequired or VaultRecoveryState.Cancelled or VaultRecoveryState.Failed)
             || policy.DeleteAfterUnixMs - journal.CreatedAtUnixMs > MaxBackupRetentionMs)
         {
             return Invalid("backup_policy_invalid");
@@ -193,7 +197,12 @@ public static class ArticleVaultRecoveryJournalVerifier
         }
 
         validity = VerifyHistory(plan, history, checkpoint);
-        return !validity.IsValid ? validity : Invalid("canonical_materializer_and_operation_admission_missing");
+        if (!validity.IsValid)
+        {
+            return validity;
+        }
+        return history[^1].BackupPolicy.DeleteAfterUnixMs <= current.Metadata.Context.NowUnixMs
+            ? Invalid("backup_expired") : Invalid("canonical_materializer_and_operation_admission_missing");
     }
 
     public static byte[] Serialize(ArticleVaultRecoveryJournal journal)

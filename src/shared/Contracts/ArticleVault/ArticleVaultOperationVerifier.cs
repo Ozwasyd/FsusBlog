@@ -227,6 +227,15 @@ public static class ArticleVaultOperationVerifier
             return Invalid("article_vault_operation_transition_invalid");
         }
 
+        // A sealed proposal or hash-linked recovery reference is not executable admission.
+        // Apply this boundary to history verification as well as durable appends, until the
+        // canonical native materializer can prove backup, journal and unchanged base bindings.
+        if (previous.State == VaultOperationState.RecoveryRequired
+            && next.State == VaultOperationState.MaterializingLocal)
+        {
+            return Invalid("article_vault_operation_resume_capability_missing");
+        }
+
         bool uncertain = next.ServerCommit is VaultServerCommitDisposition.Unknown or VaultServerCommitDisposition.Accepted;
         if (next.State == VaultOperationState.ExecutingServer
                 && next.ServerCommit != VaultServerCommitDisposition.Unknown
