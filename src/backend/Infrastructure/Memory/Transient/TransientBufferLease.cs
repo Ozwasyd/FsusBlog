@@ -111,7 +111,11 @@ public sealed class TransientBufferLease : MemoryManager<byte>
             _pool = pool;
             _buffer = buffer;
         }
-        public GCHandle Handle { get; set; }
+        public GCHandle Handle
+        {
+            get;
+            set;
+        }
         public MemoryHandle Pin(int elementIndex) => throw new NotSupportedException();
         public void Unpin()
         {
