@@ -7,11 +7,16 @@ const testId = process.argv[3];
 
 if (scenario === 'timeout')
 {
-    setInterval(() => {}, 1000);
+    setInterval(() =>
+    {}, 1000);
 }
 else if (scenario === 'signal')
 {
     process.kill(process.pid, 'SIGTERM');
+}
+else if (scenario === 'no-sidecar')
+{
+    process.exitCode = 0;
 }
 else
 {

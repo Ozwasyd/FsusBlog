@@ -109,6 +109,23 @@ test('atomic contract rejects issue-prefixed identities and second topology fiel
     assert.throws(() => validate(topology), /schema/u);
 });
 
+test('logical projection identity is explicit and is not inferred from the parent name', () =>
+{
+    const fixture = atomicFixture();
+    fixture.matrix.atomicProducerDeclarations.nodes.find((node) => node.kind === 'logical-projection').producerId = 'explicit-domain-summary';
+    fixture.matrix.atomicProducerDeclarations.nodes.at(-1).settledDependsOn = ['alpha-check', 'beta-check', 'dependent-check', 'explicit-domain-summary', 'settled-observer'];
+    assert.equal(validate(fixture).nodes.length, 6);
+});
+
+test('canonical replay plan digest cannot replace the independently bound artifact byte digest', () =>
+{
+    const fixture = atomicFixture();
+    const reference = fixture.matrix.atomicProducerDeclarations.nodes[0].replayPlanRef;
+    assert.notEqual(reference.contentDigest, reference.planDigest);
+    reference.contentDigest = reference.planDigest;
+    assert.throws(() => validate(fixture), /artifact byte digest mismatch/u);
+});
+
 function dispositionFixture()
 {
     const observations = ['alpha-check', 'beta-check', 'workflow-check'].map((id) => ({
@@ -157,6 +174,13 @@ test('disposition rejects absent, multiple, tracking and unknown migration owner
         fixture.inventory.entries[0].migrationOwner = value;
         assert.throws(() => validateCompositeLeafDisposition(fixture.inventory, fixture.authorities), /schema|tracking child/u);
     }
+    const injectedTracking = dispositionFixture();
+    injectedTracking.authorities.migrationOwners = [2244];
+    injectedTracking.inventory.entries.forEach((entry) =>
+    {
+        entry.migrationOwner = 2244;
+    });
+    assert.throws(() => validateCompositeLeafDisposition(injectedTracking.inventory, injectedTracking.authorities), /tracking child/u);
 });
 
 test('disposition rejects duplicate children, producer as join and unproved classification', () =>

@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-import { digestCanonical, sealContentDigest } from '../../tools/test/attempt-provenance.mjs';
+import { digestCanonical, sealContentDigest, sha256 } from '../../tools/test/attempt-provenance.mjs';
 import { compileAtomicProducerDag, verifyCompiledAtomicProducerDag } from '../../tools/test-matrix/atomic-producers/compiler.mjs';
 import { AtomicProducerExecutionError, executeCompiledAtomicProducerDag, verifyAtomicTerminalVector } from '../../tools/test-matrix/atomic-producers/execution.mjs';
 
@@ -46,7 +46,10 @@ test('compiler gives direct Fresh resume and CI consumers the same immutable DAG
     const outputs = ['direct', 'fresh', 'resume', 'ci'].map(() => compileAtomicProducerDag(fixture.matrix, fixture.authorities));
     assert.equal(new Set(outputs.map((output) => output.contentDigest)).size, 1);
     assert.ok(Object.isFrozen(outputs[0].steps[0].resources));
-    assert.throws(() => { outputs[0].steps[0].command.push('extra'); }, TypeError);
+    assert.throws(() =>
+    {
+        outputs[0].steps[0].command.push('extra');
+    }, TypeError);
     assert.ok(outputs[0].steps.filter((step) => step.runAfterSettled || step.alwaysRunFinalizer).every((step) => step.command === undefined));
     assert.equal(outputs[0].qualificationEligible, false);
 });
@@ -66,7 +69,10 @@ test('real first attempts succeed once while parent and join project without spa
 {
     const fixture = atomicFixture();
     let cleanupCount = 0;
-    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () => { cleanupCount += 1; } });
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
     const compiled = compileAtomicProducerDag(fixture.matrix, fixture.authorities);
     const vector = await executeCompiledAtomicProducerDag(compiled, options);
     assert.equal(vector.status, 'success');
@@ -80,9 +86,15 @@ test('real first attempts succeed once while parent and join project without spa
         assert.equal(attempt.status, 'clean-success');
         assert.equal(fs.existsSync(path.join(path.dirname(path.dirname(receipts[id].attemptRef.path)), 'attempt-2')), false);
         const replay = fixture.authorities.replayPlans.find((material) => material.plan.producer.id === id).plan;
-        assert.equal(attempt.replayPlanDigest, replay.planDigest);
+        assert.equal(attempt.replayPlanDigest, compiled.steps.find((step) => step.id === id).replayPlanRef.contentDigest);
+        assert.notEqual(attempt.replayPlanDigest, replay.planDigest);
         assert.deepEqual(attempt.executedTestIds, replay.testEnumerationOrder);
         assert.ok(receipts[id].artifactRefs.length >= 3);
+        for (const artifact of receipts[id].artifactRefs)
+        {
+            assert.match(artifact.contentDigest, /^sha256:[a-f0-9]{64}$/u);
+            assert.equal(artifact.contentDigest, sha256(fs.readFileSync(artifact.path)));
+        }
     }
     for (const id of ['settled-observer', 'fixture-summary', 'cleanup-inventory'])
     {
@@ -96,7 +108,10 @@ test('failed alpha does not terminate independent beta and hard dependent is blo
 {
     const fixture = atomicFixture({ alphaScenario: 'product-failure' });
     let cleanupCount = 0;
-    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () => { cleanupCount += 1; } });
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
     const vector = await failureVector(executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options));
     const receipts = byProducer(vector);
     assert.equal(receipts['alpha-check'].terminalState, 'failed');
@@ -127,7 +142,10 @@ test('timeout retains the first failed attempt and still runs cleanup and indepe
 {
     const fixture = atomicFixture({ alphaScenario: 'timeout' });
     let cleanupCount = 0;
-    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () => { cleanupCount += 1; } });
+    const options = atomicExecutionOptions(fixture, directory, { onCleanup: () =>
+    {
+        cleanupCount += 1;
+    } });
     options.producerContexts['alpha-check'].timeoutMs = 100;
     const vector = await failureVector(executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options));
     const receipts = byProducer(vector);
@@ -146,7 +164,10 @@ test('per-producer cancellation preserves terminal evidence and cleanup without 
     let cleanupCount = 0;
     const options = atomicExecutionOptions(fixture, directory, {
         signalByProducer: { 'alpha-check': controller.signal },
-        onCleanup: () => { cleanupCount += 1; }
+        onCleanup: () =>
+        {
+            cleanupCount += 1;
+        }
     });
     controller.abort(new Error('isolated cancellation'));
     const vector = await failureVector(executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options));
@@ -221,4 +242,58 @@ test('global interrupt refuses before spawn while the shared pending-finalizer c
     options.capacity.signal = new AbortController().signal;
     await assert.rejects(executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options), /global-interrupt finalizer capability/u);
     assert.deepEqual(fs.readdirSync(directory), []);
+}));
+
+test('attempt runner exception records internal error and releases grants while sibling and cleanup complete', async () => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture();
+    const options = atomicExecutionOptions(fixture, directory);
+    options.capacity = { maxParallel: 1, cpuUnits: 1, memoryGiB: 1 };
+    const original = options.producerContexts['alpha-check'].verifyAuthority;
+    let verificationCalls = 0;
+    options.producerContexts['alpha-check'].verifyAuthority = (reference) =>
+    {
+        verificationCalls += 1;
+        if (verificationCalls > 3)
+        {
+            throw new Error('isolated external owner disappeared after preflight');
+        }
+        return original(reference);
+    };
+    const vector = await failureVector(executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), options));
+    const receipts = byProducer(vector);
+    assert.equal(receipts['alpha-check'].terminalState, 'internal-error');
+    assert.equal(receipts['alpha-check'].attemptRef, null);
+    assert.equal(receipts['beta-check'].terminalState, 'success');
+    assert.equal(receipts['dependent-check'].terminalState, 'blocked');
+    assert.equal(receipts['cleanup-inventory'].terminalState, 'success');
+    const evidence = JSON.parse(fs.readFileSync(receipts['alpha-check'].evidenceRefs[0].path, 'utf8'));
+    assert.equal(evidence.receiptKind, 'adapter-failure-without-verified-attempt');
+    assert.match(evidence.reason, /owner disappeared/u);
+}));
+
+test('cross-run replay environment and finalizer capability drift refuse before spawn', async () => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture();
+    const compiled = compileAtomicProducerDag(fixture.matrix, fixture.authorities);
+    const environment = atomicExecutionOptions(fixture, directory);
+    environment.producerContexts['alpha-check'].env = { PATH: 'different-toolchain-path' };
+    await assert.rejects(executeCompiledAtomicProducerDag(compiled, environment), /source\/run\/environment/u);
+    const operation = atomicExecutionOptions(fixture, directory);
+    operation.finalizerOperations['isolated-cleanup'].contentDigest = digestCanonical('foreign-operation');
+    await assert.rejects(executeCompiledAtomicProducerDag(compiled, operation), /missing finalizer capability/u);
+    assert.deepEqual(fs.readdirSync(directory), []);
+}));
+
+test('exit-zero command without a sidecar retains the real shared runner refusal', async () => withEvidence(async (directory) =>
+{
+    const fixture = atomicFixture({ alphaScenario: 'no-sidecar' });
+    const vector = await failureVector(executeCompiledAtomicProducerDag(compileAtomicProducerDag(fixture.matrix, fixture.authorities), atomicExecutionOptions(fixture, directory)));
+    const receipts = byProducer(vector);
+    const attempt = JSON.parse(fs.readFileSync(receipts['alpha-check'].attemptRef.path, 'utf8'));
+    assert.equal(attempt.exitCode, 0);
+    assert.equal(attempt.status, 'failed-no-retry');
+    assert.equal(attempt.failureKind, 'invalid-success-result-sidecar');
+    assert.equal(receipts['alpha-check'].terminalState, 'failed');
+    assert.equal(receipts['beta-check'].terminalState, 'success');
 }));

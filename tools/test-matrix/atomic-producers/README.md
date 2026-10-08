@@ -13,6 +13,9 @@ producers, hard prerequisites, settled joins, logical projections and finalizers
 Executable children have exact-one physical ownership, command-free parent
 projection, first-attempt correctness policy, source/input-closure binding,
 fixture/resource/replay references and explicit runtime state references.
+Parents consume the existing `executionMode=projection`, `commandKind=projection`,
+`executionOwner` and `projectFrom` matrix fields. Projection identity is explicit;
+it is not inferred from a parent name or suffix.
 
 The required `authorities` argument is an integration boundary for upstream
 owners, not a new physical catalog or input analyzer. It contains the exact
@@ -24,13 +27,16 @@ owners, not a new physical catalog or input analyzer. It contains the exact
 | `commandSources` | sealed `id`, one argv `command`, `executableAuthorityCount=1`, `inputClosureRef` |
 | `inputClosures` | sealed `id`, `commandSourceId`, `commandDigest`, empty `unresolvedDynamicReads` |
 | `fixtureProfiles` | sealed fixture identity referenced by the replay owner |
-| `replayPlans` | `id`, `replayOwner`, `fixtureProfileDigest`, canonical #1600 `plan`; owner retains test/worker/shard/seed selection |
+| `replayPlans` | `id`, `replayOwner`, `fixtureProfileDigest`, `artifactPath`, exact file `bytes`; owner retains test/worker/shard/seed selection |
 | `resourceContracts` | sealed `id` and existing weighted-step `resources` |
 | `stateAccess` | sealed `id`, `producerId`, `unknownAccess=false`; canonical state owner retains access analysis |
 | `finalizerOperations` | sealed `id` and one existing scheduler finalizer `purpose`, without command/tests/build |
 
-References are `{ id, contentDigest }`. Replay references use the original
-`plan.planDigest` and original `validateReplayPlan` validator. Other material digests use the existing attempt
+References are `{ id, contentDigest }`. Replay references additionally carry
+`planDigest`. Their `contentDigest` binds the exact artifact file bytes; their
+`planDigest` binds the original unsigned #1600 plan through the original
+`validateReplayPlan` validator. These digests are distinct and never interchanged.
+Other material digests use the existing attempt
 provenance canonical JSON digest excluding `contentDigest`. Validating references
 does not independently admit their source, prove complete input closure or
 certify state access. The upstream owners must supply the actual validated
@@ -79,6 +85,17 @@ evidence references and content digests. Failure throws
 The vector explicitly has `qualificationEligible=false` because this source
 increment does not admit consumer or runtime integration.
 
+An attempt-runner exception becomes an `internal-error` adapter observation,
+releases the scheduler grant and leaves independent producers/finalizers eligible.
+The observation explicitly says it has no verified attempt; it cannot substitute
+for a missing runtime receipt. Existing attempt files are retained.
+
+The current shared attempt runner refuses an exit-zero command without a result
+sidecar as `invalid-success-result-sidecar`. This remains a real integration
+blocker for unchanged lane commands. The adapter does not fabricate sidecars or
+relabel the failed attempt. A canonical runner-owner fix or approved existing
+producer result bridge is required before those commands can be admitted.
+
 ## Verification and remaining integration
 
 Run the isolated controls with:
@@ -108,3 +125,9 @@ Current full inventory, generated current-doc admission, local/Fresh/resume/CI
 consumer adoption, canonical runtime state integration, complete cancellation
 acceptance and independent review remain open. Exact local fixture execution
 does not substitute for those conditions.
+
+The current strict source linter refuses relative parent imports used to consume
+the canonical modules. No suppression, dynamic import rewrite or rule change is
+introduced. A reviewed canonical module/package dependency boundary is required
+from the source-style/integration owner before source admission; fixture controls
+do not waive this gate.

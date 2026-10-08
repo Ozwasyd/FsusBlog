@@ -1,6 +1,6 @@
 import path from 'node:path';
 
-import { digestCanonical, sealContentDigest } from '../../../tools/test/attempt-provenance.mjs';
+import { digestCanonical, sealContentDigest, sha256 } from '../../../tools/test/attempt-provenance.mjs';
 import { canonicalTestId, planExactShards, REPLAY_PLAN_SCHEMA, sealReplayPlan } from '../../../tools/test/execution-replay-contract.mjs';
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../../..');
@@ -72,6 +72,8 @@ export function atomicFixture({ alphaScenario = 'success', betaScenario = 'succe
             id: `${id}-replay`,
             replayOwner: 'isolated-replay-owner',
             fixtureProfileDigest: profile.contentDigest,
+            artifactPath: `${id}.replay-plan.json`,
+            bytes: `${JSON.stringify(plan, null, 4)}\n`,
             plan
         };
         const node = {
@@ -93,7 +95,7 @@ export function atomicFixture({ alphaScenario = 'success', betaScenario = 'succe
             evidence: ['attempt-receipt'],
             replayOwner: 'isolated-replay-owner',
             projectionOwner: 'isolated-projection-owner',
-            replayPlanRef: { id: replay.id, contentDigest: plan.planDigest }
+            replayPlanRef: { id: replay.id, contentDigest: sha256(replay.bytes), planDigest: plan.planDigest }
         };
         authorities.commandSources.push(source);
         authorities.inputClosures.push(closure);
@@ -113,7 +115,13 @@ export function atomicFixture({ alphaScenario = 'success', betaScenario = 'succe
         dependsOn: []
     };
     const matrix = {
-        tiers: [{ id: 'fixture-summary', summaryOnly: true, projectionOwner: 'isolated-projection-owner' }],
+        tiers: [{
+            id: 'fixture-summary',
+            executionMode: 'projection',
+            commandKind: 'projection',
+            executionOwner: 'isolated-projection-owner',
+            projectFrom: ['alpha-check', 'beta-check', 'dependent-check']
+        }],
         atomicProducerDeclarations: {
             schema: 'fsusblog.atomic-producer-declarations.v1',
             nodes: [
@@ -140,7 +148,8 @@ export function rebindAtomicFixture(fixture)
     return fixture;
 }
 
-export function atomicExecutionOptions(fixture, evidenceRoot, { signalByProducer = {}, onCleanup = () => {} } = {})
+export function atomicExecutionOptions(fixture, evidenceRoot, { signalByProducer = {}, onCleanup = () =>
+{} } = {})
 {
     const context = {
         evidenceRoot,
@@ -152,11 +161,11 @@ export function atomicExecutionOptions(fixture, evidenceRoot, { signalByProducer
     {
         const references = [
             ['execution-envelope', `sha256:${'3'.repeat(64)}`],
-            ['replay-plan', replay.plan.planDigest],
+            ['replay-plan', sha256(replay.bytes)],
             ['temporal-context', `sha256:${'5'.repeat(64)}`]
         ].map(([kind, artifactDigest]) => ({
             kind,
-            artifactPath: `${kind}.json`,
+            artifactPath: kind === 'replay-plan' ? replay.artifactPath : `${kind}.json`,
             artifactDigest,
             verificationReceiptPath: `${kind}.verification.json`,
             verificationReceiptDigest: `sha256:${'6'.repeat(64)}`

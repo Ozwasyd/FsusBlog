@@ -1,6 +1,6 @@
 import fs from 'node:fs';
 
-import { digestCanonical, readRetryPolicyRegistry, retryPolicyById } from '../../test/attempt-provenance.mjs';
+import { digestCanonical, readRetryPolicyRegistry, retryPolicyById, sha256 } from '../../test/attempt-provenance.mjs';
 import { validateReplayPlan } from '../../test/execution-replay-contract.mjs';
 import { validateJsonSchema } from '../schema-validator/validate.mjs';
 
@@ -36,12 +36,17 @@ export function resolveAtomicReference(items, reference, label)
 export function resolveAtomicReplayPlan(items, reference)
 {
     const material = exactAtomicItem(items, reference.id, 'replay plan');
-    const plan = validateReplayPlan(material.plan);
-    if (plan.planDigest !== reference.contentDigest)
+    if (typeof material.bytes !== 'string' || typeof material.artifactPath !== 'string'
+        || sha256(material.bytes) !== reference.contentDigest)
+    {
+        throw new Error('replay artifact byte digest mismatch');
+    }
+    const plan = validateReplayPlan(JSON.parse(material.bytes));
+    if (plan.planDigest !== reference.planDigest)
     {
         throw new Error('canonical replay plan digest mismatch');
     }
-    return material;
+    return { ...material, plan };
 }
 
 function sortedUnique(values, label)
@@ -175,14 +180,17 @@ export function validateAtomicProducerDeclarations(matrix, authorities)
     for (const parentId of parentIds)
     {
         const parents = (matrix.tiers ?? []).filter((tier) => tier.id === parentId);
-        if (parents.length !== 1 || parents[0].command !== undefined || parents[0].summaryOnly !== true)
+        if (parents.length !== 1 || parents[0].command !== undefined
+            || parents[0].executionMode !== 'projection' || parents[0].commandKind !== 'projection')
         {
             throw new Error(`logical parent must be exact-one command-free projection: ${parentId}`);
         }
         const children = declarations.nodes.filter((node) => node.logicalParentId === parentId && isAtomicExecutable(node));
-        const projection = declarations.nodes.filter((node) => node.kind === 'logical-projection' && node.producerId === parentId);
-        if (projection.length !== 1 || parents[0].projectionOwner !== projection[0].owner
+        const projection = declarations.nodes.filter((node) => node.kind === 'logical-projection' && node.logicalParentId === parentId);
+        const projectedProducers = Array.isArray(parents[0].projectFrom) ? parents[0].projectFrom : [parents[0].projectFrom];
+        if (projection.length !== 1 || parents[0].executionOwner !== projection[0].owner
             || children.some((node) => node.projectionOwner !== projection[0].owner)
+            || JSON.stringify(projectedProducers) !== JSON.stringify(children.map((node) => node.producerId).sort())
             || JSON.stringify(projection[0].settledDependsOn) !== JSON.stringify(children.map((node) => node.producerId).sort()))
         {
             throw new Error(`logical parent requires exact-one projection of its executable children: ${parentId}`);

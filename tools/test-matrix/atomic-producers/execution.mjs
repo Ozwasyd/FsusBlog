@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { runProducerAttempts } from '../../test/attempt-runner.mjs';
 import { digestCanonical, sealContentDigest, validateExternalAuthorityReferences } from '../../test/attempt-provenance.mjs';
+import { runProducerAttempts } from '../../test/attempt-runner.mjs';
 import { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionError } from '../../test/bundles/bundle-steps.mjs';
 
 import { verifyCompiledAtomicProducerDag } from './compiler.mjs';
@@ -79,7 +79,7 @@ function terminalVector(compiled, scheduler, attempts, context)
             } : null,
             artifactRefs: receipt ? receipt.artifactPaths.map((relative) => ({
                 path: path.join(result.producerRoot, 'attempt-1', relative),
-                contentDigest: `sha256:${receipt.artifactDigests[relative]}`
+                contentDigest: receipt.artifactDigests[relative]
             })) : [],
             evidenceRefs: terminal.evidenceRef === null ? [] : [{
                 path: terminal.evidenceRef,
@@ -149,11 +149,14 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
             schedulerRunId: context.schedulerRunId,
             producerId: step.id
         });
-        if (references.find((reference) => reference.kind === 'replay-plan').artifactDigest !== step.replayPlanRef.contentDigest)
+        const replayMaterial = resolveAtomicReplayPlan(options.authorities.replayPlans, step.replayPlanRef);
+        const replayReference = references.find((reference) => reference.kind === 'replay-plan');
+        if (replayReference.artifactDigest !== step.replayPlanRef.contentDigest
+            || replayReference.artifactPath !== replayMaterial.artifactPath)
         {
             throw new Error(`replay plan reference differs from compiled DAG: ${step.id}`);
         }
-        const replay = resolveAtomicReplayPlan(options.authorities.replayPlans, step.replayPlanRef).plan;
+        const replay = replayMaterial.plan;
         if (replay.source.commit !== context.sourceCommit || replay.source.worktreeFingerprint !== context.worktreeFingerprint
             || replay.run.id !== context.schedulerRunId || replay.command.environmentDigest !== digestCanonical(supplied.env))
         {
@@ -196,9 +199,29 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
             let result;
             if (isAtomicExecutable(step))
             {
-                const attempt = await runProducerAttempts(preflight.get(step.id));
-                attempts.set(step.id, attempt);
-                result = attemptOutcome(attempt);
+                try
+                {
+                    const attempt = await runProducerAttempts(preflight.get(step.id));
+                    attempts.set(step.id, attempt);
+                    result = attemptOutcome(attempt);
+                }
+                catch (error)
+                {
+                    const evidence = sealContentDigest({
+                        producerId: step.id,
+                        compiledDagDigest: verified.contentDigest,
+                        receiptKind: 'adapter-failure-without-verified-attempt',
+                        terminalState: 'internal-error',
+                        reasonCode: 'attempt-runner-internal-error',
+                        reason: error instanceof Error ? error.message : String(error)
+                    });
+                    result = {
+                        ...evidence,
+                        reason: error,
+                        primaryFailureRefs: [step.id],
+                        evidenceRef: writeEvidence(step.id, evidence)
+                    };
+                }
             }
             else if (step.alwaysRunFinalizer === true)
             {
