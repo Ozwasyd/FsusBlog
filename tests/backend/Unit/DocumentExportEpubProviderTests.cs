@@ -90,10 +90,10 @@ public sealed class DocumentExportEpubProviderTests
         DocumentExportRendererResponse invalidResponse = Response(input, metadata, fragment);
         Assert.Throws<InvalidDataException>(() => EpubPackageBuilder.Build(input, invalidResponse, metadata, Budgets));
 
-        const string validFragment = "<div id=\"structure-probe\">marker</div>";
-        EpubPackageBuildResult valid = EpubPackageBuilder.Build(input, Response(input, metadata, validFragment), metadata, Budgets);
+        const string ValidFragment = "<div id=\"structure-probe\">marker</div>";
+        EpubPackageBuildResult valid = EpubPackageBuilder.Build(input, Response(input, metadata, ValidFragment), metadata, Budgets);
         byte[] mutated = Rewrite(valid.Bytes, "EPUB/chapter-0001.xhtml", bytes => Encoding.UTF8.GetBytes(
-            Encoding.UTF8.GetString(bytes).Replace(validFragment, fragment, StringComparison.Ordinal)));
+            Encoding.UTF8.GetString(bytes).Replace(ValidFragment, fragment, StringComparison.Ordinal)));
         InvalidDataException failure = Assert.Throws<InvalidDataException>(() =>
             DocumentExportEpubPackageValidator.Validate(mutated, input, invalidResponse, metadata, Budgets));
         Assert.Contains("XHTML", failure.Message, StringComparison.Ordinal);
