@@ -25,7 +25,7 @@ internal sealed class LinuxOsNumaRangeApi : IOsNumaRangeApi
         mask[node / 64] = 1UL << (node % 64);
         try
         {
-            int result = BindPages(address, bytes, 2, mask, (nuint)(node + 1), 0);
+            nint result = BindPages(address, bytes, 2, mask, (nuint)(node + 1), 0);
             return new(result == 0, result == 0 ? 0 : Marshal.GetLastPInvokeError());
         }
         catch (DllNotFoundException)
@@ -39,6 +39,6 @@ internal sealed class LinuxOsNumaRangeApi : IOsNumaRangeApi
     }
 
     [DllImport("libnuma.so.1", EntryPoint = "mbind", SetLastError = true)]
-    private static extern unsafe int BindPages(nint address, nuint length, int mode,
+    private static extern unsafe nint BindPages(nint address, nuint length, int mode,
         ulong* nodeMask, nuint maximumNode, uint flags);
 }
