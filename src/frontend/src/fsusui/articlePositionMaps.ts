@@ -1,0 +1,12 @@
+export type {
+    MarkdownEditorDispatchResult,
+    MarkdownEditorPositionMap,
+    MarkdownEditorResolvedSelection
+} from '@ozwasyd/element-plus';
+
+export type {
+    MarkdownAnchorAffinity,
+    MarkdownAnchorMap,
+    MarkdownSourceRange,
+    MarkdownVisualSelection
+} from '@ozwasyd/element-plus/markdown-runtime';
