@@ -35,6 +35,13 @@
                 "tools/governance/change-contract.mjs"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the registered generated testing-document contract while regenerating the original producer from the current matrix."
         }
     ]
 }
