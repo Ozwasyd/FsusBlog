@@ -453,11 +453,35 @@ public sealed class OfflineMigrationSourceObserverValue5323Tests
         await connection.OpenAsync(cancellationToken);
         await using SqliteCommand command = connection.CreateCommand();
         command.CommandText = sql;
+        byte[]? embeddedNulBytes = null;
         if (body is not null)
         {
-            command.Parameters.AddWithValue("@body", body);
+            if (body.Contains('\0'))
+            {
+                // The native string binder terminates at NUL. Bind the complete
+                // UTF-8 bytes and cast in SQL so the original TEXT negative input
+                // actually reaches storage before testing the streaming reader.
+                Assert.Contains("sys_systemconfig", sql, StringComparison.Ordinal);
+                embeddedNulBytes = new UTF8Encoding(false, true).GetBytes(body);
+                command.CommandText = sql.Replace("@body", "CAST(@body AS TEXT)", StringComparison.Ordinal);
+                command.Parameters.AddWithValue("@body", embeddedNulBytes);
+            }
+            else
+            {
+                command.Parameters.AddWithValue("@body", body);
+            }
         }
         await command.ExecuteNonQueryAsync(cancellationToken);
+        if (embeddedNulBytes is not null)
+        {
+            await using SqliteCommand stored = connection.CreateCommand();
+            stored.CommandText = "SELECT typeof(value),CAST(value AS BLOB) FROM sys_systemconfig WHERE \"key\"='ordinary'";
+            await using SqliteDataReader reader = await stored.ExecuteReaderAsync(cancellationToken);
+            Assert.True(await reader.ReadAsync(cancellationToken));
+            Assert.Equal("text", reader.GetString(0));
+            Assert.Equal<byte>(embeddedNulBytes, (byte[])reader.GetValue(1));
+            Assert.False(await reader.ReadAsync(cancellationToken));
+        }
     }
 
     private static async Task<OfflineMigrationSourceObserver.SqliteSourceRead> ReadSqliteAsync(string path, CancellationToken cancellationToken)
