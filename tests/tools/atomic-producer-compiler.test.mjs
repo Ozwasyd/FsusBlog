@@ -3,13 +3,14 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-
-import { digestCanonical, sealContentDigest, sha256 } from '../../tools/test/attempt-provenance.mjs';
-import { executeWeightedStepDag, StepDagExecutionError, StepTerminalError } from '../../tools/test/bundles/bundle-steps.mjs';
-import { compileAtomicProducerDag, verifyCompiledAtomicProducerDag } from '../../tools/test-matrix/atomic-producers/compiler.mjs';
-import { AtomicProducerExecutionError, executeCompiledAtomicProducerDag, verifyAtomicTerminalVector } from '../../tools/test-matrix/atomic-producers/execution.mjs';
+import { URL } from 'node:url';
 
 import { atomicExecutionOptions, atomicFixture, atomicReference, rebindAtomicFixture } from './support/atomic-producer-fixture.mjs';
+
+const { digestCanonical, sealContentDigest, sha256 } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+const { executeWeightedStepDag, StepDagExecutionError, StepTerminalError } = await import(new URL('../../tools/test/bundles/bundle-steps.mjs', import.meta.url));
+const { compileAtomicProducerDag, verifyCompiledAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/compiler.mjs', import.meta.url));
+const { AtomicProducerExecutionError, executeCompiledAtomicProducerDag, verifyAtomicTerminalVector } = await import(new URL('../../tools/test-matrix/atomic-producers/execution.mjs', import.meta.url));
 
 async function withEvidence(run)
 {

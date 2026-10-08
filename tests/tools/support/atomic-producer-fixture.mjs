@@ -1,7 +1,8 @@
 import path from 'node:path';
+import { URL } from 'node:url';
 
-import { digestCanonical, sealContentDigest, sha256 } from '../../../tools/test/attempt-provenance.mjs';
-import { canonicalTestId, planExactShards, REPLAY_PLAN_SCHEMA, sealReplayPlan } from '../../../tools/test/execution-replay-contract.mjs';
+const { digestCanonical, sealContentDigest, sha256 } = await import(new URL('../../../tools/test/attempt-provenance.mjs', import.meta.url));
+const { canonicalTestId, planExactShards, REPLAY_PLAN_SCHEMA, sealReplayPlan } = await import(new URL('../../../tools/test/execution-replay-contract.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(import.meta.dirname, '../../..');
 const commandFixture = path.join(repositoryRoot, 'tests/tools/support/atomic-producer-command.mjs');
