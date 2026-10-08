@@ -1,0 +1,47 @@
+{
+  "expectedInvocations": 5,
+  "checks": [
+    [
+      "node",
+      "tools/frontend/check-frontend-style.mjs",
+      "--mode",
+      "changed",
+      "--file",
+      "tools/dotnet/check-csharp-style.mjs",
+      "--file",
+      "tests/tools/csharp-style.test.mjs"
+    ],
+    [
+      "node",
+      "tools/style/check-native-tooling-style.mjs",
+      "--mode",
+      "changed",
+      "--file",
+      "docs/development/csharp-style-enforcement.md"
+    ],
+    [
+      "node",
+      "tools/docs/generate-document-lifecycle.mjs",
+      "--check"
+    ],
+    [
+      "node",
+      "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+      "--root",
+      "/tmp/fsusblog-csharp-access-current-integration",
+      "--range",
+      "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131..4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac"
+    ],
+    [
+      "node",
+      "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+      "--root",
+      "/tmp/fsusblog-csharp-access-current-integration",
+      "--github-event",
+      "/tmp/fsusblog-csharp-access-current-integration/.tmp/access-current-integration/prepared-pr-event.json"
+    ]
+  ],
+  "nodeTestCases": 0,
+  "heldControlsExecuted": false,
+  "excluded": "complete103/current SOURCE/held audit and Git-replacement/cohort/receipt controls"
+}

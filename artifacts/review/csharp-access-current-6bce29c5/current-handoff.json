@@ -1,0 +1,243 @@
+{
+  "kind": "separate-current-PR4035-integration-not-delegate-or-policy-acceptance",
+  "base": "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131",
+  "oldFrozenSource": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "candidate": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+  "branch": "codex/csharp-access-current-integration-20261008",
+  "reviewEvidenceBranch": "codex/csharp-access-current-review-evidence-20261008",
+  "fullChangedPaths": [
+    {
+      "path": "artifacts/change-contract/gpu-access-csharp-external-naming.json",
+      "blob": "556fff135ce609af33a9c802293281be3bf79532",
+      "sha256": "1d802f04e27469d6799b2020a862c8783edc24ee204ff0379145798c12ec456c"
+    },
+    {
+      "path": "artifacts/change-contract/gpu-access-csharp-policy-binding.json",
+      "blob": "772f357dc86cf3171d368099990c6477a0354d6f",
+      "sha256": "fa6ab58820bedc8613819288d2f63bb878ed99e2aab7e80d21a35a459387b0cf"
+    },
+    {
+      "path": "config/development/csharp-style-baseline.json",
+      "blob": "7834677659ffbc7a3dd5edfaf90891e6210fff54",
+      "sha256": "1fa5e85aaa16f4a1264f075dee5ecc181e799156ee4f791f96d4e55ae678ed6e"
+    },
+    {
+      "path": "config/development/csharp-style-policy.json",
+      "blob": "822c2219d353530910527cc86d37ceb66bcbfa7a",
+      "sha256": "1c8ded64fa6a603370a946ff5f21608847c2bd495089b620e23eb2f41fd1db2f"
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "blob": "73e7871cb867d5e29f4f2ccf9983e6d441cd0934",
+      "sha256": "b4ebfd3aca18c51f67349a594b6dff54785a3f7d92a58bbf81e4f28adaa87978"
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "blob": "b841818e101e7d1bd68189a7f3d14d54cd1ebf5b",
+      "sha256": "dad93142464ccff0eeafdb710d429f14e5ddb6489e213dc5444f6a136af65f5e"
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "blob": "9067e263c6e385efd2975c0ffb51a7ac4232de41",
+      "sha256": "7e2d3c07954ed8b0146a26f3a8eab92b118be0bb4788838b8df5f5d4fa51521e"
+    },
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "blob": "3688b8fa26034bdc831bfe72518e34af32f30cc4",
+      "sha256": "a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+    }
+  ],
+  "completeCurrentSourceDiffSha256": "476b5b4871b0d085c184b6e98bb4f4fb9f4c6d4084dceead83097f5b65f6f44c",
+  "completeIntegrationDeltaSha256": "c2363bb160ae6ee5367d27b03765ec03e23edbf60a58c1b0c0737c32e69b0f9c",
+  "original103ExecutionCore": "0b0a976aedc8e677e099765581eefd91cd70ba1f",
+  "fiveInputsEquivalent": [
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "coreE6CurrentIdenticalBlob": "3688b8fa26034bdc831bfe72518e34af32f30cc4"
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "coreE6CurrentIdenticalBlob": "9067e263c6e385efd2975c0ffb51a7ac4232de41"
+    },
+    {
+      "path": "config/development/csharp-style-policy.json",
+      "coreE6CurrentIdenticalBlob": "822c2219d353530910527cc86d37ceb66bcbfa7a"
+    },
+    {
+      "path": "config/development/csharp-style-baseline.json",
+      "coreE6CurrentIdenticalBlob": "7834677659ffbc7a3dd5edfaf90891e6210fff54"
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "coreE6CurrentIdenticalBlob": "73e7871cb867d5e29f4f2ccf9983e6d441cd0934"
+    }
+  ],
+  "baselineBytesIdenticalToFrozenE6": true,
+  "authoritySha256": "dad93142464ccff0eeafdb710d429f14e5ddb6489e213dc5444f6a136af65f5e",
+  "authorityCurrentBaseChangedFields": [
+    {
+      "field": "$.closureFiles[612].contentDigest",
+      "old": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+      "new": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+    },
+    {
+      "field": "$.closureFiles[612].indexDigest",
+      "old": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+      "new": "sha256:a01fb1fef6d468395b2e8c44e1ee219e7f962a8dd09f9538d36f2b35bf3d2d23"
+    }
+  ],
+  "authorityTargets": 102,
+  "authorityClosureFiles": 1128,
+  "producerUnmodified": true,
+  "producerActualCheckpoint": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+  "producerInputTreeEquivalentToCorrectedMerge": "3346f6a7821e0b3c7c007aa6d358e57411815015",
+  "sourceChecksActualCheckpoint": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+  "sourceChecksCompleteTreeEquivalentToCandidate": true,
+  "actualChecks": {
+    "canonical-authority-producer": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+      "headAfter": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+      "argv": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T14:28:07.041265+00:00",
+      "endedAtUtc": "2026-10-08T14:31:06.404651+00:00",
+      "exitCode": 0,
+      "log": "canonical-authority-producer.log",
+      "logSha256": "157534d937de95ebf55a82dd28b4bc038db11618f3e884204af6f1a6310bad43"
+    },
+    "js-style": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "headAfter": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "argv": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "tests/tools/csharp-style.test.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T14:35:00.090764+00:00",
+      "endedAtUtc": "2026-10-08T14:35:07.864340+00:00",
+      "exitCode": 0,
+      "log": "js-style.log",
+      "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+    },
+    "doc-style": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "headAfter": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "argv": [
+        "node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "docs/development/csharp-style-enforcement.md"
+      ],
+      "startedAtUtc": "2026-10-08T14:35:07.907216+00:00",
+      "endedAtUtc": "2026-10-08T14:35:08.362941+00:00",
+      "exitCode": 0,
+      "log": "doc-style.log",
+      "logSha256": "60d6a0fd0e363daa8e735fe0a5c5481545d13d1cbbb45cb56488ae88e08c8da2"
+    },
+    "doc-lifecycle": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "headAfter": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "argv": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "startedAtUtc": "2026-10-08T14:35:08.407707+00:00",
+      "endedAtUtc": "2026-10-08T14:35:08.657587+00:00",
+      "exitCode": 0,
+      "log": "doc-lifecycle.log",
+      "logSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6"
+    },
+    "trusted-range": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "headAfter": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-access-current-integration",
+        "--range",
+        "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131..4c7a84202"
+      ],
+      "startedAtUtc": "2026-10-08T14:35:08.702099+00:00",
+      "endedAtUtc": "2026-10-08T14:35:10.733562+00:00",
+      "exitCode": 1,
+      "log": "trusted-range.log",
+      "logSha256": "ed9af7e3f43fdaded06f412e60c089a673a4beb1eb3937c796baeda222bdac44"
+    },
+    "trusted-prospective-pr": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "headAfter": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-access-current-integration",
+        "--github-event",
+        "/tmp/fsusblog-csharp-access-current-integration/.tmp/access-current-integration/prepared-pr-event.json"
+      ],
+      "startedAtUtc": "2026-10-08T14:35:10.783062+00:00",
+      "endedAtUtc": "2026-10-08T14:35:12.920991+00:00",
+      "exitCode": 0,
+      "log": "trusted-prospective-pr.log",
+      "logSha256": "e32f120318f8bed0a3a3d2e53e1bd6366bb9aa10438785ace08147336d5372b4"
+    },
+    "trusted-range-corrected": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+      "headAfter": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-access-current-integration",
+        "--range",
+        "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131..HEAD"
+      ],
+      "startedAtUtc": "2026-10-08T14:37:57.789013+00:00",
+      "endedAtUtc": "2026-10-08T14:38:00.121721+00:00",
+      "exitCode": 0,
+      "log": "trusted-range-corrected.log",
+      "logSha256": "03469f9658c780f5467cb7422bc587f6832f00c2c88727f4b673b3d307b694b7"
+    },
+    "trusted-prospective-pr-corrected": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+      "headAfter": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-access-current-integration",
+        "--github-event",
+        "/tmp/fsusblog-csharp-access-current-integration/.tmp/access-current-integration/prepared-pr-event.json"
+      ],
+      "startedAtUtc": "2026-10-08T14:38:00.175575+00:00",
+      "endedAtUtc": "2026-10-08T14:38:03.265441+00:00",
+      "exitCode": 0,
+      "log": "trusted-prospective-pr-corrected.log",
+      "logSha256": "e32f120318f8bed0a3a3d2e53e1bd6366bb9aa10438785ace08147336d5372b4"
+    }
+  },
+  "nodeTestCasesExecutedForThisIntegration": 0,
+  "heldControlsExecuted": false,
+  "blocked": "new SOURCE/full103/current aggregate and held audits; SAME independent review and policy qualification remain open",
+  "noGitHubContentApiWrites": true,
+  "noDelegateOrGpuProductionChanges": true,
+  "historicalPortableEvidence": "https://github.com/Ozwasyd/FsusBlog/blob/dfbbfd8d24d51ee82bdeb2661f70613f39b813b7/artifacts/review/csharp-access-e6a273473/README.md"
+}

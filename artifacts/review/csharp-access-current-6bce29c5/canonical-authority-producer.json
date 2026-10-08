@@ -1,0 +1,14 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+  "headAfter": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+  "argv": [
+    "node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedAtUtc": "2026-10-08T14:28:07.041265+00:00",
+  "endedAtUtc": "2026-10-08T14:31:06.404651+00:00",
+  "exitCode": 0,
+  "log": "canonical-authority-producer.log",
+  "logSha256": "157534d937de95ebf55a82dd28b4bc038db11618f3e884204af6f1a6310bad43"
+}

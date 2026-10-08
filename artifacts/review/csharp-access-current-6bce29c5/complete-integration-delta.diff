@@ -1,0 +1,980 @@
+diff --git a/artifacts/change-contract/frontend-config-source-dispatch-external-naming.json b/artifacts/change-contract/frontend-config-source-dispatch-external-naming.json
+new file mode 100644
+index 000000000..1116a21fc
+--- /dev/null
++++ b/artifacts/change-contract/frontend-config-source-dispatch-external-naming.json
+@@ -0,0 +1,31 @@
++{
++    "schema": "fsusblog.external-naming-exceptions.v1",
++    "exceptions": [
++        {
++            "id": "json-wire-key",
++            "paths": [
++                "config/development/frontend-style-policy.json",
++                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
++            ],
++            "reason": "Preserve the existing frontend policy and canonical execution-authority JSON keys while binding the reviewed configuration and SOURCE dispatch to actual source identities."
++        },
++        {
++            "id": "css-like-contract",
++            "paths": [
++                "docs/development/change-contract.md",
++                "docs/frontend/fsusui-typecheck-modes.md"
++            ],
++            "reason": "Preserve documented caller-visible command/configuration spellings and referenced DOM/token conventions while describing canonical app checking and strict SOURCE dispatch; no selector or token is renamed."
++        },
++        {
++            "id": "environment-variable",
++            "paths": [
++                "tools/frontend/check-frontend-style.mjs",
++                "tools/frontend/style-toolchain/eslint.config.mjs",
++                "tools/test-matrix/pr-impact-plan.mjs",
++                "tools/test-matrix/source-governance.mjs"
++            ],
++            "reason": "Preserve existing process environment spellings and externally invoked checker/planner interfaces while selecting canonical app configuration and complete strict SOURCE checks."
++        }
++    ]
++}
+diff --git a/artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json b/artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json
+new file mode 100644
+index 000000000..1bf6695f9
+--- /dev/null
++++ b/artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json
+@@ -0,0 +1,18 @@
++{
++    "schema": "fsusblog.generated-output-binding.v1",
++    "sources": [
++        "config/development/frontend-style-policy.json",
++        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
++        "tests/tools/pr-impact-plan.test.mjs",
++        "tools/frontend/check-frontend-style.mjs",
++        "tools/frontend/style-toolchain/eslint.config.mjs",
++        "tools/test-matrix/pr-impact-plan.mjs",
++        "tools/test-matrix/source-governance.mjs"
++    ],
++    "outputs": [
++        {
++            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
++            "sha256": "cc36c2ff7c900524566ca76044af6e5bf3c5404297fd7c3014182c5c0ab178cc"
++        }
++    ]
++}
+diff --git a/artifacts/change-contract/gpu-access-csharp-policy-binding.json b/artifacts/change-contract/gpu-access-csharp-policy-binding.json
+index 80c207a1d..772f357dc 100644
+--- a/artifacts/change-contract/gpu-access-csharp-policy-binding.json
++++ b/artifacts/change-contract/gpu-access-csharp-policy-binding.json
+@@ -11,7 +11,7 @@
+         },
+         {
+             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+-            "sha256": "7f97e75e739cb9c516fa455cd7dd8c3ddd5bd3c84f55e3bb8052ddc81bcb3bf6"
++            "sha256": "dad93142464ccff0eeafdb710d429f14e5ddb6489e213dc5444f6a136af65f5e"
+         }
+     ]
+ }
+diff --git a/config/development/frontend-style-policy.json b/config/development/frontend-style-policy.json
+index d5ae39652..1458b6aaa 100644
+--- a/config/development/frontend-style-policy.json
++++ b/config/development/frontend-style-policy.json
+@@ -10,6 +10,8 @@
+         "stylelint.config.mjs",
+         "src/frontend/eslint.config.mjs",
+         "src/frontend/stylelint.config.mjs",
++        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
++        "src/frontend/scripts/fsusui-root.mjs",
+         "tools/frontend/check-frontend-style.mjs",
+         "tools/frontend/style-toolchain/eslint.config.mjs",
+         "tools/frontend/style-toolchain/stylelint.config.mjs"
+diff --git a/docs/development/change-contract.md b/docs/development/change-contract.md
+index b919bd6a0..a1a7308f6 100644
+--- a/docs/development/change-contract.md
++++ b/docs/development/change-contract.md
+@@ -186,7 +186,7 @@ The trusted registry also lists the policy file set for gates, workflows, templa
+ 
+ After a PR merges into `master`, the `push` job first checks out the previous checker from `github.event.before` to audit the candidate's `before..after` commit range; candidate bootstrap is allowed only on first installation with no prior checker. `workflow_dispatch` uses the candidate checker for the repository audit. Because the push job runs after GitHub receives the objects, it remains a post-merge audit; prevention comes from the ruleset and required pull-request status checks. When GitHub Actions is available, local success cannot replace those remote checks. If Actions is explicitly disabled or unavailable and no remote check can run, a maintainer may merge only after the applicable equivalent local CI for the explicitly selected and Git-bound execution stage is green and the PR records commands, results, and Actions status. Source-stage evidence is not compiled/native/runtime/release qualification; unselected or deferred qualification remains OPEN. A failed applicable check is not waived by a WIP label, and a selection-policy bootstrap needs explicit owner review of its real semantic change. Source-integration admission consists of the mandatory source gates and applicable declared source-only regressions; complete compiled/native/runtime/release qualification remains OPEN and is not a prerequisite claim for delivery of reviewed policy source. Default/full/push/release qualification keeps its original requirements. Missing or unrun remote checks must not be described as passed.
+ 
+-For the explicitly selected source-integration stage, style comparison inspects the actual Git-bound base and candidate with the same locked tools and unchanged rule configuration, restoring tracked base dependencies needed for source resolution. Existing diagnostics require the checker's finite source proofs: unique unchanged complete units, or unchanged complete statements with their physical lines and required lexical/ASI context. Module-level layout proofs are limited to unique complete import or variable declarations and both adjacent statements with their physical trivia; import diagnostics additionally bind the complete import roster and actual configuration/dependency identities, and unused-binding diagnostics require the original scope and binding/read evidence. Rule, message, severity and source spans match one-to-one; ambiguous, new, changed, unsupported or unproved diagnostics remain failures. Both raw results and invocation/environment failures are recorded. This SOURCE comparison does not rewrite a persistent baseline, waive an applicable failed check or change default/full qualification.
++For the explicitly selected source-integration stage, frontend dispatch compares the complete configuration input union declared by the actual Git-bound base and current policies, including the fixed SOURCE data inputs. Missing, untracked or nonregular required configuration and an omitted changed-source input are refusals. If any configuration identity changes, the complete applicable changed frontend source scope uses the existing `strict-full` mode with every strict rule and no exemptions. With identical configuration, JavaScript style comparison inspects the actual base and candidate with the same locked tools, restoring tracked base dependencies needed for source resolution; other applicable frontend source kinds remain strict. Existing diagnostics require the checker's finite source proofs: unique unchanged complete units, or unchanged complete statements with their physical lines and required lexical/ASI context. Module-level layout proofs are limited to unique complete import or variable declarations and both adjacent statements with their physical trivia; import diagnostics additionally bind the complete import roster and actual configuration/dependency identities, and unused-binding diagnostics require the original scope and binding/read evidence. Rule, message, severity and source spans match one-to-one; ambiguous, new, changed, unsupported or unproved diagnostics remain failures. Both raw results and invocation/environment failures are recorded. This SOURCE comparison does not rewrite a persistent baseline, waive an applicable failed check or change default/full qualification.
+ 
+ ## Release note authority
+ 
+diff --git a/docs/frontend/fsusui-typecheck-modes.md b/docs/frontend/fsusui-typecheck-modes.md
+index 95945eb93..fbcff153a 100644
+--- a/docs/frontend/fsusui-typecheck-modes.md
++++ b/docs/frontend/fsusui-typecheck-modes.md
+@@ -96,3 +96,22 @@ lock-tree checks do not replace actual `npm ci` or Docker build acceptance.
+ ## Full App Typecheck
+ 
+ The focused FsusUI export contract is separate from full app `vue-tsc` because the full app can fail on unrelated baseline errors. Full app typecheck should still be run as part of broader frontend cleanup, but FsusUI package/local alias failures should be diagnosed with the two focused modes first.
++
++For the complete application with source aliases, run
++`node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application` from the
++repository root. The existing producer inherits every app/Wasm/SFC include and
++strict compiler setting from `tsconfig.app.json`, adds the local declarations,
++and resolves Vue and `@vue/*` through the consumer's installed dependencies.
++The generated project lives under `src/frontend/.tmp/typecheck`, so each
++worktree resolves its own installed type libraries. The complete application
++inherits the original app's `types` list; the focused contract project separately
++retains its original `vite/client` and Node types.
++Composite emission is disabled for this source-consumption typecheck; strictness,
++unused checks and the application's syntax checks remain inherited.
++
++Canonical ESLint and the standard style executor select this same complete
++project when local source consumption is enabled. They do not use the three
++export-contract fixtures as the application program. Invalid configured local
++roots fail closed. With `FSUSBLOG_USE_LOCAL_FSUSUI=0`, the original registry
++project service remains active. Local-source style checks recheck mutable
++external source types without the registry-mode ESLint content cache.
+diff --git a/src/frontend/scripts/run-local-fsusui-typecheck.mjs b/src/frontend/scripts/run-local-fsusui-typecheck.mjs
+index 965abc217..d87306676 100644
+--- a/src/frontend/scripts/run-local-fsusui-typecheck.mjs
++++ b/src/frontend/scripts/run-local-fsusui-typecheck.mjs
+@@ -1,104 +1,148 @@
+ import { spawnSync } from 'node:child_process';
+-import { mkdirSync, writeFileSync } from 'node:fs';
++import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+ import path from 'node:path';
+ import { fileURLToPath } from 'node:url';
+ 
+-import { resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs';
++import { localFsusUiConsumptionDisabled, resolveLocalFsusUiRepositoryRoot } from './fsusui-root.mjs';
+ 
+-const scriptDir = path.dirname(fileURLToPath(import.meta.url));
+-const frontendRoot = path.resolve(scriptDir, '..');
+-const repositoryRoot = path.resolve(frontendRoot, '../..');
+-const localRoot = resolveLocalFsusUiRepositoryRoot({
+-    override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
+-    repositoryRoot
+-});
+-if (!localRoot)
+-{
+-    throw new Error(
+-        'local FsusUI source was not found beside the primary FsusBlog checkout; '
+-      + 'set FSUSBLOG_LOCAL_FSUSUI_ROOT explicitly'
+-    );
+-}
+-const tempRoot = path.join(frontendRoot, 'node_modules', '.tmp');
+-const configPath = path.join(tempRoot, 'tsconfig.fsusui-local.generated.json');
+-const vueTscBin = process.platform === 'win32'
+-    ? 'vue-tsc'
+-    : path.join(frontendRoot, 'node_modules', '.bin', 'vue-tsc');
+-
+-function toTsconfigPath(value)
+-{
+-    return path.relative(frontendRoot, value).replaceAll(path.sep, '/');
+-}
+-
+-function fromLocal(...segments)
+-{
+-    return toTsconfigPath(path.join(localRoot, ...segments));
+-}
++const defaultRepositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+ 
+-function fromGeneratedConfigRoot(file)
++/** The existing local alias producer serves focused contracts and the complete application. */
++export function prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication = false })
+ {
+-    return path.relative(tempRoot, file).replaceAll(path.sep, '/');
+-}
++    const frontendRoot = path.join(repositoryRoot, 'src/frontend');
++    const tempRoot = fullApplication
++        ? path.join(frontendRoot, '.tmp/typecheck')
++        : path.join(frontendRoot, 'node_modules/.tmp');
++    const configPath = path.join(tempRoot, fullApplication
++        ? 'tsconfig.fsusui-local.app.generated.json'
++        : 'tsconfig.fsusui-local.generated.json');
++    const fromGeneratedConfigRoot = (file) => path.relative(tempRoot, file).replaceAll(path.sep, '/');
++    const fromLocal = (...segments) => path.relative(frontendRoot, path.join(localRoot, ...segments)).replaceAll(path.sep, '/');
+ 
+-const paths = {
+-    '@/*': ['./src/*'],
+-    '@wasm/*': ['./wasm/web/*'],
+-    vue: ['./node_modules/vue'],
+-    '@vue/*': ['./node_modules/@vue/*'],
+-    '@ozwasyd/element-plus': [fromLocal('vue', 'packages', 'element-plus', 'index.ts')],
+-    'element-plus': [fromLocal('vue', 'packages', 'element-plus', 'index.ts')],
+-    '@ozwasyd/element-plus/icons-vue': [fromLocal('vue', 'packages', 'element-plus', 'icons-vue.ts')],
+-    '@ozwasyd/element-plus/markdown-runtime': [fromLocal('vue', 'packages', 'element-plus', 'markdown-runtime.ts')],
+-    '@ozwasyd/element-plus/motion': [fromLocal('vue', 'packages', 'element-plus', 'motion.ts')],
+-    '@ozwasyd/element-plus/perception-challenge': [fromLocal('vue', 'packages', 'element-plus', 'perception-challenge.ts')],
+-    '@ozwasyd/element-plus/render-pipeline': [fromLocal('vue', 'packages', 'element-plus', 'render-pipeline.ts')],
+-    '@ozwasyd/element-plus/result': [fromLocal('vue', 'packages', 'element-plus', 'result.ts')],
+-    '@ozwasyd/element-plus/theme': [fromLocal('vue', 'packages', 'element-plus', 'theme.ts')],
+-    '@ozwasyd/element-plus/wasm': [fromLocal('vue', 'packages', 'element-plus', 'wasm.ts')],
+-    '@element-plus/icons-vue': [fromLocal('vue', 'packages', 'icons-vue', 'src', 'index.ts')],
+-    '@element-plus/icons-vue/*': [fromLocal('vue', 'packages', 'icons-vue', 'src', '*')],
+-    '@element-plus/theme-chalk/src': [fromLocal('vue', 'packages', 'theme-chalk', 'src')],
+-    '@element-plus/theme-chalk/src/*': [fromLocal('vue', 'packages', 'theme-chalk', 'src', '*')],
+-    '@element-plus/wasm': [fromLocal('vue', 'packages', 'wasm', 'index.ts')],
+-    '@element-plus/wasm/*': [fromLocal('vue', 'packages', 'wasm', '*')],
+-    '@element-plus/*': [fromLocal('vue', 'packages', '*')]
+-};
++    const paths = {
++        '@/*': ['./src/*'],
++        '@wasm/*': ['./wasm/web/*'],
++        vue: ['./node_modules/vue'],
++        '@vue/*': ['./node_modules/@vue/*'],
++        '@ozwasyd/element-plus': [fromLocal('vue', 'packages', 'element-plus', 'index.ts')],
++        'element-plus': [fromLocal('vue', 'packages', 'element-plus', 'index.ts')],
++        '@ozwasyd/element-plus/icons-vue': [fromLocal('vue', 'packages', 'element-plus', 'icons-vue.ts')],
++        '@ozwasyd/element-plus/markdown-runtime': [fromLocal('vue', 'packages', 'element-plus', 'markdown-runtime.ts')],
++        '@ozwasyd/element-plus/motion': [fromLocal('vue', 'packages', 'element-plus', 'motion.ts')],
++        '@ozwasyd/element-plus/perception-challenge': [fromLocal('vue', 'packages', 'element-plus', 'perception-challenge.ts')],
++        '@ozwasyd/element-plus/render-pipeline': [fromLocal('vue', 'packages', 'element-plus', 'render-pipeline.ts')],
++        '@ozwasyd/element-plus/result': [fromLocal('vue', 'packages', 'element-plus', 'result.ts')],
++        '@ozwasyd/element-plus/theme': [fromLocal('vue', 'packages', 'element-plus', 'theme.ts')],
++        '@ozwasyd/element-plus/wasm': [fromLocal('vue', 'packages', 'element-plus', 'wasm.ts')],
++        '@element-plus/icons-vue': [fromLocal('vue', 'packages', 'icons-vue', 'src', 'index.ts')],
++        '@element-plus/icons-vue/*': [fromLocal('vue', 'packages', 'icons-vue', 'src', '*')],
++        '@element-plus/theme-chalk/src': [fromLocal('vue', 'packages', 'theme-chalk', 'src')],
++        '@element-plus/theme-chalk/src/*': [fromLocal('vue', 'packages', 'theme-chalk', 'src', '*')],
++        '@element-plus/wasm': [fromLocal('vue', 'packages', 'wasm', 'index.ts')],
++        '@element-plus/wasm/*': [fromLocal('vue', 'packages', 'wasm', '*')],
++        '@element-plus/*': [fromLocal('vue', 'packages', '*')]
++    };
+ 
+-mkdirSync(tempRoot, { recursive: true });
+-writeFileSync(
+-    configPath,
+-    `${JSON.stringify({
++    const localDeclarations = [
++        fromGeneratedConfigRoot(path.join(localRoot, 'vue', 'global.d.ts')),
++        fromGeneratedConfigRoot(path.join(localRoot, 'vue', 'typings', 'components.d.ts')),
++        fromGeneratedConfigRoot(path.join(localRoot, 'vue', 'typings', 'env.d.ts'))
++    ];
++    const configuration = {
+         compilerOptions: {
+-            erasableSyntaxOnly: false,
++            ...(fullApplication ? { composite: false } : {
++                erasableSyntaxOnly: false,
++                types: ['vite/client', 'node']
++            }),
+             jsx: 'preserve',
+             jsxImportSource: 'vue',
+             paths,
+-            tsBuildInfoFile: './tsconfig.fsusui-local.generated.tsbuildinfo',
+-            types: ['vite/client', 'node']
++            tsBuildInfoFile: fullApplication
++                ? './tsconfig.fsusui-local.app.generated.tsbuildinfo'
++                : './tsconfig.fsusui-local.generated.tsbuildinfo'
+         },
+-        extends: '../../tsconfig.fsusui-published.json',
+-        include: [
+-            fromGeneratedConfigRoot(path.join(frontendRoot, '..', '..', 'tests', 'frontend', 'typecheck', 'fsusui-export-contract.ts')),
+-            fromGeneratedConfigRoot(path.join(frontendRoot, '..', '..', 'tests', 'frontend', 'typecheck', 'admin-segmented-control-consumer-contract.ts')),
+-            fromGeneratedConfigRoot(path.join(frontendRoot, '..', '..', 'tests', 'frontend', 'typecheck', 'fsusui-local-export-contract.ts')),
+-            fromGeneratedConfigRoot(path.join(frontendRoot, 'src', 'vite-env.d.ts')),
+-            fromGeneratedConfigRoot(path.join(localRoot, 'vue', 'global.d.ts')),
+-            fromGeneratedConfigRoot(path.join(localRoot, 'vue', 'typings', 'components.d.ts')),
+-            fromGeneratedConfigRoot(path.join(localRoot, 'vue', 'typings', 'env.d.ts'))
+-        ]
+-    }, null, 2)}\n`
+-);
++        extends: fromGeneratedConfigRoot(path.join(frontendRoot, fullApplication
++            ? 'tsconfig.app.json'
++            : 'tsconfig.fsusui-published.json')),
++        ...(fullApplication ? { files: localDeclarations } : {
++            include: [
++                fromGeneratedConfigRoot(path.join(repositoryRoot, 'tests/frontend/typecheck/fsusui-export-contract.ts')),
++                fromGeneratedConfigRoot(path.join(repositoryRoot, 'tests/frontend/typecheck/admin-segmented-control-consumer-contract.ts')),
++                fromGeneratedConfigRoot(path.join(repositoryRoot, 'tests/frontend/typecheck/fsusui-local-export-contract.ts')),
++                fromGeneratedConfigRoot(path.join(frontendRoot, 'src/vite-env.d.ts')),
++                ...localDeclarations
++            ]
++        })
++    };
++    const content = `${JSON.stringify(configuration, null, 2)}\n`;
++    mkdirSync(tempRoot, { recursive: true });
++    if (!existsSync(configPath) || readFileSync(configPath, 'utf8') !== content)
++    {
++        writeFileSync(configPath, content);
++    }
++    return configPath;
++}
+ 
+-console.log(`[fsusui-typecheck] local root: ${localRoot}`);
+-const result = spawnSync(vueTscBin, ['--noEmit', '-p', configPath], {
+-    cwd: frontendRoot,
+-    shell: process.platform === 'win32',
+-    stdio: 'inherit'
+-});
++/** Local-off keeps the original registry project; invalid configured source roots fail closed. */
++export function resolveLocalFsusUiApplicationProject({ repositoryRoot, env = process.env })
++{
++    if (localFsusUiConsumptionDisabled(env))
++    {
++        return null;
++    }
++    const localRoot = resolveLocalFsusUiRepositoryRoot({
++        override: env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
++        repositoryRoot
++    });
++    if (!localRoot)
++    {
++        if (env.FSUSBLOG_USE_LOCAL_FSUSUI === '1')
++        {
++            throw new Error('local FsusUI source was explicitly enabled but its source contract is unavailable');
++        }
++        return null;
++    }
++    return prepareLocalFsusUiTypecheckProject({ repositoryRoot, localRoot, fullApplication: true });
++}
+ 
+-if (result.error)
++function main(args)
+ {
+-    throw result.error;
++    if (args.some((argument) => argument !== '--application') || args.length > 1)
++    {
++        throw new Error('usage: run-local-fsusui-typecheck.mjs [--application]');
++    }
++    const localRoot = resolveLocalFsusUiRepositoryRoot({
++        override: process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT,
++        repositoryRoot: defaultRepositoryRoot
++    });
++    if (!localRoot)
++    {
++        throw new Error('local FsusUI source was not found; set FSUSBLOG_LOCAL_FSUSUI_ROOT explicitly');
++    }
++    const configPath = prepareLocalFsusUiTypecheckProject({
++        repositoryRoot: defaultRepositoryRoot,
++        localRoot,
++        fullApplication: args.includes('--application')
++    });
++    const frontendRoot = path.join(defaultRepositoryRoot, 'src/frontend');
++    const vueTscBin = process.platform === 'win32'
++        ? 'vue-tsc'
++        : path.join(frontendRoot, 'node_modules', '.bin', 'vue-tsc');
++    console.log(`[fsusui-typecheck] local root: ${localRoot}`);
++    const result = spawnSync(vueTscBin, ['--noEmit', '-p', configPath], {
++        cwd: frontendRoot,
++        shell: process.platform === 'win32',
++        stdio: 'inherit'
++    });
++    if (result.error)
++    {
++        throw result.error;
++    }
++    process.exitCode = result.status ?? 1;
+ }
+ 
+-process.exit(result.status ?? 1);
++if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
++{
++    main(process.argv.slice(2));
++}
+diff --git a/tests/fixtures/test-matrix/release-final-execution-target-authority.json b/tests/fixtures/test-matrix/release-final-execution-target-authority.json
+index 75f2dd2b5..b841818e1 100644
+--- a/tests/fixtures/test-matrix/release-final-execution-target-authority.json
++++ b/tests/fixtures/test-matrix/release-final-execution-target-authority.json
+@@ -35,8 +35,8 @@
+         },
+         {
+             "path": "config/development/frontend-style-policy.json",
+-            "contentDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+-            "indexDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
++            "contentDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
++            "indexDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d"
+         },
+         {
+             "path": "config/development/frontend-style-rule-registry.json",
+@@ -105,8 +105,8 @@
+         },
+         {
+             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+-            "contentDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634",
+-            "indexDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634"
++            "contentDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8",
++            "indexDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8"
+         },
+         {
+             "path": "src/frontend/scripts/vite-watch-policy.mjs",
+@@ -2150,8 +2150,8 @@
+         },
+         {
+             "path": "tests/tools/pr-impact-plan.test.mjs",
+-            "contentDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252",
+-            "indexDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252"
++            "contentDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc",
++            "indexDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc"
+         },
+         {
+             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
+@@ -3200,8 +3200,8 @@
+         },
+         {
+             "path": "tools/frontend/check-frontend-style.mjs",
+-            "contentDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+-            "indexDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75"
++            "contentDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
++            "indexDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
+         },
+         {
+             "path": "tools/frontend/check-locale-domain-bundles.mjs",
+@@ -3300,8 +3300,8 @@
+         },
+         {
+             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+-            "contentDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+-            "indexDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
++            "contentDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
++            "indexDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a"
+         },
+         {
+             "path": "tools/frontend/style-toolchain/package-lock.json",
+@@ -4380,8 +4380,8 @@
+         },
+         {
+             "path": "tools/test-matrix/pr-impact-plan.mjs",
+-            "contentDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe",
+-            "indexDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe"
++            "contentDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f",
++            "indexDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f"
+         },
+         {
+             "path": "tools/test-matrix/priority-score.mjs",
+@@ -6930,8 +6930,8 @@
+                     ]
+                 }
+             ],
+-            "contentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+-            "indexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
++            "contentDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
++            "indexDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
+             "dependencyClosure": [
+                 ".editorconfig",
+                 ".markdownlint-cli2.jsonc",
+@@ -6944,6 +6944,8 @@
+                 "eslint.config.mjs",
+                 "src/frontend/eslint.config.mjs",
+                 "src/frontend/package.json",
++                "src/frontend/scripts/fsusui-root.mjs",
++                "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+                 "src/frontend/stylelint.config.mjs",
+                 "stylelint.config.mjs",
+                 "tests/tools/native-tooling-style.test.mjs",
+diff --git a/tests/tools/frontend-style.test.mjs b/tests/tools/frontend-style.test.mjs
+index 959efa5af..b7ccb197e 100644
+--- a/tests/tools/frontend-style.test.mjs
++++ b/tests/tools/frontend-style.test.mjs
+@@ -104,7 +104,7 @@ function runChecker(fixtureRoot, args, env = {})
+     ], {
+         cwd: fixtureRoot,
+         encoding: 'utf8',
+-        env: { ...process.env, ...env },
++        env: { ...process.env, FSUSBLOG_USE_LOCAL_FSUSUI: '0', ...env },
+         timeout: 90_000
+     });
+ }
+@@ -1667,3 +1667,123 @@ test('frontend style governance AST fixes are idempotent and diagnostics are loc
+         assert.deepEqual(diagnostics(ci), diagnostics(local));
+     });
+ });
++function actualAppProgramProbe(localMode)
++{
++    const probe = `
++        import fs from 'node:fs';
++        import path from 'node:path';
++        import { pathToFileURL } from 'node:url';
++        const root = ${JSON.stringify(root)};
++        const { ESLint } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/eslint/lib/api.js')));
++        const { default: ts } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/typescript/lib/typescript.js')));
++        const file = path.join(root, 'src/frontend/src/fsusui/overlay.ts');
++        const eslint = new ESLint({ cwd: root, overrideConfigFile: path.join(root, 'eslint.config.mjs') });
++        const config = await eslint.calculateConfigForFile(file);
++        const parsed = config.languageOptions.parser.parseForESLint(fs.readFileSync(file, 'utf8'), {
++            ...config.languageOptions.parserOptions, filePath: file
++        });
++        const program = parsed.services.program;
++        const options = program.getCompilerOptions();
++        const typeLibraries = options.types.map((name) => ({
++            name,
++            file: ts.resolveTypeReferenceDirective(name, options.configFilePath, options, ts.sys)
++                .resolvedTypeReferenceDirective?.resolvedFileName ?? null
++        }));
++        const ui = ts.resolveModuleName('@ozwasyd/element-plus', file, options, ts.sys).resolvedModule?.resolvedFileName ?? null;
++        const runtime = ts.resolveModuleName('@ozwasyd/element-plus/markdown-runtime', file, options, ts.sys).resolvedModule?.resolvedFileName ?? null;
++        const resolve = (specifier, importer) => {
++            const resolved = ts.resolveModuleName(specifier, importer, options, ts.sys).resolvedModule?.resolvedFileName;
++            return resolved ? fs.realpathSync(resolved) : null;
++        };
++        const app = path.join(root, 'src/frontend/tsconfig.app.json');
++        const original = ts.parseJsonConfigFileContent(ts.readConfigFile(app, ts.sys.readFile).config,
++            ts.sys, path.dirname(app), {}, app, undefined,
++            [{ extension: '.vue', isMixedContent: true, scriptKind: ts.ScriptKind.Deferred }]);
++        console.log(JSON.stringify({
++            project: options.configFilePath, parserOptions: config.languageOptions.parserOptions,
++            optionDiagnostics: program.getOptionsDiagnostics().map((diagnostic) => diagnostic.code),
++            typeLibraries, originalTypes: original.options.types,
++            roots: program.getRootFileNames(), originalRoots: original.fileNames,
++            strict: options.strict, originalStrict: original.options.strict,
++            noUnusedLocals: options.noUnusedLocals, originalNoUnusedLocals: original.options.noUnusedLocals,
++            noUnusedParameters: options.noUnusedParameters, originalNoUnusedParameters: original.options.noUnusedParameters,
++            erasableSyntaxOnly: options.erasableSyntaxOnly, originalErasableSyntaxOnly: original.options.erasableSyntaxOnly,
++            ui, runtime, paths: options.paths,
++            vue: [resolve('vue', file), ui ? resolve('vue', ui) : null],
++            vueCore: [resolve('@vue/runtime-core', file), ui ? resolve('@vue/runtime-core', ui) : null],
++            unsafeArgument: config.rules['@typescript-eslint/no-unsafe-argument'],
++            unsafeAssignment: config.rules['@typescript-eslint/no-unsafe-assignment']
++        }));
++    `;
++    const result = spawnSync(process.execPath, ['--input-type=module', '-e', probe], {
++        cwd: root,
++        encoding: 'utf8',
++        timeout: 90_000,
++        env: { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: localMode }
++    });
++    assert.equal(result.status, 0, output(result));
++    return JSON.parse(result.stdout);
++}
++
++test('canonical local app program includes every original app, Wasm and SFC root with one Vue identity', () =>
++{
++    const program = actualAppProgramProbe('1');
++    assert.match(program.project, /tsconfig\.fsusui-local\.app\.generated\.json$/u);
++    assert.deepEqual(program.optionDiagnostics, []);
++    assert.deepEqual(program.typeLibraries.map((library) => library.name), program.originalTypes);
++    assert.ok(program.typeLibraries.every((library) => library.file));
++    const roots = new Set(program.roots.map((file) => path.normalize(file)));
++    assert.ok(program.originalRoots.length > 100);
++    for (const file of program.originalRoots)
++    {
++        assert.ok(roots.has(path.normalize(file)), `canonical app program omitted ${file}`);
++    }
++    assert.ok([...roots].some((file) => file.endsWith('.vue')));
++    assert.ok([...roots].some((file) => file.includes(`${path.sep}wasm${path.sep}web${path.sep}`)));
++    assert.equal(program.strict, program.originalStrict);
++    assert.equal(program.noUnusedLocals, program.originalNoUnusedLocals);
++    assert.equal(program.noUnusedParameters, program.originalNoUnusedParameters);
++    assert.equal(program.erasableSyntaxOnly, program.originalErasableSyntaxOnly);
++    assert.ok(program.ui?.endsWith('/vue/packages/element-plus/index.ts'));
++    assert.ok(program.runtime?.endsWith('/vue/packages/element-plus/markdown-runtime.ts'));
++    assert.ok(program.vue[0]);
++    assert.equal(program.vue[0], program.vue[1]);
++    assert.ok(program.vueCore[0]);
++    assert.equal(program.vueCore[0], program.vueCore[1]);
++    assert.deepEqual(program.unsafeArgument, [2]);
++    assert.deepEqual(program.unsafeAssignment, [2]);
++});
++
++test('canonical local-off mode retains the original application project service', () =>
++{
++    const program = actualAppProgramProbe('0');
++    assert.equal(path.normalize(program.project), path.join(root, 'src/frontend/tsconfig.app.json'));
++    assert.equal(program.parserOptions.projectService, true);
++    assert.equal(program.parserOptions.project, undefined);
++    assert.equal(program.paths['@ozwasyd/element-plus'], undefined);
++    assert.deepEqual(program.unsafeArgument, [2]);
++    assert.deepEqual(program.unsafeAssignment, [2]);
++});
++
++test('canonical local source and standard style commands accept public app consumers without rule overrides', () =>
++{
++    const files = ['src/frontend/src/fsusui/overlay.ts', 'src/frontend/src/security/trustedTypesRuntime.ts'];
++    const env = { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: '1' };
++    const source = spawnSync(process.execPath, [path.join(toolchain, 'node_modules/eslint/bin/eslint.js'),
++        '--config', path.join(root, 'eslint.config.mjs'), '--no-cache', '--max-warnings', '0', ...files],
++    { cwd: root, env, encoding: 'utf8', timeout: 90_000 });
++    assert.equal(source.status, 0, output(source));
++    const standard = spawnSync(process.execPath, [checker, '--root', root, '--mode', 'changed',
++        '--base', 'HEAD', ...files.flatMap((file) => ['--file', file])],
++    { cwd: root, env, encoding: 'utf8', timeout: 90_000 });
++    assert.equal(standard.status, 0, output(standard));
++    assert.match(standard.stdout, /files=2 eslint=2 stylelint=0 violations=0 new=0/u);
++});
++
++test('canonical local project rejects an invalid explicit source root and local-off ignores it', async () =>
++{
++    const { resolveLocalFsusUiApplicationProject } = await import(new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url));
++    const env = { FSUSBLOG_USE_LOCAL_FSUSUI: '1', FSUSBLOG_LOCAL_FSUSUI_ROOT: path.join(root, '.tmp/not-an-fsusui-source') };
++    assert.throws(() => resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env }), /does not contain the FsusUI source contract/u);
++    assert.equal(resolveLocalFsusUiApplicationProject({ repositoryRoot: root, env: { ...env, FSUSBLOG_USE_LOCAL_FSUSUI: '0' } }), null);
++});
+diff --git a/tests/tools/pr-impact-plan.test.mjs b/tests/tools/pr-impact-plan.test.mjs
+index fc843c1ea..cfda2e5a9 100644
+--- a/tests/tools/pr-impact-plan.test.mjs
++++ b/tests/tools/pr-impact-plan.test.mjs
+@@ -1,13 +1,13 @@
+ import assert from 'node:assert/strict';
+ import { execFileSync } from 'node:child_process';
+ import { createHash } from 'node:crypto';
+-import { existsSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs';
++import { existsSync, mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, symlinkSync, writeFileSync } from 'node:fs';
+ import os from 'node:os';
+ import path from 'node:path';
+ import test from 'node:test';
+ import vm from 'node:vm';
+ 
+-const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
++const { readGitChangedPaths, selectAffectedPrTiers, validateImpactDeclarations, validatePrImpactPlanBinding, prImpactCallerContext, prImpactConsumerEnvironment, effectivePrExecutionStage, sourceRegressionEntries, unsupportedSourceStageFiles, sourceShellSyntaxArguments, assertSourceShellSyntaxInspection, sourceFrontendCheckGroups, sourceGovernanceDataInputs, inspectSourceFrontendConfiguration } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+ 
+ const tier = (id, extra = {}) => ({ id, phase: 0, command: `node tools/${id}.mjs`,
+     ciJob: id, executionDependsOn: [], ...extra });
+@@ -435,16 +435,159 @@ test('shell syntax cannot treat refused or missing source identities as stable i
+     }
+ });
+ 
+-test('SOURCE frontend routing retains strict original checks for every non-module frontend kind', () =>
++function frontendRoutingFixture(t)
+ {
+-    const files = ['tools/check.mjs', 'src/code.ts', 'src/code.tsx', 'src/view.vue', 'src/theme.css', 'src/theme.scss'];
+-    const groups = sourceFrontendCheckGroups(files, 'source-integration', 'actual-base');
+-    assert.deepEqual(groups[0], { options: ['--mode', 'source-diff', '--base', 'actual-base'], files: [files[0]] });
+-    assert.deepEqual(groups[1], { options: ['--mode', 'strict-full'], files: files.slice(1) });
+-    assert.deepEqual(sourceFrontendCheckGroups(files, 'qualification', 'actual-base'),
++    const root = mkdtempSync(path.join(os.tmpdir(), 'fsusblog-source-frontend-routing-'));
++    t.after(() => rmSync(root, { recursive: true, force: true }));
++    const git = (...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8', stdio: 'pipe' }).trim();
++    const write = (file, content) =>
++    {
++        mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
++        writeFileSync(path.join(root, file), content);
++    };
++    const commit = () =>
++    {
++        git('add', '-A');
++        git('-c', 'user.name=Source test', '-c', 'user.email=source-test@example.invalid', 'commit', '-qm', 'test(tooling): frontend routing fixture');
++    };
++    git('init', '-q');
++    const policy = { configurationSources: ['tools/frontend/check-frontend-style.mjs', 'config/extra.json'],
++        ruleRegistry: sourceGovernanceDataInputs[1],
++        toolchain: { package: sourceGovernanceDataInputs[2], lock: sourceGovernanceDataInputs[3] },
++        eslintConfig: 'eslint.config.mjs', stylelintConfig: 'stylelint.config.mjs' };
++    for (const file of [...sourceGovernanceDataInputs, ...policy.configurationSources])
++    {
++        write(file, '{}\n');
++    }
++    write(sourceGovernanceDataInputs[0], JSON.stringify(policy));
++    const files = ['tools/check.mjs', 'src/code.js', 'src/code.cjs', 'src/code.ts', 'src/code.tsx', 'src/view.vue', 'src/theme.css', 'src/theme.scss'];
++    for (const file of files)
++    {
++        write(file, 'original source\n');
++    }
++    commit();
++    const base = git('rev-parse', 'HEAD');
++    for (const file of files)
++    {
++        write(file, 'changed source\n');
++    }
++    commit();
++    return { root, base, files, policy, write, commit, actual: () => readGitChangedPaths(root, base).changedFiles.filter(file => existsSync(path.join(root, file))) };
++}
++
++test('SOURCE frontend routing retains source-diff only with complete unchanged actual configuration', t =>
++{
++    const { root, base, files } = frontendRoutingFixture(t);
++    const configuration = inspectSourceFrontendConfiguration(root, base);
++    assert.equal(configuration.changed, false);
++    assert.ok(configuration.identities.some(value => value.file === 'config/extra.json'));
++    const groups = sourceFrontendCheckGroups(files, 'source-integration', base, root);
++    assert.deepEqual(groups[0], { options: ['--mode', 'source-diff', '--base', base], files: files.slice(0, 3) });
++    assert.deepEqual(groups[1], { options: ['--mode', 'strict-full'], files: files.slice(3) });
++    assert.deepEqual(sourceFrontendCheckGroups(files, 'qualification', base),
+         [{ options: ['--mode', 'strict-full'], files }]);
+ });
+ 
++test('SOURCE configuration drift dispatches every applicable changed input through strict-full without exemptions', t =>
++{
++    const fixture = frontendRoutingFixture(t);
++    fixture.write('config/extra.json', '{"changed":true}\n');
++    fixture.commit();
++    const files = fixture.actual();
++    assert.equal(inspectSourceFrontendConfiguration(fixture.root, fixture.base).changed, true);
++    assert.deepEqual(sourceFrontendCheckGroups(files, 'source-integration', fixture.base, fixture.root),
++        [{ options: ['--mode', 'strict-full'], files: files.filter(file => file !== 'config/extra.json') }]);
++});
++
++test('SOURCE detects drift in every actual configuration input, including the checker and fixed data inputs', t =>
++{
++    const roster = frontendRoutingFixture(t);
++    const files = inspectSourceFrontendConfiguration(roster.root, roster.base).identities.map(value => value.file);
++    for (const file of files)
++    {
++        const fixture = frontendRoutingFixture(t);
++        fixture.write(file, `${readFileSync(path.join(fixture.root, file), 'utf8')}\n`);
++        fixture.commit();
++        const configuration = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
++        assert.equal(configuration.changed, true, file);
++        assert.deepEqual(configuration.identities.filter(value => value.baseDigest !== value.currentDigest).map(value => value.file), [file]);
++        const changed = fixture.actual();
++        assert.deepEqual(sourceFrontendCheckGroups(changed, 'source-integration', fixture.base, fixture.root),
++            [{ options: ['--mode', 'strict-full'], files: changed.filter(value => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(value)) }]);
++    }
++});
++
++test('SOURCE compares the union of actual base and current policy inputs including added configuration', t =>
++{
++    const fixture = frontendRoutingFixture(t);
++    fixture.policy.configurationSources = ['tools/frontend/check-frontend-style.mjs', 'config/added.json'];
++    fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
++    fixture.write('config/added.json', '{}\n');
++    fixture.commit();
++    const configuration = inspectSourceFrontendConfiguration(fixture.root, fixture.base);
++    assert.equal(configuration.changed, true);
++    assert.ok(configuration.identities.some(value => value.file === 'config/extra.json'));
++    assert.ok(configuration.identities.some(value => value.file === 'config/added.json' && value.baseDigest === null));
++    assert.deepEqual(sourceFrontendCheckGroups(fixture.actual(), 'source-integration', fixture.base, fixture.root)[0].options,
++        ['--mode', 'strict-full']);
++});
++
++test('SOURCE refuses omitted changed inputs under both unchanged and changed configuration', t =>
++{
++    const fixture = frontendRoutingFixture(t);
++    for (const drift of [false, true])
++    {
++        if (drift)
++        {
++            fixture.write('config/extra.json', '{"changed":true}\n');
++            fixture.commit();
++        }
++        for (const omitted of fixture.actual())
++        {
++            assert.throws(() => sourceFrontendCheckGroups(fixture.actual().filter(file => file !== omitted),
++                'source-integration', fixture.base, fixture.root), /complete actual changed-source scope/u);
++        }
++    }
++});
++
++test('SOURCE refuses absent, nonregular, untracked and malformed configuration instead of claiming unchanged identity', t =>
++{
++    for (const scenario of ['absent', 'symlink', 'untracked', 'malformed', 'invalid-path'])
++    {
++        const fixture = frontendRoutingFixture(t);
++        if (scenario === 'absent' || scenario === 'symlink')
++        {
++            rmSync(path.join(fixture.root, 'config/extra.json'));
++            if (scenario === 'symlink')
++            {
++                symlinkSync('../eslint.config.mjs', path.join(fixture.root, 'config/extra.json'));
++            }
++        }
++        else if (scenario === 'untracked')
++        {
++            fixture.policy.configurationSources.push('config/untracked.json');
++            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
++            fixture.commit();
++            fixture.write('config/untracked.json', '{}\n');
++        }
++        else if (scenario === 'malformed')
++        {
++            fixture.policy.configurationSources = null;
++            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
++        }
++        else
++        {
++            fixture.policy.configurationSources.push('../escaped.json');
++            fixture.write(sourceGovernanceDataInputs[0], JSON.stringify(fixture.policy));
++        }
++        assert.throws(() => inspectSourceFrontendConfiguration(fixture.root, fixture.base),
++            /tracked regular input|nonregular or escaped input|complete policy input set|invalid input path/u);
++    }
++    const fixture = frontendRoutingFixture(t);
++    assert.throws(() => sourceFrontendCheckGroups(fixture.files, 'source-integration', 'HEAD^', fixture.root), /exact base commit/u);
++    assert.throws(() => sourceFrontendCheckGroups(fixture.files, 'source-integration', fixture.base), /actual repository/u);
++});
++
+ test('Python SOURCE syntax uses the existing isolated checker and only verified inputs escape unsupported', async () =>
+ {
+     const { sourceGovernanceChildEntries, sourceGovernanceExecutableEntries, selectSourceRegressionTargets } =
+diff --git a/tools/frontend/check-frontend-style.mjs b/tools/frontend/check-frontend-style.mjs
+index 9ad32515a..fa55a556c 100644
+--- a/tools/frontend/check-frontend-style.mjs
++++ b/tools/frontend/check-frontend-style.mjs
+@@ -15,6 +15,10 @@ import {
+ } from './reviewed-residual-classification.mjs';
+ import { compareSourceUnitFindings } from './source-unit-style-diff.mjs';
+ 
++const { resolveLocalFsusUiApplicationProject } = await import(
++    new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
++);
++
+ const scriptPath = fileURLToPath(import.meta.url);
+ const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
+ const defaultPolicyPath = 'config/development/frontend-style-policy.json';
+@@ -383,6 +387,9 @@ function runEslint(files, fix)
+         return [];
+     }
+     const executable = path.join(root, policy.toolchain.eslint);
++    // External source types can change without a Blog source edit. Recheck the local program;
++    // registry-installed mode retains its existing content cache.
++    const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot: root });
+     const cache = path.join(root, '.tmp/frontend-style/eslint.cache');
+     const cacheKeyFile = path.join(root, '.tmp/frontend-style/eslint.cache-key');
+     const cacheKey = sha256(`${configurationDigest()}\n${sourceStateDigest()}`);
+@@ -398,13 +405,14 @@ function runEslint(files, fix)
+     const args = [
+         executable,
+         '--config', path.join(root, policy.eslintConfig),
+-        '--cache',
+-        '--cache-location', cache,
+-        '--cache-strategy', 'content',
+         '--format', 'json',
+         '--no-error-on-unmatched-pattern',
+         '--no-warn-ignored'
+     ];
++    if (!localApplicationProject)
++    {
++        args.push('--cache', '--cache-location', cache, '--cache-strategy', 'content');
++    }
+     if (fix)
+     {
+         args.push('--fix');
+@@ -1432,7 +1440,8 @@ function checkSourceDiff(args, files)
+     try
+     {
+         // The original ESLint CLI loads identical original configuration in a separate base root.
+-        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package])
++        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package,
++            'src/frontend/scripts/run-local-fsusui-typecheck.mjs', 'src/frontend/scripts/fsusui-root.mjs'])
+         {
+             const destination = path.join(scratch, file);
+             fs.mkdirSync(path.dirname(destination), { recursive: true });
+diff --git a/tools/frontend/style-toolchain/eslint.config.mjs b/tools/frontend/style-toolchain/eslint.config.mjs
+index e025c8826..fdde159aa 100644
+--- a/tools/frontend/style-toolchain/eslint.config.mjs
++++ b/tools/frontend/style-toolchain/eslint.config.mjs
+@@ -12,6 +12,13 @@ import tseslint from 'typescript-eslint';
+ const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
+ const repositoryRoot = path.resolve(process.env.FSUSBLOG_STYLE_ROOT ?? defaultRoot);
+ const frontendRoot = path.join(repositoryRoot, 'src/frontend');
++const { resolveLocalFsusUiApplicationProject } = await import(
++    new URL('../../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
++);
++const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot });
++const applicationProjectOptions = localApplicationProject
++    ? { projectService: false, project: [localApplicationProject], extraFileExtensions: ['.vue'] }
++    : { projectService: true };
+ 
+ const typedFiles = [
+     'src/frontend/src/**/*.{ts,tsx}',
+@@ -216,7 +223,7 @@ export default [
+             parser: tseslint.parser,
+             parserOptions: {
+                 ecmaVersion: 'latest',
+-                projectService: true,
++                ...applicationProjectOptions,
+                 sourceType: 'module',
+                 tsconfigRootDir: frontendRoot
+             },
+@@ -238,7 +245,7 @@ export default [
+                 ecmaVersion: 'latest',
+                 extraFileExtensions: ['.vue'],
+                 parser: tseslint.parser,
+-                projectService: true,
++                ...applicationProjectOptions,
+                 sourceType: 'module',
+                 tsconfigRootDir: frontendRoot
+             },
+diff --git a/tools/test-matrix/pr-impact-plan.mjs b/tools/test-matrix/pr-impact-plan.mjs
+index d031eb300..b02980994 100644
+--- a/tools/test-matrix/pr-impact-plan.mjs
++++ b/tools/test-matrix/pr-impact-plan.mjs
+@@ -1,5 +1,7 @@
+ import { execFileSync } from 'node:child_process';
+ import { createHash } from 'node:crypto';
++import fs from 'node:fs';
++import path from 'node:path';
+ 
+ const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
+     && !['nightly', 'release-manual'].includes(tier.cadence);
+@@ -455,13 +457,86 @@ export function assertSourceShellSyntaxInspection(input)
+     }
+ }
+ 
+-export function sourceFrontendCheckGroups(files, stage, baseCommit)
++export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
++{
++    if (typeof repositoryRoot !== 'string' || !/^[a-f0-9]{40}$/u.test(baseCommit ?? ''))
++    {
++        throw new Error('SOURCE frontend configuration requires the actual repository and exact base commit');
++    }
++    const git = args => execFileSync('git', ['-C', repositoryRoot, ...args]);
++    git(['merge-base', '--is-ancestor', baseCommit, 'HEAD']);
++    function read(file, revision, required)
++    {
++        if (typeof file !== 'string' || !file || file.startsWith('/') || file.startsWith('-')
++            || file.split('/').includes('..') || /[\\\0\r\n]/u.test(file))
++        {
++            throw new Error('SOURCE frontend configuration contains an invalid input path');
++        }
++        const record = git(['ls-tree', '-z', revision, '--', file]).toString('utf8');
++        if (!record && !required)
++        {
++            return null;
++        }
++        if (!/^100(?:644|755) blob [a-f0-9]{40}\t/u.test(record)
++            || record.slice(record.indexOf('\t') + 1) !== `${file}\0`)
++        {
++            throw new Error(`SOURCE frontend configuration requires a tracked regular input: ${file}`);
++        }
++        if (revision !== 'HEAD')
++        {
++            return git(['show', `${revision}:${file}`]);
++        }
++        const absolute = path.resolve(repositoryRoot, file);
++        if (!fs.existsSync(absolute) || !fs.lstatSync(absolute).isFile()
++            || !fs.realpathSync(absolute).startsWith(`${fs.realpathSync(repositoryRoot)}${path.sep}`))
++        {
++            throw new Error(`SOURCE frontend configuration refuses a nonregular or escaped input: ${file}`);
++        }
++        return fs.readFileSync(absolute);
++    }
++    const policyPath = 'config/development/frontend-style-policy.json';
++    const priorPolicy = JSON.parse(read(policyPath, baseCommit, true));
++    const currentPolicy = JSON.parse(read(policyPath, 'HEAD', true));
++    function inputs(policy)
++    {
++        if (!Array.isArray(policy.configurationSources) || !policy.configurationSources.length)
++        {
++            throw new Error('SOURCE frontend configuration requires the complete policy input set');
++        }
++        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
++            policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
++            policy.eslintConfig, policy.stylelintConfig]);
++    }
++    const priorInputs = inputs(priorPolicy);
++    const currentInputs = inputs(currentPolicy);
++    const identities = [...new Set([...priorInputs, ...currentInputs])].sort().map(file =>
++    {
++        const prior = read(file, baseCommit, priorInputs.has(file));
++        const current = read(file, 'HEAD', currentInputs.has(file));
++        const digest = bytes => bytes === null ? null : `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
++        return { file, baseDigest: digest(prior), currentDigest: digest(current) };
++    });
++    return { baseCommit, changed: identities.some(value => value.baseDigest !== value.currentDigest), identities };
++}
++
++export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRoot)
+ {
+     const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file));
+     if (stage !== 'source-integration')
+     {
+         return [{ options: ['--mode', 'strict-full'], files: applicable }];
+     }
++    const configuration = inspectSourceFrontendConfiguration(repositoryRoot, baseCommit);
++    const actual = readGitChangedPaths(repositoryRoot, baseCommit).changedFiles
++        .filter(file => fs.existsSync(path.join(repositoryRoot, file))).sort();
++    if (JSON.stringify([...files].sort()) !== JSON.stringify(actual))
++    {
++        throw new Error('SOURCE frontend routing requires the complete actual changed-source scope');
++    }
++    if (configuration.changed)
++    {
++        return [{ options: ['--mode', 'strict-full'], files: applicable }];
++    }
+     return [
+         { options: ['--mode', 'source-diff', '--base', baseCommit],
+             files: applicable.filter(file => /\.(?:mjs|js|cjs)$/u.test(file)) },
+diff --git a/tools/test-matrix/source-governance.mjs b/tools/test-matrix/source-governance.mjs
+index ab90d0a98..83573a6e8 100644
+--- a/tools/test-matrix/source-governance.mjs
++++ b/tools/test-matrix/source-governance.mjs
+@@ -49,7 +49,7 @@ for (const file of files)
+     }
+ }
+ const groups = [
+-    ...sourceFrontendCheckGroups(files, effectivePrExecutionStage(callerContext), evidence.baseCommit)
++    ...sourceFrontendCheckGroups(files, effectivePrExecutionStage(callerContext), evidence.baseCommit, root)
+         .map(value => [sourceGovernanceChildEntries.frontend, value.options, value.files]),
+     [sourceGovernanceChildEntries.csharp, ['--mode', 'full'], files.filter(file => file.endsWith('.cs'))],
+     [sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'docs', '--operation', 'lint', '--require-tools'], files.filter(file => file.endsWith('.md'))],

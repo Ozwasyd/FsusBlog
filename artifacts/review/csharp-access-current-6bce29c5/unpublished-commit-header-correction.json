@@ -1,0 +1,13 @@
+{
+  "kind": "ordinary-unpublished-integration-commit-message-correction-no-Git-replacement",
+  "failedRangeReason": "default merge header must use type(scope): imperative summary",
+  "actualProducerCheckpoint": "b1fe2f988310ab5790abee6e0f9fe4e6c25dca9d",
+  "actualProducerCheckpointBranch": "codex/csharp-access-current-producer-checkpoint-20261008",
+  "correctedMerge": "3346f6a7821e0b3c7c007aa6d358e57411815015",
+  "producerInputTreeIdentical": "a50758d8de2e35532ae2f1193ba589e55fde8ec1",
+  "passedSourceCheckHead": "4c7a84202d35ab3b4ae3c501e120d05b1f61c5ac",
+  "correctedCandidate": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+  "completeCandidateTreeIdentical": "c045288def19505eb8f0b3d64fb9fcd78b551583",
+  "earlierObservationsRetainActualExecutionHeads": true,
+  "heldTestsExecuted": false
+}
