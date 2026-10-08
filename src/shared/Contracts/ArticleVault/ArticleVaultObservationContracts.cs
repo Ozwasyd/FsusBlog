@@ -56,7 +56,8 @@ public sealed record VaultRawObservation(
 public sealed record VaultFilesystemObservation(
     string RelativePath,
     bool Present,
-    VaultSnapshotAssessment? Assessment);
+    VaultSnapshotAssessment? Assessment,
+    string? NativeFailureReasonCode = null);
 
 /// <summary>Content-addresses an event candidate and the exact raw sequences that explain it.</summary>
 public sealed record VaultNormalizedEvent(
