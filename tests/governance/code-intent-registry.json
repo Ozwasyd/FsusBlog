@@ -652,6 +652,35 @@
             "claimLevel": "S",
             "status": "structural-only",
             "structuralBoundary": "Canonical descriptors and identity tokens distinguish blob, physical allocation, residency and location. The charge/read-lease contracts retain actual ownership through completion and exclude I/O or qualification from host-view acquisition. This registers the source contracts only, not measured runtime capacity or backend qualification."
+        },
+        {
+            "id": "flat-index-owner-publication",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs"
+            ],
+            "intentKinds": [
+                "ownership",
+                "lifetime",
+                "disposal"
+            ],
+            "anchors": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "transferred = true",
+                    "maxLineDistance": 32
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs",
+                    "marker": "OWNERSHIP:",
+                    "symbol": "TryPublish",
+                    "maxLineDistance": 32
+                }
+            ],
+            "claimLevel": "S",
+            "status": "structural-only",
+            "structuralBoundary": "A sealed native index transfers its initial ownership once to a counted holder; readers retain the old physical allocation through retirement. This is an internal ownership holder, not an additional product publication authority or measured performance claim."
         }
     ]
 }
