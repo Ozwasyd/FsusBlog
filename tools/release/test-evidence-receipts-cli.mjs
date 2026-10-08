@@ -11,6 +11,7 @@ import { readEvidenceDocument } from '../test-matrix/content-addressed-evidence-
 import { parseMatrix } from '../test-matrix/parse-matrix.mjs';
 
 import { requireCleanAttemptConsumerAdmission } from './browser-release-clean-attempt-consumers.mjs';
+import { correctnessAggregateAuthorityLevel } from './correctness-scheduler-authority.mjs';
 import {
     browserlessCorrectnessReceiptSchema,
     createBrowserlessCorrectnessReceipt,
@@ -408,10 +409,13 @@ export function schedulerAuthority(runId, tierIds, sourceState, { repositoryRoot
     {
         throw new Error(`scheduler checkpoint has incomplete correctness tiers: ${missing.join(', ')}`);
     }
-    const aggregateStatus = checkpoint.tiers?.['production-correctness']?.status ?? 'admitted';
-    if (['failure', 'blocked', 'cancelled', 'timed-out'].includes(aggregateStatus))
+    const aggregateStatus = checkpoint.tiers?.['production-correctness']?.status ?? null;
+    const authorityLevel = correctnessAggregateAuthorityLevel(aggregateStatus);
+    if (authorityLevel === 'terminal-success')
     {
-        throw new Error(`production-correctness aggregate cannot seal evidence from status ${aggregateStatus}`);
+        // The aggregate CLI cannot mint final authority from mutable compatibility JSON.
+        // Only the scheduler finalizer may bind the canonical terminal commit after CAS and postflight.
+        throw new Error('contract.missing-terminal-checkpoint-attestation: scheduler terminal finalizer is required');
     }
     const browserProcesses = dependencyTierIds.reduce((sum, tierId) => (
         sum + Math.max(0, Number(checkpoint.tiers?.[tierId]?.resourceUtilization?.peakBrowserProcessCount ?? 0))
@@ -422,12 +426,14 @@ export function schedulerAuthority(runId, tierIds, sourceState, { repositoryRoot
     }
     return {
         kind: 'scheduler-checkpoint',
-        status: 'success',
+        status: 'provisional',
+        authorityLevel: 'provisional',
+        qualificationEligible: false,
         runId,
         schedulerRunIds: [runId],
         checkpoint: path.relative(repositoryRoot, checkpointFile).replaceAll(path.sep, '/'),
         aggregateStatus,
-        authoritative: checkpoint.authoritative === true
+        authoritative: false
     };
 }
 
@@ -567,6 +573,10 @@ function createCorrectness(options)
         throw new Error('local correctness authority requires explicit FSUSBLOG_TEST_RUN_ID');
     }
     const summaries = collectJobSummaries(build.receipt.sourceState.commit, process.env, { schedulerRunId: schedulerRunId || null });
+    if (schedulerRunId && summaries.length === 0)
+    {
+        throw new Error('browserless correctness receipt found no correctness job summaries');
+    }
     let authority;
     if (schedulerRunId)
     {
