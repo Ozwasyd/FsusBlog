@@ -3379,3 +3379,42 @@ Int32 count, then each portable article string and component digest using the
 existing digest writer. The result owns a read-only component array and continues
 to refuse taxonomy authority. Whole-set self-consistency does not replace each
 article's exact source binder or any persisted taxonomy/permission observations.
+
+## Closed manifest asset metadata component
+
+The sole manifest codec adds `TryCreateAssetMetadataCandidate`,
+`TryParseAssetMetadataCandidate` and `WriteAssetMetadataCandidate`. The closed
+fields are `portableAsset`, `sourceAssetId`, `sha256`, `mimeType`, `extension`,
+`sizeBytes`, `widthPixels`, `heightPixels`, `packagePath` and `componentDigest`.
+The portable asset UUID is explicit and separate from the canonical source
+`AssetId`; package paths use only `assets/<portable-uuid><extension>`. Source
+IDs are audit coordinates and never supply the portable filename. Unknown,
+duplicate, missing and wrong-typed fields, private storage/owner/timestamp
+extensions, invalid identities, dimensions, extensions and paths refuse the
+whole candidate. Parsing is limited to 4 KiB strict UTF-8 JSON.
+
+`ArticlePackageAssetMetadataMapper.TryMapCandidate` and `ValidateCandidate`
+consume the actual canonical `AssetRecord` plus original bytes. They call the
+sole asset schema validator, refuse private or pending-delete records, cap
+actual input at 32 MiB before copying, check exact byte length and SHA-256,
+and call the canonical media inspector to compare MIME and dimensions. The
+finite mapper refuses SVG and unsupported media instead of adding a fallback
+parser. The inspector checks signatures and header dimensions; this is not
+complete image decoding, CRC, script safety or export-policy verification.
+Public/active record shapes do not establish existence, permission or retention.
+
+The candidate owns immutable closed metadata and a lowercase SHA-256 digest
+covering strict UTF-8 domain
+`fsusblog.article-package.manifest-asset-metadata-candidate.v1`, one NUL byte
+and canonical component JSON with its digest omitted. Validation recreates
+all fields from current explicit inputs; copied digests do not hide changed
+bytes or record metadata. Neither source arrays nor storage internals enter
+the output. The existing full package envelope continues to reject assets.
+Every `RequireAssetAuthority()` returns
+`article_package_manifest_asset_rights_retention_authority_unavailable`.
+
+Exact operation/plan/source-revision/owner/rights/ledger authorization, frozen
+asset enumeration, retention holds, upload/reuse receipts, streaming large
+assets, complete package/dependency integration and original independent
+runtime acceptance remain separate gates. An existing byte reader or display
+URL alone cannot authorize package export or import execution.
