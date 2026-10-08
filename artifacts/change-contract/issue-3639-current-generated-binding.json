@@ -7,7 +7,10 @@
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "config/development/frontend-style-policy.json",
         "tools/governance/change-contract-registry.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/test/correctness-attempt-migration.mjs",
+        "tests/tools/test-matrix-scheduler.test.mjs",
+        "tests/tools/support/esm-fixture-materializer-contracts.mjs",
+        "tests/tools/support/locked-schema-validator-fixture.mjs"
     ],
     "outputs": [
         {
@@ -20,7 +23,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "ade29328609a0fbc8d135b79326010d3e3cb352a1bc936bb6a290afd64ef8b23"
+            "sha256": "c7649041881f2b3c4b1df2d334c2a31e8bfe5f26d9aa8b96f08ebcd0c01822a6"
         },
         {
             "path": "config/testing/test-execution-envelope-applicability.json",

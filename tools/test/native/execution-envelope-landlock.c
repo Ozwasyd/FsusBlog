@@ -90,6 +90,11 @@ static uint64_t HandledAccessForAbi(int abi)
 
 static void AllowPath(int rulesetFd, const char* path, uint64_t access)
 {
+    if (path == NULL)
+    {
+        errno = EINVAL;
+        Fail("cannot open declared filesystem path");
+    }
     int pathFd = open(path, O_PATH | O_CLOEXEC);
     if (pathFd < 0)
     {
