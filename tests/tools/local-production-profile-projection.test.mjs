@@ -108,7 +108,8 @@ test('production checkpoint projection binds every logical tier to one fresh run
             { id: 'mixed-performance-window', evidencePhase: 'measurement', status: 'success', durationMs: 60_000, startedAtMs: 20_000, finishedAtMs: 80_000 },
             { id: 'backend-perf', evidencePhase: 'measurement', status: 'success', durationMs: 20_000, startedAtMs: 80_000, finishedAtMs: 100_000 },
             { id: 'privacy-zk-benchmark', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 },
-            { id: 'aeds-frame-cost', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 }
+            { id: 'aeds-frame-cost', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 },
+            { id: 'aeds-compression', evidencePhase: 'measurement', status: 'success', durationMs: 0, startedAtMs: 100_000, finishedAtMs: 100_000 }
         ]
     };
     const checkpoint = {

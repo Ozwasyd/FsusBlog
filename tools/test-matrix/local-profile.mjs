@@ -3,6 +3,7 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { performanceSteps } from '../test/bundles/bundle-steps.mjs';
 import { expandFixtureProfile } from '../testing/fixture-catalog.mjs';
 
 import { createArtifactDigestTable } from './artifact-digest-table.mjs';
@@ -29,12 +30,9 @@ const logicalProjectionSchema = 'fsusblog.local-profile-projection.v1';
 export const productionWallClockBudgetMs = 3_600_000;
 export const performanceMixedWindowFloorMs = 60_000;
 const performanceDeadlineEvidenceSchema = 'fsusblog.performance-deadline-evidence.v2';
-const performanceMeasurementStepIds = Object.freeze([
-    'aeds-frame-cost',
-    'backend-perf',
-    'mixed-performance-window',
-    'privacy-zk-benchmark'
-]);
+const performanceMeasurementStepIds = Object.freeze(performanceSteps()
+    .filter((step) => step.evidencePhase === 'measurement')
+    .map((step) => step.id).sort());
 
 function terminalDigest(value)
 {

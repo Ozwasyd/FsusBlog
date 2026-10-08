@@ -8,6 +8,7 @@ import { fileURLToPath } from 'node:url';
 
 const { MeasurementCollectorUnavailableError, bindMeasurementNoiseAuthority, buildMeasurementNoiseRound, createLinuxMeasurementCollector, createMeasurementNoiseEnvelope, deriveMeasurementObservation, evaluateMeasurementObservation, qualifyMeasurementCohort, readMeasurementNoiseAuthoritySequence, readMeasurementNoisePolicy, validateMeasurementNoiseReceipt } = await import(new URL("../../tools/test/measurement-noise-envelope.mjs", import.meta.url));
 const { runTaskScopedPerformanceAdmission, runWithPerformanceAdmission } = await import(new URL("../../tools/test/performance-admission.mjs", import.meta.url));
+const { performanceSteps } = await import(new URL('../../tools/test/bundles/bundle-steps.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const taskFixture = path.join(root, 'tests/tools/fixtures/measurement-task.mjs');
@@ -170,6 +171,24 @@ function authorityRound(receipts, requiredWindowSuffixes)
 {
     return buildMeasurementNoiseRound(receipts, { requiredWindowSuffixes });
 }
+
+test('default noise round requires every canonical measurement including compression', () =>
+{
+    const measurementIds = performanceSteps().filter((step) => step.evidencePhase === 'measurement')
+        .map((step) => step.id);
+    const receipts = measurementIds.map((id) => authorityReceipt(`round/performance-evidence/${id}`, {
+        runId: 'inventory-noise-contract'
+    }));
+    const complete = buildMeasurementNoiseRound(receipts);
+    assert.equal(complete.qualificationEligible, true);
+    assert.deepEqual(complete.requiredWindowSuffixes, measurementIds.map((id) => `/performance-evidence/${id}`));
+    for (const id of measurementIds)
+    {
+        const incomplete = buildMeasurementNoiseRound(receipts.filter((receipt) => !receipt.windowId.endsWith(`/${id}`)));
+        assert.equal(incomplete.qualificationEligible, false);
+        assert.ok(incomplete.missingRequiredWindows.includes(`/performance-evidence/${id}`));
+    }
+});
 
 function terminateOwnedProcess(child)
 {
