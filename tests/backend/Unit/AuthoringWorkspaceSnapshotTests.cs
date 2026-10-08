@@ -16,7 +16,8 @@ public sealed class AuthoringWorkspaceSnapshotTests
     public void CanonicalUtf8_MatchesSharedFrontendFixtureDigest()
     {
         AuthoringWorkspaceSnapshot snapshot = Snapshot(AuthoringWorkspaceSnapshotContract.DefaultLayout());
-        Assert.Equal("684e72bc43e7c3592266938dcd4087079c280f984bfdec1ca168bcc082f38249", snapshot.ContentDigest);
+        Assert.False(snapshot.Layout.Shell.OutlineOpen);
+        Assert.Equal("7a6edf2f3842c9c1e34e145543769ba82f2cbb9797a73b908b6a252d230d9163", snapshot.ContentDigest);
         DirectoryInfo? root = new(AppContext.BaseDirectory);
         while (root is not null && !File.Exists(Path.Combine(root.FullName, "tests/fixtures/authoring-workspace/snapshot-current.json")))
         {
@@ -25,6 +26,37 @@ public sealed class AuthoringWorkspaceSnapshotTests
         Assert.NotNull(root);
         byte[] bytes = File.ReadAllBytes(Path.Combine(root.FullName, "tests/fixtures/authoring-workspace/snapshot-current.json"));
         Assert.Equal(snapshot.ContentDigest, AuthoringWorkspaceSnapshotContract.Parse(bytes, s_scope, SourceDigest).ContentDigest);
+    }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task Store_ExistingExplicitOutlinePreferenceIsPreservedWithoutWrites(bool outlineOpen)
+    {
+        AuthoringWorkspaceSnapshotLayout defaults = AuthoringWorkspaceSnapshotContract.DefaultLayout();
+        AuthoringWorkspaceSnapshot saved = Snapshot(defaults with
+        {
+            Shell = defaults.Shell with
+            {
+                OutlineOpen = outlineOpen
+            }
+        });
+        if (outlineOpen)
+        {
+            Assert.Equal("684e72bc43e7c3592266938dcd4087079c280f984bfdec1ca168bcc082f38249", saved.ContentDigest);
+        }
+        byte[] bytes = AuthoringWorkspaceSnapshotContract.Serialize(saved);
+        var persistence = new MemoryPersistence();
+        persistence.Rows[s_scope] = new(saved.Revision, bytes);
+        var store = new AuthoringWorkspaceSnapshotStore(persistence, new SnapshotTimeProvider(), SourceDigest);
+        AuthoringWorkspaceSnapshotResult read = await store.ReadAsync(s_scope);
+        AuthoringWorkspaceSnapshotResult repeated = await store.ReadAsync(s_scope);
+        Assert.Equal("current", read.Status);
+        Assert.Equal(outlineOpen, read.Snapshot!.Layout.Shell.OutlineOpen);
+        Assert.Equal(saved.ContentDigest, read.Snapshot.ContentDigest);
+        Assert.Equal(read.Snapshot.ContentDigest, repeated.Snapshot!.ContentDigest);
+        Assert.Equal(0, persistence.Writes);
+        Assert.Equal(bytes, persistence.Rows[s_scope].Bytes.ToArray());
     }
 
     [Theory]
@@ -156,6 +188,7 @@ public sealed class AuthoringWorkspaceSnapshotTests
         AuthoringWorkspaceSnapshotResult created = await store.WriteAsync(s_scope, 0, Layout(20));
         Assert.Equal("applied", created.Status);
         Assert.True(AuthoringWorkspaceSnapshotStore.VerifyReceipt(created));
+        Assert.False(created.Snapshot!.Layout.Shell.OutlineOpen);
         Assert.Equal(1, created.Revision);
         AuthoringWorkspaceSnapshotResult read = await store.ReadAsync(s_scope);
         Assert.Equal("current", read.Status);
@@ -197,6 +230,7 @@ public sealed class AuthoringWorkspaceSnapshotTests
             AuthoringWorkspaceSnapshotStore.ResetConfirmation(s_scope, 1, SourceDigest));
         Assert.Equal("applied", reset.Status);
         Assert.Empty(reset.Snapshot!.Layout.Tabs);
+        Assert.False(reset.Snapshot.Layout.Shell.OutlineOpen);
         Assert.Equal(2, reset.Revision);
         Assert.Single((await store.ReadAsync(otherUser)).Snapshot!.Layout.Tabs);
         Assert.Equal(100, (await store.ReadAsync(otherSite)).Snapshot!.Layout.Tabs.Length);
@@ -330,5 +364,11 @@ public sealed class AuthoringWorkspaceSnapshotTests
                 return Task.FromResult(true);
             }
         }
+    }
+
+    private sealed class SnapshotTimeProvider : TimeProvider
+    {
+        public override DateTimeOffset GetUtcNow()
+            => DateTimeOffset.FromUnixTimeMilliseconds(1_800_000_000_000);
     }
 }

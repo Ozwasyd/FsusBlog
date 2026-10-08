@@ -128,7 +128,7 @@ public static class AuthoringWorkspaceSnapshotContract
 
     public static AuthoringWorkspaceSnapshotLayout DefaultLayout()
         => new([], [new("group:primary", [], null)], "group:primary", 500,
-            new(true, "all", true, false, "publish"));
+            new(true, "all", false, false, "publish"));
 
     public static AuthoringWorkspaceSnapshot Seal(
         AuthoringWorkspaceSnapshotScope scope, string sourceDigest, long revision, long updatedAt,

@@ -133,8 +133,9 @@ afterEach(async () => { for (const sync of active.splice(0))
 describe('server snapshot boundaries', () => {
     it('matches the shared canonical UTF-8 fixture and C# digest', () => {
         const golden = JSON.parse(readFileSync(new URL('../../../fixtures/authoring-workspace/snapshot-current.json', import.meta.url), 'utf8'));
+        expect(defaultWorkspaceSnapshotLayout().shell.outlineOpen).toBe(false);
         validateWorkspaceSnapshot(golden, scope, sourceDigest, now);
-        expect(golden.contentDigest).toBe('684e72bc43e7c3592266938dcd4087079c280f984bfdec1ca168bcc082f38249');
+        expect(golden.contentDigest).toBe('7a6edf2f3842c9c1e34e145543769ba82f2cbb9797a73b908b6a252d230d9163');
         expect(snapshot(defaultWorkspaceSnapshotLayout()).contentDigest).toBe(golden.contentDigest);
     });
     it.each([0, 1, 20, 100])('validates %i tabs without body or editor state', count => {
@@ -241,6 +242,29 @@ describe('verified non-authoritative cache', () => {
     });
 });
 describe('bounded CAS sync, multi-tab and offline current-session state', () => {
+    it.each([true, false])('preserves an existing explicit outline preference %s through read/cache/restore/migration with zero writes', async outlineOpen => {
+        const { sync, api, server, cache } = setup();
+        const savedLayout = defaultWorkspaceSnapshotLayout();
+        savedLayout.shell.outlineOpen = outlineOpen;
+        const saved = snapshot(savedLayout);
+        if (outlineOpen)
+            expect(saved.contentDigest).toBe('684e72bc43e7c3592266938dcd4087079c280f984bfdec1ca168bcc082f38249');
+        server.current = saved;
+        const reset = vi.spyOn(server, 'reset');
+        await sync.start();
+        expect(sync.getCurrentSessionLayout().shell.outlineOpen).toBe(outlineOpen);
+        const observed = sync.getServerObservation()!;
+        const plan = await prepareAuthoringWorkspaceSnapshotRestore(observed, { resolveBatch: vi.fn() }, 0, new AbortController().signal);
+        expect(plan.layout.shell.outlineOpen).toBe(outlineOpen);
+        const cached = await cache.read();
+        expect(cached.status === 'cached-placeholder' && cached.snapshot.layout.shell.outlineOpen).toBe(outlineOpen);
+        const migrated = await migrateAuthoringWorkspaceSnapshotLegacy(api, observed, { getItem: vi.fn(), removeItem: vi.fn() }, true);
+        expect(migrated.receipt.status).toBe('server-precedence');
+        expect(migrated.observation.snapshot!.contentDigest).toBe(saved.contentDigest);
+        expect(server.current).toEqual(saved);
+        expect(server.writes).toHaveLength(0);
+        expect(reset).not.toHaveBeenCalled();
+    });
     it('online startup replaces a placeholder with server; cache failure never writes a default', async () => {
         const { sync, api, cache, server } = setup();
         await cache.verifyAndReplace(await api.read());
@@ -424,6 +448,7 @@ describe('bounded CAS sync, multi-tab and offline current-session state', () => 
         await sync.acceptServerAfterConflict();
         await sync.reset(true, 2, api.resetConfirmation(2));
         expect(server.current!.layout.tabs).toHaveLength(0);
+        expect(server.current!.layout.shell.outlineOpen).toBe(false);
         expect(server.current!.revision).toBe(3);
     });
     it('layout changes during a confirmed reset survive in memory and wait for the reset CAS result', async () => {
@@ -642,6 +667,7 @@ describe('finite legacy migration and machine-backed status/reset projection', (
         expect(migrated.receipt.status).toBe('applied');
         expect(migrated.receipt.reason).toBe('unscoped-legacy');
         expect(server.current!.layout.shell.outlineOpen).toBe(defaultWorkspaceSnapshotLayout().shell.outlineOpen);
+        expect(server.current!.layout.shell.outlineOpen).toBe(false);
         expect(server.writes).toHaveLength(1);
         expect(values.has(workspaceSnapshotLegacyInventory[0].key)).toBe(false);
         expect(values.get('draft:protected')).toBe('do-not-read');

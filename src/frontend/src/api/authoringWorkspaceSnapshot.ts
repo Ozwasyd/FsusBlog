@@ -201,7 +201,7 @@ export function defaultWorkspaceSnapshotLayout(): AuthoringWorkspaceSnapshotLayo
     return {
         tabs: [], groups: [{ groupId: 'group:primary', tabIds: [], activeTabId: null }],
         activeGroupId: 'group:primary', splitRatioPermille: 500,
-        shell: { libraryOpen: true, libraryView: 'all', outlineOpen: true, inspectorOpen: false, inspectorView: 'publish' }
+        shell: { libraryOpen: true, libraryView: 'all', outlineOpen: false, inspectorOpen: false, inspectorView: 'publish' }
     };
 }
 export function validateWorkspaceSnapshot(value: unknown, scope: AuthoringWorkspaceSnapshotScope, sourceDigest: string, now: number): asserts value is AuthoringWorkspaceSnapshot

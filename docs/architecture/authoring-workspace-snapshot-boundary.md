@@ -9,6 +9,11 @@ migration registration, article/session/router/group owners and the live shell.
 integer splitter permille from 200 to 800. Snapshot numbers stay within JavaScript
 safe integers. A shared fixture verifies C#/TypeScript canonical digest parity.
 Inspector views follow the existing inspector registry, including `rights`.
+Without an explicit saved user/site preference, outline navigation defaults to
+collapsed (`outlineOpen: false`), following #1805. This default applies to fresh
+bootstrap and an explicitly confirmed reset. Existing valid snapshots retain
+their recorded boolean and digest, including previously saved open preferences;
+reads, cache verification, restore and migration do not rewrite them.
 
 `AuthoringWorkspaceSnapshotStore` reads without writes and requires expected
 revision CAS for create, update and confirmed layout reset. Its PostgreSQL adapter
