@@ -1349,11 +1349,11 @@ localProfiles:
               exclusiveResources: []
 tiers:
     - id: validate-declarations
-      executionClass: coordination
+      executionClass: static-governance
       evidenceClass: diagnostic
       qualificationEligible: false
       fixtureProfile: none
-      fixtureProfileReason: none-coordination
+      fixtureProfileReason: none-static-governance
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent
@@ -1391,11 +1391,11 @@ tiers:
       triggerReason: source-only declaration and applicable checks confer no qualification
 
     - id: source-governance
-      executionClass: coordination
+      executionClass: static-governance
       evidenceClass: diagnostic
       qualificationEligible: false
       fixtureProfile: none
-      fixtureProfileReason: none-coordination
+      fixtureProfileReason: none-static-governance
       fixtureProfileProof: tests/tools/matrix-fixture-profile.test.mjs
       fixtureMutatorAllowed: false
       owner: ServerContractAgent

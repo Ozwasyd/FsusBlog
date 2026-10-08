@@ -1061,6 +1061,14 @@
             "fixtureMutatorAllowed": true
         },
         {
+            "tierId": "source-governance",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "static-governance",
             "executionClass": "static-governance",
             "fixtureProfile": "none",
@@ -1117,6 +1125,14 @@
             "fixtureMutatorAllowed": true
         },
         {
+            "tierId": "validate-declarations",
+            "executionClass": "static-governance",
+            "fixtureProfile": "none",
+            "fixtureProfileReason": "none-static-governance",
+            "fixtureProfileProof": "tests/tools/matrix-fixture-profile.test.mjs",
+            "fixtureMutatorAllowed": false
+        },
+        {
             "tierId": "validate-matrix",
             "executionClass": "coordination",
             "fixtureProfile": "none",
@@ -1165,5 +1181,5 @@
             "fixtureMutatorAllowed": false
         }
     ],
-    "digest": "sha256:3d23776d0e81f73d09030ec2095957dca8b5b054966f1db2b2c94644607e0921"
+    "digest": "sha256:573f23744b00a1da721be07a63a02a69def19e1e9e96f685a8827838e76f41ba"
 }

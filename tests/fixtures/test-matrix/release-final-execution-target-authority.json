@@ -795,13 +795,13 @@
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.mjs",
-            "contentDigest": "sha256:c70564de1c068856006b7365dbaf9c0513974637dfb4a26923ae4fb7ddf61d5c",
-            "indexDigest": "sha256:c70564de1c068856006b7365dbaf9c0513974637dfb4a26923ae4fb7ddf61d5c"
+            "contentDigest": "sha256:cc974c076dc1702f66d53a8ebba48205de41caca045445b52219ac410ae1ab2f",
+            "indexDigest": "sha256:cc974c076dc1702f66d53a8ebba48205de41caca045445b52219ac410ae1ab2f"
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
-            "contentDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b",
-            "indexDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b"
+            "contentDigest": "sha256:ba2e2e1343e49ee09c1d32ff39ca4b149a5a9e2d6980fc4c9a32367052e548a2",
+            "indexDigest": "sha256:ba2e2e1343e49ee09c1d32ff39ca4b149a5a9e2d6980fc4c9a32367052e548a2"
         },
         {
             "path": "tests/browser-contract/fixture.mjs",
@@ -2875,8 +2875,8 @@
         },
         {
             "path": "tools/docs/behavior-document-consistency-final.mjs",
-            "contentDigest": "sha256:87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267",
-            "indexDigest": "sha256:87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267"
+            "contentDigest": "sha256:560231b76d440a3caa849c9b9565800123b4e85628e9f272264ee8be1a97f364",
+            "indexDigest": "sha256:560231b76d440a3caa849c9b9565800123b4e85628e9f272264ee8be1a97f364"
         },
         {
             "path": "tools/docs/check-document-claim-migration-ledger.mjs",
@@ -4375,8 +4375,8 @@
         },
         {
             "path": "tools/test-matrix/post-runtime-producer-registry.mjs",
-            "contentDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89",
-            "indexDigest": "sha256:128707f32c791cea969c28ed60dfb29f086a1b5d9703754c8c7079e08f62fc89"
+            "contentDigest": "sha256:94a0d4a13f8090cd9d22ac949236f9d68a53ad23cfbae86eaa6800b0e1634145",
+            "indexDigest": "sha256:94a0d4a13f8090cd9d22ac949236f9d68a53ad23cfbae86eaa6800b0e1634145"
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
@@ -4900,8 +4900,8 @@
         },
         {
             "path": "tools/test/correctness-attempt-migration.mjs",
-            "contentDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
-            "indexDigest": "sha256:1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            "contentDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2",
+            "indexDigest": "sha256:21bd88333d74a8685960925d48fd5d2114e23feaf19aca9022fd7523ba83c4e2"
         },
         {
             "path": "tools/test/correctness-attempt-producers.mjs",

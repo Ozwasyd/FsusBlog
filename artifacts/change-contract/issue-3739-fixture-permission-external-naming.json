@@ -1,0 +1,27 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "config/testing/fixture-consumer-inventory.generated.json",
+                "config/testing/fixture-profile-matrix.generated.json",
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/migration/packages.lock.json"
+            ],
+            "reason": "Preserve existing serialized lock, lifecycle, retention, execution and producer authority keys while consuming the exact canonical-owner source deltas and synchronizing restored controls through the original producer."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/docs/behavior-document-consistency-final.mjs"
+            ],
+            "reason": "Preserve existing process environment and canonical execution authority names while restoring the original pure boundary and consuming the current roster verification."
+        }
+    ]
+}

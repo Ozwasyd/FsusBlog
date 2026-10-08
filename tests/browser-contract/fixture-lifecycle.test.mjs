@@ -40,7 +40,7 @@ const browserTemporalContext = qualificationTemporalContext({
 });
 
 const providerSource = String.raw`#!/usr/bin/env node
-import { access, appendFile, mkdir, symlink, writeFile } from 'node:fs/promises'
+import { access, appendFile, chmod, mkdir, symlink, writeFile } from 'node:fs/promises'
 const chunks = []
 for await (const chunk of process.stdin) chunks.push(chunk)
 const request = JSON.parse(Buffer.concat(chunks).toString('utf8'))
@@ -85,7 +85,10 @@ if (request.operation === 'createPublishedArticle') {
     await writeFile(outside, storage, { mode: 0o600 })
     await symlink(outside, root + '/user.storage-state.json')
   } else {
-    await writeFile(root + '/user.storage-state.json', storage, { mode: Number(process.env.FAKE_STORAGE_MODE ?? 0o600) })
+    const storageMode = Number(process.env.FAKE_STORAGE_MODE ?? 0o600)
+    await writeFile(root + '/user.storage-state.json', storage, { mode: storageMode })
+    // The permission counterexample must survive a restrictive inherited umask.
+    await chmod(root + '/user.storage-state.json', storageMode)
   }
   entity = { id: 303, storageStateFile: 'user.storage-state.json', capabilities: { webAuthnRegistration: true } }
 } else if (request.operation === 'createAdminSession') {
@@ -207,6 +210,75 @@ test('run identity derives isolated database and Redis resources from commit run
     assert.equal(identity.redisInstance, `fsusblog-test-redis-${identity.namespace}`);
     assert.equal(identity.fixtureRoot, path.join(directory, 'fixtures', identity.namespace));
 
+});
+
+test('run identity consumes the canonical test-run authority and rejects disagreement', async (context) =>
+{
+    const { directory, env } = await harness(context, {
+        FSUSBLOG_TEST_RUN_ID: 'quality-gate-42-1',
+        FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'quality-gate-42-1'
+    });
+    const identity = resolveBrowserContractRunIdentity({ env, sourceState, repoRoot: directory });
+    assert.equal(identity.runId, 'quality-gate-42-1');
+    const schedulerOnly = resolveBrowserContractRunIdentity({
+        env: { ...env, FSUSBLOG_BROWSER_CONTRACT_RUN_ID: '' },
+        sourceState,
+        repoRoot: directory
+    });
+    assert.deepEqual(schedulerOnly, identity);
+    assert.throws(
+        () => resolveBrowserContractRunIdentity({
+            env: { ...env, FSUSBLOG_BROWSER_CONTRACT_RUN_ID: 'browser-only-42-1' },
+            sourceState,
+            repoRoot: directory
+        }),
+        /run authorities disagree/u
+    );
+});
+
+test('run attempts reject authority disagreement and isolate fixture resources', async (context) =>
+{
+    const { directory, env } = await harness(context);
+    const first = resolveBrowserContractRunIdentity({ env, sourceState, repoRoot: directory });
+    assert.equal(first.attemptId, 'attempt-0001');
+    const second = resolveBrowserContractRunIdentity({
+        env: {
+            ...env,
+            FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID: 'attempt-0002',
+            FSUSBLOG_TEST_ATTEMPT_ID: 'attempt-0002'
+        },
+        sourceState,
+        repoRoot: directory
+    });
+    assert.equal(second.attemptId, 'attempt-0002');
+    assert.equal(second.runId, first.runId);
+    for (const resource of ['namespace', 'fixtureRoot', 'databaseInstance', 'redisInstance', 'redisNamespace'])
+    {
+        assert.notEqual(second[resource], first[resource], resource);
+    }
+    assert.throws(
+        () => resolveBrowserContractRunIdentity({
+            env: {
+                ...env,
+                FSUSBLOG_PRODUCTION_FRESH_ATTEMPT_ID: 'attempt-0001',
+                FSUSBLOG_TEST_ATTEMPT_ID: 'attempt-0002'
+            },
+            sourceState,
+            repoRoot: directory
+        }),
+        /attempt authorities disagree/u
+    );
+    for (const attemptId of ['attempt-2', 'attempt-0002/other'])
+    {
+        assert.throws(
+            () => resolveBrowserContractRunIdentity({
+                env: { ...env, FSUSBLOG_TEST_ATTEMPT_ID: attemptId },
+                sourceState,
+                repoRoot: directory
+            }),
+            /attempt identity is invalid/u
+        );
+    }
 });
 
 test('fixture source identity is complete, dedicated, and cannot fall back to GITHUB_SHA', async (context) =>

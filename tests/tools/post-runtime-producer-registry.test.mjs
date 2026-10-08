@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import os from 'node:os';
@@ -7,6 +7,8 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
+const { sealSourceIdentity } = await import(new URL('../../tools/fact-extractors/identity.mjs', import.meta.url));
+const { writePostRuntimeAcceptedClaimsReceipt } = await import(new URL('../../tools/docs/post-runtime-accepted-claims.mjs', import.meta.url));
 const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
 const { createBrowserTemporalFixture } = await import(new URL('./support/browser-temporal-fixture.mjs', import.meta.url));
@@ -2142,6 +2144,24 @@ test('pure receipt contracts reject transitive filesystem and execution capabili
         () => validatePostRuntimeReaderFirewall(repositoryRoot, entry),
         /forbidden I\/O or execution module node:child_process/u
     );
+    for (const [source, rejection] of [
+        ["export const value = process.env.FSUSBLOG_TEST_RUN_ID;\n", /ambient process\/global capability/u],
+        ["export const value = globalThis.fetch('https://fsusblog.invalid');\n", /ambient process\/global capability/u],
+        ["export const value = fetch('https://fsusblog.invalid');\n", /network capability/u],
+        ["export const value = new WebSocket('wss://fsusblog.invalid');\n", /network capability/u],
+        ["export const value = import('node:path');\n", /dynamic import/u],
+        ["export const value = URL.createObjectURL({});\n", /URL capability/u],
+        ["const URL = { parse: value => value }; export const value = URL.parse('data');\n", /shadowed or mutable URL/u],
+        ["URL.parse = value => value; export const value = 'data';\n", /shadowed or mutable URL/u],
+        ["export const value = URL.parse('data', 'file:///etc/');\n", /URL capability/u]
+    ])
+    {
+        fs.writeFileSync(helper, source);
+        assert.throws(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry), rejection);
+    }
+    fs.writeFileSync(helper,
+        "export function run(value) { return { process: 'data', parsed: URL.parse(value, 'https://fsusblog.invalid'), constructed: new URL(value, 'https://fsusblog.invalid') }; }\n");
+    assert.doesNotThrow(() => validatePostRuntimeReaderFirewall(repositoryRoot, entry));
 });
 
 test('re-sealed diagnostic, timeout, cancel and recovered mutations cannot qualify', () =>
@@ -2388,6 +2408,211 @@ function acceptedClaimsFixture(context)
         writeTerminal, bindTerminal
     };
 }
+
+function acceptedClaimsCliFixture(context)
+{
+    // Synthetic terminal facts exercise real publication and refusal processes only.
+    const fixture = acceptedClaimsFixture(context);
+    const { repositoryRoot } = fixture;
+    const files = new Set([
+        '.gitignore',
+        'config/contracts/behavior-contracts.json',
+        'config/contracts/document-claim-migration-ledger.json',
+        'config/testing/post-runtime-producer-registry.json',
+        'config/testing/evidence-locator-registry.json',
+        'config/testing/correctness-attempt-producers.json',
+        'config/testing/fixture-profile-catalog.json',
+        'config/configuration-ownership.json',
+        'config/schemas/post-runtime-observation-result.schema.json',
+        'tools/contracts/behavior-contract-catalog.mjs',
+        'tools/run-test-matrix.mjs',
+        'tools/test/lanes/production-correctness-receipt.sh',
+        'tools/test/current-run-evidence-producer-hook.mjs',
+        'tools/test/run-current-run-evidence-producer.mjs',
+        'tools/test/current-run-evidence-publication.mjs',
+        'tools/test/current-run-evidence-locator.mjs',
+        'tools/test/evidence-location-contract.mjs',
+        'tests/matrix.yml',
+        ...validatePostRuntimeReaderFirewall(root).modules
+    ]);
+    for (const file of files)
+    {
+        const output = path.join(repositoryRoot, file);
+        fs.mkdirSync(path.dirname(output), { recursive: true });
+        fs.copyFileSync(path.join(root, file), output);
+    }
+    execFileSync('git', ['init', '--quiet'], { cwd: repositoryRoot });
+    execFileSync('git', ['add', '.'], { cwd: repositoryRoot });
+    execFileSync('git', ['-c', 'user.name=FsusBlog Test', '-c', 'user.email=test@fsus.invalid',
+        'commit', '--quiet', '-m', 'controlled accepted claims source'], { cwd: repositoryRoot });
+    const source = sealSourceIdentity(repositoryRoot);
+    fixture.terminal.source.sourceCommit = source.sourceCommit;
+    fixture.terminal.source.worktreeFingerprint = source.worktreeFingerprint;
+    fixture.terminal.contentDigest = digestValue({ ...fixture.terminal, contentDigest: null });
+    fixture.reference.sourceCommit = source.sourceCommit;
+    fixture.reference.worktreeFingerprint = source.worktreeFingerprint;
+    fixture.bindTerminal(fixture.terminal);
+    const relative = (file) => path.relative(repositoryRoot, file).replaceAll(path.sep, '/');
+    const directory = path.dirname(fixture.referencePath);
+    const cli = path.join(directory, 'accepted-claims-cli.mjs');
+    fs.writeFileSync(cli,
+        `import { runPostRuntimeAcceptedClaimsCli } from ${JSON.stringify(new URL('../../tools/docs/post-runtime-accepted-claims.mjs', import.meta.url).href)};\nrunPostRuntimeAcceptedClaimsCli(process.argv.slice(2), ${JSON.stringify(repositoryRoot)});\n`);
+    const run = (...args) => spawnSync(process.execPath, [cli, ...args], {
+        cwd: repositoryRoot,
+        encoding: 'utf8',
+        timeout: 30000
+    });
+    const output = relative(path.join(directory, 'accepted-claims.json'));
+    const produce = (...extra) => run('produce', '--terminal', relative(fixture.referencePath),
+        '--run-id', fixture.terminal.runId, '--out', output, ...extra);
+    return { ...fixture, directory, source, relative, output, run, produce };
+}
+
+test('accepted claims CLI produces verifies and never overwrites retained current-run evidence', (context) =>
+{
+    const fixture = acceptedClaimsCliFixture(context);
+    const produced = fixture.produce();
+    assert.equal(produced.status, 0, produced.stderr);
+    assert.match(produced.stdout, /produced run=run-1 producer=production-correctness-scheduler claims=6/u);
+    const absolute = path.join(fixture.repositoryRoot, fixture.output);
+    const before = fs.readFileSync(absolute);
+    const receipt = JSON.parse(before);
+    assert.equal(receipt.sourceState.commit, fixture.source.sourceCommit);
+    assert.equal(receipt.sourceState.worktreeFingerprint, `sha256:${fixture.source.worktreeFingerprint}`);
+    assert.deepEqual(receipt.claims.map(({ claimId }) => claimId).sort(),
+        [...registry.producers[0].acceptedClaimRefs].sort());
+    const verified = fixture.run('verify', '--receipt', fixture.output, '--run-id', 'run-1',
+        '--producer', registry.producers[0].producerId);
+    assert.equal(verified.status, 0, verified.stderr);
+    assert.match(verified.stdout, /verified run=run-1 producer=production-correctness-scheduler claims=6/u);
+    const repeated = fixture.produce();
+    assert.notEqual(repeated.status, 0);
+    assert.match(repeated.stderr, /already exists/u);
+    assert.deepEqual(fs.readFileSync(absolute), before);
+    assert.equal(fs.readdirSync(fixture.directory).some((file) => file.includes('.pending-')), false);
+    const invalid = structuredClone(receipt);
+    invalid.status = 'prepared';
+    const invalidOutput = fixture.relative(path.join(fixture.directory, 'invalid.json'));
+    assert.throws(() => writePostRuntimeAcceptedClaimsReceipt({
+        outputPath: invalidOutput, receipt: invalid, expectedRunId: 'run-1',
+        repositoryRoot: fixture.repositoryRoot
+    }), /accepted-claims receipt schema\/status\/producer\/tool version mismatch/u);
+    assert.equal(fs.existsSync(path.join(fixture.repositoryRoot, invalidOutput)), false);
+});
+
+test('accepted claims CLI rejects missing duplicate and cross-run identities without publishing output', (context) =>
+{
+    const fixture = acceptedClaimsCliFixture(context);
+    for (const [args, rejection] of [
+        [['produce', '--terminal', fixture.relative(fixture.referencePath), '--out', fixture.output],
+            /produce requires --terminal, --run-id and --out/u],
+        [['verify', '--receipt', fixture.output], /verify requires --receipt, --run-id/u],
+        [['produce', '--terminal', fixture.relative(fixture.referencePath), '--run-id', 'run-1',
+            '--run-id', 'other-run', '--out', fixture.output], /duplicate option --run-id/u],
+        [['produce', '--terminal', fixture.relative(fixture.referencePath), '--run-id', 'other-run',
+            '--out', fixture.output], /global exactness runId mismatch/u],
+        [['produce', '--terminal', fixture.relative(fixture.referencePath), '--run-id', 'run-1',
+            '--producer', 'missing-producer', '--out', fixture.output], /unknown post-runtime producer/u]
+    ])
+    {
+        const result = fixture.run(...args);
+        assert.notEqual(result.status, 0, result.stderr);
+        assert.match(result.stderr, rejection);
+        assert.equal(fs.existsSync(path.join(fixture.repositoryRoot, fixture.output)), false);
+    }
+});
+
+test('accepted claims CLI rejects symlink inputs stale source and terminal byte tamper', (context) =>
+{
+    const fixture = acceptedClaimsCliFixture(context);
+    const link = path.join(fixture.directory, 'reference-link.json');
+    fs.symlinkSync(fixture.referencePath, link);
+    const linked = fixture.run('produce', '--terminal', fixture.relative(link), '--run-id', 'run-1',
+        '--out', fixture.output);
+    assert.notEqual(linked.status, 0);
+    assert.match(linked.stderr, /must not contain symlinks/u);
+    assert.equal(fs.existsSync(path.join(fixture.repositoryRoot, fixture.output)), false);
+    const produced = fixture.produce();
+    assert.equal(produced.status, 0, produced.stderr);
+    fs.appendFileSync(fixture.terminalPath, ' ');
+    const tampered = fixture.run('verify', '--receipt', fixture.output, '--run-id', 'run-1');
+    assert.notEqual(tampered.status, 0);
+    assert.match(tampered.stderr, /file digest mismatch|payload digest mismatch/u);
+    fixture.writeTerminal(fixture.terminal);
+    fs.writeFileSync(path.join(fixture.repositoryRoot, 'unexpected-source.mjs'), 'export const changed = true;\n');
+    const stale = fixture.run('verify', '--receipt', fixture.output, '--run-id', 'run-1');
+    assert.notEqual(stale.status, 0);
+    assert.match(stale.stderr, /current repository state/u);
+});
+
+function acceptedClaimsHookFixture(context)
+{
+    const fixture = acceptedClaimsCliFixture(context);
+    const evidenceContext = seal({
+        schema: 'fsusblog.current-run-evidence-context.v1',
+        schedulerRunId: 'run-1', attemptId: 'attempt-0001',
+        sourceCommit: fixture.source.sourceCommit,
+        worktreeFingerprint: `sha256:${fixture.source.worktreeFingerprint}`,
+        candidateIdentity: { id: 'controlled-candidate', digest: digest('1') },
+        buildIdentity: { id: 'controlled-build', digest: digest('2') },
+        ownedRoots: [fixture.relative(fixture.directory)]
+    });
+    const contextPath = fixture.relative(path.join(fixture.directory, 'context.json'));
+    fs.writeFileSync(path.join(fixture.repositoryRoot, contextPath), `${JSON.stringify(evidenceContext, null, 2)}\n`);
+    const locator = JSON.parse(fs.readFileSync(path.join(root, 'config/testing/evidence-locator-registry.json'), 'utf8'));
+    const binding = locator.entries.find(({ authorityId }) =>
+        authorityId === registry.receiptSemantics.acceptedTerminalAuthority.authorityId);
+    assert.ok(binding);
+    fs.rmSync(fixture.referencePath);
+    fs.rmSync(fixture.terminalPath);
+    const publish = (source) => spawnSync(process.execPath, [
+        '--import', path.join(fixture.repositoryRoot, 'tools/test/current-run-evidence-producer-hook.mjs'),
+        '--input-type=module', '--eval', source
+    ], {
+        cwd: fixture.repositoryRoot, encoding: 'utf8', timeout: 30000,
+        env: {
+            ...process.env,
+            FSUSBLOG_CURRENT_RUN_EVIDENCE_HOOK_OWNER_PID: '',
+            FSUSBLOG_CURRENT_RUN_EVIDENCE_CONSUMER: binding.consumerId,
+            FSUSBLOG_CURRENT_RUN_EVIDENCE_CONTEXT: contextPath,
+            [binding.outputBindingKey]: fixture.relative(fixture.referencePath),
+            [binding.payloadBindingKey]: fixture.relative(fixture.terminalPath)
+        }
+    });
+    return { ...fixture, evidenceContext, publish };
+}
+
+test('registered producer hook rejects interrupted publication and publishes a fresh context-bound terminal', (context) =>
+{
+    const interruptedFixture = acceptedClaimsHookFixture(context);
+    const interrupted = interruptedFixture.publish('process.exitCode = 1;');
+    assert.equal(interrupted.status, 1, interrupted.stderr);
+    assert.doesNotMatch(interrupted.stdout, /FSUSBLOG_CURRENT_RUN_EVIDENCE_HANDOFF=/u);
+    assert.equal(fs.existsSync(interruptedFixture.referencePath), false);
+    const repeated = interruptedFixture.publish('process.exitCode = 1;');
+    assert.notEqual(repeated.status, 0);
+    assert.match(repeated.stderr, /unfinished evidence publication requires explicit recovery/u);
+    assert.doesNotMatch(repeated.stdout, /FSUSBLOG_CURRENT_RUN_EVIDENCE_HANDOFF=/u);
+    assert.equal(fs.existsSync(interruptedFixture.referencePath), false);
+    const fixture = acceptedClaimsHookFixture(context);
+    const published = fixture.publish(`import fs from 'node:fs'; fs.writeFileSync(${JSON.stringify(fixture.relative(fixture.terminalPath))}, ${JSON.stringify(`${JSON.stringify(fixture.terminal, null, 2)}\n`)});`);
+    assert.equal(published.status, 0, published.stderr);
+    assert.match(published.stdout, /FSUSBLOG_CURRENT_RUN_EVIDENCE_HANDOFF=/u);
+    const produced = fixture.produce();
+    assert.equal(produced.status, 0, produced.stderr);
+    const verified = fixture.run('verify', '--receipt', fixture.output, '--run-id', 'run-1');
+    assert.equal(verified.status, 0, verified.stderr);
+    const receipt = JSON.parse(fs.readFileSync(path.join(fixture.repositoryRoot, fixture.output), 'utf8'));
+    assert.equal(receipt.sourceState.schedulerRunId, 'run-1');
+    assert.equal(receipt.sourceState.attemptId, 'attempt-0001');
+    assert.equal(receipt.sourceState.candidateIdentityDigest, authorityDigest(fixture.evidenceContext.candidateIdentity));
+    assert.equal(receipt.sourceState.buildIdentityDigest, authorityDigest(fixture.evidenceContext.buildIdentity));
+    assert.deepEqual(sealSourceIdentity(fixture.repositoryRoot), fixture.source);
+    fs.writeFileSync(path.join(fixture.repositoryRoot, 'unexpected-source.mjs'), 'export const changed = true;\n');
+    const stale = fixture.run('verify', '--receipt', fixture.output, '--run-id', 'run-1');
+    assert.notEqual(stale.status, 0);
+    assert.match(stale.stderr, /current repository state/u);
+});
 
 test('accepted claims replay one exact #2205 terminal path, digest, identity and claim set', (context) =>
 {

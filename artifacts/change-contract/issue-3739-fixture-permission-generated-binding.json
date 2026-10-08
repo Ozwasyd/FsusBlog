@@ -1,0 +1,33 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/browser-contract/fixture-lifecycle.mjs",
+        "tests/browser-contract/fixture-lifecycle.test.mjs",
+        "tests/tools/post-runtime-producer-registry.test.mjs",
+        "tests/tools/release-manifest.test.mjs",
+        "tests/tools/runtime-cache-http-aeds-oracles.test.mjs",
+        "tools/test-matrix/post-runtime-producer-registry.mjs",
+        "tools/test/correctness-attempt-migration.mjs",
+        "tools/docs/behavior-document-consistency-final.mjs",
+        "tests/tools/behavior-document-consistency-final.test.mjs",
+        "tests/matrix.yml"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "233f1b83730666393ae2bc312c332ae5c7283c4f574a6b3706ebcd3bd8237878"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "88afa63e1be25b36381cc2caa2af913fca16be82e387271e28772dfa42a67fd2"
+        },
+        {
+            "path": "config/testing/fixture-consumer-inventory.generated.json",
+            "sha256": "9e988a5791a2853eecc56b2e78df4a05a3aa4923ecdc166866a4f926497fbe9d"
+        },
+        {
+            "path": "config/testing/fixture-profile-matrix.generated.json",
+            "sha256": "c8934528b5e0d728264a3f55139c6ee73ae42deec68108818a4c0f5fedf91c17"
+        }
+    ]
+}

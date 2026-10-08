@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "config/testing/release-reliability-scenario-catalog.json",
+        "tests/matrix.yml",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "config/testing/replay-qualification-producers.json",
+        "config/testing/test-execution-envelope-applicability.json",
+        "tools/test/attempt-runner.mjs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-context-contract.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "88afa63e1be25b36381cc2caa2af913fca16be82e387271e28772dfa42a67fd2"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "233f1b83730666393ae2bc312c332ae5c7283c4f574a6b3706ebcd3bd8237878"
+        }
+    ]
+}
