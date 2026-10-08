@@ -1,9 +1,10 @@
-import assert from 'node:assert/strict'
-import { execFileSync } from 'node:child_process'
+import assert from 'node:assert/strict';
+import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
-import test from 'node:test'
-import { dirname, resolve } from 'node:path'
-import { fileURLToPath } from 'node:url'
+import { dirname, resolve } from 'node:path';
+import test from 'node:test';
+import { fileURLToPath } from 'node:url';
+
 import {
     auditCompactRetentionRecords,
     auditRetentionRecords,
@@ -17,19 +18,19 @@ import {
     validateConvergencePlan,
     validateEvidenceContract,
     verifySourceLockingFixtures
-} from '@fsusblog/governance-tools/test-convergence/audit'
+} from '@fsusblog/governance-tools/test-convergence/audit';
 import {
     POST_BASELINE_HISTORY_ANCHOR,
     historicalXunitMethodPresent
-} from '@fsusblog/governance-tools/test-convergence/post-baseline-history'
+} from '@fsusblog/governance-tools/test-convergence/post-baseline-history';
+import { parseMatrix } from '@fsusblog/governance-tools/test-matrix/parse-matrix';
 import {
     compactRetentionBaseline,
     compactRetentionKey,
     decodeCompactRetentionIndex
-} from '@fsusblog/governance-tools/test-retention/audit'
-import { parseMatrix } from '@fsusblog/governance-tools/test-matrix/parse-matrix'
+} from '@fsusblog/governance-tools/test-retention/audit';
 
-const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..')
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '../..');
 
 test('#2348 canonical MFA retirement retains before identities without post-baseline self-admission', async () =>
 {
@@ -127,21 +128,24 @@ test('#2348 canonical MFA retirement retains before identities without post-base
 
 test('matrix is the single current command and retention governance authority', () =>
 {
-    const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'))
+    const matrix = parseMatrix(readFileSync(resolve(root, 'tests/matrix.yml'), 'utf8'));
     for (const group of Object.values(matrix.commandGroups))
     {
         const commandIds = group.commands.map(({ id }) => id);
         assert.ok(commandIds.length > 0, `${group.lane} must retain executable commands`);
         assert.equal(new Set(commandIds).size, commandIds.length, `${group.lane} command IDs must be unique`);
     }
-    assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json')
+    assert.equal(matrix.governance.retention.replacementLedger, 'tests/test-retention-replacements.json');
     const postBaselines = matrix.governance.retention.postBaselines;
     assert.equal(new Set(postBaselines).size, postBaselines.length);
     const trustedMatrix = parseMatrix(execFileSync('git', [
         'show', `${POST_BASELINE_HISTORY_ANCHOR}:tests/matrix.yml`
-    ], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }))
-    const trustedPaths = new Set(trustedMatrix.governance.retention.postBaselines)
-    for (const path of trustedPaths) assert.ok(postBaselines.includes(path), `${path} remains trusted`)
+    ], { cwd: root, encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' } }));
+    const trustedPaths = new Set(trustedMatrix.governance.retention.postBaselines);
+    for (const path of trustedPaths)
+    {
+        assert.ok(postBaselines.includes(path), `${path} remains trusted`);
+    }
     for (const baselinePath of postBaselines)
     {
         const baseline = JSON.parse(readFileSync(resolve(root, baselinePath), 'utf8'));
@@ -150,24 +154,24 @@ test('matrix is the single current command and retention governance authority', 
             : 'fsusblog.issue-acceptance-baseline.v2');
         assert.ok(Array.isArray(baseline.records));
     }
-    assert.equal(matrix.governance.retention.automaticDeletion, false)
-})
+    assert.equal(matrix.governance.retention.automaticDeletion, false);
+});
 
 test('backend source-locking owner accepts runtime artifacts and rejects production docs and test source', () =>
 {
     const positive = readFileSync(
         resolve(root, 'tests/tools/fixtures/test-suite-convergence/backend-source-lock-positive.fixture.cs.txt'),
         'utf8'
-    )
+    );
     const negative = readFileSync(
         resolve(root, 'tests/tools/fixtures/test-suite-convergence/backend-source-lock-negative.fixture.cs.txt'),
         'utf8'
-    )
+    );
 
-    const audit = verifySourceLockingFixtures(positive, negative)
+    const audit = verifySourceLockingFixtures(positive, negative);
 
-    assert.deepEqual(audit.errors, [])
-    assert.equal(audit.positive.length, 0)
+    assert.deepEqual(audit.errors, []);
+    assert.equal(audit.positive.length, 0);
     assert.deepEqual(
         new Set(audit.negative.map((violation) => violation.rule)),
         new Set([
@@ -177,8 +181,8 @@ test('backend source-locking owner accepts runtime artifacts and rejects product
             'source-reader-helper',
             'generic-repo-source-reader'
         ])
-    )
-})
+    );
+});
 
 test('backend source-locking owner does not mistake a temporary JSON artifact for repository source', () =>
 {
@@ -187,10 +191,10 @@ test('backend source-locking owner does not mistake a temporary JSON artifact fo
     {
         string json = File.ReadAllText(Path.Combine(directory, "summary.json"));
     }
-  `
+  `;
 
-    assert.deepEqual(scanBackendSourceLocking(source, 'ArtifactBehaviorTests.cs'), [])
-})
+    assert.deepEqual(scanBackendSourceLocking(source, 'ArtifactBehaviorTests.cs'), []);
+});
 
 test('backend source-locking owner reconstructs segmented repository paths', () =>
 {
@@ -204,14 +208,14 @@ test('backend source-locking owner reconstructs segmented repository paths', () 
             "Services",
             "ExampleService.cs"));
     }
-  `
+  `;
 
-    const violations = scanBackendSourceLocking(source, 'SegmentedSourceTests.cs')
+    const violations = scanBackendSourceLocking(source, 'SegmentedSourceTests.cs');
 
-    assert.equal(violations.length, 1)
-    assert.equal(violations[0].target, 'src/backend/Services/ExampleService.cs')
-    assert.equal(violations[0].rule, 'production-source-read')
-})
+    assert.equal(violations.length, 1);
+    assert.equal(violations[0].target, 'src/backend/Services/ExampleService.cs');
+    assert.equal(violations[0].rule, 'production-source-read');
+});
 
 test('replacement merge accepts identical declarations and reports conflicting owners', () =>
 {
@@ -222,25 +226,25 @@ test('replacement merge accepts identical declarations and reports conflicting o
             replacementTestIds: ['xunit:new#New.Test'],
             reason: 'behavior replacement'
         }]
-    }
-    const identical = structuredClone(base)
-    const conflicting = structuredClone(base)
-    conflicting.deletedTests[0].replacementTestIds = ['xunit:other#Other.Test']
+    };
+    const identical = structuredClone(base);
+    const conflicting = structuredClone(base);
+    conflicting.deletedTests[0].replacementTestIds = ['xunit:other#Other.Test'];
 
     const clean = mergeReplacementEntries([
         { source: 'first.json', manifest: base },
         { source: 'second.json', manifest: identical }
-    ])
+    ]);
     const conflict = mergeReplacementEntries([
         { source: 'first.json', manifest: base },
         { source: 'conflict.json', manifest: conflicting }
-    ])
+    ]);
 
-    assert.equal(clean.entries.length, 1)
-    assert.deepEqual(clean.errors, [])
-    assert.equal(conflict.conflicts.length, 1)
-    assert.match(conflict.errors[0], /conflicting replacement declarations/u)
-})
+    assert.equal(clean.entries.length, 1);
+    assert.deepEqual(clean.errors, []);
+    assert.equal(conflict.conflicts.length, 1);
+    assert.match(conflict.errors[0], /conflicting replacement declarations/u);
+});
 
 test('replacement chains remain acyclic without a fixed historical edge count', () =>
 {
@@ -252,29 +256,29 @@ test('replacement chains remain acyclic without a fixed historical edge count', 
         id: 'xunit:old#Old.B',
         path: 'tests/backend/Unit/Old.cs',
         replacementTestIds: ['xunit:current#Current.Test']
-    }]
+    }];
     assert.deepEqual(validateReplacementChainAuthority(historical).errors, []);
 
     const appendedChain = [...historical, {
         id: 'xunit:newer#Newer.C',
         path: 'tests/backend/Unit/Newer.cs',
         replacementTestIds: ['xunit:old#Old.B']
-    }]
+    }];
     assert.deepEqual(validateReplacementChainAuthority(appendedChain).errors, []);
 
-    const coordinatedRetarget = structuredClone(historical)
-    coordinatedRetarget[0].replacementTestIds = ['xunit:newer#Newer.C']
+    const coordinatedRetarget = structuredClone(historical);
+    coordinatedRetarget[0].replacementTestIds = ['xunit:newer#Newer.C'];
     coordinatedRetarget.push({
         id: 'xunit:newer#Newer.C',
         path: 'tests/backend/Unit/Newer.cs',
         replacementTestIds: ['xunit:current#Current.Test']
-    })
+    });
     assert.deepEqual(validateReplacementChainAuthority(coordinatedRetarget).errors, []);
 
     const cyclic = structuredClone(historical);
     cyclic[1].replacementTestIds = ['xunit:old#Old.A'];
     assert.match(validateReplacementChainAuthority(cyclic).errors[0], /contains a cycle/u);
-})
+});
 
 test('issue-local replacement manifest count is exact', () =>
 {
@@ -289,10 +293,10 @@ test('issue-local replacement manifest count is exact', () =>
                 reason: 'replace source assertion with behavior'
             }]
         }
-    }])
+    }]);
 
-    assert.ok(merged.errors.some((error) => error.includes('expectedDeletedTestIds is 2, found 1')))
-})
+    assert.ok(merged.errors.some((error) => error.includes('expectedDeletedTestIds is 2, found 1')));
+});
 
 test('retention audit reports every undeclared deletion and missing replacement target in one pass', () =>
 {
@@ -300,50 +304,50 @@ test('retention audit reports every undeclared deletion and missing replacement 
         { id: 'xunit:old#Old.One', path: 'tests/backend/Unit/Old.cs' },
         { id: 'xunit:old#Old.Two', path: 'tests/backend/Unit/Old.cs' },
         { id: 'xunit:keep#Keep.Test', path: 'tests/backend/Unit/Keep.cs' }
-    ]
+    ];
     const afterRecords = [
         { id: 'xunit:keep#Keep.Test', path: 'tests/backend/Unit/Keep.cs' },
         { id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }
-    ]
+    ];
     const replacements = [{
         id: 'xunit:old#Old.One',
         path: 'tests/backend/Unit/Old.cs',
         replacementTestIds: ['xunit:missing#Missing.Test'],
         source: 'issue.json'
-    }]
+    }];
 
-    const audit = auditRetentionRecords({ beforeRecords, afterRecords, replacements })
+    const audit = auditRetentionRecords({ beforeRecords, afterRecords, replacements });
 
     assert.deepEqual(audit.missingDeletionMappings, [
         { id: 'xunit:old#Old.Two', path: 'tests/backend/Unit/Old.cs' }
-    ])
+    ]);
     assert.deepEqual(audit.missingReplacementTargets, [{
         deletedTestId: 'xunit:old#Old.One',
         replacementTestId: 'xunit:missing#Missing.Test'
-    }])
-    assert.equal(audit.errors.length, 2)
-})
+    }]);
+    assert.equal(audit.errors.length, 2);
+});
 
 test('retention audit accepts a declared deletion whose replacement exists after convergence', () =>
 {
-    const beforeRecords = [{ id: 'xunit:old#Old.Test', path: 'tests/backend/Unit/Old.cs' }]
-    const afterRecords = [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }]
+    const beforeRecords = [{ id: 'xunit:old#Old.Test', path: 'tests/backend/Unit/Old.cs' }];
+    const afterRecords = [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }];
     const replacements = [{
         id: 'xunit:old#Old.Test',
         path: 'tests/backend/Unit/Old.cs',
         replacementTestIds: ['xunit:new#New.Test'],
         source: 'issue.json'
-    }]
+    }];
 
-    const audit = auditRetentionRecords({ beforeRecords, afterRecords, replacements })
+    const audit = auditRetentionRecords({ beforeRecords, afterRecords, replacements });
 
-    assert.deepEqual(audit.errors, [])
-    assert.equal(audit.deletedRecords.length, 1)
-})
+    assert.deepEqual(audit.errors, []);
+    assert.equal(audit.deletedRecords.length, 1);
+});
 
 test('compact retention audit resolves hashed deletions, replacement targets, and path bindings', () =>
 {
-    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) }
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'b'.repeat(64) };
     const beforeSnapshot = compactRetentionBaseline({
         schema: 'fsusblog.test-retention-audit.v2',
         sourceState,
@@ -388,55 +392,55 @@ test('compact retention audit resolves hashed deletions, replacement targets, an
                 scopeIds: ['release-mutation-critical-slice']
             }
         }
-    })
+    });
     const replacement = {
         id: 'xunit:old#Old.Test',
         path: 'tests/backend/Unit/Old.cs',
         replacementTestIds: ['xunit:new#New.Test'],
         source: 'issue.json'
-    }
+    };
 
     const accepted = auditCompactRetentionRecords({
         beforeSnapshot,
         afterRecords: [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }],
         replacements: [replacement]
-    })
+    });
     const wrongPath = auditCompactRetentionRecords({
         beforeSnapshot,
         afterRecords: [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }],
         replacements: [{ ...replacement, path: 'tests/backend/Unit/Wrong.cs' }]
-    })
+    });
     const postBaseline = {
         id: 'xunit:post-baseline#PostBaseline.Removed',
         path: 'tests/backend/Unit/PostBaseline.cs',
         replacementTestIds: ['xunit:new#New.Test'],
         source: 'issue-post-baseline.json'
-    }
+    };
     const acceptedPostBaseline = auditCompactRetentionRecords({
         beforeSnapshot,
         afterRecords: [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }],
         replacements: [replacement, postBaseline],
         postBaselineDeletionIds: [postBaseline.id]
-    })
+    });
     const rejectedUnknown = auditCompactRetentionRecords({
         beforeSnapshot,
         afterRecords: [{ id: 'xunit:new#New.Test', path: 'tests/backend/Unit/New.cs' }],
         replacements: [replacement, postBaseline]
-    })
+    });
 
-    assert.deepEqual(accepted.errors, [])
-    assert.equal(accepted.deletedRecords.length, 1)
-    assert.equal(wrongPath.mismatchedDeletionPaths.length, 1)
-    assert.deepEqual(acceptedPostBaseline.unknownDeletionDeclarations, [])
+    assert.deepEqual(accepted.errors, []);
+    assert.equal(accepted.deletedRecords.length, 1);
+    assert.equal(wrongPath.mismatchedDeletionPaths.length, 1);
+    assert.deepEqual(acceptedPostBaseline.unknownDeletionDeclarations, []);
     assert.deepEqual(rejectedUnknown.unknownDeletionDeclarations, [{
         id: postBaseline.id,
         source: postBaseline.source
-    }])
-})
+    }]);
+});
 
 test('retention audit inherits pre-baseline declarations but rejects a wrong baseline path', () =>
 {
-    const beforeRecords = [{ id: 'xunit:old#Old.Test', path: 'tests/backend/Unit/Old.cs' }]
+    const beforeRecords = [{ id: 'xunit:old#Old.Test', path: 'tests/backend/Unit/Old.cs' }];
     const replacements = [
         {
             id: 'xunit:old#Old.Test',
@@ -450,22 +454,22 @@ test('retention audit inherits pre-baseline declarations but rejects a wrong bas
             replacementTestIds: ['vitest:new#behavior'],
             source: 'baseline.json'
         }
-    ]
+    ];
 
     const audit = auditRetentionRecords({
         beforeRecords,
         replacements,
         preBaselineDeletionIds: ['vitest:prebaseline#removed']
-    })
+    });
 
-    assert.deepEqual(audit.unknownDeletionDeclarations, [])
+    assert.deepEqual(audit.unknownDeletionDeclarations, []);
     assert.deepEqual(audit.mismatchedDeletionPaths, [{
         id: 'xunit:old#Old.Test',
         declaredPath: 'tests/backend/Unit/Wrong.cs',
         baselinePath: 'tests/backend/Unit/Old.cs',
         source: 'issue.json'
-    }])
-})
+    }]);
+});
 
 test('final after snapshot must be independently run-bound and source-bound', () =>
 {
@@ -474,7 +478,7 @@ test('final after snapshot must be independently run-bound and source-bound', ()
             commit: '1'.repeat(40),
             worktreeFingerprint: '2'.repeat(64)
         }
-    }
+    };
     const valid = {
         schema: 'fsusblog.test-retention-audit.v2',
         generatedAt: '2026-07-11T00:00:00.000Z',
@@ -490,24 +494,24 @@ test('final after snapshot must be independently run-bound and source-bound', ()
                 worktreeFingerprint: '4'.repeat(64)
             }
         }
-    }
-    const stale = structuredClone(valid)
-    stale.snapshotRole = 'before-test-reduction'
-    stale.sourceState = structuredClone(before.sourceState)
-    stale.producer.sourceState = structuredClone(before.sourceState)
-    stale.producer.runId = ''
+    };
+    const stale = structuredClone(valid);
+    stale.snapshotRole = 'before-test-reduction';
+    stale.sourceState = structuredClone(before.sourceState);
+    stale.producer.sourceState = structuredClone(before.sourceState);
+    stale.producer.runId = '';
 
-    assert.deepEqual(validateAfterSnapshotAuthority(before, valid, { required: true }), [])
-    const errors = validateAfterSnapshotAuthority(before, stale, { required: true })
-    assert.ok(errors.some((error) => error.includes('cannot reuse')))
-    assert.ok(errors.some((error) => error.includes('run id is missing')))
-    assert.ok(errors.some((error) => error.includes('before source state')))
-    assert.deepEqual(validateAfterSnapshotAuthority(before, null), [])
+    assert.deepEqual(validateAfterSnapshotAuthority(before, valid, { required: true }), []);
+    const errors = validateAfterSnapshotAuthority(before, stale, { required: true });
+    assert.ok(errors.some((error) => error.includes('cannot reuse')));
+    assert.ok(errors.some((error) => error.includes('run id is missing')));
+    assert.ok(errors.some((error) => error.includes('before source state')));
+    assert.deepEqual(validateAfterSnapshotAuthority(before, null), []);
     assert.deepEqual(
         validateAfterSnapshotAuthority(before, null, { required: true }),
         ['final convergence requires an after retention snapshot']
-    )
-})
+    );
+});
 
 test('final evidence contracts report every invalid status field', () =>
 {
@@ -527,11 +531,11 @@ test('final evidence contracts report every invalid status field', () =>
                 { field: 'summary.linecoverage', finiteNumber: true }
             ]
         }
-    )
+    );
 
-    assert.equal(errors.length, 4)
-    assert.ok(errors.every((error) => error.startsWith('evidence.json:')))
-})
+    assert.equal(errors.length, 4);
+    assert.ok(errors.every((error) => error.startsWith('evidence.json:')));
+});
 
 test('child issue evidence requires the exact closed #1032 through #1050 set', () =>
 {
@@ -540,25 +544,25 @@ test('child issue evidence requires the exact closed #1032 through #1050 set', (
         state: 'closed',
         closed_at: '2026-07-11T01:00:00.000Z',
         html_url: `https://github.com/example/repo/issues/${1032 + index}`
-    }))
+    }));
     const closed = buildChildIssueStatusEvidence(issues, {
         repository: 'example/repo',
         capturedAt: '2026-07-11T02:00:00.000Z'
-    })
+    });
     const blocked = buildChildIssueStatusEvidence(
         issues.filter((issue) => issue.number !== 1040).map((issue) => (
       issue.number === 1041 ? { ...issue, state: 'open', closed_at: null } : issue
         )),
         { repository: 'example/repo', capturedAt: '2026-07-11T02:00:00.000Z' }
-    )
+    );
 
-    assert.equal(closed.status, 'closed')
-    assert.deepEqual(validateChildIssueStatusEvidence(closed), [])
-    const errors = validateChildIssueStatusEvidence(blocked)
-    assert.ok(errors.some((error) => error.includes('every issue')))
-    assert.ok(errors.some((error) => error.includes('#1041 is not closed')))
-    assert.ok(errors.some((error) => error.includes('#1041 has no valid closedAt')))
-})
+    assert.equal(closed.status, 'closed');
+    assert.deepEqual(validateChildIssueStatusEvidence(closed), []);
+    const errors = validateChildIssueStatusEvidence(blocked);
+    assert.ok(errors.some((error) => error.includes('every issue')));
+    assert.ok(errors.some((error) => error.includes('#1041 is not closed')));
+    assert.ok(errors.some((error) => error.includes('#1041 has no valid closedAt')));
+});
 
 test('path migration expansion emits every exact baseline test ID', () =>
 {
@@ -566,7 +570,7 @@ test('path migration expansion emits every exact baseline test ID', () =>
         { id: 'vitest:old#one', path: 'tests/frontend/unit/old.test.ts' },
         { id: 'vitest:old#two', path: 'tests/frontend/unit/old.test.ts' },
         { id: 'vitest:mixed#source-only', path: 'tests/frontend/unit/mixed.test.ts' }
-    ]
+    ];
     const expanded = expandPathReplacementPlan(beforeRecords, {
         replacementOwners: { behavior: ['vitest:new#behavior'] },
         wholeFileMigrations: [{
@@ -578,16 +582,16 @@ test('path migration expansion emits every exact baseline test ID', () =>
             deletedTestId: 'vitest:mixed#source-only',
             replacementOwner: 'behavior'
         }]
-    })
+    });
 
-    assert.deepEqual(expanded.errors, [])
+    assert.deepEqual(expanded.errors, []);
     assert.deepEqual(expanded.entries.map((entry) => entry.id), [
         'vitest:old#one',
         'vitest:old#two',
         'vitest:mixed#source-only'
-    ])
-    assert.ok(expanded.entries.every((entry) => entry.replacementTestIds[0] === 'vitest:new#behavior'))
-})
+    ]);
+    assert.ok(expanded.entries.every((entry) => entry.replacementTestIds[0] === 'vitest:new#behavior'));
+});
 
 test('convergence plan enforces all child issues exactly once and only earlier dependencies', () =>
 {
@@ -610,14 +614,14 @@ test('convergence plan enforces all child issues exactly once and only earlier d
             1043: [1037],
             1051: Array.from({ length: 19 }, (_, index) => 1032 + index)
         }
-    }
-    const invalidPlan = structuredClone(validPlan)
-    invalidPlan.stages[3].issues = invalidPlan.stages[3].issues.filter((issue) => issue !== 1050)
-    invalidPlan.issueDependencies[1043] = [1049]
-    invalidPlan.issueDependencies[1051] = invalidPlan.issueDependencies[1051].filter((issue) => issue !== 1050)
+    };
+    const invalidPlan = structuredClone(validPlan);
+    invalidPlan.stages[3].issues = invalidPlan.stages[3].issues.filter((issue) => issue !== 1050);
+    invalidPlan.issueDependencies[1043] = [1049];
+    invalidPlan.issueDependencies[1051] = invalidPlan.issueDependencies[1051].filter((issue) => issue !== 1050);
 
-    assert.deepEqual(validateConvergencePlan(validPlan), [])
-    assert.ok(validateConvergencePlan(invalidPlan).some((error) => error.includes('misses issue #1050')))
-    assert.ok(validateConvergencePlan(invalidPlan).some((error) => error.includes('non-earlier issue #1049')))
-    assert.ok(validateConvergencePlan(invalidPlan).some((error) => error.includes('must depend on every issue')))
-})
+    assert.deepEqual(validateConvergencePlan(validPlan), []);
+    assert.ok(validateConvergencePlan(invalidPlan).some((error) => error.includes('misses issue #1050')));
+    assert.ok(validateConvergencePlan(invalidPlan).some((error) => error.includes('non-earlier issue #1049')));
+    assert.ok(validateConvergencePlan(invalidPlan).some((error) => error.includes('must depend on every issue')));
+});
