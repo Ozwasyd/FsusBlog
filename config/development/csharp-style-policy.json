@@ -357,7 +357,8 @@
             "Level",
             "Phase",
             "Class",
-            "Miss"
+            "Miss",
+            "Access"
         ],
         "compatibilityExceptions": [
             {
