@@ -129,6 +129,62 @@ describe('export center product composition', () => {
         expect(port.delete).not.toHaveBeenCalled();
     });
 
+    it('announces deterministic cancellation rejection without changing the running receipt', async () => {
+        const { wrapper, port } = mountCenter();
+        await flushPromises();
+        await wrapper.find('[aria-label^="查看 specified"]').trigger('click');
+        await flushPromises();
+        port.cancel = vi.fn().mockRejectedValue(new Error('private backend exception details'));
+        port.classifyFailure = () => 'rejected';
+        await wrapper.findAll('el-button-stub').find((button) => button.text() === '取消任务')!.trigger('click');
+        await flushPromises();
+        const feedback = wrapper.findAll('[role="status"]').find((node) => node.text().includes('取消任务请求被拒绝'));
+        expect(feedback).toBeDefined();
+        expect(feedback!.attributes('aria-live')).toBe('polite');
+        expect(feedback!.attributes('aria-atomic')).toBe('true');
+        expect(wrapper.find('[data-export-status]').attributes('data-export-status')).toBe('3');
+        expect(wrapper.find('[data-export-receipt-digest]').attributes('data-export-receipt-digest')).toBe(snapshot.contentDigest);
+        expect(wrapper.text()).toContain('正在导出');
+        expect(wrapper.text()).not.toContain('已取消');
+        expect(wrapper.text()).not.toContain('private backend exception details');
+        expect(wrapper.text()).not.toContain('操作结果待核实');
+        expect(port.cancel).toHaveBeenCalledTimes(1);
+        expect(port.status).not.toHaveBeenCalled();
+        expect(wrapper.findAll('el-button-stub').find((button) => button.text() === '取消任务')!.attributes('disabled')).toBe('false');
+
+        port.status = vi.fn().mockResolvedValue(snapshot);
+        await wrapper.findAll('el-button-stub').find((button) => button.text() === '核实状态')!.trigger('click');
+        await flushPromises();
+        expect(wrapper.text()).not.toContain('取消任务请求被拒绝');
+        expect(port.status).toHaveBeenCalledWith(snapshot.taskId);
+        expect(wrapper.find('[data-export-status]').attributes('data-export-status')).toBe('3');
+    });
+
+    it('shows no refusal while cancellation is pending or after its actual response confirms cancelling', async () => {
+        const { wrapper, port } = mountCenter();
+        await flushPromises();
+        await wrapper.find('[aria-label^="查看 specified"]').trigger('click');
+        await flushPromises();
+        let finish!: (response: DocumentExportPresentation) => void;
+        port.cancel = vi.fn(() => new Promise<DocumentExportPresentation>((resolve) => { finish = resolve; }));
+        await wrapper.findAll('el-button-stub').find((button) => button.text() === '取消任务')!.trigger('click');
+        await flushPromises();
+        expect(wrapper.text()).toContain('等待服务器确认');
+        expect(wrapper.text()).not.toContain('取消任务请求被拒绝');
+        expect(wrapper.find('[data-export-status]').attributes('data-export-status')).toBe('3');
+        expect(wrapper.findAll('el-button-stub').find((button) => button.text() === '取消任务')!.attributes('disabled')).toBe('true');
+        const confirmed = { ...snapshot, version: 2, status: 4 };
+        port.list = vi.fn().mockResolvedValue([confirmed]);
+        finish(confirmed);
+        await flushPromises();
+        expect(wrapper.find('[data-export-status]').attributes('data-export-status')).toBe('4');
+        expect(wrapper.text()).toContain('正在取消');
+        expect(wrapper.text()).not.toContain('取消任务请求被拒绝');
+        expect(wrapper.text()).not.toContain('等待服务器确认');
+        expect(wrapper.text()).not.toContain('已取消');
+        expect(port.cancel).toHaveBeenCalledTimes(1);
+    });
+
     it('keeps uncertain operation recovery visible after its task leaves the page', async () => {
         const { wrapper, port } = mountCenter();
         await flushPromises();

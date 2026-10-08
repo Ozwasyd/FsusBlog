@@ -243,6 +243,12 @@
                 v-if="state.actionState.value.phase === 'uncertain'"
                 role="status"
             >操作结果待核实，未确认取消、删除或下载完成。</p>
+            <p
+                v-if="state.actionState.value.phase === 'rejected'"
+                role="status"
+                aria-live="polite"
+                aria-atomic="true"
+            >{{ actionLabel }}请求被拒绝，当前任务状态未作更改。</p>
             <ElButton
                 v-if="state.actionState.value.phase === 'uncertain'"
                 :disabled="state.busy.value || !state.permitted.value"
@@ -297,6 +303,10 @@ const selectionValid = computed(() => source.value !== undefined && format.value
     && format.value.layouts.includes(layout.value) && format.value.themes.includes(theme.value));
 const submissionLocked = computed(() => state.value.busy.value
     || state.value.submission.value.phase === 'uncertain' || !state.value.permitted.value);
+const actionLabel = computed(() => new Map([
+    ['cancel', '取消任务'], ['retry', '重试任务'], ['download', '下载结果'],
+    ['delete', '删除或清理结果'], ['status', '核实状态']
+]).get(state.value.actionName.value) ?? '操作');
 
 watch([sourceId, formatId, layout, theme], () =>
 {
