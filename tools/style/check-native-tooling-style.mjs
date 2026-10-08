@@ -948,6 +948,54 @@ function CheckCMakeIndent(file, content)
     }
 }
 
+function CppDeclarationLines(content)
+{
+    // Preserve offsets while preventing comments and literal contents from declaring bindings.
+    const lines = content.replace(
+        /(?:u8|u|U|L)?R"([^ ()\\\t\r\n]{0,16})\([\s\S]*?\)\1"|\/\*[\s\S]*?\*\/|\/\/[^\r\n]*|"(?:\\.|[^"\\])*"|'(?:\\.|[^'\\])*'/gu,
+        value => value.replace(/[^\r\n]/g, ' ')
+    ).split(/\r?\n/u);
+    let directive = false;
+    return lines.map(line =>
+    {
+        const ignored = directive || /^\s*#/u.test(line);
+        directive = ignored && /\\\s*$/u.test(line);
+        return ignored ? line.replace(/./g, ' ') : line;
+    });
+}
+
+function IsCppValueArgument(argument, scopes)
+{
+    const value = argument.trim();
+    if (/^(?:true|false|nullptr|\d+(?:\.\d+)?(?:[uUlLfF])*)$/u.test(value))
+    {
+        return true;
+    }
+    if (!/^[A-Za-z_][A-Za-z0-9_]*$/u.test(value))
+    {
+        return false;
+    }
+    for (let index = scopes.length - 1; index >= 0; index -= 1)
+    {
+        if (scopes[index].has(value))
+        {
+            return scopes[index].get(value);
+        }
+    }
+    return false;
+}
+
+function IsCppObjectInitialization(line, functionMatch, scopes)
+{
+    if (!functionMatch || !/\)\s*;$/u.test(line))
+    {
+        return false;
+    }
+    const argumentsText = line.slice(functionMatch[0].length).replace(/\)\s*;$/u, '');
+    // Empty, type-only and unknown arguments retain function declaration enforcement.
+    return argumentsText.split(',').every(argument => IsCppValueArgument(argument, scopes));
+}
+
 function CheckCpp(file, content, argumentsValue)
 {
     const clangFormat = policy.standardTools.cppFormat.command;
@@ -984,6 +1032,10 @@ function CheckCpp(file, content, argumentsValue)
     const abiAdapter = ExceptionApplies('c-abi-wasm-export', file);
     const compilerIntrinsic = ExceptionApplies('compiler-intrinsic', file);
     const lines = content.split(/\r?\n/u);
+    const declarationLines = CppDeclarationLines(content);
+    const valueScopes = [new Map()];
+    let pendingParameters = [];
+    let pendingTypes = [];
     let braceDepth = 0;
     let pendingExternalBlock = false;
     let externalBlockDepth = null;
@@ -1007,11 +1059,11 @@ function CheckCpp(file, content, argumentsValue)
         const functionMatch = statement
             ? null
             : line.match(/^\s*(?:(?:extern\s+"C"|static|inline|constexpr|consteval|constinit|const|unsigned|signed|void|bool|int|char|auto|std::[A-Za-z0-9_:<>]+|[A-Za-z_][A-Za-z0-9_:<>]*)\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*\(/u);
-        const implementationLocalInitialization = /\.(?:c|cc|cpp|cxx)$/u.test(file)
-            && trimmed.endsWith(';');
+        const declarationLine = declarationLines[index];
+        const objectInitialization = IsCppObjectInitialization(declarationLine, functionMatch, valueScopes);
         if (!generated
             && functionMatch
-            && !implementationLocalInitialization
+            && !objectInitialization
             && functionMatch[1] !== 'main'
             && !/^[A-Z][A-Za-z0-9]*$/u.test(functionMatch[1]))
         {
@@ -1022,6 +1074,51 @@ function CheckCpp(file, content, argumentsValue)
             if (!externalAllowed && !intrinsicAllowed)
             {
                 AddDiagnostic(file, index + 1, 'cpp-function-name', `${functionMatch[1]} must use PascalCase or a registered ABI exception`);
+            }
+        }
+
+        const alias = declarationLine.match(/^\s*using\s+([A-Za-z_][A-Za-z0-9_]*)\s*=/u)
+            ?? declarationLine.match(/^\s*typedef\s+.+\s+([A-Za-z_][A-Za-z0-9_]*)\s*;/u)
+            ?? declarationLine.match(/^\s*(?:class|struct|enum(?:\s+class)?)\s+([A-Za-z_][A-Za-z0-9_]*)/u);
+        const valueDeclaration = declarationLine.match(
+            /^\s*(?!(?:using|typedef|return|class|struct|enum)\b)(?:[A-Za-z_][A-Za-z0-9_:<>]*[*&]?\s+)+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*(?:[={;])/u
+        );
+        if (alias)
+        {
+            valueScopes.at(-1).set(alias[1], false);
+        }
+        else if (valueDeclaration || objectInitialization)
+        {
+            valueScopes.at(-1).set(valueDeclaration?.[1] ?? functionMatch[1], true);
+        }
+        if (/^\s*template\s*</u.test(declarationLine))
+        {
+            pendingTypes = [...declarationLine.matchAll(/\b(?:class|typename)\s+([A-Za-z_][A-Za-z0-9_]*)/gu)]
+                .map(match => match[1]);
+        }
+        if (functionMatch && !/;\s*$/u.test(declarationLine))
+        {
+            const parameters = declarationLine.slice(functionMatch[0].length).match(/^([^()]*)\)/u);
+            pendingParameters = parameters?.[1].split(',').flatMap(parameter =>
+            {
+                const named = parameter.match(/\s+[*&\s]*([A-Za-z_][A-Za-z0-9_]*)\s*(?:=.*)?$/u);
+                return named ? [named[1]] : [];
+            }) ?? [];
+        }
+        for (const character of declarationLine)
+        {
+            if (character === '{')
+            {
+                valueScopes.push(new Map([
+                    ...pendingTypes.map(name => [name, false]),
+                    ...pendingParameters.map(name => [name, true])
+                ]));
+                pendingParameters = [];
+                pendingTypes = [];
+            }
+            else if (character === '}' && valueScopes.length > 1)
+            {
+                valueScopes.pop();
             }
         }
 
