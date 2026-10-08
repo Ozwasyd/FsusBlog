@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 import { createPublicShellLocaleResourceBarrier } from './public-shell-locale-harness.mjs';
+import { assertPublicShellLocaleNetwork } from './public-shell-locale-network.mjs';
 import { mutatePublicShellLocaleDomainResource, readPublicShellLocaleForeignBuildResource } from './public-shell-locale-runtime-bindings.mjs';
 import { readPublicShellLocaleDom } from './public-shell-locale-scene-driver.mjs';
 
@@ -1566,6 +1567,7 @@ export function assertPublicShellLocaleResourceWaterfall({ bindings, scene, evid
     assert.deepEqual(evidence.identity, bindings.identity, 'waterfall admission identity mismatch');
     assert.equal(scene.networkPolicy.includeCacheAndPreload, true, 'cache/preload evidence required');
     assert.equal(evidence.issues.length, 0, 'browser issues cannot be filtered');
+    assertPublicShellLocaleNetwork({ bindings, scene, evidence });
     const byUrl = new Map(bindings.resources.map((resource) => [resource.url, resource]));
     const observed = [...evidence.requests, ...evidence.browser.performance,
         ...evidence.browser.preloads.map((entry) => ({ ...entry, resourceType: 'preload' }))];
