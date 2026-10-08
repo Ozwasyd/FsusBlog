@@ -172,3 +172,35 @@ export function adaptBrowserContractRunnerSemanticOutcome({ repositoryRoot, auth
         inputAuthorityRefs: [...result.inputAuthorityRefs, ...source.inputAuthorityRefs],
         membership: result.outcome.membership, reasons: result.outcome.reasons });
 }
+
+/**
+ * Consume the canonical DATA_ONLY profile and original physical input custody.
+ * The host must pin the expected candidate/source/context/mapping/attempt;
+ * neither successful custody nor a catalog profile grants execution admission.
+ */
+export async function verifyBrowserContractOutcomeInputCustody(encodedCandidate, encodedExpected, custodyOptions)
+{
+    const { validateOutcomeAdapterCandidateData } = await import('./outcome-adapter-profile-contract.mjs');
+    const { verifyOutcomeInputCustody } = await import('./outcome-input-custody.mjs');
+    const profile = validateOutcomeAdapterCandidateData(encodedCandidate, encodedExpected, custodyOptions.maxBytes);
+    requireCondition(profile.producerId === browserContractOutcomeProducerId, 'custody candidate is not Browser Contract');
+    for (const binding of custodyOptions.bindings)
+    {
+        requireCondition(binding.inputReference.path === binding.payloadPath,
+            'browser physical input path differs from custody mapping');
+    }
+    const custody = verifyOutcomeInputCustody(encodedCandidate, encodedExpected, custodyOptions);
+    requireCondition(profile.candidateDigest === custody.candidateDigest, 'profile/custody candidate mismatch');
+    return Object.freeze({ profile, custody, producerVerificationPending: true, qualificationEligible: false });
+}
+
+/** Preserve the native runner checks before composing the canonical owners. */
+export async function adaptBrowserContractRunnerSemanticOutcomeWithCustody({
+    repositoryRoot, authority, runnerBinding, encodedExpected, custodyOptions
+})
+{
+    const candidate = adaptBrowserContractRunnerSemanticOutcome({ repositoryRoot, authority, runnerBinding });
+    const verification = await verifyBrowserContractOutcomeInputCustody(JSON.stringify(candidate), encodedExpected,
+        { ...custodyOptions, repositoryRoot });
+    return { candidate, verification };
+}

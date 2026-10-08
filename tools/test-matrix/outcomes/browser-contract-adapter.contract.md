@@ -175,3 +175,32 @@ native finalizer's `attemptStatus`, `cleanFirstAttempt` and
 `qualificationEligible` fields. The original verifier refuses that source;
 successful bridge acceptance remains blocked pending the canonical owner's
 tested schema integration. The bridge preserves both the fields and refusal.
+
+## Canonical profile and held-input custody composition
+
+The source capability in PR #3998, exact commit
+`3f6f443ac4e253f7a9b80e7c7c910d2de8fce824`, supplies
+`validateOutcomeAdapterCandidateData` and `verifyOutcomeInputCustody`.
+`verifyBrowserContractOutcomeInputCustody(encodedCandidate, encodedExpected,
+custodyOptions)` calls these original APIs, requires the Browser producer and
+identical physical input/payload paths, and returns their separate DATA_ONLY
+profile and custody results. Expected candidate/source/context/registry/mapping
+digests, aggregate reference, byte budget and execution-owner verifier remain
+independent host inputs. There is no search, automatic mapping or synthetic
+authority. Original locator/publication and file-backed attempt checks execute
+unchanged, including failed first-attempt eligibility and post-verifier rechecks.
+
+`adaptBrowserContractRunnerSemanticOutcomeWithCustody` first runs the existing
+native adapter, then verifies the resulting candidate with those canonical
+owners. It pins the caller's repository root over options overrides. The return
+value is `{ candidate, verification }`; membership, reasons and candidate seal
+are unchanged. Custody never authorizes execution or Browser qualification;
+`producerVerificationPending: true` and `qualificationEligible: false` remain
+explicit on the composition result.
+
+The published catalog still pins the original adapter's `36bcb99` source
+contract. That pin identifies its DATA_ONLY contract; it does not attest to
+execution of this later bridge implementation. Refreshing source registration
+belongs to the single catalog owner. The new APIs require the exact shared
+capability to be integrated. Local composition imports its commits verbatim;
+no shared registry, schema or authority file is independently edited.
