@@ -66,6 +66,7 @@ public sealed class DocxDocumentExportProvider : IDocumentExportJobProvider
         {
             ContentDigest = DocumentExportDigest.Compute(unsigned)
         };
+        DocumentExportContractValidator.Validate(receipt, task, frozen, provider);
         return new DocumentExportProviderResult(bytes, rendered.ResponseBytes, receipt, rendered.SandboxPlan, rendered.SandboxReceipt);
     }
 
