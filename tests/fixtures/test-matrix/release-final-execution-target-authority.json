@@ -2150,8 +2150,8 @@
         },
         {
             "path": "tests/tools/pr-applicable-execution-authority.test.mjs",
-            "contentDigest": "sha256:e6a49e6f5e3d5b7d5c2c8cf663c613e2f0d1b42896120c66127f50066a2e9f67",
-            "indexDigest": "sha256:e6a49e6f5e3d5b7d5c2c8cf663c613e2f0d1b42896120c66127f50066a2e9f67"
+            "contentDigest": "sha256:8584e8b7fc170ab42a0045139c885e1888d6f449d367114b10fb50b422b68b62",
+            "indexDigest": "sha256:8584e8b7fc170ab42a0045139c885e1888d6f449d367114b10fb50b422b68b62"
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",

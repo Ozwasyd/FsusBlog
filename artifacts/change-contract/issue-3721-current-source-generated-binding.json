@@ -3,6 +3,7 @@
     "sources": [
         "config/testing/release-final-execution-authority-index.json",
         "tests/tools/native-tooling-style.test.mjs",
+        "tests/tools/pr-applicable-execution-authority.test.mjs",
         "tools/governance/change-contract-registry.mjs",
         "tools/governance/change-contract.mjs",
         "tools/style/check-native-tooling-style.mjs",
@@ -14,7 +15,7 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "eedaa367698a68a3ef8c0be7c5f0af1751ea74f6be85e75868713e055279cf2b"
+            "sha256": "677b10ccc0bdea4594c97dc0e9cffe0249d86a5abb8f752f6b87f8d8afc5c3fd"
         }
     ]
 }
