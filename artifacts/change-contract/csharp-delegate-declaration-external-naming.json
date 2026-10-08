@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the existing execution authority JSON keys while the unchanged canonical producer binds only the corrected ordinary CSharp declaration classifier. No execution or permission policy changes."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/development/csharp-style-enforcement.md"
+            ],
+            "reason": "Retain existing editor and command spellings in the current style documentation while describing delegate identifier extraction after its return type."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/dotnet/check-csharp-style.mjs"
+            ],
+            "reason": "Preserve the existing environment-variable spellings in the checker. The bounded delegate name extraction adds no path, symbol, baseline or naming exception."
+        }
+    ]
+}
