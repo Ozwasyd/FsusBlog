@@ -314,6 +314,75 @@ describe('real Vue builder controls', () => {
         expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 8, query: { ...latest, pageSize: 25 } }]]);
     });
 
+    it('accepts a same-revision equivalent refresh after cancel and reopen', async () => {
+        const original = query();
+        const wrapper = builder({ query: original, submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.setProps({ revision: 7, query: cloneSavedViewDraft(original) });
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        expect(document.activeElement).toBe(wrapper.get('[data-action="edit"]').element);
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 7, query: { ...original, pageSize: 25 } }]]);
+    });
+
+    it('preserves a dirty edit across a same-revision equivalent refresh without false conflict', async () => {
+        const original = query();
+        const wrapper = builder({ query: original, submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="条件 2 值 1"]').setValue('本地编辑');
+        await wrapper.setProps({ revision: 7, query: cloneSavedViewDraft(original) });
+        expect((wrapper.get('input[aria-label="条件 2 值 1"]').element as HTMLInputElement).value).toBe('本地编辑');
+        await wrapper.get('form').trigger('submit');
+        const expected = cloneSavedViewDraft(original);
+        expected.conditions[1]!.values = ['本地编辑'];
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 7, query: expected }]]);
+    });
+
+    it('does not mistake a clone of an unpaired Q8 for the revision-bound Q7', async () => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        const latest = query();
+        latest.conditions[1]!.values = ['真正变化的 Q8'];
+        await wrapper.setProps({ query: latest });
+        await wrapper.setProps({ revision: 7, query: cloneSavedViewDraft(latest) });
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.setProps({ revision: 8 });
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+        await wrapper.get('[data-action="cancel"]').trigger('click');
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toEqual([[{ viewId, expectedRevision: 8, query: { ...latest, pageSize: 25 } }]]);
+    });
+
+    it.each([
+        ['page size', (value: SavedViewQueryDraft) => { value.pageSize = 75; }],
+        ['search operand', (value: SavedViewQueryDraft) => { value.conditions[1]!.values = ['另一检索']; }],
+        ['date range', (value: SavedViewQueryDraft) => { value.conditions[2]!.values = ['2026-10-02', '2026-10-09']; }],
+        ['condition timezone', (value: SavedViewQueryDraft) => { value.conditions[2]!.timeZoneId = 'UTC'; }],
+        ['sort direction', (value: SavedViewQueryDraft) => { value.sort.direction = 0; }],
+        ['sort null placement', (value: SavedViewQueryDraft) => { value.sort.nullPlacement = 0; }],
+        ['sort timezone', (value: SavedViewQueryDraft) => { value.sort.timeZoneId = 'UTC'; }],
+        ['projection', (value: SavedViewQueryDraft) => { value.projection.push({ kind: 7, identity: 'article.created-at' }); }]
+    ] as const)('requires a paired revision for a real %s change', async (_label, change) => {
+        const wrapper = builder({ submitAvailable: true });
+        await wrapper.get('[data-action="edit"]').trigger('click');
+        const latest = query();
+        change(latest);
+        await wrapper.setProps({ revision: 7, query: latest });
+        expect(wrapper.text()).toContain('正在等待对应版本');
+        await wrapper.get('input[aria-label="每页数量"]').setValue('25');
+        await wrapper.get('form').trigger('submit');
+        expect(wrapper.emitted('submit')).toBeUndefined();
+    });
+
     it('retains dirty operands across revision conflict and refuses a stale CAS submission', async () => {
         const wrapper = builder({ submitAvailable: true });
         await wrapper.get('[data-action="edit"]').trigger('click');

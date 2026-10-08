@@ -224,6 +224,7 @@ import {
     cloneSavedViewDraft,
     findSavedViewEditorField,
     findSavedViewEditorOperator,
+    sameSavedViewDraft,
     savedViewFieldKey,
     validateSavedViewDraft
 } from './savedViewBuilder';
@@ -262,6 +263,7 @@ const acceptedSource = ref({
     query: cloneSavedViewDraft(props.query)
 });
 let sourceQueryReference = props.query;
+let sourceQuerySnapshot = cloneSavedViewDraft(props.query);
 const sourceReady = ref(true);
 const queryAwaitingRevision = ref(false);
 const draft = ref(cloneSavedViewDraft(props.query));
@@ -288,6 +290,7 @@ watch(() => [props.viewId, props.revision, props.query] as const, () =>
 {
     const identityChanged = props.viewId !== acceptedSource.value.viewId
         || props.revision !== acceptedSource.value.revision;
+    const queryUnchanged = sameSavedViewDraft(props.query, sourceQuerySnapshot);
     // Split prop delivery must not certify Q7 with revision8. Wait for the
     // associated immutable query object even if the editor is currently clean.
     if (identityChanged && props.query === sourceQueryReference)
@@ -307,15 +310,19 @@ watch(() => [props.viewId, props.revision, props.query] as const, () =>
     // Keep the last revision-bound reference until both halves have arrived.
     // Accepting a query-only refresh must not consume the reference needed to
     // pair a later revision, nor permit a CAS with the old revision meanwhile.
-    if (identityChanged)
+    if (identityChanged || queryUnchanged)
     {
         sourceQueryReference = props.query;
+        sourceQuerySnapshot = cloneSavedViewDraft(props.query);
     }
-    queryAwaitingRevision.value = !identityChanged && props.query !== sourceQueryReference;
+    queryAwaitingRevision.value = !identityChanged && !queryUnchanged;
     sourceReady.value = true;
     if (open.value && dirty.value)
     {
-        drifted.value = true;
+        if (identityChanged || !queryUnchanged)
+        {
+            drifted.value = true;
+        }
     }
     else
     {

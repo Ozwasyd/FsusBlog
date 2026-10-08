@@ -83,6 +83,26 @@ export function cloneSavedViewDraft(query: SavedViewQueryDraft): SavedViewQueryD
     };
 }
 
+/** Compare the closed AST structurally, retaining operand and projection order. */
+export function sameSavedViewDraft(left: SavedViewQueryDraft, right: SavedViewQueryDraft): boolean
+{
+    const snapshot = (query: SavedViewQueryDraft) => JSON.stringify([
+        query.schemaVersion,
+        query.conditions.map(condition => [
+            condition.field.kind, condition.field.identity, condition.operatorId,
+            condition.values, condition.timeZoneId ?? null
+        ]),
+        [
+            query.sort.field.kind, query.sort.field.identity, query.sort.direction,
+            query.sort.nullPlacement, query.sort.collation, query.sort.stableTieBreaker,
+            query.sort.timeZoneId ?? null
+        ],
+        query.projection.map(field => [field.kind, field.identity]),
+        query.pageSize
+    ]);
+    return snapshot(left) === snapshot(right);
+}
+
 export function savedViewFieldKey(field: SavedViewField): string
 {
     return `${field.kind}:${field.identity}`;
