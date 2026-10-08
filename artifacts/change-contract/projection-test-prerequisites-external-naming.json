@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve package-manager serialized dependency keys while staging the exact canonical #3568 backend consumer lock required by the unchanged original test project. Compiler and genuine oracle/API adaptations are separately reviewed under canonical #3654; no #3647 product documentation is included in this prerequisite candidate."
+        }
+    ]
+}
