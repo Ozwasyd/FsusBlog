@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import fs from 'node:fs';
+import { createRequire } from 'node:module';
 import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
 const defaultRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const requireParser = createRequire(path.join(defaultRoot, 'src/frontend/package.json'));
 
 const authorityFiles = Object.freeze([
     'tools/test-fixtures/mutation-recovery/mutation-adapters.mjs',
@@ -48,11 +50,93 @@ function toolingSources(root)
     return result.join('\n');
 }
 
+function processModuleImports(source, relativePath)
+{
+    // Use the installed frontend parser rather than treating comments or strings
+    // as executable imports. A missing parser or invalid source fails closed.
+    const { parse } = requireParser('acorn');
+    const syntax = parse(source, { ecmaVersion: 'latest', sourceType: 'module', allowHashBang: true, locations: true });
+    const errors = [];
+    function stringValue(node)
+    {
+        if (node?.type === 'Literal' && typeof node.value === 'string')
+        {
+            return node.value;
+        }
+        if (node?.type === 'TemplateLiteral' && node.expressions.length === 0)
+        {
+            return node.quasis[0].value.cooked;
+        }
+        if (node?.type === 'BinaryExpression' && node.operator === '+')
+        {
+            const left = stringValue(node.left);
+            const right = stringValue(node.right);
+            return left === null || right === null ? null : left + right;
+        }
+        if (node?.type === 'NewExpression' && node.callee?.name === 'URL'
+            && node.arguments.length === 2
+            && node.arguments[1]?.type === 'MemberExpression'
+            && node.arguments[1].computed === false
+            && node.arguments[1].property.name === 'url'
+            && node.arguments[1].object?.type === 'MetaProperty'
+            && node.arguments[1].object.meta.name === 'import'
+            && node.arguments[1].object.property.name === 'meta')
+        {
+            return stringValue(node.arguments[0]);
+        }
+        return null;
+    }
+    function visit(node)
+    {
+        if (!node || typeof node !== 'object')
+        {
+            return;
+        }
+        let specifier = null;
+        let moduleLoad = false;
+        if (['ImportDeclaration', 'ExportNamedDeclaration', 'ExportAllDeclaration', 'ImportExpression'].includes(node.type))
+        {
+            moduleLoad = node.source !== null;
+            specifier = stringValue(node.source);
+        }
+        else if (node.type === 'CallExpression'
+            && (node.callee?.name === 'require'
+                || (node.callee?.type === 'MemberExpression'
+                    && ['require', 'getBuiltinModule'].includes(node.callee.computed
+                        ? stringValue(node.callee.property)
+                        : node.callee.property.name))))
+        {
+            moduleLoad = true;
+            specifier = stringValue(node.arguments[0]);
+        }
+        if (moduleLoad && specifier === null)
+        {
+            errors.push(`mutation recovery authority forbids unresolved module loading: ${relativePath}:${node.loc.start.line}`);
+        }
+        if (specifier === 'child_process' || specifier === 'node:child_process')
+        {
+            errors.push(`mutation recovery authority forbids process execution: ${relativePath}:${node.loc.start.line} imports ${specifier}`);
+        }
+        for (const value of Object.values(node))
+        {
+            if (Array.isArray(value))
+            {
+                value.forEach(visit);
+            }
+            else if (value && typeof value === 'object' && typeof value.type === 'string')
+            {
+                visit(value);
+            }
+        }
+    }
+    visit(syntax);
+    return errors;
+}
+
 export function checkFixtureMutationRecoveryGovernance(root = defaultRoot)
 {
     const errors = [];
     const sources = Object.fromEntries(authorityFiles.map((file) => [file, read(root, file)]));
-    const combined = Object.values(sources).join('\n');
     const allTooling = toolingSources(root);
     const exports = [
         ['runMutationRecovery', /export async function runMutationRecovery\s*\(/gu],
@@ -68,15 +152,15 @@ export function checkFixtureMutationRecoveryGovernance(root = defaultRoot)
             errors.push(`${name} must have exactly one canonical implementation`);
         }
     }
-    const forbiddenImports = [
-        "from 'node:child_process'",
-        'from "node:child_process"'
-    ];
-    for (const token of forbiddenImports)
+    for (const [relativePath, source] of Object.entries(sources))
     {
-        if (combined.includes(token))
+        try
         {
-            errors.push(`mutation recovery authority forbids process execution: ${token}`);
+            errors.push(...processModuleImports(source, relativePath));
+        }
+        catch (error)
+        {
+            errors.push(`mutation recovery authority syntax unavailable: ${relativePath}: ${error.message}`);
         }
     }
     const adapterSource = sources[authorityFiles[0]];
