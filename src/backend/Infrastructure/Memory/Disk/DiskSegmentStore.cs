@@ -11,6 +11,7 @@ public sealed record DiskSegmentRecovery(int Reused, int Discarded, int Examined
 /// <summary>
 /// Bounded immutable replica segments. The caller owns the root and budget lifetime and supplies owner eligibility.
 /// Disable prevents new operations; existing leases drain before physical deletion releases their charges.
+/// Contended work returns BudgetRejected without entering an unbounded monitor wait queue.
 /// </summary>
 public sealed class DiskSegmentStore : IDisposable
 {
@@ -40,7 +41,11 @@ public sealed class DiskSegmentStore : IDisposable
 
     public MemoryOperationResult<DiskSpillInventoryObservation> ObserveInventory(CancellationToken cancellationToken = default)
     {
-        lock (_gate)
+        if (!Monitor.TryEnter(_gate))
+        {
+            return MemoryOperationResult<DiskSpillInventoryObservation>.Reject(MemoryFailure.BudgetRejected);
+        }
+        try
         {
             if (_disabled)
             {
@@ -99,21 +104,29 @@ public sealed class DiskSegmentStore : IDisposable
                 return MemoryOperationResult<DiskSpillInventoryObservation>.Reject(Failure(exception));
             }
         }
+        finally
+        {
+            Monitor.Exit(_gate);
+        }
     }
 
     public MemoryOperationResult<DiskSegmentPublication> Publish(IReadOnlyList<DiskSegmentWriteRecord> records,
         DiskSpillClassification classification, bool dataOwnerAllows, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(records);
-        lock (_gate)
+        if (!dataOwnerAllows || !DiskSpillEligibility.IsEligible(classification))
+        {
+            return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.OwnershipViolation);
+        }
+        if (!Monitor.TryEnter(_gate))
+        {
+            return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.BudgetRejected);
+        }
+        try
         {
             if (_disabled)
             {
                 return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.TierUnavailable);
-            }
-            if (!dataOwnerAllows || !DiskSpillEligibility.IsEligible(classification))
-            {
-                return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.OwnershipViolation);
             }
             long size;
             try
@@ -266,20 +279,28 @@ public sealed class DiskSegmentStore : IDisposable
                 Cleanup(segment);
             }
         }
+        finally
+        {
+            Monitor.Exit(_gate);
+        }
     }
 
     public MemoryOperationResult<DiskSegmentRecovery> Recover(bool dataOwnerAllows,
         Func<DiskSegmentEntry, bool>? approveRecoveredRecord, CancellationToken cancellationToken = default)
     {
-        lock (_gate)
+        if (!dataOwnerAllows || approveRecoveredRecord is null)
+        {
+            return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.OwnershipViolation);
+        }
+        if (!Monitor.TryEnter(_gate))
+        {
+            return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.BudgetRejected);
+        }
+        try
         {
             if (_disabled)
             {
                 return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
-            }
-            if (!dataOwnerAllows || approveRecoveredRecord is null)
-            {
-                return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.OwnershipViolation);
             }
             MemoryOperationResult<MemoryReservation> scanAdmission = _budget.TryReserve(
                 new DiskBudgetRequest(0, _limits.RecoveryScanBytes, 1));
@@ -451,12 +472,20 @@ public sealed class DiskSegmentStore : IDisposable
                 return MemoryOperationResult<DiskSegmentRecovery>.Reject(Failure(exception));
             }
         }
+        finally
+        {
+            Monitor.Exit(_gate);
+        }
     }
 
     public MemoryOperationResult<DiskSegmentLease> Acquire(Guid segmentId, MemoryContentIdentity identity,
         CancellationToken cancellationToken = default)
     {
-        lock (_gate)
+        if (!Monitor.TryEnter(_gate))
+        {
+            return MemoryOperationResult<DiskSegmentLease>.Reject(MemoryFailure.BudgetRejected);
+        }
+        try
         {
             Segment? segment = _segments.Find(candidate => candidate.Id == segmentId
                 && candidate.Published && !candidate.Retired);
@@ -517,6 +546,10 @@ public sealed class DiskSegmentStore : IDisposable
                 throw;
             }
         }
+        finally
+        {
+            Monitor.Exit(_gate);
+        }
     }
 
     /// <summary>Copies a complete segment under simultaneous source, destination, scratch and index admission.</summary>
@@ -529,16 +562,20 @@ public sealed class DiskSegmentStore : IDisposable
         Func<DiskSegmentEntry, bool> retainRecord, bool dataOwnerAllows, CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(retainRecord);
-        lock (_gate)
+        if (!dataOwnerAllows)
+        {
+            return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.OwnershipViolation);
+        }
+        if (!Monitor.TryEnter(_gate))
+        {
+            return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.BudgetRejected);
+        }
+        try
         {
             Segment? source = _segments.Find(segment => segment.Id == segmentId && segment.Published && !segment.Retired);
             if (_disabled || source is null)
             {
                 return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.TierUnavailable);
-            }
-            if (!dataOwnerAllows)
-            {
-                return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.OwnershipViolation);
             }
             // Each acquired source lease reserves its own bounded scratch and slot. No destination is made on rejection.
             var leases = new List<DiskSegmentLease>(source.Entries.Count);
@@ -579,6 +616,10 @@ public sealed class DiskSegmentStore : IDisposable
                     lease.Dispose();
                 }
             }
+        }
+        finally
+        {
+            Monitor.Exit(_gate);
         }
     }
 

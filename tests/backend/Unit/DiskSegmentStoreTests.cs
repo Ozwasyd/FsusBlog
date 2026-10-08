@@ -789,6 +789,195 @@ public sealed class DiskSegmentStoreTests
         }
     }
 
+    [Fact]
+    public async Task ContendedStoreOperationsRejectWithoutWaitingOrConsumingResources()
+    {
+        using var fixture = new Fixture();
+        MemoryContentIdentity existingIdentity = Identity();
+        DiskSegmentPublication existing = fixture.Publish(existingIdentity, [1, 2, 3]);
+        using var entered = new ManualResetEventSlim();
+        using var resume = new ManualResetEventSlim();
+        using var payload = new CallbackReadStream(new byte[256], () =>
+        {
+            entered.Set();
+            Assert.True(resume.Wait(TimeSpan.FromSeconds(5)), "Task-owned writer was not unblocked.");
+        });
+        using var competingPayload = new CountingReadStream([9, 8, 7]);
+        Task<MemoryOperationResult<DiskSegmentPublication>> writer = Task.Factory.StartNew(
+            () => fixture.Store.Publish([new(Identity(), payload, payload.Length)],
+                DiskSpillClassification.PublicImmutableReconstructible, true),
+            default, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        Task? competitor = null;
+        MemoryOperationResult<DiskSegmentPublication>? writerResult = null;
+        int approvals = 0;
+        int retainedPredicates = 0;
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)), "Task-owned writer did not enter its payload callback.");
+            string[] names = fixture.Root.EnumerateNames(16).OrderBy(name => name, StringComparer.Ordinal).ToArray();
+            Assert.Equal(2, names.Length);
+            MemoryAccountingSnapshot before = fixture.Coordinator.Snapshot();
+            Assert.True(before.Reservations > 0);
+            competitor = Task.Factory.StartNew(() =>
+            {
+                DiskSegmentWriteRecord[] deniedRecords = [new(Identity(), competingPayload, competingPayload.Length)];
+                Assert.Equal(MemoryFailure.OwnershipViolation, fixture.Store.Publish(deniedRecords,
+                    DiskSpillClassification.Credentials, dataOwnerAllows: true).Failure);
+                Assert.Equal(MemoryFailure.OwnershipViolation, fixture.Store.Publish(deniedRecords,
+                    DiskSpillClassification.Credentials, dataOwnerAllows: false).Failure);
+                Assert.Equal(MemoryFailure.OwnershipViolation, fixture.Store.Publish(deniedRecords,
+                    DiskSpillClassification.PublicImmutableReconstructible, dataOwnerAllows: false).Failure);
+                Assert.Equal(MemoryFailure.OwnershipViolation, fixture.Store.Recover(false, entry =>
+                {
+                    Interlocked.Increment(ref approvals);
+                    return true;
+                }).Failure);
+                Assert.Equal(MemoryFailure.OwnershipViolation, fixture.Store.Recover(true, null).Failure);
+                Assert.Equal(MemoryFailure.OwnershipViolation, fixture.Store.Compact(existing.SegmentId, entry =>
+                {
+                    Interlocked.Increment(ref retainedPredicates);
+                    return true;
+                }, dataOwnerAllows: false).Failure);
+                Assert.Equal(MemoryFailure.OwnershipViolation, fixture.Store.Compact(existing.SegmentId, false).Failure);
+                Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Publish(
+                    [new(Identity(), competingPayload, competingPayload.Length)],
+                    DiskSpillClassification.PublicImmutableReconstructible, true).Failure);
+                Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Recover(true, entry =>
+                {
+                    Interlocked.Increment(ref approvals);
+                    return true;
+                }).Failure);
+                Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Acquire(existing.SegmentId, existingIdentity).Failure);
+                Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.ObserveInventory().Failure);
+                Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Compact(existing.SegmentId, entry =>
+                {
+                    Interlocked.Increment(ref retainedPredicates);
+                    return true;
+                }, true).Failure);
+            }, default, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            await competitor.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.False(resume.IsSet);
+            Assert.False(writer.IsCompleted);
+            Assert.Equal(0, competingPayload.ReadCalls);
+            Assert.Equal(0, approvals);
+            Assert.Equal(0, retainedPredicates);
+            Assert.Equal(names, fixture.Root.EnumerateNames(16).OrderBy(name => name, StringComparer.Ordinal).ToArray());
+            MemoryAccountingSnapshot after = fixture.Coordinator.Snapshot();
+            Assert.Equal(before.Reservations, after.Reservations);
+            Assert.Equal(before.Allocations, after.Allocations);
+            foreach (var charge in before.Used)
+            {
+                Assert.Equal(charge.Value, after.Used[charge.Key]);
+            }
+            Assert.False(after.Faulted);
+        }
+        finally
+        {
+            resume.Set();
+            try
+            {
+                writerResult = await writer.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                if (competitor is not null)
+                {
+                    await competitor.WaitAsync(TimeSpan.FromSeconds(5));
+                }
+            }
+        }
+        Assert.True(writerResult is { Succeeded: true });
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+        Assert.Equal(2, fixture.Coordinator.Snapshot().Allocations);
+        fixture.Store.Disable();
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public async Task ContendedLeaseCopyRejectsWithoutTouchingTargetAndFirstCopyKeepsRetiredSegmentAlive()
+    {
+        using var fixture = new Fixture();
+        MemoryContentIdentity identity = Identity();
+        byte[] data = Enumerable.Range(0, 256).Select(value => (byte)value).ToArray();
+        DiskSegmentPublication publication = fixture.Publish(identity, data);
+        using DiskSegmentLease lease = fixture.Store.Acquire(publication.SegmentId, identity).Value!;
+        using var entered = new ManualResetEventSlim();
+        using var resume = new ManualResetEventSlim();
+        using var rejectedTarget = new MemoryStream();
+        using var firstTarget = new RetiringStream(() =>
+        {
+            using var reentrantTarget = new MemoryStream();
+            Assert.Equal(MemoryFailure.OwnershipViolation, lease.CopyTo(reentrantTarget).Failure);
+            Assert.Equal(0, reentrantTarget.Length);
+            entered.Set();
+            Assert.True(resume.Wait(TimeSpan.FromSeconds(5)), "Task-owned copy was not unblocked.");
+        });
+        Task<MemoryOperationResult<DiskSegmentCopy>> first = Task.Factory.StartNew(
+            () => lease.CopyTo(firstTarget), default, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+        Task<MemoryOperationResult<DiskSegmentCopy>>? competing = null;
+        MemoryOperationResult<DiskSegmentCopy>? firstResult = null;
+        try
+        {
+            Assert.True(entered.Wait(TimeSpan.FromSeconds(5)), "Task-owned copy did not enter its staging callback.");
+            fixture.Store.Retire(publication.SegmentId);
+            Assert.Single(fixture.Root.EnumerateNames(16));
+            MemoryAccountingSnapshot before = fixture.Coordinator.Snapshot();
+            Assert.True(fixture.DiskUsed > 0);
+            Assert.True(before.Reservations > 0);
+            competing = Task.Factory.StartNew(() => lease.CopyTo(rejectedTarget),
+                default, TaskCreationOptions.LongRunning, TaskScheduler.Default);
+            MemoryOperationResult<DiskSegmentCopy> rejected = await competing.WaitAsync(TimeSpan.FromSeconds(5));
+            Assert.Equal(MemoryFailure.BudgetRejected, rejected.Failure);
+            Assert.Equal(0, rejectedTarget.Length);
+            Assert.False(resume.IsSet);
+            Assert.False(first.IsCompleted);
+            Assert.Single(fixture.Root.EnumerateNames(16));
+            MemoryAccountingSnapshot after = fixture.Coordinator.Snapshot();
+            Assert.Equal(before.Reservations, after.Reservations);
+            Assert.Equal(before.Allocations, after.Allocations);
+            foreach (var charge in before.Used)
+            {
+                Assert.Equal(charge.Value, after.Used[charge.Key]);
+            }
+            Assert.False(after.Faulted);
+        }
+        finally
+        {
+            resume.Set();
+            try
+            {
+                firstResult = await first.WaitAsync(TimeSpan.FromSeconds(5));
+            }
+            finally
+            {
+                if (competing is not null)
+                {
+                    await competing.WaitAsync(TimeSpan.FromSeconds(5));
+                }
+            }
+        }
+        Assert.True(firstResult is { Succeeded: true });
+        Assert.Equal(data, firstTarget.ToArray());
+        Assert.Equal(0, rejectedTarget.Length);
+        Assert.Single(fixture.Root.EnumerateNames(16));
+        Assert.True(fixture.DiskUsed > 0);
+        lease.Dispose();
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    private sealed class CountingReadStream(byte[] data) : MemoryStream(data)
+    {
+        private int _readCalls;
+        internal int ReadCalls => Volatile.Read(ref _readCalls);
+        public override int Read(byte[] buffer, int offset, int count)
+        {
+            Interlocked.Increment(ref _readCalls);
+            return base.Read(buffer, offset, count);
+        }
+    }
+
     private static DiskPhysicalAllocationBound Bound(DiskFileFootprint root, long logical)
         => new(root.CapacityIdentity, root.Inode, logical, 65536, 1, DateTimeOffset.UtcNow.AddMinutes(10));
 

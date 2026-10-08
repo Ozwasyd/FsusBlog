@@ -11,6 +11,7 @@ public sealed record DiskSegmentCopy(long BytesWritten);
 /// <summary>
 /// Holds an immutable record and its bounded I/O reservation. A copy target is private staging:
 /// bytes are usable only after a successful integrity result, and remain caller-owned on failure.
+/// A competing copy returns BudgetRejected; callers own any scheduling or retry policy.
 /// </summary>
 public sealed class DiskSegmentLease : IDisposable
 {
@@ -55,9 +56,13 @@ public sealed class DiskSegmentLease : IDisposable
         ArgumentNullException.ThrowIfNull(privateStaging);
         MemoryOperationResult<DiskSegmentCopy> result;
         bool release = false;
+        if (!Monitor.TryEnter(_gate))
+        {
+            return MemoryOperationResult<DiskSegmentCopy>.Reject(MemoryFailure.BudgetRejected);
+        }
         try
         {
-            lock (_gate)
+            try
             {
                 if (_disposed || _disposeRequested)
                 {
@@ -105,6 +110,10 @@ public sealed class DiskSegmentLease : IDisposable
                         release = true;
                     }
                 }
+            }
+            finally
+            {
+                Monitor.Exit(_gate);
             }
             return result;
         }
