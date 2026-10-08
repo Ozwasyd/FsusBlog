@@ -81,7 +81,7 @@ properties. CLI encoded bytes are independently bounded before JSON parsing.
 `analyzeDomainProducerSemanticOutcomeCandidate(candidate, options)` consumes the
 original #2020 adapter catalog, membership schemas and
 `validateOutcomeAdapterCandidateData` API from exact source
-`777bb677c60047a26542f934df5814223fe5a994` (PR #3998). It requires externally
+`3f6f443ac4e253f7a9b80e7c7c910d2de8fce824` (PR #3998). It requires externally
 held identity, producer, authority, adapter source commit/digest, raw candidate
 digest, encoded byte budget and JSON host budgets. Those contracts must be
 integrated before using this API; absent contracts are an unmet dependency.
@@ -102,5 +102,12 @@ scope and allowed evidence fields. Existing v2 analysis calls it for richer
 reasons while keeping legacy exact reasons intact. `normalizeOutcomeIdsMap`
 implements the `ids-map` normalization capability; admission of that new rule
 and frontend v2 field profiles remains with the original registry owner. No
-registry is modified here. Missing custody, producer verification, secret
-context and current-run publication bridges remain unmet runtime conditions.
+registry is modified here. The current contract also provides
+`verifyOutcomeInputCustody(encodedCandidate, encodedExpected, options)` through
+the original file-backed locator/publication/attempt owners. Its host must supply
+the exact physical input mapping, independently pinned context/registry/aggregate,
+byte budget and real execution-owner `verifyAuthority` callback. A custody result
+retains `producerVerificationPending: true` and `qualificationEligible: false`;
+it is not a producer seal or actual runtime acceptance. This normalization API
+does not issue or substitute that callback. Producer verification, secret context
+and verified current-run aggregate publication remain unmet runtime conditions.

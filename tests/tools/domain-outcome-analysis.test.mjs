@@ -80,6 +80,8 @@ test('backend unit scoped assertion retains case test and all admitted evidence 
         membership.plannedTestIds = ['test:one'];
         membership.executedTestIds = ['test:one'];
         membership.failedTestIds = ['test:one'];
+        membership.caseIdentities = [{ testId: 'test:one', caseId: 'case:one', inputDigest: digest,
+            shrinkSequenceIdentity: digest, transitionIds: ['transition:one'] }];
         membership.assertions = [{ testId: 'test:one', caseId: 'case:one', assertionId: 'assertion:one',
             status: 'failed', evidenceId: 'diagnostic:one' }];
         reasons.push(failure(producerId, { testId: 'test:one', caseId: 'case:one', assertionId: 'assertion:one' }));
@@ -133,6 +135,10 @@ test('frontend failed assertions preserve identity and semantic artifact referen
         membership.plannedTestIds = ['test:one'];
         membership.executedTestIds = ['test:one'];
         membership.failedTestIds = ['test:one'];
+        membership.plannedSuiteIds = ['suite:one'];
+        membership.executedSuiteIds = ['suite:one'];
+        membership.failedSuiteIds = ['suite:one'];
+        membership.suiteTestIds = { 'suite:one': ['test:one'] };
         membership.failures = [{ producerId, testId: 'test:one', assertionId: 'assertion:one', failureClass: 'product',
             failureKind: reason.kind, identity: reason.identity, semanticArtifactIds: reason.semanticArtifactIds }];
         membership.assertions = [{ id: 'assertion:one', testId: 'test:one', status: 'failed',
@@ -141,6 +147,29 @@ test('frontend failed assertions preserve identity and semantic artifact referen
     const result = await analyzeDomainProducerSemanticOutcomeCandidate(f.candidate, f.options);
     assert.deepEqual(result.canonicalCandidate.outcome.membership.assertions, f.candidate.outcome.membership.assertions);
     assert.deepEqual(result.canonicalCandidate.outcome.membership.failures[0].semanticArtifactIds, ['artifact:a', 'artifact:b']);
+});
+
+test('frontend begun blocked test retains executed membership and native suite terminal status', async () =>
+{
+    const f = fixture('frontend', 0, (membership, reasons, producerId) =>
+    {
+        membership.plannedTestIds = ['test:begun'];
+        membership.executedTestIds = ['test:begun'];
+        membership.blockedTestIds = ['test:begun'];
+        membership.plannedSuiteIds = ['suite:one'];
+        membership.executedSuiteIds = ['suite:one'];
+        membership.blockedSuiteIds = ['suite:one'];
+        membership.suiteTestIds = { 'suite:one': ['test:begun'] };
+        reasons.push({ kind: 'infra.process-signal', producerId,
+            identity: { producerId, testId: 'test:begun', attemptNumber: 1 } });
+    });
+    const result = await analyzeDomainProducerSemanticOutcomeCandidate(f.candidate, f.options);
+    const membership = result.canonicalCandidate.outcome.membership;
+    assert.deepEqual(membership.executedTestIds, ['test:begun']);
+    assert.deepEqual(membership.blockedTestIds, ['test:begun']);
+    assert.deepEqual(membership.blockedSuiteIds, ['suite:one']);
+    assert.deepEqual(membership.failedTestIds, []);
+    assert.equal(result.producerVerificationPending, true);
 });
 
 test('browser failure retains project browser test and assertion identity', async () =>
