@@ -97,3 +97,5 @@ git show ec2187e4cb101257633beb4fda723992d0987b98:src/backend/Infrastructure/Mem
 ```
 
 [publication-integrity.json](publication-integrity.json) verifies the six path blobs, three tested input equalities, immutable policy/baseline/producer/index and two authority fields. [artifact-digests.json](artifact-digests.json) indexes all other artifacts using relative paths, lengths and SHA-256. Verbatim patches retain their required single-space unified-diff context lines; the actual candidate source whitespace check passes.
+
+The evidence-branch whitespace scan also reports trailing spaces emitted in three raw failed TAP logs and the extra EOF blank line present in both actually compiled syntax inputs. These original bytes are retained for their recorded hashes and execution identity. The frozen implementation source range passes whitespace checking; all authored evidence text excluding raw patches/logs/compiled inputs passes. These serialization observations grant no source-gate exception.

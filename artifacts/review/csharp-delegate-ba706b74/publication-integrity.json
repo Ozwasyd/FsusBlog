@@ -7,5 +7,19 @@
   "onlyTwoCheckerAuthorityFieldsChanged": true,
   "originalCopiedCheckerExactlyMatchesC1GitBlob": true,
   "nativeInputExactPublicCommit": "ec2187e4cb101257633beb4fda723992d0987b98",
-  "testSuitesRunForPublication": false
+  "testSuitesRunForPublication": false,
+  "allCommittedArtifactBytesVerifiedBeforeNote": 108,
+  "verbatimArtifactWhitespaceWarnings": {
+    "rawFailedLogs": [
+      "before-controls.log",
+      "after-controls.log",
+      "attributed-generics-before-repair.log"
+    ],
+    "compiledOriginalInputs": [
+      "history-090/Syntax.cs",
+      "official-syntax-inputs/Syntax.cs"
+    ],
+    "bytesPreserved": true,
+    "frozenCandidateSourceCheckExitCode": 0
+  }
 }

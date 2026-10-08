@@ -1,8 +1,8 @@
 [
   {
     "path": "README.md",
-    "bytes": 12321,
-    "sha256": "7830320b2dde5d6e9698bee3899527688d09364b5ae2a1ce24daf037421c329e"
+    "bytes": 12796,
+    "sha256": "642422aea92cc18169fcaaaeee83cf6ad888b17efec0ed8a3e3f6fa8a6d41dac"
   },
   {
     "path": "access-compatibility-4-current.json",
@@ -456,8 +456,8 @@
   },
   {
     "path": "publication-integrity.json",
-    "bytes": 478,
-    "sha256": "0061d7aea69ca8e1cac4766342ef87412e65b1fec73d72333625dcee14c61e04"
+    "bytes": 895,
+    "sha256": "54745401f02f447fb2ca2611f5f6236614742e9161db8bbe54f526cad8f31c4d"
   },
   {
     "path": "run-access-compatibility.py",
