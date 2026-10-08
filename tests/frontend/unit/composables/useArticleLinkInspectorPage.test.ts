@@ -65,6 +65,33 @@ function harness() {
 
 const page = { rowIds: ['relation:fixture'], pageKey: 'page:fixture:1' } as const;
 
+function renderBacklinks(test: ReturnType<typeof harness>) {
+    // Local fixture presentation mapping, not a server decoder or admission API.
+    const view = mount(defineComponent({
+        setup: () => () => h(ArticleLinkInspectorSections, {
+            available: test.state.status.value !== 'unavailable',
+            contextKey: test.state.contextKey.value ?? 'fixture:no-current-context',
+            pages: {
+                backlinks: {
+                    contextKey: test.state.contextKey.value ?? 'fixture:no-current-context',
+                    pageKey: test.state.data.value?.pageKey ?? 'fixture:no-current-page',
+                    state: test.state.status.value === 'current' ? 'current'
+                        : test.state.status.value === 'loading' ? 'loading'
+                            : test.state.status.value === 'error' ? 'error' : 'stale',
+                    rowIds: test.state.data.value?.rowIds ?? [], hasPreviousPage: false, hasNextPage: false
+                }
+            },
+            labels: {
+                titles: { outgoing: 'Outgoing', backlinks: 'Backlinks', risks: 'Risks', mentions: 'Mentions' },
+                states: { loading: 'Loading', error: 'Unavailable', stale: 'Stale', 'rebuild-required': 'Rebuild', offline: 'Offline' },
+                unavailable: 'Links unavailable', empty: 'No results', previous: 'Previous', next: 'Next'
+            }
+        }, { backlinks: ({ rowId }: { rowId: string }) => h('button', { type: 'button' }, `Private owner row ${rowId}`) })
+    }));
+    cleanups.push(() => view.unmount());
+    return view;
+}
+
 describe('link inspector page lifecycle with the existing owner and real local FsusUI runtime', () => {
     it('retains the exact admitted loader value under the original document task lease', async () => {
         const test = harness();
@@ -260,27 +287,36 @@ describe('link inspector page lifecycle with the existing owner and real local F
     it('binds the existing real section renderer and removes its private row/action DOM on revocation', async () => {
         const test = harness();
         expect(await test.state.load(async () => page)).toBe(true);
-        const view = mount(defineComponent({
-            setup: () => () => h(ArticleLinkInspectorSections, {
-                available: test.state.status.value !== 'unavailable',
-                contextKey: test.state.contextKey.value ?? '',
-                pages: test.state.status.value === 'current' && test.state.data.value ? {
-                    backlinks: { contextKey: test.state.contextKey.value!, pageKey: test.state.data.value.pageKey,
-                        state: 'current', rowIds: test.state.data.value.rowIds, hasPreviousPage: false, hasNextPage: false }
-                } : {},
-                labels: {
-                    titles: { outgoing: 'Outgoing', backlinks: 'Backlinks', risks: 'Risks', mentions: 'Mentions' },
-                    states: { loading: 'Loading', error: 'Unavailable', stale: 'Stale', 'rebuild-required': 'Rebuild', offline: 'Offline' },
-                    unavailable: 'Links unavailable', empty: 'No results', previous: 'Previous', next: 'Next'
-                }
-            }, { backlinks: ({ rowId }: { rowId: string }) => h('button', { type: 'button' }, `Private owner row ${rowId}`) })
-        }));
-        cleanups.push(() => view.unmount());
+        const view = renderBacklinks(test);
         expect(view.get('[role="listitem"] button').text()).toBe('Private owner row relation:fixture');
         test.admittedCoordinate.value = null;
         await nextTick();
         expect(view.text()).toBe('Links unavailable');
         expect(view.findAll('[role="listitem"]')).toHaveLength(0);
         expect(view.findAll('button')).toHaveLength(0);
+    });
+
+    it('keeps stale DOM after a real editor revision change and refuses a late ignored-abort response', async () => {
+        const test = harness();
+        const pending = deferred<typeof page>();
+        let signal!: AbortSignal;
+        const result = test.state.load(input => { signal = input; return pending.promise; });
+        const view = renderBacklinks(test);
+        expect(view.get('[aria-label="Backlinks"] [role="status"]').text()).toBe('Loading');
+        const transaction = test.port.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'Updated source\n' }],
+            documentIdentity: test.owner.documentIdentity, expectedRevision: 0, history: 'separate' });
+        expect(transaction.accepted).toBe(true);
+        expect(test.owner.context.sourceRevision).toBe(1);
+        expect(signal.aborted).toBe(true);
+        await nextTick();
+        expect(view.get('[aria-label="Backlinks"] [role="status"]').text()).toBe('Stale');
+        pending.resolve(page);
+        expect(await result).toBe(false);
+        await nextTick();
+        expect(view.get('[aria-label="Backlinks"] [role="status"]').text()).toBe('Stale');
+        expect(view.findAll('[role="listitem"]')).toHaveLength(0);
+        expect(view.findAll('button')).toHaveLength(0);
+        expect(view.text()).not.toContain('Private owner row');
+        expect(test.readSource()).toBe(transaction.value);
     });
 });
