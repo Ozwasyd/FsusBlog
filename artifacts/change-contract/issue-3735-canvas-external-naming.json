@@ -68,7 +68,8 @@
             "id": "json-wire-key",
             "paths": [
                 "tests/backend/Fixtures/aeds-golden-catalog.json",
-                "tests/fixtures/protocol/authoring-canvas-wire-golden.json"
+                "tests/fixtures/protocol/authoring-canvas-wire-golden.json",
+                "tests/backend/packages.lock.json"
             ],
             "reason": "Wire and schema keys remain stable while runtime adapters follow internal naming. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         }
