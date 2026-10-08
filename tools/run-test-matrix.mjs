@@ -523,7 +523,7 @@ function tierExecutionDependencies(tier)
     return tier?.executionDependsOn ?? tier?.dependsOn ?? [];
 }
 
-function logicalTierSystemResources()
+export function logicalTierSystemResources()
 {
     const cpuCount = Math.max(1, os.availableParallelism?.() ?? os.cpus().length);
     const load1 = process.platform === 'win32' ? 0 : Math.max(0, os.loadavg()[0]);
@@ -534,6 +534,33 @@ function logicalTierSystemResources()
         totalMemoryGiB: Math.max(Number.EPSILON, os.totalmem() / (1024 ** 3)),
         load1
     };
+}
+
+export function logicalTierPlanningResources()
+{
+    return {
+        availableCpuUnits: Math.max(1, os.availableParallelism?.() ?? os.cpus().length),
+        totalMemoryGiB: Math.max(Number.EPSILON, os.totalmem() / (1024 ** 3))
+    };
+}
+
+// These are planning annotations, never runnable CPU/memory grants. Execution
+// retains the complete real-headroom resolver and its admission checks.
+export function projectLogicalTierPlanningMetadata(tiers, resources = logicalTierPlanningResources())
+{
+    const cpuCount = Number(resources.availableCpuUnits);
+    const totalMemoryGiB = Number(resources.totalMemoryGiB);
+    if (!Number.isFinite(cpuCount) || cpuCount < 1
+        || !Number.isFinite(totalMemoryGiB) || totalMemoryGiB <= 0)
+    {
+        throw new Error('logical tier planning requires observed CPU capacity and total memory');
+    }
+    const cpuUnits = Math.max(1, Math.floor(cpuCount));
+    return new Map(tiers.map((tier) => [tier.id, {
+        maxParallel: tier.parallelizable === true ? cpuUnits : 1,
+        defaultShards: tier.shardable === true ? dynamicShardCount(resources) : 1,
+        playwrightWorkers: playwrightWorkersForTier(tier, () => cpuUnits)
+    }]));
 }
 
 function dynamicShardCount(resources)
@@ -583,7 +610,7 @@ function normalizeTierId(id)
     return aliases.get(id) ?? id;
 }
 
-function playwrightWorkersForTier(tier)
+function playwrightWorkersForTier(tier, cpuUnitsForWorkers = () => tierResourceUnits(tier).cpuUnits)
 {
     if (tier.id === 'browser-contract')
     {
@@ -591,7 +618,7 @@ function playwrightWorkersForTier(tier)
     }
     return tier.requiresPlaywright === 'none'
         ? null
-        : Math.max(1, Math.floor(tierResourceUnits(tier).cpuUnits));
+        : Math.max(1, Math.floor(cpuUnitsForWorkers()));
 }
 
 function pathExistsForCommand(command)
@@ -1691,7 +1718,7 @@ function planTier(matrix, requestedId)
     return planned;
 }
 
-function printPlan(tiers, matrix = null)
+export function printPlan(tiers, matrix = null, planningMetadata = null)
 {
     for (const [index, tier] of tiers.entries())
     {
@@ -1700,9 +1727,11 @@ function printPlan(tiers, matrix = null)
         const evidence = (tier.requiresEvidenceFrom ?? []).length > 0
             ? ` evidenceInputs=${tier.requiresEvidenceFrom.join(',')}`
             : '';
-        const shard = tier.shardable ? ` shards=${tier.defaultShards}` : '';
-        const timeout = Number.isFinite(Number(tier.budgetMs)) && Number(tier.budgetMs) > 0
-            ? `${Math.ceil(Number(tier.budgetMs) / 60_000)}m`
+        const metadata = planningMetadata?.get(tier.id);
+        const shard = tier.shardable ? ` shards=${metadata?.defaultShards ?? tier.defaultShards}` : '';
+        const declaredTimeoutMs = planningMetadata ? Number(tier.timeoutMinutes) * 60_000 : tier.budgetMs;
+        const timeout = Number.isFinite(Number(declaredTimeoutMs)) && Number(declaredTimeoutMs) > 0
+            ? `${Math.ceil(Number(declaredTimeoutMs) / 60_000)}m`
             : 'observe-only';
         console.log(`${index + 1}. ${tier.id} [job=${tier.ciJob} phase=${tier.phase} resource=${tier.resourceClass} cost=${tier.cost} timeout=${timeout} risk=${tier.risk}${shard}]${deps}${evidence}`);
         console.log(`   ${tier.command}`);
@@ -4946,7 +4975,7 @@ async function loadSelectedTierIds(matrix, prPlanFile, callerContext = prImpactC
     return new Set(plan.selectedTierIds);
 }
 
-function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = false)
+export function buildCiJobMatrix(matrix, jobId, selectedTierIds = null, allowEmpty = false)
 {
     const declaredTiers = applySupersedes(ciJobTiers(matrix, jobId)
         .filter((tier) => selectedTierIds === null || selectedTierIds.has(tier.id)));
@@ -5660,7 +5689,8 @@ function writeTextOutput(text, outFile, label)
     console.log(`[${label}] wrote ${relativeToRoot(abs)}`);
 }
 
-function buildCiPlan(matrix, format)
+export function buildCiPlan(matrix, format,
+    planningMetadata = projectLogicalTierPlanningMetadata(matrix.tiers))
 {
     const combineCacheProfile = (left, right) =>
     {
@@ -5668,23 +5698,10 @@ function buildCiPlan(matrix, format)
         const backend = left === 'backend' || left === 'full' || right === 'backend' || right === 'full';
         return frontend && backend ? 'full' : frontend ? 'frontend' : backend ? 'backend' : 'none';
     };
-    const resolvedById = new Map();
-    const declaredByJob = new Map();
+    const jobs = new Map();
     for (const tier of matrix.tiers)
     {
-        declaredByJob.set(tier.ciJob, [...(declaredByJob.get(tier.ciJob) ?? []), tier]);
-    }
-    for (const tiers of declaredByJob.values())
-    {
-        for (const tier of resolveLogicalTierResources(tiers))
-        {
-            resolvedById.set(tier.id, tier);
-        }
-    }
-    const jobs = new Map();
-    for (const declaredTier of matrix.tiers)
-    {
-        const tier = resolvedById.get(declaredTier.id);
+        const metadata = planningMetadata.get(tier.id);
         const job = jobs.get(tier.ciJob) ?? {
             id: tier.ciJob,
             tiers: [],
@@ -5702,7 +5719,7 @@ function buildCiPlan(matrix, format)
         job.tiers.push(tier.id);
         job.timeoutMinutes = Math.max(job.timeoutMinutes, tier.timeoutMinutes);
         job.phase = Math.max(job.phase ?? 0, tier.phase);
-        job.maxParallel = Math.max(job.maxParallel ?? 1, tier.maxParallel);
+        job.maxParallel = Math.max(job.maxParallel ?? 1, metadata.maxParallel);
         job.requiresNode = job.requiresNode || tier.requiresNode;
         job.requiresDotnet = job.requiresDotnet || tier.requiresDotnet;
         if (tier.requiresPlaywright === 'all')
@@ -5713,7 +5730,7 @@ function buildCiPlan(matrix, format)
         {
             job.requiresPlaywright = 'chromium';
         }
-        const playwrightWorkers = playwrightWorkersForTier(tier);
+        const playwrightWorkers = metadata.playwrightWorkers;
         if (playwrightWorkers !== null)
         {
             job.playwrightWorkerValues.add(playwrightWorkers);
@@ -6454,10 +6471,9 @@ function ciPlan(matrix, format, outFile)
     writeTextOutput(`${JSON.stringify(plan, null, 2)}\n`, outFile, 'matrix:ci-plan');
 }
 
-function evidencePlan(matrix, outFile)
+export function buildEvidencePlan(matrix, identity = requiredEvidencePlanIdentity(),
+    planningMetadata = projectLogicalTierPlanningMetadata(matrix.tiers))
 {
-    const resolvedTiers = resolveLogicalTierResources(matrix.tiers);
-    const identity = requiredEvidencePlanIdentity();
     const plan = {
         schema: 'fsusblog.release-evidence.test-plan.v1',
         generatedAt: new Date().toISOString(),
@@ -6465,7 +6481,7 @@ function evidencePlan(matrix, outFile)
         namespace: identity.namespace,
         runId: identity.runId,
         requiredEvidenceDependencies: createRequiredEvidenceDependencies(matrix, identity),
-        tiers: [...resolvedTiers].sort((left, right) => left.id.localeCompare(right.id)).map((tier) => ({
+        tiers: [...matrix.tiers].sort((left, right) => left.id.localeCompare(right.id)).map((tier) => ({
             id: tier.id,
             ciJob: tier.ciJob,
             command: tier.command,
@@ -6484,7 +6500,7 @@ function evidencePlan(matrix, outFile)
             requiresDotnet: tier.requiresDotnet,
             requiresPlaywright: tier.requiresPlaywright,
             evidenceClass: tier.evidenceClass ?? 'correctness',
-            playwrightWorkers: playwrightWorkersForTier(tier),
+            playwrightWorkers: planningMetadata.get(tier.id).playwrightWorkers,
             cacheProfile: tier.cacheProfile,
             shardable: tier.shardable,
             sharding: tier.shardable ? 'machine' : 'single',
@@ -6499,6 +6515,12 @@ function evidencePlan(matrix, outFile)
         }))
     };
     plan.contentDigest = requiredEvidencePlanDigest(plan);
+    return plan;
+}
+
+function evidencePlan(matrix, outFile)
+{
+    const plan = buildEvidencePlan(matrix);
     const abs = path.resolve(root, outFile ?? '.tmp/release-evidence/test-plan.json');
     fs.mkdirSync(path.dirname(abs), { recursive: true });
     fs.writeFileSync(abs, `${JSON.stringify(plan, null, 2)}\n`);
@@ -6798,7 +6820,8 @@ async function main()
     }
     if (command === 'plan')
     {
-        printPlan(resolveLogicalTierResources(planTier(matrix, args[0])), matrix);
+        const tiers = planTier(matrix, args[0]);
+        printPlan(tiers, matrix, projectLogicalTierPlanningMetadata(tiers));
         return;
     }
     if (command === 'run')

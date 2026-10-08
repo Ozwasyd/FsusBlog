@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -26,6 +27,16 @@ const {
     validateRequiredEvidenceTestPlan
 } = await import(new URL('../../tools/test-matrix/required-evidence-dependencies.mjs', import.meta.url));
 const { effectiveCacheInputs, tierInputFingerprint } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+const { tierResourceUnits } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+const {
+    buildCiPlan,
+    buildCiJobMatrix,
+    buildEvidencePlan,
+    logicalTierPlanningResources,
+    logicalTierSystemResources,
+    printPlan,
+    projectLogicalTierPlanningMetadata
+} = await import(new URL('../../tools/run-test-matrix.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const matrix = parseMatrix(fs.readFileSync(path.join(root, 'tests/matrix.yml'), 'utf8'));
@@ -283,3 +294,132 @@ test('real checker rejects job success and existing files with zero fallback pro
     fs.unlinkSync(path.join(directory, 'test-plan.json'));
     assert.match(execute().stderr, /required test plan is missing/u);
 });
+
+test('the three read-only planning modes project actual topology without reading headroom', () =>
+{
+    const observed = logicalTierPlanningResources();
+    assert.deepEqual(observed, {
+        availableCpuUnits: Math.max(1, os.availableParallelism?.() ?? os.cpus().length),
+        totalMemoryGiB: Math.max(Number.EPSILON, os.totalmem() / (1024 ** 3))
+    });
+    let headroomReads = 0;
+    const resources = { ...observed,
+        get availableMemoryGiB()
+        {
+            headroomReads++;
+            throw new Error('planning must not require a runnable headroom grant');
+        } };
+    const metadata = projectLogicalTierPlanningMetadata(matrix.tiers, resources);
+    const cpu = Math.floor(observed.availableCpuUnits);
+    const ci = buildCiPlan(matrix, 'github-actions', metadata);
+    const plan = buildEvidencePlan(matrix, identity, metadata);
+    assert.deepEqual(validateRequiredEvidenceTestPlan(plan, identity), []);
+    assert.equal(plan.schema, 'fsusblog.release-evidence.test-plan.v1');
+    assert.equal(plan.tiers.length, matrix.tiers.length);
+    const browserContract = metadata.get('browser-contract');
+    assert.equal(browserContract.playwrightWorkers, 1);
+    for (const tier of matrix.tiers)
+    {
+        const entry = metadata.get(tier.id);
+        assert.equal(entry.maxParallel, tier.parallelizable ? cpu : 1);
+        if (!tier.shardable)
+        {
+            assert.equal(entry.defaultShards, 1);
+        }
+        if (tier.requiresPlaywright === 'none')
+        {
+            assert.equal(entry.playwrightWorkers, null);
+        }
+        else if (tier.id !== 'browser-contract')
+        {
+            assert.equal(entry.playwrightWorkers, cpu);
+        }
+        assert.equal(plan.tiers.find((item) => item.id === tier.id).playwrightWorkers, entry.playwrightWorkers);
+    }
+    for (const job of ci.jobs)
+    {
+        assert.equal(job.maxParallel, Math.max(...job.tiers.map((id) => metadata.get(id).maxParallel)));
+        assert.deepEqual(job.playwrightWorkers, [...new Set(job.tiers.map((id) => metadata.get(id).playwrightWorkers)
+            .filter((workers) => workers !== null))].sort((left, right) => left - right));
+    }
+    const messages = [];
+    const originalLog = console.log;
+    try
+    {
+        console.log = (message) => messages.push(message);
+        printPlan([matrix.tiers.find((tier) => tier.id === 'release-final')], matrix, metadata);
+    }
+    finally
+    {
+        console.log = originalLog;
+    }
+    assert.match(messages.join('\n'), /requiredEvidenceDependencies=.*"schedulesProducer":false/u);
+    assert.match(messages[0], /timeout=\d+m/u);
+    assert.equal(headroomReads, 0);
+    const repeat = buildEvidencePlan(matrix, identity, projectLogicalTierPlanningMetadata(matrix.tiers, resources));
+    assert.equal(repeat.contentDigest, plan.contentDigest);
+});
+
+test('planning annotations cannot become a runnable resource grant or an evidence receipt', () =>
+{
+    const metadata = projectLogicalTierPlanningMetadata(matrix.tiers);
+    for (const [id, entry] of metadata)
+    {
+        assert.deepEqual(Object.keys(entry).sort(), ['defaultShards', 'maxParallel', 'playwrightWorkers']);
+        assert.throws(() => tierResourceUnits({ id, ...entry }), /has no resolved resource grant/u);
+    }
+    const plan = buildEvidencePlan(matrix, identity, metadata);
+    assert.match(validateRequiredEvidenceResults(plan, [...metadata.values()], identity).join('; '),
+        /stale plan\/catalog\/identity or invalid digest/u);
+    assert.match(validateRequiredEvidenceResults(plan, [], identity).join('; '),
+        /missing current-run producer execution or explicit receipt dependency/u);
+    for (const tier of [
+        { id: 'no-grant' },
+        { id: 'no-memory', cpuUnits: 1 },
+        { id: 'invalid-memory', cpuUnits: 1, memoryGiB: Number.NaN }
+    ])
+    {
+        assert.throws(() => tierResourceUnits(tier), /has no resolved resource grant/u);
+    }
+    assert.throws(() => projectLogicalTierPlanningMetadata(matrix.tiers, {}), /requires observed CPU/u);
+});
+
+test('planning modes remain usable while grant-bearing paths refuse unavailable physical headroom',
+    { skip: process.platform !== 'linux' }, () =>
+    {
+        const originalRead = fs.readFileSync;
+        const originalLog = console.log;
+        let headroomReads = 0;
+        try
+        {
+            fs.readFileSync = (file, ...args) =>
+            {
+                if (String(file) === '/proc/self/cgroup')
+                {
+                    headroomReads++;
+                    throw new Error('negative control: physical headroom authority is unavailable');
+                }
+                return originalRead(file, ...args);
+            };
+            syncBuiltinESMExports();
+            const messages = [];
+            console.log = (message) => messages.push(message);
+            buildCiPlan(matrix, 'github-actions');
+            buildEvidencePlan(matrix, identity);
+            const target = matrix.tiers.find((tier) => tier.id === 'release-final');
+            printPlan([target], matrix, projectLogicalTierPlanningMetadata([target]));
+            assert.match(messages[0], /release-final/u);
+            assert.equal(headroomReads, 0);
+            assert.throws(() => buildCiJobMatrix(matrix, 'browser-contract'),
+                /Linux cgroup memory cannot read \/proc\/self\/cgroup/u);
+            assert.throws(() => logicalTierSystemResources(),
+                /Linux cgroup memory cannot read \/proc\/self\/cgroup/u);
+            assert.equal(headroomReads, 2);
+        }
+        finally
+        {
+            fs.readFileSync = originalRead;
+            syncBuiltinESMExports();
+            console.log = originalLog;
+        }
+    });
