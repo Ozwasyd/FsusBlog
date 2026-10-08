@@ -667,6 +667,15 @@ the offline evidence owner must independently bind its original producer, bytes
 and complete source closure before consumption. No owned target artifact has
 been produced by this source-only change.
 
+The original property-definition recipe's unconstrained PostgreSQL `numeric`
+columns retain neutral `decimal` and physical `numeric` facts. Its inline tick
+`CHECK` clauses retain the complete original expressions and PostgreSQL's implicit
+`<table>_<column>_check` names as separate constraint effects. Numeric modifiers,
+unknown column tails and malformed checks still refuse extraction. This bounded
+extraction support does not grant a complete export: unsupported expression index
+keys, native expression semantics and independent producer qualification remain
+separate gates.
+
 The original Server executable exposes `export-current-schema-owned-target
 --output <new-absolute-file>` before Web host, DI or database configuration.
 `OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync` invokes that original producer
