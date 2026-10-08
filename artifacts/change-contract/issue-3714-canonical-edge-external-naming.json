@@ -8,7 +8,6 @@
                 "config/development/frontend-style-policy.json",
                 "tests/backend/Fixtures/backend-evidence-path-authority.generated.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/test-retention-replacements.json",
                 "tests/backend/packages.lock.json"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
