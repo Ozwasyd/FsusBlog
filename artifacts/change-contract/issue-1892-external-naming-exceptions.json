@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/frontend/motion-guidelines.md"
+            ],
+            "reason": "Preserve public FsusUI component, prop and existing motion/token spellings while documenting ImageViewer ownership for the article adapter. This updates composition guidance without renaming the external CSS-like contracts."
+        }
+    ]
+}
