@@ -113,7 +113,7 @@ public sealed class LifecycleHostedBootstrapServiceTests
             Assert.True(File.Exists(Path.Combine(aotCacheDir, "stale.txt")));
             Assert.False(runtimeState.SystemCachesClearedOnStartup);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["schemaMigration"].Status);
-            Assert.Equal("compatibility_check", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+            Assert.Equal("current_schema_verified", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Status);
             Assert.Equal("physical_projection_complete", runtimeState.GetStartupTasks()["accountSubjectHashInvariant"].Detail);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["passkeyProjectionInvariant"].Status);
@@ -162,7 +162,7 @@ public sealed class LifecycleHostedBootstrapServiceTests
             Assert.Equal("skipped", runtimeState.GetStartupTasks()["bootstrapRollback"].Status);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["aotDiskCache"].Status);
             Assert.Equal("cleared", runtimeState.GetStartupTasks()["aotDiskCache"].Detail);
-            Assert.Equal("compatibility_check", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
+            Assert.Equal("current_schema_verified", runtimeState.GetStartupTasks()["schemaMigration"].Detail);
             Assert.Equal("no_entries", runtimeState.GetStartupTasks()["cacheInitializer"].Detail);
             Assert.Equal("ok", runtimeState.GetStartupTasks()["bootstrap"].Status);
             await migrationRunner.Received(1).RunAsync(Arg.Any<CancellationToken>());
