@@ -1334,7 +1334,10 @@ public sealed class DocumentExportJobServiceTests : IDisposable
             DocumentExportFrozenInput input, TimeProvider time)
         {
             ResourceTask = ResourceFault == "foreign"
-                ? DocumentExportContractValidator.Seal(task with { TaskId = Guid.NewGuid().ToString("N") }) : task;
+                ? DocumentExportContractValidator.Seal(task with
+                {
+                    TaskId = Guid.NewGuid().ToString("N")
+                }) : task;
             ResourceInput = input;
             ResourceTime = time;
             OnCreateResources?.Invoke();
