@@ -1,0 +1,29 @@
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using System.Runtime.InteropServices;
+using System.Text.Json;
+using FsusBlog.Server.Infrastructure.Memory.Accounting;
+using FsusBlog.Server.Infrastructure.Memory.Contracts;
+using FsusBlog.Server.Infrastructure.Memory.Host;
+var domain = new ResourceDomainId(Guid.NewGuid());
+var ledger = new MemoryReservationCoordinator(new([new(domain, "host", MemoryResourceUnit.Bytes, null)]), [new(domain, MemoryResourceUnit.Bytes, 1_000_000)], 1, 128, 128);
+var content = new MemoryContentIdentity(new(Guid.NewGuid()), new(1), new(Guid.NewGuid()));
+var entry = new FlatArtifactIndexEntry("article:1", new(1, content, new(new(Guid.NewGuid()), new(Guid.NewGuid()), new(1), new(1)), 100));
+var limits = new FlatArtifactIndexLimits(128, 256, 8, 1_000_000);
+using var index = FlatArtifactIndex.TryBuild(ledger, domain, content, [entry], limits).Value!;
+for (int i = 0; i < 20_000; i++) { using var lease = index.TryAcquire(index.Location).Value!; }
+const int operations = 200_000;
+var samples = new List<object>();
+for (int sample = 0; sample < 5; sample++)
+{
+    long allocation = GC.GetAllocatedBytesForCurrentThread();
+    long started = Stopwatch.GetTimestamp();
+    for (int i = 0; i < operations; i++) { using var lease = index.TryAcquire(index.Location).Value!; }
+    long ticks = Stopwatch.GetTimestamp() - started;
+    long allocated = GC.GetAllocatedBytesForCurrentThread() - allocation;
+    samples.Add(new { sample, operations, elapsedTicks = ticks, nanosecondsPerAcquireDispose = ticks * (1_000_000_000d / Stopwatch.Frequency) / operations, managedAllocatedBytesPerAcquireDispose = allocated / (double)operations });
+}
+index.Dispose();
+if (!index.Drained.IsCompleted || ledger.Allocations().Count != 0) throw new Exception("Unreleased measurement ownership.");
+Console.WriteLine(JsonSerializer.Serialize(new { interpretation = "Informational counted-reader cost only; no frozen CPU/latency gates or production qualification", framework = RuntimeInformation.FrameworkDescription, os = RuntimeInformation.OSDescription, architecture = RuntimeInformation.ProcessArchitecture.ToString(), stopwatchFrequency = Stopwatch.Frequency, footprint = new { interpretation = "Inline process-local field sizes only: excludes referenced strings, payloads, FrozenDictionary tables, headers, build workspace and runtime overhead; native descriptor does not encode all serving fields", publicBinaryArtifactBytes = Unsafe.SizeOf<PublicBinaryArtifact>(), publicHtmlArtifactBytes = Unsafe.SizeOf<PublicHtmlArtifact>(), publicHtmlRouteIndexBytes = Unsafe.SizeOf<PublicHtmlRouteIndex>(), flatDescriptorBytes = FlatArtifactIndexLayout.DescriptorBytes, nativeAllocationBytes = index.Descriptor.Layout.CapacityBytes }, samples }, new JsonSerializerOptions { WriteIndented = true }));

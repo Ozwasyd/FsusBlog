@@ -1,0 +1,113 @@
+[
+    {
+        "name": "csharp-style",
+        "command": [
+            "node",
+            "tools/dotnet/check-csharp-style.mjs",
+            "--mode",
+            "changed",
+            "--base",
+            "b9c076e4b763130075218ff9d50f9a6c36784f59",
+            "--file",
+            "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+            "--file",
+            "src/backend/Infrastructure/Memory/Host/FlatArtifactIndexLayout.cs",
+            "--file",
+            "src/backend/Infrastructure/Memory/Host/ReferenceArtifactIndex.cs",
+            "--file",
+            "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs",
+            "--file",
+            "tests/backend/Unit/FlatArtifactIndexTests.cs"
+        ],
+        "cwd": "/workspace/FsusBlog-3464",
+        "exitCode": 0,
+        "raw": "csharp-style.log"
+    },
+    {
+        "name": "entrypoint-ownership",
+        "command": [
+            "node",
+            "tools/check-csharp-entrypoint-ownership.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3464",
+        "exitCode": 0,
+        "raw": "entrypoint-ownership.log"
+    },
+    {
+        "name": "change-contract",
+        "command": [
+            "node",
+            "tools/governance/check-change-contract.mjs",
+            "--range",
+            "b9c076e4b763130075218ff9d50f9a6c36784f59..bc3dadbb325dcbcff5c22fb2e7e270d2a1514136"
+        ],
+        "cwd": "/workspace/FsusBlog-3464",
+        "exitCode": 0,
+        "raw": "change-contract.log"
+    },
+    {
+        "name": "code-intent",
+        "command": [
+            "node",
+            "tools/governance/check-code-intent.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3464",
+        "exitCode": 1,
+        "raw": "code-intent.log"
+    },
+    {
+        "name": "baseline-code-intent",
+        "command": [
+            "node",
+            "tools/governance/check-code-intent.mjs"
+        ],
+        "cwd": "/tmp/mem-3464-master",
+        "exitCode": 1,
+        "raw": "baseline-code-intent.log"
+    },
+    {
+        "name": "source-integration",
+        "command": [
+            "node",
+            "tools/run-test-matrix.mjs",
+            "ci-pr-smart",
+            "--stage",
+            "source-integration",
+            "--base-ref",
+            "b9c076e4b763130075218ff9d50f9a6c36784f59"
+        ],
+        "cwd": "/workspace/FsusBlog-3464",
+        "exitCode": 1,
+        "raw": "source-integration.log"
+    },
+    {
+        "name": "baseline-source-integration",
+        "command": [
+            "node",
+            "tools/run-test-matrix.mjs",
+            "ci-pr-smart",
+            "--stage",
+            "source-integration",
+            "--base-ref",
+            "ee808392b54d690d5f99a1e95140bc975a76d5d4"
+        ],
+        "cwd": "/tmp/mem-3464-master",
+        "exitCode": 1,
+        "raw": "baseline-source-integration.log"
+    },
+    {
+        "name": "baseline-owning-restore",
+        "command": [
+            "dotnet",
+            "restore",
+            "tests/backend/FsusBlog.Server.Tests.csproj",
+            "--source",
+            "/workspace/.setup/nuget",
+            "--ignore-failed-sources",
+            "--locked-mode"
+        ],
+        "cwd": "/tmp/mem-3464-master",
+        "exitCode": 1,
+        "raw": "baseline-owning-restore.log"
+    }
+]
