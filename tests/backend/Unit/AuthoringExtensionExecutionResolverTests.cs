@@ -286,6 +286,104 @@ public sealed class AuthoringExtensionExecutionResolverTests
             new ClosedTrustedAuthoringAdapterRegistry([descriptor, descriptor]));
     }
 
+    [Theory]
+    [InlineData(nameof(TrustedAuthoringAdapterDescriptor.SourcePath))]
+    [InlineData(nameof(TrustedAuthoringAdapterDescriptor.ReviewOwner))]
+    [InlineData(nameof(TrustedAuthoringAdapterDescriptor.ModuleName))]
+    [InlineData(nameof(TrustedAuthoringAdapterDescriptor.SourceSha256))]
+    [InlineData(nameof(TrustedAuthoringAdapterDescriptor.ModuleSha256))]
+    public void Registry_CharacterRules_PreserveEveryUtf16CodeUnit(string field)
+    {
+        TrustedAuthoringAdapterDescriptor original = CreateDescriptor();
+        for (int codeUnit = char.MinValue; codeUnit <= char.MaxValue; codeUnit++)
+        {
+            char character = (char)codeUnit;
+            TrustedAuthoringAdapterDescriptor descriptor = field switch
+            {
+                nameof(TrustedAuthoringAdapterDescriptor.SourcePath) => original with
+                {
+                    SourcePath = $"src/backend/adapter-{character}cs"
+                },
+                nameof(TrustedAuthoringAdapterDescriptor.ReviewOwner) => original with
+                {
+                    ReviewOwner = $"review-{character}owner"
+                },
+                nameof(TrustedAuthoringAdapterDescriptor.ModuleName) => original with
+                {
+                    ModuleName = $"FsusBlog.{character}Server"
+                },
+                nameof(TrustedAuthoringAdapterDescriptor.SourceSha256) => original with
+                {
+                    SourceSha256 = new string('a', 63) + character
+                },
+                nameof(TrustedAuthoringAdapterDescriptor.ModuleSha256) => original with
+                {
+                    ModuleSha256 = new string('a', 63) + character
+                },
+                _ => throw new ArgumentOutOfRangeException(nameof(field))
+            };
+            bool shouldReject = field switch
+            {
+                nameof(TrustedAuthoringAdapterDescriptor.SourcePath) => char.IsControl(character) || character == '\\',
+                nameof(TrustedAuthoringAdapterDescriptor.ReviewOwner) => char.IsControl(character),
+                nameof(TrustedAuthoringAdapterDescriptor.ModuleName) =>
+                    !char.IsAsciiLetterOrDigit(character) && character is not '.' and not '-',
+                _ => !"0123456789abcdef".Contains(character)
+            };
+            Exception? exception = Record.Exception(() => new ClosedTrustedAuthoringAdapterRegistry([descriptor]));
+            Assert.True(shouldReject ? exception is AuthoringExtensionContractException : exception is null,
+                $"{field} U+{codeUnit:X4}");
+        }
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(63)]
+    [InlineData(65)]
+    [InlineData(128)]
+    public void Registry_NonSha256Lengths_FailsClosed(int length)
+    {
+        TrustedAuthoringAdapterDescriptor descriptor = CreateDescriptor();
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            new ClosedTrustedAuthoringAdapterRegistry([descriptor with { SourceSha256 = new string('a', length) }]));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            new ClosedTrustedAuthoringAdapterRegistry([descriptor with { ModuleSha256 = new string('a', length) }]));
+    }
+
+    [Fact]
+    public void Registry_PlatformSet_PreservesDefinedAndClosedMembers()
+    {
+        TrustedAuthoringAdapterDescriptor original = CreateDescriptor();
+        foreach (AuthoringHostPlatform platform in Enum.GetValues<AuthoringHostPlatform>())
+        {
+            TrustedAuthoringAdapterDescriptor descriptor = original with
+            {
+                SupportedPlatforms = [platform]
+            };
+            Assert.Same(descriptor, new ClosedTrustedAuthoringAdapterRegistry([descriptor]).Find(descriptor.AdapterId));
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry([descriptor with
+                {
+                    SupportedPlatforms = [platform, platform]
+                }]));
+        }
+        foreach (int value in new[] { int.MinValue, -1, 3, int.MaxValue })
+        {
+            Assert.Throws<AuthoringExtensionContractException>(() =>
+                new ClosedTrustedAuthoringAdapterRegistry([original with
+                {
+                    SupportedPlatforms = [AuthoringHostPlatform.ServerLinux, (AuthoringHostPlatform)value]
+                }]));
+        }
+        TrustedAuthoringAdapterDescriptor allPlatforms = original with
+        {
+            SupportedPlatforms = [.. Enum.GetValues<AuthoringHostPlatform>()]
+        };
+        Assert.Same(allPlatforms, new ClosedTrustedAuthoringAdapterRegistry([allPlatforms]).Find(allPlatforms.AdapterId));
+        Assert.Throws<AuthoringExtensionContractException>(() =>
+            new ClosedTrustedAuthoringAdapterRegistry([original with { SupportedPlatforms = default }]));
+    }
+
     [Fact]
     public void ResolverSource_HasNoDynamicOrPrivateHostLoadingSurface()
     {
