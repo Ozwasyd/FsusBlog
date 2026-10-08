@@ -30,7 +30,7 @@ public sealed class ArticleBulkAtomicExecutorTests
         Assert.Equal(1, owner.CommitCalls);
         Assert.Equal(1, owner.DisposeCalls);
         Assert.Equal(1, fixture.Selection.Calls);
-        Assert.Equal(1, fixture.Authority.GroupProofChecks);
+        Assert.Equal(3, fixture.Authority.GroupProofChecks);
     }
 
     [Fact]
@@ -50,7 +50,7 @@ public sealed class ArticleBulkAtomicExecutorTests
         Assert.Equal(0, result.Receipt!.SucceededCount);
         Assert.Equal(3, result.Receipt.FailedCount);
         Assert.NotNull(result.Receipt.ZeroWriteProofDigest);
-        Assert.Equal(1, fixture.Authority.GroupProofChecks);
+        Assert.Equal(2, fixture.Authority.GroupProofChecks);
         Assert.All(fixture.Journal.Receipts, static receipt => Assert.Empty(receipt.SideEffects));
     }
 

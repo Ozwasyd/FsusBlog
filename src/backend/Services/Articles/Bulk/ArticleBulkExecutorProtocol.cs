@@ -136,7 +136,9 @@ internal static class ArticleBulkExecutorProtocol
             zeroWriteProofDigest,
             plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
                 && head.SucceededCount > 0 && head.FailedCount + head.CancelledCount > 0,
-            plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated && head.FailedCount > 0,
+            plan.Strategy == ArticleBulkExecutionStrategy.PerItemIsolated
+                && state != ArticleBulkExecutionState.RecoveryRequired
+                && (head.FailedCount > 0 || plan.Impact.EligibleCount > head.AdmittedCount),
             chunks.ToImmutable(),
             string.Empty));
     }
