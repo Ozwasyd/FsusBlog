@@ -86,6 +86,17 @@ The future host must consume the real producer APIs and send bound result
 receipts. It must revoke the ledger on logout/site switch/unlink, stop its
 owned work and dispose endpoint/lease in that order.
 
+`LinuxVaultAgentControlSession` is an in-process lifecycle API for an actual
+transferred native lease. It creates and owns the grant ledger and IPC endpoint,
+exposes `InspectStatus`, issues only status grants and provides idempotent
+`ShutdownAsync` for stop/logout/site-switch/unlink. Revocation precedes cleanup;
+pending IPC reads are cancelled and drained before endpoint/lease disposal.
+Unlink retains control/audit state. Any first cleanup failure preserves a blocked
+receipt with a fixed stage-specific reason rather than reporting terminal
+success. This scope creates no watcher, process, temporary source file or binary
+installation. Its stopped/retained receipts describe only its owned local control
+resources, not a complete installed agent or an install/update transport.
+
 ## Lifecycle contract and remaining producers
 
 `ArticleVaultAgentLifecycle` models installed, starting, running, stopping,
@@ -102,6 +113,13 @@ health fact cannot invent the new binary's runtime binding or clear recovery.
 Unlink terminal states require a cleanup producer receipt and cannot restart.
 These are contract assertions: serialized digests or a running state do not
 constitute trust, native ownership, atomic update or rescan qualification.
+
+`ArticleVaultAgentRescanBoundary.RecordRequiredRescan` consumes the exact
+canonical #2112 tracker and records a bound obligation's digest. It stops or
+retains blocked observation; `AwaitingNativeVerification` is never interpreted
+as completed recovery. The native root-use and terminal rescan producers remain
+required. These contract/control-session receipts do not yet provide durable
+full-agent crash reconstruction or a signed installation/update producer.
 
 Still required from actual owners are signed binary/package trust admission,
 platform support/IPC integration, download/stage/atomic-switch/health/rollback,
