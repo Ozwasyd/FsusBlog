@@ -100,13 +100,17 @@ internal sealed class GpuHipNativeApi : GpuNativeApi
     public override void Exit(nint token) => Check(_setDevice(checked((int)token)), "hipSetDevice:restore");
     public override GpuDeviceAddress AllocateDevice(long bytes)
     {
-        Check(_allocate(out nint address, checked((nuint)bytes)), "hipMalloc");
+        int status = _allocate(out nint address, checked((nuint)bytes));
+        RejectOutOfMemory(status);
+        Check(status, "hipMalloc");
         return new(unchecked((ulong)address));
     }
     public override void FreeDevice(GpuDeviceAddress address) => Check(_free(unchecked((nint)address.Value)), "hipFree");
     public override GpuHostAddress AllocateHost(long bytes, bool readback)
     {
-        Check(_hostAllocate(out nint address, checked((nuint)bytes), readback ? 0u : 4u), "hipHostMalloc");
+        int status = _hostAllocate(out nint address, checked((nuint)bytes), readback ? 0u : 4u);
+        RejectOutOfMemory(status);
+        Check(status, "hipHostMalloc");
         return new(address);
     }
     public override void FreeHost(GpuHostAddress address) => Check(_hostFree(address.Value), "hipHostFree");

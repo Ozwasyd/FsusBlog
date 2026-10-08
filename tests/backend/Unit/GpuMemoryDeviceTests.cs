@@ -330,6 +330,22 @@ public sealed class GpuMemoryDeviceTests
     }
 
     [Fact]
+    public void ConfirmedNativeBudgetRejectionReleasesAdmissionAndKeepsDeviceEligible()
+    {
+        var fixture = new Fixture();
+        fixture.Driver.RejectAllocation = true;
+        using var device = fixture.Create();
+        Assert.Equal(MemoryFailure.BudgetRejected, device.TryAllocate(fixture.Content, 8, new(1)).Failure);
+        Assert.Equal(0, fixture.Ledger.Snapshot().Reservations);
+        Assert.Equal(0, fixture.Ledger.Snapshot().Used["device"]);
+        Assert.True(device.Snapshot().Accepting);
+        Assert.False(device.Snapshot().RestartRequired);
+        fixture.Driver.RejectAllocation = false;
+        using var allocation = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        Assert.True(allocation.IsCurrent);
+    }
+
+    [Fact]
     public void NativeAllocationFailureAfterPossibleSuccessRetainsAdmissionAndStopsGrowth()
     {
         var fixture = new Fixture();
@@ -518,6 +534,10 @@ public sealed class GpuMemoryDeviceTests
         private readonly Dictionary<nint, Action> _pending = [];
         private long _sequence;
         public GpuDeviceIdentity Identity { get; set; } = new("unit", "barrier", "simulated", 1, false);
+        public bool RejectAllocation
+        {
+            get; set;
+        }
         public Action? BeforeQuery
         {
             get; set;
@@ -557,6 +577,10 @@ public sealed class GpuMemoryDeviceTests
         }
         public GpuDeviceAddress AllocateDevice(long bytes)
         {
+            if (RejectAllocation)
+            {
+                throw new GpuAllocationRejectedException();
+            }
             ulong id = (ulong)++_sequence;
             _devices.Add(id, new byte[(int)bytes]);
             DeviceAllocations++;

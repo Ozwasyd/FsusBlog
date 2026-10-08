@@ -41,6 +41,15 @@ internal abstract class GpuNativeApi(IGpuNativeLibrary library)
         }
     }
 
+    protected static void RejectOutOfMemory(int status)
+    {
+        // CUDA_ERROR_OUT_OF_MEMORY / hipErrorOutOfMemory report no allocation.
+        if (status == 2)
+        {
+            throw new GpuAllocationRejectedException();
+        }
+    }
+
     public abstract int GetDeviceCount();
     public abstract GpuDeviceIdentity GetIdentity(int device);
     public abstract int CreateContext(int device, out nint context);
