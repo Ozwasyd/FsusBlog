@@ -14,6 +14,7 @@ import type { PublicAotPageAssembly } from '@/public-renderers/scaffold';
 import type { AboutPageViewContract } from '@/view-contracts/aboutPage';
 import type { ArchivePageViewContract } from '@/view-contracts/archive';
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail';
+import type { ArticleDraftResponsibilityDisclosure } from '@/view-contracts/articleDraftResponsibility';
 import type { ArticleListViewContract } from '@/view-contracts/articleList';
 import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility';
 import type { FilterPageViewContract } from '@/view-contracts/filterView';
@@ -77,10 +78,11 @@ export function createPublicHomePageAssembly(input: {
 
 export function createPublicArticleDetailPageAssembly(input: {
     detailView: ArticleDetailPageViewContract;
-    articleId: number;
+    articleId: number | null;
     authorName: string;
     responsibilityAuthors: readonly Readonly<{ name: string; profileUrl: string | null; }>[];
     responsibilityManifest: ArticleResponsibilityPublicView | null;
+    draftResponsibility?: ArticleDraftResponsibilityDisclosure | null;
     articleSummary: string;
     canonicalUrl: string | null;
     baseUrl?: string | null;
@@ -97,6 +99,7 @@ export function createPublicArticleDetailPageAssembly(input: {
             authorName: input.authorName,
             responsibilityAuthors: input.responsibilityAuthors,
             responsibilityManifest: input.responsibilityManifest,
+            draftResponsibility: input.draftResponsibility,
             articleSummary: input.articleSummary,
             canonicalUrl: input.canonicalUrl,
             baseUrl: input.baseUrl ?? null,

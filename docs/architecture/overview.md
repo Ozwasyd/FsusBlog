@@ -60,6 +60,49 @@ FsusBlog uses layered cache behavior:
 
 Cache invalidation is part of the application contract. Article, taxonomy, public shell, and admin-side mutations must invalidate the matching public and internal caches instead of relying on stale TTL behavior alone.
 
+Article source/render positioning has one command owner in
+`services/authoring/articleAnchorContext.ts`. It consumes FsusUI public semantic
+maps and committed transaction position maps, with the existing document context
+as its identity and revision authority. Snapshots and receipts bind source ranges,
+semantic nodes, affinity, direction, viewport offset, surface/tool identity, and
+user intent. Restore orders exact, rebased, semantic-neighbor, then explicitly
+approximate percentage outcomes. A revision transition without a contiguous
+public transaction chain fails closed.
+
+Manual wheel, trackpad, touch, drag, or selection pauses automatic positioning.
+Input and explicit navigation resume immediately; idle resumes after 1200 ms.
+Optional synchronization defaults off, follows the user-selected pane, and ignores
+programmatic generations and events within 16 ms. Commands clamp viewport offsets
+to the current viewport height and use instant positioning for reduced motion.
+Surface/tool consumers execute these commands; the adapter owns no DOM, parser,
+render cache, preference persistence, or product entry point.
+
+The attachment input boundary in `services/authoring/articleAttachmentContext.ts`
+consumes the public FsusUI picker capture and clipboard priority policy. Its
+created-stage handles seal file metadata, ordered public item identity, provider
+version, the shared anchor context and the canonical task envelope; runtime
+signals cancel on document/source changes or disposal. Pending insertion plans
+come from FsusUI and carry the current expected revision and document identity.
+Created handles are bounded to 64 and never execute upload IO.
+
+Created-stage handles are not provider completion admission. Insertion cancels
+the created lease and establishes a new anchored provider request. The adapter
+subscribes to the canonical document owner, consumes public transaction maps,
+and renews context-bound leases while preserving each independent provider
+signal. Missing maps, partial deletion, removed nodes and document switches
+reject late completion; undo/redo cannot revive a cancelled request. Resolve,
+remove and replace use public FsusUI plans; retry creates a fresh request and
+signal. Closed lifecycle receipts retain predecessor and transaction identities,
+never file bytes or upload tokens.
+
+`useAdminArticleWrite.authoringAttachmentRuntime` is the controlled entry on the
+existing document binding. It commits accepted public transaction revisions before
+the later model-update event, creates semantic bindings through the public anchor
+map factory, and cancels requests when the bound editor is released. This data
+boundary does not upload files, parse captions, or migrate legacy placeholders.
+Native product input composition, redo successor admission and independent
+full attachment acceptance remain outstanding.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
@@ -77,6 +120,104 @@ Security changes should be checked against [docs/security.md](../security.md).
 FsusUI supplies the visual system and reusable UI foundation. FsusBlog owns application semantics: API behavior, data contracts, admin workflows, public content model, security decisions, and domain-specific UX. Reusing FsusUI components must not move FsusBlog business rules into the UI library.
 
 The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, so any FsusUI boundary warning fails before merge.
+
+### Article last-valid render lifecycle
+
+`ArticleRenderCache` consumes the existing `ArticleDocumentContextAdapter` and
+retains one closed, versioned render-reference entry per owning document/session.
+Article, draft, epoch, user, site, session, renderer, projection, feature, theme,
+and locale changes invalidate the entry. Only an older source revision in the
+same document can be stale; the machine state retains its content reference
+alongside refresh actions, failure reason and last-valid time. It never writes
+HTML or projection data back to the draft. Entry bytes, age, canonical result
+bytes and receipt count have explicit caller-supplied bounds.
+
+`ArticleFsusUiRenderProducer` consumes the public renderer/projection APIs through
+the existing FsusUI boundary. Its canonical result references are released on
+replacement, expiry, context switch and disposal. Every refresh registers a
+context task and checks its request, source and configuration identities again
+before commit. Cancellation settles immediately and rejects late results. The
+public FsusUI renderer currently has no signal argument, so this does not claim
+interruption of its underlying computation. Render source identity includes
+mode/features/base URL; projection source identity uses the public source-only
+contract. Both are verified separately without rewriting either identity.
+
+`evaluateArticleRenderRefreshPolicy` is the single automatic refresh threshold
+producer. The source gate remains 80 × 1024 and the estimated-node gate remains
+3000; equality allows automatic refresh. The source unit is original source
+UTF-8 bytes, measured with a fixed 81924-byte buffer. Oversized inputs report a
+lower bound and skip projection. The former shell compared JavaScript UTF-16
+length under a bytes label; this branch's explicit compatibility assumption
+uses actual bytes, so multibyte source may pause earlier than that old shell.
+
+The node unit is a historical weighted resource estimate, not a DOM count or
+projection node count: raw LF-delimited lines (empty source has zero), plus
+2 per public heading, 2 per distinct public list/task marker, 3 per public table
+row (including separator), and 30 per code/Mermaid marker range of at least
+three source units. Public unclosed-fence diagnostics contribute one 30-unit
+opening fence. Syntax facts come only from the FsusUI public projection. This
+preserves the old weights without restoring a Blog regex parser. Canonical
+recognition of setext headings, ordered lists, tilde fences and malformed syntax
+can differ from the former lexical guesses; this is a reviewable measurement
+assumption, not proof of product or performance acceptance. Once the line base
+or accumulated estimate exceeds the gate, remaining work is skipped and the
+reported node estimate is explicitly a lower bound. Projection failure denies
+automatic refresh with an explicit reason; it does not select a product surface.
+
+Closed decisions bind context, revision, source digest and projection version.
+Cache admission requires an immutable decision produced by this authority;
+copied, serialized, forged or stale decisions cannot authorize work. A denied
+automatic refresh retains last-valid content and exposes the reason. Explicit
+manual refresh still uses the bounded, cancellable lifecycle. Product surface
+and stale-banner wiring, heavy-feature activation and position mapping remain
+with their respective owners. The threshold service changes no capabilities or
+surfaces; an unobserved layout or long task has no fabricated observation ref.
+
+### Draft responsibility in the public reading composition
+
+`createArticleDraftResponsibilitySnapshot` projects the existing authoring
+responsibility draft/revision fields into immutable display data, binding the
+document context digest, source revision and responsibility input digest.
+It retains the current public responsibility composition and its display
+filtering rules (public people and sources, bounded lists and update notes).
+Private sources are omitted; incomplete responsibility remains explicit.
+Display filtering is not asset verification, prepublish qualification or URL
+reachability evidence. The snapshot contains no publication or proof coordinate.
+
+An explicit `draftResponsibility` input to the existing reading assembly selects
+draft authority. The disclosure accepts only a producer snapshot matching its
+supplied current context, does not read the published manifest, and does not
+render a publication verification link. `bindArticleDraftResponsibilitySnapshot`
+also binds the expected digest from current responsibility/site-author inputs;
+metadata-only edits reject an older result even when Markdown/context is
+unchanged. Missing, stale or forged inputs never
+fall back to published authors. The public path retains its existing fetch and
+verification behavior, with aborted and late requests discarded on authority
+change or unmount. The enclosing preview request must still verify the supplied
+context against the existing editor owner before admitting this input; the
+display projection does not create another document owner or prove route
+authorization, complete draft composition or editor continuity.
+
+`ArticlePreviewSourceAdmission.attach` verifies the existing editor host context
+and source bytes before acquiring another binding to that same canonical owner.
+Preview requests use its existing task registry and cancellation signal; newer
+requests, source revisions and document switches reject late results. Admission
+also rereads responsibility/site-author inputs and validated bounded attachment
+lifecycle history, so metadata edits and provider cancellation cannot reuse an
+older result merely because Markdown bytes are unchanged. The history digest is
+only an invalidation input: historical transaction receipts do not establish
+the current asset inventory, verified AssetIds or resource activation. This
+source admission slice does not qualify the complete preview request, rights,
+renderer identity, route authorization or editor history/selection continuity.
+Its caller must dispose the binding with the preview lifecycle.
+
+The unified Writer runtime is the production entry for this source slice:
+`ArticlePreviewSourceAdmission.attachRuntime(binding, read)` consumes the real
+`authoringEditorRuntime.bindEditor` result. Context is read from that binding and
+preview leases use its `beginToolTask('publish-preview')`; no additional authority
+binding, renderer or editor instance is created. Disposing the consumer cancels
+its own preview lease while the Writer host retains runtime release and
+continuity ownership. A tool switch or owner change rejects the old result.
 
 ## Standalone document export boundary
 
@@ -120,6 +261,7 @@ These outputs should remain standards-compatible even while undocumented interna
 The stable project direction is single-process FsusBlog with Kestrel, PostgreSQL, Redis, public AOT/HotRead, AEDS runtime API, moderation, security, and admin console baselines.
 
 The exact internal API shape, AEDS frame layout, database schema, admin routes, deployment configuration, and third-party client compatibility are not stable unless explicitly classified by a dedicated stability document.
+
 ## Current test dependency edges
 
 <!-- fsus-doc-claim

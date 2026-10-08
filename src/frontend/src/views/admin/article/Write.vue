@@ -161,6 +161,7 @@
                                 ref="articleEditorRef"
                                 v-model="articleForm.content"
                                 :command-surfaces="authoringCommandSurfaces"
+                                :authoring-commands="inspectorCommands"
                                 :article-identity="authoringDocumentIdentity.id"
                                 :document-identity="authoringDocumentIdentity"
                                 :loading="pageLoading"
@@ -767,17 +768,19 @@ import {
     useArticleWriteInspector,
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
+import { useArticleWriteInspectorCommands } from '@/composables/useArticleWriteInspectorCommands';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
 import {
     articleWorkspaceTabRouter,
-    createArticleWorkspaceOpenInput,
-    type ArticleWorkspaceStatusSummary
+    createArticleWorkspaceOpenInput
 } from '@/services/authoring/articleWorkspaceTabRouter';
 import type {
     ArticleDocumentContextRef,
-    ArticleDocumentIdentity
+    ArticleDocumentIdentity,
+    ArticleWorkspaceStatusSummary
 } from '@/services/authoring/openArticleDocumentRegistry';
+import { useAdminStore } from '@/store/admin';
 import { showErrorToast } from '@/utils/errorPresentation';
 
 defineOptions({ name: 'ArticleWriteView' });
@@ -838,6 +841,7 @@ const {
     seoChecking,
     seoStatusText,
     articleForm,
+    authoringDocumentContext,
     authoringDocumentIdentity,
     currentRevisionId,
     currentRevisionNo,
@@ -1011,7 +1015,10 @@ const syncWorkspaceTab = async (): Promise<void> =>
 
 watch(
     [workspaceCanRegister, workspaceIdentity],
-    () => { void syncWorkspaceTab(); },
+    () =>
+    {
+        void syncWorkspaceTab();
+    },
     { immediate: true, deep: true }
 );
 watch(
@@ -1050,16 +1057,7 @@ const coverInputRef = ref<HTMLInputElement | null>(null);
 const articleEditorRef = ref<{ insertMarkdownAtCursor?: (markdown: string) => boolean; } | null>(null);
 const submitConfirmDialog = ref(false);
 const leaveConfirmDialog = ref(false);
-const {
-    activeInspector,
-    open: openInspector,
-    switchTo: switchInspector,
-    close: closeInspector,
-    registerTrigger: registerInspectorTrigger,
-    registerScrollContainer: registerInspectorScrollContainer,
-    updateScroll: updateInspectorScroll,
-    restoreFocus: restoreInspectorFocus
-} = useArticleWriteInspector({
+const inspectorOwner = useArticleWriteInspector({
     initialInspector: route.query.preview === 'private' ? 'preview' : null,
     loadView: {
         resources: () => refreshAssetLibrary()
@@ -1073,6 +1071,25 @@ const {
                 showErrorToast(error, '历史版本刷新失败');
             })
     }
+});
+const {
+    activeInspector,
+    open: openInspector,
+    switchTo: switchInspector,
+    close: closeInspector,
+    registerTrigger: registerInspectorTrigger,
+    registerScrollContainer: registerInspectorScrollContainer,
+    updateScroll: updateInspectorScroll,
+    restoreFocus: restoreInspectorFocus
+} = inspectorOwner;
+const { commands: inspectorCommands } = useArticleWriteInspectorCommands({
+    inspector: inspectorOwner,
+    admin: useAdminStore(),
+    documentContext: authoringDocumentContext,
+    loading: pageLoading,
+    saving: submitting,
+    modalActive: computed(() => quickCreateCategoryDialog.value || quickCreateTagDialog.value ||
+        submitConfirmDialog.value || leaveConfirmDialog.value)
 });
 
 const triggerCoverInput = (): void =>

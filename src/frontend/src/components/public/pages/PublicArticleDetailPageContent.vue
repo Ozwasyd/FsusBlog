@@ -105,6 +105,7 @@
                 :fallback-author="authorName"
                 :initial-authors="responsibilityAuthors"
                 :initial-manifest="responsibilityManifest"
+                :draft-responsibility="draftResponsibility"
             />
             <slot name="header-actions" />
         </header>
@@ -281,6 +282,7 @@ import type { MarkdownSafeRenderResult } from '@/fsusui/markdown';
 import { usePublicSiteTitle } from '@/public-renderers/publicSiteIdentityContext';
 import { themeTokens } from '@/ui-tokens/themeTokens';
 import type { ArticleDetailPageViewContract } from '@/view-contracts/articleDetail';
+import { admitArticleDraftResponsibilitySnapshot, type ArticleDraftResponsibilityDisclosure } from '@/view-contracts/articleDraftResponsibility';
 import type { ArticleResponsibilityPublicView } from '@/view-contracts/articleResponsibility';
 import { resolvePublicCoverPresentation } from '@/view-contracts/coverArt';
 
@@ -290,6 +292,7 @@ const props = withDefaults(defineProps<{
     authorName: string;
     responsibilityAuthors?: readonly Readonly<{ name: string; profileUrl: string | null; }>[];
     responsibilityManifest?: ArticleResponsibilityPublicView | null;
+    draftResponsibility?: ArticleDraftResponsibilityDisclosure | null;
     articleSummary: string;
     canonicalUrl?: string | null;
     baseUrl?: string | null;
@@ -309,9 +312,12 @@ const { messages, t } = useI18nText();
 
 const siteTitle = usePublicSiteTitle();
 const effectiveResponsibilityAuthors = computed(() => (
-    props.responsibilityAuthors?.length
-        ? props.responsibilityAuthors
-        : [{ name: props.authorName.trim() || 'Fsu', profileUrl: null }]
+    props.draftResponsibility !== undefined
+        ? props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility)
+            ? props.draftResponsibility.snapshot.authors : []
+        : props.responsibilityAuthors?.length
+            ? props.responsibilityAuthors
+            : [{ name: props.authorName.trim() || 'Fsu', profileUrl: null }]
 ));
 
 const safeArticleId = computed(() =>
