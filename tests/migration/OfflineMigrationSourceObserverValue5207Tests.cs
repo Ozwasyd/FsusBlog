@@ -329,8 +329,13 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
         await WithSqliteFixtureAsync(async (path, cancellation) =>
         {
             await WriteSqliteAsync(path, "INSERT INTO sys_systemconfig(\"key\",value) VALUES('ordinary',@body)", "a\0" + new string('x', 511), cancellation);
-            InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(() => ReadSqliteAsync(path, cancellation));
-            Assert.Equal("source_fingerprint_unknown:business_shape", error.Message);
+            OfflineMigrationSourceFingerprintException error = await Assert.ThrowsAsync<OfflineMigrationSourceFingerprintException>(() => ReadSqliteAsync(path, cancellation));
+            const string baseline = OfflineMigrationSourceFingerprints.LegacyId;
+            int count = OfflineMigrationSourceFingerprints.Business(true, 0, 0, 0, 0).Length;
+            OfflineMigrationSourceObserverValueAssertions.Unknown(error, baseline,
+                OfflineMigrationSourceObserverValueAssertions.Difference(baseline,
+                    OfflineMigrationFingerprintCategory.Business, OfflineMigrationFingerprintDifferenceKind.Changed,
+                    "legacy.config.nonpage.value.over512", "0", "1", count, count));
         });
     }
 
@@ -393,7 +398,6 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
                 // The native string binder terminates at NUL. Bind the complete
                 // UTF-8 bytes and cast in SQL so the original TEXT negative input
                 // actually reaches storage before testing the streaming reader.
-                Assert.Contains("sys_systemconfig", sql, StringComparison.Ordinal);
                 embeddedNulBytes = new UTF8Encoding(false, true).GetBytes(body);
                 command.CommandText = sql.Replace("@body", "CAST(@body AS TEXT)", StringComparison.Ordinal);
                 command.Parameters.AddWithValue("@body", embeddedNulBytes);
@@ -407,7 +411,15 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
         if (embeddedNulBytes is not null)
         {
             await using SqliteCommand stored = connection.CreateCommand();
-            stored.CommandText = "SELECT typeof(value),CAST(value AS BLOB) FROM sys_systemconfig WHERE \"key\"='ordinary'";
+            if (sql.Contains("sys_systemconfig", StringComparison.Ordinal))
+            {
+                stored.CommandText = "SELECT typeof(value),CAST(value AS BLOB) FROM sys_systemconfig WHERE \"key\"='ordinary'";
+            }
+            else
+            {
+                Assert.Contains("article", sql, StringComparison.Ordinal);
+                stored.CommandText = "SELECT typeof(content),CAST(content AS BLOB) FROM article WHERE id=1";
+            }
             await using SqliteDataReader reader = await stored.ExecuteReaderAsync(cancellationToken);
             Assert.True(await reader.ReadAsync(cancellationToken));
             Assert.Equal("text", reader.GetString(0));
