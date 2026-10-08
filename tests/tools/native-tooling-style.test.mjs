@@ -12,6 +12,95 @@ const checker = path.join(root, 'tools/style/check-native-tooling-style.mjs');
 const sourcePolicy = JSON.parse(fs.readFileSync(path.join(root, 'config/development/native-tooling-style-policy.json'), 'utf8'));
 const fixtureSource = path.join(root, 'tests/fixtures/native-tooling-style');
 
+// AST input admission is a separate semantic query, not a production compile or trusted lint pass.
+const ownedCliOriginal = fs.readFileSync(path.join(root, 'tools/test/native/execution-envelope-landlock.c'), 'utf8');
+const signature = 'int main(int argc, char** argv)';
+const anchor = `${signature}\n{`;
+const inject = text => ownedCliOriginal.replace(anchor, `${anchor}\n    ${text}`);
+const ownedCliVariants = [
+    ['ownedCliOriginal', ownedCliOriginal, true],
+    ['different-bytes-same-semantics', '/* Semantic admission does not waive by source hash. */\n' + ownedCliOriginal.replace(/\bargc\b/gu, 'argumentCount').replace(/\bargv\b/gu, 'argumentVector'), true],
+    ['envp', ownedCliOriginal.replace(signature, 'int main(int argc, char** argv, char** envp)'), false],
+    ['environ', inject('extern char** environ; if (environ[0]) return 125;'), false],
+    ['getenv', inject('if (getenv("FSUSBLOG_COMMAND")) return 125;'), false],
+    ['secure-getenv', inject('if (secure_getenv("FSUSBLOG_COMMAND")) return 125;'), false],
+    ['stdin-fgets', inject('char input[1024]; if (fgets(input, sizeof(input), stdin)) return 125;'), false],
+    ['file-open-read', inject('char input[1024]; int fd = open("/owned-input", O_RDONLY); if (read(fd, input, sizeof(input))) return 125;'), false],
+    ['raw-stdin-read', inject('char input[1024]; if (read(0, input, sizeof(input))) return 125;'), false],
+    ['ipc-pipe-read', inject('int fds[2]; char input[1024]; if (pipe(fds) || read(fds[0], input, sizeof(input))) return 125;'), false],
+    ['inet-recv', inject('char input[1024]; int fd = socket(AF_INET, SOCK_STREAM, 0); if (recv(fd, input, sizeof(input), 0)) return 125;').replace('#include <unistd.h>', '#include <unistd.h>\n#include <sys/socket.h>'), false],
+    ['unix-recv', inject('char input[1024]; int fd = socket(AF_UNIX, SOCK_STREAM, 0); if (recv(fd, input, sizeof(input), 0)) return 125;').replace('#include <unistd.h>', '#include <unistd.h>\n#include <sys/socket.h>'), false],
+    ['opaque-input', inject('extern char* ReceiveExternalCommand(void); if (ReceiveExternalCommand()) return 125;'), false],
+    ['indirect-input', inject('extern char* ReceiveExternalCommand(void); char* (*callback)(void) = ReceiveExternalCommand; if (callback()) return 125;'), false],
+    ['wrong-syscall', ownedCliOriginal.replace('__NR_landlock_create_ruleset, attr', '__NR_read, attr'), false],
+    ['syscall-macro-redefinition', ownedCliOriginal.replace('static int CreateRuleset', '#undef __NR_landlock_create_ruleset\n#define __NR_landlock_create_ruleset __NR_read\nstatic int CreateRuleset'), false],
+    ['open-macro-redefinition', ownedCliOriginal.replace('static void AllowPath', '#undef O_PATH\n#define O_PATH O_RDONLY\nstatic void AllowPath'), false],
+    ['stream-to-argv-write', ownedCliOriginal.replace('    execv(', '    fputs(argv[separator + 1] = stderr->_IO_read_ptr, stderr);\n    execv('), false],
+    ['argv-alias', inject('char** argumentAlias = argv; (void)argumentAlias;'), false],
+    ['private-parameter-argv-write', ownedCliOriginal.replace('    int pathFd = open', '    ((char*)path)[0] = 47;\n    int pathFd = open').replace('    execv(', '    AllowPath(rulesetFd, argv[separator + 1], readAccess);\n    execv('), false],
+    ['private-parameter-argv-alias', ownedCliOriginal.replace('    int pathFd = open', '    char* writablePath = (char*)path;\n    writablePath[0] = 47;\n    int pathFd = open').replace('    execv(', '    AllowPath(rulesetFd, argv[separator + 1], readAccess);\n    execv('), false],
+    ['global-stderr-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', 'extern FILE* stderr __asm__("stdin");\nstatic int CreateRuleset'), false],
+    ['prctl-get-name-argv-write', ownedCliOriginal.replace('prctl(PR_SET_NO_NEW_PRIVS, 1, 0, 0, 0)', 'prctl(PR_GET_NAME, argv[separator + 1], 0, 0, 0)'), false],
+    ['prctl-get-seccomp-ambient-input', inject('if (prctl(PR_GET_SECCOMP, 0, 0, 0, 0)) return 125;'), false],
+    ['numeric-pointer-ambient-input', inject('char* ambient = (char*)0x12345678; if (strcmp(ambient, "blocked")) return 125;'), false],
+    ['union-pointer-ambient-input', inject('union { unsigned long address; char* pointer; } ambient = { .address = 0x12345678 }; if (strcmp(ambient.pointer, "blocked")) return 125;'), false],
+    ['uninitialized-pointer-ambient-input', inject('char* ambient; if (strcmp(ambient, "blocked")) return 125;'), false],
+    ['uninitialized-array-ambient-input', inject('char ambient[1024]; if (strcmp(ambient, "blocked")) return 125;'), false],
+    ['argv-literal-write', ownedCliOriginal.replace('    execv(', '    argv[separator + 1] = "/foreign-command";\n    execv('), false],
+    ['argv-advance-write', ownedCliOriginal.replace('    execv(', '    argv += 1;\n    execv('), false],
+    ['function-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', 'extern long syscall(long number, ...) __asm__("read");\nstatic int CreateRuleset'), false],
+    ['header-function-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-input.h"\nstatic int CreateRuleset'), false],
+    ['header-variable-assembly-alias', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-stream.h"\nstatic int CreateRuleset'), false],
+    ['header-variable-definition', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-stream-definition.h"\nstatic int CreateRuleset'), false],
+    ['header-function-definition-redeclaration-chain', ownedCliOriginal.replace('static int CreateRuleset', '#include "foreign-function-chain.h"\nstatic int CreateRuleset'), false],
+    ['late-header-function-definition', `${ownedCliOriginal}\n#include "foreign-function-chain.h"\n`, false],
+    ['late-header-variable-definition', `${ownedCliOriginal}\n#include "foreign-stream-definition.h"\n`, false],
+    ['data-reading-open', ownedCliOriginal.replace('O_PATH | O_CLOEXEC', 'O_RDONLY | O_CLOEXEC'), false],
+    ['stderr-data', inject('if (stderr->_IO_read_ptr) return 125;'), false],
+    ['foreign-command-sink', ownedCliOriginal.replace('execv(argv[separator + 1]', 'execv("/foreign-command"'), false],
+    ['new-private-function', ownedCliOriginal.replace(signature, 'static char* NewExternalInput(void) { return getenv("INPUT"); }\n' + signature), false]
+];
+
+for (const [name, source, expectedAdmission] of ownedCliVariants)
+{
+    test(`closed command-wrapper AST input admission: ${name}`, () =>
+    {
+        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-owned-cli-ast-'));
+        try
+        {
+            const sourceFile = path.join(directory, 'command-wrapper.c');
+            fs.writeFileSync(sourceFile, source);
+            fs.writeFileSync(path.join(directory, 'foreign-input.h'), 'extern int strcmp(const char*, const char*) __asm__("getenv");\n');
+            fs.writeFileSync(path.join(directory, 'foreign-stream.h'), 'extern FILE* stderr __asm__("stdin");\n');
+            fs.writeFileSync(path.join(directory, 'foreign-stream-definition.h'), 'FILE* stderr = 0;\n');
+            fs.writeFileSync(path.join(directory, 'foreign-function-chain.h'), 'int strcmp(const char* left, const char* right) { (void)right; return getenv(left) ? 1 : 0; }\nextern int strcmp(const char*, const char*);\n');
+            const queried = spawnSync('clang', ['-std=c11', '-O2', '-fsyntax-only', '-Xclang', '-ast-dump=json', sourceFile], {
+                encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30_000
+            });
+            assert.equal(queried.status, 0, `syntax-valid fixture required: ${Output(queried)}`);
+            const evaluated = spawnSync(process.execPath, [path.join(root, 'tools/style/command-wrapper-input-ast.mjs'), '--source', sourceFile], {
+                input: queried.stdout, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024, timeout: 30_000
+            });
+            if (expectedAdmission)
+            {
+                assert.equal(evaluated.status, 0, Output(evaluated));
+                const admitted = JSON.parse(evaluated.stdout);
+                assert.deepEqual(admitted.ownedInputClasses, ['main.argc', 'main.argv']);
+                assert.equal(admitted.qualificationEligible, false);
+            }
+            else
+            {
+                assert.equal(evaluated.status, 1, Output(evaluated));
+                assert.match(evaluated.stderr, /AST diagnostic refused:/u);
+            }
+        }
+        finally
+        {
+            fs.rmSync(directory, { recursive: true, force: true });
+        }
+    });
+}
+
 function WriteFile(fixtureRoot, relativePath, content)
 {
     const target = path.join(fixtureRoot, relativePath);
@@ -1175,5 +1264,432 @@ test('original Markdown adapter package boundary accepts equivalent bins and ref
                 assert.doesNotMatch(result.stdout, /mock adapter entered/u);
             }
         });
+    }
+});
+
+// These integration cases deliberately use actual required tools. The ordinary
+// fallback fixtures above retain their original purpose and remain unchanged.
+const commandInputRegistryPath = 'config/development/command-wrapper-input-registry.json';
+const commandInputSource = 'tools/test/native/execution-envelope-landlock.c';
+
+function CreateCommandInputFixture()
+{
+    const temporaryRoot = path.join(root, '.tmp');
+    fs.mkdirSync(temporaryRoot, { recursive: true });
+    const fixtureRoot = fs.mkdtempSync(path.join(temporaryRoot, 'native-command-input-integration-'));
+    const registry = JSON.parse(fs.readFileSync(path.join(root, commandInputRegistryPath), 'utf8'));
+    const model = registry.models[0];
+    const files = [...new Set([
+        ...model.callerOwnerBinding.files.map(entry => entry.path),
+        commandInputRegistryPath,
+        '.clang-format', '.clang-tidy',
+        'config/development/command-wrapper-taint-sources.yml',
+        'config/development/native-tooling-style-policy.json',
+        'config/development/native-tooling-style-exceptions.json',
+        'config/development/authoritative-development-docs.json'
+    ])];
+    for (const file of files)
+    {
+        const source = path.join(root, file);
+        const target = path.join(fixtureRoot, file);
+        fs.mkdirSync(path.dirname(target), { recursive: true });
+        fs.copyFileSync(source, target);
+        fs.chmodSync(target, fs.statSync(source).mode & 0o111 ? 0o755 : 0o644);
+    }
+    fs.mkdirSync(path.join(fixtureRoot, '.tmp/owned'), { recursive: true });
+    const entry = {
+        directory: fixtureRoot,
+        file: path.join(fixtureRoot, commandInputSource),
+        arguments: [model.compileBinding.compiler.path,
+            '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-o',
+            path.join(fixtureRoot, '.tmp/owned/helper'),
+            path.join(fixtureRoot, commandInputSource)]
+    };
+    const databaseDirectory = path.join(fixtureRoot, '.tmp/cmake/native-basic');
+    const databaseFile = path.join(databaseDirectory, 'compile_commands.json');
+    WriteFile(fixtureRoot, path.relative(fixtureRoot, databaseFile), `${JSON.stringify([entry], null, 4)}\n`);
+    return { fixtureRoot, registry, model, entry, databaseDirectory, databaseFile };
+}
+
+function WithCommandInputFixture(callback)
+{
+    const fixture = CreateCommandInputFixture();
+    try
+    {
+        callback(fixture);
+    }
+    finally
+    {
+        // This exact directory was created solely for this individual test.
+        fs.rmSync(fixture.fixtureRoot, { recursive: true, force: true });
+    }
+}
+
+function CommandInputEnvironment(fixture, additions = {})
+{
+    // Isolation applies only to our positive diagnostic child. Separate cases
+    // explicitly add contamination and require admission to reject it.
+    return {
+        PATH: '/usr/bin:/bin', LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
+        TMPDIR: path.join(fixture.fixtureRoot, '.tmp'),
+        ...additions
+    };
+}
+
+function RunCommandInputChecker(fixture, file = commandInputSource, additions = {})
+{
+    return spawnSync(process.execPath, [checker,
+        '--root', fixture.fixtureRoot,
+        '--policy', 'config/development/native-tooling-style-policy.json',
+        '--mode', 'changed', '--operation', 'lint', '--require-tools', '--file', file
+    ], {
+        cwd: fixture.fixtureRoot,
+        env: CommandInputEnvironment(fixture, additions),
+        encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024
+    });
+}
+
+function RunCommandInputApi(fixture, mode, authority = root)
+{
+    const moduleUrl = JSON.stringify(new URL(
+        `file://${path.join(authority, 'tools/style/command-wrapper-input-model.mjs')}`
+    ).href);
+    const program = `
+import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { prepareCommandWrapperInputModel } from ${moduleUrl};
+const root = process.argv[1];
+const mode = process.argv[2];
+const directory = path.join(root, '.tmp/cmake/native-basic');
+const databaseFile = path.join(directory, 'compile_commands.json');
+const entries = JSON.parse(fs.readFileSync(databaseFile, 'utf8'));
+const cppLintPolicy = JSON.parse(fs.readFileSync(path.join(root,
+    'config/development/native-tooling-style-policy.json'), 'utf8')).standardTools.cppLint;
+if (mode === 'cached-selection-drift') {
+    const replacement = structuredClone(entries);
+    replacement[0].arguments.splice(6, 0, '-DFOREIGN_INPUT=1');
+    fs.writeFileSync(databaseFile, JSON.stringify(replacement, null, 4) + '\\n');
+}
+let admitted;
+try {
+    admitted = prepareCommandWrapperInputModel({root,
+        file: 'tools/test/native/execution-envelope-landlock.c',
+        databases: [{directory, entries}], cppLintPolicy, environment: process.env});
+    assert.ok(admitted);
+    assert.equal(admitted.evidence.qualificationEligible, false);
+    if (mode === 'canonical-post-drift') fs.appendFileSync(databaseFile, '\\n');
+    if (mode === 'private-post-drift') {
+        const privateFile = path.join(admitted.compileDirectory, 'compile_commands.json');
+        fs.chmodSync(privateFile, 0o600);
+        fs.appendFileSync(privateFile, '\\n');
+        fs.chmodSync(privateFile, 0o400);
+    }
+    if (mode === 'private-post-mode-drift') {
+        fs.chmodSync(path.join(admitted.compileDirectory, 'compile_commands.json'), 0o600);
+    }
+    admitted.revalidate();
+    console.log(JSON.stringify({admitted: true, qualificationEligible: false}));
+} catch (error) {
+    console.error(error.message);
+    process.exitCode = 1;
+} finally { admitted?.cleanup(); }
+`;
+    return spawnSync(process.execPath, ['--input-type=module', '--eval', program,
+        fixture.fixtureRoot, mode], {
+        cwd: fixture.fixtureRoot, env: CommandInputEnvironment(fixture),
+        encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024
+    });
+}
+
+test('command wrapper input model integration: actual registered canonical required-tools admission', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const result = RunCommandInputChecker(fixture);
+        assert.equal(result.status, 0, Output(result));
+        assert.equal(result.signal, null, Output(result));
+        assert.match(result.stdout, /violations=0/u);
+    });
+});
+
+test('command wrapper input model integration: unregistered argv command retains GenericTaint', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const foreign = 'tools/test/native/unregistered-command-wrapper.c';
+        WriteFile(fixture.fixtureRoot, foreign, ownedCliOriginal);
+        const entry = structuredClone(fixture.entry);
+        entry.file = path.join(fixture.fixtureRoot, foreign);
+        entry.arguments[entry.arguments.length - 1] = entry.file;
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+        const result = RunCommandInputChecker(fixture, foreign);
+        assert.equal(result.status, 1, Output(result));
+        assert.match(Output(result), /clang-analyzer-optin\.taint\.GenericTaint/u);
+    });
+});
+
+for (const [name, mutate, expected, additions] of [
+    ['ambient-CPATH', () =>
+    {
+        // Deliberately preserve the contamination until the actual admission.
+    }, /compile environment contamination: CPATH/u, { CPATH: '/foreign-input' }],
+    ['ambient-PATH-drift', () =>
+    {
+        // Required tools remain discoverable, but this is not the bound PATH.
+    }, /effective environment drift: PATH/u, { PATH: '/bin:/usr/bin' }],
+    ['missing-database', fixture => fs.unlinkSync(fixture.databaseFile), /missing-compile-command/u],
+    ['duplicate-entry', fixture => fs.writeFileSync(fixture.databaseFile,
+        `${JSON.stringify([fixture.entry, fixture.entry], null, 4)}\n`), /exactly one canonical compile entry/u],
+    ['foreign-working-directory', fixture =>
+    {
+        const entry = structuredClone(fixture.entry);
+        entry.directory = path.join(fixture.fixtureRoot, 'foreign');
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+    }, /compile working directory mismatch/u],
+    ['extra-compile-flag', fixture =>
+    {
+        const entry = structuredClone(fixture.entry);
+        entry.arguments.splice(6, 0, '-DFOREIGN_INPUT=1');
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+    }, /compile entry flags|compile output must/u],
+    ['caller-owner-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        'tools/test/execution-envelope-environment.mjs'), '\n'), /source or policy digest drift/u],
+    ['current-private-dotnet-owner-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        'tools/test/physical-execution-private-dotnet-scratch.mjs'), '\n'), /source or policy digest drift/u],
+    ['translation-unit-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        commandInputSource), '\n'), /source or policy digest drift/u],
+    ['candidate-analyzer-config-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        '.clang-tidy'), '\n'), /candidate analyzer model source drift/u],
+    ['candidate-taint-model-drift', fixture => fs.appendFileSync(path.join(fixture.fixtureRoot,
+        'config/development/command-wrapper-taint-sources.yml'), '\n'), /candidate analyzer model source drift/u],
+    ['forged-candidate-registry-cannot-authorize-owner-drift', fixture =>
+    {
+        const owner = 'tools/test/execution-envelope-environment.mjs';
+        const ownerFile = path.join(fixture.fixtureRoot, owner);
+        fs.appendFileSync(ownerFile, '\n');
+        const proposed = structuredClone(fixture.registry);
+        proposed.models[0].callerOwnerBinding.files.find(entry => entry.path === owner).sha256 =
+            crypto.createHash('sha256').update(fs.readFileSync(ownerFile)).digest('hex');
+        fs.writeFileSync(path.join(fixture.fixtureRoot, commandInputRegistryPath),
+            `${JSON.stringify(proposed, null, 4)}\n`);
+    }, /source or policy digest drift/u]
+])
+{
+    test(`command wrapper input model integration: refuse ${name}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            mutate(fixture);
+            const result = RunCommandInputChecker(fixture, commandInputSource, additions);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(Output(result), expected);
+        });
+    });
+}
+
+for (const [mode, expected] of [
+    ['cached-selection-drift', /canonical compile database must not contain duplicate JSON keys|compile database changed after selection/u],
+    ['canonical-post-drift', /canonical compile database changed during analyzer execution/u],
+    ['private-post-drift', /private admitted compile database changed during analyzer execution/u],
+    ['private-post-mode-drift', /private compile database mode or type drift/u]
+])
+{
+    test(`command wrapper input model integration: refuse ${mode}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            const result = RunCommandInputApi(fixture, mode);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(result.stderr, expected);
+        });
+    });
+}
+
+test('command wrapper input model integration: additive environment source retains real GenericTaint', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const source = path.join(fixture.fixtureRoot, '.tmp/owned/environment-input.c');
+        fs.writeFileSync(source, `#include <stdlib.h>
+#include <unistd.h>
+int main(void)
+{
+    char* target = getenv("FSUSBLOG_UNTRUSTED_COMMAND");
+    if (target != NULL)
+    {
+        char* arguments[] = { target, NULL };
+        execv(target, arguments);
+    }
+    return 0;
+}
+`);
+        const entry = structuredClone(fixture.entry);
+        entry.file = source;
+        entry.arguments[entry.arguments.length - 1] = source;
+        fs.writeFileSync(fixture.databaseFile, `${JSON.stringify([entry], null, 4)}\n`);
+        const result = spawnSync(fixture.model.analyzer.path, [
+            '--quiet', '-p', fixture.databaseDirectory, source,
+            `--config-file=${path.join(root, fixture.model.analyzer.configuration.path)}`,
+            '--extra-arg=-Xclang', '--extra-arg=-analyzer-config', '--extra-arg=-Xclang',
+            '--extra-arg=assume-controlled-environment=true',
+            '--extra-arg=-Xclang', '--extra-arg=-analyzer-config', '--extra-arg=-Xclang',
+            `--extra-arg=optin.taint.TaintPropagation:Config=${path.join(root, fixture.model.analyzer.taintSources.path)}`
+        ], {
+            cwd: fixture.fixtureRoot, env: CommandInputEnvironment(fixture),
+            encoding: 'utf8', timeout: 60_000, maxBuffer: 16 * 1024 * 1024
+        });
+        assert.equal(result.error, undefined, Output(result));
+        assert.equal(result.signal, null, Output(result));
+        assert.equal(result.status, 0, Output(result));
+        assert.match(Output(result), /warning: Untrusted data is passed to a system call/u);
+        assert.match(Output(result), /clang-analyzer-optin\.taint\.GenericTaint/u);
+        // Clang-tidy warning exit codes alone do not represent checker success.
+        // This configuration self-test proves a real external source still
+        // reaches the unchanged command sink; it is not input qualification.
+    });
+});
+
+for (const [name, mutate, expected] of [
+    ['authority-component-drift', (authority) => fs.appendFileSync(path.join(authority,
+        'tools/style/check-native-tooling-style.mjs'), '\n'), /input authority component drift/u],
+    ['authority-owned-input-widening', (authority, registry) =>
+    {
+        registry.models[0].ownedInputClasses.push('main.envp');
+        fs.writeFileSync(path.join(authority, commandInputRegistryPath), `${JSON.stringify(registry, null, 4)}\n`);
+    }, /widened controlled input classes/u]
+])
+{
+    test(`command wrapper input model integration: refuse isolated ${name}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            const authority = path.join(fixture.fixtureRoot, '.tmp/isolated-authority');
+            const files = [...fixture.model.components.map(entry => entry.path), commandInputRegistryPath];
+            for (const file of files)
+            {
+                WriteFile(authority, file, fs.readFileSync(path.join(root, file)));
+            }
+            mutate(authority, structuredClone(fixture.registry));
+            const result = RunCommandInputApi(fixture, 'authority-refusal', authority);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(result.stderr, expected);
+        });
+    });
+}
+
+for (const [name, mutate] of [
+    ['excluded-registered-helper', policy => policy.excludedPaths.push(commandInputSource)],
+    ['native-c-extension-removed', policy =>
+    {
+        policy.domains.native.extensions = policy.domains.native.extensions.filter(extension => extension !== '.c');
+    }],
+    ['excluded-helper-and-native-c-with-fake-analyzer', policy =>
+    {
+        policy.excludedPaths.push(commandInputSource);
+        policy.domains.native.extensions = policy.domains.native.extensions.filter(extension => extension !== '.c');
+        policy.standardTools.cppLint.command = 'true';
+    }],
+    ['selected-helper-with-fake-analyzer', policy =>
+    {
+        policy.standardTools.cppLint.command = 'true';
+    }]
+])
+{
+    test(`command wrapper input selection integration: refuse ${name}`, () =>
+    {
+        WithCommandInputFixture(fixture =>
+        {
+            const policyFile = path.join(fixture.fixtureRoot,
+                'config/development/native-tooling-style-policy.json');
+            const policy = JSON.parse(fs.readFileSync(policyFile, 'utf8'));
+            mutate(policy);
+            fs.writeFileSync(policyFile, `${JSON.stringify(policy, null, 4)}\n`);
+            const result = RunCommandInputChecker(fixture);
+            assert.equal(result.status, 1, Output(result));
+            assert.equal(result.signal, null, Output(result));
+            assert.match(Output(result), /command-input-admission/u);
+            assert.match(Output(result), /selection policy|canonical registered TU was excluded/u);
+        });
+    });
+}
+
+test('command wrapper input selection integration: full-mode exact hash baseline cannot skip required input admission', () =>
+{
+    WithCommandInputFixture(fixture =>
+    {
+        const helperBytes = fs.readFileSync(path.join(fixture.fixtureRoot, commandInputSource));
+        WriteFile(fixture.fixtureRoot, sourcePolicy.baseline, `${JSON.stringify({
+            schema: 'fsusblog.native-tooling-style-baseline.v1',
+            sourceCommit: 'private-fixture',
+            semantics: 'private exact-content baseline must not exempt mandatory registered input admission',
+            files: [{
+                path: commandInputSource,
+                sha256: crypto.createHash('sha256').update(helperBytes).digest('hex')
+            }]
+        }, null, 4)}\n`);
+        fs.appendFileSync(path.join(fixture.fixtureRoot,
+            'tools/test/execution-envelope-environment.mjs'), '\n');
+        const result = spawnSync(process.execPath, [checker,
+            '--root', fixture.fixtureRoot,
+            '--policy', 'config/development/native-tooling-style-policy.json',
+            '--mode', 'full', '--operation', 'lint', '--require-tools',
+            '--file', commandInputSource
+        ], {
+            cwd: fixture.fixtureRoot, env: CommandInputEnvironment(fixture),
+            encoding: 'utf8', timeout: 180_000, maxBuffer: 16 * 1024 * 1024
+        });
+        assert.equal(result.status, 1, Output(result));
+        assert.equal(result.signal, null, Output(result));
+        assert.match(Output(result), /command-input-admission/u);
+        assert.match(Output(result), /source or policy digest drift/u);
+        assert.match(Output(result), /selected=1 checked=1 baseline=0/u);
+    });
+});
+
+test('current command-input authority refuses candidate PR replacement without changing historical policy', async () =>
+{
+    const { validatePrContract } = await import(new URL('../../tools/governance/change-contract.mjs', import.meta.url));
+    const { commandWrapperAuthorityPolicyFiles, effectiveTrustedPolicyFiles, trustedPolicyFiles }
+        = await import(new URL('../../tools/governance/change-contract-registry.mjs', import.meta.url));
+    const fixtureRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-command-input-policy-'));
+    const candidate = path.join(fixtureRoot, 'candidate');
+    const trusted = path.join(fixtureRoot, 'trusted');
+    try
+    {
+        fs.mkdirSync(candidate, { recursive: true });
+        const git = (...args) =>
+        {
+            const result = spawnSync('git', args, { cwd: candidate, encoding: 'utf8' });
+            assert.equal(result.status, 0, Output(result));
+        };
+        git('init', '--quiet');
+        git('config', 'user.name', 'FsusBlog Candidate Fixture');
+        git('config', 'user.email', 'fixture@fsus.invalid');
+        WriteFile(trusted, 'config/development/native-tooling-style-exceptions.json', '{"exceptions":[]}\n');
+        for (const file of commandWrapperAuthorityPolicyFiles)
+        {
+            assert.equal(trustedPolicyFiles.includes(file), false, 'current input owners cannot change historical seals');
+            assert.equal(effectiveTrustedPolicyFiles.includes(file), true, 'every current input owner stays protected');
+            WriteFile(candidate, file, 'candidate replacement\n');
+            WriteFile(trusted, file, 'trusted original\n');
+        }
+        git('add', '.');
+        git('commit', '-qm', 'fixture current command input authority replacement');
+        for (const file of commandWrapperAuthorityPolicyFiles)
+        {
+            const errors = validatePrContract({
+                title: 'feat(governance): bind owned command inputs', body: '',
+                changedFiles: [file], root: candidate, authorityRoot: trusted
+            });
+            assert.ok(errors.includes(`pull request cannot replace trusted change-contract policy source: ${file}`), file);
+        }
+    }
+    finally
+    {
+        fs.rmSync(fixtureRoot, { recursive: true, force: true });
     }
 });
