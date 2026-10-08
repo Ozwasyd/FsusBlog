@@ -165,6 +165,15 @@ establish production or runtime qualification.
 Run `node --test tests/tools/runtime-performance-preparation.test.mjs` for exact
 input binding, drift/refusal, cancellation, original budget and publication controls.
 
+Fixture producer children use `tools/test-fixtures/producers/spawn-helper.mjs`.
+Abort or timeout preserves the original error, sends SIGTERM and escalates to
+SIGKILL after the existing 750ms grace, then settles only after the owned child
+closes. Repeated cancellation cannot replace that error or create another timer;
+terminal cleanup removes the abort listener and both timers. Run
+`node --test tests/tools/fixture-spawn-helper.test.mjs` for actual task-private
+child controls. This ordinary child completion contract does not qualify server
+mutation, descendants, a fixture wave, shared holders or production preparation.
+
 Run `node --test tests/tools/runtime-quiescence-barrier.test.mjs tests/tools/runtime-quiescence-receipt.test.mjs tests/tools/runtime-quiescence-journal.test.mjs` for focused protocol controls.
 
 Run `node tools/test-matrix/quiescence-contract.mjs` and

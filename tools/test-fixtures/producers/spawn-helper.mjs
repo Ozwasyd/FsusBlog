@@ -10,7 +10,8 @@ const temporalChildObserver = path.join(
 );
 
 /**
- * Run a child process bound to AbortSignal. On abort, SIGTERM then SIGKILL.
+ * Run a child process bound to AbortSignal. On abort, SIGTERM then SIGKILL,
+ * retaining the original failure until the owned child actually closes.
  * Strategy/capability are not read from env — only resource handles may be forwarded.
  */
 export function runProcess(command, args, {
@@ -35,22 +36,23 @@ export function runProcess(command, args, {
         let stdout = '';
         let stderr = '';
         let settled = false;
+        let terminationError = null;
+        let escalationTimer = null;
         const timer = timeoutMs > 0
-            ? setTimeout(() =>
-{
-        killTree(child, 'SIGTERM');
-        setTimeout(() => killTree(child, 'SIGKILL'), 750).unref?.();
-        finish(new Error(`producer process timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`));
-      }, timeoutMs)
+            ? setTimeout(() => requestTermination(
+                new Error(`producer process timed out after ${timeoutMs}ms: ${command} ${args.join(' ')}`)
+            ), timeoutMs)
             : null;
 
         const onAbort = () =>
         {
-            killTree(child, 'SIGTERM');
-            setTimeout(() => killTree(child, 'SIGKILL'), 750).unref?.();
-            finish(signal.reason instanceof Error ? signal.reason : new Error('aborted'));
+            requestTermination(signal.reason instanceof Error ? signal.reason : new Error('aborted'));
         };
         signal?.addEventListener?.('abort', onAbort, { once: true });
+        if (signal?.aborted)
+        {
+            onAbort();
+        }
 
         child.stdout?.on('data', (chunk) =>
         {
@@ -60,10 +62,24 @@ export function runProcess(command, args, {
         {
             stderr += String(chunk);
         });
-        child.on('error', (error) => finish(error));
+        child.on('error', (error) =>
+        {
+            if (!child.pid)
+            {
+                finish(error);
+            }
+            else
+            {
+                requestTermination(error);
+            }
+        });
         child.on('close', (code, deathSignal) =>
         {
-            if (code === 0)
+            if (terminationError)
+            {
+                finish(terminationError);
+            }
+            else if (code === 0)
             {
                 finish(null, { code, stdout, stderr });
             }
@@ -75,6 +91,33 @@ export function runProcess(command, args, {
             }
         });
 
+        function requestTermination(error)
+        {
+            if (settled || terminationError)
+            {
+                return;
+            }
+            terminationError = error;
+            if (timer)
+            {
+                clearTimeout(timer);
+            }
+            if (child.exitCode !== null || child.signalCode !== null)
+            {
+                return;
+            }
+            killTree(child, 'SIGTERM');
+            escalationTimer = setTimeout(() =>
+            {
+                escalationTimer = null;
+                if (!settled && child.exitCode === null && child.signalCode === null)
+                {
+                    killTree(child, 'SIGKILL');
+                }
+            }, 750);
+            escalationTimer.unref?.();
+        }
+
         function finish(error, result)
         {
             if (settled)
@@ -85,6 +128,10 @@ export function runProcess(command, args, {
             if (timer)
             {
                 clearTimeout(timer);
+            }
+            if (escalationTimer)
+            {
+                clearTimeout(escalationTimer);
             }
             signal?.removeEventListener?.('abort', onAbort);
             if (error)

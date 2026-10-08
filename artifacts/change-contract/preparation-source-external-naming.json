@@ -8,6 +8,7 @@
                 "src/backend/Infrastructure/Operations/OutboxQuiescenceSourceReader.cs",
                 "src/backend/Infrastructure/Operations/PublicProjectionQuiescenceSourceReader.cs",
                 "src/backend/Infrastructure/Operations/QuiescenceSourceCapture.cs",
+                "tools/test-fixtures/producers/spawn-helper.mjs",
                 "tools/test-matrix/quiescence-contract.mjs",
                 "tools/test-matrix/runtime-quiescence-barrier.mjs",
                 "tools/test-matrix/runtime-quiescence-journal.mjs",
