@@ -1,0 +1,5 @@
+The existing canonical viewport checker is reverified on fetched master5798707d359ce5ee57752aa868d0ccbf3f889494, exit0 with3surfaces/4mutation negatives; merged3477fix is not duplicated. This branch only adds current issue bodies/updates and exact source/evidence handoffs under existing.tmp/ux.
+
+Base:evidence/2228-local-alias-current-20261008 (d1b2c66). Related2228/2229/1789; keep open. No product/matrix/helper/assertion/golden changes. UI support stays in its distinct repository/branch; final product69705ac1, exact tested candidated182cf93, evidence957863ff. Actual42shell/67units/4no-cachetypes/30interactions pass; current full visual exits1,655pass52fail/707. All failed/blocked/not-run gates and mathematical incompatible ranges are preserved in the report.
+
+Current formal Blog live readiness/AOT/fixtures/Chromium/WebKit and genuine iOS17+ evidence remain absent here; source integration does not qualify them. Original provider/security/no-package-publish restrictions are preserved. No close/merge/auto-merge/deployment/publication; no new GitHub content writes under the active central embargo. Prepared body is for the parent's later authorized draft stage.

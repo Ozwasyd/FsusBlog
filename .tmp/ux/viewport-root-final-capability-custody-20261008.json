@@ -1,0 +1,68 @@
+{
+  "observedAt": "2026-10-08T13:49:48.978695+00:00",
+  "blogEvidenceBase": "d1b2c66cdf982d9a9f58db4a98ca2f83db3a71fd",
+  "fetchedBlogMaster": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "uiEvidenceHead": "957863ff82943840178c8e3d17e5c86093764de1",
+  "uiBranch": "fix/828-explicit-landscape-widths-20261008",
+  "uiProductSource": "69705ac1ca5d3c07fa955486646a1861ba5bb50a",
+  "uiActualTestedCandidate": "d182cf93cbb852006047bc2b7eea0ba28daa4955",
+  "uiManifestSHA256": "603bd03c3c69b6b5cf98e5a8369ff7ae0266f0bb3126c486faf822e63edad344",
+  "uiVerifiedFileEntries": 172,
+  "uiVerifiedRawZIPEntries": 5125,
+  "originalGeometryVerifiedEntries": 1244,
+  "actualShellTests": {
+    "exitCode": 0,
+    "pass": 42
+  },
+  "actualUnits": {
+    "exitCode": 0,
+    "pass": 67
+  },
+  "actualNoCacheTypeProjects": {
+    "exitCode": 0,
+    "projects": 4
+  },
+  "actualFullCommand": "pnpm run test:visual:full",
+  "actualFullExitCode": 1,
+  "actualPreview": {
+    "pass": 647,
+    "fail": 41,
+    "total": 688
+  },
+  "actualDev": {
+    "pass": 8,
+    "fail": 11,
+    "total": 19
+  },
+  "sameInvocationAggregate": {
+    "pass": 655,
+    "fail": 52,
+    "total": 707
+  },
+  "componentDiagnostic": {
+    "rows": 756,
+    "headerBudgetFailures": 72,
+    "chromeBudgetFailures": 176,
+    "pageErrors": 0,
+    "documentOverflow": 0
+  },
+  "nativeDiagnostic": {
+    "rows": 480,
+    "nativeNavReachChecks": 480,
+    "reachFailures": 0,
+    "unhittableVisibleCenters": 0
+  },
+  "actualInteractionRows": 30,
+  "interactionFailures": 0,
+  "qualificationEligible": false,
+  "issueStatesUnchanged": {
+    "2228": "open",
+    "2229": "open",
+    "3477": "closed",
+    "1789": "open",
+    "FsusUI828": "open"
+  },
+  "unmet": "Current formal Blog live/browser/AOT/fixture/provider evidence; real same-candidate iOS17+ operator/device; published package parity; independent new UX review; fullCI; literal minimum-target/34percent contradiction",
+  "canonicalInventoryStatus": "Original stale producer exit1 and226unchanged entries preserved; original producer owner must be supplied via parent, no root duplicate/regeneration",
+  "sourceUse": "Exact owned PublicShell source can unlock sibling implementation without upstream issue closure; this record grants no qualification or security bypass"
+}
