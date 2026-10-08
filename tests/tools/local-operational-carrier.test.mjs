@@ -167,6 +167,10 @@ test('original caller builds one original owner argv with current explicit guest
     assert.equal(call.env.HOME, '/guest');
     assert.equal(call.env.DBUS_SESSION_BUS_ADDRESS, 'unix:path=/run/user/1234/bus');
     assert.deepEqual(call.args.slice(1), ['--run-id', 'owned-run', '--out', '/task/source/.tmp/behavior-doc-nuget-preparation/owned-run.json', '--feed-root', '/task/feed', '--feed-digest', 'e'.repeat(64)]);
+    const matrix = buildOriginalCall({ ...plan, tool: { ...plan.tool, purpose: 'matrix-native' } });
+    assert.deepEqual(matrix.args.slice(-2), ['--purpose', 'matrix-native']);
+    assert.equal(matrix.env.FSUSBLOG_CONTENT_FIELD_DOTNET, '/task/sdk/dotnet');
+    assert.throws(() => buildOriginalCall({ ...plan, tool: { ...plan.tool, purpose: 'foreign' } }), /Unknown/u);
 });
 
 test('carrier default inspect holds current closure without any execution or disk effects; helper drift refuses', async () => {

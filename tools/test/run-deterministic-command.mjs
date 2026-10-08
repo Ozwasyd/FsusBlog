@@ -6,7 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
-import { readPreparedBehaviorDocNuget } from './behavior-doc-nuget-preparation.mjs';
+import { readPreparedBehaviorDocNuget, readPreparedMatrixNativeNuget } from './behavior-doc-nuget-preparation.mjs';
 import {
     finalizeRunOwnedDirectories,
     finalizeRunOwnedDirectoriesAfterPhysical,
@@ -1081,7 +1081,8 @@ async function resolveCorrectnessInputs({ options, producerId, runId, sourceComm
             throw new Error(`${producerId}: required execution service envelope is missing or drifted`);
         }
     }
-    if (options.preparedNuget && producerId !== 'behavior-doc-static-admission')
+    const matrixNative = ['matrix-governance', 'validate-matrix'].includes(producerId);
+    if (options.preparedNuget && producerId !== 'behavior-doc-static-admission' && !matrixNative)
     {
         throw new Error('Prepared NuGet ingress is not declared for this producer');
     }
@@ -1089,7 +1090,9 @@ async function resolveCorrectnessInputs({ options, producerId, runId, sourceComm
         ? await readPreparedBehaviorDocNuget({
             repositoryRoot: repoRoot, runId, file: options.preparedNuget
         })
-        : null;
+        : matrixNative ? await readPreparedMatrixNativeNuget({
+            repositoryRoot: repoRoot, runId, file: options.preparedNuget
+        }) : null;
     return { temporalContext, temporalRoleEnvironment, policy, catalog, producerEnvelope, browserEnvelope, serviceEnvelope, preparedNuget };
 }
 

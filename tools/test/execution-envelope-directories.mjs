@@ -212,7 +212,9 @@ export function prepareRunOwnedDirectories({
         const writableRoots = writableOutputRoots(fs.realpathSync(cwd), outputs);
         if (preparedNuget)
         {
-            if (producerId !== 'behavior-doc-static-admission')
+            if (producerId !== 'behavior-doc-static-admission'
+                && (!['matrix-governance', 'validate-matrix'].includes(producerId)
+                    || preparedNuget.closure?.purpose !== 'matrix-native'))
             {
                 throw new Error('Prepared NuGet ingress is limited to the declared BehaviorDoc producer');
             }
