@@ -6,8 +6,9 @@ import test from 'node:test';
 
 const { createCorrectnessInputManifest, validateCorrectnessInputManifest,
     validateCorrectnessInputReadTrace } = await import(new URL('../../tools/test-matrix/correctness-input-manifest.mjs', import.meta.url));
-const { tierInputFingerprint } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
+const { runDag, tierInputFingerprint } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
 const { digestValue } = await import(new URL('../../tools/release/browser-contract-receipt-contract.mjs', import.meta.url));
+const { controlledSchedulerCandidate } = await import(new URL('./support/canonical-scheduler-fixture.mjs', import.meta.url));
 
 function fixture(t)
 {
@@ -139,4 +140,29 @@ test('resealed narrowed manifests cannot remove automatic dependencies or smuggl
     delete changed.closureDigest;
     changed.closureDigest = digestValue(changed);
     assert.throws(() => validateCorrectnessInputManifest(changed, { root: current.root }), /digest-roster-mismatch/u);
+});
+
+test('static manifest alone cannot authorize scheduler reuse without a connected real read-trace owner', async (t) =>
+{
+    const current = fixture(t);
+    const sourceState = { commit: 'a'.repeat(40), worktreeFingerprint: 'controlled-input-source' };
+    let executions = 0;
+    const options = { root: current.root, runsRoot: path.join(current.root, 'runs'), runId: 'manifest-source-run',
+        targetTierId: current.tier.id, sourceState, snapshotWorktree: async () => ({ fingerprint: sourceState.worktreeFingerprint, entries: new Map() }),
+        dynamicPriority: false, systemResources: { cpuCount: 2, availableMemoryGiB: 8, load1: 0 }, currentFreeMemoryGiB: () => 8,
+        candidateIdentity: controlledSchedulerCandidate(sourceState), verifyCandidateIdentity: async (document) => document,
+        correctnessInputManifests: { [current.tier.id]: createCorrectnessInputManifest(current.options) },
+        tiers: [{ ...current.tier, executionDependsOn: [], services: [], parallelizable: true, exclusiveResources: [],
+            resourceClass: 'cpu', cpuUnits: 1, memoryGiB: 1 }],
+        executeTier: async () =>
+        {
+            executions += 1;
+            return { code: 0, signal: null };
+        } };
+    const first = await runDag(options);
+    const resumed = await runDag({ ...options, mode: 'resume', resume: true,
+        resumeCandidateIdentityDigest: first.checkpoint.schedulerCandidateIdentityDigest });
+    assert.deepEqual(resumed.reusedTiers, []);
+    assert.equal(executions, 2);
+    assert.equal(resumed.checkpoint.authoritative, false);
 });

@@ -6208,6 +6208,8 @@ async function runDagUnlocked(options)
       || !sameCheckpointSource(candidate?.sourceState, sourceState)
       || !options.verifiedCandidateIdentity
       || !isDeepStrictEqual(previous.releaseCandidateIdentity, options.verifiedCandidateIdentity)
+      // A static manifest cannot prove runtime reads; keep reuse disabled until its real trace owner is connected.
+      || options.correctnessInputManifests?.[tier.id] !== undefined
       || (tier.reuseClass !== undefined && tier.reuseClass !== 'correctness')
       || tier.id === 'production-correctness'
       || !Object.is(previousTier?.status, 'success')
