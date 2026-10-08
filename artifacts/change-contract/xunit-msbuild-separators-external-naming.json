@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-inventory/discovery.mjs"
+            ],
+            "reason": "preserve canonical MSBuild property and SDK package spellings while binding observed intermediate paths and selected repository-contained compilation support inputs"
+        }
+    ]
+}
