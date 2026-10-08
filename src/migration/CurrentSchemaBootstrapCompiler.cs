@@ -171,6 +171,10 @@ internal static partial class CurrentSchemaBootstrapCompiler
                 {
                     throw new InvalidOperationException("current_schema_bootstrap_index_method_unavailable");
                 }
+                if (index.Keys.Any(static key => key.Expression is not null))
+                {
+                    throw new InvalidOperationException("current_schema_bootstrap_entity_index_expression_capability_unavailable");
+                }
                 RequireColumns(table, index.Keys.Select(static key => key.Column).ToArray());
                 RequireColumns(table, index.IncludedColumns, allowEmpty: true);
                 string[] keys = index.Keys.Select(key =>

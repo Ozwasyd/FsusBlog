@@ -98,6 +98,10 @@ public static class PgCurrentSchemaNativeObserver
             var indexes = new Dictionary<string, SchemaIndexModel>(StringComparer.Ordinal);
             foreach ((string indexName, SchemaIndexModel index) in table.IndexDefinitions)
             {
+                foreach (SchemaIndexKeyModel key in index.Keys.Where(static key => key.Expression is not null))
+                {
+                    _ = SchemaIndexExpressionSemantics.RequireColumns(key, table.Columns);
+                }
                 string? predicate = index.Predicate;
                 if (expected && predicate is not null)
                     predicate = ExpressionIdentity(PgCurrentSchemaExpressionParser.Parse(predicate, table.Columns));
