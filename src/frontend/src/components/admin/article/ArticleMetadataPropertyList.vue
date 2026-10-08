@@ -87,7 +87,7 @@
 
 <script setup lang="ts">
 import { ElButton, ElInput } from '@ozwasyd/element-plus';
-import { computed, nextTick, ref, watch } from 'vue';
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue';
 
 // Presentation only: the owner supplies a permission-filtered, ordered page of
 // stable IDs and renders authoritative typed controls in the property slot.
@@ -155,6 +155,8 @@ const statusText = computed(() =>
 });
 
 const statusElement = ref<HTMLElement | null>(null);
+let focusGeneration = 0;
+let disposed = false;
 let requestedPage: {
     contextKey: string;
     pageKey: string;
@@ -168,6 +170,7 @@ const requestPage = (direction: 'previous' | 'next'): void =>
     {
         return;
     }
+    focusGeneration++;
     requestedPage = {
         contextKey: props.contextKey,
         pageKey: props.pageKey,
@@ -176,6 +179,24 @@ const requestPage = (direction: 'previous' | 'next'): void =>
     };
     emit('page', direction);
 };
+
+watch(() => [props.contextKey, props.query, props.showAll], () =>
+{
+    focusGeneration++;
+    requestedPage = null;
+}, { flush: 'sync' });
+
+watch(() => [props.pageKey, blocked.value, pageOverflow.value], () =>
+{
+    focusGeneration++;
+}, { flush: 'sync' });
+
+onBeforeUnmount(() =>
+{
+    disposed = true;
+    focusGeneration++;
+    requestedPage = null;
+});
 
 watch(() => [props.contextKey, props.showAll, props.query, props.pageKey, blocked.value], async () =>
 {
@@ -193,11 +214,14 @@ watch(() => [props.contextKey, props.showAll, props.query, props.pageKey, blocke
     {
         return;
     }
-    const contextKey = props.contextKey;
+    const request = requestedPage;
     const pageKey = props.pageKey;
+    const generation = focusGeneration;
     requestedPage = null;
     await nextTick();
-    if (props.contextKey === contextKey && props.pageKey === pageKey && !blocked.value)
+    if (!disposed && generation === focusGeneration && props.contextKey === request.contextKey
+        && props.query === request.query && props.showAll === request.showAll
+        && props.pageKey === pageKey && !blocked.value && !pageOverflow.value)
     {
         statusElement.value?.focus();
     }
