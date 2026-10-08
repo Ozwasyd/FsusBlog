@@ -1,0 +1,40 @@
+{
+  "createdAtUtc": "2026-10-08T14:44:12.414859+00:00",
+  "currentMasterSha": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "format": {
+    "sourceCommit": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+    "publishedHead": "9d8e2add7d0386411fe5cad5e8ebdadb198b2828",
+    "branch": "codex/moderation-two-file-format-20261008",
+    "fixedDiagnosticCounts": [
+      9,
+      3
+    ],
+    "formatter": "official SDK10.0.302 dotnet-format",
+    "officialVerifyExitCode": 0,
+    "roslynFilePairCount": 2,
+    "roslynEquivalencePassed": true,
+    "secondPassSameHashes": true,
+    "directFormatOnlyDiffErrors": [],
+    "requiredBlameRegistration": "pending explicit external writer reservation; file unmodified",
+    "boundedRangeExitCode": 1,
+    "boundedRangeError": "missing blame-ignore entry: a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+    "exactProposedBlameLine": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+    "functionalChangesMixed": false,
+    "trackingAssertionsChanged": false
+  },
+  "generatedSync": {
+    "supplierCommit": "40bee2cb5cf9b90e873443b888efa323ab7e6785",
+    "sourceCandidate": "8a95130ab5e391729d5606275d483edc678e9b5d",
+    "currentSyncAlreadyPublished": false,
+    "currentBuildExitCode": 1,
+    "error": "NU1004 ContentLifecycleObservation lock inconsistent with FsusBlog.Server dependency graph",
+    "sourceDocsModified": false,
+    "currentReceiptFabricated": false,
+    "oldReceiptReused": false,
+    "requiredNextInput": "canonical owner exact lock commit and its acceptance"
+  },
+  "backendTestsExecuted": 0,
+  "excludedControlsExecuted": [],
+  "githubContentWrites": false,
+  "wholeAssignmentComplete": false
+}

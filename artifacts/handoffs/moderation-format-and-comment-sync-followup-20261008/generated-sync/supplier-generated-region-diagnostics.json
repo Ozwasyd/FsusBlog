@@ -1,0 +1,480 @@
+{
+  "sourceIdentity": {
+    "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+    "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+  },
+  "sourceBranch": "codex/chain-3612-census-current",
+  "runId": "chain-3612-census-current-20261008",
+  "rendererCanonicalInput": "4c3debe800a97455e92e4ff77db8a2b98056e550",
+  "rendererConsumerCommit": "93ebb33b41938e663f55586c33c99302b17b233d",
+  "factReceipts": [
+    {
+      "extractorId": "test-asset-audit-fact-extractor",
+      "contentDigest": "d5d6542b45d52d5f8639a3a7ec9d2b50405fc56950d32041424a026f28eacfed",
+      "semanticDigest": "a1ff25ff1d59b5327c12fc04d6a42dd9670823e710b5703ed4bce01a9e098514",
+      "fileSha256": "afe0bfe2ec57ac9419b1859197679cc2b9cf2ff3616c652247806d8a72b7cb2e",
+      "portablePath": "receipts/test-asset-audit-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    {
+      "extractorId": "code-intent-fact-extractor",
+      "contentDigest": "7077168b109af96c17c40fbea32635488d6c41946b2c056d43ad903ed3dcbc8f",
+      "semanticDigest": "a294b87c83f6886d53f32995b4e944a97f1c5aa0b47719cdd644d42cc94c6398",
+      "fileSha256": "8f6708d8c63f75d719c914a8bb54b0f563d3a1ac9db50878876b9f2d9803243f",
+      "portablePath": "receipts/code-intent-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    {
+      "extractorId": "document-lifecycle-fact-extractor",
+      "contentDigest": "72fa030824b91d46a13d2433f46692ece1d65fe6b43adc292e6c53fdb9dba1d5",
+      "semanticDigest": "07f33753f644e0f70317431c40a33579d39195623f77223e40beb81b0e600124",
+      "fileSha256": "74d59f1d76cb4d694afe09d4b0f2573ca1697d11ae32ffd1fbe29ba9cd2f7559",
+      "portablePath": "receipts/document-lifecycle-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    {
+      "extractorId": "test-matrix-fact-extractor",
+      "contentDigest": "02d45ff8880edc11aad23d4fa8f11489b8b311ec7eeba35c74131bac04198137",
+      "semanticDigest": "d1c07b600504d1fd497ba71303f4f102b0b05fd8f506947523a638950ccb6665",
+      "fileSha256": "900c7ff8765cd2eb70df5444c370ed977995b4ce84fb93caa17bb03d75f6f701",
+      "portablePath": "receipts/test-matrix-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    {
+      "extractorId": "openapi-aeds-fact-extractor",
+      "contentDigest": "cd31f327d661434cc2c1cf0b9a55c3693140cf158a81b1bf3256263706503fe3",
+      "semanticDigest": "428914164393d8704befeb01324f381345d5affa4cf84650147ea19e75a5f38d",
+      "fileSha256": "b09dc18b737ed2d3d1121e6a30147c3e4248c159f6198587e283b49adb263391",
+      "portablePath": "receipts/openapi-aeds-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    {
+      "extractorId": "auth-session-permission-fact-extractor",
+      "contentDigest": "93ed85c2eadd9d485719b90c85018036c7dcf872b26a173650a782d231b3a3cc",
+      "semanticDigest": "5004022cfbb6994c52ab87406466e8208cc83ec5dd74ce61227ab6a964683d28",
+      "fileSha256": "044deaa5be59804c2cb9f4715cde879b4a73a326ba3cf2bf1555a25ab84d07e4",
+      "portablePath": "receipts/auth-session-permission-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    {
+      "extractorId": "config-error-security-policy-fact-extractor",
+      "contentDigest": "aed4e1480a2889ccfa1dae121e0b226519f45d05938a1097f85a397320d1682e",
+      "semanticDigest": "857bdfc1135346afe48be24b4f6ec50294d13f4b35dedb6c68e376020e6efb48",
+      "fileSha256": "fd5d79567d4a62c22b80b8f6d57aaa4a59c50f2cd13ddf31e09828218311cc69",
+      "portablePath": "receipts/config-error-security-policy-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    {
+      "extractorId": "content-lifecycle-fact-extractor",
+      "contentDigest": "cf2f83bbfa80c24fef9c723bcc43c1bf2d64b9d2bac2bcadd1d8aadc8a0a5ba7",
+      "semanticDigest": "cda9174657c9965654cdf47273abcc51c707d92906a07430109d5e498e3f9773",
+      "fileSha256": "b0e3c1c8b5553acf6c5b1c4bc2d5133e52072de6f4353f8ccf11a762d0f10dc6",
+      "portablePath": "receipts/content-lifecycle-fact-extractor.json",
+      "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    }
+  ],
+  "regionCount": 3,
+  "regions": [
+    {
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "sectionId": "content.comment.child-limit",
+      "extractorId": "content-lifecycle-fact-extractor",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "factPath": "facts.comment.thread.child-limit",
+      "beforeBodySha256": "4d1a366b8b282fe0fe9258f35389bba42df351a2a18c8a199082a911d1760f73",
+      "renderedBodySha256": "0a06df6b53042324cd9d9582ce031e22ee11956144b78a19b30f5a23de9adeac",
+      "fullDocumentPath": "/workspace/FsusBlog-chain-3533-3536/docs/architecture/comment-command-boundary.md",
+      "documentSha256": "090e9509584701df4260683661b37724a5b2dbb9ccda70a9f99b6b50218a0c5c",
+      "sourceIdentity": {
+        "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+        "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+      },
+      "runId": "chain-3612-census-current-20261008",
+      "receiptFile": "receipts/content-lifecycle-fact-extractor.json",
+      "receiptContentDigest": "cf2f83bbfa80c24fef9c723bcc43c1bf2d64b9d2bac2bcadd1d8aadc8a0a5ba7",
+      "receiptSemanticDigest": "cda9174657c9965654cdf47273abcc51c707d92906a07430109d5e498e3f9773",
+      "receiptFileSha256": "b0e3c1c8b5553acf6c5b1c4bc2d5133e52072de6f4353f8ccf11a762d0f10dc6",
+      "renderer": "key-value-table",
+      "canonicalSectionDefinition": {
+        "sectionId": "content.comment.child-limit",
+        "documentPath": "docs/architecture/comment-command-boundary.md",
+        "renderer": "key-value-table",
+        "extractorId": "content-lifecycle-fact-extractor",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "factPath": "facts.comment.thread.child-limit",
+        "orderPolicy": "ordinal",
+        "emptyPolicy": "fail"
+      },
+      "factValue": {
+        "boundary": "exclusive-upper-on-count",
+        "compare": "childCount < maxChildren",
+        "configurationKey": "CommentThreads:MaxChildrenPerNode",
+        "default": {
+          "unit": "children",
+          "value": 500
+        },
+        "enforcement": "reject-new-write",
+        "maximum": {
+          "boundary": "inclusive",
+          "unit": "children",
+          "value": 10000
+        },
+        "minimum": {
+          "boundary": "inclusive",
+          "unit": "children",
+          "value": 1
+        }
+      },
+      "factValueDigest": "e9f441ae0124cc5462d36e48f745d34f0adf2efe4b1b95fd59411e608b04a541",
+      "actualRenderedDocumentBody": "| Key | Value |\n| --- | --- |\n| boundary | exclusive-upper-on-count |\n| compare | childCount < maxChildren |\n| configurationKey | CommentThreads:MaxChildrenPerNode |\n| default | 500 children |\n| enforcement | reject-new-write |\n| maximum | 10000 children |\n| minimum | 1 children |\n",
+      "expectedCanonicalRendererBody": "| Key | Value |\n| --- | --- |\n| boundary | exclusive-upper-on-count |\n| compare | childCount &lt; maxChildren |\n| configurationKey | CommentThreads:MaxChildrenPerNode |\n| default | 500 children |\n| enforcement | reject-new-write |\n| maximum | 10000 children |\n| minimum | 1 children |",
+      "actualBodySha256": "4d1a366b8b282fe0fe9258f35389bba42df351a2a18c8a199082a911d1760f73",
+      "expectedBodySha256": "0a06df6b53042324cd9d9582ce031e22ee11956144b78a19b30f5a23de9adeac",
+      "expectedVsActualRows": [
+        {
+          "bodyLine": 4,
+          "actual": "| compare | childCount < maxChildren |",
+          "expected": "| compare | childCount &lt; maxChildren |"
+        }
+      ],
+      "producerCommand": [
+        "node",
+        "tools/docs/generate-fact-sections.mjs",
+        "--generate",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/content-lifecycle-fact-extractor.json"
+      ],
+      "portableProducerCommand": [
+        "node",
+        "tools/docs/generate-fact-sections.mjs",
+        "--generate",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/content-lifecycle-fact-extractor.json"
+      ],
+      "executedOriginalCheck": {
+        "command": [
+          "node",
+          "tools/docs/generate-fact-sections.mjs",
+          "--check",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-asset-audit-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/code-intent-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/document-lifecycle-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-matrix-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/openapi-aeds-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/auth-session-permission-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/config-error-security-policy-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/content-lifecycle-fact-extractor.json"
+        ],
+        "exitCode": 1,
+        "rawDiagnostic": "[generated-fact-sections] GENERATED_SECTION_CHECK_DRIFT: docs/architecture/comment-command-boundary.md generated sections drift from current observation receipts; docs/architecture/comment-query-boundary.md generated sections drift from current observation receipts; docs/releases/blue-green-deployment-runbook.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/architecture/comment-command-boundary.md: docs/architecture/comment-command-boundary.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/architecture/comment-query-boundary.md: docs/architecture/comment-query-boundary.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/releases/blue-green-deployment-runbook.md: docs/releases/blue-green-deployment-runbook.md generated sections drift from current observation receipts\n"
+      }
+    },
+    {
+      "documentPath": "docs/architecture/comment-query-boundary.md",
+      "sectionId": "content.comment.max-depth",
+      "extractorId": "content-lifecycle-fact-extractor",
+      "behaviorId": "article-comment-lifecycle-outbox",
+      "factPath": "facts.comment.thread.max-depth",
+      "beforeBodySha256": "1d496a8e9998f492a90a5c993f837eb3b315361a6fc79c45b9e137ebf670b64d",
+      "renderedBodySha256": "241249ced5cc33a9ba10b34faa24280c37373aeb7c9ba7b11145a8b4abe51144",
+      "fullDocumentPath": "/workspace/FsusBlog-chain-3533-3536/docs/architecture/comment-query-boundary.md",
+      "documentSha256": "05d91094f45ce5487381e15d2014d31ea3e9f67b2135095a28fad2e0defcee9f",
+      "sourceIdentity": {
+        "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+        "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+      },
+      "runId": "chain-3612-census-current-20261008",
+      "receiptFile": "receipts/content-lifecycle-fact-extractor.json",
+      "receiptContentDigest": "cf2f83bbfa80c24fef9c723bcc43c1bf2d64b9d2bac2bcadd1d8aadc8a0a5ba7",
+      "receiptSemanticDigest": "cda9174657c9965654cdf47273abcc51c707d92906a07430109d5e498e3f9773",
+      "receiptFileSha256": "b0e3c1c8b5553acf6c5b1c4bc2d5133e52072de6f4353f8ccf11a762d0f10dc6",
+      "renderer": "key-value-table",
+      "canonicalSectionDefinition": {
+        "sectionId": "content.comment.max-depth",
+        "documentPath": "docs/architecture/comment-query-boundary.md",
+        "renderer": "key-value-table",
+        "extractorId": "content-lifecycle-fact-extractor",
+        "behaviorId": "article-comment-lifecycle-outbox",
+        "factPath": "facts.comment.thread.max-depth",
+        "orderPolicy": "ordinal",
+        "emptyPolicy": "fail"
+      },
+      "factValue": {
+        "compare": "parent.depth + 1 <= maxDepth",
+        "configurationKey": "CommentThreads:MaxDepth",
+        "default": {
+          "unit": "levels",
+          "value": 32
+        },
+        "enforcement": "reject-new-write",
+        "maximum": {
+          "boundary": "inclusive",
+          "unit": "levels",
+          "value": 256
+        },
+        "minimum": {
+          "boundary": "inclusive",
+          "unit": "levels",
+          "value": 2
+        }
+      },
+      "factValueDigest": "9f10cf072fb30f364524efa3a2d340a8ad199b0a966cabfb93efe21799b552bf",
+      "actualRenderedDocumentBody": "| Key | Value |\n| --- | --- |\n| compare | parent.depth + 1 <= maxDepth |\n| configurationKey | CommentThreads:MaxDepth |\n| default | 32 levels |\n| enforcement | reject-new-write |\n| maximum | 256 levels |\n| minimum | 2 levels |\n",
+      "expectedCanonicalRendererBody": "| Key | Value |\n| --- | --- |\n| compare | parent.depth + 1 &lt;= maxDepth |\n| configurationKey | CommentThreads:MaxDepth |\n| default | 32 levels |\n| enforcement | reject-new-write |\n| maximum | 256 levels |\n| minimum | 2 levels |",
+      "actualBodySha256": "1d496a8e9998f492a90a5c993f837eb3b315361a6fc79c45b9e137ebf670b64d",
+      "expectedBodySha256": "241249ced5cc33a9ba10b34faa24280c37373aeb7c9ba7b11145a8b4abe51144",
+      "expectedVsActualRows": [
+        {
+          "bodyLine": 3,
+          "actual": "| compare | parent.depth + 1 <= maxDepth |",
+          "expected": "| compare | parent.depth + 1 &lt;= maxDepth |"
+        }
+      ],
+      "producerCommand": [
+        "node",
+        "tools/docs/generate-fact-sections.mjs",
+        "--generate",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/content-lifecycle-fact-extractor.json"
+      ],
+      "portableProducerCommand": [
+        "node",
+        "tools/docs/generate-fact-sections.mjs",
+        "--generate",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/content-lifecycle-fact-extractor.json"
+      ],
+      "executedOriginalCheck": {
+        "command": [
+          "node",
+          "tools/docs/generate-fact-sections.mjs",
+          "--check",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-asset-audit-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/code-intent-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/document-lifecycle-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-matrix-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/openapi-aeds-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/auth-session-permission-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/config-error-security-policy-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/content-lifecycle-fact-extractor.json"
+        ],
+        "exitCode": 1,
+        "rawDiagnostic": "[generated-fact-sections] GENERATED_SECTION_CHECK_DRIFT: docs/architecture/comment-command-boundary.md generated sections drift from current observation receipts; docs/architecture/comment-query-boundary.md generated sections drift from current observation receipts; docs/releases/blue-green-deployment-runbook.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/architecture/comment-command-boundary.md: docs/architecture/comment-command-boundary.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/architecture/comment-query-boundary.md: docs/architecture/comment-query-boundary.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/releases/blue-green-deployment-runbook.md: docs/releases/blue-green-deployment-runbook.md generated sections drift from current observation receipts\n"
+      }
+    },
+    {
+      "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+      "sectionId": "release.production-bundle-order",
+      "extractorId": "test-matrix-fact-extractor",
+      "behaviorId": "browserless-production-correctness",
+      "factPath": "facts.production-fresh.bundle-ordering",
+      "beforeBodySha256": "dc42e224aa3d4095a1c3c78003794a2c5ea03a464fe537ca33e55f746f0119c0",
+      "renderedBodySha256": "169440886e44c5739e34459f6eedf14a964732806678c7b10d354f399c9c135e",
+      "fullDocumentPath": "/workspace/FsusBlog-chain-3533-3536/docs/releases/blue-green-deployment-runbook.md",
+      "documentSha256": "0f069ad95865b29b6d082c4309facded9f519916c3f680cfb51063d98423084d",
+      "sourceIdentity": {
+        "sourceCommit": "b64c6ad904f284e95104954ebc8612298cbf33a4",
+        "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+      },
+      "runId": "chain-3612-census-current-20261008",
+      "receiptFile": "receipts/test-matrix-fact-extractor.json",
+      "receiptContentDigest": "02d45ff8880edc11aad23d4fa8f11489b8b311ec7eeba35c74131bac04198137",
+      "receiptSemanticDigest": "d1c07b600504d1fd497ba71303f4f102b0b05fd8f506947523a638950ccb6665",
+      "receiptFileSha256": "900c7ff8765cd2eb70df5444c370ed977995b4ce84fb93caa17bb03d75f6f701",
+      "renderer": "key-value-table",
+      "canonicalSectionDefinition": {
+        "sectionId": "release.production-bundle-order",
+        "documentPath": "docs/releases/blue-green-deployment-runbook.md",
+        "renderer": "key-value-table",
+        "extractorId": "test-matrix-fact-extractor",
+        "behaviorId": "browserless-production-correctness",
+        "factPath": "facts.production-fresh.bundle-ordering",
+        "orderPolicy": "ordinal",
+        "emptyPolicy": "fail"
+      },
+      "factValue": {
+        "bundleIds": [
+          "backend-tests",
+          "build-static",
+          "frontend-tests",
+          "performance-evidence",
+          "runtime-browser"
+        ],
+        "edges": [
+          "backend-tests->performance-evidence",
+          "build-static->performance-evidence",
+          "frontend-tests->performance-evidence",
+          "runtime-browser->performance-evidence"
+        ],
+        "hasDependencyEdges": true,
+        "profileId": "production",
+        "topoOrderConstraints": [
+          "after:performance-evidence|requires:backend-tests",
+          "after:performance-evidence|requires:build-static",
+          "after:performance-evidence|requires:frontend-tests",
+          "after:performance-evidence|requires:runtime-browser"
+        ]
+      },
+      "factValueDigest": "c4743325c4fa978451757e17f4218f04949ebe62a72dec084a49e4e158f9e1e9",
+      "actualRenderedDocumentBody": "| Key | Value |\n| --- | --- |\n| bundleIds | [\"backend-tests\",\"build-static\",\"frontend-tests\",\"performance-evidence\",\"runtime-browser\"] |\n| edges | [\"backend-tests->performance-evidence\",\"build-static->performance-evidence\",\"frontend-tests->performance-evidence\",\"runtime-browser->performance-evidence\"] |\n| hasDependencyEdges | true |\n| profileId | production |\n| topoOrderConstraints | [\"after:performance-evidence\\|requires:backend-tests\",\"after:performance-evidence\\|requires:build-static\",\"after:performance-evidence\\|requires:frontend-tests\",\"after:performance-evidence\\|requires:runtime-browser\"] |\n",
+      "expectedCanonicalRendererBody": "| Key | Value |\n| --- | --- |\n| bundleIds | [\"backend-tests\",\"build-static\",\"frontend-tests\",\"performance-evidence\",\"runtime-browser\"] |\n| edges | [\"backend-tests-&gt;performance-evidence\",\"build-static-&gt;performance-evidence\",\"frontend-tests-&gt;performance-evidence\",\"runtime-browser-&gt;performance-evidence\"] |\n| hasDependencyEdges | true |\n| profileId | production |\n| topoOrderConstraints | [\"after:performance-evidence\\|requires:backend-tests\",\"after:performance-evidence\\|requires:build-static\",\"after:performance-evidence\\|requires:frontend-tests\",\"after:performance-evidence\\|requires:runtime-browser\"] |",
+      "actualBodySha256": "dc42e224aa3d4095a1c3c78003794a2c5ea03a464fe537ca33e55f746f0119c0",
+      "expectedBodySha256": "169440886e44c5739e34459f6eedf14a964732806678c7b10d354f399c9c135e",
+      "expectedVsActualRows": [
+        {
+          "bodyLine": 4,
+          "actual": "| edges | [\"backend-tests->performance-evidence\",\"build-static->performance-evidence\",\"frontend-tests->performance-evidence\",\"runtime-browser->performance-evidence\"] |",
+          "expected": "| edges | [\"backend-tests-&gt;performance-evidence\",\"build-static-&gt;performance-evidence\",\"frontend-tests-&gt;performance-evidence\",\"runtime-browser-&gt;performance-evidence\"] |"
+        }
+      ],
+      "producerCommand": [
+        "node",
+        "tools/docs/generate-fact-sections.mjs",
+        "--generate",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/census-refresh/current-fact-observations/content-lifecycle-fact-extractor.json"
+      ],
+      "portableProducerCommand": [
+        "node",
+        "tools/docs/generate-fact-sections.mjs",
+        "--generate",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/test-asset-audit-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/code-intent-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/document-lifecycle-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/test-matrix-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/openapi-aeds-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/auth-session-permission-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/config-error-security-policy-fact-extractor.json",
+        "--receipt",
+        ".tmp/chain-3533-3536/portable-handoff/receipts/content-lifecycle-fact-extractor.json"
+      ],
+      "executedOriginalCheck": {
+        "command": [
+          "node",
+          "tools/docs/generate-fact-sections.mjs",
+          "--check",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-asset-audit-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/code-intent-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/document-lifecycle-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/test-matrix-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/openapi-aeds-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/auth-session-permission-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/config-error-security-policy-fact-extractor.json",
+          "--receipt",
+          ".tmp/chain-3533-3536/census-refresh/current-fact-observations/content-lifecycle-fact-extractor.json"
+        ],
+        "exitCode": 1,
+        "rawDiagnostic": "[generated-fact-sections] GENERATED_SECTION_CHECK_DRIFT: docs/architecture/comment-command-boundary.md generated sections drift from current observation receipts; docs/architecture/comment-query-boundary.md generated sections drift from current observation receipts; docs/releases/blue-green-deployment-runbook.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/architecture/comment-command-boundary.md: docs/architecture/comment-command-boundary.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/architecture/comment-query-boundary.md: docs/architecture/comment-query-boundary.md generated sections drift from current observation receipts\n[generated-fact-sections] drift docs/releases/blue-green-deployment-runbook.md: docs/releases/blue-green-deployment-runbook.md generated sections drift from current observation receipts\n"
+      }
+    }
+  ],
+  "qualification": "Portable diagnostic extracted from saved current compiled receipts/plan. No SDK rerun, generation command execution, authored or other-owner edits. Receipts bind only clean b64; different owner source requires its own genuine current receipts. Expected text is not a checked-in authority or acceptance receipt."
+}

@@ -1,0 +1,93 @@
+{
+  "localWorktrees": [
+    {
+      "worktree": "/workspace/FsusBlog",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/tmp/fsusblog-2177-component-authority-1cd4e060",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/tmp/fsusblog-2177-naming-authority-1787fe439",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/tmp/fsusblog-2177-naming-authority-7f128208",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2046-reader-entry-source",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2099-source",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-canonical-compile-integration",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-canonical-lock-integration",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-formal-current-review",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-formal-policy-integration",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-formal-review-source",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-initial-outbox-source",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-outbox-formal-review",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-outbox-source-only",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-pure-source",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-review-evidence",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-review-source",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2177-shared-revision-source",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2178-comment-mutations",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-2178-current-formal-controls",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-comment-clock",
+      "blameIgnoreStatus": ""
+    },
+    {
+      "worktree": "/workspace/FsusBlog-moderation-format-only",
+      "blameIgnoreStatus": ""
+    }
+  ],
+  "externalWriterReservation": "not yet confirmed; local clean is not external reservation clearance"
+}

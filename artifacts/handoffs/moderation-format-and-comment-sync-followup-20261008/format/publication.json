@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+  "head": "9d8e2add7d0386411fe5cad5e8ebdadb198b2828",
+  "pushExitCode": 0,
+  "artifactHashesVerified": 20,
+  "blameRegistration": "pending shared writer reservation",
+  "atUtc": "2026-10-08T14:40:30.225312+00:00",
+  "remoteReadback": "9d8e2add7d0386411fe5cad5e8ebdadb198b2828\trefs/heads/codex/moderation-two-file-format-20261008\n",
+  "remoteReadbackExitCode": 0
+}

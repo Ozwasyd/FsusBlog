@@ -1,0 +1,44 @@
+{
+  "artifacts": [
+    {
+      "path": "format/publication.json",
+      "sha256": "ad9c5d37a3524e209eaec79f5cb84d57c210f7a3aa051dcadf576f4028919dd9"
+    },
+    {
+      "path": "format/bounded-range-contract.json",
+      "sha256": "b689cc17d7438ea50a72bc82be9a27f40fe7fa9c44883f7a3524dc08ce99a4f2"
+    },
+    {
+      "path": "format/bounded-range-contract.log",
+      "sha256": "7f65ba0bb3ce8b28135a834fd0e52c489e57d67448734d619a486a490ef911e3"
+    },
+    {
+      "path": "format/shared-metadata-local-status.json",
+      "sha256": "fdaeb6f8c3a51f27a75b9af76fe2af6b8695a03b2845d6a80994815ec438f40b"
+    },
+    {
+      "path": "generated-sync/current-content-host-build.json",
+      "sha256": "1b6a8933cef223fbf81f66cf9669041f9e78bba7389a601d6cb2ffa71cee8d5d"
+    },
+    {
+      "path": "generated-sync/current-content-host-build.log",
+      "sha256": "bda5a4421d77abe5046fc3f0d339348356b6290d46fdd08e2d285255e2434477"
+    },
+    {
+      "path": "generated-sync/verification-allowlist.json",
+      "sha256": "c962904af363479a50da315822c92420ccad527e9e2c55e1c17f8346c1803733"
+    },
+    {
+      "path": "generated-sync/supplier-generated-region-diagnostics.json",
+      "sha256": "cf54a5a88e992bb85c18c9f62d228426b33840675f46a5fdde169f5fc988e6e9"
+    },
+    {
+      "path": "generated-sync/current-sync-blocker.json",
+      "sha256": "e3ebb0fb899eaff4ccb842fd0ce4521ff5bfe4a64976f0c3d2b34ad6e45e560d"
+    },
+    {
+      "path": "handoff.json",
+      "sha256": "899d4eeac03d56445155095e84cd1744cf6754fdf649d2930f02e30d46acfee6"
+    }
+  ]
+}

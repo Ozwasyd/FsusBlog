@@ -1,0 +1,24 @@
+{
+  "baseSha": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "supplierExactCommit": "40bee2cb5cf9b90e873443b888efa323ab7e6785",
+  "scopeDocuments": [
+    "docs/architecture/comment-command-boundary.md",
+    "docs/architecture/comment-query-boundary.md"
+  ],
+  "scopeChangedRegions": [
+    "content.comment.child-limit",
+    "content.comment.max-depth"
+  ],
+  "producer": "existing compiled ContentLifecycleObservation host + existing uncached runExtractor(content-lifecycle-fact-extractor) + existing planDocumentSections/materializeDocument with complete canonical sections for the two owned documents",
+  "positiveVerificationAllowlist": [
+    "locked audit-enabled build of actual ContentLifecycleObservation host",
+    "actual host invocation and uncached current content fact extraction",
+    "official producer document planning baseline (exact two documents, four existing canonical sections)",
+    "official producer materialization only after exact changed-region check",
+    "fresh content observations after document source commit, original document check and second generation zero diff",
+    "bounded commit range contract"
+  ],
+  "expectedBackendTestsExecuted": 0,
+  "excludedControlsExecuted": [],
+  "globalAdmissionOrWholeCatalogAcceptance": false
+}
