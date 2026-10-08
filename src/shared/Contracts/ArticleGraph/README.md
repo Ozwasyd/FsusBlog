@@ -12,6 +12,9 @@ generation exactly. The port receives the hard budgets and cancellation token;
 the source must bound index operations and payload before materializing results.
 The facade additionally refuses oversized, stale and malformed projections and
 enforces a deadline even if an integration ignores cancellation.
+The response seal binds a separately computed admitted-request digest, including
+scope, filters and budgets. Invalid requests are never serialized into a refusal
+receipt and cannot amplify its payload.
 
 `null` depth defaults to one. Explicit zero, unknown and greater-than-two values
 are refused. Two requires the current session's explicit expansion action.

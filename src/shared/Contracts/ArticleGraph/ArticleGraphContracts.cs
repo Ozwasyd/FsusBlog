@@ -60,4 +60,4 @@ public sealed record ArticleGraphUsage(int Nodes, int Edges, int PayloadBytes, i
 public sealed record ArticleGraphProjection(ArticleGraphIdentity Identity, int RequestedDepth, int EffectiveDepth, ArticleGraphStatus Status, string? Reason, IReadOnlyList<ArticleGraphNode> Nodes, IReadOnlyList<ArticleGraphEdge> Edges, ArticleGraphUsage Usage, string SourceDigest);
 
 /// <summary>Graph terminal response binds request sequence and exact result identity; no positions exist here.</summary>
-public sealed record ArticleGraphResult(int SchemaVersion, string SessionId, long Sequence, ArticleGraphProjection Projection, string ContentDigest);
+public sealed record ArticleGraphResult(int SchemaVersion, string SessionId, long Sequence, string RequestDigest, ArticleGraphProjection Projection, string ContentDigest);

@@ -76,6 +76,18 @@ public sealed class ArticleGraphQueryTests : IDisposable
         Assert.Equal(2, result.Projection.RequestedDepth);
         Assert.Equal(1, result.Projection.EffectiveDepth);
         Assert.Equal(ArticleGraphContract.ComputeDigest(result), result.ContentDigest);
+        Assert.Equal(ArticleGraphContract.ComputeRequestDigest(request), result.RequestDigest);
+        Assert.NotEqual(result.RequestDigest, ArticleGraphContract.ComputeRequestDigest(request with
+        {
+            Scope = ArticleGraphScope.Published
+        }));
+        Assert.NotEqual(result.RequestDigest, ArticleGraphContract.ComputeRequestDigest(request with
+        {
+            Budget = request.Budget with
+            {
+                Nodes = 500
+            }
+        }));
         Assert.NotEqual(result.ContentDigest, ArticleGraphContract.ComputeDigest(result with
         {
             Sequence = 42
@@ -173,6 +185,21 @@ public sealed class ArticleGraphQueryTests : IDisposable
     }
 
     private static ArticleGraphRequest Request(int? depth) => new(1, new(new("actor", "site", new string('a', 64)), "root", "revision", "epoch", "index"), "session", 0, ArticleGraphScope.CurrentEditable, depth, false, new([], [], Enum.GetValues<ArticleGraphEdgeKind>()), ArticleGraphBudget.Default);
+
+    [Fact]
+    public async Task InvalidRequestCannotAmplifyRefusalPayload()
+    {
+        Source source = new();
+        ArticleGraphRequest request = Request(1) with
+        {
+            SessionId = new string('x', 100_000),
+            Filters = new(Enumerable.Repeat("category", 10_000).ToArray(), [], Enum.GetValues<ArticleGraphEdgeKind>())
+        };
+        ArticleGraphResult result = await new ArticleGraphQueryService(source).QueryAsync(request, _cancellation.Token);
+        Assert.Equal(0, source.Calls);
+        Assert.Equal("", result.RequestDigest);
+        Assert.True(System.Text.Json.JsonSerializer.SerializeToUtf8Bytes(result).Length < 2048);
+    }
 
     private static ArticleGraphProjection Projection(ArticleGraphRequest request) => new(request.Identity, request.RequestedDepth ?? 1, request.RequestedDepth ?? 1, ArticleGraphStatus.Complete, null, [new("root", "revision", "Root", ArticleRelationLifecycleState.Draft)], [], new(1, 0, 0, 1), new string('a', 64));
 
