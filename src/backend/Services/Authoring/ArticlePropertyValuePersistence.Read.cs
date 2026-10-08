@@ -164,7 +164,7 @@ public sealed partial class ArticlePropertyValuePersistence
                         && row.DateTicks.Value >= DateTime.MinValue.Ticks && row.DateTicks.Value <= DateTime.MaxValue.Ticks
                         => new ArticlePropertyDateValue(new DateTime(row.DateTicks.Value, DateTimeKind.Utc)),
                     ArticlePropertyValueType.SingleSelect when row.SingleOption.HasValue
-                        => new ArticlePropertySingleSelectValue(row.SingleOption.Value),
+                        => ReadStoredSingleSelectValue(row.SingleOption.Value),
                     ArticlePropertyValueType.MultiSelect => new ArticlePropertyMultiSelectValue(optionIds ?? []),
                     ArticlePropertyValueType.ArticleReference => new ArticlePropertyArticleReferenceValue(targetIds ?? []),
                     _ => throw Integrity("article_property_value_storage_shape_invalid")
@@ -187,6 +187,11 @@ public sealed partial class ArticlePropertyValuePersistence
         ValidateStorageEntries(values, types);
         return (values.AsReadOnly(), types);
     }
+
+    internal static ArticlePropertySingleSelectValue ReadStoredSingleSelectValue(Guid optionId)
+        => optionId != Guid.Empty
+            ? new ArticlePropertySingleSelectValue(optionId)
+            : throw Integrity("article_property_value_storage_options_invalid");
 
     private async Task<Dictionary<Guid, IReadOnlyList<T>>> ReadChildrenAsync<T>(string table, string column,
         Guid id, CancellationToken cancellationToken) where T : struct

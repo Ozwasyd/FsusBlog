@@ -14,8 +14,8 @@ public interface IArticlePropertyDefinitionStore
         Guid definitionId,
         CancellationToken cancellationToken = default);
 
-    // Compatibility for existing in-memory implementations. The production store overrides
-    // this port with the bounded batch adapter, including deleted definitions for reconciliation.
+    // Default bounded compatibility read delegates each held ID to GetAsync.
+    // Visibility, including deleted definitions, follows that implementation of GetAsync.
     async Task<IReadOnlyList<ArticlePropertyDefinition>> GetManyAsync(
         ArticlePropertyDefinitionActor actor,
         ArticlePropertyDefinitionOwner owner,
@@ -144,7 +144,7 @@ public interface IArticlePropertyDefinitionPersistence
         Guid definitionId,
         CancellationToken cancellationToken = default);
 
-    // Existing fixture implementations remain source-compatible; PostgreSQL overrides this method.
+    // Default bounded compatibility read delegates each held ID to GetAsync.
     async Task<IReadOnlyList<ArticlePropertyDefinition>> GetManyAsync(
         ArticlePropertyDefinitionOwner owner,
         IReadOnlyList<Guid> definitionIds,
