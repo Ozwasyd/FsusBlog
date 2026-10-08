@@ -2,11 +2,11 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { buildCorrectnessAttemptProducerInventory } from '../../tools/test/correctness-attempt-producers.mjs';
 import {
     assertCorrectnessAttemptExecutionOwner,
     validateCorrectnessAttemptMigration
 } from '../../tools/test/correctness-attempt-migration.mjs';
+import { buildCorrectnessAttemptProducerInventory } from '../../tools/test/correctness-attempt-producers.mjs';
 
 test('all 225 correctness producers bind canonical attempt and external authorities', () =>
 {
