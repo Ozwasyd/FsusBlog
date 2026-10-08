@@ -49,6 +49,16 @@ permission. The object cleanup obligation is flushed before publication. Actual
 output length/digest and canonical result binding are rechecked after the format
 verifier. Successful frozen source is removed from the current state snapshot.
 
+After the worker claim, one monotonic attempt wall deadline uses the canonical
+provider's original wall budget. Its cancellation token spans export, all nested
+provider stages, independent verification and commit. Boundary checks refuse a
+late result even when a provider ignores cancellation. The deadline's cancellation
+is distinguished from caller and durable stop requests; an observed sandbox
+budget/execution failure and its original receipt remain unchanged. Expiration
+does not synthesize a cleanup receipt or authorize interrupted-worker recovery.
+CPU, file and I/O totals still require aggregate multi-stage accounting; individual
+stage receipts and this wall deadline do not establish that remaining acceptance.
+
 Objects use the existing `PrivateAssetAnchoredFileSystem` under
 `ReleaseStorageLayout.Paths.PrivateAssetRoot/document-export/objects`; staging
 uses its original `UploadCommitRoot` and unnamed temporary-file protocol.
