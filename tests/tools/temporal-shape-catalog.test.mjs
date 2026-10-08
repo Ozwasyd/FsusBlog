@@ -286,6 +286,29 @@ test('current temporal domain producers have zero private clock residue', () =>
     });
 });
 
+test('producer governance rejects literal business dates while retaining resolved role conversions', () =>
+{
+    const sourcePath = readTemporalDomainProducerInventory().producerBindings[0].implementations[0];
+    for (const [source, reason] of [
+        ["const occurredAt = new Date('2026-06-01T12:00:00.000Z');", /absolute Node date/u],
+        ['const occurredAt = new Date(1_780_315_200_000);', /absolute Node date/u],
+        ['const occurredAt = Date.UTC(2026, 5, 1);', /absolute Node date/u],
+        ["const occurredAt = Date.parse('2026-06-01');", /absolute Node date/u],
+        ['DateTime occurredAt = new DateTime(2026, 6, 1, 12, 0, 0, DateTimeKind.Utc);', /absolute \.NET date/u],
+        ['var occurredAt = new DateTimeOffset(2026, 6, 1, 12, 0, 0, TimeSpan.Zero);', /absolute \.NET date/u],
+        ['var occurredAt = DateTime.Parse("2026-06-01T12:00:00.000Z");', /absolute \.NET date/u],
+        ["INSERT INTO records(occurred_at) VALUES (TIMESTAMPTZ '2026-06-01T12:00:00.000Z');", /absolute SQL date/u],
+        ["INSERT INTO records(occurred_at) VALUES ('2026-06-01T12:00:00.000Z'::timestamptz);", /absolute SQL date/u]
+    ])
+    {
+        assert.throws(() => verifyTemporalShapeGovernance({ sourceOverrides: new Map([[sourcePath, source]]) }), reason);
+    }
+    assert.doesNotThrow(() => verifyTemporalShapeGovernance({
+        sourceOverrides: new Map([[sourcePath,
+            'const occurredAt = new Date(role.epochMilliseconds); const instant = DateTime.Parse(role.instantUtc);']])
+    }));
+});
+
 test('readiness delay classification is exact and never permits business sleeps', () =>
 {
     const sourcePath = 'src/backend/Services/Fixtures/MessagingFixtureSeeder.cs';
