@@ -1,5 +1,7 @@
 using System.Security.Cryptography;
 
+using FsusBlog.Shared.Contracts.BlockLinks;
+
 namespace FsusBlog.Shared.Contracts.ArticleRelations;
 
 /// <summary>
@@ -11,6 +13,7 @@ public static class ArticleRelationContractValidator
     public const int MaxRelationsPerSet = 100_000;
     public const int MaxCandidatesPerSource = 10_000;
 
+    /// <summary>Seals the exact relation identity and record bytes without normalizing target identities.</summary>
     public static ArticleRelationRecord Seal(ArticleRelationRecord record)
     {
         ArgumentNullException.ThrowIfNull(record);
@@ -301,6 +304,7 @@ public static class ArticleRelationContractValidator
         return Valid();
     }
 
+    /// <summary>Validates relation identity, source and target facts, visibility, version bindings and digests.</summary>
     public static ArticleRelationValidationResult Validate(ArticleRelationRecord? record)
     {
         if (record is null
@@ -509,7 +513,7 @@ public static class ArticleRelationContractValidator
 
     public static ArticleRelationValidationResult Validate(ArticleRelationLifecycleEvent? lifecycleEvent)
     {
-        const ArticleRelationLifecycleChanges allowedChanges = ArticleRelationLifecycleChanges.Slug
+        const ArticleRelationLifecycleChanges AllowedChanges = ArticleRelationLifecycleChanges.Slug
             | ArticleRelationLifecycleChanges.Title
             | ArticleRelationLifecycleChanges.HeadingIdentity;
         if (lifecycleEvent is null
@@ -518,7 +522,7 @@ public static class ArticleRelationContractValidator
             || !ArticleRelationDigest.IsSha256(lifecycleEvent.EventIdentity)
             || !Enum.IsDefined(lifecycleEvent.Kind)
             || !Enum.IsDefined(lifecycleEvent.Owner)
-            || (lifecycleEvent.Changes & ~allowedChanges) != ArticleRelationLifecycleChanges.None
+            || (lifecycleEvent.Changes & ~AllowedChanges) != ArticleRelationLifecycleChanges.None
             || !IsStableArticleIdentity(lifecycleEvent.ArticleIdentity)
             || !IsStableRevisionIdentity(lifecycleEvent.RevisionIdentity)
             || lifecycleEvent.EventRevision < 1)
@@ -800,9 +804,23 @@ public static class ArticleRelationContractValidator
         => value is null || IsStableIdentifier(value, prefix);
 
     private static bool IsOptionalBlockIdentity(string? value)
-        => value is null
-            || IsStableIdentifier(value, "block:")
-            || IsStableIdentifier(value, "anchor:");
+    {
+        if (value is null || BlockAnchorId.IsCanonical(value))
+        {
+            return true;
+        }
+
+        foreach (string prefix in new[] { "block:", "anchor:" })
+        {
+            if (value.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                return IsStableIdentifier(value, prefix)
+                    && BlockAnchorId.IsCanonical(value[prefix.Length..]);
+            }
+        }
+
+        return false;
+    }
 
     private static bool IsStableIdentifier(string? value, string prefix)
     {
