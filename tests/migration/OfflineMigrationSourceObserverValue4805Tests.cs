@@ -1,5 +1,6 @@
 using System.Collections.Immutable;
 using System.Security.Cryptography;
+using System.Text;
 using System.Text.RegularExpressions;
 
 using FsusBlog.Contracts.Migration;
