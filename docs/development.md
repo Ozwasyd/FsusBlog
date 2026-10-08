@@ -162,9 +162,9 @@ In dev mode, Vite uses `transformIndexHtml` to inject `public-shell-critical.css
 | `http://127.0.0.1:7568` | ASP.NET Core API (local Debug run) |
 | `http://127.0.0.1:8080` | Production-build preview (Release container) |
 
-<a id="本地-passkey-注入"></a>
-
 ### Local Passkey injection
+
+#### 本地 Passkey 注入
 
 Under the current anonymous identity mode, legacy `sys_user` password login and legacy
 `role=admin` no longer grant login or admin access. Demo seed creates only the anonymous
