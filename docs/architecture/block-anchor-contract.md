@@ -317,7 +317,15 @@ latency, privacy timing or storage admission.
 A frozen incoming-impact candidate is **not an executable refactor**. Every plan
 still requires original anchor inventory/collision and exact marker-range admission,
 explicit removal-policy admission, and the canonical expected-revision article/editor
-transaction covering target plus incoming sources. The existing single-draft writer
-normalizes content and provides no offered cross-article atomic/recovery protocol.
+transaction covering target plus incoming sources. The canonical writer source offer
+`b4e8830b7231aee7c2333278bfaf6bb327a3f347` supplies
+`ArticleMarkdownSourceAdmission.Require` and uses it in the existing single-draft
+save and lifecycle revision writer. It preserves the supplied Markdown verbatim,
+including BOM, line endings, trailing whitespace and final-newline state, within
+the existing 200,000 UTF-16 code-unit bound; oversized and invalid UTF-16 input is
+refused. Markdown normalization repair is therefore no longer a prerequisite.
+This source offer has been inspected, not consumed into this branch, and does not
+supply the cross-article expected-revision atomic/recovery protocol required here.
+Its original owner's PostgreSQL evidence is not this planner's runtime acceptance.
 No writer, marker mutation, history/outbox/audit/reindex receipt or collision authority
 is fabricated. Execution and package round-trip acceptance remain open.
