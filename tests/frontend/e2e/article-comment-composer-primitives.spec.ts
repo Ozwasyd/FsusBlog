@@ -98,6 +98,21 @@ test('reviewed public retry identity cannot cross the reply draft key', async ({
     expect(submissions[0]!.content).toBe('待审公开草稿')
 })
 
+test('clearing a reviewed body ends its public retry transaction', async ({ page }) => {
+    await openComposer(page, 'light', '&draft=matching&priorIdentity=public')
+    await page.getByRole('button', { name: '审查草稿', exact: true }).click()
+    await page.getByText('公开显示我的名称', { exact: true }).click()
+    await normalEditor(page).press('Control+Enter')
+    await page.evaluate(() => window.articleCommentComposerFixture.update({ modelValue: '', authorMode: 'zk_anonymous', publicSendConfirmed: false }))
+    await normalEditor(page).fill('待审公开草稿')
+    await page.getByText('公开显示我的名称', { exact: true }).click()
+    await normalEditor(page).press('Control+Enter')
+    const submissions = await page.evaluate(() => window.articleCommentComposerFixture.submissions)
+    expect(submissions).toHaveLength(2)
+    expect(submissions[0]!.mutationId).toBe('018ff003-1234-7abc-8def-0123456789ab')
+    expect(submissions[1]!.mutationId).not.toBe(submissions[0]!.mutationId)
+})
+
 for (const theme of ['light', 'dark']) {
     for (const width of [375, 768, 1440]) {
         test(`content, backward selection and focus survive repeated expansion: ${theme}/${width}`, async ({ page }) => {

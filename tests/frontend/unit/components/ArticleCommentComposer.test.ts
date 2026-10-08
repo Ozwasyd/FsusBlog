@@ -548,6 +548,31 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     wrapper.unmount()
   })
 
+  it('starts a new public mutation after the reviewed body is cleared and entered again', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    const mutationId = '018ff011-1234-7abc-8def-0123456789ab'
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '已审查正文', savedAt: 123, policyHash: 'policy-42', clientMutationId: mutationId
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await nextTick()
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    await wrapper.setProps({ modelValue: '已审查正文' })
+    await wrapper.get<HTMLInputElement>('input[type=checkbox]').setValue(true)
+    await wrapper.setProps({ authorMode: 'public', publicSendConfirmed: true })
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')![0]![0]).toBe(mutationId)
+    await wrapper.setProps({ modelValue: '', authorMode: 'zk_anonymous', publicSendConfirmed: false })
+    await wrapper.setProps({ modelValue: '已审查正文' })
+    await wrapper.get<HTMLInputElement>('input[type=checkbox]').setValue(true)
+    await wrapper.setProps({ authorMode: 'public', publicSendConfirmed: true })
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')![1]![0]).not.toBe(mutationId)
+    wrapper.unmount()
+  })
+
   it('clears anonymous memory on credential epoch rotation and public storage on account switch', async () => {
     const anonymous = mountComposer({ articleId: 42, accountId: 7, modelValue: '匿名内存草稿' })
     await purgeCommentPrivacyCredentialState('epoch-changed', { broadcast: false })

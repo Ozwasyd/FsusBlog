@@ -1109,6 +1109,7 @@ watch(() => contentModel.value, (value) =>
 {
     if (!value.trim())
     {
+        reviewedPublicDraft = null;
         if (!draftNeedsReview.value && !clearPersistedCommentDraft())
         {
             draftPrivacyBlocked.value = true;
