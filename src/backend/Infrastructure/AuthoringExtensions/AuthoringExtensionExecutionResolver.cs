@@ -161,7 +161,10 @@ public interface IAuthoringInstalledPackageAuthority
 /// </summary>
 public interface IAuthoringInstalledPackageReadScope : IDisposable
 {
-    VerifiedAuthoringPackage ActivePackage { get; }
+    VerifiedAuthoringPackage ActivePackage
+    {
+        get;
+    }
 }
 
 /// <summary>
