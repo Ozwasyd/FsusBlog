@@ -67,7 +67,9 @@ as its identity and revision authority. Snapshots and receipts bind source range
 semantic nodes, affinity, direction, viewport offset, surface/tool identity, and
 user intent. Restore orders exact, rebased, semantic-neighbor, then explicitly
 approximate percentage outcomes. A revision transition without a contiguous
-public transaction chain fails closed.
+public transaction chain fails closed. Disposing the canonical owner makes
+`isCurrentContext` reject every snapshot, including its last historical context,
+so surviving runtime handles cannot capture new semantic anchors after teardown.
 
 Manual wheel, trackpad, touch, drag, or selection pauses automatic positioning.
 Input and explicit navigation resume immediately; idle resumes after 1200 ms.
@@ -122,6 +124,13 @@ resets the canonical epoch nor synthesizes revision/history initialization,
 viewport observations or focus acknowledgements. Those public runtime gaps and
 product event wiring remain acceptance limits; successful restore admission alone
 is not completed focus or viewport restoration.
+
+The three production wrappers expose `getAuthoringEditorPort()`, returning the
+same actual FsusUI exposed instance or null while unavailable. The writer wrapper
+forwards admitted transaction and identity-bound selection events and native host
+focus events. Consumers can bind these to `authoringEditorRuntime.bindEditor`
+without reaching into child DOM or constructing another editor. These hooks do
+not manufacture viewport observations, revision seeds or restore completion.
 
 The writer mounts `useArticleAuthorCommandPalette` once on the editor panel.
 Its scoped Mod+P listener and `ArticleAuthorCommandEntry` secondary action both

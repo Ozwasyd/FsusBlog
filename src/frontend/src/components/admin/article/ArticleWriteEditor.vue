@@ -2,6 +2,8 @@
     <div
         class="article-write-editor"
         data-article-document-editor="true"
+        @focusin.capture="$emit('editor-focus', 'focusin')"
+        @focusout.capture="$emit('editor-focus', 'focusout')"
     >
         <ArticleWriteOutlineRail
             :active-heading-id="activeHeadingId"
@@ -83,14 +85,6 @@
 </template>
 
 <script setup lang="ts">
-import type {
-    MarkdownEditorOutlineItem,
-    MarkdownEditorOutlineRange,
-    MarkdownEditorRevealOptions,
-    MarkdownEditorRevealResult,
-    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
-    MarkdownEditorTransactionEvent
-} from '@ozwasyd/element-plus';
 import { computed, ref, watch } from 'vue';
 
 import ArticleWriteOutlineRail from '@/components/admin/article/ArticleWriteOutlineRail.vue';
@@ -104,7 +98,17 @@ import type {
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import type { MarkdownEditorMode } from '@/ui-contracts/markdownEditor';
+
+import type {
+    MarkdownEditorOutlineItem,
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 
 defineOptions({ name: 'ArticleWriteEditor' });
 
@@ -141,6 +145,9 @@ const emit = defineEmits<{
     (e: 'save'): void;
     (e: 'draft-save'): void;
     (e: 'submit'): void;
+    (e: 'transaction', event: MarkdownEditorTransactionEvent): void;
+    (e: 'selection-change', event: ArticleAuthoringSelectionEvent): void;
+    (e: 'editor-focus', event: 'focusin' | 'focusout'): void;
     (e: 'upload-img', files: File[], callback: (urls: string[]) => void, onError: (message: string) => void): void;
 }>();
 
@@ -150,6 +157,7 @@ const content = computed({
 });
 
 const adapterRef = ref<{
+    getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -225,7 +233,10 @@ function toggleSourceCompare(): void
 function currentRevealOptions(): MarkdownEditorRevealOptions | undefined
 {
     const identity = props.documentIdentity;
-    if (!identity) return undefined;
+    if (!identity)
+    {
+        return undefined;
+    }
     return {
         expected: {
             documentIdentity: identity,
@@ -239,29 +250,37 @@ function handleSelectionChange(event: ArticleAuthoringSelectionEvent): void
 {
     const identity = props.documentIdentity;
     if (identity &&
-        (!event.documentIdentity ||
-            identity.id !== event.documentIdentity.id ||
-            identity.epoch !== event.documentIdentity.epoch))
+        (identity.id !== event.documentIdentity?.id ||
+            identity.epoch !== event.documentIdentity?.epoch))
     {
         return;
     }
-    if (event.revision < sourceRevision.value) return;
+    if (event.revision < sourceRevision.value)
+    {
+        return;
+    }
     activeCause.value = 'selection';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
+    emit('selection-change', event);
 }
 
 function handleTransaction(event: MarkdownEditorTransactionEvent): void
 {
     const identity = props.documentIdentity;
     if (!event.accepted ||
-        (identity && (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch))) {
+        (identity && (identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch)))
+    {
         return;
     }
-    if (event.revision < sourceRevision.value) return;
+    if (event.revision < sourceRevision.value)
+    {
+        return;
+    }
     activeCause.value = event.transaction.origin === 'input' ? 'typing' : 'caret';
     sourceRevision.value = event.revision;
     selection.value = event.selection;
+    emit('transaction', event);
 }
 
 function handleViewportChange(event: {
@@ -272,8 +291,9 @@ function handleViewportChange(event: {
 }): void
 {
     const identity = props.documentIdentity;
-    if (!identity || identity.id !== event.documentIdentity.id || identity.epoch !== event.documentIdentity.epoch ||
-        event.revision < sourceRevision.value) {
+    if (identity?.id !== event.documentIdentity.id || identity?.epoch !== event.documentIdentity.epoch ||
+        event.revision < sourceRevision.value)
+    {
         return;
     }
     sourceRevision.value = event.revision;
@@ -284,7 +304,8 @@ function handleViewportChange(event: {
 function handleOutlineReveal(item: MarkdownEditorOutlineItem): void
 {
     const result = adapterRef.value?.revealHeading?.(item.nodeId, currentRevealOptions());
-    if (result === 'success') {
+    if (result === 'success')
+    {
         outline.noteOutlineNavigation(item.nodeId);
     }
 }
@@ -292,18 +313,24 @@ function handleOutlineReveal(item: MarkdownEditorOutlineItem): void
 function handleOutlineDiagnosticReveal(item: MarkdownEditorOutlineItem): void
 {
     const result = adapterRef.value?.revealSourceRange?.(item.sourceRange, currentRevealOptions());
-    if (result === 'success') {
+    if (result === 'success')
+    {
         outline.noteOutlineNavigation(item.nodeId);
     }
 }
 
-watch(() => {
+watch(() =>
+{
     const identity = props.documentIdentity;
     return `${resolvedArticleIdentity.value}\u0000${identity
         ? `${identity.id}\u0000${String(identity.epoch)}`
         : ''}`;
-}, (next, previous) => {
-    if (next === previous) return;
+}, (next, previous) =>
+{
+    if (next === previous)
+    {
+        return;
+    }
     sourceRevision.value = 0;
     selection.value = {
         start: content.value.length,
@@ -324,7 +351,13 @@ function openCommandPalette(): void
     adapterRef.value?.openCommandPalette?.();
 }
 
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    return adapterRef.value?.getAuthoringEditorPort?.() ?? null;
+}
+
 defineExpose({
+    getAuthoringEditorPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading: (nodeId: string, options?: MarkdownEditorRevealOptions) =>

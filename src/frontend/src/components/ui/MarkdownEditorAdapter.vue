@@ -39,13 +39,6 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue';
-import type {
-    MarkdownEditorOutlineRange,
-    MarkdownEditorRevealOptions,
-    MarkdownEditorRevealResult,
-    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
-    MarkdownEditorTransactionEvent
-} from '@ozwasyd/element-plus';
 
 import { resolveMarkdownEditorProvider } from '@/components/ui/markdownEditorProvider';
 import type {
@@ -53,11 +46,20 @@ import type {
     FsusUiAuthoringDocumentIdentity,
     FsusUiAuthoringSurfaceOptions
 } from '@/fsusui/authoringCommands';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
 import type {
     MarkdownEditorChrome,
     MarkdownEditorMode,
     MarkdownEditorStatusDensity
 } from '@/ui-contracts/markdownEditor';
+
+import type {
+    MarkdownEditorOutlineRange,
+    MarkdownEditorRevealOptions,
+    MarkdownEditorRevealResult,
+    MarkdownEditorSelectionEvent as FsusUiMarkdownEditorSelectionEvent,
+    MarkdownEditorTransactionEvent
+} from '@ozwasyd/element-plus';
 
 type ArticleAuthoringSelectionEvent = FsusUiMarkdownEditorSelectionEvent & Readonly<{
     documentIdentity?: FsusUiAuthoringDocumentIdentity;
@@ -126,6 +128,7 @@ const emit = defineEmits<{
 
 const provider = computed(() => resolveMarkdownEditorProvider());
 const editorRef = ref<{
+    getAuthoringEditorPort?: () => ArticleEditorContinuityPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette?: () => void;
     revealHeading?: (
@@ -180,7 +183,13 @@ function revealSourceRange(
     return editorRef.value?.revealSourceRange?.(range, options) ?? 'not-found';
 }
 
+function getAuthoringEditorPort(): ArticleEditorContinuityPort | null
+{
+    return editorRef.value?.getAuthoringEditorPort?.() ?? null;
+}
+
 defineExpose({
+    getAuthoringEditorPort,
     insertMarkdownAtCursor,
     openCommandPalette,
     revealHeading,

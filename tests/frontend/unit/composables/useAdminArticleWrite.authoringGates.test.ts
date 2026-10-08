@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ArticleWriteCommandBar from '@/components/admin/article/ArticleWriteCommandBar.vue'
+import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue'
 import { ElMarkdownEditor, type MarkdownEditorTransactionEvent, type MarkdownEditorTransaction, type MarkdownEditorDispatchResult } from '@ozwasyd/element-plus'
 import { ArticlePublishStatus } from '@/api/article'
 import { BinaryTransportError } from '@/services/binaryTransport'
@@ -317,6 +318,47 @@ describe('useAdminArticleWrite authoring gates and draft isolation', () => {
     editor.unmount()
     wrapper.unmount()
     expect(runtime.receipts).toEqual([])
+  })
+
+  it('exposes one actual editor port through the production wrappers and forwards admitted transaction/focus events', async () => {
+    mocks.principalId = 'admin-wrapper-public-port'
+    const { wrapper, authoring } = await mountAuthoring()
+    type Session = ReturnType<typeof authoring.authoringEditorRuntime.bindEditor>
+    let session: Session | null = null
+    const editor = mount(ArticleWriteEditor, { props: {
+      modelValue: authoring.articleForm.content, documentIdentity: authoring.authoringDocumentIdentity.value,
+      'onUpdate:modelValue': (value: string) => { authoring.articleForm.content = value },
+      onTransaction: (event: MarkdownEditorTransactionEvent) => session?.binding.consumeTransaction(event),
+      onEditorFocus: (event: 'focusin' | 'focusout') => session?.binding.consumeFocus(event)
+    } })
+    const exposed = editor.vm as unknown as { getAuthoringEditorPort(): { dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult } | null }
+    const port = exposed.getAuthoringEditorPort()!
+    expect(port).not.toBeNull()
+    expect(exposed.getAuthoringEditorPort()).toBe(port)
+    session = authoring.authoringEditorRuntime.bindEditor(port, {
+      surface: 'source', configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
+      identity: { themeDigest: digest({ theme: 'test' }), locale: 'zh-CN' },
+      cachePolicy: { maxEntryBytes: 65536, maxAgeMs: 60000, maxReceipts: 16 }
+    })
+    expect(session.binding.initialize()).toBe(true)
+    const result = port.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'wrapper source' }],
+      selection: { start: 0, end: 7, direction: 'backward' }, history: 'separate' })
+    expect(result.accepted).toBe(true)
+    expect(authoring.articleForm.content).toBe('wrapper source')
+    expect(session.binding.context.sourceRevision).toBe(result.revision)
+    await editor.trigger('focusin')
+    const captured = session.binding.continuity.capture(session.binding.positionBinding(), {
+      surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0
+    })
+    expect(captured.anchor.direction).toBe('backward')
+    expect(captured.focus).toBe('editor')
+    const emitted = editor.emitted('transaction')?.length
+    editor.getComponent(ElMarkdownEditor).vm.$emit('transaction', { ...result, documentIdentity: { id: 'foreign', epoch: 1 } })
+    expect(editor.emitted('transaction')?.length).toBe(emitted)
+    expect(authoring.articleForm.content).toBe('wrapper source')
+    session.release()
+    editor.unmount()
+    wrapper.unmount()
   })
 
   it('rejects a new public editor at revision zero against a retained advanced owner without resetting its epoch', async () => {
