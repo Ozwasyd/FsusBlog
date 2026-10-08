@@ -9,7 +9,7 @@ import {
 } from '@/locales/localeDomainBundleStore'
 import { LOCALE_DOMAINS, type LocaleDomain } from '@/locales/localeDomains'
 import { ENABLED_LOCALES, type SupportedLocale } from '@/locales/localeCatalog'
-import { requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
+import { requiredLocaleDomainsForPublicPage, requiredLocaleDomainsForRoute } from '@/locales/routeLocaleDomains'
 import { APP_ROUTE_RECORDS } from '@/router/appRouteRecords'
 import type { RouteRecordRaw } from 'vue-router'
 
@@ -198,6 +198,44 @@ describe('LocaleDomainBundleStore', () => {
 })
 
 describe('route locale-domain authority', () => {
+  it.each([
+    ['Home', ['common', 'layout', 'public']],
+    ['ArticleDetail', ['common', 'layout', 'public', 'article']],
+    ['Archive', ['common', 'layout', 'public']],
+    ['About', ['common', 'layout', 'public']],
+    ['Privacy', ['common', 'layout', 'public']],
+    ['Guidelines', ['common', 'layout', 'public']],
+    ['Copyright', ['common', 'layout', 'public']],
+    ['Filter', ['common', 'layout', 'public']]
+  ] as const)('declares the exact PublicShell domains for %s', (pageKind, expected) => {
+    expect(requiredLocaleDomainsForPublicPage(pageKind)).toEqual(expected)
+  })
+
+  it.each(ENABLED_LOCALES.flatMap(({ code }) =>
+    (['Home', 'ArticleDetail'] as const).map((pageKind) => [code, pageKind] as const)
+  ))('imports only %s/%s PublicShell domains through the actual loaders', async (locale, pageKind) => {
+    const requested: string[] = []
+    const registry = Object.fromEntries(ENABLED_LOCALES.map(({ code }) => [code,
+      Object.fromEntries(LOCALE_DOMAINS.map((domain) => [domain, {
+        ...LOCALE_DOMAIN_LOADERS[code][domain],
+        importModule: async () => {
+          requested.push(`${code}/${domain}`)
+          return await LOCALE_DOMAIN_LOADERS[code][domain].importModule()
+        }
+      }]))
+    ])) as LocaleDomainLoaderRegistry
+    const store = new LocaleDomainBundleStore(registry)
+    const domains = requiredLocaleDomainsForPublicPage(pageKind)
+    await store.loadLocaleDomains(locale, domains)
+    expect(requested.sort()).toEqual(domains.map((domain) => `${locale}/${domain}`).sort())
+    // Repeated preparation must reuse verified artifacts without another import.
+    await store.loadLocaleDomains(locale, domains)
+    expect(requested).toHaveLength(domains.length)
+    for (const domain of ['security', 'admin', 'identity', 'messages'] as const) {
+      expect(store.peekLocaleDomain(locale, domain)).toBeUndefined()
+    }
+  })
+
   it.each([
     ['Public Home', 'Home', ['common', 'layout', 'public', 'security']],
     ['Public Article', 'ArticleDetail', ['common', 'layout', 'public', 'security', 'article']],
