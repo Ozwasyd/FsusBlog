@@ -88,7 +88,7 @@ export function bindTemporalBusinessFields({ temporalContext, artifact, expected
             browserUtc: browser.get(role.roleId).instantUtc
         }));
     }
-    const values = Object.freeze([...fields.values()].sort((left, right) => left.field.localeCompare(right.field)));
+    const values = Object.freeze([...fields.values()].sort((left, right) => left.field < right.field ? -1 : left.field > right.field ? 1 : 0));
     const binding = Object.freeze({
         artifactDigest: canonical.contentDigest,
         contextDigest: canonical.contextIdentity.contextDigest,
