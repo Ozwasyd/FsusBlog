@@ -120,6 +120,10 @@ function repositoryFixture(t, files)
         const absolute = path.join(repositoryRoot, relative);
         fs.mkdirSync(path.dirname(absolute), { recursive: true });
         fs.writeFileSync(absolute, content);
+        if (relative.startsWith('src/frontend/node_modules/'))
+        {
+            fs.chmodSync(absolute, 0o644);
+        }
     }
     return repositoryRoot;
 }

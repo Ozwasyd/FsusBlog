@@ -9,8 +9,8 @@
     "paths": [
         "tests/tools/behavior-document-consistency-final.test.mjs"
     ],
-    "firstPassTreeSha256": "140966458ba9d2219c3068bcd3eeed54d65d6345436e501c1f582629becf43ee",
-    "secondPassTreeSha256": "140966458ba9d2219c3068bcd3eeed54d65d6345436e501c1f582629becf43ee",
+    "firstPassTreeSha256": "f6fb05536c2e9b0f02bcf7ff7465bfa0804db745dd07d39663abe9f1a8184752",
+    "secondPassTreeSha256": "f6fb05536c2e9b0f02bcf7ff7465bfa0804db745dd07d39663abe9f1a8184752",
     "idempotent": true,
     "originalWhitespacePasses": {
         "paths": [
@@ -23,5 +23,6 @@
     },
     "verification": "Complete AST/raw-token/literal/token-anchored-comment fingerprints matched before write; independent validateFormatOnlyDiff returned zero errors.",
     "formatRevisionTreeSha256": "7fd4ddffa8618555160bade626846a994a40db660313bbfc766544810c978ba3",
-    "candidatePasses": "Repeated after the separate token-changing syntax refactor; both digests bind final candidate owner bytes. Original format-commit two-pass evidence is preserved separately."
+    "candidatePasses": "Repeated after the narrow fixture-mode repair; original whitespace migration and prior candidate digests remain separately recorded.",
+    "previousCandidateTreeSha256": "140966458ba9d2219c3068bcd3eeed54d65d6345436e501c1f582629becf43ee"
 }
