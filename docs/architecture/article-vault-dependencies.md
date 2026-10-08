@@ -63,6 +63,22 @@ headers and dimensions; it is not a full media decoder. The caller remains
 responsible for acquiring the bytes through the canonical stable snapshot or
 authorized asset read API.
 
+The [plan input verifier](../../src/backend/Services/ArticleVault/Assets/ArticleVaultAssetInputVerifier.cs)
+now binds supplied raw asset bytes and an original `AssetRecord` to an exact
+current plan. `VerifyCurrent` accepts the original operation and sealed bundle,
+dependency extension, current request/dependency inputs, authenticated principal,
+trusted site, item identity, AssetId, record, raw bytes, clock and cancellation.
+It uses the original bundle/operation/current dependency verifiers, binds the
+authenticated admin to the bundle principal, admits only a planned pull/push
+content item and its unique AssetId, and compares owner/content/media metadata
+before hashing bytes with the existing inspector. Asset owner need not equal
+executing admin: it must equal the selected node's owner, with rights still
+supplied by the actual authority. Current graph, deadline and cancellation are
+checked again after byte validation. The method returns only the existing
+`ArticleVaultValidationResult`; it performs no read or write and creates no
+asset grant, upload/reuse receipt or materialization admission. Its record/bytes
+are required original-supplier inputs, not proof of their acquisition provenance.
+
 [Three-way diagnostics](../../src/backend/Services/ArticleVault/Assets/ArticleVaultAssetConflictDiagnostics.cs)
 classify base/local/server content digests and report independent ownership,
 storage-class and metadata drift. Matching content never combines authorization
@@ -151,6 +167,49 @@ and exact immutable asset-stage read/replay; #1779 authorized AssetId byte/ledge
 read; #1865 portable AssetId projection; and #1910/#2128 asset-specific conditional
 materialization/readback/recovery and verified receipt/base commit. These are
 capability requests, not alternative production interfaces declared here.
+
+## Original asset supplier binding
+
+The exact root supplier table at
+[`42ece11c821dd01e9f372b66e7822f0fd0fc3864`](https://github.com/Ozwasyd/FsusBlog/blob/42ece11c821dd01e9f372b66e7822f0fd0fc3864/artifacts/article-vault/chain-3582-current-source-handoff/supplier-input-requirements.md)
+confirms existing private reads, access tickets, media inspection and ledgers.
+Their current arguments/returns are:
+
+| Existing method | Actual arguments | Actual return |
+| --- | --- | --- |
+| `IPrivateAssetAccessService.IssueTicketAsync` | `AssetId`, registered `PrivateAssetAccessPurpose`, `ClaimsPrincipal`, cancellation | Ticket and expiry, or refusal |
+| Internal `IPrivateAssetTicketRedemptionService.RedeemAsync` | Original ticket, same principal, cancellation | Reauthorized metadata handle, or refusal |
+| `IPrivateAssetStore.OpenReadAsync` | `AssetId`, cancellation | AssetId/storage key/media type/extension/size/digest/content stream, or missing |
+| Original `IPrivateAssetMetadataSource.FindAsync` | `AssetId`, cancellation | Original `AssetRecord`, including dimensions, owner and active state |
+| `IFileService.ObserveCommittedUploadAsync` | `UploadSessionAccess`, expected content digest, cancellation | Original asset, asset version digest, reference list and ledger digest, or original failure |
+
+The existing Kestrel private response writer pairs authorized metadata with the
+opened handle before streaming. Ticket redemption rechecks its subject and sole
+registered purpose policy. No policy registration or new purpose is introduced
+by the Vault adapter. Raw `OpenReadAsync` is not a Vault grant. A display URL is
+not an asset lookup key, source revision or authorization result.
+
+The supplier must supply its actual operation-bound method/source, retaining
+those original APIs, with the following exact context and result bindings:
+
+| Required binding | Source/caller | Missing supplier result |
+| --- | --- | --- |
+| Trusted site/Vault/device/agent, exact plan reference/SHA, global operation identity/deadline, group/item/article identity | Original sealed bundle and operation; selected dependency item | Genuine receipt bound to these values, not a caller-hashed declaration |
+| Selected article source side/digest and exact server article/revision | Current original plan item and raw-source/dependency input | Authorized read/upload/reference result bound to the selected source revision; record timestamps cannot substitute |
+| AssetId/content digest/MIME/extension/size/dimensions/owner | Selected `VaultAssetDependency`, original record/bytes | Owner-issued current asset observation and authorized bytes; same content must retain independent owners |
+| Required/granted rights and permission/rights/authority digests | Fresh original current dependency authority | Genuine current rights/read grant; a ticket's purpose or plain private handle cannot supply missing Vault rights |
+| Asset server revision/version, reference list/ledger digest and explicit reuse decision | Original asset/reference ledger and upload owner | Exact original read/reuse/upload receipt; `AssetRecord` and private handles have no server revision or reference ledger fields |
+| Intended AssetId and retry identity bound to plan/global operation/item/content | Canonical upload initializer/store owner | Idempotent original initialization/replay result, preserving original committed uploads and reference ownership |
+| Accepted article result/item and resulting asset reference facts | Original accepted result plus asset/reference ledger owner | Expected accepted reference result distinguishable from later drift, before recovery/materialization |
+
+Root can call `ArticleVaultAssetInputVerifier.VerifyCurrent` after loading the
+exact bundle and after the genuine supplier acquires record/bytes/current inputs.
+The already implemented push call site is
+`ArticleVaultAssetStagingAdapter.PrepareCommittedUploadAsync`; its original
+upload observation is checked against this scope. Candidate/writer admission
+remains the original root's call site; a passing input check cannot bypass its
+current `RequireExecutionAdmission` refusal. No substitute read/upload interface
+or receipt schema is declared to stand in for the original supplier's result.
 
 The original integration owner registers the schema resource, documentation,
 test matrix, coverage and lifecycle entry. The adapter
