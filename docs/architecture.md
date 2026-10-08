@@ -47,6 +47,175 @@ By default, the performance evidence only declares the baseline within the proje
 - `Shared` only carries cross-process stable DTO, AEDS/NotificationStream/POD contracts and response envelopes; endpoint request context, service commands, cache keys, and authentication intermediate states must stay in `Server`.
 - The `Server` endpoint layer only does routing, input verification and response assembly. The binary header, frame name, device fingerprint, viewer identity, admin step-up proof and read-proof adaptation are injected through infrastructure services such as `IBinaryEndpointRequestContext` and `IHumanReadProofEndpointAdapter` respectively.
 
+## Article Vault local-first boundary
+
+The Article Vault architectural decision is **C. bidirectional local-first vault**
+([#1871](https://github.com/Ozwasyd/FsusBlog/issues/1871)). Connecting a Vault is
+an explicit opt-in action. A local Markdown directory can contain an editable,
+offline source replica; the server remains the sole authority for article
+identity, revision, lifecycle, rights, publication, outbox and audit. Ordinary
+server writing, saving, publishing and recovery must remain available when no
+Vault is connected. Mobile and unsupported platforms do not acquire arbitrary
+filesystem access through a WebView, cloud-drive substitute or fallback.
+
+The earlier A/B alternatives are rejected; only C is the Vault architecture.
+Export-only workflows do not express continuous external editing, common-base
+conflicts or recovery after server acceptance, and independent directory saves
+would create a second writer. A/B are not runtime modes, deployment choices or
+feature flags. Package import, manual pull/push, native watchers and UI actions
+must consume the same protocol; a failed sync must not fall back to package import or a save-latest endpoint.
+
+### Data flow and authority
+
+```text
+local/server observation
+    -> exact site/vault/article binding and common base coordinate
+    -> immutable base/local/server plan with explicit direction policy
+    -> current permissions/revisions/lifecycle/dependencies revalidation
+    -> canonical server writer, revision, transaction, outbox and audit
+    -> materialize the accepted server result through verified local instructions
+    -> verify required files/manifests, then append new base and operation receipt
+```
+
+`pull`, `push` and `sync` select allowed directions within that flow; they do not
+select different planners or writers. An all-or-nothing group is admitted only
+after every required article and dependency is validated. Filesystem events and
+Git worktree/index facts are observations, not mutation commands. UI presents
+verified plans and explicit conflict decisions; it cannot infer a winner or
+submit a second execution path. Git is optional and must not become required
+runtime infrastructure, a shell-hook authority or an identity provider.
+
+Every operation binds site, Vault, device/agent, portable article identity, server
+identity, common-base revision, source/metadata/dependency digests and immutable
+plan/result/receipt references. Path, filename, title, slug, inode, file ID and
+mtime are projections or diagnostics. They neither identify an article nor decide
+which edit wins. The closed, versioned metadata mapping excludes owner, rights,
+lifecycle and publication authority; frontmatter cannot promote Draft to
+Published. Source comparisons and materialization preserve exact bytes, including
+BOM, LF/CRLF, trailing spaces and final newline.
+
+| Observation | Required interpretation and admission |
+| --- | --- |
+| Rename or move | Retain manifest portable identity; validate the new projection and collisions before writing. |
+| Local edit, unchanged server | Bind the common base and exact local bytes; submit through the canonical plan/writer. |
+| Server edit, unchanged local | Bind accepted server coordinates; verify every local write before updating base. |
+| Both changed | Compare base/local/server; overlapping or ambiguous changes require explicit conflict disposition. |
+| Delete or reappearance | Require sealed membership and expected old coordinates; do not delete unplanned files or infer identity from a reused path. |
+| Asset, link, anchor or embed change | Bind AssetId/content digest and canonical syntax/dependency coordinates; published embeds retain frozen revisions. |
+| Permission, lifecycle or publication drift | Reject the stale plan before mutation; local source does not grant publication rights. |
+| Same portable ID from another site/Vault | Reject the binding rather than reusing another site's manifests or receipts. |
+| Missing base or tampered receipt | Block; do not perform a two-way merge or scan for the latest replacement. |
+
+Asset ownership follows #1779. Portable links/block anchors and revision-bound
+embeds follow #1868/#1869 and the actual FsusUI #289/#290 public contracts. These
+boundaries require exact source/API and runtime evidence; issue closure or a
+package version alone does not prove their availability.
+
+### Threat, privacy and failure model
+
+External editors, filesystem names and frontmatter are untrusted input. Symlink,
+junction, reparse, bind-mount and traversal escapes; case/Unicode collisions;
+unknown filesystem semantics; unknown temporary files; and control-tree tampering
+must produce blocked facts or scoped rescan obligations. The `.fsus` control tree
+owns manifests and receipts and is not article source. A stable snapshot must not
+admit truncate-then-write, partial saves or stale bytes as a clean observation.
+Native overflow, sequence gaps and watch/root restarts invalidate the watermark;
+sync admission remains blocked until a verified rescan has rebuilt it.
+
+An agent may observe only one explicitly selected root and may materialize only
+verified instructions. A root-relative semantic path API must not expose generic
+absolute-path reads/writes, shell execution, Git hooks or network proxying. The
+local lease admits one active writer per Vault. Closed IPC validates current user,
+site, Vault, root, request identity, protocol, deadline and revocable grant. It
+does not receive long-lived service credentials. Logout, site switch and unlink
+revoke grants and leases before further commands are admitted.
+
+Private Markdown stored in a Vault is plaintext on the user's filesystem unless
+the user's separate device/storage controls protect it. Other permitted local
+processes, backups, editor recovery files, indexing, cloud-folder replication and
+Git history can expose it. Connecting requires a truthful disclosure of this
+boundary; unlinking cannot promise removal from external backups or history.
+Agent logs, metrics, diagnostics and receipts contain only necessary identities,
+event classes, sizes, digests, projections and stable reason codes, not private
+body text, secrets or tokens. Body-bearing recovery data requires explicit scoped
+storage, access control, retention and cleanup owned by the recovery layer.
+
+| Failure boundary | Required state and recovery |
+| --- | --- |
+| Plan stale, conflicted or unauthorized | Block before writing; retain the exact failed plan and reason. Replanning is a separate explicit operation. |
+| Server group transaction/outbox/audit failure | Preserve all-or-nothing semantics and first failure evidence; no local materialization of an unaccepted result. |
+| Server accepted, local write/flush/replace/verify failed | Retain the old base and a partial-materialization/recovery obligation. Server success is not synced. |
+| Crash, cancellation or expiry after server commit | Do not erase committed history. Resume the same bound journal/checkpoints or block on coordinate drift. |
+| Concurrent user edit during retry | Reject unexpected old digests; do not overwrite new content or select a latest file/result. |
+| Restart, overflow, collision or unreadable source | Rebuild observations from manifests and the current tree through verified rescan; do not rely on an in-memory queue. |
+| Agent update or protocol mismatch | Block commands; verify staged binary and atomic switch/health result, or roll back to the retained usable version. |
+| Stop, logout, unlink or uninstall | Revoke command authority and clean owned processes/handles/temp state; retain user Markdown and auditable history under explicit policy. |
+
+Receipts and checkpoints are append-only, independently digest-verifiable and
+bound to the current operation. Cleanup may remove only owned transient state;
+it cannot remove user source, another operation's journal or accepted server
+history. Recovery UI must expose the actual obligation and possible data loss,
+and must never convert an unresolved operation to synced.
+
+### Implementation ownership and evidence limits
+
+| Stage | Sole capability owners |
+| --- | --- |
+| Protocol (#1909 tracking) | #2103 manifests/state; #2104 planner; #2105 server executor; #2106 local materialization; #2107 operation lifecycle/receipts; #2108 protocol governance. |
+| Filesystem agent (#1910 tracking) | #2109 root/path/classification; #2110 snapshot/write primitives; #2670/#2671/#2672 native observers; #2112 normalization/rescan; #2113 lease/IPC; #2114 agent lifecycle; #2673/#2674/#2675 platform qualification. |
+| Conflict/Git/recovery (#1911 tracking) | #2116 taxonomy; #2117 Markdown merge; #2118 typed metadata; #2119 Git facts; #2120 resolution plans; #2121 execution/journals; #2122 UI; #2123 controls. |
+| Content dependencies (#1912 tracking) | #2124 manifests/plans; #2125 AssetId; #2126 anchors/links; #2127 frozen embeds; #2128 graph execution; #2129 round-trip/scale/permission controls. |
+| Product and qualification (#1913 tracking) | #2130 connect/privacy/unlink; #2131 status; #2132 plan review; #2133 conflict/recovery; #2134 agent flows; #2135 publication/devices; #2676–#2679 and #2707–#2709 full-chain evidence, aggregated by #2136. |
+
+The dependency flow is #1909 -> #1910 -> #1911 -> #1912 -> #1913. A usable exact
+implemented capability can support a later source stage while its upstream issue
+remains open. Missing authority or qualification cannot be replaced by another
+implementation, a fallback or historical receipts. Tracking parents aggregate
+their children and do not create independent production owners.
+
+Current source contains the shared manifest/state contracts, immutable planner,
+canonical server executor and a Linux raw observer. This does not establish the
+local materializer, operation lifecycle, common cross-platform filesystem API,
+conflict/dependency/product flows or end-to-end qualification. The
+[Linux watcher boundary](architecture/article-vault-linux-watcher.md) identifies
+the test harness's simulated snapshot, normalization, lease/IPC and lifecycle
+layers; those simulations cannot qualify production implementations.
+
+The bounded architecture prototype is still required: rename plus concurrent
+local/server edits with an asset and portable link round-trip, Git conflict
+fixtures, and real Windows/NTFS, macOS/APFS and Linux/ext4 feasibility evidence.
+It must expose conflicting coordinates and denied writes deterministically,
+preserve source bytes and remain outside production fallback paths. Package
+byte/identity parity requires the exact #1865 implementation and evidence. No
+prototype result or platform feasibility pass is asserted here.
+
+A sizing example, not an accepted budget, is 10,000 articles averaging 256 KiB
+of source: one full scan reads about 2.44 GiB of source before assets. At an
+assumed effective 100 MiB/s this is at least 25 seconds of byte I/O, excluding
+metadata, hashing, locks and verification. A workload with 1,000 assets averaging
+4 MiB adds about 3.91 GiB, or another 40 seconds at the same assumed rate. These
+assumptions are arithmetic inputs, not measured throughput or an SLA. A parser
+that retains three full 256 KiB versions already needs 768 KiB per active article
+before syntax trees and copies; 32 concurrent articles would need at least 24 MiB
+for those bytes alone. Streaming scans and bounded active work are therefore
+required design constraints. Native hosts must measure actual distributions,
+peak memory, save/rename bursts, queue overflow and recovery costs before choosing
+limits; a newer mtime must never avoid the exact required digest verification.
+
+Resource design must bound snapshot sizes, event batches, queue/watch counts,
+graph depth, retained recovery bytes and retry/rescan work. Performance estimates
+need explicit article/asset sizes, counts, save/rename rates and failure headroom;
+actual platform measurements must precede any claimed budget or scalability
+qualification. Existing watcher bounds are not full-agent resource estimates.
+
+Protocol governance must reject mtime/path/title/inode identity or winner rules,
+missing-base/two-way merge, watcher direct save/SQL, YAML lifecycle authority,
+multiple planners/writers, A/B mode switches, package fallback and falsely synced
+partial operations. The final #2108/#2123/#2129 and platform/product controls must
+bind the exact candidate and retain negative controls and first failures. Their
+implementation and current acceptance remain required; this architectural
+decision does not certify them.
+
 ## Runtime assembly boundaries
 
 `Program.cs` only retains host creation, configuration entries and high-level startup calls:
