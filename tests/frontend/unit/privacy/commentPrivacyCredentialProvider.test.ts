@@ -298,7 +298,12 @@ describe('RFC 9474 blind anonymous credential suite', () => {
         const createCredentialRequest = vi.fn(async () => null)
         const issueCredential = vi.fn()
         const provider = createCommentPrivacyCredentialProvider({
-          vault: null,
+          vault: {
+            async get() { return null },
+            async put() {},
+            async pruneExpired() { return 0 },
+            async clear() {}
+          },
           credentialSuite: { createCredentialRequest, acceptIssuerResponse: vi.fn() },
           issueCredential,
           crypto,
