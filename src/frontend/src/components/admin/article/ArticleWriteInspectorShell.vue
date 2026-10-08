@@ -72,6 +72,7 @@
                     :aria-label="view.label"
                     :aria-hidden="activeInspector !== view.id"
                     :inert="activeInspector !== view.id"
+                    tabindex="-1"
                     @scroll="handleScroll(view.id, $event)"
                 >
                     <slot :name="view.id" />
