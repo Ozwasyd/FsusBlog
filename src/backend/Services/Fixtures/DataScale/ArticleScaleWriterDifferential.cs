@@ -9,6 +9,36 @@ internal sealed record ArticleScaleFieldDifference(
     string Field,
     string Kind);
 
+internal sealed record ArticleScaleDifferentialIdentityBindings(
+    IReadOnlyDictionary<string, IReadOnlyDictionary<long, string>> TableRoles,
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> ReferenceTargets)
+{
+    internal static ArticleScaleDifferentialIdentityBindings FromCanonicalGraph(
+        ArticleScalePlan plan,
+        ArticleScaleArticleGraph graph,
+        ArticleScaleGraphIdentityBindings identities,
+        IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
+        IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>> referenceTargets)
+    {
+        identities.ValidateFor(plan, graph.SemanticArticleId);
+        CanonicalArticleGraphVerifier.VerifyArticleGraph(plan, graph).ThrowIfInvalid();
+        var roles = new Dictionary<string, IReadOnlyDictionary<long, string>>(StringComparer.Ordinal);
+        foreach ((ArticleScaleRowKind kind, DataScaleEntityTransportBinding table) in schema)
+        {
+            var values = new Dictionary<long, string>();
+            foreach (ArticleScaleRowPlan row in graph.Rows.Where(row => row.Kind == kind).OrderBy(row => row.SemanticId, StringComparer.Ordinal))
+            {
+                long id = identities.Resolve(kind == ArticleScaleRowKind.ArticleBody ? graph.SemanticArticleId : row.SemanticId);
+                // Content-addressed blocks may have several revision roles for one immutable row.
+                if (!values.TryAdd(id, row.SemanticId) && kind != ArticleScaleRowKind.ArticleRevisionContentBlock)
+                    throw new InvalidOperationException("differential_duplicate_native_binding");
+            }
+            roles.Add(table.Table, values);
+        }
+        return new(roles, referenceTargets);
+    }
+}
+
 internal sealed record ArticleScaleWriterDifferentialResult(
     string ProductionDigest,
     string BulkDigest,
@@ -17,6 +47,7 @@ internal sealed record ArticleScaleWriterDifferentialResult(
 {
     // Physical equality cannot qualify logical references, recovery or a full seed.
     internal bool PhysicalEquivalent => Differences.Count == 0 && ProductionDigest == BulkDigest;
+    internal bool IdentityNormalizedEquivalent => Differences.Count == 0;
     internal bool QualificationEligible => PhysicalEquivalent && MissingPostconditions.Count == 0;
 }
 
@@ -29,8 +60,12 @@ internal static class ArticleScaleWriterDifferential
 {
     internal static ArticleScaleWriterDifferentialResult Compare(
         DataScaleArticlePhysicalBatch production,
-        DataScaleArticlePhysicalBatch bulk)
+        DataScaleArticlePhysicalBatch bulk,
+        ArticleScaleDifferentialIdentityBindings? productionIdentities = null,
+        ArticleScaleDifferentialIdentityBindings? bulkIdentities = null)
     {
+        if ((productionIdentities is null) != (bulkIdentities is null))
+            throw new InvalidOperationException("differential_identity_binding_pair_required");
         var differences = new List<ArticleScaleFieldDifference>();
         Dictionary<string, DataScaleBulkTableRows> productionTables = IndexTables(production);
         Dictionary<string, DataScaleBulkTableRows> bulkTables = IndexTables(bulk);
@@ -48,20 +83,21 @@ internal static class ArticleScaleWriterDifferential
                 differences.Add(new(name, "", "", "schema-mismatch"));
                 continue;
             }
-            Dictionary<long, IReadOnlyList<object?>> leftRows = IndexRows(left, production.PrimaryKeyColumns[name]);
-            Dictionary<long, IReadOnlyList<object?>> rightRows = IndexRows(right, bulk.PrimaryKeyColumns[name]);
-            foreach (long id in leftRows.Keys.Union(rightRows.Keys).Order())
+            int key = production.PrimaryKeyColumns[name];
+            Dictionary<string, IReadOnlyList<object?>> leftRows = IndexRows(left, key, productionIdentities);
+            Dictionary<string, IReadOnlyList<object?>> rightRows = IndexRows(right, key, bulkIdentities);
+            foreach (string identity in leftRows.Keys.Union(rightRows.Keys).Order(StringComparer.Ordinal))
             {
-                string identity = id.ToString(CultureInfo.InvariantCulture);
-                if (!leftRows.TryGetValue(id, out IReadOnlyList<object?>? leftRow)
-                    || !rightRows.TryGetValue(id, out IReadOnlyList<object?>? rightRow))
+                if (!leftRows.TryGetValue(identity, out IReadOnlyList<object?>? leftRow)
+                    || !rightRows.TryGetValue(identity, out IReadOnlyList<object?>? rightRow))
                 {
                     differences.Add(new(name, identity, "", leftRow is null ? "extra-row" : "missing-row"));
                     continue;
                 }
                 for (int column = 0; column < left.Columns.Count; column++)
                 {
-                    if (!Equals(leftRow[column], rightRow[column]))
+                    if (!Equals(NormalizeIdentity(left, key, column, leftRow[column], productionIdentities),
+                            NormalizeIdentity(right, key, column, rightRow[column], bulkIdentities)))
                     {
                         differences.Add(new(name, identity, left.Columns[column].Name, "field-mismatch"));
                     }
@@ -128,9 +164,15 @@ internal static class ArticleScaleWriterDifferential
                 }).ToArray();
                 rows.Add(values);
             }
-            tables.Add(table with { Rows = rows });
+            tables.Add(table with
+            {
+                Rows = rows
+            });
         }
-        return model with { Tables = tables };
+        return model with
+        {
+            Tables = tables
+        };
     }
 
     private static DateTime DatabaseUtc(DateTime value)
@@ -149,16 +191,39 @@ internal static class ArticleScaleWriterDifferential
         return batch.Tables.ToDictionary(table => table.Table, StringComparer.Ordinal);
     }
 
-    private static Dictionary<long, IReadOnlyList<object?>> IndexRows(DataScaleBulkTableRows table, int key)
+    private static object? NormalizeIdentity(DataScaleBulkTableRows table, int key, int column,
+        object? value, ArticleScaleDifferentialIdentityBindings? identities)
+    {
+        if (identities is null || value is null)
+            return value;
+        string? target = column == key ? table.Table : null;
+        if (column != key && identities.ReferenceTargets.TryGetValue(table.Table, out IReadOnlyDictionary<string, string>? references))
+            references.TryGetValue(table.Columns[column].Name, out target);
+        if (target is null)
+            return value;
+        if (column != key && (table.Columns[column].Type is not (System.Data.DbType.Int32 or System.Data.DbType.Int64)
+                || !table.Columns[column].Name.EndsWith("id", StringComparison.OrdinalIgnoreCase)))
+            throw new InvalidOperationException("differential_business_field_identity_disposition_refused");
+        long id = Convert.ToInt64(value, CultureInfo.InvariantCulture);
+        if (!identities.TableRoles.TryGetValue(target, out IReadOnlyDictionary<long, string>? roles)
+            || !roles.TryGetValue(id, out string? role))
+            throw new InvalidOperationException($"differential_native_role_missing:{target}:{id}");
+        return role;
+    }
+
+    private static Dictionary<string, IReadOnlyList<object?>> IndexRows(DataScaleBulkTableRows table, int key,
+        ArticleScaleDifferentialIdentityBindings? identities)
     {
         if (key < 0 || key >= table.Columns.Count
             || table.Columns.Select(column => column.Name).Distinct(StringComparer.Ordinal).Count() != table.Columns.Count)
             throw new InvalidOperationException("differential_column_or_key_invalid");
-        var rows = new Dictionary<long, IReadOnlyList<object?>>();
+        var rows = new Dictionary<string, IReadOnlyList<object?>>(StringComparer.Ordinal);
         foreach (IReadOnlyList<object?> row in table.Rows)
         {
-            if (row.Count != table.Columns.Count || row[key] is null
-                || !rows.TryAdd(Convert.ToInt64(row[key], CultureInfo.InvariantCulture), row))
+            if (row.Count != table.Columns.Count || row[key] is null)
+                throw new InvalidOperationException("differential_row_or_duplicate_key_invalid");
+            string identity = Convert.ToString(NormalizeIdentity(table, key, key, row[key], identities), CultureInfo.InvariantCulture)!;
+            if (!rows.TryAdd(identity, row))
                 throw new InvalidOperationException("differential_row_or_duplicate_key_invalid");
         }
         return rows;

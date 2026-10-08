@@ -5,6 +5,7 @@ import {
     verifyResolvedTemporalArtifact
 } from '../../test/temporal-role-resolver.mjs';
 import { digestCanonical, TemporalContractError } from '../../test/temporal-context.mjs';
+import { bindTemporalBusinessFields, verifyObservedTemporalBusinessFields } from '../temporal-business-fields.mjs';
 
 const producerIds = new Set(['public-content', 'comment-moderation', 'audit-records']);
 
@@ -55,19 +56,44 @@ export function verifyArticleCommentAuditTemporalRows(context, binding, observat
     {
         fail('temporal.producer-unbound', `${producerId} lacks its canonical field mapping`);
     }
+    const result = compareResolvedTemporalFields(artifact, owner.fieldMappings, observation, context.temporalContext);
+    const receipt = createTemporalDomainProducerReceipt(artifact);
+    if (digestCanonical(receipt) !== digestCanonical(binding.receipt))
+    {
+        fail('temporal.resolved-artifact-tamper', 'producer receipt differs from the canonical artifact');
+    }
+    return result;
+}
+
+// Row comparison is an independently testable component. It does not bind a
+// producer to a shape, qualify its writer path, or issue a producer receipt.
+export function compareResolvedTemporalFields(artifact, fieldMappings, observation, temporalContext)
+{
+    const binding = bindTemporalBusinessFields({
+        temporalContext, artifact, fieldMappings,
+        expected: {
+            artifactDigest: observation?.resolvedArtifactDigest,
+            ...artifact?.fixtureIdentity,
+            shapeId: artifact?.shape.id
+        }
+    });
     if (observation?.resolvedArtifactDigest !== artifact.contentDigest
         || !Array.isArray(observation.rows) || observation.rows.length > 100_000)
     {
         fail('temporal.producer-observation-invalid', 'bounded exact row observation is required');
     }
-    const mappings = new Map(owner.fieldMappings.map((mapping) => [mapping.field, mapping.roleId]));
-    const roles = new Map(artifact.roles.map((role) => [role.roleId, role.instantUtc]));
+    const mappings = new Map(fieldMappings.map((mapping) => [mapping.field, mapping.roleId]));
     const seenFields = new Set();
     const seenRows = new Set();
+    const observedFields = {};
     const rows = observation.rows.map((row) =>
     {
+        if (!row || Object.keys(row).sort().join(',') !== 'entityId,field,instantUtc')
+        {
+            fail('temporal.producer-observation-invalid', 'unknown row fields cannot be ignored');
+        }
         const roleId = mappings.get(row.field);
-        if (!roleId || !roles.has(roleId) || typeof row.entityId !== 'string' || !row.entityId)
+        if (!roleId || typeof row.entityId !== 'string' || !row.entityId)
         {
             fail('temporal.role-missing', 'unmapped business field or missing entity identity');
         }
@@ -78,21 +104,23 @@ export function verifyArticleCommentAuditTemporalRows(context, binding, observat
         }
         seenRows.add(key);
         seenFields.add(row.field);
-        if (row.instantUtc !== roles.get(roleId))
+        if (row.instantUtc !== binding.requireField(row.field).instantUtc)
         {
             fail('temporal.cross-runtime-mismatch', `${row.field} differs from its semantic role`);
         }
+        observedFields[row.field] = row.instantUtc;
         return { entityId: row.entityId, field: row.field, roleId, instantUtc: row.instantUtc };
-    }).sort((left, right) => left.entityId.localeCompare(right.entityId) || left.field.localeCompare(right.field));
+    }).sort((left, right) =>
+    {
+        const leftKey = JSON.stringify([left.entityId, left.field]);
+        const rightKey = JSON.stringify([right.entityId, right.field]);
+        return leftKey < rightKey ? -1 : leftKey > rightKey ? 1 : 0;
+    });
     if (seenFields.size !== mappings.size)
     {
         fail('temporal.producer-observation-incomplete', 'mapped business timestamps cannot be omitted');
     }
-    const receipt = createTemporalDomainProducerReceipt(artifact);
-    if (digestCanonical(receipt) !== digestCanonical(binding.receipt))
-    {
-        fail('temporal.resolved-artifact-tamper', 'producer receipt differs from the canonical artifact');
-    }
+    verifyObservedTemporalBusinessFields(binding, observedFields);
     return Object.freeze({
         resolvedArtifactDigest: artifact.contentDigest,
         temporalSemanticDigest: artifact.semanticDigest,

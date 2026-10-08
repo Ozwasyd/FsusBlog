@@ -39,7 +39,11 @@ for (const [rule, mutation] of [
     ['guessed-owned-article-rows', "SELECT id FROM article WHERE title LIKE (SELECT prefix || ':article:%');"],
     ['sentinel-hash', "SELECT 'recompute' AS policy_hash;"],
     ['private-policy-hash', "SELECT sha256(convert_to('data-scale-policy:' || id, 'UTF8'));"],
-    ['private-article-write', 'insert\ninto "article_rights_snapshot"(article_id) VALUES (1);']
+    ['private-article-write', 'insert\ninto "article_rights_snapshot"(article_id) VALUES (1);'],
+    ['private-article-write', 'INSERT INTO public.article_revision(article_id) VALUES (1);'],
+    ['private-article-write', 'REPLACE INTO `article_rights_snapshot`(id) VALUES (1);'],
+    ['private-article-write', 'TRUNCATE TABLE "public"."article_publication";'],
+    ['private-article-write', 'MERGE INTO article_body USING input ON true;']
 ])
 {
     test(`residual diagnostic rejects ${rule}: ${mutation}`, (context) =>

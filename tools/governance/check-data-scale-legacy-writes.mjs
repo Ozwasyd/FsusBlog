@@ -22,6 +22,11 @@ const rules = [
     ['private-policy-hash', /\bsha256\s*\(\s*convert_to\s*\(\s*'data-scale-policy:/giu]
 ];
 
+// Qualified identifiers and alternate write verbs cannot evade the original controls.
+const articleTable = '(?:article|article_body|article_tag|article_revision(?:_content_block)?|article_rights_(?:policy|snapshot|proof)|article_responsibility_snapshot|article_publication|article_mutation_outbox(?:_event|_edge)?)';
+const qualifiedArticle = `(?:(?:[a-z_][a-z0-9_]*|"[a-z_][a-z0-9_]*"|\x60[a-z_][a-z0-9_]*\x60)\\s*\\.\\s*)?["\x60]?${articleTable}["\x60]?(?=[\\s(;]|$)`;
+rules.push(['private-article-write', new RegExp(`\\b(?:REPLACE\\s+INTO|MERGE\\s+INTO|TRUNCATE(?:\\s+TABLE)?|INSERT\\s+INTO|UPDATE|DELETE\\s+FROM)\\s+${qualifiedArticle}`, 'giu')]);
+
 function collectSources(root, relative, files)
 {
     const absolute = path.join(root, relative);
