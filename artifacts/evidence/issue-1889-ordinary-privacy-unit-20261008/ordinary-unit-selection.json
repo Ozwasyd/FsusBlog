@@ -1,0 +1,38 @@
+{
+  "kind": "planned-ordinary-unit-selection-not-execution-evidence",
+  "candidate": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+  "sourceFiles": [
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+      "blob": "cd7fab4700a1c21b006d2a6cd239cbf0a0a7f3b2"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+      "blob": "502bd78f451e75e9e58fe4a88df259bb24c9ed18"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts",
+      "blob": "1d37b401089d9a7c9697ccaa82be3e36f29c33ee"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+      "blob": "c44a888a0ae7cfd3c8bd7e65b0089ee1eb7bb5fd"
+    }
+  ],
+  "requires": "successful current BehaviorDoc receipt and pinned FsusUI identity before spawn",
+  "excluded": "held security QA, audit replay and privacy-zk aggregate",
+  "argv": [
+    "node",
+    "node_modules/vitest/vitest.mjs",
+    "run",
+    "--config",
+    "vitest.config.ts",
+    "../../tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+    "../../tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+    "../../tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts",
+    "../../tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+    "--reporter=default",
+    "--reporter=json",
+    "--outputFile=../../.tmp/privacy-unit-verification/ordinary-privacy-unit-286c6f.json"
+  ]
+}

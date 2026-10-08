@@ -1,0 +1,157 @@
+[
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/AuthSession-locked-restore-c9875e.log",
+    "sha256": "707804eacb4467890d7d8f798f1d066a2c73c338a52bb68e1f357559d0203657",
+    "bytes": 698
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/ConfigErrorSecurity-locked-restore-c9875e.log",
+    "sha256": "f283c1a9f8239a0748c625b51f5056362b0ba8058a2eb34ecb4e03133fe51277",
+    "bytes": 716
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/ContentLifecycle-locked-restore-c9875e.log",
+    "sha256": "6ab0eab2b4b5c10560fb79d3f7fb310715c08166d525199231f8e984ad10e7de",
+    "bytes": 709
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/OpenApi-locked-restore-c9875e.log",
+    "sha256": "8d9a0cbf3960e11e366a4a52b84586ef626075624bab5268bdaaa0bc6bf92a44",
+    "bytes": 691
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/RuntimeRole-locked-restore-c9875e.log",
+    "sha256": "ba77935b99d2e19c35d92b84880818a17b243a358808e24c26d1fdd5aff0d953",
+    "bytes": 1503
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/admission-286c6f.json",
+    "sha256": "488e38dbf6d346e8641e1142e65510b193b4d048de0892fa7285831da596b618",
+    "bytes": 276063
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/admission-286c6f.log",
+    "sha256": "5d8929a70888990b4a0a1b143eebf16095b57746dfc3877a16ae61cfff914dd2",
+    "bytes": 117
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/admission-c9875e.log",
+    "sha256": "be28bd6d64f7dd83527e931fcbf1a681b1cf81ec1382b00600a798952d53a415",
+    "bytes": 970
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/admission-verify-286c6f.log",
+    "sha256": "316027df873f34606b8ed215390a21c32c5d3bc0169c82451e67874b8b4841ec",
+    "bytes": 106
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/application-typecheck-286c6f.log",
+    "sha256": "dbc436cbdbb3f4ed5428ee0b703704fdb0fb6199ae3796173640aa0799b7948c",
+    "bytes": 52250
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/audited-locked-restores.json",
+    "sha256": "b92c15077ac9520e3bbc823e9f3c88ea02a6e9465458a8e157670375255aa643",
+    "bytes": 2992
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/canonical-admission-component-index.json",
+    "sha256": "d16f24608e6fe01b5504c4ec84633e3ffb1de66cc557bbe27dda0dfe83ae98c3",
+    "bytes": 2060
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/canonical-admission-components.tar.gz",
+    "sha256": "57134854a6e37bb7380785c0ee0127347bcee94d160c7d2bd3eaf1a0a905d99f",
+    "bytes": 510696
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/change-contract-source.log",
+    "sha256": "bfd22cf8527759d57d1806aae497f7c9bd2c79026535682290f9d4a0bc457496",
+    "bytes": 81
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/dto-consumption-proof.json",
+    "sha256": "bcbc3e964c38dac06d6de864e045cb21608cdbafd7fbedb97bda89704b03fedd",
+    "bytes": 634
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/entrypoint-preflight-286c6f.json",
+    "sha256": "bcf35b19b9e92c408ef0077e5d9bea3dfc613e1bd8450b16a4d8bad86cb9ae5a",
+    "bytes": 3120
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/entrypoint-preflight.json",
+    "sha256": "e979952f7bcedcad604d3a3b454183147f05ad0d2cb731eee2ac4de4f7a5ca89",
+    "bytes": 15177
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/final-handoff.json",
+    "sha256": "05d000225dc833a597a8a661122a243501c100101beb05dd6f4f280bc8ec219c",
+    "bytes": 7938
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/fsusui-baseline-identity.json",
+    "sha256": "7020eb87592795e3e3b1b0911befcbf7e8a85d446e4cd80070d0605bbfed973b",
+    "bytes": 1078
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/fsusui-baseline-verify.log",
+    "sha256": "ebc845a69bedccb4ae3685096125a8462be429581bad2f04e0b58c8246daef66",
+    "bytes": 69
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/generated-section-boundary-proof.json",
+    "sha256": "c0a7742e75ca10323dd2480751e4598e551bbc5e8d88c32185155806cd51e63e",
+    "bytes": 16764
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/generated-sections-c9875e.log",
+    "sha256": "c31583b90bdb7eaf5c42542ee45c7fdb09071dadcb80c445c5c50eaf7cd09742",
+    "bytes": 62
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/local-consumer-286c6f.log",
+    "sha256": "2831611642648ebc3caf52fbe20cb73e2ec3e1d5aea9669ab79b557584784112",
+    "bytes": 378
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/ordinary-privacy-companion-286c6f.json",
+    "sha256": "deaea7dacaff16f36a1eab729cd1702f580d71f934f143f97619a45b3ac001a6",
+    "bytes": 15699
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/ordinary-privacy-companion-286c6f.log",
+    "sha256": "9bffc7ba4393aba4ac81fd96b29bac07ce26fcf51d551793c7f9388ab4d53383",
+    "bytes": 846
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/ordinary-privacy-unit-286c6f.json",
+    "sha256": "d375c832e01bb71512383c119b26def2f03cdcfa10a4bfbd77b5f177936ae9ab",
+    "bytes": 11352
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/ordinary-privacy-unit-286c6f.log",
+    "sha256": "01c4f3eef83822389c015b08f710b4f82bb75a5ed0f942d3cbc06eff051de83b",
+    "bytes": 854
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/ordinary-unit-selection.json",
+    "sha256": "402dcf510900579d0ffbbc11d07eb28fb2a3ea1861e48c1fa5ef37103564d8b7",
+    "bytes": 1487
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/published-consumer-286c6f.log",
+    "sha256": "57582a3c1ac041b80acc7e783a7ff7254d10bf4d5451d95ea7ac9ec20b4a5c09",
+    "bytes": 2585
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/source-governance-286c6f.log",
+    "sha256": "f5c1353cccf5fc62c5223f29602df640170c6a75207d629866d0b631b4575af8",
+    "bytes": 91
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-ordinary-privacy-unit-20261008/source-governance-source-integration-286c6f.log",
+    "sha256": "0a3733d0cf6038a5a9df413cbc2d6b5840e30a9eabf6c52c9fc362619f2db854",
+    "bytes": 730
+  }
+]

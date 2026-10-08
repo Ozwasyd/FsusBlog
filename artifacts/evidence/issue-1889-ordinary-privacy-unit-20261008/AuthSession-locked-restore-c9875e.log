@@ -1,0 +1,6 @@
+  Determining projects to restore...
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/src/core/FsusBlog.Core.csproj (in 274 ms).
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 280 ms).
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/src/backend/FsusBlog.Server.csproj (in 301 ms).
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj (in 338 ms).
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/src/shared/FsusBlog.Shared.csproj (in 2 ms).

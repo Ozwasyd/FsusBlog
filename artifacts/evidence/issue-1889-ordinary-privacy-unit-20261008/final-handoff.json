@@ -1,0 +1,173 @@
+{
+  "kind": "ordinary-privacy-source-verification-handoff",
+  "recordedAtUTC": "2026-10-08T14:23:09.639906+00:00",
+  "testedCommit": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+  "sourceBranch": "codex/issue-1889-privacy-unit-verification",
+  "evidenceBranch": "codex/issue-1889-privacy-unit-evidence",
+  "sourceCommitRemoteVerified": true,
+  "sourceRootBase": "9c44531326993f23607295c43b1e644eae5898aa",
+  "privacyRepairCommit": "7b79aed73b156fae328ca14252e78d9888001960",
+  "consumedOwnerInputs": {
+    "runtimeRoleLock": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+    "fourObserverLocks": "c9875e42267816facd8d6109a457cb7b330d4332",
+    "providedDtoCommit": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+    "providedDtoHandoff": "0d9cd9b146349e875a469d4d52e8ee42639fa903",
+    "dtoConsumerCommit": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+    "canonicalGeneratedSectionsCommit": "445669971d34c000439a017d1e4696ede0cd70e1"
+  },
+  "admission": {
+    "status": "ok",
+    "run": {
+      "id": "ordinary-privacy-unit-286c6f-20261008"
+    },
+    "source": {
+      "commit": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+      "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+    },
+    "toolchain": {
+      "node": "v24.19.0",
+      "dotnet": "10.0.100",
+      "platform": "linux",
+      "architecture": "x64",
+      "directoryBuildPropsDigest": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4"
+    },
+    "contentDigest": "62229fb5023efc1015e423feb040b780a0f9e685aafa5f9963d7a35c68888f6f",
+    "factCount": 8,
+    "generatedDocumentCount": 34,
+    "verifiedProseClaimCount": 37,
+    "documentGovernanceMutationControlCount": 35,
+    "candidateSpawnCountBeforeReceipt": 0,
+    "qualifiedScope": "canonical static admission only; document fixtures are not product security QA"
+  },
+  "ordinaryUnits": {
+    "passed": 74,
+    "failed": 0,
+    "pending": 0,
+    "fileCount": 9,
+    "reports": [
+      {
+        "report": "ordinary-privacy-unit-286c6f.json",
+        "exitCode": 0,
+        "passed": 28,
+        "failed": 0,
+        "pending": 0,
+        "startTime": 1791468943833,
+        "files": [
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+            "status": "passed"
+          },
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+            "status": "passed"
+          },
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts",
+            "status": "passed"
+          },
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+            "status": "passed"
+          }
+        ]
+      },
+      {
+        "report": "ordinary-privacy-companion-286c6f.json",
+        "exitCode": 0,
+        "passed": 46,
+        "failed": 0,
+        "pending": 0,
+        "startTime": 1791469019111,
+        "files": [
+          {
+            "path": "tests/frontend/unit/api/comment.test.ts",
+            "status": "passed"
+          },
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts",
+            "status": "passed"
+          },
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts",
+            "status": "passed"
+          },
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts",
+            "status": "passed"
+          },
+          {
+            "path": "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+            "status": "passed"
+          }
+        ]
+      }
+    ],
+    "cryptoBoundaryRegressionNames": [
+      "rejects expired and non-finite issuer expiry before accepting or caching material",
+      "imports an owned SPKI view and clears it after WebCrypto settles",
+      "rejects SPKI beyond the shared RFC 9474 bound before key import"
+    ],
+    "qualification": "selected ordinary existing unit tests; full security/QA, runtime/native/product and independent acceptance not asserted"
+  },
+  "fsusui": {
+    "unitBaseline": "6c836baff8bc1879b487bf019359fd5e433f58ea",
+    "unitIdentityReceipt": "fsusui-baseline-identity.json",
+    "localSourceTypecheckBaseline": "c987c645a6ddc915bbc28429a97a3f21fafe258b",
+    "localSourceConsumerTypecheckExit": 0,
+    "publishedConsumerTypecheckExit": 2,
+    "publishedConsumerDiagnosticCount": 17,
+    "publishedPackageStatus": "actual @ozwasyd/element-plus package absent; no local stand-in substituted"
+  },
+  "applicationTypecheck": {
+    "exitCode": 2,
+    "diagnosticCount": 232,
+    "privacyDiagnosticCount": 0,
+    "privacyDiagnostics": [],
+    "assignedSevenDiagnosticSlots": "all resolved; remaining application diagnostics outside owned privacy slots"
+  },
+  "sourceStage": {
+    "command": [
+      "bash",
+      "tools/test.sh",
+      "source-governance"
+    ],
+    "environment": {
+      "FSUSBLOG_CI_STAGE": "source-integration",
+      "FSUSBLOG_BASE_REF": "9c44531326993f23607295c43b1e644eae5898aa"
+    },
+    "exitCode": 1,
+    "refusals": [
+      "execution target authority: independent release-final Node parser identity drifted",
+      "applicable execution authority schema, source index or parser identity drifted",
+      "applicable execution target authority drifted: tools/test-matrix/source-governance.mjs",
+      "applicable execution dependency authority drifted: config/development/frontend-style-policy.json",
+      "applicable execution dependency authority drifted: src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+      "applicable execution dependency authority drifted: tools/frontend/check-frontend-style.mjs",
+      "applicable execution dependency authority drifted: tools/frontend/style-toolchain/eslint.config.mjs"
+    ],
+    "status": "five unchanged source authority drifts and current Node parser/authority identity refusals retained, unwaived",
+    "invalidStageProbe": "earlier source-authoring attempt refused before execution; preserved separately in source-governance-286c6f.log"
+  },
+  "auditWarnings": "NU1903 SQLitePCLRaw.lib.e_sqlite3 2.1.11 retained in audited restore logs; no native change or waiver",
+  "heldScopes": "security QA and denied audit replay UNRUN; preflight selected children inspected, not substituted or excluded to force admission",
+  "wire": "canonical120-byte ticket POD, AEDS2 frames198/199, circuitv5/layout6 and crypto unchanged; exact supplied manual DTO hunk consumed",
+  "generatedSections": "10 documents regenerated by original producer using exact candidate observations; every byte outside generated ranges unchanged",
+  "frozenRemoteHeads": {
+    "codex/issue-1889-comment-composer-primitives": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+    "codex/issue-1889-integration": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+    "codex/issue-1889-privacy-source-types": "7b79aed73b156fae328ca14252e78d9888001960",
+    "codex/issue-1889-privacy-runtime-verification": "27ac342479ce9e01a4ced5157375e73309521da4"
+  },
+  "issueStatus": {
+    "1889": "implementation and selected source/unit evidence published; overall acceptance OPEN",
+    "trackingOnly": []
+  },
+  "remainingAcceptance": [
+    "source-governance refusal remains for its sole owner",
+    "232 application type diagnostics outside assigned privacy slots",
+    "published FsusUI consumer lacks actual installed package and has17 diagnostics",
+    "FsusUI theme/metadata eligibility and product UI/nativeIME/AT/zoom/device/full production CSP/independent QA remain OPEN under frozen root receipts",
+    "held audits and product acceptance remain UNRUN; no issue/PR merge or deployment authorized"
+  ],
+  "smallestNextAction": "Coordinating parent routes actual source authority and published-package/FsusUI qualification blockers; ordinary privacy source controls are now verified and no longer waiting on lock/DTO prerequisites."
+}

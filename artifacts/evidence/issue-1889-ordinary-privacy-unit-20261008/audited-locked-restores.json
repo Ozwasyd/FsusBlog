@@ -1,0 +1,82 @@
+[
+  {
+    "project": "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-unit-verification/RuntimeRole-restore-artifacts"
+    ],
+    "startedAtUTC": "2026-10-08T14:02:10.433899+00:00",
+    "exitCode": 0,
+    "log": ".tmp/privacy-unit-verification/RuntimeRole-locked-restore-c9875e.log"
+  },
+  {
+    "project": "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-unit-verification/AuthSession-restore-artifacts"
+    ],
+    "startedAtUTC": "2026-10-08T14:02:12.796059+00:00",
+    "exitCode": 0,
+    "log": ".tmp/privacy-unit-verification/AuthSession-locked-restore-c9875e.log"
+  },
+  {
+    "project": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-unit-verification/ConfigErrorSecurity-restore-artifacts"
+    ],
+    "startedAtUTC": "2026-10-08T14:02:14.394008+00:00",
+    "exitCode": 0,
+    "log": ".tmp/privacy-unit-verification/ConfigErrorSecurity-locked-restore-c9875e.log"
+  },
+  {
+    "project": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-unit-verification/ContentLifecycle-restore-artifacts"
+    ],
+    "startedAtUTC": "2026-10-08T14:02:16.090375+00:00",
+    "exitCode": 0,
+    "log": ".tmp/privacy-unit-verification/ContentLifecycle-locked-restore-c9875e.log"
+  },
+  {
+    "project": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-unit-verification/OpenApi-restore-artifacts"
+    ],
+    "startedAtUTC": "2026-10-08T14:02:17.801923+00:00",
+    "exitCode": 0,
+    "log": ".tmp/privacy-unit-verification/OpenApi-locked-restore-c9875e.log"
+  }
+]

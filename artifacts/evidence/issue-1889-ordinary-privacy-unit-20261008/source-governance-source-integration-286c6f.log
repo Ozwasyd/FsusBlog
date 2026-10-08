@@ -1,0 +1,9 @@
+[matrix] applicable PR execution authority rejected:
+execution target authority: independent release-final Node parser identity drifted
+applicable execution authority schema, source index or parser identity drifted
+applicable execution target authority drifted: tools/test-matrix/source-governance.mjs
+applicable execution dependency authority drifted: config/development/frontend-style-policy.json
+applicable execution dependency authority drifted: src/frontend/scripts/run-local-fsusui-typecheck.mjs
+applicable execution dependency authority drifted: tools/frontend/check-frontend-style.mjs
+applicable execution dependency authority drifted: tools/frontend/style-toolchain/eslint.config.mjs
+[matrix] bound PR source plan failed

@@ -1,0 +1,308 @@
+{
+  "kind": "source-inspection-before-behaviordoc-execution",
+  "candidate": "c9875e42267816facd8d6109a457cb7b330d4332",
+  "recordedAtUTC": "2026-10-08T14:01:54.917968+00:00",
+  "entrypoint": "tools/docs/behavior-doc-static-admission.mjs",
+  "sourceInputs": [
+    {
+      "path": "tools/docs/behavior-doc-static-admission.mjs",
+      "blob": "cde44b11ae93e3b30dd8b2f7d1f955fc330076b6",
+      "sha256": "ad4cc038a5ee1e273c8941d64131da513c63ca855c921213d65f82b156a81990"
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build.mjs",
+      "blob": "8ca9da4c252bd5acad5927ca9e3571052795883c",
+      "sha256": "061e979c766a3fbb6434bc9ad4445f4b17a73662bf2bbc1089463ecabe545a45"
+    },
+    {
+      "path": "tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs",
+      "blob": "b7c7a3c240785df846839583e972fce4267665a1",
+      "sha256": "2040f32153b8c7a6610d0334cca881384129b7be5207d11c1883dd9c0e70f24d"
+    },
+    {
+      "path": "tools/fact-extractors/runner.mjs",
+      "blob": "871d4ff9316e9f9c1ce8e01a03784f9e81fd5183",
+      "sha256": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598"
+    },
+    {
+      "path": "tools/fact-extractors/test-matrix/extract.mjs",
+      "blob": "a3fe5215e5f9eeabafb6f7d2ed721f0020becf03",
+      "sha256": "7842f95e058a5a76928520229b8a75d21b7143aaec129cab1c70e1f7d44fc38b"
+    },
+    {
+      "path": "tools/fact-extractors/seeds/test-asset-audit-seed.mjs",
+      "blob": "4591b9135ef7ec223138249f54b00ff2d78872f9",
+      "sha256": "f0aae0e6bf02a7a364fb7886e2872351b3300f38e562b47e12c40b9d88011d1b"
+    },
+    {
+      "path": "tools/docs/doc-claim-staleness-mutation/runner.mjs",
+      "blob": "6f19148e573f42a5f37ea81e2be83d079002c327",
+      "sha256": "a512a6369feae50e39de5f761054e776a0d6518ba648c955279a1763f220366d"
+    },
+    {
+      "path": "tools/docs/doc-claim-staleness-mutation/catalog.mjs",
+      "blob": "4dbc4ce4515f0512bb37e3b917922067db3c5bed",
+      "sha256": "edcc3feba919d92dbe32b7ea8fb440dd6c8ae948bcff4503965ca7c554343873"
+    },
+    {
+      "path": "tools/docs/doc-claim-staleness-mutation/fixture.mjs",
+      "blob": "6b034742040a0dbee8e81dfc22698395ef2a04c7",
+      "sha256": "c3d55ac388e061c98ecfae32dd38fa51e5fe735bf98af203c44a045f2ddce337"
+    },
+    {
+      "path": "tools/governance/check-monolithic-distributed-architecture.mjs",
+      "blob": "55995c6400859eb317390b516c66ca408cc749dd",
+      "sha256": "5d2caf9a77330028d94a5ff8b92c748e2d4a2af7ffba6c4b32197b6ac37a9ec3"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+      "blob": "72b58fde3e10839dc64d66217bf97d8aa1b1f89a",
+      "sha256": "378fd02b6db49599157f4e2f02102404d3913b94b72aef9d5a995250d7b6a869"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs",
+      "blob": "b1888efd1b6d12781a2d32cdcf1e2e6553bb3f2f",
+      "sha256": "d80a5d8c5dbec3ef2a2aef7e0e56ff3262c22bfd18879dee287bc73544afc765"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs",
+      "blob": "07f20bd64006092fd4f512996d1fb2f182ce5a3a",
+      "sha256": "7641def945ab135183b630ab91ccdb8741bfe2b980f1c2138ce5a36779b9bf4c"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs",
+      "blob": "e8e21ae5ceb1f4a4ed3cd9e14691f8ea494e4ae2",
+      "sha256": "f600f73ed599acc44c3533a694ffa72b0c7e324426f4f01e6cbe9cac87451589"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/Program.cs",
+      "blob": "6b7c22ad5ca545ee5eefd83bbd83ae87c27f7d67",
+      "sha256": "da8c27e4d26af7d46e16eb8297b7dd38fcf9f97cda05241eee4f5d6ef4ce3fc1"
+    }
+  ],
+  "selectedChildren": {
+    "minimalContractHosts": [
+      "RuntimeRole",
+      "AuthSession",
+      "ConfigErrorSecurity",
+      "ContentLifecycle",
+      "OpenApi"
+    ],
+    "extractors": [
+      {
+        "id": "test-asset-audit-fact-extractor",
+        "kind": "canonical-catalog",
+        "entrypoint": "tools/fact-extractors/seeds/test-asset-audit-seed.mjs",
+        "consumedInputs": [
+          "tests/coverage-registry.json"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": null,
+        "hermeticPolicy": "declared-inputs",
+        "ownedBehaviorIds": [
+          "test-asset-audit-reconciliation"
+        ]
+      },
+      {
+        "id": "code-intent-fact-extractor",
+        "kind": "canonical-catalog",
+        "entrypoint": "tools/fact-extractors/seeds/code-intent-seed.mjs",
+        "consumedInputs": [
+          "tests/governance/code-intent-registry.json"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": null,
+        "hermeticPolicy": "declared-inputs",
+        "ownedBehaviorIds": [
+          "code-intent-governance"
+        ]
+      },
+      {
+        "id": "document-lifecycle-fact-extractor",
+        "kind": "canonical-catalog",
+        "entrypoint": "tools/fact-extractors/seeds/document-lifecycle-seed.mjs",
+        "consumedInputs": [
+          "config/development/document-lifecycle.json"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": null,
+        "hermeticPolicy": "declared-inputs",
+        "ownedBehaviorIds": [
+          "document-lifecycle-governance"
+        ]
+      },
+      {
+        "id": "test-matrix-fact-extractor",
+        "kind": "compiled-assembly",
+        "entrypoint": "tools/fact-extractors/test-matrix/extract.mjs",
+        "consumedInputs": [
+          "tests/matrix.yml",
+          "tests/matrix.schema.json",
+          "tests/coverage-registry.json",
+          "config/testing/producer-execution-class-contract.json",
+          "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+          "tests/governance/monolithic-distributed-architecture.json",
+          "src/backend/FsusBlog.Server.csproj",
+          "ops/docker/FsusBlog.Server.Dockerfile",
+          "ops/docker/docker-compose.production.yml",
+          "tools/governance/check-monolithic-distributed-architecture.mjs",
+          "src/backend/Infrastructure/RuntimeModes/RuntimeModeOptions.cs",
+          "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipOptions.cs",
+          "src/backend/Infrastructure/Distributed/Cluster/ClusterMembershipContracts.cs",
+          "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
+          "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+          "config/schemas/runtime-role-observation.schema.json",
+          "config/schemas/runtime-role-deployment-observation.schema.json",
+          "tools/deployment/slot-lib.mjs",
+          "tools/deployment/release-rollout-lib.mjs",
+          "tools/storage/release-gc.mjs",
+          "config/deployment/destructive-operation-authority.json",
+          "tools/deployment/destructive-operation-authority.mjs",
+          "src/migration",
+          "src/backend/Infrastructure/SchemaMigration",
+          "src/backend/Infrastructure/SchemaMigration/OnlineSchemaMigrationCompatibility.cs",
+          "config/testing/required-evidence-authority-ledger.json",
+          "config/testing/release-domain-assertion-dispositions.json",
+          "tools/test-matrix/release-final-evidence-contract.mjs",
+          "tools/test-matrix/required-evidence-catalog.mjs",
+          "tools/test-matrix/release-domain-ledger.mjs",
+          "tools/test-matrix/outcomes/release-finalizer-adapter.mjs",
+          "tools/test-matrix/outcomes/adapter-support.mjs",
+          "tools/test-matrix/outcomes/outcome-contract.mjs",
+          "config/testing/outcome-failure-taxonomy.json",
+          "config/testing/outcome-field-dispositions.json",
+          "tools/test/attempt-provenance.mjs",
+          "tools/test-matrix/behavior-evidence-post-runtime.mjs",
+          "tools/test/lanes",
+          "src/frontend/package.json",
+          "tools/docs/generate-testing-docs.mjs",
+          "tools/test/lanes/release-final.sh"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": "runtime-role-observation",
+        "hermeticPolicy": "exact-build-receipt",
+        "ownedBehaviorIds": [
+          "browserless-production-correctness",
+          "release-final-aggregate-contract",
+          "deployment-blue-green-runtime-role"
+        ]
+      },
+      {
+        "id": "openapi-aeds-fact-extractor",
+        "kind": "compiled-assembly",
+        "entrypoint": "tools/fact-extractors/openapi-aeds/extract.mjs",
+        "consumedInputs": [
+          "config/contracts/behavior-contracts.json",
+          "src/shared/Contracts/Validation/aeds-endpoint-contracts.json",
+          "src/shared/Contracts/Validation/aeds-protocol.json",
+          "tools/contracts/behavior-contract-catalog.mjs",
+          "tools/contracts/FsusBlog.OpenApiObservation/Program.cs"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": "openapi-aeds-observation",
+        "hermeticPolicy": "exact-build-receipt",
+        "ownedBehaviorIds": [
+          "binary-api-aeds-contract"
+        ]
+      },
+      {
+        "id": "auth-session-permission-fact-extractor",
+        "kind": "compiled-assembly",
+        "entrypoint": "tools/fact-extractors/auth-session-permission/extract.mjs",
+        "consumedInputs": [
+          "src/backend/Entities/UserSessionAuthenticationContext.cs",
+          "src/backend/Infrastructure/Auth/AdminPermissions.cs",
+          "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Auth.cs",
+          "src/backend/Services/Security/MfaChallengeService.cs",
+          "src/backend/Services/Security/PasskeyService.cs",
+          "src/backend/Services/Security/RecoveryKeyService.cs",
+          "src/backend/Services/Security/UserSecurityStepUpService.cs",
+          "src/backend/Services/UserLoginWorkflowService.cs",
+          "src/backend/Services/UserSessionCommandService.cs",
+          "src/backend/Services/Security/AdminPrincipalService.cs",
+          "src/backend/Infrastructure/Helpers/JwtHelper.cs",
+          "src/backend/Infrastructure/Auth/AuthCookieService.cs",
+          "tools/contracts/FsusBlog.AuthSessionObservation/Program.cs"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": "auth-session-permission-observation",
+        "hermeticPolicy": "exact-build-receipt",
+        "ownedBehaviorIds": [
+          "authentication-session-permission"
+        ]
+      },
+      {
+        "id": "config-error-security-policy-fact-extractor",
+        "kind": "compiled-assembly",
+        "entrypoint": "tools/fact-extractors/config-error-security-policy/extract.mjs",
+        "consumedInputs": [
+          "src/core/Common/ErrorCode.cs",
+          "src/backend/Infrastructure/Results/ApiErrorSemanticMapper.cs",
+          "src/shared/Contracts/Security/SecurityChallengeContracts.cs",
+          "src/shared/Contracts/Security/SecurityChallengeCapabilityCatalog.cs",
+          "src/backend/Infrastructure/Cache/CachePolicyRegistry.cs",
+          "src/backend/Infrastructure/Bootstrap/ServiceCollectionExtensions.cs",
+          "src/backend/Services/Security/SecurityAdminPolicyService.cs",
+          "src/backend/Services/Security/SecurityChallengeVerifyRateLimiter.cs",
+          "src/backend/Services/Security/MfaChallengeService.cs",
+          "src/backend/Services/Security/PasskeyService.cs",
+          "src/backend/Services/Security/RedisPowService.cs",
+          "src/backend/Services/Security/RecoveryKeyService.cs",
+          "src/backend/Services/Security/SecurityChallengeOrchestrator.cs",
+          "src/backend/Services/Security/UserSecurityStepUpService.cs",
+          "src/backend/Modules/Endpoints/Binary/BinaryEndpoints.SecurityChallenge.cs",
+          "src/backend/Entities/AnonymousCommentPolicy.cs",
+          "src/backend/Models/Security/SecurityAdminModels.cs",
+          "src/backend/appsettings.json",
+          "config/application/backend-configuration-contract.json",
+          "src/frontend/src/utils/appError.ts",
+          "src/frontend/src/contracts/binaryApi.ts",
+          "src/frontend/src/security/challenge-kind-wire.ts",
+          "src/frontend/src/security/challenge-capability-registry.ts",
+          "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/Program.cs"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": "config-error-security-policy-observation",
+        "hermeticPolicy": "exact-build-receipt",
+        "ownedBehaviorIds": [
+          "configuration-error-security-policy"
+        ]
+      },
+      {
+        "id": "content-lifecycle-fact-extractor",
+        "kind": "compiled-assembly",
+        "entrypoint": "tools/fact-extractors/content-lifecycle/extract.mjs",
+        "consumedInputs": [
+          "src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs",
+          "src/backend/Entities/Article.cs",
+          "src/backend/Entities/Comment.cs",
+          "src/backend/Entities/CommentMutationOutbox.cs",
+          "src/backend/Services/Moderation/CommentModerationTransitions.cs",
+          "src/backend/Services/ArticleMutationSideEffects.cs",
+          "src/backend/Services/ArticlePublicationTransition.cs",
+          "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
+          "src/backend/Services/CommentService.cs",
+          "src/backend/Models/Moderation/AntiSpamModerationModels.cs",
+          "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs"
+        ],
+        "outputSchema": "fsusblog.fact-observation-receipt.v1",
+        "requiredBuildArtifact": "content-lifecycle-observation",
+        "hermeticPolicy": "exact-build-receipt",
+        "ownedBehaviorIds": [
+          "article-comment-lifecycle-outbox"
+        ]
+      }
+    ],
+    "mutationRunner": "tools/docs/doc-claim-staleness-mutation/runner.mjs"
+  },
+  "inspectionFindings": [
+    "Canonical minimal build runs the five declared observation hosts with --output and without OpenApi --self-test; no application server is started.",
+    "RuntimeRole producer/verifier uses read-only Docker/Compose oracle and its compiled metadata producer; it does not invoke the held security/audit harness.",
+    "AuthSession/ConfigErrorSecurity/ContentLifecycle observers inspect production types/contracts and write observation JSON; audit permission strings are metadata, not audit replay.",
+    "OpenApi builds an in-memory endpoint catalog with IHostedService removed; no Start/Run application call or credential issuance.",
+    "The test-asset-audit seed only reads tests/coverage-registry.json and projects IDs/counts; it does not execute the test-asset audit.",
+    "DocClaim staleness cases are isolated Markdown/JSON/graph fixtures; their subprocesses initialize disposable Git repositories. They do not execute candidate security tests or the held QA/audit harness."
+  ],
+  "heldScopes": "UNRUN; no held QA, audit replay, production resource or credentials changes selected",
+  "separateAuthorityRefusals": "Five existing source-stage authority drifts remain unmodified and unwaived; this entrypoint does not assert that stage passed."
+}

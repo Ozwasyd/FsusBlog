@@ -1,0 +1,26 @@
+{
+  "schema": "fsusblog.browser-diagnostics.local-fsusui-identity.v1",
+  "provider": "FsusUI",
+  "consumptionMode": "local-git-source-and-theme-dist",
+  "expectedCommit": "6c836baff8bc1879b487bf019359fd5e433f58ea",
+  "commit": "6c836baff8bc1879b487bf019359fd5e433f58ea",
+  "worktreeState": "clean",
+  "source": {
+    "scope": "git-tracked-vue-packages-alias-surface",
+    "algorithm": "fsusblog.local-fsusui-path-content-sha256.v1",
+    "fileCount": 2377,
+    "sha256": "sha256:d8821712b5ffd7f7a40cea700dc6843cf5ba24060a765e2a3cca689e5bcd6c51"
+  },
+  "themeDist": {
+    "scope": "harness-required-theme-dist",
+    "algorithm": "fsusblog.local-fsusui-path-content-sha256.v1",
+    "files": [
+      "vue/packages/theme-chalk/dist/index.css",
+      "vue/packages/theme-chalk/dist/el-public-shell-critical.css",
+      "vue/packages/theme-chalk/dist/el-fsus-theme.css"
+    ],
+    "fileCount": 3,
+    "sha256": "sha256:324132c60ffbead3f02f697cc61d56f9ddb055e3bbd4d60877a411ba0542f5c5"
+  },
+  "contentDigest": "sha256:ea3ea6288ded9238dd7d7615b577a008eaac192882975aadfbf23706edba4bc0"
+}

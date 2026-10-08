@@ -1,0 +1,12 @@
+{
+  "providedCommit": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+  "path": "src/frontend/src/contracts/binaryApi.ts",
+  "currentBlob": "47c67ec55408d10af0a858ccd133c0ea5658c100",
+  "expectedConsumerSHA256": "4876b6e31250bd1bb5ceb0a880568ae7ab258712351d4c61f43e91a427626e37",
+  "permittedDelta": "remove exactly one unsupported credentialEpoch field from the named manual request DTO",
+  "consumedCommit": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+  "consumerBlob": "40afd51a0d29494b29942864cf786f846b7d72e3",
+  "exactOwnedHunkApplied": true,
+  "outsideBytesUnchanged": true,
+  "repositoryCommitFooterAdded": "Refs: #1889, #3735"
+}

@@ -1,0 +1,355 @@
+{
+  "sourceCommit": "c9875e42267816facd8d6109a457cb7b330d4332",
+  "producer": [
+    "node",
+    "tools/docs/generate-fact-sections.mjs",
+    "--generate",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/test-asset-audit-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/code-intent-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/document-lifecycle-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/test-matrix-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/openapi-aeds-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/auth-session-permission-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/config-error-security-policy-fact-extractor.json",
+    "--receipt",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/content-lifecycle-fact-extractor.json"
+  ],
+  "exitCode": 0,
+  "receiptFiles": [
+    ".tmp/behavior-doc-static-admission/components/fact-observations/test-asset-audit-fact-extractor.json",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/code-intent-fact-extractor.json",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/document-lifecycle-fact-extractor.json",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/test-matrix-fact-extractor.json",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/openapi-aeds-fact-extractor.json",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/auth-session-permission-fact-extractor.json",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/config-error-security-policy-fact-extractor.json",
+    ".tmp/behavior-doc-static-admission/components/fact-observations/content-lifecycle-fact-extractor.json"
+  ],
+  "documents": [
+    {
+      "path": "docs/anonymous-identity-smoke-flow.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "116f7657e6d12794f2e99ec3aec7b0adf7fb3d81327c642dbe75694b217c83aa",
+      "beforeSHA256": "973d8e778d8d6d523b2d6541f888babd0e0a73a5b760107264537c665105c084",
+      "afterSHA256": "973d8e778d8d6d523b2d6541f888babd0e0a73a5b760107264537c665105c084",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/api.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "bb1f0062640068dec0ecba5a2031cb69d9341f3d7766df9bfa2601540ec0ed59",
+      "beforeSHA256": "278987e2fbbf678ee2cf1bd1843c46a9669df5b30e1f9f75078c4e8331278cc4",
+      "afterSHA256": "657e6e03205dd7c44cc390de373c9e87ba23bf539318a84a459e30291257b29e",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/api/aeds-only-policy.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "ff152d08cd75cd70a8cc39bae8b37b31e3ca2c4693ba85040c219c359f62b898",
+      "beforeSHA256": "8cba2612866ddb523d1a0d27c47eac3a5d88a69c7c5cc90197667db62ccec045",
+      "afterSHA256": "122283a1e3b68230dba31fc8ecf1a1d16e6cfdd47638d5f561d2b7284610cdd6",
+      "sectionCount": 2
+    },
+    {
+      "path": "docs/api/article-publication-revisions.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "76da94c871a4cb731876aa191ac5a286c45e5e174c572b7236437b69ba4fea16",
+      "beforeSHA256": "2cf79c2c14da142f669aef9f4d57b0a98139f2ff0c7a233964ba5a728b786ee9",
+      "afterSHA256": "2cf79c2c14da142f669aef9f4d57b0a98139f2ff0c7a233964ba5a728b786ee9",
+      "sectionCount": 4
+    },
+    {
+      "path": "docs/api/contracts.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "b6b09b6bc79fe98b19e6a50558f6ff789950e83a63ddc168db17275b39a60b10",
+      "beforeSHA256": "8ebe971bc6a78185271da0e569ea2523a3a276852cc3979a88d460c04ae8d21f",
+      "afterSHA256": "8ebe971bc6a78185271da0e569ea2523a3a276852cc3979a88d460c04ae8d21f",
+      "sectionCount": 4
+    },
+    {
+      "path": "docs/api/design.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "8bc3ca34629a4451925fb034831051abe1782cc8d01a4993c2a9940dc0ae18dc",
+      "beforeSHA256": "f92256a6fa5cef8f72d2f8ce355b6ee5bcc85b2879dacc16d0d0a56d96119e5c",
+      "afterSHA256": "f92256a6fa5cef8f72d2f8ce355b6ee5bcc85b2879dacc16d0d0a56d96119e5c",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/api/quick-reference.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "36034fcfbb99c3a46c3e489b9fa4e110a1a82eb6bbb3372e16b491d7ce50f48c",
+      "beforeSHA256": "bf986dc22bf920615c074db96209f6ae02ae2fe69fa9f1ce3d0275eabe5de719",
+      "afterSHA256": "c7ce8792d7de9ef5d2c4bd9feb127584e0086814fd5fe6ab0dca66120eb61000",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/api/schemas-and-errors.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "a6fd3005d399eef379ee0430d807db2592e2c120b52ccf3395963c07d549f9db",
+      "beforeSHA256": "ce20db17601e7620394558d6aeed82d6c73e417803813a0ccad69a10a2ae0251",
+      "afterSHA256": "cd90e72d431cf85071271822de538e54e4b391f49b6b2f88926db50780fa145c",
+      "sectionCount": 7
+    },
+    {
+      "path": "docs/api/stability.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "27bd79caa9772687982fcfca3b7c13a4add754ce45baed72a59757cf6efd50e6",
+      "beforeSHA256": "959c44c574ec9deb9c96259e9438179800d2d6496abfacb0206537ba51e999ab",
+      "afterSHA256": "ae603d0da335dfa41a4bc2435534bed6279d2ac9f6c8f5555678bc050307aa2a",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "062bcdc4ec3a646c8970e454676b460db4d99213eea1001cf99e0765a847daaf",
+      "beforeSHA256": "4520dfe0108e576b7d02515a4411c89f91c6df2374d3e827548c926cb4b542c1",
+      "afterSHA256": "4520dfe0108e576b7d02515a4411c89f91c6df2374d3e827548c926cb4b542c1",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/article-asset-reference-lifecycle.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "ff6484eac762d1689a4c4d5d26cc2bf78c813f3f357ae284f26d2918ced20eea",
+      "beforeSHA256": "330fcacdf633e25ca145f254b941d2b24023ce4dc1d6fc840d991be7e01fb559",
+      "afterSHA256": "330fcacdf633e25ca145f254b941d2b24023ce4dc1d6fc840d991be7e01fb559",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/article-deletion-lifecycle.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "d92246fc0921853688a04c8ac9918543d1ae8826ca0587a80d26090de28f0d8c",
+      "beforeSHA256": "306d967cfb95d987cebbc0f4ea0f8e1eb8b95ae956105aee99b6abcdfc4da47a",
+      "afterSHA256": "306d967cfb95d987cebbc0f4ea0f8e1eb8b95ae956105aee99b6abcdfc4da47a",
+      "sectionCount": 3
+    },
+    {
+      "path": "docs/architecture/article-mutation-outbox-claim-lease.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "df42d7fece4c12301159f96fc0aa272bb283e3fb707710da006f82aa2e129502",
+      "beforeSHA256": "6188d55f3a42917d8ffbadd642f5a0fc5f406d82682aac97e5d61cb7d710569e",
+      "afterSHA256": "6188d55f3a42917d8ffbadd642f5a0fc5f406d82682aac97e5d61cb7d710569e",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/article-mutation-outbox-versioning.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "372b0302f1f53711f002e980e8b31c1f1dc3475752519e14802346af85f1f112",
+      "beforeSHA256": "6d2f84506915577a92d6f5bd07002d47c4b24aa109c4266729572bcc2659c25b",
+      "afterSHA256": "6d2f84506915577a92d6f5bd07002d47c4b24aa109c4266729572bcc2659c25b",
+      "sectionCount": 2
+    },
+    {
+      "path": "docs/architecture/article-mutation-side-effect-boundaries.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "4ed2bb33030156464cbe491b95ff5e03b1ad5f667a83536e741ce732294ca830",
+      "beforeSHA256": "4377554ad8be0bab6e1c0db9fad949155d0ad24fd217171108e078cb810dcdb2",
+      "afterSHA256": "4377554ad8be0bab6e1c0db9fad949155d0ad24fd217171108e078cb810dcdb2",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/article-revision-concurrency.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "e96dc735599f05c865ef747fd4229fe87d8e91f949f460e6af6d0edf6cc741c6",
+      "beforeSHA256": "bffcf6fbc38d142df68803b6ca9b5d364f6617e42db2013547e8ba22d4a0307a",
+      "afterSHA256": "bffcf6fbc38d142df68803b6ca9b5d364f6617e42db2013547e8ba22d4a0307a",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/comment-attribution-privacy-boundary.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "a2ad57e948ce16c34a4968af9867ff4f722b2735262a508ba946806d4c466d44",
+      "beforeSHA256": "1a605d2bf4dd45f09a0324f99ac658cdc2b0df41bc5ea08368ce72311bf762a0",
+      "afterSHA256": "1a605d2bf4dd45f09a0324f99ac658cdc2b0df41bc5ea08368ce72311bf762a0",
+      "sectionCount": 2
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "a023d820a7e901f3ff380156bdb2c8aac20ae4770ba97730f7320070725fc75e",
+      "beforeSHA256": "090e9509584701df4260683661b37724a5b2dbb9ccda70a9f99b6b50218a0c5c",
+      "afterSHA256": "090e9509584701df4260683661b37724a5b2dbb9ccda70a9f99b6b50218a0c5c",
+      "sectionCount": 3
+    },
+    {
+      "path": "docs/architecture/comment-moderation-visibility-boundary.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "b1691858ba3682abe533b6eb1a3f1661ac15553a316a45fd6fa391b06bd86f18",
+      "beforeSHA256": "26f72d941529cbefd4f4f262e5d6ed941d306af28984e3fb63f162dbcad36be8",
+      "afterSHA256": "26f72d941529cbefd4f4f262e5d6ed941d306af28984e3fb63f162dbcad36be8",
+      "sectionCount": 3
+    },
+    {
+      "path": "docs/architecture/comment-mutation-outbox.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "6994b66b5129d14f9eac621596e6dd5d06a02085943e783b4d5a27f7972a9600",
+      "beforeSHA256": "9ed306cf24118fce7d7e303615adc9c871a5df44853f3934b88fcae0ff16d41c",
+      "afterSHA256": "9ed306cf24118fce7d7e303615adc9c871a5df44853f3934b88fcae0ff16d41c",
+      "sectionCount": 3
+    },
+    {
+      "path": "docs/architecture/comment-notification-boundary.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "bc7d9d8ab7278e6c96013dfcafbb4a2981fd00ddcd09a13ed6d8b04ecc4620a3",
+      "beforeSHA256": "2ee9f09f51ecd2bb402eefe95d06c9c9283426ac93fcbd0b9dc9c746901fbbe4",
+      "afterSHA256": "2ee9f09f51ecd2bb402eefe95d06c9c9283426ac93fcbd0b9dc9c746901fbbe4",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/comment-query-boundary.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "e0eb5c210bc4035473c8622ab1bedaf16bc01365a3be57fb3aba8a055347d741",
+      "beforeSHA256": "05d91094f45ce5487381e15d2014d31ea3e9f67b2135095a28fad2e0defcee9f",
+      "afterSHA256": "05d91094f45ce5487381e15d2014d31ea3e9f67b2135095a28fad2e0defcee9f",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/decisions/ADR-Anonymous-Credential-Blind-Issuance.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "b7ca1f0ba497d8437fe92972e0ce9d47a565b69fb514103b44e434517270647c",
+      "beforeSHA256": "804919850b6d48e4318371158831b02a387a77e217b48af4e6620422e7302314",
+      "afterSHA256": "804919850b6d48e4318371158831b02a387a77e217b48af4e6620422e7302314",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/architecture/monolithic-distributed-boundary.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "0a7a600518bc0c8909ac116b8a41166894a9246d1a3e76a456dbeaeefe93ad06",
+      "beforeSHA256": "05c8828306af5ca581b0574c34cf7369f61eae6b21c79a6cdcc71a75267f5675",
+      "afterSHA256": "56a6269f5a94d84ef6d07ef2d73129ac5f02de200c0e3131a0c33b15ba06e98b",
+      "sectionCount": 2
+    },
+    {
+      "path": "docs/architecture/overview.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "571246102f71b7ecf3c86acb88eb802f09d86bae1be1d93a2b39cda8379ae262",
+      "beforeSHA256": "dec702e76bc1b090a32dc61f94be0afdf626818ef093f9f773e7dda539d0b0f9",
+      "afterSHA256": "82fcd64c5cc218ab064d76f8e7c69639be6361a0ade2bf39772b5b008998ef2b",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/configuration-layout.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "eaeb45f24c59300ca3ec92dfc551810c74a34b21323ca389970a2e8ecbdc623c",
+      "beforeSHA256": "f859c1744b6b9f3a88ae4cfbbce34d248a73e2da41c3a4783b6dadadee7d582b",
+      "afterSHA256": "f859c1744b6b9f3a88ae4cfbbce34d248a73e2da41c3a4783b6dadadee7d582b",
+      "sectionCount": 3
+    },
+    {
+      "path": "docs/configuration/appsettings-authority.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "3148a68de6effc88f79a3307e51f37db52a21b9cad67327f0e89f8aae4b08a8c",
+      "beforeSHA256": "95e36d354b0ad16104c4f0e57403525d47ab7ab5e436e9ef7202f576715ef79d",
+      "afterSHA256": "95e36d354b0ad16104c4f0e57403525d47ab7ab5e436e9ef7202f576715ef79d",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/development/code-intent-governance.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "7453c451acab9f8253b22edf144f5bd724d1a5fe0cf760e3c3f5a7fde7e09514",
+      "beforeSHA256": "94b08c7641a630be0105d7b5602cbfe7f1d3cc66e8b8315542bef3104a256beb",
+      "afterSHA256": "94b08c7641a630be0105d7b5602cbfe7f1d3cc66e8b8315542bef3104a256beb",
+      "sectionCount": 1
+    },
+    {
+      "path": "docs/moderation.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "7a9b7bd62d872d7a6404adbbe28c33ddfe7b56fd66ab96166e12cc3e4b203412",
+      "beforeSHA256": "7bc7e3ab6689717655d2fd411d76665c877a95e1abdefe3dd8f40e9f9236d303",
+      "afterSHA256": "7bc7e3ab6689717655d2fd411d76665c877a95e1abdefe3dd8f40e9f9236d303",
+      "sectionCount": 4
+    },
+    {
+      "path": "docs/releases/blue-green-deployment-runbook.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "491758ef64527ce2c105e8f53437b484170f7c7206e09cdccbd59989cc514a31",
+      "beforeSHA256": "170478eb728e5dcbef9aa1e9404a2566e0c80612b775e7af3d3808353e21176c",
+      "afterSHA256": "0f069ad95865b29b6d082c4309facded9f519916c3f680cfb51063d98423084d",
+      "sectionCount": 2
+    },
+    {
+      "path": "docs/releases/release-identity.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "4b318b79fffd5ebf7d025c52e8e8cc9ec9993df23ad36991f25b783514d2c090",
+      "beforeSHA256": "cd946168441459f3a97e1ab5695184f42a74f1370925b4a37449a2d14762b57a",
+      "afterSHA256": "021f9eacd89b499dcd423d41846059c04d4db1449fe5a8283efc6a4e5645c4d2",
+      "sectionCount": 2
+    },
+    {
+      "path": "docs/security.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "2691dc8f27cc1e0ffe36a117f7dc063da8957abbda0d0cbadc3d28662464b321",
+      "beforeSHA256": "3e9321e81074a8f4b345a440a781e15f43cb61169d33be3c2908ff3bb992e6fe",
+      "afterSHA256": "3e9321e81074a8f4b345a440a781e15f43cb61169d33be3c2908ff3bb992e6fe",
+      "sectionCount": 9
+    },
+    {
+      "path": "docs/security/user-session-authentication-context.md",
+      "changed": false,
+      "outsideUnchanged": true,
+      "outsideSHA256": "963012b98f4338462dbd00d635042049266334ab261308fbb95a8111265c52d6",
+      "beforeSHA256": "cc4eb23bb0e20a5331937a4845f2f6b884ae39252a8fbc32b5075dabe5ed4f9c",
+      "afterSHA256": "cc4eb23bb0e20a5331937a4845f2f6b884ae39252a8fbc32b5075dabe5ed4f9c",
+      "sectionCount": 10
+    },
+    {
+      "path": "docs/testing.md",
+      "changed": true,
+      "outsideUnchanged": true,
+      "outsideSHA256": "c370115f09a9da2ef5955ef8c015965056c9eb7877223f0a0c374701d0cbb881",
+      "beforeSHA256": "8fc2297a106053f8d3fec6885d6c11a053360201305869e707d0cb8c7774f3f2",
+      "afterSHA256": "ae09573524dac73a86c97798d30fb51fd992de1e0157739d69c50a2cf5569d3f",
+      "sectionCount": 3
+    }
+  ],
+  "changedDocuments": [
+    "docs/api.md",
+    "docs/api/aeds-only-policy.md",
+    "docs/api/quick-reference.md",
+    "docs/api/schemas-and-errors.md",
+    "docs/api/stability.md",
+    "docs/architecture/monolithic-distributed-boundary.md",
+    "docs/architecture/overview.md",
+    "docs/releases/blue-green-deployment-runbook.md",
+    "docs/releases/release-identity.md",
+    "docs/testing.md"
+  ]
+}

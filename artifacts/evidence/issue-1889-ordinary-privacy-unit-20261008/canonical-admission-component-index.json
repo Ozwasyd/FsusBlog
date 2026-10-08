@@ -1,0 +1,62 @@
+[
+  {
+    "path": "behavior-owner-binding.json",
+    "sha256": "b876347b0dccb61248a387048e9692374b720f28634cc264a4bfed27e238d6ee",
+    "bytes": 5369
+  },
+  {
+    "path": "doc-claim-parse.json",
+    "sha256": "2d79d737deec5200332e46f3fcfc7ff41b8bacb3c3b9b36b2c130759ba7cb084",
+    "bytes": 99876
+  },
+  {
+    "path": "doc-claim-verification.json",
+    "sha256": "4f8947dd8d082d811028e27512bc8704c45ce28ef5945ecc5e1cd570837943a1",
+    "bytes": 17438
+  },
+  {
+    "path": "fact-observations/auth-session-permission-fact-extractor.json",
+    "sha256": "1253fbd05830897c1aa08e13fb40b549c7a02d5d0209298ebc56225a06a053c3",
+    "bytes": 291167
+  },
+  {
+    "path": "fact-observations/code-intent-fact-extractor.json",
+    "sha256": "e1ca23860fd2b9439d033e91c30737fe8057e4a401b0fc95f47f7d0c0f5ef79e",
+    "bytes": 1505
+  },
+  {
+    "path": "fact-observations/config-error-security-policy-fact-extractor.json",
+    "sha256": "6aafb1e6240206919acdb4792b17b918aa823a598d871c41c9b82cd9f4633f26",
+    "bytes": 561891
+  },
+  {
+    "path": "fact-observations/content-lifecycle-fact-extractor.json",
+    "sha256": "b6a730b0f0ded8675b1fd5ef184082d5bafe2d2fc6a1533177fb9404cb96465a",
+    "bytes": 290161
+  },
+  {
+    "path": "fact-observations/document-lifecycle-fact-extractor.json",
+    "sha256": "c1b2a156eb229f4f0e18002d3d29ef1a14cf6e75db20e5a909048f103110788b",
+    "bytes": 1061
+  },
+  {
+    "path": "fact-observations/openapi-aeds-fact-extractor.json",
+    "sha256": "35b741a78c93c35bf5e307a807f868e504c0d730a77bbc4fc1f98fc14fc21f25",
+    "bytes": 2266631
+  },
+  {
+    "path": "fact-observations/test-asset-audit-fact-extractor.json",
+    "sha256": "5b2399fe3bd0320a4ee09ac97a46a2be19ee792f6ee321e3562056f85a27fc8b",
+    "bytes": 11395
+  },
+  {
+    "path": "fact-observations/test-matrix-fact-extractor.json",
+    "sha256": "b938390d1018c50d2fc2a1d33632266b2ed611389fe1a077f5092714ee93c7a9",
+    "bytes": 368958
+  },
+  {
+    "path": "generated-section-check.json",
+    "sha256": "d8f5499f8940555ea72b21d26ed2b402f8a2988aafadef44b5e882d5678825f8",
+    "bytes": 29519
+  }
+]
