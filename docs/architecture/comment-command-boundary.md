@@ -102,3 +102,23 @@ render: key-value-table
 | operations | ["created","deleted","edited"] |
 | softDeleteProjectsAsHiddenNextStatus | true |
 <!-- FSUSBLOG-GENERATED:END content.comment.edit-delete-version -->
+
+## Production initial outbox construction
+
+`CommentCommandService.ResolveInitialOutboxEventTypes(status, replyToAccountId)`
+returns the production create transaction's ordered obligations: created and
+visibility-changed, followed by reply-notification-requested only for an approved
+comment with an observed positive recipient. The transaction consumes this same
+selection and retains its original enqueue order and cancellation behavior.
+
+`CommentCommandService.BuildOutboxEvent(eventType, comment, commentId, occurredAt,
+previousStatus, nextStatus)` exposes the existing production envelope constructor.
+The caller supplies an already normalized authoritative comment, its allocated ID
+and explicit business time. The method preserves the normalized root/parent and
+account/recipient facts; a top-level root falls back to the allocated comment ID.
+It does not resolve an actor, validate a persisted thread, enforce an event kind or
+qualify those inputs. In-memory envelopes retain existing entity defaults, including
+a fresh event GUID; they are not deterministic persisted identities or receipts.
+Persistence and delivery fields remain the outbox writer and worker's responsibility.
+The envelope still has no exact comment-revision field. These APIs do not reserve a
+nullifier, create rows, prove atomicity or satisfy transaction/derived-edge acceptance.

@@ -463,24 +463,10 @@ public partial class CommentCommandService(
                     TransitionSource = "create",
                     OccurredAtUtc = occurredAt
                 }).ExecuteCommandAsync(cancellationToken);
-                await mutationOutbox.EnqueueAsync(BuildOutboxEvent(
-                    CommentMutationEventTypes.Created,
-                    comment,
-                    generatedId,
-                    occurredAt,
-                    previousStatus: null,
-                    nextStatus: comment.ModerationStatus), cancellationToken);
-                await mutationOutbox.EnqueueAsync(BuildOutboxEvent(
-                    CommentMutationEventTypes.VisibilityChanged,
-                    comment,
-                    generatedId,
-                    occurredAt,
-                    previousStatus: null,
-                    nextStatus: comment.ModerationStatus), cancellationToken);
-                if (comment.ReplyToUserId is > 0 && comment.ModerationStatus == CommentModerationStatus.Approved)
+                foreach (string eventType in ResolveInitialOutboxEventTypes(comment.ModerationStatus, comment.ReplyToUserId))
                 {
                     await mutationOutbox.EnqueueAsync(BuildOutboxEvent(
-                        CommentMutationEventTypes.ReplyNotificationRequested,
+                        eventType,
                         comment,
                         generatedId,
                         occurredAt,
@@ -1223,7 +1209,14 @@ public partial class CommentCommandService(
         string? ArticleTitle,
         string RowVersion);
 
-    private static CommentMutationOutboxEvent BuildOutboxEvent(
+    public static IReadOnlyList<string> ResolveInitialOutboxEventTypes(
+        CommentModerationStatus status,
+        int? replyToAccountId)
+        => status == CommentModerationStatus.Approved && replyToAccountId is > 0
+            ? [CommentMutationEventTypes.Created, CommentMutationEventTypes.VisibilityChanged, CommentMutationEventTypes.ReplyNotificationRequested]
+            : [CommentMutationEventTypes.Created, CommentMutationEventTypes.VisibilityChanged];
+
+    public static CommentMutationOutboxEvent BuildOutboxEvent(
         string eventType,
         Comment comment,
         long commentId,
