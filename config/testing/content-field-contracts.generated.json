@@ -5,7 +5,7 @@
     "sources": [
         {
             "path": "src/backend/Services/Articles/ArticlePublicationValidator.cs",
-            "sha256": "sha256:2800a9aaf5996835a8339d62ddede81439d71d66d7beb0f1f75fb9f64e0fb8ab"
+            "sha256": "sha256:b9cc1be081e8d716e386ce8193ed0c37d27392ca2fb726a130928192b66d4b62"
         },
         {
             "path": "src/backend/Models/Dtos/CommentDto.cs",
@@ -70,5 +70,5 @@
             "maxUtf8Bytes": 4096
         }
     ],
-    "contentDigest": "sha256:b74f4bdc51adaf39741bd7651d29be3420ab04ac58e09266dfe2b931e046bbd4"
+    "contentDigest": "sha256:9fda78d5e00d963b1486f3c498bdfce6d52577fab986f43e3eb7900d673e558f"
 }
