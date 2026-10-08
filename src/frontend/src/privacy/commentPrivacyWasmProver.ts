@@ -33,7 +33,7 @@ export interface CommentPrivacyWasmProverOptions {
 
 interface WasmProverDelegate {
     prewarm?: (request: { manifest: CommentPrivacyProverManifest; signal?: AbortSignal; }) => Promise<void> | void;
-    prepareProof: (request: CommentPrivacyProofRequest & { manifest: CommentPrivacyProverManifest; }) => Promise<unknown> | unknown;
+    prepareProof: (request: CommentPrivacyProofRequest & { manifest: CommentPrivacyProverManifest; }) => unknown;
 }
 
 interface LoadedProver {
@@ -63,19 +63,16 @@ export function createCommentPrivacyWasmProver(options: CommentPrivacyWasmProver
     const load = async (signal?: AbortSignal): Promise<LoadedProver> =>
     {
         throwIfAborted(signal);
-        if (!loadedPromise)
+        loadedPromise ??= (async () =>
         {
-            loadedPromise = (async () =>
-            {
-                const manifest = normalizeManifest(await loadManifest({ manifestUrl, signal }));
-                await verifyManifestArtifacts(manifest, loadArtifact, signal);
-                const module = await loadModule(manifest.moduleUrl, signal);
-                return {
-                    manifest,
-                    delegate: resolveDelegate(module)
-                };
-            })();
-        }
+            const manifest = normalizeManifest(await loadManifest({ manifestUrl, signal }));
+            await verifyManifestArtifacts(manifest, loadArtifact, signal);
+            const module = await loadModule(manifest.moduleUrl, signal);
+            return {
+                manifest,
+                delegate: resolveDelegate(module)
+            };
+        })();
 
         try
         {
@@ -195,7 +192,7 @@ async function defaultLoadModule(
 async function defaultImportModule(moduleUrl: string, signal?: AbortSignal): Promise<unknown>
 {
     throwIfAborted(signal);
-    const loaded = await import(/* @vite-ignore */ resolveCommentPrivacyProverModuleUrl(moduleUrl));
+    const loaded: unknown = await import(/* @vite-ignore */ resolveCommentPrivacyProverModuleUrl(moduleUrl));
     throwIfAborted(signal);
     return loaded;
 }
@@ -284,7 +281,7 @@ async function loadBrowserProverModuleScript(moduleUrl: string, signal?: AbortSi
     });
 }
 
-function getBrowserProverModule(): unknown | null
+function getBrowserProverModule(): unknown
 {
     return asRecord(globalThis)[BROWSER_PROVER_MODULE_GLOBAL] ?? null;
 }
@@ -336,7 +333,8 @@ function normalizeSameOriginArtifactUrl(value: string, expectedPath: string): st
     {
         throw new Error(ARTIFACT_INVALID);
     }
-    const expectedOrigin = runtimeLocation?.origin || new URL(baseHref).origin;
+    const runtimeOrigin = runtimeLocation?.origin;
+    const expectedOrigin = runtimeOrigin?.length ? runtimeOrigin : new URL(baseHref).origin;
     if (!raw || resolved.origin !== expectedOrigin || resolved.pathname !== expectedPath
     || resolved.search || resolved.hash || resolved.username || resolved.password)
     {
@@ -588,13 +586,6 @@ function writeUInt16(chunks: Uint8Array[], value: number): void
 {
     const bytes = new Uint8Array(2);
     new DataView(bytes.buffer).setUint16(0, value, true);
-    chunks.push(bytes);
-}
-
-function writeInt64(chunks: Uint8Array[], value: number): void
-{
-    const bytes = new Uint8Array(8);
-    new DataView(bytes.buffer).setBigInt64(0, BigInt(Math.trunc(value)), true);
     chunks.push(bytes);
 }
 

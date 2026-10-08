@@ -1,5 +1,6 @@
 import { beforeAll, describe, expect, it, vi } from 'vitest'
 import { sha256 } from '@noble/hashes/sha2.js'
+import * as commentApi from '@/api/comment'
 import {
   BLIND_CREDENTIAL_SCHEME,
   createBlindRsaCredentialSuite
@@ -262,6 +263,137 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
     expect(createCredentialRequest).toHaveBeenCalledOnce()
     expect(issueCredential).not.toHaveBeenCalled()
+  })
+
+  it('accepts string distribution paths and rejects JSON values that merely stringify to them', async () => {
+    const metadata = issuerMetadata()
+    const distribution = metadata.revocationDistribution!
+    const root = {
+      ...metadata,
+      rootGraceExpiresAtUnixMs: metadata.rootExpiresAtUnixMs,
+      zkAnonymousEnabled: true,
+      verifierConfigured: true,
+      verifyingKeyHash: '03'.repeat(32),
+      circuitMetadata: new Uint8Array()
+    }
+    const rootLoader = vi.spyOn(commentApi, 'getAnonymousCredentialRootSnapshot')
+    const circuitLoader = vi.spyOn(commentApi, 'getAnonymousCredentialCircuitSnapshot').mockResolvedValue(root)
+    const issuerLoader = vi.spyOn(commentApi, 'getBlindCredentialIssuerMetadata').mockResolvedValue({
+      ...metadata, expiresAtUnixMs: metadata.rootExpiresAtUnixMs
+    })
+    try {
+      for (const value of [distribution, {
+        ...distribution, contentAddress: [distribution.contentAddress]
+      }, {
+        ...distribution, snapshotPath: [distribution.snapshotPath]
+      }, {
+        ...distribution, contentAddress: { value: distribution.contentAddress }
+      }, {
+        ...distribution, snapshotPath: null
+      }]) {
+        rootLoader.mockResolvedValue({
+          ...root,
+          circuitMetadata: new TextEncoder().encode(JSON.stringify({ revocationDistribution: value }))
+        })
+        const createCredentialRequest = vi.fn(async () => null)
+        const issueCredential = vi.fn()
+        const provider = createCommentPrivacyCredentialProvider({
+          vault: {
+            async get() { return null },
+            async put() {},
+            async pruneExpired() { return 0 },
+            async clear() {}
+          },
+          credentialSuite: { createCredentialRequest, acceptIssuerResponse: vi.fn() },
+          issueCredential,
+          crypto,
+          unavailableCacheTtlMs: 0
+        })
+        expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
+        expect(createCredentialRequest).toHaveBeenCalledTimes(value === distribution ? 1 : 0)
+        expect(issueCredential).not.toHaveBeenCalled()
+      }
+    } finally {
+      rootLoader.mockRestore()
+      circuitLoader.mockRestore()
+      issuerLoader.mockRestore()
+    }
+  })
+
+  it('rejects expired and non-finite issuer expiry before accepting or caching material', async () => {
+    for (const expiresAtUnixMs of [Date.now() - 1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      const acceptIssuerResponse = vi.fn()
+      const put = vi.fn()
+      const temporaryRequest = new Uint8Array([1, 2])
+      const temporaryOpening = new Uint8Array([3, 4])
+      const provider = createCommentPrivacyCredentialProvider({
+        vault: {
+          async get() { return null },
+          put,
+          async pruneExpired() { return 0 },
+          async clear() {}
+        },
+        loadMetadata: async () => issuerMetadata(),
+        issueCredential: async () => ({ ...issuerResponse(new Uint8Array(MODULUS_BYTES)), expiresAtUnixMs }),
+        credentialSuite: {
+          async createCredentialRequest() {
+            return { credentialRequest: temporaryRequest, credentialOpening: temporaryOpening }
+          },
+          acceptIssuerResponse
+        },
+        crypto,
+        unavailableCacheTtlMs: 0
+      })
+      expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
+      expect(acceptIssuerResponse).not.toHaveBeenCalled()
+      expect(put).not.toHaveBeenCalled()
+      expect([...temporaryRequest, ...temporaryOpening]).toEqual([0, 0, 0, 0])
+    }
+  })
+
+  it('imports an owned SPKI view and clears it after WebCrypto settles', async () => {
+    const metadata = issuerMetadata()
+    const shared = new Uint8Array(new SharedArrayBuffer(publicSpki.byteLength + 8), 4, publicSpki.byteLength)
+    shared.set(publicSpki)
+    metadata.subjectPublicKeyInfo = shared
+    const importKey = vi.spyOn(crypto.subtle, 'importKey')
+    try {
+      const suite = createBlindRsaCredentialSuite({ crypto })
+      expect(await suite.createCredentialRequest({
+        credentialSecret: new Uint8Array(32),
+        clientNonce: new Uint8Array(32),
+        metadata,
+        signal: new AbortController().signal
+      })).not.toBeNull()
+      const imported = importKey.mock.calls.find(call => call[0] === 'spki')?.[1]
+      expect(imported).toBeInstanceOf(Uint8Array)
+      if (!(imported instanceof Uint8Array)) throw new Error('missing owned SPKI')
+      expect(imported.buffer).toBeInstanceOf(ArrayBuffer)
+      expect(imported.byteLength).toBe(publicSpki.byteLength)
+      expect(imported.every(byte => byte === 0)).toBe(true)
+      expect(shared).toEqual(publicSpki)
+    } finally {
+      importKey.mockRestore()
+    }
+  })
+
+  it('rejects SPKI beyond the shared RFC 9474 bound before key import', async () => {
+    const metadata = issuerMetadata()
+    metadata.subjectPublicKeyInfo = new Uint8Array(513).fill(1)
+    metadata.issuerPublicKeyHash = hex(sha256(metadata.subjectPublicKeyInfo))
+    const importKey = vi.spyOn(crypto.subtle, 'importKey')
+    try {
+      const suite = createBlindRsaCredentialSuite({ crypto })
+      expect(await suite.createCredentialRequest({
+        credentialSecret: new Uint8Array(32),
+        clientNonce: new Uint8Array(32),
+        metadata,
+        signal: new AbortController().signal
+      })).toBeNull()
+      expect(importKey).not.toHaveBeenCalled()
+    } finally {
+      importKey.mockRestore()
+    }
   })
 
   it('does not enter provider lifecycle when already cancelled', async () => {
