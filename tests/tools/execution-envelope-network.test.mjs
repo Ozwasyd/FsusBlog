@@ -9,7 +9,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const {finalizeRunOwnedDirectories, prepareRunOwnedDirectories} = await import(new URL('../../tools/test/execution-envelope-directories.mjs', import.meta.url));
-const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkSandbox, projectPlannedEndpoints, validateExecutionNetworkPolicy} = await import(new URL('../../tools/test/execution-envelope-network.mjs', import.meta.url));
+const {finalizeNetworkSandbox, loadExecutionNetworkPolicy, prepareNetworkBindings, prepareNetworkSandbox, projectPlannedEndpoints, validateExecutionNetworkPolicy} = await import(new URL('../../tools/test/execution-envelope-network.mjs', import.meta.url));
 const {runPhysicalExecution} = await import(new URL('../../tools/test/physical-execution-process-tree.mjs', import.meta.url));
 const policy = loadExecutionNetworkPolicy();
 
@@ -38,6 +38,7 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
     t.after(() => finalizeRunOwnedDirectories(directoryEnvelope));
     const environment = {
         ...directoryEnvelope.environment,
+        FSUSBLOG_TEST_RUN_ID: directoryEnvelope.fragment.runId,
         PATH: process.env.PATH,
         LANG: 'C.UTF-8',
         LC_ALL: 'C.UTF-8',
@@ -48,6 +49,7 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
         command: [process.execPath, '-e', 'process.exit(0)'],
         cwd: process.cwd(),
         directories: directoryEnvelope.fragment.directories,
+        ownedDirectoryEnvelope: directoryEnvelope,
         writableRoots: directoryEnvelope.fragment.writableRoots,
         environment,
         policy,
@@ -55,12 +57,34 @@ test('pinned matrix governance grants only private .NET mutex scratch to Landloc
         attemptId: 'matrix-governance'
     });
     assert.equal(prepared.privateDotnetScratch, true);
+    assert.equal(prepared.linuxOwnedPrivateTmp, directoryEnvelope.privateTmpCapability);
     assert.equal(prepared.linuxReadWritePaths.includes('/tmp'), false);
     assert.equal(prepared.linuxReadWritePaths.includes('/tmp/.dotnet/shm'), false);
     assert.equal(prepared.fragment.sandbox.filesystem.privateDotnetScratch, '/tmp/.dotnet/shm');
     const index = prepared.command.indexOf('/tmp/.dotnet/shm');
     assert.ok(index > 0);
     assert.equal(prepared.command[index - 1], '--writable');
+
+    const bindings = {
+        directories: directoryEnvelope.fragment.directories,
+        ownedDirectoryEnvelope: directoryEnvelope,
+        writableRoots: directoryEnvelope.fragment.writableRoots,
+        environment,
+        producerId: 'matrix-governance',
+        attemptId: 'matrix-governance'
+    };
+    assert.throws(() => prepareNetworkBindings({ ...bindings, ownedDirectoryEnvelope: null }),
+        /requires the exact current-attempt owned \/tmp alias/u);
+    assert.throws(() => prepareNetworkBindings({
+        ...bindings,
+        ownedDirectoryEnvelope: { ...directoryEnvelope, privateTmpCapability: {} }
+    }), /requires the original current-attempt directory capability/u);
+    assert.throws(() => prepareNetworkBindings({ ...bindings, producerId: 'validate-matrix' }),
+        /requires the exact current-attempt owned \/tmp alias/u);
+    assert.throws(() => prepareNetworkBindings({
+        ...bindings,
+        environment: { ...environment, FSUSBLOG_TEST_RUN_ID: 'stale-run' }
+    }), /current-attempt directory identity drifted/u);
 });
 
 test('service endpoints project exact protocol, loopback address, and current-run port', () =>
@@ -689,6 +713,219 @@ test('Landlock failures preserve exact diagnostics and exit 125 after diagnostic
     }
 });
 
+test('Landlock null path fails before open and its removed-guard control is detected', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-null-path-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const source = fs.readFileSync(fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url)), 'utf8');
+    const guard = '    if (path == NULL)\n    {\n        errno = EINVAL;\n        Fail("cannot open declared filesystem path");\n    }\n';
+    assert.ok(source.includes(guard));
+    const environment = { PATH: process.env.PATH, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC' };
+    for (const [name, content] of [['original', source], ['removed-guard', source.replace(guard, '')]])
+    {
+        const candidate = path.join(directory, `${name}.c`);
+        const wrapper = path.join(directory, `${name}-wrapper.c`);
+        const output = path.join(directory, `${name}-helper`);
+        fs.writeFileSync(candidate, content);
+        // Exercise the real private boundary; the fault adapter provides no confinement.
+        fs.writeFileSync(wrapper, [
+            '#define main CommandWrapperMain',
+            `#include ${JSON.stringify(candidate)}`,
+            '#undef main',
+            'int __wrap_open(const char* filename, int flags, ...)',
+            '{',
+            '    (void)filename;',
+            '    (void)flags;',
+            '    fputs("observed open\\n", stderr);',
+            '    errno = ENOENT;',
+            '    return -1;',
+            '}',
+            'int main(int argc, char** argv)',
+            '{',
+            '    errno = EIO;',
+            '    AllowPath(10, argc == 1 ? NULL : argv[1], 0);',
+            '    return 124;',
+            '}',
+            ''
+        ].join('\n'));
+        const compilation = spawnSync('cc', ['-std=c11', '-O2', '-Wall', '-Wextra', '-Werror',
+            '-o', output, wrapper, '-Wl,--wrap=open'], { encoding: 'utf8', timeout: 30_000 });
+        assert.equal(compilation.status, 0, compilation.stderr);
+        const rejected = spawnSync(output, [], { encoding: 'utf8', env: environment, timeout: 30_000 });
+        assert.equal(rejected.status, 125, rejected.stderr);
+        assert.equal(rejected.stdout, '');
+        const expected = 'execution-envelope-landlock: cannot open declared filesystem path: Invalid argument\n';
+        if (name === 'original')
+        {
+            assert.equal(rejected.stderr, expected);
+        }
+        else
+        {
+            assert.notEqual(rejected.stderr, expected);
+            assert.equal(rejected.stderr, 'observed open\nexecution-envelope-landlock: cannot open declared filesystem path: No such file or directory\n');
+        }
+        const declared = spawnSync(output, ['/declared path;opaque'], { encoding: 'utf8', env: environment, timeout: 30_000 });
+        assert.equal(declared.status, 125, declared.stderr);
+        assert.equal(declared.stdout, '');
+        assert.equal(declared.stderr, 'observed open\nexecution-envelope-landlock: cannot open declared filesystem path: No such file or directory\n');
+    }
+});
+
+test('Landlock owned alias keeps descriptor identity, exact diagnostics and opaque arguments', {
+    skip: process.platform !== 'linux'
+}, (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-landlock-alias-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const ownedDirectory = path.join(directory, 'owned');
+    const foreignDirectory = path.join(directory, 'foreign');
+    fs.mkdirSync(ownedDirectory, { mode: 0o700 });
+    fs.mkdirSync(foreignDirectory, { mode: 0o700 });
+    const identity = fs.statSync(ownedDirectory, { bigint: true });
+    const source = fileURLToPath(new URL('../../tools/test/native/execution-envelope-landlock.c', import.meta.url));
+    const wrapper = path.join(directory, 'alias-boundary.c');
+    const output = path.join(directory, 'alias-helper');
+    const opaqueArguments = ['space value', 'semi;colon', '$HOME', 'quote"', '', 'line\nbreak', '--owned-tmp-source'];
+    // Link-time adapters exercise descriptor and diagnostic branches. They do not provide confinement.
+    fs.writeFileSync(wrapper, [
+        '#define _GNU_SOURCE',
+        '#include <errno.h>',
+        '#include <fcntl.h>',
+        '#include <stdarg.h>',
+        '#include <stdio.h>',
+        '#include <stdlib.h>',
+        '#include <string.h>',
+        '#include <sys/prctl.h>',
+        '#include <sys/stat.h>',
+        '#include <sys/syscall.h>',
+        '#include <linux/landlock.h>',
+        'static int aliasFd = -1;',
+        'static int sourceFd = -1;',
+        'static int aliasRules;',
+        'static int FailureAt(const char* stage)',
+        '{',
+        '    return strcmp(getenv("FSUSBLOG_ALIAS_FAULT"), stage) == 0;',
+        '}',
+        'int __real_open(const char* filename, int flags, ...);',
+        'int __wrap_open(const char* filename, int flags, ...)',
+        '{',
+        '    const int Alias = strcmp(filename, "/tmp") == 0;',
+        '    const int Source = strcmp(filename, getenv("FSUSBLOG_ALIAS_SOURCE")) == 0;',
+        '    if (Alias || Source)',
+        '    {',
+        '        if (flags != (O_PATH | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)) _Exit(77);',
+        '        if (FailureAt(Alias ? "alias-open" : "source-open")) { errno = ENOENT; return -1; }',
+        '        const char* target = Alias && FailureAt("foreign-alias")',
+        '            ? getenv("FSUSBLOG_ALIAS_FOREIGN") : getenv("FSUSBLOG_ALIAS_SOURCE");',
+        '        int descriptor = __real_open(target, flags);',
+        '        if (Alias) aliasFd = descriptor; else sourceFd = descriptor;',
+        '        return descriptor;',
+        '    }',
+        '    return __real_open(filename, flags);',
+        '}',
+        'int __real_fstat(int descriptor, struct stat* status);',
+        'int __wrap_fstat(int descriptor, struct stat* status)',
+        '{',
+        '    if (FailureAt(descriptor == aliasFd ? "alias-stat" : "source-stat"))',
+        '    { errno = EIO; return -1; }',
+        '    int result = __real_fstat(descriptor, status);',
+        '    if (result == 0 && FailureAt("wrong-mode")) status->st_mode = 0755;',
+        '    return result;',
+        '}',
+        'long __wrap_syscall(long number, ...)',
+        '{',
+        '    va_list arguments;',
+        '    va_start(arguments, number);',
+        '    long result = 0;',
+        '    if (number == __NR_landlock_create_ruleset)',
+        '    {',
+        '        const struct landlock_ruleset_attr* rule = va_arg(arguments, const struct landlock_ruleset_attr*);',
+        '        result = rule == NULL ? 5 : 1000;',
+        '    }',
+        '    else if (number == __NR_landlock_add_rule)',
+        '    {',
+        '        if (va_arg(arguments, int) != 1000) _Exit(77);',
+        '        if (va_arg(arguments, int) != LANDLOCK_RULE_PATH_BENEATH) _Exit(77);',
+        '        const struct landlock_path_beneath_attr* rule = va_arg(arguments, const struct landlock_path_beneath_attr*);',
+        '        if (rule->parent_fd == aliasFd)',
+        '        {',
+        '            if (++aliasRules != 1 || sourceFd < 0 || rule->allowed_access == 0) _Exit(77);',
+        '            if (FailureAt("alias-rule")) { errno = EPERM; result = -1; }',
+        '        }',
+        '    }',
+        '    else if (number != __NR_landlock_restrict_self) _Exit(77);',
+        '    va_end(arguments);',
+        '    return result;',
+        '}',
+        'int __real_close(int descriptor);',
+        'int __wrap_close(int descriptor)',
+        '{',
+        '    if (descriptor == 1000) return 0;',
+        '    if (FailureAt("alias-close") && descriptor == aliasFd) { errno = EBADF; return -1; }',
+        '    return __real_close(descriptor);',
+        '}',
+        'int __wrap_prctl(int option, ...)',
+        '{ if (option != PR_SET_NO_NEW_PRIVS || aliasRules != 1) _Exit(77); return 0; }',
+        'int __wrap_execv(const char* filename, char* const arguments[])',
+        '{',
+        '    if (strcmp(filename, "/declared-command") != 0 || strcmp(arguments[0], filename) != 0) _Exit(77);',
+        ...opaqueArguments.map((value, index) => `    if (strcmp(arguments[${index + 1}], ${JSON.stringify(value)}) != 0) _Exit(77);`),
+        `    if (arguments[${opaqueArguments.length + 1}] != NULL) _Exit(77);`,
+        '    errno = ENOEXEC;',
+        '    return -1;',
+        '}',
+        'int __real_fputs(const char* text, FILE* stream);',
+        'int __wrap_fputs(const char* text, FILE* stream)',
+        '{ int result = __real_fputs(text, stream); errno = EIO; return result; }',
+        ''
+    ].join('\n'));
+    const compilation = spawnSync('cc', [
+        '-std=c11', '-O2', '-Wall', '-Wextra', '-Werror', '-o', output, source, wrapper,
+        '-Wl,--wrap=syscall,--wrap=open,--wrap=fstat,--wrap=close,--wrap=prctl,--wrap=execv,--wrap=fputs'
+    ], { encoding: 'utf8', timeout: 30_000 });
+    assert.equal(compilation.status, 0, compilation.stderr);
+    const device = String(identity.dev);
+    const inode = String(identity.ino);
+    const uid = String(identity.uid);
+    const prefix = `execution-envelope-landlock: owned-private-tmp-verified device=${device} inode=${inode} uid=${uid}\n`;
+    for (const [stage, overrides, diagnostic] of [
+        ['valid', {}, 'cannot execute correctness command: Exec format error'],
+        ['source-open', {}, 'cannot open owned temporary directory: No such file or directory'],
+        ['alias-open', {}, 'cannot open private temporary alias: No such file or directory'],
+        ['source-stat', {}, 'cannot inspect owned temporary alias descriptors: Input/output error'],
+        ['alias-stat', {}, 'cannot inspect owned temporary alias descriptors: Input/output error'],
+        ['foreign-alias', {}, 'owned temporary alias object identity mismatch: Permission denied'],
+        ['wrong-mode', {}, 'owned temporary alias object identity mismatch: Permission denied'],
+        ['device', { device: String(identity.dev + 1n) }, 'owned temporary alias object identity mismatch: Permission denied'],
+        ['inode', { inode: String(identity.ino + 1n) }, 'owned temporary alias object identity mismatch: Permission denied'],
+        ['uid', { uid: String(identity.uid + 1n) }, 'owned temporary alias object identity mismatch: Permission denied'],
+        ['invalid', { device: '-1' }, 'invalid owned temporary directory identity: Invalid argument'],
+        ['alias-rule', {}, 'cannot add verified owned temporary alias rule: Operation not permitted'],
+        ['alias-close', {}, 'cannot close owned temporary alias descriptors: Bad file descriptor']
+    ])
+    {
+        const result = spawnSync(output, [
+            '--owned-tmp-source', ownedDirectory,
+            '--owned-tmp-device', overrides.device ?? device,
+            '--owned-tmp-inode', overrides.inode ?? inode,
+            '--owned-tmp-uid', overrides.uid ?? uid,
+            '--writable', ownedDirectory, '--', '/declared-command', ...opaqueArguments
+        ], {
+            encoding: 'utf8', timeout: 30_000,
+            env: {
+                PATH: process.env.PATH, LANG: 'C.UTF-8', LC_ALL: 'C.UTF-8', TZ: 'UTC',
+                FSUSBLOG_ALIAS_FAULT: stage, FSUSBLOG_ALIAS_SOURCE: ownedDirectory,
+                FSUSBLOG_ALIAS_FOREIGN: foreignDirectory
+            }
+        });
+        assert.equal(result.status, 125, `${stage}: ${result.stderr}`);
+        assert.equal(result.stdout, '', stage);
+        assert.equal(result.stderr, `${stage === 'valid' ? prefix : ''}execution-envelope-landlock: ${diagnostic}\n`, stage);
+    }
+});
+
 test('Landlock error text adapts GNU pointer and POSIX status results with one conversion', {
     skip: process.platform !== 'linux'
 }, (context) =>
@@ -845,8 +1082,8 @@ test('native owned private /tmp refuses absent binding before its command', { sk
     const sentinel = path.join(owner.fragment.directories.temp, 'must-not-execute');
     const sandbox = prepareNetworkSandbox({ command: [process.execPath, '-e',
         `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'bad')`], cwd: root,
-        directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
-        writableRoots: owner.fragment.writableRoots, environment, policy });
+    directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
+    writableRoots: owner.fragment.writableRoots, environment, policy });
     const result = spawnSync(sandbox.command[0], sandbox.command.slice(1), { cwd: root, env: environment, encoding: 'utf8' });
     assert.equal(result.status, 125, result.stderr);
     assert.match(result.stderr, /owned temporary alias object identity mismatch/u);
@@ -885,10 +1122,13 @@ test('original physical owner binds only current owned /tmp and retains external
         `try { fs.writeFileSync(${JSON.stringify(external)}, 'bad'); throw Error('external writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }`,
         "try { fs.writeFileSync('/var/tmp/fsusblog-must-not-write', 'bad'); throw Error('var/tmp writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }"
     ].join(';')], cwd: root, directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
-        writableRoots: owner.fragment.writableRoots, environment, policy });
+    writableRoots: owner.fragment.writableRoots, environment, policy });
     assert.equal(sandbox.linuxReadWritePaths.includes('/tmp'), false);
     assert.equal(sandbox.linuxReadWritePaths.includes('/var/tmp'), false);
-    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    const quiet = new Writable({ write(_chunk, _encoding, callback)
+    {
+        callback();
+    } });
     try
     {
         physicalStarted = true;
@@ -896,7 +1136,11 @@ test('original physical owner binds only current owned /tmp and retains external
             linuxNetworkPolicy: sandbox.linuxNetworkPolicy, linuxReadWritePaths: sandbox.linuxReadWritePaths,
             linuxOwnedPrivateTmp: sandbox.linuxOwnedPrivateTmp, stdout: quiet, stderr: quiet });
     }
-    catch (error) { terminal = error.physicalExecution; throw error; }
+    catch (error)
+    {
+        terminal = error.physicalExecution;
+        throw error;
+    }
     assert.equal(terminal.postObservation, 'zero-members');
     const actual = terminal.executionAdmission.ownedPrivateTmp;
     assert.equal(actual.sourceDevice, actual.aliasDevice);

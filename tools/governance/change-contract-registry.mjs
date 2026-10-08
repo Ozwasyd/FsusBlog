@@ -390,6 +390,35 @@ export const generatedOutputHistoryRepairPolicyFiles = Object.freeze([
     'tools/governance/generated-output-history-repair-v3.mjs'
 ]);
 
+// Current style protection is separate from the immutable historical policy roster.
+// Existing history repair tuples retain their original policy epochs; ordinary PRs
+// still cannot replace any current style authority through candidate approval.
+export const styleAuthorityPolicyFiles = Object.freeze([
+    'config/development/canonical-digest-edge.json',
+    'config/development/frontend-style-policy.json',
+    'config/development/frontend-style-rule-registry.json',
+    'eslint.config.mjs',
+    'stylelint.config.mjs',
+    'tools/frontend/check-frontend-style.mjs',
+    'tools/frontend/source-unit-style-diff.mjs',
+    'tools/frontend/reviewed-residual-classification.mjs',
+    'config/development/frontend-style-reviewed-residual.json',
+    'tools/frontend/style-toolchain/closed-canonical-edge.mjs',
+    'tools/frontend/style-toolchain/eslint.config.mjs',
+    'tools/frontend/style-toolchain/stylelint.config.mjs',
+    'tools/frontend/style-toolchain/package.json',
+    'tools/frontend/style-toolchain/package-lock.json',
+    '.editorconfig',
+    'src/frontend/eslint.config.mjs',
+    'src/frontend/stylelint.config.mjs'
+]);
+
+export const effectiveTrustedPolicyFiles = Object.freeze([
+    ...trustedPolicyFiles,
+    ...generatedOutputHistoryRepairPolicyFiles,
+    ...styleAuthorityPolicyFiles
+]);
+
 // This tuple becomes repair authority only after independent bootstrap review
 // and promotion. Reachability on master is not a fabricated merged-PR identity.
 export const generatedOutputHistoryRepairProducers = Object.freeze([
@@ -459,6 +488,8 @@ export const changeContract = Object.freeze({
     generatedOutputDigestRepairProducers,
     generatedOutputHistoryRepairProducers,
     generatedOutputHistoryRepairPolicyFiles,
+    styleAuthorityPolicyFiles,
+    effectiveTrustedPolicyFiles,
     trustedPolicyFiles,
     evidenceSchemas: Object.freeze({
         externalNamingExceptions: 'fsusblog.external-naming-exceptions.v1',
