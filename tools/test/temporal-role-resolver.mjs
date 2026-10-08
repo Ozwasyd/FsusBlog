@@ -529,11 +529,11 @@ function exactRoleDocument(role, baseEpochMilliseconds, shapeRole)
 
 export function verifyResolvedTemporalArtifact(artifact, { temporalContext } = {})
 {
-    if (artifact?.schema === 'fsusblog.resolved-temporal-entity-stream.v1')
+    if (['fsusblog.resolved-temporal-entity-stream.v1', 'fsusblog.resolved-temporal-entity-stream.v2'].includes(artifact?.schema))
     {
         return verifyResolvedTemporalEntityStream(artifact, { temporalContext });
     }
-    if (artifact?.schema === 'fsusblog.resolved-temporal-entity-batch.v1')
+    if (['fsusblog.resolved-temporal-entity-batch.v1', 'fsusblog.resolved-temporal-entity-batch.v2'].includes(artifact?.schema))
     {
         return verifyResolvedTemporalEntityBatch(artifact, { temporalContext });
     }
@@ -1023,11 +1023,11 @@ export function requireResolvedTemporalEntityRole(artifact, coordinate, roleId, 
 
 export function createTemporalDomainProducerReceipt(artifact, { temporalContext } = {})
 {
-    if (artifact?.schema === 'fsusblog.resolved-temporal-entity-stream.v1')
+    if (['fsusblog.resolved-temporal-entity-stream.v1', 'fsusblog.resolved-temporal-entity-stream.v2'].includes(artifact?.schema))
     {
         return createTemporalEntityStreamReceipt(artifact, { temporalContext });
     }
-    if (artifact?.schema === 'fsusblog.resolved-temporal-entity-batch.v1')
+    if (['fsusblog.resolved-temporal-entity-batch.v1', 'fsusblog.resolved-temporal-entity-batch.v2'].includes(artifact?.schema))
     {
         return createTemporalEntityBatchReceipt(artifact, { temporalContext });
     }
@@ -1093,7 +1093,7 @@ export function verifyTemporalDomainProducerReceipt(receipt, { artifact, tempora
 /** Prepare the existing producer file/env carriers without declaring generation or runtime acceptance. */
 export function createTemporalEntityTransport({ artifact, temporalContext })
 {
-    if (!['fsusblog.resolved-temporal-entities.v1', 'fsusblog.resolved-temporal-entity-batch.v1'].includes(artifact?.schema))
+    if (!['fsusblog.resolved-temporal-entities.v1', 'fsusblog.resolved-temporal-entity-batch.v1', 'fsusblog.resolved-temporal-entity-batch.v2'].includes(artifact?.schema))
     {
         fail('temporal.resolver-input-invalid', 'entity transport requires the ordinary entity artifact');
     }

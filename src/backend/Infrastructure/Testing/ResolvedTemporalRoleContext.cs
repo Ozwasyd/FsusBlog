@@ -65,7 +65,8 @@ public sealed class ResolvedTemporalRoleContext
         using JsonDocument document = JsonDocument.Parse(raw);
         JsonElement root = document.RootElement;
         string? schema = root.GetProperty("schema").GetString();
-        if (schema == "fsusblog.resolved-temporal-entities.v1" || schema == "fsusblog.resolved-temporal-entity-batch.v1")
+        if (schema == "fsusblog.resolved-temporal-entities.v1" || schema == "fsusblog.resolved-temporal-entity-batch.v1"
+            || schema == "fsusblog.resolved-temporal-entity-batch.v2")
         {
             return ParseEntities(root, expectedContentDigest);
         }
