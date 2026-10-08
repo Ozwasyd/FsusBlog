@@ -32,6 +32,10 @@ memory. Reconnect reads before a write; changed server revision requires an
 explicit server choice. BroadcastChannel carries only scoped revision/lease
 invalidation. Web Locks coordinate same-browser flushes; server CAS still arbitrates
 all tabs/devices. Input, caret and scroll cause zero snapshot writes.
+Web Locks rejection retains dirty memory and reports coordination failure without
+starting an uncoordinated writer. Layout changes made while a confirmed reset is
+in flight wait for its CAS result and retain their new current-session projection.
+Stale restore summaries are dropped when observation authority expires.
 
 Restore planning uses one bounded current permission/lifecycle/draft batch. It
 removes invalid refs deterministically and exposes reason counts without titles
@@ -59,13 +63,45 @@ cd src/frontend
 node_modules/.bin/vitest run ../../tests/frontend/unit/authoring/authoringWorkspaceSnapshot.test.ts --maxWorkers=1
 cd ../..
 FSUS_SCHEMA_MIGRATION_POSTGRES_IMAGE=postgres:17-alpine dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore --filter FullyQualifiedName~AuthoringWorkspaceSnapshot
+node tests/frontend/checks/static/check-authoring-workspace-snapshot-governance.mjs --self-test
+node tests/frontend/checks/static/check-authoring-workspace-snapshot-governance.mjs --full --self-test
 ```
+
+The source-stage scanner derives fields, aliases, statuses and policies directly
+from the TypeScript contracts and checks C# field parity. Its thirteen in-memory
+structural mutations exercise name/second-workspace/content/local-authority,
+unregistered transport, editor hydration, cache authority/provenance, restore
+provenance, CAS removal and reset content-dependency rejection. These are source
+controls, not semantic behavior-mutation or terminal qualification. Full mode
+currently fails on the still-live legacy outline reader/writer, as intended.
+The integration owner must register these runners in the authoritative matrix;
+this domain does not edit shared runner/package/protocol registrations.
+
+Native Chromium controls live in
+`tests/frontend/browser/authoringWorkspaceSnapshot.browser.spec.ts` and use
+`src/frontend/playwright.workspace-snapshot.config.ts`. Start the ordinary Vite
+server on port 4317 using the configured FsusUI candidate. Make the already locked
+frontend dependencies resolvable from the repository test directory (the current
+environment uses a temporary repository-root `node_modules` symlink to
+`src/frontend/node_modules`, removed after the run), then run:
+
+```sh
+cd src/frontend
+PLAYWRIGHT_BROWSERS_PATH=/workspace/.setup/playwright-browsers node_modules/.bin/playwright test --config playwright.workspace-snapshot.config.ts
+```
+
+Those controls exercise native IndexedDB with 100 references, reload and actual
+browser process restart, bounded retention/atomic revision replacement, and two
+real tabs sharing BroadcastChannel/Web Locks. Their explicitly marked test
+transport issues server fixtures only; it forbids write/reset and cannot certify
+authenticated HTTP or production article/editor restore. The source-stage browser
+report is `.tmp/workspace-browser/report.json`, with failure traces retained.
 
 PostgreSQL tests use isolated fixture-owned databases/containers and two independent
 connections. Transport fixtures and synthetic router interleavings are unit
 controls, not authenticated HTTP, production FsusUI or terminal acceptance evidence.
 Actual wire/session/PoW, registered migration/DI, real permission batch, official
-two-group ownership/collapse, rendered UX, browser restart/multi-device end-to-end,
+two-group ownership/collapse, rendered UX, full restore browser/multi-device end-to-end,
 mutation governance and performance qualification must be completed before issue
 closure. Existing registry/session type errors and title-field governance failure
 remain original-owner dependencies; no failed gate is waived.
