@@ -1,4 +1,5 @@
 using FsusBlog.Server.Infrastructure.Memory.Capabilities;
+using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Platform;
 
 namespace FsusBlog.Server.Infrastructure.Memory.Pressure;
