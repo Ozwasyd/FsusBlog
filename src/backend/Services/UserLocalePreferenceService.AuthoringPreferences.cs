@@ -32,6 +32,12 @@ public sealed partial class UserLocalePreferenceService
     private sealed record AuthoringPreferenceCasWrite<T>(AuthoringPreferenceState Next, string Receipt, T Result);
     private sealed record AuthoringPreferenceCasResult<T>(WritingAidPreferenceOutcome Outcome, T? Value = default);
 
+    // Persistence-only device binding; the public typography record and its domain digest stay unchanged.
+    private sealed record AuthorTypographyDeviceReceipt(
+        string DeviceScope,
+        AuthorTypographyRecordedRequest Record,
+        string ContentDigest);
+
     private async Task<(long Revision, AuthorTypographyProfile? StoredProfile)> ReadAuthorTypographyStateCoreAsync(
         AuthorTypographyScope authenticatedScope,
         CancellationToken cancellationToken)
@@ -73,12 +79,12 @@ public sealed partial class UserLocalePreferenceService
         {
             return null;
         }
-        AuthorTypographyRecordedRequest? record = JsonSerializer.Deserialize<AuthorTypographyRecordedRequest>(
-            reader.GetString(2), s_authorTypographyPersistenceOptions);
-        if (!WritingAidPreferenceReceiptValidator.IsDeviceScope(reader.GetString(0))
-            || !AuthorTypographyContractValidator.ValidateRecordedRequest(record, authenticatedScope)
+        string deviceScope = reader.GetString(0);
+        AuthorTypographyRecordedRequest? record = ReadTypographyDeviceReceipt(
+            authenticatedScope, deviceScope, reader.GetString(2));
+        if (record is null
             || record!.Request.RequestId != requestId
-            || reader.GetString(1) != AuthorTypographyContractValidator.ComputeRequestDigest(authenticatedScope, record.Request))
+            || reader.GetString(1) != ComputeTypographyDeviceRequestDigest(authenticatedScope, deviceScope, record.Request))
         {
             throw new InvalidDataException("Invalid stored author typography request.");
         }
@@ -99,6 +105,7 @@ public sealed partial class UserLocalePreferenceService
             return new(AuthorTypographyPreferenceWriteOutcome.Forbidden, null, null);
         }
         if (!AuthorTypographyContractValidator.ValidateMutationRequest(authenticatedScope, request)
+            || !WritingAidPreferenceReceiptValidator.IsDeviceScope(deviceScope)
             || mutation is null || mutation.Scope != authenticatedScope
             || mutation.ExpectedRevision != request.Command.ExpectedRevision
             || !AuthorTypographyContractValidator.ValidateProfile(mutation.Profile)
@@ -108,7 +115,7 @@ public sealed partial class UserLocalePreferenceService
         }
         AuthoringPreferenceCasResult<AuthorTypographyRecordedRequest> result = await ExecuteAuthoringPreferenceCasAsync(
             owner, deviceScope, request.RequestId, "typography",
-            AuthorTypographyContractValidator.ComputeRequestDigest(authenticatedScope, request), request.Command.ExpectedRevision,
+            ComputeTypographyDeviceRequestDigest(authenticatedScope, deviceScope, request), request.Command.ExpectedRevision,
             (current, revision) =>
             {
                 AuthoringPreferenceState next = SealAuthoringPreferenceState(owner, current with
@@ -126,13 +133,14 @@ public sealed partial class UserLocalePreferenceService
                 {
                     ContentDigest = AuthorTypographyContractValidator.ComputeRecordedRequestDigest(unsignedRecord, authenticatedScope)
                 };
+                var receipt = new AuthorTypographyDeviceReceipt(deviceScope, record,
+                    ComputeTypographyDeviceReceiptDigest(deviceScope, record));
                 return new AuthoringPreferenceCasWrite<AuthorTypographyRecordedRequest>(next,
-                    JsonSerializer.Serialize(record, s_authorTypographyPersistenceOptions), record);
+                    JsonSerializer.Serialize(receipt, s_authorTypographyPersistenceOptions), record);
             },
             json =>
             {
-                AuthorTypographyRecordedRequest? record = JsonSerializer.Deserialize<AuthorTypographyRecordedRequest>(
-                    json, s_authorTypographyPersistenceOptions);
+                AuthorTypographyRecordedRequest? record = ReadTypographyDeviceReceipt(authenticatedScope, deviceScope, json);
                 return AuthorTypographyRequestReplayPolicy.Evaluate(authenticatedScope, request, record).Status
                     == AuthorTypographyRequestReplayStatus.Replayable ? record : null;
             }, cancellationToken).ConfigureAwait(false);
@@ -146,6 +154,48 @@ public sealed partial class UserLocalePreferenceService
             _ => AuthorTypographyPreferenceWriteOutcome.Unavailable
         };
         return new(outcome, result.Value, result.Value?.CommittedSnapshot);
+    }
+
+    private static string ComputeTypographyDeviceRequestDigest(
+        AuthorTypographyScope scope,
+        string deviceScope,
+        AuthorTypographyMutationRequest request)
+    {
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new[]
+        {
+            "fsusblog.author-typography-device-request.v1",
+            deviceScope,
+            AuthorTypographyContractValidator.ComputeRequestDigest(scope, request)
+        });
+        return Convert.ToHexStringLower(SHA256.HashData(bytes));
+    }
+
+    private static string ComputeTypographyDeviceReceiptDigest(
+        string deviceScope,
+        AuthorTypographyRecordedRequest record)
+    {
+        byte[] bytes = JsonSerializer.SerializeToUtf8Bytes(new[]
+        {
+            "fsusblog.author-typography-device-receipt.v1",
+            deviceScope,
+            record.ContentDigest
+        });
+        return Convert.ToHexStringLower(SHA256.HashData(bytes));
+    }
+
+    private static AuthorTypographyRecordedRequest? ReadTypographyDeviceReceipt(
+        AuthorTypographyScope scope,
+        string deviceScope,
+        string json)
+    {
+        AuthorTypographyDeviceReceipt? receipt = JsonSerializer.Deserialize<AuthorTypographyDeviceReceipt>(
+            json, s_authorTypographyPersistenceOptions);
+        return receipt is not null
+            && WritingAidPreferenceReceiptValidator.IsDeviceScope(deviceScope)
+            && receipt.DeviceScope == deviceScope
+            && AuthorTypographyContractValidator.ValidateRecordedRequest(receipt.Record, scope)
+            && receipt.ContentDigest == ComputeTypographyDeviceReceiptDigest(deviceScope, receipt.Record)
+                ? receipt.Record : null;
     }
 
     private static WritingAidPreferenceOwner? TypographyOwner(AuthorTypographyScope? scope)
