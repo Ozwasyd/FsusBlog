@@ -5,9 +5,10 @@
             "id": "json-wire-key",
             "paths": [
                 "config/testing/fsusui-baseline.json",
-                "config/schemas/article-relation-contract.schema.json"
+                "config/schemas/article-relation-contract.schema.json",
+                "tests/backend/packages.lock.json"
             ],
-            "reason": "Preserve serialized public source-pin and relation schema field names while updating the exact public prerequisite and canonical anchor admission grammar."
+            "reason": "Preserve serialized public source-pin, relation schema and NuGet lock field names while consuming the exact public prerequisite and canonical artifacts."
         },
         {
             "id": "css-like-contract",
