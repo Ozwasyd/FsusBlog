@@ -18,7 +18,7 @@ export type PublicArticleListProjectionPage = Readonly<{
     total: number;
     nextCursor?: string | null;
     hasMore?: boolean;
-    decodePath: 'projection' | 'canonical-fallback';
+    decodePath: 'projection';
 }>;
 
 const DEFAULT_CATEGORY = '通用类';

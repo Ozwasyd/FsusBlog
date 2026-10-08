@@ -1,10 +1,9 @@
 import { BinaryReader, readInt32, readInt64Number, readSliceRef } from '@/codecs/binary/reader';
 import type { ArticleListItemResponse } from '@/contracts/binaryApi';
-import { ARTICLE_LIST_ACCESS } from '@/generated/aedsAccessProfiles';
+import { ARTICLE_LIST_WIRE as ARTICLE_LIST_ACCESS } from '@/generated/aedsArticleListWire';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 import type { PublicArticleListCardProjection, PublicArticleListProjectionPage } from '@/view-contracts/articleList';
 
-import { mapArticlePageFromPodPayload } from './articleAdapter';
 
 export type { PublicArticleListCardProjection, PublicArticleListProjectionPage };
 
@@ -47,16 +46,6 @@ export function toPublicArticleListCardProjection(item: ArticleListItemResponse)
     };
 }
 
-function canonicalFallback(payload: Uint8Array): PublicArticleListProjectionPage
-{
-    const decoded = mapArticlePageFromPodPayload(payload);
-    return {
-        ...decoded,
-        items: decoded.items.map(toPublicArticleListCardProjection),
-        decodePath: 'canonical-fallback'
-    };
-}
-
 export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicArticleListProjectionPage
 {
     let nextCursor: string | null;
@@ -70,7 +59,7 @@ export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicA
     }
 
     const version = readInt32(payload, 4);
-    if (version === 2)
+    if (version === ARTICLE_LIST_ACCESS.cursorVersion)
     {
         reader = new BinaryReader(payload.subarray(8));
         const hasMoreByte = reader.readByte();
@@ -115,21 +104,10 @@ export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicA
     }
     const blob = reader.readBlob();
     const tagBytes = tagRecordCount * ARTICLE_LIST_ACCESS.tagRecordBytes;
-    const itemRecordBytes = reader.remaining() - tagBytes;
-    const itemRecordSize = count === 0 ? 100 : itemRecordBytes / count;
-    if (itemRecordBytes < 0 || (count > 0 && itemRecordBytes % count !== 0)
-    || (itemRecordSize !== 56 && itemRecordSize !== 76 && itemRecordSize !== 100)
-    || reader.remaining() !== count * itemRecordSize + tagBytes)
+    const itemRecordSize = ARTICLE_LIST_ACCESS.recordBytes;
+    if (total < 0 || reader.remaining() !== count * itemRecordSize + tagBytes)
     {
         return fail('article_page_record_layout_invalid');
-    }
-
-    const useCanonicalFallback =
-        (ARTICLE_LIST_ACCESS.fallbackPublicCardRecordBytes as readonly number[]).includes(itemRecordSize);
-    if (!useCanonicalFallback
-    && !(ARTICLE_LIST_ACCESS.supportedPublicCardRecordBytes as readonly number[]).includes(itemRecordSize))
-    {
-        return fail('article_page_profile_layout_unsupported');
     }
 
     const records = new Array<{
@@ -156,6 +134,16 @@ export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicA
         {
             return fail('article_page_record_semantics_invalid');
         }
+        const revisionLow = readInt32(record, o.currentRevisionId);
+        const revisionHigh = readInt32(record, o.currentRevisionId + 4);
+        const publicationLow = readInt32(record, o.currentPublicationId);
+        const publicationHigh = readInt32(record, o.currentPublicationId + 4);
+        const publicationNo = readInt32(record, o.publicationNo);
+        if (revisionHigh < 0 || (revisionHigh === 0 && revisionLow === 0) || readInt32(record, o.revisionNo) <= 0
+            || publicationHigh < 0 || publicationNo < 0 || (publicationHigh === 0 && publicationLow === 0) !== (publicationNo === 0))
+        {
+            return fail('article_version_coordinates_invalid');
+        }
         records[index] = {
             id: readInt32(record, o.id),
             createTimeUnixMs: readInt64Number(record, o.createTimeUnixMs),
@@ -180,17 +168,6 @@ export function mapPublicArticleListCardProjection(payload: Uint8Array): PublicA
     if (reader.remaining() !== 0)
     {
         return fail('article_page_trailing_bytes');
-    }
-
-    if (useCanonicalFallback)
-    {
-        for (const record of records)
-        {
-            readStrictSlice(blob, record.categoryName);
-            readStrictSlice(blob, record.title);
-            readStrictSlice(blob, record.summary);
-        }
-        return canonicalFallback(payload);
     }
 
     const items = records.map((record) =>
