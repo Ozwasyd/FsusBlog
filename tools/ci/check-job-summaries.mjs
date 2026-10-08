@@ -9,6 +9,7 @@ const {
     EVIDENCE_TRANSPORT_MANIFEST_ENV,
     listTransportedArchiveFiles
 } = await import(new URL('../test/current-run-evidence-transport.mjs', import.meta.url));
+const { validateRequiredEvidenceResults, validateRequiredEvidenceTestPlan } = await import(new URL('../test-matrix/required-evidence-dependencies.mjs', import.meta.url));
 
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
 const releaseEvidenceRoot = path.resolve(process.env.FSUSBLOG_RELEASE_EVIDENCE_DIR
@@ -353,7 +354,7 @@ function requiredTiersFromPlan(options, suppliedPlan = null)
 {
     if (!suppliedPlan && !fs.existsSync(planFile))
     {
-        return [];
+        throw new Error(`required test plan is missing: ${planFile}`);
     }
     const plan = suppliedPlan ?? readJson(planFile);
     return tierClosure(plan.tiers ?? [], options.tier).filter((tier) =>
@@ -486,15 +487,54 @@ function main()
 
     if (requirePlan)
     {
+        if (!fs.existsSync(planFile))
+        {
+            throw new Error(`required test plan is missing: ${planFile}`);
+        }
+        const plan = readJson(planFile);
+        if (plan.requiredEvidenceDependencies || (plan.tiers ?? []).some((tier) => tier.id === 'release-final'))
+        {
+            errors.push(...validateRequiredEvidenceTestPlan(plan));
+        }
+        if (options.tier === 'release-final')
+        {
+            const results = [];
+            for (const { summary } of summaries)
+            {
+                if (!summary.requiredEvidenceResult)
+                {
+                    continue;
+                }
+                const result = summary.requiredEvidenceResult;
+                if (summary.commit !== result.identity?.sourceCommit
+          || ![summary.runId, summary.schedulerRunId].includes(result.identity?.runId)
+          || (result.dependencies ?? []).some((dependency) => (dependency.executions ?? [])
+              .some((execution) => !summary.tierIds.includes(execution.tierId)
+              || execution.status !== summary.status)))
+                {
+                    errors.push('job summary required evidence execution identity/tier/status mismatch');
+                }
+                else
+                {
+                    results.push(result);
+                }
+            }
+            const explicitResult = parseOption('dependency-result');
+            if (explicitResult)
+            {
+                results.push(readJson(path.resolve(root, explicitResult)));
+            }
+            errors.push(...validateRequiredEvidenceResults(plan, results));
+        }
         const summaryResultIds = new Set(summaries.map(({ summary }) => summary.jobId));
-        for (const tier of requiredTiersFromPlan(options))
+        for (const tier of options.tier === 'release-final' ? [] : requiredTiersFromPlan(options))
         {
             if (!summaries.some(({ summary }) => summaryMatchesTier(summary, tier)))
             {
                 errors.push(`missing job summary for required evidence tier: ${tier.id} (CI job ${tier.ciJob}); produce with: ${producerCommand(tier)}`);
             }
         }
-        if (options.strictShards)
+        if (options.strictShards && options.tier !== 'release-final')
         {
             for (const [expectedId, tiers] of expectedSummaryEntries(options))
             {
