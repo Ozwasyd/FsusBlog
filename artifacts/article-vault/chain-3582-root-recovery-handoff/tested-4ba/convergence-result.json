@@ -1,0 +1,17 @@
+{
+  "candidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+  "endCandidate": "4ba2ec2ee96d917ede0ebe57e47d5c08df7296bc",
+  "headChangedDuringRun": false,
+  "startedAt": "2026-10-08T08:50:04.170424+00:00",
+  "endedAt": "2026-10-08T08:50:12.625870+00:00",
+  "command": [
+    "/workspace/FsusBlog/.tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+    "tools/check-test-suite-convergence.mjs"
+  ],
+  "cwd": "/workspace/FsusBlog",
+  "exitCode": 1,
+  "workingTreeAtStart": "",
+  "workingTreeAtEnd": "",
+  "changedInputsChanged": false,
+  "scope": "Original full convergence; no retirement declarations changed."
+}
