@@ -113,8 +113,8 @@
                 },
                 {
                     "trace": "fresh-pullupdate-stale-input",
-                    "Status": 0,
-                    "decision": 2,
+                    "status": "Ready",
+                    "decision": "PullUpdate",
                     "storedRevision": 8,
                     "observedRevision": 9,
                     "buildAccepted": false,
@@ -155,7 +155,7 @@
                     "failures": 0
                 }
             ],
-            "rawLogSha256": "7741c9eb05e06bf2656bb2061366d7a967db5a1b7285d5b316ed5de39734eb18"
+            "rawLogSha256": "07c5c02a8e9c163e14b7b648b4b91070a3f438c85e0076ac9fe72e579867aad0"
         },
         {
             "name": "early-composite",

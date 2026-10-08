@@ -234,7 +234,10 @@ internal static partial class Program
         };
         fresh = PortableDependencyCodec.Seal(fresh with
         {
-            Coordinates = stored.Coordinates with { Server = freshCoordinate },
+            Coordinates = stored.Coordinates with
+            {
+                Server = freshCoordinate
+            },
             GraphSha256 = graph
         });
         ArticleVaultServerObservation observation = original.ServerObservations[0] with
@@ -263,15 +266,18 @@ internal static partial class Program
             ArticleVaultDependencyPlanner.VerifyCurrent(built.Plan, sync, request, context, freshInputs, s_budgets)));
         Check("fresh_server_pullupdate_refuses_old_saved_server_graph_and_bytes", false, () =>
         {
-            PortableDependencyManifest stale = PortableDependencyCodec.Seal(stored with { SourceSide = VaultDependencySourceSide.Server });
+            PortableDependencyManifest stale = PortableDependencyCodec.Seal(stored with
+            {
+                SourceSide = VaultDependencySourceSide.Server
+            });
             VaultDependencyPlanInput[] staleInputs = [new(stale, s_bytes, stale.Nodes, stale.Edges, Digest)];
             VaultDependencyPlanBuildResult staleBuild = ArticleVaultDependencyPlanner.Build(sync, request, context, staleInputs, s_budgets);
             ArticleVaultValidationResult staleVerify = ArticleVaultDependencyPlanner.VerifyCurrent(built.Plan, sync, request, context, staleInputs, s_budgets);
             Console.WriteLine(JsonSerializer.Serialize(new
             {
                 trace = "fresh-pullupdate-stale-input",
-                sync.Status,
-                decision = sync.Groups[0].Items[0].Decision,
+                status = sync.Status.ToString(),
+                decision = sync.Groups[0].Items[0].Decision.ToString(),
                 storedRevision = article.Coordinates.Server.ServerRevision,
                 observedRevision = observation.ServerCoordinate.ServerRevision,
                 buildAccepted = staleBuild.Plan is not null,
