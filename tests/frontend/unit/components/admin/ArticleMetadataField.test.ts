@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils';
-import { nextTick } from 'vue';
+import { h, nextTick } from 'vue';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { decodeArticlePropertyValueReadResponse, encodeArticlePropertyValueReadResponse, type ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
@@ -30,7 +30,15 @@ const labels = {
     unvalidated: 'Unsubmitted input; not validated; save unavailable', choose: 'Choose option', unknownOption: 'Unavailable option',
     defaultApplied: 'Server default applied', required: 'Required', conflict: 'Refresh changed definition', cancel: 'Cancel', save: 'Save',
     presenceLabel: 'Value presence', presence: ['Missing', 'Null', 'Present'], reconciliation: ['Current', 'Definition unavailable', 'Inactive definition',
-        'Changed definition', 'Value rejected', 'Reference authority unavailable', 'Required value missing', 'Default pending']
+        'Changed definition', 'Value rejected', 'Reference authority unavailable', 'Required value missing', 'Default pending'],
+    definitionSummary: {
+        toggle: 'Definition flags and policies', searchEligible: 'Author search', filterable: 'Author filtering', sortable: 'Author sorting',
+        required: 'Required policy', missing: 'Missing policy', null: 'Null policy', empty: 'Empty policy',
+        visibilityScope: 'Visibility policy', displayPlacement: 'Display placement', yes: 'Yes', no: 'No', absent: 'Not supplied',
+        nullValue: 'Null descriptor', unknown: 'Unknown', missingBehavior: ['Preserve missing', 'Apply default'],
+        nullBehavior: ['Allow null', 'Reject null'], emptyBehavior: ['Preserve empty', 'Treat as null', 'Reject empty'],
+        visibility: ['Author only', 'Site editors', 'Site readers'], placement: ['Hidden', 'Metadata', 'Sidebar']
+    }
 };
 const wrappers: ReturnType<typeof mount>[] = [];
 function render(type = 0, overrides = {})
@@ -622,5 +630,219 @@ describe('ArticleMetadataField unavailable exact editors preserve canonical wire
         const changed = structuredClone(model);
         value(changed, definition.definitionId).value = payload;
         expect(() => encodeArticlePropertyValueReadResponse(changed)).toThrow(RangeError);
+    });
+});
+
+describe('ArticleMetadataField on-demand readonly definition summary', () =>
+{
+    const copy = labels.definitionSummary;
+    async function expand(wrapper: ReturnType<typeof mount>)
+    {
+        const details = wrapper.get('details');
+        (details.element as HTMLDetailsElement).open = !(details.element as HTMLDetailsElement).open;
+        await details.trigger('toggle');
+    }
+    function displayed(wrapper: ReturnType<typeof mount>, key: string)
+    {
+        return wrapper.get(`[data-definition-flag="${key}"]`).text();
+    }
+
+    it.each([0, 1, 2, 3, 4, 5, 6, 7])('lazily projects the actual descriptor for type %i without changing typed values', async (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        const original = structuredClone(model);
+        const controls = wrapper.findAll('input, textarea, [role="switch"]');
+        expect(wrapper.find('dl').exists()).toBe(false);
+        expect(wrapper.get('summary').attributes('aria-expanded')).toBe('false');
+        expect(wrapper.get('summary').attributes('aria-controls')).toBeUndefined();
+        await expand(wrapper);
+        const list = wrapper.get('dl');
+        expect(wrapper.get('summary').attributes('aria-controls')).toBe(list.attributes('id'));
+        expect(wrapper.get('summary').attributes('aria-expanded')).toBe('true');
+        expect(list.findAll('dt')).toHaveLength(9);
+        expect(list.findAll('dd')).toHaveLength(9);
+        expect(list.findAll('input, button, select, textarea, a')).toHaveLength(0);
+        expect(displayed(wrapper, 'searchEligible')).toBe(definition.searchEligible ? copy.yes : copy.no);
+        expect(displayed(wrapper, 'filterable')).toBe(definition.filterable ? copy.yes : copy.no);
+        expect(displayed(wrapper, 'sortable')).toBe(definition.sortable ? copy.yes : copy.no);
+        expect(displayed(wrapper, 'required')).toBe(definition.required ? copy.yes : copy.no);
+        for (const [key, names, code] of [
+            ['missing', copy.missingBehavior, definition.presence.missing],
+            ['null', copy.nullBehavior, definition.presence.null],
+            ['empty', copy.emptyBehavior, definition.presence.empty],
+            ['visibilityScope', copy.visibility, definition.visibilityScope],
+            ['displayPlacement', copy.placement, definition.displayPlacement]
+        ] as const)
+            expect(displayed(wrapper, key)).toBe(`${names[code]} (${code})`);
+        expect(wrapper.findAll('input, textarea, [role="switch"]').map((item) => item.element)).toEqual(controls.map((item) => item.element));
+        await expand(wrapper);
+        expect(wrapper.find('dl').exists()).toBe(false);
+        expect(model).toEqual(original);
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+        expect(Object.keys(wrapper.emitted()).filter((name) => !['input', 'change', 'click'].includes(name))).toEqual([]);
+    });
+
+    it('distinguishes false, zero, absent, null and unknown without displaying malformed private data', async () =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        const descriptor = changed.definitions.find((item) => item.definitionId === definition.definitionId)!;
+        Object.assign(descriptor, { searchEligible: false, filterable: undefined, sortable: null, required: 'private-malformed',
+            presence: { missing: 0, null: 99, empty: undefined }, visibilityScope: { private: 'secret-descriptor' }, displayPlacement: 99 });
+        await wrapper.setProps({ model: changed });
+        const original = structuredClone(changed);
+        await expand(wrapper);
+        expect(displayed(wrapper, 'searchEligible')).toBe(copy.no);
+        expect(displayed(wrapper, 'filterable')).toBe(copy.absent);
+        expect(displayed(wrapper, 'sortable')).toBe(copy.nullValue);
+        expect(displayed(wrapper, 'required')).toBe(copy.unknown);
+        expect(displayed(wrapper, 'missing')).toBe('Preserve missing (0)');
+        expect(displayed(wrapper, 'null')).toBe('Unknown (99)');
+        expect(displayed(wrapper, 'empty')).toBe(copy.absent);
+        expect(displayed(wrapper, 'visibilityScope')).toBe(copy.unknown);
+        expect(displayed(wrapper, 'displayPlacement')).toBe('Unknown (99)');
+        expect(wrapper.text()).not.toContain('private-malformed');
+        expect(wrapper.text()).not.toContain('secret-descriptor');
+        expect(changed).toEqual(original);
+    });
+
+    it('does not infer validation, grants or editing capability from descriptor flags', async () =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        Object.assign(changed.definitions.find((item) => item.definitionId === definition.definitionId)!, {
+            searchEligible: true, filterable: true, sortable: true, required: true,
+            presence: { missing: 1, null: 1, empty: 2 }, visibilityScope: 2, displayPlacement: 0
+        });
+        await wrapper.setProps({ model: changed, editable: false });
+        await expand(wrapper);
+        expect(displayed(wrapper, 'visibilityScope')).toBe('Site readers (2)');
+        expect(displayed(wrapper, 'displayPlacement')).toBe('Hidden (0)');
+        expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe(true);
+        expect(presenceSelect(wrapper).props('disabled')).toBe(true);
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+        expect(displayed(wrapper, 'missing')).toBe('Apply default (1)');
+        expect(value(changed, definition.definitionId)).toEqual(value(model, definition.definitionId));
+    });
+
+    it.each([0, 1, 2] as const)('displays policy code %i exactly without applying it to the value', async (code) =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        Object.assign(changed.definitions.find((item) => item.definitionId === definition.definitionId)!, {
+            presence: { missing: code === 2 ? 0 : code, null: code === 2 ? 0 : code, empty: code },
+            visibilityScope: code, displayPlacement: code
+        });
+        await wrapper.setProps({ model: changed });
+        await expand(wrapper);
+        expect(displayed(wrapper, 'empty')).toBe(`${copy.emptyBehavior[code]} (${code})`);
+        expect(displayed(wrapper, 'visibilityScope')).toBe(`${copy.visibility[code]} (${code})`);
+        expect(displayed(wrapper, 'displayPlacement')).toBe(`${copy.placement[code]} (${code})`);
+        const binaryCode = code === 2 ? 0 : code;
+        expect(displayed(wrapper, 'missing')).toBe(`${copy.missingBehavior[binaryCode]} (${binaryCode})`);
+        expect(displayed(wrapper, 'null')).toBe(`${copy.nullBehavior[binaryCode]} (${binaryCode})`);
+        expect(value(changed, definition.definitionId)).toEqual(value(model, definition.definitionId));
+    });
+
+    it('cannot extend closed code meanings through extra caller labels or fill absent policy values', async () =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        Object.assign(changed.definitions.find((item) => item.definitionId === definition.definitionId)!, {
+            presence: undefined, visibilityScope: 3, displayPlacement: 3
+        });
+        await wrapper.setProps({ model: changed, labels: { ...labels, definitionSummary: { ...copy,
+            visibility: [...copy.visibility, 'invented visibility'], placement: [...copy.placement, 'invented placement'] } } });
+        await expand(wrapper);
+        for (const key of ['missing', 'null', 'empty']) expect(displayed(wrapper, key)).toBe(copy.absent);
+        expect(displayed(wrapper, 'visibilityScope')).toBe('Unknown (3)');
+        expect(displayed(wrapper, 'displayPlacement')).toBe('Unknown (3)');
+        expect(wrapper.text()).not.toContain('invented');
+    });
+
+    it('preserves staged input, presence and cancellation while opening or closing the summary', async () =>
+    {
+        const { wrapper } = render();
+        const observed = wrapper.getComponent(FsusUiInput).props('modelValue');
+        wrapper.getComponent(FsusUiInput).vm.$emit('update:modelValue', 'exact pending');
+        await nextTick();
+        presenceSelect(wrapper).vm.$emit('update:modelValue', 1);
+        await nextTick();
+        await expand(wrapper);
+        await expand(wrapper);
+        expect(presenceSelect(wrapper).props('modelValue')).toBe(1);
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('exact pending');
+        expect(wrapper.text()).toContain(labels.unvalidated);
+        await expand(wrapper);
+        await button(wrapper, 'Cancel').trigger('click');
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe(observed);
+        expect(presenceSelect(wrapper).props('modelValue')).toBe(2);
+        expect(wrapper.find('dl').exists()).toBe(true);
+    });
+
+    it('keeps toggle focus stable and has distinct control IDs for sibling fields', async () =>
+    {
+        const model = response();
+        const parent = mount({ render: () => h('div', model.definitions.slice(0, 2).map((definition) => h(ArticleMetadataField, {
+            model, definitionId: definition.definitionId, definitionOwnerUserId: '42', context: context(),
+            enabled: true, editable: true, readKey: 'permission-1', locale: 'en-US', labels
+        }))) }, { attachTo: document.body });
+        wrappers.push(parent);
+        const [first, second] = parent.findAllComponents(ArticleMetadataField);
+        const toggle = first.get('summary').element as HTMLElement;
+        toggle.focus();
+        await expand(first);
+        expect(document.activeElement).toBe(toggle);
+        await expand(second);
+        expect(first.get('dl').attributes('id')).not.toBe(second.get('dl').attributes('id'));
+        await expand(first);
+        expect(document.activeElement).toBe(toggle);
+        expect(first.find('dl').exists()).toBe(false);
+    });
+
+    it.each(['model', 'definition', 'context', 'grant', 'readKey', 'editable'])('withdraws expanded summary after %s changes', async (change) =>
+    {
+        const { wrapper, model } = render();
+        await expand(wrapper);
+        if (change === 'model') await wrapper.setProps({ model: structuredClone(model) });
+        if (change === 'definition') await wrapper.setProps({ definitionId: model.definitions[2].definitionId });
+        if (change === 'context') await wrapper.setProps({ context: { ...context(), editorSessionId: 'new-session' } });
+        if (change === 'grant') await wrapper.setProps({ enabled: false });
+        if (change === 'readKey') await wrapper.setProps({ readKey: 'new-grant' });
+        if (change === 'editable') await wrapper.setProps({ editable: false });
+        expect(wrapper.find('dl').exists()).toBe(false);
+        if (['context', 'grant', 'readKey'].includes(change))
+            expect(wrapper.text()).not.toContain(copy.toggle);
+        else
+            expect(wrapper.get('summary').attributes('aria-expanded')).toBe('false');
+    });
+
+    it('ignores a queued toggle from a withdrawn disclosure after a fresh read', async () =>
+    {
+        const { wrapper, model } = render();
+        await expand(wrapper);
+        const previous = wrapper.get('details').element as HTMLDetailsElement;
+        await wrapper.setProps({ enabled: false });
+        await wrapper.setProps({ enabled: true });
+        await wrapper.setProps({ model: structuredClone(model) });
+        expect(wrapper.get('details').element).not.toBe(previous);
+        previous.open = true;
+        previous.dispatchEvent(new Event('toggle'));
+        await nextTick();
+        expect(wrapper.find('dl').exists()).toBe(false);
+        expect(wrapper.get('summary').attributes('aria-expanded')).toBe('false');
+    });
+
+    it('uses caller localization reactively and escapes display text', async () =>
+    {
+        const { wrapper } = render();
+        await expand(wrapper);
+        await wrapper.setProps({ locale: 'zh-CN', labels: { ...labels, definitionSummary: { ...copy,
+            toggle: '定义标志与策略', searchEligible: '作者搜索', no: '否', missingBehavior: ['保留缺失', '使用默认值'],
+            placement: ['隐藏', '<script>display-copy</script>', '侧栏'] } } });
+        expect(wrapper.get('summary').text()).toBe('定义标志与策略');
+        expect(wrapper.get('dl').text()).toContain('作者搜索');
+        expect(wrapper.find('script').exists()).toBe(false);
+        expect(wrapper.find('dl').exists()).toBe(true);
     });
 });

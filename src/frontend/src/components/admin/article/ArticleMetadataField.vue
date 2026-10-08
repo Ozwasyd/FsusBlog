@@ -98,6 +98,29 @@
             </FsusUiButton>
             <FsusUiButton disabled>{{ labels.save }}</FsusUiButton>
         </div>
+        <details
+            ref="summaryDisclosure"
+            :open="summaryExpanded"
+            @toggle="toggleSummary"
+        >
+            <summary
+                :aria-expanded="summaryExpanded"
+                :aria-controls="summaryExpanded ? summaryId : undefined"
+            >{{ labels.definitionSummary.toggle }}</summary>
+            <dl
+                v-if="summaryExpanded"
+                :id="summaryId"
+                class="article-metadata-field__summary"
+            >
+                <template
+                    v-for="row in summaryRows"
+                    :key="row.key"
+                >
+                    <dt>{{ row.label }}</dt>
+                    <dd :data-definition-flag="row.key">{{ row.value }}</dd>
+                </template>
+            </dl>
+        </details>
     </section>
     <p
         v-else
@@ -142,12 +165,37 @@ const props = defineProps<{
         presenceLabel: string;
         presence: readonly string[];
         reconciliation: readonly string[];
+        definitionSummary: {
+            toggle: string;
+            searchEligible: string;
+            filterable: string;
+            sortable: string;
+            required: string;
+            missing: string;
+            null: string;
+            empty: string;
+            visibilityScope: string;
+            displayPlacement: string;
+            yes: string;
+            no: string;
+            absent: string;
+            nullValue: string;
+            unknown: string;
+            missingBehavior: readonly string[];
+            nullBehavior: readonly string[];
+            emptyBehavior: readonly string[];
+            visibility: readonly string[];
+            placement: readonly string[];
+        };
     };
 }>();
 
 const labelId = useId();
 const statusId = useId();
 const presenceLabelId = useId();
+const summaryId = useId();
+const summaryExpanded = ref(false);
+const summaryDisclosure = shallowRef<HTMLDetailsElement | null>(null);
 const revokedModel = shallowRef<ArticlePropertyValueReadResponse | null>(null);
 watch([
     () => props.context?.articleId,
@@ -193,6 +241,60 @@ const serverStatus = computed(() => incompatible.value ? props.labels.conflict
     : props.labels.reconciliation[definition.value?.status !== 0 ? 2 : reconciliation.value?.status ?? 1] ?? props.labels.unavailable);
 const fieldName = computed(() => definition.value?.displayNames.find((name) => name.locale === props.locale)?.value
     ?? definition.value?.machineKey ?? props.labels.unavailable);
+function toggleSummary(event: Event): void
+{
+    // Native disclosure supplies keyboard and focus behavior; read withdrawal
+    // must not let a queued toggle expose a previous descriptor.
+    if (event.currentTarget !== summaryDisclosure.value)
+    {
+        return;
+    }
+    summaryExpanded.value = visible.value && summaryDisclosure.value?.open === true;
+}
+// Display only the descriptor actually returned by the Server. Labels describe
+// closed codes; none of these flags determines grants, validation or UI ports.
+function summaryValue(value: unknown, choices?: readonly string[]): string
+{
+    const copy = props.labels.definitionSummary;
+    if (value === undefined)
+    {
+        return copy.absent;
+    }
+    if (value === null)
+    {
+        return copy.nullValue;
+    }
+    if (!choices && typeof value === 'boolean')
+    {
+        return value ? copy.yes : copy.no;
+    }
+    if (choices && typeof value === 'number' && Number.isFinite(value))
+    {
+        const label = Number.isInteger(value) && value >= 0 ? choices[value] : undefined;
+        return `${label ?? copy.unknown} (${value})`;
+    }
+    return copy.unknown;
+}
+const summaryRows = computed(() =>
+{
+    if (!summaryExpanded.value || !definition.value)
+    {
+        return [];
+    }
+    const descriptor = definition.value;
+    const copy = props.labels.definitionSummary;
+    return [
+        { key: 'searchEligible', label: copy.searchEligible, value: summaryValue(descriptor.searchEligible) },
+        { key: 'filterable', label: copy.filterable, value: summaryValue(descriptor.filterable) },
+        { key: 'sortable', label: copy.sortable, value: summaryValue(descriptor.sortable) },
+        { key: 'required', label: copy.required, value: summaryValue(descriptor.required) },
+        { key: 'missing', label: copy.missing, value: summaryValue(descriptor.presence?.missing, copy.missingBehavior.slice(0, 2)) },
+        { key: 'null', label: copy.null, value: summaryValue(descriptor.presence?.null, copy.nullBehavior.slice(0, 2)) },
+        { key: 'empty', label: copy.empty, value: summaryValue(descriptor.presence?.empty, copy.emptyBehavior.slice(0, 3)) },
+        { key: 'visibilityScope', label: copy.visibilityScope, value: summaryValue(descriptor.visibilityScope, copy.visibility.slice(0, 3)) },
+        { key: 'displayPlacement', label: copy.displayPlacement, value: summaryValue(descriptor.displayPlacement, copy.placement.slice(0, 3)) }
+    ];
+});
 type ValuePresence = NonNullable<ArticlePropertyValueReadResponse['current']>['snapshot']['values'][number]['presence'];
 const presence = computed<ValuePresence>(() => entry.value?.presence ?? 0);
 const supported = computed(() => [0, 2, 4, 5, 7].includes(definition.value?.valueType ?? -1));
@@ -321,6 +423,7 @@ async function cancelFromControl(event: MouseEvent): Promise<void>
 
 watch([() => props.model, () => props.definitionId, () => props.editable, visible], () =>
 {
+    summaryExpanded.value = false;
     controlGeneration.value++;
     cancel();
 }, { immediate: true, deep: true, flush: 'sync' });
@@ -359,5 +462,20 @@ onBeforeUnmount(() =>
     display: flex;
     flex-wrap: wrap;
     gap: var(--fsus-space-2);
+}
+
+.article-metadata-field__summary
+ {
+    display: grid;
+    min-width: 0;
+    margin: 0;
+    gap: var(--fsus-space-2);
+    overflow-wrap: anywhere;
+    color: var(--el-text-color-secondary);
+}
+
+.article-metadata-field__summary dd
+ {
+    margin: 0;
 }
 </style>
