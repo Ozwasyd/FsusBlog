@@ -1,0 +1,77 @@
+{
+  "schema": "fsusblog.memory-source-delivery.v1",
+  "candidate": "9f8409be5efadf76241fd10f8344d1e59de64f0a",
+  "runId": "mem-9f8409be5-20261008-real-context-capture",
+  "evidence": [
+    {
+      "path": "chain-status.json",
+      "sha256": "2f4a159937ed72e06c30d0d550dcc0ce3e294ec4937869b7b9cf2e0f241511d8",
+      "bytes": 77747
+    },
+    {
+      "path": "chain-status.md",
+      "sha256": "8226355aed6d66a8481780b6405c269627c6f337d43f847c0957aaff80a35125",
+      "bytes": 11014
+    },
+    {
+      "path": "commit-contract.log",
+      "sha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "bytes": 54
+    },
+    {
+      "path": "docs.log",
+      "sha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+      "bytes": 38
+    },
+    {
+      "path": "intake.json",
+      "sha256": "c467584323ff2e53ce9a1a008294881569085d2d4c50b75df33a678d8cbcbbf0",
+      "bytes": 6824872
+    },
+    {
+      "path": "inventory-produce.log",
+      "sha256": "d488373dfafccf37f04e55ef342d68f8caaec7de7df39cc70b912879028c97bb",
+      "bytes": 215
+    },
+    {
+      "path": "inventory-replay.log",
+      "sha256": "edf9ce0f2b8d7c517fd06049f463ac97074a16d2dc354aaf52b7a6ac708d2d0c",
+      "bytes": 166
+    },
+    {
+      "path": "inventory-strict.log",
+      "sha256": "83942e1a82ef2e97d74ff86a36551a63ae8dba7b3a22cbf947b8f6b42a69f823",
+      "bytes": 99
+    },
+    {
+      "path": "owned-style.log",
+      "sha256": "bbfb2e234c051cd60397d2f1e4e6e2d51cccf51df4e3d95746c9967ed6234027",
+      "bytes": 45
+    },
+    {
+      "path": "runtime-checks.json",
+      "sha256": "e756398153fc94e4870a898bcaef0b0dc158f0bf13791cd0b48964f9e735e0dd",
+      "bytes": 1020
+    },
+    {
+      "path": "scoped-code-intent.json",
+      "sha256": "728d399c4ec057001090e8153aba268cdbe2bc811b5f2c2253d6d0353c71d1cc",
+      "bytes": 363
+    },
+    {
+      "path": "source-checks.json",
+      "sha256": "a38e399f28b6409a8f7194c70ddcb982ab1c9af6b6fe753c05405f8b5017040c",
+      "bytes": 2905
+    },
+    {
+      "path": "test-results/memory-9f8409be5.trx",
+      "sha256": "033a5046e5213a08a53575f365b364207e45b8d719ddab3afa38d81614607552",
+      "bytes": 139496
+    },
+    {
+      "path": "tests.log",
+      "sha256": "1066929943e0f42269368ec60f7b73ea9924ca0965a66eb19fb678994d2af01f",
+      "bytes": 445476
+    }
+  ]
+}
