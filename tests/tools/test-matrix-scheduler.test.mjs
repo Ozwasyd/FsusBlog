@@ -21,6 +21,7 @@ const { bindResidentLeaseEnforcement, consumeResidentLeaseHandoff, createResiden
 const { createSchedulerRunOwner, schedulerCandidateIdentityDigest, sealSchedulerRunOwner } = await import(new URL("../../tools/test-matrix/scheduler-run-owner.mjs", import.meta.url));
 const runOnce = await import(new URL("../../tools/test/run-once.mjs", import.meta.url));
 const temporal = await import(new URL("../../tools/test/temporal-context.mjs", import.meta.url));
+const { readGitChangedPaths } = await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 import { runActiveJsonProbe } from './support/active-json-probe.mjs';
 import {
@@ -228,6 +229,17 @@ function createCanonicalCliFixture(temp, payloads, configureTier = () =>
         { cwd: temp });
     execFileSync(process.execPath, ['tools/test-matrix/generate-release-final-execution-authority.mjs'],
         { cwd: temp });
+    if (options.prSmartSelectedOnly === true)
+    {
+        // PR impact reads the committed Git diff; seal the fixture before its admission receipt.
+        execFileSync('git', ['-c', 'core.hooksPath=/dev/null', 'add', '--all', '--',
+            '.github', 'config', 'tools', 'tests'], { cwd: temp });
+        execFileSync('git', ['-c', 'core.hooksPath=/dev/null', '-c', 'user.name=Test',
+            '-c', 'user.email=test@example.invalid', '-c', 'commit.gpgsign=false',
+            'commit', '--quiet', '-m', 'fixture'], { cwd: temp });
+    }
+    const sourceCommit = execFileSync('git', ['rev-parse', 'HEAD'],
+        { cwd: temp, encoding: 'utf8' }).trim();
     const admission = createBehaviorDocAdmissionFixture({ sourceRepositoryRoot: root,
         repositoryRoot: temp });
     return {
@@ -235,6 +247,7 @@ function createCanonicalCliFixture(temp, payloads, configureTier = () =>
         tierId: tierIds[0],
         tierIds,
         matrixFile,
+        sourceCommit,
         admissionEnvironment: {
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT: admission.receiptFile,
             FSUSBLOG_BEHAVIOR_DOC_ADMISSION_DIGEST: admission.contentDigest,
@@ -4704,6 +4717,35 @@ test('pollution detection catches staging and executable-bit changes without rej
     assert.ok(mode.failure.changedPaths.includes('tracked.txt'));
 });
 
+test('canonical PR scheduler fixture seals committed source and refuses post-seal drift', (t) =>
+{
+    const temp = createTempDir('scheduler-pr-candidate-binding');
+    t.after(() => fs.rmSync(temp, { recursive: true, force: true }));
+    const fixture = createCanonicalCliFixture(temp, {
+        'ux-viewport-plan-progress': 'process.exit(0)\n',
+        'runtime-cache-evidence': 'process.exit(0)\n'
+    }, () =>
+    {
+    }, { prSmartSelectedOnly: true });
+    const changes = readGitChangedPaths(temp, fixture.sourceCommit);
+    assert.equal(changes.headCommit, fixture.sourceCommit);
+    assert.deepEqual(changes.changedFiles, []);
+    const receipt = JSON.parse(fs.readFileSync(
+        fixture.admissionEnvironment.FSUSBLOG_BEHAVIOR_DOC_ADMISSION_RECEIPT, 'utf8'
+    ));
+    const sealed = sealSourceIdentity(temp);
+    assert.equal(receipt.source.commit, fixture.sourceCommit);
+    assert.equal(receipt.source.worktreeFingerprint, sealed.worktreeFingerprint);
+    fs.appendFileSync(path.join(temp, 'tools/run-test-matrix.mjs'), '\n// post-seal source drift\n');
+    assert.throws(() => readGitChangedPaths(temp, fixture.sourceCommit),
+        /PR impact requires a clean committed source candidate/u);
+    assert.throws(() => validateBehaviorDocStaticAdmissionReceipt(receipt, {
+        expectedRunId: receipt.run.id,
+        expectedSourceIdentity: sealSourceIdentity(temp),
+        expectedWorktree: temp
+    }), /source\/worktree identity mismatch/u);
+});
+
 test('ci-pr-smart executes selected tiers through one asynchronous DAG run', (t) =>
 {
     const temp = createTempDir('scheduler-ci-pr-smart');
@@ -4746,6 +4788,8 @@ test('ci-pr-smart executes selected tiers through one asynchronous DAG run', (t)
     const result = spawnSync(process.execPath, [
         fixture.runner,
         'ci-pr-smart',
+        '--base-ref',
+        fixture.sourceCommit,
         '--changed-files',
         changedFiles
     ], {

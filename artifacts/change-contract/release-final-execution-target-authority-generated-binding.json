@@ -3,12 +3,13 @@
     "sources": [
         "config/testing/release-final-execution-authority-index.json",
         "tools/test-matrix/generate-release-final-execution-authority.mjs",
-        "tools/test-matrix/release-final-static-boundary.mjs"
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "tests/tools/test-matrix-scheduler.test.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "4a37030eed8ea34b125a4ff0fcacc6bb3588ce9404cda31af1b2fcf3c4d0e951"
+            "sha256": "321747eb2fbbf55db348f6b51018e42d8226b7cff9f5cffe19625d614336003e"
         }
     ]
 }
