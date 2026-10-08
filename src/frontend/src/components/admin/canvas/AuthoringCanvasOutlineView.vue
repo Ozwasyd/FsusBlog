@@ -1,5 +1,6 @@
 <template>
     <section
+        ref="outlineRoot"
         class="canvas-outline-view"
         role="region"
         :aria-label="t('admin.canvas.outline')"
@@ -14,8 +15,9 @@
             role="list"
         >
             <li
-                v-for="item in items"
+                v-for="item in pageItems"
                 :key="item.id"
+                :data-outline-id="item.id"
                 class="outline-item"
                 :class="[
                     `kind-${item.kind}`,
@@ -74,17 +76,56 @@
                 {{ t('admin.canvas.empty') }}
             </li>
         </ul>
+        <ElPagination
+            v-if="items.length > pageSize"
+            v-model:current-page="page"
+            :page-size="pageSize"
+            :total="items.length"
+            layout="prev, pager, next"
+        />
     </section>
 </template>
 
 <script setup lang="ts">
-import { ElButton } from '@ozwasyd/element-plus';
+import { ElButton, ElPagination } from '@ozwasyd/element-plus';
+import { computed, nextTick, ref, watch } from 'vue';
 
 import type { OutlineItem } from '@/composables/useAuthoringCanvas';
 import { useI18nText } from '@/composables/useI18nText';
-defineProps<{
+const props = defineProps<{
     items: OutlineItem[];
 }>();
+const pageSize = 100;
+const page = ref(1);
+const outlineRoot = ref<HTMLElement>();
+const pageItems = computed(() => props.items.slice((page.value - 1) * pageSize, page.value * pageSize));
+watch(() => [props.items[0]?.id, props.items.length, props.items.findIndex(item => item.selected)] as const,
+      ([firstId, count, selectedIndex], previous) =>
+      {
+          if (selectedIndex >= 0)
+          {
+              page.value = Math.floor(selectedIndex / pageSize) + 1;
+          }
+          else if (previous && firstId !== previous[0])
+          {
+              page.value = 1;
+          }
+          else
+          {
+              page.value = Math.min(page.value, Math.max(1, Math.ceil(count / pageSize)));
+          }
+      }, { immediate: true });
+watch(page, async () =>
+{
+    const active = document.activeElement;
+    const restoreRowFocus = active instanceof HTMLElement && active.closest('.outline-item')
+        && outlineRoot.value?.contains(active);
+    await nextTick();
+    if (restoreRowFocus)
+    {
+        outlineRoot.value?.querySelector<HTMLElement>('.outline-item')?.focus();
+    }
+});
 defineEmits<{
     (e: 'select-item', item: OutlineItem): void;
     (e: 'delete-item', item: OutlineItem): void;
