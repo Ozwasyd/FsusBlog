@@ -179,6 +179,15 @@ literal/default input resolves to a native tag. `nativePropBindings` bind that
 call and its inputs; every rendered native prop node is checked against the
 nearest matching call. A dynamic input or unknown component name remains an
 `unbound-native-prop-source` error, and an actual mismatched tag is rejected.
+A native component selector may also have a finite tag union proven from an
+actual top-level constant arrow function. Every return must be a native literal
+or a conditional of native literals, and every path must return. The supported
+flow is limited to blocks, conditionals and ordinary variable/expression
+statements; unknown returns, fallthrough, async functions, loops, mutable or
+template-shadowed bindings are rejected. Return type annotations establish no
+proof. All rendered native union nodes are checked against the complete union,
+including nodes without semantic ownership attributes. This proves possible
+tags only; the selector's business state and branch visibility remain unbound.
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

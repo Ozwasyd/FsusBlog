@@ -168,6 +168,49 @@ test('public native tag props bind the real default or exact literal call withou
     assert.ok(unknown.errors.some((error) => error.reason === 'unbound-native-prop-source'));
 });
 
+test('actual public DataList row functions prove all native returns without trusting annotations', () =>
+{
+    const graph = source().graph([fixture('<script setup>import {FsusDataList as List} from "@ozwasyd/element-plus";</script><template><List/></template>')]);
+    const row = graph.nodes.find((node) => node.origin.function === 'rowTag');
+    assert.ok(row.file.endsWith('/collection-primitives/src/data-list.vue'));
+    assert.equal(row.origin.kind, 'native-variants');
+    assert.deepEqual(row.origin.values, ['a', 'button', 'div']);
+    assert.ok(!graph.errors.some((error) => error.file === row.file && error.offset === row.offset));
+    const closed = source().graph([fixture('<script setup>const tag=(active)=>{if(active){return "section";}else{return "article";}}</script><template><component :is="tag(active)"/></template>')]);
+    assert.deepEqual(closed.errors, []);
+    assert.deepEqual(closed.nodes.find((node) => node.tag === 'component').origin.values, ['section', 'article']);
+});
+
+test('unknown returns, fallthrough and unsupported native function flow fail closed', () =>
+{
+    for (const body of ['return active ? "section" : unknownTag;', 'if(active)return "section";',
+        'for(const item of items){return "section";}return "article";', 'return "section";return unknownTag;'])
+    {
+        const graph = source().graph([fixture(`<script setup lang="ts">const tag=(active):"section"=>{${body}}</script><template><component :is="tag(active)"/></template>`)]);
+        assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source'), body);
+    }
+});
+
+test('native function proof rejects mutable, nested and template-shadowed bindings', () =>
+{
+    const content = (script, markup) => `<script setup>${script}</script><template>${markup}</template>`;
+    for (const entry of [
+        content('let tag=()=>"section";', '<component :is="tag()"/>'),
+        content('function hidden(){const tag=()=>"section";}', '<component :is="tag()"/>'),
+        content('const tag=()=>"section";', '<template v-for="tag in items"><component :is="tag()"/></template>'),
+        content('const tag=()=>"section";', '<template v-for="({kind:tag}, index) of items"><component :is="tag()"/></template>'),
+        content('const tag=()=>"section";', '<Wrapper #default="{kind:tag}"><component :is="tag()"/></Wrapper>'),
+        content('const tag=()=>"section";', '<component v-for="tag in items" :is="tag()"/>')
+    ])
+    {
+        const graph = source().graph([fixture(entry)]);
+        assert.equal(graph.nodes.find((node) => node.tag === 'component').origin.kind, 'unknown');
+        assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source'));
+    }
+    const harmlessProperty = source().graph([fixture(content('const tag=()=>"section";', '<template v-for="({tag:other}, index) in items"><component :is="tag()"/></template>'))]);
+    assert.deepEqual(harmlessProperty.errors, []);
+});
+
 test('a later unknown props spread cannot inherit proof from an earlier native default', () =>
 {
     fixture('export const sharedProps = { inherited: String };', 'SharedProps.ts');

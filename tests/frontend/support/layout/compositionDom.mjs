@@ -195,7 +195,7 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
     const owners = nodes.filter((node) => node.owner);
     for (const node of nodes.filter((node) => node.owner || node.region || node.action || node.surface || node.material
         || node.responsibility || node.content || node.tag === 'h1' || node.semanticRole === 'heading'
-        || sourceNodes.get(node.sourceNode)?.origin.kind === 'native-prop'))
+        || ['native-prop', 'native-variants'].includes(sourceNodes.get(node.sourceNode)?.origin.kind)))
     {
         validateSource(node);
     }

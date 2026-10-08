@@ -42,6 +42,11 @@ const baseMarkup = `${header}${body}${context}${chrome}`;
 const baseScript = 'import { FsusTaskPageHeader as Header, FsusCollectionToolbar as Toolbar } from "@ozwasyd/element-plus";';
 const nativePropMarkup = baseMarkup.replace('<p>Current content</p>', '<Scroller><p>Current content</p></Scroller>');
 const nativePropScript = baseScript + 'import {ElScrollbar as Scroller} from "@ozwasyd/element-plus";';
+const nativeFunctionMarkup = baseMarkup.replace('<p>Current content</p>',
+    '<List :interactive="false" :rows="[{id:1,label:\'Plain\'}]" :columns="[{key:\'label\'}]"/>'
+    + '<List interactive :rows="[{id:2,label:\'Button\'}]" :columns="[{key:\'label\'}]"/>'
+    + '<List :href="()=>\'#content\'" :rows="[{id:3,label:\'Link\'}]" :columns="[{key:\'label\'}]"/>');
+const nativeFunctionScript = baseScript + 'import {FsusDataList as List} from "@ozwasyd/element-plus";';
 function fixture(markup, script = baseScript, style = '')
 {
     return `<script setup>${script}</script><template><main style="display:flex;flex-direction:column">${markup}</main></template><style>${style}</style>`;
@@ -62,6 +67,9 @@ const cases = [
     { name: 'public-native-prop-tag-drift', content: fixture(nativePropMarkup, nativePropScript), nativeProbe: true, mutation: 'replace-native-tag', expected: 'unknown-dynamic-native-tag' },
     { name: 'dynamic-native-prop-is-unbound', content: fixture(nativePropMarkup.replace('<Scroller>', '<Scroller :tag="currentTag">'),
         nativePropScript + 'import {ref} from "vue";const currentTag=ref("div");'), expected: 'unbound-native-prop-source' },
+    { name: 'public-native-function-rows', content: fixture(nativeFunctionMarkup, nativeFunctionScript), nativeFunctionProbe: true, expected: null },
+    { name: 'public-native-function-tag-drift', content: fixture(nativeFunctionMarkup, nativeFunctionScript), nativeFunctionProbe: true,
+        mutation: 'replace-native-function-tag', expected: 'unknown-dynamic-native-tag' },
     { name: 'two-task-page-headers', content: fixture(baseMarkup + header), expected: 'task-header-not-exact-one' },
     { name: 'three-same-priority-primary-buttons', content: fixture(baseMarkup.replace(action, action.repeat(3))), expected: 'primary-action-not-exact' },
     { name: 'section-card-card-nesting', content: fixture(baseMarkup.replace('<p>Current content</p>', '<section data-fsus-surface="data-region" data-fsus-material="boundary"><section data-fsus-surface="data-region" data-fsus-material="boundary">Nested</section></section>')), expected: 'forbidden-surface-nesting' },
@@ -156,6 +164,28 @@ try
                     });
                 }
             }
+            if (item.nativeFunctionProbe)
+            {
+                const row = graph.nodes.find((node) => node.origin.function === 'rowTag');
+                assert.ok(row.file.endsWith('/collection-primitives/src/data-list.vue'));
+                assert.deepEqual(row.origin.values, ['a', 'button', 'div']);
+                const rows = page.locator(`[data-fsus-composition-node="${row.id}"]`);
+                assert.equal(await rows.count(), 3, 'actual public DataList must render all three native row modes');
+                assert.deepEqual(await rows.evaluateAll((elements) => elements.map((element) => element.tagName.toLowerCase()).sort()), ['a', 'button', 'div']);
+                if (item.mutation === 'replace-native-function-tag')
+                {
+                    await rows.first().evaluate((element) =>
+                    {
+                        const replacement = globalThis.document.createElement('section');
+                        for (const attribute of element.attributes)
+                        {
+                            replacement.setAttribute(attribute.name, attribute.value);
+                        }
+                        replacement.append(...element.childNodes);
+                        element.replaceWith(replacement);
+                    });
+                }
+            }
             const candidate = structuredClone(archetype);
             if (item.contractInput)
             {
@@ -168,7 +198,7 @@ try
             {
                 assert.ok(reasons.includes(item.expected), `${item.expected} was not detected: ${reasons.join(',')}`);
             }
-            else if (!item.nativeProbe)
+            else if (!item.nativeProbe && !item.nativeFunctionProbe)
             {
                 baselineReasons = reasons;
                 // Current FsusUI has no public composition surface/material provenance contract.

@@ -495,6 +495,86 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             expression: condition.expression, expected: Boolean(value),
             inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) };
     }
+    function nativeFunctionTargets(record, call, scopedNames)
+    {
+        if (!ts.isCallExpression(call) || !ts.isIdentifier(call.expression))
+        {
+            return null;
+        }
+        const fn = record.variables.get(call.expression.text);
+        if (!fn || !ts.isArrowFunction(fn) || fn.modifiers?.length)
+        {
+            return null;
+        }
+        const declarations = record.scripts.flatMap(({ ast }) => ast.statements
+            .filter(ts.isVariableStatement).flatMap((statement) => statement.declarationList.declarations
+                .filter((declaration) => ts.isIdentifier(declaration.name) && declaration.name.text === call.expression.text)
+                .map((declaration) => ({ declaration, flags: statement.declarationList.flags }))));
+        if (scopedNames.has(call.expression.text) || declarations.length !== 1
+            || declarations[0].declaration.initializer !== fn || !(declarations[0].flags & ts.NodeFlags.Const))
+        {
+            fail(`unbound native function binding ${record.file}#${call.expression.text}`);
+        }
+        const values = new Set();
+        function returned(node)
+        {
+            const literal = closedLiteral(node);
+            if (typeof literal === 'string' && dom.parserOptions.isNativeTag(literal))
+            {
+                values.add(literal);
+                return;
+            }
+            if (node && ts.isConditionalExpression(node))
+            {
+                returned(node.whenTrue);
+                returned(node.whenFalse);
+                return;
+            }
+            fail(`unbound native function return ${record.file}#${call.expression.text}`);
+        }
+        function statement(node)
+        {
+            if (ts.isReturnStatement(node))
+            {
+                returned(node.expression);
+                return true;
+            }
+            if (ts.isBlock(node))
+            {
+                let terminal = false;
+                for (const child of node.statements)
+                {
+                    // Inspect even unreachable returns; an unknown branch is
+                    // never discarded to obtain a narrower native union.
+                    terminal = statement(child) || terminal;
+                }
+                return terminal;
+            }
+            if (ts.isIfStatement(node))
+            {
+                const thenTerminal = statement(node.thenStatement);
+                const elseTerminal = node.elseStatement ? statement(node.elseStatement) : false;
+                return thenTerminal && elseTerminal;
+            }
+            if (ts.isVariableStatement(node) || ts.isExpressionStatement(node) || ts.isEmptyStatement(node))
+            {
+                return false;
+            }
+            fail(`unknown native function flow ${record.file}#${call.expression.text}`);
+        }
+        if (ts.isBlock(fn.body))
+        {
+            if (!statement(fn.body))
+            {
+                fail(`native function may fall through ${record.file}#${call.expression.text}`);
+            }
+        }
+        else
+        {
+            returned(fn.body);
+        }
+        return { kind: 'native-variants', values: [...values], function: call.expression.text };
+    }
     function parse(file)
     {
         file = realpathSync(file);
@@ -511,13 +591,13 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             errors.push({ file, reason: 'unknown-render-source' });
             return value;
         }
-        function visit(node, parentId = null, ancestors = [])
+        function visit(node, parentId = null, ancestors = [], scopedNames = new Set())
         {
             if (node.type !== dom.NodeTypes.ELEMENT)
             {
                 for (const child of node.children ?? [])
                 {
-                    visit(child, parentId, ancestors);
+                    visit(child, parentId, ancestors, scopedNames);
                 }
                 return;
             }
@@ -525,6 +605,34 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             const id = controlDigest({ file: key(file), offset, source: node.loc.source }).slice(0, 24);
             const attributes = {};
             const directives = [];
+            const localNames = new Set(scopedNames);
+            function bindNames(pattern)
+            {
+                const binding = expression(`(${pattern}) => 0`, file);
+                if (!ts.isArrowFunction(binding))
+                {
+                    fail(`unknown template binding pattern ${file}:${offset}`);
+                }
+                function collect(name)
+                {
+                    if (ts.isIdentifier(name))
+                    {
+                        localNames.add(name.text);
+                    }
+                    else if (ts.isObjectBindingPattern(name) || ts.isArrayBindingPattern(name))
+                    {
+                        for (const element of name.elements.filter(ts.isBindingElement))
+                        {
+                            collect(element.name);
+                        }
+                    }
+                    else
+                    {
+                        fail(`unknown template binding name ${file}:${offset}`);
+                    }
+                }
+                binding.parameters.forEach((parameter) => collect(parameter.name));
+            }
             for (const prop of node.props)
             {
                 if (prop.type === dom.NodeTypes.ATTRIBUTE)
@@ -537,6 +645,24 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
                 else if (prop.type === dom.NodeTypes.DIRECTIVE)
                 {
+                    if (prop.name === 'for')
+                    {
+                        if (!prop.forParseResult)
+                        {
+                            fail(`unknown template loop binding ${file}:${offset}`);
+                        }
+                        for (const name of ['value', 'key', 'index'])
+                        {
+                            if (prop.forParseResult[name]?.content)
+                            {
+                                bindNames(prop.forParseResult[name].content);
+                            }
+                        }
+                    }
+                    else if (prop.name === 'slot' && prop.exp?.content.trim())
+                    {
+                        bindNames(prop.exp.content);
+                    }
                     directives.push({ name: prop.name, argument: prop.arg?.content ?? null, argumentStatic: prop.arg?.isStatic ?? null, expression: prop.exp?.content ?? null });
                     if (prop.exp?.content.trim() && prop.name !== 'for' && prop.name !== 'slot')
                     {
@@ -566,7 +692,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         fail(`unknown dynamic component ${file}:${offset}`);
                     }
                     const exp = expression(dynamic.expression, file);
-                    origin = ts.isIdentifier(exp) ? nativePropTargets(record, exp.text) : null;
+                    origin = ts.isIdentifier(exp) ? nativePropTargets(record, exp.text) : nativeFunctionTargets(record, exp, localNames);
                     if (!origin)
                     {
                         const targets = resolver.resolveExpression(file, exp);
@@ -643,7 +769,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             value.nodes.push(id);
             for (const child of node.children ?? [])
             {
-                visit(child, id, [...ancestors, id]);
+                visit(child, id, [...ancestors, id], localNames);
             }
             if (definition && !records.has(definition))
             {
