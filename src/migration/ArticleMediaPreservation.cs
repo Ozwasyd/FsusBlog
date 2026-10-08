@@ -3,6 +3,7 @@ using System.Security.Cryptography;
 using System.Text;
 
 using AngleSharp.Html.Parser;
+using AngleSharp.Html.Parser.Tokens;
 
 using Markdig;
 using Markdig.Syntax;
@@ -299,7 +300,8 @@ internal static class ArticleMediaPreservation
                     SourceLength = link.Span.End - link.Span.Start + 1
                 };
         foreach (var html in ast.Descendants<HtmlBlock>())
-            foreach (var reference in ParseHtml(source.ArticleId, html.Lines.ToString(), html.Span.Start)) yield return reference;
+            foreach (var reference in ParseHtml(source.ArticleId,
+                source.Markdown.Substring(html.Span.Start, html.Span.End - html.Span.Start + 1), html.Span.Start)) yield return reference;
         foreach (var html in ast.Descendants<HtmlInline>())
             foreach (var reference in ParseHtml(source.ArticleId, html.Tag, html.Span.Start)) yield return reference;
     }
@@ -316,7 +318,11 @@ internal static class ArticleMediaPreservation
     {
         // Parse source HTML without scripting, requests or rendering. The public renderer escapes HTML;
         // conservative inventory still preserves parseable references in the original stored source.
-        using var document = new HtmlParser(new HtmlParserOptions { IsScripting = false }).ParseDocument(html);
+        using var document = new HtmlParser(new HtmlParserOptions
+        {
+            IsScripting = false,
+            IsKeepingSourceReferences = true
+        }).ParseDocument(html);
         foreach (var element in document.All)
         {
             var attribute = element.LocalName switch
@@ -327,13 +333,56 @@ internal static class ArticleMediaPreservation
                 _ => null
             };
             if (attribute is not null && element.GetAttribute(attribute) is { Length: > 0 } url)
-                yield return new(articleId, url, element.LocalName == "a" ? ArticleMediaReferenceKind.Attachment : ArticleMediaReferenceKind.Image, offset);
+                yield return HtmlAlias(articleId, url,
+                    element.LocalName == "a" ? ArticleMediaReferenceKind.Attachment : ArticleMediaReferenceKind.Image,
+                    html, offset, element.SourceReference as HtmlTagToken, attribute);
             if (element.LocalName == "video" && element.GetAttribute("poster") is { Length: > 0 } poster)
-                yield return new(articleId, poster, ArticleMediaReferenceKind.Image, offset);
+                yield return HtmlAlias(articleId, poster, ArticleMediaReferenceKind.Image,
+                    html, offset, element.SourceReference as HtmlTagToken, "poster");
             if ((element.LocalName is "img" or "source") && element.GetAttribute("srcset") is { Length: > 0 } srcset)
                 foreach (var candidate in ParseSourceSetUrls(srcset))
-                    yield return new(articleId, candidate, ArticleMediaReferenceKind.Image, offset);
+                    yield return HtmlAlias(articleId, candidate, ArticleMediaReferenceKind.Image,
+                        html, offset, element.SourceReference as HtmlTagToken, "srcset");
         }
+    }
+
+    private static ArticleMediaAlias HtmlAlias(long articleId, string url, ArticleMediaReferenceKind kind,
+        string html, int offset, HtmlTagToken? tag, string attributeName)
+    {
+        // AngleSharp remains the sole HTML authority (including duplicate attributes and
+        // entity decoding). Only bound its accepted attribute in the unchanged source;
+        // these are UTF-16 source coordinates, as with the original Markdig spans.
+        HtmlAttributeToken? candidate = tag?.Attributes.FirstOrDefault(attribute => attribute.Name == attributeName);
+        if (candidate is not { } attribute || string.IsNullOrEmpty(attribute.Name) || attribute.Position.Index < 0)
+        {
+            throw new ArticleMediaException("html_source_location_missing");
+        }
+        int position = attribute.Position.Index;
+        int nameEnd = checked(position + attribute.Name.Length);
+        if (nameEnd > html.Length || !html.AsSpan(position, attribute.Name.Length)
+            .Equals(attribute.Name, StringComparison.OrdinalIgnoreCase))
+        {
+            throw new ArticleMediaException("html_source_location_binding");
+        }
+        position = nameEnd;
+        while (position < html.Length && AsciiSpace(html[position])) position++;
+        if (position >= html.Length || html[position++] != '=')
+        {
+            throw new ArticleMediaException("html_source_location_binding");
+        }
+        while (position < html.Length && AsciiSpace(html[position])) position++;
+        if (position >= html.Length)
+        {
+            throw new ArticleMediaException("html_source_location_binding");
+        }
+        char quote = html[position] is '\'' or '"' ? html[position++] : '\0';
+        int start = position;
+        while (position < html.Length && (quote == '\0'
+            ? !AsciiSpace(html[position]) && html[position] != '>' : html[position] != quote)) position++;
+        return new(articleId, url, kind, checked(offset + start))
+        {
+            SourceLength = position - start
+        };
     }
 
     private static IEnumerable<string> ParseSourceSetUrls(string input)
