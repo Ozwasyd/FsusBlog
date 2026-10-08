@@ -463,9 +463,10 @@ test('runtime-role replay ignores external TMPDIR and cleans repeated compiled o
     }
 });
 
-test('compiled runtime-role producer still refuses external replay output', () =>
+test('compiled runtime-role producer still refuses external and symlinked replay output', () =>
 {
     const external = mkdtempSync(path.join(os.tmpdir(), 'runtime-role-output-external-'));
+    const refusalDirectory = mkdtempSync(path.join(root, '.tmp/contracts/runtime-role/refusal-'));
     try
     {
         assert.ok(!external.startsWith(`${root}${path.sep}`));
@@ -479,9 +480,22 @@ test('compiled runtime-role producer still refuses external replay output', () =
         assert.notEqual(result.status, 0);
         assert.match(`${result.stdout}\n${result.stderr}`, /runtime_role_output_path_not_canonical:output/u);
         assert.equal(existsSync(output), false);
+        const alias = path.join(refusalDirectory, 'outside');
+        symlinkSync(external, alias, 'dir');
+        const symlinkedOutput = path.join(alias, 'rejected.json');
+        const symlinkedResult = spawnSync('dotnet', [
+            path.join(root, binding.assemblyPath),
+            '--deployment-observation', path.join(root, binding.deploymentArtifactPath),
+            '--output', symlinkedOutput
+        ], { cwd: root, encoding: 'utf8', timeout: 30_000 });
+        assert.notEqual(symlinkedResult.status, 0);
+        assert.match(`${symlinkedResult.stdout}\n${symlinkedResult.stderr}`, /runtime_role_output_path_symlink:output/u);
+        assert.equal(existsSync(output), false);
+        assert.deepEqual(readdirSync(external), []);
     }
     finally
     {
+        rmSync(refusalDirectory, { recursive: true, force: true });
         rmSync(external, { recursive: true, force: true });
     }
 });
@@ -1073,8 +1087,8 @@ test('runtime-role deployment source roster, live digests, and policy authority 
       const result = extractMutatedRuntimeObservation(directory, mutate)
       assert.equal(result.status, 'failed', label)
       assert.match(result.failureReasons.join('\n'), /compiled producer replay mismatch/iu, label)
-      const replayOwner = path.join(directory, '.tmp/contracts/runtime-role');
-      assert.ok(!readdirSync(replayOwner).some((name) => name.startsWith('replay-')), label);
+            const replayOwner = path.join(directory, '.tmp/contracts/runtime-role');
+            assert.ok(!readdirSync(replayOwner).some((name) => name.startsWith('replay-')), label);
     }
     finally
     {
