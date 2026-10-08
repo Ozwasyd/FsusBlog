@@ -168,6 +168,8 @@ internal static class RuntimeDomainServiceCollectionExtensions
         services.AddSingleton<IRevisionMarkdownStructureProvider, CanonicalRevisionMarkdownStructureProvider>();
         services.AddSingleton<IRevisionMarkdownStructureAuthority, RevisionMarkdownStructureAuthority>();
         services.AddScoped<RevisionSourceDiffEngine>();
+        services.AddScoped<RevisionMetadataDiffEngine>();
+        services.AddScoped<RevisionMetadataDiffVerifier>();
         services.AddScoped<IAuthoringRevisionCompareService, AuthoringRevisionCompareService>();
         services.AddScoped<IAuthoringCanvasDocumentStore, AuthoringCanvasDocumentStore>();
         services.AddScoped<IAuthoringCanvasArticleReferenceReader, PostgresAuthoringCanvasArticleReferenceReader>();
