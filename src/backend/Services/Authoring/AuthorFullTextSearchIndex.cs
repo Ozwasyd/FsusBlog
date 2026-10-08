@@ -213,10 +213,13 @@ public sealed class AuthorFullTextSearchIndex(
                 throw new AuthorSearchContractException("author_search_current_source_unavailable_or_late");
             }
             cancellationToken.ThrowIfCancellationRequested();
-            AuthorSearchIndexedArticle projected = Project(page.Articles[0], _indexGeneration);
-            ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> candidate = _articles.SetItem(articleId, projected);
+            long candidateGeneration = checked(_indexGeneration + 1);
+            AuthorSearchIndexedArticle projected = Project(page.Articles[0], candidateGeneration);
+            ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> candidate =
+                RebindGeneration(_articles, candidateGeneration).SetItem(articleId, projected);
             ValidateBudget(candidate);
             _articles = candidate;
+            _indexGeneration = candidateGeneration;
             _sourceGeneration = page.SourceGeneration;
         }
         catch
@@ -325,6 +328,36 @@ public sealed class AuthorFullTextSearchIndex(
             throw new AuthorSearchContractException("author_search_article_document_set_invalid");
         }
         return new(article.ArticleId, article.SourceSequence, article.Deleted, ordered);
+    }
+
+    /// <summary>
+    /// Every published replacement invalidates prior query/cursor generations, including
+    /// untouched article documents. This reseals only existing immutable index facts; it
+    /// does not reread or parse the source corpus. Counts remain within the index budgets.
+    /// </summary>
+    private static ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> RebindGeneration(
+        ImmutableSortedDictionary<int, AuthorSearchIndexedArticle> articles, long generation)
+    {
+        var rebound = articles.ToBuilder();
+        foreach (AuthorSearchIndexedArticle article in articles.Values)
+        {
+            ImmutableArray<AuthorSearchTokenizedDocument> documents =
+                [.. article.Documents.Select(document => AuthorFullTextSearchVerifier.SealTokenDocument(document with
+                {
+                    Document = AuthorFullTextSearchContract.SealDocument(document.Document with
+                    {
+                        Identity = document.Document.Identity with
+                        {
+                            IndexGeneration = generation
+                        }
+                    })
+                }))];
+            rebound[article.ArticleId] = article with
+            {
+                Documents = documents
+            };
+        }
+        return rebound.ToImmutable();
     }
 
     private void ValidatePage(AuthorSearchIndexSourcePage page, int afterArticleId, int pageSize)
