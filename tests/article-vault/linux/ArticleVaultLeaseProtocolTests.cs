@@ -148,6 +148,47 @@ public sealed class ArticleVaultLeaseProtocolTests
     internal static ArticleVaultWriterLeaseReceipt Acquire()
         => ArticleVaultWriterLease.Transition(null, Binding, ArticleVaultWriterLeaseAction.Acquire, null, 0);
 
+    [Fact]
+    public void JournalTransitionVerification_RejectsResealedOwnerAndStateForgery()
+    {
+        ArticleVaultWriterLeaseReceipt lease = Acquire();
+        Assert.True(ArticleVaultWriterLease.VerifyTransition(null, lease));
+        ArticleVaultWriterLeaseReceipt renewed = ArticleVaultWriterLease.Transition(
+            lease, Binding, ArticleVaultWriterLeaseAction.Renew, lease.ContentSha256, 1);
+        Assert.True(ArticleVaultWriterLease.VerifyTransition(lease, renewed));
+        ArticleVaultWriterLeaseReceipt forged = renewed with
+        {
+            Binding = Binding with
+            {
+                AgentInstanceIdentity = "agent-other"
+            },
+            ContentSha256 = string.Empty
+        };
+        forged = forged with
+        {
+            ContentSha256 = ArticleVaultAgentProtocol.Digest(forged)
+        };
+        Assert.True(ArticleVaultWriterLease.Verify(forged));
+        Assert.False(ArticleVaultWriterLease.VerifyTransition(lease, forged));
+    }
+
+    [Fact]
+    public void Receipts_ContainOnlyMetadataAndRequireCanonicalCompletion()
+    {
+        ArticleVaultAgentCommandReceipt receipt = ArticleVaultAgentCommandReceipts.Create(
+            Request(), 512, ArticleVaultAgentCommandStatus.Blocked, "canonical_producer_missing");
+        Assert.Equal(receipt, ArticleVaultAgentCommandReceipts.Decode(ArticleVaultAgentProtocol.Encode(receipt)));
+        Assert.Throws<InvalidDataException>(() => ArticleVaultAgentCommandReceipts.Create(
+            Request(), 512, ArticleVaultAgentCommandStatus.Completed, null));
+        Assert.Throws<InvalidDataException>(() => ArticleVaultAgentCommandReceipts.Create(
+            Request(), 512, ArticleVaultAgentCommandStatus.Blocked, "private body content or token"));
+        string encoded = Encoding.UTF8.GetString(ArticleVaultAgentProtocol.Encode(receipt));
+        foreach (string field in new[] { "token", "secret", "body", "payload", "absolutePath" })
+        {
+            Assert.DoesNotContain('"' + field + '"', encoded);
+        }
+    }
+
     internal static ArticleVaultAgentRequest Request()
         => Seal(new(ArticleVaultAgentProtocol.RequestSchema, Binding, "request-test", 1,
             Acquire().ContentSha256, ArticleVaultAgentCommand.InspectStatus, 1000, "cancel-test", null, string.Empty));
