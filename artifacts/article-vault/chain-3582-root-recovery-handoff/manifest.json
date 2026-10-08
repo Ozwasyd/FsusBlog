@@ -138,6 +138,10 @@
         {
             "path": "issue-accounting.md",
             "sha256": "b463e112e7088bea1b81b32ecd486934f6b1fdfe8b8d4183a768484c0167be32"
+        },
+        {
+            "path": "publication-checkpoint.json",
+            "sha256": "077f351891917b9797ce2be6425b7f9432bb56a64ae0de63b8fb0edb6bae8d71"
         }
     ],
     "limits": [
