@@ -1,12 +1,27 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { adaptReleaseProjectionSemanticOutcome } from '../../tools/test-matrix/outcomes/release-projection-adapter.mjs';
-import { adaptImmutableBuildSemanticOutcome } from '../../tools/test-matrix/outcomes/immutable-build-adapter.mjs';
-import { adaptReleaseFinalizerSemanticOutcome } from '../../tools/test-matrix/outcomes/release-finalizer-adapter.mjs';
-import { validateOutcomeFieldDispositions } from '../../tools/test-matrix/outcomes/outcome-contract.mjs';
-import { analyzeProducerSemanticOutcomeCandidate as analyzeCandidateWithLimits, sealVerifiedProducerSemanticOutcome } from '../../tools/test-matrix/outcomes/producer-outcome-analysis.mjs';
-import { sealContentDigest, digestCanonical } from '../../tools/test/attempt-provenance.mjs';
+import { heldBuildOutcomeInputs } from './support/build-outcome-held-input-fixture.mjs';
+
+const { adaptReleaseProjectionSemanticOutcome: adaptReleaseProjectionSemanticOutcomeSource } = await import(new URL('../../tools/test-matrix/outcomes/release-projection-adapter.mjs', import.meta.url));
+const { adaptImmutableBuildSemanticOutcome: adaptImmutableBuildSemanticOutcomeSource } = await import(new URL('../../tools/test-matrix/outcomes/immutable-build-adapter.mjs', import.meta.url));
+const { adaptReleaseFinalizerSemanticOutcome: adaptReleaseFinalizerSemanticOutcomeSource } = await import(new URL('../../tools/test-matrix/outcomes/release-finalizer-adapter.mjs', import.meta.url));
+const { validateOutcomeFieldDispositions } = await import(new URL('../../tools/test-matrix/outcomes/outcome-contract.mjs', import.meta.url));
+const { analyzeProducerSemanticOutcomeCandidate: analyzeCandidateWithLimits, sealVerifiedProducerSemanticOutcome } = await import(new URL('../../tools/test-matrix/outcomes/producer-outcome-analysis.mjs', import.meta.url));
+const { sealContentDigest, digestCanonical } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
+
+
+// These detached held-input fixtures exercise the adapter host contract only.
+// They are not producer verification receipts or qualification authority.
+const adaptReleaseProjectionSemanticOutcome = (input) => adaptReleaseProjectionSemanticOutcomeSource({
+    ...input, verifyInputs: heldBuildOutcomeInputs(input)
+});
+const adaptImmutableBuildSemanticOutcome = (input) => adaptImmutableBuildSemanticOutcomeSource({
+    ...input, verifyInputs: heldBuildOutcomeInputs(input)
+});
+const adaptReleaseFinalizerSemanticOutcome = (input) => adaptReleaseFinalizerSemanticOutcomeSource({
+    ...input, verifyInputs: heldBuildOutcomeInputs(input)
+});
 
 const digest = (digit) => `sha256:${digit.repeat(64)}`;
 const identity = Object.freeze({ buildIdentity: digest('1'), executionEnvelopeDigest: digest('2'),
