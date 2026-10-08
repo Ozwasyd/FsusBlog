@@ -3742,8 +3742,8 @@
             "owner": "MemoryGovernor input-bound decisions and frozen resource roster; MemoryCapabilityController consumes the single MemoryCapabilityPolicyPlan registry",
             "producer": "Explicit pure Evaluate and input-bound TickAsync/ProbeAsync consume canonical ledger, qualified scoped observations, immutable baseline and policy; Select and operation admission consume immutable current facts",
             "consumers": "Existing configuration/readiness/protected diagnostics owners and existing managed/native backing owners; no startup or timer is registered",
-            "releaseEvent": "Actual probe completion releases its scratch reservation; runtime disable/identity change stops new admissions then existing operation leases and backing Drained tasks govern final release Caller-held governor decisions relinquish only with their actual consumers; a target change never releases backing.",
-            "capacityModel": "One cell per immutable policy-plan registration; finite supplied concurrency/attempt/time/backoff controls; probe vectors and derived scopes use the canonical ledger; owner references retained during uncooperative probes and real reader/operation drain Governor metadata has at most one cell per canonical capacity identity; feedback cannot release ledger charges.",
+            "releaseEvent": "Actual probe completion releases its scratch reservation; operation leases and real managed/native/GPU/store Drained tasks govern retirement. Caller-transferred disk root closes only after every declared borrower drains successfully; failures retain root/custody.",
+            "capacityModel": "One cell per immutable policy-plan registration; finite supplied concurrency/attempt/time/backoff controls; probe vectors and derived scopes use the canonical ledger; owner references retained during uncooperative probes and real reader/operation drain Governor metadata has at most one cell per canonical capacity identity; feedback cannot release ledger charges. Disk root composition freezes a complete borrower roster under an explicit existing ownership-policy bound; one observer per real store task, no new registry or scheduler.",
             "frequency": "Explicit control-plane tick, policy/identity transition or operation boundary; no hot-path probing",
             "asyncEscape": "An abandoned or timed-out caller does not own the actual probe completion; stale returned owners retire via existing backing APIs; no disposal proves disk/GPU physical drain",
             "classification": "ephemeral-scratch",
@@ -3780,6 +3780,10 @@
                 {
                     "path": "tests/backend/Unit/MemoryGovernorAdmissionTests.cs",
                     "anchor": "public sealed class MemoryGovernorAdmissionTests"
+                },
+                {
+                    "path": "tests/backend/Unit/MemoryCapabilityOwnerIntegrationTests.cs",
+                    "anchor": "public sealed class MemoryCapabilityOwnerIntegrationTests"
                 }
             ]
         }

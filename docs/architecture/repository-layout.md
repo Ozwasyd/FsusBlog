@@ -235,16 +235,25 @@ and does not discard a healthy backend's online facts.
 
 Operation admission linearizes with runtime disable and uses the same canonical
 scoped ledger gate. Controller operation leases delay retirement until their actual
-completion; `MemoryCapabilityOwner.FromManaged`/`FromNative` then use those existing
-owners' retirement and Drained tasks. No logical target or IDisposable return is
+completion; `MemoryCapabilityOwner.FromManaged`/`FromNative`/`FromGpu` then use
+those existing owners' retirement and actual Drained tasks. No logical target or IDisposable return is
 used as proof that readers, pins or native operations have relinquished storage.
-Disk/GPU owner integration requires their actual final-drain/quarantine contract,
-which the controller does not invent. Read-only selection performs no probing or
+`FromDisk` accepts a caller-owned root and its complete borrower roster under a
+finite, existing ownership-policy limit. The caller transfers exclusive root
+ownership and stops new borrower creation. Each store stops new work and drains
+its real leases, I/O, temporaries and physical charges; the root closes only after
+every borrower succeeds. A failed borrower faults the composite without closing
+the root, while other actual drains remain observed. Store never closes a borrowed
+root. Faulted GPU/quarantine drain likewise preserves custody and reports DrainFault
+instead of Off or a permitted restart. These adapters do not qualify any platform.
+Read-only selection performs no probing or
 pressure-file I/O. These classes are not registered at startup or wired to public
 readiness/diagnostics routes; existing authorities retain those responsibilities.
 The new tests belong to the original backend Unit discovery and the existing
 `backend-unit` matrix/cache input closure. Their synthetic qualification and numeric
-inputs prove state transitions and actual managed ownership, not calibration,
+inputs prove state transitions, actual managed ownership and real task-owned Linux
+file/descriptor drain. Controlled GPU driver callbacks do not establish hardware
+qualification. These tests do not establish calibration,
 platform qualification, production Auto activation or full A01-A20 acceptance.
 
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target

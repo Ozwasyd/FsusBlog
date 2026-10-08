@@ -558,6 +558,17 @@ public sealed class MemoryCapabilityController
     {
         foreach ((string id, CapabilityRuntime cell) in _runtime)
         {
+            if (cell.Status.OnlineState == MemoryOnlineState.Draining && cell.Owner is not null
+                && (cell.Owner.Drained.IsFaulted || cell.Owner.Drained.IsCanceled))
+            {
+                _ = cell.Owner.Drained.Exception;
+                cell.Status = cell.Status with
+                {
+                    OnlineState = MemoryOnlineState.Faulted,
+                    EffectivePath = null,
+                    Reason = MemoryCapabilityControlReason.DrainFault.ToString()
+                };
+            }
             if (cell.Status.OnlineState == MemoryOnlineState.Draining && cell.ProbeTask is null && cell.Operations == 0
                 && (cell.Owner is null || cell.Owner.Drained.IsCompletedSuccessfully))
             {

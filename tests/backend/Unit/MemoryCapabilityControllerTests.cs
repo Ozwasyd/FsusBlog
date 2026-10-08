@@ -2,6 +2,7 @@ using FsusBlog.Server.Infrastructure.Memory.Accounting;
 using FsusBlog.Server.Infrastructure.Memory.Capabilities;
 using FsusBlog.Server.Infrastructure.Memory.Contracts;
 using FsusBlog.Server.Infrastructure.Memory.Control;
+using FsusBlog.Server.Infrastructure.Memory.Devices;
 using FsusBlog.Server.Infrastructure.Memory.Lifetime;
 using FsusBlog.Server.Infrastructure.Memory.Pressure;
 
@@ -283,6 +284,31 @@ public sealed class MemoryCapabilityControllerTests
         Assert.Equal(MemoryQualification.Rejected, result.Status.RuntimeQualification);
         Assert.Empty(fixture.Owners);
         Assert.All(fixture.Ledger.Snapshot().Used.Values, used => Assert.Equal(0, used));
+    }
+
+    [Fact]
+    public async Task ActualGpuDrainFailureRemainsFaultedAndRetainsItsCanonicalCharge()
+    {
+        using var fixture = new Fixture();
+        var driver = new MemoryCapabilityGpuDriverFixture { FailFree = true };
+        var qualification = new MemoryCapabilityStatus("fixture", 1, MemoryCapabilityMode.Auto, MemoryDetection.Present,
+            MemoryQualification.Qualified, MemoryQualification.Qualified, MemoryOnlineState.Online,
+            "fixture", MemoryAdmission.Admitted, "controlled driver only, not hardware qualification");
+        using var device = new GpuMemoryDevice(driver, fixture.Ledger, new(fixture.Host, fixture.Host, fixture.Slots),
+            new(64, 8, 4, 4, 4), new(1), qualification);
+        using GpuAllocation allocation = device.TryAllocate(new(new(Guid.NewGuid()), new(1), new(Guid.NewGuid())), 32, new(1)).Value!;
+        fixture.Behavior = (_, _) => ValueTask.FromResult(new MemoryCapabilityProbeOutcome(MemoryDetection.Present,
+            MemoryQualification.Qualified, MemoryCapabilityControlReason.Ready, MemoryCapabilityOwner.FromGpu(device)));
+        Assert.Equal(MemoryOnlineState.Online, (await fixture.Probe()).Status.OnlineState);
+        fixture.Controller.ApplyPolicy(fixture.Plan(2, MemoryCapabilityMode.Disabled));
+        MemoryCapabilityStatus status = fixture.Controller.Snapshot()["managed"];
+        Assert.True(device.Drained.IsFaulted);
+        Assert.Equal(MemoryOnlineState.Faulted, status.OnlineState);
+        Assert.Equal(MemoryCapabilityControlReason.DrainFault.ToString(), status.Reason);
+        Assert.Null(status.EffectivePath);
+        Assert.Null(fixture.Select());
+        Assert.Equal(32, fixture.Ledger.Snapshot().Used["host"]);
+        Assert.Equal(0, driver.DisposeCalls);
     }
 
     private sealed class Fixture : IDisposable
