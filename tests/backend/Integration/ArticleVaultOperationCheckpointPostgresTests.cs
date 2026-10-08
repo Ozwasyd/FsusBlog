@@ -40,7 +40,7 @@ public sealed class ArticleVaultOperationCheckpointPostgresTests(PostgresSchemaM
 
         ArticleVaultOperationIdentity changedDeadline = ArticleVaultOperationVerifier.Bind(
             plan, identity.AgentIdentity, identity.RequestSha256, identity.IdempotencySha256, identity.DeadlineUnixMs - 1);
-        await Assert.ThrowsAsync<InvalidDataException>(() => restarted.RegisterAsync(changedDeadline, plan));
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => restarted.RegisterAsync(changedDeadline, plan));
         await using NpgsqlConnection connection = await dataSource.OpenConnectionAsync();
         await using var count = new NpgsqlCommand("SELECT count(*) FROM article_vault_operation_checkpoint", connection);
         Assert.Equal(2L, await count.ExecuteScalarAsync());
@@ -86,7 +86,7 @@ public sealed class ArticleVaultOperationCheckpointPostgresTests(PostgresSchemaM
         await store.AppendAsync(identity, plan, validating);
         clock.NowUnixMs = identity.DeadlineUnixMs + 1;
         await store.RegisterAsync(identity, plan);
-        await Assert.ThrowsAsync<InvalidDataException>(() => store.AppendAsync(identity, plan,
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => store.AppendAsync(identity, plan,
             ArticleVaultOperationFixture.Checkpoint(identity, plan, validating, VaultOperationState.ExecutingServer,
                 VaultServerCommitDisposition.Unknown)));
         ArticleVaultOperationCheckpoint cancelled = ArticleVaultOperationFixture.Checkpoint(identity, plan, validating,
@@ -118,7 +118,7 @@ public sealed class ArticleVaultOperationCheckpointPostgresTests(PostgresSchemaM
         ArticleVaultOperationCheckpoint materializing = ArticleVaultOperationFixture.Checkpoint(
             identity, plan, executing, VaultOperationState.MaterializingLocal, VaultServerCommitDisposition.Accepted,
             new VaultOperationStageReference(result.ResultReference, result.ContentSha256));
-        await Assert.ThrowsAsync<InvalidDataException>(() => store.AppendAsync(identity, plan,
+        await Assert.ThrowsAsync<ArticleVaultExecutionRejectedException>(() => store.AppendAsync(identity, plan,
             ArticleVaultOperationFixture.Seal(materializing with
             {
                 ServerResult = materializing.ServerResult! with { ContentSha256 = ArticleVaultOperationFixture.DigestA }
