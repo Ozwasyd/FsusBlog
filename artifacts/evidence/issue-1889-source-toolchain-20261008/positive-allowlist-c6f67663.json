@@ -1,0 +1,46 @@
+{
+  "kind": "positive-ordinary-test-allowlist",
+  "candidate": "c6f67663ddb9994fdb16dfc25b1bdf7766793b2c",
+  "allowedOrdinaryTests": [
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+      "blob": "cd7fab4700a1c21b006d2a6cd239cbf0a0a7f3b2"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+      "blob": "6468b8ecd6ad2b9511e2eebaf6c024602862da8e"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts",
+      "blob": "1d37b401089d9a7c9697ccaa82be3e36f29c33ee"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+      "blob": "c44a888a0ae7cfd3c8bd7e65b0089ee1eb7bb5fd"
+    },
+    {
+      "path": "tests/frontend/unit/api/comment.test.ts",
+      "blob": "42616d5ce093bc7173f68f86cf9051ae023f3ea0"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts",
+      "blob": "908feba0eee54bc0ec4c212478f492f4f2431a34"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts",
+      "blob": "c526b2431757fdb880341a06e02326bde890023f"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts",
+      "blob": "9dd15602a397513cae975ad2089843b536f72a8b"
+    },
+    {
+      "path": "tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+      "blob": "1e966d281830499c45b49e43373f771c2762b6e0"
+    }
+  ],
+  "allowedSourceAggregate": "tools/test.sh source-governance with source-integration stage only; original frontend/docs source checker ports; no selected product test aggregate",
+  "heldScopes": "privacy/security QA aggregates and denied audit replay excluded/UNRUN; no new review of those scopes",
+  "admission": "previous selected BehaviorDoc entrypoint inspection remains applicable by unchanged blob identity; current receipt required before ordinary Vitest spawn",
+  "testAggregatePolicy": "only explicitly listed nine files; no privacy-zk aggregate, broad Node/xUnit suite, browser, database, credential issuance or production scope"
+}

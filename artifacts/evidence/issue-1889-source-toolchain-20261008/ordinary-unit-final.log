@@ -1,0 +1,20 @@
+
+ RUN  v4.1.11 /workspace/scratch/issue-1889/privacy-source-canonical/src/frontend
+
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts (15 tests) 560ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts (3 tests) 120ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts (10 tests) 564ms
+     ✓ gives an issuer with both transcripts no deterministic two-client attribution  320ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts (4 tests) 139ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts (1 test) 126ms
+ ✓ ../../tests/frontend/unit/api/comment.test.ts (31 tests) 101ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts (7 tests) 62ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts (3 tests) 53ms
+ ✓ ../../tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts (1 test) 35ms
+
+ Test Files  9 passed (9)
+      Tests  75 passed (75)
+   Start at  14:55:06
+   Duration  3.30s (transform 1.30s, setup 2.50s, import 1.26s, tests 1.76s, environment 4ms)
+
+JSON report written to /workspace/scratch/issue-1889/privacy-source-canonical/.tmp/source-toolchain-closure/ordinary-unit-final.json

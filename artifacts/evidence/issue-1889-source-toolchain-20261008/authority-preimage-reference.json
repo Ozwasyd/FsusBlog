@@ -1,0 +1,7 @@
+{
+  "existingPublishedSourceCommit": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+  "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "bytes": 3014594,
+  "sha256": "6c7c448cb46af78814bba22f28558355b2a2dc5b115d7f229c27b6e00ab2bdf6",
+  "localPreimage": ".tmp/source-toolchain-closure/authority-before.json"
+}

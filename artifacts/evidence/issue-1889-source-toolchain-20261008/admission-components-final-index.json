@@ -1,0 +1,62 @@
+[
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/behavior-owner-binding.json",
+    "sha256": "187795230f2deef25c6de43cb0ec749eeadef48a42768e2c871f29e255925eb7",
+    "bytes": 5369
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/doc-claim-parse.json",
+    "sha256": "2d79d737deec5200332e46f3fcfc7ff41b8bacb3c3b9b36b2c130759ba7cb084",
+    "bytes": 99876
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/doc-claim-verification.json",
+    "sha256": "3aa1e3ff0dd63332623f8619f886c1b09455de3ab0cf32a6eb56a77e871189cf",
+    "bytes": 17438
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/auth-session-permission-fact-extractor.json",
+    "sha256": "7875250a6aa1893bc9516cc94032ba77dbd76fcacb8fd7cbfd5a486b864b5e05",
+    "bytes": 291167
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/code-intent-fact-extractor.json",
+    "sha256": "3d057c2fb298ad248ccd7298686424325bcbf16dbec394fbce1ba9a9dac6f286",
+    "bytes": 1505
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/config-error-security-policy-fact-extractor.json",
+    "sha256": "96dc66ef03c85823cd73b87beea83490580ff5e73ae1dedec79d23109ed7c7d7",
+    "bytes": 561891
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/content-lifecycle-fact-extractor.json",
+    "sha256": "3db8db398b67af18033b7823027a8952410097c7ca3159414b0e2f745b2796f7",
+    "bytes": 290161
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/document-lifecycle-fact-extractor.json",
+    "sha256": "05a7a8698b8e74b6b0d86f5cf315f3a462a0a97143da0a7cb0feeb7cea1641e9",
+    "bytes": 1061
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/openapi-aeds-fact-extractor.json",
+    "sha256": "febbac7570ba2bf23cb3802b914295f25c3dd0398fe24e625a1234412e773794",
+    "bytes": 2266631
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/test-asset-audit-fact-extractor.json",
+    "sha256": "40158dc8e8051c6561323ad47a9b913103b6fbb32eea27b491afaaf455a14725",
+    "bytes": 11395
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/fact-observations/test-matrix-fact-extractor.json",
+    "sha256": "a6e01415a2d8e4515482a4480d39c0772477c34a3cebd8596e8cf2b8809c728b",
+    "bytes": 368958
+  },
+  {
+    "path": ".tmp/behavior-doc-static-admission/components/generated-section-check.json",
+    "sha256": "c8918696ec0b58025bd39fca47dca42a061736d1e5b197b48261c9048bc8d954",
+    "bytes": 29519
+  }
+]

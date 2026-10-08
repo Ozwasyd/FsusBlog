@@ -1,0 +1,80 @@
+{
+  "candidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "cumulativeBase": "9c44531326993f23607295c43b1e644eae5898aa",
+  "sourceGateExitCode": 1,
+  "unsupported": {
+    "checker": "unsupported-source-stage-language",
+    "files": [
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/ConfigErrorSecurity-locked-restore-6ffa5cf.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/ContentLifecycle-locked-restore-6ffa5cf.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/OpenApi-locked-restore-6ffa5cf.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/admission-6ffa5cf.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/application-typecheck-6ffa5cf.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/auth-observer-diagnostic.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/local-consumer-6ffa5cf.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/locked-restore-6ffa5cf.log",
+      "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/published-consumer-6ffa5cf.log"
+    ],
+    "exitCode": null,
+    "status": "unsupported",
+    "qualificationEligible": false
+  },
+  "fileBindings": [
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/ConfigErrorSecurity-locked-restore-6ffa5cf.log",
+      "blob": "3a6077335fdcbc40557e271b1354750db35e76b6",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/ContentLifecycle-locked-restore-6ffa5cf.log",
+      "blob": "4b769a603f220845b13e25e9f1423ba9b68597f5",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/OpenApi-locked-restore-6ffa5cf.log",
+      "blob": "9155742872a083f1aef9c192713c951ab1264f67",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/admission-6ffa5cf.log",
+      "blob": "3e6523a40c9ef043ede7a44576c53137dea341b3",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/application-typecheck-6ffa5cf.log",
+      "blob": "beb4c6c451ae8bdd11ed2a72a3ef09d79a151d7c",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/auth-observer-diagnostic.log",
+      "blob": "b5c8f64a996a494fac39593e2d2ee95f6f0e395d",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/local-consumer-6ffa5cf.log",
+      "blob": "c8d81d0f8d978ce77eac1743064abb28aacf368e",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/locked-restore-6ffa5cf.log",
+      "blob": "11db8992deaea481047c384662cb91fbae0717d9",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    },
+    {
+      "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/published-consumer-6ffa5cf.log",
+      "blob": "30d584235c6780bd842a43352bdc4d54d8690cc8",
+      "introducedBy": "27ac342479ce9e01a4ced5157375e73309521da4"
+    }
+  ],
+  "selectionAuthority": {
+    "path": "tools/test-matrix/source-governance.mjs",
+    "blob": "ab90d0a98775f8cd76d9db3ce22d7fbc60128fa1",
+    "latestCommit": "89b38f327f5fbcadaa8b34669a0815d86db787bf",
+    "historicalRefs": [
+      "3729",
+      "3764"
+    ]
+  },
+  "smallestNextAction": "Coordinator must route the original SOURCE selection/language authority evidence-log classification gap to its current sole owner or provide an explicit, reviewable incremental base. Do not classify these files or weaken unknown-language refusal in chain1889.",
+  "diagnosticFirstCandidate": "c6f67663ddb9994fdb16dfc25b1bdf7766793b2c"
+}

@@ -1,0 +1,33 @@
+{
+  "candidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "auditedRestoreEvidence": "b291f5523311ea02ecc1b3ba827e08f8760b59b0",
+  "lockfiles": [
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "blob": "a342034a78b4270de17ebeea7ab20cef2da66dfe",
+      "unchangedFromAuditedRestoreCandidate286c6f": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "unchangedFromAuditedRestoreCandidate286c6f": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "unchangedFromAuditedRestoreCandidate286c6f": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "unchangedFromAuditedRestoreCandidate286c6f": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "blob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "unchangedFromAuditedRestoreCandidate286c6f": true
+    }
+  ],
+  "consumerRegeneration": false,
+  "auditWaiver": false
+}

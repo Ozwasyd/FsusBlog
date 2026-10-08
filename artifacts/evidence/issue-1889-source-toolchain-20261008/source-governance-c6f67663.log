@@ -1,0 +1,594 @@
+[matrix:ci-pr-plan] wrote .tmp/pr-plan.json
+[frontend-style] src/frontend/src/contracts/binaryApi.ts:177:18 eslint/@typescript-eslint/consistent-type-imports: `import()` type annotations are forbidden.
+[frontend-style] src/frontend/src/contracts/binaryApi.ts:184:18 eslint/@typescript-eslint/consistent-type-imports: `import()` type annotations are forbidden.
+[native-tooling-style] compatibility-aliases=9 raw-markdownlint-exit=1
+docs/api.md:15 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:52 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:56 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:57 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:61 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:62 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:66 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:69 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:74 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:128 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:132 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:133 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:137 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:138 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:142 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:149 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:156 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api.md:159 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:173 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:181 markdownlint-md033: Inline HTML [Element: a]
+docs/api.md:199 markdownlint-md022: Headings should be surrounded by blank lines [Expected: 1; Actual: 0; Above] [Context: "## Current binary operations"]
+docs/api.md:278 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:279 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:281 markdownlint-md033: Inline HTML [Element: MapListEndpoints]
+docs/api.md:281 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:282 markdownlint-md033: Inline HTML [Element: MapListEndpoints]
+docs/api.md:282 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:283 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:283 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:284 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:286 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:286 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:286 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:287 markdownlint-md033: Inline HTML [Element: MapBinaryTaxonomyEndpoints]
+docs/api.md:288 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:288 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:290 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:290 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:290 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:290 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:291 markdownlint-md033: Inline HTML [Element: MapBinaryTaxonomyEndpoints]
+docs/api.md:292 markdownlint-md033: Inline HTML [Element: MapBinaryUploadEndpoints]
+docs/api.md:293 markdownlint-md033: Inline HTML [Element: RequireAnonymousGovernanceReadAsync]
+docs/api.md:294 markdownlint-md033: Inline HTML [Element: RequireAnonymousGovernanceReadAsync]
+docs/api.md:295 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:295 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:295 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:295 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:295 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:295 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:295 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:296 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:297 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:298 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:299 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:299 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:299 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:299 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:299 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:299 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:300 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:300 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:300 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:300 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:300 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:304 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:304 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:304 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:307 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:307 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:307 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:309 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:314 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:319 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:319 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:319 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:320 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:321 markdownlint-md033: Inline HTML [Element: MapBinaryAdminUserEndpoints]
+docs/api.md:321 markdownlint-md033: Inline HTML [Element: MapBinaryAdminUserEndpoints]
+docs/api.md:321 markdownlint-md033: Inline HTML [Element: MapBinaryAdminUserEndpoints]
+docs/api.md:321 markdownlint-md033: Inline HTML [Element: MapBinaryAdminUserEndpoints]
+docs/api.md:322 markdownlint-md033: Inline HTML [Element: HandleBlindCredentialIssuerMetadataAsync]
+docs/api.md:322 markdownlint-md033: Inline HTML [Element: HandleBlindCredentialIssuerMetadataAsync]
+docs/api.md:323 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRootAsync]
+docs/api.md:323 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRootAsync]
+docs/api.md:324 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRevocationArtifactAsync]
+docs/api.md:324 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRevocationArtifactAsync]
+docs/api.md:324 markdownlint-md033: Inline HTML [Element: MapBinaryAnonymousCredentialEndpoints]
+docs/api.md:324 markdownlint-md033: Inline HTML [Element: MapBinaryAnonymousCredentialEndpoints]
+docs/api.md:324 markdownlint-md033: Inline HTML [Element: MapBinaryAnonymousCredentialEndpoints]
+docs/api.md:324 markdownlint-md033: Inline HTML [Element: MapBinaryAnonymousCredentialEndpoints]
+docs/api.md:325 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRevocationArtifactAsync]
+docs/api.md:325 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRevocationArtifactAsync]
+docs/api.md:325 markdownlint-md033: Inline HTML [Element: MapBinaryAnonymousCredentialEndpoints]
+docs/api.md:325 markdownlint-md033: Inline HTML [Element: MapBinaryAnonymousCredentialEndpoints]
+docs/api.md:325 markdownlint-md033: Inline HTML [Element: MapBinaryAnonymousCredentialEndpoints]
+docs/api.md:326 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRootAsync]
+docs/api.md:326 markdownlint-md033: Inline HTML [Element: HandleAnonymousCredentialRootAsync]
+docs/api.md:327 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:330 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:331 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:331 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:331 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:331 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:331 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:332 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:332 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:332 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:332 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:332 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:332 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:333 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:333 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:333 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:333 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:333 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:334 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:334 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:334 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:334 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:334 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:334 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:335 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:336 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:337 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:339 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:340 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:347 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:348 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:349 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:349 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:350 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:350 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:352 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:353 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:353 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:353 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:353 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:354 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:355 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:356 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:357 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:358 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:359 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:359 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:359 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:360 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:361 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:365 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:365 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:367 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:387 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:393 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:393 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:394 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:394 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:394 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:395 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:395 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:395 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:395 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:396 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:396 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:397 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:398 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:398 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:399 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:400 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:400 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:400 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:400 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:401 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:401 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:401 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:401 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:406 markdownlint-md033: Inline HTML [Element: MapBinarySystemEndpoints]
+docs/api.md:409 markdownlint-md033: Inline HTML [Element: MapBinarySystemEndpoints]
+docs/api.md:415 markdownlint-md033: Inline HTML [Element: MapBinaryUploadEndpoints]
+docs/api.md:416 markdownlint-md033: Inline HTML [Element: MapBinaryUploadEndpoints]
+docs/api.md:417 markdownlint-md033: Inline HTML [Element: RequireAnonymousGovernanceReadAsync]
+docs/api.md:418 markdownlint-md033: Inline HTML [Element: RequireAnonymousGovernanceReadAsync]
+docs/api.md:419 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:419 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:420 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:420 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:420 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:420 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:421 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:421 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:421 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:422 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:422 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:423 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:424 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:425 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:426 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:427 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:429 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:430 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:432 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:434 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:434 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:435 markdownlint-md033: Inline HTML [Element: HandleBlindCredentialIssueAsync]
+docs/api.md:435 markdownlint-md033: Inline HTML [Element: HandleBlindCredentialIssueAsync]
+docs/api.md:435 markdownlint-md033: Inline HTML [Element: HandleBlindCredentialIssueAsync]
+docs/api.md:435 markdownlint-md033: Inline HTML [Element: HandleBlindCredentialIssueAsync]
+docs/api.md:437 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:437 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:437 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:438 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:438 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:441 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:442 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:443 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:443 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:443 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:444 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:444 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:445 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:445 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:447 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:452 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:453 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:453 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:453 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:453 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:454 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:454 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:455 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:455 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:456 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:456 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:456 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:457 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:461 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:467 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:468 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:470 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:470 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:470 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:471 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:471 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:471 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:471 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:473 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:474 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:474 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:474 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:475 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:477 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:477 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:477 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:478 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:479 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:480 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:481 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:481 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:482 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:483 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:485 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:486 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:486 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:487 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:488 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:489 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:489 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:490 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:490 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:490 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:490 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:490 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:490 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:490 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:492 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:492 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:492 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:492 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:492 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:492 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:492 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:493 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:493 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:493 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:493 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:493 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:493 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:493 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:494 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:494 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:494 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:494 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:494 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:494 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:494 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:496 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:496 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:496 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:496 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:496 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:496 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:496 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:497 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:497 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:497 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:497 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:497 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:497 markdownlint-md033: Inline HTML [Element: CompleteModerationRuntimeMutationAsync]
+docs/api.md:497 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:498 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:498 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:498 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:499 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:499 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:499 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:499 markdownlint-md033: Inline HTML [Element: MapAuthoringOperationsRoutes]
+docs/api.md:499 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:503 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:503 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:503 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:503 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:503 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:503 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:504 markdownlint-md033: Inline HTML [Element: HandleAnonymousCommentCreateAsync]
+docs/api.md:504 markdownlint-md033: Inline HTML [Element: HandleAnonymousCommentCreateAsync]
+docs/api.md:505 markdownlint-md033: Inline HTML [Element: HandleAnonymousCommentTicketAsync]
+docs/api.md:506 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:507 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:508 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:509 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:510 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:511 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:512 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:513 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:514 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:515 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:516 markdownlint-md033: Inline HTML [Element: MapBinaryCommentEndpoints]
+docs/api.md:517 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:518 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:518 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:519 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:519 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:519 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:519 markdownlint-md033: Inline HTML [Element: MapBinaryMessageEndpoints]
+docs/api.md:522 markdownlint-md033: Inline HTML [Element: HandleSecurityChallengeIssueAsync]
+docs/api.md:522 markdownlint-md033: Inline HTML [Element: HandleSecurityChallengeIssueAsync]
+docs/api.md:522 markdownlint-md033: Inline HTML [Element: HandleSecurityChallengeIssueAsync]
+docs/api.md:522 markdownlint-md033: Inline HTML [Element: HandleSecurityChallengeIssueAsync]
+docs/api.md:523 markdownlint-md033: Inline HTML [Element: HandleSecurityChallengeCancelAsync]
+docs/api.md:524 markdownlint-md033: Inline HTML [Element: HandleSecurityChallengeVerifyAsync]
+docs/api.md:525 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:525 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:525 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:525 markdownlint-md033: Inline HTML [Element: HandleSiteSubscriptionAsync]
+docs/api.md:526 markdownlint-md033: Inline HTML [Element: MapBinarySystemEndpoints]
+docs/api.md:528 markdownlint-md033: Inline HTML [Element: HandleRumMetricBatchAsync]
+docs/api.md:529 markdownlint-md033: Inline HTML [Element: MapBinaryUploadEndpoints]
+docs/api.md:530 markdownlint-md033: Inline HTML [Element: MapBinaryUploadEndpoints]
+docs/api.md:531 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:532 markdownlint-md033: Inline HTML [Element: MapBinaryArticleEndpoints]
+docs/api.md:533 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:534 markdownlint-md033: Inline HTML [Element: MapSecurityEndpoints]
+docs/api.md:534 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:535 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:536 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:537 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:539 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:541 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:541 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:541 markdownlint-md033: Inline HTML [Element: MapAuthoringWorkflowRoutes]
+docs/api.md:542 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:543 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:543 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:543 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:544 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:544 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:544 markdownlint-md033: Inline HTML [Element: MapAuthoringModerationRoutes]
+docs/api.md:544 markdownlint-md033: Inline HTML [Element: RequireAdminSensitiveStepUpAsync]
+docs/api.md:545 markdownlint-md033: Inline HTML [Element: MapBinaryTaxonomyEndpoints]
+docs/api.md:546 markdownlint-md033: Inline HTML [Element: MapBinaryAuthEndpoints]
+docs/api.md:550 markdownlint-md033: Inline HTML [Element: MapBinaryTaxonomyEndpoints]
+docs/api.md:551 markdownlint-md033: Inline HTML [Element: HandleUploadPartAsync]
+docs/api.md:551 markdownlint-md033: Inline HTML [Element: HandleUploadPartAsync]
+docs/api.md:551 markdownlint-md033: Inline HTML [Element: HandleUploadPartAsync]
+docs/api.md:551 markdownlint-md033: Inline HTML [Element: HandleUploadPartAsync]
+docs/api.md:551 markdownlint-md033: Inline HTML [Element: HandleUploadPartAsync]
+docs/api.md:551 markdownlint-md033: Inline HTML [Element: HandleUploadPartAsync]
+docs/api.md:551 markdownlint-md033: Inline HTML [Element: MapBinaryUploadEndpoints]
+docs/api/aeds-only-policy.md:7 markdownlint-md033: Inline HTML [Element: a]
+docs/api/aeds-only-policy.md:33 markdownlint-md033: Inline HTML [Element: a]
+docs/api/aeds-only-policy.md:141 markdownlint-md022: Headings should be surrounded by blank lines [Expected: 1; Actual: 0; Above] [Context: "## Current public protocol"]
+docs/api/quick-reference.md:36 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api/quick-reference.md:89 markdownlint-md033: Inline HTML [Element: a]
+docs/api/quick-reference.md:113 markdownlint-md033: Inline HTML [Element: a]
+docs/api/quick-reference.md:114 markdownlint-md033: Inline HTML [Element: a]
+docs/api/quick-reference.md:197 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api/quick-reference.md:200 markdownlint-md033: Inline HTML [Element: a]
+docs/api/quick-reference.md:206 markdownlint-md012: Multiple consecutive blank lines [Expected: 1; Actual: 2]
+docs/api/quick-reference.md:310 markdownlint-md022: Headings should be surrounded by blank lines [Expected: 1; Actual: 0; Below] [Context: "## Notifications and health checks"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the left for style "compact"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the left for style "compact"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the left for style "compact"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the left for style "compact"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the right for style "compact"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the right for style "compact"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the right for style "compact"]
+docs/api/quick-reference.md:335 markdownlint-md060: Table column style [Table pipe is missing space to the right for style "compact"]
+docs/api/quick-reference.md:345 markdownlint-md056: Table column count [Expected: 4; Actual: 6; Too many cells, extra data will be missing]
+docs/api/quick-reference.md:345 markdownlint-md060: Table column style [Table pipe is missing space to the left for style "compact"]
+docs/api/quick-reference.md:345 markdownlint-md060: Table column style [Table pipe is missing space to the left for style "compact"]
+docs/api/quick-reference.md:345 markdownlint-md060: Table column style [Table pipe is missing space to the right for style "compact"]
+docs/api/quick-reference.md:345 markdownlint-md060: Table column style [Table pipe is missing space to the right for style "compact"]
+docs/api/schemas-and-errors.md:733 markdownlint-md032: Lists should be surrounded by blank lines [Context: "- `409 comment_moderation_conf..."]
+docs/api/schemas-and-errors.md:734 markdownlint-md022: Headings should be surrounded by blank lines [Expected: 1; Actual: 0; Above] [Context: "## Plugin Admin frames and stable errors"]
+docs/api/stability.md:54 markdownlint-md022: Headings should be surrounded by blank lines [Expected: 1; Actual: 0; Above] [Context: "## Current contract observation identity"]
+[native-tooling-style] failed selected=11 checked=11 baseline=0 violations=452
+[document-lifecycle] ok documents=372
+fatal: Needed a single revision
+✔ ordinary documentation and normal naming metadata perform source checks without unrelated SDK/runtime (4.120426ms)
+✔ affected source retains fixed-job members and complete original admission/build prerequisites (0.742308ms)
+✔ unknown paths and shared selection authority retain complete checks (0.620945ms)
+✔ full mode preserves every original declaration including unrelated runtime (0.305099ms)
+✔ evidence producers remain prerequisites rather than being mistaken for skipped success (0.340192ms)
+✔ workflow-only prerequisite is retained and undeclared prerequisite fails closed (0.630179ms)
+✔ unknown dependency, dependency cycle and phase inversion fail before any execution (0.362175ms)
+✔ actual Git diff includes deleted paths and both sides of a rename, and missing base never becomes empty impact (51.705412ms)
+✔ the original indexed dependency selects every actual consumer beyond broad path declarations (0.808558ms)
+✔ consumers reject self-authored selection, stale source fingerprint and changed path evidence (2.035946ms)
+✔ ordinary PR dependency owners do not automatically promote manual/nightly/local lanes (1.698548ms)
+✔ CI cannot consume a re-sealed file in place of the original planner output authority (0.343007ms)
+✔ local complete workflow cannot start compiled matrix setup before successful BehaviorDoc admission (2.169107ms)
+✔ explicit local full intent survives the real child caller environment (0.182125ms)
+✔ compiled matrix prerequisite rejects absent admission before any command starts (608.532458ms)
+✔ actual source checker dependency changes select the mandatory source governance owner (0.720385ms)
+✔ explicit source integration executes source gates and real declared regressions without issuing product qualification (0.858062ms)
+✔ full, push and release callers cannot be downgraded by source stage or mixed caller authority (0.318349ms)
+✔ re-sealing stage, regression or deferred qualification claims cannot change the independent source plan (1.083902ms)
+✔ the real stage option parser refuses malformed explicit intent before any execution (3.032207ms)
+✔ source integration explicitly refuses every unregistered source surface rather than silently skipping unknown languages (0.410238ms)
+✔ flat solution checker and its refusal controls are explicit source execution ports (0.293522ms)
+✔ existing plan reuse receives independent explicit caller options instead of defaulting stage from the plan (1.773791ms)
+✔ the fixed shell source port checks syntax without executing the script and refuses command-shaped inputs (21.215591ms)
+✔ shell syntax cannot treat refused or missing source identities as stable input proof (0.613994ms)
+✔ SOURCE frontend routing retains strict original checks for every non-module frontend kind (0.602217ms)
+✔ Python SOURCE syntax uses the existing isolated checker and only verified inputs escape unsupported (0.460564ms)
+ℹ tests 27
+ℹ suites 0
+ℹ pass 27
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 816.371351
+✔ applicable exact target and dependency remain bound without certifying unrelated targets (2.348847ms)
+✔ the original Markdown adapter has an exact source-only declaration and five actual repository inputs (417.43139ms)
+✔ changed applicable source, index, owner and argv each refuse (0.65727ms)
+✔ missing applicable target/dependency, parser or independent index binding refuses (0.355966ms)
+✔ duplicate authority records cannot mint an applicable binding by last-entry overwrite (0.168113ms)
+✔ omitting a required applicable dependency cannot become an empty successful closure (0.133721ms)
+✔ actual target or selected owner omissions cannot self-authorize an empty subset (0.220752ms)
+✔ source governance owns all four actual child entries and recursive indexed source, with independent cache vectors (157.91612ms)
+ℹ tests 8
+ℹ suites 0
+ℹ pass 8
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 679.429228
+✔ materializes recursive static imports and package inputs from exact base blobs instead of candidate bytes (50.386324ms)
+✔ preserves a genuinely missing base dependency instead of filling it from the current candidate (23.428094ms)
+✔ resolves a tracked package main and a literal CommonJS import without executing either (31.616225ms)
+✔ import context proves the same actual repository and builtin inputs and rejects candidate working-byte drift (98.00414ms)
+✔ independent candidate resolver witnesses a changed package main rather than reusing the base target (68.654903ms)
+✔ rejects escape base inputs without replacing them with candidate data (23.401073ms)
+✔ rejects symlink base inputs without replacing them with candidate data (22.557953ms)
+✔ rejects invalid-utf8 base inputs without replacing them with candidate data (27.068317ms)
+✔ inherits an exact unique complete function after an unrelated line shift (4.867ms)
+✔ rejects an unchanged diagnostic inside a changed complete function (0.779634ms)
+✔ rejects copied or ambiguous complete functions in either source (1.626058ms)
+✔ requires identical rule message severity and relative start and end (2.392374ms)
+✔ consumes each base diagnostic at most once and refuses ambiguous base findings (1.012084ms)
+✔ rejects parser fatal global and unsupported findings even in an exact file (2.731554ms)
+✔ a new file strictly retains all 122 findings as unexpected (7.394251ms)
+✔ never inherits a real top-level const regex finding from a supported rule (0.711021ms)
+✔ local layout requires complete diagnostic lines and the enclosing statement (2.460576ms)
+✔ control regex inheritance requires a static literal and unchanged module bindings (3.050119ms)
+✔ finite layout proofs inherit local original statements across an unrelated allocation change (6.835494ms)
+✔ layout rejects changed lexical owners bindings lines and duplicate statement identities (5.040561ms)
+✔ missing semicolons bind line terminators and preserve ASI neighbours (0.892544ms)
+✔ unused bindings require original definition zero reads and unchanged lexical scope (10.961348ms)
+✔ import ordering requires the exact full roster and actual dependency context (2.321025ms)
+✔ base diagnostics are located once per invocation and no candidate cache is reused (2.92824ms)
+✔ module layout proves only unique complete declarations and unchanged physical neighbours (11.017303ms)
+✔ module declarations preserve ASI syntax and reject unsupported global owners and rules (2.094434ms)
+✔ parent import findings require the original full roster and actual resolver identities (2.305392ms)
+✔ mechanical try boundaries retain layout while binding headers lexical owners and ASI syntax (6.504186ms)
+✔ adjacent function layout context keeps its complete header and lexical boundary (3.41929ms)
+✔ empty loop body tokens cannot become optional ancestor statement terminators (1.62674ms)
+ℹ tests 30
+ℹ suites 0
+ℹ pass 30
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 558.72794
+✔ native fragment mock span transport refuses column-only without parser qualification (135.504491ms)
+✔ native fragment mock span transport refuses wrong-length without parser qualification (90.0169ms)
+✔ native fragment mock span transport refuses wrong-line without parser qualification (106.879707ms)
+✔ native fragment mock span transport refuses missing-finding without parser qualification (99.091968ms)
+✔ native fragment mock span transport refuses duplicate-finding without parser qualification (90.880481ms)
+✔ native fragment mock span transport refuses foreign-file without parser qualification (99.006735ms)
+✔ native fragment mock span transport refuses duplicate-report without parser qualification (149.766316ms)
+✔ native fragment mock span transport refuses raw-mismatch without parser qualification (97.360588ms)
+✔ native fragment mock span transport refuses abnormal-terminal without parser qualification (98.402547ms)
+✔ original Markdown adapter package boundary accepts equivalent bins and refuses foreign package authority (464.996073ms)
+ℹ tests 10
+ℹ suites 0
+ℹ pass 10
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 1503.419345
+✔ flat solution inspection binds actual project source without evaluating it (164.815122ms)
+✔ malformed XML and declarations or external entities are refused (301.420137ms)
+✔ numeric predefined entity aliases and processing instructions cannot become literal project paths (500.02321ms)
+✔ source admission compares the closed complete receipt against independent current HEAD and bindings (1057.443925ms)
+✔ unknown elements attributes nested structures and text remain unsupported (425.455318ms)
+✔ escaping substituted and duplicate project paths cannot receive source coverage (587.678946ms)
+✔ missing linked and uncommitted project sources are refused (289.360309ms)
+✔ linked ancestors and hardlinked project aliases are refused (180.862669ms)
+✔ the solution itself and exact caller arguments cannot be replaced by declarations (115.295127ms)
+✔ a source change during the final Git binding recheck is refused through the held descriptor (111.74071ms)
+✔ Python AST syntax does not execute imports bodies bytecode or lifecycle (221.678409ms)
+✔ Python AST refuses malformed UTF-8 syntax and bounded input overflow (219.445912ms)
+✔ Python AST reuses regular single-link source HEAD index and path refusals (229.555227ms)
+✔ Python AST receipt cannot substitute HEAD source parser version limits or extra output (1368.287479ms)
+✔ Python AST held descriptor refuses input replacement during the final index recheck (220.444335ms)
+✔ Python AST fixed worker refuses added fields and ignores caller Python import paths (166.222005ms)
+✔ Python AST bounded FD reader refuses growth after the small initial stat without reading beyond cap plus one (51.205908ms)
+✔ Python AST batch budget refuses the next committed source before reading or parsing beyond eight MiB (847.436133ms)
+ℹ tests 18
+ℹ suites 0
+ℹ pass 18
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 7162.69422
+[source-governance] failure; no runtime or release qualification
+[matrix] applicable source governance failed; qualification remains unrun

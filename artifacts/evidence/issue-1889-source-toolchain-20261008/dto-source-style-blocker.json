@@ -1,0 +1,21 @@
+{
+  "candidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "path": "src/frontend/src/contracts/binaryApi.ts",
+  "blob": "40afd51a0d29494b29942864cf786f846b7d72e3",
+  "soleOwnerRoot": "3735",
+  "consumedDonorCommit": "9ed401583c04ff354c430b2ea174ccb69adb6002",
+  "diagnostics": [
+    {
+      "line": 177,
+      "rule": "@typescript-eslint/consistent-type-imports",
+      "actual": "import('@/locales/localeCatalog').SupportedLocale"
+    },
+    {
+      "line": 184,
+      "rule": "@typescript-eslint/consistent-type-imports",
+      "actual": "import('@/locales/localeCatalog').SupportedLocale"
+    }
+  ],
+  "smallestNextAction": "Root3735 supplies an exact ordinary type-import cleanup commit and evidence; coordinator supplies its identity before consumption. No DTO, protocol, wire or shared contract repair is delegated here.",
+  "diagnosticFirstCandidate": "c6f67663ddb9994fdb16dfc25b1bdf7766793b2c"
+}

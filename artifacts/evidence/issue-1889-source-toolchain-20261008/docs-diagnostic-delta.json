@@ -1,0 +1,344 @@
+{
+  "base": "9c44531326993f23607295c43b1e644eae5898aa",
+  "candidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "baseDiagnostics": 401,
+  "candidateDiagnostics": 452,
+  "inheritedDiagnostics": 401,
+  "candidateOnly": [
+    {
+      "path": "docs/api.md",
+      "line": 487,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 487,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 487,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 487,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 487,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 487,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 488,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 488,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 488,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 488,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 488,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 488,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 490,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: MapAuthoringModerationRoutes]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 492,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 492,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 492,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 492,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 492,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 492,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 493,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 493,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 493,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 493,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 493,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 493,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 494,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 494,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 494,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 494,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 494,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 494,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 496,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 496,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 496,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 496,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 496,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 496,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 497,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 497,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 497,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 497,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 497,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 497,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: CompleteModerationRuntimeMutationAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 525,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: HandleSiteSubscriptionAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 525,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: HandleSiteSubscriptionAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 528,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: HandleRumMetricBatchAsync]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 543,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: MapAuthoringModerationRoutes]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 543,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: MapAuthoringModerationRoutes]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 544,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: MapAuthoringModerationRoutes]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 544,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: MapAuthoringModerationRoutes]"
+    },
+    {
+      "path": "docs/api.md",
+      "line": 544,
+      "rule": "markdownlint-md033",
+      "message": "Inline HTML [Element: MapAuthoringModerationRoutes]"
+    }
+  ],
+  "baseOnly": [],
+  "allCandidateOnlyWithinCanonicalGeneratedRegion": true,
+  "region": {
+    "file": "docs/api.md",
+    "owner": "api.operations",
+    "startLine": 275,
+    "endLine": 552,
+    "producer": "tools/docs/generate-fact-sections.mjs",
+    "sourceGenerationCommit": "445669971d34c000439a017d1e4696ede0cd70e1"
+  },
+  "producerInputs": [
+    {
+      "path": "tools/docs/generate-fact-sections.mjs",
+      "blob": "3aa28855b52487a82d70ebe22d71e6aa54c98fc8",
+      "sha256": "3d9beefcb82e004f2eecfe66de597f5469b8045163b45a161affae27d2edfbcb"
+    },
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "blob": "11ae5224b18c2253c31c418b4ee47344caf49ded",
+      "sha256": "27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37"
+    },
+    {
+      "path": "docs/api.md",
+      "blob": "501410c849af8e56cdbcfe44e34805f1285fb7e5",
+      "sha256": "657e6e03205dd7c44cc390de373c9e87ba23bf539318a84a459e30291257b29e"
+    }
+  ],
+  "smallestNextAction": "Canonical generated-fact-sections owner must escape angle-bracket compiler method identifiers in table cells through the original renderer/producer, regenerate with current canonical receipt, then verify all current gates. Do not edit generated output or suppress MD033.",
+  "diagnosticFirstCandidate": "c6f67663ddb9994fdb16dfc25b1bdf7766793b2c"
+}

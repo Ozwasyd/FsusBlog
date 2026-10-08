@@ -1,0 +1,37 @@
+{
+  "targetCountBefore": 102,
+  "targetCountAfter": 102,
+  "removedTargets": [],
+  "addedTargets": [],
+  "changedTargets": [
+    {
+      "target": "tools/test-matrix/source-governance.mjs",
+      "changedFields": [
+        "dependencyClosure"
+      ],
+      "removedDependencies": [],
+      "addedDependencies": [
+        "src/frontend/scripts/fsusui-root.mjs",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs"
+      ]
+    }
+  ],
+  "removedClosureFiles": [],
+  "addedClosureFiles": [],
+  "changedClosureFiles": [
+    "config/development/frontend-style-policy.json",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "tools/frontend/check-frontend-style.mjs",
+    "tools/frontend/style-toolchain/eslint.config.mjs",
+    "tools/test-inventory/discovery.mjs"
+  ],
+  "nodeParserIdentityPreserved": true,
+  "unchangedMetadataFields": {
+    "schema": true,
+    "source": true,
+    "sourceIndex": true,
+    "sourceIndexDigest": true,
+    "producer": true,
+    "nodeParserIdentity": true
+  }
+}

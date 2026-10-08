@@ -1,0 +1,54 @@
+{
+  "candidate": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+  "fixture": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "originalProducer": "tools/test-matrix/generate-release-final-execution-authority.mjs",
+  "originalProducerImplementationIssue": 3058,
+  "index": "config/testing/release-final-execution-authority-index.json",
+  "mismatches": [
+    {
+      "path": "tools/test-matrix/source-governance.mjs",
+      "sealedContentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "sealedIndexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "actualContentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "actualIndexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+      "actualGitBlob": "ab90d0a98775f8cd76d9db3ce22d7fbc60128fa1",
+      "sourceAndIndexMatch": true
+    },
+    {
+      "path": "config/development/frontend-style-policy.json",
+      "sealedContentDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+      "sealedIndexDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+      "actualContentDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+      "actualIndexDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+      "actualGitBlob": "1458b6aaaec756827dabb2c3f08fcc9d31f1ff1e",
+      "sourceAndIndexMatch": true
+    },
+    {
+      "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+      "sealedContentDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634",
+      "sealedIndexDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634",
+      "actualContentDigest": "sha256:e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+      "actualIndexDigest": "sha256:e225ca9800eb90964c595e3b045293e6639a0a4666b51bfa1284fba9b01dd822",
+      "actualGitBlob": "2f338a003c951fb295eea59c64a93bb5197e06c3",
+      "sourceAndIndexMatch": true
+    },
+    {
+      "path": "tools/frontend/check-frontend-style.mjs",
+      "sealedContentDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+      "sealedIndexDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+      "actualContentDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+      "actualIndexDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+      "actualGitBlob": "fa55a556c43b4caca707138f367f85421789e5fc",
+      "sourceAndIndexMatch": true
+    },
+    {
+      "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+      "sealedContentDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+      "sealedIndexDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+      "actualContentDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+      "actualIndexDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+      "actualGitBlob": "fdde159aa5ccb86215492ac9899986b8516c67df",
+      "sourceAndIndexMatch": true
+    }
+  ]
+}

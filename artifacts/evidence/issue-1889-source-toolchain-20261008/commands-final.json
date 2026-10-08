@@ -1,0 +1,129 @@
+[
+  {
+    "label": "original-authority-producer",
+    "argv": [
+      "node",
+      "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "node": "v24.16.0",
+    "exitCode": 0,
+    "inputCandidate": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+    "outputCommit": "e733e44e3b5918945a4d334bbb278bae6cd477c4",
+    "log": "authority-producer.log"
+  },
+  {
+    "label": "sealed-boundary",
+    "argv": [
+      "node",
+      "tools/test-matrix/release-final-static-boundary.mjs",
+      "--check"
+    ],
+    "testedCandidate": "e733e44e3b5918945a4d334bbb278bae6cd477c4",
+    "exitCode": 0,
+    "log": "canonical-boundary-check.log"
+  },
+  {
+    "label": "cumulative-source",
+    "argv": [
+      "bash",
+      "tools/test.sh",
+      "source-governance"
+    ],
+    "stage": "source-integration",
+    "base": "9c44531326993f23607295c43b1e644eae5898aa",
+    "testedCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "exitCode": 1,
+    "log": "source-governance-cumulative-final.log"
+  },
+  {
+    "label": "incremental-source",
+    "argv": [
+      "bash",
+      "tools/test.sh",
+      "source-governance"
+    ],
+    "stage": "source-integration",
+    "base": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+    "testedCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "exitCode": 0,
+    "log": "source-governance-incremental-final.log"
+  },
+  {
+    "label": "canonical-admission",
+    "argv": [
+      "node",
+      "tools/docs/behavior-doc-static-admission.mjs",
+      "--out",
+      ".tmp/source-toolchain-closure/admission-final.json",
+      "--run-id",
+      "ordinary-source-toolchain-d8e708fc-20261008"
+    ],
+    "testedCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "exitCode": 0,
+    "log": "admission-final.log"
+  },
+  {
+    "label": "verify-current-admission",
+    "argv": [
+      "node",
+      "tools/docs/behavior-doc-static-admission.mjs",
+      "--verify",
+      ".tmp/source-toolchain-closure/admission-final.json"
+    ],
+    "testedCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "exitCode": 0,
+    "log": "admission-verify-final.log"
+  },
+  {
+    "label": "ordinary-unit",
+    "cwd": "src/frontend",
+    "argv": [
+      "node",
+      "node_modules/vitest/vitest.mjs",
+      "run",
+      "--config",
+      "vitest.config.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyAdapter.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialProvider.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyRevocationLocal.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyWasmProver.test.ts",
+      "../../tests/frontend/unit/api/comment.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialVault.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialLifecycle.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyCredentialPublicBoundary.test.ts",
+      "../../tests/frontend/unit/privacy/commentPrivacyRuntime.test.ts",
+      "--maxWorkers=2",
+      "--reporter=default",
+      "--reporter=json",
+      "--outputFile=../../.tmp/source-toolchain-closure/ordinary-unit-final.json"
+    ],
+    "testedCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "exitCode": 0,
+    "log": "ordinary-unit-final.log"
+  },
+  {
+    "label": "local-consumer",
+    "cwd": "src/frontend",
+    "argv": [
+      "npm",
+      "run",
+      "typecheck:local-fsusui"
+    ],
+    "fsusuiRoot": "/workspace/scratch/issue-1889/fsusui-c987",
+    "testedCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "exitCode": 0,
+    "log": "local-consumer-final.log"
+  },
+  {
+    "label": "published-consumer",
+    "cwd": "src/frontend",
+    "argv": [
+      "npm",
+      "run",
+      "typecheck:published-fsusui"
+    ],
+    "testedCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+    "exitCode": 2,
+    "log": "published-consumer-final.log"
+  }
+]

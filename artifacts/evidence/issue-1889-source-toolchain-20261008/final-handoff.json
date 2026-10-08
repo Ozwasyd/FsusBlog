@@ -1,0 +1,137 @@
+{
+  "assignment": {
+    "root": 1889,
+    "executionIssues": [
+      1889
+    ],
+    "trackingOnlyIssues": [],
+    "status": "OPEN: implementation and ordinary source closure delivered; cumulative source and product qualification not satisfied"
+  },
+  "sourceCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "sourceBranch": "codex/issue-1889-source-toolchain-closure",
+  "sourceWorktree": "/workspace/scratch/issue-1889/privacy-source-canonical",
+  "canonicalParentBase": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+  "cumulativeBase": "9c44531326993f23607295c43b1e644eae5898aa",
+  "earlyPrerequisite": {
+    "branch": "codex/issue-1889-source-authority-boundary",
+    "commit": "e733e44e3b5918945a4d334bbb278bae6cd477c4",
+    "coverage": "Original generator refreshed five stale source digest records and two SOURCE dependency edges; all102 command owners/targets and all original closure records retained. Independent index, builtin parser seal, producer and checkers unchanged."
+  },
+  "runId": "ordinary-source-toolchain-d8e708fc-20261008",
+  "toolchain": {
+    "node": "v24.16.0",
+    "nodeExecutable": "/workspace/scratch/issue-1889/node24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "officialArchiveSha256": "d804845d34eddc21dc1092b519d643ef40b1f58ec5dec5c22b1f4bd8fabde6c9",
+    "acorn": "8.16.0",
+    "amaro": "1.1.9",
+    "parserSealExactMatch": true,
+    "dotnet": "10.0.100",
+    "dotnetExecutable": "/workspace/scratch/issue-1889/dotnet/dotnet",
+    "markdownlintCli2": "0.23.1",
+    "markdownlintInstallation": "/workspace/scratch/issue-1889/markdownlint-toolchain",
+    "installScripts": false
+  },
+  "gates": {
+    "sealedBoundary": {
+      "exitCode": 0,
+      "testedSHA": "e733e44e3b5918945a4d334bbb278bae6cd477c4"
+    },
+    "incrementalSOURCE": {
+      "exitCode": 0,
+      "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "base": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+      "sourceRegressionCases": 85,
+      "qualificationEligible": false
+    },
+    "cumulativeSOURCE": {
+      "exitCode": 1,
+      "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "base": "9c44531326993f23607295c43b1e644eae5898aa",
+      "sourceRegressionCases": 85,
+      "failureClasses": [
+        "nine unsupported inherited evidence log files",
+        "two consistent-type-imports findings in sole3735 DTO owner file",
+        "452 actual Markdownlint findings:401 inherited plus51 canonical-generated MD033"
+      ],
+      "qualificationEligible": false
+    },
+    "BehaviorDoc": {
+      "exitCode": 0,
+      "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "receiptDigest": "7c735d47658aae3225ac37807e8668faf9b4202636cc5945c4f32542e22d0641",
+      "facts": 8,
+      "mutationControls": 35,
+      "candidateSpawnCountBeforeReceipt": 0
+    },
+    "verifyCurrentReceipt": {
+      "exitCode": 0
+    },
+    "ordinaryUnits": {
+      "exitCode": 0,
+      "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "files": 9,
+      "passed": 75,
+      "failed": 0,
+      "pending": 0,
+      "newControl": "String distribution metadata positive; array/object/null malformed metadata refusal before suite or issuer"
+    },
+    "initialOrdinaryUnits": {
+      "exitCode": 1,
+      "testedSHA": "c6f67663ddb9994fdb16dfc25b1bdf7766793b2c",
+      "passed": 74,
+      "failed": 1,
+      "reason": "New positive control vault:null triggers existing capability refusal before metadata. Repaired fixture only in d8e708fc; failed run retained."
+    },
+    "localFsusUIConsumer": {
+      "exitCode": 0,
+      "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "fsusuiSHA": "c987c645a6ddc915bbc28429a97a3f21fafe258b"
+    },
+    "publishedFsusUIConsumer": {
+      "exitCode": 2,
+      "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020",
+      "diagnostics": 17,
+      "reason": "Actual @ozwasyd/element-plus package missing; no local substitution or credential change"
+    },
+    "applicationTypecheck": {
+      "exitCode": 2,
+      "testedSHA": "c6f67663ddb9994fdb16dfc25b1bdf7766793b2c",
+      "diagnostics": 232,
+      "privacyDiagnostics": 0,
+      "currentSourceIdentityProof": "application-typecheck-source-binding-final.json"
+    },
+    "changeContract": {
+      "exitCode": 0,
+      "testedSHA": "d8e708fcb147410e9087a491e538fdd98c709020"
+    }
+  },
+  "frozenDeliverables": {
+    "originalComposerBranch": "codex/issue-1889-comment-composer-primitives",
+    "originalComposerSHA": "cebd4ba362714b732dcf508abbed18e0910d7bb6",
+    "originalIntegrationBranch": "codex/issue-1889-integration",
+    "originalIntegrationSHA": "15424f2836173cb86b8a3c5e7e5e0ea71d032568",
+    "originalDraftPR": "https://github.com/Ozwasyd/FsusBlog/pull/3854",
+    "ordinaryPrivacySourceBranch": "codex/issue-1889-privacy-unit-verification",
+    "ordinaryPrivacySourceSHA": "286c6fefb570d1acf78067209f3b12c3022e30cc",
+    "previousEvidenceBranch": "codex/issue-1889-privacy-unit-evidence",
+    "previousEvidenceSHA": "b291f5523311ea02ecc1b3ba827e08f8760b59b0",
+    "changedByThisPhase": false
+  },
+  "acceptanceLimits": [
+    "Cumulative SOURCE remains failed, with exact owner handoffs in source-log-selection-blocker.json, dto-source-style-blocker.json and docs-diagnostic-delta.json. Coordinator must route current sole ownership; no authority/policy/checker weakening is performed.",
+    "Full application has232 non-privacy TypeScript diagnostics; repair belongs to relevant current module owners.",
+    "Published FsusUI package access/public consumer and CSS/theme identity qualification remain open. Local API consumer and ordinary unit evidence are source checks, not full published/theme/product qualification.",
+    "Native IME, assistive technology, native zoom/device and full production CSP/independent UX QA #3990 remain unrun/held. Existing original runtime evidence remains bound to15424f, not promoted to this source candidate.",
+    "Privacy/security QA aggregates, denied audit replay, broad Node/xUnit, browser/DB/credential issuance and production scopes excluded/UNRUN."
+  ],
+  "publication": {
+    "sourcePushMethod": "Git protocol only",
+    "newEvidenceBranch": "codex/issue-1889-source-toolchain-evidence",
+    "newEvidenceDirectory": "artifacts/evidence/issue-1889-source-toolchain-20261008",
+    "newGitHubContentApiWrites": false,
+    "newPRCreated": false,
+    "mergeDeployIssueClosure": false
+  },
+  "nextReadyOwnedIssue": null,
+  "remainingOwnedIssue": 1889
+}

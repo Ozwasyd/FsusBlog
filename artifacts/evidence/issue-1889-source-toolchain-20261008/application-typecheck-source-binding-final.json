@@ -1,0 +1,40 @@
+{
+  "diagnosticRunCandidate": "c6f67663ddb9994fdb16dfc25b1bdf7766793b2c",
+  "currentCandidate": "d8e708fcb147410e9087a491e538fdd98c709020",
+  "reasonNoRepeat": "Only the allowed ordinary provider fixture changed; all application/typecheck source inputs remain byte identical. No new application type concern.",
+  "unchangedApplicationInputs": [
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyBlindRsaSuite.ts",
+      "blob": "07233719bb2ab8313e0c850e4c1b6e481cead2b0",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyCredentialProvider.ts",
+      "blob": "613bee7ebbb4ca88cf0f01fe8206089854527c57",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyRevocationLocal.ts",
+      "blob": "67afca972540a7046166d188ee1280422a97b284",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/privacy/commentPrivacyWasmProver.ts",
+      "blob": "f40de7c590c9ae9f9a1d09b23f9d7d7a040eb0a1",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/src/contracts/binaryApi.ts",
+      "blob": "40afd51a0d29494b29942864cf786f846b7d72e3",
+      "unchanged": true
+    },
+    {
+      "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+      "blob": "2f338a003c951fb295eea59c64a93bb5197e06c3",
+      "unchanged": true
+    }
+  ],
+  "diagnostics": 232,
+  "privacyDiagnostics": 0,
+  "exitCode": 2
+}
