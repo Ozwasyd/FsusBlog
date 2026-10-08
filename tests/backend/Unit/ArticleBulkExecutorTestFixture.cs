@@ -191,6 +191,20 @@ internal sealed class ArticleBulkExecutorTestFixture
             => Task.FromResult(new ArticleBulkExecutionAuthoritySnapshot(
                 plan.PolicyDigest, plan.PermissionPolicyDigest, ArticleBulkDigest.Of("authority"), null));
 
+        internal Func<ArticleBulkExecutionRequest, ArticleBulkPlan, ArticleBulkJournalHead,
+            Task<ArticleBulkGroupRecoveryEvidence?>>? GroupRecovery
+        {
+            get; set;
+        }
+
+        public Task<ArticleBulkGroupRecoveryEvidence?> ReadGroupRecoveryAsync(
+            ArticleBulkExecutionRequest request,
+            ArticleBulkPlan plan,
+            ArticleBulkJournalHead checkpoint,
+            CancellationToken cancellationToken)
+            => GroupRecovery?.Invoke(request, plan, checkpoint)
+                ?? Task.FromResult<ArticleBulkGroupRecoveryEvidence?>(null);
+
         public Task ValidateGroupOutcomeAsync(
             ArticleBulkPlan plan,
             ArticleBulkGroupCommitOutcome outcome,
