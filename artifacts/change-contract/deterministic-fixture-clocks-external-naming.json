@@ -12,6 +12,7 @@
                 "tools/test/data-scale-runtime-owner.mjs",
                 "tools/test/temporal-context-contract.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-entity-stream.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs"
             ],
@@ -22,6 +23,8 @@
             "paths": [
                 "config/testing/resolved-temporal-roles.schema.json",
                 "config/testing/temporal-domain-producer-inventory.json",
+                "config/testing/temporal-domain-producer-receipt.schema.json",
+                "config/testing/temporal-producer-bindings.json",
                 "config/testing/temporal-shape-catalog.json",
                 "config/testing/temporal-shape-catalog.schema.json"
             ],

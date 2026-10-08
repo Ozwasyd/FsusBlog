@@ -115,7 +115,9 @@
             "actualObservation": "target-bash-process-postgres-session-business-epoch",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
-            "clockDisposition": "canonical-business-epoch"
+            "clockDisposition": "canonical-business-epoch",
+            "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
+            "semanticRoleReceiptCarrier": "temporal-domain-producer-receipt.json"
         },
         {
             "producerId": "public-content",
@@ -141,7 +143,9 @@
             "actualObservation": "target-bash-process-postgres-session-business-epoch",
             "planCarrier": "FSUSBLOG_TEMPORAL_CONTEXT_JSON",
             "receiptCarrier": "temporal-receipt.json",
-            "clockDisposition": "canonical-business-epoch"
+            "clockDisposition": "canonical-business-epoch",
+            "semanticRoleCarrier": "FSUSBLOG_RESOLVED_TEMPORAL_ROLES_JSON",
+            "semanticRoleReceiptCarrier": "temporal-domain-producer-receipt.json"
         },
         {
             "producerId": "security-state",
