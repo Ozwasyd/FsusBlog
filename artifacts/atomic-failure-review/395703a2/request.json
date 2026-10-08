@@ -1,0 +1,149 @@
+{
+    "schema": "fsusblog.atomic-failure-original-authority-review-request.v1",
+    "sourceCommit": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+    "sourceThreadId": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+    "partitionThreadId": "01a119f9-854e-71e6-bcd9-2db47b378039",
+    "originalOwnerThreadId": "01a1195c-41e6-75d9-a27f-ca1481cfd007",
+    "producerCommand": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "nodeVersion": "24.16.0",
+    "inputs": [
+        {
+            "path": "tests/matrix.yml",
+            "blob": "a166e3ddb89917ee988bc752982cf9764f1adadb",
+            "sha256": "db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03"
+        },
+        {
+            "path": "config/testing/release-final-execution-authority-index.json",
+            "blob": "32eb40651cd94f7e531f4b5bccf94e8f38ab26b6",
+            "sha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5"
+        },
+        {
+            "path": "tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "blob": "3a94146cb8d98aa9ceac65bedcb9e8e183e3aa8d",
+            "sha256": "85bd0c3eb2a17e9dbda9fb86d4a2c2fd9bd17d9c6eb2ae3ed3e0e97e49c44fef"
+        },
+        {
+            "path": "tools/test-matrix/release-final-static-boundary.mjs",
+            "blob": "792b48725fb592713dab0cea0052b4540d4018fb",
+            "sha256": "89e18f63eb9edaf6541b4b4bf2c07f7bf93a045a764b7b1fa171299cd6e2adb3"
+        },
+        {
+            "path": "tools/test-matrix/pr-impact-plan.mjs",
+            "blob": "d031eb3006e5558f36cb61b386c6e85e7dce96bf",
+            "sha256": "afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe"
+        }
+    ],
+    "sourceClosure": "All original source/index/target dependencies read from exact sourceCommit; no hand reconstruction. Re-run producer at the final owner-adopted committed candidate.",
+    "patch": "execution-authority.patch",
+    "patchSha256": "34112710e7dd1963a3186602abc4057d93895380eb1886d5c14f68ea8195a9ac",
+    "fixture": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "baselineFixtureBlob": "47f9d4303e227960f9b9ed9f4e64ce0bfbf2cb63",
+    "producedFixtureBlob": "873a330058ccc9e3ce276f3bb87986c48d486364",
+    "producerExitCode": 0,
+    "boundaryCheck": {
+        "command": [
+            "node",
+            "tools/test-matrix/release-final-static-boundary.mjs",
+            "--check"
+        ],
+        "exitCode": 0
+    },
+    "mainSourceCheck": {
+        "candidate": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+        "command": [
+            "node",
+            "tools/run-test-matrix.mjs",
+            "ci-pr-smart",
+            "--stage",
+            "source-integration",
+            "--event-name",
+            "pull_request",
+            "--base-ref",
+            "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+        ],
+        "exitCode": 1,
+        "log": "/workspace/atomic-failure-evidence/atomic-395703a2-canonical-source.log"
+    },
+    "isolatedPlanOnly": {
+        "command": [
+            "node",
+            "tools/run-test-matrix.mjs",
+            "ci-pr-smart",
+            "--plan-only",
+            "--stage",
+            "source-integration",
+            "--event-name",
+            "pull_request",
+            "--base-ref",
+            "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+        ],
+        "exitCode": 1,
+        "refusal": "PR impact requires a clean committed source candidate",
+        "testCommandsExecuted": false
+    },
+    "driftedBindings": [
+        {
+            "path": "tools/run-test-matrix.mjs",
+            "blob": "667448590a27a9df1e76c5dc4b899d55822a377d",
+            "rawSha256": "sha256:9bf7f348a4f80e441f9c70efd8c344d73aaef586477cda3a7beea35a0e2e8e74"
+        },
+        {
+            "path": "tools/test-matrix/source-governance.mjs",
+            "blob": "ab90d0a98775f8cd76d9db3ce22d7fbc60128fa1",
+            "rawSha256": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4"
+        },
+        {
+            "path": "tools/test/lanes/plan-pr-risk.sh",
+            "blob": "4f2f4a9db547b8aa6ed6800c2bff32eaba60dfde",
+            "rawSha256": "sha256:71ef740e8eac0096735f6f54c145ce6326cdd936e270393079f904791b17590c"
+        },
+        {
+            "path": "tools/release/correctness-provisional-receipt.mjs",
+            "blob": "6b4c82357a0d6fa15d916bff770873f5d9d59f4c",
+            "rawSha256": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f"
+        },
+        {
+            "path": "tools/release/correctness-scheduler-authority.mjs",
+            "blob": "af99d7639a41ca2e64c71de1d2e5a9d4879b69a3",
+            "rawSha256": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47"
+        },
+        {
+            "path": "tools/release/correctness-terminal-receipt.mjs",
+            "blob": "73b8198228558f46a3f5f4437879faef760d2050",
+            "rawSha256": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df"
+        },
+        {
+            "path": "tools/release/correctness-terminal-seal-journal.mjs",
+            "blob": "5420b537e636bc0ebe416a8a4ae79a629c15a5f0",
+            "rawSha256": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22"
+        },
+        {
+            "path": "tools/test-matrix/correctness-input-manifest.mjs",
+            "blob": "76b01eaa1dd3fed8632cca077f30a58dcb5fdf77",
+            "rawSha256": "sha256:63b57c873c46fd9ec402acd6c0c5504d973b5b9e160d50f196ed3995b4d17627"
+        },
+        {
+            "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+            "blob": "2a807c3cda5a069d6805267905288f4596e97388",
+            "rawSha256": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e"
+        },
+        {
+            "path": "tools/test-matrix/scheduler.mjs",
+            "blob": "4c6039406878d3e261282f4f3ff935f6c78ab826",
+            "rawSha256": "sha256:fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631"
+        },
+        {
+            "path": "tools/test/bundles/bundle-steps.mjs",
+            "blob": "505655b3dc0b258074af42784b4ce449c1b53de9",
+            "rawSha256": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad"
+        }
+    ],
+    "request": "Sole #3521 owner reviews/adopts original-producer patch and reruns original producer and applicable gates at exact final clean committed source. Do not transplant old scheduler rows or claim runtime/native/release qualification.",
+    "reviewOnly": true,
+    "canonicalAdmission": false,
+    "qualificationEligible": false,
+    "canonicalFixtureMutatedInEvidenceBranch": false
+}
