@@ -77,7 +77,9 @@ async function loadProductAdapters()
             decode = (payload) =>
             {
                 const cursor = comment.mapCommentTreeRootCursorFromPayload(payload);
-                return { ...cursor, items: cursor.data.map((row) => row.node) };
+                return { ...cursor, items: cursor.data.map((row) => ({ ...row.node,
+                    childrenPreview: row.childrenPreview.map((child) => ({ id: child.id, content: child.content,
+                        createTime: child.createTime, rootId: child.rootId, parentId: child.parentId })) })) };
             };
         }
         else if (id.startsWith('comment-nested'))

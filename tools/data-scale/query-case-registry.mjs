@@ -137,10 +137,11 @@ function pageCoordinate(rows, pageSize, offset, path, requirePriorPage = false, 
  * supplied by that owner for the bound business epoch, never recomputed here.
  * This pure registry is not runtime admission or a qualification receipt.
  */
-export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleComments, categories, tags, canaries, pageSize = 10 })
+export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleComments, categories, tags, canaries, pageSize = 10, commentPageSize = 1 })
 {
     requireQueryBinding(binding);
-    if (!queryMatrixTiers.includes(tier) || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100)
+    if (!queryMatrixTiers.includes(tier) || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100
+        || !Number.isSafeInteger(commentPageSize) || commentPageSize < 1 || commentPageSize > 100)
     {
         throw new Error('query tier or page size is invalid');
     }
@@ -221,11 +222,34 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
     const commentArticleId = canaries?.commentArticleId;
     const roots = visibleComments.filter((row) => String(row.articleId) === String(commentArticleId) && row.parentId === null)
         .sort((left, right) => -idOrder(left, right));
-    const rootItems = roots.map((row) => ({ id: String(row.id), content: row.content, createTime: new Date(row.createTime).toISOString(), rootId: String(row.id), parentId: null }));
-    const rootPath = `/api/binary/comment/${commentArticleId}?limit=${pageSize}`;
-    add('comment-root-first', () => pageCoordinate(rootItems, pageSize, 0, rootPath));
-    add('comment-root-middle-cursor', () => pageCoordinate(rootItems, pageSize, middleOffset(roots), rootPath, true));
-    add('comment-root-last-cursor', () => pageCoordinate(rootItems, pageSize, lastOffset(roots), rootPath, true));
+    const childrenByParent = new Map();
+    for (const row of visibleComments)
+    {
+        if (row.parentId !== null && String(row.articleId) === String(commentArticleId))
+        {
+            const key = String(row.parentId);
+            const children = childrenByParent.get(key) ?? [];
+            children.push(row);
+            childrenByParent.set(key, children);
+        }
+    }
+    const commentItem = (row) => ({ id: String(row.id), content: row.content, createTime: new Date(row.createTime).toISOString(),
+        rootId: String(row.rootId ?? row.id), parentId: row.parentId === null ? null : String(row.parentId) });
+    const rootItems = roots.map((row) => ({ ...commentItem(row),
+        childrenPreview: [...(childrenByParent.get(String(row.id)) ?? [])].sort(idOrder).slice(0, 3).map(commentItem) }));
+    const rootPath = `/api/binary/comment/${commentArticleId}?limit=${commentPageSize}`;
+    add('comment-root-first', () =>
+    {
+        if (!articles.some((row) => String(row.id) === identifier(commentArticleId)))
+        {
+            throw new Error('exact comment article coordinate missing');
+        }
+        return pageCoordinate(rootItems, commentPageSize, 0, rootPath, false, true);
+    });
+    const commentLastOffset = Math.max(0, Math.floor((roots.length - 1) / commentPageSize) * commentPageSize);
+    const commentMiddleOffset = Math.floor(Math.floor((roots.length - 1) / commentPageSize) / 2) * commentPageSize;
+    add('comment-root-middle-cursor', () => pageCoordinate(rootItems, commentPageSize, commentMiddleOffset, rootPath, true));
+    add('comment-root-last-cursor', () => pageCoordinate(rootItems, commentPageSize, commentLastOffset, rootPath, true));
     add('comment-nested-root-expansion', () =>
     {
         const rootId = identifier(canaries?.nestedRootId);
@@ -236,7 +260,7 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
         const children = visibleComments.filter((row) => String(row.articleId) === String(commentArticleId) && String(row.parentId) === rootId)
             .sort(idOrder);
         const childItems = children.map((row) => ({ id: String(row.id), content: row.content, createTime: new Date(row.createTime).toISOString(), rootId, parentId: rootId }));
-        return { ...pageCoordinate(childItems, pageSize, 0, `/api/binary/comment/${commentArticleId}/children/${rootId}?limit=${pageSize}`), rootId };
+        return { ...pageCoordinate(childItems, commentPageSize, 0, `/api/binary/comment/${commentArticleId}/children/${rootId}?limit=${commentPageSize}`), rootId };
     });
 
     function taxonomyCoordinate(rows, type, empty)

@@ -43,6 +43,14 @@ fi
 mkdir -p "$OUT_DIR"
 
 export FSUSBLOG_DATA_SCALE_ARTIFACT_EVIDENCE="$OUT_DIR/artifact-rebuild.json"
+set +e
 "${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/test/lanes/runtime-evidence-probe.mjs" data-scale "$TIER" "$OUT_DIR/summary.json"
+semantic_status=$?
+"${FSUSBLOG_NODE:-node}" "$ROOT_DIR/tools/data-scale/run-query-matrix.mjs" --tier "$TIER" --summary "$OUT_DIR/summary.json"
+matrix_status=$?
+set -e
+if [[ "$semantic_status" -ne 0 || "$matrix_status" -ne 0 ]]; then
+    exit 1
+fi
 printf '[data-scale:probe] wrote %s\n' "$OUT_DIR/summary.json"
 printf '[data-scale:probe] updated %s\n' "$OUT_DIR/artifact-rebuild.json"

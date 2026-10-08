@@ -9,12 +9,16 @@
                 "src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs",
                 "src/backend/Infrastructure/Testing/QueryPlanCommandCapture.cs",
                 "src/backend/Infrastructure/Testing/RuntimeCacheEvidenceObservation.cs",
+                "tools/data-scale/product-backend.mjs",
                 "tools/data-scale/query-case-registry.mjs",
+                "tools/data-scale/query-expected-model.mjs",
                 "tools/data-scale/query-matrix.mjs",
+                "tools/data-scale/query-payload-decoders.mjs",
                 "tools/data-scale/query-plan-capture.mjs",
-                "tools/data-scale/query-payload-decoders.mjs"
+                "tools/data-scale/run-query-matrix.mjs",
+                "tools/test/aggregate-data-scale-evidence.mjs"
             ],
-            "reason": "The trusted registry governs tools/**/*.mjs and src/**/*.cs under environment-variable. These consumers and observation hooks preserve existing environment/header spelling, introduce no new process-environment keys, and keep internal bindings in camelCase; private capture configuration and runtime/protocol adapters retain their declared ownership."
+            "reason": "The trusted registry governs tools/**/*.mjs and src/**/*.cs under environment-variable. Consumers preserve original environment/header contracts and camelCase internal bindings. The backend helper projects the two declared private capture configuration keys through standard .NET environment names and reuses the existing authenticated observation secret; no fixture, temporal or runtime authority is introduced."
         }
     ]
 }

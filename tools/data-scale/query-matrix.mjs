@@ -185,6 +185,7 @@ export function evaluateQueryCase({ entry, sample, policy, binding, decode })
 {
     const failureReasons = [];
     let metrics = null;
+    const queryEvidence = [];
     try
     {
         validateQueryPolicy(policy);
@@ -223,7 +224,10 @@ export function evaluateQueryCase({ entry, sample, policy, binding, decode })
             {
                 throw new Error('cursor query degraded to OFFSET');
             }
-            return summarizeActualPlan(query.explain);
+            const actual = summarizeActualPlan(query.explain);
+            queryEvidence.push({ sqlFingerprint: query.sqlFingerprint, parametersDigest: query.parametersDigest,
+                httpSampleIndex: query.httpSampleIndex, metrics: actual });
+            return actual;
         });
         const httpLatency = nonnegative(sample.http[targetSampleIndex]?.latencyMs, 'HTTP latency');
         const sumMetric = (metric) => plans.reduce((sum, plan) => sum + plan[metric], 0);
@@ -264,7 +268,7 @@ export function evaluateQueryCase({ entry, sample, policy, binding, decode })
     {
         failureReasons.push(error.message);
     }
-    return { id: entry.id, status: failureReasons.length ? 'failed' : 'ok', metrics, failureReasons };
+    return { id: entry.id, status: failureReasons.length ? 'failed' : 'ok', metrics, queryEvidence, failureReasons };
 }
 
 export function evaluateQueryMatrix({ registry, samples, policies, decoders })

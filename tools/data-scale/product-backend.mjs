@@ -73,8 +73,15 @@ export function buildProductBackendEnvironment({
         `Host=127.0.0.1;Port=${postgresHostPort};Database=fsusblog;`
         + 'Username=fsusblog;Password=fsusblog_dev;Search Path=public';
 
+    const queryBindingPath = path.join(absoluteRunRoot, 'query-capture-binding.json');
+    const queryCapture = fs.existsSync(queryBindingPath) ? {
+        fsus__queryPlanCaptureDirectory: path.join(absoluteRunRoot, 'query-captures'),
+        fsus__queryPlanCaptureBindingPath: queryBindingPath,
+        FSUSBLOG_RUNTIME_CACHE_EVIDENCE_SECRET: fs.readFileSync(path.join(absoluteRunRoot, 'query-observation.secret'), 'utf8').trim()
+    } : {};
     return {
         ASPNETCORE_ENVIRONMENT: 'Development',
+        ...queryCapture,
         ASPNETCORE_URLS: baseUrl,
         ASPNETCORE_CONTENTROOT: path.resolve(repositoryRoot, 'src/backend'),
         ASPNETCORE_WEBROOT: absoluteRunRoot,
@@ -143,7 +150,8 @@ export function writeProductBackendEnvironmentFile(filePath, environment)
     const body = Object.entries(environment)
         .map(([key, value]) => `${key}=${shellQuote(value)}`)
         .join('\n');
-    fs.writeFileSync(absolute, `${body}\n`);
+    fs.writeFileSync(absolute, `${body}\n`, { mode: 0o600 });
+    fs.chmodSync(absolute, 0o600);
     return absolute;
 }
 

@@ -1,10 +1,17 @@
 import assert from 'node:assert/strict';
+import { spawnSync } from 'node:child_process';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 import test from 'node:test';
 
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
 const { buildQueryCaseRegistry, queryCaseIds, queryMatrixTiers } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 const { compareQueryTrends, evaluateQueryCase, evaluateQueryMatrix, sqlFingerprint, summarizeActualPlan, validateQueryPolicy, verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
 const { decodeAedsFrame, decodeTaxonomyList, encodeAedsFrame, encodeTaxonomyList } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
+const { runQueryMatrix, runQueryMatrixFiles } = await import(new URL('../../tools/data-scale/run-query-matrix.mjs', import.meta.url));
+const { buildSemanticProofReceipt, verifySemanticProofReceipt } = await import(new URL('../../tools/data-scale/semantic-proof.mjs', import.meta.url));
+const { buildProductBackendEnvironment, writeProductBackendEnvironmentFile } = await import(new URL('../../tools/data-scale/product-backend.mjs', import.meta.url));
 
 // Controlled decoder and plan fixtures test the evaluator, not runtime admission.
 const decodeControlled = (body) => JSON.parse(Buffer.from(body).toString('utf8'));
@@ -101,6 +108,118 @@ function matrixInput(tier = 'scale-s')
     };
 }
 
+test('product runner follows returned cursors, measures exact target windows and refuses collector failure', async () =>
+{
+    const input = matrixInput();
+    let observations = 0;
+    const targets = [];
+    const options = {
+        registry: input.registry, policies: input.policies, baseUrl: 'http://127.0.0.1:18888', secret: 'control-secret',
+        decoders: input.decoders, captureDirectory: '/tmp/query-control', verifyRuntime: async () =>
+        {
+            observations += 1;
+        },
+        fetchImpl: async (url) =>
+        {
+            const path = url.slice('http://127.0.0.1:18888'.length).replace(/([?&])cursor=.*$/u, '');
+            const entry = input.registry.cases.find((item) => item.coordinate.path === path);
+            const cursor = new URL(url).searchParams.get('cursor');
+            const page = sample(entry).http.find((http) => http.inputCursor === cursor);
+            assert.ok(page, 'runner must use an actual returned cursor');
+            return new Response(page.body, { status: 200, headers: { 'content-type': 'application/octet-stream' } });
+        },
+        collect: async ({ httpSampleIndex, binding: actualBinding }) =>
+        {
+            targets.push(httpSampleIndex);
+            const sql = 'SELECT id FROM fixture_read ORDER BY id LIMIT @limit';
+            const parameters = { limit: 10 };
+            return [{ binding: actualBinding, status: 'collected', httpSampleIndex, sql, sqlFingerprint: sqlFingerprint(sql),
+                parameters, parametersDigest: computeSha256(parameters), explain: actualPlan() }];
+        }
+    };
+    const result = await runQueryMatrix(options);
+    assert.equal(result.status, 'ok', JSON.stringify(result.results));
+    assert.equal(result.qualification, 'not-performed');
+    assert.deepEqual(targets.slice(0, 4), [0, 1, 3, 3]);
+    assert.ok(observations > 16);
+    const failed = await runQueryMatrix({ ...options, collect: async () =>
+    {
+        throw new Error('collector control');
+    } });
+    assert.equal(failed.status, 'failed');
+    assert.equal(failed.results.length, 16);
+    const unavailable = await runQueryMatrix({ ...options, verifyRuntime: undefined });
+    assert.equal(unavailable.results.every((row) => row.status === 'failed'), true);
+});
+
+test('missing canonical runner files retain all required failed cases', async () =>
+{
+    const matrix = await runQueryMatrixFiles({ tier: 'scale-xs', directory: '/tmp/nonexistent-query-matrix-control' });
+    assert.equal(matrix.status, 'failed');
+    assert.deepEqual(matrix.results.map((row) => row.id), queryCaseIds);
+});
+
+test('product backend private capture configuration requires its owned binding and secret', (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'query-backend-control-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const options = { repositoryRoot: directory, runRoot: directory, postgresHostPort: '15432', redisHostPort: '16379' };
+    const disabled = buildProductBackendEnvironment(options);
+    assert.equal(disabled.fsus__queryPlanCaptureDirectory, undefined);
+    fs.writeFileSync(path.join(directory, 'query-capture-binding.json'), JSON.stringify(binding));
+    assert.throws(() => buildProductBackendEnvironment(options));
+    fs.writeFileSync(path.join(directory, 'query-observation.secret'), 'controlled-observation-secret', { mode: 0o600 });
+    const enabled = buildProductBackendEnvironment(options);
+    assert.equal(enabled.fsus__queryPlanCaptureDirectory, path.join(directory, 'query-captures'));
+    assert.equal(enabled.fsus__queryPlanCaptureBindingPath, path.join(directory, 'query-capture-binding.json'));
+    assert.equal(enabled.fsus__allowLocalAuthFixture, 'false');
+    const environmentFile = path.join(directory, 'backend.env');
+    fs.writeFileSync(environmentFile, '', { mode: 0o644 });
+    writeProductBackendEnvironmentFile(environmentFile, enabled);
+    assert.equal(fs.statSync(environmentFile).mode & 0o777, 0o600);
+});
+
+test('probe CLI attaches every failure through the original receipt producer and retains scheduler binding', (context) =>
+{
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'query-probe-control-'));
+    context.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const summaryFile = path.join(directory, 'summary.json');
+    const receipt = buildSemanticProofReceipt({ tier: 'scale-xs', dataScaleRunId: 'probe-control',
+        results: Object.fromEntries(['database', 'httpPayload', 'search', 'aot', 'hotRead'].map((kind) => [kind, { status: 'ok' }])) });
+    fs.writeFileSync(summaryFile, JSON.stringify({ ...receipt, releaseReliability: { control: 'original-binding' } }));
+    const result = spawnSync(process.execPath, [new URL('../../tools/data-scale/run-query-matrix.mjs', import.meta.url).pathname,
+        '--tier', 'scale-xs', '--summary', summaryFile], {
+        encoding: 'utf8', env: { ...process.env, FSUSBLOG_DATA_SCALE_OUT_DIR: directory }, timeout: 10_000
+    });
+    assert.equal(result.status, 1, result.stderr);
+    const updated = JSON.parse(fs.readFileSync(summaryFile));
+    assert.equal(updated.status, 'failed');
+    assert.equal(updated.queryMatrix.results.length, 16);
+    assert.deepEqual(updated.releaseReliability, { control: 'original-binding' });
+    assert.equal(verifySemanticProofReceipt(updated).failureReasons.some((reason) => reason.includes('contentDigest')), false);
+    const matrix = JSON.parse(fs.readFileSync(path.join(directory, 'query-matrix.json')));
+    assert.deepEqual(matrix, updated.queryMatrix);
+});
+
+test('comment coordinates exercise existing distributed roots with limit one and validate preview membership', () =>
+{
+    const input = fixture();
+    input.visibleComments = input.visibleComments.filter((row) => BigInt(row.id) <= 7n || row.parentId !== null);
+    const registry = buildQueryCaseRegistry(input);
+    const middle = registry.cases.find((row) => row.id === 'comment-root-middle-cursor');
+    assert.equal(middle.status, 'ready');
+    assert.equal(middle.coordinate.pageSize, 1);
+    assert.equal(middle.coordinate.offset, 3);
+    const first = registry.cases.find((row) => row.id === 'comment-root-first');
+    const observed = sample(first);
+    const last = observed.http.at(-1);
+    const decoded = decodeControlled(decodeAedsFrame(last.body).payload);
+    assert.equal(decoded.items[0].childrenPreview.length, 1);
+    decoded.items[0].childrenPreview = [];
+    last.body = controlledBody(first.coordinate.frameType, decoded);
+    assert.equal(evaluateQueryCase({ entry: first, sample: observed, policy: policy(), binding, decode: decodeControlled }).status, 'failed');
+});
+
 function evaluatedCase(mutate)
 {
     const entry = buildQueryCaseRegistry(fixture()).cases[3];
@@ -131,7 +250,9 @@ test('unmodified one-article zero-comment xs retains every case and exposes unco
     input.visibleComments = [];
     const registry = buildQueryCaseRegistry(input);
     assert.deepEqual(registry.cases.map((row) => row.id), queryCaseIds);
-    for (const id of ['article-list-middle-page', 'article-list-deep-cursor', 'comment-root-first', 'comment-root-middle-cursor', 'comment-root-last-cursor', 'comment-nested-root-expansion'])
+    assert.equal(registry.cases.find((row) => row.id === 'comment-root-first').status, 'ready');
+    assert.deepEqual(registry.cases.find((row) => row.id === 'comment-root-first').coordinate.expectedItems, []);
+    for (const id of ['article-list-middle-page', 'article-list-deep-cursor', 'comment-root-middle-cursor', 'comment-root-last-cursor', 'comment-nested-root-expansion'])
     {
         assert.equal(registry.cases.find((row) => row.id === id).status, 'blocked');
     }
@@ -195,7 +316,15 @@ for (const family of ['article-list-deep-cursor', 'comment-root-last-cursor'])
             }
             if (fault === 'sort')
             {
-                decoded.items.reverse();
+                if (decoded.items.length === 1)
+                {
+                    // Limit-one pages still have an exact cross-page order.
+                    decoded.items[0] = decodeControlled(decodeAedsFrame(observed.http[0].body).payload).items[0];
+                }
+                else
+                {
+                    decoded.items.reverse();
+                }
             }
             if (fault === 'wrong-cursor')
             {

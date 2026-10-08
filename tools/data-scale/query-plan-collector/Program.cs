@@ -3,14 +3,24 @@ using System.Globalization;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 
+using FsusBlog.Server.Infrastructure.Testing;
+
 using Npgsql;
 
 using NpgsqlTypes;
 
-using FsusBlog.Server.Infrastructure.Testing;
-
 try
 {
+    if (args.Length == 3 && args[0] == "--expected-controls")
+    {
+        ExpectedArticleControls.Run(args[1], args[2]);
+        return 0;
+    }
+    if (args.Length == 6 && args[0] == "--expected-articles")
+    {
+        await CanonicalQueryExpectedArticles.ExportAsync(args[1], args[2], args[3], args[4], args[5]);
+        return 0;
+    }
     if (args.Length > 0 && args[0] == "--self-test")
     {
         return await CollectorControls.RunAsync(args);
