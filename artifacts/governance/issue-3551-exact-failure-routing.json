@@ -16,7 +16,7 @@
   "records": [
     {
       "batch": "tracking-728",
-      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<svg><use href=\\\"https://example.com/remote.svg#ic\"\u00b7\u00b7\u00b7)",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<svg><use href=\\\"https://example.com/remote.svg#ic\"···)",
       "testClass": "DocumentExportHtmlProviderTests",
       "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
       "testDeclarationLine": 81,
@@ -56,7 +56,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -88,11 +93,16 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
-      "testName": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0\u00e9\\ud834\\udd1e\ufffd\ufffd\ufffd\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"\u00b7\u00b7\u00b7)",
+      "testName": "FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(text: \"a\\n\\0é\\ud834\\udd1e���\", digest: \"89f57d854aa2b871834c31342c1451edd26c031936a43cfd44\"···)",
       "testClass": "AuthoringExtensionRpcTests",
       "testSource": "tests/backend/Unit/AuthoringExtensionRpcTests.cs",
       "testDeclarationLine": 713,
@@ -109,10 +119,16 @@
       "kind": "compiled-InlineData-input-corruption",
       "cause": "Original source encodes terminal unpaired U+D800. The actual compiled InlineData material ends with U+FFFD three times. Directly invoking the unchanged original method with intended UTF-16 passes the independent golden digest; compiled-attribute input retains the original failure.",
       "smallestNextCapabilityOrRepair": "No missing physical capability. Canonical RPC test owner must preserve the original invalid-UTF16 vector/case and literal expected digest with a governed lossless executable input; no digest weakening or production hash rewrite.",
-      "message": "Assert.Equal() Failure: Strings differ\n           \u2193 (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"\u00b7\u00b7\u00b7\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"\u00b7\u00b7\u00b7\n           \u2191 (pos 0)",
+      "message": "Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Passed",
+        "evidence": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -152,7 +168,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -196,7 +217,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -240,7 +266,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -264,7 +295,12 @@
       "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -308,7 +344,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -352,7 +393,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -396,7 +442,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -444,7 +495,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -488,7 +544,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -528,11 +589,16 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
-      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p style=\\\"background:url(https://example.com/a)\\\"\"\u00b7\u00b7\u00b7)",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<p style=\\\"background:url(https://example.com/a)\\\"\"···)",
       "testClass": "DocumentExportHtmlProviderTests",
       "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
       "testDeclarationLine": 81,
@@ -572,7 +638,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -616,7 +687,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -660,7 +736,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -700,7 +781,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -744,7 +830,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -784,7 +875,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -828,7 +924,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -872,7 +973,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -916,7 +1022,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -960,7 +1071,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1000,7 +1116,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1044,7 +1165,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1084,7 +1210,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1116,11 +1247,16 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
-      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img data-asset-id=\\\"3f3b2e7a-1d2e-4f8a-9c5b-6a7b8\"\u00b7\u00b7\u00b7)",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img data-asset-id=\\\"3f3b2e7a-1d2e-4f8a-9c5b-6a7b8\"···)",
       "testClass": "DocumentExportHtmlProviderTests",
       "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
       "testDeclarationLine": 81,
@@ -1160,7 +1296,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1204,7 +1345,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1244,7 +1390,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1288,7 +1439,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1328,7 +1484,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1368,7 +1529,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1392,7 +1558,13 @@
       "message": "Assert.All() Failure: 1 out of 12 items in the collection did not pass.\n[10]: Item:  typeof(FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry)\n      Error: FsusBlog.Server.Infrastructure.AuthoringExtensions.ClosedTrustedAuthoringAdapterRegistry+<>O.<0>__IsControl: Func/Action",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Passed",
+        "evidence": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1440,7 +1612,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1484,7 +1661,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1532,11 +1714,16 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
-      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img src=\\\"https://example.com/a.png\\\" data-asset-\"\u00b7\u00b7\u00b7)",
+      "testName": "FsusBlog.Server.Tests.Unit.DocumentExportHtmlProviderTests.RejectsActiveOrRemoteCanonicalRendererOutput(fragment: \"<img src=\\\"https://example.com/a.png\\\" data-asset-\"···)",
       "testClass": "DocumentExportHtmlProviderTests",
       "testSource": "tests/backend/Unit/DocumentExportHtmlProviderTests.cs",
       "testDeclarationLine": 81,
@@ -1576,7 +1763,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1608,7 +1800,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1652,7 +1849,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1700,7 +1902,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1744,7 +1951,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1788,7 +2000,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1812,7 +2029,12 @@
       "message": "System.IO.FileNotFoundException : Could not find file '/usr/local/bin/node'.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1852,7 +2074,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1900,7 +2127,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1932,7 +2164,13 @@
       "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Mutation preview does not bind the exact approved plan and host context.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Passed",
+        "evidence": "2b113ca7f16fc833b153142e2ee59ebe9c62fb0965ea580cf7868bec18b88450",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -1976,7 +2214,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -2020,7 +2263,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -2064,7 +2312,12 @@
       "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -2100,7 +2353,12 @@
       "message": "FsusBlog.Server.Infrastructure.AuthoringExtensions.AuthoringExtensionContractException : Service readiness handshake is missing or not closed.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "tracking-728",
@@ -2144,7 +2402,12 @@
       "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager.",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "affected-318",
@@ -2172,7 +2435,12 @@
       "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "affected-318",
@@ -2200,7 +2468,12 @@
       "message": "NSubstitute.Exceptions.ReceivedCallsException : Expected to receive exactly 2 calls matching:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", any CancellationToken)\nActually received 1 matching call:\n\tTryReadAsync(PublicArtifactKey { Kind = HydrationSidecar, RouteKey = article:1215, PathKey = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f, FrontendAssetVersion = assets, ContentVersion = 79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f }, \"application/vnd.fsusblog.aeds\", \"79a2b575efc7c8dd3f24003541345b2347ddf9e1a32ff7f646d0f38e5025ed5f\", System.Threading.CancellationToken)\n",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
-      "routing": "Original canonical owner; #3551 owns evidence accounting only."
+      "routing": "Original canonical owner; #3551 owns evidence accounting only.",
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "affected-318",
@@ -2217,15 +2490,21 @@
       "testedSourceBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
       "masterSourceBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
       "byteIdenticalToMaster": false,
-      "responsibleIssue": 2213,
+      "responsibleIssue": 3654,
       "kind": "current-schema-detail-contract-drift",
       "cause": "Production task outcome is current_schema_verified since source commit cca8895fbd (Refs #2213); two unchanged cache-enable/disable controls expect compatibility_check. This is the closed current-schema boundary with a stale or conflicting observable expectation, not a missing database/capability proof.",
-      "smallestNextCapabilityOrRepair": "No missing physical capability for these fixture tests. Parent must route current-schema boundary/test reconciliation to its existing owner (current integration #3662 / shared test compatibility #3654); no restoration of retired online compatibility or assertion weakening.",
-      "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            \u2191 (pos 1)",
+      "smallestNextCapabilityOrRepair": "Canonical #3654 reconciliation preserving the cache controls and current-schema runtime contract; no restoration of retired online compatibility or assertion weakening.",
+      "message": "Assert.Equal() Failure: Strings differ\n            ↓ (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            ↑ (pos 1)",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
-      "currentOwnerConfirmation": "Historical responsible boundary #2213 is closed; coordinate its current #3662 owner with the parent, not a guessed separate implementation."
+      "currentOwnerConfirmation": "Parent explicitly confirmed #3654 as the canonical bootstrap/projection test-compatibility owner.",
+      "historicalResponsibleBoundaryIssue": 2213,
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     },
     {
       "batch": "affected-318",
@@ -2242,15 +2521,21 @@
       "testedSourceBlob": "658d0fe76ba668127527fe2a3a678c1e44484942",
       "masterSourceBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
       "byteIdenticalToMaster": false,
-      "responsibleIssue": 2213,
+      "responsibleIssue": 3654,
       "kind": "current-schema-detail-contract-drift",
       "cause": "Production task outcome is current_schema_verified since source commit cca8895fbd (Refs #2213); two unchanged cache-enable/disable controls expect compatibility_check. This is the closed current-schema boundary with a stale or conflicting observable expectation, not a missing database/capability proof.",
-      "smallestNextCapabilityOrRepair": "No missing physical capability for these fixture tests. Parent must route current-schema boundary/test reconciliation to its existing owner (current integration #3662 / shared test compatibility #3654); no restoration of retired online compatibility or assertion weakening.",
-      "message": "Assert.Equal() Failure: Strings differ\n            \u2193 (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            \u2191 (pos 1)",
+      "smallestNextCapabilityOrRepair": "Canonical #3654 reconciliation preserving the cache controls and current-schema runtime contract; no restoration of retired online compatibility or assertion weakening.",
+      "message": "Assert.Equal() Failure: Strings differ\n            ↓ (pos 1)\nExpected: \"compatibility_check\"\nActual:   \"current_schema_verified\"\n            ↑ (pos 1)",
       "status": "failed; not accepted",
       "implementationWithinThisAssignment": false,
       "routing": "Original canonical owner; #3551 owns evidence accounting only.",
-      "currentOwnerConfirmation": "Historical responsible boundary #2213 is closed; coordinate its current #3662 owner with the parent, not a guessed separate implementation."
+      "currentOwnerConfirmation": "Parent explicitly confirmed #3654 as the canonical bootstrap/projection test-compatibility owner.",
+      "historicalResponsibleBoundaryIssue": 2213,
+      "currentVerification": {
+        "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
+        "outcome": "Failed",
+        "fullChildAccepted": false
+      }
     }
   ],
   "summaryByKind": {
@@ -2272,8 +2557,7 @@
     "3566": 1,
     "3568": 1,
     "3572": 1,
-    "3654": 2,
-    "2213": 2
+    "3654": 4
   },
   "ownedImplementationGap": "No failing backend control is implemented by #3593 or tracking-only #3551. Repairing classification/accounting is owned; backend/fixture/source fixes stay with their existing canonical owners. #3593 original controls and strict owner style passed, while protected shared authority gates remain open.",
   "ciPolicy": "User now permits SHA-bound applicable local verification in place of remote CI; absent remote checks alone is not a blocker. Independent review and real code/admission/runtime requirements remain mandatory.",
@@ -2308,7 +2592,7 @@
           65533
         ],
         "passed": false,
-        "error": "Xunit.Sdk.EqualException: Assert.Equal() Failure: Strings differ\n           \u2193 (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"\u00b7\u00b7\u00b7\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"\u00b7\u00b7\u00b7\n           \u2191 (pos 0)\n   at Xunit.Assert.Equal(ReadOnlySpan`1 expected, ReadOnlySpan`1 actual, Boolean ignoreCase, Boolean ignoreLineEndingDifferences, Boolean ignoreWhiteSpaceDifferences, Boolean ignoreAllWhiteSpace) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 965\n   at Xunit.Assert.Equal(String expected, String actual, Boolean ignoreCase, Boolean ignoreLineEndingDifferences, Boolean ignoreWhiteSpaceDifferences, Boolean ignoreAllWhiteSpace) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 1342\n   at Xunit.Assert.Equal(String expected, String actual) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 849\n   at FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(String text, String digest) in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcTests.cs:line 727\n   at Program.<Main>$(String[] args) in /tmp/fsusblog-3593/failure-routing/utf16-probe/Program.cs:line 14"
+        "error": "Xunit.Sdk.EqualException: Assert.Equal() Failure: Strings differ\n           ↓ (pos 0)\nExpected: \"89f57d854aa2b871834c31342c1451edd26c03193\"···\nActual:   \"a9e50eda871fcb2078f903bcd9bab9605c7fb4721\"···\n           ↑ (pos 0)\n   at Xunit.Assert.Equal(ReadOnlySpan`1 expected, ReadOnlySpan`1 actual, Boolean ignoreCase, Boolean ignoreLineEndingDifferences, Boolean ignoreWhiteSpaceDifferences, Boolean ignoreAllWhiteSpace) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 965\n   at Xunit.Assert.Equal(String expected, String actual, Boolean ignoreCase, Boolean ignoreLineEndingDifferences, Boolean ignoreWhiteSpaceDifferences, Boolean ignoreAllWhiteSpace) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 1342\n   at Xunit.Assert.Equal(String expected, String actual) in /_/src/xunit.assert/Asserts/StringAsserts.cs:line 849\n   at FsusBlog.Server.Tests.AuthoringExtensionRpcTests.MutationPreview_ExactFramedMaterialMatchesIndependentLiteralVectors(String text, String digest) in /workspace/FsusBlog/tests/backend/Unit/AuthoringExtensionRpcTests.cs:line 727\n   at Program.<Main>$(String[] args) in /tmp/fsusblog-3593/failure-routing/utf16-probe/Program.cs:line 14"
       }
     ],
     "capabilities": [
@@ -2407,16 +2691,26 @@
     "purpose": "Diagnostic invocation of original unchanged method only; the failed compiled-InlineData case remains failed and no runtime qualification is inferred."
   },
   "latestMasterRecheck": {
-    "sha": "8b1c739cacef47995f441f096835863d377dc347",
-    "deltaFromTestedBaseline": [
-      ".github/actionlint.yaml"
+    "sha": "87209d571a93254dcacfe9093753002e8c98822a",
+    "deltaFromPreviousSnapshot": [
+      "artifacts/change-contract/data-scale-owner-deadline-external-naming.json",
+      "config/testing/release-reliability-lifecycle-action-registry.json",
+      "tests/tools/data-scale-runtime-plan.test.mjs",
+      "tests/tools/reliability-timeout-projection.test.mjs"
     ],
-    "allClassifiedSourceOwnersUnchanged": true,
     "newUnitQualificationInferred": false,
     "mergeTreePreview": {
       "exitCode": 0,
-      "tree": "cd5950753a759892faf189f18ead7205fb0bc7ed",
-      "operation": "read-only merge-tree preview; branch not merged or rewritten"
+      "tree": "7378f4d0213fad7952b0687f2688db6cd29f61e6",
+      "operation": "read-only merge-tree preview; no merge or conflict-resolution phase"
     }
+  },
+  "latestRepairVerification": "artifacts/style/suite-convergence-classified-repair-verification.json",
+  "currentStatusSummary": {
+    "historicalRecords": 56,
+    "nowPassed": 3,
+    "stillFailed": 53,
+    "trackingFailed": 49,
+    "projectionBootstrapFailed": 4
   }
 }

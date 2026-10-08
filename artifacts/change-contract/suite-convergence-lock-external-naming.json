@@ -14,9 +14,11 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test/correctness-attempt-migration.mjs"
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-inventory/discovery.mjs"
             ],
-            "reason": "preserve the canonical execution owner and environment authority spellings while verifying the complete current producer roster"
+            "reason": "Preserve the canonical execution owner and environment authority spellings while consuming the exact coordinator-supplied resolver and bounded MSBuild projection repairs and verifying the complete current producer roster."
         }
     ]
 }
