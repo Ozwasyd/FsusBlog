@@ -272,11 +272,27 @@ public sealed class GpuMemoryDeviceTests
         using var destinationDevice = other.Create();
         using var source = sourceDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
         using var destination = destinationDevice.TryAllocate(sourceFixture.Content, 8, new(1)).Value!;
-        Assert.Equal(MemoryFailure.UnsupportedCapability, destinationDevice.TryPeerUpload(destination, source,
+        Assert.Equal(MemoryFailure.OwnershipViolation, destinationDevice.TryPeerUpload(destination, source,
             Fixture.Qualified, GpuPeerCapabilityFacts.ClassicDeviceAllocation(1, MemoryDetection.Present),
             MemoryQualification.Qualified, "unit simulation").Failure);
         Assert.Equal(0, sourceFixture.Ledger.Snapshot().Used["slots"]);
         Assert.Equal(0, other.Ledger.Snapshot().Used["slots"]);
+    }
+
+    [Fact]
+    public void MismatchedPeerContentRemainsACorrectnessFailure()
+    {
+        var fixture = new Fixture();
+        using var device = fixture.Create();
+        using var source = device.TryAllocate(fixture.Content, 8, new(1)).Value!;
+        var wrong = new MemoryContentIdentity(new(Guid.NewGuid()), new(1), new(Guid.NewGuid()));
+        using var destination = device.TryAllocate(wrong, 8, new(1)).Value!;
+        var result = device.TryPeerUpload(destination, source, Fixture.Qualified,
+            GpuPeerCapabilityFacts.ClassicDeviceAllocation(1, MemoryDetection.Present),
+            MemoryQualification.Qualified, "unit simulation");
+        Assert.Equal(MemoryFailure.Corruption, result.Failure);
+        Assert.True(result.IsCorrectnessFailure);
+        Assert.Equal(0, fixture.Ledger.Snapshot().Used["slots"]);
     }
 
     [Fact]

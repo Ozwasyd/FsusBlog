@@ -81,6 +81,7 @@ internal sealed class GpuAllocationHold(GpuMemoryDevice owner, GpuAllocation all
     public IGpuDriverSession Session => allocation.Driver;
     public long Length => allocation.Length;
     public bool IsCurrent => _owner is not null && allocation.IsCurrent;
+    public bool CanSubmit => _owner is not null && _owner.CanSubmit(allocation);
 
     public void Dispose() => Interlocked.Exchange(ref _owner, null)?.ReleaseHold(allocation, access == GpuPeerAllocationAccess.Read);
 }

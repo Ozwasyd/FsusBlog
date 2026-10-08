@@ -21,6 +21,8 @@ public sealed class GpuPeerTransferTests
         Assert.False(source.Disposed);
         Assert.False(destination.Disposed);
         Assert.False(resources.Disposed);
+        source.CanSubmit = false;
+        destination.CanSubmit = false;
         sourceSession.Completion = GpuCompletion.Complete;
         Assert.True(operation.Poll().Succeeded);
         Assert.Equal(source.Bytes, destination.Bytes);
@@ -129,6 +131,30 @@ public sealed class GpuPeerTransferTests
             source, destination, 3, new GpuPeerTestResource()));
         Assert.Equal(0, sourceSession.Submissions);
     }
+
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public void PreheldDisabledOwnerCannotStartNewPeerTransfer(bool disableSource)
+    {
+        var sourceSession = new GpuPeerTestSession();
+        var destinationSession = new GpuPeerTestSession();
+        var source = new GpuPeerTestHold(sourceSession, new byte[4]) { CanSubmit = !disableSource };
+        var destination = new GpuPeerTestHold(destinationSession, new byte[4])
+        {
+            Access = GpuPeerAllocationAccess.ExclusiveWrite,
+            CanSubmit = disableSource
+        };
+        var resources = new GpuPeerTestResource();
+        Assert.True(source.IsCurrent);
+        Assert.True(destination.IsCurrent);
+        Assert.Throws<InvalidOperationException>(() => GpuPeerTransfer.Submit(sourceSession, destinationSession,
+            source, destination, 4, resources));
+        Assert.Equal(0, sourceSession.Submissions);
+        Assert.True(source.Disposed);
+        Assert.True(destination.Disposed);
+        Assert.True(resources.Disposed);
+    }
 }
 
 internal sealed class GpuPeerTestResource : IDisposable
@@ -142,6 +168,7 @@ internal sealed class GpuPeerTestResource : IDisposable
 
 internal sealed class GpuPeerTestHold : IGpuPeerAllocationHold
 {
+    public bool CanSubmit { get; set; } = true;
     public GpuPeerTestHold(GpuPeerTestSession session, byte[] bytes)
     {
         Session = session;

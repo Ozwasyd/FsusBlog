@@ -40,6 +40,11 @@ public interface IGpuPeerAllocationHold : IDisposable
     {
         get;
     }
+    /// <summary>The existing owner admits new use separately from retaining valid draining reads.</summary>
+    bool CanSubmit
+    {
+        get;
+    }
 }
 
 /// <summary>Peer copies use the same session and completion owner as ordinary GPU DMA.</summary>
@@ -125,6 +130,10 @@ public sealed class GpuPeerTransfer : IDisposable
             if (!source.IsCurrent || !destination.IsCurrent)
             {
                 throw new InvalidOperationException("Peer allocation epoch/location is stale.");
+            }
+            if (!source.CanSubmit || !destination.CanSubmit)
+            {
+                throw new InvalidOperationException("Peer allocation owner has stopped new submissions.");
             }
             if (bytes <= 0 || bytes != source.Length || bytes != destination.Length)
             {
