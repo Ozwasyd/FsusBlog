@@ -278,13 +278,13 @@ internal sealed class DocumentExportJobRepository
 
     private async Task<FileStream> LockAsync(bool create, CancellationToken cancellationToken)
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("document_export_private_acl_adapter_required");
+        }
         ValidateAncestors();
         if (create)
         {
-            if (!OperatingSystem.IsLinux())
-            {
-                throw new PlatformNotSupportedException("document_export_private_acl_adapter_required");
-            }
             Directory.CreateDirectory(_root, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
         }
         if (File.GetUnixFileMode(_root) != (UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute))
@@ -347,6 +347,10 @@ internal sealed class DocumentExportJobRepository
 
     private static void WritePrivate(string path, ReadOnlySpan<byte> bytes)
     {
+        if (!OperatingSystem.IsLinux())
+        {
+            throw new PlatformNotSupportedException("document_export_private_acl_adapter_required");
+        }
         using var stream = new FileStream(path, new FileStreamOptions
         {
             Mode = FileMode.CreateNew,

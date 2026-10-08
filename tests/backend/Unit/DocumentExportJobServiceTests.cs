@@ -440,6 +440,39 @@ public sealed class DocumentExportJobServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task InputByteBudget_RejectsBeforeCreatingStorage()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput(new string('x', (int)DocumentExportJobPolicy.MaximumInputBytes + 1));
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().CreateAsync(_actor, task, input, default));
+        Assert.False(Directory.Exists(JobRoot));
+    }
+
+    [Fact]
+    public async Task Cancellation_CannotEraseObservedCanonicalBudgetFailureOrReleaseItsClaim()
+    {
+        (DocumentExportTask task, DocumentExportFrozenInput input) = Request();
+        await Service().CreateAsync(_actor, task, input, default);
+        var provider = new ControlledProvider(task.ProviderId) { PauseExport = true, FailBudget = true };
+        Task<DocumentExportJobSnapshot> running = Service().ExecuteAsync(_actor, task.TaskId, provider, default);
+        await provider.Entered.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        await Service().CancelAsync(_actor, task.TaskId, default);
+        provider.Release.TrySetResult();
+        DocumentExportJobSnapshot failed = await running;
+        Assert.Equal(DocumentExportTaskStatus.CleanupRequired, failed.Task.Status);
+        Assert.Equal(DocumentExportTaskStatus.Failed, failed.Attempts[0].Status);
+        Assert.Equal("sandbox_budget_failed", failed.Attempts[0].Reason);
+        var protector = _protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v1");
+        DocumentExportJobState state = DocumentExportDigest.Deserialize<DocumentExportJobState>(protector.Unprotect(File.ReadAllBytes(StatePath)));
+        Assert.Equal(provider.FailureReceipt, state.Jobs[0].SandboxFailure);
+        Assert.NotNull(state.Jobs[0].WorkerDigest);
+        DocumentExportJobSnapshot recovered = await Service().RecoverInterruptedAsync(task.TaskId, new TestRecovery(true), default);
+        Assert.Equal(DocumentExportTaskStatus.Cancelled, recovered.Task.Status);
+        Assert.Equal(failed.Attempts[0], recovered.Attempts[0]);
+        await Assert.ThrowsAsync<DocumentExportJobDeniedException>(() => Service().RetryAsync(_actor, task.TaskId, default));
+    }
+
+    [Fact]
     public async Task FinalPersistenceFailure_NeverReturnsDownloadableSuccess()
     {
         var sync = new FailFourthStateSync();
@@ -613,6 +646,14 @@ public sealed class DocumentExportJobServiceTests : IDisposable
         {
             get; init;
         }
+        internal bool FailBudget
+        {
+            get; init;
+        }
+        internal DocumentExportSandboxReceipt? FailureReceipt
+        {
+            get; private set;
+        }
         internal DocumentExportProviderResultStatus ResultStatus { get; init; } = DocumentExportProviderResultStatus.Succeeded;
         internal int Invocations
         {
@@ -644,6 +685,12 @@ public sealed class DocumentExportJobServiceTests : IDisposable
             if (FailExport)
             {
                 throw new IOException("deliberate unqualified adapter failure");
+            }
+            if (FailBudget)
+            {
+                FailureReceipt = UnqualifiedSandboxFixture();
+                throw new DocumentExportBudgetExceededException("controlled canonical exception category", "cpu-budget", null!, FailureReceipt,
+                    new IOException("controlled failure"));
             }
             DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(task.FormatId);
             DocumentExportSandboxReceipt sandbox = UnqualifiedSandboxFixture();
