@@ -13,13 +13,15 @@ const protocolFile = `${contracts}/ArticleVaultAgentBinding.cs`;
 const leaseFile = `${native}/LinuxVaultWriterLeaseScope.cs`;
 const endpointFile = `${native}/LinuxVaultLocalIpcEndpoint.cs`;
 const grantFile = `${native}/LinuxVaultAgentGrantLedger.cs`;
+const controlFile = `${native}/LinuxVaultAgentControlSession.cs`;
 const commands = ['ObserveBatch', 'RequestPlanner', 'ExecuteVerifiedPlan', 'MaterializeVerifiedInstruction', 'InspectStatus', 'Cancel', 'Revoke'];
 const owners = new Map([
     ['ArticleVaultAgentProtocol', protocolFile],
     ['ArticleVaultWriterLease', `${contracts}/ArticleVaultWriterLease.cs`],
     ['LinuxVaultWriterLeaseScope', leaseFile],
     ['LinuxVaultLocalIpcEndpoint', endpointFile],
-    ['LinuxVaultAgentGrantLedger', grantFile]
+    ['LinuxVaultAgentGrantLedger', grantFile],
+    ['LinuxVaultAgentControlSession', controlFile]
 ]);
 
 export function readArticleVaultAgentControlSources(repositoryRoot = root)
@@ -77,11 +79,12 @@ export function checkArticleVaultAgentControlSources(sources)
             errors.push(`${file}: second agent protocol or writer lease owner`);
         }
     }
-    for (const file of [leaseFile, endpointFile, grantFile])
+    for (const file of [leaseFile, endpointFile, grantFile, controlFile])
     {
         const source = sources.get(file);
         if (/\b(?:HttpClient|ProcessStartInfo|ArticleService|IArticleVaultCanonicalGroupWriter|Npgsql|DbContext|ExecuteSql|SaveChanges|LibGit2Sharp)\b/u.test(source)
-            || /\b(?:File|Directory)\.(?:WriteAllBytes|WriteAllText|ReadAllBytes|Delete|CreateDirectory)\s*\(/u.test(source.replace('File.Delete(path);', '')))
+            || /\b(?:File|Directory)\.(?:WriteAllBytes|WriteAllText|ReadAllBytes|Delete|CreateDirectory)\s*\(/u.test(
+                file === endpointFile ? source.replace('File.Delete(path);', '') : source))
         {
             errors.push(`${file}: prohibited direct server/content writer or fallback`);
         }
@@ -90,7 +93,8 @@ export function checkArticleVaultAgentControlSources(sources)
         [protocolFile, ['UnmappedMemberHandling.Disallow', 'RespectRequiredConstructorParameters = true', 'allowIntegerValues: false', 'RejectDuplicates', 'agent_frame_size_invalid', 'agent_frame_schema_invalid']],
         [leaseFile, ['LinuxVaultLeaseNative.Lock', '2 | 4', '/run/user/', 'RequirePrivate', 'ValidateOriginalHeldRegularFileUnchanged', 'VerifyWatchedRoot', 'BootMilliseconds', 'VerifyTransition', 'Flush(flushToDisk: true)', 'writer_lease_journal_incomplete_recovery_required']],
         [endpointFile, ['CreateLocalListener', 'RequireCurrentUserPeer', 'RequirePrivateSocket', 'SameSocket', 'cleanup_unowned_endpoint', 'MaximumFrameBytes', '_grants.Admit', 'ZeroMemory', 'CreateLinkedTokenSource']],
-        [grantFile, ['FixedTimeEquals', 'MaximumRequests', '_requests.Add', 'agent_request_duplicate_or_budget_exceeded', 'ZeroMemory', '_lease.Revoke', 'grant.Binding != request.Binding', 'grant.Generation != request.LeaseGeneration']]
+        [grantFile, ['FixedTimeEquals', 'MaximumRequests', '_requests.Add', 'agent_request_duplicate_or_budget_exceeded', 'ZeroMemory', '_lease.Revoke', 'grant.Binding != request.Binding', 'grant.Generation != request.LeaseGeneration']],
+        [controlFile, ['InspectStatus', 'ArticleVaultAgentCommand.InspectStatus', '_grants.Revoke', '_endpoint.DisposeAsync', '_lease.Dispose', 'ControlStateRetained', 'owned_control_endpoint_close_failed']]
     ]);
     for (const [file, required] of guards)
     {
