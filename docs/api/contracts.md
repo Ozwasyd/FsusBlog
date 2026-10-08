@@ -3418,3 +3418,58 @@ asset enumeration, retention holds, upload/reuse receipts, streaming large
 assets, complete package/dependency integration and original independent
 runtime acceptance remain separate gates. An existing byte reader or display
 URL alone cannot authorize package export or import execution.
+
+## Closed manifest property component
+
+The same manifest codec adds `TryCreatePropertyCandidate`,
+`TryParsePropertyCandidate` and `WritePropertyCandidate`, using the existing
+`ArticlePackagePropertyMappingCandidate` and its canonical eight-type portable
+projections. Root keys are `schemaVersion`, `sourceCoordinates`,
+`sourceSnapshotDigest`, `mappingDigest`, `properties` and `componentDigest`.
+Coordinates retain the explicit definition owner, site, article, property
+revision, article revision and nullable draft/publication pair. These are
+candidate audit coordinates; this component grants no permission to export
+owner data or to include the component in an accepted package.
+
+Each closed row retains source definition ID/schema revision/digest, explicit
+portable definition ID, source value digest, presence, default provenance,
+portable value digest and a closed projection. Projection keys are only `kind`
+and `value`, with `text`, `number`, `boolean`, `date`, `single-select`,
+`multi-select`, `article-reference` or `url` kinds. Missing and null carry no
+projection; false, zero, empty text and applied defaults remain distinct.
+Option and article reference payloads contain explicit portable identities.
+No source ID, display label, array index or URL becomes a portable identity.
+
+All nested objects reject unknown, duplicate, missing and wrong-typed fields.
+Only the current component version is accepted. Numbers use exact canonical
+decimal tokens, without double conversion, rounding, underflow or out-of-range
+coercion. Dates require the existing canonical UTC format. Text retains raw
+Unicode/newline spelling with strict UTF-8. Finite limits are 1,000 rows,
+1,000 options/references per value, 20,000 projected identities, 16,384 text
+characters, 2,048 URL characters and 16 MiB encoded JSON. Duplicate source or
+portable definitions, duplicate payload identities and mismatched namespaces
+refuse the whole component. Rows sort by ordinal portable definition;
+payload list order remains exact until the canonical mapper validates it.
+The owned stream enforces its byte ceiling before each write and flushes each
+row; the existing metadata stream keeps its original 256 KiB default ceiling.
+
+The lowercase SHA-256 component digest covers strict UTF-8 domain
+`fsusblog.article-package.manifest-property-candidate.v1`, one NUL and canonical
+component JSON with its digest omitted. It is separate from the existing
+source snapshot, portable value and mapping digests. Parsing proves closed
+shape and component self-consistency. It does not prove those source digests.
+`ArticlePackageManifestPropertyBinder.TryBindCandidate` must call the existing
+`ArticlePackagePropertyMapper.ValidateCandidate` against the exact supplied
+snapshot and complete mappings, recomputing definition epochs, typed values,
+reference target facts and the mapping digest. Resealing a changed component
+cannot replace that binding.
+
+Every `RequirePropertyAuthority()` returns
+`article_package_manifest_property_persisted_definition_authority_unavailable`.
+The existing package root continues to reject properties. Authorized persisted
+immutable value reads, current definition/option policy and rights, actual
+draft/publication-to-consumer mapping, privacy/full package integration and
+original independent runtime acceptance remain separate gates. Existing
+`IArticlePropertyDefinitionStore.GetAsync`/`VerifyAsync` and
+`IArticlePropertyDefinitionPermissionAuthority.EnsureAllowed` are available;
+this component does not introduce another store or persisted-reader receipt.

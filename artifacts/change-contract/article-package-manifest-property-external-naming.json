@@ -1,0 +1,47 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePackageAssetMetadataMapper.cs",
+                "src/backend/Services/Authoring/ArticlePackageFrozenExportCandidateWriter.cs",
+                "src/backend/Services/Authoring/ArticlePackageManifestCandidatePlanner.cs",
+                "src/backend/Services/Authoring/ArticlePackageManifestPropertyBinder.cs",
+                "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs",
+                "src/backend/Services/Authoring/ArticlePackageTitleSummaryMapper.cs",
+                "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipCandidateReader.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportZipDirectory.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestAssetMetadata.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestCandidateContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestMetadataContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestPropertyCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyCodec.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageManifestTaxonomyContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageSourceBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageTitleSummaryContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs"
+            ],
+            "reason": "Register exact owned closed typed property codec and inherited master-targeted source paths. No trusted policy, provider, shared lock or process/environment spelling changes."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve explicit portable property namespace, closed API reasons and digest-domain spellings."
+        }
+    ]
+}

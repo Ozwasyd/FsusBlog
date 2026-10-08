@@ -402,11 +402,11 @@ public static partial class ArticlePackageManifestCandidateCodec
         writer.WriteEndObject();
     }
 
-    private sealed class MetadataBudgetStream : MemoryStream
+    private sealed class MetadataBudgetStream(int maximumBytes = MaxMetadataJsonBytes) : MemoryStream
     {
         public override void Write(byte[] buffer, int offset, int count)
         {
-            if (count > MaxMetadataJsonBytes - Length)
+            if (count > maximumBytes - Length)
             {
                 throw new DocumentBudgetException();
             }
@@ -415,7 +415,7 @@ public static partial class ArticlePackageManifestCandidateCodec
 
         public override void Write(ReadOnlySpan<byte> buffer)
         {
-            if (buffer.Length > MaxMetadataJsonBytes - Length)
+            if (buffer.Length > maximumBytes - Length)
             {
                 throw new DocumentBudgetException();
             }
