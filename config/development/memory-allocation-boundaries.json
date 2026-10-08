@@ -3736,8 +3736,7 @@
         {
             "id": "memory-control-plane-metadata",
             "sourcePaths": [
-                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityController.cs",
-                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityGpuAllocationPolicy.cs"
+                "src/backend/Infrastructure/Memory/Capabilities/MemoryCapabilityController.cs"
             ],
             "pathStatus": "baseline-reported",
             "owner": "MemoryGovernor input-bound decisions and frozen resource roster; MemoryCapabilityController consumes the single MemoryCapabilityPolicyPlan registry",
