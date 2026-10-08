@@ -135,6 +135,8 @@ export function accountCompositionTestInput()
             providedCapabilities: raw.providedCapabilities, producerVariantPlanDigest: `sha256:${digest}` },
         verifiedIdentities: { verified: true, ownerProducerId: 'auth-session', consumerProducerId: producerId,
             namespace: raw.namespace, runId: raw.runId, profileId: 'account-profile-preferences', sourceReceiptDigest: `sha256:${digest}`,
-            references: references.map((ref) => ({ ...ref, digest, prepareReferenceDigest: ref.digest, verified: true })) }
+            references: references.map((ref) => ({ ...ref,
+                schema: 'fsusblog.fixture-identity-reference.v1', ownerProducerId: 'auth-session', consumerProducerId: producerId,
+                digest, prepareReferenceDigest: ref.digest, verified: true })) }
     };
 }
