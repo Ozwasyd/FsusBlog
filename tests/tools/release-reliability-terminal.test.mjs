@@ -62,6 +62,8 @@ test('cancel, signal and timeout remain distinct from product and admission fail
         cancellation: {}, producer: { timedOut: true, signal: 'SIGTERM' } });
     assert.equal(timedOut.terminalClassification, 'infra-no-conclusion');
     assert.throws(() => scenarioTerminalEvent({ ...original, producerSpawned: false }), /cannot have/u);
+    assert.throws(() => scenarioTerminalEvent({ ...original, producerSpawned: false,
+        status: 'cancelled' }), /cannot have/u);
     assert.equal(scenarioTerminalEvent({ ...original, producerSpawned: false,
         authoritativeEvidence: null, status: 'failed' }).terminalClassification, 'precondition-failure');
 });
@@ -74,4 +76,20 @@ test('not reached cannot contain executed actions or authoritative payloads', ()
         producerSpawned: false, authoritativeEvidence: null, lifecycle: { actions: [] } });
     assert.equal(event.terminalClassification, 'not-reached');
     assert.equal(event.startedAt, null);
+});
+
+test('secondary cleanup failure cannot replace the first attributable product failure', () =>
+{
+    const original = results()[0];
+    const event = scenarioTerminalEvent({
+        ...original, status: 'failed', qualificationEligible: false,
+        firstFailure: { phase: 'measurement', message: 'original measured product failure' },
+        cleanupFailures: [{ phase: 'reset-after', message: 'secondary cleanup failure' }],
+        lifecycle: { actions: [{ phase: 'measurement', status: 'failed',
+            failureEvidence: { classification: 'product-failure',
+                path: original.authoritativeEvidence.path, bytesDigest: original.authoritativeEvidence.digest },
+            processTreeReceipt: { postObservation: 'zero-members' } }] }
+    });
+    assert.equal(event.terminalClassification, 'product-failure');
+    assert.equal(event.firstBlockingReason, 'original measured product failure');
 });

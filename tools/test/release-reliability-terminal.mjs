@@ -18,6 +18,10 @@ export function scenarioTerminalEvent(result)
     }
     const spawned = result.producerSpawned;
     const evidence = result.authoritativeEvidence ?? null;
+    if (!spawned && evidence)
+    {
+        throw new Error('unspawned producer cannot have authoritative evidence');
+    }
     const failure = result.firstFailure;
     const measurement = result.lifecycle?.actions?.find(action => action.phase === 'measurement');
     let classification;
@@ -44,10 +48,6 @@ export function scenarioTerminalEvent(result)
     }
     else if (!spawned)
     {
-        if (evidence)
-        {
-            throw new Error('unspawned producer cannot have authoritative evidence');
-        }
         classification = 'precondition-failure';
     }
     else if (result.status === 'passed' && result.evidenceClass === 'correctness'
@@ -60,7 +60,6 @@ export function scenarioTerminalEvent(result)
         && evidence?.path === measurement.failureEvidence.path
         && evidence?.digest === measurement.failureEvidence.bytesDigest
         && failure?.phase === 'measurement' && !measurement.timedOut
-        && !result.cleanupFailures?.length
         && measurement.processTreeReceipt?.postObservation === 'zero-members')
     {
         classification = 'product-failure';
