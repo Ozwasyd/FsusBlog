@@ -267,35 +267,35 @@ test('explicit families reject missing, extra and multiply owned source paths wi
 
 test('installed SDK syntax observer distinguishes creation, reference, literal and trivia without promoting ownership',
     { skip: !process.env.FSUS_MEMORY_SYNTAX_OBSERVER }, (context) =>
-{
-    const { root, write, catalog, saveCatalog } = fixture(context);
-    const observer = 'tools/governance/memory-syntax-observer/';
-    for (const name of ['MemorySyntaxObserver.cs', 'FsusBlog.MemorySyntaxObserver.csproj'])
     {
-        write(observer + name, fs.readFileSync(new URL('../../' + observer + name, import.meta.url)));
-    }
-    write('src/backend/Frame.cs', [
-        'class Frame {',
-        'byte[] data = new byte[4];',
-        'byte[] Copy() => data.ToArray();',
-        'string note = "byte[]";',
-        '// byte[] is a documentation reference',
-        '}'
-    ].join('\n'));
-    catalog.syntaxObserver = { source: observer + 'MemorySyntaxObserver.cs', project: observer + 'FsusBlog.MemorySyntaxObserver.csproj' };
-    catalog.families = [{ ...catalog.traces[0], id: 'frame-family',
-        sourcePaths: ['src/backend/Frame.cs'], exclusionReason: 'Fixture stays migration denied' }];
-    saveCatalog();
-    const inventory = produceMemoryInventory(root, 'syntax-fixture');
-    const roles = new Set(inventory.syntax.observations.flatMap((item) => item.facts.map((fact) => fact.role)));
-    for (const role of ['array-creation', 'declaration-or-reference', 'literal-reference', 'trivia-or-disabled-source', 'invocation'])
-    {
-        assert.ok(roles.has(role), role);
-    }
-    assert.deepEqual(inventory.syntax.parseDiagnostics, []);
-    assert.ok(inventory.syntax.artifacts.length >= 3);
-    assert.equal(verifyMemoryInventory(root, inventory).acceptance, 'NotVerified');
-    const forged = structuredClone(inventory);
-    forged.syntax.observations[0].facts[0].capacityModel = 'invented unlimited capacity';
-    assert.throws(() => verifyMemoryInventory(root, forged), /syntax observation changed/u);
-});
+        const { root, write, catalog, saveCatalog } = fixture(context);
+        const observer = 'tools/governance/memory-syntax-observer/';
+        for (const name of ['MemorySyntaxObserver.cs', 'FsusBlog.MemorySyntaxObserver.csproj'])
+        {
+            write(observer + name, fs.readFileSync(new URL('../../' + observer + name, import.meta.url)));
+        }
+        write('src/backend/Frame.cs', [
+            'class Frame {',
+            'byte[] data = new byte[4];',
+            'byte[] Copy() => data.ToArray();',
+            'string note = "byte[]";',
+            '// byte[] is a documentation reference',
+            '}'
+        ].join('\n'));
+        catalog.syntaxObserver = { source: observer + 'MemorySyntaxObserver.cs', project: observer + 'FsusBlog.MemorySyntaxObserver.csproj' };
+        catalog.families = [{ ...catalog.traces[0], id: 'frame-family',
+            sourcePaths: ['src/backend/Frame.cs'], exclusionReason: 'Fixture stays migration denied' }];
+        saveCatalog();
+        const inventory = produceMemoryInventory(root, 'syntax-fixture');
+        const roles = new Set(inventory.syntax.observations.flatMap((item) => item.facts.map((fact) => fact.role)));
+        for (const role of ['array-creation', 'declaration-or-reference', 'literal-reference', 'trivia-or-disabled-source', 'invocation'])
+        {
+            assert.ok(roles.has(role), role);
+        }
+        assert.deepEqual(inventory.syntax.parseDiagnostics, []);
+        assert.ok(inventory.syntax.artifacts.length >= 3);
+        assert.equal(verifyMemoryInventory(root, inventory).acceptance, 'NotVerified');
+        const forged = structuredClone(inventory);
+        forged.syntax.observations[0].facts[0].capacityModel = 'invented unlimited capacity';
+        assert.throws(() => verifyMemoryInventory(root, forged), /syntax observation changed/u);
+    });
