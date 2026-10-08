@@ -1,0 +1,54 @@
+{
+  "capturedAt": "2026-10-08T09:23:28.679694+00:00",
+  "blogSourceSha": "54f1c0ab4d3adfd6caf0b92a6d7d2b5309732a38",
+  "fsusUISourceSha": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "consumerSourceSha": "1194ee45037862aa30803650ec2a622700631224",
+  "consumerBranch": "codex/chain-2458-embed",
+  "readOnly": true,
+  "blogSources": {
+    "src/core/Services/Abstractions/IArticleCoreService.cs": "dd04539f8c1a824c3cfdf3fe7c43e8018d8455c199f64257f3b94df49c00dc44",
+    "src/core/Mapping/Models/ReadModels.cs": "a485c17ae551172e5385317a687e4427c1143b375a28f1c246dab9b2b7430dc0",
+    "src/backend/Services/ArticleService.cs": "62ba3a69ff33c2d98c1223d2a634778c8050c967d63511909acd2b9f1200673a",
+    "src/backend/Services/ArticleService.CorePort.cs": "fb7eaa12e36741c264a0dd358f67709c946f4442be778d5dcfd19e056e253bb2",
+    "src/backend/Services/Authoring/AuthoringRevisionComparePackageReader.cs": "feaae169d641bde96508c8d374b57e976f84d70d553595c0fa7bab1ca4ab4915",
+    "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs": "0c078e3c11eeabd130e8986c3fe45ac3f5e8e6decb191cd73184e6e1c0f5f088",
+    "src/core/Services/Articles/RevisionComparePackages.cs": "df3012492d977e8098edd822d59463d2188c0720bd905f6d76e540bbe35c6bac",
+    "src/core/Services/Articles/RevisionCompareContracts.cs": "02f93185493355ebaf31b76475f744182b889f59238fe34a009afa41e604f3e8",
+    "src/core/Services/Articles/RevisionComparePackageReaderContracts.cs": "a7c5cf56d816cdbc95348d19690c0d5c029e9ebf455412756d63e9b7f04af57a",
+    "src/core/Services/Articles/RevisionComparePackageSeal.cs": "1a091374335d16ebbb7e081558f544a2cb9ed0250a3f17a81f31b1112cbaa6c4",
+    "src/backend/Services/Authoring/AuthoringCanvasReferenceFactSource.cs": "cde00e255e8deb3b237338b13fc83bedcbb571c431a45f39e17f07d755cc69a8",
+    "src/backend/Services/Authoring/PostgresAuthoringCanvasCoordinateAuthority.cs": "c9b6a596f5945e317105319a194396658dac8794355e47bdd4d8c19027529326",
+    "src/core/Services/Articles/RevisionMarkdownStructure.cs": "14d5d52f2bae89d30e3ffed9aee5153da484b43489ce6656945464efb1511f44",
+    "src/core/Services/Articles/RevisionMarkdownStructureProvider.cs": "e084d732e05e0a7df45c44064872e10029534645204bd74a3c021b7a01be7247",
+    "src/backend/Services/ArticleService.ArticleVaultObservation.cs": "56447f0450a4400ae8efeb6e92fa490573951c6b2d99fbc9559f0e961fa655d5",
+    "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs": "baab85c7f9203ad22f81758da0e4a9bc156773ae812ddb020b2f268d485b753b",
+    "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs": "d39a102feaf531a1254500fd960ceb21c5a1927bc8a60a157b359c89c9d8177c",
+    "src/frontend/src/components/ui/markdownEditorProvider.ts": "4f4611254b6a1b625946950fdd21c7ba85d14b55fe96aec1701ac98dd2b4e6bd",
+    "src/frontend/src/fsusui/markdown.ts": "9b37b89b13acba915275d564594df5486d53eade0385441c42fcf4a3a6ea5064"
+  },
+  "fsusUISources": {
+    "docs/api/markdown-runtime-projection.md": "3f6cc8e500619dd689316aa618f7f2bc2c4a3c35f075532380f94b6f58c09d3c",
+    "vue/packages/element-plus/markdown-runtime.ts": "ae4ff05e9ff018052551d0f82ab00ae05988f582b43a2261409243f16535967a",
+    "vue/packages/wasm/markdown-embed-directive.ts": "ddf445e860c952f6503e62c472095d86d12a40774dcdab8fae6a8cfc0af8d228",
+    "vue/packages/wasm/markdown-embed-provider.ts": "5310956ba7c8f79f19db53055caa4f28335ba7f4646784b3fbcc3d3a67214d4b",
+    "vue/packages/wasm/markdown-directive-syntax.ts": "dd174afd55ebb43ad6c6a142709ca494f363c14fefd57c6a4b5757783ea9fdc7",
+    "vue/packages/wasm/markdown-editor-projection.ts": "e0baada24c46df591bd64c56e25c49c0db5d22f1dbf080282efb657e54950475",
+    "vue/packages/wasm/markdown-syntax-consumers.ts": "8d2c0e5fdc08fc291a01d8ec7a5bab1ef11d5b9454116447717460b8d50dce04",
+    "dotnet/FsusUI.Avalonia/Controls/FsusMarkdownProjectionProducer.cs": "86fcebb4d7f09fffc2e6cb8ec08e27dcf70b8ea3ef22c8e905d538d0a2e49452",
+    "dotnet/FsusUI.Avalonia/Controls/FsusMarkdownEditorProjection.cs": "7b6191b348c2c74bb5c6d016f4ea09bb1688c26b6d496b976a2762528560676d",
+    "dotnet/FsusUI.Avalonia.ConsumerSample/Program.cs": "0729aeb4501be4dd73b5b8902bac148f8adbb046946f5b7e5264780c47000e0e"
+  },
+  "consumerSources": {
+    "src/shared/Contracts/ArticleEmbeds/Authoring/ArticleEmbedAuthoringContracts.cs": "baab85c7f9203ad22f81758da0e4a9bc156773ae812ddb020b2f268d485b753b",
+    "src/shared/Contracts/ArticleEmbeds/ArticleEmbedContracts.cs": "6224a1c8e198621ab8f7d7faaa23778dab0c5ff7ba5224ad8d99ed4785a67358",
+    "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphPlanner.cs": "a42b4cb85147332d9add76f5bcbc13547fa906b83b5b45bd876a676d4aebe01d",
+    "src/shared/Contracts/ArticleEmbeds/Graph/ArticleEmbedDependencyGraphVerifier.cs": "2fa768839eecb484c017471cfa6aeeaf33123500b9ce3fee175ee3b5b79b9786",
+    "src/shared/Contracts/ArticleEmbeds/Relations/ArticleEmbedRelationContracts.cs": "d39a102feaf531a1254500fd960ceb21c5a1927bc8a60a157b359c89c9d8177c"
+  },
+  "consumerConsumption": "Exact object read only; no merge/cherry-pick/source edits.",
+  "executedApiProbe": {
+    "path": ".tmp/chain-3735/embed-adapter-readonly/fsusui-runtime-api-probe.json",
+    "exitCode": 0,
+    "sha256": "90b73df625e51ab9b721b9bc9cf6bb4a5ae9d785d4060ebd60605db6b38eb825"
+  }
+}
