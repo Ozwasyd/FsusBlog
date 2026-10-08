@@ -1,0 +1,8 @@
+{
+  "arena-registry.diff": "430d536e5957cb3dfe0a84fc2c7f7056a7ec7ecdf552bcd989ea0cfa31afd77e",
+  "arena-result.json": "bced35dd3e5fd6a6c9bf9dfdc5065955f648a00ff2ae2d86550bcf9286ec0f63",
+  "executed-scoped-verifier.mjs": "680ce484c76b2b49c742011115c09e74a3920463497f29ac9bf0f186666eee72",
+  "flat-registry.diff": "f6bd0fd2ce6a960313e0d16e91b4857cbc9286827e69f5f64d309aed49621cca",
+  "flat-result.json": "6e668807f98996053238b638b2e9e598c153312e1986c5e9a75a0de809fcf756",
+  "handoff.json": "f3e326fdf2162e1d554acd3d4a539da81f98d110138ff60652df0034a6153695"
+}

@@ -1,0 +1,31 @@
+{
+  "head": "f751ded59f3719d970b94642d96311ef63ea7307",
+  "paths": [
+    "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+    "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs",
+    "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs"
+  ],
+  "sourceBlobs": {
+    "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs": "bb78e6dd58df6a199d511b2e60e3786172c146a7",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs": "63477bad24069ef0ae0e549af558d368e4e6aa6a",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs": "b0af8166af5ea20a29a308a98e73e40ef760815c",
+    "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs": "b2ea20b5fa483dc0edc5d1329170285d7d807713",
+    "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs": "d9667fed6a480b3a378ff20da99f6b45a4a25018"
+  },
+  "negativeControl": [
+    "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs:85 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs:16 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs:34 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs:3 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Host/FlatArtifactIndex.cs:166 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Lifetime/FlatArtifactIndexPublication.cs:28 intent marker OWNERSHIP: is not registered for this source path"
+  ],
+  "suppliedMarkers": [],
+  "scoped": {
+    "errors": [],
+    "checkedFiles": 5,
+    "scopedFiles": 5
+  }
+}

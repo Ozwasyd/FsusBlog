@@ -1,0 +1,50 @@
+{
+  "runId": "mem-shared-markers-20261008-candidate-closures",
+  "recordedAt": "2026-10-08T13:13:10.433936+00:00",
+  "baseMaster": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "deliveries": [
+    {
+      "branch": "codex/mem-3444-memory-marker-common-minimal",
+      "commit": "aed9e2dbe438f65d97760bc7f4297cd67357eb4f",
+      "registryBlob": "20818d1a2e1bf111af8905479949365e511555a3"
+    },
+    {
+      "branch": "codex/mem-3444-arena-marker-unblocker",
+      "commit": "f2ebc9a843f11110251ea2acfdaaceb8813369ff",
+      "registryBlob": "297e62d60f891440bf65d8dde9b561b33548275e"
+    },
+    {
+      "branch": "codex/mem-3444-flat-marker-unblocker",
+      "commit": "e4b806ac50e1dd18972ff62b81fc4a5ca6dddfcf",
+      "registryBlob": "fd19a8e36ff7d174f1ad7be1681f559341530ab7"
+    }
+  ],
+  "scope": "Source registration only; no candidate implementation, frozen contracts, hardware or performance evidence changed. Each consumer takes common commit then only its corresponding second commit.",
+  "commands": [
+    {
+      "command": "git apply --check .tmp/memory-marker/patch.diff",
+      "arenaExitCode": 0,
+      "flatExitCode": 0
+    },
+    {
+      "command": "node .tmp/memory-marker/verify.mjs",
+      "arenaExitCode": 0,
+      "flatExitCode": 0,
+      "stage": "original checker with exact scoped files, complete registry validation and original negative control"
+    },
+    {
+      "command": "node tools/governance/check-change-contract.mjs --range <baseMaster>..<branchCommit>",
+      "arenaExitCode": 0,
+      "flatExitCode": 0
+    },
+    {
+      "command": "git diff --check <baseMaster> <branchCommit>",
+      "arenaExitCode": 0,
+      "flatExitCode": 0
+    }
+  ],
+  "remoteShaVerified": true,
+  "candidateWorkingTreesUnchanged": true,
+  "verificationScriptOriginalPath": ".tmp/memory-marker/verify.mjs",
+  "remaining": "Full source gates, backend runtime, independent review and hardware qualification remain separate. No issue acceptance or PR writes."
+}

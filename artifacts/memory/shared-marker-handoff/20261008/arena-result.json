@@ -1,0 +1,36 @@
+{
+  "head": "03f42fcef83c3318d2651ee36398dacad62b2620",
+  "paths": [
+    "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
+    "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs"
+  ],
+  "sourceBlobs": {
+    "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs": "bb78e6dd58df6a199d511b2e60e3786172c146a7",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs": "63477bad24069ef0ae0e549af558d368e4e6aa6a",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs": "b0af8166af5ea20a29a308a98e73e40ef760815c",
+    "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs": "f566ba7bb272f529abe4c0137a17e54103e2d512",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs": "c4e2b28a61de23624c580c9bd0e6f233982fedf5",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs": "cf882e508373cb9e9c790bfd9c78bb2d3f3b46bd",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs": "1a1614deaef1959ca54025d0019eefd44b74bb47"
+  },
+  "negativeControl": [
+    "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs:85 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs:16 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs:34 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs:3 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs:23 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs:5 intent marker OWNERSHIP: is not registered for this source path",
+    "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs:9 intent marker OWNERSHIP: is not registered for this source path"
+  ],
+  "suppliedMarkers": [],
+  "scoped": {
+    "errors": [],
+    "checkedFiles": 7,
+    "scopedFiles": 7
+  }
+}
