@@ -4,9 +4,26 @@
         {
             "id": "content-doc-exactness-authority",
             "paths": [
+                "docs/api/contracts.md",
                 "docs/architecture/overview.md"
             ],
             "reason": "Preserve current architecture contract identifiers and documented public FsusUI names while describing the identity-bound render-reference cache and its cancellation limits."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/schemas/article-relation-contract.schema.json",
+                "config/testing/fsusui-baseline.json"
+            ],
+            "reason": "Account for the exact supplied attachment prerequisite while preserving its serialized relation-schema keys and public upstream source-pin identity."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
+                "tools/governance/check-article-relations.mjs"
+            ],
+            "reason": "Account for the registered naming surfaces in the exact supplied relation-validation prerequisite without renaming its existing external configuration or contract identifiers."
         }
     ]
 }
