@@ -226,6 +226,20 @@ test('ordered-set preserves observation order', () =>
     );
 });
 
+test('table observation text cannot become inline HTML or an HTML entity', () =>
+{
+    const rendered = RendererRegistry.render(
+        'key-value-table',
+        { '<method>': '<MapAuthoringModerationRoutes> &lt;raw&gt; | next\nline' },
+        { orderPolicy: 'ordinal', emptyPolicy: 'fail' }
+    );
+    assert.doesNotMatch(rendered, /<[^>]*>/u);
+    assert.match(rendered, /&lt;method&gt;/u);
+    assert.match(rendered, /&lt;MapAuthoringModerationRoutes&gt;/u);
+    assert.match(rendered, /&amp;lt;raw&amp;gt;/u);
+    assert.ok(rendered.includes('\\| next line'));
+});
+
 test('transition-table and route-table emit fixed columns', () =>
 {
     const transitions = RendererRegistry.render(
