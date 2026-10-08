@@ -426,6 +426,31 @@ cs += canvasCs.slice(canvasCs.indexOf('    private ref struct CanvasWireReader')
     .replaceAll('canvas_wire_', 'property_read_wire_').replaceAll('40002', String(schema.maxAggregateItems));
 cs += '\n}\n';
 cs = cs.replace(/^[\t ]+$/gmu, '');
+// Emit the repository's C# layout through this producer; preserve the existing primitive owner.
+const csLayout = [
+    ['public static partial class PodBinaryCodec', '/// <summary>Typed article-property read wire extensions with exact decimal and UTC tick representations.</summary>\npublic static partial class PodBinaryCodec'],
+    [`    public static byte[] Encode${schema.root}`, `    /// <summary>Encodes the bounded private read projection without promoting its receipt references to authority.</summary>\n    public static byte[] Encode${schema.root}`],
+    [`    public static void Write${schema.root}`, `    /// <summary>Writes the typed read payload into the caller-owned binary destination.</summary>\n    public static void Write${schema.root}`],
+    [`    public static bool TryDecode${schema.root}`, `    /// <summary>Accepts only a complete bounded payload with closed tags, exact numeric values and valid primitive shapes.</summary>\n    public static bool TryDecode${schema.root}`],
+    ['        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException) { return false; }', '        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException)\n        {\n            return false;\n        }'],
+    ['        int lo = reader.ReadInt32(int.MinValue, int.MaxValue), mid = reader.ReadInt32(int.MinValue, int.MaxValue), hi = reader.ReadInt32(int.MinValue, int.MaxValue);', '        int lo = reader.ReadInt32(int.MinValue, int.MaxValue);\n        int mid = reader.ReadInt32(int.MinValue, int.MaxValue);\n        int hi = reader.ReadInt32(int.MinValue, int.MaxValue);'],
+    ['        writer.WriteInt32(bits[0], int.MinValue, int.MaxValue); writer.WriteInt32(bits[1], int.MinValue, int.MaxValue); writer.WriteInt32(bits[2], int.MinValue, int.MaxValue);', '        writer.WriteInt32(bits[0], int.MinValue, int.MaxValue);\n        writer.WriteInt32(bits[1], int.MinValue, int.MaxValue);\n        writer.WriteInt32(bits[2], int.MinValue, int.MaxValue);'],
+    ['        writer.WriteByte((byte)((bits[3] >> 16) & 255)); writer.WriteBoolean(bits[3] < 0);', '        writer.WriteByte((byte)((bits[3] >> 16) & 255));\n        writer.WriteBoolean(bits[3] < 0);'],
+    ['        public PropertyReadWireReader(ReadOnlySpan<byte> source) { _source = source; _offset = 0; _facts = 0; }', '        public PropertyReadWireReader(ReadOnlySpan<byte> source)\n        {\n            _source = source;\n            _offset = 0;\n            _facts = 0;\n        }'],
+    ['        public void WriteByte(byte value) { Reserve(1)[0] = value; _buffer.Advance(1); }', '        public void WriteByte(byte value)\n        {\n            Reserve(1)[0] = value;\n            _buffer.Advance(1);\n        }'],
+    ['            BinaryPrimitives.WriteInt32LittleEndian(Reserve(4), value); _buffer.Advance(4);', '            BinaryPrimitives.WriteInt32LittleEndian(Reserve(4), value);\n            _buffer.Advance(4);'],
+    ['            BinaryPrimitives.WriteInt64LittleEndian(Reserve(8), value); _buffer.Advance(8);', '            BinaryPrimitives.WriteInt64LittleEndian(Reserve(8), value);\n            _buffer.Advance(8);'],
+    ['            BinaryPrimitives.WriteDoubleLittleEndian(Reserve(8), value); _buffer.Advance(8);', '            BinaryPrimitives.WriteDoubleLittleEndian(Reserve(8), value);\n            _buffer.Advance(8);'],
+    ['            if (length != 0) { s_propertyReadWireUtf8.GetBytes(value, Reserve(length)); _buffer.Advance(length); }', '            if (length != 0)\n            {\n                s_propertyReadWireUtf8.GetBytes(value, Reserve(length));\n                _buffer.Advance(length);\n            }']
+];
+for (const [original, formatted] of csLayout)
+{
+    if (!cs.includes(original))
+    {
+        fail('C# primitive layout owner drift');
+    }
+    cs = cs.replace(original, formatted);
+}
 const canvasTs = read('src/frontend/src/codecs/binary/authoringCanvasWire.generated.ts');
 ts += `function readPropertyGuid(reader: PropertyReadWireReader): string { const value = reader.guid(); if (value === '00000000-0000-0000-0000-000000000000') invalid(); return value; }\nfunction writePropertyGuid(value: string, writer: PropertyReadWireWriter): void { if (value === '00000000-0000-0000-0000-000000000000') invalid(); writer.guid(value); }\nfunction readPropertyDecimal(reader: PropertyReadWireReader): ArticlePropertyExactDecimal\n{\n    const lo = reader.int32(-2147483648, 2147483647) >>> 0, mid = reader.int32(-2147483648, 2147483647) >>> 0, hi = reader.int32(-2147483648, 2147483647) >>> 0;\n    const scale = reader.byte(); if (scale > 28) invalid(); return { lo, mid, hi, scale, negative: reader.boolean() };\n}\nfunction writePropertyDecimal(value: ArticlePropertyExactDecimal, writer: PropertyReadWireWriter): void\n{\n    for (const word of [value.lo, value.mid, value.hi]) { if (!Number.isInteger(word) || word < 0 || word > 4294967295) invalid(); writer.int32(word > 2147483647 ? word - 4294967296 : word, -2147483648, 2147483647); }\n    if (!Number.isInteger(value.scale) || value.scale < 0 || value.scale > 28) invalid(); writer.byte(value.scale); writer.boolean(value.negative);\n}\nfunction isPropertyDefaultShape(value: ArticlePropertyReadDefaultValue): boolean\n{\n    return value.kind <= 1 ? value.value === null : value.value !== null && (value.kind === 2 ? value.value.type <= 3 || value.value.type === 7 : value.kind === 3 ? value.value.type === 4 || value.value.type === 5 : value.kind === 4 && value.value.type === 6);\n}\n`;
 ts += `const maxPayloadBytes = ${schema.maxPayloadBytes};\nconst maxAggregateFacts = ${schema.maxAggregateItems};\nconst utf8Encoder = new TextEncoder();\nconst utf8Decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });\nconst digestPattern = /^[0-9a-f]{64}$/;\nconst guidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;\nfunction invalid(): never { throw new RangeError('article_property_value_read_wire_invalid'); }\n`;

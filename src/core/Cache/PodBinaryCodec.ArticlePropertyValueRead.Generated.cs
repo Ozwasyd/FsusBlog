@@ -9,6 +9,7 @@ using FsusBlog.Shared.Contracts.ArticleProperties;
 
 namespace FsusBlog.Core.Cache;
 
+/// <summary>Typed article-property read wire extensions with exact decimal and UTC tick representations.</summary>
 public static partial class PodBinaryCodec
 {
     private static readonly UTF8Encoding s_propertyReadWireUtf8 = new(false, true);
@@ -457,6 +458,7 @@ public static partial class PodBinaryCodec
             default: throw new ArgumentException("property_read_type");
         }
     }
+    /// <summary>Encodes the bounded private read projection without promoting its receipt references to authority.</summary>
     public static byte[] EncodeArticlePropertyValueReadResponse(ArticlePropertyValueReadResponse value)
     {
         var writer = new PropertyReadWireWriter();
@@ -464,7 +466,9 @@ public static partial class PodBinaryCodec
         WritePropertyReadArticlePropertyValueReadResponse(value, writer);
         return writer.ToArray();
     }
+    /// <summary>Writes the typed read payload into the caller-owned binary destination.</summary>
     public static void WriteArticlePropertyValueReadResponse(ArticlePropertyValueReadResponse value, IBufferWriter<byte> destination) => destination.Write(EncodeArticlePropertyValueReadResponse(value));
+    /// <summary>Accepts only a complete bounded payload with closed tags, exact numeric values and valid primitive shapes.</summary>
     public static bool TryDecodeArticlePropertyValueReadResponse(ReadOnlyMemory<byte> source, out ArticlePropertyValueReadResponse value)
     {
         value = default!;
@@ -478,7 +482,10 @@ public static partial class PodBinaryCodec
             value = decoded;
             return true;
         }
-        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException) { return false; }
+        catch (Exception error) when (error is ArgumentException or FormatException or OverflowException)
+        {
+            return false;
+        }
     }
     private static Guid ReadPropertyReadGuid(ref PropertyReadWireReader reader)
     {
@@ -498,7 +505,9 @@ public static partial class PodBinaryCodec
     }
     private static decimal ReadPropertyReadDecimal(ref PropertyReadWireReader reader)
     {
-        int lo = reader.ReadInt32(int.MinValue, int.MaxValue), mid = reader.ReadInt32(int.MinValue, int.MaxValue), hi = reader.ReadInt32(int.MinValue, int.MaxValue);
+        int lo = reader.ReadInt32(int.MinValue, int.MaxValue);
+        int mid = reader.ReadInt32(int.MinValue, int.MaxValue);
+        int hi = reader.ReadInt32(int.MinValue, int.MaxValue);
         byte scale = reader.ReadByte();
         if (scale > 28) throw new FormatException("property_read_decimal_scale");
         return new decimal(lo, mid, hi, reader.ReadBoolean(), scale);
@@ -506,8 +515,11 @@ public static partial class PodBinaryCodec
     private static void WritePropertyReadDecimal(decimal value, PropertyReadWireWriter writer)
     {
         int[] bits = decimal.GetBits(value);
-        writer.WriteInt32(bits[0], int.MinValue, int.MaxValue); writer.WriteInt32(bits[1], int.MinValue, int.MaxValue); writer.WriteInt32(bits[2], int.MinValue, int.MaxValue);
-        writer.WriteByte((byte)((bits[3] >> 16) & 255)); writer.WriteBoolean(bits[3] < 0);
+        writer.WriteInt32(bits[0], int.MinValue, int.MaxValue);
+        writer.WriteInt32(bits[1], int.MinValue, int.MaxValue);
+        writer.WriteInt32(bits[2], int.MinValue, int.MaxValue);
+        writer.WriteByte((byte)((bits[3] >> 16) & 255));
+        writer.WriteBoolean(bits[3] < 0);
     }
     private static bool IsPropertyReadDefaultShape(ArticlePropertyReadDefaultValue value) => value.Kind switch
     {
@@ -522,7 +534,12 @@ public static partial class PodBinaryCodec
         private readonly ReadOnlySpan<byte> _source;
         private int _offset;
         private int _facts;
-        public PropertyReadWireReader(ReadOnlySpan<byte> source) { _source = source; _offset = 0; _facts = 0; }
+        public PropertyReadWireReader(ReadOnlySpan<byte> source)
+        {
+            _source = source;
+            _offset = 0;
+            _facts = 0;
+        }
         public bool IsConsumed => _offset == _source.Length;
         private ReadOnlySpan<byte> Take(int length)
         {
@@ -593,7 +610,11 @@ public static partial class PodBinaryCodec
             return _buffer.GetSpan(length)[..length];
         }
         public byte[] ToArray() => _buffer.WrittenSpan.ToArray();
-        public void WriteByte(byte value) { Reserve(1)[0] = value; _buffer.Advance(1); }
+        public void WriteByte(byte value)
+        {
+            Reserve(1)[0] = value;
+            _buffer.Advance(1);
+        }
         public void WriteBoolean(bool value) => WriteByte(value ? (byte)1 : (byte)0);
         public void WriteEnum(int value, ReadOnlySpan<byte> allowed)
         {
@@ -603,17 +624,20 @@ public static partial class PodBinaryCodec
         public void WriteInt32(int value, int min, int max)
         {
             if (value < min || value > max) throw new ArgumentException("property_read_wire_int32");
-            BinaryPrimitives.WriteInt32LittleEndian(Reserve(4), value); _buffer.Advance(4);
+            BinaryPrimitives.WriteInt32LittleEndian(Reserve(4), value);
+            _buffer.Advance(4);
         }
         public void WriteInt64(long value, long min, long max)
         {
             if (value < min || value > max) throw new ArgumentException("property_read_wire_int64");
-            BinaryPrimitives.WriteInt64LittleEndian(Reserve(8), value); _buffer.Advance(8);
+            BinaryPrimitives.WriteInt64LittleEndian(Reserve(8), value);
+            _buffer.Advance(8);
         }
         public void WriteDouble(double value, double min, double max)
         {
             if (!double.IsFinite(value) || value < min || value > max) throw new ArgumentException("property_read_wire_double");
-            BinaryPrimitives.WriteDoubleLittleEndian(Reserve(8), value); _buffer.Advance(8);
+            BinaryPrimitives.WriteDoubleLittleEndian(Reserve(8), value);
+            _buffer.Advance(8);
         }
         public void WriteGuid(Guid value)
         {
@@ -626,7 +650,11 @@ public static partial class PodBinaryCodec
             if (value.Length > maxChars || (digest && !IsPropertyReadWireDigest(value))) throw new ArgumentException("property_read_wire_string");
             int length = s_propertyReadWireUtf8.GetByteCount(value);
             WriteInt32(length, 0, maxChars * 4);
-            if (length != 0) { s_propertyReadWireUtf8.GetBytes(value, Reserve(length)); _buffer.Advance(length); }
+            if (length != 0)
+            {
+                s_propertyReadWireUtf8.GetBytes(value, Reserve(length));
+                _buffer.Advance(length);
+            }
         }
         public void WriteCount(int count, int maxCount, bool facts)
         {

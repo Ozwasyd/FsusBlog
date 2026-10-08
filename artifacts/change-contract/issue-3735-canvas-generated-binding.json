@@ -58,7 +58,7 @@
         },
         {
             "path": "src/core/Cache/PodBinaryCodec.ArticlePropertyValueRead.Generated.cs",
-            "sha256": "d806e1c9ecc3653babc5ef682b950fed9ac40524128f919271ad1b6766c7e203"
+            "sha256": "d953ea3a9e8d56317b0e0444838861b28171c3cb2cf0526adebf739eb7abd1d2"
         },
         {
             "path": "src/core/Cache/PodBinaryCodec.AuthoringCanvas.Generated.cs",
