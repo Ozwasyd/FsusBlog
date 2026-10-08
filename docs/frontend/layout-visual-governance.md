@@ -183,6 +183,10 @@ The same binding follows `withDefaults(defineProps<...>(), ...)` only when the
 inline type actually declares the prop and its default is an exact literal.
 Shadowed macros, unknown defaults, object spreads and computed default keys
 cannot establish proof. Referenced types remain unsupported and fail closed.
+Call-level `v-bind` is bounded only for an object with literal keys and primitive
+literal values. Unknown spreads, computed keys, prototype inputs and collisions
+with another source of the same prop remain unbound; attribute precedence is
+never guessed from separate inventories.
 A native component selector may also have a finite tag union proven from an
 actual top-level constant arrow function. Every return must be a native literal
 or a conditional of native literals, and every path must return. The supported

@@ -75,6 +75,9 @@ const cases = [
     { name: 'public-macro-native-default', content: fixture(macroPropMarkup, macroPropScript), macroPropProbe: true, expected: null },
     { name: 'public-macro-native-tag-drift', content: fixture(macroPropMarkup, macroPropScript), macroPropProbe: true,
         mutation: 'replace-native-tag', expected: 'unknown-dynamic-native-tag' },
+    { name: 'public-closed-literal-call-spread', content: fixture(macroPropMarkup.replace('<Dock ', '<Dock v-bind="{ label:\'Closed call\' }" '), macroPropScript), macroPropProbe: true, expected: null },
+    { name: 'unknown-call-spread-is-unbound', content: fixture(macroPropMarkup.replace('<Dock ', '<Dock v-bind="unknownAttrs" '),
+        macroPropScript + 'import {ref} from "vue";const unknownAttrs=ref({});'), expected: 'unbound-native-prop-source' },
     { name: 'two-task-page-headers', content: fixture(baseMarkup + header), expected: 'task-header-not-exact-one' },
     { name: 'three-same-priority-primary-buttons', content: fixture(baseMarkup.replace(action, action.repeat(3))), expected: 'primary-action-not-exact' },
     { name: 'section-card-card-nesting', content: fixture(baseMarkup.replace('<p>Current content</p>', '<section data-fsus-surface="data-region" data-fsus-material="boundary"><section data-fsus-surface="data-region" data-fsus-material="boundary">Nested</section></section>')), expected: 'forbidden-surface-nesting' },
@@ -101,6 +104,7 @@ try
 {
     server = await createServer({ configFile: false, root: output,
         plugins: [compositionProbePlugin(run.source), vue(), jsx()],
+        optimizeDeps: { entries: cases.map((item) => item.name + '.vue') },
         resolve: { dedupe: ['vue'], alias: [...createFsusUiAliases(fsusUIRoot),
             { find: /^vue$/, replacement: join(frontend, 'node_modules/vue') },
             { find: /^vue-router$/, replacement: join(frontend, 'node_modules/vue-router') }] },
@@ -110,12 +114,13 @@ try
     report.browser = { version: browser.version(), executablePath: chromium.executablePath() };
     const url = server.resolvedUrls.local[0];
     const warmup = await browser.newPage();
-    report.preparation = { status: 'running', runtimeErrors: [] };
+    report.preparation = { status: 'running', runtimeErrors: [], entries: cases.map((item) => item.name + '.vue') };
     warmup.on('pageerror', (error) => report.preparation.runtimeErrors.push(error.message));
     await warmup.goto(`${url}?case=baseline`);
     await warmup.locator('main').waitFor();
     await server.waitForRequestsIdle();
     await warmup.close();
+    assert.deepEqual(report.preparation.runtimeErrors, [], 'preparation runtime errors must not qualify diagnostic observations');
     report.preparation.status = 'completed';
     let baselineReasons = [];
     for (const item of cases)

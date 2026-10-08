@@ -253,6 +253,32 @@ test('withDefaults proof rejects undeclared, spread, computed and shadowed macro
     assert.ok(shadowed.errors.some((error) => error.reason === 'unknown-component-source'));
 });
 
+test('closed literal call spreads prove only their exact prop keys and values', () =>
+{
+    const script = '<script setup>import {FsuMobileDock as Dock} from "@ozwasyd/element-plus/motion";</script>';
+    const bounded = source().graph([fixture(script + '<template><Dock v-bind="{ label:\'Current\' }"/><Dock v-bind="{ as:\'aside\' }"/></template>')]);
+    assert.ok(!bounded.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+    assert.deepEqual(bounded.nativePropBindings.map((binding) => binding.tag).sort(), ['aside', 'nav']);
+    const escaped = source().graph([fixture(script + '<template><Dock v-bind="{ \'a\\u0073\':\'aside\' }"/></template>')]);
+    assert.deepEqual(escaped.nativePropBindings.map((binding) => binding.tag), ['aside']);
+    const tabs = source().graph([fixture('<script setup>import {FsuBottomTabBar as Tabs} from "@ozwasyd/element-plus/motion";</script><template><Tabs/></template>')]);
+    assert.ok(tabs.nativePropBindings.some((binding) => binding.tag === 'nav'
+        && tabs.nodes.find((node) => node.id === binding.callNode)?.file.endsWith('/FsuBottomTabBar.vue')));
+    assert.ok(!tabs.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+    for (const attributes of [
+        'v-bind="unknownAttrs"', 'v-bind="{ ...unknownAttrs }"', 'v-bind="{ [key]:\'aside\' }"',
+        'v-bind="{ as:unknownTag }"', 'v-bind="{ __proto__:unknownPrototype }"',
+        'as="nav" v-bind="{ as:\'aside\' }"', 'as="nav" v-bind="{ \'a\\u0073\':\'aside\' }"',
+        'v-bind="{ as:\'aside\' }" :as="\'nav\'"',
+        'v-bind="{ as:\'aside\' }" v-bind="{ as:\'nav\' }"'
+    ])
+    {
+        const graph = source().graph([fixture(script + `<template><Dock ${attributes}/></template>`)]);
+        assert.ok(graph.errors.some((error) => ['unknown-ast-parse', 'unbound-native-prop-source'].includes(error.reason)), attributes);
+        assert.equal(graph.nativePropBindings.length, 0);
+    }
+});
+
 test('route-name branching resolves useRoute aliases and computed element access', () =>
 {
     const graph = source().graph([fixture('<script setup>import {useRoute as activeRoute} from "vue-router";const current = activeRoute();const good = current["name"] === "representative";</script><template><h1 v-if="good">Good</h1></template>')]);

@@ -421,11 +421,38 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
     function staticPropValue(record, call, name)
     {
         const declaration = propDeclaration(record, name);
-        if (!declaration || call.directives.some((directive) => directive.name === 'bind' && (!directive.argument || directive.argumentStatic === false)))
+        if (!declaration || call.directives.some((directive) => directive.name === 'bind' && directive.argumentStatic === false))
         {
             return unbound;
         }
+        const spreadValues = [];
+        for (const directive of call.directives.filter((directive) => directive.name === 'bind' && !directive.argument))
+        {
+            const spread = directive.expression && expression(directive.expression, call.file);
+            if (!spread || !ts.isObjectLiteralExpression(spread)
+                || spread.properties.some((property) => !ts.isPropertyAssignment(property) || ts.isComputedPropertyName(property.name)
+                    || property.name.text === '__proto__'
+                    || closedLiteral(property.initializer) === unbound))
+            {
+                return unbound;
+            }
+            const property = spread.properties.findLast((property) => property.name.text === name);
+            if (property)
+            {
+                spreadValues.push(closedLiteral(property.initializer));
+            }
+        }
         const binding = call.directives.find((directive) => directive.name === 'bind' && directive.argument === name);
+        // Separate attribute/directive inventories do not establish their
+        // interleaved precedence. Refuse collisions instead of guessing it.
+        if (spreadValues.length > 1 || (spreadValues.length && (binding || Object.hasOwn(call.attributes, name))))
+        {
+            return unbound;
+        }
+        if (spreadValues.length)
+        {
+            return spreadValues[0];
+        }
         if (binding)
         {
             return binding.expression ? closedLiteral(expression(binding.expression, call.file)) : unbound;
