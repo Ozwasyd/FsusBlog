@@ -1,34 +1,70 @@
-# Locale menu public API probe
+# Locale menu public API and consumer probe
 
-This disposable browser fixture probes the prerequisite public API for [#1891](https://github.com/Ozwasyd/FsusBlog/issues/1891). It imports public root components and delegates every menu interaction to FsusUI. It is not a second product selector or a compatibility fallback.
-
-Use Node 24 and installed Vite, the Vue Vite plugin, Vue, and Playwright from `DEPENDENCY_ROOT`. Local mode uses the repository's canonical FsusUI resolver and aliases, including its built-asset checks. Published mode requires the actually installed, locked `@ozwasyd/element-plus@1.5.1`; an unavailable package is a blocker, never substituted with local source.
+This disposable fixture exercises the public FsusUI primitives and the actual
+`LocaleSelector.vue` composition for [#1891](https://github.com/Ozwasyd/FsusBlog/issues/1891).
+It imports public component exports, uses the canonical local-source resolver,
+and delegates menu interactions to Dropdown. Consumer settlement controls model
+pending/failure/retry/commit; they are not a browser-backed preference service.
 
 ```bash
-PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/chain-1891-local-final
-PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend /tmp/chain-1891-published-final
+PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs local /workspace/FsusUI /tmp/locale-menu-local
+PLAYWRIGHT_BROWSERS_PATH=/tmp/chain-1891-browsers node tests/frontend/checks/runtime/probe-locale-menu.mjs published /workspace/FsusBlog/src/frontend /tmp/locale-menu-published
 ```
 
-The runner writes `probe.json` and screenshots, records the tested Blog commit, local source commit/tree/status, harness and authority digests, runtime and browser identity, and closes its browser/server in `finally`. It waits for DOM/focus conditions and animation completion; no fixed sleep establishes an async or focus result. Exit 0 means the tested Dropdown capability checks passed, 2 means an observed capability gap, and 3 means the probe could not complete. None of these statuses establishes product UX acceptance.
+Use Node 24 and installed Vite, its Vue plugin, Vue and Playwright from the
+specified dependency root. Published mode requires the installed locked
+`@ozwasyd/element-plus@1.5.1`; it never substitutes local source. Exit 0 means the
+covered checks passed, 2 means an observed capability gap, and 3 means the probe
+could not complete. Every report keeps `qualification=false`, exact source/tree
+identities, dirty status, harness/authority hashes, runtime, browser and run ID.
+DOM/focus conditions and animation completion establish results; cold module
+navigation has a bounded timeout. Browser/server resources close in `finally`.
 
-## Current source-bound result
+The initial clean FsusUI main probe found invalid single-selection semantics.
+[FsusUI #830](https://github.com/Ozwasyd/FsusUI/issues/830) and its
+[draft #836](https://github.com/Ozwasyd/FsusUI/pull/836) now supply the public
+`checked` contract, checked-item keyboard entry and Escape restoration, including
+Escape on a pointer-opened trigger. The narrow implementation remains on
+`task/830-dropdown-radio-items`; shared Menu and option-row geometry were not
+modified. Original raw pre-capability reports remain in the artifact directory.
 
-- Blog baseline: `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`; fetch succeeded and remote master, origin/master, and initial HEAD matched.
-- Tested probe commit: `a84a77f3655664c4567b5e00152126f0fd28bb57`.
-- Local FsusUI: clean `main@f2b3bb89ffe5f749da26c388f058efdbb6aee864`, tree `2adf025d6874fe626b95d03538f3148cfd71a911`.
-- Run: `locale-menu-local-2026-10-08T02:47:33.762Z`, Node `v24.19.0`, Chromium `147.0.7727.15`, 1440×900 light viewport.
-- Local probe: exit 2, `capability-gap`, no page errors. The actual DropdownItem role is `menuitem` despite the supplied `menuitemradio`; its `aria-checked=true` therefore has incompatible semantics. [FsusUI #830](https://github.com/Ozwasyd/FsusUI/issues/830) owns the missing public capability.
-- Passed observations: public open/close and visibility events; trigger association; ArrowUp/Down/Home/End; Enter/Space command activation; pending remains open; error/retry stays reachable; disabled activation is rejected; Escape returns focus to the trigger; outside dismissal preserves focus on the outside target; custom compact trigger content renders.
-- Alternatives: Dropdown + Menu preserves a passed radio role, but keyboard entry fails and ArrowDown closes the popup; ArrowDown on its focused first item fails to advance. Single Select closes while active `en` remains uncommitted and pending becomes `ja`; its retry footer is then inaccessible.
-- Mixed items: a nested anchor navigates by pointer, but Enter on its DropdownItem emits a command without navigation. An explicit product activation adapter is allowed by #1891 and remains to be validated; this observation is not promoted to a separate upstream capability gap.
-- Published probe: exit 3, `blocked`, because the locked package could not be installed. `npm ci --ignore-scripts --no-audit --no-fund --cache /tmp/chain-1891-npm-cache` returned 401 for the GitHub Packages tarball. `npm view @ozwasyd/element-plus@1.5.1 version dist --registry=https://registry.npmjs.org --cache=/tmp/chain-1891-npm-cache`, run from `/tmp`, returned exit 1 and HTTP 404. No credentials were invented or persisted.
+The Blog source now composes Dropdown/Menu/Item/Button, has no local document
+pointerdown, item refs, roving keyboard or popup surface CSS, maps selection from
+the committed locale, and preserves product URL commands and async status.
+The runtime projection supplies the failed retry target and ignores superseded
+success/failure callbacks. Current component/runtime/coordinator unit tests cover
+33 cases. Export and isolated LocaleSelector local typechecks pass. Tests mount
+real teleported primitives; browser evidence covers the actual composition.
 
-Raw current reports, screenshots, and `published-install.txt` from the failed locked install are under `artifacts/frontend/locale-menu-probe/`. The screenshots were inspected for pending, visible error/retry, and the alternate Menu composition; they are minimal primitive fixtures rather than production-route evidence. The evidence-only follow-up commit does not change the tested harness bytes. These are API fixture observations, not real locale-resource transaction tests.
+Current migration reports and command logs are archived under
+`artifacts/frontend/locale-menu-probe/migration/`; inspect their exact bindings
+rather than treating older observations as current acceptance. The probe records
+ten locale names, checked state, pending/failure/retry/commit, URL activation,
+keyboard, repeated dismissal, disabled/compact and touch observations, accessibility
+snapshot, light/dark, RTL-direction projection, forced colors and reduced motion.
+RTL here changes item/container direction without inventing a supported locale.
+The 2x case uses CSS zoom and is not qualified as real browser 200% zoom.
 
-## Remaining acceptance gates
+#1891 remains **WIP / blocked**, not complete:
 
-#1891 is **waiting**, not complete. Its existing implementation was not migrated because the mandatory probe found a public API gap. No issue body or dependency definition was rewritten in this phase; the coordinator must account for #830 as the newly discovered prerequisite.
+- Public Dropdown's shared 34px option-row geometry clips native/English multiline
+  content. The closed #449 contract explicitly fixes desktop row geometry and
+  requires opt-in variants. A documented upstream composition/variant is needed;
+  consumer private geometry overrides or smaller/hidden labels are forbidden.
+- Narrow CSS 2x zoom evidence shows horizontal overflow. Do not promote the
+  viewport matrix to acceptance; distinguish fixture overflow from popup bounds.
+- Locked published package installation returned GitHub Packages HTTP 401;
+  public npm lookup returned 404 and authorized package metadata access returned
+  403. Published probing is blocked. No credentials or package identity were
+  fabricated; package publishing is not authorized.
+- Full production build is blocked by the incomplete dependency installation
+  (`@tailwindcss/vite` missing). Broader consumer typecheck reaches unrelated app
+  sources and missing dependencies and fails; it is not a successful full check.
+- Production-route preference integration, independent screen-reader review,
+  real browser zoom and complete qualified viewport/theme/input coverage remain
+  open. An accessibility snapshot is not screen-reader acceptance.
 
-Resume only after the coordinator supplies the exact upstream capability commit, its dynamic acceptance evidence, and an accessible published package identity. Then rerun both modes and perform the one-way LocaleSelector migration, preserving locale transactions, latest-wins, URLs, pending/error/retry and compact presentation.
-
-Product unit, i18n lifecycle, a11y, viewport, negative-control, full build/type checks and independent UX acceptance are still pending. The 10-locale, CJK/Latin/Cyrillic/RTL, 375/1440, 200% zoom, Light/Dark, keyboard/touch/screen-reader, forced-colors, reduced-motion, cleanup and interruption/repetition acceptance matrix has not been executed for a migrated product. Published product checks are additionally blocked by the locked-package install failure. No acceptance receipt, fallback, private selector/import, or new Blog-local menu owner was added.
+The coordinator needs the upstream public multiline-content disposition and an
+accessible published package identity with the checked API before release
+qualification. No issue closure, merge, deployment, fallback or UX acceptance
+receipt is performed by this task.
