@@ -39,6 +39,7 @@
             "paths": [
                 "tools/docs/global-claim-exactness-final.mjs",
                 "tools/docs/post-runtime-accepted-claims.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
                 "tools/test/correctness-attempt-migration.mjs"
             ],
             "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."

@@ -1630,8 +1630,16 @@ function validateTypedSourceState(sourceState, repositoryRoot, producerId,
     }
 }
 
-function validateMachineGlobalClaimExactnessReceipt(receipt)
+function validateMachineGlobalClaimExactnessReceipt(receipt, repositoryRoot)
 {
+    const claimSchema = readJson(repositoryRoot, 'config/schemas/doc-claim.schema.json');
+    const claimTypes = claimSchema.properties?.claimType?.enum;
+    if (claimSchema.$id !== 'fsusblog.doc-claim.v1' || !Array.isArray(claimTypes)
+        || claimTypes.length === 0 || new Set(claimTypes).size !== claimTypes.length
+        || claimTypes.some((type) => typeof type !== 'string') || !claimTypes.includes('generated-section'))
+    {
+        fail('canonical DocClaim type authority is invalid');
+    }
     assertExactKeys(receipt, [
         'schema', 'scopeId', 'runId', 'source', 'authorityDigests', 'counts', 'mutationAggregate',
         'claimAcceptance', 'residue', 'proseVerification', 'status', 'failureReasons',
@@ -1670,7 +1678,7 @@ function validateMachineGlobalClaimExactnessReceipt(receipt)
             || !stableIdentityPattern.test(claim.behaviorId ?? '')
             || !stableIdentityPattern.test(claim.scopeId ?? '')
             || typeof claim.documentPath !== 'string' || !claim.documentPath.startsWith('docs/')
-            || !['generated-section', 'prose'].includes(claim.claimType)
+            || !claimTypes.includes(claim.claimType)
             || (claim.claimType === 'generated-section') !== (claim.generatedSectionId !== null)
             || !digestPattern.test(claim.claimDigest ?? ''))
         {
@@ -2629,7 +2637,7 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
     {
         fail('accepted terminal payload schema/content digest mismatch');
     }
-    validateMachineGlobalClaimExactnessReceipt(terminal);
+    validateMachineGlobalClaimExactnessReceipt(terminal, repositoryRoot);
     if (receipt.sourceState.schedulerRunId !== terminal.runId
         || receipt.sourceState.commit !== terminal.source?.sourceCommit
         || receipt.sourceState.worktreeFingerprint !== prefixedDigest(terminal.source?.worktreeFingerprint))
@@ -2675,7 +2683,7 @@ export function validateAcceptedClaimsReceiptAgainstRegistry({
         if (!accepted
             || accepted.behaviorId !== owner.behaviorId || accepted.scopeId !== owner.scopeId
             || accepted.documentPath !== owner.documentPath
-            || (accepted.generatedSectionId === null) !== (accepted.claimType === 'prose')
+            || (accepted.generatedSectionId !== null) !== (accepted.claimType === 'generated-section')
             || (accepted.generatedSectionId !== null
                 && !owner.generatedSectionIds.includes(accepted.generatedSectionId)))
         {
