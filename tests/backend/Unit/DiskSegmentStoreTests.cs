@@ -34,7 +34,7 @@ public sealed class DiskSegmentStoreTests
         using var copy = new MemoryStream();
         Assert.True(lease.CopyTo(copy).Succeeded);
         Assert.Equal(new byte[] { 1, 2, 3 }, copy.ToArray());
-        Assert.Equal(64 + 2 * 96 + 5, fixture.Coordinator.Snapshot().Used["volume"]);
+        Assert.Equal(32768, fixture.DiskUsed);
         Assert.Equal(MemoryFailure.StaleLocation,
             fixture.Store.Acquire(published.Value.SegmentId, first with
             {
@@ -156,10 +156,10 @@ public sealed class DiskSegmentStoreTests
         MemoryContentIdentity identity = Identity();
         DiskSegmentPublication old = fixture.Publish(identity, [1, 2, 3, 4]);
         DiskSegmentLease reader = fixture.Store.Acquire(old.SegmentId, identity).Value!;
-        long before = fixture.Coordinator.Snapshot().Used["volume"];
+        long before = fixture.DiskUsed;
         var compacted = fixture.Store.Compact(old.SegmentId, true);
         Assert.True(compacted.Succeeded);
-        Assert.Equal(before * 2, fixture.Coordinator.Snapshot().Used["volume"]);
+        Assert.Equal(before * 2, fixture.DiskUsed);
         Assert.Equal(2, fixture.Root.EnumerateNames(16).Count());
         Assert.Equal(MemoryFailure.TierUnavailable, fixture.Store.Acquire(old.SegmentId, identity).Failure);
         using var target = new MemoryStream();
@@ -168,7 +168,7 @@ public sealed class DiskSegmentStoreTests
         reader.Dispose();
         reader.Dispose();
         Assert.Single(fixture.Root.EnumerateNames(16));
-        Assert.Equal(before, fixture.Coordinator.Snapshot().Used["volume"]);
+        Assert.Equal(before, fixture.DiskUsed);
         using DiskSegmentLease current = fixture.Store.Acquire(compacted.Value!.SegmentId, identity).Value!;
         Assert.True(current.CopyTo(new MemoryStream()).Succeeded);
     }
@@ -176,13 +176,13 @@ public sealed class DiskSegmentStoreTests
     [Fact]
     public void CompactionRequiresSimultaneousDestinationAdmissionAndPreservesSourceOnRejection()
     {
-        using var fixture = new Fixture(diskCap: 300);
+        using var fixture = new Fixture(diskCap: 50000);
         MemoryContentIdentity identity = Identity();
         DiskSegmentPublication source = fixture.Publish(identity, [1, 2, 3, 4]);
-        long before = fixture.Coordinator.Snapshot().Used["volume"];
+        long before = fixture.DiskUsed;
         Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Compact(source.SegmentId, true).Failure);
         Assert.Single(fixture.Root.EnumerateNames(16));
-        Assert.Equal(before, fixture.Coordinator.Snapshot().Used["volume"]);
+        Assert.Equal(before, fixture.DiskUsed);
         Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
         using DiskSegmentLease reader = fixture.Store.Acquire(source.SegmentId, identity).Value!;
         Assert.True(reader.CopyTo(new MemoryStream()).Succeeded);
@@ -252,7 +252,7 @@ public sealed class DiskSegmentStoreTests
             reader.Dispose();
             fixture.Store.Retire(source.SegmentId);
             Assert.Single(fixture.Root.EnumerateNames(16));
-            Assert.True(fixture.Coordinator.Snapshot().Used["volume"] > 0);
+            Assert.True(fixture.DiskUsed > 0);
             Assert.Equal(MemoryFailure.StaleLocation, reader.CopyTo(new MemoryStream()).Failure);
         });
         Assert.True(reader.CopyTo(target).Succeeded);
@@ -328,7 +328,7 @@ public sealed class DiskSegmentStoreTests
         Assert.True(oldReader.CopyTo(oldCopy).Succeeded);
         Assert.Equal(new byte[] { 3, 4, 5 }, oldCopy.ToArray());
         oldReader.Dispose();
-        Assert.Equal(64 + 96 + 2, fixture.Coordinator.Snapshot().Used["volume"]);
+        Assert.Equal(32768, fixture.DiskUsed);
     }
 
     [Theory]
@@ -504,6 +504,8 @@ public sealed class DiskSegmentStoreTests
     [InlineData("expired", MemoryFailure.TierUnavailable)]
     [InlineData("logical", MemoryFailure.BoundsViolation)]
     [InlineData("charge", MemoryFailure.BoundsViolation)]
+    [InlineData("short-charge", MemoryFailure.BoundsViolation)]
+    [InlineData("infinite-expiry", MemoryFailure.TierUnavailable)]
     public void PhysicalAllocationPolicyRejectsWrongScopeStaleRevisionAndInvalidBounds(string change, MemoryFailure failure)
     {
         var policy = new FixturePhysicalPolicy((root, logical) =>
@@ -517,6 +519,8 @@ public sealed class DiskSegmentStoreTests
                 "expired" => bound with { ValidUntil = DateTimeOffset.MinValue },
                 "logical" => bound with { MaximumLogicalBytes = logical - 1 },
                 "charge" => bound with { MaximumChargeBytes = 0 },
+                "short-charge" => bound with { MaximumChargeBytes = logical - 1 },
+                "infinite-expiry" => bound with { ValidUntil = DateTimeOffset.MaxValue },
                 _ => throw new ArgumentOutOfRangeException(nameof(change))
             };
             return MemoryOperationResult<DiskPhysicalAllocationBound>.Success(bound);
@@ -741,6 +745,7 @@ public sealed class DiskSegmentStoreTests
             }
             Assert.NotEqual(originalInode, fixture.Root.ObserveFileFootprint(stage).Inode);
             Assert.Equal(admitted, fixture.DiskUsed);
+            Assert.Equal(1, fixture.InodesUsed);
         });
         var result = fixture.Store.Publish([new(Identity(), payload, payload.Length)],
             DiskSpillClassification.PublicImmutableReconstructible, true);
@@ -754,6 +759,7 @@ public sealed class DiskSegmentStoreTests
         MemoryAccountingSnapshot retained = fixture.Coordinator.Snapshot();
         Assert.Equal(1, retained.Reservations);
         Assert.Equal(0, retained.Allocations);
+        Assert.Equal(1, fixture.InodesUsed);
         Assert.True(fixture.DiskUsed > 0);
         fixture.Store.RetryCleanup();
         Assert.Equal(new byte[] { 7, 8, 9 }, File.ReadAllBytes(replacementPath));
@@ -978,6 +984,183 @@ public sealed class DiskSegmentStoreTests
         }
     }
 
+    [Fact]
+    public void DefaultStoreWithoutOwnerFrozenPhysicalBoundRejectsCreation()
+    {
+        using var fixture = new Fixture();
+        using var unqualified = new DiskSegmentStore(fixture.Root, fixture.Budget, fixture.Limits);
+        var result = unqualified.Publish([new(Identity(), new MemoryStream([1]), 1)],
+            DiskSpillClassification.PublicImmutableReconstructible, true);
+        Assert.Equal(MemoryFailure.TierUnavailable, result.Failure);
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Theory]
+    [InlineData("missing", MemoryFailure.TierUnavailable)]
+    [InlineData("expired", MemoryFailure.TierUnavailable)]
+    [InlineData("root", MemoryFailure.TierUnavailable)]
+    [InlineData("capacity", MemoryFailure.TierUnavailable)]
+    [InlineData("revision", MemoryFailure.TierUnavailable)]
+    [InlineData("logical", MemoryFailure.BoundsViolation)]
+    public void CanonicalFrozenPhysicalPolicyRejectsMissingExpiredWrongScopeAndInsufficientLogicalBound(
+        string change, MemoryFailure failure)
+    {
+        using var fixture = new Fixture();
+        DiskPhysicalAllocationBound? bound = change switch
+        {
+            "missing" => null,
+            "expired" => fixture.PhysicalBound with { ValidUntil = DateTimeOffset.MinValue },
+            "root" => fixture.PhysicalBound with { RootInode = checked(fixture.PhysicalBound.RootInode + 1) },
+            "capacity" => fixture.PhysicalBound with { CapacityIdentity = "fixture:wrong-capacity" },
+            "revision" => fixture.PhysicalBound with { PolicyRevision = 2 },
+            "logical" => fixture.PhysicalBound with { MaximumLogicalBytes = 1 },
+            _ => throw new ArgumentOutOfRangeException(nameof(change))
+        };
+        using var store = new DiskSegmentStore(fixture.Root, fixture.Budget, fixture.Limits,
+            new FrozenDiskPhysicalAllocationPolicy(bound));
+        var result = store.Publish([new(Identity(), new MemoryStream([1]), 1)],
+            DiskSpillClassification.PublicImmutableReconstructible, true);
+        Assert.Equal(failure, result.Failure);
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public void CanonicalFrozenPhysicalBoundRetainsSeparateInodesAcrossRecoveryCompactionAndReaderDrain()
+    {
+        using var fixture = new Fixture();
+        MemoryContentIdentity identity = Identity();
+        DiskSegmentPublication source = fixture.Publish(identity, [1, 2, 3]);
+        Assert.Equal(32768, fixture.DiskUsed);
+        Assert.Equal(1, fixture.InodesUsed);
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["application-inodes"]);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Used["slots"]);
+        using DiskSegmentLease oldReader = fixture.Store.Acquire(source.SegmentId, identity).Value!;
+        Assert.Equal(1, fixture.InodesUsed);
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["slots"]);
+        var compacted = fixture.Store.Compact(source.SegmentId, true);
+        Assert.True(compacted.Succeeded);
+        Assert.Equal(65536, fixture.DiskUsed);
+        Assert.Equal(2, fixture.InodesUsed);
+        Assert.Equal(2, fixture.Coordinator.Snapshot().Used["application-inodes"]);
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["slots"]);
+        using var copy = new MemoryStream();
+        Assert.True(oldReader.CopyTo(copy).Succeeded);
+        Assert.Equal(new byte[] { 1, 2, 3 }, copy.ToArray());
+        oldReader.Dispose();
+        Assert.Equal(32768, fixture.DiskUsed);
+        Assert.Equal(1, fixture.InodesUsed);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Used["slots"]);
+        fixture.WriteRaw([4, 5]);
+        var recovered = fixture.Store.Recover(true, _ => true);
+        Assert.True(recovered.Succeeded);
+        Assert.Equal(1, recovered.Value!.Reused);
+        Assert.Equal(65536, fixture.DiskUsed);
+        Assert.Equal(2, fixture.InodesUsed);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Used["slots"]);
+        Assert.Equal(0, fixture.Store.ObserveInventory().Value!.UntrackedFiles);
+        fixture.Store.Disable();
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
+    [Fact]
+    public void OnePersistentInodeStopsNewSegmentsAndCompactionWhileReadSlotsRemainUsable()
+    {
+        using var fixture = new Fixture(inodeCap: 1);
+        MemoryContentIdentity identity = Identity();
+        DiskSegmentPublication source = fixture.Publish(identity, [1, 2, 3]);
+        Assert.Equal(1, fixture.InodesUsed);
+        using DiskSegmentLease reader = fixture.Store.Acquire(source.SegmentId, identity).Value!;
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["slots"]);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Publish(
+            [new(Identity(), new MemoryStream([4]), 1)],
+            DiskSpillClassification.PublicImmutableReconstructible, true).Failure);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Compact(source.SegmentId, true).Failure);
+        Assert.Equal(1, fixture.InodesUsed);
+        Assert.Equal(32768, fixture.DiskUsed);
+        Assert.Equal(1, fixture.Coordinator.Snapshot().Used["slots"]);
+        fixture.Store.Retire(source.SegmentId);
+        Assert.Single(fixture.Root.EnumerateNames(16));
+        Assert.Equal(1, fixture.InodesUsed);
+        Assert.Equal(MemoryFailure.TierUnavailable, fixture.Store.Acquire(source.SegmentId, identity).Failure);
+        using var copy = new MemoryStream();
+        Assert.True(reader.CopyTo(copy).Succeeded);
+        Assert.Equal(new byte[] { 1, 2, 3 }, copy.ToArray());
+        reader.Dispose();
+        Assert.Equal(0, fixture.InodesUsed);
+        Assert.Equal(0, fixture.DiskUsed);
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        fixture.Publish(Identity(), [5]);
+        Assert.Equal(1, fixture.InodesUsed);
+        Assert.Equal(32768, fixture.DiskUsed);
+    }
+
+    [Fact]
+    public void CanonicalFrozenPolicyAdmitsAndDiscardsZeroByteStagingWithoutTouchingUnrelatedFiles()
+    {
+        using var fixture = new Fixture();
+        string stage = fixture.Root.NewName("stage");
+        using (FileStream file = fixture.Root.CreateFile(stage))
+        {
+            Assert.Equal(0, file.Length);
+        }
+        string unrelated = Path.Combine(fixture.Path, "authoritative-sentinel");
+        File.WriteAllText(unrelated, "unchanged");
+        Assert.Equal(0, fixture.Root.ObserveFileFootprint(stage).LogicalBytes);
+        var result = fixture.Store.Recover(true, _ => true);
+        Assert.True(result.Succeeded);
+        Assert.Equal(0, result.Value!.Reused);
+        Assert.Equal(1, result.Value.Discarded);
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.Equal("unchanged", File.ReadAllText(unrelated));
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Allocations);
+        Assert.Equal(0, fixture.InodesUsed);
+        Assert.Equal(0, fixture.DiskUsed);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        Assert.False(fixture.Coordinator.Snapshot().Faulted);
+    }
+
+    [Fact]
+    public void RecoveryCannotAdoptExistingOwnerSegmentWithoutInodeAdmissionAndLeavesItBlockingGrowth()
+    {
+        using var fixture = new Fixture(inodeCap: 0);
+        string name = fixture.WriteRaw([1, 2, 3]);
+        DiskFileFootprint before = fixture.Root.ObserveFileFootprint(name);
+        int approvals = 0;
+        var recovered = fixture.Store.Recover(true, entry =>
+        {
+            approvals++;
+            return true;
+        });
+        Assert.Equal(MemoryFailure.BudgetRejected, recovered.Failure);
+        Assert.Equal(0, approvals);
+        Assert.Equal(name, Assert.Single(fixture.Root.EnumerateNames(16)));
+        DiskFileFootprint after = fixture.Root.ObserveFileFootprint(name);
+        Assert.Equal(before.CapacityIdentity, after.CapacityIdentity);
+        Assert.Equal(before.Inode, after.Inode);
+        Assert.Equal(before.LogicalBytes, after.LogicalBytes);
+        Assert.Equal(before.AllocatedFileBytes, after.AllocatedFileBytes);
+        Assert.Equal(before.ChangeStamp, after.ChangeStamp);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Reservations);
+        Assert.Equal(0, fixture.Coordinator.Snapshot().Allocations);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        var inventory = fixture.Store.ObserveInventory();
+        Assert.True(inventory.Succeeded);
+        Assert.Equal(1, inventory.Value!.UntrackedFiles);
+        using var payload = new CountingReadStream([4]);
+        Assert.Equal(MemoryFailure.BudgetRejected, fixture.Store.Publish([new(Identity(), payload, payload.Length)],
+            DiskSpillClassification.PublicImmutableReconstructible, true).Failure);
+        Assert.Equal(0, payload.ReadCalls);
+        Assert.Equal(name, Assert.Single(fixture.Root.EnumerateNames(16)));
+        Assert.Equal(0, approvals);
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+        Assert.False(fixture.Coordinator.Snapshot().Faulted);
+    }
+
     private static DiskPhysicalAllocationBound Bound(DiskFileFootprint root, long logical)
         => new(root.CapacityIdentity, root.Inode, logical, 65536, 1, DateTimeOffset.UtcNow.AddMinutes(10));
 
@@ -1014,40 +1197,60 @@ public sealed class DiskSegmentStoreTests
         }
         private readonly DiskSegmentLimits _limits = new(8, 4, 4096, 32768, 128, 16);
         private readonly string _capacityIdentity;
+        private readonly string _inodeCapacityIdentity;
         internal long DiskUsed => Coordinator.Snapshot().Used[_capacityIdentity];
+        internal long InodesUsed => Coordinator.Snapshot().Used[_inodeCapacityIdentity];
+        internal DiskBudgetAdmission Budget
+        {
+            get;
+        }
+        internal DiskPhysicalAllocationBound PhysicalBound
+        {
+            get;
+        }
+        internal DiskSegmentLimits Limits => _limits;
 
         internal Fixture(long diskCap = 100000, long hostCap = 100000, Action? duringAdmission = null,
-            IDiskPhysicalAllocationPolicy? physicalPolicy = null)
+            IDiskPhysicalAllocationPolicy? physicalPolicy = null, long inodeCap = 16)
         {
             Directory.CreateDirectory(Path, UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute);
             Root = new(Path, Guid.NewGuid());
-            _capacityIdentity = physicalPolicy is null ? "volume" : Root.ObserveRootFootprint().CapacityIdentity;
+            DiskFileFootprint rootFootprint = Root.ObserveRootFootprint();
+            _capacityIdentity = rootFootprint.CapacityIdentity;
+            _inodeCapacityIdentity = _capacityIdentity + ":inodes";
             var volume = new ResourceDomainId(Guid.NewGuid());
             var disk = new ResourceDomainId(Guid.NewGuid());
             var host = new ResourceDomainId(Guid.NewGuid());
             var slot = new ResourceDomainId(Guid.NewGuid());
+            var inodeCapacity = new ResourceDomainId(Guid.NewGuid());
+            var inode = new ResourceDomainId(Guid.NewGuid());
             var topology = new MemoryResourceTopology([
                 new(volume, _capacityIdentity, MemoryResourceUnit.Bytes, null),
                 new(disk, "application", MemoryResourceUnit.Bytes, volume),
                 new(host, "host", MemoryResourceUnit.Bytes, null),
-                new(slot, "slots", MemoryResourceUnit.OperationSlots, null)
+                new(slot, "slots", MemoryResourceUnit.OperationSlots, null),
+                new(inodeCapacity, _inodeCapacityIdentity, MemoryResourceUnit.Inodes, null),
+                new(inode, "application-inodes", MemoryResourceUnit.Inodes, inodeCapacity)
             ]);
             Coordinator = new(topology,
                 [new(volume, MemoryResourceUnit.Bytes, diskCap), new(disk, MemoryResourceUnit.Bytes, diskCap),
-                new(host, MemoryResourceUnit.Bytes, hostCap), new(slot, MemoryResourceUnit.OperationSlots, 64)],
+                new(host, MemoryResourceUnit.Bytes, hostCap), new(slot, MemoryResourceUnit.OperationSlots, 64),
+                new(inodeCapacity, MemoryResourceUnit.Inodes, inodeCap), new(inode, MemoryResourceUnit.Inodes, inodeCap)],
                 1, 128, 1024);
             DateTimeOffset now = DateTimeOffset.UtcNow;
             MemoryResourceObservation Observation(ResourceDomainId domain, MemoryResourceUnit unit, long amount)
                 => new(domain, unit, MemoryObservationState.Available, amount, "fixture:finite-capacity", now);
             var sample = new DiskCapacityObservation(_capacityIdentity, Observation(volume, MemoryResourceUnit.Bytes, diskCap),
-                Observation(volume, MemoryResourceUnit.Bytes, diskCap), Observation(slot, MemoryResourceUnit.OperationSlots, 64),
+                Observation(volume, MemoryResourceUnit.Bytes, diskCap), Observation(inodeCapacity, MemoryResourceUnit.Inodes, inodeCap),
                 DiskBackingKind.Independent, now.AddMinutes(10), 1);
-            var budget = new DiskBudgetAdmission(Coordinator, disk, volume, host, slot, diskCap, 0, () =>
+            Budget = new DiskBudgetAdmission(Coordinator, disk, volume, host, slot, inode, inodeCapacity, diskCap, 0, () =>
             {
                 duringAdmission?.Invoke();
                 return sample;
             });
-            Store = new(Root, budget, _limits, physicalPolicy);
+            PhysicalBound = new(rootFootprint.CapacityIdentity, rootFootprint.Inode, 32768, 32768,
+                1, now.AddMinutes(10));
+            Store = new(Root, Budget, _limits, physicalPolicy ?? new FrozenDiskPhysicalAllocationPolicy(PhysicalBound));
         }
 
         internal DiskSegmentPublication Publish(MemoryContentIdentity identity, byte[] data)

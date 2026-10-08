@@ -118,7 +118,7 @@ public sealed class OwnedSpillRoot : IDisposable
             sample.ReadOnly ? null : sample.AvailableBytes, "linux:fstatvfs:descriptor", sampledAt);
         MemoryObservationState inodeState = sample.ReadOnly ? MemoryObservationState.Denied
             : sample.AvailableInodes is null ? MemoryObservationState.Unknown : MemoryObservationState.Available;
-        var inodes = new MemoryResourceObservation(inodeDomain, MemoryResourceUnit.OperationSlots, inodeState,
+        var inodes = new MemoryResourceObservation(inodeDomain, MemoryResourceUnit.Inodes, inodeState,
             sample.ReadOnly ? null : sample.AvailableInodes, "linux:fstatvfs:descriptor:inodes", sampledAt);
         return new(sample.CapacityIdentity, bytes, quotaBytes, inodes, sample.Backing,
             (quotaBytes.SampledAt < sampledAt ? quotaBytes.SampledAt : sampledAt) + validity, policyRevision);

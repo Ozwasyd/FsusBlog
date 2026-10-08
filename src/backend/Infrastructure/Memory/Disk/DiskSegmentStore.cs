@@ -19,7 +19,7 @@ public sealed class DiskSegmentStore : IDisposable
     private readonly OwnedSpillRoot _root;
     private readonly DiskBudgetAdmission _budget;
     private readonly DiskSegmentLimits _limits;
-    private readonly IDiskPhysicalAllocationPolicy? _physicalPolicy;
+    private readonly IDiskPhysicalAllocationPolicy _physicalPolicy;
     private readonly List<Segment> _segments = [];
     private bool _disabled;
 
@@ -33,11 +33,11 @@ public sealed class DiskSegmentStore : IDisposable
         _root = root;
         _budget = budget;
         _limits = limits;
-        _physicalPolicy = physicalPolicy;
+        _physicalPolicy = physicalPolicy ?? new FrozenDiskPhysicalAllocationPolicy(null);
     }
 
-    /// <summary>False identifies the existing unqualified logical-byte source path.</summary>
-    public bool UsesPhysicalAllocationPolicy => _physicalPolicy is not null;
+    /// <summary>Every write requires an owner policy; an absent frozen bound rejects before creation.</summary>
+    public bool UsesPhysicalAllocationPolicy => true;
 
     public MemoryOperationResult<DiskSpillInventoryObservation> ObserveInventory(CancellationToken cancellationToken = default)
     {
@@ -227,7 +227,7 @@ public sealed class DiskSegmentStore : IDisposable
                     return MemoryOperationResult<DiskSegmentPublication>.Reject(MemoryFailure.TierUnavailable);
                 }
                 if (!BoundStillValid(bound.Value, inventory.Value.Root, size)
-                    || (_physicalPolicy is not null && segment.Footprint.AllocatedFileBytes > bound.Value.MaximumChargeBytes))
+                    || segment.Footprint.AllocatedFileBytes > bound.Value.MaximumChargeBytes)
                 {
                     segment.Retired = true;
                     Cleanup(segment);
@@ -241,13 +241,13 @@ public sealed class DiskSegmentStore : IDisposable
                 DiskFileFootprint publishedFootprint = _root.ObserveFileFootprint(finalName);
                 if (!SameObject(segment.Footprint, publishedFootprint)
                     || publishedFootprint.LogicalBytes != size
-                    || (_physicalPolicy is not null && publishedFootprint.AllocatedFileBytes > bound.Value.MaximumChargeBytes)
+                    || publishedFootprint.AllocatedFileBytes > bound.Value.MaximumChargeBytes
                     || !BoundStillValid(bound.Value, inventory.Value.Root, size))
                 {
                     throw new DiskFileSystemException("publish changed spill file", 0, DiskFileSystemFailure.OwnershipChanged);
                 }
                 segment.Footprint = publishedFootprint;
-                long diskCharge = _physicalPolicy is null ? size : bound.Value.MaximumChargeBytes;
+                long diskCharge = bound.Value.MaximumChargeBytes;
                 MemoryOperationResult<IMemoryAllocationCharge> committed = admission.Value!.Commit(
                     new AllocationId(id), Charges(diskCharge, _limits.IndexBytes(segment.Entries.Count)));
                 if (!committed.Succeeded)
@@ -364,7 +364,9 @@ public sealed class DiskSegmentStore : IDisposable
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.BudgetRejected);
                     }
                     DiskFileFootprint rootFootprint = _root.ObserveRootFootprint();
-                    MemoryOperationResult<DiskPhysicalAllocationBound> bound = GetBound(rootFootprint, size);
+                    // Empty debris still owns filesystem metadata; request a positive frozen bound
+                    // so its deletion can retain a conservative file and inode charge.
+                    MemoryOperationResult<DiskPhysicalAllocationBound> bound = GetBound(rootFootprint, Math.Max(1, size));
                     if (!bound.Succeeded)
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(bound.Failure!.Value);
@@ -373,7 +375,7 @@ public sealed class DiskSegmentStore : IDisposable
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
                     }
-                    if (_physicalPolicy is not null && footprint.AllocatedFileBytes > bound.Value!.MaximumChargeBytes)
+                    if (footprint.AllocatedFileBytes > bound.Value!.MaximumChargeBytes)
                     {
                         return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.BudgetRejected);
                     }
@@ -430,7 +432,7 @@ public sealed class DiskSegmentStore : IDisposable
                             return MemoryOperationResult<DiskSegmentRecovery>.Reject(MemoryFailure.TierUnavailable);
                         }
                         MemoryOperationResult<IMemoryAllocationCharge> committed = admission.Value!.Commit(
-                            new AllocationId(id), Charges(_physicalPolicy is null ? size : bound.Value.MaximumChargeBytes,
+                            new AllocationId(id), Charges(bound.Value.MaximumChargeBytes,
                                 _limits.IndexBytes(segment.Entries.Count)));
                         if (!committed.Succeeded)
                         {
@@ -664,12 +666,6 @@ public sealed class DiskSegmentStore : IDisposable
 
     private MemoryOperationResult<DiskPhysicalAllocationBound> GetBound(DiskFileFootprint root, long logicalBytes)
     {
-        if (_physicalPolicy is null)
-        {
-            // Kept for isolated source compatibility; Auto qualification must require the physical policy path.
-            return MemoryOperationResult<DiskPhysicalAllocationBound>.Success(
-                new(root.CapacityIdentity, root.Inode, logicalBytes, Math.Max(1, logicalBytes), _budget.PolicyRevision, DateTimeOffset.MaxValue));
-        }
         MemoryOperationResult<DiskPhysicalAllocationBound> result;
         try
         {
@@ -683,7 +679,8 @@ public sealed class DiskSegmentStore : IDisposable
         {
             return result;
         }
-        if (result.Value!.MaximumLogicalBytes < logicalBytes || result.Value.MaximumChargeBytes <= 0)
+        if (result.Value!.MaximumLogicalBytes < logicalBytes
+            || result.Value.MaximumChargeBytes < result.Value.MaximumLogicalBytes)
         {
             return MemoryOperationResult<DiskPhysicalAllocationBound>.Reject(MemoryFailure.BoundsViolation);
         }
@@ -694,8 +691,9 @@ public sealed class DiskSegmentStore : IDisposable
     private bool BoundStillValid(DiskPhysicalAllocationBound bound, DiskFileFootprint root, long logicalBytes)
         => bound.CapacityIdentity == root.CapacityIdentity && bound.RootInode == root.Inode && root.IsDirectory
             && bound.MaximumLogicalBytes >= logicalBytes && bound.MaximumChargeBytes > 0
+            && bound.MaximumChargeBytes >= bound.MaximumLogicalBytes
             && bound.PolicyRevision != 0 && bound.PolicyRevision == _budget.PolicyRevision
-            && bound.ValidUntil > DateTimeOffset.UtcNow;
+            && bound.ValidUntil != DateTimeOffset.MaxValue && bound.ValidUntil > DateTimeOffset.UtcNow;
 
     private static bool SameFile(DiskFileFootprint left, DiskFileFootprint right)
         => SameObject(left, right)
@@ -707,13 +705,14 @@ public sealed class DiskSegmentStore : IDisposable
             && left.IsDirectory == right.IsDirectory;
 
     private MemoryOperationResult<MemoryReservation> Reserve(long diskBytes, long indexBytes)
-        => _budget.TryReserve(new DiskBudgetRequest(diskBytes, checked(indexBytes + _limits.ChunkBytes + 512L), 1));
+        => _budget.TryReserve(new DiskBudgetRequest(diskBytes, checked(indexBytes + _limits.ChunkBytes + 512L), 1, 1));
 
     private IReadOnlyList<MemoryResourceCharge> Charges(long diskBytes, long indexBytes)
         => new MemoryResourceCharge[]
         {
             new(_budget.DiskDomain, MemoryResourceUnit.Bytes, diskBytes),
-            new(_budget.HostDomain, MemoryResourceUnit.Bytes, indexBytes)
+            new(_budget.HostDomain, MemoryResourceUnit.Bytes, indexBytes),
+            new(_budget.InodeDomain, MemoryResourceUnit.Inodes, 1)
         };
 
     private void Release(Segment segment)
