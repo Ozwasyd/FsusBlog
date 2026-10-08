@@ -5,6 +5,7 @@ import {
   BOOTSTRAP_IMPORT_RETRY_KEY,
   BOOTSTRAP_IMPORT_RETRY_TTL_MS,
   createBootstrapImportRecovery,
+  isRecoverableBootstrapImportError,
   runBootstrapImport
 } from '@/bootstrap/bootstrapImportRecovery'
 
@@ -20,6 +21,16 @@ describe('bootstrap import recovery', () => {
 
   afterEach(() => {
     vi.useRealTimers()
+  })
+
+  it('preserves import-error recognition for strings, coercible errors and absent values', () => {
+    expect(isRecoverableBootstrapImportError(importFailure())).toBe(true)
+    expect(isRecoverableBootstrapImportError(importFailure().message)).toBe(true)
+    expect(isRecoverableBootstrapImportError({ toString: () => importFailure().message })).toBe(true)
+    expect(isRecoverableBootstrapImportError(null)).toBe(false)
+    expect(isRecoverableBootstrapImportError(undefined)).toBe(false)
+    expect(isRecoverableBootstrapImportError({})).toBe(false)
+    expect(isRecoverableBootstrapImportError('application bootstrap failed')).toBe(false)
   })
 
   it('never persists a private path, query, or hash in its key or value', () => {

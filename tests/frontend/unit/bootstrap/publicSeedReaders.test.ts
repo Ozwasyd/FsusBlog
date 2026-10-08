@@ -282,4 +282,33 @@ describe('public seed readers', () => {
 
     fetchSpy.mockRestore()
   })
+
+  it.each(['', '   '])('preserves src fallback only for an empty dataset sidecar marker: %j', async (marker) => {
+    vi.resetModules()
+    const payload = { pageKind: 'Home', routeKey: 'home', title: 'Sidecar fallback' }
+    const rawPayload = encodePublicAotPayload(payload)
+    const script = document.createElement('script')
+    script.id = 'fsus-aot-hydration-props'
+    script.type = 'application/octet-stream'
+    script.dataset.aedsSrc = marker
+    script.setAttribute('src', '/aot-cache/payloads/aa/sidecar.aeds')
+    document.body.appendChild(script)
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue(new Response(base64UrlToBytes(rawPayload)))
+    const { readPublicHydrationPayloadAsync } = await import('@/bootstrap/publicHydrationBootstrap')
+    try {
+      const observed = await readPublicHydrationPayloadAsync()
+      if (marker === '') {
+        expect(observed).toEqual(payload)
+        expect(fetchSpy).toHaveBeenCalledOnce()
+        expect(fetchSpy.mock.calls[0]?.[0]).toBe('http://127.0.0.1:7568/aot-cache/payloads/aa/sidecar.aeds')
+        expect(await readPublicHydrationPayloadAsync()).toBe(observed)
+        expect(fetchSpy).toHaveBeenCalledOnce()
+      } else {
+        expect(observed).toBeNull()
+        expect(fetchSpy).not.toHaveBeenCalled()
+      }
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
 })
