@@ -2970,6 +2970,42 @@ request or acknowledge a stale private response. Typed payloads are bounded at
 checks do not certify real HTTP, PostgreSQL transaction or rendered interaction
 acceptance.
 
+## Selected-article freshness through the existing Server facade
+
+`POST /api/binary/author/articles/revalidate-selection` consumes the typed
+`AuthorArticleSelectionRevalidateRequest` (276) and returns
+`AuthorArticleSelectionRevalidateResponse` (277). The Shared owner is
+`AuthorArticleSelectionRevalidationContracts.cs`, with its wire specification in
+`author-article-selection-wire.json`. The request contains schema version, selected
+article ID, positive Int64 server revision, nonempty request Guid and the existing
+64-character lowercase permission token. Owner, title, slug, ranking and query text
+are absent. The authenticated `IAuthorRecentArticleHistoryApplicationFacade`
+derives the administrator and configured site; its source reader resolves to the
+existing `ArticleService`. Selection revalidation retains its three permission
+observations and two live coordinate reads, including lifecycle and row-version
+checks. A noncurrent result carries no permission token.
+
+The complete request frame is exactly 116 bytes (100-byte payload plus the AEDS2
+16-byte header); the response is bounded to 642 bytes (626-byte payload). Int64
+values remain canonical decimal strings in TypeScript. Payloads use little-endian
+integers, network-order Guid16, strict UTF-8 with Int32 byte lengths, and closed
+boolean/presence bytes. Site scope retains the actual 128 UTF16-unit Shared
+boundary; malformed scalars, control characters, noncanonical trims, versions,
+lengths and trailing bytes fail closed. The sole native dispatcher uses error 17,
+`author_article_selection_payload_invalid`. C#, TypeScript and native products
+come from `generate-author-article-selection-wire.mjs`.
+
+The route retains ArticleWrite authorization, the actual admin session boundary,
+private/no-store results, the existing request binder, unified errors and PoW.
+The frontend consumer uses the existing private-request lease, preserves abort
+and administrator identity changes, and checks article/revision/request/token
+correlation against an immutable request. This provides a freshness API; the
+actual Quick Switcher owner still owns ordering, stale-result refresh and unique
+workspace intent. It adds no query ranking, slug producer, history generation,
+browser authority or Markdown parser. Compiler and wire/unit controls do not
+certify real HTTP/session/permission lifecycle, complete frontend types or
+rendered UX acceptance.
+
 ## Typed writing-aid preference payloads
 
 `writing-aid-preference-wire.json` binds frames 272–274 to the exact existing Shared preference contracts and Snapshot/Update POD codecs. Snapshot retains the 96-byte fixed record plus a bounded UTF-8 scope blob; Update remains exactly 80 bytes. Receipt payload v1 carries a nonempty canonical UUID, exact `device:` scope, closed update/initialize action, committed status, two original snapshot payloads and the existing receipt digest, bounded to 1,434 bytes. Initialize preserves the canonical previous-revision-zero and committed-defaults rule. C#, TypeScript and native validators recompute the same closed Shared digest arrays; malformed UTF-8, padding, lengths, scope, revisions, actions, defaults or digests fail closed. JSON is used only in the existing internal domain digest algorithm, never as a wire payload or text fallback.

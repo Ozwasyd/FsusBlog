@@ -23,8 +23,8 @@ enum class ErrorCode : std::uint8_t
     ArticlePropertyValueReadPayloadInvalid = 13,
     AuthoringWorkspaceSnapshotPayloadInvalid = 14,
     WritingAidPreferencePayloadInvalid = 15,
-    // Reserved for the UploadAssetPreview owner; no preview frame or codec is admitted here.
     UploadAssetPreviewPayloadInvalid = 16,
+    AuthorArticleSelectionPayloadInvalid = 17,
     FontThemePayloadInvalid = 10
 };
 

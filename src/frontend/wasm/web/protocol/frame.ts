@@ -268,6 +268,8 @@ export const FrameType = {
   WritingAidPreferenceUpdateRequest: 273,
   WritingAidPreferenceReceiptResponse: 274,
   UploadAssetPreview: 275,
+  AuthorArticleSelectionRevalidateRequest: 276,
+  AuthorArticleSelectionRevalidateResponse: 277,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

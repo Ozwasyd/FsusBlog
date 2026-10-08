@@ -286,6 +286,8 @@
     { "name": "WritingAidPreferenceSnapshotResponse", "value": 272, "family": "writing-aid-preference" },
     { "name": "WritingAidPreferenceUpdateRequest", "value": 273, "family": "writing-aid-preference" },
     { "name": "WritingAidPreferenceReceiptResponse", "value": 274, "family": "writing-aid-preference" },
-    { "name": "UploadAssetPreview", "value": 275, "family": "upload-response" }
+    { "name": "UploadAssetPreview", "value": 275, "family": "upload-response" },
+    { "name": "AuthorArticleSelectionRevalidateRequest", "value": 276, "family": "author-article-selection" },
+    { "name": "AuthorArticleSelectionRevalidateResponse", "value": 277, "family": "author-article-selection" }
   ]
 }

@@ -18,6 +18,10 @@ public static class AuthorArticleSelectionRevalidationContract
     public const int SchemaVersion = 1;
     public const int MaxSiteScopeLength = 128;
     public const int PermissionTokenLength = 64;
+    public const int RequestPayloadBytes = 100;
+    public const int MaxResponsePayloadBytes = 626;
+    public const int MaxRequestFrameBytes = RequestPayloadBytes + 16;
+    public const int MaxResponseFrameBytes = MaxResponsePayloadBytes + 16;
 
     public static bool IsValidRequest(AuthorArticleSelectionRevalidationRequest? value)
         => value is not null && value.SchemaVersion == SchemaVersion
@@ -49,5 +53,18 @@ public static class AuthorArticleSelectionRevalidationContract
     private static bool IsValidSiteScope(string? value)
         => !string.IsNullOrWhiteSpace(value) && value.Length <= MaxSiteScopeLength
             && string.Equals(value, value.Trim(), StringComparison.Ordinal)
-            && !value.Any(char.IsControl);
+            && !value.Any(char.IsControl) && HasValidScalars(value);
+
+    private static bool HasValidScalars(string value)
+    {
+        for (int index = 0; index < value.Length; index++)
+        {
+            if (!char.IsSurrogate(value[index]))
+                continue;
+            if (!char.IsHighSurrogate(value[index]) || ++index == value.Length
+                || !char.IsLowSurrogate(value[index]))
+                return false;
+        }
+        return true;
+    }
 }

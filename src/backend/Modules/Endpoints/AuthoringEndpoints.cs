@@ -50,6 +50,7 @@ public static partial class AuthoringEndpoints
         MapArticleCanvasLinkRoutes(group);
         MapArticlePropertyValueRoutes(group);
         MapWorkspaceSnapshotRoutes(group);
+        MapArticleSelectionRoutes(group);
         return app;
     }
 

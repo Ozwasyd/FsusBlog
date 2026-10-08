@@ -271,5 +271,7 @@ public enum AedsFrameType : ushort
     WritingAidPreferenceSnapshotResponse = 272,
     WritingAidPreferenceUpdateRequest = 273,
     WritingAidPreferenceReceiptResponse = 274,
-    UploadAssetPreview = 275
+    UploadAssetPreview = 275,
+    AuthorArticleSelectionRevalidateRequest = 276,
+    AuthorArticleSelectionRevalidateResponse = 277
 }

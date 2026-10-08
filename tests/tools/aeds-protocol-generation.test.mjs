@@ -58,7 +58,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 267);
+    assert.equal(golden.frames.length, 269);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -183,24 +183,13 @@ test('source values and explicit metadata, not old output values, determine the 
     });
 });
 
-test('pending allocations stay outside every generated active frame and golden catalog', () =>
+test('selection roots leave reservation state only with exact active identities', () =>
 {
-    const outputs = new Map(renderAedsProtocolOutputs(manifest));
-    assert.deepEqual(manifest.reservedFrameValues.map(({ name, value, ownerIssue }) => [name, value, ownerIssue]), [
-        ['AuthorArticleSelectionRevalidateRequest', 276, 2233],
-        ['AuthorArticleSelectionRevalidateResponse', 277, 2233]
+    assert.deepEqual(manifest.reservedFrameValues, []);
+    assert.deepEqual(manifest.frameTypes.filter(frame => frame.value >= 276), [
+        { name: 'AuthorArticleSelectionRevalidateRequest', value: 276, goldenFamily: 'author-article-selection', goldenOrder: 267 },
+        { name: 'AuthorArticleSelectionRevalidateResponse', value: 277, goldenFamily: 'author-article-selection', goldenOrder: 268 }
     ]);
-    assert.deepEqual(manifest.frameTypes.find(frame => frame.name === 'UploadAssetPreview'), {
-        name: 'UploadAssetPreview', value: 275, goldenFamily: 'upload-response', goldenOrder: 266
-    });
-    for (const reservation of manifest.reservedFrameValues)
-    {
-        assert.ok(manifest.frameTypes.every(frame => frame.value !== reservation.value && frame.name !== reservation.name));
-        for (const text of outputs.values())
-        {
-            assert.ok(!text.includes(reservation.name));
-        }
-    }
 });
 
 test('pending allocations leave the original five generated products byte-for-byte unchanged', () =>

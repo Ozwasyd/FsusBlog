@@ -71,6 +71,6 @@ test('production DecodeFrame preserves exact AEDS2 header/CRC/errors and writing
   const build=spawnSync(process.env.CXX??'g++',['-std=c++23','-Wall','-Wextra','-Werror','-I',path.join(root,'src/frontend/wasm/aeds/include'),path.join(root,'tests/fixtures/protocol/writing-aid-preference-wire-native.cpp'),...['aeds_decode.cpp','aeds_crc32.cpp','pod_parse_article.cpp'].map(name=>path.join(root,'src/frontend/wasm/aeds/src',name)),'-o',executable],{encoding:'utf8'});assert.equal(build.status,0,build.stdout+build.stderr);
   const run=spawnSync(executable,[input,String(rows.length)],{encoding:'utf8'});assert.equal(run.status,0,run.stdout+run.stderr);assert.equal(run.stdout.trim(),`production dispatcher=${rows.length} cases, error15 and borrowed views verified`);
   assert.equal(spawnSync(executable,[input,String(rows.length+1)]).status,4);for(const count of ['0','1extra'])assert.equal(spawnSync(executable,[input,count]).status,2);
-  for(const malformed of ['0 0\n','0 gg\n','17 00\n','0 00 extra\n']){const file=path.join(directory,'malformed.txt');writeFileSync(file,malformed);assert.equal(spawnSync(executable,[file,'1']).status,2);}
+  for(const malformed of ['0 0\n','0 gg\n','18 00\n','0 00 extra\n']){const file=path.join(directory,'malformed.txt');writeFileSync(file,malformed);assert.equal(spawnSync(executable,[file,'1']).status,2);}
  }finally{rmSync(directory,{recursive:true,force:true});assert.equal(existsSync(directory),false);}
 });

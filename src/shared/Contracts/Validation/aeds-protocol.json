@@ -35,20 +35,7 @@
             "reason": "precise-anonymous-credential-ticket-response"
         }
     ],
-    "reservedFrameValues": [
-        {
-            "name": "AuthorArticleSelectionRevalidateRequest",
-            "value": 276,
-            "ownerIssue": 2233,
-            "reason": "canonical d365 selection source closure and actual typed transport pending; no active codec/route"
-        },
-        {
-            "name": "AuthorArticleSelectionRevalidateResponse",
-            "value": 277,
-            "ownerIssue": 2233,
-            "reason": "canonical d365 selection source closure and actual typed transport pending; no active codec/route"
-        }
-    ],
+    "reservedFrameValues": [],
     "anonymousPrivacyContract": {
         "circuitId": "fsus.anonymous.comment.v5",
         "publicInputLayoutVersion": 6,
@@ -1669,6 +1656,18 @@
             "value": 275,
             "goldenFamily": "upload-response",
             "goldenOrder": 266
+        },
+        {
+            "name": "AuthorArticleSelectionRevalidateRequest",
+            "value": 276,
+            "goldenFamily": "author-article-selection",
+            "goldenOrder": 267
+        },
+        {
+            "name": "AuthorArticleSelectionRevalidateResponse",
+            "value": 277,
+            "goldenFamily": "author-article-selection",
+            "goldenOrder": 268
         }
     ],
     "goldenCatalog": {

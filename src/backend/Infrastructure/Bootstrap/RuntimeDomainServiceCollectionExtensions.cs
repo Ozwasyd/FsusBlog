@@ -215,6 +215,9 @@ internal static class RuntimeDomainServiceCollectionExtensions
             DirectAuthorRecentArticleHistoryProjectionCache>();
         services.AddScoped<IAuthorRecentArticleHistoryProjectionService, AuthorRecentArticleHistoryProjectionService>();
         services.AddScoped<IAuthorRecentArticleHistoryApplicationFacade, AuthorRecentArticleHistoryApplicationFacade>();
+        services.AddScoped<IAuthorArticleQuerySourceReader>(sp => sp.GetRequiredService<ArticleService>());
+        services.AddScoped<AuthorArticleQuerySourceInspection>();
+        services.AddScoped<AuthorArticleSelectionRevalidationTransport>();
         services.AddScoped<IArticleTemplatePersistence, PostgresArticleTemplatePersistence>();
         services.AddScoped<IArticleTemplateStore, ArticleTemplateStore>();
         services.AddScoped<IArticleTemplatePermissionAuthority, ArticleTemplatePermissionAuthority>();
