@@ -1,0 +1,26 @@
+const { bindTemporalEntityBusinessFields } = await import(new URL('../test-fixtures/temporal-business-fields.mjs', import.meta.url));
+
+export const dataScaleTemporalFieldMappings = Object.freeze([
+    ['row.created-at', 'scale.row-created'],
+    ['article.createtime', 'article.created'],
+    ['article.metadata-updated-at', 'article.metadata-updated'],
+    ['article.published-at', 'article.published'],
+    ['article-revision.created-at', 'article.revision', 'hasRevision'],
+    ['article-publication.published-at', 'article.publication', 'hasPublication'],
+    ['comment.create-time', 'comment.created']
+].map(([field, roleId, rowPresence]) => Object.freeze({ field, roleId,
+    entityKind: roleId.split('.')[0], ...(rowPresence ? { rowPresence } : {}) })));
+
+/**
+ * Project already resolved scale coordinates for a set-based PostgreSQL writer.
+ * The distribution authority must resolve ordinals before calling this consumer;
+ * this module owns no ordinal formula, tier counts, epoch or distribution table.
+ */
+export function bindDataScaleTemporalBusinessFields(input)
+{
+    if (input?.temporalContext?.producerId !== 'scale-data')
+    {
+        throw new Error('data-scale temporal binding requires scale-data context');
+    }
+    return bindTemporalEntityBusinessFields({ ...input, fieldMappings: dataScaleTemporalFieldMappings });
+}

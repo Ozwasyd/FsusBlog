@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/data-scale/temporal-business-binding.mjs",
+                "tools/test-fixtures/producers/demo-public-producer.mjs",
+                "tools/test-fixtures/producers/demo-temporal-binding.mjs",
+                "tools/test-fixtures/temporal-business-fields.mjs",
+                "tools/test/check-temporal-shape-governance.mjs"
+            ],
+            "reason": "Preserve existing temporal artifact and producer ingress names in registered tooling surfaces while consuming exact catalog roles and refusing incomplete business bindings; no shared environment or naming registry is changed."
+        }
+    ]
+}

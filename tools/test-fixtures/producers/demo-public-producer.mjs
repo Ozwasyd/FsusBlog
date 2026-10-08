@@ -3,6 +3,9 @@
 
 import { createHash } from 'node:crypto';
 
+import { prepareDemoTemporalBinding } from './demo-temporal-binding.mjs';
+
+const { requireCompleteTemporalEntityBinding, verifyObservedTemporalEntityBusinessFields } = await import(new URL('../temporal-business-fields.mjs', import.meta.url));
 const { validateProducerReceipt } = await import(new URL("../receipt/index.mjs", import.meta.url));
 
 const PRODUCER_ID = 'development-demo';
@@ -58,6 +61,16 @@ export async function prepareDemoPublic(context, signal)
         throw new Error('demo-public composition root secret missing');
     }
 
+    // Verify the original entity plan and all requested source fields before
+    // cleanup or writes. Historical chronology conflicts remain refusals.
+    const temporalBinding = context.temporalContext == null
+        ? null
+        : prepareDemoTemporalBinding(context);
+    if (temporalBinding)
+    {
+        requireCompleteTemporalEntityBinding(temporalBinding.binding);
+    }
+
     if (context.previousProducerReceipt != null)
     {
         const previous = validateProducerReceipt(context.previousProducerReceipt);
@@ -86,7 +99,8 @@ export async function prepareDemoPublic(context, signal)
         body: JSON.stringify({
             namespace: context.namespace ?? null,
             runId: context.runIdentity ?? null,
-            temporalContext: context.temporalContext ?? null
+            temporalContext: context.temporalContext ?? null,
+            resolvedTemporalRoles: temporalBinding?.artifact ?? null
         }),
         signal
     });
@@ -99,6 +113,11 @@ export async function prepareDemoPublic(context, signal)
     if (!observations.database || !observations.redis || !observations.cache || observations.source !== 'service')
     {
         throw new Error('demo-public requires converged service database/redis/cache observations');
+    }
+    const temporalBusinessFields = payload?.temporalBusinessFields ?? payload?.TemporalBusinessFields;
+    if (temporalBinding)
+    {
+        verifyObservedTemporalEntityBusinessFields(temporalBinding.binding, temporalBusinessFields);
     }
     if (context.namespace)
     {
@@ -119,12 +138,19 @@ export async function prepareDemoPublic(context, signal)
         observations,
         databaseObservation: observations.database,
         providedCapabilities: ['development.demo.dataset'],
-        cleanupContract: { kind: 'receipt-exact-identities' }
+        cleanupContract: { kind: 'receipt-exact-identities' },
+        ...(temporalBinding ? { temporalBusinessFields } : {})
     };
 }
 
 export async function verifyDemoPublic(_context, result)
 {
+    if (_context.temporalContext != null)
+    {
+        const temporalBinding = prepareDemoTemporalBinding(_context);
+        requireCompleteTemporalEntityBinding(temporalBinding.binding);
+        verifyObservedTemporalEntityBusinessFields(temporalBinding.binding, result?.temporalBusinessFields);
+    }
     const entities = result?.observations?.database?.entities ?? [];
     const required = ['article', 'comment', 'admin-principal', 'user'];
     const owners = new Set(entities.map((item) => item.owner).filter(Boolean));
