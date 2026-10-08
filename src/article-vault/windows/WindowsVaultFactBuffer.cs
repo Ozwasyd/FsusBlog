@@ -45,10 +45,16 @@ internal sealed class WindowsVaultFactBuffer
                 5 => WindowsVaultFactClass.RenameNewName,
                 _ => WindowsVaultFactClass.Unknown
             };
-            bool blocked = admission.Disposition is not (WindowsVaultPathDisposition.Source
+            bool projectionInvalid = !WindowsVaultRawFactCodec.IsRelativeProjection(record.RelativePath);
+            bool blocked = projectionInvalid || admission.Disposition is not (WindowsVaultPathDisposition.Source
                 or WindowsVaultPathDisposition.MissingEntry);
-            string? reason = blocked ? admission.ReasonCode ?? "windows_vault_path_blocked"
-                : factClass == WindowsVaultFactClass.Unknown ? "windows_vault_native_action_unknown" : null;
+            string? reason = factClass == WindowsVaultFactClass.Unknown ? "windows_vault_native_action_unknown" : null;
+            if (blocked)
+            {
+                reason = WindowsVaultRawFactCodec.IsReasonCode(admission.ReasonCode) ? admission.ReasonCode
+                    : projectionInvalid ? "windows_vault_observation_projection_invalid" : "windows_vault_path_blocked";
+            }
+
             if (reason is not null)
             {
                 _reasonCode = reason;
@@ -66,6 +72,11 @@ internal sealed class WindowsVaultFactBuffer
     {
         lock (_gate)
         {
+            if (!WindowsVaultRawFactCodec.IsReasonCode(reasonCode))
+            {
+                reasonCode = "windows_vault_failure_reason_invalid";
+            }
+
             _reasonCode = reasonCode;
             Enqueue(Create(0, factClass, null, null, WindowsVaultPathDisposition.None,
                 nativeError, reasonCode, true));

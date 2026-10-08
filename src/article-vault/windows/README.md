@@ -25,6 +25,14 @@ loss. No raw-fact operation can mark a watermark clean. #2112 owns rescan proof
 and admission. Cancellation drains outstanding I/O before freeing native buffers
 and closing the directory/event handles. Observation does not mutate user files.
 
+`WindowsVaultRawFactCodec.Verify` checks semantics as well as the original digest:
+NTFS identity, positive sequence/timestamps, action/class/path-side agreement,
+structural relative projections, and mandatory rescan with a bounded reason code
+for every failure. Resealing contradictory facts does not make them valid. Unsafe
+names are retained only as blocked security facts; invalid reason text is replaced
+by a fixed failure code before sealing. These are structural checks, not native
+root/path admission. The observation consumer uses the same verifier.
+
 The canonical observation source at
 `e1b4ffba4781bf6729e38b240df8c7647f19768e` is consumed as six byte-identical
 Shared source units, listed with Git blob identities in the inventory. Their

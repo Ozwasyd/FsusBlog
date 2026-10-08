@@ -80,6 +80,24 @@ public sealed class WindowsVaultObservationAdapterTests
     }
 
     [Xunit.Fact]
+    public void PathlessAdmissionFailureRetainsItsRescanDigest()
+    {
+        ArticleVaultRootManifest root = Root();
+        WindowsVaultWatchIdentity identity = Identity(root);
+        var buffer = new WindowsVaultFactBuffer(identity, 8);
+        _ = buffer.Drain();
+        buffer.Failure(WindowsVaultFactClass.SecurityBlocked, "windows_vault_admission_unavailable");
+        WindowsVaultRawFact raw = Xunit.Assert.Single(buffer.Drain());
+        VaultRawObservation result = Xunit.Assert.Single(WindowsVaultObservationAdapter.Convert(root,
+            Binding(root), identity, [raw]));
+        Xunit.Assert.Equal(VaultRawObservationClass.WatchInvalidated, result.Class);
+        Xunit.Assert.Null(result.RelativePath);
+        Xunit.Assert.True(result.RescanRequired);
+        Xunit.Assert.False(result.WatermarkValid);
+        Xunit.Assert.Equal(raw.ContentDigest, result.NativeFactSha256);
+    }
+
+    [Xunit.Fact]
     public void ScopeDriftTamperAndInconsistentNativeActionAreRejected()
     {
         ArticleVaultRootManifest root = Root();

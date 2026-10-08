@@ -54,8 +54,7 @@ public static class WindowsVaultObservationAdapter
         foreach (WindowsVaultRawFact fact in facts)
         {
             if (fact is null || fact.Identity is null
-                || !WindowsVaultRawFactCodec.Verify(fact, expectedIdentity)
-                || !ValidNativeShape(fact))
+                || !WindowsVaultRawFactCodec.Verify(fact, expectedIdentity))
             {
                 throw new InvalidDataException("vault_observation_native_fact_invalid");
             }
@@ -94,36 +93,5 @@ public static class WindowsVaultObservationAdapter
         }
 
         return observations.ToArray();
-    }
-
-    private static bool ValidNativeShape(WindowsVaultRawFact fact)
-    {
-        bool oldPath = fact.RawOldRelativePath is not null;
-        bool newPath = fact.RawNewRelativePath is not null;
-        if (oldPath && newPath)
-        {
-            return false;
-        }
-
-        if (fact.FactClass is WindowsVaultFactClass.Added or WindowsVaultFactClass.Removed
-            or WindowsVaultFactClass.Modified or WindowsVaultFactClass.RenameOldName
-            or WindowsVaultFactClass.RenameNewName
-            && fact.PathDisposition is not (WindowsVaultPathDisposition.Source or WindowsVaultPathDisposition.MissingEntry))
-        {
-            return false;
-        }
-
-        return fact.FactClass switch
-        {
-            WindowsVaultFactClass.Added => fact.NativeAction == 1 && newPath && !oldPath,
-            WindowsVaultFactClass.Removed => fact.NativeAction == 2 && oldPath && !newPath,
-            WindowsVaultFactClass.Modified => fact.NativeAction == 3 && newPath && !oldPath,
-            WindowsVaultFactClass.RenameOldName => fact.NativeAction == 4 && oldPath && !newPath,
-            WindowsVaultFactClass.RenameNewName => fact.NativeAction == 5 && newPath && !oldPath,
-            WindowsVaultFactClass.SecurityBlocked => fact.RescanRequired
-                && fact.PathDisposition == WindowsVaultPathDisposition.Blocked,
-            WindowsVaultFactClass.Unknown => fact.RescanRequired,
-            _ => fact.NativeAction == 0 && !oldPath && !newPath && fact.RescanRequired
-        };
     }
 }

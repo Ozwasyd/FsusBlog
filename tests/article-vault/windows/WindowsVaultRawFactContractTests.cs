@@ -126,6 +126,31 @@ public sealed class WindowsVaultRawFactContractTests
     }
 
     [Fact]
+    public void UnsafeProducerProjectionAndPrivateReasonBecomeVerifiableBlockedFacts()
+    {
+        var buffer = new WindowsVaultFactBuffer(Identity(), 8);
+        _ = buffer.Drain();
+        buffer.Receive(new(3, "..\\outside.md"), new(WindowsVaultPathDisposition.MissingEntry, null));
+        buffer.Receive(new(3, "article.md"), new(WindowsVaultPathDisposition.Blocked, "private token\ntext"));
+        IReadOnlyList<WindowsVaultRawFact> facts = buffer.Drain();
+        Assert.Equal("..\\outside.md", facts[0].RawNewRelativePath);
+        Assert.Equal("windows_vault_observation_projection_invalid", facts[0].ReasonCode);
+        Assert.Equal("windows_vault_path_blocked", facts[1].ReasonCode);
+        Assert.All(facts, fact =>
+        {
+            Assert.Equal(WindowsVaultFactClass.SecurityBlocked, fact.FactClass);
+            Assert.Equal(WindowsVaultPathDisposition.Blocked, fact.PathDisposition);
+            Assert.True(fact.RescanRequired);
+            Assert.True(WindowsVaultRawFactCodec.Verify(fact, Identity()));
+        });
+        Assert.DoesNotContain("private token", JsonSerializer.Serialize(facts));
+        buffer.Failure(WindowsVaultFactClass.SecurityBlocked, "private token\ntext");
+        WindowsVaultRawFact failure = Assert.Single(buffer.Drain());
+        Assert.Equal("windows_vault_failure_reason_invalid", failure.ReasonCode);
+        Assert.True(WindowsVaultRawFactCodec.Verify(failure, Identity()));
+    }
+
+    [Fact]
     public void MissingOrUndefinedAdmissionCannotProduceSourceFacts()
     {
         var buffer = new WindowsVaultFactBuffer(Identity(), 8);
