@@ -1,0 +1,16 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/configuration/check-solution-source.mjs",
+        "tools/configuration/solution-source.test.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/source-governance.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "9fef8069023eb1b975634bde1174c06e6cc73e2a6a06c3d5ed32a26cb5785562"
+        }
+    ]
+}

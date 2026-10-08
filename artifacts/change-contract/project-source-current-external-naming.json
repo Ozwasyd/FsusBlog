@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/configuration/check-solution-source.mjs",
+                "tools/configuration/solution-source.test.mjs",
+                "tools/test-matrix/pr-impact-plan.mjs",
+                "tools/test-matrix/source-governance.mjs"
+            ],
+            "reason": "Preserve original process-environment spellings on the exact changed registered source checker and caller surfaces while adding finite XML declaration inspection."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical authority JSON wire keys while the original producer binds current source checker and caller inputs."
+        }
+    ]
+}
