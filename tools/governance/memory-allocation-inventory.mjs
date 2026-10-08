@@ -77,7 +77,12 @@ export function captureMemoryCandidate(root)
     const catalog = JSON.parse(readRegular(root, catalogPath));
     const boundaryInputs = new Set([
         ...catalog.authorities.map((entry) => entry.path),
-        ...catalog.traces.flatMap((trace) => [trace.testOwner, ...trace.evidence.map((entry) => entry.path)])
+        ...catalog.traces.flatMap((trace) => [trace.testOwner, ...trace.evidence.map((entry) => entry.path)]),
+        ...(catalog.families ?? []).flatMap((family) => [family.testOwner, ...family.evidence.map((entry) => entry.path)]),
+        ...(catalog.reuseOwners ?? []).map((entry) => entry.path),
+        ...(catalog.supportInventory?.rows ?? []).flatMap((row) => [row.source, ...row.offlineClosure]),
+        ...(catalog.supportInventory?.targetFrameworks ?? []).map((entry) => entry.project),
+        ...(catalog.syntaxObserver ? [catalog.syntaxObserver.project, catalog.syntaxObserver.source] : [])
     ]);
     const selected = files.filter((file) => (file.startsWith('src/') && sourceExtensions.test(file))
         || dependencyFiles.test(file) || boundaryInputs.has(file) || file === catalogPath || file === producerPath);
@@ -188,11 +193,48 @@ export function validateMemoryBoundaries(catalog, root)
             throw new Error('memory inventory cannot replace a product authority');
         }
     }
+    for (const reuse of catalog.reuseOwners ?? [])
+    {
+        readRegular(root, reuse.path);
+        if (reuse.disposition !== 'reuse-do-not-replace')
+        {
+            throw new Error('inventory cannot replace an existing admission or scheduling owner');
+        }
+    }
+    if (catalog.supportInventory)
+    {
+        if (!catalog.supportInventory.rows.length)
+        {
+            throw new Error('missing support inventory');
+        }
+        const targets = new Set();
+        for (const row of catalog.supportInventory.rows)
+        {
+            if (!row.os || !row.architecture || !row.rid || targets.has(row.rid)
+                || row.status !== 'NotVerified' || !row.offlineClosure.length || !row.installedClosure)
+            {
+                throw new Error('inventory cannot certify a platform or conceal its offline closure');
+            }
+            targets.add(row.rid);
+            readRegular(root, row.source);
+            for (const input of row.offlineClosure)
+            {
+                readRegular(root, input);
+            }
+        }
+        for (const target of catalog.supportInventory.targetFrameworks)
+        {
+            if (!readRegular(root, target.project).toString('utf8').includes(`<TargetFramework>${target.framework}</TargetFramework>`))
+            {
+                throw new Error(`target framework differs from owning project: ${target.project}`);
+            }
+        }
+    }
     if (new Set(catalog.traces.map((trace) => trace.id)).size !== catalog.traces.length)
     {
         throw new Error('duplicate ownership trace');
     }
-    for (const trace of catalog.traces)
+    for (const trace of [...catalog.traces, ...(catalog.families ?? [])])
     {
         for (const key of ['producer', 'owner', 'consumers', 'releaseEvent', 'capacityModel', 'frequency', 'asyncEscape', 'classification', 'migrationDisposition', 'observationHeadroom', 'testOwner'])
         {
@@ -201,7 +243,7 @@ export function validateMemoryBoundaries(catalog, root)
                 throw new Error(`missing ${key}: ${trace.id}`);
             }
         }
-        if (trace.pathStatus !== 'baseline-reported' || !trace.evidence.length)
+        if (!['baseline-reported', 'owner-resolution-required'].includes(trace.pathStatus) || !trace.evidence.length)
         {
             throw new Error(`unbound ownership trace: ${trace.id}`);
         }
@@ -230,6 +272,86 @@ export function validateMemoryBoundaries(catalog, root)
     }
 }
 
+function projectFamilies(catalog, sites)
+{
+    if (!catalog.families)
+    {
+        return undefined;
+    }
+    const owners = new Map();
+    const ids = new Set();
+    for (const family of catalog.families)
+    {
+        if (ids.has(family.id) || !family.sourcePaths?.length || !family.exclusionReason?.trim())
+        {
+            throw new Error(`invalid family identity or exclusion boundary: ${family.id}`);
+        }
+        ids.add(family.id);
+        for (const source of family.sourcePaths)
+        {
+            if (owners.has(source))
+            {
+                throw new Error(`duplicate source family: ${source}`);
+            }
+            owners.set(source, family.id);
+        }
+    }
+    const observedPaths = new Set(sites.map((site) => site.path));
+    for (const source of owners.keys())
+    {
+        if (!observedPaths.has(source))
+        {
+            throw new Error(`extra family source outside discovery: ${source}`);
+        }
+    }
+    return sites.map((site) =>
+    {
+        const familyId = owners.get(site.path);
+        if (!familyId)
+        {
+            throw new Error(`unexplained family source: ${site.path}`);
+        }
+        return { siteId: site.id, familyId, semanticLifetime: 'NotVerified' };
+    });
+}
+
+function observeSyntax(root, catalog, sites)
+{
+    if (!catalog.syntaxObserver)
+    {
+        return undefined;
+    }
+    const executable = process.env.FSUS_MEMORY_SYNTAX_OBSERVER;
+    if (!executable || !path.isAbsolute(executable) || fs.lstatSync(executable).isSymbolicLink())
+    {
+        throw new Error('explicit regular absolute FSUS_MEMORY_SYNTAX_OBSERVER DLL required');
+    }
+    const artifacts = fs.readdirSync(path.dirname(executable)).sort()
+        .filter((name) => /\.(?:dll|deps\.json|runtimeconfig\.json)$/u.test(name))
+        .map((name) => ({ name, digest: digest(fs.readFileSync(path.join(path.dirname(executable), name))) }));
+    const grouped = new Map();
+    for (const site of sites.filter((item) => item.path.endsWith('.cs')))
+    {
+        if (!grouped.has(site.path))
+        {
+            grouped.set(site.path, { path: site.path, source: readRegular(root, site.path).toString('utf8'), sites: [] });
+        }
+        grouped.get(site.path).sites.push({ id: site.id, line: site.line,
+            pattern: discoveryPatterns.find(([kind]) => kind === site.kind)[1] });
+    }
+    const result = JSON.parse(execFileSync('dotnet', [executable],
+        { input: JSON.stringify([...grouped.values()]), encoding: 'utf8', maxBuffer: 64 * 1024 * 1024 }));
+    const expected = sites.filter((item) => item.path.endsWith('.cs'));
+    if (result.schema !== 'fsusblog.memory-syntax-observation.v1' || result.evidenceLevel !== 'csharp-syntax-only'
+        || result.observations.length !== expected.length
+        || result.observations.some((item, index) => item.id !== expected[index].id
+            || item.sourceDigest !== expected[index].sourceDigest || !item.facts.length))
+    {
+        throw new Error('syntax observer coverage or identity mismatch');
+    }
+    return { dotnetSdk: execFileSync('dotnet', ['--version'], { encoding: 'utf8' }).trim(), artifacts, ...result };
+}
+
 export function produceMemoryInventory(root, runId)
 {
     if (typeof runId !== 'string' || !/^[a-zA-Z0-9._-]{1,100}$/u.test(runId))
@@ -240,6 +362,8 @@ export function produceMemoryInventory(root, runId)
     const catalog = JSON.parse(readRegular(root, catalogPath));
     validateMemoryBoundaries(catalog, root);
     const sites = discoverMemorySites(root, candidate);
+    const families = projectFamilies(catalog, sites);
+    const syntax = observeSyntax(root, catalog, sites);
     const inventory = {
         schema: 'fsusblog.memory-allocation-inventory.v1',
         runId,
@@ -254,6 +378,7 @@ export function produceMemoryInventory(root, runId)
         coverage: { discoveredSites: sites.length, resolvedSites: 0, unresolvedSites: sites.length },
         sites,
         traces: catalog.traces,
+        ...(families ? { families: catalog.families, familyMapping: families, syntax, supportInventory: catalog.supportInventory, reuseOwners: catalog.reuseOwners } : {}),
         unresolved: unresolvedCoverage
     };
     if (captureMemoryCandidate(root).worktreeFingerprint !== candidate.worktreeFingerprint)
@@ -305,6 +430,15 @@ export function verifyMemoryInventory(root, inventory, { requireComplete = false
         || JSON.stringify(inventory.sites.map((site) => site.id).sort()) !== JSON.stringify(independentlyFound))
     {
         throw new Error('discovery-to-inventory mismatch: missing, extra, duplicate or changed site');
+    }
+    const familyMapping = projectFamilies(catalog, expectedSites);
+    if (familyMapping && (JSON.stringify(inventory.families) !== JSON.stringify(catalog.families)
+        || JSON.stringify(inventory.familyMapping) !== JSON.stringify(familyMapping)
+        || JSON.stringify(inventory.supportInventory) !== JSON.stringify(catalog.supportInventory)
+        || JSON.stringify(inventory.reuseOwners) !== JSON.stringify(catalog.reuseOwners)
+        || JSON.stringify(inventory.syntax) !== JSON.stringify(observeSyntax(root, catalog, expectedSites))))
+    {
+        throw new Error('family, support boundary or syntax observation changed');
     }
     const expectedCoverage = { discoveredSites: expectedSites.length, resolvedSites: 0, unresolvedSites: expectedSites.length };
     if (JSON.stringify(inventory.coverage) !== JSON.stringify(expectedCoverage)
