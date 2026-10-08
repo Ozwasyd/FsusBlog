@@ -4,9 +4,10 @@
         {
             "id": "json-wire-key",
             "paths": [
+                "tests/governance/test-lifecycle-registry.json",
                 "tests/backend/packages.lock.json"
             ],
-            "reason": "Preserve NuGet lock schema keys and external package and project identifiers while consuming the reviewed Server AngleSharp dependency edge from the approved prerequisite commit."
+            "reason": "Preserve NuGet lock schema keys, external package and project identifiers, and lifecycle registry field spellings while consuming the reviewed dependency edges and deduplicated canonical fixture registration from the approved prerequisite commits."
         }
     ]
 }
