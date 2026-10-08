@@ -17,6 +17,9 @@ for (const [name, source] of [
     ['new wrapper', `function requestBinaryUrl(url:string){ return fetch(url) }`],
     ['direct fetch', `fetch('/api/binary/category')`],
     ['aliased direct fetch', `const prefix='/api/binary'; const path=prefix+'/category'; fetch(path)`],
+    ['renamed fetch', `const load=fetch;load('/api/binary/category')`],
+    ['property fetch alias', `const load=globalThis.fetch;load('/api/binary/category')`],
+    ['generic resource wrapper', `function loadResource(url:string){return fetch(url)};loadResource('/api/binary/category')`],
     ['raw import alias', `import {binaryRequest as load} from '@/api/binaryApiClient';load('/api/binary/category')`],
     ['missing descriptor', `requestBinaryOnly({frameType:1})`]
 ]) test(`rejects ${name}`, () => assert.ok(check(source).length > 0));
