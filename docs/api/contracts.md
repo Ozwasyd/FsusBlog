@@ -3033,3 +3033,45 @@ and transaction receipts. The #1724 publication/projection port is a development
 capability, with database/outbox/AOT convergence still unqualified. The #2317
 author full-text index and lifecycle rebuild contract is distinct; publication
 receipts cannot substitute for its missing atomic index writer/readback.
+
+## Vault operation and observation candidates
+
+`ArticleVaultOperationVerifier` binds the original plan, agent, request,
+idempotency key and deadline to an exact immutable checkpoint chain. Cancellation
+or expiry after an uncertain server commit requires recovery and retains the
+previous base. Server acceptance alone projects Applying. Synced and recovery
+resume remain refused until actual local materialization/base verification exists.
+`PostgresArticleVaultOperationCheckpointStore` names an exact history tip,
+serializes appends through a locked registered identity and checks original server
+receipts. Its migration definition is a source capability; service/migration
+registration and real persistence qualification remain separate integration work.
+The compiled execution boundary permits the exact SDK `InvalidDataException`
+validation type and still rejects every filesystem member, watcher and import
+side path, including constructor-only and mixed validation/file-access controls.
+
+`ArticleVaultSnapshotAssessor` compares bounded actual bytes and descriptor
+metadata without normalizing them. Its StableCandidate is a byte comparison,
+not native content admission or proof of editor completion. The current native
+reader must supply its own root-bound use boundary. `ArticleVaultEventNormalizer`
+keeps raw observation order, loss markers and rescan obligations;
+`ArticleVaultRescanTracker` owns bounded rescan attempts. Serialized observation
+bindings cannot construct a native watcher, grant writer authority or acknowledge
+an unverified rescan. `LinuxVaultObservationAdapter` verifies the original raw
+fact and independently supplied exact root/watch binding before conversion.
+
+`ArticleVaultAgentBinding`, `ArticleVaultAgentRequest` and the writer-lease
+protocol close the local wire and transition shapes. They do not create a
+protected native lock, authenticate a process, own an IPC endpoint or prove
+secret-token/binary-root admission.
+
+`ArticleVaultResolutionPlanner` currently seals scalar metadata proposals over
+the original plan, evidence, Git facts and explicit confirmation. It does not
+unblock the original plan or allocate a server revision. Recovery journals name
+immutable references and backup requirements; they cannot prove backup presence,
+encryption, expiry, persistence, recovery or a completed base commit.
+
+Portable dependency manifests and plan extensions are finite source candidates.
+They require exact current selected source/revision/graph coordinates and actual
+canonical dependency authority before consumption. A digest verified against a
+saved article manifest cannot substitute for a fresh server observation; current
+coordinate admission and producer integration remain unqualified.
