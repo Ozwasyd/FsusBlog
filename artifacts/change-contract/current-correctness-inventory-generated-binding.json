@@ -9,7 +9,8 @@
         "tools/test/attempt-runner.mjs",
         "tools/test/temporal-context.mjs",
         "tools/test/temporal-context-contract.mjs",
-        "tools/test/correctness-attempt-migration.mjs"
+        "tools/test/correctness-attempt-migration.mjs",
+        "tests/tools/support/esm-fixture-materializer.mjs"
     ],
     "outputs": [
         {
@@ -18,7 +19,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "5cfaa8bef118dd49416a0a363b5e39b03e9623600b6a41ac9c1e09b5c526fb21"
+            "sha256": "0f59c990e6fc7f5e1e1becb2eece209ff4cd6ef6afb9ee1b0fadc6ab7a9caf64"
         }
     ]
 }
