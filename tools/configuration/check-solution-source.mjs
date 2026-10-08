@@ -70,6 +70,141 @@ print(json.dumps({"status": "success", "executable": sys.executable, "version": 
 const pythonAstLimits = Object.freeze({ fileBytes: 1024 * 1024, batchBytes: 8 * 1024 * 1024,
     addressSpaceBytes: 128 * 1024 * 1024, cpuSeconds: 2, timeoutMs: 10_000, outputBytes: 16 * 1024 });
 
+// A finite declaration grammar, not an MSBuild evaluator. Only predefined XML
+// escapes are decoded; custom/numeric entities and executable shapes refuse.
+const projectXmlParser = String.raw`
+import json, re, resource, sys
+from xml.parsers import expat
+resource.setrlimit(resource.RLIMIT_AS, (128 * 1024 * 1024, 128 * 1024 * 1024))
+resource.setrlimit(resource.RLIMIT_CPU, (2, 2))
+document = json.load(sys.stdin)
+source = document["source"]
+if re.search(r"&(?!amp;|lt;|gt;|apos;|quot;)", source):
+    raise ValueError("project XML refuses custom or numeric entity aliases")
+stack = []
+root = None
+nodes = 0
+def refuse(*arguments):
+    raise ValueError("project XML refuses DTD, entities, processing instructions, and CDATA")
+def start(name, attributes):
+    global root, nodes
+    nodes += 1
+    if nodes > 4096 or len(stack) >= 4:
+        raise ValueError("project XML exceeds its bounded declaration structure")
+    if ":" in name or any(":" in key or key == "xmlns" for key in attributes):
+        raise ValueError("project XML namespaces are unsupported")
+    node = {"name": name, "attributes": dict(attributes), "children": [], "text": ""}
+    if stack:
+        stack[-1]["children"].append(node)
+    elif root is not None:
+        raise ValueError("project XML requires one root")
+    else:
+        root = node
+    stack.append(node)
+def end(name):
+    stack.pop()
+def text(value):
+    if stack:
+        stack[-1]["text"] += value
+    elif value.strip():
+        raise ValueError("project XML refuses text outside the root")
+def declaration(version, encoding, standalone):
+    if version != "1.0" or encoding is not None and encoding.lower() != "utf-8":
+        raise ValueError("project XML requires UTF-8 XML 1.0")
+parser = expat.ParserCreate()
+parser.StartElementHandler = start
+parser.EndElementHandler = end
+parser.CharacterDataHandler = text
+parser.StartDoctypeDeclHandler = refuse
+parser.EntityDeclHandler = refuse
+parser.ExternalEntityRefHandler = refuse
+parser.ProcessingInstructionHandler = refuse
+parser.StartCdataSectionHandler = refuse
+parser.XmlDeclHandler = declaration
+parser.Parse(source, True)
+if root is None or root["name"] != "Project" or set(root["attributes"]) != {"Sdk"}:
+    raise ValueError("expected a Project root with one literal Sdk attribute")
+if root["attributes"]["Sdk"] not in ("Microsoft.NET.Sdk", "Microsoft.NET.Sdk.Web"):
+    raise ValueError("project XML requires a supported literal SDK name")
+def container(node):
+    if node["text"].strip():
+        raise ValueError("project XML refuses container text")
+def identifier(value):
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.-]*", value):
+        raise ValueError("project XML requires literal declaration identifiers")
+def opaque(value):
+    if not value or re.search(r"[\x00-\x1f]", value):
+        raise ValueError("project XML requires nonempty scalar declarations")
+    literal = re.sub(r"\$\([A-Za-z_][A-Za-z0-9_]*\)", "", value)
+    if any(token in literal for token in ("$(", "@(", "%(", "$[")):
+        raise ValueError("project XML refuses property functions or item transforms")
+container(root)
+properties = []
+packages = []
+references = []
+resources = []
+metadata = []
+property_names = {"TargetFramework", "RootNamespace", "AssemblyName", "OutputType", "ImplicitUsings",
+    "Nullable", "AllowUnsafeBlocks", "IsPackable", "IsTestProject", "StartupObject",
+    "GenerateDocumentationFile", "NoWarn", "IsRoslynComponent", "EnforceExtendedAnalyzerRules",
+    "InvariantGlobalization"}
+seen_properties = set()
+seen_packages = set()
+seen_metadata = set()
+seen_resources = set()
+for group in root["children"]:
+    if group["name"] not in ("PropertyGroup", "ItemGroup") or group["attributes"]:
+        raise ValueError("project XML supports only unconditional PropertyGroup and ItemGroup declarations")
+    container(group)
+    for item in group["children"]:
+        name, attributes = item["name"], item["attributes"]
+        if item["children"]:
+            raise ValueError("project XML refuses nested item metadata or property structures")
+        if group["name"] == "PropertyGroup":
+            value = item["text"].strip()
+            if name not in property_names or attributes or name in seen_properties:
+                raise ValueError("project XML refuses unknown, attributed, or duplicate properties")
+            opaque(value)
+            if name == "TargetFramework" and not re.fullmatch(r"net[0-9]+\.[0-9]+", value):
+                raise ValueError("project XML requires one literal TargetFramework")
+            seen_properties.add(name)
+            properties.append({"name": name, "value": value})
+            continue
+        container(item)
+        if name == "PackageReference" and set(attributes) == {"Include"}:
+            include = attributes["Include"]
+            identifier(include)
+            if include.lower() in seen_packages:
+                raise ValueError("project XML refuses duplicate package declarations")
+            seen_packages.add(include.lower())
+            packages.append({"include": include})
+        elif name == "ProjectReference" and set(attributes) == {"Include"}:
+            references.append({"include": attributes["Include"]})
+        elif name == "EmbeddedResource" and set(attributes) == {"Include", "LogicalName"}:
+            identifier(attributes["LogicalName"])
+            if attributes["LogicalName"] in seen_resources:
+                raise ValueError("project XML refuses duplicate resource logical names")
+            seen_resources.add(attributes["LogicalName"])
+            resources.append({"include": attributes["Include"], "logicalName": attributes["LogicalName"]})
+        elif name == "AssemblyMetadata" and set(attributes) == {"Include", "Value"}:
+            identifier(attributes["Include"])
+            opaque(attributes["Value"])
+            if attributes["Include"] in seen_metadata:
+                raise ValueError("project XML refuses duplicate assembly metadata")
+            seen_metadata.add(attributes["Include"])
+            metadata.append({"include": attributes["Include"], "value": attributes["Value"]})
+        else:
+            raise ValueError("project XML refuses unsupported items, attributes, or metadata")
+if "TargetFramework" not in seen_properties:
+    raise ValueError("project XML requires a literal TargetFramework declaration")
+print(json.dumps({"status": "success", "executable": sys.executable, "version": sys.version,
+    "project": {"sdk": root["attributes"]["Sdk"], "properties": properties, "packages": packages,
+        "projectReferences": references, "embeddedResources": resources, "assemblyMetadata": metadata}}))
+`;
+
+const projectXmlLimits = Object.freeze({ ...pythonAstLimits, declarationNodes: 4096, declarationDepth: 4,
+    outputBytes: 1024 * 1024 });
+
 function sha256(bytes)
 {
     return crypto.createHash('sha256').update(bytes).digest('hex');
@@ -413,6 +548,172 @@ export function validatePythonSourceReceipt({ repositoryRoot, files, expectedHea
     return expected;
 }
 
+function projectInspectionContext(repositoryRoot, files)
+{
+    if (['GIT_DIR', 'GIT_WORK_TREE', 'GIT_INDEX_FILE'].some(key => process.env[key]))
+    {
+        throw new Error('project XML inspection refuses an ambient alternate Git repository or index');
+    }
+    const root = path.resolve(repositoryRoot);
+    if (fs.realpathSync(root) !== root || !fs.lstatSync(root).isDirectory())
+    {
+        throw new Error('project XML inspection requires the actual repository directory');
+    }
+    if (!Array.isArray(files) || !files.length || new Set(files).size !== files.length)
+    {
+        throw new Error('project XML inspection requires distinct explicit files');
+    }
+    files.forEach(file => normalizedPath(file, '.csproj'));
+    return { root, head: git(root, ['rev-parse', 'HEAD']).toString('utf8').trim(),
+        indexDigest: sha256(git(root, ['ls-files', '--stage', '-z'])), held: [], totalBytes: 0,
+        parser: pythonIdentity(['/usr/bin']), version: null };
+}
+
+function bindProjectInput(context, file)
+{
+    const existing = context.held.find(value => value.binding.file === file);
+    if (existing)
+    {
+        return existing;
+    }
+    const maximum = Math.min(projectXmlLimits.fileBytes, projectXmlLimits.batchBytes - context.totalBytes);
+    const input = bindFile(context.root, file, maximum);
+    context.held.push(input);
+    context.totalBytes += input.bytes.length;
+    return input;
+}
+
+function closedObject(value, keys)
+{
+    return value !== null && typeof value === 'object' && !Array.isArray(value)
+        && isDeepStrictEqual(Object.keys(value).sort(), [...keys].sort());
+}
+
+function projectDeclarationShape(value)
+{
+    const lists = { properties: ['name', 'value'], packages: ['include'], projectReferences: ['include'],
+        embeddedResources: ['include', 'logicalName'], assemblyMetadata: ['include', 'value'] };
+    if (!closedObject(value, ['sdk', ...Object.keys(lists)])
+        || !['Microsoft.NET.Sdk', 'Microsoft.NET.Sdk.Web'].includes(value.sdk))
+    {
+        return false;
+    }
+    return Object.entries(lists).every(([key, keys]) => Array.isArray(value[key])
+        && value[key].length <= projectXmlLimits.declarationNodes
+        && value[key].every(item => closedObject(item, keys)
+            && keys.every(field => typeof item[field] === 'string' && item[field].length > 0)))
+        && value.properties.some(item => item.name === 'TargetFramework' && /^net\d+\.\d+$/u.test(item.value));
+}
+
+function parseProjectDeclaration(context, input)
+{
+    const source = input.bytes.toString('utf8');
+    if (!Buffer.from(source).equals(input.bytes))
+    {
+        throw new Error(`project XML source is not exact UTF-8: ${input.binding.file}`);
+    }
+    const result = spawnSync(context.parser.executable, ['-I', '-B', '-S', '-c', projectXmlParser],
+        { input: JSON.stringify({ source }), encoding: 'utf8', maxBuffer: projectXmlLimits.outputBytes,
+            timeout: projectXmlLimits.timeoutMs });
+    if (result.error || result.status !== 0)
+    {
+        throw new Error(`project XML source refused: ${result.error?.message ?? result.stderr}`);
+    }
+    const parsed = JSON.parse(result.stdout);
+    if (!closedObject(parsed, ['status', 'executable', 'version', 'project']) || parsed.status !== 'success'
+        || parsed.executable !== context.parser.executable || typeof parsed.version !== 'string'
+        || !/^3\.\d+\.\d+ /u.test(parsed.version) || !projectDeclarationShape(parsed.project)
+        || (context.version !== null && context.version !== parsed.version))
+    {
+        throw new Error('project XML worker output does not bind the actual isolated declaration parser');
+    }
+    context.version = parsed.version;
+    return parsed.project;
+}
+
+function literalProjectPath(projectFile, include, extension = '')
+{
+    const relative = include.replaceAll('\\', '/');
+    if (relative.startsWith('/') || /[:*?$@%]/u.test(relative)
+        || [...relative].some(character => character.charCodeAt(0) < 32 || character.charCodeAt(0) === 127)
+        || relative.split('/').some(part => !part || part === '.'))
+    {
+        throw new Error('project XML input requires a literal relative source path');
+    }
+    const file = path.posix.normalize(path.posix.join(path.posix.dirname(projectFile), relative));
+    if (file === '..' || file.startsWith('../') || file === projectFile)
+    {
+        throw new Error('project XML input path escapes the repository or references itself');
+    }
+    return normalizedPath(file, extension);
+}
+
+function bindProjectDeclarations(context, input, declaration)
+{
+    const paths = [...declaration.projectReferences.map(value => literalProjectPath(input.binding.file, value.include, '.csproj')),
+        ...declaration.embeddedResources.map(value => literalProjectPath(input.binding.file, value.include))];
+    if (new Set(paths).size !== paths.length)
+    {
+        throw new Error('project XML refuses duplicate or aliased source input paths');
+    }
+    const bindings = paths.map(file => bindProjectInput(context, file).binding);
+    return { ...input.binding, declaration,
+        projectReferences: bindings.slice(0, declaration.projectReferences.length),
+        embeddedResources: bindings.slice(declaration.projectReferences.length) };
+}
+
+function verifyProjectContext(context)
+{
+    context.held.forEach(verifyFile);
+    if (context.head !== git(context.root, ['rev-parse', 'HEAD']).toString('utf8').trim()
+        || context.indexDigest !== sha256(git(context.root, ['ls-files', '--stage', '-z']))
+        || !sameEpoch(context.parser.stat, fs.fstatSync(context.parser.descriptor, { bigint: true }))
+        || !sameEpoch(context.parser.stat, fs.lstatSync(context.parser.executable, { bigint: true })))
+    {
+        throw new Error('project XML inspection HEAD/index or parser identity changed');
+    }
+    context.held.forEach(verifyFile);
+}
+
+/** Inspect finite SDK-style declarations and physical direct inputs; never evaluate MSBuild. */
+export function inspectProjectSource({ repositoryRoot, files })
+{
+    const context = projectInspectionContext(repositoryRoot, files);
+    try
+    {
+        const projects = files.map(file =>
+        {
+            const input = bindProjectInput(context, file);
+            return bindProjectDeclarations(context, input, parseProjectDeclaration(context, input));
+        });
+        verifyProjectContext(context);
+        return { schema: 'fsusblog.project-xml-source-check.v1', head: context.head, indexDigest: context.indexDigest,
+            parser: { executable: context.parser.executable, sha256: context.parser.sha256,
+                sourceSha256: sha256(projectXmlParser), version: context.version }, limits: { ...projectXmlLimits },
+            projects, status: 'success', qualificationEligible: false };
+    }
+    finally
+    {
+        context.held.forEach(value => fs.closeSync(value.descriptor));
+        fs.closeSync(context.parser.descriptor);
+    }
+}
+
+/** Reopen every declared physical input before admitting the closed SOURCE receipt. */
+export function validateProjectSourceReceipt({ repositoryRoot, files, expectedHead, receipt })
+{
+    if (typeof expectedHead !== 'string' || !/^[a-f0-9]{40}$/u.test(expectedHead))
+    {
+        throw new Error('project XML receipt requires the independent candidate HEAD');
+    }
+    const expected = inspectProjectSource({ repositoryRoot, files });
+    if (expected.head !== expectedHead || !isDeepStrictEqual(receipt, expected))
+    {
+        throw new Error('project XML receipt does not exactly bind the independent current source projection');
+    }
+    return expected;
+}
+
 function main(argv)
 {
     let repositoryRoot;
@@ -427,9 +728,9 @@ function main(argv)
         }
         if (argv[index] === '--language')
         {
-            if (language || value !== 'python-ast')
+            if (language || !['python-ast', 'project-xml'].includes(value))
             {
-                throw new Error('source checker accepts only one fixed python-ast language mode');
+                throw new Error('source checker accepts only one fixed python-ast or project-xml language mode');
             }
             language = value;
         }
@@ -450,8 +751,9 @@ function main(argv)
     {
         throw new Error('solution checker requires explicit --root');
     }
-    console.log(JSON.stringify(language ? inspectPythonSource({ repositoryRoot, files })
-        : inspectSolutionSource({ repositoryRoot, files })));
+    const inspect = language === 'project-xml' ? inspectProjectSource
+        : language === 'python-ast' ? inspectPythonSource : inspectSolutionSource;
+    console.log(JSON.stringify(inspect({ repositoryRoot, files })));
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))

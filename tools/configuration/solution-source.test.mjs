@@ -6,8 +6,10 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
+import vm from 'node:vm';
 
-import { inspectPythonSource, inspectSolutionSource, validatePythonSourceReceipt, validateSolutionSourceReceipt } from './check-solution-source.mjs';
+import { inspectProjectSource, inspectPythonSource, inspectSolutionSource, validateProjectSourceReceipt, validatePythonSourceReceipt, validateSolutionSourceReceipt } from './check-solution-source.mjs';
+const { sourceGovernanceChildEntries, unsupportedSourceStageFiles } = await import(new URL('../test-matrix/pr-impact-plan.mjs', import.meta.url));
 
 function fixture(source, action)
 {
@@ -38,6 +40,416 @@ function fixture(source, action)
 
 const valid = '<Solution>\n    <Project Path="Sample/Example.csproj" />\n</Solution>\n';
 const inspect = root => inspectSolutionSource({ repositoryRoot: root, files: ['tools/contracts/Sample.slnx'] });
+
+const projectFile = 'src/migration/Example.csproj';
+const projectResources = ['tools/ci/reader.mjs', 'tools/ci/artifacts.mjs', 'tools/facts/identity.mjs', 'tools/facts/lib/canonicalize.mjs'];
+const projectPackages = ['AngleSharp', 'Markdig', 'Microsoft.Data.Sqlite', 'MySqlConnector', 'Npgsql', 'SqlSugarCoreNoDrive', 'SQLitePCLRaw.lib.e_sqlite3'];
+const validProject = `<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup><TargetFramework>net10.0</TargetFramework><OutputType>Exe</OutputType></PropertyGroup>
+    <ItemGroup>${projectPackages.map(include => `<PackageReference Include="${include}" />`).join('')}</ItemGroup>
+    <ItemGroup><ProjectReference Include="..\\shared\\Example.csproj" /></ItemGroup>
+    <ItemGroup><AssemblyMetadata Include="FsusBlog.SourceCommit" Value="$(FsusBlogCommitSha)" />
+        ${projectResources.map((file, index) => `<EmbeddedResource Include="../../${file}" LogicalName="Resource${index}" />`).join('')}
+    </ItemGroup>
+</Project>\n`;
+
+function commitFixture(root, git)
+{
+    git('add', '.');
+    const tree = git('write-tree').toString('utf8').trim();
+    const commit = execFileSync('git', ['-C', root, 'commit-tree', tree],
+        { input: 'controlled project XML source fixture\n', env: { ...process.env,
+            GIT_AUTHOR_NAME: 'Source fixture', GIT_AUTHOR_EMAIL: 'fixture@example.invalid',
+            GIT_COMMITTER_NAME: 'Source fixture', GIT_COMMITTER_EMAIL: 'fixture@example.invalid' } }).toString('utf8').trim();
+    git('update-ref', 'HEAD', commit);
+}
+
+function projectFixture(source, action)
+{
+    return fixture(valid, ({ root, git }) =>
+    {
+        const inputs = [[projectFile, source], ['src/shared/Example.csproj', '<Project />\n'],
+            ...projectResources.map(file => [file, `// inert committed resource ${file}\n`])];
+        for (const [file, bytes] of inputs)
+        {
+            fs.mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
+            fs.writeFileSync(path.join(root, file), bytes);
+        }
+        commitFixture(root, git);
+        return action({ root, git });
+    });
+}
+
+const inspectProject = root => inspectProjectSource({ repositoryRoot: root, files: [projectFile] });
+
+test('finite project XML binds versionless packages opaque metadata and every literal physical input without evaluation', () =>
+{
+    projectFixture(validProject, ({ root, git }) =>
+    {
+        const before = { head: git('rev-parse', 'HEAD'), index: fs.readFileSync(path.join(root, '.git/index')),
+            refs: git('show-ref'), status: git('status', '--porcelain=v1') };
+        const actual = inspectProject(root);
+        const project = actual.projects[0];
+        assert.equal(actual.qualificationEligible, false);
+        assert.equal(actual.parser.executable, fs.realpathSync('/usr/bin/python3'));
+        assert.deepEqual(project.declaration.packages.map(value => value.include), projectPackages);
+        assert.deepEqual(project.declaration.assemblyMetadata, [{ include: 'FsusBlog.SourceCommit', value: '$(FsusBlogCommitSha)' }]);
+        assert.deepEqual(project.projectReferences.map(value => value.file), ['src/shared/Example.csproj']);
+        assert.deepEqual(project.embeddedResources.map(value => value.file), projectResources);
+        assert.ok([...project.projectReferences, ...project.embeddedResources].every(value => value.blob && value.sha256 && value.epoch.nlink === '1'));
+        assert.deepEqual(git('rev-parse', 'HEAD'), before.head);
+        assert.deepEqual(fs.readFileSync(path.join(root, '.git/index')), before.index);
+        assert.deepEqual(git('show-ref'), before.refs);
+        assert.deepEqual(git('status', '--porcelain=v1'), before.status);
+        const checker = fileURLToPath(new URL('./check-solution-source.mjs', import.meta.url));
+        const cli = spawnSync(process.execPath, [checker, '--language', 'project-xml', '--root', root, '--file', projectFile], { encoding: 'utf8' });
+        assert.equal(cli.status, 0, cli.stderr);
+        assert.deepEqual(JSON.parse(cli.stdout), actual);
+    });
+});
+
+test('project XML refuses malformed roots namespaces declarations aliases and executable MSBuild shapes', () =>
+{
+    const sources = ['<Project>', '<Solution />', validProject.replace(' Sdk="Microsoft.NET.Sdk"', ''),
+        validProject.replace('Microsoft.NET.Sdk', '$(InjectedSdk)'), validProject.replace('<Project ', '<Project xmlns="urn:msbuild" '),
+        `<!DOCTYPE Project [<!ENTITY injected SYSTEM "https://example.invalid/x">]>${validProject}`,
+        `<?command run?>${validProject}`, validProject.replace('AngleSharp', 'Angle&#83;harp'),
+        validProject.replace('<OutputType>Exe</OutputType>', '<OutputType><![CDATA[Exe]]></OutputType>'),
+        validProject.replace('<PropertyGroup>', '<PropertyGroup Condition="true">'),
+        validProject.replace('</Project>', '<Import Project="../../untrusted.targets" /></Project>'),
+        validProject.replace('</Project>', '<UsingTask TaskName="Injected" AssemblyFile="remote.dll" /></Project>'),
+        validProject.replace('</Project>', '<Target Name="Run"><Exec Command="touch executed-marker" /></Target></Project>'),
+        validProject.replace('Include="AngleSharp"', 'Include="AngleSharp" Version="1.0"'),
+        validProject.replace('Include="AngleSharp"', 'Include="AngleSharp" Condition="true"'),
+        validProject.replace('<OutputType>Exe</OutputType>', '<UnknownProperty>value</UnknownProperty>'),
+        validProject.replace('$(FsusBlogCommitSha)', '$([System.IO.File]::ReadAllText("secret"))')];
+    for (const source of sources)
+    {
+        projectFixture(source, ({ root }) =>
+        {
+            assert.throws(() => inspectProject(root), /project XML source refused/u);
+            assert.equal(fs.existsSync(path.join(root, 'executed-marker')), false);
+        });
+    }
+});
+
+test('predefined XML escapes remain inert scalar data while nested and duplicate declarations refuse', () =>
+{
+    projectFixture(validProject.replace('$(FsusBlogCommitSha)', 'literal&amp;value'), ({ root }) =>
+        assert.equal(inspectProject(root).projects[0].declaration.assemblyMetadata[0].value, 'literal&value'));
+    for (const replacement of ['<PackageReference Include="AngleSharp"><Version>1</Version></PackageReference>',
+        '<PackageReference Include="AngleSharp" /><PackageReference Include="anglesharp" />'])
+    {
+        projectFixture(validProject.replace('<PackageReference Include="AngleSharp" />', replacement),
+            ({ root }) => assert.throws(() => inspectProject(root), /project XML source refused/u));
+    }
+    for (const source of [validProject.replace('</PropertyGroup>', '<TargetFramework>net10.0</TargetFramework></PropertyGroup>'),
+        validProject.replace('LogicalName="Resource1"', 'LogicalName="Resource0"'),
+        validProject.replace('<ItemGroup><AssemblyMetadata', '<ItemGroup><AssemblyMetadata Include="FsusBlog.SourceCommit" Value="literal" /><AssemblyMetadata')])
+    {
+        projectFixture(source, ({ root }) => assert.throws(() => inspectProject(root), /project XML source refused/u));
+    }
+});
+
+test('project references resolve literal parent segments and backslashes but refuse escape dynamic absolute glob and aliased paths', () =>
+{
+    for (const include of ['../../../outside.csproj', '/tmp/outside.csproj', 'C:\\outside.csproj', '\\\\host\\share.csproj',
+        '$(Project).csproj', '@(Projects)', '../shared/*.csproj', '../shared//Example.csproj', './Example.csproj', '../migration/Example.csproj'])
+    {
+        projectFixture(validProject.replace('..\\shared\\Example.csproj', include),
+            ({ root }) => assert.throws(() => inspectProject(root), /literal relative|escapes|references itself/u));
+    }
+    projectFixture(validProject.replace('</Project>', '<ItemGroup><ProjectReference Include="../shared/Example.csproj" /></ItemGroup></Project>'),
+        ({ root }) => assert.throws(() => inspectProject(root), /duplicate or aliased/u));
+    projectFixture(validProject.replace('../../tools/ci/reader.mjs', '../../../outside.mjs'),
+        ({ root }) => assert.throws(() => inspectProject(root), /escapes/u));
+});
+
+test('project and every direct input require current regular single-link HEAD index and physical bytes', () =>
+{
+    for (const file of [projectFile, 'src/shared/Example.csproj', ...projectResources])
+    {
+        projectFixture(validProject, ({ root }) =>
+        {
+            fs.unlinkSync(path.join(root, file));
+            assert.throws(() => inspectProject(root), /ENOENT/u);
+        });
+        projectFixture(validProject, ({ root }) =>
+        {
+            fs.appendFileSync(path.join(root, file), 'source drift');
+            assert.throws(() => inspectProject(root), /HEAD\/index\/physical/u);
+        });
+        projectFixture(validProject, ({ root }) =>
+        {
+            fs.linkSync(path.join(root, file), path.join(root, 'hardlinked-alias'));
+            assert.throws(() => inspectProject(root), /single-link/u);
+        });
+        projectFixture(validProject, ({ root }) =>
+        {
+            fs.renameSync(path.join(root, file), path.join(root, 'linked-target'));
+            fs.symlinkSync(path.join(root, 'linked-target'), path.join(root, file));
+            assert.throws(() => inspectProject(root), /ELOOP/u);
+        });
+    }
+});
+
+test('project source refuses linked input ancestors staged substitution modes and invalid UTF-8', () =>
+{
+    projectFixture(validProject, ({ root }) =>
+    {
+        fs.renameSync(path.join(root, 'tools/facts'), path.join(root, 'actual-facts'));
+        fs.symlinkSync(path.join(root, 'actual-facts'), path.join(root, 'tools/facts'));
+        assert.throws(() => inspectProject(root), /linked or non-directory ancestor/u);
+    });
+    projectFixture(validProject, ({ root, git }) =>
+    {
+        fs.appendFileSync(path.join(root, projectResources[0]), 'new staged bytes');
+        git('add', projectResources[0]);
+        assert.throws(() => inspectProject(root), /HEAD\/index\/physical/u);
+    });
+    projectFixture(validProject, ({ root }) =>
+    {
+        fs.chmodSync(path.join(root, projectFile), 0o755);
+        assert.throws(() => inspectProject(root), /HEAD\/index\/physical/u);
+    });
+    projectFixture(Buffer.from([0xff]), ({ root }) => assert.throws(() => inspectProject(root), /not exact UTF-8/u));
+});
+
+test('project XML closed receipts reject missing extra substituted parser declaration and dependency evidence', () =>
+{
+    projectFixture(validProject, ({ root }) =>
+    {
+        const actual = inspectProject(root);
+        const validate = receipt => validateProjectSourceReceipt({ repositoryRoot: root, files: [projectFile], expectedHead: actual.head, receipt });
+        assert.deepEqual(validate(structuredClone(actual)), actual);
+        const mutations = [
+            value =>
+            {
+                value.head = '0'.repeat(40);
+            },
+            value =>
+            {
+                value.indexDigest = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.projects[0].sha256 = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.projects[0].declaration.packages.pop();
+            },
+            value =>
+            {
+                value.projects[0].declaration.assemblyMetadata[0].value = 'evaluated-value';
+            },
+            value =>
+            {
+                value.projects[0].embeddedResources.pop();
+            },
+            value =>
+            {
+                value.projects[0].embeddedResources[0].blob = '0'.repeat(40);
+            },
+            value =>
+            {
+                value.projects[0].projectReferences[0].file = 'src/shared/Substituted.csproj';
+            },
+            value =>
+            {
+                value.parser.sourceSha256 = '0'.repeat(64);
+            },
+            value =>
+            {
+                value.parser.version = '3.0.0 substituted';
+            },
+            value =>
+            {
+                value.limits.fileBytes = 0;
+            },
+            value =>
+            {
+                value.extra = true;
+            },
+            value =>
+            {
+                value.projects[0].extra = true;
+            },
+            value =>
+            {
+                value.projects[0].embeddedResources[0].extra = true;
+            },
+            value =>
+            {
+                value.qualificationEligible = true;
+            }
+        ];
+        for (const mutate of mutations)
+        {
+            const receipt = structuredClone(actual);
+            mutate(receipt);
+            assert.throws(() => validate(receipt), /independent current source projection/u);
+        }
+        assert.throws(() => validate(null), /independent current source projection/u);
+        assert.throws(() => validateProjectSourceReceipt({ repositoryRoot: root, files: [projectFile], receipt: actual }), /independent candidate HEAD/u);
+        assert.throws(() => validateProjectSourceReceipt({ repositoryRoot: root, files: [projectFile], expectedHead: '0'.repeat(40), receipt: actual }), /independent current source projection/u);
+    });
+});
+
+test('project source held descriptors catch dependency replacement during final Git recheck', () =>
+{
+    for (const replace of [false, true])
+    {
+        projectFixture(validProject, ({ root }) =>
+        {
+            const original = childProcess.execFileSync;
+            let indexReads = 0;
+            childProcess.execFileSync = (command, args, options) =>
+            {
+                if (command === 'git' && args.includes('ls-files') && !args.includes('--') && ++indexReads === 2)
+                {
+                    const input = path.join(root, projectResources[0]);
+                    if (replace)
+                    {
+                        fs.renameSync(input, `${input}.original`);
+                    }
+                    fs.writeFileSync(input, 'replacement bytes');
+                }
+                return original(command, args, options);
+            };
+            syncBuiltinESMExports();
+            try
+            {
+                assert.throws(() => inspectProject(root), /identity changed during inspection/u);
+                assert.equal(indexReads, 2);
+            }
+            finally
+            {
+                childProcess.execFileSync = original;
+                syncBuiltinESMExports();
+            }
+        });
+    }
+});
+
+test('project XML applies source structure file and batch limits before admitting inputs', () =>
+{
+    for (const [source, error] of [[Buffer.alloc(1024 * 1024 + 1, 32), /bounded file size/u],
+        [validProject.replace('</Project>', '<ItemGroup>'.repeat(5) + '</ItemGroup>'.repeat(5) + '</Project>'), /bounded declaration structure/u],
+        [validProject.replace('</Project>', '<ItemGroup />'.repeat(4096) + '</Project>'), /bounded declaration structure/u]])
+    {
+        projectFixture(source, ({ root }) => assert.throws(() => inspectProject(root), error));
+    }
+    projectFixture(validProject, ({ root, git }) =>
+    {
+        for (const file of projectResources)
+        {
+            fs.writeFileSync(path.join(root, file), Buffer.alloc(1024 * 1024, 32));
+        }
+        const projects = Array.from({ length: 5 }, (_, index) => `src/migration/Extra${index}.csproj`);
+        for (const file of projects)
+        {
+            fs.writeFileSync(path.join(root, file), validProject + ' '.repeat(1024 * 1024 - Buffer.byteLength(validProject)));
+        }
+        commitFixture(root, git);
+        assert.throws(() => inspectProjectSource({ repositoryRoot: root, files: projects }), /bounded file size/u);
+    });
+});
+
+function executeProjectSourceRoute(root, expectedHead, worker)
+{
+    const source = fs.readFileSync(new URL('../test-matrix/source-governance.mjs', import.meta.url), 'utf8');
+    const block = source.slice(source.indexOf('    const projectFiles ='), source.indexOf('    for (const file of files.filter(value => value.endsWith(\'.sh\')))'));
+    const state = { files: [projectFile], root, evidence: { headCommit: expectedHead }, results: [], checkedProjects: [],
+        process: { execPath: process.execPath, exitCode: 0 }, JSON, sourceGovernanceChildEntries, validateProjectSourceReceipt,
+        verifyChildBeforeSpawn: checker => assert.equal(checker, sourceGovernanceChildEntries.solution), spawnSync: worker };
+    vm.runInNewContext(block, state);
+    return state;
+}
+
+test('the original SOURCE caller admits only independently reopened project receipts and keeps every rejected project unsupported', () =>
+{
+    projectFixture(validProject, ({ root }) =>
+    {
+        const actual = inspectProject(root);
+        const successful = { status: 0, stdout: JSON.stringify(actual), stderr: '' };
+        const accepted = executeProjectSourceRoute(root, actual.head, (_command, args) =>
+        {
+            assert.deepEqual([...args.slice(1)], ['--language', 'project-xml', '--root', root, '--file', projectFile]);
+            return successful;
+        });
+        assert.deepEqual([...accepted.checkedProjects], [projectFile]);
+        assert.deepEqual(unsupportedSourceStageFiles([projectFile], [], [], accepted.checkedProjects), []);
+        const extra = structuredClone(actual);
+        extra.projects[0].extra = true;
+        for (const output of [{ ...successful, stdout: '{}' }, { ...successful, stdout: JSON.stringify(extra) },
+            { ...successful, status: 1 }, { ...successful, error: new Error('spawn refused') }])
+        {
+            const rejected = executeProjectSourceRoute(root, actual.head, () => output);
+            assert.equal(rejected.process.exitCode, 1);
+            assert.equal(rejected.checkedProjects.length, 0);
+            assert.equal(rejected.results[0].status, 'failure');
+            assert.deepEqual(unsupportedSourceStageFiles([projectFile], [], [], rejected.checkedProjects), [projectFile]);
+        }
+        const stale = executeProjectSourceRoute(root, '0'.repeat(40), () => successful);
+        assert.equal(stale.checkedProjects.length, 0);
+        assert.equal(stale.process.exitCode, 1);
+    });
+});
+
+test('project parser refuses forged worker output and releases descriptors after refusal', () =>
+{
+    projectFixture(validProject, ({ root }) =>
+    {
+        const original = childProcess.spawnSync;
+        const before = fs.readdirSync('/proc/self/fd').length;
+        childProcess.spawnSync = (...args) =>
+        {
+            const result = original(...args);
+            const parsed = JSON.parse(result.stdout);
+            parsed.extra = true;
+            return { ...result, stdout: JSON.stringify(parsed) };
+        };
+        syncBuiltinESMExports();
+        try
+        {
+            assert.throws(() => inspectProject(root), /worker output/u);
+            assert.equal(fs.readdirSync('/proc/self/fd').length, before);
+        }
+        finally
+        {
+            childProcess.spawnSync = original;
+            syncBuiltinESMExports();
+        }
+        assert.equal(inspectProject(root).status, 'success');
+    });
+});
+
+test('project inspection refuses duplicate caller files and alternate Git context before parsing', () =>
+{
+    projectFixture(validProject, ({ root }) =>
+    {
+        assert.throws(() => inspectProjectSource({ repositoryRoot: root, files: [projectFile, projectFile] }), /distinct explicit/u);
+        assert.throws(() => inspectProjectSource({ repositoryRoot: root, files: ['../Example.csproj'] }), /normalized relative/u);
+        const before = process.env.GIT_INDEX_FILE;
+        process.env.GIT_INDEX_FILE = path.join(root, 'alternate-index');
+        try
+        {
+            assert.throws(() => inspectProject(root), /ambient alternate Git/u);
+        }
+        finally
+        {
+            if (before === undefined)
+            {
+                delete process.env.GIT_INDEX_FILE;
+            }
+            else
+            {
+                process.env.GIT_INDEX_FILE = before;
+            }
+        }
+    });
+});
 
 test('flat solution inspection binds actual project source without evaluating it', () =>
 {
