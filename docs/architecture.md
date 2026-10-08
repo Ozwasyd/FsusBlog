@@ -159,6 +159,27 @@ analyzers, emit product code, trace owner release or qualify a platform. Its res
 always remains `NotVerified`; symbol binding cannot satisfy the inventory's strict
 ownership/lifetime gate. All observer source inputs remain candidate-bound.
 
+The spill root is selected through the existing `ReleaseStorageLayout` instance as
+`GetInstanceTempPath("memory-spill")`, underneath that instance's `TempRoot`. Selection
+creates no directory and performs no capability qualification. It does not use shared,
+release-derived, served or immutable-asset storage. Provisioning and cleanup remain with
+the storage owner; capability disable must prevent new probes and drain all file/operation
+holds before cleanup. The disk adapter requires its dedicated provisioned root and
+fresh same-volume, quota and inode observations; unknown backing cannot supply independent
+escape capacity. No separate spill-root environment variable or configuration authority
+is introduced. Content classification and permission come from the existing content
+owner; unclassified, private, credential-bearing, draft and authoritative bytes remain
+denied. A public classification alone cannot override that owner's refusal.
+
+The shared `MemoryAllocationLayout` describes the whole admitted physical allocation:
+logical bytes, alignment padding and retained slack stay distinct. Native arenas account
+for full blocks, while OS regions include guard pages in the admitted mapping capacity.
+Slicing, locking a subset or retaining another role does not create extra physical
+capacity. Module constructors require finite workload-owned bounds; those inputs do not
+establish the frozen workload/measurement policy or release/runtime qualification.
+Until the P01 manifest and baseline are verified, no numeric module fixture, successful
+local test or discovered API authorizes Auto activation or a performance claim.
+
 The backend-internal memory contracts live under `Infrastructure/Memory/Contracts` and
 `Infrastructure/Memory/Capabilities`. Blob, generation and representation identity are
 separate from allocation, block, residency revision and device epoch. A location token
