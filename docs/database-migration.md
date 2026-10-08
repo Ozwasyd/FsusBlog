@@ -244,10 +244,14 @@ The migration-owned source-observation component registers the checked-in
 `2026-05-17` representative legacy shape, not an already qualified production dump.
 Its PostgreSQL path closes the actual catalog, all 49 registered columns and every
 row, history and five sequence states under one native read-only snapshot with a
-streamed, bounded content encoder. Three-provider shape registration is not proof
-of three native implementations: missing MySQL/SQLite full-content/snapshot
-capabilities fail closed. The component still needs its unique native-session
-owner and genuine producer/provider execution before operational qualification.
+streamed, bounded content encoder. The MySQL and SQLite observation paths use
+their original native session and streaming readers; wrong drivers and unheld
+transactions are refused before catalog reads. This source availability does not
+qualify provider execution. MySQL/SQLite snapshot capture remains unsupported, and
+SQLite public observation requires actual held-descriptor FILESTAT support;
+unavailable native capabilities fail closed. Three-provider shape registration is
+not operational qualification: genuine producer/provider execution and the original
+native-session admission remain required.
 
 `MySqlArticlePreservationSourceReader` connects the existing bounded article reader
 to the original `OfflineMigrationMySqlNativeSession` owned-read port. Finite limits,
