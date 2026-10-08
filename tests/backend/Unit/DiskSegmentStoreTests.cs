@@ -254,6 +254,24 @@ public sealed class DiskSegmentStoreTests
         reader.Dispose();
     }
 
+    [Fact]
+    public void CallerExceptionStillReleasesAReentrantlyDisposedFinalOperationHold()
+    {
+        using var fixture = new Fixture();
+        MemoryContentIdentity identity = Identity();
+        DiskSegmentPublication source = fixture.Publish(identity, [1, 2]);
+        DiskSegmentLease reader = fixture.Store.Acquire(source.SegmentId, identity).Value!;
+        using var target = new RetiringStream(() =>
+        {
+            reader.Dispose();
+            fixture.Store.Retire(source.SegmentId);
+            throw new InvalidOperationException("Task-owned caller staging failure.");
+        });
+        Assert.Throws<InvalidOperationException>(() => reader.CopyTo(target));
+        Assert.Empty(fixture.Root.EnumerateNames(16));
+        Assert.All(fixture.Coordinator.Snapshot().Used.Values, value => Assert.Equal(0, value));
+    }
+
     private sealed class RetiringStream(Action retire) : MemoryStream
     {
         private bool _retired;
