@@ -6,6 +6,25 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class DocumentExportAttemptResourcesTests
 {
     [Fact]
+    public void WiderRuntime_CannotLoosenTheOwnerPerFileCeiling()
+    {
+        var fixture = new Fixture();
+        DocumentExportResourceBudgets wider = DocumentExportContractCatalog.RequireProvider("self-contained-html").Budgets;
+        using DocumentExportAttemptResources.Stage stage = fixture.Resources.BeginStage(
+            fixture.Task, fixture.Input, wider, canonicalRenderer: true);
+
+        Assert.Equal(fixture.Maximum.MaxFileBytes, stage.Budgets.MaxFileBytes);
+        Assert.Equal(fixture.Maximum.MaxWorkingSetBytes, stage.Budgets.MaxWorkingSetBytes);
+        Assert.Equal(fixture.Maximum.CpuTime, stage.Budgets.CpuTime);
+        Assert.Equal(fixture.Maximum.MaxFileCount, stage.Budgets.MaxFileCount);
+        Assert.Equal(fixture.Maximum.MaxInputBytes, stage.Budgets.MaxInputBytes);
+        Assert.Equal(fixture.Maximum.MaxOutputBytes, stage.Budgets.MaxOutputBytes);
+        Assert.Equal(fixture.Maximum.MaxStandardOutputBytes, stage.Budgets.MaxStandardOutputBytes);
+        Assert.Equal(fixture.Maximum.MaxStandardErrorBytes, stage.Budgets.MaxStandardErrorBytes);
+        Assert.Null(stage.Complete(qualified: true));
+    }
+
+    [Fact]
     public void LaterStage_UsesRemainingNativeAndMutableFileEnvelope()
     {
         var fixture = new Fixture();

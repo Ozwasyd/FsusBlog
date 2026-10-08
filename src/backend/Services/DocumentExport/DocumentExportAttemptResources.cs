@@ -100,7 +100,7 @@ public sealed class DocumentExportAttemptResources
                 MaxWorkingSetBytes = Math.Min(declared.MaxWorkingSetBytes, _maximum.MaxWorkingSetBytes),
                 MaxFileCount = checked((int)Math.Min(declared.MaxFileCount,
                     Remaining(_maximum.MaxFileCount, _files, "task-file-count-budget"))),
-                MaxFileBytes = Math.Min(declared.MaxFileBytes, remainingFileBytes),
+                MaxFileBytes = Math.Min(declared.MaxFileBytes, Math.Min(_maximum.MaxFileBytes, remainingFileBytes)),
                 MaxInputBytes = Math.Min(declared.MaxInputBytes,
                     Remaining(_maximum.MaxInputBytes, _inputBytes, "task-input-budget")),
                 MaxOutputBytes = Math.Min(declared.MaxOutputBytes,
