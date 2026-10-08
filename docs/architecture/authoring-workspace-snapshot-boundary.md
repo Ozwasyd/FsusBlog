@@ -162,3 +162,30 @@ two-group ownership/collapse, rendered UX, full restore browser/multi-device end
 mutation governance and performance qualification must be completed before issue
 closure. Existing registry/session type errors and title-field governance failure
 remain original-owner dependencies; no failed gate is waived.
+
+## Extension panel snapshot binding source
+
+`AuthoringPanelSnapshotBindingAdapter` consumes this owner's actual
+`AuthoringWorkspaceSnapshotSync.getServerObservation()` and
+`ArticleWorkspaceTabRouter`/open-document registry. Its closed content-free
+request binds extension/package/panel, explicit user/site scope, source and
+snapshot revision/digest, group/tab/document identity and epoch/revision,
+request, read-grant reference and deadline. Cloned/cache observations cannot
+pass server provenance; snapshot coordinates are not read permission.
+
+The mandatory `AuthoringPanelReadAdmission` has no default or production
+composition. Current package and read authority must be supplied by the original
+host owner. A bounded single pending read is cancelled on snapshot/document or
+permission drift, hidden state, deadline, replacement and disposal. Reentrant
+abort/admission callbacks cannot publish a superseded request. This source uses
+`8f7ac0f357c37966c68ca8607a02f000bf41407a`; the original Vitest configuration
+executes `authoringPanelSnapshotAdapter.test.ts` against the real public owners.
+
+This binding adapter registers no panel slot, renderer, dock/group/navigation,
+layout command, snapshot write/reset or persistence. The current snapshot schema
+has no plugin panel references; that upstream contract is not invented here.
+Two-group layouts are explicitly blocked pending the original group owner.
+Slot/layout admission, model/command composition, production read grants, full
+resource/UI/scale qualification and snapshot reference reconciliation remain
+open. Local fixture provenance and test admission are not production or terminal
+acceptance evidence.
