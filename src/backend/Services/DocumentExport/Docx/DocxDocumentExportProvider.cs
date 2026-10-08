@@ -65,8 +65,8 @@ public sealed class DocxDocumentExportProvider : IDocumentExportAttemptJobProvid
         _ = RequireActiveProvider(task.FormatId);
         ValidateResult(result, task, input, _renderer.Tool, _hostBuildDigest, cancellationToken);
         // Only the shared sandbox records real stage completion. This check
-        // seals the same caller-owned attempt after artifact verification.
-        resources.RequireCompleted();
+        // binds and seals the caller-owned frozen attempt after artifact verification.
+        resources.RequireCompleted(task, input);
         return Task.CompletedTask;
     }
 
