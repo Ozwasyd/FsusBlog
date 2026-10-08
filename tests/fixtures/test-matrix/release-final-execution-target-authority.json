@@ -65,8 +65,8 @@
         },
         {
             "path": "src/backend/FsusBlog.Server.csproj",
-            "contentDigest": "sha256:750dc43234f15be728a4eff93b1df2690d9efff880ecd8f9446aac726aa0bddc",
-            "indexDigest": "sha256:750dc43234f15be728a4eff93b1df2690d9efff880ecd8f9446aac726aa0bddc"
+            "contentDigest": "sha256:cf486631ad599088057bc9c7390bffea5b3626571c68c813a74acadc716f00d2",
+            "indexDigest": "sha256:cf486631ad599088057bc9c7390bffea5b3626571c68c813a74acadc716f00d2"
         },
         {
             "path": "src/backend/Infrastructure/Filters/BannedUserMiddleware.cs",

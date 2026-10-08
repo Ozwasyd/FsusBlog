@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/backend/FsusBlog.Server.csproj",
+        "tests/matrix.yml",
+        "config/testing/release-final-execution-authority-index.json",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "tools/test-matrix/parse-matrix.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/release-final-evidence-contract.mjs",
+        "tools/test-matrix/release-final-spawn-seal.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "37550c26714cfa1c49f640e3da6a025503782a1ea7d94e8c1aebfa03d84d5e4a"
+        }
+    ]
+}
