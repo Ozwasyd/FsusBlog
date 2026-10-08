@@ -44,7 +44,7 @@ test('matrix native closure binds the actual extractor/backend and complete curr
     const source = path.join(root, closure.projects[0]);
     fs.appendFileSync(source, '\n<!-- controlled source mutation -->\n');
     assert.notDeepEqual(matrixNativeNugetClosure(root), closure);
-    const solution = path.join(root, 'tools/contracts/MatrixNativeRestore.slnx');
+    const solution = path.join(root, 'FsusBlog.MatrixNativeRestore.slnx');
     fs.appendFileSync(solution, '<!-- controlled foreign solution -->\n');
     assert.throws(() => matrixNativeNugetClosure(root), /actual project owners/u);
 });
@@ -53,7 +53,7 @@ test('matrix preparation command uses the separate original restore solution and
 {
     const inputs = { packagesRoot: '/owned/packages', artifactsRoot: '/owned/artifacts', feedRoot: '/sealed/feed', configFile: '/owned/NuGet.Config' };
     assert.deepEqual(nugetPreparationCommand({ ...inputs, purpose: 'matrix-native' }), [
-        'dotnet', 'restore', 'tools/contracts/MatrixNativeRestore.slnx', '--locked-mode', '--packages', '/owned/packages',
+        'dotnet', 'restore', 'FsusBlog.MatrixNativeRestore.slnx', '--locked-mode', '--packages', '/owned/packages',
         '--artifacts-path', '/owned/artifacts', '/p:NuGetAudit=false', '/p:Configuration=Release', '--disable-parallel',
         '--source', '/sealed/feed', '--configfile', '/owned/NuGet.Config'
     ]);
