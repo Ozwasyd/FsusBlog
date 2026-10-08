@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/frontend/unit/adapters/binary/reader.test.ts"
+    ],
+    "outputs": [
+        {
+            "path": "tests/test-retention-replacements.json",
+            "sha256": "8f73f924cf95b53d88cbebdfd6adab0f8a75891766c91b3637eaf5d0d0b198c5"
+        },
+        {
+            "path": "tests/test-replacement-transactions/issue-2612.json",
+            "sha256": "20dc661ef68bff5e997c15936c0a5b62815544ee3590097f3fe61d947fa51be8"
+        },
+        {
+            "path": "tests/test-replacement-receipts/issue-2612.json",
+            "sha256": "1a14d6c163643a555adf2170195efea2613664823e82f40aa4497b5bdd4ce8a5"
+        }
+    ]
+}
