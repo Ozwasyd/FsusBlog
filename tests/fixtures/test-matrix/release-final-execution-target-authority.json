@@ -4585,8 +4585,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808",
-            "indexDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808"
+            "contentDigest": "sha256:0d76b11766c08bfafee1fe866b5a3d1fa3b6c486aeb8758cf4364b3f00b156df",
+            "indexDigest": "sha256:0d76b11766c08bfafee1fe866b5a3d1fa3b6c486aeb8758cf4364b3f00b156df"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",
