@@ -71,6 +71,8 @@ public static class ArticleEmbedDependencyGraphVerifier
         }
 
         var seenMemoizable = new HashSet<NodeKey>();
+        int observedNodes = 0;
+        int observedDepth = 0;
         for (int index = 0; index < requests.Count; index++)
         {
             ArticleEmbedProviderRequest request = requests[index];
@@ -84,7 +86,21 @@ public static class ArticleEmbedDependencyGraphVerifier
                 factsByIdentity,
                 budgets!,
                 seenMemoizable,
+                ref observedNodes,
+                ref observedDepth,
                 reasons);
+            if (result.Result.Budgets.Nodes != observedNodes || result.Result.Budgets.Depth != observedDepth)
+            {
+                reasons.Add($"graph_result_observation_mismatch:{request.RequestId}");
+            }
+        }
+        if (candidate.Receipt.Observed.Nodes != observedNodes)
+        {
+            reasons.Add("graph_node_observation_mismatch");
+        }
+        if (candidate.Receipt.Observed.Depth != observedDepth || candidate.Receipt.MaxObservedDepth != observedDepth)
+        {
+            reasons.Add("graph_depth_observation_mismatch");
         }
 
         return Finish(reasons);
@@ -98,8 +114,16 @@ public static class ArticleEmbedDependencyGraphVerifier
         Dictionary<string, List<ArticleEmbedTargetFacts>> factsByIdentity,
         ArticleEmbedResolutionBudgetLimits budgets,
         HashSet<NodeKey> seenMemoizable,
+        ref int observedNodes,
+        ref int observedDepth,
         List<string> reasons)
     {
+        observedNodes++;
+        observedDepth = Math.Max(observedDepth, 1);
+        if (result.Result.Status == ArticleEmbedProviderResultStatus.Resolved && observedNodes > budgets.MaxExpandedNodes)
+        {
+            reasons.Add("resolved_node_beyond_node_budget");
+        }
         if (result.RequestId != request.RequestId || item.RequestId != request.RequestId)
         {
             reasons.Add($"result_request_binding_mismatch:{request.RequestId}");
@@ -284,6 +308,8 @@ public static class ArticleEmbedDependencyGraphVerifier
             },
             budgets,
             seenMemoizable,
+            ref observedNodes,
+            ref observedDepth,
             reasons);
 
         if (expectation.Error is null
@@ -308,6 +334,8 @@ public static class ArticleEmbedDependencyGraphVerifier
         HashSet<NodeKey> path,
         ArticleEmbedResolutionBudgetLimits budgets,
         HashSet<NodeKey> seenMemoizable,
+        ref int observedNodes,
+        ref int observedDepth,
         List<string> reasons)
     {
         if (parentFacts is null)
@@ -334,6 +362,21 @@ public static class ArticleEmbedDependencyGraphVerifier
         for (int index = 0; index < children.Count; index++)
         {
             ArticleEmbedResolvedNode child = children[index];
+            observedNodes++;
+            observedDepth = Math.Max(observedDepth, depth);
+            if (child.Status == ArticleEmbedProviderResultStatus.Resolved)
+            {
+                if (observedNodes > budgets.MaxExpandedNodes)
+                {
+                    reasons.Add("resolved_node_beyond_node_budget");
+                    clean = false;
+                }
+                if (depth > budgets.MaxDepth)
+                {
+                    reasons.Add("resolved_node_beyond_depth_budget");
+                    clean = false;
+                }
+            }
             ArticleEmbedDirectiveProjection directive = expectedDirectives[index];
             if (child.Directive != directive)
             {
@@ -420,6 +463,8 @@ public static class ArticleEmbedDependencyGraphVerifier
                 path,
                 budgets,
                 seenMemoizable,
+                ref observedNodes,
+                ref observedDepth,
                 reasons);
             path.Remove(key);
             clean &= childClean;

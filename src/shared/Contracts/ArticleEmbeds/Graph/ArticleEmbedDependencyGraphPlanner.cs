@@ -102,10 +102,14 @@ public static class ArticleEmbedDependencyGraphPlanner
             {
                 context.Meter.Hit();
             }
-            return cached with
+            NodeOutcome memoized = cached with
             {
                 CacheHit = topLevel
             };
+            // Reuse authorized projection facts, not an expansion tied to an earlier path/budget.
+            return memoized.Status == ArticleEmbedProviderResultStatus.Resolved
+                ? ExpandChildren(context, request, target, key, depth, path, memoized)
+                : memoized;
         }
 
         NodeOutcome leaf = ArticleEmbedAuthoringResolver.ProjectCurrent(context, target);
@@ -117,6 +121,18 @@ public static class ArticleEmbedDependencyGraphPlanner
             }
             return leaf;
         }
+        return ExpandChildren(context, request, target, key, depth, path, leaf);
+    }
+
+    private static NodeOutcome ExpandChildren(
+        Context context,
+        ArticleEmbedProviderRequest? request,
+        ArticleEmbedTargetIdentity target,
+        NodeKey key,
+        int depth,
+        HashSet<NodeKey> path,
+        NodeOutcome leaf)
+    {
         ArticleEmbedTargetFacts facts = context.FactsByIdentity[target.PortableArticleIdentity][0];
         if (target.Kind != ArticleEmbedTargetKind.Article && facts.NestedDirectives.Count != 0)
         {
