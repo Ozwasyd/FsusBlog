@@ -10,12 +10,13 @@ namespace FsusBlog.Server.Infrastructure.Memory.Pressure;
 public enum MemoryPressureMetric
 {
     GcHeapBytes, GcCommittedBytes, RuntimeCapacityBytes, HostLoadBytes, HostLoadThresholdBytes,
-    TotalAllocatedBytes, ProcessWorkingSetBytes, LedgerChargedBytes, LedgerOperationSlots
+    TotalAllocatedBytes, ProcessWorkingSetBytes, LedgerChargedBytes, LedgerOperationSlots, LedgerInodes,
+    HostAvailableBytes, HostSwapTotalBytes, HostSwapFreeBytes, ProcessSwapBytes
 }
 
 public enum MemoryPressureScope
 {
-    Process, RuntimeCapacity, HostAtLastCollection, HeapAtLastCollection, Ledger
+    Process, RuntimeCapacity, HostAtLastCollection, HeapAtLastCollection, Ledger, HostCurrent
 }
 
 public enum MemoryPressureTransition
@@ -34,7 +35,7 @@ public sealed class MemoryPressureObservation
         if (!Enum.IsDefined(metric) || !Enum.IsDefined(unit) || !Enum.IsDefined(scope) || !Enum.IsDefined(state)
             || scope != ExpectedScope(metric)
             || domain.Value == Guid.Empty || domainRevision == 0 || timestampFrequency <= 0
-            || (metric == MemoryPressureMetric.LedgerOperationSlots ? unit != MemoryResourceUnit.OperationSlots : unit != MemoryResourceUnit.Bytes)
+            || unit != ExpectedUnit(metric)
             || (state == MemoryObservationState.Available ? value is null or < 0 : value is not null)
             || string.IsNullOrWhiteSpace(source))
         {
@@ -97,12 +98,20 @@ public sealed class MemoryPressureObservation
         get;
     }
 
+    private static MemoryResourceUnit ExpectedUnit(MemoryPressureMetric metric) => metric switch
+    {
+        MemoryPressureMetric.LedgerOperationSlots => MemoryResourceUnit.OperationSlots,
+        MemoryPressureMetric.LedgerInodes => MemoryResourceUnit.Inodes,
+        _ => MemoryResourceUnit.Bytes
+    };
+
     private static MemoryPressureScope ExpectedScope(MemoryPressureMetric metric) => metric switch
     {
         MemoryPressureMetric.GcHeapBytes or MemoryPressureMetric.GcCommittedBytes => MemoryPressureScope.HeapAtLastCollection,
         MemoryPressureMetric.RuntimeCapacityBytes => MemoryPressureScope.RuntimeCapacity,
         MemoryPressureMetric.HostLoadBytes or MemoryPressureMetric.HostLoadThresholdBytes => MemoryPressureScope.HostAtLastCollection,
-        MemoryPressureMetric.LedgerChargedBytes or MemoryPressureMetric.LedgerOperationSlots => MemoryPressureScope.Ledger,
+        MemoryPressureMetric.LedgerChargedBytes or MemoryPressureMetric.LedgerOperationSlots or MemoryPressureMetric.LedgerInodes => MemoryPressureScope.Ledger,
+        MemoryPressureMetric.HostAvailableBytes or MemoryPressureMetric.HostSwapTotalBytes or MemoryPressureMetric.HostSwapFreeBytes => MemoryPressureScope.HostCurrent,
         _ => MemoryPressureScope.Process
     };
 }
@@ -268,7 +277,12 @@ public sealed class PortableMemoryPressureSource
         MemoryAccountingSnapshot accounting = _ledger.Snapshot();
         foreach (MemoryPressureLedgerBinding binding in _bindings)
         {
-            Add(binding.Unit == MemoryResourceUnit.Bytes ? MemoryPressureMetric.LedgerChargedBytes : MemoryPressureMetric.LedgerOperationSlots,
+            Add(binding.Unit switch
+            {
+                MemoryResourceUnit.Bytes => MemoryPressureMetric.LedgerChargedBytes,
+                MemoryResourceUnit.Inodes => MemoryPressureMetric.LedgerInodes,
+                _ => MemoryPressureMetric.LedgerOperationSlots
+            },
                 MemoryPressureScope.Ledger, binding.Domain,
                 accounting.Used.TryGetValue(binding.CapacityIdentity, out long value) ? value : null,
                 "MemoryReservationCoordinator.exact-retained-charge", unit: binding.Unit);

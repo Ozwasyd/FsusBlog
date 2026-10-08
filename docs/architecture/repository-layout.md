@@ -176,6 +176,22 @@ ordinary hard admission. Failed deletion leaves the physical owner charged; fina
 disposal is legal only after the existing storage owner actually relinquishes the
 backing. Object replacement checks and namespace coordination stay with that owner.
 
+`LinuxProcMemoryPressureSource` provides background-only host availability/swap
+capacity and process RSS/swap occupancy observations from bounded `/proc` reads.
+It reserves the reusable buffer's full capacity before allocation; Disabled avoids
+both sampling and buffer admission, and disable drains the capture lock before
+clearing the buffer and releasing its charge. Missing fields retain Unknown;
+duplicate fields, unknown units, overflow and oversized files retain Malformed;
+expired captures retain Stale. Each observation carries its source, scope, domain
+revision and clock. Ledger inode observations keep their independent inode unit.
+The [kernel proc documentation](https://www.kernel.org/doc/html/latest/filesystems/proc.html)
+defines the host and process fields; host availability is not a scoped cgroup
+capacity and process swap occupancy does not prove swap activity or thrashing.
+This source registers no controller or diagnostics authority. Scoped cgroup
+membership/ancestor sampling, Windows/macOS adapters, automatic qualification and
+P01 sampling performance remain outstanding; no raw proc observation qualifies
+admission headroom or a platform support row.
+
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
 or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
 additional candidate targets and binds each row's source and required offline closure.

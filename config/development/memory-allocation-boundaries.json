@@ -3698,6 +3698,40 @@
                     "anchor": "public sealed class TransientBufferPool"
                 }
             ]
+        },
+        {
+            "id": "linux-proc-pressure-sampling",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Platform/LinuxProcMemoryPressureSource.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "LinuxProcMemoryPressureSource",
+            "producer": "Explicit background Capture reads /proc/meminfo and /proc/self/status through one byte-capacity-admitted reusable buffer",
+            "consumers": "Existing protected observability/controller owner; this adapter registers no request hook, scheduler or public diagnostics endpoint",
+            "releaseEvent": "Disable synchronizes with Capture, clears and detaches the reusable buffer before final charge disposal; caller-held immutable observations retain their own GC lifetime",
+            "capacityModel": "maximumReadBytes plus one byte is physically charged before allocation; one lock serializes the reusable bounded buffer; exactly five observations per capture; control objects, paths and FileStream internals remain process headroom",
+            "frequency": "Per explicit background capture; Disabled performs no reads or buffer allocation",
+            "asyncEscape": "Only caller-held immutable observations escape; byte buffer never escapes the synchronous capture lock",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing protected observability owner retains diagnostic publication; resource topology and ledger remain canonical; no payload eligibility is conferred",
+            "migrationDisposition": "Managed control metadata only; no spill/device/sharing permission",
+            "exclusionReason": "Host availability and process swap occupancy are observations, not cgroup headroom, swap activity, automatic qualification or platform acceptance",
+            "observationHeadroom": "Caller supplies finite read-capacity and maximum duration; P01 sampling allocation/latency gates are not established by fixture values",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "testOwner": "tests/backend/Unit/LinuxProcMemoryPressureTests.cs",
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/LinuxProcMemoryPressureSource.cs",
+                    "anchor": "public sealed class LinuxProcMemoryPressureSource"
+                }
+            ]
         }
     ],
     "syntaxObserver": {
