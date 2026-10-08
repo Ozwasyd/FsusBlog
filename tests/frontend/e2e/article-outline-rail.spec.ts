@@ -112,6 +112,57 @@ test.describe('article outline current rendered contract', () => {
         await expect(panel.getByRole('treeitem').first()).toHaveAccessibleName('Different article')
     })
 
+    test('canonical duplicate navigation survives prefix, deletion, movement, split and merge edits', async ({ page }) => {
+        await page.setViewportSize({ width: 1440, height: 900 })
+        await page.emulateMedia({ reducedMotion: 'reduce' })
+        await openOutline(page, 0)
+        await page.getByRole('button', { name: '打开文章大纲' }).click()
+        const panel = page.locator('[data-article-outline-panel="true"]')
+        const editor = page.locator('#article-content')
+        const alpha = '# Alpha\n\nAlpha body\n\n'
+        const firstDuplicate = '# Duplicate\n\nFirst duplicate body\n\n'
+        const secondDuplicate = '# Duplicate\n\nSecond duplicate body\n\n'
+        const omega = '# Ωmega\n\nTail body\n'
+        const original = alpha + firstDuplicate + secondDuplicate + omega
+        await editor.fill(original)
+        await expect(panel.getByRole('treeitem')).toHaveCount(4)
+        const originalIds = await panel.getByRole('treeitem').evaluateAll((nodes) =>
+            nodes.map((node) => node.getAttribute('data-outline-node-id')))
+
+        const prefixed = 'Introduction\n\n' + original
+        await editor.fill(prefixed)
+        await expect.poll(() => panel.getByRole('treeitem').evaluateAll((nodes) =>
+            nodes.map((node) => node.getAttribute('data-outline-node-id')))).toEqual(originalIds)
+
+        const states = [
+            { source: prefixed, count: 4, duplicateIndex: 2 },
+            { source: 'Introduction\n\n' + firstDuplicate + secondDuplicate + omega, count: 3, duplicateIndex: 1 },
+            { source: omega + firstDuplicate + secondDuplicate, count: 3, duplicateIndex: 2 },
+            { source: omega + firstDuplicate + '# Duplicate\n\n# Split\n\nSecond duplicate body\n', count: 4, duplicateIndex: 2 },
+            { source: omega + firstDuplicate + '# Duplicate merged\n\nSecond duplicate body\n', count: 3, duplicateIndex: 2 },
+        ]
+        for (const state of states) {
+            await editor.fill(state.source)
+            await expect(editor).toHaveValue(state.source)
+            const items = panel.getByRole('treeitem')
+            await expect(items).toHaveCount(state.count)
+            const ids = await items.evaluateAll((nodes) => nodes.map((node) =>
+                node.getAttribute('data-outline-node-id')))
+            expect(new Set(ids).size).toBe(state.count)
+            await items.nth(state.duplicateIndex).click()
+            await expect(editor).toBeFocused()
+            await expect(items.nth(state.duplicateIndex)).toHaveAttribute('aria-selected', 'true')
+            await expect(panel.locator('[role="treeitem"][aria-selected="true"]')).toHaveCount(1)
+            // These are fixture expectations, never a consumer-side title lookup or offset repair.
+            const expectedStart = state.source.lastIndexOf('# Duplicate')
+            await expect(editor).toHaveJSProperty('selectionStart', expectedStart)
+            await expect(editor).toHaveJSProperty('selectionEnd', expectedStart)
+        }
+        await editor.fill('No headings remain.\n')
+        await expect(panel.getByRole('treeitem')).toHaveCount(0)
+        await expect(panel.getByText('正文中暂无标题。')).toBeVisible()
+    })
+
     test('mobile reveal releases the Drawer focus trap before returning to the editor', async ({ page }) => {
         await page.setViewportSize({ width: 375, height: 812 })
         await page.emulateMedia({ reducedMotion: 'reduce' })
