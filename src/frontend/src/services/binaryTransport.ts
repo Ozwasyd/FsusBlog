@@ -429,7 +429,7 @@ function createAbortLikeError(message: string): Error
     return error;
 }
 
-function startWorkerDecode<T>(queued: QueuedDecodeRequest): void
+function startWorkerDecode(queued: QueuedDecodeRequest): void
 {
     const worker = getWorker();
     const { requestId, signal } = queued;
@@ -548,7 +548,7 @@ function decodeInWorker<T>(
 
         abortCleanup?.();
         queued.abortCleanup = null;
-        startWorkerDecode<T>(queued);
+        startWorkerDecode(queued);
     });
 }
 

@@ -264,6 +264,40 @@ describe('RFC 9474 blind anonymous credential suite', () => {
     expect(issueCredential).not.toHaveBeenCalled()
   })
 
+  it('uses the issuer expiry contract and rejects expired or malformed timestamps before accepting', async () => {
+    const now = Date.now()
+    for (const expiry of [now - 1, Number.NaN, Number.POSITIVE_INFINITY, undefined, now + 30_000]) {
+      const acceptIssuerResponse = vi.fn(async () => null)
+      const issueCredential = vi.fn(async () => ({
+        ...issuerResponse(new Uint8Array(MODULUS_BYTES)),
+        expiresAtUnixMs: expiry
+      } as CommentPrivacyCredentialIssueResponse))
+      const loadRevocationArtifact = vi.fn()
+      const provider = createCommentPrivacyCredentialProvider({
+        vault: {
+          async get() { return null },
+          async put() {},
+          async pruneExpired() { return 0 },
+          async clear() {}
+        },
+        loadMetadata: async () => issuerMetadata(),
+        issueCredential,
+        loadRevocationArtifact,
+        credentialSuite: {
+          createCredentialRequest: async () => ({ credentialRequest: new Uint8Array(MODULUS_BYTES), credentialOpening: new Uint8Array(MODULUS_BYTES + 1) }),
+          acceptIssuerResponse
+        },
+        crypto,
+        now: () => now,
+        unavailableCacheTtlMs: 0
+      })
+      expect(await provider.prepareCredential({ signal: new AbortController().signal })).toBeNull()
+      expect(issueCredential).toHaveBeenCalledOnce()
+      expect(acceptIssuerResponse).toHaveBeenCalledTimes(expiry === now + 30_000 ? 1 : 0)
+      expect(loadRevocationArtifact).not.toHaveBeenCalled()
+    }
+  })
+
   it('does not enter provider lifecycle when already cancelled', async () => {
     const loadMetadata = vi.fn()
     const controller = new AbortController()
