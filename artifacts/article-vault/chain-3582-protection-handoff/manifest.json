@@ -78,6 +78,16 @@
             "bytes": 10773
         },
         {
+            "path": "proposed-pr-contract-result.json",
+            "sha256": "246e93194cbcd62b7a15747990885eaa01b4ac803a01be097122217785df1b8c",
+            "bytes": 626
+        },
+        {
+            "path": "proposed-pr-contract.log.gz",
+            "sha256": "2a0f2ac54fc0cdc8f4c3f70a525675a5521c25830aded730ad018c5607d78e94",
+            "bytes": 64
+        },
+        {
             "path": "remote-publication.json",
             "sha256": "dfaa1a06fbf99c0cc63bd1898f10eb633afc21b82ab849ec0907d79cd705083f",
             "bytes": 458
