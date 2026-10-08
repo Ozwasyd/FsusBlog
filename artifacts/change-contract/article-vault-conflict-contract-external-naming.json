@@ -1,0 +1,35 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/backend/packages.lock.json",
+                "tests/coverage-registry.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve canonical serialized schema, lockfile, registry and authority keys while consuming exact supplied prerequisites and registering the diagnostic tier."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
+                "tools/governance/check-article-vault-conflicts.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve external process environment and protocol spellings while new internal C# and JavaScript symbols follow repository naming conventions."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md",
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve caller-visible documented DOM/token spelling and existing document identifiers; regenerate the testing projection through its original producer."
+        }
+    ]
+}
