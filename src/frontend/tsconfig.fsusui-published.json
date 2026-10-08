@@ -6,6 +6,12 @@
         "noUnusedLocals": false,
         "noUnusedParameters": false,
         "paths": {
+            "@/*": [
+                "./src/*"
+            ],
+            "@wasm/*": [
+                "./wasm/web/*"
+            ],
             "vue": [
                 "./node_modules/vue"
             ],

@@ -460,11 +460,13 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
       version: 3, content: '无法清理的公开草稿', savedAt: 123, policyHash: 'policy-42',
       clientMutationId: '018ff007-1234-7abc-8def-0123456789ab'
     })
-    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('storage deletion denied') })
+    const removeItem = vi.spyOn(window.localStorage, 'removeItem').mockImplementation(() => { throw new Error('storage deletion denied') })
     const blocked = mountComposer({ articleId: 42, accountId: 7 })
     await nextTick()
     await blocked.get('.comment-composer-draft__actions button').trigger('click')
     await blocked.setProps({ modelValue: '无法清理的公开草稿' })
+    expect(removeItem).toHaveBeenCalledWith(key)
+    expect(localStorage.getItem(key)).toContain('无法清理的公开草稿')
     expect(blocked.text()).toContain('强匿名发布已暂停')
     await blocked.findAll('button').find(button => button.text().includes('发送'))!.trigger('click')
     expect(blocked.emitted('submit')).toBeUndefined()
