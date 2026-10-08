@@ -1747,7 +1747,7 @@ exact providers and admits no successful output acknowledgement. Run these
 controls with `dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Release
 --filter FullyQualifiedName~DocumentExportTaskQueueTests` after the existing
 admission and locked restore. They do not freeze an article through its real
-permission/database authorities or provide durable recovery, provider execution,
+permission/database authorities or prove durable recovery, provider execution,
 host-stop evidence, output storage, download, or public API acceptance.
 Those stages retain their original gates; an executor acknowledgement in these
 scheduling tests is not a real sandbox cleanup receipt.
@@ -1775,3 +1775,27 @@ the exact release ID/reference. It never selects the current revision pointer.
 Typed property and asset inventories still require their canonical frozen reader
 ports before this source package can become a complete provider input. No public
 API or automatic admission is activated by these source controls.
+
+`DocumentExportTaskJournalIntegrationTests` exercises the same scheduler with its
+PostgreSQL journal in a disposable database: independent key-ring providers,
+encrypted frozen input, queued/idempotency recovery, interrupted retry, immutable
+first failure, stale claim/revision rejection, a second owner, connection loss,
+ciphertext tampering/cross-task replay, and expired retention after cleanup.
+A dedicated non-pooled PostgreSQL session holds the database-wide queue owner
+lock; every exposed mutation must persist at its expected revision. Persistence
+failure poisons the owner and requests cancellation without acknowledging cleanup.
+An interrupted active attempt recovers as cleanup-required (or expired), retains
+its attempt identity and slot, and cannot execute again until an executor supplies
+the actual stop/cleanup evidence. Controlled ACKs in these tests are scheduling
+controls, not native sandbox receipts.
+The journal encrypts the existing closed canonical input and internal queue
+projection with a separate Data Protection purpose. Per-task purpose binding,
+canonical digests, typed row scope, count/byte/attempt budgets and UTC ticks are
+checked on recovery. Immutable input is inserted once; later writes update only
+the queue projection. No final output or download grant is persisted here.
+The adapter performs no schema DDL and is not registered as an active public task
+service. Its `document_export_task` table still requires an explicit production
+Expand and read-only startup compatibility proof, together with trusted site
+binding, complete property/asset admission and real host cleanup integration.
+The test-only schema is confined to the repository's disposable PostgreSQL fixture;
+it is not a production migration or a destructive migration acceptance receipt.

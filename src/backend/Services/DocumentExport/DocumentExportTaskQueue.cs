@@ -49,22 +49,26 @@ internal sealed class DocumentExportTaskClaim
 
 /// <summary>
 /// Bounded scheduling of already admitted, canonical frozen inputs. This internal
-/// component has no public admission, persistence, renderer, or output authority.
+/// component has no public admission, renderer, or output authority. Its optional
+/// private journal persists this same queue; recovery never assumes host cleanup.
 /// Stop acknowledgements must come from the owning executor after actual cleanup;
 /// a cancellation request alone never releases an execution slot.
 /// </summary>
-internal sealed class DocumentExportTaskQueue
+internal sealed class DocumentExportTaskQueue : IDisposable
 {
     private readonly object _gate = new();
     private readonly TimeProvider _timeProvider;
     private readonly DocumentExportQueueLimits _limits;
+    private readonly IDocumentExportTaskJournal? _journal;
+    private bool _unavailable;
     private readonly Dictionary<string, Entry> _entries = new(StringComparer.Ordinal);
     private readonly Dictionary<(long UserId, long SiteId, string Key), Entry> _idempotency = new();
     private readonly LinkedList<Entry> _pending = new();
     private long _frozenBytes;
     private int _executions;
 
-    internal DocumentExportTaskQueue(TimeProvider timeProvider, DocumentExportQueueLimits limits)
+    internal DocumentExportTaskQueue(
+        TimeProvider timeProvider, DocumentExportQueueLimits limits, IDocumentExportTaskJournal? journal = null)
     {
         ArgumentNullException.ThrowIfNull(timeProvider);
         ArgumentNullException.ThrowIfNull(limits);
@@ -80,6 +84,16 @@ internal sealed class DocumentExportTaskQueue
         }
         _timeProvider = timeProvider;
         _limits = limits;
+        _journal = journal;
+        try
+        {
+            Restore();
+        }
+        catch
+        {
+            _journal?.Dispose();
+            throw;
+        }
     }
 
     internal async Task<DocumentExportQueueSnapshot> EnqueueAsync(
@@ -119,6 +133,7 @@ internal sealed class DocumentExportTaskQueue
         await ExpireAsync();
         lock (_gate)
         {
+            RequireAvailable();
             var key = (task.UserId, task.SiteId, task.IdempotencyKey);
             if (_idempotency.TryGetValue(key, out Entry? existing))
             {
@@ -142,6 +157,7 @@ internal sealed class DocumentExportTaskQueue
             _entries.Add(task.TaskId, entry);
             _idempotency.Add(key, entry);
             _frozenBytes += retainedBytes;
+            Persist(entry);
             return Snapshot(entry);
         }
     }
@@ -187,6 +203,7 @@ internal sealed class DocumentExportTaskQueue
             DocumentExportContractValidator.Validate(retry, entry.Input);
             entry.Attempts.Add(new Attempt(retry, entry.Attempts.Count + 1, _timeProvider.GetUtcNow()));
             entry.PendingNode = _pending.AddLast(entry);
+            Persist(entry);
             return Snapshot(entry);
         }
     }
@@ -205,6 +222,7 @@ internal sealed class DocumentExportTaskQueue
         await ExpireAsync();
         lock (_gate)
         {
+            RequireAvailable();
             if (_executions >= _limits.MaxConcurrency || _pending.First is null)
             {
                 return null;
@@ -215,6 +233,7 @@ internal sealed class DocumentExportTaskQueue
             entry.Claim = new DocumentExportTaskClaim(entry.Task.TaskId, entry.Abort.Token);
             SetStatus(entry, DocumentExportTaskStatus.Preparing);
             _executions++;
+            Persist(entry);
             return entry.Claim;
         }
     }
@@ -230,6 +249,7 @@ internal sealed class DocumentExportTaskQueue
                 throw new InvalidOperationException("Export claim cannot start in its current state.");
             }
             SetStatus(entry, DocumentExportTaskStatus.Running);
+            Persist(entry);
             // Never expose the queue's immutable-array backing storage to a worker.
             return (entry.Current.Task, DocumentExportContractValidator.Seal(entry.Input));
         }
@@ -249,12 +269,14 @@ internal sealed class DocumentExportTaskQueue
                 entry.Current.CancellationRequested = true;
                 entry.Current.CleanupComplete = true;
                 entry.Current.StoppedAtUtc = _timeProvider.GetUtcNow();
+                Persist(entry);
             }
             else if (entry.Current.Task.Status is DocumentExportTaskStatus.Preparing or DocumentExportTaskStatus.Running)
             {
                 SetStatus(entry, DocumentExportTaskStatus.Cancelling);
                 entry.Current.CancellationRequested = true;
                 abort = entry.Abort;
+                Persist(entry);
             }
         }
         if (abort is not null)
@@ -311,6 +333,7 @@ internal sealed class DocumentExportTaskQueue
                 {
                     SetStatus(entry, DocumentExportTaskStatus.CleanupRequired);
                 }
+                Persist(entry);
                 return Snapshot(entry);
             }
 
@@ -330,6 +353,7 @@ internal sealed class DocumentExportTaskQueue
             // complete. No dispose/cancel race is introduced by an acknowledgement.
             entry.Abort = null;
             _executions--;
+            Persist(entry);
             return Snapshot(entry);
         }
     }
@@ -339,6 +363,7 @@ internal sealed class DocumentExportTaskQueue
         var aborts = new List<CancellationTokenSource>();
         lock (_gate)
         {
+            RequireAvailable();
             DateTimeOffset now = _timeProvider.GetUtcNow();
             foreach (Entry entry in _entries.Values.ToArray())
             {
@@ -353,10 +378,12 @@ internal sealed class DocumentExportTaskQueue
                     {
                         SetStatus(entry, DocumentExportTaskStatus.Expired);
                         entry.Current.CancellationRequested = true;
+                        Persist(entry);
                         aborts.Add(entry.Abort!);
                     }
                     continue;
                 }
+                JournalOperation(() => _journal?.Delete(entry.Task.TaskId, entry.JournalRevision));
                 _entries.Remove(entry.Task.TaskId);
                 _idempotency.Remove((entry.Task.UserId, entry.Task.SiteId, entry.Task.IdempotencyKey));
                 _frozenBytes -= entry.RetainedBytes;
@@ -368,6 +395,7 @@ internal sealed class DocumentExportTaskQueue
 
     private Entry RequireOwned(long userId, long siteId, string taskId)
     {
+        RequireAvailable();
         if (taskId is null || !_entries.TryGetValue(taskId, out Entry? entry)
             || userId <= 0 || siteId <= 0 || entry.Task.UserId != userId || entry.Task.SiteId != siteId)
         {
@@ -378,6 +406,7 @@ internal sealed class DocumentExportTaskQueue
 
     private Entry RequireClaim(DocumentExportTaskClaim claim)
     {
+        RequireAvailable();
         ArgumentNullException.ThrowIfNull(claim);
         if (!_entries.TryGetValue(claim.TaskId, out Entry? entry) || !ReferenceEquals(entry.Claim, claim))
         {
@@ -388,6 +417,7 @@ internal sealed class DocumentExportTaskQueue
 
     private Entry RequireStopClaim(DocumentExportTaskClaim claim, out Attempt attempt)
     {
+        RequireAvailable();
         ArgumentNullException.ThrowIfNull(claim);
         if (_entries.TryGetValue(claim.TaskId, out Entry? entry))
         {
@@ -450,9 +480,141 @@ internal sealed class DocumentExportTaskQueue
         => new(entry.Task, entry.CreatedAtUtc, entry.ExpiresAtUtc, entry.Claim is not null,
             entry.Attempts[0].StopOutcome, AttemptSnapshot(entry.Current));
 
-    private sealed class Attempt(DocumentExportTask task, int number, DateTimeOffset createdAtUtc)
+    internal async Task<IReadOnlyList<(Guid AttemptId, DocumentExportTaskClaim Claim)>> ReadRecoveryClaimsAsync()
     {
-        internal Guid Id { get; } = Guid.NewGuid();
+        await ExpireAsync();
+        lock (_gate)
+        {
+            RequireAvailable();
+            return Array.AsReadOnly(_entries.Values.Where(entry => entry.Current.Recovered && entry.Claim is not null)
+                .Select(entry => (entry.Current.Id, entry.Claim!)).ToArray());
+        }
+    }
+
+    public void Dispose()
+    {
+        lock (_gate)
+        {
+            if (_unavailable)
+            {
+                _journal?.Dispose();
+                return;
+            }
+            _unavailable = true;
+            SignalAborts();
+            _journal?.Dispose();
+        }
+    }
+
+    private void RequireAvailable()
+    {
+        if (_unavailable)
+        {
+            throw new InvalidOperationException("Export task queue is unavailable.");
+        }
+        JournalOperation(() => _journal?.VerifyOwner());
+    }
+
+    private void JournalOperation(Action operation)
+    {
+        try
+        {
+            operation();
+        }
+        catch
+        {
+            // No private database payload/exception enters normal logs or a
+            // caller response. Do not expose a mutated in-memory projection.
+            _unavailable = true;
+            SignalAborts();
+            throw new InvalidOperationException("Export task queue persistence is unavailable.");
+        }
+    }
+
+    private void SignalAborts()
+    {
+        foreach (CancellationTokenSource abort in _entries.Values
+            .Where(entry => entry.Abort is not null).Select(entry => entry.Abort!))
+        {
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    await abort.CancelAsync();
+                }
+                catch
+                {
+                    // A failed callback never becomes a cleanup acknowledgement.
+                }
+            });
+        }
+    }
+
+    private void Persist(Entry entry)
+    {
+        if (_journal is null)
+        {
+            return;
+        }
+        var state = new DocumentExportPersistedEntry(entry.Task, entry.Identity, entry.RetainedBytes,
+            entry.CreatedAtUtc, entry.ExpiresAtUtc,
+            [.. entry.Attempts.Select(attempt => new DocumentExportPersistedAttempt(
+                attempt.Task, AttemptSnapshot(attempt), attempt.Claim is not null))]);
+        JournalOperation(() => entry.JournalRevision = _journal.Write(state, entry.Input, entry.JournalRevision));
+    }
+
+    private void Restore()
+    {
+        if (_journal is null)
+        {
+            return;
+        }
+        foreach (DocumentExportJournalEntry stored in _journal.Read())
+        {
+            DocumentExportPersistedEntry state = stored.State;
+            var entry = new Entry(state.Task, DocumentExportContractValidator.Seal(stored.Input), state.Identity,
+                state.RetainedBytes, state.CreatedAtUtc, state.ExpiresAtUtc)
+            {
+                JournalRevision = stored.Revision
+            };
+            entry.Attempts.Clear();
+            foreach (DocumentExportPersistedAttempt persisted in state.Attempts)
+            {
+                DocumentExportAttemptSnapshot snapshot = persisted.Snapshot;
+                entry.Attempts.Add(new Attempt(persisted.Task, snapshot.Number, snapshot.CreatedAtUtc, snapshot.AttemptId)
+                {
+                    StartedAtUtc = snapshot.StartedAtUtc,
+                    StoppedAtUtc = snapshot.StoppedAtUtc,
+                    CancellationRequested = snapshot.CancellationRequested,
+                    CleanupComplete = snapshot.CleanupComplete,
+                    StopOutcome = snapshot.StopOutcome
+                });
+            }
+            _entries.Add(entry.Task.TaskId, entry);
+            _idempotency.Add((entry.Task.UserId, entry.Task.SiteId, entry.Task.IdempotencyKey), entry);
+            _frozenBytes = checked(_frozenBytes + entry.RetainedBytes);
+            if (state.Attempts[^1].ExecutionOutstanding)
+            {
+                entry.Abort = new CancellationTokenSource();
+                entry.Abort.Cancel();
+                entry.Claim = new DocumentExportTaskClaim(entry.Task.TaskId, entry.Abort.Token);
+                entry.Current.Recovered = true;
+                entry.Current.CancellationRequested = true;
+                SetStatus(entry, _timeProvider.GetUtcNow() >= entry.ExpiresAtUtc
+                    ? DocumentExportTaskStatus.Expired : DocumentExportTaskStatus.CleanupRequired);
+                _executions++;
+                Persist(entry);
+            }
+            else if (entry.Current.Task.Status == DocumentExportTaskStatus.Queued)
+            {
+                entry.PendingNode = _pending.AddLast(entry);
+            }
+        }
+    }
+
+    private sealed class Attempt(DocumentExportTask task, int number, DateTimeOffset createdAtUtc, Guid? id = null)
+    {
+        internal Guid Id { get; } = id ?? Guid.NewGuid();
         internal int Number { get; } = number;
         internal DateTimeOffset CreatedAtUtc { get; } = createdAtUtc;
         internal DocumentExportTask Task { get; set; } = task;
@@ -469,6 +631,10 @@ internal sealed class DocumentExportTaskQueue
             get; set;
         }
         internal bool CleanupComplete
+        {
+            get; set;
+        }
+        internal bool Recovered
         {
             get; set;
         }
@@ -504,6 +670,10 @@ internal sealed class DocumentExportTaskQueue
         internal long RetainedBytes { get; } = retainedBytes;
         internal DateTimeOffset CreatedAtUtc { get; } = createdAtUtc;
         internal DateTimeOffset ExpiresAtUtc { get; } = expiresAtUtc;
+        internal long JournalRevision
+        {
+            get; set;
+        }
         internal List<Attempt> Attempts { get; } = [new Attempt(task, 1, createdAtUtc)];
         internal Attempt Current => Attempts[^1];
         internal DocumentExportTaskClaim? Claim
