@@ -3349,12 +3349,175 @@
                     "anchor": "cmake_minimum_required"
                 }
             ]
+        },
+        {
+            "id": "segmented-native-owner",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+                "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "NativeMemoryArenaBuilder until seal; NativeMemoryBlock physical charge and exact role/read/pin/operation owners thereafter",
+            "producer": "TryAppend admits complete normal or oversized blocks before the BCL NativeMemory allocator; seal materializes bounded block and slice descriptor arrays",
+            "consumers": "NativeMemoryArena slice index, root and role owners, HostReadLease and LeaseMemoryManager, idempotent PinLease, actual ConsumeAsync consumer",
+            "releaseEvent": "Close stops independent acquisition; final role/read/pin/operation hold runs ClearAndFree and then releases the committed allocation charge; allocator relinquishment is observed separately from process RSS",
+            "capacityModel": "Full block Capacity, checked alignment and oversized ceiling; finite MaximumArenaCapacity/MaximumBlocks/MaximumSlices/HoldLimit; managed descriptor arrays and CLR metadata are separate headroom, not exact native payload capacity",
+            "frequency": "Per admitted append/block creation, seal descriptor materialization and explicit lease/operation; no measured production rate",
+            "asyncEscape": "Slice, role, reader, pin and actual consumer operation can outlive builder or arena disposal; canceled outer waiting does not finish consumer ownership",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing content authority must approve payload eligibility; module publication and local passing tests grant no product activation or migration rights",
+            "migrationDisposition": "Deny generic migration and automatic activation until content eligibility and required release/runtime qualification are verified",
+            "exclusionReason": "Published module source remains in the denominator; generic payload classification and complete workload/platform/lifetime closure are not acceptance evidence",
+            "observationHeadroom": "Retain whole block charge until actual free/charge release; distinguish allocator relinquishment and sampled resident bytes; observe managed descriptors, pins and hold metadata separately",
+            "testOwner": "tests/backend/Unit/NativeMemoryArenaTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryAllocator.cs",
+                    "anchor": "class NativeMemoryAllocator"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaBuilder.cs",
+                    "anchor": "class NativeMemoryArenaBuilder"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryArenaPolicy.cs",
+                    "anchor": "class NativeMemoryArenaPolicy"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Host/NativeMemoryBlock.cs",
+                    "anchor": "class NativeMemoryBlock"
+                }
+            ]
+        },
+        {
+            "id": "owned-disk-segment-buffers",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+                "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "DiskSegmentStore segment owner and DiskSegmentLease read/operation holds; existing coordinator owns shared resource admission",
+            "producer": "TryPublish/Recover/TryAcquire admit complete segment, chunk scratch, index and operation resources before creation or read; compaction retains source and destination simultaneously",
+            "consumers": "Store segment index, caller-held publication descriptor lists, PayloadStream and leased actual CopyToAsync operations; compaction source readers and destination publication",
+            "releaseEvent": "Disable blocks new operations; retired segment deletion and charge release wait for its final reader/actual operation; file and scratch owners dispose on publication failure or consumer completion",
+            "capacityModel": "MaxSegments/MaxRecordsPerSegment/MaxPayloadBytes/ChunkBytes bound file and scratch/index planning; per-read chunk byte array has exact Length; IndexBytes plus fixed 512-byte planning overhead is not exact CLR metadata size",
+            "frequency": "Per admitted publication, recovery scan, read acquisition and compaction; no production frequency measurement",
+            "asyncEscape": "Returned segment entries, read lease, PayloadStream and CopyToAsync hold source/file/scratch resources; caller cancellation and reentrant disposal do not prove actual transport completion",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing content authority must approve payload eligibility; module publication and local passing tests grant no product activation or migration rights",
+            "migrationDisposition": "Deny generic migration and automatic activation until content eligibility and required release/runtime qualification are verified",
+            "exclusionReason": "Published module source remains in the denominator; generic payload classification and complete workload/platform/lifetime closure are not acceptance evidence",
+            "observationHeadroom": "Observe managed scratch and real filesystem backing separately; unresolved overlay/FUSE capacity remains Unknown; keep old segment disk charge through lease-aware compaction; current disk source is compile-blocked",
+            "testOwner": "tests/backend/Unit/DiskSegmentStoreTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentFormat.cs",
+                    "anchor": "class DiskSegmentFormat"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
+                    "anchor": "class DiskSegmentLease"
+                },
+                {
+                    "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
+                    "anchor": "class DiskSegmentStore"
+                }
+            ]
+        },
+        {
+            "id": "owned-os-page-region",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Platform/OsPageRegion.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "OsPageRegion dedicated mapping and one physical descriptor/reservation/charge",
+            "producer": "TryReserve requires complete mapping admission before the isolated OS adapter reserves; Commit/Seal/Lock remain explicit owner transitions",
+            "consumers": "Synchronous bounded Read/Write copies and region owner; no caller pointer, Memory or asynchronous view exported",
+            "releaseEvent": "Dispose retains mapping and charge on failed native release; successful native release precedes charge disposal, which remains retryable without double free",
+            "capacityModel": "Layout capacity includes full reserved mapping and optional guard pages; committed and locked payload subsets are distinct observations; large-page hint success leaves physical promotion unknown",
+            "frequency": "Per explicit admitted region and synchronous operation; discovery and local test are not default Auto activation",
+            "asyncEscape": "Owner gate serializes copies, protection, discard, unlock and release; this primitive exports no asynchronous consumer token",
+            "classification": "unclassified",
+            "eligibilityOwner": "Existing content authority must approve payload eligibility; module publication and local passing tests grant no product activation or migration rights",
+            "migrationDisposition": "Deny generic migration and automatic activation until content eligibility and required release/runtime qualification are verified",
+            "exclusionReason": "Published module source remains in the denominator; generic payload classification and complete workload/platform/lifetime closure are not acceptance evidence",
+            "observationHeadroom": "Observe reserved/committed/locked counters with unknown states separately from RSS; locked subset aliases physical allocation; retain charge after failed cleanup",
+            "testOwner": "tests/backend/Unit/OsPageRegionTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/OsPageRegion.cs",
+                    "anchor": "class OsPageRegion"
+                }
+            ]
+        },
+        {
+            "id": "os-numa-observation-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Platform/OsNumaTopologySource.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "OsNumaTopologySource bounded source parsing; returned immutable observation owned by its caller",
+            "producer": "Explicit Observe reads Linux online-node and process memory-node restrictions into bounded node sets/arrays; Disabled returns before OS reads",
+            "consumers": "Caller-held OsNumaTopologyObservation and CanTarget selection; online and allowed node sets remain separate",
+            "releaseEvent": "Local parse temporaries end at return; returned arrays and observations remain managed references until actual caller release and GC",
+            "capacityModel": "MaximumCharacters=65536 and MaximumNodes=4096 bound source roster materialization; this is metadata overhead, not physical NUMA headroom or exact CLR capacity",
+            "frequency": "Per explicit observation; no sampler timer or production frequency",
+            "asyncEscape": "Returned observation arrays may survive the caller operation; stale/migrated restriction state cannot authorize native placement",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing content authority must approve payload eligibility; module publication and local passing tests grant no product activation or migration rights",
+            "migrationDisposition": "Deny generic migration and automatic activation until content eligibility and required release/runtime qualification are verified",
+            "exclusionReason": "Published module source remains in the denominator; generic payload classification and complete workload/platform/lifetime closure are not acceptance evidence",
+            "observationHeadroom": "Retain node-roster metadata in managed/process observation denominator; processor/chiplet topology is not NUMA capacity; missing restriction stays Unknown",
+            "testOwner": "tests/backend/Unit/OsNumaTopologyTests.cs",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Platform/OsNumaTopologySource.cs",
+                    "anchor": "class OsNumaTopologySource"
+                }
+            ]
         }
     ],
     "syntaxObserver": {
         "project": "tools/governance/memory-syntax-observer/FsusBlog.MemorySyntaxObserver.csproj",
         "source": "tools/governance/memory-syntax-observer/MemorySyntaxObserver.cs",
-        "additionalSources": ["tools/governance/memory-syntax-observer/MemorySemanticSourceObserver.cs"],
+        "additionalSources": [
+            "tools/governance/memory-syntax-observer/MemorySemanticSourceObserver.cs"
+        ],
         "dependencyPolicy": "official-installed-SDK-Roslyn-BCL-only; no NuGet packages; source observation, not product compilation or lifetime acceptance"
     },
     "reuseOwners": [
