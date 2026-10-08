@@ -42,7 +42,10 @@
                 "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasReferenceContracts.cs",
                 "src/shared/Contracts/AuthoringCanvas/AuthoringCanvasTransportContracts.cs",
                 "tools/contracts/generate-authoring-canvas-wire.mjs",
-                "tools/governance/check-authoring-canvas-authority.mjs"
+                "tools/governance/check-authoring-canvas-authority.mjs",
+                "src/backend/Services/Authoring/AuthoringCanvasDocumentContracts.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasOperationContracts.cs",
+                "src/backend/Services/Authoring/AuthoringCanvasReferenceContracts.cs"
             ],
             "reason": "Process environment spelling is external while option variables remain internal. This Canvas integration preserves existing external spelling; internal symbols remain governed by the current repository naming map."
         },
