@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 using System.Text;
 
 using FsusBlog.Core.Common;
@@ -510,7 +511,8 @@ public sealed class ArticleVaultAssetStagingAdapterTests
         Assert.Equal(0, fixture.Store.OtherReadCount);
     }
 
-    private static Fixture CreateFixture(VaultSyncDecision decision = VaultSyncDecision.PushUpdate, bool twoAssets = false)
+    internal static Fixture CreateFixture(VaultSyncDecision decision = VaultSyncDecision.PushUpdate, bool twoAssets = false,
+        byte[]? assetBytes = null)
     {
         var time = new MutableTimeProvider(CreatedAtUnixMs + 1);
         var binding = new VaultDependencyBinding(SiteIdentity, VaultIdentity, ArticleIdentity);
@@ -518,7 +520,8 @@ public sealed class ArticleVaultAssetStagingAdapterTests
             | VaultDependencyRights.Materialize | VaultDependencyRights.Upload;
         var admission = new VaultDependencyAdmission(ArticleEmbedPermissionStatus.Allowed, Rights, Rights, DigestA, DigestA, DigestA);
         var asset = new VaultAssetDependency(binding, admission, Guid.Parse("11111111-1111-1111-1111-111111111111"),
-            DigestA, "image/png", ".png", 24, 1, 1, 7, 4);
+            assetBytes is null ? DigestA : Convert.ToHexStringLower(SHA256.HashData(assetBytes)),
+            "image/png", ".png", assetBytes?.LongLength ?? 24, 1, 1, 7, 4);
         var nodes = new List<VaultDependencyNode> { asset };
         if (twoAssets)
         {
@@ -632,7 +635,7 @@ public sealed class ArticleVaultAssetStagingAdapterTests
         }
     }
 
-    private sealed class Fixture
+    internal sealed class Fixture
     {
         public Fixture(ArticleVaultSealedExecutionBundle bundle, ArticleVaultOperationIdentity operation,
             ArticleVaultDependencyPlan dependencies, ArticleVaultPlanRequest request, List<VaultDependencyPlanInput> inputs,
@@ -712,7 +715,7 @@ public sealed class ArticleVaultAssetStagingAdapterTests
                 itemOperationIdentity ?? Item.OperationIdentity, assetIdentity ?? Asset.AssetIdentity, access ?? s_access, cancellationToken);
     }
 
-    private sealed class SyntheticFiles(UploadAssetObservation observation) : IFileService
+    internal sealed class SyntheticFiles(UploadAssetObservation observation) : IFileService
     {
         public Result<UploadAssetObservation> Result { get; set; } = Result<UploadAssetObservation>.Success(observation);
         public List<(UploadSessionAccess Access, string Sha256, CancellationToken CancellationToken)> Reads { get; } = [];
@@ -755,7 +758,7 @@ public sealed class ArticleVaultAssetStagingAdapterTests
         }
     }
 
-    private sealed class SyntheticExecutionStore(ArticleVaultSealedExecutionBundle bundle) : IArticleVaultExecutionStore
+    internal sealed class SyntheticExecutionStore(ArticleVaultSealedExecutionBundle bundle) : IArticleVaultExecutionStore
     {
         public int LoadCount
         {
@@ -819,7 +822,7 @@ public sealed class ArticleVaultAssetStagingAdapterTests
         }
     }
 
-    private sealed class MutableTimeProvider(long unixMs) : TimeProvider
+    internal sealed class MutableTimeProvider(long unixMs) : TimeProvider
     {
         public long UnixMs { get; set; } = unixMs;
         public Action? BeforeUtcRead
