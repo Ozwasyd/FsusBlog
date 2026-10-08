@@ -4,6 +4,7 @@ import { flushPromises, mount } from '@vue/test-utils'
 import { defineComponent, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import ArticleWriteCommandBar from '@/components/admin/article/ArticleWriteCommandBar.vue'
+import { ElMarkdownEditor, type MarkdownEditorTransactionEvent, type MarkdownEditorTransaction, type MarkdownEditorDispatchResult } from '@ozwasyd/element-plus'
 import { ArticlePublishStatus } from '@/api/article'
 import { BinaryTransportError } from '@/services/binaryTransport'
 import { useAdminArticleWrite } from '@/composables/useAdminArticleWrite'
@@ -208,6 +209,53 @@ describe('useAdminArticleWrite authoring gates and draft isolation', () => {
 
   afterEach(() => {
     vi.restoreAllMocks()
+  })
+
+  it('shares the actual article owner through controlled attachment transactions and releases its editor lease', async () => {
+    const { wrapper, authoring } = await mountAuthoring()
+    const runtime = authoring.authoringAttachmentRuntime
+    const initial = authoring.authoringDocumentContext.value
+    const editor = mount(ElMarkdownEditor, { props: {
+      mode: 'source', modelValue: authoring.articleForm.content,
+      documentIdentity: authoring.authoringDocumentIdentity.value,
+      'onUpdate:modelValue': (value: string) => { authoring.articleForm.content = value },
+      onTransaction: (event: MarkdownEditorTransactionEvent) => runtime.consumeTransaction(event)
+    } })
+    const commands = editor.vm as unknown as { dispatchTransaction(transaction: MarkdownEditorTransaction): MarkdownEditorDispatchResult }
+    const release = runtime.bindEditor({ dispatch: transaction => commands.dispatchTransaction(transaction) })
+    expect(() => runtime.bindEditor({ dispatch: transaction => commands.dispatchTransaction(transaction) })).toThrow()
+    const anchor = runtime.captureAnchor({ start: 0, end: 0, direction: 'none' },
+      { surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0 })
+    const capture = runtime.capture({ origin: 'drop', anchor,
+      files: [{ name: 'image.png', mimeType: 'image/png', byteLength: 5 }] })
+    expect(capture.status).toBe('created')
+    const pending = runtime.commitCreated(capture)[0]!
+    expect(authoring.articleForm.content).toBe('![image.png]()')
+    expect(authoring.authoringDocumentContext.value.documentId).toBe(initial.documentId)
+    expect(authoring.authoringDocumentContext.value.documentEpoch).toBe(initial.documentEpoch)
+    expect(pending.snapshot.anchor.document.contextDigest).toBe(authoring.authoringDocumentContext.value.contextDigest)
+    const transaction = commands.dispatchTransaction({ changes: [{ from: 0, to: 0, insert: 'prefix\n' }], history: 'separate' })
+    expect(runtime.consumeTransaction(transaction)).toBe(true)
+    expect(runtime.consumeTransaction({ ...transaction, value: 'tampered bytes' })).toBe(false)
+    expect(authoring.articleForm.content).toBe('prefix\n![image.png]()')
+    expect(pending.signal.aborted).toBe(false)
+    const completed = runtime.complete(pending, { ...pending.request, status: 'resolved',
+      payload: { markdownKind: 'image', href: '/asset.png', alt: 'image', mimeType: 'image/png' } })
+    expect(completed.state).toBe('transaction-committed')
+    expect(authoring.articleForm.content).toBe('prefix\n![image](/asset.png)')
+    expect(pending.signal.aborted).toBe(true)
+    const nextAnchor = runtime.captureAnchor({ start: 0, end: 0, direction: 'none' },
+      { surface: 'source', tool: 'none', affinity: 'after', viewportOffset: 0, percentage: 0 })
+    const next = runtime.commitCreated(runtime.capture({ origin: 'pick', anchor: nextAnchor,
+      files: [{ name: 'other.png', mimeType: 'image/png', byteLength: 6 }] }))[0]!
+    release()
+    release()
+    expect(next.signal.aborted).toBe(true)
+    expect(() => runtime.complete(next, { ...next.request, status: 'resolved',
+      payload: { markdownKind: 'image', href: '/late.png' } })).toThrow()
+    editor.unmount()
+    wrapper.unmount()
+    expect(runtime.receipts).toEqual([])
   })
 
   it('edit -> autosave/draft save only calls draft owner and never calls prepublish or publish APIs', async () => {

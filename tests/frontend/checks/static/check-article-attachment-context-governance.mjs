@@ -18,7 +18,12 @@ const required = [
     'captureMarkdownAttachmentInput(', 'resolveMarkdownClipboardPaste(', 'planMarkdownAttachmentInsert(',
     'validateArticleAnchorContext(', 'validateArticleDocumentTaskEnvelope(', 'isCurrentContext(',
     'createArticleDocumentContext(', '.beginTask(', 'lease.signal', 'item.order', 'expectedRevision:',
-    'contentDigest:', 'created-intent-capacity', 'attachment-input-disposed'
+    'contentDigest:', 'created-intent-capacity', 'attachment-input-disposed',
+    'planMarkdownAttachmentResolve(', 'planMarkdownAttachmentRemove(', 'createMarkdownAttachmentJob(',
+    'consumeTransaction(', 'port.commitSource(', 'result.positionMap.mapRange(', 'result.positionMap.map(',
+    'attachment-position-map-missing', 'attachment-node-deleted', 'attachment-provider-context-stale',
+    'attachment-pending-handle-invalid', 'attachment-retry-context-invalid', 'this.pendingHandles.get(handle)',
+    'entry.controller.abort(', 'predecessorTaskRef:', 'validateArticleAttachmentLifecycle('
 ];
 function failures(value)
 {
@@ -29,9 +34,15 @@ for (const mutation of ['querySelector', 'selectionStart', 'fsus-upload-placehol
 {
     assert.ok(failures(`${source}\n${mutation}`).length > 0, mutation);
 }
-for (const token of ['lease.signal', 'expectedRevision:', 'isCurrentContext(', 'resolveMarkdownClipboardPaste('])
+for (const token of ['lease.signal', 'expectedRevision:', 'isCurrentContext(', 'resolveMarkdownClipboardPaste(',
+    'result.positionMap.mapRange(', 'this.pendingHandles.get(handle)', 'entry.controller.abort(', 'predecessorTaskRef:'])
 {
     assert.ok(failures(source.replaceAll(token, 'removed_guard')).length > 0, token);
 }
 assert.deepEqual(failures(source), [], ownerPath);
-console.log('article attachment created-stage governance and negative controls passed; completion lifecycle remains unqualified');
+const owner = fs.readFileSync(path.join(root, 'src/frontend/src/composables/useAdminArticleWrite.ts'), 'utf8');
+assert.ok(owner.includes('articleDocumentContextBinding.adapter'), 'existing document owner');
+assert.ok(owner.includes('authoringAttachmentRuntime'), 'controlled owner entry');
+assert.equal((owner.match(/new ArticleAttachmentContextAdapter\(/gu) ?? []).length, 1, 'sole attachment adapter');
+assert.ok(!owner.includes('createArticleDocumentContextAdapter('), 'no second document context');
+console.log('article attachment public lifecycle/controlled owner governance and negative controls passed; product/independent qualification not inferred');

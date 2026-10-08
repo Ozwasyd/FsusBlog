@@ -10,3 +10,4 @@ export type {
     MarkdownSourceRange,
     MarkdownVisualSelection
 } from '@ozwasyd/element-plus/markdown-runtime';
+export { createMarkdownAnchorMap } from '@ozwasyd/element-plus/markdown-runtime';

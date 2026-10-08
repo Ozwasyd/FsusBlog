@@ -48,6 +48,7 @@ import { useImageUploadPreferences } from '@/composables/useImageUploadPreferenc
 import { useImageUploadRuntime } from '@/composables/useImageUploadRuntime';
 import { usePow } from '@/composables/usePow';
 import { BinaryTransportError } from '@/composition/binaryTransport';
+import { createMarkdownAnchorMap, type MarkdownEditorDispatchResult } from '@/fsusui/articlePositionMaps';
 import { toast } from '@/fsusui/feedback';
 import { isFsusUiOk } from '@/fsusui/result';
 import {
@@ -67,6 +68,8 @@ import {
     type ArticleRecoveryJournalWriteResult,
     type ArticleRecoveryOperationKind
 } from '@/services/articleRecoveryJournal';
+import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
+import { ArticleAttachmentContextAdapter, type ArticleAttachmentTransactionPort } from '@/services/authoring/articleAttachmentContext';
 import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter
@@ -830,6 +833,81 @@ export function useAdminArticleWrite()
         id: authoringDocumentContext.value.documentId,
         epoch: authoringDocumentContext.value.documentEpoch
     }));
+    // Every authoring consumer shares the existing canonical document binding.
+    const authoringAnchors = new ArticleAnchorContextAdapter(articleDocumentContextAdapter);
+    const authoringAttachments = new ArticleAttachmentContextAdapter(articleDocumentContextAdapter,
+        'article-assets', 'article-assets:v1', authoringAnchors);
+    let attachmentEditor: Pick<ArticleAttachmentTransactionPort, 'dispatch'> | null = null;
+    const attachmentPort: ArticleAttachmentTransactionPort = {
+        dispatch: transaction =>
+        {
+            if (!active || !attachmentEditor)
+            {
+                throw new Error('article-attachment-editor-unbound');
+            }
+            return attachmentEditor.dispatch(transaction);
+        },
+        commitSource: result =>
+        {
+            const current = articleDocumentContextAdapter.context;
+            if (!active || !result.accepted || result.documentIdentity.id !== current.documentId
+                || result.documentIdentity.epoch !== current.documentEpoch
+                || (result.beforeRevision !== current.sourceRevision && result.revision !== current.sourceRevision))
+            {
+                throw new Error('article-attachment-source-commit-invalid');
+            }
+            // Commit the public revision first; the synchronous source watch is then idempotent.
+            if (result.revision > current.sourceRevision)
+            {
+                articleDocumentContextAdapter.updateSource(result.value, result.revision);
+            }
+            else if (articleForm.content !== result.value)
+            {
+                throw new Error('article-attachment-source-commit-invalid');
+            }
+            articleForm.content = result.value;
+            syncAuthoringDocumentContext();
+        },
+        binding: () => ({ document: articleDocumentContextAdapter.context,
+            map: createMarkdownAnchorMap({ identity: articleDocumentContextAdapter.documentIdentity,
+                source: articleForm.content }) })
+    };
+    const authoringAttachmentRuntime = Object.freeze({
+        captureAnchor: (selection: Parameters<ArticleAnchorContextAdapter['capture']>[1],
+            options: Parameters<ArticleAnchorContextAdapter['capture']>[2]) => authoringAnchors.capture(attachmentPort.binding(), selection, options),
+        capture: (input: Omit<Parameters<ArticleAttachmentContextAdapter['capture']>[0], 'source'>) =>
+            authoringAttachments.capture({ ...input, source: articleForm.content }),
+        commitCreated: (capture: Parameters<ArticleAttachmentContextAdapter['commitCreated']>[0]) =>
+            authoringAttachments.commitCreated(capture, attachmentPort),
+        complete: (handle: Parameters<ArticleAttachmentContextAdapter['complete']>[0], result: Parameters<ArticleAttachmentContextAdapter['complete']>[1]) =>
+            authoringAttachments.complete(handle, result, attachmentPort),
+        remove: (handle: Parameters<ArticleAttachmentContextAdapter['remove']>[0]) => authoringAttachments.remove(handle, attachmentPort),
+        replace: (handle: Parameters<ArticleAttachmentContextAdapter['replace']>[0], file: Parameters<ArticleAttachmentContextAdapter['replace']>[1]) =>
+            authoringAttachments.replace(handle, file, attachmentPort),
+        retry: (handle: Parameters<ArticleAttachmentContextAdapter['retry']>[0]) => authoringAttachments.retry(handle),
+        consumeTransaction: (result: MarkdownEditorDispatchResult) => authoringAttachments.consumeTransaction(result, attachmentPort),
+        get receipts()
+        {
+            return authoringAttachments.lifecycleReceipts;
+        },
+        bindEditor: (editor: Pick<ArticleAttachmentTransactionPort, 'dispatch'>) =>
+        {
+            if (!active || attachmentEditor)
+            {
+                throw new Error('article-attachment-editor-binding-invalid');
+            }
+            attachmentEditor = editor;
+            return () =>
+            {
+                if (attachmentEditor !== editor)
+                {
+                    return;
+                }
+                attachmentEditor = null;
+                authoringAttachments.cancelPending('article-attachment-editor-release');
+            };
+        }
+    });
     const initTask = useAbortableTask({
         registry: articleDocumentContextAdapter,
         kind: 'refresh',
@@ -3041,6 +3119,8 @@ export function useAdminArticleWrite()
         disposeArticleRecoveryLifecycle?.();
         disposeArticleRecoveryLifecycle = null;
         recoveryCoordinator.dispose();
+        attachmentEditor = null;
+        authoringAttachments.dispose();
         articleDocumentContextBinding.release();
         initTask.cancel();
         submitTask.cancel();
@@ -3116,6 +3196,7 @@ export function useAdminArticleWrite()
         articleForm,
         authoringDocumentContext,
         authoringDocumentIdentity,
+        authoringAttachmentRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,
