@@ -30,6 +30,7 @@
             role="complementary"
             aria-label="文章大纲"
             data-article-outline-panel="true"
+            @keydown.esc.prevent="requestClose"
         >
             <OutlinePanelContent
                 :snapshot="snapshot"
@@ -49,6 +50,7 @@
             role="region"
             aria-label="文章大纲"
             data-article-outline-panel="true"
+            @keydown.esc.prevent="requestClose"
         >
             <OutlinePanelContent
                 :snapshot="snapshot"
@@ -69,6 +71,7 @@ import {
     defineComponent,
     h,
     nextTick,
+    onBeforeUnmount,
     onMounted,
     ref,
     resolveComponent,
@@ -91,6 +94,7 @@ defineOptions({ name: 'ArticleWriteOutlineRail' });
 const RAIL_OPEN_STORAGE_KEY = 'fsusblog.article-outline.rail-open.v1';
 
 const diagnosticLabels: Record<string, string> = {
+    'empty-heading': '空标题',
     'duplicate-h1': '重复的一级标题',
     'heading-layer-jump': '标题层级跳跃'
 };
@@ -120,12 +124,34 @@ const OutlinePanelContent = defineComponent({
     setup(props, { emit }) {
         const treeRef = ref<HTMLElement | null>(null);
         const nodeButtons = new Map<string, HTMLButtonElement>();
+        const focusedNodeId = ref<string | null>(null);
         const expanded = computed(() => props.expandedNodeIds);
         const visibleNodes = computed(() => flattenArticleOutlineTree(
             props.snapshot?.tree ?? [],
             expanded.value
         ));
         const hasHeadings = computed(() => (props.snapshot?.items.length ?? 0) > 0);
+        const tabStopId = computed(() => (
+            visibleNodes.value.find((node) => node.nodeId === focusedNodeId.value)?.nodeId ??
+            visibleNodes.value.find((node) => node.nodeId === props.activeHeadingId)?.nodeId ??
+            visibleNodes.value[0]?.nodeId
+        ));
+        const siblingPositions = computed(() => {
+            const siblings = new Map<string | null, MarkdownEditorOutlineItem[]>();
+            for (const item of props.snapshot?.items ?? []) {
+                const group = siblings.get(item.parentId) ?? [];
+                group.push(item);
+                siblings.set(item.parentId, group);
+            }
+            const positions = new Map<string, { position: number; size: number; }>();
+            for (const group of siblings.values()) {
+                group.forEach((item, index) => positions.set(item.nodeId, {
+                    position: index + 1,
+                    size: group.length
+                }));
+            }
+            return positions;
+        });
         const status = computed(() => {
             if (!props.snapshot) return 'stale';
             return hasHeadings.value ? 'ready' : 'empty';
@@ -237,7 +263,7 @@ const OutlinePanelContent = defineComponent({
                         role: 'tree',
                         tabindex: '-1',
                         onKeydown: handleTreeKeydown
-                    }, visibleNodes.value.map((node, index) => h('div', {
+                    }, visibleNodes.value.map((node) => h('div', {
                         key: node.nodeId,
                         class: 'article-write-outline-node',
                         'data-outline-node': node.nodeId
@@ -250,16 +276,17 @@ const OutlinePanelContent = defineComponent({
                                 { 'is-active': props.activeHeadingId === node.nodeId }
                             ],
                             role: 'treeitem',
-                            tabindex: props.activeHeadingId === node.nodeId || index === 0 ? '0' : '-1',
+                            tabindex: tabStopId.value === node.nodeId ? '0' : '-1',
                             'aria-level': String(node.depth),
-                            'aria-posinset': String(index + 1),
-                            'aria-setsize': String(visibleNodes.value.length),
+                            'aria-posinset': String(siblingPositions.value.get(node.nodeId)?.position),
+                            'aria-setsize': String(siblingPositions.value.get(node.nodeId)?.size),
                             'aria-selected': props.activeHeadingId === node.nodeId ? 'true' : 'false',
                             'aria-expanded': node.children.length > 0 ? String(expanded.value.has(node.nodeId)) : undefined,
                             'aria-label': node.text || '无标题',
                             title: node.text || '无标题',
                             'data-outline-node-id': node.nodeId,
                             style: { '--article-outline-depth': String(Math.max(0, node.depth - 1)) },
+                            onFocus: () => { focusedNodeId.value = node.nodeId; },
                             onClick: () => emit('reveal-heading', node)
                         }, [
                             node.children.length > 0
@@ -312,6 +339,29 @@ const launcherRef = ref<HTMLButtonElement | null>(null);
 const expandedNodeIds = ref<ReadonlySet<string>>(new Set());
 let focusReturnPending = false;
 let mounted = false;
+let pendingReveal: {
+    item: MarkdownEditorOutlineItem;
+    kind: 'heading' | 'range';
+    binding: string;
+} | null = null;
+
+onBeforeUnmount(() => {
+    mounted = false;
+    pendingReveal = null;
+});
+
+const revealBinding = (): string => {
+    const snapshot = props.snapshot;
+    return snapshot
+        ? `${snapshot.articleIdentity}\u0000${snapshot.documentIdentity.id}\u0000${snapshot.documentIdentity.epoch}\u0000${snapshot.sourceRevision}`
+        : '';
+};
+
+watch(() => props.snapshot, () => {
+    if (pendingReveal && pendingReveal.binding !== revealBinding()) {
+        pendingReveal = null;
+    }
+}, { flush: 'sync' });
 
 const outlineHost = computed(() => isCompact.value ? publicDrawer : 'aside');
 const outlineHostProperties = computed(() => isCompact.value
@@ -414,6 +464,7 @@ const focusLauncher = (): void => {
 };
 
 const openRail = (): void => {
+    pendingReveal = null;
     focusReturnPending = false;
     isOpen.value = true;
 };
@@ -434,6 +485,23 @@ const handleHostVisibility = (visible: boolean): void => {
 };
 
 const handleClosed = (): void => {
+    if (pendingReveal) {
+        // Wait for the public Drawer to release its focus trap before the public editor reveal.
+        void nextTick(() => window.requestAnimationFrame(() => {
+            if (!mounted) return;
+            const pending = pendingReveal;
+            pendingReveal = null;
+            if (!pending || pending.binding !== revealBinding() ||
+                !props.snapshot?.items.some((item) => item.nodeId === pending.item.nodeId)) {
+                focusLauncher();
+                return;
+            }
+            focusReturnPending = false;
+            if (pending.kind === 'heading') emit('reveal-heading', pending.item);
+            else emit('reveal-range', pending.item);
+        }));
+        return;
+    }
     if (isCompact.value) focusLauncher();
 };
 
@@ -445,15 +513,26 @@ const toggleNode = (nodeId: string): void => {
 };
 
 const revealHeading = (item: MarkdownEditorOutlineItem): void => {
+    if (isCompact.value) {
+        pendingReveal = { item, kind: 'heading', binding: revealBinding() };
+        requestClose();
+        return;
+    }
     emit('reveal-heading', item);
 };
 
 const revealRange = (item: MarkdownEditorOutlineItem): void => {
+    if (isCompact.value) {
+        pendingReveal = { item, kind: 'range', binding: revealBinding() };
+        requestClose();
+        return;
+    }
     emit('reveal-range', item);
 };
 </script>
 
-<style scoped>
+<!-- The render-function child owns these namespaced classes but does not inherit SFC scope attributes. -->
+<style>
 .article-write-outline-launcher
  {
     position: fixed;
@@ -507,6 +586,7 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
 .article-write-outline-content
  {
     display: grid;
+    min-width: 0;
     min-height: 0;
     grid-template-rows: auto minmax(0, 1fr);
 }
@@ -544,6 +624,7 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
 
 .article-write-outline-tree-wrap
  {
+    min-width: 0;
     min-height: 0;
     overflow: auto;
     overscroll-behavior: contain;
@@ -553,13 +634,20 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
 .article-write-outline-tree
  {
     display: grid;
+    min-width: 0;
     gap: var(--fsus-space-1);
+}
+
+.article-write-outline-node
+ {
+    min-width: 0;
 }
 
 .article-write-outline-item
  {
     display: flex;
     width: 100%;
+    min-width: 0;
     min-height: var(--fsus-control-height);
     align-items: center;
     gap: var(--fsus-space-1);
@@ -581,12 +669,6 @@ const revealRange = (item: MarkdownEditorOutlineItem): void => {
 .article-write-outline-item.is-active
  {
     background: var(--fsus-state-selected-bg, var(--fsusblog-page-bg-soft));
-}
-
-.article-write-outline-item.is-active
- {
-    color: var(--fsus-scholarly-blue);
-    font-weight: 700;
 }
 
 .article-write-outline-disclosure,
