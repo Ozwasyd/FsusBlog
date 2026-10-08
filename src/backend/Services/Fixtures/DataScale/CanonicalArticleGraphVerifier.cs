@@ -2,6 +2,7 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 
+using FsusBlog.Contracts.Articles;
 using FsusBlog.Core.Services.Articles;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Services;
@@ -165,6 +166,31 @@ public static class CanonicalArticleGraphVerifier
             else if (!DateTime.TryParse(ptr.TargetSemanticId, null, System.Globalization.DateTimeStyles.RoundtripKind, out _))
             {
                 violations.Add($"pointer_target_invalid_timestamp:{ptr.Kind}:{ptr.TargetSemanticId}");
+            }
+        }
+
+        foreach (ArticleScaleRowPlan block in graph.Rows.Where(
+            row => row.Kind == ArticleScaleRowKind.ArticleRevisionContentBlock))
+        {
+            if (!block.Fields.TryGetValue("MarkdownContent", out object? markdown)
+                || markdown is not string content)
+            {
+                violations.Add($"content_block_markdown_missing:{block.SemanticId}");
+                continue;
+            }
+
+            ArticleRevisionContentAddress address = ArticleRevisionContentAddress.Compute(content);
+            if (!block.Fields.TryGetValue("ContentHash", out object? hash)
+                || hash is not string actualHash
+                || !string.Equals(address.ContentHash, actualHash, StringComparison.Ordinal))
+            {
+                violations.Add($"content_block_hash_mismatch:{block.SemanticId}");
+            }
+            if (!block.Fields.TryGetValue("ByteLength", out object? length)
+                || length is not int actualLength
+                || address.ByteLength != actualLength)
+            {
+                violations.Add($"content_block_byte_length_mismatch:{block.SemanticId}");
             }
         }
 
