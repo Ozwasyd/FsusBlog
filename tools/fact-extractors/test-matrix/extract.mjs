@@ -3,59 +3,23 @@ import { createHash } from 'node:crypto';
 import { existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { URL } from 'node:url';
 
-import {
-    assertUnsupportedOperation,
-    validateDestructiveOperationAuthority,
-    verifyArtifactGcActiveIdentity
-} from '../../deployment/destructive-operation-authority.mjs';
-import {
-    createRolloutState,
-    failRolloutStage,
-    ROLLOUT_SCHEMA,
-    ROLLOUT_STAGES,
-    startRolloutStage
-} from '../../deployment/release-rollout-lib.mjs';
-import {
-    abortGatewayTransition,
-    beginGatewayTransition,
-    createEmptySlotState,
-    markGatewayRollbackRequired,
-    recordSlotStart,
-    recordSlotStop,
-    reserveRuntimeGeneration,
-    setActiveSlot,
-    SLOT_STATE_SCHEMA,
-    validateSlotState
-} from '../../deployment/slot-lib.mjs';
-import {
-    hostDeclarations,
-    minimalContractSourceClosureDigests,
-    removeRuntimeRoleVerificationBuild,
-    reproduceRuntimeRoleAssembly,
-    runtimeReproduciblePathMapArgument
-} from '../../docs/behavior-doc-minimal-contract-build.mjs';
-import {
-    resolveDockerComposeOracleIdentity
-} from '../../governance/check-monolithic-distributed-architecture.mjs';
-import { RELEASE_ASSET_MANIFEST_SCHEMA } from '../../storage/release-assets.mjs';
-import { planReleaseAssetGc, RELEASE_GC_STATE_SCHEMA } from '../../storage/release-gc.mjs';
-import {
-    isExternalBehaviorDocAdmissionDependency
-} from '../../test-matrix/behavior-doc-static-admission-contract.mjs';
-import { postRuntimeReceiptSchema } from '../../test-matrix/behavior-evidence-post-runtime.mjs';
-import { adaptReleaseFinalizerSemanticOutcome } from '../../test-matrix/outcomes/release-finalizer-adapter.mjs';
-import { parseMatrix, tierExecutionDependencies } from '../../test-matrix/parse-matrix.mjs';
-import {
-    buildReleaseFinalizerPlan,
-    validateCanonicalReleaseFinalEvidenceInputs
-} from '../../test-matrix/release-final-evidence-contract.mjs';
-import { validateRequiredEvidenceCatalog } from '../../test-matrix/required-evidence-catalog.mjs';
-import {
-    resolveContainedPath
-} from '../identity.mjs';
-import { digestText, digestValue } from '../lib/canonicalize.mjs';
-
+const { assertUnsupportedOperation, validateDestructiveOperationAuthority, verifyArtifactGcActiveIdentity } = await import(new URL('../../deployment/destructive-operation-authority.mjs', import.meta.url));
+const { createRolloutState, failRolloutStage, ROLLOUT_SCHEMA, ROLLOUT_STAGES, startRolloutStage } = await import(new URL('../../deployment/release-rollout-lib.mjs', import.meta.url));
+const { abortGatewayTransition, beginGatewayTransition, createEmptySlotState, markGatewayRollbackRequired, recordSlotStart, recordSlotStop, reserveRuntimeGeneration, setActiveSlot, SLOT_STATE_SCHEMA, validateSlotState } = await import(new URL('../../deployment/slot-lib.mjs', import.meta.url));
+const { hostDeclarations, minimalContractSourceClosureDigests, removeRuntimeRoleVerificationBuild, reproduceRuntimeRoleAssembly, runtimeReproduciblePathMapArgument } = await import(new URL('../../docs/behavior-doc-minimal-contract-build.mjs', import.meta.url));
+const { resolveDockerComposeOracleIdentity } = await import(new URL('../../governance/check-monolithic-distributed-architecture.mjs', import.meta.url));
+const { RELEASE_ASSET_MANIFEST_SCHEMA } = await import(new URL('../../storage/release-assets.mjs', import.meta.url));
+const { planReleaseAssetGc, RELEASE_GC_STATE_SCHEMA } = await import(new URL('../../storage/release-gc.mjs', import.meta.url));
+const { isExternalBehaviorDocAdmissionDependency } = await import(new URL('../../test-matrix/behavior-doc-static-admission-contract.mjs', import.meta.url));
+const { postRuntimeReceiptSchema } = await import(new URL('../../test-matrix/behavior-evidence-post-runtime.mjs', import.meta.url));
+const { adaptReleaseFinalizerSemanticOutcome } = await import(new URL('../../test-matrix/outcomes/release-finalizer-adapter.mjs', import.meta.url));
+const { parseMatrix, tierExecutionDependencies } = await import(new URL('../../test-matrix/parse-matrix.mjs', import.meta.url));
+const { buildReleaseFinalizerPlan, validateCanonicalReleaseFinalEvidenceInputs } = await import(new URL('../../test-matrix/release-final-evidence-contract.mjs', import.meta.url));
+const { validateRequiredEvidenceCatalog } = await import(new URL('../../test-matrix/required-evidence-catalog.mjs', import.meta.url));
+const { resolveContainedPath } = await import(new URL('../identity.mjs', import.meta.url));
+const { digestText, digestValue } = await import(new URL('../lib/canonicalize.mjs', import.meta.url));
 const requiredFactKeys = Object.freeze([
     'test.topology.profiles',
     'test.topology.tiers',
