@@ -116,6 +116,24 @@ public sealed class OwnedSpillRootTests
         Assert.Null(one.QuotaBytes.Value);
     }
 
+    [Fact]
+    public void ExclusiveCreationRecordsOwnershipBeforeManagedWrappingCanFail()
+    {
+        using var fixture = new RootFixture();
+        using var root = fixture.Open();
+        string name = root.NewName("stage");
+        bool created = false;
+        Assert.Throws<InvalidOperationException>(() => root.CreateFile(name, () =>
+        {
+            created = true;
+            throw new InvalidOperationException("Task-owned wrapper failure injection.");
+        }));
+        Assert.True(created);
+        Assert.Single(root.EnumerateNames(16));
+        root.Delete(name);
+        Assert.Empty(root.EnumerateNames(16));
+    }
+
     private sealed class RootFixture : IDisposable
     {
         internal const UnixFileMode OwnerMode = UnixFileMode.UserRead | UnixFileMode.UserWrite | UnixFileMode.UserExecute;

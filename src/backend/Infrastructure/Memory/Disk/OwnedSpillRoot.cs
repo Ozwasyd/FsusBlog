@@ -46,6 +46,13 @@ public sealed class OwnedSpillRoot : IDisposable
         return _directory.Create(ownerGeneratedName);
     }
 
+    internal FileStream CreateFile(string ownerGeneratedName, Action onCreated)
+    {
+        ArgumentNullException.ThrowIfNull(onCreated);
+        ValidateName(ownerGeneratedName);
+        return _directory.Create(ownerGeneratedName, onCreated);
+    }
+
     public FileStream OpenRead(string name)
     {
         ValidateName(name);
