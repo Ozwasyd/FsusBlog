@@ -75,13 +75,24 @@ export function assertPublicShellLocaleHydration({ scene, copy, snapshots, conso
         {
             equal(snapshot.copy[key], value, `${stage} typed copy ${key}`);
         }
+        exactKeys(snapshot.selector, ['active', 'disabled', 'items'], `${stage} selector`);
         equal(snapshot.selector.active, expectedUi, `${stage} selector active`);
+        assert.equal(typeof snapshot.selector.disabled, 'boolean', `hydration ${stage} selector disabled must be boolean`);
+        equal(snapshot.selector.disabled, snapshots['first-html'].selector.disabled, `${stage} selector disabled changed`);
+        assert.ok(Array.isArray(snapshot.selector.items), `hydration ${stage} selector items must be an array`);
         equal(snapshot.selector.items.length, scene.selectorItems.length, `${stage} selector count`);
         for (const [index, item] of snapshot.selector.items.entries())
         {
             const projected = scene.selectorItems[index];
+            exactKeys(item, ['code', 'selected', 'hidden', 'nativeName', 'englishName', 'direction', 'disabled'],
+                `${stage} selector item`);
             equal(item.code, projected.code, `${stage} selector order`);
             equal(item.selected, projected.selected, `${stage} selector selected`);
+            equal(item.nativeName, projected.nativeName, `${stage} selector native label`);
+            equal(item.englishName, projected.englishName !== projected.nativeName ? projected.englishName : null,
+                `${stage} selector English label`);
+            equal(item.direction, projected.direction, `${stage} selector direction`);
+            equal(item.disabled, snapshot.selector.disabled, `${stage} selector item disabled projection`);
             equal(item.hidden, false, `${stage} selector item hidden`);
         }
         const authKey = scene.authActionContext === 'anonymous' ? 'login'

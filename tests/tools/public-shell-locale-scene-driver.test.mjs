@@ -33,7 +33,10 @@ function hydrationInput()
     const snapshot = {
         language: descriptor.documentLanguage, direction: descriptor.direction,
         copy, metadata: { title: 'configured site title', description: 'configured description', openGraphLocale: descriptor.openGraphLocale },
-        selector: { active: descriptor.code, items: items.map((item) => ({ ...item, hidden: false })) },
+        selector: { active: descriptor.code, disabled: false,
+            items: items.map((item) => ({ code: item.code, selected: item.selected, hidden: false,
+                nativeName: item.nativeName, englishName: item.englishName !== item.nativeName ? item.englishName : null,
+                direction: item.direction, disabled: false })) },
         authAction: { key: 'public.shell.login', text: copy['public.shell.login'] },
         geometry: { header: box(0, 390, 96), brand: box(0), nav: box(50), auth: box(100), selector: box(150),
             hitTargets: [{ name: 'selector', width: 44, height: 44, hidden: false }] },

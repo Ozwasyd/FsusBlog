@@ -33,7 +33,10 @@ function snapshot(overrides = {}, caseScene = scene, caseCopy = copy)
         },
         selector: {
             active: caseScene.locale,
-            items: caseScene.selectorItems.map((item) => ({ code: item.code, selected: item.selected, hidden: false }))
+            disabled: false,
+            items: caseScene.selectorItems.map((item) => ({ code: item.code, selected: item.selected, hidden: false,
+                nativeName: item.nativeName, englishName: item.englishName !== item.nativeName ? item.englishName : null,
+                direction: item.direction, disabled: false }))
         },
         authAction: { key: authKey, text: caseCopy[authKey] },
         geometry: {
@@ -137,7 +140,10 @@ test('1440px header geometry stays stable and above the desktop hit-area floor',
         },
         selector: {
             active: wide.locale,
-            items: wide.selectorItems.map((item) => ({ code: item.code, selected: item.selected, hidden: false }))
+            disabled: false,
+            items: wide.selectorItems.map((item) => ({ code: item.code, selected: item.selected, hidden: false,
+                nativeName: item.nativeName, englishName: item.englishName !== item.nativeName ? item.englishName : null,
+                direction: item.direction, disabled: false }))
         },
         authAction: { key: 'public.shell.login', text: wideCopy['public.shell.login'] },
         geometry: {
@@ -200,3 +206,34 @@ test('hydration rejects unregistered visible-copy facts', () =>
         snapshots: snapshots('first-html', (value) => ({ ...value,
             copy: { ...value.copy, 'unregistered.copy': 'wrong-copy' } })) }), /hydration/u);
 });
+
+for (const [name, mutate] of [
+    ['native label drift', selector => selector.items[0].nativeName = 'wrong-native-label'],
+    ['English label drift', selector => selector.items[0].englishName = 'wrong-English-label'],
+    ['direction drift', selector => selector.items[0].direction = 'wrong-direction'],
+    ['item disabled drift', selector => selector.items[0].disabled = true],
+    ['missing disabled', selector => delete selector.disabled],
+    ['string disabled', selector => selector.disabled = 'false'],
+    ['coherent disabled change', selector =>
+    {
+        selector.disabled = true;
+        selector.items.forEach(item => item.disabled = true);
+    }],
+    ['missing native label', selector => delete selector.items[0].nativeName],
+    ['unknown selector field', selector => selector.unobserved = true],
+    ['unknown item field', selector => selector.items[0].unobserved = true]
+])
+{
+    for (const stage of ['first-html', 'hydration-start', 'interactive-ready', 'selector-open'])
+    {
+        test(`hydration selector projection rejects ${name} at ${stage} (Node diagnostic)`, () =>
+        {
+            assert.throws(() => assertPublicShellLocaleHydration({ scene, copy,
+                snapshots: snapshots(stage, value =>
+                {
+                    mutate(value.selector);
+                    return value;
+                }) }), /hydration/u);
+        });
+    }
+}
