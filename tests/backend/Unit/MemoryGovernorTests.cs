@@ -254,6 +254,44 @@ public sealed class MemoryGovernorTests
         Assert.False(jumped.AllowGrowth);
     }
 
+    [Fact]
+    public void MissingPolicyStillReportsCanonicalOverCapCommitments()
+    {
+        var setup = Setup();
+        using MemoryReservation held = setup.Ledger.TryReserve([new(s_host, MemoryResourceUnit.Bytes, 80)]).Value!;
+        setup.Ledger.ReviseLimits(2, [new(s_host, MemoryResourceUnit.Bytes, 30), new(s_slots, MemoryResourceUnit.OperationSlots, 8)]);
+        MemoryGovernorDecision missing = MemoryGovernor.Evaluate(null, null, Input(setup.Ledger, 1));
+        AssertFrozen(missing, MemoryGovernorReason.MissingPolicy);
+        Assert.True(missing.OverTarget);
+        Assert.Empty(missing.Targets);
+        Assert.Equal(30, missing.EffectiveHardCaps["host"]);
+        Assert.Equal(80, setup.Ledger.Snapshot().Used["host"]);
+        Assert.Equal(MemoryFailure.BudgetRejected, setup.Ledger.TryReserve([new(s_host, MemoryResourceUnit.Bytes, 1)]).Failure);
+    }
+
+    [Theory]
+    [InlineData(11000L, 0L)]
+    [InlineData(long.MaxValue, long.MinValue)]
+    public void FrozenWallClockCannotMakeMonotonicallyExpiredPressureFresh(long currentTimestamp, long sourceTimestamp)
+    {
+        var setup = Setup();
+        MemoryGovernorInput firstInput = Input(setup.Ledger, 1);
+        MemoryGovernorDecision first = MemoryGovernor.Evaluate(setup.Policy, null, firstInput);
+        MemoryPressureObservation Sample(MemoryPressureMetric metric, long value)
+            => new(metric, MemoryResourceUnit.Bytes, MemoryPressureScope.ExternalResourceDomain, s_host, 1,
+                MemoryObservationState.Available, value, "fixture-scoped-provider", firstInput.Now, sourceTimestamp, 1000);
+        MemoryGovernorDecision expired = MemoryGovernor.Evaluate(setup.Policy, first, firstInput with
+        {
+            Timestamp = currentTimestamp,
+            ExternalConstraints = [new("host", MemoryQualification.Qualified,
+                Sample(MemoryPressureMetric.ScopedExternalUsageBytes, 0),
+                Sample(MemoryPressureMetric.ScopedExternalLimitBytes, 1000))]
+        });
+        AssertFrozen(expired, MemoryGovernorReason.StalePressure);
+        Assert.Equal(first.EffectiveHardCaps["host"], expired.EffectiveHardCaps["host"]);
+        Assert.Equal(first.Targets["host"], expired.Targets["host"]);
+    }
+
     private static void AssertFrozen(MemoryGovernorDecision decision, MemoryGovernorReason reason)
     {
         Assert.Equal(MemoryGovernorState.UnmetPrerequisite, decision.State);

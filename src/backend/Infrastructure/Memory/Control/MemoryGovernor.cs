@@ -90,7 +90,9 @@ public static class MemoryGovernor
         MemoryGovernorDecision Result(MemoryGovernorState state, MemoryGovernorReason reason,
             bool grow, DateTimeOffset? recovery, IReadOnlyList<MemoryGovernorReclaimFeedback> feedback)
             => new(sequence, input.CandidateCommit, policy?.Revision ?? previous?.PolicyRevision ?? 0, input.Accounting.PolicyRevision, input.DomainRevision,
-                input.Now, input.Timestamp, input.TimestampFrequency, state, reason, targets.Any(item => input.Accounting.Used[item.Key] > item.Value), grow, grow && state == MemoryGovernorState.Normal,
+                input.Now, input.Timestamp, input.TimestampFrequency, state, reason,
+                input.Accounting.OverTarget || effective.Any(item => input.Accounting.Used[item.Key] > item.Value)
+                    || targets.Any(item => input.Accounting.Used[item.Key] > item.Value), grow, grow && state == MemoryGovernorState.Normal,
                 recovery, recoveryTimestamp, ReadOnly(targets), ReadOnly(effective), ReadOnly(reclaim),
                 new ReadOnlyDictionary<string, TimeSpan>(ages), feedback,
                 state == MemoryGovernorState.Normal ? Array.Empty<MemoryGovernorDegradation>()
@@ -164,8 +166,24 @@ public static class MemoryGovernor
                     return Freeze(MemoryGovernorReason.DomainChanged);
                 }
                 TimeSpan age = input.Now - (usage.SampledAt < limit.SampledAt ? usage.SampledAt : limit.SampledAt);
+                long monotonicAge;
+                try
+                {
+                    monotonicAge = checked(input.Timestamp - Math.Min(usage.Timestamp, limit.Timestamp));
+                }
+                catch (OverflowException)
+                {
+                    return Freeze(MemoryGovernorReason.StalePressure);
+                }
+                UInt128 monotonicNumerator = monotonicAge < 0 ? 0
+                    : (UInt128)(ulong)monotonicAge * TimeSpan.TicksPerSecond;
+                UInt128 monotonicTicks = monotonicNumerator / (ulong)input.TimestampFrequency;
+                TimeSpan monotonicDuration = TimeSpan.FromTicks(monotonicTicks > (ulong)TimeSpan.MaxValue.Ticks
+                    ? TimeSpan.MaxValue.Ticks : (long)monotonicTicks);
+                age = age > monotonicDuration ? age : monotonicDuration;
                 ages.Add(key, age);
                 if (usage.SampledAt > input.Now || limit.SampledAt > input.Now || age > policy.MaximumSourceAge
+                    || monotonicAge < 0 || monotonicNumerator > (UInt128)(ulong)policy.MaximumSourceAge.Ticks * (ulong)input.TimestampFrequency
                     || usage.Timestamp > input.Timestamp || limit.Timestamp > input.Timestamp
                     || usage.TimestampFrequency != input.TimestampFrequency || limit.TimestampFrequency != input.TimestampFrequency)
                 {

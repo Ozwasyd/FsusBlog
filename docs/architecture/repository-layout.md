@@ -200,7 +200,9 @@ stop expansion while retaining the latest hard bounds. Scoped usage and capacity
 must match the resource domain/revision; overlapping host, GC, process, native and
 UMA counters are not summed. The ownership ledger still bounds allocated but
 untouched memory; matching scoped headroom additionally accounts for competition.
-Recovery uses the monotonic clock and bounded integral growth. Requested reclaim,
+Sample freshness uses both UTC and monotonic age; clock-range overflow freezes
+growth and retains the latest bound. Recovery uses the monotonic clock and bounded
+integral growth. Requested reclaim,
 allocator relinquishment, OS retention, pending and blocked feedback remain
 separate; target changes never dispose owners or spend projected reclaim credit.
 
