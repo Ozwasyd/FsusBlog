@@ -384,6 +384,35 @@ def test_verifier_rejects_missing_frozen_image():
         tool.verify_pdf(missing_image, value)
 
 
+@pytest.mark.parametrize("partial", [False, True])
+def test_verifier_rejects_fully_or_partly_occluded_frozen_image(partial):
+    value = request("<p>Hello PDF</p>" + image_fragment())
+    data = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pymupdf.open(stream=data) as pdf:
+        box = pymupdf.Rect(pdf[0].get_image_info()[0]["bbox"])
+        if partial:
+            box.x1 = (box.x0 + box.x1) / 2
+        pdf[0].draw_rect(box, color=(1, 1, 1), fill=(1, 1, 1), overlay=True)
+        changed = pdf.tobytes()
+    with pytest.raises(tool.PdfRejected, match="occluded-image-semantics"):
+        render_in_process(value | {"pdfBase64": base64.b64encode(changed).decode()})
+
+
+def test_image_visibility_verification_never_serializes_pdf(monkeypatch):
+    value = request("<p>Hello PDF</p>" + image_fragment("RGBA"))
+    result = render_in_process(value)
+    value["pdfBase64"] = result["pdfBase64"]
+    from weasyprint.document import Document
+
+    def forbidden_writer(*args, **kwargs):
+        raise AssertionError("Verify mode must not serialize a PDF")
+
+    monkeypatch.setattr(Document, "write_pdf", forbidden_writer)
+    monkeypatch.setattr(pikepdf.Pdf, "save", forbidden_writer)
+    monkeypatch.setattr(pypdfium2.PdfDocument, "save", forbidden_writer)
+    assert tool.execute(value) == result
+
+
 def remove_annotation(data, index):
     with pikepdf.Pdf.open(io.BytesIO(data)) as pdf:
         annotations = pdf.pages[0].Annots

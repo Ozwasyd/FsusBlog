@@ -11,6 +11,7 @@ import importlib.metadata
 import io
 import json
 import logging
+import math
 import os
 import re
 import sys
@@ -22,7 +23,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 
-tool_version = "weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v2"
+tool_version = "weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v3"
 maximum_input = 32 * 1024 * 1024
 maximum_output = 16 * 1024 * 1024
 maximum_resource = 8 * 1024 * 1024
@@ -344,7 +345,7 @@ def image_signature(image):
 
 
 def layout_witnesses(document, request):
-    from PIL import Image
+    from PIL import Image, ImageChops
 
     parser = ClosureParser()
     parser.feed(request["htmlDocument"])
@@ -399,6 +400,15 @@ def layout_witnesses(document, request):
             ):
                 with Image.open(io.BytesIO(box.replacement.image_data.data)) as image:
                     signature = image_signature(image)
+                    rgba = image.convert("RGBA")
+                    white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
+                    appearance = Image.alpha_composite(white, rgba).convert("RGB")
+                    visible_ink = (
+                        ImageChops.difference(
+                            appearance, white.convert("RGB")
+                        ).getbbox()
+                        is not None
+                    )
                 x, y = box.content_box_x() * 0.75, box.content_box_y() * 0.75
                 images.append(
                     {
@@ -409,6 +419,7 @@ def layout_witnesses(document, request):
                             y + box.height * 0.75,
                         ),
                         "signature": signature,
+                        "visibleInk": visible_ink,
                     }
                 )
         pages.append({"links": links, "images": images, "codeLines": code_lines})
@@ -482,6 +493,47 @@ def validate_layout_images(page, signatures, expected):
         remaining.pop(match)
     if remaining:
         raise PdfRejected("image-semantics")
+
+
+def validate_visible_images(data, page_number, expected):
+    import pypdfium2
+    import pypdfium2.raw as pdfium
+    from PIL import Image, ImageChops
+
+    if not expected:
+        return
+    # This private in-memory parse is never serialized. Rendering the existing
+    # image objects in isolation gives an unoccluded appearance oracle using
+    # the same PDFium decoder, transform, alpha and pixel grid as the real page.
+    with closing(pypdfium2.PdfDocument(data)) as pdf:
+        with closing(pdf[page_number]) as page:
+            with closing(page.render(scale=2)) as bitmap:
+                actual = bitmap.to_pil().convert("RGB").copy()
+            objects = list(page.get_objects(max_depth=1))
+            images = [obj for obj in objects if obj.type == pdfium.FPDF_PAGEOBJ_IMAGE]
+            if len(images) != len(expected):
+                raise PdfRejected("unverifiable-image-paint")
+            for obj in objects:
+                if obj.type != pdfium.FPDF_PAGEOBJ_IMAGE:
+                    page.remove_obj(obj)
+                    obj.close()
+            with closing(page.render(scale=2, draw_annots=False)) as bitmap:
+                isolated = bitmap.to_pil().convert("RGB").copy()
+            for reference in expected:
+                x0, y0, x1, y1 = (value * 2 for value in reference["rectangle"])
+                bounds = (math.ceil(x0), math.ceil(y0), math.floor(x1), math.floor(y1))
+                if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
+                    raise PdfRejected("unverifiable-image-paint")
+                original = actual.crop(bounds)
+                unobscured = isolated.crop(bounds)
+                if ImageChops.difference(original, unobscured).getbbox() is not None:
+                    raise PdfRejected("occluded-image-semantics")
+                white = Image.new("RGB", unobscured.size, (255, 255, 255))
+                if (
+                    reference["visibleInk"]
+                    and ImageChops.difference(unobscured, white).getbbox() is None
+                ):
+                    raise PdfRejected("invisible-image-semantics")
 
 
 def validate_code_lines(page, expected):
@@ -689,6 +741,7 @@ def verify_pdf(data, request, witnesses=None):
             extracted.append(text)
             reference = witnesses[page.number]
             validate_layout_images(page, image_signatures, reference["images"])
+            validate_visible_images(data, page.number, reference["images"])
             validate_layout_links(page, pdf, reference["links"])
             validate_code_lines(page, reference["codeLines"])
             for span in page.get_texttrace():

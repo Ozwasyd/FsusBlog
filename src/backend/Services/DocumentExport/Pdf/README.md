@@ -44,6 +44,12 @@ and line geometry rather than discarded with other whitespace.
 For plain RTL text, actual PDF ToUnicode glyph clusters retain their internal
 character order during reading-order reconstruction, including lam-alef. Expected
 article text never supplies replacement letters; a substituted letter order fails.
+Raster images also undergo a PDFium visibility check. An independently parsed
+in-memory page retains only its direct image painting objects; its image-region
+pixels must agree with the original full page. Full or partial overlays are
+rejected. This parse is never saved as a PDF and never changes the returned bytes.
+Image placements that cannot be proven this way, including nested image forms or
+regions with no complete verification pixel, fail with `unverifiable-image-paint`.
 
 The renderer uses WeasyPrint 66.0, pikepdf 9.11.0, PyMuPDF 1.26.4, pypdfium2
 4.30.0 and fontTools 4.59.2. `Tools/dependencies.lock.json` pins the complete Python dependency set used in the
@@ -99,7 +105,7 @@ activate PDF. Exact integration requirements:
 2. Register the sole PDF provider owner
    `FsusBlog.Server.Services.DocumentExport.PdfDocumentExportProvider`, tool ID
    `document-export-pdf-toolchain`, version
-   `weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v2`, arguments exactly `["render"]`,
+   `weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v3`, arguments exactly `["render"]`,
    and proposed normalization `normalized-pdf-visible-v1`. The normalization
    catalog must explicitly list object IDs/timestamps/document IDs/font subset
    labels as excluded metadata. The registry constructs the internal provider
