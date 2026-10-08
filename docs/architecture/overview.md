@@ -99,11 +99,36 @@ interruption of its underlying computation. Render source identity includes
 mode/features/base URL; projection source identity uses the public source-only
 contract. Both are verified separately without rewriting either identity.
 
-Automatic refresh consumes the product owner's policy decision. This service
-does not define thresholds, change capabilities or migrate surfaces. Product
-policy wiring, stale-banner UI, heavy-feature activation and position mapping
-remain with their respective owners; an unobserved layout or long task has no
-fabricated observation reference.
+`evaluateArticleRenderRefreshPolicy` is the single automatic refresh threshold
+producer. The source gate remains 80 × 1024 and the estimated-node gate remains
+3000; equality allows automatic refresh. The source unit is original source
+UTF-8 bytes, measured with a fixed 81924-byte buffer. Oversized inputs report a
+lower bound and skip projection. The former shell compared JavaScript UTF-16
+length under a bytes label; this branch's explicit compatibility assumption
+uses actual bytes, so multibyte source may pause earlier than that old shell.
+
+The node unit is a historical weighted resource estimate, not a DOM count or
+projection node count: raw LF-delimited lines (empty source has zero), plus
+2 per public heading, 2 per distinct public list/task marker, 3 per public table
+row (including separator), and 30 per code/Mermaid marker range of at least
+three source units. Public unclosed-fence diagnostics contribute one 30-unit
+opening fence. Syntax facts come only from the FsusUI public projection. This
+preserves the old weights without restoring a Blog regex parser. Canonical
+recognition of setext headings, ordered lists, tilde fences and malformed syntax
+can differ from the former lexical guesses; this is a reviewable measurement
+assumption, not proof of product or performance acceptance. Once the line base
+or accumulated estimate exceeds the gate, remaining work is skipped and the
+reported node estimate is explicitly a lower bound. Projection failure denies
+automatic refresh with an explicit reason; it does not select a product surface.
+
+Closed decisions bind context, revision, source digest and projection version.
+Cache admission requires an immutable decision produced by this authority;
+copied, serialized, forged or stale decisions cannot authorize work. A denied
+automatic refresh retains last-valid content and exposes the reason. Explicit
+manual refresh still uses the bounded, cancellable lifecycle. Product surface
+and stale-banner wiring, heavy-feature activation and position mapping remain
+with their respective owners. The threshold service changes no capabilities or
+surfaces; an unobserved layout or long task has no fabricated observation ref.
 
 ## Standalone document export boundary
 

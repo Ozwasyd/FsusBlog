@@ -5,8 +5,9 @@ import { fileURLToPath } from 'node:url';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
 export const cachePath = 'src/frontend/src/services/authoring/articleRenderCache.ts';
 export const producerPath = 'src/frontend/src/services/authoring/articleFsusUiRenderProducer.ts';
+export const policyPath = 'src/frontend/src/services/authoring/articleRenderRefreshPolicy.ts';
 
-export function verifyRenderCacheSources(cache, producer)
+export function verifyRenderCacheSources(cache, producer, policy)
 {
     const failures = [];
     for (const [name, source] of [['cache', cache], ['producer', producer]])
@@ -36,7 +37,8 @@ export function verifyRenderCacheSources(cache, producer)
         'left.documentId === right.documentId', 'left.documentEpoch === right.documentEpoch',
         'left.editorSessionId === right.editorSessionId', 'left.userScope === right.userScope',
         'left.siteScope === right.siteScope', 'left.draftRevision === right.draftRevision',
-        'rendererVersion', 'projectionVersion', 'featureConfigurationDigest', 'themeDigest', 'locale'
+        'rendererVersion', 'projectionVersion', 'featureConfigurationDigest', 'themeDigest', 'locale',
+        'admitArticleRenderRefreshDecision(decision, this.adapter.context, this.identity.projectionVersion)'
     ])
     {
         if (!cache.includes(token))
@@ -56,13 +58,41 @@ export function verifyRenderCacheSources(cache, producer)
             failures.push(`producer:missing:${token}`);
         }
     }
+    for (const [pattern, reason] of [
+        [/\b(?:localStorage|sessionStorage|indexedDB|innerHTML|DOMParser|marked|markdownIt|parseMarkdown)\b/u, 'second-authority'],
+        [/\bsource\.(?:match|split|replace)\s*\(/u, 'consumer-syntax-parser'],
+        [/getFsusRenderPipelineAdapter|estimateMarkdownRender/u, 'private-or-invented-estimator']
+    ])
+    {
+        if (pattern.test(policy))
+        {
+            failures.push(`policy:${reason}`);
+        }
+    }
+    for (const token of [
+        "articleRenderRefreshDecisionSchema = 'fsusblog.article-render-refresh-decision.v1'",
+        'articleRenderSourceByteLimit = 80 * 1024;', 'articleRenderEstimatedNodeLimit = 3000;',
+        'new TextEncoder().encodeInto(source, new Uint8Array(articleRenderSourceByteLimit + 4))',
+        'sourceUtf8Bytes > articleRenderSourceByteLimit', 'estimatedNodeUnits > articleRenderEstimatedNodeLimit',
+        'createMarkdownEditorProjection(source)', 'producedDecisions.has(decision)',
+        'decision.contextDigest === context.contextDigest', 'decision.sourceDigest === context.contentDigest',
+        'decision.sourceRevision === context.sourceRevision', 'decision.projectionVersion === projectionVersion',
+        'decisionDigest !== digest(unsigned)', 'node.rawMarkerRanges', 'node.table?.rows.length',
+        'estimatedNodeUnits += 2;', 'estimatedNodeUnits += 30;', "byteMeasurement:", "nodeMeasurement = 'lower-bound'"
+    ])
+    {
+        if (!policy?.includes(token))
+        {
+            failures.push(`policy:missing:${token}`);
+        }
+    }
     return failures;
 }
 
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url))
 {
     const failures = verifyRenderCacheSources(fs.readFileSync(path.join(root, cachePath), 'utf8'),
-        fs.readFileSync(path.join(root, producerPath), 'utf8'));
+        fs.readFileSync(path.join(root, producerPath), 'utf8'), fs.readFileSync(path.join(root, policyPath), 'utf8'));
     if (failures.length)
     {
         console.error(failures.join('\n'));

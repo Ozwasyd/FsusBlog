@@ -11,7 +11,8 @@ import {
 import { ArticleFsusUiRenderProducer } from '@/services/authoring/articleFsusUiRenderProducer';
 import {
     ArticleRenderCache, createArticleDocumentContextAdapter, calculateOpenArticleDocumentDigest as digest,
-    validateArticleRenderReceipt, type ArticleRenderIdentity
+    validateArticleRenderReceipt, evaluateArticleRenderRefreshPolicy, articleRenderSourceByteLimit,
+    type ArticleRenderIdentity
 } from '@/services/authoring';
 
 const configuration = { allowLatex: true, allowMermaid: true, baseUrl: null };
@@ -65,14 +66,15 @@ describe('actual local FsusUI public consumer boundary (#269/#273)', () => {
         expect(producer.resolve(result)).toBeNull();
     });
     it('keeps same-document stale canonical content and never exposes A to same-source B', async () => {
-        const { cache, producer, adapter, update } = setup();
+        const { cache, producer, adapter, update } = setup('# Article', 2000000);
         expect((await cache.refresh()).status).toBe('committed');
         const old = cache.state.content!.result;
-        update('# Next article text');
-        await cache.autoRefresh({ allowed: false, reason: 'large-document-paused' });
+        const next = '# Next article text\n' + 'a'.repeat(articleRenderSourceByteLimit);
+        update(next);
+        await cache.autoRefresh(evaluateArticleRenderRefreshPolicy(adapter.context, next));
         expect(producer.resolve(cache.state.content!.result)?.render.html).toContain('Article');
         expect(cache.state.stale).toBe(true);
-        adapter.switchDocument({ articleId: 2, draftId: 'article:2', content: '# Next article text' });
+        adapter.switchDocument({ articleId: 2, draftId: 'article:2', content: next });
         expect(cache.state.content).toBeNull();
         expect(producer.resolve(old)).toBeNull();
         expect((await cache.refresh()).status).toBe('committed');

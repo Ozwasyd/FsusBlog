@@ -1,12 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
+import { MARKDOWN_RENDERER_VERSION } from '@/fsusui/markdown';
 import {
     ArticleRenderCache, createArticleDocumentContextAdapter, calculateOpenArticleDocumentDigest as digest,
     validateArticleRenderCacheEntry, validateArticleRenderReceipt, validateArticleRenderState,
+    evaluateArticleRenderRefreshPolicy, articleRenderSourceByteLimit,
     type ArticleRenderIdentity, type ArticleRenderProducer, type ArticleRenderRequest, type ArticleRenderResult
 } from '@/services/authoring';
 
 const identity: ArticleRenderIdentity = {
-    rendererVersion: 'renderer:v1', projectionVersion: 'projection:v1',
+    rendererVersion: 'renderer:v1', projectionVersion: MARKDOWN_RENDERER_VERSION,
     featureConfigurationDigest: digest({ latex: true }), themeDigest: digest({ theme: 'light' }), locale: 'zh-CN'
 };
 const resultFor = (request: ArticleRenderRequest, overrides: Partial<ArticleRenderResult> = {}): ArticleRenderResult => ({
@@ -50,16 +52,20 @@ describe('ArticleRenderCache (#2245)', () => {
         expect(Object.isFrozen(cache.state.content?.result.identity)).toBe(true);
         expect(receipt.result?.longTaskRefs).toEqual(['observation:long-task']);
     });
-    it.each([[81919, 2999, true], [81920, 3000, true], [81921, 1, false], [1, 3001, false]])(
-        'consumes threshold decision for %i bytes / %i nodes without replacing last-valid', async (bytes, nodes, allowed) => {
+    it.each([
+        ['a'.repeat(articleRenderSourceByteLimit - 1), true],
+        ['a'.repeat(articleRenderSourceByteLimit), true],
+        ['a'.repeat(articleRenderSourceByteLimit + 1), false],
+        ['\n'.repeat(3000), false]
+    ] as const)(
+        'consumes canonical threshold decision (%#) without replacing last-valid', async (source, allowed) => {
             const { adapter, cache, producer } = setup();
             await cache.refresh();
             const content = cache.state.content;
-            adapter.updateSource('a'.repeat(bytes));
-            // This fixture models a supplied policy; production does not redefine thresholds.
-            const decision = bytes <= 80 * 1024 && nodes <= 3000;
-            expect(decision).toBe(allowed);
-            const receipt = await cache.autoRefresh({ allowed: decision, reason: decision ? null : 'large-document-paused' });
+            adapter.updateSource(source);
+            const decision = evaluateArticleRenderRefreshPolicy(adapter.context, source);
+            expect(decision.allowed).toBe(allowed);
+            const receipt = await cache.autoRefresh(decision);
             expect(producer.render).toHaveBeenCalledTimes(allowed ? 2 : 1);
             if (!allowed)
             {
@@ -67,7 +73,7 @@ describe('ArticleRenderCache (#2245)', () => {
                 expect(cache.state.content).toBe(content);
                 expect(cache.state.stale).toBe(true);
                 expect(cache.state.fallback).toBeNull();
-                expect(cache.state.reason).toBe('large-document-paused');
+                expect(cache.state.reason).toBe(decision.reason);
                 expect(cache.state.cachedRevision).toBe(0);
                 expect(cache.state.currentRevision).toBe(1);
                 expect(cache.state.lastValidTime).toBe(10);

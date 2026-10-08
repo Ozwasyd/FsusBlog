@@ -6,6 +6,7 @@ import {
     validateArticleDocumentContext,
     validateArticleDocumentTaskEnvelope
 } from './articleDocumentContext';
+import { admitArticleRenderRefreshDecision, type ArticleRenderRefreshDecision } from './articleRenderRefreshPolicy';
 import { calculateOpenArticleDocumentDigest as digest } from './openArticleDocumentRegistry';
 
 export const articleRenderCacheSchema = 'fsusblog.article-render-cache.v1' as const;
@@ -277,6 +278,7 @@ export class ArticleRenderCache
                 this.active = null;
                 this.refreshState = 'idle';
                 this.failure = null;
+                this.policyReason = null;
                 if (this.entry && !sameDocument(this.entry.context, context))
                 {
                     this.clearEntry();
@@ -310,6 +312,7 @@ export class ArticleRenderCache
         this.identity = seal(structuredClone(identity));
         this.refreshState = 'idle';
         this.failure = null;
+        this.policyReason = null;
     }
 
     public get state(): ArticleRenderState
@@ -351,7 +354,8 @@ export class ArticleRenderCache
             currentRevision: context.sourceRevision,
             cachedRevision: this.entry?.context.sourceRevision ?? null,
             stale,
-            reason: this.failure ?? (stale ? this.policyReason ?? 'source-revision-changed' : this.entry ? null : 'no-valid-result'),
+            reason: this.failure ?? (stale ? this.policyReason ?? 'source-revision-changed'
+                : this.entry ? null : this.policyReason ?? 'no-valid-result'),
             refreshState: this.refreshState,
             lastValidTime: this.entry?.createdAt ?? null,
             failure: this.failure,
@@ -360,10 +364,9 @@ export class ArticleRenderCache
         });
     }
 
-    // Threshold/capability policy remains with its existing product owner.
-    public async autoRefresh(decision: { readonly allowed: boolean; readonly reason: string | null; }): Promise<ArticleRenderReceipt | null>
+    public async autoRefresh(decision: ArticleRenderRefreshDecision): Promise<ArticleRenderReceipt | null>
     {
-        if (typeof decision.allowed !== 'boolean' || (decision.reason !== null && !isRef(decision.reason)))
+        if (!admitArticleRenderRefreshDecision(decision, this.adapter.context, this.identity.projectionVersion))
         {
             throw new Error('article-render-policy-invalid');
         }
