@@ -78,7 +78,8 @@ test('independent discovery accounts for every required pattern and keeps genera
     assert.equal(inventory.sites.length, 19);
     assert.equal(result.coverage.unresolvedSites, 19);
     assert.equal(result.acceptance, 'NotVerified');
-    assert.deepEqual(new Set(inventory.sites.map((site) => site.surface)), new Set(['handwritten', 'generated', 'vendor']));
+    assert.deepEqual(new Set(inventory.sites.map((site) => site.surface)),
+        new Set(['owner-resolution-required', 'generated-path-candidate', 'vendor-path-candidate']));
     assert.throws(() => verifyMemoryInventory(root, inventory, { requireComplete: true }), /19 unresolved lexical sites/u);
 });
 

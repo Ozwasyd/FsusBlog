@@ -102,13 +102,13 @@ function surface(file)
 {
     if (/(?:^|\/)(?:vendor|third_party|third-party)(?:\/|$)/u.test(file))
     {
-        return 'vendor';
+        return 'vendor-path-candidate';
     }
     if (/(?:\.generated\.|\.g\.cs$|(?:^|\/)generated\/)/iu.test(file))
     {
-        return 'generated';
+        return 'generated-path-candidate';
     }
-    return 'handwritten';
+    return 'owner-resolution-required';
 }
 
 export function discoverMemorySites(root, candidate)
