@@ -375,3 +375,14 @@ node --test tests/tools/zk-source-layout.test.mjs
 ```
 
 `tools/check-repository-source-layout.mjs` reads the top-level inventory from the Git index and rejects a reintroduced root `circuits/`, `deploy/`, or `release-evidence/`, undeclared top-level directories, unjustified source exceptions, old circuit-source references, source-hash drift, and manifest/R1CS source-binding drift. It also confirms that C# entry-point ownership policy/checkers remain attached to the canonical source-layout contract; the C# project/file-app/global-output/protocol-fixture checker aggregates those specific violations.
+
+`LinuxCgroupScopeResolver` parses bounded captured membership/mount metadata,
+resolves v1 memory or unified v2 paths and their observable ancestor roster, and
+retains namespace/mount/membership identity. Missing, denied, stale, malformed,
+ambiguous and namespace-escaping captures remain distinct unavailable results.
+The resolver performs no I/O and cannot qualify a source or grant growth. A live
+sampler must still verify actual directory inode/open identities, stable captures
+and matching per-ancestor usage/limits before existing qualification/admission.
+Its byte/record/ancestor bounds are explicit caller policy inputs, not defaults.
+Format references are the [kernel cgroup documentation](https://docs.kernel.org/admin-guide/cgroup-v2.html)
+and [kernel proc mountinfo documentation](https://www.kernel.org/doc/Documentation/filesystems/proc.txt).

@@ -3794,6 +3794,44 @@
                     "anchor": "public sealed class MemoryCapabilityGpuAllocationPolicyTests"
                 }
             ]
+        },
+        {
+            "id": "linux-cgroup-scope-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupScopeResolver.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "LinuxCgroupScopeResolver returned bounded metadata; caller owns capture buffers and actual scoped sampling/qualification",
+            "producer": "Pure resolution of caller-captured membership and mountinfo under explicit byte/record/ancestor limits",
+            "consumers": "Existing scoped sampling and canonical pressure/governor owners; no scheduler or I/O is registered",
+            "releaseEvent": "Returned immutable metadata becomes collectible after caller references end; no physical sampling charge or device/disk storage is released",
+            "capacityModel": "Caller-frozen input-byte, record and ancestor bounds limit decoder, roster, path and identity metadata; metadata remains process headroom until measured P01/P02 qualification",
+            "frequency": "Explicit control-plane discovery or captured identity change; never a request path",
+            "asyncEscape": "No asynchronous work, native handles, controller side effects or source-buffer ownership transfer",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing pressure release/runtime qualification owner; resolved metadata retains NotVerified",
+            "migrationDisposition": "No payload migration or growth permission granted",
+            "exclusionReason": "Membership/mount path matching is not directory-inode stability, controller availability, same-scope usage/limit evidence or backend qualification",
+            "observationHeadroom": "Measure bounded parser allocation/CPU and retained metadata against frozen P01/P02 inputs before production use",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "testOwner": "tests/backend/Unit/LinuxCgroupScopeResolverTests.cs",
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Pressure/LinuxCgroupScopeResolver.cs",
+                    "anchor": "public static class LinuxCgroupScopeResolver"
+                },
+                {
+                    "path": "tests/backend/Unit/LinuxCgroupScopeResolverTests.cs",
+                    "anchor": "public sealed class LinuxCgroupScopeResolverTests"
+                }
+            ]
         }
     ],
     "syntaxObserver": {
