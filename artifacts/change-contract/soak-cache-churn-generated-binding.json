@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/test/lanes/runtime-evidence-probe.mjs",
+        "tools/test/lanes/soak-cache-churn.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "b56df6015982d84763d6ab36fb24acbed69621ab21285d952a16642b71c0c3ae"
+        }
+    ]
+}
