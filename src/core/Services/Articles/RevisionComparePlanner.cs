@@ -33,6 +33,7 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
                     request.ArticleId,
                     request.Base,
                     linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             if (DateTimeOffset.UtcNow > request.ExpiresAtUtc)
@@ -50,6 +51,7 @@ public sealed class RevisionComparePlanner(IRevisionComparePackageReader package
                     request.ArticleId,
                     request.Compare,
                     linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             if (DateTimeOffset.UtcNow > request.ExpiresAtUtc)
@@ -387,6 +389,7 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
                     bundle.Plan.ArticleId,
                     bundle.Plan.BaseSelector,
                     linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             RevisionComparePackageReadResult compareRead = await packageReader.ReadAuthorizedAsync(
@@ -394,6 +397,7 @@ public sealed class RevisionComparePlanVerifier(IRevisionComparePackageReader pa
                     bundle.Plan.ArticleId,
                     bundle.Plan.CompareSelector,
                     linked.Token)
+                .WaitAsync(linked.Token)
                 .ConfigureAwait(false);
             linked.Token.ThrowIfCancellationRequested();
             if (DateTimeOffset.UtcNow > bundle.Plan.ExpiresAtUtc)
