@@ -34,7 +34,7 @@ function fixture(t)
         });
         value.browser.finalization.persistence.attemptCount = 1;
         value.browser = sealBrowserContractReceipt(value.browser);
-        fs.writeFileSync(value.browserFile, JSON.stringify(value.browser));
+        fs.writeFileSync(value.browserFile, `${JSON.stringify(value.browser, null, 2)}\n`);
         return { path: value.relative(value.browserFile), digest: fileDigest(value.browserFile) };
     };
     const runnerReference = reseal();
@@ -42,7 +42,7 @@ function fixture(t)
         browserContractReceipt: value.relative(value.browserFile), repositoryRoot: value.repositoryRoot });
     const rawFile = path.join(value.repositoryRoot, value.rawPath);
     fs.mkdirSync(path.dirname(rawFile), { recursive: true });
-    fs.writeFileSync(rawFile, JSON.stringify(raw));
+    fs.writeFileSync(rawFile, `${JSON.stringify(raw, null, 2)}\n`);
     const expected = {
         identity: { producerId: 'browser-contract-semantic-outcome', sourceCommit: value.browser.sourceState.commit,
             worktreeFingerprint: `sha256:${value.browser.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')}`,
@@ -240,7 +240,7 @@ test('original Release Reliability identity API binds the same Browser source bu
         invocationId, runId: f.options.expected.identity.schedulerRunId,
         sourceState: { commit: f.options.expected.identity.sourceCommit, worktreeFingerprint: f.options.expected.identity.worktreeFingerprint,
             dirtyPathCount: 0, hashedPathCount: 1 }, build: { contentDigest: f.options.expected.identity.buildIdentity } });
-    fs.writeFileSync(identityFile, JSON.stringify(identity));
+    fs.writeFileSync(identityFile, `${JSON.stringify(identity, null, 2)}\n`);
     f.options.releaseReliability = { identityReference: { path: identityPath, digest: fileDigest(identityFile) }, environment: {
         FSUSBLOG_RELEASE_RELIABILITY_INVOCATION_ID: invocationId,
         FSUSBLOG_RELEASE_RELIABILITY_RUN_ID: identity.runId,
