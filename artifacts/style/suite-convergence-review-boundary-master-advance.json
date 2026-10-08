@@ -1,0 +1,131 @@
+{
+  "schema": "fsusblog.issue-3593-master-advance-boundary.v1",
+  "issue": 3593,
+  "sourceCandidate": "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2",
+  "sourceBranch": "task/3593-leaf-review-boundary",
+  "testedBase": "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+  "latestFetchedMaster": "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131",
+  "observedAt": "2026-10-08T14:26:23.646977+00:00",
+  "change": "Master advanced during final publication checks. Changes affect SOURCE frontend configuration dispatch, trusted frontend policy and canonical execution-authority fixture.",
+  "latestMasterChangedPaths": [
+    "artifacts/change-contract/frontend-config-source-dispatch-external-naming.json",
+    "artifacts/change-contract/frontend-config-source-dispatch-generated-binding.json",
+    "config/development/frontend-style-policy.json",
+    "docs/development/change-contract.md",
+    "docs/frontend/fsusui-typecheck-modes.md",
+    "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/tools/frontend-style.test.mjs",
+    "tests/tools/pr-impact-plan.test.mjs",
+    "tools/frontend/check-frontend-style.mjs",
+    "tools/frontend/style-toolchain/eslint.config.mjs",
+    "tools/test-matrix/pr-impact-plan.mjs",
+    "tools/test-matrix/source-governance.mjs"
+  ],
+  "sharedChangedPath": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+  "readOnlyGitMergeTree": {
+    "exitCode": 0,
+    "tree": "1b5c59663edc9f0679d19056fea8f1c3c24eebe9",
+    "conflicts": [],
+    "scope": "Git object-level merge probe only. No actual integration, no tests on this composite tree, no acceptance inferred."
+  },
+  "unaffectedMasterInputs": [
+    {
+      "path": "tests/tools/test-suite-convergence.test.mjs",
+      "masterBaseAndLatestBytesEqual": true,
+      "sha256": "9f97de6db36e22e2c78407ddcc7a99eca48f201952bcb49d8de8a287de74ed7b"
+    },
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "masterBaseAndLatestBytesEqual": true,
+      "sha256": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980"
+    },
+    {
+      "path": "tools/test/correctness-attempt-migration.mjs",
+      "masterBaseAndLatestBytesEqual": true,
+      "sha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "masterBaseAndLatestBytesEqual": true,
+      "sha256": "140071261ec4d5eebb680026970ae5f07345668d14ba5830cad40795406c7682"
+    },
+    {
+      "path": "tests/test-retention-before.json",
+      "masterBaseAndLatestBytesEqual": true,
+      "sha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46"
+    },
+    {
+      "path": "tools/governance/change-contract.mjs",
+      "masterBaseAndLatestBytesEqual": true,
+      "sha256": "fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463"
+    },
+    {
+      "path": "tools/governance/javascript-format-parser/package-lock.json",
+      "masterBaseAndLatestBytesEqual": true,
+      "sha256": "d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+    }
+  ],
+  "commands": [
+    {
+      "command": [
+        "git",
+        "rev-parse",
+        "origin/master"
+      ],
+      "cwd": "/workspace/FsusBlog-3593-review",
+      "exitCode": 0,
+      "rawOutput": "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "--name-only",
+        "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131"
+      ],
+      "cwd": "/workspace/FsusBlog-3593-review",
+      "exitCode": 0,
+      "rawOutput": "artifacts/change-contract/frontend-config-source-dispatch-external-naming.json\nartifacts/change-contract/frontend-config-source-dispatch-generated-binding.json\nconfig/development/frontend-style-policy.json\ndocs/development/change-contract.md\ndocs/frontend/fsusui-typecheck-modes.md\nsrc/frontend/scripts/run-local-fsusui-typecheck.mjs\ntests/fixtures/test-matrix/release-final-execution-target-authority.json\ntests/tools/frontend-style.test.mjs\ntests/tools/pr-impact-plan.test.mjs\ntools/frontend/check-frontend-style.mjs\ntools/frontend/style-toolchain/eslint.config.mjs\ntools/test-matrix/pr-impact-plan.mjs\ntools/test-matrix/source-governance.mjs\n"
+    },
+    {
+      "command": [
+        "git",
+        "diff",
+        "6e287562b3f861d3eb81dcb23f93e6243205abd8",
+        "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131",
+        "--",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "docs/development/change-contract.md",
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+      ],
+      "cwd": "/workspace/FsusBlog-3593-review",
+      "exitCode": 0,
+      "rawOutput": "diff --git a/docs/development/change-contract.md b/docs/development/change-contract.md\nindex b919bd6a0..a1a7308f6 100644\n--- a/docs/development/change-contract.md\n+++ b/docs/development/change-contract.md\n@@ -186,7 +186,7 @@ The trusted registry also lists the policy file set for gates, workflows, templa\n \n After a PR merges into `master`, the `push` job first checks out the previous checker from `github.event.before` to audit the candidate's `before..after` commit range; candidate bootstrap is allowed only on first installation with no prior checker. `workflow_dispatch` uses the candidate checker for the repository audit. Because the push job runs after GitHub receives the objects, it remains a post-merge audit; prevention comes from the ruleset and required pull-request status checks. When GitHub Actions is available, local success cannot replace those remote checks. If Actions is explicitly disabled or unavailable and no remote check can run, a maintainer may merge only after the applicable equivalent local CI for the explicitly selected and Git-bound execution stage is green and the PR records commands, results, and Actions status. Source-stage evidence is not compiled/native/runtime/release qualification; unselected or deferred qualification remains OPEN. A failed applicable check is not waived by a WIP label, and a selection-policy bootstrap needs explicit owner review of its real semantic change. Source-integration admission consists of the mandatory source gates and applicable declared source-only regressions; complete compiled/native/runtime/release qualification remains OPEN and is not a prerequisite claim for delivery of reviewed policy source. Default/full/push/release qualification keeps its original requirements. Missing or unrun remote checks must not be described as passed.\n \n-For the explicitly selected source-integration stage, style comparison inspects the actual Git-bound base and candidate with the same locked tools and unchanged rule configuration, restoring tracked base dependencies needed for source resolution. Existing diagnostics require the checker's finite source proofs: unique unchanged complete units, or unchanged complete statements with their physical lines and required lexical/ASI context. Module-level layout proofs are limited to unique complete import or variable declarations and both adjacent statements with their physical trivia; import diagnostics additionally bind the complete import roster and actual configuration/dependency identities, and unused-binding diagnostics require the original scope and binding/read evidence. Rule, message, severity and source spans match one-to-one; ambiguous, new, changed, unsupported or unproved diagnostics remain failures. Both raw results and invocation/environment failures are recorded. This SOURCE comparison does not rewrite a persistent baseline, waive an applicable failed check or change default/full qualification.\n+For the explicitly selected source-integration stage, frontend dispatch compares the complete configuration input union declared by the actual Git-bound base and current policies, including the fixed SOURCE data inputs. Missing, untracked or nonregular required configuration and an omitted changed-source input are refusals. If any configuration identity changes, the complete applicable changed frontend source scope uses the existing `strict-full` mode with every strict rule and no exemptions. With identical configuration, JavaScript style comparison inspects the actual base and candidate with the same locked tools, restoring tracked base dependencies needed for source resolution; other applicable frontend source kinds remain strict. Existing diagnostics require the checker's finite source proofs: unique unchanged complete units, or unchanged complete statements with their physical lines and required lexical/ASI context. Module-level layout proofs are limited to unique complete import or variable declarations and both adjacent statements with their physical trivia; import diagnostics additionally bind the complete import roster and actual configuration/dependency identities, and unused-binding diagnostics require the original scope and binding/read evidence. Rule, message, severity and source spans match one-to-one; ambiguous, new, changed, unsupported or unproved diagnostics remain failures. Both raw results and invocation/environment failures are recorded. This SOURCE comparison does not rewrite a persistent baseline, waive an applicable failed check or change default/full qualification.\n \n ## Release note authority\n \ndiff --git a/tests/fixtures/test-matrix/release-final-execution-target-authority.json b/tests/fixtures/test-matrix/release-final-execution-target-authority.json\nindex 47f9d4303..9027a72af 100644\n--- a/tests/fixtures/test-matrix/release-final-execution-target-authority.json\n+++ b/tests/fixtures/test-matrix/release-final-execution-target-authority.json\n@@ -35,8 +35,8 @@\n         },\n         {\n             \"path\": \"config/development/frontend-style-policy.json\",\n-            \"contentDigest\": \"sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85\",\n-            \"indexDigest\": \"sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85\"\n+            \"contentDigest\": \"sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d\",\n+            \"indexDigest\": \"sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d\"\n         },\n         {\n             \"path\": \"config/development/frontend-style-rule-registry.json\",\n@@ -105,8 +105,8 @@\n         },\n         {\n             \"path\": \"src/frontend/scripts/run-local-fsusui-typecheck.mjs\",\n-            \"contentDigest\": \"sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634\",\n-            \"indexDigest\": \"sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634\"\n+            \"contentDigest\": \"sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8\",\n+            \"indexDigest\": \"sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8\"\n         },\n         {\n             \"path\": \"src/frontend/scripts/vite-watch-policy.mjs\",\n@@ -2150,8 +2150,8 @@\n         },\n         {\n             \"path\": \"tests/tools/pr-impact-plan.test.mjs\",\n-            \"contentDigest\": \"sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252\",\n-            \"indexDigest\": \"sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252\"\n+            \"contentDigest\": \"sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc\",\n+            \"indexDigest\": \"sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc\"\n         },\n         {\n             \"path\": \"tests/tools/produce-behavior-test-evidence.test.mjs\",\n@@ -3200,8 +3200,8 @@\n         },\n         {\n             \"path\": \"tools/frontend/check-frontend-style.mjs\",\n-            \"contentDigest\": \"sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75\",\n-            \"indexDigest\": \"sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75\"\n+            \"contentDigest\": \"sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2\",\n+            \"indexDigest\": \"sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2\"\n         },\n         {\n             \"path\": \"tools/frontend/check-locale-domain-bundles.mjs\",\n@@ -3300,8 +3300,8 @@\n         },\n         {\n             \"path\": \"tools/frontend/style-toolchain/eslint.config.mjs\",\n-            \"contentDigest\": \"sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635\",\n-            \"indexDigest\": \"sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635\"\n+            \"contentDigest\": \"sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a\",\n+            \"indexDigest\": \"sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a\"\n         },\n         {\n             \"path\": \"tools/frontend/style-toolchain/package-lock.json\",\n@@ -4210,8 +4210,8 @@\n         },\n         {\n             \"path\": \"tools/test-inventory/discovery.mjs\",\n-            \"contentDigest\": \"sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665\",\n-            \"indexDigest\": \"sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665\"\n+            \"contentDigest\": \"sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa\",\n+            \"indexDigest\": \"sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa\"\n         },\n         {\n             \"path\": \"tools/test-inventory/package.json\",\n@@ -4380,8 +4380,8 @@\n         },\n         {\n             \"path\": \"tools/test-matrix/pr-impact-plan.mjs\",\n-            \"contentDigest\": \"sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe\",\n-            \"indexDigest\": \"sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe\"\n+            \"contentDigest\": \"sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f\",\n+            \"indexDigest\": \"sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f\"\n         },\n         {\n             \"path\": \"tools/test-matrix/priority-score.mjs\",\n@@ -6930,8 +6930,8 @@\n                     ]\n                 }\n             ],\n-            \"contentDigest\": \"sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4\",\n-            \"indexDigest\": \"sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4\",\n+            \"contentDigest\": \"sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502\",\n+            \"indexDigest\": \"sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502\",\n             \"dependencyClosure\": [\n                 \".editorconfig\",\n                 \".markdownlint-cli2.jsonc\",\n@@ -6944,6 +6944,8 @@\n                 \"eslint.config.mjs\",\n                 \"src/frontend/eslint.config.mjs\",\n                 \"src/frontend/package.json\",\n+                \"src/frontend/scripts/fsusui-root.mjs\",\n+                \"src/frontend/scripts/run-local-fsusui-typecheck.mjs\",\n                 \"src/frontend/stylelint.config.mjs\",\n                 \"stylelint.config.mjs\",\n                 \"tests/tools/native-tooling-style.test.mjs\",\ndiff --git a/tools/test-matrix/pr-impact-plan.mjs b/tools/test-matrix/pr-impact-plan.mjs\nindex d031eb300..b02980994 100644\n--- a/tools/test-matrix/pr-impact-plan.mjs\n+++ b/tools/test-matrix/pr-impact-plan.mjs\n@@ -1,5 +1,7 @@\n import { execFileSync } from 'node:child_process';\n import { createHash } from 'node:crypto';\n+import fs from 'node:fs';\n+import path from 'node:path';\n \n const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true\n     && !['nightly', 'release-manual'].includes(tier.cadence);\n@@ -455,13 +457,86 @@ export function assertSourceShellSyntaxInspection(input)\n     }\n }\n \n-export function sourceFrontendCheckGroups(files, stage, baseCommit)\n+export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)\n+{\n+    if (typeof repositoryRoot !== 'string' || !/^[a-f0-9]{40}$/u.test(baseCommit ?? ''))\n+    {\n+        throw new Error('SOURCE frontend configuration requires the actual repository and exact base commit');\n+    }\n+    const git = args => execFileSync('git', ['-C', repositoryRoot, ...args]);\n+    git(['merge-base', '--is-ancestor', baseCommit, 'HEAD']);\n+    function read(file, revision, required)\n+    {\n+        if (typeof file !== 'string' || !file || file.startsWith('/') || file.startsWith('-')\n+            || file.split('/').includes('..') || /[\\\\\\0\\r\\n]/u.test(file))\n+        {\n+            throw new Error('SOURCE frontend configuration contains an invalid input path');\n+        }\n+        const record = git(['ls-tree', '-z', revision, '--', file]).toString('utf8');\n+        if (!record && !required)\n+        {\n+            return null;\n+        }\n+        if (!/^100(?:644|755) blob [a-f0-9]{40}\\t/u.test(record)\n+            || record.slice(record.indexOf('\\t') + 1) !== `${file}\\0`)\n+        {\n+            throw new Error(`SOURCE frontend configuration requires a tracked regular input: ${file}`);\n+        }\n+        if (revision !== 'HEAD')\n+        {\n+            return git(['show', `${revision}:${file}`]);\n+        }\n+        const absolute = path.resolve(repositoryRoot, file);\n+        if (!fs.existsSync(absolute) || !fs.lstatSync(absolute).isFile()\n+            || !fs.realpathSync(absolute).startsWith(`${fs.realpathSync(repositoryRoot)}${path.sep}`))\n+        {\n+            throw new Error(`SOURCE frontend configuration refuses a nonregular or escaped input: ${file}`);\n+        }\n+        return fs.readFileSync(absolute);\n+    }\n+    const policyPath = 'config/development/frontend-style-policy.json';\n+    const priorPolicy = JSON.parse(read(policyPath, baseCommit, true));\n+    const currentPolicy = JSON.parse(read(policyPath, 'HEAD', true));\n+    function inputs(policy)\n+    {\n+        if (!Array.isArray(policy.configurationSources) || !policy.configurationSources.length)\n+        {\n+            throw new Error('SOURCE frontend configuration requires the complete policy input set');\n+        }\n+        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,\n+            policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,\n+            policy.eslintConfig, policy.stylelintConfig]);\n+    }\n+    const priorInputs = inputs(priorPolicy);\n+    const currentInputs = inputs(currentPolicy);\n+    const identities = [...new Set([...priorInputs, ...currentInputs])].sort().map(file =>\n+    {\n+        const prior = read(file, baseCommit, priorInputs.has(file));\n+        const current = read(file, 'HEAD', currentInputs.has(file));\n+        const digest = bytes => bytes === null ? null : `sha256:${createHash('sha256').update(bytes).digest('hex')}`;\n+        return { file, baseDigest: digest(prior), currentDigest: digest(current) };\n+    });\n+    return { baseCommit, changed: identities.some(value => value.baseDigest !== value.currentDigest), identities };\n+}\n+\n+export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRoot)\n {\n     const applicable = files.filter(file => /\\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file));\n     if (stage !== 'source-integration')\n     {\n         return [{ options: ['--mode', 'strict-full'], files: applicable }];\n     }\n+    const configuration = inspectSourceFrontendConfiguration(repositoryRoot, baseCommit);\n+    const actual = readGitChangedPaths(repositoryRoot, baseCommit).changedFiles\n+        .filter(file => fs.existsSync(path.join(repositoryRoot, file))).sort();\n+    if (JSON.stringify([...files].sort()) !== JSON.stringify(actual))\n+    {\n+        throw new Error('SOURCE frontend routing requires the complete actual changed-source scope');\n+    }\n+    if (configuration.changed)\n+    {\n+        return [{ options: ['--mode', 'strict-full'], files: applicable }];\n+    }\n     return [\n         { options: ['--mode', 'source-diff', '--base', baseCommit],\n             files: applicable.filter(file => /\\.(?:mjs|js|cjs)$/u.test(file)) },\n"
+    },
+    {
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131",
+        "e0dde8879de5fa4fb8ae5b866e6effdb937b66e2"
+      ],
+      "cwd": "/workspace/FsusBlog-3593-review",
+      "exitCode": 0,
+      "rawOutput": "1b5c59663edc9f0679d19056fea8f1c3c24eebe9\n"
+    }
+  ],
+  "actualIntegrationPerformed": false,
+  "currentMasterSourceGateRerun": false,
+  "candidateAndOldBranchesUnchanged": true,
+  "qualification": false,
+  "remainingAction": "Coordinate an exact latest-master candidate continuation and regenerate/recheck using the original current producer/gates before current-master admission. Preserve this tested seven-path candidate and its exact6e baseline proof; do not relabel it as c1 acceptance or silently conduct cross-chain final resolution.",
+  "existingBlockersStillOpen": [
+    "mandatory Git blame metadata unsupported by tested SOURCE stage",
+    "ordinary generated binding and external naming metadata",
+    "two actual backend-QPS compact-before identities",
+    "independent review and qualification"
+  ]
+}
