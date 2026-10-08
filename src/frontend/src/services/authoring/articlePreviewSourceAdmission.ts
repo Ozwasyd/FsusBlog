@@ -57,14 +57,23 @@ export class ArticlePreviewSourceAdmission
     private readonly requests = new WeakMap<ArticlePreviewSourceRequest, ArticleDocumentTaskLease>();
     private active: ArticleDocumentTaskLease | null = null;
     private disposed = false;
+    private readonly currentContext: () => ArticleDocumentContext;
+    private readonly beginTask: () => ArticleDocumentTaskLease;
+    private readonly release: (() => void) | null;
+    private readonly read: () => ArticlePreviewSourceInput;
 
     private constructor(
-        private readonly currentContext: () => ArticleDocumentContext,
-        private readonly beginTask: () => ArticleDocumentTaskLease,
-        private readonly release: (() => void) | null,
-        private readonly read: () => ArticlePreviewSourceInput
+        currentContext: () => ArticleDocumentContext,
+        beginTask: () => ArticleDocumentTaskLease,
+        release: (() => void) | null,
+        read: () => ArticlePreviewSourceInput
     )
-    {}
+    {
+        this.currentContext = currentContext;
+        this.beginTask = beginTask;
+        this.release = release;
+        this.read = read;
+    }
 
     /** Acquires another binding only after confirming that this host's canonical owner already exists. */
     public static attach(
