@@ -1,0 +1,72 @@
+{
+  "sourceThread": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+  "coordinator": "01a119be-e15d-7134-badb-2af41ed14004",
+  "existingBoundedReview": "01a11adf-0d01-76bb-83e1-8cfe3077401d",
+  "frozenSource": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "sourceCandidate": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+  "sourceBranch": "task/correctness-seal-error-precedence",
+  "changedFiles": [
+    "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+    "tests/tools/correctness-seal-error-precedence.test.mjs"
+  ],
+  "finding": "P2: secondary diagnostic assignment to a nonextensible but unfrozen Error could throw TypeError and replace the primary.",
+  "implementation": "Keep the original thrown object and cause. Retain secondary seal rejection in an object-keyed WeakMap; attach the legacy field only when supported, best-effort. Read immutable/nonextensible diagnostics through readCorrectnessSealRejectionError without property getter execution.",
+  "capability": {
+    "retainCorrectnessSealRejectionError": "Returns the original primary and retains the secondary for object/function primaries. Legacy field presentation remains best-effort.",
+    "readCorrectnessSealRejectionError": "Returns the retained secondary for the same object identity, including sealed/frozen/nonextensible Error objects. No cross-run ledger or runtime authority is created."
+  },
+  "ordinaryControls": {
+    "pass": 5,
+    "fail": 0,
+    "skip": 0,
+    "exitCode": 0,
+    "exactCommit": "dbda69ceb81e5c79481db2e13515e7371a6d291e"
+  },
+  "ownedStyleExitCode": 0,
+  "boundedRangeContractExitCode": 0,
+  "preTestHooksAndImportsChecked": true,
+  "executionScope": "Only the five ordinary Error-object controls were run. The new test never invokes finalizeSchedulerCorrectness, journals, owner/CAS, cancellation or grants. No coupled finalizer suite, held semantic/cohort/tamper audit or equivalent harness was run.",
+  "SOURCEStatus": "UNRUN on changed candidate. Frozen6ed SOURCE93 and boundary103 are not relabeled or reused as new-candidate execution evidence; original owner must refresh the final composed binding.",
+  "frameworkFinding": "execution.mjs P2 remains with sole framework owner01a119f8-07b7-73d2-b926-b76b9fb78008; no independent edit or fix consumption yet.",
+  "frozenSourceBranchPreserved": true,
+  "newIndependentReviewCreated": false,
+  "runtimeCohortOrHistoricalQualification": false,
+  "PRorIssueContentWrites": false,
+  "issuesClosed": false,
+  "sourceOrEvidenceSelfMerged": false,
+  "files": [
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/ordinary-error-controls.json",
+      "sha256": "e88fe4628c34b8293f52dda3af919cf98e8b083111256ed32d34f5251d206dde"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/ordinary-error-controls.log",
+      "sha256": "5138148ae163e2524c2857a7574ad835ac516e2e64de39d2d7042f7aab8d19f1"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/owned-eslint.json",
+      "sha256": "e729d44376e334ae6a715bcd5a866e8d1528d3666fc5fa3a2c3c013612bed381"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/owned-eslint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/bounded-range.json",
+      "sha256": "5d75a67de6bcdbba37cb8cfa371a3632928437198bbb42d82ef320cdd4101fbb"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/bounded-range.log",
+      "sha256": "76094d269a1778499fcb12539210e26e84f3f2fd5cd48df16fd85f93789be534"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/pre-test-import-hook-check.json",
+      "sha256": "c6358af60275fc630b6fe47a39a0f8310ac140d9911533c7da0e02db21467be8"
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/dbda69ce/source-authority-followup.json",
+      "sha256": "f3904238d0ad25261b5a9ce6da4687e5a5b9b3e8155e229b3e733335388a0312"
+    }
+  ],
+  "earlierDisjointReaderProposal": "Only /tmp prototype files were prepared. No repo implementation, test execution or publication occurred. Actual open-PR file overlap lookup failed (HTTP504 then gh GraphQL HTTP401); no credential/security setting changes or negative-overlap claim. Proposal paused for coordinated P2 priority."
+}

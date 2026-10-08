@@ -1,0 +1,13 @@
+{
+  "head": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/correctness-seal-error-precedence.test.mjs"
+  ],
+  "exitCode": 0,
+  "elapsedSeconds": 0.573,
+  "scope": "Five ordinary Error-object controls only; no finalizer/journal/owner/CAS/cancel/grant invocation.",
+  "log": "/workspace/correctness-seal-error-evidence/ordinary-error-controls.log",
+  "logSha256": "5138148ae163e2524c2857a7574ad835ac516e2e64de39d2d7042f7aab8d19f1"
+}

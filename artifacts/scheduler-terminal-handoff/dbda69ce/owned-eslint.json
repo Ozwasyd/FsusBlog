@@ -1,0 +1,13 @@
+{
+  "key": "owned-eslint",
+  "head": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+  "command": [
+    "/tmp/node-v24.16.0-linux-x64/bin/node",
+    "tools/frontend/style-toolchain/node_modules/eslint/bin/eslint.js",
+    "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+    "tests/tools/correctness-seal-error-precedence.test.mjs"
+  ],
+  "exitCode": 0,
+  "log": "/workspace/correctness-seal-error-evidence/owned-eslint.log",
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+}
