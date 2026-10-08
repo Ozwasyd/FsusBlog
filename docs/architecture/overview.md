@@ -113,6 +113,12 @@ This boundary does not register an endpoint, admin workflow, storage implementat
 
 Sanitization consumes the complete renderer fragment through its wrapper EOF. A renderer-supplied premature closing tag cannot silently hide later markup, text, or comments; the fragment is rejected. Complete legal fragments retain their allowed tail and surrounding whitespace.
 
+Static Mermaid SVG uses a closed per-element attribute allowlist. Local paint,
+ARIA and marker references are verified within their containing SVG; a marker
+reference must resolve to that SVG's own marker. Nested SVG and namespace escapes
+remain rejected. Sanitizer compatibility does not qualify the registered renderer
+tool, font coverage or offline browser behavior.
+
 ## Standard Protocol Exemptions
 
 Not every public output is an internal AEDS API. The following are standard external protocols or operational outputs and are documented separately from internal binary contracts:
