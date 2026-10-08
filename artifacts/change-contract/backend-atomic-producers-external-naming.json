@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/backend-atomic-bridge.mjs",
+                "tools/test/backend-atomic-outcomes.mjs",
+                "tools/test/backend-atomic-producers.mjs"
+            ],
+            "reason": "preserve original registered test-tool producer and execution-environment authority names while validating backend atomic domain contracts without changing shared policy"
+        }
+    ]
+}
