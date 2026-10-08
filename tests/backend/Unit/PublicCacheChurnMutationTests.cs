@@ -3,6 +3,7 @@ using FsusBlog.Core.Mapping.Models;
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicReadArtifacts;
+using FsusBlog.Server.Infrastructure.Testing;
 using FsusBlog.Server.Modules.Endpoints.Binary;
 
 using Microsoft.Extensions.Options;
@@ -176,6 +177,111 @@ public sealed class PublicCacheChurnMutationTests
 
     private static PublicHotArtifactUpdateQueue CreateQueue(InMemoryPublicHotArtifactDeliveryStateStore state)
         => new(Options.Create(new PublicHotReadOptions { UpdateQueueCapacity = 1 }), state, state);
+
+    [Fact]
+    public async Task MutationAndCleanup_BindTheirOwnCanonicalPublishedObligationWithoutQualifyingArtifacts()
+    {
+        using SqlSugarClient db = CreateDatabase();
+        var invalidation = Substitute.For<ICacheInvalidationStore>();
+        var dispatcher = Substitute.For<ICacheInvalidationDispatcher>();
+        var state = new InMemoryPublicHotArtifactDeliveryStateStore();
+        PublicHotArtifactUpdateQueue queue = CreateQueue(state);
+        IRuntimeKeyScope scope = DeliveryScope();
+        BinaryEndpoints.CategoryMutationReceipt mutation = await BinaryEndpoints.CreateCategoryAndDispatchAsync(
+            db, invalidation, dispatcher, queue, "delivery-owned-canary", null, CancellationToken.None);
+
+        RuntimeCacheChurnDeliveryObservation pending = await RuntimeCacheChurnDeliveryBinding.ObserveAsync(
+            mutation, state, scope, "delivery-run", CancellationToken.None);
+        Assert.False(pending.ExactObligationPublished);
+        await CompleteDeliveryAsync(state);
+        RuntimeCacheChurnDeliveryObservation published = await RuntimeCacheChurnDeliveryBinding.ObserveAsync(
+            mutation, state, scope, "delivery-run", CancellationToken.None);
+        Assert.True(published.ExactObligationPublished);
+        Assert.Equal(mutation.Delivery!.Value.DeliveryGeneration, published.Obligation.PublishedGeneration);
+        Assert.Null(published.BusinessEpochBinding);
+        Assert.Null(published.CommonGenerationBinding);
+        Assert.False(published.CountsAsReleaseFinal);
+
+        BinaryEndpoints.CategoryMutationReceipt cleanup = await BinaryEndpoints.DeleteCategoryAndDispatchAsync(
+            db, invalidation, dispatcher, queue, mutation.CategoryId, CancellationToken.None);
+        Assert.Equal(PublicHotArtifactDeliveryStatus.PersistedDirty, cleanup.Delivery!.Value.Status);
+        await CompleteDeliveryAsync(state);
+        RuntimeCacheChurnDeliveryObservation cleanupPublished = await RuntimeCacheChurnDeliveryBinding.ObserveAsync(
+            cleanup, state, scope, "delivery-run", CancellationToken.None);
+        Assert.True(cleanupPublished.ExactObligationPublished);
+        Assert.Equal(mutation.CategoryId, cleanupPublished.Mutation.CategoryId);
+        Assert.NotEqual(published.Obligation.ObligationId, cleanupPublished.Obligation.ObligationId);
+        Assert.True(cleanupPublished.Obligation.PublishedGeneration > published.Obligation.PublishedGeneration);
+        Assert.False(cleanupPublished.CountsAsReleaseFinal);
+    }
+
+    [Theory]
+    [InlineData("other-obligation")]
+    [InlineData("other-target")]
+    [InlineData("other-published")]
+    [InlineData("retry")]
+    [InlineData("terminal")]
+    [InlineData("missing-stage")]
+    [InlineData("failed-stage")]
+    public async Task DeliveryBinding_RejectsSupersededFailedOrIncompletePublication(string fault)
+    {
+        var state = new InMemoryPublicHotArtifactDeliveryStateStore();
+        PublicHotArtifactEnqueueResult enqueue = await CreateQueue(state).EnqueueAsync(
+            PublicHotArtifactDeliveryClass.RequiredTaxonomy, null, "taxonomy-created");
+        await CompleteDeliveryAsync(state);
+        PublicHotArtifactObligation obligation = (await state.GetActiveAsync(CancellationToken.None))!;
+        obligation = fault switch
+        {
+            "other-obligation" => obligation with { ObligationId = "unrelated" },
+            "other-target" => obligation with { TargetGeneration = obligation.TargetGeneration + 1 },
+            "other-published" => obligation with { PublishedGeneration = obligation.PublishedGeneration + 1 },
+            "retry" => obligation with { AttemptNumber = 2 },
+            "terminal" => obligation with { State = PublicHotArtifactObligationState.FailedTerminal },
+            "missing-stage" => obligation with { Attempts = obligation.Attempts.Where(attempt => attempt.Stage != PublicHotArtifactAttemptStage.Publish).ToArray() },
+            "failed-stage" => obligation with { LastFailureKind = PublicHotArtifactFailureKind.PublishTransient },
+            _ => throw new InvalidOperationException("unknown fault")
+        };
+        var reader = Substitute.For<IPublicHotArtifactObligationStore>();
+        reader.GetActiveAsync(Arg.Any<CancellationToken>()).Returns(obligation);
+        var mutation = new BinaryEndpoints.CategoryMutationReceipt(
+            BinaryEndpoints.CategoryMutationOutcome.Created, 1, "original-business-mutation", enqueue);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => RuntimeCacheChurnDeliveryBinding.ObserveAsync(
+            mutation, reader, DeliveryScope(), "delivery-run", CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task DeliveryBinding_RefusesWrongScopeOrUnavailableEnqueueBeforeStoreReads()
+    {
+        var reader = Substitute.For<IPublicHotArtifactObligationStore>();
+        var unavailable = new BinaryEndpoints.CategoryMutationReceipt(
+            BinaryEndpoints.CategoryMutationOutcome.Created, 1, "committed-business-mutation", null);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => RuntimeCacheChurnDeliveryBinding.ObserveAsync(
+            unavailable, reader, DeliveryScope(), "other-run", CancellationToken.None));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => RuntimeCacheChurnDeliveryBinding.ObserveAsync(
+            unavailable, reader, DeliveryScope(), "delivery-run", CancellationToken.None));
+        await reader.DidNotReceive().GetActiveAsync(Arg.Any<CancellationToken>());
+    }
+
+    private static IRuntimeKeyScope DeliveryScope()
+    {
+        IRuntimeKeyScope scope = Substitute.For<IRuntimeKeyScope>();
+        scope.ScopeToken.Returns("delivery-run");
+        return scope;
+    }
+
+    private static async Task CompleteDeliveryAsync(InMemoryPublicHotArtifactDeliveryStateStore state)
+    {
+        PublicHotArtifactObligation obligation = (await state.ClaimEligibleAsync(DateTimeOffset.UtcNow, CancellationToken.None))!;
+        Assert.NotNull(obligation);
+        foreach (PublicHotArtifactAttemptStage stage in new[]
+            { PublicHotArtifactAttemptStage.Projector, PublicHotArtifactAttemptStage.Publish, PublicHotArtifactAttemptStage.RevocationCompletion })
+        {
+            await state.RecordStageSuccessAsync(
+                obligation.ObligationId, obligation.AttemptNumber, stage, DateTimeOffset.UtcNow, CancellationToken.None);
+        }
+        Assert.True(await state.CompletePublishedAsync(
+            obligation.ObligationId, obligation.AttemptNumber, obligation.TargetGeneration, CancellationToken.None));
+    }
 
     private static SqlSugarClient CreateDatabase()
     {
