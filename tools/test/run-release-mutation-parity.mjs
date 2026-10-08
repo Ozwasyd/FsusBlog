@@ -24,5 +24,5 @@ const sourceMutationResult = JSON.parse(fs.readFileSync(path.resolve(authorityPa
 const releaseParityResult = JSON.parse(fs.readFileSync(path.resolve(releasePath), 'utf8'));
 const selectionPolicy = JSON.parse(fs.readFileSync(path.resolve(policyPath), 'utf8'));
 validateMutationReleaseParity({ sourceMutationResult, releaseParityResult, selectionPolicy });
-verifyReleaseArtifactBinding(releaseParityResult);
+await verifyReleaseArtifactBinding(releaseParityResult);
 process.stdout.write(`release mutation parity verified: ${sourceMutationResult.inventoryDigest}\n`);

@@ -20,6 +20,9 @@ const {
 const {
     sealDocument
 } = await import(pathToFileURL(path.join(repositoryRoot, 'tools/test/release-reliability-receipt.mjs')).href);
+const { createTerminalEvents } = await import(
+    pathToFileURL(path.join(repositoryRoot, 'tools/test/release-reliability-terminal.mjs')).href
+);
 
 const canonicalIds = [
     'release-soak-min',
@@ -97,10 +100,13 @@ fs.mkdirSync(path.dirname(receiptPath), { recursive: true });
 if (kind === 'measurement') {
     fs.writeFileSync(receiptPath, JSON.stringify({
         schema: 'fsusblog.fixture-authoritative-evidence.v1',
-        status: 'ok',
+        status: mode === 'product-failure' ? 'failed'
+            : mode === 'noisy' ? 'infra-no-conclusion' : 'ok',
+        ...(mode === 'noisy' ? { productConclusionEligible: false } : {}),
         sentinel: 'current',
         releaseReliability: binding
     }));
+    if (mode === 'product-failure' || mode === 'noisy') process.exit(19);
 } else {
     const after = { fixtureState: 'observed' };
     const receipt = seal({
@@ -761,6 +767,121 @@ test('complete execution stays serial and single-scenario execution produces onl
     }
 });
 
+test('exact-seven admission failure retains its event and never spawns later members', async () =>
+{
+    const fixture = createFixture();
+    try
+    {
+        const catalog = catalogFor(fixture);
+        let spawnCount = 0;
+        const results = await executeScenarios({
+            catalog, evidenceClass: 'correctness', qualificationEligible: true,
+            repositoryRoot: fixture.root, invocationId, runId,
+            identity: { ...fixture.identity, status: 'unavailable' },
+            identityReference: fixture.identityReference,
+            spawnProcess: () =>
+            {
+                spawnCount += 1;
+                throw new Error('unexpected spawn');
+            },
+            physicalExecution: fixturePhysicalExecution,
+            ambientEnvironment: fixtureAmbientEnvironment,
+            lifecycleContracts: contractsFor(fixture, catalog)
+        });
+        assert.equal(spawnCount, 0);
+        assert.deepEqual(createTerminalEvents(results).map(event => event.terminalClassification),
+            ['precondition-failure', ...Array(6).fill('not-reached')]);
+        assert.ok(results.every(result => !result.producerSpawned && !result.authoritativeEvidence));
+    }
+    finally
+    {
+        removeFixture(fixture);
+    }
+});
+
+test('physical status or nonzero exit without command spawn cannot establish a producer', async () =>
+{
+    for (const exitCode of [0, 19])
+    {
+        const fixture = createFixture();
+        try
+        {
+            const catalog = catalogFor(fixture);
+            const result = await executeFixtureScenario(fixture, catalog, {
+                physicalExecution: async options =>
+                {
+                    if (!options.env.FSUSBLOG_RELEASE_RELIABILITY_ACTION_ID.endsWith('-fixture-measurement'))
+                    {
+                        return await fixturePhysicalExecution(options);
+                    }
+                    const evidence = fixtureProcessEvidence(options.policy);
+                    if (exitCode !== 0)
+                    {
+                        throw Object.assign(new Error('structured launch failure'), { exitCode, physicalExecution: evidence });
+                    }
+                    return evidence;
+                }
+            });
+            assert.equal(result.producerSpawned, false);
+            assert.equal(result.authoritativeEvidence, null);
+            assert.equal(result.qualificationEligible, false);
+            assert.equal(createTerminalEvents([
+                ...canonicalIds.filter(id => id !== result.scenarioId).map(id => ({
+                    scenarioId: id, status: 'not-reached', producerSpawned: false,
+                    lifecycle: { actions: [] }, authoritativeEvidence: null,
+                    finishedAt: result.finishedAt
+                })), result
+            ]).find(event => event.scenarioId === result.scenarioId).terminalClassification, 'precondition-failure');
+        }
+        finally
+        {
+            removeFixture(fixture);
+        }
+    }
+});
+
+test('real controlled producer failure and noisy window keep distinct bound terminal evidence', async () =>
+{
+    for (const mode of ['product-failure', 'noisy', 'nonzero', 'missing-window'])
+    {
+        const fixture = createFixture();
+        try
+        {
+            const catalog = catalogFor(fixture);
+            catalog.scenarios[2].command.args[2] = mode === 'missing-window' ? 'product-failure' : mode;
+            if (mode === 'missing-window')
+            {
+                delete catalog.scenarios[2].authoritativeEvidence.expectedSchema.schema;
+            }
+            const results = await executeScenarios({
+                catalog, evidenceClass: 'correctness', qualificationEligible: true,
+                repositoryRoot: fixture.root, invocationId, runId,
+                identity: fixture.identity, identityReference: fixture.identityReference,
+                physicalExecution: fixturePhysicalExecution,
+                ambientEnvironment: fixtureAmbientEnvironment,
+                lifecycleContracts: contractsFor(fixture, catalog)
+            });
+            const events = createTerminalEvents(results);
+            assert.deepEqual(events.map(event => event.terminalClassification), [
+                'qualified-success', 'qualified-success',
+                mode === 'product-failure' ? 'product-failure' : 'infra-no-conclusion',
+                ...Array(4).fill('not-reached')
+            ]);
+            assert.equal(events[2].producerSpawned, true);
+            assert.equal(events[2].exitCode, 19);
+            assert.equal(Boolean(events[2].authoritativeEvidence), !['nonzero', 'missing-window'].includes(mode));
+            if (events[2].authoritativeEvidence)
+            {
+                assert.equal(fs.existsSync(path.join(fixture.root, events[2].authoritativeEvidence.path)), true);
+            }
+        }
+        finally
+        {
+            removeFixture(fixture);
+        }
+    }
+});
+
 test('ambient semantic overrides and undeclared keys never reach any scenario producer', async () =>
 {
     const fixture = createFixture();
@@ -937,7 +1058,8 @@ test('full execution clears old qualification and scenario results before a fail
             lifecycleContracts: contractsFor(fixture, catalog)
         });
 
-        assert.ok(failed.every((result) => result.status === 'failed'));
+        assert.equal(failed[0].status, 'failed');
+        assert.ok(failed.slice(1).every((result) => result.status === 'not-reached'));
         assert.ok(failed.every((result) => result.qualificationEligible === false));
         for (const name of [
             'candidate-receipt.json',
@@ -954,7 +1076,7 @@ test('full execution clears old qualification and scenario results before a fail
                 path.join(scenarioResultRoot, `${scenarioId}.json`),
                 'utf8'
             ));
-            assert.equal(result.status, 'failed');
+            assert.equal(result.status, scenarioId === canonicalIds[0] ? 'failed' : 'not-reached');
             assert.equal(result.stale, undefined);
         }
     }

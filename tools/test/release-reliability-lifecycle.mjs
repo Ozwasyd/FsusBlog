@@ -7,12 +7,15 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+import { readMutationAttemptObservation } from './release-mutation-attempt-root.mjs';
 import { readReleaseReliabilityEvidenceBinding } from './release-reliability-evidence-binding.mjs';
 import {
     expandLifecycleTemplate,
     loadLifecycleActionContracts
 } from './release-reliability-lifecycle-actions.mjs';
 import { digestValue, sealDocument } from './release-reliability-receipt.mjs';
+
+const { verifyProductionBuildReceipt } = await import(new URL('../ci/production-build-artifacts.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const safeIdentifierPattern = /^[A-Za-z0-9][A-Za-z0-9_.-]*$/u;
@@ -513,7 +516,27 @@ function directoryInventory(repositoryRoot, configuredPath, label)
     };
 }
 
-function inspectMutation(context, spawnProcess)
+function inspectMutationBuild(context)
+{
+    try
+    {
+        const file = repositoryPath(context.repositoryRoot, context.identity.build?.path, 'immutable build receipt');
+        verifyProductionBuildReceipt({
+            artifactRoot: path.dirname(file.absolute), receiptFile: path.basename(file.absolute),
+            expectedSourceState: context.binding.sourceState,
+            expectedReceiptDigest: context.identity.build.contentDigest,
+            expectedProducer: { runId: context.runId, job: 'production-build-artifacts' },
+            expectedInputRoot: context.repositoryRoot, repairReadOnlySeal: false
+        });
+        return directoryInventory(context.repositoryRoot, path.dirname(file.relative), 'immutable production build');
+    }
+    catch (error)
+    {
+        return { status: 'failed', reason: error.message };
+    }
+}
+
+async function inspectMutation(context, spawnProcess)
 {
     const commit = spawnProcess('git', ['rev-parse', 'HEAD'], {
         cwd: context.repositoryRoot,
@@ -534,11 +557,11 @@ function inspectMutation(context, spawnProcess)
             commit: commit.status === 0 ? commit.stdout.trim() : null,
             trackedDirty: status.status === 0 ? status.stdout.trim() !== '' : null
         },
-        productionBuild: directoryInventory(
-            context.repositoryRoot,
-            context.environment.FSUSBLOG_PRODUCTION_BUILD_ROOT,
-            'production build root'
-        ),
+        productionBuild: inspectMutationBuild(context),
+        mutationAttempt: await readMutationAttemptObservation({
+            repositoryRoot: context.repositoryRoot, runId: context.runId, invocationId: context.invocationId,
+            sourceState: context.binding.sourceState, buildReceiptDigest: context.identity.build.contentDigest
+        }),
         mutationOutput: inspectPath(
             context.repositoryRoot,
             '.tmp/mutation/backend-critical'

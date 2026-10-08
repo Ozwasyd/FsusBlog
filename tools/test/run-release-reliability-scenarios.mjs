@@ -900,7 +900,7 @@ export async function executeScenario({
             cleanupFailures: []
         };
     const measurement = lifecycle.measurementRecord;
-    const evidenceReference = measurement?.receipt ?? null;
+    const evidenceReference = measurement?.receipt ?? measurement?.failureEvidence ?? null;
     const evidence = evidenceReference === null
         ? null
         : {
@@ -1015,9 +1015,37 @@ export async function executeScenarios({
     const resolvedLifecycleContracts = lifecycleContracts
         ?? loadLifecycleActionContracts({ repositoryRoot, catalog });
     const results = [];
+    let blockingResult = null;
     for (const scenario of scenarios)
     {
-        results.push(await executeScenario({
+        if (blockingResult !== null)
+        {
+            const resultFile = resultPath(repositoryRoot, invocationId, scenario.id);
+            const finishedAt = now();
+            const result = sealDocument({
+                schema: 'fsusblog.release-reliability-scenario-result.v3',
+                invocationId, runId, scenarioId: scenario.id,
+                resultPath: repositoryRelative(repositoryRoot, resultFile),
+                owner: scenario.owner, resourceClass: scenario.resourceClass,
+                evidenceClass, qualificationEligible: false, status: 'not-reached',
+                identity: identityReference, startedAt: null, finishedAt,
+                producer: { exitCode: null, signal: null, timedOut: false },
+                lifecycle: { actions: [], verifiedActionReceipts: [] },
+                producerSpawned: false, authoritativeEvidence: null, outputs: [],
+                firstFailure: {
+                    phase: 'not-reached', kind: 'prior-scenario-fail-closed',
+                    scenarioId: blockingResult.scenarioId,
+                    message: `not reached after ${blockingResult.scenarioId} failed closed`
+                },
+                cleanupFailures: [], cancellation: null,
+                failure: `not reached after ${blockingResult.scenarioId} failed closed`,
+                recordedAt: finishedAt
+            });
+            writeJsonAtomic(resultFile, result);
+            results.push(result);
+            continue;
+        }
+        const result = await executeScenario({
             catalog,
             scenarioId: scenario.id,
             evidenceClass,
@@ -1034,7 +1062,12 @@ export async function executeScenarios({
             requireSchedulerGrant,
             lifecycleContracts: resolvedLifecycleContracts,
             now
-        }));
+        });
+        results.push(result);
+        if (result.status !== 'passed')
+        {
+            blockingResult = result;
+        }
     }
     return results;
 }

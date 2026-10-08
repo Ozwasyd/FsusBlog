@@ -97,7 +97,7 @@ function landlockCompilerArguments(output)
     ];
 }
 
-function buildLandlockHelper({ output, pathValue, environment })
+export function buildLandlockHelper({ output, pathValue, environment })
 {
     const compiler = requiredTool('cc', pathValue);
     const compilation = spawnSync(compiler.absolutePath, landlockCompilerArguments(output), {
