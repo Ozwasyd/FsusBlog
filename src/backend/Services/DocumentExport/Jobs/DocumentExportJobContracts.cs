@@ -37,6 +37,8 @@ public interface IDocumentExportJobAuthorization
 /// verifier. Implementations must verify actual artifacts, tool/build identity
 /// and the canonical sandbox receipt; digest validation alone is insufficient.
 /// This interface registers no providers and launches no second sandbox.
+/// Durable execution requires the shared IDocumentExportAttemptJobProvider port;
+/// legacy adapters are blocked before a worker claim or provider invocation.
 /// </summary>
 public interface IDocumentExportJobProvider
 {

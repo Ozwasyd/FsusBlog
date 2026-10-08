@@ -115,10 +115,10 @@ internal sealed class DocumentExportJobRepository
                                 Status = DocumentExportTaskStatus.CleanupRequired
                             }),
                             Reason = reason,
-                            Attempts = (attemptExpired || publicationCancelled) && job.Snapshot.Attempts.Length != 0
+                            Attempts = job.Snapshot.Attempts.Length != 0
                                 ? job.Snapshot.Attempts.SetItem(job.Snapshot.Attempts.Length - 1, job.Snapshot.Attempts[^1] with
                                 {
-                                    Status = attemptExpired ? DocumentExportTaskStatus.Failed : DocumentExportTaskStatus.Cancelled,
+                                    Status = publicationCancelled ? DocumentExportTaskStatus.Cancelled : DocumentExportTaskStatus.Failed,
                                     Reason = reason
                                 })
                                 : job.Snapshot.Attempts,

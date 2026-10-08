@@ -199,6 +199,12 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
                 Put(state, job);
                 return job;
             }
+            if (provider is not IDocumentExportAttemptJobProvider)
+            {
+                job = Change(job, DocumentExportTaskStatus.Blocked, "attempt_resource_adapter_unavailable");
+                Put(state, job);
+                return job;
+            }
             if (job.Input is null || job.Snapshot.ExpiresAt <= Now)
             {
                 job = Change(job, DocumentExportTaskStatus.Expired, "expired") with
@@ -241,7 +247,10 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             DocumentExportFrozenInput input = claimed.Input!;
             operation.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
-            DocumentExportProviderResult result = await provider.ExportAsync(execution, input, operation).ConfigureAwait(false);
+            var attemptProvider = (IDocumentExportAttemptJobProvider)provider;
+            DocumentExportAttemptResources resources = attemptProvider.CreateAttemptResources(execution, input, _time)
+                ?? throw new InvalidDataException("document_export_attempt_resources_missing");
+            DocumentExportProviderResult result = await attemptProvider.ExportAsync(execution, input, resources, operation).ConfigureAwait(false);
             operation.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
             DocumentExportProviderContract contract = DocumentExportContractCatalog.RequireProvider(execution.FormatId);
@@ -263,8 +272,25 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
                     Errors = result.Receipt.Errors.ToImmutableArray()
                 }
             };
-            await provider.VerifyAsync(owned, execution, input, operation).ConfigureAwait(false);
+            await attemptProvider.VerifyAsync(owned, execution, input, resources, operation).ConfigureAwait(false);
             resultVerified = true;
+            try
+            {
+                resources.RequireCompleted();
+            }
+            catch (InvalidDataException)
+            {
+                // A verifier return does not prove a failed or active resource
+                // stage quiescent. Preserve the claim for the original recovery.
+                resultVerified = false;
+                throw;
+            }
+            catch (DocumentExportBudgetExceededException)
+            {
+                // Preserve the original caller/stop/deadline cancellation order.
+                deadline.ThrowIfExpired();
+                throw;
+            }
             operation.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
             if (owned.Bytes.LongLength != owned.Receipt.OutputBytes
@@ -273,7 +299,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             {
                 throw new InvalidDataException("document_export_result_rejected");
             }
-            return await CommitAsync(actor, taskId, workerDigest, owned, deadline, operation).ConfigureAwait(false);
+            return await CommitAsync(actor, taskId, workerDigest, owned, resources, deadline, operation).ConfigureAwait(false);
         }
         catch (Exception exception) when (exception is not OutOfMemoryException)
         {
@@ -336,13 +362,15 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
     }
 
     private Task<DocumentExportJobSnapshot> CommitAsync(DocumentExportJobActor actor, string taskId,
-        string workerDigest, DocumentExportProviderResult result, DocumentExportAttemptDeadline deadline,
+        string workerDigest, DocumentExportProviderResult result, DocumentExportAttemptResources resources,
+        DocumentExportAttemptDeadline deadline,
         CancellationToken cancellationToken)
         => _repository.UpdateAsync(async state =>
         {
             DocumentExportStoredJob job = await RequireJobAsync(state, actor, taskId,
                 DocumentExportJobOperation.Create, cancellationToken).ConfigureAwait(false);
             deadline.ThrowIfExpired();
+            resources.RequireCompleted();
             if (job.WorkerDigest != workerDigest || job.Snapshot.Task.Status != DocumentExportTaskStatus.Running
                 || job.Snapshot.ExpiresAt <= Now || job.ExecutionTask is null || job.Input is null)
             {
@@ -374,6 +402,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             output = SealOutput(output);
             cancellationToken.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
+            resources.RequireCompleted();
             job = Change(job, DocumentExportTaskStatus.CleanupRequired, "commit_pending") with
             {
                 PendingOutput = output,
@@ -385,9 +414,11 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
             await _repository.CommitObjectAsync(output, result.Bytes).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
+            resources.RequireCompleted();
             await RequirePermissionAsync(actor, job.Snapshot.Task, DocumentExportJobOperation.Create, cancellationToken).ConfigureAwait(false);
             cancellationToken.ThrowIfCancellationRequested();
             deadline.ThrowIfExpired();
+            resources.RequireCompleted();
             job = Change(job, DocumentExportTaskStatus.Succeeded, "succeeded");
             job = FinishAttempt(job, DocumentExportTaskStatus.Succeeded, "succeeded") with
             {
@@ -406,6 +437,7 @@ public sealed class DocumentExportJobService : IDocumentExportJobs
         {
             deadline.ThrowIfExpired();
             cancellationToken.ThrowIfCancellationRequested();
+            resources.RequireCompleted();
         });
 
     private Task<DocumentExportJobSnapshot> FinishFailedAsync(string taskId, string workerDigest, bool cancelled,
