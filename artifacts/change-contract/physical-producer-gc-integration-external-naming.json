@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test-matrix/physical-producer-gc-integration.mjs"
+            ],
+            "reason": "Record the existing tools naming boundary while adapting explicit filesystem conflicts into canonical dependency inputs. No environment key is added or renamed; command and authority material remains with the existing owners."
+        }
+    ]
+}
