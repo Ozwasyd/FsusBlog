@@ -140,6 +140,10 @@ public sealed class GpuMappedReadLease : IDisposable
             {
                 throw new InvalidOperationException("Mapping allocation epoch/location is stale.");
             }
+            if (!allocation.CanSubmit)
+            {
+                throw new InvalidOperationException("Mapping allocation owner has stopped new submissions.");
+            }
             if (!ReferenceEquals(driver.Session, allocation.Session)
                 || driver.ApiVersion <= 0 || driver.ApiVersion != allocation.Session.Identity.ApiVersion
                 || string.IsNullOrWhiteSpace(driver.DriverApi))
@@ -193,7 +197,7 @@ public sealed class GpuMappedReadLease : IDisposable
             {
                 return MemoryOperationResult<GpuMappedReadConsumer>.Reject(MemoryFailure.StaleLocation);
             }
-            if (_draining || _released)
+            if (_draining || _released || !_allocation.CanSubmit)
             {
                 return MemoryOperationResult<GpuMappedReadConsumer>.Reject(MemoryFailure.TierUnavailable);
             }

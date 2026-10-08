@@ -173,10 +173,20 @@ public sealed class GpuMemoryDevice : IDisposable
         {
             return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.UnsupportedCapability);
         }
+        if (!ReferenceEquals(_ledger, source.Ledger))
+        {
+            return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.OwnershipViolation);
+        }
+        if (destination.Content != source.Content)
+        {
+            return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.Corruption);
+        }
+        if (destination.Length != source.Length)
+        {
+            return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.BoundsViolation);
+        }
         if (_driver is not IGpuPeerDriverSession destinationSession
-            || source.Driver is not IGpuPeerDriverSession sourceSession
-            || !ReferenceEquals(_ledger, source.Ledger)
-            || destination.Content != source.Content || destination.Length != source.Length)
+            || source.Driver is not IGpuPeerDriverSession sourceSession)
         {
             return MemoryOperationResult<GpuPeerDeviceOperation>.Reject(MemoryFailure.UnsupportedCapability);
         }
@@ -491,6 +501,14 @@ public sealed class GpuMemoryDevice : IDisposable
         lock (_gate)
         {
             return IsCurrentLocked(allocation);
+        }
+    }
+
+    internal bool CanSubmit(GpuAllocation allocation)
+    {
+        lock (_gate)
+        {
+            return _accepting && !allocation.Retiring && IsCurrentLocked(allocation);
         }
     }
 
