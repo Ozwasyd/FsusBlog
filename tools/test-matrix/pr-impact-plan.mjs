@@ -389,7 +389,7 @@ export function selectSourceRegressionTargets(changedFiles)
         || matchesImpactPath(file, 'tools/frontend/source-unit-style-diff.mjs')
         || matchesImpactPath(file, 'tools/style/check-native-tooling-style.mjs')
         || matchesImpactPath(file, 'tools/configuration/check-solution-source.mjs')) ? [...sourceRegressionEntries]
-        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py')) ? ['tools/configuration/solution-source.test.mjs'] : [];
+        : changedFiles.some(file => file.endsWith('.slnx') || file.endsWith('.py') || file.endsWith('.csproj')) ? ['tools/configuration/solution-source.test.mjs'] : [];
 }
 
 export function sourceGovernanceExecutableEntries()
@@ -412,11 +412,12 @@ export function sourceRegressionArguments(entry)
 
 // Known structured data receives the declaration/closed-input source checks;
 // it never grants executable authority. Every other unchecked surface is explicit.
-export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [])
+export function unsupportedSourceStageFiles(files, checkedSolutions = [], checkedPython = [], checkedProjects = [])
 {
     return files.filter(file => !/\.(?:mjs|js|cjs|ts|tsx|vue|css|scss|cs|md|sh|json|yaml|yml)$/u.test(file)
         && !(file.endsWith('.slnx') && checkedSolutions.includes(file))
         && !(file.endsWith('.py') && checkedPython.includes(file))
+        && !(file.endsWith('.csproj') && checkedProjects.includes(file))
         && !['.gitignore', '.gitattributes', '.editorconfig'].includes(file));
 }
 

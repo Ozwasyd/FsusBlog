@@ -1714,6 +1714,41 @@ The collector retains at most 2048 events in memory and writes only task-private
 
 Source integration and WIP handoff do not grant product acceptance. Applicable source CI must pass or remain explicitly failed/unrun; an unselected compiled/native/runtime lane stays OPEN and unqualified, never a synthetic pass. Original assertions, numeric thresholds, immutable build consumption and full release gates are unchanged. An explicit caller stage `source-integration` performs global declarations, actual Git-bound impact planning, mandatory source checks and applicable declared source-only regressions. It preserves the affected product qualification roster as deferred and the complete qualification roster as OPEN; it issues no product acceptance. The stage is bound independently by the caller and the sealed plan, not by a WIP label or candidate metadata. The local command is `node tools/run-test-matrix.mjs ci-pr-smart --stage source-integration --base-ref <actual-base>`; pull-request Quality Gate declares this stage only through maintainer-controlled `vars.FSUSBLOG_CI_STAGE=source-integration`; an unset repository variable retains qualification. Default qualification, explicit full, push, dispatch and release execution retain the original complete applicable admission/build/runtime path. Unknown executable/dependency authority remains fail-closed before any source checker or regression spawn. The initial source-stage checker supports the existing frontend/C# lexical/documentation ports and declared pure regression ports. The SOURCE shell subset uses `bash -n` without executing the script and the existing portable script lint. Missing shellcheck/shfmt are recorded UNRUN/deferred, without claiming full shell style qualification. Flat `.slnx` solution inputs receive a fixed SOURCE XML check: one `Solution` root containing only `Project Path` elements, with DTD/entities, unknown structures, duplicate or escaping project paths, missing files and linked aliases refused. The checker holds the actual solution and repository-relative project files, binds their HEAD/index/physical bytes before and after isolated standard-library XML parsing, and reports no SDK evaluation, restore, compilation or runtime qualification. The caller independently reopens the actual solution/project sources and requires the complete closed receipt to match that projection and the independent candidate HEAD. A solution is supported only after that selected checker succeeds; the checker and its adjacent pure refusal tests are fixed source-governance execution ports. C/C++ source and other unregistered source-language checks explicitly return unsupported/failure; their absence is not a pass or native qualification. Selection-policy changes receive the same mandatory source-stage gates and independent owner review; they do not need to claim complete product qualification to deliver the reviewed policy source. Full qualification and release assertions remain unchanged and OPEN until actually run.
 
+### Project XML checks in SOURCE integration
+
+The existing source checker accepts a finite SDK-style `.csproj` declaration port:
+`node tools/configuration/check-solution-source.mjs --language project-xml --root <repository> --file <relative.csproj>`.
+It parses exact UTF-8 with a fixed isolated system Python XML worker, bounded to
+1 MiB per physical input, 8 MiB per batch, 4096 declaration nodes, depth four,
+128 MiB worker memory, two CPU seconds, a ten-second timeout, and 1 MiB output.
+The supported shape has a literal `Microsoft.NET.Sdk` or `Microsoft.NET.Sdk.Web`
+root, unconditional property and item groups, one literal `netN.N` target,
+the checker's closed scalar property set, literal versionless package names,
+literal project references, embedded resources with literal logical names, and
+opaque assembly metadata. Simple property references in scalar declarations
+remain unevaluated text, including the original Migration commit metadata.
+Predefined XML escapes are inert data; namespaces, DTD, custom or numeric entities,
+processing instructions, CDATA, unknown or duplicate declarations, conditions,
+imports, targets, tasks, property functions, and nested item metadata refuse.
+
+The actual Migration shape is supported. This port does not claim coverage of
+every project shape. Literal parent segments and Windows separators resolve from
+the project directory within the repository; escaping, absolute, dynamic, glob,
+duplicate, and aliased source paths refuse. The project and every direct project
+reference and embedded resource must be held regular single-link files whose
+HEAD, index, physical bytes, modes, and before/after identities agree. Direct
+references are bound as source bytes; their transitive MSBuild graphs are not
+evaluated. The complete closed receipt also binds the fixed worker, interpreter,
+version, limits, candidate HEAD, and full index. SOURCE admission independently
+reopens every input and reconstructs this receipt before removing a `.csproj`
+from the unsupported list. Missing or substituted receipts fail.
+
+Package names are declarations only; central package versions, resolved packages,
+SDK evaluation, restore, build, native, runtime, and release qualification are not
+issued. The receipt has `qualificationEligible: false`. The original checker and
+adjacent refusal suite remain the execution owners; default qualification, full,
+push, dispatch, and release gates are unchanged.
+
 ### Python AST checks in SOURCE integration
 
 The existing isolated source checker accepts explicit committed `.py` inputs with

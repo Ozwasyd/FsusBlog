@@ -8,7 +8,7 @@ import { readGitChangedPaths, selectAffectedPrTiers, validatePrImpactPlanBinding
 import { inspectReleaseFinalCommandTarget, validateReleaseFinalStaticBoundary, validateSourceGovernanceChildExecution } from './release-final-static-boundary.mjs';
 import { snapshotGitWorktree } from './scheduler.mjs';
 const { parseWorkflowJobNeeds } = await import(new URL('../yaml/workflow-structure.mjs', import.meta.url));
-const { validateSolutionSourceReceipt, validatePythonSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
+const { validateSolutionSourceReceipt, validatePythonSourceReceipt, validateProjectSourceReceipt } = await import(new URL('../configuration/check-solution-source.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 const plan = JSON.parse(fs.readFileSync(path.join(root, '.tmp/pr-plan.json'), 'utf8'));
@@ -59,6 +59,7 @@ const groups = [
 const results = [];
 const checkedSolutions = [];
 const checkedPython = [];
+const checkedProjects = [];
 if (effectivePrExecutionStage(callerContext) === 'source-integration')
 {
     const solutions = files.filter(file => file.endsWith('.slnx'));
@@ -146,6 +147,43 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
             process.exitCode = 1;
         }
     }
+    const projectFiles = files.filter(file => file.endsWith('.csproj'));
+    if (projectFiles.length)
+    {
+        const checker = sourceGovernanceChildEntries.solution;
+        verifyChildBeforeSpawn(checker);
+        const result = spawnSync(process.execPath, [checker, '--language', 'project-xml', '--root', root,
+            ...projectFiles.flatMap(file => ['--file', file])], { cwd: root, encoding: 'utf8' });
+        let receipt;
+        let bindingError = null;
+        let accepted = false;
+        try
+        {
+            receipt = JSON.parse(result.stdout ?? '');
+            if (result.error || result.status !== 0)
+            {
+                throw new Error('project XML source checker failed');
+            }
+            validateProjectSourceReceipt({ repositoryRoot: root, files: projectFiles,
+                expectedHead: evidence.headCommit, receipt });
+            accepted = true;
+        }
+        catch (error)
+        {
+            bindingError = error.message;
+        }
+        results.push({ checker, mode: 'project-xml', files: projectFiles, exitCode: result.status,
+            status: accepted ? 'success' : 'failure', qualificationEligible: false, receipt,
+            stderr: result.stderr ?? '', spawnError: result.error?.message ?? null, bindingError });
+        if (accepted)
+        {
+            checkedProjects.push(...projectFiles);
+        }
+        else
+        {
+            process.exitCode = 1;
+        }
+    }
     for (const file of files.filter(value => value.endsWith('.sh')))
     {
         // This binds source input through the original recursive regular-path/index reader.
@@ -181,7 +219,7 @@ if (effectivePrExecutionStage(callerContext) === 'source-integration')
             process.exitCode = 1;
         }
     }
-    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython);
+    const unsupported = unsupportedSourceStageFiles(files, checkedSolutions, checkedPython, checkedProjects);
     if (unsupported.length)
     {
         results.push({ checker: 'unsupported-source-stage-language', files: unsupported,

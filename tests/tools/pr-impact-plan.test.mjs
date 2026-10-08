@@ -358,12 +358,14 @@ test('the real stage option parser refuses malformed explicit intent before any 
 test('source integration explicitly refuses every unregistered source surface rather than silently skipping unknown languages', () =>
 {
     const unknown = ['tools/runtime.lua', 'tools/runtime.rb', 'src/Test.fs', 'tests/Test.csx',
-        'scripts/extensionless', 'docs/runtime.input', 'tools/Build.props', 'tests/input.bin', 'tools/contracts/Unknown.slnx'];
+        'scripts/extensionless', 'docs/runtime.input', 'tools/Build.props', 'tests/input.bin', 'tools/contracts/Unknown.slnx', 'src/migration/Unknown.csproj'];
     assert.deepEqual(unsupportedSourceStageFiles(unknown), unknown);
     assert.deepEqual(unsupportedSourceStageFiles(['docs/testing.md', 'tools/check.mjs', 'src/Test.cs',
         'tests/matrix.yml', 'config/source.json', '.gitignore']), []);
     assert.deepEqual(unsupportedSourceStageFiles(['tools/contracts/Unknown.slnx'], ['other.slnx']), ['tools/contracts/Unknown.slnx']);
     assert.deepEqual(unsupportedSourceStageFiles(['tools/contracts/Unknown.slnx'], ['tools/contracts/Unknown.slnx']), []);
+    assert.deepEqual(unsupportedSourceStageFiles(['src/migration/Unknown.csproj'], [], [], ['other.csproj']), ['src/migration/Unknown.csproj']);
+    assert.deepEqual(unsupportedSourceStageFiles(['src/migration/Unknown.csproj'], [], [], ['src/migration/Unknown.csproj']), []);
 });
 
 test('flat solution checker and its refusal controls are explicit source execution ports', async () =>
@@ -374,6 +376,7 @@ test('flat solution checker and its refusal controls are explicit source executi
     assert.equal(sourceGovernanceExecutableEntries().length, 10);
     assert.ok(sourceGovernanceExecutableEntries().includes('tools/configuration/solution-source.test.mjs'));
     assert.deepEqual(selectSourceRegressionTargets(['tools/contracts/Example.slnx']), ['tools/configuration/solution-source.test.mjs']);
+    assert.deepEqual(selectSourceRegressionTargets(['src/migration/Example.csproj']), ['tools/configuration/solution-source.test.mjs']);
     assert.ok(selectSourceRegressionTargets([sourceGovernanceChildEntries.solution]).includes('tools/configuration/solution-source.test.mjs'));
 });
 
