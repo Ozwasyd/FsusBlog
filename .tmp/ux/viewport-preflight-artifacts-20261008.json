@@ -50,13 +50,13 @@
     },
     {
       "path": ".tmp/ux/viewport-paired-upstream-diagnosis-20261008.json",
-      "sha256": "37014f3d7ae21599f716d6a607304cae52807126d64ff296dabe404ced3bc576",
-      "bytes": 11090
+      "sha256": "a59bd791e13e27aea513fe60a1f5536519f9c19d88643fdf384165cffd90b180",
+      "bytes": 14747
     },
     {
       "path": ".tmp/ux/viewport-preflight-20261008.md",
-      "sha256": "55351d9bd72e0b025594b4436560c953d78f246ea2c750f7c5a417155f1429a4",
-      "bytes": 22312
+      "sha256": "db55cd204465e9b06348b463ba10441a24dd30fdbedf6860bf79991b8ebc576e",
+      "bytes": 25227
     },
     {
       "path": ".tmp/ux/viewport-smoke-first-attempt-20261008.log",

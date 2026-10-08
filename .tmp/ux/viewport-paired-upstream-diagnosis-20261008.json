@@ -111,6 +111,74 @@
     "consumed": false,
     "limit": "Public typing and existing fallthrough attribute only. Does not repair these 52 visual runtime failures."
   },
-  "baselineDev": "in_progress",
-  "uiAcceptance": "rejected; unchanged runtime source and no current final-CI qualification inherited"
+  "baselineDev": {
+    "baseRevision": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+    "candidateRuntimeSource": "c325c600ea2760156d467bfaa375613879211cd9",
+    "candidateEvidenceAtRerun": "55f7951abb75ee5b28f4781ed91ee5aa11f70320",
+    "command": "pnpm exec playwright test --config=vue/playwright.dev.config.ts",
+    "environment": {
+      "activation": "/workspace/.setup/activate.sh",
+      "PLAYWRIGHT_BROWSERS_PATH": "/workspace/.setup/playwright-browsers",
+      "FSUS_VISUAL_DEV_PORT": "5196",
+      "FSUS_VISUAL_PROFILE": "issue-828-baseline-dev"
+    },
+    "exitCode": 1,
+    "total": 19,
+    "passed": 9,
+    "failed": 10,
+    "failedTests": [
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 \u203a dev server data route has no browser diagnostics",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:159:7 \u203a dev server home route has no browser diagnostics",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:251:5 \u203a default home mounts only the virtual window and navigates to sections",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:269:5 \u203a default home TreeSelect dropdown does not bleed into the next section",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:372:5 \u203a Calendar header controls use soft segmented styling",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:418:5 \u203a Calendar title follows the browser locale in demo app",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:429:5 \u203a markdown stress route renders long raw HTML without browser diagnostics",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:661:5 \u203a markdown stress scrollbar thumb drag stays smooth without text blur",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:814:5 \u203a markdown stress preview scroll remains monotonic while renderer settles",
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:839:5 \u203a markdown stress preview keeps position in narrow devtools-like viewport"
+    ],
+    "originalFailedDevNotFailedNow": [],
+    "additionalFailures": [
+      "vue/tests/demo-app-dev/demo-app-dev.spec.ts:418:5 \u203a Calendar title follows the browser locale in demo app"
+    ],
+    "qualificationEligible": false
+  },
+  "uiAcceptance": "rejected; unchanged runtime source and no current final-CI qualification inherited",
+  "candidateDev": {
+    "source": "c325c600ea2760156d467bfaa375613879211cd9",
+    "evidenceAtRun": "55f7951abb75ee5b28f4781ed91ee5aa11f70320",
+    "passed": 9,
+    "failed": 10,
+    "total": 19,
+    "exitCode": 1,
+    "result": "Original9 failures plus same additional Calendar-title afterEach TLS diagnostic."
+  },
+  "classificationSummary": {
+    "originalTotal": 52,
+    "baselineReproducedOriginal": 51,
+    "intermittentOriginalNotReproduced": "desktop-dark form slider overflow: passed both baseline/candidate reruns; source exposure absent; not qualified.",
+    "originalFamilies": {
+      "mobileScreenshotDifferences": 22,
+      "cdnTlsDiagnostics": 17,
+      "rapidAssetAbort": 4,
+      "statusSlotCopyMismatch": 4,
+      "sliderOverflow": 1,
+      "stressRendererStatusTimeout": 4
+    },
+    "baselineCandidateAdditional": "Calendar title afterEach TLS error on both; not locale assertion failure.",
+    "attributablePublicShellRegressionFound": false,
+    "qualificationWaiver": false
+  },
+  "ciAuthorityUpdate": {
+    "applicableExactCandidateLocalChecksMayReplaceRemoteCI": true,
+    "remoteCIUnavailableProofRequired": false,
+    "actualCodeUnitRuntimeAndSecurityFailuresMayNotBeWaived": true,
+    "mergeOwnedByLaterIndependentParentReview": true
+  },
+  "frozenCandidates": {
+    "blogPR3872": "34106bc85d4d76c58d04ac556dbc1e8c858a405c",
+    "uiPR839": "49e64498d5f060482cd0c924070481f30e3e19d4",
+    "furtherWork": "Independent followup branches only; frozen heads remain unchanged."
+  }
 }
