@@ -74,7 +74,7 @@ generatedSectionId: governance.intent-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN governance.intent-entry-count -->
-14
+16
 <!-- FSUSBLOG-GENERATED:END governance.intent-entry-count -->
 
 - comment-scan roots, language extensions, and the reused generated/vendor/fixture/lock/minified classifications;

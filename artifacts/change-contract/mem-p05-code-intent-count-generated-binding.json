@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tests/governance/code-intent-registry.json"
+    ],
+    "outputs": [
+        {
+            "path": "docs/development/code-intent-governance.md",
+            "sha256": "cdd9d223fa06372d6efc429e77d70b454fbc07fcff2fd1ec4f5fbac969441f18"
+        }
+    ]
+}
