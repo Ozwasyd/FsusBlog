@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
-const { buildQueryCaseInventory, buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryMatrixTiers } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseInventory, buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryCaseIdsForSchema, queryRegistrySchemas, queryMatrixTiers, threadReplyCaseId } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 const { compareQueryTrends, evaluateQueryCase, evaluateQueryMatrix, sqlFingerprint, summarizeActualPlan, validateQueryPolicy, verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
 const { decodeAedsFrame, decodeTaxonomyList, encodeAedsFrame, encodeTaxonomyList } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
 const { runQueryMatrix, runQueryMatrixFiles } = await import(new URL('../../tools/data-scale/run-query-matrix.mjs', import.meta.url));
@@ -644,4 +644,72 @@ test('trend comparisons expose adjacent-tier deltas and ratios without hiding ze
     assert.deepEqual(comparison.changes.rowsRead, { delta: 10, ratio: 2 });
     assert.deepEqual(comparison.changes.sharedBlocksRead, { delta: 1, ratio: null });
     assert.deepEqual(comparison.changes.tempBlocks, { delta: 0, ratio: 1 });
+});
+
+function threadInput()
+{
+    return { articleId: 1, rootId: '1', pageSize: 1,
+        expectedReplies: [
+            { id: '2', rootId: '1', parentId: '1', depth: 1, content: 'child', createTime: '2026-10-08T00:00:00.000Z', isDeleted: false, isEdited: false },
+            { id: '3', rootId: '1', parentId: '2', depth: 2, content: 'descendant', createTime: '2026-10-08T00:00:00.000Z', isDeleted: false, isEdited: true }
+        ] };
+}
+
+test('versioned thread reply case consumes typed inputs without inferring roles or admitting scalar IDs', () =>
+{
+    const input = { ...fixture(), registrySchema: queryRegistrySchemas[1], threadReplies: threadInput() };
+    const registry = buildQueryCaseRegistry(input);
+    assert.deepEqual(registry.cases.slice(0, 16).map((row) => row.id), queryCaseIds);
+    assert.deepEqual(registry.cases.map((row) => row.id), queryCaseIdsForSchema(queryRegistrySchemas[1]));
+    const thread = registry.cases.at(-1);
+    assert.equal(thread.id, threadReplyCaseId);
+    assert.equal(thread.status, 'blocked');
+    assert.equal(thread.coordinate.path, '/api/binary/comment/1/thread/1?limit=1');
+    assert.equal(thread.coordinate.threadRootId, '1');
+    assert.equal(thread.coordinate.traversalItems.length, 2);
+    assert.deepEqual(thread.failureReasons, ['canonical_comment_normalized_role_reader_unavailable', 'canonical_comment_exact_revision_reader_unavailable']);
+    const inventory = registry.inventory.cases.at(-1);
+    assert.equal(inventory.kind, 'public-thread');
+    assert.equal(inventory.coverageScope, 'rooted-reply-cursor');
+    assert.equal(inventory.canonicalRoleBindings, null);
+    assert.ok(inventory.requiredInputTypes.rootId.includes('Int64'));
+    assert.throws(() => buildQueryCaseRegistry({ ...fixture(), threadReplies: threadInput() }), /explicit v2/u);
+    assert.throws(() => queryCaseIdsForSchema('invented-schema'), /unsupported/u);
+    for (const alter of [
+        (value) => { value.rootId = 1; },
+        (value) => { value.articleId = 2147483648; },
+        (value) => { value.pageSize = 101; },
+        (value) => { value.rootId = '9223372036854775808'; },
+        (value) => { value.expectedReplies.reverse(); },
+        (value) => { value.expectedReplies[1].id = '2'; },
+        (value) => { value.expectedReplies[1].rootId = '99'; }
+    ])
+    {
+        const value = threadInput();
+        alter(value);
+        assert.equal(buildQueryCaseRegistry({ ...input, threadReplies: value }).cases.at(-1).coordinate, undefined);
+    }
+    assert.equal(buildQueryCaseRegistry({ ...input, threadReplies: undefined }).cases.at(-1).coordinate, undefined);
+});
+
+test('versioned thread runner refuses resealed verified flags before its HTTP request and retains all cases', async () =>
+{
+    const registry = buildQueryCaseRegistry({ ...fixture(), registrySchema: queryRegistrySchemas[1], threadReplies: threadInput() });
+    registry.cases.forEach((row) => { row.status = 'blocked'; });
+    const thread = registry.cases.at(-1);
+    thread.status = 'ready';
+    thread.normalizedRoles = { verified: true };
+    thread.exactRevisions = { verified: true };
+    const { contentDigest, ...body } = registry;
+    registry.contentDigest = computeSha256(body);
+    let calls = 0;
+    const matrix = await runQueryMatrix({ registry, policies: Object.fromEntries(queryCaseIdsForSchema(registry.schema).map((id) => [id, policy()])),
+        baseUrl: 'http://127.0.0.1:18888', secret: 'ordinary-control', verifyRuntime: async () => {},
+        decoders: Object.fromEntries(queryCaseIdsForSchema(registry.schema).map((id) => [id, decodeControlled])),
+        fetchImpl: async () => { calls += 1; throw new Error('must not execute'); } });
+    assert.equal(calls, 0);
+    assert.equal(matrix.status, 'failed');
+    assert.equal(matrix.qualification, 'not-performed');
+    assert.equal(matrix.results.length, 17);
+    assert.ok(matrix.results.at(-1).failureReasons.some((reason) => reason.includes('normalized_role_reader_unavailable')));
 });

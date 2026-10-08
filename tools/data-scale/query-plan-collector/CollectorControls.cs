@@ -87,6 +87,57 @@ internal static class CollectorControls
         });
     }
 
+    // Production POD encoder controls only; no fixture/entity/role or runtime receipt is created.
+    internal static void RunThreadPayloadControls(string directory, string sourceCommit)
+    {
+        CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(sourceCommit);
+        var author = new CommentAuthorViewDto("public", "codec-control", "en", null, null);
+        DateTime epoch = new(2026, 10, 8, 0, 0, 0, DateTimeKind.Utc);
+        CommentReplyItemDto[] replies =
+        [
+            new("2", "child", epoch, author, null, "1", "1", null, 1, false),
+            new("3", "descendant", epoch, author, null, "2", "1", null, 2, false, true)
+        ];
+        var first = new CursorResponse<CommentReplyItemDto> { Data = [replies[0]], NextCursor = "2", HasMore = true };
+        var last = new CursorResponse<CommentReplyItemDto> { Data = [replies[1]], NextCursor = null, HasMore = false };
+        Directory.CreateDirectory(directory);
+        QueryPlanCollector.WritePrivate(Path.Combine(directory, "thread-payload-controls.json"), new
+        {
+            sourceCommit,
+            qualification = "not-performed",
+            scope = "original-production-POD-encoder-only",
+            payloads = new[] { PodBinaryCodec.EncodeCommentReplyCursor(1, first), PodBinaryCodec.EncodeCommentReplyCursor(1, last) }
+                .Select(static payload => Convert.ToBase64String(payload))
+        });
+    }
+
+    internal static void RunSearchPayloadControls(string directory, string sourceCommit)
+    {
+        CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(sourceCommit);
+        DateTime epoch = new(2026, 10, 8, 0, 0, 0, DateTimeKind.Utc);
+        var pod = PodProjector.ProjectArticleList(1, 0, epoch, 1, "codec-category", "codec-title", "codec-summary", false, out _);
+        var item = new ArticleListCoreModel(pod, 1, "codec-title", "codec-summary", null, null, 0, epoch,
+            new ArticleCategoryCoreModel(1, "codec-category"), [], false,
+            CurrentRevisionId: 11, RevisionNo: 1, CurrentPublicationId: 21, PublicationNo: 1);
+        byte[] current = PodBinaryCodec.EncodeArticleSearch([item]);
+        byte[] legacyEmpty = new byte[4];
+        Require(PodBinaryCodec.TryDecodeArticleSearch(current, out IReadOnlyList<ArticleListCoreModel> roundTrip)
+            && roundTrip.Count == 1 && roundTrip[0].Id == 1, "original search encoder round trip failed");
+        Require(PodBinaryCodec.TryDecodeArticleSearch(legacyEmpty, out IReadOnlyList<ArticleListCoreModel> empty)
+            && empty.Count == 0, "original explicit fixed-POD empty reader contract failed");
+        Directory.CreateDirectory(directory);
+        QueryPlanCollector.WritePrivate(Path.Combine(directory, "search-payload-controls.json"), new
+        {
+            sourceCommit,
+            qualification = "not-performed",
+            scope = "original-search-POD-codec-only",
+            contract = "fas4-v4",
+            payload = Convert.ToBase64String(current),
+            legacyReaderContract = "fixed-pod",
+            legacyEmptyPayload = Convert.ToBase64String(legacyEmpty)
+        });
+    }
+
     // The real endpoint registrar and Kestrel router are exercised. No handler,
     // database, cache, payload or product authorization acceptance is asserted.
     internal static async Task RunRouteControlsAsync(string registryPath, string directory, string sourceCommit)
@@ -139,7 +190,11 @@ internal static class CollectorControls
             var results = new List<object>();
             foreach (JsonElement entry in registry.RootElement.GetProperty("cases").EnumerateArray())
             {
-                Require(entry.GetProperty("status").GetString() == "ready", "route control requires all original coordinates");
+                string? status = entry.GetProperty("status").GetString();
+                // A blocked v2 case can prove route registration, never handler/runtime admission.
+                Require(status == "ready" || (entry.GetProperty("id").GetString() == "comment-thread-replies"
+                    && status == "blocked" && entry.TryGetProperty("coordinate", out _)),
+                    "route control requires a structurally valid coordinate");
                 string id = entry.GetProperty("id").GetString()!;
                 string path = entry.GetProperty("coordinate").GetProperty("path").GetString()!;
                 using HttpResponseMessage response = await client.GetAsync(path);
@@ -156,6 +211,7 @@ internal static class CollectorControls
                     id,
                     path,
                     routePattern = route,
+                    runtimeExecutionBlocked = status == "blocked",
                     status = "matched"
                 });
                 if (id.StartsWith("article-detail-", StringComparison.Ordinal))

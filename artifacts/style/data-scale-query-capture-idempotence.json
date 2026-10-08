@@ -10,8 +10,8 @@
         "src/backend/Infrastructure/Testing/QueryPlanCommandCapture.cs",
         "tools/data-scale/query-plan-collector/CollectorControls.cs"
     ],
-    "firstPassTreeSha256": "ae0ee2f6736e1364c7df1bc40ec9676ccff09fdfa7aac7c70be0fad43ed17ec5",
-    "secondPassTreeSha256": "ae0ee2f6736e1364c7df1bc40ec9676ccff09fdfa7aac7c70be0fad43ed17ec5",
+    "firstPassTreeSha256": "442be53a3910629f753abe0c203f686806e972dec2afa241960a7c445c1eff9a",
+    "secondPassTreeSha256": "442be53a3910629f753abe0c203f686806e972dec2afa241960a7c445c1eff9a",
     "idempotent": true,
     "revision": "1444da59840f27cca70dd124aa2feb0db00a0bb0"
 }

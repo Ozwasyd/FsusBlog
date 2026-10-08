@@ -2,16 +2,18 @@ import fs from 'node:fs';
 import { registerHooks, stripTypeScriptTypes } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { queryCaseIds } from './query-case-registry.mjs';
+import { queryCaseIdsForSchema, queryRegistrySchemas, threadReplyCaseId } from './query-case-registry.mjs';
 
 const frontendRoot = new URL('../../src/frontend/src/', import.meta.url);
 let decodersPromise;
 
 /** Load the current product adapters rather than maintaining another POD decoder. */
-export function loadQueryPayloadDecoders()
+export async function loadQueryPayloadDecoders(registrySchema)
 {
+    const ids = queryCaseIdsForSchema(registrySchema);
     decodersPromise ??= loadProductAdapters();
-    return decodersPromise;
+    const all = await decodersPromise;
+    return Object.fromEntries(ids.map((id) => [id, all[id]]));
 }
 
 async function loadProductAdapters()
@@ -52,16 +54,18 @@ async function loadProductAdapters()
     });
     let article;
     let comment;
+    let sizes;
     try
     {
         article = await import(new URL('../../src/frontend/src/adapters/binary/articleAdapter.ts', import.meta.url));
         comment = await import(new URL('../../src/frontend/src/adapters/binary/commentAdapter.ts', import.meta.url));
+        sizes = await import(new URL('../../src/frontend/src/adapters/binary/types.ts', import.meta.url));
     }
     finally
     {
         hook.deregister();
     }
-    return Object.fromEntries(queryCaseIds.map((id) =>
+    return Object.fromEntries(queryCaseIdsForSchema(queryRegistrySchemas[1]).map((id) =>
     {
         let decode = article.mapArticlePageFromPodPayload;
         if (id.startsWith('article-detail'))
@@ -82,6 +86,10 @@ async function loadProductAdapters()
                         createTime: child.createTime, rootId: child.rootId, parentId: child.parentId })) })) };
             };
         }
+        else if (id === threadReplyCaseId)
+        {
+            decode = (payload) => boundedThreadReplyPayload(payload, comment.mapThreadReplyCursorFromPodPayload, sizes.COMMENT_REPLY_ITEM_POD_SIZE);
+        }
         else if (id.startsWith('comment-nested'))
         {
             decode = (payload) =>
@@ -92,4 +100,48 @@ async function loadProductAdapters()
         }
         return [id, decode];
     }));
+}
+
+/** Check envelope/record bounds; item semantics remain with the current product adapter. */
+function boundedThreadReplyPayload(payload, decode, recordSize)
+{
+    if (!(payload instanceof Uint8Array) || payload.byteLength < 21 || !Number.isInteger(recordSize) || recordSize < 1)
+    {
+        throw new Error('thread_reply_payload_header_invalid');
+    }
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    const root = view.getBigInt64(0, true);
+    const cursor = view.getBigInt64(8, true);
+    const count = view.getInt32(17, true);
+    if (root < 1n || cursor < 0n || payload[16] > 1 || count < 0 || count > 100
+        || (payload[16] === 1 ? cursor === 0n || count === 0 : cursor !== 0n))
+    {
+        throw new Error('thread_reply_payload_envelope_invalid');
+    }
+    let offset = 21;
+    for (let index = 0; index < count; index += 1)
+    {
+        if (offset + recordSize + 4 > payload.byteLength)
+        {
+            throw new Error('thread_reply_payload_record_truncated');
+        }
+        offset += recordSize;
+        const blobLength = view.getInt32(offset, true);
+        offset += 4;
+        if (blobLength < 0 || blobLength > payload.byteLength - offset)
+        {
+            throw new Error('thread_reply_payload_blob_invalid');
+        }
+        offset += blobLength;
+    }
+    if (offset !== payload.byteLength)
+    {
+        throw new Error('thread_reply_payload_trailing_bytes');
+    }
+    const decoded = decode(payload);
+    if (decoded.data.some((row) => row.rootId !== String(root)))
+    {
+        throw new Error('thread_reply_payload_root_mismatch');
+    }
+    return { ...decoded, rootId: String(root), items: decoded.data };
 }

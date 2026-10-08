@@ -7,7 +7,7 @@ import { performance } from 'node:perf_hooks';
 import { fileURLToPath } from 'node:url';
 
 import { decodeAedsFrame } from './aeds-decoders.mjs';
-import { assertSameQueryBinding, buildQueryCaseRegistry, queryCaseIds, queryMatrixTiers } from './query-case-registry.mjs';
+import { assertSameQueryBinding, buildQueryCaseRegistry, queryCaseIdsForSchema, queryExecutionBlockers, queryMatrixTiers } from './query-case-registry.mjs';
 import { mapCanonicalQueryExpectedModel } from './query-expected-model.mjs';
 import { evaluateQueryMatrix, validateQueryPolicy } from './query-matrix.mjs';
 import { loadQueryPayloadDecoders } from './query-payload-decoders.mjs';
@@ -16,12 +16,13 @@ import { buildSemanticProofReceipt, verifySemanticProofReceipt } from './semanti
 
 const root = fileURLToPath(new URL('../../', import.meta.url));
 
-export function failedQueryMatrix(tier, binding, reason)
+export function failedQueryMatrix(tier, binding, reason, registrySchema)
 {
     return {
         schema: 'fsusblog.data-scale-query-matrix-evaluation.v1', tier, binding: binding ?? null,
+        ...(registrySchema?.endsWith('.v2') ? { registrySchema } : {}),
         status: 'failed', qualification: 'not-performed', unknownIds: [],
-        results: queryCaseIds.map((id) => ({ id, status: 'failed', metrics: null, failureReasons: [reason] }))
+        results: queryCaseIdsForSchema(registrySchema).map((id) => ({ id, status: 'failed', metrics: null, failureReasons: [reason] }))
     };
 }
 
@@ -38,16 +39,23 @@ export async function runQueryMatrix({ registry, policies, baseUrl, secret, capt
             throw new Error('dedicated live runtime or authenticated observation unavailable');
         }
         await verifyRuntime();
+        const queryCaseIds = queryCaseIdsForSchema(registry.schema);
         if (Object.keys(policies ?? {}).length !== queryCaseIds.length || queryCaseIds.some((id) => !Object.hasOwn(policies, id)))
         {
             throw new Error('complete per-case policies unavailable');
         }
         queryCaseIds.forEach((id) => validateQueryPolicy(policies[id]));
-        const payloadDecoders = decoders ?? await loadQueryPayloadDecoders();
+        const payloadDecoders = decoders ?? await loadQueryPayloadDecoders(registry.schema);
         for (const entry of registry.cases)
         {
             const sample = { id: entry.id, binding: registry.binding, status: 'failed', http: [], queries: [] };
             samples.push(sample);
+            const blockers = queryExecutionBlockers(entry.id);
+            if (blockers.length)
+            {
+                sample.failureReasons = blockers;
+                continue;
+            }
             if (entry.status !== 'ready')
             {
                 continue;
@@ -108,13 +116,14 @@ export async function runQueryMatrix({ registry, policies, baseUrl, secret, capt
     }
     catch
     {
-        return failedQueryMatrix(registry.tier, registry.binding, 'query runner prerequisites or runtime unavailable');
+        return failedQueryMatrix(registry.tier, registry.binding, 'query runner prerequisites or runtime unavailable', registry.schema);
     }
 }
 
 export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = root })
 {
     let binding;
+    let registrySchema;
     try
     {
         const read = (name) => JSON.parse(fs.readFileSync(path.join(directory, name), 'utf8'));
@@ -125,6 +134,7 @@ export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = ro
             throw new Error('query runner requires the exact clean source commit');
         }
         const input = read('query-expected-input.json');
+        registrySchema = input.registrySchema;
         const model = mapCanonicalQueryExpectedModel({ ...input, binding });
         if (model.tier !== tier)
         {
@@ -160,7 +170,7 @@ export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = ro
     }
     catch
     {
-        return failedQueryMatrix(tier, binding, 'canonical model, policy, private capture or current runtime inputs unavailable');
+        return failedQueryMatrix(tier, binding, 'canonical model, policy, private capture or current runtime inputs unavailable', registrySchema);
     }
 }
 

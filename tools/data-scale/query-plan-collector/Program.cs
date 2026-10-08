@@ -11,6 +11,16 @@ using NpgsqlTypes;
 
 try
 {
+    if (args.Length == 3 && args[0] == "--search-payload-controls")
+    {
+        CollectorControls.RunSearchPayloadControls(args[1], args[2]);
+        return 0;
+    }
+    if (args.Length == 3 && args[0] == "--thread-payload-controls")
+    {
+        CollectorControls.RunThreadPayloadControls(args[1], args[2]);
+        return 0;
+    }
     if (args.Length == 4 && args[0] == "--semantic-owner-controls")
     {
         await CollectorControls.RunSemanticOwnerControlsAsync(args[1], args[2], args[3]);

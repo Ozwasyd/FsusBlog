@@ -8,9 +8,13 @@ import { fileURLToPath } from 'node:url';
 
 const { mapCanonicalQueryExpectedModel } = await import(new URL('../../tools/data-scale/query-expected-model.mjs', import.meta.url));
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
-const { buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryRegistrySchemas, threadReplyCaseId } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
+const { extractArticleSearchHitIds } = await import(new URL('../../tools/data-scale/search-evidence.mjs', import.meta.url));
+const { loadQueryPayloadDecoders } = await import(new URL('../../tools/data-scale/query-payload-decoders.mjs', import.meta.url));
+const { verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
+const { encodeAedsFrame } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
 
 test('semantic owner metadata resolves original compiled business contracts and refuses nonexistent methods', () =>
 {
@@ -61,7 +65,8 @@ test('all original registry coordinates select production GET routes and extensi
     const directory = path.join(root, '.tmp/query-matrix-route-controls', randomUUID());
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const registry = buildQueryCaseRegistry({
-        tier: 'scale-s',
+        tier: 'scale-s', registrySchema: queryRegistrySchemas[1],
+        threadReplies: { articleId: 1, rootId: '1', pageSize: 1, expectedReplies: [] },
         binding: { sourceCommit, dataScaleRunId: 'route-control', fixtureGeneration: 'route-control',
             seedReceiptDigest: computeSha256('controlled-route-seed'), expectedModelDigest: computeSha256('controlled-route-model'),
             businessEpochUtc: '2026-10-08T00:00:00.000Z' },
@@ -86,7 +91,8 @@ test('all original registry coordinates select production GET routes and extensi
     assert.equal(control.registryDigest, registry.contentDigest);
     assert.equal(control.qualification, 'not-performed');
     assert.equal(control.scope, 'original-endpoint-registration-and-routing-only');
-    assert.deepEqual(control.results.filter((entry) => entry.status === 'matched').map((entry) => entry.id), queryCaseIds);
+    assert.deepEqual(control.results.filter((entry) => entry.status === 'matched').map((entry) => entry.id), [...queryCaseIds, threadReplyCaseId]);
+    assert.equal(control.results.find((entry) => entry.id === threadReplyCaseId).runtimeExecutionBlocked, true);
     assert.equal(control.results.filter((entry) => entry.status === 'unmatched').length, 2);
 });
 
@@ -124,4 +130,102 @@ test('original canonical factory/verifier/visibility export mapped read expectat
         assert.throws(() => mapCanonicalQueryExpectedModel({ articles, comments: { ...comments, fixtureGeneration: 'different' }, canaries, binding }));
         assert.throws(() => mapCanonicalQueryExpectedModel({ articles, comments, canaries: { commentArticleId: 999 }, binding }));
     }
+});
+
+
+test('thread reply case verifies original product POD traversal and rejects bounded invalid formats', async () =>
+{
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    const directory = path.join(root, '.tmp/query-matrix-thread-controls', randomUUID());
+    const native = spawnSync('dotnet', [path.join(root, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll'),
+        '--thread-payload-controls', directory, sourceCommit], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+    assert.equal(native.status, 0, native.stderr);
+    const receipt = JSON.parse(fs.readFileSync(path.join(directory, 'thread-payload-controls.json')));
+    assert.equal(receipt.sourceCommit, sourceCommit);
+    assert.equal(receipt.qualification, 'not-performed');
+    assert.equal(receipt.scope, 'original-production-POD-encoder-only');
+    const binding = { sourceCommit, dataScaleRunId: 'thread-codec-control', fixtureGeneration: 'codec-only',
+        seedReceiptDigest: computeSha256('no-admitted-seed'), expectedModelDigest: computeSha256('no-admitted-model'),
+        businessEpochUtc: '2026-10-08T00:00:00.000Z' };
+    const threadReplies = { articleId: 1, rootId: '1', pageSize: 1,
+        expectedReplies: [
+            { id: '2', rootId: '1', parentId: '1', depth: 1, content: 'child', createTime: binding.businessEpochUtc, isDeleted: false, isEdited: false },
+            { id: '3', rootId: '1', parentId: '2', depth: 2, content: 'descendant', createTime: binding.businessEpochUtc, isDeleted: false, isEdited: true }
+        ] };
+    const registry = buildQueryCaseRegistry({ tier: 'scale-xs', binding, registrySchema: queryRegistrySchemas[1], threadReplies,
+        publicArticles: [], visibleComments: [], categories: [], tags: [], canaries: {} });
+    const coordinate = registry.cases.at(-1).coordinate;
+    const decoders = await loadQueryPayloadDecoders(registry.schema);
+    assert.equal(Object.keys(await loadQueryPayloadDecoders()).length, 16);
+    const decode = decoders[threadReplyCaseId];
+    const payloads = receipt.payloads.map((value) => new Uint8Array(Buffer.from(value, 'base64')));
+    const samples = payloads.map((payload, index) => ({ binding, path: coordinate.path,
+        inputCursor: index === 0 ? null : '2', status: 200, contentType: 'application/octet-stream',
+        body: encodeAedsFrame(coordinate.frameType, payload) }));
+    assert.deepEqual(verifyQueryTraversal({ coordinate, samples, binding, decode }), { itemCount: 2, pageCount: 2 });
+    assert.throws(() => verifyQueryTraversal({ coordinate, samples: samples.slice(0, 1), binding, decode }), /omitted/u);
+    const wrongCursor = structuredClone(samples);
+    const cursorPayload = payloads[0].slice();
+    new DataView(cursorPayload.buffer).setBigInt64(8, 99n, true);
+    wrongCursor[0].body = encodeAedsFrame(coordinate.frameType, cursorPayload);
+    wrongCursor[1].inputCursor = '99';
+    assert.throws(() => verifyQueryTraversal({ coordinate, samples: wrongCursor, binding, decode }), /last returned/u);
+    const wrongRoot = { ...coordinate, threadRootId: '99' };
+    assert.throws(() => verifyQueryTraversal({ coordinate: wrongRoot, samples, binding, decode }), /root/u);
+    const duplicate = structuredClone(samples);
+    const duplicatePayload = payloads[0].slice();
+    duplicatePayload.fill(0, 8, 16);
+    duplicatePayload[16] = 0;
+    duplicate[1].body = encodeAedsFrame(coordinate.frameType, duplicatePayload);
+    assert.throws(() => verifyQueryTraversal({ coordinate, samples: duplicate, binding, decode }), /membership/u);
+    for (const alter of [
+        (payload) => payload.slice(0, -1),
+        (payload) => Uint8Array.from([...payload, 0]),
+        (payload) => { payload[16] = 2; return payload; },
+        (payload) => { new DataView(payload.buffer).setInt32(17, 101, true); return payload; },
+        (payload) => { new DataView(payload.buffer).setInt32(81, -1, true); return payload; },
+        (payload) => { new DataView(payload.buffer).setBigInt64(0, 99n, true); return payload; }
+    ])
+    {
+        assert.throws(() => decode(alter(payloads[0].slice())));
+    }
+    // Encoder/adapter controls do not admit a fixture or execute a product query case.
+    assert.equal(registry.cases.at(-1).status, 'blocked');
+});
+
+
+test('search extractor honors current original FAS4 and explicit fixed-POD contracts with bounded refusal', () =>
+{
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    const directory = path.join(root, '.tmp/query-matrix-search-codec-controls', randomUUID());
+    const native = spawnSync('dotnet', [path.join(root, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll'),
+        '--search-payload-controls', directory, sourceCommit], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+    assert.equal(native.status, 0, native.stderr);
+    const receipt = JSON.parse(fs.readFileSync(path.join(directory, 'search-payload-controls.json')));
+    assert.equal(receipt.sourceCommit, sourceCommit);
+    assert.equal(receipt.qualification, 'not-performed');
+    assert.equal(receipt.contract, 'fas4-v4');
+    const payload = new Uint8Array(Buffer.from(receipt.payload, 'base64'));
+    assert.deepEqual(extractArticleSearchHitIds(payload), [1]);
+    const legacy = new Uint8Array(Buffer.from(receipt.legacyEmptyPayload, 'base64'));
+    assert.deepEqual(extractArticleSearchHitIds(legacy, { contract: 'fixed-pod' }), []);
+    assert.throws(() => extractArticleSearchHitIds(legacy));
+    assert.throws(() => extractArticleSearchHitIds(payload, { contract: 'fixed-pod' }));
+    assert.throws(() => extractArticleSearchHitIds(payload, { contract: 'guessed-fsr4' }), /unavailable/u);
+    for (const alter of [
+        (bytes) => bytes.slice(0, -1),
+        (bytes) => Uint8Array.from([...bytes, 0]),
+        (bytes) => { bytes.set(Buffer.from('FSR4'), 0); return bytes; },
+        (bytes) => { new DataView(bytes.buffer).setInt32(4, 5, true); return bytes; },
+        (bytes) => { new DataView(bytes.buffer).setInt32(8, 10001, true); return bytes; },
+        (bytes) => { new DataView(bytes.buffer).setInt32(432, -1, true); return bytes; },
+        (bytes) => { new DataView(bytes.buffer).setInt32(436, 2147483647, true); return bytes; }
+    ])
+    {
+        assert.throws(() => extractArticleSearchHitIds(alter(payload.slice())));
+    }
+    const empty = payload.slice(0, 12);
+    new DataView(empty.buffer).setInt32(8, 0, true);
+    assert.deepEqual(extractArticleSearchHitIds(empty), []);
+    // This is the current source contract, not a relabeled or accepted FSR4 candidate.
 });

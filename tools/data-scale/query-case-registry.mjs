@@ -19,6 +19,10 @@ function frameName(id)
     {
         return 'CommentTreeRootCursor';
     }
+    if (id === threadReplyCaseId)
+    {
+        return 'CommentThreadReplyCursor';
+    }
     if (id.startsWith('comment-nested'))
     {
         return 'CommentChildCursor';
@@ -49,10 +53,30 @@ export const queryCaseIds = Object.freeze([
     'search-body-canary'
 ]);
 
+export const threadReplyCaseId = 'comment-thread-replies';
+export const queryRegistrySchemas = Object.freeze(['fsusblog.data-scale-query-registry.v1', 'fsusblog.data-scale-query-registry.v2']);
+
+/** Version additions stay with this single registry; v1's sixteen IDs remain frozen. */
+export function queryCaseIdsForSchema(schema = queryRegistrySchemas[0])
+{
+    if (!queryRegistrySchemas.includes(schema))
+    {
+        throw new Error('unsupported query registry schema');
+    }
+    return schema === queryRegistrySchemas[0] ? [...queryCaseIds] : [...queryCaseIds, threadReplyCaseId];
+}
+
+/** Current canonical source has no qualified comment role/revision reader. Never trust a caller's verified flag. */
+export function queryExecutionBlockers(id)
+{
+    return id === threadReplyCaseId
+        ? ['canonical_comment_normalized_role_reader_unavailable', 'canonical_comment_exact_revision_reader_unavailable'] : [];
+}
+
 export const queryMatrixTiers = Object.freeze(['scale-xs', 'scale-s', 'scale-m']);
 
 /** Existing cases only. These describe tested coordinates, not broader query acceptance. */
-export function buildQueryCaseInventory(binding)
+export function buildQueryCaseInventory(binding, registrySchema = queryRegistrySchemas[0])
 {
     requireQueryBinding(binding);
     const articleOwner = 'src/backend/Modules/Endpoints/Binary/BinaryEndpoints.Articles.cs';
@@ -66,7 +90,7 @@ export function buildQueryCaseInventory(binding)
             version: `source-${contentDigest.slice('sha256:'.length)}` };
     };
     const owners = { article: owner('article'), comment: owner('comment') };
-    const cases = queryCaseIds.map((id) =>
+    const cases = queryCaseIdsForSchema(registrySchema).map((id) =>
     {
         let domain = 'article';
         let kind;
@@ -86,11 +110,18 @@ export function buildQueryCaseInventory(binding)
         {
             domain = 'comment';
             const child = id === 'comment-nested-root-expansion';
-            kind = id === 'comment-root-first' ? 'public-list' : 'pagination-order';
+            kind = id === threadReplyCaseId ? 'public-thread' : id === 'comment-root-first' ? 'public-list' : 'pagination-order';
             routePattern = child ? '/api/binary/comment/{articleId:int}/children/{parentId:long}' : '/api/binary/comment/{articleId:int}';
             inputFields = ['visibleComments', 'canaries.commentArticleId', 'commentPageSize', ...(child ? ['canaries.nestedRootId'] : [])];
             parameters = ['articleId', ...(child ? ['parentId'] : []), 'limit', 'cursor'];
             order = [{ field: 'id', direction: child ? 'asc' : 'desc' }];
+            if (id === threadReplyCaseId)
+            {
+                routePattern = '/api/binary/comment/{articleId:int}/thread/{rootId:long}';
+                inputFields = ['threadReplies.articleId', 'threadReplies.rootId', 'threadReplies.pageSize', 'threadReplies.expectedReplies'];
+                parameters = ['articleId', 'rootId', 'limit', 'cursor'];
+                order = [{ field: 'id', direction: 'asc' }];
+            }
         }
         else if (id.startsWith('category') || id.startsWith('tag'))
         {
@@ -125,15 +156,20 @@ export function buildQueryCaseInventory(binding)
             canonicalRoleBindings: null, scenarioApplicability: null,
             blockers: ['canonical_input_role_bindings_missing', 'query_owner_scenario_receipt_intake_missing',
                 ...(id === 'comment-nested-root-expansion' ? ['child_expansion_is_not_full_public_thread'] : []),
-                ...(order === null ? ['search_ranking_role_contract_missing'] : [])] };
+                ...queryExecutionBlockers(id),
+                ...(order === null ? ['search_ranking_role_contract_missing'] : [])],
+            ...(id === threadReplyCaseId ? { coverageScope: 'rooted-reply-cursor',
+                requiredInputTypes: { articleId: 'positive Int32', rootId: 'positive Int64 decimal string', pageSize: 'integer 1..100',
+                    expectedReplies: 'explicit ordered CommentReplyItemDto id/content/time/root/parent/depth/deleted/edited projection array' } } : {}) };
     });
-    const inventory = { schema: 'fsusblog.data-scale-query-inventory.v1', binding,
+    const inventory = { schema: registrySchema === queryRegistrySchemas[0]
+        ? 'fsusblog.data-scale-query-inventory.v1' : 'fsusblog.data-scale-query-inventory.v2', binding,
         qualification: 'not-performed', releaseEvidenceEligible: false, cases };
     return { ...inventory, contentDigest: computeSha256(inventory) };
 }
 
 /** Consume the catalog owner's kind vocabulary; never add or execute a query case. */
-export function buildQuerySemanticOwnerInventory({ binding, kinds })
+export function buildQuerySemanticOwnerInventory({ binding, kinds, registrySchema })
 {
     requireQueryBinding(binding);
     if (!kinds || Object.keys(kinds).sort().join(',') !== 'article,comment'
@@ -142,7 +178,7 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
     {
         throw new Error('explicit unique article/comment semantic vocabulary required');
     }
-    const inventory = buildQueryCaseInventory(binding);
+    const inventory = buildQueryCaseInventory(binding, registrySchema);
     const sourceRef = (sourcePath, entrypoint, parameterTypes) =>
     {
         const contentDigest = computeSha256(fs.readFileSync(new URL(`../../${sourcePath}`, import.meta.url)));
@@ -411,9 +447,15 @@ function pageCoordinate(rows, pageSize, offset, path, requirePriorPage = false, 
  * supplied by that owner for the bound business epoch, never recomputed here.
  * This pure registry is not runtime admission or a qualification receipt.
  */
-export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleComments, categories, tags, canaries, pageSize = 10, commentPageSize = 1 })
+export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleComments, categories, tags, canaries, pageSize = 10, commentPageSize = 1,
+    registrySchema = queryRegistrySchemas[0], threadReplies })
 {
     requireQueryBinding(binding);
+    queryCaseIdsForSchema(registrySchema);
+    if (registrySchema === queryRegistrySchemas[0] && threadReplies !== undefined)
+    {
+        throw new Error('thread reply inputs require explicit v2 registry selection');
+    }
     if (!queryMatrixTiers.includes(tier) || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100
         || !Number.isSafeInteger(commentPageSize) || commentPageSize < 1 || commentPageSize > 100)
     {
@@ -594,6 +636,42 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
             return { path: `/api/binary/article/search/query.aeds?q=${encodeURIComponent(canary.token)}`, token: canary.token, expectedItems };
         });
     }
-    const result = { schema: 'fsusblog.data-scale-query-registry.v1', tier, binding, cases, inventory: buildQueryCaseInventory(binding) };
+    if (registrySchema === queryRegistrySchemas[1])
+    {
+        add(threadReplyCaseId, () => threadReplyCoordinate(threadReplies));
+        const entry = cases.at(-1);
+        entry.status = 'blocked';
+        entry.failureReasons = [...(entry.failureReasons ?? []), ...queryExecutionBlockers(threadReplyCaseId)];
+    }
+    const result = { schema: registrySchema, tier, binding, cases, inventory: buildQueryCaseInventory(binding, registrySchema) };
     return { ...result, contentDigest: computeSha256(result) };
+}
+
+/** Explicit probe coordinates are structural inputs, never qualified producer roles or revision authority. */
+function threadReplyCoordinate(input)
+{
+    if (!input || !Number.isInteger(input.articleId) || input.articleId < 1 || input.articleId > 2147483647
+        || typeof input.rootId !== 'string' || !/^[1-9][0-9]*$/u.test(input.rootId) || BigInt(input.rootId) > 9223372036854775807n
+        || !Number.isInteger(input.pageSize) || input.pageSize < 1 || input.pageSize > 100 || !Array.isArray(input.expectedReplies))
+    {
+        throw new Error('typed thread reply article/root/page/expected inputs missing or invalid');
+    }
+    uniqueRows(input.expectedReplies, 'explicit thread reply projection');
+    const fields = ['id', 'content', 'createTime', 'rootId', 'parentId', 'depth', 'isDeleted', 'isEdited'];
+    const rows = input.expectedReplies.map((row, index) =>
+    {
+        if (typeof row.id !== 'string' || !/^[1-9][0-9]*$/u.test(row.id) || BigInt(row.id) > 9223372036854775807n
+            || row.id === input.rootId || row.rootId !== input.rootId || typeof row.parentId !== 'string'
+            || !/^[1-9][0-9]*$/u.test(row.parentId) || BigInt(row.parentId) > 9223372036854775807n || row.parentId === row.id
+            || typeof row.content !== 'string' || !Number.isFinite(Date.parse(row.createTime))
+            || !Number.isInteger(row.depth) || row.depth < 1 || typeof row.isDeleted !== 'boolean' || typeof row.isEdited !== 'boolean'
+            || (index > 0 && BigInt(input.expectedReplies[index - 1].id) >= BigInt(row.id)))
+        {
+            throw new Error('explicit thread reply projected membership/order/edge fields invalid');
+        }
+        return Object.fromEntries(fields.map((field) => [field, field === 'createTime' ? new Date(row[field]).toISOString() : row[field]]));
+    });
+    return { ...pageCoordinate(rows, input.pageSize, 0,
+        `/api/binary/comment/${input.articleId}/thread/${input.rootId}?limit=${input.pageSize}`, false, true),
+        threadRootId: input.rootId, cursorKind: 'int64-last-item' };
 }
