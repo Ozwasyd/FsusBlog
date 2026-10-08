@@ -1676,7 +1676,7 @@ function actualAppProgramProbe(localMode)
         const root = ${JSON.stringify(root)};
         const { ESLint } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/eslint/lib/api.js')));
         const { default: ts } = await import(pathToFileURL(path.join(root, 'tools/frontend/style-toolchain/node_modules/typescript/lib/typescript.js')));
-        const file = path.join(root, 'src/frontend/src/services/authoring/articleWritingAidPolicy.ts');
+        const file = path.join(root, 'src/frontend/src/security/risk-challenge-routes.ts');
         const eslint = new ESLint({ cwd: root, overrideConfigFile: path.join(root, 'eslint.config.mjs') });
         const config = await eslint.calculateConfigForFile(file);
         const parsed = config.languageOptions.parser.parseForESLint(fs.readFileSync(file, 'utf8'), {
@@ -1765,9 +1765,9 @@ test('canonical local-off mode retains the original application project service'
     assert.deepEqual(program.unsafeAssignment, [2]);
 });
 
-test('canonical local source and standard style commands accept policy and trusted-types without rule overrides', () =>
+test('canonical local source and standard style commands accept risk routes and trusted-types without rule overrides', () =>
 {
-    const files = ['src/frontend/src/services/authoring/articleWritingAidPolicy.ts', 'src/frontend/src/security/trustedTypesRuntime.ts'];
+    const files = ['src/frontend/src/security/risk-challenge-routes.ts', 'src/frontend/src/security/trustedTypesRuntime.ts'];
     const env = { ...process.env, FSUSBLOG_STYLE_ROOT: root, FSUSBLOG_USE_LOCAL_FSUSUI: '1' };
     const source = spawnSync(process.execPath, [path.join(toolchain, 'node_modules/eslint/bin/eslint.js'),
         '--config', path.join(root, 'eslint.config.mjs'), '--no-cache', '--max-warnings', '0', ...files],
