@@ -129,7 +129,9 @@
         },
         {
             "check": "PR matrix planner authority",
-            "reason": "independent release-final Node parser identity drifted; authority schema/source index/parser identity rejected; no execution plan produced"
+            "reason": "independent release-final Node parser identity drifted; authority schema/source index/parser identity rejected; no execution plan produced",
+            "currentStatus": "recovered with official Node 24.16.0; original failure retained as historical evidence",
+            "recoveryEvidence": "pinned-toolchain-recovery.json"
         }
     ],
     "acceptanceLimits": [
@@ -146,5 +148,6 @@
         "tools/test-inventory/ts-ast-adapter/index.mjs": "95ac03e4b25f03c69785446aeb8dbe6e5f7c0c81",
         "tools/test-replacement/transaction.mjs": "20006700774c879686d2ef3d60d3eb733ca6cb2c",
         "tests/tools/test-replacement-transaction.test.mjs": "a645ec4eb5e56d9e047c2c5cb0505694cae2e4ee"
-    }
+    },
+    "followupToolchainRecovery": "pinned-toolchain-recovery.json"
 }
