@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { mapUserLocalePreferenceFromPayload } from '@/adapters/binary/localePreferenceAdapter'
 import { encodeUserLocalePreferenceUpdateRequest } from '@/api/binaryFrame'
 import { USER_LOCALE_PREFERENCE_POD_SIZE } from '@/adapters/binary/types'
+import { ENABLED_LOCALES } from '@/locales/localeCatalog'
 
 function encodePreference(
   mode: 'auto' | 'fixed',
@@ -10,25 +11,12 @@ function encodePreference(
   revision: number,
   updatedAtMs: number
 ): Uint8Array {
-  const localeWireValues: Readonly<Record<string, number>> = {
-    'zh-CN': 1,
-    'en-US': 2,
-    'zh-Hant': 3,
-    'ja-JP': 4,
-    'ko-KR': 5,
-    'es-419': 6,
-    'fr-FR': 7,
-    'de-DE': 8,
-    'pt-BR': 9,
-    'ru-RU': 10
-  }
+  const command = encodeUserLocalePreferenceUpdateRequest(mode, fixedLocale, revision)
   const bytes = new Uint8Array(USER_LOCALE_PREFERENCE_POD_SIZE)
   const view = new DataView(bytes.buffer)
   view.setBigInt64(0, BigInt(revision), true)
   view.setBigInt64(8, BigInt(updatedAtMs), true)
-  view.setUint8(16, mode === 'fixed' ? 2 : 1)
-  view.setUint8(17, mode === 'fixed' ? 1 : 0)
-  view.setUint8(18, mode === 'fixed' && fixedLocale ? (localeWireValues[fixedLocale] ?? 0) : 0)
+  bytes.set(command.subarray(8), 16)
   return bytes
 }
 
@@ -71,3 +59,25 @@ describe('locale preference adapter and request encoding', () => {
     expect(fixed[10]).toBe(8)
   })
 })
+
+
+for (const descriptor of ENABLED_LOCALES) {
+  it(`preserves canonical request/response preference identity for ${descriptor.code}`, () => {
+    const payload = encodePreference('fixed', descriptor.code, 9, Date.UTC(2026, 6, 28))
+    expect(mapUserLocalePreferenceFromPayload(payload)).toEqual({
+      mode: 'fixed', fixedLocale: descriptor.code, revision: 9,
+      updatedAt: new Date(Date.UTC(2026, 6, 28)).toISOString()
+    })
+    const command = encodeUserLocalePreferenceUpdateRequest('fixed', descriptor.code, 9)
+    expect(new DataView(command.buffer, command.byteOffset, command.byteLength).getBigInt64(0, true)).toBe(9n)
+    expect(payload.subarray(16)).toEqual(command.subarray(8))
+  })
+}
+
+for (const offset of [19, 20, 21, 22, 23]) {
+  it(`rejects corrupted reserved preference byte ${offset}`, () => {
+    const payload = encodePreference('auto', null, 0, 0)
+    payload[offset] = 1
+    expect(() => mapUserLocalePreferenceFromPayload(payload)).toThrow(/locale_preference_reserved_invalid/)
+  })
+}
