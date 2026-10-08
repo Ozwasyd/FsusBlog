@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/frontend-perf-regression.sh",
+                "tools/test/lanes/frontend-property.sh",
+                "tools/test/lanes/frontend-state-machines.sh"
+            ],
+            "reason": "Preserve the existing Bash source/root environment names consumed by the canonical suite and measurement owner."
+        }
+    ]
+}
