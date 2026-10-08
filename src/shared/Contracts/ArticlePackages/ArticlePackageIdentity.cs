@@ -8,7 +8,9 @@ public enum ArticlePackageIdentityKind : byte
     Article = 1,
     Asset = 2,
     Definition = 3,
-    Option = 4
+    Option = 4,
+    Category = 5,
+    Tag = 6
 }
 
 /// <summary>Closed failures shared by the package identity and inventory boundary.</summary>
@@ -81,6 +83,8 @@ public readonly record struct ArticlePackageIdentity
             ArticlePackageIdentityKind.Asset => "portable-asset:",
             ArticlePackageIdentityKind.Definition => "portable-definition:",
             ArticlePackageIdentityKind.Option => "portable-option:",
+            ArticlePackageIdentityKind.Category => "portable-category:",
+            ArticlePackageIdentityKind.Tag => "portable-tag:",
             _ => null
         };
         if (prefix is null

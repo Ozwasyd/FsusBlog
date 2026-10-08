@@ -3322,3 +3322,60 @@ asset projections, frozen syntax/dependency mapping, privacy/export policy,
 full manifest integration and original independent runtime acceptance remain
 separate gates. The pure component reads no store, allocates no source IDs,
 issues no receipts and authorizes no export, target resolution or mutation.
+
+## Closed manifest taxonomy component
+
+The same manifest codec provides `TryCreateTaxonomyCandidate`,
+`TryParseTaxonomyCandidate`, `WriteTaxonomyCandidate` and
+`TryBindTaxonomyCandidate`. `ArticlePackageManifestTaxonomyInput` contains one
+finite article, an explicit positive source category ID, an explicit bounded
+source tag-ID set, one category entry and exactly one entry for each tag. Entries
+contain only `PortableIdentity`, `SourceId`, exact `Name` and nullable
+`Description`; current taxonomy source fields retain their 128/500-character
+bounds. No source schema revision, persistence observation or provider digest is
+invented from these values.
+
+The sole package identity owner adds `Category=5` and `Tag=6`, with explicit
+`portable-category:<canonical-uuid>` and `portable-tag:<canonical-uuid>` forms.
+These values never derive from database IDs, names, titles, URLs, routes, files
+or array indices. Category and tag source-ID domains remain distinct. Tags
+require a complete bijection, without missing/extra/duplicate/aliased pairs.
+Equal display names are valid separate facts and never coalesce identities.
+Source tag IDs sort numerically and tag entries sort by ordinal portable
+identity, making input order irrelevant. Text and null/empty remain exact.
+The closed component keys are `article`, `sourceCategoryId`, `sourceTagIds`,
+`category`, `tags` and `componentDigest`; all objects reject unknown, duplicate,
+missing and wrong-typed fields. Limits are 32 tags and 256 KiB encoded JSON.
+Collections use a single bounded indexed traversal and are detached/read-only.
+
+`TryBindTaxonomyCandidate` consumes an explicit current `ArticleCanonicalInput`
+and actual raw Markdown bytes. It freezes tag IDs before canonical hashing,
+compares article/revision/category/tags/title/summary/lifecycle, recomputes the
+sole canonical article hash including route and cover facts, and verifies the
+sole raw-byte metadata plus exact strict decoded Markdown. Canonical LF/NFC
+hash equivalence cannot hide changed original bytes or decoded text; UTF-8 BOM
+is retained. Draft/publication shapes remain refused by this revision binder.
+The lowercase SHA-256 component digest covers strict UTF-8 domain
+`fsusblog.article-package.manifest-taxonomy-candidate.v1`, one NUL and canonical
+component JSON with its digest omitted.
+
+A successful bind is supplied-input self-consistency, never taxonomy existence,
+actor/site scope, current permission, provider provenance or target resolution.
+The existing package envelope continues to reject taxonomy, and every
+`RequireTaxonomyAuthority()` returns
+`article_package_manifest_taxonomy_source_authority_unavailable`. Exact frozen
+taxonomy reads, full package/privacy/dependency integration and independent
+original runtime acceptance remain separate owner gates. New taxonomy identity
+kinds do not extend the archive layout or admit category/tag files.
+
+`TryCreateTaxonomySetCandidate` freezes 1..1,000 such components with a 16 MiB
+aggregate encoded-byte budget. Within one set, source article and portable
+article identities are unique and the asserted site scope is shared. Every
+category/tag source-to-portable pair and its exact name/description must agree
+across all articles; distinct source-ID domains remain separated by kind.
+It sorts article components by ordinal portable article identity and hashes the
+sole framed domain `fsusblog.article-package.manifest-taxonomy-set-candidate.v1`,
+Int32 count, then each portable article string and component digest using the
+existing digest writer. The result owns a read-only component array and continues
+to refuse taxonomy authority. Whole-set self-consistency does not replace each
+article's exact source binder or any persisted taxonomy/permission observations.
