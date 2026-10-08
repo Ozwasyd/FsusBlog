@@ -1,8 +1,8 @@
 {
     "kind": "task-local-source-delivery",
     "qualification": false,
-    "sourceCommit": "f110db428547f81dfe863d69812a9e9b8ad27c7d",
-    "sourceTree": "7bdcc17c2249c0cfa17972a8b15c0ffca27bf920",
+    "sourceCommit": "826e09152a0d9d703520da83f6e6674f081172e6",
+    "sourceTree": "6d578f85f7ed431eb2c279823f4081eedf7dd927",
     "baseCommit": "b9c076e4b763130075218ff9d50f9a6c36784f59",
     "commonContractCheckpoint": "089d95e466c23a7fc781d30b80157cb4dd199c10",
     "branch": "codex/mem-3453-3455-disk-lifecycle",
@@ -41,13 +41,13 @@
         },
         {
             "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentLease.cs",
-            "gitBlob": "f40ff5243d5f61e2a72e65bc6a3dff8bd68f65c4",
-            "sha256": "9b53131ccba6e47f4fd42ac8c36daba164eae1f813dcb6d514137089a551643f"
+            "gitBlob": "06c8852672217978d477f81658c561af483bcdcb",
+            "sha256": "22f03b74100345a8af6366affad4ae688762dbfd136cfc64d7ca9214322fb244"
         },
         {
             "path": "src/backend/Infrastructure/Memory/Disk/DiskSegmentStore.cs",
-            "gitBlob": "fc3c56d18e25e4ebf81ff1dcab313cf4926fa51e",
-            "sha256": "3cebc18a9bb2524021b55fde1d0c3b3a52715f73a290d6f2669464095a67c740"
+            "gitBlob": "5b9bf924a0fbc8be532307b4d3be0852828d6f59",
+            "sha256": "8df0158a4bdfc2f35a80c9ef02e41b4556c7d76655b09be02ed8eb32fbd3fe0f"
         },
         {
             "path": "src/backend/Infrastructure/Memory/Disk/DiskSpillEligibility.cs",
@@ -56,13 +56,13 @@
         },
         {
             "path": "src/backend/Infrastructure/Memory/Disk/OwnedSpillRoot.cs",
-            "gitBlob": "3b7fe8e935a05068f7fc8b60e08efba7bc1da46e",
-            "sha256": "23afa2eafd667ffb0b82b606841ce7d3478ee19eac9894abab77341da5cf87a8"
+            "gitBlob": "e7b2e5b14a183f3adfc5c39e54228399f8ce8a6e",
+            "sha256": "e55e85dd3810f94c35278e578c051cc1e5aeab5bc7af21a6b05dd798aa02b36b"
         },
         {
             "path": "src/backend/Infrastructure/Memory/Platform/LinuxOwnedSpillDirectory.cs",
-            "gitBlob": "56629f77b2273671463279958f4fb22594e371a7",
-            "sha256": "cddf6fe856f969f341bfae2c285d0bb9913b1c5fdcefca26af13b06312576872"
+            "gitBlob": "cb199885e626472846607dc8275aa46ad60e8f77",
+            "sha256": "2416392d4691471b2b8fc2821f881e52a97097a0cec1ef3525d61aed1fdf2448"
         },
         {
             "path": "tests/backend/Unit/DiskBudgetAdmissionTests.cs",
@@ -71,8 +71,8 @@
         },
         {
             "path": "tests/backend/Unit/DiskSegmentStoreTests.cs",
-            "gitBlob": "554b3b926b9d84780223c0f8378b42a49f961836",
-            "sha256": "6465290effa5dcc2ce81979e36e1c68e5a0fbbb553f37468051f86d2886f3db2"
+            "gitBlob": "668d8cc82f09dd24a4e5d94a19916bbdad182867",
+            "sha256": "a9e721b71501c4e6a0c584c348c016aabde18710a78caa1f77b71ae92f653ae1"
         },
         {
             "path": "tests/backend/Unit/DiskSpillEligibilityTests.cs",
@@ -81,14 +81,14 @@
         },
         {
             "path": "tests/backend/Unit/OwnedSpillRootTests.cs",
-            "gitBlob": "0ce9060412ff5adfef6f4f7d2b99a7edbdc58a37",
-            "sha256": "95ada17992a0d602cdbad1ac303ed323c645df2baf9c5fa93106c12cfb762785"
+            "gitBlob": "9ccca448617e5af44bfa5dbc9dc27a907962bc68",
+            "sha256": "10be84cbcf8006a7ae796faacacd255e1e9f8d8f718b948c0dc36af2e8fc8eeb"
         }
     ],
     "logs": [
         {
             "path": "artifacts/memory/disk-delivery/backend-tests.log",
-            "sha256": "7298122db4726f6bf817103bb7b8cdf838af114f92ab00590d1783b3e58f4ca0"
+            "sha256": "1fb9f46eab13995baf1b9efcb2b98f512b5fa265bbc171112952634e8f953205"
         },
         {
             "path": "artifacts/memory/disk-delivery/change-range.log",
@@ -108,16 +108,16 @@
         },
         {
             "path": "artifacts/memory/disk-delivery/matrix-candidate.log",
-            "sha256": "afbb201721918c4b84ab7cbcaa51b928708f827e3b541ec0fa8210340e18c767"
+            "sha256": "1acbe929d3ad5c364d8877f76af9a61fb7cd9d2dc40dc72c0d58df445976855a"
         }
     ],
     "checks": [
         {
-            "command": "git diff b9c076e4b763130075218ff9d50f9a6c36784f59..f110db428547f81dfe863d69812a9e9b8ad27c7d --check",
+            "command": "git diff b9c076e4b763130075218ff9d50f9a6c36784f59..826e09152a0d9d703520da83f6e6674f081172e6 --check",
             "result": "Pass"
         },
         {
-            "command": "node tools/governance/check-change-contract.mjs --range b9c076e4b763130075218ff9d50f9a6c36784f59..f110db428547f81dfe863d69812a9e9b8ad27c7d",
+            "command": "node tools/governance/check-change-contract.mjs --range b9c076e4b763130075218ff9d50f9a6c36784f59..826e09152a0d9d703520da83f6e6674f081172e6",
             "result": "Pass"
         },
         {
@@ -294,5 +294,13 @@
         "issueClosure": "not requested",
         "productionActivation": "none"
     },
-    "sourceWorktreeAtBinding": "Tracked module and test sources byte-equal to sourceCommit; delivery-only artifacts packaged separately."
+    "sourceWorktreeAtBinding": "Tracked module and test sources byte-equal to sourceCommit; delivery-only artifacts packaged separately.",
+    "sourceHardening": [
+        "Record owner identity immediately after exclusive native file creation, before managed FileStream wrapping/inspection can fail.",
+        "Defer reentrant lease Dispose until CopyTo leaves; final release executes outside lease gate even if caller staging throws."
+    ],
+    "runtimeFixtureScope": "Four owning-project C# test files, including callback/wrapper-failure cases; none executed without .NET10.",
+    "validationInvocationCommit": "826e09152a0d9d703520da83f6e6674f081172e6",
+    "sourceTreeScope": "Exact validation invocation tree; file list binds the disk modules, tests and naming manifest. Delivery-only packaging remains outside runtime source.",
+    "cleanup": "Task-owned detached clean-master comparison worktree removed after baseline check; no spill directories were created because runtime tests did not execute."
 }
