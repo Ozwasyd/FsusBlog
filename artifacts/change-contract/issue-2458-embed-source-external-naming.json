@@ -26,7 +26,10 @@
                 "src/shared/Contracts/ArticleRelations/ArticleRelationContractValidator.cs",
                 "src/shared/Contracts/BlockLinks/BlockTargetQueryContracts.cs",
                 "src/shared/Contracts/BlockLinks/BlockTargetQueryDigest.cs",
-                "src/shared/Contracts/BlockLinks/BlockTargetQueryValidator.cs"
+                "src/shared/Contracts/BlockLinks/BlockTargetQueryValidator.cs",
+                "src/backend/Services/Articles/ArticleLifecycleTransitionWriter.cs",
+                "src/backend/Services/Articles/ArticleMarkdownSourceAdmission.cs",
+                "src/backend/Services/Authoring/AuthoringDraftLifecycleService.cs"
             ],
             "reason": "Preserve the existing serialized embed contract identifiers and dependency receipt names while rejecting unmapped payloads, verifying attribution and projecting frozen facts; no environment names or accesses are introduced or renamed."
         },
