@@ -441,6 +441,44 @@ public sealed class DocumentExportDocxProviderTests
         await Assert.ThrowsAsync<OperationCanceledException>(() => provider.VerifyAsync(null!, task, input, cancellation.Token));
     }
 
+    [Fact]
+    public async Task AttemptPortKeepsInactiveAndCancelledExecutionUncompleted()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportProviderContract contract = DocumentExportContractCatalog.RequireProvider("docx");
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            FormatId = contract.FormatId,
+            ProviderId = contract.ProviderId,
+            ProviderVersion = contract.ProviderVersion,
+            ContentDigest = string.Empty
+        });
+        var provider = new DocxDocumentExportProvider(new UnavailableRenderer(), DocumentExportDigest.ComputeBytes("host"u8));
+        IDocumentExportAttemptJobProvider port = provider;
+        // The real shared resource class is initially incomplete. No controlled
+        // native observations, success receipts or fabricated Complete calls.
+        var resources = new DocumentExportAttemptResources(task, input, contract.Budgets, TimeProvider.System);
+        Assert.Throws<InvalidOperationException>(() => port.CreateAttemptResources(task, input, TimeProvider.System));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => port.ExportAsync(task, input, resources, default));
+        Assert.Throws<InvalidDataException>(resources.RequireCompleted);
+        using var cancellation = new CancellationTokenSource();
+        cancellation.Cancel();
+        await Assert.ThrowsAsync<OperationCanceledException>(() => port.ExportAsync(task, input, resources, cancellation.Token));
+        await Assert.ThrowsAsync<OperationCanceledException>(() => port.VerifyAsync(null!, task, input, resources, cancellation.Token));
+        Assert.Throws<InvalidDataException>(resources.RequireCompleted);
+    }
+
+    [Fact]
+    public async Task AttemptPortRejectsAbsentOwnerRatherThanCreatingAnImplicitBudget()
+    {
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportTask task = DocumentExportContractTests.ValidTask(input);
+        var provider = new DocxDocumentExportProvider(new UnavailableRenderer(), DocumentExportDigest.ComputeBytes("host"u8));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => provider.ExportAsync(task, input, null!, default));
+        await Assert.ThrowsAsync<ArgumentNullException>(() => provider.VerifyAsync(null!, task, input, null!, default));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.VerifyAsync(null!, task, input, default));
+    }
+
     [Theory]
     [InlineData("plan")]
     [InlineData("receipt")]

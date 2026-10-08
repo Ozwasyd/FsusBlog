@@ -1,5 +1,3 @@
-using FsusBlog.Server.Services.DocumentExport.Jobs;
-
 namespace FsusBlog.Server.Services.DocumentExport;
 
 /// <summary>
@@ -7,41 +5,85 @@ namespace FsusBlog.Server.Services.DocumentExport;
 /// Generic registration and tool activation remain with the integration owner;
 /// an inactive catalog entry never produces a downloadable success result.
 /// </summary>
-public sealed class DocxDocumentExportProvider : IDocumentExportJobProvider
+public sealed class DocxDocumentExportProvider : IDocumentExportAttemptJobProvider
 {
     private readonly ICanonicalDocumentRendererAdapter _renderer;
     private readonly string _hostBuildDigest;
+    private readonly DocumentExportSandboxRuntime? _sandbox;
 
-    internal DocxDocumentExportProvider(ICanonicalDocumentRendererAdapter renderer, string expectedHostBuildDigest)
+    internal DocxDocumentExportProvider(ICanonicalDocumentRendererAdapter renderer, string expectedHostBuildDigest,
+        DocumentExportSandboxRuntime? sandbox = null)
     {
         _renderer = renderer ?? throw new ArgumentNullException(nameof(renderer));
         if (string.IsNullOrWhiteSpace(expectedHostBuildDigest))
         {
             throw new ArgumentException("DOCX requires the integration authority's frozen host build identity.", nameof(expectedHostBuildDigest));
         }
+        if (sandbox is not null && sandbox.HostBuildDigest != expectedHostBuildDigest)
+        {
+            throw new InvalidDataException("DOCX resource factory and renderer host build identities differ.");
+        }
         _hostBuildDigest = expectedHostBuildDigest;
+        _sandbox = sandbox;
     }
 
     public string ProviderId => "document-export.docx";
+
+    public DocumentExportAttemptResources CreateAttemptResources(
+        DocumentExportTask task, DocumentExportFrozenInput input, TimeProvider time)
+    {
+        ArgumentNullException.ThrowIfNull(time);
+        DocumentExportContractValidator.Validate(task, input);
+        _ = RequireActiveProvider(task.FormatId);
+        DocumentExportSandboxRuntime sandbox = _sandbox
+            ?? throw new InvalidOperationException("DOCX attempt resource factory has not been bound by the shared sandbox owner.");
+        return sandbox.CreateAttemptResources(task, input, time);
+    }
 
     public Task VerifyAsync(DocumentExportProviderResult result, DocumentExportTask task,
         DocumentExportFrozenInput input, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        throw new InvalidOperationException("DOCX job verification requires its explicit shared attempt resource owner.");
+    }
+
+    public Task<DocumentExportProviderResult> ExportAsync(
+        DocumentExportTask task, DocumentExportFrozenInput input, CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        DocumentExportContractValidator.Validate(task, input);
+        _ = RequireActiveProvider(task.FormatId);
+        throw new InvalidOperationException("DOCX job execution requires its explicit shared attempt resource owner.");
+    }
+
+    public Task VerifyAsync(DocumentExportProviderResult result, DocumentExportTask task,
+        DocumentExportFrozenInput input, DocumentExportAttemptResources resources, CancellationToken cancellationToken)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(resources);
+        DocumentExportContractValidator.Validate(task, input);
+        _ = RequireActiveProvider(task.FormatId);
         ValidateResult(result, task, input, _renderer.Tool, _hostBuildDigest, cancellationToken);
+        // Only the shared sandbox records real stage completion. This check
+        // seals the same caller-owned attempt after artifact verification.
+        resources.RequireCompleted();
         return Task.CompletedTask;
     }
 
     public async Task<DocumentExportProviderResult> ExportAsync(
-        DocumentExportTask task,
-        DocumentExportFrozenInput input,
-        CancellationToken cancellationToken = default)
+        DocumentExportTask task, DocumentExportFrozenInput input,
+        DocumentExportAttemptResources resources, CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        ArgumentNullException.ThrowIfNull(resources);
         DocumentExportFrozenInput frozen = DocumentExportContractValidator.Seal(input);
         DocumentExportContractValidator.Validate(task, frozen);
         DocumentExportProviderContract provider = RequireActiveProvider(task.FormatId);
-        CanonicalDocumentRendererResult rendered = await _renderer.RenderAsync(task, frozen, cancellationToken);
+        CanonicalDocumentRendererResult rendered = await _renderer.RenderAsync(task, frozen, resources, cancellationToken);
+        if (!ReferenceEquals(resources, rendered.AttemptResources))
+        {
+            throw new InvalidDataException("DOCX canonical renderer did not retain the supplied attempt resource owner.");
+        }
         // Renderer-stage receipts retain the final DOCX task identity. They do
         // not attest resource enforcement for the subsequent host conversion.
         DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(rendered.SandboxPlan, task, frozen, rendered.Tool, _hostBuildDigest);
@@ -54,6 +96,7 @@ public sealed class DocxDocumentExportProvider : IDocumentExportJobProvider
         }
         DocumentExportDocxProjection projection = DocumentExportDocxProjection.Create(response, frozen, cancellationToken);
         byte[] bytes = DocumentExportDocxPackage.Render(projection, cancellationToken);
+        resources.AccountHostOutputBytes(bytes.LongLength);
         string semanticDigest = DocumentExportDocxVerifier.Validate(bytes, projection, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         var unsigned = new DocumentExportProviderReceipt(
