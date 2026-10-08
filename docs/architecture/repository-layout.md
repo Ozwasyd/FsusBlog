@@ -85,7 +85,7 @@ acceptance.
 
 `config/development/memory-allocation-boundaries.json` belongs to the existing
 `development-governance` directory owner in the configuration ownership registry.
-It is inventory-only governance input and records initial
+It is inventory-only governance input and records explicit source-path families and initial
 source traces for PublicHotRead snapshots, PublicAOT file materialization, ordinary L1,
 owned AEDS frames, notification fanout, and database materialization. The established
 snapshot store, AOT commit journal, revocation boundary, queue delivery catalog,
@@ -104,6 +104,10 @@ and digests, rather than payloads or credentials. A changed source, replacement 
 altered trace, omitted match, or forged resolved count is refused.
 
 ```bash
+# Restore this package-free tool only against the installed offline SDK/cache.
+dotnet restore tools/governance/memory-syntax-observer/FsusBlog.MemorySyntaxObserver.csproj --locked-mode --source "$NUGET_PACKAGES" --ignore-failed-sources
+dotnet publish tools/governance/memory-syntax-observer/FsusBlog.MemorySyntaxObserver.csproj --no-restore -c Release --output .tmp/memory-inventory/syntax-observer
+export FSUS_MEMORY_SYNTAX_OBSERVER="$PWD/.tmp/memory-inventory/syntax-observer/FsusBlog.MemorySyntaxObserver.dll"
 node tools/governance/memory-allocation-inventory.mjs produce .tmp/memory-inventory/run.json <run-id>
 node tools/governance/memory-allocation-inventory.mjs verify .tmp/memory-inventory/run.json
 node tools/governance/memory-allocation-inventory.mjs verify .tmp/memory-inventory/run.json --require-complete
@@ -112,10 +116,17 @@ node --test tests/tools/memory-allocation-inventory.test.mjs
 
 Production creates a new file exclusively; repeat runs use new run identities and paths,
 preserving previous receipts. The ordinary reader verifies intake identity and discovery
-only. The strict command currently refuses acceptance: all lexical sites still need
-explicit family resolution, including comments, declarations, non-byte arrays, exclusions,
-requested length, actual capacity, and asynchronous release evidence. Six source traces
-are initial observations, not a complete per-family inventory or runtime qualification.
+and recorded family/syntax projection only. Every matched source path must map to exactly
+one explicit family; extra, omitted, or duplicate source assignments are refused. A new
+source match requires an explicit catalog update. The observer uses Roslyn from the installed
+.NET SDK without additional packages and records containing types/members, operation arguments,
+capacity-model limits, comments, literals, declarations, and parse-error diagnostics. Its
+assembly closure and SDK version are bound to the receipt and replayed by the reader.
+This is syntax observation, not semantic compilation or a reference-lifetime proof. Mixed
+families retain unresolved class-specific eligibility and deny all migration. The strict
+command still refuses acceptance: complete consumer/release graphs, actual capacity and
+asynchronous release evidence remain unresolved. Six detailed source traces and the remaining
+family exclusions are observations, not runtime qualification.
 The registered regression owner is the existing static-governance test topology.
 
 All future configurable memory capabilities must default to Auto: bounded discovery and
@@ -126,8 +137,9 @@ selection, and per-operation admission remain distinct. This inventory changes n
 behavior and claims no performance improvement.
 
 The current backend, Core, Shared, and Migration projects target `net10.0`. A .NET target
-or an available local toolchain does not establish product platform support. The memory
-program's release support contract and installed offline dependency closure remain
+or an available local toolchain does not establish product platform support. The catalog distinguishes the Dockerfile's `linux-musl-x64` shipping default from
+additional candidate targets and binds each row's source and required offline closure.
+The memory program's qualified release support contract and installed offline closure remain
 owner-resolution-required. Linux, Windows, and macOS on x64 and ARM64 are retained as
 NotVerified candidate rows, not asserted supported deployments; missing environments
 cannot be removed from subsequent qualification. A current Linux x64 SDK observation
