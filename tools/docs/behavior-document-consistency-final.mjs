@@ -1382,7 +1382,8 @@ function explicitScannerImportDeclaration(statement, parser, file)
     }
     const declaration = statement.declarationList.declarations[0];
     const initializer = declaration.initializer;
-    if (!parser.isObjectBindingPattern(declaration.name) || !initializer || !parser.isAwaitExpression(initializer))
+    if (!parser.isObjectBindingPattern(declaration.name) || declaration.type || declaration.exclamationToken
+        || !initializer || !parser.isAwaitExpression(initializer))
     {
         return null;
     }
@@ -1444,7 +1445,8 @@ function assertedFixtureProperties(sourceFile, parser, context)
             }
             continue;
         }
-        if (!parser.isImportDeclaration(statement) || !parser.isStringLiteral(statement.moduleSpecifier))
+        if (!parser.isImportDeclaration(statement) || !parser.isStringLiteral(statement.moduleSpecifier)
+            || statement.attributes || statement.importClause?.isTypeOnly)
         {
             continue;
         }
@@ -1460,6 +1462,10 @@ function assertedFixtureProperties(sourceFile, parser, context)
         {
             for (const binding of clause.namedBindings.elements)
             {
+                if (binding.isTypeOnly)
+                {
+                    continue;
+                }
                 registerImport(binding.name.text, modulePath, (binding.propertyName ?? binding.name).text, binding.name);
             }
         }

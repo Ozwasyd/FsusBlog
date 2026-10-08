@@ -874,6 +874,7 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['explicit-url-loader', representative, helper, explicitImports.replace('await import(', 'await loader('), true],
         ['explicit-url-no-await', representative, helper, explicitImports.replace('await import(', 'import('), true],
         ['explicit-url-mutable-binding', representative, helper, explicitImports.replace('const { scanZeroLegacyGovernance }', 'let { scanZeroLegacyGovernance }'), true],
+        ['explicit-url-type-annotation', representative, helper, explicitImports.replace('const { scanZeroLegacyGovernance }', 'const { scanZeroLegacyGovernance }: unknown'), true],
         ['explicit-url-default-binding', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ scanZeroLegacyGovernance = fakeScanner }'), true],
         ['explicit-url-rest-binding', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ ...scanZeroLegacyGovernance }'), true],
         ['explicit-url-wrong-export', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ fakeScanner: scanZeroLegacyGovernance }'), true],
@@ -881,6 +882,8 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['explicit-url-constructor-shadow', representative, helper, `${explicitImports}\nconst URL = fakeURL;`, true],
         ['explicit-url-unbound-constructor', representative, helper, explicitImports.replace("import { URL } from 'node:url';", ''), true],
         ['explicit-url-fake-constructor-import', representative, helper, explicitImports.replace("from 'node:url'", "from './fake-url.mjs'"), true],
+        ['explicit-url-type-only-constructor', representative, helper, explicitImports.replace('import { URL }', 'import type { URL }'), true],
+        ['explicit-url-attributed-constructor', representative, helper, explicitImports.replace("from 'node:url';", "from 'node:url' with { type: 'json' };"), true],
         ['explicit-url-destructured-shadow', representative, helper, `${explicitImports}\nconst { URL } = fakeURL;`, true],
         ['explicit-url-constructor-alias', representative, helper, `${explicitImports}\nconst aliased = URL;`, true],
         ['explicit-url-constructor-mutation', representative, helper, `${explicitImports}\nURL = fakeURL;`, true],
@@ -895,7 +898,10 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['explicit-url-scanner-link', representative, helper, explicitImports, true, scanner, scannerPath],
         ['explicit-url-helper-link', representative, helper, explicitImports, true, scanner, helperPath],
         ['static-scanner-link', representative, helper, imports, true, scanner, scannerPath],
-        ['static-helper-link', representative, helper, imports, true, scanner, helperPath]
+        ['static-helper-link', representative, helper, imports, true, scanner, helperPath],
+        ['static-type-only-scanner', representative, helper, imports.replace('import { scanZeroLegacyGovernance }', 'import type { scanZeroLegacyGovernance }'), true],
+        ['static-type-only-specifier', representative, helper, imports.replace('import { scanZeroLegacyGovernance }', 'import { type scanZeroLegacyGovernance }'), true],
+        ['static-attributed-scanner', representative, helper, imports.replace("from '../../tools/docs/behavior-document-consistency-final.mjs'", "from '../../tools/docs/behavior-document-consistency-final.mjs' with { type: 'json' }"), true]
     ];
     const rejectionRules = [
         'lastVerifiedCommit', 'lastReviewedCommit', 'contentBaselineSha', 'approvedContentDigest',
