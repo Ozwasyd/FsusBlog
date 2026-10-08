@@ -1,0 +1,135 @@
+{
+  "sourceSha": "92859e5bc8fb900c5e472ccfceae6103e1333b0a",
+  "expectedCount": 4,
+  "cases": [
+    {
+      "executionId": "c282b342-b061-422d-86c9-f0b2cb7d3685",
+      "testId": "c80df979-c184-b7a9-2fb1-64e939f2f98a",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticlePropertySingleSelectStorageTests.Read_RejectsEmptyStoredSingleSelect",
+      "computerName": "601a5d1b8c90",
+      "duration": "00:00:00.0011379",
+      "startTime": "2026-10-08T14:49:22.2773979+00:00",
+      "endTime": "2026-10-08T14:49:22.2774948+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "c282b342-b061-422d-86c9-f0b2cb7d3685"
+    },
+    {
+      "executionId": "7c580e3b-4774-41e0-a5bb-fc03ad2aabce",
+      "testId": "4be3299a-0e93-6bd1-5e04-810ce02d705b",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticlePropertySingleSelectStorageTests.Storage_PreservesNonemptyHistoricalSingleSelectAndDefaultOrigin",
+      "computerName": "601a5d1b8c90",
+      "duration": "00:00:00.0102056",
+      "startTime": "2026-10-08T14:49:22.2737119+00:00",
+      "endTime": "2026-10-08T14:49:22.2762370+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "7c580e3b-4774-41e0-a5bb-fc03ad2aabce"
+    },
+    {
+      "executionId": "25e8cae9-9581-4f98-ae50-10eae615d3a3",
+      "testId": "9c06eb8b-432c-890d-bd37-4a3e82736b44",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticlePropertySingleSelectStorageTests.Read_PreservesNonemptyHistoricalSingleSelect",
+      "computerName": "601a5d1b8c90",
+      "duration": "00:00:00.0147902",
+      "startTime": "2026-10-08T14:49:22.2186581+00:00",
+      "endTime": "2026-10-08T14:49:22.2395703+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "25e8cae9-9581-4f98-ae50-10eae615d3a3"
+    },
+    {
+      "executionId": "f4d9ac3d-7bbc-447b-8248-391ff13ca4fd",
+      "testId": "fe5c0e87-e9dd-3fb7-ec09-1a9a523cbd3b",
+      "testName": "FsusBlog.Server.Tests.Unit.ArticlePropertySingleSelectStorageTests.Storage_RejectsEmptySingleSelectEvenWithMatchingDigest",
+      "computerName": "601a5d1b8c90",
+      "duration": "00:00:00.0133838",
+      "startTime": "2026-10-08T14:49:22.2728688+00:00",
+      "endTime": "2026-10-08T14:49:22.2729841+00:00",
+      "testType": "13cdc9d9-ddb5-4fa4-a97d-d965ccfc6d4b",
+      "outcome": "Passed",
+      "testListId": "8c84fa94-04c1-424b-9868-57a2d4851a1d",
+      "relativeResultsDirectory": "f4d9ac3d-7bbc-447b-8248-391ff13ca4fd"
+    }
+  ],
+  "commands": [
+    {
+      "stage": "restore",
+      "exit": 0
+    },
+    {
+      "stage": "build",
+      "exit": 0
+    },
+    {
+      "stage": "discovery",
+      "exit": 0
+    },
+    {
+      "stage": "focusedTests",
+      "exit": 0
+    }
+  ],
+  "boundInputs": 1207,
+  "inputsStable": true,
+  "dlls": {
+    ".tmp/property-single-select/bin/Release/net10.0/FsusBlog.Server.Tests.dll": "412b123174defc66b881b662b116ae135ea71093912c0d2b46e8cd0480f61871",
+    ".tmp/property-single-select/bin/Release/net10.0/FsusBlog.Shared.dll": "846816e6f2ed89a4380dda52b289e4152d386ec9e4e494555589df4c205c84cf",
+    ".tmp/property-single-select/bin/Release/net10.0/FsusBlog.Core.dll": "d018e02d7b4b43dfb4f5e26dc70090d840b77b75171821e559438efebd5bf7e9",
+    ".tmp/property-single-select/bin/Release/net10.0/FsusBlog.Server.dll": "809b87683ba8dc47bac01b658799ca5ff589ee7972728aca0474050d159f7167"
+  },
+  "limits": "Direct real production storage/read helpers only, not database/HTTP/runtime acceptance or replacement of original148.",
+  "old148": "No existing tests changed or removed; earlier148 evidence remains bound to its original candidate; revised148/full14 review is pending SAME reviewer.",
+  "rawEvidenceRoot": "/workspace/FsusBlog-prereq3665/.tmp/property-single-select",
+  "rawEvidence": [
+    {
+      "path": "after.json",
+      "sha256": "e55ca62ff30454bf0e494d6f4cc17d5fc4712745f6a61962026c38cb16c17403"
+    },
+    {
+      "path": "before.json",
+      "sha256": "e55ca62ff30454bf0e494d6f4cc17d5fc4712745f6a61962026c38cb16c17403"
+    },
+    {
+      "path": "build-command.json",
+      "sha256": "782587a7dab5897533573fce4103fc88700c27a4eb85236bf1b8fd7f52d9165a"
+    },
+    {
+      "path": "discovery-command.json",
+      "sha256": "fbf0703fc9f718902ecd6528212284df9b7fb6d305f4d719e1954ea863daa0bf"
+    },
+    {
+      "path": "dlls-before.json",
+      "sha256": "03e33ea97779300a86fa7f61d4544b35a9461552ca78a50eb74c05a2e26b013d"
+    },
+    {
+      "path": "packages.lock.json",
+      "sha256": "20fcfdb1cfedf0f9b841b26ef30b38df4ecfd1103cfac462740f508b74558374"
+    },
+    {
+      "path": "plan.json",
+      "sha256": "694d7450fcb5e7ef9b99cbb713def2a1ce9a5bc30a3f5e6c27d3bd4ca4ade640"
+    },
+    {
+      "path": "restore-command.json",
+      "sha256": "6131d431a650676e7be07ef1711d8c4a0bd768b66f4aee7dc36284bbea5c6a37"
+    },
+    {
+      "path": "summary.json",
+      "sha256": "b791c0ed060ddb573c7c8466de951d470596200395e87ab6a8b95e83b4550c2a"
+    },
+    {
+      "path": "test-command.json",
+      "sha256": "5d1c1d4abbdad7c4d56de8c2b73a5aeee62317302c33c4ffa405d9f7177c5efd"
+    },
+    {
+      "path": "results/focused.trx",
+      "sha256": "42d0967725d8194d4670d16f992fcbc61a0a0ee1540ef760e177f9dceef8cab2"
+    }
+  ],
+  "branch": "codex/prerequisite-3665-current-master-20261008",
+  "reviewHandoff": "Return revised complete14-file closure to SAME reviewer; previous14-file candidate frozen and original148 evidence not transferred to new source."
+}
