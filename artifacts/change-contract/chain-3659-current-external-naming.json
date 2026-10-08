@@ -1,0 +1,49 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
+        },
+        {
+            "id": "post-runtime-observation-authority",
+            "paths": [
+                "config/contracts/behavior-contracts.json",
+                "docs/development/behavior-contracts.generated.md",
+                "src/shared/Contracts/Governance/BehaviorContractCatalog.g.cs"
+            ],
+            "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "config/testing/correctness-attempt-producers.json",
+                "tests/governance/test-lifecycle-registry.json",
+                "tools/docs/check-document-claim-migration-ledger.mjs"
+            ],
+            "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/docs/behavior-document-consistency-final.mjs",
+                "tools/docs/global-claim-exactness-final.mjs",
+                "tools/docs/post-runtime-accepted-claims.mjs",
+                "tools/test-matrix/post-runtime-producer-registry.mjs",
+                "tools/test/correctness-attempt-migration.mjs"
+            ],
+            "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
+        }
+    ]
+}
