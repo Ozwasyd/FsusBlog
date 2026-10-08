@@ -5,12 +5,16 @@
         "tools/configuration/cpp-source.test.mjs",
         "tools/test-matrix/pr-impact-plan.mjs",
         "tools/test-matrix/source-governance.mjs",
-        "tests/tools/pr-impact-plan.test.mjs"
+        "tests/tools/pr-impact-plan.test.mjs",
+        "tools/test-matrix/blame-ignore-source.mjs",
+        "tests/tools/blame-ignore-source.test.mjs",
+        "config/testing/release-final-execution-authority-index.json",
+        "tests/tools/release-final-static-boundary.test.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "c28ac9ebdf5d38e4f8ac39e0b6e1f46873368bcf3e27ddd3460c96f501b41cee"
+            "sha256": "61874a90de506e4a8cf363392e3bb4beb349bab833c2b95637173583d9047f2d"
         }
     ]
 }
