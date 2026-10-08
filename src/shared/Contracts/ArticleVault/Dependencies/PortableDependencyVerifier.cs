@@ -21,6 +21,11 @@ public static class PortableDependencyVerifier
         {
             return Invalid("manifest_invalid");
         }
+        if (manifest.Nodes.Count > ArticleEmbedResolutionBudgetLimits.ExpandedNodesBound
+            || manifest.Edges.Count > ArticleEmbedResolutionBudgetLimits.AuthorityMessagesBound)
+        {
+            return Invalid("size_exceeded");
+        }
         foreach (VaultArticleCoordinate? coordinate in new[]
         {
             manifest.Coordinates.Base, manifest.Coordinates.Local, manifest.Coordinates.Server
@@ -28,6 +33,9 @@ public static class PortableDependencyVerifier
         {
             if (coordinate is null || coordinate.Schema != ArticleVaultSchemas.Coordinate
                 || coordinate.SchemaVersion != ArticleVaultSchemas.Version
+                || (coordinate.Source is not null && (!Enum.IsDefined(coordinate.Source.NewlineStyle)
+                    || !ArticleEmbedContractDigest.IsSha256(coordinate.Source.Sha256)
+                    || coordinate.Source.ByteLength < 0 || coordinate.Source.TrailingWhitespaceLineCount < 0))
                 || !ArticleEmbedContractDigest.IsSha256(coordinate.ContentSha256)
                 || coordinate.ContentSha256 != ArticleVaultManifestCodec.ComputeContentSha256(coordinate))
             {
@@ -58,6 +66,7 @@ public static class PortableDependencyVerifier
         foreach (VaultDependencyEdge? edge in manifest.Edges)
         {
             if (edge is null || !Enum.IsDefined(edge.Kind)
+                || edge.PrerequisiteKey is null || edge.DependentKey is null
                 || !nodes.ContainsKey(edge.PrerequisiteKey) || !nodes.ContainsKey(edge.DependentKey)
                 || edge.PrerequisiteKey == edge.DependentKey)
             {
@@ -88,6 +97,7 @@ public static class PortableDependencyVerifier
         ArticleVaultArticleManifest? article,
         ReadOnlySpan<byte> sourceBytes,
         IReadOnlyList<VaultDependencyNode>? currentAuthorityNodes,
+        IReadOnlyList<VaultDependencyEdge>? currentAuthorityEdges,
         string currentRelationSha256,
         ArticleEmbedResolutionBudgetLimits? budgets,
         TimeProvider? timeProvider = null)
@@ -130,6 +140,15 @@ public static class PortableDependencyVerifier
                 return Invalid("authority_ambiguous");
             }
         }
+        if (currentAuthorityEdges is null || currentAuthorityEdges.Any(static edge => edge is null)
+            || currentAuthorityEdges.Count != manifest.Edges.Count
+            || !currentAuthorityEdges.OrderBy(static edge => edge.PrerequisiteKey, StringComparer.Ordinal)
+                .ThenBy(static edge => edge.DependentKey, StringComparer.Ordinal).ThenBy(static edge => edge.Kind)
+                .SequenceEqual(manifest.Edges.OrderBy(static edge => edge.PrerequisiteKey, StringComparer.Ordinal)
+                    .ThenBy(static edge => edge.DependentKey, StringComparer.Ordinal).ThenBy(static edge => edge.Kind)))
+        {
+            return Invalid("relation_edges_drift");
+        }
         foreach (VaultDependencyNode node in manifest.Nodes)
         {
             if (!current.TryGetValue(PortableDependencyCodec.NodeKey(node), out string? digest)
@@ -149,12 +168,17 @@ public static class PortableDependencyVerifier
         TimeProvider? timeProvider = null)
     {
         order = [];
+        TimeProvider time = timeProvider ?? TimeProvider.System;
+        long started = time.GetTimestamp();
+        ArticleVaultValidationResult structure = ValidateStructure(manifest);
+        if (!structure.IsValid)
+        {
+            return structure;
+        }
         if (!ArticleEmbedAuthoringContractValidator.ValidateBudgets(budgets).IsValid)
         {
             return Invalid("budgets_invalid");
         }
-        TimeProvider time = timeProvider ?? TimeProvider.System;
-        long started = time.GetTimestamp();
         if (manifest.Nodes.Count > budgets!.MaxExpandedNodes || manifest.Edges.Count > budgets.MaxAuthorityMessages)
         {
             return Invalid("size_exceeded");
@@ -251,11 +275,13 @@ public static class PortableDependencyVerifier
                 && asset.WidthPixels is not <= 0 && asset.HeightPixels is not <= 0
                 && (asset.WidthPixels is null) == (asset.HeightPixels is null),
             VaultLinkDependency link => ArticleEmbedTargetCodec.Validate(link.Target).IsValid
+                && IsTargetBinding(link.TargetBinding, link.Target.PortableArticleIdentity, binding)
                 && ArticleEmbedContractDigest.IsSha256(link.MappingSha256),
             VaultAnchorDependency anchor => BlockAnchorContractValidator.Validate(anchor.Target).IsValid
                 && anchor.Target.ArticleIdentity == binding.PortableArticleIdentity
                 && anchor.AnchorContractSha256 == BlockAnchorSchemas.ContractDigest,
             VaultFrozenEmbedDependency embed => ArticleEmbedContractValidator.Validate(embed.Coordinate).IsValid
+                && IsTargetBinding(embed.TargetBinding, embed.Coordinate.Target.PortableArticleIdentity, binding)
                 && ArticleEmbedContractDigest.IsSha256(embed.PublicationReceiptSha256)
                 && embed.FrozenSourceByteLength >= 0,
             _ => false
@@ -270,6 +296,10 @@ public static class PortableDependencyVerifier
             VaultDependencySourceSide.Local => manifest.Coordinates.Local,
             _ => manifest.Coordinates.Server
         };
+
+    private static bool IsTargetBinding(VaultDependencyBinding? target, string articleIdentity, VaultDependencyBinding host)
+        => target is not null && target.SiteIdentity == host.SiteIdentity && target.VaultIdentity == host.VaultIdentity
+            && target.PortableArticleIdentity == articleIdentity;
 
     private static bool IsBinding(VaultDependencyBinding binding)
         => !string.IsNullOrEmpty(binding.SiteIdentity) && !string.IsNullOrEmpty(binding.VaultIdentity)

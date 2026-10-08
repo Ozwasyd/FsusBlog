@@ -1,0 +1,541 @@
+{
+    "$schema": "https://json-schema.org/draft/2020-12/schema",
+    "$id": "https://fsusblog.local/contracts/portable-dependency-manifest.schema.json",
+    "title": "Portable content dependency manifest and immutable Vault plan extension",
+    "description": "One closed portable format for package export/import and Vault. Canonical adapters supply authorities; validation never scans source, DOM or HTML and never resolves URLs or paths. Runtime verifier binds exact graph/rights/coordinates and canonical budgets.",
+    "$comment": "Asset identity is the backend registered AssetId.Value. No asset identity parser or storage authority is introduced here.",
+    "oneOf": [
+        {
+            "$ref": "#/$defs/manifest"
+        },
+        {
+            "$ref": "#/$defs/plan"
+        }
+    ],
+    "$defs": {
+        "sha256": {
+            "type": "string",
+            "pattern": "^[0-9a-f]{64}$"
+        },
+        "binding": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "siteIdentity",
+                "vaultIdentity",
+                "portableArticleIdentity"
+            ],
+            "properties": {
+                "siteIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/identity"
+                },
+                "vaultIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/identity"
+                },
+                "portableArticleIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-embed-contract.schema.json#/$defs/portableArticleIdentity"
+                }
+            }
+        },
+        "admission": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "permission",
+                "requiredRights",
+                "grantedRights",
+                "permissionSha256",
+                "rightsSha256",
+                "authoritySha256"
+            ],
+            "properties": {
+                "permission": {
+                    "const": "allowed"
+                },
+                "requiredRights": {
+                    "enum": [
+                        "read",
+                        "reference",
+                        "read, reference",
+                        "materialize",
+                        "read, materialize",
+                        "reference, materialize",
+                        "read, reference, materialize",
+                        "upload",
+                        "read, upload",
+                        "reference, upload",
+                        "read, reference, upload",
+                        "materialize, upload",
+                        "read, materialize, upload",
+                        "reference, materialize, upload",
+                        "read, reference, materialize, upload"
+                    ]
+                },
+                "grantedRights": {
+                    "enum": [
+                        "read",
+                        "reference",
+                        "read, reference",
+                        "materialize",
+                        "read, materialize",
+                        "reference, materialize",
+                        "read, reference, materialize",
+                        "upload",
+                        "read, upload",
+                        "reference, upload",
+                        "read, reference, upload",
+                        "materialize, upload",
+                        "read, materialize, upload",
+                        "reference, materialize, upload",
+                        "read, reference, materialize, upload"
+                    ]
+                },
+                "permissionSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "rightsSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "authoritySha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "edge": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "prerequisiteKey",
+                "dependentKey",
+                "kind"
+            ],
+            "properties": {
+                "prerequisiteKey": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "dependentKey": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "kind": {
+                    "enum": [
+                        "requires",
+                        "frozen-requires"
+                    ]
+                }
+            }
+        },
+        "coordinates": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "base",
+                "local",
+                "server"
+            ],
+            "properties": {
+                "base": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/coordinate"
+                },
+                "local": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/coordinate"
+                },
+                "server": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/coordinate"
+                }
+            }
+        },
+        "asset": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "binding",
+                "admission",
+                "assetIdentity",
+                "contentSha256",
+                "mimeType",
+                "extension",
+                "sizeBytes",
+                "widthPixels",
+                "heightPixels",
+                "ownerAdminPrincipalId",
+                "serverRevision"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "asset"
+                },
+                "binding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "admission": {
+                    "$ref": "#/$defs/admission"
+                },
+                "assetIdentity": {
+                    "type": "string",
+                    "format": "uuid",
+                    "pattern": "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$"
+                },
+                "contentSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "mimeType": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "extension": {
+                    "type": "string",
+                    "minLength": 1
+                },
+                "sizeBytes": {
+                    "type": "integer",
+                    "minimum": 0
+                },
+                "widthPixels": {
+                    "oneOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "heightPixels": {
+                    "oneOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "ownerAdminPrincipalId": {
+                    "oneOf": [
+                        {
+                            "type": "integer",
+                            "minimum": 1
+                        },
+                        {
+                            "type": "null"
+                        }
+                    ]
+                },
+                "serverRevision": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            }
+        },
+        "link": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "binding",
+                "admission",
+                "target",
+                "targetBinding",
+                "mappingSha256"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "link"
+                },
+                "binding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "admission": {
+                    "$ref": "#/$defs/admission"
+                },
+                "target": {
+                    "$ref": "https://fsusblog.local/contracts/article-embed-contract.schema.json#/$defs/target"
+                },
+                "targetBinding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "mappingSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "anchor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "binding",
+                "admission",
+                "target",
+                "anchorContractSha256"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "anchor"
+                },
+                "binding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "admission": {
+                    "$ref": "#/$defs/admission"
+                },
+                "target": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "articleIdentity",
+                        "anchorId"
+                    ],
+                    "properties": {
+                        "articleIdentity": {
+                            "$ref": "https://fsusblog.local/contracts/article-embed-contract.schema.json#/$defs/portableArticleIdentity"
+                        },
+                        "anchorId": {
+                            "$ref": "https://fsusblog.local/contracts/article-embed-contract.schema.json#/$defs/blockAnchor"
+                        }
+                    }
+                },
+                "anchorContractSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "frozenEmbed": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "kind",
+                "binding",
+                "admission",
+                "coordinate",
+                "targetBinding",
+                "publicationReceiptSha256",
+                "frozenSourceByteLength"
+            ],
+            "properties": {
+                "kind": {
+                    "const": "frozen-embed"
+                },
+                "binding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "admission": {
+                    "$ref": "#/$defs/admission"
+                },
+                "coordinate": {
+                    "$ref": "https://fsusblog.local/contracts/article-embed-contract.schema.json#/$defs/dependencyCoordinate"
+                },
+                "targetBinding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "publicationReceiptSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "frozenSourceByteLength": {
+                    "type": "integer",
+                    "minimum": 0
+                }
+            }
+        },
+        "node": {
+            "oneOf": [
+                {
+                    "$ref": "#/$defs/asset"
+                },
+                {
+                    "$ref": "#/$defs/link"
+                },
+                {
+                    "$ref": "#/$defs/anchor"
+                },
+                {
+                    "$ref": "#/$defs/frozenEmbed"
+                }
+            ]
+        },
+        "manifest": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "schemaVersion",
+                "binding",
+                "serverArticleIdentity",
+                "coordinates",
+                "sourceSide",
+                "source",
+                "relationSha256",
+                "nodes",
+                "edges",
+                "graphSha256",
+                "contentSha256"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.portable-dependency-manifest.v1"
+                },
+                "schemaVersion": {
+                    "const": 1
+                },
+                "binding": {
+                    "$ref": "#/$defs/binding"
+                },
+                "serverArticleIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/nullableIdentity"
+                },
+                "coordinates": {
+                    "$ref": "#/$defs/coordinates"
+                },
+                "sourceSide": {
+                    "enum": [
+                        "base",
+                        "local",
+                        "server"
+                    ]
+                },
+                "source": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/source"
+                },
+                "relationSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "nodes": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/node"
+                    }
+                },
+                "edges": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/edge"
+                    }
+                },
+                "graphSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "contentSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        },
+        "budgets": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "maxDepth",
+                "maxExpandedNodes",
+                "maxSourceBytes",
+                "maxElapsedMilliseconds",
+                "maxAuthorityMessages"
+            ],
+            "properties": {
+                "maxDepth": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "maxExpandedNodes": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "maxSourceBytes": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "maxElapsedMilliseconds": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "maxAuthorityMessages": {
+                    "type": "integer",
+                    "minimum": 1
+                }
+            },
+            "description": "Bounds and enforcement exclusively consume ArticleEmbedAuthoringContractValidator.ValidateBudgets and ArticleEmbedResolutionBudgetLimits; this schema does not define a second budget table."
+        },
+        "planItem": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "operationIdentity",
+                "groupIdentity",
+                "portableArticleIdentity",
+                "manifest",
+                "dependencyOrder"
+            ],
+            "properties": {
+                "operationIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/identity"
+                },
+                "groupIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/identity"
+                },
+                "portableArticleIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-embed-contract.schema.json#/$defs/portableArticleIdentity"
+                },
+                "manifest": {
+                    "$ref": "#/$defs/manifest"
+                },
+                "dependencyOrder": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/sha256"
+                    }
+                }
+            }
+        },
+        "plan": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "schemaVersion",
+                "syncPlanSha256",
+                "siteIdentity",
+                "vaultIdentity",
+                "budgets",
+                "items",
+                "operationOrder",
+                "contentSha256"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.article-vault.dependency-plan.v1"
+                },
+                "schemaVersion": {
+                    "const": 1
+                },
+                "syncPlanSha256": {
+                    "$ref": "#/$defs/sha256"
+                },
+                "siteIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/identity"
+                },
+                "vaultIdentity": {
+                    "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/identity"
+                },
+                "budgets": {
+                    "$ref": "#/$defs/budgets"
+                },
+                "items": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/$defs/planItem"
+                    }
+                },
+                "operationOrder": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "https://fsusblog.local/contracts/article-vault-article-manifest.schema.json#/$defs/identity"
+                    }
+                },
+                "contentSha256": {
+                    "$ref": "#/$defs/sha256"
+                }
+            }
+        }
+    }
+}
