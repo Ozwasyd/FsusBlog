@@ -887,7 +887,8 @@ export class ArticleDocumentContextAdapter implements ArticleDocumentTaskRegistr
 
     public isCurrentContext(context: ArticleDocumentContext): boolean
     {
-        return validateArticleDocumentContext(context)
+        return !this.disposed
+            && validateArticleDocumentContext(context)
             && context.contextDigest === this.current.contextDigest;
     }
 
