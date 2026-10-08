@@ -18,14 +18,20 @@
                 "src/shared/Contracts/ArticleVault/ArticleVaultConflictRegistry.cs",
                 "src/shared/Contracts/ArticleVault/ArticleVaultConflictVerifier.cs",
                 "tools/governance/check-article-vault-conflicts.mjs",
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "src/article-vault/linux/LinuxVaultRootPathScope.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureContracts.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultPathStructureValidator.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultScalarMetadataMerge.cs",
+                "src/shared/Contracts/ArticleVault/ArticleVaultSourceAdmission.cs"
             ],
             "reason": "Preserve external process environment and protocol spellings while new internal C# and JavaScript symbols follow repository naming conventions."
         },
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/api/contracts.md"
+                "docs/api/contracts.md",
+                "docs/architecture/article-vault-linux-watcher.md"
             ],
             "reason": "Preserve caller-visible documented DOM/token spelling and existing document identifiers; regenerate the testing projection through its original producer."
         },

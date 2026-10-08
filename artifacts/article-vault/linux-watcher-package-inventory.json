@@ -17,7 +17,8 @@
             "src/article-vault/linux/LinuxVaultWatchContracts.cs",
             "src/article-vault/linux/LinuxVaultWatcherSession.cs",
             "src/article-vault/linux/LinuxVaultRootVerifier.cs",
-            "src/article-vault/linux/InotifyNative.cs"
+            "src/article-vault/linux/InotifyNative.cs",
+            "src/article-vault/linux/LinuxVaultRootPathScope.cs"
         ]
     },
     "publicSymbols": [
@@ -32,7 +33,8 @@
         "FsusBlog.ArticleVault.Linux.LinuxVaultRawFact",
         "FsusBlog.ArticleVault.Linux.LinuxVaultRawFactCodec",
         "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherSession",
-        "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException"
+        "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException",
+        "FsusBlog.ArticleVault.Linux.LinuxVaultRootPathScope"
     ],
     "nativeBoundary": {
         "library": "libc",
@@ -54,10 +56,12 @@
             "tests/article-vault/linux/LinuxVaultAgentQualificationTests.cs",
             "tests/article-vault/linux/LinuxVaultRawFactContractTests.cs",
             "tests/article-vault/linux/LinuxVaultRootSecurityTests.cs",
-            "tests/article-vault/linux/LinuxVaultWatcherExt4Tests.cs"
+            "tests/article-vault/linux/LinuxVaultWatcherExt4Tests.cs",
+            "tests/article-vault/linux/LinuxVaultRootPathScopeTests.cs"
         ],
         "qualificationCommand": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultAgentQualification",
-        "focusedCommand": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultWatcher"
+        "focusedCommand": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultWatcher",
+        "rootPathCommand": "dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultRootPath"
     },
     "documentation": "docs/architecture/article-vault-linux-watcher.md",
     "forbiddenDependencies": [

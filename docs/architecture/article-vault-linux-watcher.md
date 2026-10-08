@@ -104,3 +104,40 @@ independently verifiable with:
 ```bash
 node tools/test/verify-linux-vault-agent-qualification.mjs --receipt .tmp/article-vault-linux-qualification/<run>/receipt.json
 ```
+
+## Root-relative path inspection
+
+The #2109 `LinuxVaultRootPathScope` is part of the same Linux package. Its private
+constructor accepts only the root returned by the existing
+`LinuxVaultRootVerifier.Verify`; callers cannot reconstruct it from a structural
+digest or caller-verified native facts. `Open` snapshots the canonical manifest
+and admits the explicitly chosen root through that verifier without allocating a
+watcher. Subsequent `AnalyzeProjection` requests take only relative projections,
+recheck the admitted root/control-manifest binding and use the existing native
+relative-path verifier. No source body is read or written, and no watcher,
+normalization, materialization, IPC or server writer is added.
+
+The shared `ArticleVaultPathStructureValidator` produces bounded, deterministic
+structural classification for manifest source/control projections. Unknown editor
+temp/backup/lock files block instead of disappearing through generic ignore rules.
+Path shape, case/Unicode/ancestor collisions, two portable IDs assigned to the
+same path and a file used as an ancestor produce explicit blocked facts. Digests
+bind scope, fixed registry, original spellings and observation inventory; the
+independent verifier takes its expected request and inventory from consumer
+context. It never constructs native authority. Every structural analysis retains
+`RequiresNativeAdmission=true`, including one returned after native inspection:
+future content access needs fresh verification at its own use boundary.
+
+The original Linux project registers the dedicated owner filter in the existing
+package inventory:
+
+```bash
+dotnet test tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj --no-restore --filter Category=LinuxArticleVaultRootPath
+```
+
+Windows NTFS and macOS APFS native admission remain unimplemented. Existing Linux
+filesystem semantics and control-manifest checks do not prove exclusive agent
+control-tree ownership, race-free future content access or full #2109/platform
+qualification. Unsupported filesystem and realpath/mount/link/permission failures
+remain native denials, never structural fallback success. Current acceptance must
+be bound to the actual candidate and host; no native pass is asserted here.
