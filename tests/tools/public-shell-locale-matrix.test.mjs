@@ -100,6 +100,14 @@ test('negotiation plans bind canonical wildcard and account/device cookie semant
     assert.equal(wildcard.locale, matrix.locales[0].code);
     assert.deepEqual(matrix.negotiationCoverage.disabledLocales, []);
     assert.equal(matrix.negotiationCoverage.disabledLocaleGate, 'no-disabled-entry-in-current-catalog');
+    for (const kind of ['unknown-cookie', 'corrupt-cookie'])
+    {
+        const fallback = matrix.negotiationCases.find((item) => item.id === `default/${kind}`);
+        assert.equal(fallback.header, null);
+        assert.equal(fallback.locale, matrix.defaultLocale);
+        assert.equal(fallback.source, 'default');
+        assert.equal(fallback.matchedRange, '');
+    }
     for (const locale of matrix.locales)
     {
         const cases = matrix.negotiationCases.filter((item) => item.id.startsWith(`${locale.code}/`));

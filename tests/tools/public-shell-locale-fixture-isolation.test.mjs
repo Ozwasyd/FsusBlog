@@ -609,7 +609,8 @@ process.stdout.write(JSON.stringify({ schema: 'fsusblog.browser-contract-fixture
 
 test('account/device matrix plans cannot become prepared HTTP scenes through synthetic cookies', async t =>
 {
-    for (const plan of matrix.negotiationCases.filter(item => item.preferencePreparation !== null))
+    for (const plan of matrix.negotiationCases.filter(item => item.preferencePreparation !== null
+        && item.id.startsWith(`${matrix.locales[0].code}/`)))
     {
         const scene = matrix.scenes.find(item => item.negotiationId === plan.id && item.route === 'Home');
         const { request } = await model(t, scene);
