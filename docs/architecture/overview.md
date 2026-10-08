@@ -117,6 +117,24 @@ Preview and compare tasks use canonical document leases; release cancels the
 owned tool, continuity, cache and attachment work without releasing borrowed
 owners. Tool-result admission still requires the current live binding context.
 
+The production Writer now binds that same port after mount and consumes its public
+transaction, selection and host-focus events. It does not dispatch initialization
+on mount because the native transaction restores focus asynchronously and would
+steal initial title focus. Inspector commands opened without a rail trigger retain
+one return action in the existing inspector owner: it dispatches a public no-change,
+history-skipping transaction on the captured live port only while the document
+digest, bound instance and availability remain current. Explicit rail triggers
+retain their own focus target, and reopening invalidates delayed close restoration.
+No private editor element, copied selection/history store, or viewport completion
+receipt is introduced.
+
+Writer consumer retention is bounded to 4 MiB per retained result, 60 seconds and
+64 receipts. These are storage bounds, not automatic-render eligibility thresholds
+or a performance qualification. The existing refresh-policy owner still decides
+render eligibility. This event hookup does not yet present a retained result on
+the native editor surface, invoke automatic rendering, acknowledge viewport offset,
+or complete surface/tool continuity acceptance.
+
 Initialization uses a public selection-only transaction with the current document
 identity and expected revision. A fresh FsusUI editor at revision zero cannot bind
 a retained advanced document owner and fails closed. This composition neither

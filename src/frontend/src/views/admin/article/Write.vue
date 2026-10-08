@@ -171,6 +171,9 @@
                                 @draft-save="saveDraftNow"
                                 @submit="requestSubmit"
                                 @upload-img="handleUploadImg"
+                                @transaction="consumeAuthoringTransaction"
+                                @selection-change="consumeAuthoringSelection"
+                                @editor-focus="consumeAuthoringFocus"
                             >
                                 <template #secondary-action>
                                     <ArticleAuthorCommandEntry
@@ -779,9 +782,12 @@ import {
     type ArticleWriteInspectorView
 } from '@/composables/useArticleWriteInspector';
 import { useArticleWriteInspectorCommands } from '@/composables/useArticleWriteInspectorCommands';
+import type { MarkdownEditorDispatchResult, MarkdownEditorResolvedSelection } from '@/fsusui/articlePositionMaps';
 import type { FsusUiAuthoringSurfaceOptions } from '@/fsusui/authoringCommands';
-import { translate } from '@/locales';
+import { activeLocale, translate } from '@/locales';
 import { ARTICLE_RECOVERY_JOURNAL_PRIVACY_NOTICE } from '@/services/articleRecoveryJournal';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import type { ArticleEditorRuntimeBinding } from '@/services/authoring/articleEditorRuntimeBinding';
 import {
     articleWorkspaceTabRouter,
     createArticleWorkspaceOpenInput
@@ -791,6 +797,8 @@ import type {
     ArticleDocumentIdentity,
     ArticleWorkspaceStatusSummary
 } from '@/services/authoring/openArticleDocumentRegistry';
+import { calculateOpenArticleDocumentDigest } from '@/services/authoring/openArticleDocumentRegistry';
+import { useThemeRuntime } from '@/services/themeRuntime';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast } from '@/utils/errorPresentation';
 
@@ -854,6 +862,8 @@ const {
     articleForm,
     authoringDocumentContext,
     authoringDocumentIdentity,
+    authoringDocumentContextAdapter,
+    authoringEditorRuntime,
     currentRevisionId,
     currentRevisionNo,
     articleRightsUsingSiteDefaults,
@@ -1066,6 +1076,7 @@ const quickCategoryInputRef = ref<{ focus?: () => void; } | null>(null);
 const quickTagInputRef = ref<{ focus?: () => void; } | null>(null);
 const coverInputRef = ref<HTMLInputElement | null>(null);
 const articleEditorRef = ref<{
+    getAuthoringEditorPort: () => ArticleEditorContinuityPort | null;
     insertMarkdownAtCursor?: (markdown: string) => boolean;
     openCommandPalette: () => void;
 } | null>(null);
@@ -1074,6 +1085,112 @@ const submitConfirmDialog = ref(false);
 const leaveConfirmDialog = ref(false);
 const authoringModalActive = computed(() => quickCreateCategoryDialog.value || quickCreateTagDialog.value ||
     submitConfirmDialog.value || leaveConfirmDialog.value);
+const authoringTheme = useThemeRuntime();
+const authoringAdmin = useAdminStore();
+let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
+let boundEditorPort: ArticleEditorContinuityPort | null = null;
+let releaseEditorRuntime: (() => void) | null = null;
+let editorBindingGeneration = 0;
+
+watch(articleEditorRef, () =>
+{
+    const generation = ++editorBindingGeneration;
+    releaseEditorRuntime?.();
+    releaseEditorRuntime = null;
+    editorRuntimeBinding = null;
+    boundEditorPort = null;
+    void nextTick().then(() =>
+    {
+        if (generation !== editorBindingGeneration)
+        {
+            return;
+        }
+        const port = articleEditorRef.value?.getAuthoringEditorPort();
+        if (!port)
+        {
+            return;
+        }
+        // Consumer retention bounds; automatic-render eligibility remains owned by the refresh policy.
+        const bound = authoringEditorRuntime.bindEditor(port, {
+            surface: 'source',
+            configuration: { allowLatex: true, allowMermaid: true, baseUrl: null },
+            identity: { themeDigest: calculateOpenArticleDocumentDigest({ theme: authoringTheme.resolvedTheme.value }),
+                        locale: activeLocale.value },
+            cachePolicy: { maxEntryBytes: 4 * 1024 * 1024, maxAgeMs: 60_000, maxReceipts: 64 }
+        });
+        boundEditorPort = port;
+        editorRuntimeBinding = bound.binding;
+        releaseEditorRuntime = bound.release;
+        // Observe actual editor events; initialization dispatch would steal initial title focus.
+    });
+}, { flush: 'post' });
+onUnmounted(() =>
+{
+    editorBindingGeneration += 1;
+    releaseEditorRuntime?.();
+    editorRuntimeBinding = null;
+    boundEditorPort = null;
+});
+
+function consumeAuthoringTransaction(event: MarkdownEditorDispatchResult): void
+{
+    editorRuntimeBinding?.consumeTransaction(event);
+}
+
+function consumeAuthoringSelection(event: {
+    documentIdentity?: { id: string; epoch: number; };
+    revision: number;
+    selection: MarkdownEditorResolvedSelection;
+}): void
+{
+    if (event.documentIdentity)
+    {
+        editorRuntimeBinding?.consumeSelection({ ...event, documentIdentity: event.documentIdentity });
+    }
+}
+
+function consumeAuthoringFocus(event: 'focusin' | 'focusout'): void
+{
+    editorRuntimeBinding?.consumeFocus(event);
+}
+
+function createEditorFocusReturn(): (() => boolean) | null
+{
+    const binding = editorRuntimeBinding;
+    const port = boundEditorPort;
+    const document = authoringDocumentContext.value;
+    if (!binding || !port || !document || !authoringDocumentContextAdapter.isCurrentContext(document) ||
+        pageLoading.value || submitting.value || authoringModalActive.value ||
+        authoringAdmin.adminState !== 'active' || !authoringAdmin.hasPermission('article.write'))
+    {
+        return null;
+    }
+    const contextDigest = document.contextDigest;
+    return () =>
+    {
+        if (editorRuntimeBinding !== binding || boundEditorPort !== port ||
+            authoringDocumentContext.value?.contextDigest !== contextDigest || pageLoading.value ||
+            !authoringDocumentContextAdapter.isCurrentContext(document) ||
+            submitting.value || authoringModalActive.value || authoringAdmin.adminState !== 'active' ||
+            !authoringAdmin.hasPermission('article.write'))
+        {
+            return false;
+        }
+        // The native owner retains its selection/history; a public no-change transaction restores focus.
+        // Acceptance is dispatch admission only, never a viewport or focus-completion receipt.
+        try
+        {
+            const result = port.dispatchTransaction({ changes: [], history: 'skip', origin: 'programmatic',
+                                                      documentIdentity: { id: document.documentId, epoch: document.documentEpoch },
+                                                      expectedRevision: document.sourceRevision });
+            return result.accepted;
+        }
+        catch
+        {
+            return false;
+        }
+    };
+}
 const authorCommandLabel = computed(() => translate('admin.articleInspector.commandGroup'));
 const authorCommandPalette = useArticleAuthorCommandPalette({
     editor: articleEditorRef,
@@ -1082,6 +1199,7 @@ const authorCommandPalette = useArticleAuthorCommandPalette({
         !submitting.value && !authoringModalActive.value)
 });
 const inspectorOwner = useArticleWriteInspector({
+    createEditorFocusReturn,
     initialInspector: route.query.preview === 'private' ? 'preview' : null,
     loadView: {
         resources: () => refreshAssetLibrary()
@@ -1108,7 +1226,7 @@ const {
 } = inspectorOwner;
 const { commands: inspectorCommands } = useArticleWriteInspectorCommands({
     inspector: inspectorOwner,
-    admin: useAdminStore(),
+    admin: authoringAdmin,
     documentContext: authoringDocumentContext,
     loading: pageLoading,
     saving: submitting,
