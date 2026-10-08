@@ -2362,6 +2362,26 @@ caller-facing verifier 只有在当前权限快照有效且所有 history entry 
 terminal projection 仅在同一当前权限快照有效且全部 entry 可投影时保留授权 metadata；否则保留原 status/reason，
 但使用 canonical empty projection，不返回 collection facts 或无权摘要。正常读取仍按服务端权限过滤可见 entry。
 
+### Author article entity query core (#2231)
+
+`FsusBlog.Contracts.Articles.AuthorArticleQueryContract` 定义独立于全文文档搜索和 command mode 的
+closed v1 输入。owner 必须由服务端 authenticated admin principal 与配置 site 派生；request ID、正数
+sequence、status/bucket scopes、locale、固定 collation、limit 和 cursor 均属于 query identity。未知或重复
+scope、超过 50 的 limit、超过 128 Unicode scalar 的 query、超过 8192 字符的 cursor 均拒绝。Inbox bucket
+在 #1908 实际 lifecycle admission 前返回 `author_article_query_inbox_unavailable`，不得构造替代 rows/counts。
+
+唯一 entity ranking core 是 `AuthorArticleQueryRanking`。比较文本采用 NFKC、trim 和 invariant uppercase，
+保留 diacritics 并统一 canonical combining 等价；CJK/RTL/emoji 以 Unicode scalar 计算 bounded edit distance。
+少于 4 scalar 不做 fuzzy，4–7 最多一次编辑，8–128 最多两次。排名 tuple 按 title exact/prefix/fuzzy 和
+distance、slug exact/prefix/fuzzy 和 distance、category/tag exact/prefix、verified server history ordinal、
+Draft/Published/Scheduled/Archived priority、stable article ID 升序比较；exact title 不受 recent rank 覆盖。
+比较不消费 updatedAt、views、local history、AI 或 embedding。重复 title/slug 仍保留各自 article ID。
+
+当前交付仅为 input/ranking core；candidate construction 不证明 permission/history admission。生产 source
+adapter、服务端过滤、verified history 接入、sealed response/receipt、authenticated cursor、selection revalidation
+和 AEDS route/compiled observation 尚未接入。此 core 不能作为可用 query API、完整 scale/cancel/privacy 验收，
+或 #2232 cache 可写入的 verified response。前端不得据此开启本地全量查询或 authority fallback。
+
 ### Admin Author Workbench
 
 生产前端使用 `/api/binary/author/**`，外层为 AEDS v2 frame。写入请求使用 route-specific request frame（如 `AuthorDraftSaveRequest`、`ModerationRuntimeGlobalStateRequest`、`ContentImportRequest`），响应使用 route-specific response frame（如 `AuthorDraftResponse`、`ModerationRuntimeStatus`、`AuditLogList`）；payload 当前承载类型化 JSON DTO bytes，浏览器不可访问 `JsonApiResponse<T>` envelope，错误统一为 `ApiError` frame。授权、MFA、fixed_ip rate limit、审计和缓存失效边界均由原生 authoring binary endpoint 直接执行；外部 `/api/author/**` JSON endpoint 已移除，且不保留 internal bridge 兼容层：
