@@ -1,0 +1,14 @@
+✔ JavaScript formatting compares syntax, raw tokens and anchored comments (80.889748ms)
+✔ canonical transaction brace hunks remain equivalent under the trusted parser (11.557312ms)
+✔ JavaScript formatter ignores candidate cwd and NODE_PATH parser substitutions (70.300488ms)
+✔ JavaScript formatter fails closed when its own pinned parser is absent (47.505696ms)
+✔ checker parser installation is locked, script-free and selected from the trusted checkout (15.921798ms)
+✔ JavaScript parser rejects direct and transitive entry redirects, symlinks and cached authority drift (203.848056ms)
+ℹ tests 6
+ℹ suites 0
+ℹ pass 6
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 524.243977

@@ -1,0 +1,16 @@
+[frontend-style] baseline configuration digest is stale
+[frontend-style] baseline source-state digest is stale
+[frontend-style] baseline generatedFrom does not match the current source-state digest
+[frontend-style] src/frontend/public/sw.js:1:1 eslint/no-undef: 'importScripts' is not defined.
+[frontend-style] src/frontend/public/sw.js:185:20 eslint/no-undef: 'result' is not defined.
+[frontend-style] src/frontend/scripts/server-public-ssr.bundle.mjs:22:9 eslint/no-empty: Empty block statement.
+[frontend-style] src/frontend/src/App.vue:90:9 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe object destructuring of a property with an error typed value.
+[frontend-style] src/frontend/src/App.vue:91:7 eslint/@typescript-eslint/no-unsafe-assignment: Unsafe assignment of an error typed value.
+[frontend-style] src/frontend/src/App.vue:91:22 eslint/@typescript-eslint/no-unsafe-call: Unsafe call of a type that could not be resolved.
+[frontend-style] src/frontend/src/App.vue:209:9 eslint/@typescript-eslint/no-empty-function: Unexpected empty arrow function.
+[excerpt: complete raw log retained with SHA-256]
+[frontend-style] tools/ux/run-local-production-risk.mjs:8:40 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `run-local-production-risk.mjs` to same directory as `../../tests/frontend/checks/ux/write-ux-viewport-summary.mjs` or consider making `../../tests/frontend/checks/ux/write-ux-viewport-summary.mjs` a package.
+[frontend-style] tools/ux/run-local-production-risk.mjs:12:8 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `run-local-production-risk.mjs` to same directory as `../../tests/frontend/support/playwright/uxViewportPlan.mjs` or consider making `../../tests/frontend/support/playwright/uxViewportPlan.mjs` a package.
+[frontend-style] tools/ux/ux-risk-cli-timing.mjs:24:9 eslint/preserve-caught-error: There is no `cause` attached to the symptom error being thrown.
+[frontend-style] tools/ux/ux-risk-session-plan.mjs:1:42 eslint/import-x/no-relative-parent-imports: Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `ux-risk-session-plan.mjs` to same directory as `../../tests/frontend/support/test-session.mjs` or consider making `../../tests/frontend/support/test-session.mjs` a package.
+[frontend-style] tools/visual/aggregate-screenshot-evidence.mjs:145:16 eslint/no-unused-vars: 'error' is defined but never used.

@@ -1,0 +1,161 @@
+{
+    "schema": "fsusblog.issue-3242-handoff-verification.v1",
+    "issue": 3242,
+    "runId": "issue-3242-handoff-20261008T032353Z",
+    "testedCandidate": "024956bf617d929e07e3651d981a51b26e71c30a",
+    "base": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "nodeVersion": "v24.16.0",
+    "sdkVersion": "10.0.401",
+    "suppliedPrerequisites": {
+        "registry": "f7b29774ae4aebad286539cc033aa736b9dbe613",
+        "retention": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+        "lockHead": "2c380fee5cff5fa0e368b3da0a4052a4fe124263",
+        "backendLock": "bd3dbde7939dc95c81cef4ab6b50f883459ee85d"
+    },
+    "integration": "two conflict-free local dependency merges; all four supplied commits preserved as ancestors; no PR merged",
+    "contentVerification": {
+        "allEightDuplicateReplacementUnionsPreserved": true,
+        "allOriginalReasonsPreserved": true,
+        "assertionMappingsUnchanged": true,
+        "distinctRegistryFilesPreserved": true,
+        "registryPolicyUnchanged": true,
+        "allSevenLocksByteIdenticalToSuppliedHead": true,
+        "originalAdapterAndProbeSourceUnchanged": true
+    },
+    "checks": [
+        {
+            "command": "node --test tests/tools/{ts-ast-adapter,test-replacement-transaction,repository-governance-authority,canonical-article-lifecycle-authority,canonical-article-publication-authority,canonical-article-graph-factory,test-suite-convergence,test-lifecycle-governance}.test.mjs",
+            "exitCode": 0,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-ready.log",
+            "rawSha256": "ba7eb00df1ca5a1dcbf00aa9ba70098a7126275a949065253feeb1c55ae3c920",
+            "artifact": "handoff-final-ready.log",
+            "storedSha256": "ba7eb00df1ca5a1dcbf00aa9ba70098a7126275a949065253feeb1c55ae3c920",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        },
+        {
+            "command": "node --test tests/tools/test-inventory.test.mjs tests/tools/test-retention-audit.test.mjs tests/tools/static-governance-host.test.mjs",
+            "exitCode": 1,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-broader.log",
+            "rawSha256": "848bbbb6a15e2c005a8733b34ff7fbdedf29565fd1ad8212f35d20a8c6e6b77e",
+            "artifact": "handoff-final-broader.log",
+            "storedSha256": "e5117c5972906e0389d4723dfdcb41b13d6810be04468af359948d1db0f41daf",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        },
+        {
+            "command": "node --test --test-name-pattern='JavaScript|canonical transaction|checker parser installation' tests/tools/change-contract.test.mjs",
+            "exitCode": 0,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-parser.log",
+            "rawSha256": "29b9ace7bed59c06a6d3ebe91fbc3e4d51d909a2a45791bbb526a12412de253e",
+            "artifact": "handoff-final-parser.log",
+            "storedSha256": "29b9ace7bed59c06a6d3ebe91fbc3e4d51d909a2a45791bbb526a12412de253e",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/test-inventory/ts-ast-adapter/index.mjs --file tools/test-replacement/transaction.mjs --file tests/tools/test-replacement-transaction.test.mjs --file tests/tools/ts-ast-adapter.test.mjs",
+            "exitCode": 0,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-strict-style.log",
+            "rawSha256": "243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11",
+            "artifact": "handoff-final-strict-style.log",
+            "storedSha256": "243d93aaa809368a217df715427e14a921736703774abc8c8d6031d729167a11",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        },
+        {
+            "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+            "exitCode": 1,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-full-style.log",
+            "rawSha256": "e29328b760bc1c325c2516d31284eb49bd4a2097552b18c645427920bea794d0",
+            "artifact": "handoff-final-full-style-excerpt.log",
+            "rawLineCount": 83361,
+            "storedSha256": "c87ee464787f043b1ab415934e88ca8420903d7a1a301132fe55ed68010e777c"
+        },
+        {
+            "command": "node tools/governance/check-change-contract.mjs --range 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8..HEAD",
+            "exitCode": 0,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-commit-contract.log",
+            "rawSha256": "dd7c509614454699d60a258938f971bae9fbd3c6134aa40878f221040555dec1",
+            "artifact": "handoff-final-commit-contract.log",
+            "storedSha256": "dd7c509614454699d60a258938f971bae9fbd3c6134aa40878f221040555dec1",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        },
+        {
+            "command": "node tools/docs/generate-document-lifecycle.mjs --check",
+            "exitCode": 0,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-doc-lifecycle.log",
+            "rawSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+            "artifact": "handoff-final-doc-lifecycle.log",
+            "storedSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        },
+        {
+            "command": "node tools/docs/check-authoritative-development-docs.mjs",
+            "exitCode": 0,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-doc-authority.log",
+            "rawSha256": "df4fabde7e69b60a44afd476b56c667a49e891cd74bb86ccac1d4d587732ca6b",
+            "artifact": "handoff-final-doc-authority.log",
+            "storedSha256": "df4fabde7e69b60a44afd476b56c667a49e891cd74bb86ccac1d4d587732ca6b",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        },
+        {
+            "command": "node tools/run-test-matrix.mjs ci-pr-plan --base-ref 3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8 --out /tmp/issue-3242-evidence/pr-plan-handoff-final.json",
+            "exitCode": 0,
+            "rawLog": "/tmp/issue-3242-evidence/handoff-final-pr-plan.log",
+            "rawSha256": "404bc762e0ff16be22bed2578645a7be0fedd27f89428b4bccdb503a0aa0d596",
+            "artifact": "handoff-final-pr-plan.log",
+            "storedSha256": "404bc762e0ff16be22bed2578645a7be0fedd27f89428b4bccdb503a0aa0d596",
+            "normalization": "trailing whitespace removed; raw bytes retained"
+        }
+    ],
+    "lockedRestores": "handoff-final-locked-restores.json",
+    "results": {
+        "readyControls": {
+            "passed": 115,
+            "failed": 0,
+            "skipped": 0
+        },
+        "expandedOriginalControls": {
+            "passed": 44,
+            "failed": 5,
+            "skipped": 0
+        },
+        "parserRegressions": {
+            "passed": 6,
+            "failed": 0
+        },
+        "scopedStrictStyle": {
+            "files": 4,
+            "violations": 0
+        },
+        "lockedRestoresPassed": 7,
+        "globalStyle": {
+            "exitCode": 1,
+            "originalBaselineAndUnrelatedViolationsPreserved": true
+        },
+        "planner": {
+            "exitCode": 0,
+            "sourceState": {
+                "commit": "024956bf617d929e07e3651d981a51b26e71c30a",
+                "worktreeFingerprint": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+            },
+            "contentDigest": "sha256:bba2b1e68ef90efc2914b2f6b76df310112b8791245bea493f5faa7cfd1eb5c4",
+            "tiers": 89,
+            "jobs": 35,
+            "qualificationEligible": false,
+            "graphExecuted": false
+        }
+    },
+    "remainingGates": {
+        "3654": "Four genuine CS0182 errors at LifecycleHostedBootstrapServiceTests.cs:23-26; exact source repair acceptance handoff required.",
+        "3521": "Inventory missing-expected-exception/CI setup assertions and separate current-epoch post-frontier admission; supplied registry/retention increments are consumed.",
+        "compileDependentControls": "static host and retention producer require genuine backend Debug assembly/intermediate context; not fabricated.",
+        "globalStyle": "Existing stale baseline authority and unrelated violations; no gate waiver.",
+        "qualification": "Full selected graph, independent runtime/release gates and remote CI not completed."
+    },
+    "supersededIntegration": {
+        "commit": "a083301e72edba4a6e096c132a9b486712e3d670",
+        "reason": "cherry-pick -x source lines violated terminal Refs footer; exact original dependency ancestry replaces this unqualified integration",
+        "sourceTreeByteIdentical": true,
+        "backupBranch": "codex/issue-3242-handoff-footer-backup",
+        "noOriginalOwnedCommitRewritten": true
+    },
+    "noMergeDeploymentOrIssueClosure": true
+}

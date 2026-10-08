@@ -1,0 +1,3 @@
+[matrix:ci-pr-plan] wrote ../../tmp/issue-3242-evidence/pr-plan-handoff-final.json
+(node:64239) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)

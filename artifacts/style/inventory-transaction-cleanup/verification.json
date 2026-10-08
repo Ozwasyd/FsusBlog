@@ -157,5 +157,16 @@
         "CS0182": 3654,
         "sharedInventoryRetention": 3521,
         "consumerLock": 3568
+    },
+    "followupSharedHandoff": {
+        "evidence": "handoff-verification.json",
+        "testedCandidate": "024956bf617d929e07e3651d981a51b26e71c30a",
+        "suppliedPrerequisites": {
+            "registry": "f7b29774ae4aebad286539cc033aa736b9dbe613",
+            "retention": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+            "lockHead": "2c380fee5cff5fa0e368b3da0a4052a4fe124263",
+            "backendLock": "bd3dbde7939dc95c81cef4ab6b50f883459ee85d"
+        },
+        "status": "supplied-ready-capabilities-consumed-qualified-runtime-gates-still-open"
     }
 }

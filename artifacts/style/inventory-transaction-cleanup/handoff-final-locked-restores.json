@@ -1,0 +1,48 @@
+{
+    "candidate": "024956bf617d929e07e3651d981a51b26e71c30a",
+    "sdk": "10.0.401",
+    "results": [
+        {
+            "project": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+            "command": "dotnet restore benchmarks/core/FsusBlog.Core.Benchmarks.csproj --locked-mode --nologo --verbosity quiet",
+            "exitCode": 0,
+            "output": ""
+        },
+        {
+            "project": "tests/backend/FsusBlog.Server.Tests.csproj",
+            "command": "dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --locked-mode --nologo --verbosity quiet",
+            "exitCode": 0,
+            "output": "/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q\n/workspace/FsusBlog/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog/tests/backend/FsusBlog.Server.Tests.csproj]\n"
+        },
+        {
+            "project": "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+            "command": "dotnet restore tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj --locked-mode --nologo --verbosity quiet",
+            "exitCode": 0,
+            "output": ""
+        },
+        {
+            "project": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+            "command": "dotnet restore tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj --locked-mode --nologo --verbosity quiet",
+            "exitCode": 0,
+            "output": ""
+        },
+        {
+            "project": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+            "command": "dotnet restore tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj --locked-mode --nologo --verbosity quiet",
+            "exitCode": 0,
+            "output": ""
+        },
+        {
+            "project": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+            "command": "dotnet restore tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj --locked-mode --nologo --verbosity quiet",
+            "exitCode": 0,
+            "output": ""
+        },
+        {
+            "project": "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+            "command": "dotnet restore tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj --locked-mode --nologo --verbosity quiet",
+            "exitCode": 0,
+            "output": "/workspace/FsusBlog/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q\n/workspace/FsusBlog/src/migration/FsusBlog.Migration.csproj : warning NU1903: Package 'SQLitePCLRaw.lib.e_sqlite3' 2.1.11 has a known high severity vulnerability, https://github.com/advisories/GHSA-2m69-gcr7-jv3q [/workspace/FsusBlog/tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj]\n"
+        }
+    ]
+}
