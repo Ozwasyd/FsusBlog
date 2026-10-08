@@ -60,10 +60,10 @@ const { buildOpenLoopLoadRouteStatistics, validateLoadRouteStatisticsPolicy, ver
 const { assertLoadTransportCohort, createOpenLoopLoadClientTransport, validateLoadTransportPolicy } = await import(
     new URL('../open-loop-load-client-transport.mjs', import.meta.url).href
 );
-const { digestCanonical, sealContentDigest } = await import(new URL('../attempt-provenance.mjs', import.meta.url).href);
+const { canonicalJson, digestCanonical, sealContentDigest } = await import(new URL('../attempt-provenance.mjs', import.meta.url).href);
 const { readQualifiedRuntimeEnvironment } = await import(new URL('../release-reliability-runtime-environment.mjs', import.meta.url).href);
 const { buildLoadRequestObservations, buildLoadRequestSample, buildLoadResourceObservability, observeLoadRequestStart,
-    observeLoadTransportError, validateLoadWorkerRegistration, verifyLoadRequestObservations }
+    observeLoadTransportError, readLoadTransportResponseFacts, validateLoadWorkerRegistration, verifyLoadRequestObservations }
     = await import(new URL('../load-request-observations.mjs', import.meta.url).href);
 
 const { createOpenLoopLoadGeneratorCollector, validateLoadGeneratorObservationPolicy, verifyOpenLoopLoadGeneratorObservations }
@@ -701,11 +701,10 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
         const context = requestContexts.get(record.sampleId);
         expectedRequests.push({ sampleId: record.sampleId, workerId: registeredIssuer.workerId,
             sequence: context.sequence, path: routeContract(record.routeId).pathTemplate });
-        const headerObserved = observations.some((entry) => entry.type === 'response-headers' && entry.sampleId === record.sampleId);
         const raw = context.rawSample;
-        const response = raw?.status >= 100 ? { httpStatus: raw.status, bytes: raw.bodyBytes,
-            contentType: raw.contentType, frameType: raw.frameType }
-            : { httpStatus: headerObserved ? null : 0, bytes: headerObserved ? null : 0, contentType: null, frameType: null };
+        let response = { httpStatus: null, bytes: null, contentType: null, frameType: raw?.frameType ?? null };
+        const terminalEvents = observations.filter((entry) => entry.type === 'request-completed' && entry.sampleId === record.sampleId);
+        const responseFacts = terminalEvents.length === 1 ? terminalEvents[0].responseFacts : null;
         const terminalControl = record.outcome === 'cancelled' ? 'cancelled' : record.outcome === 'timed-out' ? 'timeout' : 'completed';
         const failureEvents = observations.filter((entry) => entry.type === 'request-error' && entry.sampleId === record.sampleId);
         const transportFailureFacts = failureEvents.length === 1 ? failureEvents[0].failureFacts : null;
@@ -718,6 +717,12 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
             {
                 throw new Error('request has duplicate transport failure observations');
             }
+            if (terminalEvents.length !== 1 || transportFailureFacts !== null
+                && canonicalJson(failureEvents[0].responseFacts) !== canonicalJson(responseFacts))
+            {
+                throw new Error('request lacks one unchanged actual terminal response observation');
+            }
+            response = readLoadTransportResponseFacts(responseFacts, raw);
             loadSamples.push(buildLoadRequestSample({ ...context, routeSample: raw, response, terminalControl, error, transportFailureFacts }));
         }
         catch (failure)
@@ -725,7 +730,7 @@ export async function runOpenLoopRouteContractProbe(schedule, { routePolicy, sou
             // Preserve every real request and raw failure; missing transport facts are never zero-filled.
             unavailableSamples.push({ sampleId: record.sampleId, workerId: registeredIssuer.workerId, sequence: context.sequence,
                 startedMonotonicMs: context.startedMonotonicMs, finishedMonotonicMs: context.finishedMonotonicMs,
-                rawSample: raw, terminalControl, response, error, transportFailureFacts, failureEvents, reason: failure.message });
+                rawSample: raw, terminalControl, response, responseFacts, error, transportFailureFacts, failureEvents, reason: failure.message });
         }
     }
     const requestAvailability = sealContentDigest({ schema: 'fsusblog.load-request-availability.v1', registeredIssuer,

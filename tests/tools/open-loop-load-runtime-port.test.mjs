@@ -379,10 +379,11 @@ test('canonical expected peak and burst commands refuse the current incomplete p
 });
 
 
-test('canonical callback classifies actual reset and preserves unavailable partial-response facts', async (t) =>
+test('canonical callback retains actual pre-header reset and partial response status and bytes', async (t) =>
 {
-    for (const partial of [false, true])
+    for (const partialStatus of [null, 200, 500])
     {
+        const partial = partialStatus !== null;
         const server = http.createServer((request, response) =>
         {
             if (!partial)
@@ -390,7 +391,7 @@ test('canonical callback classifies actual reset and preserves unavailable parti
                 request.socket.destroy();
                 return;
             }
-            response.writeHead(200, { 'content-type': 'application/octet-stream' });
+            response.writeHead(partialStatus, { 'content-type': 'application/octet-stream' });
             response.write(new Uint8Array(8));
             setTimeout(() => response.destroy(), 10);
         });
@@ -406,24 +407,18 @@ test('canonical callback classifies actual reset and preserves unavailable parti
             sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(), requestBaseUrl: endpoint,
             transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(endpoint), workerRegistration: fixtureWorkerRegistration() });
         assert.equal(probe.status, 'failed');
-        assert.equal(probe.requestAvailability.complete, !partial);
+        assert.equal(probe.requestAvailability.complete, true);
         assert.equal(probe.requestAvailability.expectedRequests.length, schedule.plannedCount);
-        if (partial)
-        {
-            assert.equal(probe.requestAvailability.unavailableSamples.length, schedule.plannedCount);
-            assert.equal(probe.loadRequestObservations, null);
-            assert.equal(probe.candidateBinding.loadRequestObservationsDigest, null);
-            assert.ok(probe.requestAvailability.unavailableSamples.every((sample) => sample.rawSample.ok === false && sample.reason && sample.transportFailureFacts));
-            assert.ok(probe.requestAvailability.unavailableSamples.every((sample) => sample.response.bytes === null && sample.response.httpStatus === null));
-        }
-        else
-        {
-            assert.equal(probe.requestAvailability.unavailableSamples.length, 0);
-            assert.equal(probe.loadRequestObservations.outcomeCounts['network-error'], schedule.plannedCount);
-            assert.equal(probe.loadRequestObservations.errorRate, 1);
-            assert.equal(probe.loadRequestObservations.timeoutRate, 0);
-            assert.ok(probe.loadRequestObservations.samples.every((sample) => sample.errorCode === 'ECONNRESET'));
-        }
+        assert.equal(probe.requestAvailability.unavailableSamples.length, 0);
+        assert.equal(probe.loadRequestObservations.sampleCount, schedule.plannedCount);
+        const outcome = partialStatus === 500 ? 'http-error' : 'network-error';
+        assert.equal(probe.loadRequestObservations.outcomeCounts[outcome], schedule.plannedCount);
+        assert.equal(probe.loadRequestObservations.errorRate, 1);
+        assert.equal(probe.loadRequestObservations.timeoutRate, 0);
+        assert.ok(probe.loadRequestObservations.samples.every((sample) => sample.errorCode === 'ECONNRESET'
+            && sample.httpStatus === (partialStatus ?? 0) && sample.bytes === (partial ? 8 : 0)));
+        assert.ok(probe.transportEvidence.observations.filter((event) => event.type === 'request-completed')
+            .every((event) => event.responseFacts.bodyState === (partial ? 'partial' : 'not-started')));
         assert.equal(probe.transportEvidence.finalSnapshot.closed, true);
         assert.equal(probe.transportEvidence.finalSnapshot.activeRequests, 0);
     }
@@ -597,4 +592,40 @@ test('canonical collector vocabulary gap and interruption retain requests and cl
     assert.equal(interrupted.probe.generatorEvidence.validation.passed, false);
     assert.ok(interrupted.probe.openLoop.timeline.observedActiveWindowMs < interrupted.schedule.policy.durationMs);
     assert.equal(interrupted.probe.transportEvidence.finalSnapshot.closed, true);
+});
+
+
+test('canonical partial-body deadline and caller abort keep actual response facts and separate counts', async (t) =>
+{
+    const server = http.createServer((_request, response) =>
+    {
+        response.writeHead(200, { 'content-type': 'application/octet-stream' });
+        response.write(new Uint8Array(8));
+    });
+    await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
+    t.after(async () =>
+    {
+        server.closeAllConnections();
+        await new Promise((resolve) => server.close(resolve));
+    });
+    const endpoint = `http://127.0.0.1:${server.address().port}`;
+    const { schedule: original, routePolicy, routeIds } = canonicalFixturePolicies();
+    const options = { routePolicy, sourceSha: execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim(),
+        requestBaseUrl: endpoint, transportPolicy: transportPolicy(), runBinding: fixtureRunBinding(endpoint),
+        workerRegistration: fixtureWorkerRegistration() };
+    const timed = await runOpenLoopRouteContractProbe(buildOpenLoopLoadSchedule({ ...original.policy, requestTimeoutMs: 40 }, routeIds), options);
+    assert.equal(timed.requestAvailability.complete, true);
+    assert.equal(timed.loadRequestObservations.timeoutRate, 1);
+    assert.equal(timed.loadRequestObservations.errorRate, 0);
+    assert.ok(timed.loadRequestObservations.samples.every((sample) => sample.outcome === 'timeout' && sample.httpStatus === 200 && sample.bytes === 8));
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 100);
+    t.after(() => clearTimeout(timer));
+    const cancelled = await runOpenLoopRouteContractProbe(original, { ...options, signal: controller.signal });
+    assert.equal(cancelled.requestAvailability.complete, true);
+    assert.equal(cancelled.loadRequestObservations.completed, 0);
+    assert.equal(cancelled.loadRequestObservations.timeoutRate, null);
+    assert.ok(cancelled.loadRequestObservations.samples.every((sample) => sample.outcome === 'cancelled' && sample.httpStatus === 200 && sample.bytes === 8));
+    assert.equal(cancelled.status, 'failed');
+    assert.equal(cancelled.transportEvidence.finalSnapshot.socketCount, 0);
 });

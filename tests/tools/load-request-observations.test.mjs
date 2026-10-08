@@ -8,7 +8,7 @@ const { encodeAedsFrame } = await import(new URL('../frontend/support/aeds-envel
 const { fetchRouteSample, routeContract } = await import(new URL('../../tools/test/lanes/runtime-http-route-contract.mjs', import.meta.url).href);
 const { sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url).href);
 const { buildLoadRequestObservations, buildLoadRequestSample, buildLoadResourceObservability,
-    observeLoadIssuer, observeLoadRequestStart, observeLoadTransportError, validateLoadRequestSample,
+    observeLoadIssuer, observeLoadRequestStart, observeLoadTransportError, readLoadTransportResponseFacts, validateLoadRequestSample,
     validateLoadWorkerRegistration, verifyLoadRequestObservations }
     = await import(new URL('../../tools/test/load-request-observations.mjs', import.meta.url).href);
 
@@ -267,4 +267,18 @@ test('typed exception observations refuse invented exceptions, cause cycles and 
     const error = observeLoadTransportError(new Error('timeout text alone is irrelevant'), 'transport');
     assert.equal(error.origin, 'transport');
     assert.equal(error.code, null);
+});
+
+
+test('terminal response reader refuses unknown bytes and status instead of inferring zeros from the route failure', () =>
+{
+    const facts = { httpStatus: { status: 'ok', value: 200, source: 'node:http.IncomingMessage.statusCode' },
+        contentType: { status: 'ok', value: 'application/octet-stream', source: 'node:http.IncomingMessage.headers.content-type' },
+        bytesReceived: { status: 'ok', value: 8, unit: 'bytes', source: 'node:http.IncomingMessage.data' }, bodyState: 'partial' };
+    const raw = { status: 0, bodyBytes: 0, contentType: null, frameType: null, ok: false };
+    assert.deepEqual(readLoadTransportResponseFacts(facts, raw), { httpStatus: 200, bytes: 8, contentType: 'application/octet-stream', frameType: null });
+    assert.throws(() => readLoadTransportResponseFacts({ ...facts, bytesReceived: { ...facts.bytesReceived, value: null } }, raw), /actual delivered byte count/u);
+    assert.throws(() => readLoadTransportResponseFacts({ ...facts, httpStatus: { status: 'unavailable', value: null, reason: 'headers-lost', source: facts.httpStatus.source } }, raw), /actual HTTP status/u);
+    assert.throws(() => readLoadTransportResponseFacts({ ...facts, bodyState: 'not-started' }, raw), /no-response sentinel/u);
+    assert.throws(() => readLoadTransportResponseFacts({ ...facts, bodyState: 'complete' }, raw), /differs from actual route/u);
 });

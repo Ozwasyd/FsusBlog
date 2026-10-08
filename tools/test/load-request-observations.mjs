@@ -116,6 +116,86 @@ function validateError(error)
     }
 }
 
+/** Read actual terminal transport facts; zero HTTP status is only the explicit no-response sentinel. */
+export function readLoadTransportResponseFacts(facts, routeSample)
+{
+    exact(facts, ['httpStatus', 'contentType', 'bytesReceived', 'bodyState'], 'terminal transport response facts');
+    if (!['not-started', 'partial', 'complete'].includes(facts.bodyState))
+    {
+        throw new Error('terminal body state is unavailable');
+    }
+    for (const [name, source] of [['httpStatus', 'node:http.IncomingMessage.statusCode'],
+        ['contentType', 'node:http.IncomingMessage.headers.content-type']])
+    {
+        const field = facts[name];
+        exact(field, field?.status === 'ok' ? ['status', 'value', 'source'] : ['status', 'value', 'reason', 'source'], name);
+        if (field.source !== source || !['ok', 'unavailable'].includes(field.status)
+            || field.status === 'unavailable' && (field.value !== null || typeof field.reason !== 'string' || !field.reason))
+        {
+            throw new Error(`${name} requires actual terminal availability/source`);
+        }
+    }
+    const bytes = facts.bytesReceived;
+    exact(bytes, ['status', 'value', 'unit', 'source'], 'received byte counter');
+    if (bytes.status !== 'ok' || bytes.unit !== 'bytes' || bytes.source !== 'node:http.IncomingMessage.data')
+    {
+        throw new Error('actual delivered byte counter is unavailable');
+    }
+    finite(bytes.value, 'actual delivered byte count', true);
+    const noResponse = facts.bodyState === 'not-started';
+    let httpStatus;
+    let contentType;
+    if (noResponse)
+    {
+        if (facts.httpStatus.status !== 'unavailable' || facts.contentType.status !== 'unavailable'
+            || facts.httpStatus.reason !== 'response-headers-not-received'
+            || facts.contentType.reason !== 'response-headers-not-received' || bytes.value !== 0)
+        {
+            throw new Error('no-response sentinel contradicts actual header/body observations');
+        }
+        httpStatus = 0;
+        contentType = null;
+    }
+    else
+    {
+        httpStatus = facts.httpStatus.value;
+        if (facts.httpStatus.status !== 'ok' || !Number.isSafeInteger(httpStatus) || httpStatus < 100 || httpStatus > 599)
+        {
+            throw new Error('received headers require actual HTTP status; unknown status cannot become zero');
+        }
+        if (facts.contentType.status === 'ok')
+        {
+            if (typeof facts.contentType.value !== 'string')
+            {
+                throw new Error('received content type must retain its actual string');
+            }
+            contentType = facts.contentType.value;
+        }
+        else if (facts.contentType.reason === 'content-type-header-absent')
+        {
+            contentType = null;
+        }
+        else
+        {
+            throw new Error('received headers have incomplete content-type availability');
+        }
+    }
+    if (!routeSample || !Object.hasOwn(routeSample, 'frameType'))
+    {
+        throw new Error('actual route decoder observation is unavailable');
+    }
+    if (facts.bodyState === 'complete' && (routeSample.status !== httpStatus || routeSample.bodyBytes !== bytes.value
+        || (routeSample.contentType ?? '') !== (contentType ?? '')))
+    {
+        throw new Error('complete terminal response differs from actual route oracle facts');
+    }
+    if (facts.bodyState !== 'complete' && routeSample.ok === true)
+    {
+        throw new Error('incomplete actual response cannot claim successful payload decoding');
+    }
+    return freeze({ httpStatus, bytes: bytes.value, contentType, frameType: routeSample.frameType });
+}
+
 export function validateLoadRequestSample(sample)
 {
     exact(sample, sampleKeys, 'load request sample');
@@ -187,6 +267,12 @@ export function buildLoadRequestSample({ arrival, registration, sequence, starte
             throw new Error('actual transport failure differs from dispatcher terminal control');
         }
         ({ outcome, errorKind, errorCode, errorDigest } = classified);
+        if (outcome === 'network-error' && response.httpStatus >= 400)
+        {
+            outcome = 'http-error';
+            errorKind = 'http-status';
+            errorDigest = digestCanonical({ response, transportFailureFacts });
+        }
     }
     else if (terminalControl !== 'completed')
     {
