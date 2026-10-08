@@ -18,7 +18,7 @@
     { "surface": "admin", "kind": "dashboard", "path": "/user/manage", "label": "manage-dashboard", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
     { "surface": "admin", "kind": "collection", "path": "/user/manage/users", "label": "manage-users", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
     { "surface": "admin", "kind": "form", "path": "/user/manage/article/write", "label": "manage-write", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
-    { "surface": "admin", "kind": "settings", "path": "/user/manage/settings", "label": "manage-settings", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": true, "critical": true },
+    { "surface": "admin", "kind": "settings", "path": "/user/manage/settings", "label": "manage-settings", "primary": "main", "screenshotTarget": ".settings-workspace", "snapshot": true, "critical": true },
     { "surface": "admin", "kind": "console", "path": "/user/manage/security/risk-control", "label": "manage-security-console", "primary": "main", "screenshotTarget": ".el-task-page-header", "snapshot": false, "critical": false }
   ]
 }
