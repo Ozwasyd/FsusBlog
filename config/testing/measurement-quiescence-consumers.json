@@ -3,25 +3,105 @@
     "measurementInventory": "config/testing/measurement-window-inventory.json",
     "domainAuthority": "config/testing/runtime-state-domain-registry.json",
     "consumers": [
-        {"consumerId": "backend-perf", "stateContract": "requires-quiescence", "owner": "tools/test/bundles/bundle-steps.mjs"},
-        {"consumerId": "privacy-zk-benchmark", "stateContract": "requires-quiescence", "owner": "tools/test/bundles/bundle-steps.mjs"},
-        {"consumerId": "mixed-performance-window", "stateContract": "requires-quiescence", "owner": "tools/test/bundles/bundle-steps.mjs"},
-        {"consumerId": "aeds-frame-cost", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/aeds-frame-cost.sh"},
-        {"consumerId": "aeds-compression", "stateContract": "requires-quiescence", "owner": "tools/test/bundles/bundle-steps.mjs"},
-        {"consumerId": "backend-native-p99", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/perf-regression.sh"},
-        {"consumerId": "load-profile-baseline", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/load-profile.sh"},
-        {"consumerId": "load-profile-expected-peak", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/load-profile.sh"},
-        {"consumerId": "load-profile-2x-peak", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/load-profile.sh"},
-        {"consumerId": "load-profile-burst", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/load-profile.sh"},
-        {"consumerId": "soak-short", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/soak.sh"},
-        {"consumerId": "soak-long", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/soak.sh"},
-        {"consumerId": "release-resource-budget-memory-leak", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/release-resource-budget.sh"},
-        {"consumerId": "release-resource-budget-open-handle", "stateContract": "requires-quiescence", "owner": "tools/test/lanes/release-resource-budget.sh"},
-        {"consumerId": "release-soak-min", "stateContract": "requires-quiescence", "owner": "tools/test/run-release-reliability-scenarios.mjs"},
-        {"consumerId": "release-load-peak", "stateContract": "requires-quiescence", "owner": "tools/test/run-release-reliability-scenarios.mjs"},
-        {"consumerId": "release-load-burst", "stateContract": "requires-quiescence", "owner": "tools/test/run-release-reliability-scenarios.mjs"},
-        {"consumerId": "release-memory-leak-budget", "stateContract": "requires-quiescence", "owner": "tools/test/run-release-reliability-scenarios.mjs"},
-        {"consumerId": "release-open-handle-budget", "stateContract": "requires-quiescence", "owner": "tools/test/run-release-reliability-scenarios.mjs"},
-        {"consumerId": "runtime-cache-distributed-invalidation", "stateContract": "non-quiescent-worker-measurement", "owner": "tools/test/lanes/runtime-cache-evidence.sh"}
+        {
+            "consumerId": "backend-perf",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/bundles/bundle-steps.mjs"
+        },
+        {
+            "consumerId": "privacy-zk-benchmark",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/bundles/bundle-steps.mjs"
+        },
+        {
+            "consumerId": "mixed-performance-window",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/bundles/bundle-steps.mjs"
+        },
+        {
+            "consumerId": "aeds-frame-cost",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/aeds-frame-cost.sh"
+        },
+        {
+            "consumerId": "aeds-compression",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/bundles/bundle-steps.mjs"
+        },
+        {
+            "consumerId": "backend-native-p99",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/perf-regression.sh"
+        },
+        {
+            "consumerId": "load-profile-baseline",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/load-profile.sh"
+        },
+        {
+            "consumerId": "load-profile-expected-peak",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/load-profile.sh"
+        },
+        {
+            "consumerId": "load-profile-2x-peak",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/load-profile.sh"
+        },
+        {
+            "consumerId": "load-profile-burst",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/load-profile.sh"
+        },
+        {
+            "consumerId": "soak-short",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/soak.sh"
+        },
+        {
+            "consumerId": "soak-long",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/soak.sh"
+        },
+        {
+            "consumerId": "release-resource-budget-memory-leak",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/release-resource-budget.sh"
+        },
+        {
+            "consumerId": "release-resource-budget-open-handle",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/lanes/release-resource-budget.sh"
+        },
+        {
+            "consumerId": "release-soak-min",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/run-release-reliability-scenarios.mjs"
+        },
+        {
+            "consumerId": "release-load-peak",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/run-release-reliability-scenarios.mjs"
+        },
+        {
+            "consumerId": "release-load-burst",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/run-release-reliability-scenarios.mjs"
+        },
+        {
+            "consumerId": "release-memory-leak-budget",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/run-release-reliability-scenarios.mjs"
+        },
+        {
+            "consumerId": "release-open-handle-budget",
+            "stateContract": "requires-quiescence",
+            "owner": "tools/test/run-release-reliability-scenarios.mjs"
+        },
+        {
+            "consumerId": "runtime-cache-distributed-invalidation",
+            "stateContract": "non-quiescent-worker-measurement",
+            "owner": "tools/test/lanes/runtime-cache-evidence.sh"
+        }
     ]
 }
