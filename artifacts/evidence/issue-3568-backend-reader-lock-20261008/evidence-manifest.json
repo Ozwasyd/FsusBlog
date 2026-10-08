@@ -1,0 +1,91 @@
+{
+  "sourceCandidate": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+  "sourceBranch": "codex/issue-3568-backend-existing-reader-lock-20261008",
+  "actualBase": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "canonicalSource": "53075182a4cccf400e1a389d5dfc7dca5ab4d09d",
+  "consumer2177": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "consumer2442": "9811b67e8b4d3dc4299b84e85e1bc34bf8a5e984",
+  "packageInputCount": 49,
+  "packageHashCount": 94,
+  "officialSdk": "10.0.302",
+  "generationCommand": "dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --force-evaluate --use-lock-file -p:NuGetAudit=true",
+  "generationExitCode": 0,
+  "lockedRestoreCommand": "dotnet restore tests/backend/FsusBlog.Server.Tests.csproj --locked-mode --force -p:NuGetAudit=true",
+  "lockedRestoreExitCode": 0,
+  "baselineLockedRestoreExitCode": 1,
+  "baselineCause": "NU1004 missing existing Server project-reference AngleSharp dependency",
+  "signatureCommand": "dotnet nuget verify /workspace/.setup/nuget/anglesharp/1.5.0/anglesharp.1.5.0.nupkg --all",
+  "signatureExitCode": 0,
+  "AngleSharpContentHash": "REAdFOAlTxr6yqmxWFFLLMB/+uvIS3N6tXXUAWjoexA0LsQB/CfZYadg+z+DkcpAwJk8gF1VF4YLsq4U1Gficg==",
+  "lockBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+  "lockSha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9",
+  "sourceStageExitCode": 0,
+  "limitations": [
+    "NuGetAudit=true preserved; SQLite native2.1.11 NU1903 warning is retained and belongs to separately supplied3663 prerequisite.",
+    "Restore success is not compile, test discovery, original retained native/channel qualification, or whole2177/2442/3568 acceptance.",
+    "WholePR3904 remains unmerged/SOURCE held; this increment contains only backend lock metadata plus its naming manifest.",
+    "No newPR/comment/content API write; evidence export only."
+  ],
+  "files": [
+    {
+      "path": "consumer-package-input-identity.json",
+      "sha256": "3c9388503f3afd72cfeb38e37c9c2afa5e830be5a4c8838ad3c1d732827831e6"
+    },
+    {
+      "path": "consumer-2442-package-input-identity.json",
+      "sha256": "c1019a621a725c8d16d94c2f8935c8595274dc02c9cfed79e0aaa64eee73ef92"
+    },
+    {
+      "path": "minimal-lock-source-proof.json",
+      "sha256": "2f7c4b681d4b814507048b64ae79210c43c7071af8b52bf271292beef4fc12c0"
+    },
+    {
+      "path": "all-package-versions-hashes-proof.json",
+      "sha256": "34386f6c0da4accc8cbf7bd5f1cf697bad595e7b8541c6874eb8f748021531d0"
+    },
+    {
+      "path": "actual-checkpoint.json",
+      "sha256": "974fbad83cc490f8c4f257d8f027b8894295dc2593bc679f796fafcf8317cc31"
+    },
+    {
+      "path": "official-generated-semantic-delta.json",
+      "sha256": "2b48d100f2aa961c119b783f96108d64d7f975fc1bf617901aac85f0957e370a"
+    },
+    {
+      "path": "baseline-aaba-backend-locked-restore.log",
+      "sha256": "8ade67df31285bf758d85071679a1dfbb7439b55845f3978fb51382043f41040"
+    },
+    {
+      "path": "official-lock-generation.log",
+      "sha256": "f2df0f62b1f4d8bc2a8e0aedb8d0f28614d4d210393719a89fa14350b495db30"
+    },
+    {
+      "path": "canonical-exact-head-locked-restore.log",
+      "sha256": "deab0231b5d642ea86f2448e1c275f2eeaedf9c1661b5d46423d39b379b73373"
+    },
+    {
+      "path": "anglesharp-signature-verify.log",
+      "sha256": "0124beb178b9a84dea6d6d2e27bb9631f1d4d36e147def1eec12dffd46cea417"
+    },
+    {
+      "path": "lock-canonical-format.log",
+      "sha256": "dbec370211908ca6c896b91d425290b96db7090e1fccb42a093096a09b3c0b20"
+    },
+    {
+      "path": "canonical-source-stage.log",
+      "sha256": "b24126c17ce5de292cdc2078f8dd5d6c2313c80ac8cc1eaa3cee51c24fef784c"
+    },
+    {
+      "path": "canonical-source-result.json",
+      "sha256": "c2ca5a437adafc35127f64cee929bffe02f2d5cf7dd30d19b37796453c55e4d4"
+    },
+    {
+      "path": "canonical-pr-plan.json",
+      "sha256": "ae9f348e168956a46ba48a7076503f5c32d5b55fd0cefca3703cb4cd8306c32a"
+    },
+    {
+      "path": "generated-backend-lock.json",
+      "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9"
+    }
+  ]
+}

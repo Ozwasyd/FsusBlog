@@ -1,0 +1,18 @@
+{
+  "canonical530Commit": "53075182a4cccf400e1a389d5dfc7dca5ab4d09d",
+  "officialNuGetOutputAfterOriginalFormatterEqualsCanonical530Blob": true,
+  "actualSha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9",
+  "canonicalBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+  "unchangedOtherLocksRestoredOnlyForSdkSerializationDrift": [
+    "src/backend/packages.lock.json",
+    "src/core/packages.lock.json",
+    "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json"
+  ],
+  "semanticDelta": [
+    {
+      "path": ".dependencies.net10.0.fsusblog.server.dependencies.AngleSharp",
+      "before": null,
+      "after": "[1.5.0, )"
+    }
+  ]
+}

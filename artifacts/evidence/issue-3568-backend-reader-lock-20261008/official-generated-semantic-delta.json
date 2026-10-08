@@ -1,0 +1,12 @@
+{
+  "src/backend/packages.lock.json": [],
+  "src/core/packages.lock.json": [],
+  "tests/backend/packages.lock.json": [
+    {
+      "path": ".dependencies.net10.0.fsusblog.server.dependencies.AngleSharp",
+      "before": null,
+      "after": "[1.5.0, )"
+    }
+  ],
+  "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json": []
+}
