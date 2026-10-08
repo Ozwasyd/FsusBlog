@@ -58,7 +58,7 @@ def stop_child():
         try:
             if start_identity(native_child.pid) != native_start:
                 raise RuntimeError('native process group leader identity drift')
-        except FileNotFoundError:
+        except (FileNotFoundError, ProcessLookupError):
             pass
         members = []
         for entry in os.listdir('/proc'):
@@ -74,7 +74,7 @@ def stop_child():
                         raise RuntimeError('native process group member identity drift')
                     known_members[entry] = fields[19]
                     members.append(entry)
-            except FileNotFoundError:
+            except (FileNotFoundError, ProcessLookupError):
                 pass
         native_child.poll()
         while True:
@@ -951,7 +951,10 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
 
     async function allocate()
     {
-        if (allocationStarted) throw new Error('port lease allocation is single-attempt');
+        if (allocationStarted)
+        {
+            throw new Error('port lease allocation is single-attempt');
+        }
         allocationStarted = true;
         const allocated = [];
         try
@@ -1173,23 +1176,35 @@ export function createPortLeaseAllocator({ runId, namespace, roles = defaultRole
     async function releaseAll(reason = 'release', { cancelBound = false } = {})
     {
         const released = [];
+        const cleanupFailures = [];
         for (const role of leases.keys())
         {
-            await serializeRole(role, async () =>
+            try
             {
-                const lease = leases.get(role);
-                if (continuousHandoff && cancelBound && lease.handoffState === 'bound')
+                await serializeRole(role, async () =>
                 {
-                    await reservations.get(role)?.find((entry) => entry.host === '127.0.0.1')?.cancelNative?.();
-                }
-                await closeRoleReservations(role, { preserveRuntime: lease.handoffState === 'bound' && !cancelBound });
-                if ((lease.handoffState === 'bound' && !cancelBound) || lease.handoffState === 'released' || lease.handoffState === 'failed')
-                {
-                    released.push(lease);
-                    return;
-                }
-                released.push(updateLease(role, { handoffState: 'released', handedOffAt: now(), failedReason: null }));
-            });
+                    const lease = leases.get(role);
+                    if (continuousHandoff && cancelBound && lease.handoffState === 'bound')
+                    {
+                        await reservations.get(role)?.find((entry) => entry.host === '127.0.0.1')?.cancelNative?.();
+                    }
+                    await closeRoleReservations(role, { preserveRuntime: lease.handoffState === 'bound' && !cancelBound });
+                    if ((lease.handoffState === 'bound' && !cancelBound) || lease.handoffState === 'released' || lease.handoffState === 'failed')
+                    {
+                        released.push(lease);
+                        return;
+                    }
+                    released.push(updateLease(role, { handoffState: 'released', handedOffAt: now(), failedReason: null }));
+                });
+            }
+            catch (error)
+            {
+                cleanupFailures.push(error);
+            }
+        }
+        if (cleanupFailures.length > 0)
+        {
+            throw new AggregateError(cleanupFailures, `port lease ${reason} cleanup was not verified`, { cause: cleanupFailures[0] });
         }
         return released;
     }
@@ -1427,14 +1442,20 @@ async function handleControlRequest({ request, allocator, token, persist, onRele
                     }
                 }
             case 'activate-container':
-                if (typeof request.role !== 'string') return { ok: false, error: 'role is required' };
+                if (typeof request.role !== 'string')
+                {
+                    return { ok: false, error: 'role is required' };
+                }
                 {
                     try
                     {
                         const lease = await allocator.activateContainer(request.role);
                         return { ok: true, lease };
                     }
-                    finally { persist?.(); }
+                    finally
+                    {
+                        persist?.();
+                    }
                 }
             case 'complete-handoff':
                 if (typeof request.role !== 'string' || typeof request.listenerIdentityRef !== 'string')

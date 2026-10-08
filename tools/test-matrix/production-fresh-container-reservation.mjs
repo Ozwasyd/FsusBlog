@@ -37,7 +37,10 @@ function requiredString(value, name)
 
 export function validateContainerReservationOptions(options)
 {
-    if (process.platform !== 'linux') throw new Error('container publisher reservation requires Linux Docker publisher observation');
+    if (process.platform !== 'linux')
+    {
+        throw new Error('container publisher reservation requires Linux Docker publisher observation');
+    }
     if (!['postgres', 'redis'].includes(options.role))
     {
         throw new Error('container reservation supports postgres and redis only');
@@ -123,30 +126,51 @@ async function publisherIdentity(port, containerPort, containerAddress)
     const matches = [];
     for (const entry of await fs.readdir('/proc'))
     {
-        if (!/^\d+$/u.test(entry)) continue;
+        if (!/^\d+$/u.test(entry))
+        {
+            continue;
+        }
         try
         {
             const command = await fs.readFile(`/proc/${entry}/cmdline`);
             const argv = command.toString().split('\0').filter(Boolean);
-            if (path.basename(argv[0] ?? '') !== 'docker-proxy') continue;
+            if (path.basename(argv[0] ?? '') !== 'docker-proxy')
+            {
+                continue;
+            }
             const argument = (name) => argv[argv.indexOf(name) + 1];
             if (argument('-host-ip') !== '127.0.0.1' || argument('-host-port') !== String(port) ||
                 argument('-container-port') !== String(containerPort) || argument('-container-ip') !== containerAddress ||
-                argument('-proto') !== 'tcp') continue;
+                argument('-proto') !== 'tcp')
+            {
+                continue;
+            }
             const stat = await fs.readFile(`/proc/${entry}/stat`, 'utf8');
             matches.push({ pid: Number(entry), processStartIdentity: stat.slice(stat.lastIndexOf(')') + 2).split(' ')[19], commandDigest: hash(command) });
         }
         catch (error)
         {
-            if (!['ENOENT', 'EACCES', 'ESRCH'].includes(error.code)) throw error;
+            if (!['ENOENT', 'EACCES', 'ESRCH'].includes(error.code))
+            {
+                throw error;
+            }
         }
     }
-    if (matches.length !== 1) throw new Error('container reservation publisher identity is unavailable or ambiguous');
+    if (matches.length !== 1)
+    {
+        throw new Error('container reservation publisher identity is unavailable or ambiguous');
+    }
     const result = await execute('ss', ['-H', '-ltnpe', `sport = :${port}`], { timeout: 5000 });
     const sockets = result.stdout.split('\n').filter((line) => line.includes(`127.0.0.1:${port} `));
-    if (sockets.length !== 1) throw new Error('container reservation publisher socket is unavailable or ambiguous');
+    if (sockets.length !== 1)
+    {
+        throw new Error('container reservation publisher socket is unavailable or ambiguous');
+    }
     const inode = sockets[0].match(/\bino:(\d+)\b/u)?.[1];
-    if (!inode) throw new Error('container reservation publisher socket inode is unavailable');
+    if (!inode)
+    {
+        throw new Error('container reservation publisher socket inode is unavailable');
+    }
     return { ...matches[0], socketInode: inode, bindAddress: '127.0.0.1', port, protocol: 'tcp' };
 }
 
@@ -185,9 +209,15 @@ async function observePublisher(container, expected)
 {
     const mapping = container.NetworkSettings.Ports[`${expected.containerPort}/tcp`];
     if (!container.State.Running || mapping?.length !== 1 || mapping[0].HostIp !== '127.0.0.1' ||
-        mapping[0].HostPort !== String(expected.port)) throw new Error('container reservation mapping drift');
+        mapping[0].HostPort !== String(expected.port))
+    {
+        throw new Error('container reservation mapping drift');
+    }
     const addresses = Object.values(container.NetworkSettings.Networks).map((network) => network.IPAddress).filter(Boolean);
-    if (addresses.length !== 1) throw new Error('container reservation network identity is ambiguous');
+    if (addresses.length !== 1)
+    {
+        throw new Error('container reservation network identity is ambiguous');
+    }
     const gateMounts = container.Mounts.filter((mount) => mount.Destination === gateTarget);
     if (gateMounts.length !== 1 || gateMounts[0].Source !== expected.gateDirectory || gateMounts[0].RW !== false)
     {
@@ -223,10 +253,16 @@ export async function recoverReleaseContainerPublisher({ ownerIdentity, gateDire
     }
     await verifyGateDirectory(gateDirectory, ownerIdentity.gateOwner);
     let container;
-    try { container = await inspectContainer(ownerIdentity.containerId); }
+    try
+    {
+        container = await inspectContainer(ownerIdentity.containerId);
+    }
     catch (error)
     {
-        if (!/No such (?:object|container)/u.test(error.stderr ?? '')) throw error;
+        if (!/No such (?:object|container)/u.test(error.stderr ?? ''))
+        {
+            throw error;
+        }
     }
     const previous = container ? await observePublisher(container, { ...ownerIdentity, gateDirectory }) : null;
     if (previous && !isDeepStrictEqual(previous, ownerIdentity))
@@ -319,7 +355,10 @@ export async function reserveContainerPublisher(options)
                 const separator = args[index + 1].indexOf('=');
                 expectedLabels[args[index + 1].slice(0, separator)] = args[index + 1].slice(separator + 1);
             }
-            else entries.push([argument, Number(args[index + 1])]);
+            else
+            {
+                entries.push([argument, Number(args[index + 1])]);
+            }
         }
         return entries;
     }, []));
@@ -337,17 +376,26 @@ export async function reserveContainerPublisher(options)
     }
     async function close()
     {
-        if (closePromise) return closePromise;
+        if (closePromise)
+        {
+            return closePromise;
+        }
         closed = true;
         closePromise = (async () =>
         {
             if (containerId)
             {
                 let container;
-                try { container = await inspectContainer(containerId); }
+                try
+                {
+                    container = await inspectContainer(containerId);
+                }
                 catch (error)
                 {
-                    if (!/No such (?:object|container)/u.test(error.stderr ?? '')) throw error;
+                    if (!/No such (?:object|container)/u.test(error.stderr ?? ''))
+                    {
+                        throw error;
+                    }
                 }
                 if (container)
                 {
@@ -362,11 +410,21 @@ export async function reserveContainerPublisher(options)
         return closePromise;
     }
     // The caller also awaits close on cancellation; rejection remains observable there.
-    function onAbort() { void close().catch(() => {}); }
+    function onAbort()
+    {
+        void close().catch(() =>
+        {});
+    }
     async function observe()
     {
-        if (closed) throw new Error('container reservation is released');
-        if (!transferred) options.signal?.throwIfAborted();
+        if (closed)
+        {
+            throw new Error('container reservation is released');
+        }
+        if (!transferred)
+        {
+            options.signal?.throwIfAborted();
+        }
         const container = await inspectContainer(containerId);
         assertOwned(container);
         const resources = {
@@ -391,8 +449,14 @@ export async function reserveContainerPublisher(options)
     try
     {
         const args = ['create', '--pull=never', '--name', options.name, ...options.resourceArgs];
-        for (const [key, value] of Object.entries(expectedLabels)) args.push('--label', `${key}=${value}`);
-        for (const [key, value] of Object.entries(options.env ?? {})) args.push('--env', `${key}=${value}`);
+        for (const [key, value] of Object.entries(expectedLabels))
+        {
+            args.push('--label', `${key}=${value}`);
+        }
+        for (const [key, value] of Object.entries(options.env ?? {}))
+        {
+            args.push('--env', `${key}=${value}`);
+        }
         args.push('--env', `FSUSBLOG_RESERVATION_ACTIVATION=${token}`, '--mount',
             `type=bind,source=${gateDirectory},target=${gateTarget},readonly`, '--entrypoint', '/bin/sh',
             '--publish', `127.0.0.1:${options.port}:${options.containerPort}`, options.imageReference,
@@ -408,9 +472,15 @@ export async function reserveContainerPublisher(options)
             ownerIdentity, gateDirectory, observe, close,
             async transferToRuntime()
             {
-                if (!activated) throw new Error('container reservation cannot transfer before activation');
+                if (!activated)
+                {
+                    throw new Error('container reservation cannot transfer before activation');
+                }
                 const observed = await observe();
-                if (closed) throw new Error('container reservation is released');
+                if (closed)
+                {
+                    throw new Error('container reservation is released');
+                }
                 options.signal?.throwIfAborted();
                 transferred = true;
                 options.signal?.removeEventListener('abort', onAbort);
@@ -418,7 +488,10 @@ export async function reserveContainerPublisher(options)
             },
             async activate()
             {
-                if (activationPromise) return activationPromise;
+                if (activationPromise)
+                {
+                    return activationPromise;
+                }
                 activationPromise = (async () =>
                 {
                     await observe();
@@ -433,15 +506,27 @@ export async function reserveContainerPublisher(options)
                     }
                     return observe();
                 })();
-                try { return await activationPromise; }
-                finally { activationPromise = null; }
+                try
+                {
+                    return await activationPromise;
+                }
+                finally
+                {
+                    activationPromise = null;
+                }
             }
         };
     }
     catch (error)
     {
-        try { await close(); }
-        catch (cleanupError) { error.cleanupError = cleanupError; }
+        try
+        {
+            await close();
+        }
+        catch (cleanupError)
+        {
+            error.cleanupError = cleanupError;
+        }
         throw error;
     }
 }
