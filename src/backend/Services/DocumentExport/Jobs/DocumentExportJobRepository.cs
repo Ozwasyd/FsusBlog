@@ -11,7 +11,7 @@ internal sealed record DocumentExportStoredGrant(
     string TaskId,
     string OutputId,
     long UserId,
-    long SiteId,
+    string SiteScope,
     string SessionDigest,
     DateTimeOffset ExpiresAt);
 
@@ -42,7 +42,7 @@ internal sealed record DocumentExportJobState(
 /// </summary>
 internal sealed class DocumentExportJobRepository
 {
-    internal const string StateSchema = "fsusblog.document-export-job-state.v1";
+    internal const string StateSchema = "fsusblog.document-export-job-state.v2";
     private const int MaximumStateBytes = 96 * 1024 * 1024;
     private readonly string _root;
     private readonly Microsoft.AspNetCore.DataProtection.IDataProtector _protector;
@@ -54,7 +54,7 @@ internal sealed class DocumentExportJobRepository
         ArgumentNullException.ThrowIfNull(layout);
         ArgumentNullException.ThrowIfNull(protection);
         _root = Path.Combine(layout.Paths.PrivateAssetRoot, "document-export");
-        _protector = protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v1");
+        _protector = protection.CreateProtector("FsusBlog.DocumentExport.Jobs.State.v2");
         _files = new Lazy<PrivateAssetAnchoredFileSystem>(() => directorySync is null
             ? new(layout.Paths.PrivateAssetRoot, layout.Paths.UploadCommitRoot)
             : new(layout.Paths.PrivateAssetRoot, layout.Paths.UploadCommitRoot, directorySync));

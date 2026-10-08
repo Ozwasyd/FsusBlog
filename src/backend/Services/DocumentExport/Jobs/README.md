@@ -10,11 +10,38 @@ physical execution. Source handoff does not imply issue completion.
 `IDocumentExportJobs` is the authenticated API/UI boundary. Supply
 `DocumentExportJobActor` from the canonical session and site context, never from
 the request body. `IDocumentExportJobAuthorization` must check the existing live
-session, numeric owner/site mapping and article-coordinate permission for each
-operation. No default authorizer exists. The existing administrator identity uses
-`AdminPrincipalId` and configured string site scopes; mapping those to the frozen
-contract's numeric `UserId`/`SiteId` remains an explicit integration requirement.
-Account ID, administrator ID and site scope must not be guessed or interchanged.
+session, exact configured `SiteScope` and article-coordinate permission for each
+operation. No default authorizer exists. `UserId` binds the current endpoint's
+`AdminPrincipalId`; `SessionId` comes from `GetAdminSessionId`, not anonymous
+account/session claims. `SiteScope` is the existing authority's
+`SITE_BASEURL.Trim().TrimEnd('/')` value, compared ordinally. Received identities
+are validated rather than silently normalized, hashed or mapped to a number.
+
+## Site identity version handoff
+
+The original #2423 numeric `SiteId` was an implementation choice, not an external
+site configuration requirement. This separate contract handoff replaces it with
+`string SiteScope` in frozen input, task, sandbox plan/receipt, job actor/output,
+quota scope and stored grants. Closed deserialization rejects an old `siteId`
+member, even if a sender also supplies `siteScope`. Old schemas and protected v1
+job state are refused; there is no compatibility alias or automatic migration.
+No production state is read, migrated or deleted by this change.
+
+| Surface | Next version | Consumer / canonical owner work |
+| --- | --- | --- |
+| Frozen input / task / provider result | v3 | #2423 shared validator and fixture updated; format owners consume exact types |
+| Renderer request / response | v3 | #2427 renderer/tool wrapper must bind the new frozen identity without parsing Markdown twice |
+| Sandbox plan / attempt receipt | v2 | #2425 shared producer/validators use exact scope; original budgets and cleanup facts stay unchanged |
+| Job snapshot / output / protected state | v2 | #2434 migrates its service/repository guards and tests to string scope, preserving custody and quotas |
+| Authenticated API / browser / Shared AEDS | explicit aligned schemas | #2436 freezes scope from the existing authority and updates actual C#/POD/native/TS codecs together |
+| DOCX / PDF / EPUB evidence | catalog v3 result | #2430 / #2429 / #2432 update consumer fixtures and retained receipt bindings; formats stay inactive |
+
+This is an incremental source handoff. Service/API consumers that still reference
+`SiteId` cannot compile until their sole owners migrate them; they must not add a
+numeric alias or suppress the error. The frozen earlier review candidate remains
+on its original branch with its original wire identity. Compilation of this new
+composition and original runtime/product acceptance are separate pending gates.
+
 
 Construct `DocumentExportJobService` with the existing `ReleaseStorageLayout`,
 shared `IDataProtectionProvider`, the exact permission adapter and `TimeProvider`.

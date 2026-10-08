@@ -6,7 +6,7 @@ namespace FsusBlog.Server.Services.DocumentExport.Jobs;
 /// Authenticated request identity supplied by the existing session/site adapter.
 /// It is never populated from a public request body or provider input.
 /// </summary>
-public sealed record DocumentExportJobActor(long UserId, long SiteId, string SessionId);
+public sealed record DocumentExportJobActor(long UserId, string SiteScope, string SessionId);
 
 public enum DocumentExportJobOperation
 {
@@ -67,7 +67,7 @@ public sealed record DocumentExportOutputRecord(
     string OutputId,
     string TaskId,
     long UserId,
-    long SiteId,
+    string SiteScope,
     string InputDigest,
     string ProviderId,
     string ProviderVersion,
@@ -121,7 +121,7 @@ public sealed record DocumentExportDownload(
     long ContentLength,
     ImmutableDictionary<string, string> Headers);
 
-public sealed record DocumentExportJobScopeUsage(long? UserId, long? SiteId, int Jobs, int Outputs, long OutputBytes);
+public sealed record DocumentExportJobScopeUsage(long? UserId, string? SiteScope, int Jobs, int Outputs, long OutputBytes);
 
 public sealed record DocumentExportJobUsage(int Jobs, int Outputs, long OutputBytes, int CleanupRequired)
 {
