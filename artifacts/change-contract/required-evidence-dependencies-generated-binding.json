@@ -7,12 +7,18 @@
         "tools/ci/check-job-summaries.mjs",
         "tools/test-matrix/scheduler.mjs",
         "tools/test/lanes/static-governance.sh",
-        "tests/tools/required-evidence-dependencies.test.mjs"
+        "tests/tools/required-evidence-dependencies.test.mjs",
+        "tests/matrix.yml",
+        "tools/test-matrix/execution-dependency-contract.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
             "sha256": "3d9220020a7884d20639bc19d6300f95019622058df62076228c77d0b1c28705"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
+            "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
         }
     ]
 }
