@@ -11,7 +11,9 @@ digest. Those nullable slots remain empty rather than inventing correlations.
 Production construction is deliberately assembly-private. Current #2109 source
 provides structural rules and Linux admission only. The integration owner must
 supply the exact Windows root capability, admitted overlapped handle and native
-root/path/control-tree revalidation API before adding a production factory. This
+root/path/control-tree revalidation API before adding a production factory. Quiet
+root moves also need admitted parent/ancestor watch coordinates: the native API
+does not report changes to the watched directory itself. This
 module contains no alternate root verifier, arbitrary absolute-path API or body
 reader. The private seam and test assembly friendship are transport test access,
 not native root qualification or permission to publish an agent package.

@@ -11,6 +11,7 @@ public sealed class WindowsVaultWatcherSession : IDisposable
     private readonly SafeFileHandle _directory;
     private readonly CancellationTokenSource _stop = new();
     private readonly WindowsVaultFactBuffer _buffer;
+    private readonly TaskCompletionSource _started = new(TaskCreationOptions.RunContinuationsAsynchronously);
     private readonly Task _reader;
     private int _disposed;
 
@@ -33,6 +34,8 @@ public sealed class WindowsVaultWatcherSession : IDisposable
 
     /// <summary>Remains invalid: raw facts cannot acknowledge or certify a #2112 rescan.</summary>
     public WindowsVaultWatermark Watermark => _buffer.Watermark;
+
+    internal Task NativeStarted => _started.Task;
 
     /// <summary>Drains at most QueueCapacity facts, preserving native order and explicit loss markers.</summary>
     public IReadOnlyList<WindowsVaultRawFact> ReadAvailable()
@@ -127,7 +130,7 @@ public sealed class WindowsVaultWatcherSession : IDisposable
                     {
                         _stop.Cancel();
                     }
-                }, NativeFailure);
+                }, NativeFailure, () => _started.TrySetResult());
         }
         catch (Exception exception) when (exception is IOException or UnauthorizedAccessException)
         {
@@ -136,6 +139,13 @@ public sealed class WindowsVaultWatcherSession : IDisposable
         catch (Exception)
         {
             _buffer.Failure(WindowsVaultFactClass.WatchInvalidated, "windows_vault_observer_failed");
+        }
+        finally
+        {
+            if (!_started.Task.IsCompleted)
+            {
+                _started.TrySetException(new IOException("windows_vault_native_watch_start_failed"));
+            }
         }
     }
 
