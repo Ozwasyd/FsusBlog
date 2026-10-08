@@ -1,0 +1,33 @@
+{
+  "qualificationEligible": false,
+  "blogTestedHead": "0e3ee1e38beb9105ca3bdf4dfb6a51401587e36e",
+  "uiTestedSource": "599ebe4ab1cae03d84163724f7d72d4b337c8136",
+  "latestObservedBlogMaster": "53da546cc8ab9fd8603067395d988b7ddb650394",
+  "artifacts": [
+    {
+      "path": ".tmp/ux/viewport-canonical-capabilities-build-stages-20261008.json",
+      "bytes": 30800,
+      "sha256": "ee59071eceb8dc655339239bd4b0012a598a38e9e4089511319defc2a27decbe"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-capabilities-built-document-20261008.log",
+      "bytes": 204,
+      "sha256": "39fd7e671192f30daca2b20bd3df82b085a942341e858b8d9859238bd7bb28fc"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-capabilities-built-index-20261008.html",
+      "bytes": 7696,
+      "sha256": "1fb01da436408993e759c494c2cc19291c312846dacaa299df892306a4985f83"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-capabilities-consumer-build-20261008.log",
+      "bytes": 52830,
+      "sha256": "c0c53dbaa3acbc44f9653a68c5c8cc069d046b2b6e6e5bda01189080b5854db5"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-capabilities-consumer-typecheck-20261008.log",
+      "bytes": 162,
+      "sha256": "5c3e1d93b31ff3ae81f2acf3f39579f376eb7d5e94c5aa89fad4e7771f2ef0df"
+    }
+  ]
+}

@@ -1,0 +1,18 @@
+{
+  "qualificationEligible": false,
+  "latestObservedBlogMaster": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
+  "testedBlogCandidate": "0e3ee1e38beb9105ca3bdf4dfb6a51401587e36e",
+  "latestObservedUiMain": "f2b3bb89ffe5f749da26c388f058efdbb6aee864",
+  "deltaFromInspected0a": [
+    "artifacts/change-contract/issue-3739-fixture-permission-external-naming.json",
+    "artifacts/change-contract/issue-3739-fixture-permission-generated-binding.json",
+    "artifacts/change-contract/locale-catalog-generator-external-naming.json",
+    "artifacts/change-contract/locale-catalog-source-generated-binding.json",
+    "tests/browser-contract/fixture-lifecycle.test.mjs",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+    "tests/tools/locale-catalog.test.mjs",
+    "tools/contracts/check-locale-catalog.mjs",
+    "tools/contracts/generate-locale-catalog.mjs"
+  ],
+  "relevantSourceDelta": []
+}

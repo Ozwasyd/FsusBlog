@@ -1,0 +1,32 @@
+{
+  "qualificationEligible": false,
+  "blogTestedHead": "0e3ee1e38beb9105ca3bdf4dfb6a51401587e36e",
+  "uiTestedSource": "42ecd78e01f0e8f52ad4ccbd7ffb87fea0d1c3d6",
+  "artifacts": [
+    {
+      "path": ".tmp/ux/viewport-canonical-826-build-stages-20261008.json",
+      "bytes": 31061,
+      "sha256": "ef36fd5ed3fb0f2ce73c98774cd5870cc84fba3fdac76c9e61bba54aed3b4e57"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-826-built-document-20261008.log",
+      "bytes": 204,
+      "sha256": "39fd7e671192f30daca2b20bd3df82b085a942341e858b8d9859238bd7bb28fc"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-826-built-index-20261008.html",
+      "bytes": 7696,
+      "sha256": "6b373858c0c2ee284ab5f566a1477b80d984aa9f00e591dd8cc99e5dc6ebd55f"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-826-consumer-build-20261008.log",
+      "bytes": 52720,
+      "sha256": "0dc1670a563a5c2e4b0fdc39a85128522ef5f7838b3fb5cbd2bae61db539e008"
+    },
+    {
+      "path": ".tmp/ux/viewport-canonical-826-consumer-typecheck-20261008.log",
+      "bytes": 162,
+      "sha256": "5c3e1d93b31ff3ae81f2acf3f39579f376eb7d5e94c5aa89fad4e7771f2ef0df"
+    }
+  ]
+}
