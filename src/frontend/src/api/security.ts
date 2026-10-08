@@ -548,6 +548,12 @@ function securityBody(frameType: FrameType, request: unknown): ArrayBuffer
     return encodeAedsFrame(frameType, encodeJsonRequest(request));
 }
 
+function resolveDeviceFingerprint(value?: string): string
+{
+    const normalized = value?.trim() ?? '';
+    return normalized.length > 0 ? normalized : getBrowserFp();
+}
+
 function securityChallengeHeaders(
     deviceFingerprint?: string,
     replacement?: IssueSecurityChallengeRequest['replacement'],
@@ -555,7 +561,7 @@ function securityChallengeHeaders(
 ): Headers
 {
     const headers = new Headers();
-    headers.set(FSUS_HEADERS.deviceFingerprint, deviceFingerprint?.trim() || getBrowserFp());
+    headers.set(FSUS_HEADERS.deviceFingerprint, resolveDeviceFingerprint(deviceFingerprint));
     if (representation)
     {
         headers.set('X-Fsus-Challenge-Representation', representation);
@@ -664,7 +670,7 @@ export const issueSecurityChallenge = (request: IssueSecurityChallengeRequest, c
                 encodeSecurityChallengeIssueRequest({
                     action: request.action,
                     routeKey: request.routeKey,
-                    deviceFingerprint: request.deviceFingerprint?.trim() || getBrowserFp(),
+                    deviceFingerprint: resolveDeviceFingerprint(request.deviceFingerprint),
                     attributesJson: JSON.stringify(request.attributes ?? {}),
                     capabilityManifestVersion: request.capabilityManifestVersion ?? ''
                 })
@@ -714,7 +720,7 @@ export const cancelSecurityChallenge = (request: CancelSecurityChallengeRequest,
                     envelopeId: request.envelopeId,
                     action: request.action,
                     routeKey: request.routeKey,
-                    deviceFingerprint: request.deviceFingerprint?.trim() || getBrowserFp(),
+                    deviceFingerprint: resolveDeviceFingerprint(request.deviceFingerprint),
                     policyVersion: request.policyVersion
                 })
             )
