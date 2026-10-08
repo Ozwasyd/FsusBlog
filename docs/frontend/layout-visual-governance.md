@@ -140,3 +140,44 @@ node --test tests/tools/layout-composition-contracts.test.mjs
 
 These are synthetic contract mutations against the actual loaded definitions;
 they are not product-source mutations or evidence that a page renders correctly.
+
+
+## Composition source and DOM diagnostics
+
+The existing `check:views-constraints` core command consumes the same matrix
+through `check-layout-composition.mjs`. Its source graph uses the canonical
+`@fsusblog/control-legality/source` parser/resolver and the actual `createRouter`
+imports. A restricted AST interpreter follows constant objects, spreads, pure
+path helpers, route maps and lazy component imports; unknown expressions fail
+closed. It creates no route/file allowlist or alternate composition contract.
+SFC nodes retain slots, branch directives, teleports, exact public/local import
+origins and original source locations/digests. Public aliases follow their actual
+export factories. Unsupported dynamic components and state bindings remain
+errors rather than a source-only acceptance result.
+
+`compositionProbePlugin` adds test-only source markers before the actual Vue
+compiler. It checks the original source bytes and rejects authored marker
+attributes. It never writes product files. The browser probe retains hidden
+nodes, joins native/component markers to parsed sources, and checks heading,
+action, region, material, nesting, chrome and content-order observations.
+Caller-provided classes or surface attributes cannot establish public provenance.
+A missing upstream surface/material capability and unbound conditional state
+remain failed observations. Receipt verification recomputes the joined verdict;
+changing its errors, current source, worktree, design, contract, fixture, FsusUI
+skill closure, analyzer closure or run identity invalidates it.
+
+Run the executable analyzer tests with the actual local public API:
+
+```bash
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node --test tests/tools/layout-composition-source.test.mjs tests/tools/layout-composition-contracts.test.mjs
+FSUSBLOG_LOCAL_FSUSUI_ROOT=/path/to/FsusUI node tests/frontend/checks/runtime/check-layout-composition-probe.mjs
+```
+
+The probe generates isolated diagnostic fixtures from the existing contract and
+records actual Chromium observations and targeted negative controls. Its baseline
+keeps unresolved capabilities/state bindings visible. These fixtures are not
+production routes or independent UX evidence. Static scans mark DOM `not-run`;
+browser observations remain `diagnostic-only` and `fullVisualVerified: false`.
+Authenticated production fixture binding, control admission and the separate
+geometry/state and visual owners remain required. This analyzer neither runs the
+complete geometry/state matrix nor issues visual adjudication.

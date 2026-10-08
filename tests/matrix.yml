@@ -584,7 +584,7 @@ commandGroups:
                     access: "read"
                     stage: "concurrent"
                     reason: "Checks view structure from source without shared output."
-                    consumedInputs: ["src/frontend/src", "src/frontend/package.json"]
+                    consumedInputs: ["src/frontend/src", "src/frontend/package.json", "tests/frontend/support/layout", "tests/frontend/fixtures/layout-*", "tests/frontend/fixtures/ux-viewport-matrix.json", "config/schemas/layout-composition-contract.schema.json", "tools/frontend/control-legality", "docs/frontend/layout-visual-governance.md", "docs/design", "docs/public-layout-rules.md"]
                     ownedOutputs: []
                     dependsOn: []
                     resources: {cpuWeight: 1, memoryWeight: 0.25, minCpuUnits: 1, exclusiveResources: []}
