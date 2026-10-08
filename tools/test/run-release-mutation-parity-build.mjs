@@ -1,5 +1,4 @@
 #!/usr/bin/env node
-import { spawnSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -9,6 +8,24 @@ import {
     releaseArtifactDigest,
     resolveReleaseMutationSubset
 } from './mutation-release-parity.mjs';
+import {
+    assertMutationRootLocation,
+    createMutationAttemptRoot,
+    prepareMutationWriteBoundary
+} from './release-mutation-attempt-root.mjs';
+
+let writeBoundary = null;
+function spawnProducer(command, args, options)
+{
+    if (!writeBoundary)
+    {
+        throw new Error('mutation producer requires a verified current-attempt write boundary');
+    }
+    const executable = command === 'dotnet'
+        ? writeBoundary.dotnetExecutable
+        : command;
+    return writeBoundary.run(executable, args, options);
+}
 
 const sha256 = (bytes) => `sha256:${crypto.createHash('sha256').update(bytes).digest('hex')}`;
 const option = (name) =>
@@ -30,7 +47,7 @@ function traceFile(output)
     }
     return path.join(output, 'logs', files[0]);
 }
-function readCompilerProperties(project, configuration, environment)
+async function readCompilerProperties(project, configuration, environment)
 {
     const names = [
         'MSBuildProjectFullPath',
@@ -42,7 +59,7 @@ function readCompilerProperties(project, configuration, environment)
         'LangVersion',
         'TieredPGO'
     ];
-    const result = spawnSync(
+    const result = await spawnProducer(
         'dotnet',
         [
             'msbuild',
@@ -59,9 +76,9 @@ function readCompilerProperties(project, configuration, environment)
     const properties = JSON.parse(result.stdout).Properties;
     return properties;
 }
-function run(command, args, options, label)
+async function run(command, args, options, label)
 {
-    const result = spawnSync(command, args, options);
+    const result = await spawnProducer(command, args, options);
     if (result.status !== 0)
     {
         throw new Error(`${label} failed with exit ${result.status}: ${result.stderr?.trim() ?? ''}`);
@@ -78,6 +95,16 @@ if (!authorityFile || !policyFile || !outputRoot || !runId)
     throw new Error('usage: --authority --policy --output-root --run-id');
 }
 const root = path.resolve(path.dirname(new URL(import.meta.url).pathname), '../..');
+// Refuse unsafe roots before reading producer inputs or deleting any previous output.
+assertMutationRootLocation({ repositoryRoot: root, outputRoot });
+const invocationId = option('--invocation-id');
+const attemptId = option('--attempt-id');
+const buildReceiptPath = option('--build-receipt');
+const buildReceiptDigest = option('--build-receipt-digest');
+if (!invocationId || !attemptId || !buildReceiptPath || !buildReceiptDigest)
+{
+    throw new Error('Release mutation requires --invocation-id --attempt-id --build-receipt --build-receipt-digest');
+}
 const authority = JSON.parse(fs.readFileSync(path.resolve(authorityFile), 'utf8'));
 const policy = JSON.parse(fs.readFileSync(path.resolve(policyFile), 'utf8'));
 if (authority.evidenceClass !== 'source-level')
@@ -91,6 +118,10 @@ if (!sourceConfig.startsWith(`${root}${path.sep}`) || !fs.existsSync(sourceConfi
     throw new Error('Release parity source authority config is missing or escapes the repository');
 }
 const rawSourceConfig = fs.readFileSync(sourceConfig);
+if (sha256(rawSourceConfig).replace(/^sha256:/u, '') !== authority.config.sha256.replace(/^sha256:/u, ''))
+{
+    throw new Error('Release mutation source config digest mismatch');
+}
 const config = JSON.parse(rawSourceConfig);
 if (config['stryker-config']?.configuration !== 'Debug')
 {
@@ -103,22 +134,15 @@ if ('project' in config['stryker-config'])
 config['stryker-config'].configuration = 'Release';
 config['stryker-config'].concurrency = 1;
 config['stryker-config']['additional-timeout'] = 120000;
-const resolvedOutputRoot = path.resolve(outputRoot);
-const repositoryTemporaryRoot = path.join(root, '.tmp');
-if (!/^[0-9A-Za-z][0-9A-Za-z._-]*$/u.test(runId))
-{
-    throw new Error('Release mutation run ID is not path-safe');
-}
-const runRoot = path.resolve(resolvedOutputRoot, runId);
-if (!resolvedOutputRoot.startsWith(`${repositoryTemporaryRoot}${path.sep}`)
-    || !runRoot.startsWith(`${resolvedOutputRoot}${path.sep}`))
-{
-    throw new Error('Release mutation output must be run-bound under repository .tmp, never development bin/obj');
-}
-fs.rmSync(runRoot, { recursive: true, force: true });
+const sourceState = authority.producer.sourceState;
+const rootReceipt = await createMutationAttemptRoot({
+    repositoryRoot: root, outputRoot, runId, invocationId, attemptId, sourceState,
+    buildReceiptPath, buildReceiptDigest
+});
+const runRoot = rootReceipt.root;
 const configFile = path.join(runRoot, 'config.release.json');
-const output = path.join(runRoot, 'physical');
-const buildRoot = path.join(runRoot, 'build');
+const output = rootReceipt.paths.physical;
+const buildRoot = rootReceipt.paths.build;
 writeJson(configFile, config);
 const mutationProjectRoot = path.join(root, 'src/core');
 const sourceProject = path.join(mutationProjectRoot, 'FsusBlog.Core.csproj');
@@ -126,10 +150,37 @@ const sourceProjectIdentity = path.relative(root, sourceProject).replaceAll(path
 const environment = {
     ...process.env,
     FSUSBLOG_MUTATION_BUILD: '1',
-    FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot
+    FSUSBLOG_PRODUCTION_BUILD_ROOT: buildRoot,
+    HOME: rootReceipt.paths.home,
+    DOTNET_CLI_HOME: rootReceipt.paths.home,
+    TMPDIR: rootReceipt.paths.scratch,
+    TEMP: rootReceipt.paths.scratch,
+    TMP: rootReceipt.paths.scratch,
+    FSUSBLOG_TOOL_CACHE: rootReceipt.paths['tool-cache']
 };
-const debugCompilerProperties = readCompilerProperties(sourceProject, 'Debug', environment);
-const releaseCompilerProperties = readCompilerProperties(sourceProject, 'Release', environment);
+try
+{
+    writeBoundary = prepareMutationWriteBoundary(rootReceipt,
+        { runId, invocationId, attemptId, sourceState, buildReceiptDigest }, environment);
+}
+catch (error)
+{
+    writeJson(path.join(runRoot, 'root-terminal.json'), {
+        schema: 'fsusblog.release-mutation-root-terminal.v1',
+        rootReceiptDigest: rootReceipt.contentDigest,
+        runId, invocationId, attemptId, sourceState,
+        root: runRoot, writeDomain: rootReceipt.writeDomain,
+        reachedPhase: 'write-boundary-precondition',
+        producerSpawned: false, authoritativeEvidence: null,
+        firstBlockingReason: error.message,
+        cleanup: 'retained', producerOutcome: null, finishedAt: new Date().toISOString()
+    });
+    throw error;
+}
+const { observeExecutableIdentity } = await import('./execution-envelope-environment.mjs');
+writeBoundary.dotnetExecutable = observeExecutableIdentity('dotnet', { pathValue: environment.PATH }).realPath;
+const debugCompilerProperties = await readCompilerProperties(sourceProject, 'Debug', environment);
+const releaseCompilerProperties = await readCompilerProperties(sourceProject, 'Release', environment);
 if (path.resolve(releaseCompilerProperties.MSBuildProjectFullPath) !== sourceProject
     || releaseCompilerProperties.AssemblyName !== 'FsusBlog.Core'
     || releaseCompilerProperties.Configuration !== 'Release'
@@ -137,7 +188,7 @@ if (path.resolve(releaseCompilerProperties.MSBuildProjectFullPath) !== sourcePro
 {
     throw new Error('Release compiler identity is not the production FsusBlog.Core project');
 }
-run('dotnet', ['build', sourceProject, '--configuration', 'Debug'], {
+await run('dotnet', ['build', sourceProject, '--configuration', 'Debug'], {
     cwd: root, encoding: 'utf8', env: environment
 }, 'run-bound Debug production Core build');
 const debugAssembly = path.join(buildRoot, 'dotnet/FsusBlog.Core/bin/Debug/net10.0/FsusBlog.Core.dll');
@@ -147,7 +198,7 @@ if (!fs.existsSync(debugAssembly))
 }
 const debugAssemblyDigest = sha256(fs.readFileSync(debugAssembly));
 const toolBindingPath = path.join(output, 'tool-binding.json');
-const result = spawnSync(process.execPath, [path.join(root, 'tools/mutation/stryker-tool.mjs'), 'run', '--working-directory', mutationProjectRoot, '--attestation-output', toolBindingPath, '--', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
+const result = await spawnProducer(process.execPath, [path.join(root, 'tools/mutation/stryker-tool.mjs'), 'run', '--working-directory', mutationProjectRoot, '--attestation-output', toolBindingPath, '--', '--config-file', configFile, '--output', output, '--log-to-file', '--verbosity', 'trace'], {
     cwd: root, stdio: 'inherit', env: environment
 });
 if (result.status !== 0)
@@ -189,7 +240,7 @@ const compilerIdentity = {
 const compiler = { ...compilerIdentity, optionsDigest: sha256(JSON.stringify(compilerIdentity)) };
 const smokeRoot = path.join(runRoot, 'smoke');
 fs.mkdirSync(smokeRoot, { recursive: true });
-const smokeResult = run('dotnet', [
+const smokeResult = await run('dotnet', [
     'test',
     path.join(root, 'tests/backend/FsusBlog.Server.Tests.csproj'),
     '--configuration', 'Release',
