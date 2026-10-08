@@ -178,6 +178,23 @@ owner must retain that exact path and handle unknown outcome, rather than deleti
 by a raced name. Unknown artifact discovery still blocks; no prefix-ignore rule
 was added.
 
+The canonical observation consumer now composes these real descriptors.
+`LinuxVaultTemporarySourcePreparer.Prepare` checks desired original bytes, writes
+the operation-owned temporary in bounded chunks, flushes its file and parent
+directory, and reads the descriptor back with metadata and byte checks. It keeps
+interrupted artifacts and reports preparation stages. A verified temporary is
+not final-source verification, accepted complete metadata, conditional replacement
+or a base receipt; its replacement and base capability flags remain false.
+
+`LinuxVaultRescanReader.Scan` traverses actual root-issued directories twice,
+decodes strict bounded `getdents64` records and checks directory metadata and tree
+drift. The scan bounds directories, entries, depth, directory reads and total
+observed source bytes. Unknown source names remain observations with admission
+blocked; unreadable snapshots remain failures rather than deletions. Structural
+completion still requires a native terminal receipt with the actual watch-event
+cut and protected lease. Neither enumeration nor caller-supplied completion facts
+grant synchronization admission.
+
 `CanExecuteConditionalReplacement` and `CanCommitBase` remain false. Final source
 create/replace/remove needs the canonical native owner's external-writer exclusion,
 expected-old conditional namespace primitive, completed accepted metadata and
