@@ -7,5 +7,7 @@ export const { requestBinaryOnly } = createBinaryTransport(decodeBinaryFramePayl
 
 /** JSON payloads still share the generated route, framing and generation authority. */
 export const { requestBinaryOnly: requestBinaryJson } = createBinaryTransport(
-    (_frameType, payload) => JSON.parse(new TextDecoder().decode(payload)) as unknown
+    (_frameType, payload) => JSON.parse(new TextDecoder().decode(payload)) as unknown,
+    // These existing management JSON payloads use this decoder, while the worker owns packed models.
+    false
 );
