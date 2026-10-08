@@ -1,0 +1,8 @@
+
+> @ typecheck:web /tmp/chain-830-fsusui-baseline
+> node ./scripts/with-node-heap.mjs node ./scripts/run-typecheck.mjs web
+
+[typecheck:web] cache-miss source-hash=f43cb4c471b76189 tsbuildinfo=.tmp/typecheck-cache/web.tsbuildinfo
+vue/packages/demo-app/src/InteractionTraceFixture.vue(40,9): error TS2353: Object literal may only specify known properties, and 'dataTestid' does not exist in type 'Partial<{ readonly checked: EpPropMergeType<BooleanConstructor, unknown, unknown>; }> & Omit<{ readonly checked: EpPropMergeType<BooleanConstructor, unknown, unknown>; readonly onChange?: ((value: boolean) => any) | undefined; readonly "onUpdate:checked"?: ((value: boolean) => any) | undefined; } & VNodeProps & Allo...'.
+vue/packages/demo-app/src/InteractionTraceFixture.vue(55,12): error TS2322: Type 'string' is not assignable to type 'EpPropMergeType<(new (...args: any[]) => "markdown" | "prose") | (() => MarkdownEditorProfile) | (PropConstructor<MarkdownEditorProfile> | null)[], "markdown" | "prose", unknown> | undefined'.
+ ELIFECYCLE  Command failed with exit code 2.

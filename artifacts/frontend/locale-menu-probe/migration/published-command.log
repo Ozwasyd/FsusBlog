@@ -1,0 +1,8 @@
+{
+    "status": "blocked",
+    "report": "/tmp/chain-1891-b8b886-published/probe.json",
+    "observations": {},
+    "errors": [
+        "Error: ENOENT: no such file or directory, open '/workspace/FsusBlog/src/frontend/node_modules/@ozwasyd/element-plus/package.json'\n    at async open (node:internal/fs/promises:697:25)\n    at async Object.readFile (node:internal/fs/promises:1348:14)\n    at async file:///workspace/FsusBlog/tests/frontend/checks/runtime/probe-locale-menu.mjs:72:40"
+    ]
+}
