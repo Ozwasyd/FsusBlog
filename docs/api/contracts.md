@@ -2379,7 +2379,7 @@ Draft/Published/Scheduled/Archived priority、stable article ID 升序比较；e
 
 当前交付包含 input/ranking core 和独立的内部 permission-first source measurement；candidate construction
 不证明 permission/history admission。完整 query source adapter、verified history 接入、sealed response/receipt、
-authenticated cursor、selection revalidation 和 AEDS route/compiled observation 尚未接入。此 core 不能作为
+authenticated cursor 的 query source wiring 和 AEDS route/compiled observation 尚未接入。此 core 不能作为
 可用 query API、完整 scale/cancel/privacy 验收，
 或 #2232 cache 可写入的 verified response。前端不得据此开启本地全量查询或 authority fallback。
 
@@ -2399,6 +2399,16 @@ authorized query response、verified history projection 或 receipt，也不暴�
 normalized query/status/bucket/locale/collation/limit identity、source/history/permission digests、permission/site/session
 revisions 和完整 rank tuple。scope 或当前 authority 改变时返回 stale，篡改或其他 cursor purpose 返回 invalid。
 codec 不证明输入 binding 的来源；完整 source adapter 尚不能提供必需 slug，因此当前没有 query route 发行该 cursor。
+
+现有 `IAuthorRecentArticleHistoryApplicationFacade.RevalidateSelectionAsync(articleId, serverRevision,
+permissionToken, requestId, cancellationToken)` 提供独立的单 article fresh selection 检查。owner 仍由服务端
+authenticated principal/session 与配置 site 派生。它通过原 live permission authority 重算单 ID 的 decision
+digest，在三次权限读取之间用原 ArticleService reader 两次读取当前 revision/row-version/lifecycle；变化、
+revocation、missing/deleted/Archived、无 write/project 权限或 token 不一致均不返回 current token。此调用
+不枚举 corpus、不返回 title/slug/score/count、不写 recent/cache、不打开文章、不生成 query receipt 或 long
+permission/lifecycle counter。结果绑定 request ID 和请求的 article/revision，是即时 revalidation observation，
+不能代替缺失的 ranked query response admission、query cursor 或 HTTP/AEDS route；后续 open/write 仍须原
+命令 authority 的重新授权和 CAS。
 
 ### Author query request sequencing core (#2232)
 

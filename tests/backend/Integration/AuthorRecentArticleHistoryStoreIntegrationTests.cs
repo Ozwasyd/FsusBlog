@@ -790,6 +790,74 @@ public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSche
         Assert.Equal(1, source.FieldReads);
     }
 
+    [Theory]
+    [InlineData("current")]
+    [InlineData("wrong-token")]
+    [InlineData("revision")]
+    [InlineData("deleted")]
+    [InlineData("archived")]
+    [InlineData("session-revoked")]
+    [InlineData("permission-revoked")]
+    [InlineData("revision-during-read")]
+    [InlineData("session-during-read")]
+    public async Task Selection_LivePostgresRevalidatesOriginalPermissionAndCurrentArticle(string fault)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        await SeedQueryFieldsAsync(db, 1);
+        var permission = CreatePermissionAuthority(db);
+        var admitted = await permission.ResolveAsync(new(s_owner, Guid.CreateVersion7(), [1]));
+        string token = Assert.Single(admitted.Decisions).DecisionDigest;
+        switch (fault)
+        {
+            case "revision":
+                await db.Ado.ExecuteCommandAsync("UPDATE article SET current_revision_id = 702;");
+                break;
+            case "deleted":
+                await db.Ado.ExecuteCommandAsync("UPDATE article SET isdeleted = true;");
+                break;
+            case "archived":
+                await db.Ado.ExecuteCommandAsync("UPDATE article SET status = 3;");
+                break;
+            case "session-revoked":
+                await db.Ado.ExecuteCommandAsync("UPDATE admin_session SET revokedatutc = CURRENT_TIMESTAMP;");
+                break;
+            case "permission-revoked":
+                await db.Ado.ExecuteCommandAsync("UPDATE admin_principal SET permissions = '';");
+                break;
+        }
+        var source = new QuerySourceInterruptionProbe(CreateCanonicalQueryReader(db))
+        {
+            AfterFields = async () =>
+            {
+                if (fault == "revision-during-read")
+                {
+                    await db.Ado.ExecuteCommandAsync("UPDATE article SET current_revision_id = 702;");
+                }
+                else if (fault == "session-during-read")
+                {
+                    await db.Ado.ExecuteCommandAsync("UPDATE admin_session SET revokedatutc = CURRENT_TIMESTAMP;");
+                }
+            }
+        };
+        var result = await new AuthorArticleQuerySelectionRevalidator(permission, source).RevalidateAsync(
+            s_owner, 1, 701, fault == "wrong-token" ? AuthorRecentArticleHistoryContract.HashText("wrong-token") : token,
+            Guid.CreateVersion7());
+        Assert.Equal(fault == "current", result.Current);
+        Assert.Equal(fault == "current" ? token : null, result.PermissionToken);
+        Assert.Equal(0, source.CoordinateReads);
+        Assert.Equal(fault is "current" or "revision-during-read" ? 2
+            : fault is "revision" or "session-during-read" ? 1 : 0, source.FieldReads);
+        if (fault == "current")
+        {
+            Guid repeatedRequest = Guid.CreateVersion7();
+            var repeated = await new AuthorArticleQuerySelectionRevalidator(permission, source).RevalidateAsync(
+                s_owner, 1, 701, token, repeatedRequest);
+            Assert.True(repeated.Current);
+            Assert.Equal(repeatedRequest, repeated.RequestId);
+            Assert.Equal(4, source.FieldReads);
+        }
+    }
+
     private static AuthorArticleQueryRequest QueryRequest()
         => new(1, new(s_owner.AdminPrincipalId, s_owner.SiteScope), Guid.CreateVersion7(), 1, "Article",
             [AuthorArticleQueryStatus.Draft], [AuthorArticleQueryBucket.Draft], "zh-CN",
