@@ -6,7 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 import { PassThrough } from 'node:stream';
 import { finished } from 'node:stream/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Scheduler admission consumes the canonical BehaviorDoc receipt validator.
@@ -21,10 +21,6 @@ import {
 } from '../test/current-run-evidence-checkpoint.mjs';
 // eslint-disable-next-line import-x/no-relative-parent-imports -- Finalizer admission consumes exact current-run bindings.
 import { locateCurrentRunEvidence } from '../test/current-run-evidence-locator.mjs';
-import {
-    validateCurrentRunEvidenceContext,
-    validateEvidenceLocatorRegistry
-} from '../test/evidence-location-contract.mjs';
 import {
     loadPhysicalExecutionProcessPolicy,
     residentServiceTransferSchema,
@@ -108,6 +104,8 @@ export {
     schedulerRunLockActivity,
     schedulerRunLockIsActive
 } from './scheduler-run-owner.mjs';
+
+const { validateCurrentRunEvidenceContext, validateEvidenceLocatorRegistry } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));
 
 const checkpointSchema = 'fsusblog.test-matrix.checkpoint.v1';
 const schedulerResourceRecoveries = new WeakMap();
