@@ -339,8 +339,10 @@ public sealed class DocumentExportEpubProviderTests
         Assert.Throws<InvalidDataException>(() => EpubPackageBuilder.Build(input, Response(input, metadata), metadata, Budgets));
     }
 
-    [Fact]
-    public async Task RefusesInactiveProviderBeforeCanonicalAdapterIsInvoked()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task RefusesInactiveProviderBeforeCanonicalAdapterIsInvoked(bool sharedAttempt)
     {
         EpubPublicationMetadata metadata = Metadata();
         DocumentExportFrozenInput input = Input(metadata);
@@ -352,14 +354,20 @@ public sealed class DocumentExportEpubProviderTests
         });
         var adapter = new RefusingAdapter();
         var provider = new DocumentExportEpubProvider(adapter, new RefusingResourceVerifier());
-        await Assert.ThrowsAsync<InvalidOperationException>(() => provider.ExportAsync(task, input, metadata));
+        var attempt = new DocumentExportAttemptResources(task, input, Budgets, TimeProvider.System);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => sharedAttempt
+            ? provider.ExportAsync(task, input, metadata, attempt)
+            : provider.ExportAsync(task, input, metadata));
         Assert.Equal(0, adapter.Calls);
+        Assert.Throws<InvalidDataException>(attempt.RequireCompleted);
     }
 
     [Theory]
-    [InlineData(false)]
-    [InlineData(true)]
-    public async Task JobAdapterPreCancellationDoesNotResolveFrozenMetadataOrRender(bool verify)
+    [InlineData(false, false)]
+    [InlineData(true, false)]
+    [InlineData(false, true)]
+    [InlineData(true, true)]
+    public async Task JobAdapterPreCancellationDoesNotResolveFrozenMetadataOrRender(bool verify, bool sharedAttempt)
     {
         var renderer = new RefusingAdapter();
         var resources = new RefusingResourceVerifier();
@@ -372,14 +380,58 @@ public sealed class DocumentExportEpubProviderTests
         {
             metadataCalls++;
             throw new InvalidOperationException("Cancelled jobs must not resolve metadata.");
-        }, tool, digest, resources);
+        }, tool, digest, resources, (_, _, _) => throw new InvalidOperationException("Only the job claim may create resources."));
         using var cancellation = new CancellationTokenSource();
         cancellation.Cancel();
-        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => verify
-            ? job.VerifyAsync(null!, null!, null!, cancellation.Token)
-            : job.ExportAsync(null!, null!, cancellation.Token));
+        await Assert.ThrowsAnyAsync<OperationCanceledException>(() => sharedAttempt
+            ? verify ? job.VerifyAsync(null!, null!, null!, null!, cancellation.Token)
+                : job.ExportAsync(null!, null!, null!, cancellation.Token)
+            : verify ? job.VerifyAsync(null!, null!, null!, cancellation.Token)
+                : job.ExportAsync(null!, null!, cancellation.Token));
         Assert.Equal(0, metadataCalls);
         Assert.Equal(0, renderer.Calls);
+    }
+
+    [Fact]
+    public async Task JobAttemptFactoryDelegatesOnceAndInactivePhasesCannotClaimCompletion()
+    {
+        EpubPublicationMetadata metadata = Metadata();
+        DocumentExportFrozenInput input = Input(metadata);
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            FormatId = "epub",
+            ProviderId = "document-export.epub",
+            ProviderVersion = "1"
+        });
+        TimeProvider time = TimeProvider.System;
+        var attempt = new DocumentExportAttemptResources(task, input, Budgets, time);
+        var renderer = new RefusingAdapter();
+        var resources = new RefusingResourceVerifier();
+        string digest = DocumentExportDigest.ComputeBytes("unused-test-tool"u8);
+        var tool = new DocumentExportToolContract("canonical-markdown-renderer", "current-v1",
+            "/unused-test-tool", digest, "/unused-test-runtime", digest, []);
+        int factoryCalls = 0;
+        IDocumentExportAttemptJobProvider job = new EpubDocumentExportJobProvider(
+            new DocumentExportEpubProvider(renderer, resources), _ => metadata, tool, digest, resources,
+            (createdTask, createdInput, createdTime) =>
+            {
+                factoryCalls++;
+                Assert.Same(task, createdTask);
+                Assert.Same(input, createdInput);
+                Assert.Same(time, createdTime);
+                return attempt;
+            });
+        Assert.Same(attempt, job.CreateAttemptResources(task, input, time));
+        await Assert.ThrowsAsync<InvalidOperationException>(() => job.ExportAsync(task, input, attempt, CancellationToken.None));
+        var unqualifiedResult = new DocumentExportProviderResult([], [], null!, null!, null!);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => job.VerifyAsync(unqualifiedResult, task, input, attempt, CancellationToken.None));
+        Assert.Equal(1, factoryCalls);
+        Assert.Equal(0, renderer.Calls);
+        Assert.Throws<InvalidDataException>(attempt.RequireCompleted);
+        IEpubFrozenResourceVerifier unsupported = resources;
+        InvalidOperationException unsupportedFailure = Assert.Throws<InvalidOperationException>(() =>
+            unsupported.Validate(input, attempt, CancellationToken.None));
+        Assert.Equal("EPUB resource verifier does not support the sole attempt resource owner.", unsupportedFailure.Message);
     }
 
     internal static EpubPublicationMetadata Metadata() => new("frozen-title", "zh-Hant", "ltr", ["Published author"],

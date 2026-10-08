@@ -9,4 +9,8 @@ namespace FsusBlog.Server.Services.DocumentExport;
 public interface IEpubFrozenResourceVerifier
 {
     void Validate(DocumentExportFrozenInput input, CancellationToken cancellationToken);
+
+    /// <summary>Requires explicit support for the caller's attempt; native validation cannot create independent stage budgets.</summary>
+    void Validate(DocumentExportFrozenInput input, DocumentExportAttemptResources attempt, CancellationToken cancellationToken)
+        => throw new InvalidOperationException("EPUB resource verifier does not support the sole attempt resource owner.");
 }
