@@ -1,0 +1,13 @@
+file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157
+    throw new Error(`[zero-legacy-governance] ${message}`);
+          ^
+
+Error: [zero-legacy-governance] JSONC parser package lock must be canonical duplicate-free JSON
+    at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+    at parseCanonicalAuthorityJson (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:208:9)
+    at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:321:18)
+    at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+    at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+    at file:///workspace/FsusBlog/[eval1]:1:123
+
+Node.js v24.16.0

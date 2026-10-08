@@ -1,0 +1,115 @@
+warning: adding embedded git repository: src/vendor-behavior
+hint: You've added another git repository inside your current repository.
+hint: Clones of the outer repository will not contain the contents of
+hint: the embedded repository and will not know how to obtain it.
+hint: If you meant to add a submodule, use:
+hint:
+hint: 	git submodule add <url> src/vendor-behavior
+hint:
+hint: If you added this path by mistake, you can remove it from the
+hint: index with:
+hint:
+hint: 	git rm --cached src/vendor-behavior
+hint:
+hint: See "git help submodule" for more information.
+hint: Disable this message with "git config set advice.addEmbeddedRepo false"
+✔ final consistency report deterministically closes every behavior edge (294.914294ms)
+▶ self-consistent substitute static component receipts cannot escape the admission seal
+  ✔ implementation owner from another scan (133.561125ms)
+  ✔ fact receipt with another semantic observation (127.961328ms)
+  ✔ DocClaim verification from another component bundle (142.799894ms)
+  ✔ generated receipt from another component bundle (129.271975ms)
+✔ self-consistent substitute static component receipts cannot escape the admission seal (536.225182ms)
+▶ post-runtime seal must bind the exact pre-runtime receipt and the complete class graph
+  ✔ same-run receipt from another pre-runtime qualification (171.803944ms)
+  ✔ duplicate runtime observation (95.998634ms)
+  ✔ nullable candidate identity in an ok seal (91.925149ms)
+  ✔ one class missing from a multi-class behavior (102.366061ms)
+  ✔ missing individually accepted claim (163.984306ms)
+  ✔ orphan individually accepted claim (177.923246ms)
+  ✔ legacy behavior-keyed aggregate does not replace accepted claims (166.397607ms)
+✔ post-runtime seal must bind the exact pre-runtime receipt and the complete class graph (973.167192ms)
+✔ formal terminal requires explicit files and caller run authority before publishing (1587.449149ms)
+✔ stale identities, graph cycles and legacy residue fail without repairing producers (441.096559ms)
+✔ tampered input receipt is rejected before final aggregation (170.490943ms)
+✔ zero-legacy scan covers every terminal path class and rejects root-specific residue (41.137255ms)
+✔ zero-legacy inventories tracked projections output schemas and package scripts outside source roots (180.909421ms)
+✔ zero-legacy package script selection paths cannot hide behind command file extensions (22.547408ms)
+✔ zero-legacy classifies only immutable regex bindings with exclusively rejecting uses (456.802796ms)
+✖ owned scanner fixture preserves representative input bytes and rejection rules (79.013469ms)
+✔ owned scanner fixture rejects getters aliases and parser input replacement before creating data (0.712876ms)
+✖ zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification (17.673304ms)
+✔ zero-legacy qualification-only fields retain their exact path scope (16.832746ms)
+✔ zero-legacy fixture classification requires the complete reviewed source to rejection sink (3268.25426ms)
+✔ zero-legacy preserves matrix owner semantics for every scalar array entry (18.913616ms)
+✔ zero-legacy source declaration mutations cannot bypass field matching (115.07504ms)
+✔ zero-legacy source invocations and C# initializers cannot hide terminal residue (24.949834ms)
+✔ zero-legacy source identifiers follow CSharp JavaScript PowerShell and shell grammars (134.568111ms)
+✔ zero-legacy dispatches tracked module and shell extensions and scans static imports and direct CLI (18.260261ms)
+✔ zero-legacy shell and YAML hash comments do not create residue or hide active values (26.040598ms)
+✔ zero-legacy YAML blocks PowerShell comments encodings shebangs and NFKC forms are explicit (24.792305ms)
+✔ zero-legacy canonical YAML AST covers scalar indicators tags anchors aliases and sequence mappings (40.977265ms)
+✔ zero-legacy scanner excludes untracked and ignored build or runtime outputs (45.556163ms)
+✔ zero-legacy scanner never excludes tracked source by coverage or dist path names (72.494757ms)
+✔ zero-legacy selection and authority mutation corpus rejects latest history fallback and self-authority fields (23.696361ms)
+✔ zero-legacy scanner rejects legacy role surfaces but allows historical prose and skips symlinks (52.416745ms)
+✔ zero-legacy JSON not exemption requires an explicit JSON Schema dialect (24.004647ms)
+✔ zero-legacy draft 4 6 and 7 dependencies preserve schema-valued negation (24.890824ms)
+✔ zero-legacy contentSchema traversal follows only 2019-09 and 2020-12 dialects (48.554417ms)
+✔ zero-legacy schema traversal switches dialect at each embedded schema resource (32.464472ms)
+✔ zero-legacy scanner self exemptions are exact and owner names cannot suppress values (26.217181ms)
+✔ zero-legacy value scanning is bounded without truncating long commands (34.81015ms)
+✔ zero-legacy malformed machine JSON fails closed through final aggregation (241.350259ms)
+✔ zero-legacy malformed ECMAScript fails closed through final aggregation (229.190267ms)
+✔ zero-legacy parser authority rejects link mode byte and locked dependency substitution (68.756246ms)
+✔ zero-legacy Markdown machine fences recognize every JavaScript line terminator (22.262399ms)
+✔ zero-legacy Markdown machine fences follow CommonMark marker and length rules (23.816893ms)
+✔ zero-legacy Markdown machine fences scan explicit block quote containers (20.832041ms)
+✔ zero-legacy tracked gitlinks fail closed without pretending their contents were scanned (71.332003ms)
+✔ zero-legacy tracked symlinks are unsupported and expose target or worktree splits (95.78064ms)
+✔ zero-legacy tracked files fail closed when an ancestor directory redirects outside the repository (60.817439ms)
+✔ zero-legacy scans sparse and skip-worktree files from their exact index blobs (138.103354ms)
+✔ zero-legacy Git authority ignores ambient index worktree alternate and config injection (157.035424ms)
+✔ zero-legacy and source identity consistently reject non-SHA1 repositories (235.745803ms)
+✔ zero-legacy Git inventory survives symlink root spelling and excludes untracked files (53.309916ms)
+✔ zero-legacy reports worktree mode and content splits while scanning active bytes (56.299552ms)
+✔ final builder recomputes zero-legacy findings from the sealed source state (378.673637ms)
+✔ zero-legacy scan and final report schema are deterministic and structurally closed (305.940841ms)
+ℹ tests 60
+ℹ suites 0
+ℹ pass 58
+ℹ fail 2
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 11610.31521
+
+✖ failing tests:
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:653:1
+✖ owned scanner fixture preserves representative input bytes and rejection rules (79.013469ms)
+  Error: [zero-legacy-governance] JSONC parser package lock must be canonical duplicate-free JSON
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at parseCanonicalAuthorityJson (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:208:9)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:321:18)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:679:91)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
+
+test at tests/tools/behavior-document-consistency-final.test.mjs:705:1
+✖ zero-legacy machine-field mutation corpus rejects separator variants and boolean self-certification (17.673304ms)
+  Error: [zero-legacy-governance] JSONC parser package lock must be canonical duplicate-free JSON
+      at zeroLegacyFail (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:157:11)
+      at parseCanonicalAuthorityJson (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:208:9)
+      at canonicalJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:321:18)
+      at loadJsoncParser (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2493:33)
+      at scanZeroLegacyGovernance (file:///workspace/FsusBlog/tools/docs/behavior-document-consistency-final.mjs:2545:28)
+      at TestContext.<anonymous> (file:///workspace/FsusBlog/tests/tools/behavior-document-consistency-final.test.mjs:727:19)
+      at Test.runInAsyncScope (node:async_hooks:227:14)
+      at Test.run (node:internal/test_runner/test:1306:25)
+      at Test.processPendingSubtests (node:internal/test_runner/test:897:18)
+      at Test.postRun (node:internal/test_runner/test:1447:19)
