@@ -112,7 +112,12 @@ function formatDurationLike(value, unitHint)
 
 function escapeTableCell(value)
 {
-    return normalizeScalarText(value).replace(/\|/gu, '\\|').replace(/\r?\n/gu, ' ');
+    return normalizeScalarText(value)
+        .replace(/&/gu, '&amp;')
+        .replace(/</gu, '&lt;')
+        .replace(/>/gu, '&gt;')
+        .replace(/\|/gu, '\\|')
+        .replace(/\r?\n/gu, ' ');
 }
 
 function markdownTable(headers, rows)
