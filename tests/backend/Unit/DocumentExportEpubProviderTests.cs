@@ -359,7 +359,7 @@ public sealed class DocumentExportEpubProviderTests
             ? provider.ExportAsync(task, input, metadata, attempt)
             : provider.ExportAsync(task, input, metadata));
         Assert.Equal(0, adapter.Calls);
-        Assert.Throws<InvalidDataException>(attempt.RequireCompleted);
+        Assert.Throws<InvalidDataException>(() => attempt.RequireCompleted(task, input));
     }
 
     [Theory]
@@ -427,7 +427,7 @@ public sealed class DocumentExportEpubProviderTests
         await Assert.ThrowsAsync<InvalidOperationException>(() => job.VerifyAsync(unqualifiedResult, task, input, attempt, CancellationToken.None));
         Assert.Equal(1, factoryCalls);
         Assert.Equal(0, renderer.Calls);
-        Assert.Throws<InvalidDataException>(attempt.RequireCompleted);
+        Assert.Throws<InvalidDataException>(() => attempt.RequireCompleted(task, input));
         IEpubFrozenResourceVerifier unsupported = resources;
         InvalidOperationException unsupportedFailure = Assert.Throws<InvalidOperationException>(() =>
             unsupported.Validate(input, attempt, CancellationToken.None));

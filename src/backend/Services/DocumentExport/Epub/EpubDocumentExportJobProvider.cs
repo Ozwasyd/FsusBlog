@@ -53,7 +53,7 @@ public sealed class EpubDocumentExportJobProvider : IDocumentExportAttemptJobPro
         ArgumentNullException.ThrowIfNull(attempt);
         DocumentExportEpubProvider.ValidateResult(result, task, input, _frozenMetadata(input),
             _tool, _hostBuildDigest, _resources, attempt, cancellationToken);
-        attempt.RequireCompleted();
+        attempt.RequireCompleted(task, input);
         return Task.CompletedTask;
     }
 
