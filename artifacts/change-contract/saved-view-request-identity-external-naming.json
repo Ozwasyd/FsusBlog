@@ -7,6 +7,13 @@
                 "src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs"
             ],
             "reason": "The facade consumes the existing SITE_BASEURL configuration through ResolveSiteScope instead of introducing or renaming process configuration. Its companion tests retain SITE_BASEURL to exercise that external boundary; internal facade and test symbols follow repository naming. Only the registered source path is covered, with no new environment names or policy scope."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "The consumed owner lock repair retains NuGet's dependencies, type, requested, resolved and contentHash schema keys and the existing AngleSharp package identity. The test consumer adds only the already-approved [1.5.0, ) project dependency entry; no package version, schema or audit rule is renamed or changed."
         }
     ]
 }
