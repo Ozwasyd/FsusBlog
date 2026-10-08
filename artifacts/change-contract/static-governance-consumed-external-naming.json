@@ -15,7 +15,8 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/test/correctness-attempt-migration.mjs"
+                "tools/test/correctness-attempt-migration.mjs",
+                "tools/test-matrix/scheduler.mjs"
             ],
             "reason": "Preserve the supplied canonical execution owner and environment authority spellings while consuming the independently verified complete producer roster prerequisite."
         }
