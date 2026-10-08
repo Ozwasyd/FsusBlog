@@ -2120,8 +2120,8 @@
         },
         {
             "path": "tests/tools/native-tooling-style.test.mjs",
-            "contentDigest": "sha256:fa0ad3f836d8496f92449ef1a515e95f32b54bd4820b610d90c3914e9ca59bfd",
-            "indexDigest": "sha256:fa0ad3f836d8496f92449ef1a515e95f32b54bd4820b610d90c3914e9ca59bfd"
+            "contentDigest": "sha256:f6096a9ce45b80a80a511d8e40461b234b10cfb5be5d38bd4e4286d46a2e7890",
+            "indexDigest": "sha256:f6096a9ce45b80a80a511d8e40461b234b10cfb5be5d38bd4e4286d46a2e7890"
         },
         {
             "path": "tests/tools/no-global-dotnet-build-server-shutdown.test.mjs",
@@ -2960,8 +2960,8 @@
         },
         {
             "path": "tools/docs/generated-fact-sections/renderers.mjs",
-            "contentDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37",
-            "indexDigest": "sha256:27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37"
+            "contentDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff",
+            "indexDigest": "sha256:40c5858e17cc39f56d945de2f77e6c9b15bb75b6392c412cd33ef2c8ba31baff"
         },
         {
             "path": "tools/docs/global-claim-exactness-final.mjs",

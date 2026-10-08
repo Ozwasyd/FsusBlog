@@ -6,7 +6,10 @@
         "tools/docs/global-claim-exactness-final.mjs",
         "tools/docs/post-runtime-accepted-claims.mjs",
         "tools/docs/behavior-document-consistency-final.mjs",
-        "tools/test-matrix/post-runtime-producer-registry.mjs"
+        "tools/test-matrix/post-runtime-producer-registry.mjs",
+        "tools/docs/generated-fact-sections/renderers.mjs",
+        "tests/tools/generated-fact-sections.test.mjs",
+        "tests/tools/native-tooling-style.test.mjs"
     ],
     "outputs": [
         {
@@ -23,11 +26,11 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "11455248470de12b6c745320977b57cd9d5b512de47f5016ad6b2ac0922d8d39"
+            "sha256": "84feee48e161bb73ed9cee0689afab85e7f0326a810e4923981da6f787e7f965"
         },
         {
             "path": "docs/api.md",
-            "sha256": "657e6e03205dd7c44cc390de373c9e87ba23bf539318a84a459e30291257b29e"
+            "sha256": "f46980c91ebedd1a3e937edb21252442ecf053b423c214d586027ded047c28f3"
         },
         {
             "path": "docs/api/aeds-only-policy.md",

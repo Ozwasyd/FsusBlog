@@ -4,7 +4,8 @@
         {
             "id": "auth-security-doc-exactness-authority",
             "paths": [
-                "docs/api/schemas-and-errors.md"
+                "docs/api/schemas-and-errors.md",
+                "tools/docs/generated-fact-sections/renderers.mjs"
             ],
             "reason": "Preserve the registered external document, receipt, catalog, environment and JSON contract identifiers across canonical source reconciliation, test bindings and explicitly supplied dependency handoffs. Internal renaming would break their established consumers; no external identifier or qualification rule is replaced."
         },
