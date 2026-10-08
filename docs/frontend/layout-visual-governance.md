@@ -179,6 +179,10 @@ literal/default input resolves to a native tag. `nativePropBindings` bind that
 call and its inputs; every rendered native prop node is checked against the
 nearest matching call. A dynamic input or unknown component name remains an
 `unbound-native-prop-source` error, and an actual mismatched tag is rejected.
+The same binding follows `withDefaults(defineProps<...>(), ...)` only when the
+inline type actually declares the prop and its default is an exact literal.
+Shadowed macros, unknown defaults, object spreads and computed default keys
+cannot establish proof. Referenced types remain unsupported and fail closed.
 A native component selector may also have a finite tag union proven from an
 actual top-level constant arrow function. Every return must be a native literal
 or a conditional of native literals, and every path must return. The supported

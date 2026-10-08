@@ -47,6 +47,8 @@ const nativeFunctionMarkup = baseMarkup.replace('<p>Current content</p>',
     + '<List interactive :rows="[{id:2,label:\'Button\'}]" :columns="[{key:\'label\'}]"/>'
     + '<List :href="()=>\'#content\'" :rows="[{id:3,label:\'Link\'}]" :columns="[{key:\'label\'}]"/>');
 const nativeFunctionScript = baseScript + 'import {FsusDataList as List} from "@ozwasyd/element-plus";';
+const macroPropMarkup = baseMarkup.replace('<p>Current content</p>', '<Dock :immediate="false" disabled><span>Dock content</span></Dock>');
+const macroPropScript = baseScript + 'import {FsuMobileDock as Dock} from "@ozwasyd/element-plus/motion";';
 function fixture(markup, script = baseScript, style = '')
 {
     return `<script setup>${script}</script><template><main style="display:flex;flex-direction:column">${markup}</main></template><style>${style}</style>`;
@@ -70,6 +72,9 @@ const cases = [
     { name: 'public-native-function-rows', content: fixture(nativeFunctionMarkup, nativeFunctionScript), nativeFunctionProbe: true, expected: null },
     { name: 'public-native-function-tag-drift', content: fixture(nativeFunctionMarkup, nativeFunctionScript), nativeFunctionProbe: true,
         mutation: 'replace-native-function-tag', expected: 'unknown-dynamic-native-tag' },
+    { name: 'public-macro-native-default', content: fixture(macroPropMarkup, macroPropScript), macroPropProbe: true, expected: null },
+    { name: 'public-macro-native-tag-drift', content: fixture(macroPropMarkup, macroPropScript), macroPropProbe: true,
+        mutation: 'replace-native-tag', expected: 'unknown-dynamic-native-tag' },
     { name: 'two-task-page-headers', content: fixture(baseMarkup + header), expected: 'task-header-not-exact-one' },
     { name: 'three-same-priority-primary-buttons', content: fixture(baseMarkup.replace(action, action.repeat(3))), expected: 'primary-action-not-exact' },
     { name: 'section-card-card-nesting', content: fixture(baseMarkup.replace('<p>Current content</p>', '<section data-fsus-surface="data-region" data-fsus-material="boundary"><section data-fsus-surface="data-region" data-fsus-material="boundary">Nested</section></section>')), expected: 'forbidden-surface-nesting' },
@@ -142,14 +147,15 @@ try
             {
                 await page.locator('header').evaluate((header) => header.removeAttribute('data-fsus-composition-call'));
             }
-            if (item.nativeProbe)
+            if (item.nativeProbe || item.macroPropProbe)
             {
-                const binding = graph.nativePropBindings.find((binding) => graph.nodes.find((node) => node.id === binding.callNode)?.tag === 'Scroller');
-                assert.ok(binding, 'actual Scrollbar default must have a source-bound native tag');
-                assert.equal(binding.tag, 'div');
+                const expectedTag = item.macroPropProbe ? 'nav' : 'div';
+                const binding = graph.nativePropBindings.find((binding) => graph.nodes.find((node) => node.id === binding.callNode)?.tag === (item.macroPropProbe ? 'Dock' : 'Scroller'));
+                assert.ok(binding, 'actual public default must have a source-bound native tag');
+                assert.equal(binding.tag, expectedTag);
                 const view = page.locator(`[data-fsus-composition-node="${binding.sourceNode}"]`);
                 assert.equal(await view.count(), 1);
-                assert.equal(await view.evaluate((element) => element.tagName.toLowerCase()), 'div');
+                assert.equal(await view.evaluate((element) => element.tagName.toLowerCase()), expectedTag);
                 if (item.mutation === 'replace-native-tag')
                 {
                     await view.evaluate((element) =>
@@ -198,7 +204,7 @@ try
             {
                 assert.ok(reasons.includes(item.expected), `${item.expected} was not detected: ${reasons.join(',')}`);
             }
-            else if (!item.nativeProbe && !item.nativeFunctionProbe)
+            else if (!item.nativeProbe && !item.nativeFunctionProbe && !item.macroPropProbe)
             {
                 baselineReasons = reasons;
                 // Current FsusUI has no public composition surface/material provenance contract.

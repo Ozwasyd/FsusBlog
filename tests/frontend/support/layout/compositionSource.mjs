@@ -288,6 +288,11 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
             }
         }
         const declaration = propDeclaration(record, identifier);
+        const macroDefault = closedLiteral(declaration?.defaultNode);
+        if (typeof macroDefault === 'string' && dom.parserOptions.isNativeTag(macroDefault))
+        {
+            return { kind: 'native-prop', property: identifier, default: macroDefault };
+        }
         let config = declaration?.node;
         while (config && (ts.isAsExpression(config) || ts.isParenthesizedExpression(config) || ts.isSatisfiesExpression(config)))
         {
@@ -360,6 +365,28 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         for (const value of record.variables.values())
         {
+            if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === 'withDefaults'
+                && !record.imports.has('withDefaults') && !record.variables.has('withDefaults')
+                && !record.imports.has('defineProps') && !record.variables.has('defineProps'))
+            {
+                const props = value.arguments[0];
+                const defaults = value.arguments[1];
+                if (!props || !ts.isCallExpression(props) || !ts.isIdentifier(props.expression) || props.expression.text !== 'defineProps'
+                    || props.arguments.length || props.typeArguments?.length !== 1 || !ts.isTypeLiteralNode(props.typeArguments[0])
+                    || !defaults || !ts.isObjectLiteralExpression(defaults)
+                    || defaults.properties.some((property) => !ts.isPropertyAssignment(property) || ts.isComputedPropertyName(property.name)))
+                {
+                    return null;
+                }
+                const member = props.typeArguments[0].members.find((member) => ts.isPropertySignature(member)
+                    && !ts.isComputedPropertyName(member.name) && member.name.getText().replaceAll("'", '').replaceAll('"', '') === name);
+                if (!member?.type)
+                {
+                    return null;
+                }
+                const defaultValue = defaults.properties.findLast((property) => property.name.getText().replaceAll("'", '').replaceAll('"', '') === name);
+                return { node: member.type, defaultNode: defaultValue?.initializer, file: record.file };
+            }
             if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === 'defineProps')
             {
                 return find(value.arguments[0], record.file);
@@ -406,6 +433,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         if (Object.hasOwn(call.attributes, name))
         {
             return call.attributes[name];
+        }
+        if (declaration.defaultNode)
+        {
+            return closedLiteral(declaration.defaultNode);
         }
         let config = declaration.node;
         while (ts.isAsExpression(config) || ts.isParenthesizedExpression(config) || ts.isSatisfiesExpression(config))
@@ -692,6 +723,10 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                         fail(`unknown dynamic component ${file}:${offset}`);
                     }
                     const exp = expression(dynamic.expression, file);
+                    if (ts.isIdentifier(exp) && localNames.has(exp.text))
+                    {
+                        fail(`unbound template component binding ${file}:${offset}`);
+                    }
                     origin = ts.isIdentifier(exp) ? nativePropTargets(record, exp.text) : nativeFunctionTargets(record, exp, localNames);
                     if (!origin)
                     {

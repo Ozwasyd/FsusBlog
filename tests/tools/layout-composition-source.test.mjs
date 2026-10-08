@@ -225,6 +225,34 @@ test('a later unknown props spread cannot inherit proof from an earlier native d
     assert.equal(unknown.nativePropBindings.length, 0);
 });
 
+test('actual public withDefaults props bind declared native tags to exact calls', () =>
+{
+    const graph = source().graph([fixture('<script setup>import {FsuMobileDock as Dock} from "@ozwasyd/element-plus/motion";</script><template><Dock/><Dock as="aside"/></template>')]);
+    assert.ok(!graph.errors.some((error) => ['unknown-component-source', 'unbound-native-prop-source'].includes(error.reason)));
+    assert.deepEqual(graph.nativePropBindings.map((binding) => binding.tag).sort(), ['aside', 'nav']);
+    assert.ok(graph.nodes.some((node) => node.origin.property === 'as' && node.origin.default === 'nav'));
+    const dynamic = source().graph([fixture('<script setup>import {FsuMobileDock as Dock} from "@ozwasyd/element-plus/motion";</script><template><Dock :as="currentTag"/></template>')]);
+    assert.ok(dynamic.errors.some((error) => error.reason === 'unbound-native-prop-source'));
+});
+
+test('withDefaults proof rejects undeclared, spread, computed and shadowed macro inputs', () =>
+{
+    for (const script of [
+        'const props=withDefaults(defineProps<{other?:string}>(),{as:"nav"});',
+        'const props=withDefaults(defineProps<{as?:string}>(),{as:"nav",...unknown});',
+        'const props=withDefaults(defineProps<{as?:string}>(),{[key]:"nav"});',
+        'const withDefaults=(props,defaults)=>defaults;const props=withDefaults(defineProps<{as?:string}>(),{as:"nav"});',
+        'const props=withDefaults(defineProps<{as?:string}>(),{as:unknownTag});'
+    ])
+    {
+        const graph = source().graph([fixture(`<script setup lang="ts">${script}</script><template><component :is="as"/></template>`)]);
+        assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source'), script);
+        assert.equal(graph.nativePropBindings.length, 0);
+    }
+    const shadowed = source().graph([fixture('<script setup lang="ts">const props=withDefaults(defineProps<{as?:string}>(),{as:"nav"});</script><template><component v-for="as in items" :is="as"/></template>')]);
+    assert.ok(shadowed.errors.some((error) => error.reason === 'unknown-component-source'));
+});
+
 test('route-name branching resolves useRoute aliases and computed element access', () =>
 {
     const graph = source().graph([fixture('<script setup>import {useRoute as activeRoute} from "vue-router";const current = activeRoute();const good = current["name"] === "representative";</script><template><h1 v-if="good">Good</h1></template>')]);
