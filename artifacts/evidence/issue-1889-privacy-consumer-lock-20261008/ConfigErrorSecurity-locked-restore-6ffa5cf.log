@@ -1,0 +1,7 @@
+  Determining projects to restore...
+/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/src/shared/FsusBlog.Shared.csproj (in 89 ms).
+  Failed to restore /workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj (in 91 ms).
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/src/core/FsusBlog.Core.csproj (in 233 ms).
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 85 ms).
+  Restored /workspace/scratch/issue-1889/privacy-source-canonical/src/backend/FsusBlog.Server.csproj (in 253 ms).

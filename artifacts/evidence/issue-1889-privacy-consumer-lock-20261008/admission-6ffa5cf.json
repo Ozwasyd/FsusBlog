@@ -1,0 +1,56 @@
+{
+  "schema": "fsusblog.behavior-doc-static-admission-receipt.v1",
+  "run": {
+    "id": "ordinary-privacy-runtime-6ffa5cf-20261008"
+  },
+  "source": {
+    "commit": "6ffa5cf34104b4197847f91c35a94b42fd981b4d",
+    "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48"
+  },
+  "worktree": {
+    "root": "/workspace/scratch/issue-1889/privacy-source-canonical"
+  },
+  "toolchain": {
+    "node": "v24.19.0",
+    "dotnet": "10.0.100",
+    "platform": "linux",
+    "architecture": "x64",
+    "directoryBuildPropsDigest": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4"
+  },
+  "authorityDigests": {
+    "catalog": "05fc7505ff1df2050454549f5ac0eca67a22029a5247b5508d5f674c6350edff",
+    "claim": "71c51b27007e18e8ddac87cab9beb4bf63eee1c0215113d173dd186929931245",
+    "extractorRegistry": "f62a9f77fd94aa149d37d0bd646d95709709c20be12d7339d954febe5ea3a0e9",
+    "generatedSectionCatalog": "4d51e7df1b3393b55614abfa1006c726353559475757b02fa2ea90970b4925cf",
+    "generatedRenderer": "27df51d0434675f7b9449f702a1f35a4db8c7d72c86abf4f8438dd6d6341ae37",
+    "proseRenderer": "0fc7f05bd74c51ccdb5a2809404abefe6b72cebbf9506c2f25ab08adbd825af4",
+    "mutationCatalog": "edcc3feba919d92dbe32b7ea8fb440dd6c8ae948bcff4503965ca7c554343873"
+  },
+  "implementationOwner": {
+    "status": "ok",
+    "bindingCount": 10,
+    "contentDigest": "76cbfdd76bf3e869cbb450f51e77667ba72676373e55e1a9bca10d9e4915af0d"
+  },
+  "factObservations": {},
+  "minimalContractBuild": null,
+  "generated": {
+    "status": "failed",
+    "contentDigest": null
+  },
+  "prose": {
+    "status": "failed",
+    "contentDigest": null
+  },
+  "mutationFixtures": {
+    "status": "failed",
+    "caseCount": 0,
+    "contentDigest": null
+  },
+  "candidateSpawnCountBeforeReceipt": 0,
+  "status": "failed",
+  "failureReasons": [
+    "minimal contract host auth-session-permission-observation failed: The build failed. Fix the build errors and run again."
+  ],
+  "durationMs": 82527,
+  "contentDigest": "d2f5d012eb4815387237aee64589ca44a5e22a0713d977400b88e171014d8bc7"
+}

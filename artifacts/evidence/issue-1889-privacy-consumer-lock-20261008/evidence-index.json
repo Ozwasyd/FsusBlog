@@ -1,0 +1,62 @@
+[
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/ConfigErrorSecurity-locked-restore-6ffa5cf.log",
+    "sha256": "127606fb5127e4c5e10360a7a2f225ec84e3854f85a4e154091036ac9a511d47",
+    "bytes": 1206
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/ContentLifecycle-locked-restore-6ffa5cf.log",
+    "sha256": "5bee790333aff4ce9bd020b13521be25f01bf43fd429adbbc9f06ce59af50963",
+    "bytes": 1195
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/OpenApi-locked-restore-6ffa5cf.log",
+    "sha256": "feb48fca98462105c1a685ed18c927ff9538671f8f6060202bf58aa56854bc74",
+    "bytes": 1161
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/admission-6ffa5cf.json",
+    "sha256": "f8628ba257ee5d3695c59c63a7b5794396b5dfd362d1af08e6a5b72e19c30383",
+    "bytes": 2067
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/admission-6ffa5cf.log",
+    "sha256": "abc3fd3ba65cd1ccca11cd0acedc1d71c1ef24928e0f542bdbe5473fa33d06f7",
+    "bytes": 189
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/application-typecheck-6ffa5cf.log",
+    "sha256": "396523f594b698609859eb2b926bbf80cc09d5cbe820b94a8dfdf4bc8c256f79",
+    "bytes": 59601
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/auth-observer-diagnostic.log",
+    "sha256": "79cae497aaac2e10b72bbfebdc5bf49f63e1a1cb6a9a0c7d46c7e9c5b64b9f89",
+    "bytes": 523
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/final-handoff.json",
+    "sha256": "6a586fda183c339b34a3c1f5e223b19982a4d3c406653d44e34909d200f42239",
+    "bytes": 12334
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/local-consumer-6ffa5cf.log",
+    "sha256": "2831611642648ebc3caf52fbe20cb73e2ec3e1d5aea9669ab79b557584784112",
+    "bytes": 378
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/locked-restore-6ffa5cf.log",
+    "sha256": "e45ea5b1fc95c5d680e3ba5d4e9f8391f04fdcfde7a4e1a62a9dfd7ea259fc8b",
+    "bytes": 1505
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/other-observer-locked-restore-results.json",
+    "sha256": "9be04f3a6328829c786fe0413c150fdcc6ecac8da58509a9b52fffd6e68c8a1b",
+    "bytes": 3201
+  },
+  {
+    "path": "artifacts/evidence/issue-1889-privacy-consumer-lock-20261008/published-consumer-6ffa5cf.log",
+    "sha256": "57582a3c1ac041b80acc7e783a7ff7254d10bf4d5451d95ea7ac9ec20b4a5c09",
+    "bytes": 2585
+  }
+]

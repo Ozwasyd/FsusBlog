@@ -1,0 +1,26 @@
+
+> fsusblog-client@0.0.0 typecheck:published-fsusui
+> vue-tsc --noEmit -p tsconfig.fsusui-published.json
+
+src/fsusui/dangerZone.ts(6,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/keyValueGrid.ts(8,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/kpiGroup.ts(8,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/metricPrimitives.ts(11,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/sectionHeader.ts(5,56): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/sectionNav.ts(1,50): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/segmentedControl.ts(1,62): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/segmentedControl.ts(5,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/settingsSection.ts(8,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/settingsSection.ts(16,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/siteHeader.ts(1,50): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+src/fsusui/typedConfirmField.ts(5,64): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(49,8): error TS2307: Cannot find module '@ozwasyd/element-plus' or its corresponding type declarations.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(50,44): error TS2307: Cannot find module '@ozwasyd/element-plus/theme' or its corresponding type declarations.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(157,9): error TS7006: Parameter 'context' implicitly has an 'any' type.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(167,1): error TS2578: Unused '@ts-expect-error' directive.
+../../tests/frontend/typecheck/fsusui-export-contract.ts(171,3): error TS2578: Unused '@ts-expect-error' directive.
+npm notice
+npm notice New major version of npm available! 11.9.0 -> 12.2.0
+npm notice Changelog: https://github.com/npm/cli/releases/tag/v12.2.0
+npm notice To update run: npm install -g npm@12.2.0
+npm notice

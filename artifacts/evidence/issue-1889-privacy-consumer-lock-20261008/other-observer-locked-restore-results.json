@@ -1,0 +1,56 @@
+[
+  {
+    "project": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-runtime-verification/ConfigErrorSecurity-restore-artifacts"
+    ],
+    "exitCode": 1,
+    "log": ".tmp/privacy-runtime-verification/ConfigErrorSecurity-locked-restore-6ffa5cf.log",
+    "diagnostics": [
+      "/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file."
+    ]
+  },
+  {
+    "project": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-runtime-verification/ContentLifecycle-restore-artifacts"
+    ],
+    "exitCode": 1,
+    "log": ".tmp/privacy-runtime-verification/ContentLifecycle-locked-restore-6ffa5cf.log",
+    "diagnostics": [
+      "/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file."
+    ]
+  },
+  {
+    "project": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+    "command": [
+      "dotnet",
+      "restore",
+      "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "--locked-mode",
+      "--force",
+      "-p:NuGetAudit=true",
+      "--artifacts-path",
+      ".tmp/privacy-runtime-verification/OpenApi-restore-artifacts"
+    ],
+    "exitCode": 1,
+    "log": ".tmp/privacy-runtime-verification/OpenApi-locked-restore-6ffa5cf.log",
+    "diagnostics": [
+      "/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file."
+    ]
+  }
+]

@@ -1,0 +1,3 @@
+/workspace/scratch/issue-1889/privacy-source-canonical/tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+
+The build failed. Fix the build errors and run again.
