@@ -50,6 +50,11 @@ function parseArgs(argv)
     for (let index = 0; index < argv.length; index += 1)
     {
         const argument = argv[index];
+        if (argument === '--rebind-baseline-policy')
+        {
+            parsed.rebindBaselinePolicy = true;
+            continue;
+        }
         if (argument === '--update-baseline')
         {
             parsed.updateBaseline = true;
@@ -551,7 +556,7 @@ function isAutoPropertyAccessorLine(value)
     ).test(value);
 }
 
-function hasInlineBlockOpeningBrace(value)
+function hasInlineBlockOpeningBrace(value, contextualRecordExpression = false)
 {
     if (value === '{')
     {
@@ -565,7 +570,7 @@ function hasInlineBlockOpeningBrace(value)
             continue;
         }
 
-        if (/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\b/u.test(prefix))
+        if (!contextualRecordExpression && /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\b/u.test(prefix))
         {
             return true;
         }
@@ -586,12 +591,114 @@ function hasInlineBlockOpeningBrace(value)
             return true;
         }
 
-        if (/^(?:(?:public|protected|private|internal|static|virtual|abstract|sealed|override|readonly|required|unsafe|new|partial|extern)\s+)+[A-Za-z_][\w<>,.?\[\]\s]*\s+(?:this\s*\[[^\]]+\]|[A-Za-z_]\w*)$/u.test(prefix))
+        if (/^(?:(?:public|protected|private|internal|static|virtual|abstract|sealed|override|readonly|required|unsafe|new|partial|extern)\s+)+[A-Za-z_][\w<>,.?[\]\s]*\s+(?:this\s*\[[^\]]+\]|[A-Za-z_]\w*)$/u.test(prefix))
         {
             return true;
         }
     }
     return false;
+}
+
+// Local type declarations are illegal C#. Track lexical scopes and argument
+// continuations instead of exempting the contextual identifier "with" by name.
+function stripLeadingScopeAttributes(value)
+{
+    let header = value.trim();
+    while (header.startsWith('['))
+    {
+        let depth = 0;
+        let end = -1;
+        for (let index = 0; index < header.length; index += 1)
+        {
+            if (header[index] === '[')
+            {
+                depth += 1;
+            }
+            else if (header[index] === ']')
+            {
+                depth -= 1;
+                if (depth === 0)
+                {
+                    end = index;
+                    break;
+                }
+            }
+        }
+        if (end < 0)
+        {
+            return '';
+        }
+        header = header.slice(end + 1).trimStart();
+    }
+    return header;
+}
+
+function contextualRecordExpressionLines(codeLines)
+{
+    const scopes = [];
+    const argumentHeaders = [];
+    let header = '';
+    let parentheses = 0;
+    let brackets = 0;
+    return codeLines.map((line) =>
+    {
+        if (line.trim().startsWith('#'))
+        {
+            return false;
+        }
+        const expression = /^record\s+with\b/u.test(line.trim())
+            && (parentheses > 0 || scopes.includes('expression') || /(?:=|=>|\breturn)\s*$/u.test(header));
+        for (const character of line)
+        {
+            if (character === '[')
+            {
+                brackets += 1;
+            }
+            else if (character === ']')
+            {
+                brackets = Math.max(0, brackets - 1);
+            }
+            if (character === '(')
+            {
+                parentheses += 1;
+            }
+            else if (character === ')')
+            {
+                parentheses = Math.max(0, parentheses - 1);
+            }
+            if (character === '{' && brackets === 0)
+            {
+                // Scope admission must recognize the declaration introducer
+                // independently of the narrower naming-policy identifier regex.
+                // Escaped and Unicode identifiers are still legal C# type names.
+                const declaration = /^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:namespace|class|struct|record(?:\s+(?:class|struct))?|interface|enum)\s+/u.test(stripLeadingScopeAttributes(header));
+                const executable = scopes.includes('expression') || expression
+                    || /(?:\)|=>|=|\bwith|\b(?:else|try|finally|do))\s*$/u.test(header)
+                    || /\bnew\b/u.test(header);
+                scopes.push(declaration && !expression ? 'declaration' : executable ? 'expression' : 'unknown');
+                argumentHeaders.push(parentheses > 0 ? header : null);
+                header = '';
+            }
+            else if (character === '}' && brackets === 0)
+            {
+                scopes.pop();
+                const argumentHeader = argumentHeaders.pop();
+                // Initializers or lambdas inside constructor/base arguments must
+                // not erase the enclosing declaration before its body opens.
+                header = argumentHeader === null || argumentHeader === undefined ? '' : `${argumentHeader} {}`;
+            }
+            else if (character === ';' && brackets === 0)
+            {
+                header = '';
+            }
+            else
+            {
+                header += character;
+            }
+        }
+        header += '\n';
+        return expression;
+    });
 }
 
 function isStructuralIndentLine(value)
@@ -843,7 +950,7 @@ function extractPrimaryConstructorDeclarations(code)
     const consumed = Array.from(code, () => false);
     const modifiers = '(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)[ \\t]+)*';
     const pattern = new RegExp(`^[ \\t]*${modifiers}(?:class|struct|record(?:[ \\t]+(?:class|struct))?)[ \\t]+([A-Za-z_]\\w*)[ \\t]*\\(`, 'gmu');
-    let match = null;
+    let match;
     while ((match = pattern.exec(code)) !== null)
     {
         const openIndex = match.index + match[0].lastIndexOf('(');
@@ -1114,6 +1221,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
     }
     const lines = text.split(/\r?\n/u);
     const codeLines = stripStringsAndComments(lines);
+    const recordExpressionLines = contextualRecordExpressionLines(codeLines);
     let namespaceSeen = false;
     const usings = [];
     const xmlScope = isXmlDocScope(file, xmlScopePatterns);
@@ -1140,7 +1248,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
             violations.push(makeViolation(file, lineNumber, 'indent', raw, `indentation ${indent} is not a 4-space multiple`));
         }
         const autoPropertyAccessorLine = isAutoPropertyAccessorLine(trimmed);
-        if (hasInlineBlockOpeningBrace(trimmed) && !autoPropertyAccessorLine)
+        if (hasInlineBlockOpeningBrace(trimmed, recordExpressionLines[index]) && !autoPropertyAccessorLine)
         {
             violations.push(makeViolation(file, lineNumber, 'allman-brace', code, 'opening brace must be on its own line'));
         }
@@ -1179,7 +1287,7 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
             violations.push(makeViolation(file, lineNumber, 'interface-name', interfaceMatch[1], 'interface must use I + PascalCase'));
         }
         const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum|delegate)\s+([A-Za-z_]\w*)/u);
-        if (typeMatch && !isPascalCase(typeMatch[1]))
+        if (typeMatch && !recordExpressionLines[index] && !isPascalCase(typeMatch[1]))
         {
             violations.push(makeViolation(file, lineNumber, 'type-name', typeMatch[1], 'type must use PascalCase'));
         }
@@ -1399,6 +1507,78 @@ function writeBaseline(violations)
     console.log(`[csharp-style] baseline updated violations=${violations.length} path=${policy.baseline}`);
 }
 
+// This one-time producer admits only the original reviewed baseline and the
+// issue-3650 Miss suffix extension. It never rescans or increases allowed debt.
+function rebindBaselinePolicy(args)
+{
+    if (args.fix || args.updateBaseline || args.mode !== 'full' || args.files.length > 0 || args.base)
+    {
+        throw new Error('policy rebind cannot be mixed with fix, update-baseline or file selection; use full mode');
+    }
+    if (policyFile !== path.join(root, defaultPolicyPath))
+    {
+        throw new Error('policy rebind requires the canonical policy path');
+    }
+    function requireRegularInput(relativePath)
+    {
+        let current = root;
+        const parts = relativePath.split('/');
+        for (let index = 0; index < parts.length; index += 1)
+        {
+            current = path.join(current, parts[index]);
+            const stat = fs.lstatSync(current);
+            if (stat.isSymbolicLink() || (index === parts.length - 1 ? !stat.isFile() : !stat.isDirectory()))
+            {
+                throw new Error('policy rebind requires regular canonical inputs');
+            }
+        }
+    }
+    requireRegularInput(defaultPolicyPath);
+    requireRegularInput('config/development/csharp-style-baseline.json');
+    const authority = 'b19b3dc715691b871f0e3cab598ec5da8f27633c';
+    function authorityBlob(relativePath, objectId, digest)
+    {
+        const result = spawnSync('git', ['-C', defaultRoot, 'ls-tree', authority, '--', relativePath], {
+            encoding: 'utf8', env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        });
+        if (result.status !== 0 || result.stdout.trim() !== `100644 blob ${objectId}\t${relativePath}`)
+        {
+            throw new Error('policy rebind original authority Git object mismatch');
+        }
+        const blob = spawnSync('git', ['-C', defaultRoot, 'cat-file', 'blob', objectId], {
+            env: { ...process.env, GIT_NO_REPLACE_OBJECTS: '1' }
+        });
+        if (blob.status !== 0 || sha256(blob.stdout) !== digest)
+        {
+            throw new Error('policy rebind original authority digest mismatch');
+        }
+        return blob.stdout.toString('utf8');
+    }
+    const originalPolicy = authorityBlob(defaultPolicyPath,
+        '5cc03bb337ddcba71cb049e8f9ca47637d7ecb26',
+        '29f9d010d5221b393164526fc6203dc555f453b83e26b77552617a13beb23200');
+    const originalBaseline = authorityBlob('config/development/csharp-style-baseline.json',
+        '44931fca7b3950cbaa54ba0a8f13097174c8cd42',
+        '0ab4b1ebfecbba054015209fcb30f62dbd6395a1390da67a87b9e9fd057fd011');
+    const expectedPolicy = JSON.parse(originalPolicy);
+    expectedPolicy.enumNaming.acceptedSingularSuffixes.push('Miss');
+    const policyBytes = fs.readFileSync(policyFile, 'utf8');
+    if (policyBytes !== `${JSON.stringify(expectedPolicy, null, 4)}\n`)
+    {
+        throw new Error('policy rebind permits only the canonical Miss suffix extension');
+    }
+    const target = path.join(root, expectedPolicy.baseline);
+    const rebound = originalBaseline.replace(JSON.parse(originalBaseline).policySha256, sha256(policyBytes));
+    const current = fs.readFileSync(target, 'utf8');
+    if (current !== originalBaseline && current !== rebound)
+    {
+        throw new Error('policy rebind requires the intact original baseline');
+    }
+    fs.writeFileSync(target, rebound);
+    console.log(`[csharp-style] baseline policy rebound authority=${authority} path=${expectedPolicy.baseline}`);
+    return { files: 0, violations: 0, unexpected: 0 };
+}
+
 function validatePolicy()
 {
     if (policy.schema !== policySchema)
@@ -1512,6 +1692,14 @@ function main()
         return null;
     }
     validatePolicy();
+    if (args.rebindBaselinePolicy)
+    {
+        if (failures.length > 0)
+        {
+            return null;
+        }
+        return rebindBaselinePolicy(args);
+    }
     importCompatibility = loadImportCompatibility();
 
     const exclusions = (policy.excludedPaths ?? []).map(globToRegExp);

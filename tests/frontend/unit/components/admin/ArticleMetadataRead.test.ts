@@ -1,4 +1,4 @@
-// @vitest-environment jsdom
+// @vitest-environment happy-dom
 
 import { flushPromises, mount } from '@vue/test-utils';
 import { h, nextTick } from 'vue';

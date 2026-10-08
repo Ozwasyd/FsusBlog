@@ -35,8 +35,8 @@
         },
         {
             "path": "config/development/frontend-style-policy.json",
-            "contentDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
-            "indexDigest": "sha256:68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+            "contentDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d",
+            "indexDigest": "sha256:b00ef63738ee69a5b13be0f360031b519921e3653b33020ce150edaf0a84ee8d"
         },
         {
             "path": "config/development/frontend-style-rule-registry.json",
@@ -105,8 +105,8 @@
         },
         {
             "path": "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
-            "contentDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634",
-            "indexDigest": "sha256:1cd98f0f1f60343ed9b6c508c96379509798874d37769c08877f3e542aae7634"
+            "contentDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8",
+            "indexDigest": "sha256:d2c0dc3c57f5f21e51ba945234eb1a8a76d51496f1e0441b2e750249a2813ed8"
         },
         {
             "path": "src/frontend/scripts/vite-watch-policy.mjs",
@@ -525,8 +525,8 @@
         },
         {
             "path": "src/frontend/src/locales/routeLocaleDomains.ts",
-            "contentDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4",
-            "indexDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4"
+            "contentDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14",
+            "indexDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14"
         },
         {
             "path": "src/frontend/src/locales/ru-RU/admin.ts",
@@ -800,8 +800,8 @@
         },
         {
             "path": "tests/browser-contract/fixture-lifecycle.test.mjs",
-            "contentDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b",
-            "indexDigest": "sha256:8032164a3506cf6eac7a66255ba9afab9cdd17bb8900e235e91f5e6be5431c8b"
+            "contentDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731",
+            "indexDigest": "sha256:e5db016fe36b9e3c351dd1c36dc6f11f8e2cefcc5c6ad3d29d438fbc80cc7731"
         },
         {
             "path": "tests/browser-contract/fixture.mjs",
@@ -2150,8 +2150,8 @@
         },
         {
             "path": "tests/tools/pr-impact-plan.test.mjs",
-            "contentDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252",
-            "indexDigest": "sha256:dbb5b249664d5008a9aa7af41ab3faffb6fece6c6e6e1a2fd92d027668bb2252"
+            "contentDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc",
+            "indexDigest": "sha256:5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc"
         },
         {
             "path": "tests/tools/produce-behavior-test-evidence.test.mjs",
@@ -2520,8 +2520,8 @@
         },
         {
             "path": "tools/contracts/check-locale-catalog.mjs",
-            "contentDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2",
-            "indexDigest": "sha256:bd58cfb081361660334a94d972abf1d0a9cd5f709c50d5795cb9e2c94e9043f2"
+            "contentDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d",
+            "indexDigest": "sha256:a895317216b8ce84415f5408e3efa5937bdb7f57f2183b7ccc164029c961d92d"
         },
         {
             "path": "tools/contracts/check-openapi-consumers.mjs",
@@ -2550,8 +2550,8 @@
         },
         {
             "path": "tools/contracts/generate-locale-catalog.mjs",
-            "contentDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55",
-            "indexDigest": "sha256:291bd2892861d55714f132dcdbbadc6d2f4dca74bf935fc40bb05cfa1bf2ab55"
+            "contentDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636",
+            "indexDigest": "sha256:1aebfcda0ebe9e622ae4e8e65d82ca78c3b8ea22cbda1557e5de536631ddd636"
         },
         {
             "path": "tools/contracts/generate-perception-character-v3-release-target.mjs",
@@ -3080,8 +3080,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1",
-            "indexDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1"
+            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -3200,8 +3200,8 @@
         },
         {
             "path": "tools/frontend/check-frontend-style.mjs",
-            "contentDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
-            "indexDigest": "sha256:258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75"
+            "contentDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2",
+            "indexDigest": "sha256:5bd0607ce0595064edb166622ca634fc6e45d87d5d31ae1ce8ecbd05d9551cd2"
         },
         {
             "path": "tools/frontend/check-locale-domain-bundles.mjs",
@@ -3300,8 +3300,8 @@
         },
         {
             "path": "tools/frontend/style-toolchain/eslint.config.mjs",
-            "contentDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
-            "indexDigest": "sha256:5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+            "contentDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a",
+            "indexDigest": "sha256:c387f4d60067dc725002a68ecab76bf222beee762605f0792135d7d43ab0e62a"
         },
         {
             "path": "tools/frontend/style-toolchain/package-lock.json",
@@ -4210,8 +4210,8 @@
         },
         {
             "path": "tools/test-inventory/discovery.mjs",
-            "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
-            "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+            "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+            "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
         },
         {
             "path": "tools/test-inventory/package.json",
@@ -4380,8 +4380,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe",
-            "indexDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe"
+            "contentDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f",
+            "indexDigest": "sha256:c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -4585,8 +4585,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808",
-            "indexDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808"
+            "contentDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+            "indexDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",
@@ -6930,8 +6930,8 @@
                     ]
                 }
             ],
-            "contentDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
-            "indexDigest": "sha256:1e95ed2df357386567bfba72665b2325d073b275a1481200f72aa0c7de0eb6f4",
+            "contentDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
+            "indexDigest": "sha256:99048a2a94b52bf088ba0aba5333b7cf2b8d904c73ce17a3c0d68b429627b502",
             "dependencyClosure": [
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
@@ -6944,6 +6944,8 @@
                 "eslint.config.mjs",
                 "src/frontend/eslint.config.mjs",
                 "src/frontend/package.json",
+                "src/frontend/scripts/fsusui-root.mjs",
+                "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
                 "src/frontend/stylelint.config.mjs",
                 "stylelint.config.mjs",
                 "tests/tools/native-tooling-style.test.mjs",

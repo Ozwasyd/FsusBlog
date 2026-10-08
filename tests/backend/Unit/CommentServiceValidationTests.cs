@@ -375,9 +375,9 @@ public class CommentServiceValidationTests(PostgresSchemaMigrationFixture fixtur
         int? replyingActorAccountId,
         int? expected)
     {
-        int? actual = InvokePrivateStatic<int?>(
-            "ResolveReplyRecipientId",
-            [targetAuthorAccountId, replyingActorAccountId]);
+        int? actual = CommentCommandService.ResolveReplyRecipientId(
+            targetAuthorAccountId,
+            replyingActorAccountId);
 
         Assert.Equal(expected, actual);
     }

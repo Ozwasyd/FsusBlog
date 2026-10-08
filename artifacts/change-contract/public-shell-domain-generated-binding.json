@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "src/frontend/src/locales/routeLocaleDomains.ts",
+        "tools/contracts/generate-locale-catalog.mjs",
+        "tools/contracts/check-locale-catalog.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8830500ec9ab95437dbfa0aeb7dc8f9af513a02d39e761b7b82a46cd1f93c6a1"
+        }
+    ]
+}

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { execFileSync, spawnSync } from 'node:child_process';
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
@@ -35,7 +35,9 @@ const checkerRejectsMutation = async (relative, mutate) =>
     const original = await readFile(target, 'utf8');
     try
     {
-        await writeFile(target, mutate(original));
+        const mutated = mutate(original);
+        assert.notEqual(mutated, original, `${relative} negative fixture did not change the source`);
+        await writeFile(target, mutated);
         const result = spawnSync('node', [checker], { cwd: root, encoding: 'utf8' });
         assert.notEqual(result.status, 0, `${relative} mutation unexpectedly passed`);
     }
@@ -62,6 +64,41 @@ test('catalog generator rejects duplicate and incomplete metadata', async () =>
         catalog.locales[0].bundleLoader = './zh-CN';
     });
     assert.notEqual(dependencyLeak.status, 0);
+});
+
+test('canonical generator preserves byte parity and repeated generation for existing projections', async () =>
+{
+    const directory = await mkdtemp(path.join(os.tmpdir(), 'fsusblog-locale-generator-replay-'));
+    const outputs = [
+        'src/frontend/src/locales/localeCatalog.ts',
+        'src/frontend/src/locales/localeFontCatalog.ts',
+        'src/shared/Contracts/Localization/LocaleCatalog.g.cs'
+    ];
+    try
+    {
+        for (const relative of ['tools/contracts/generate-locale-catalog.mjs',
+            'src/shared/Contracts/Localization/locale-catalog.json', ...outputs])
+        {
+            const destination = path.join(directory, relative);
+            await mkdir(path.dirname(destination), { recursive: true });
+            await writeFile(destination, await readFile(path.join(root, relative)));
+        }
+        const replayGenerator = path.join(directory, 'tools/contracts/generate-locale-catalog.mjs');
+        for (let generation = 0; generation < 2; generation += 1)
+        {
+            execFileSync('node', [replayGenerator], { cwd: directory });
+            for (const relative of outputs)
+            {
+                const emitted = await readFile(path.join(directory, relative));
+                assert.ok(emitted.equals(await readFile(path.join(root, relative))), `canonical output drift: ${relative}`);
+            }
+        }
+        execFileSync('node', [replayGenerator, '--check'], { cwd: directory });
+    }
+    finally
+    {
+        await rm(directory, { recursive: true, force: true });
+    }
 });
 
 test('real consumer mutations fail closed', async () =>

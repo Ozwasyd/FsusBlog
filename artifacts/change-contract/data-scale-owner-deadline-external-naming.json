@@ -1,0 +1,12 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/testing/release-reliability-lifecycle-action-registry.json"
+            ],
+            "reason": "Preserve the lifecycle registry's machine-consumed JSON keys and action identifiers while binding the data-scale measurement deadline to the existing canonical catalog minimum."
+        }
+    ]
+}
