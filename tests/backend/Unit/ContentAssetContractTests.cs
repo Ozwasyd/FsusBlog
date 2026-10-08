@@ -116,7 +116,7 @@ public sealed class ContentAssetContractTests
                     {
                         if (method.Identifier.ValueText.StartsWith("Delete", StringComparison.Ordinal)
                             && method.ParameterList.Parameters.Any(static parameter => parameter.Type is PredefinedTypeSyntax type
-                                && type.Keyword.IsKind(SyntaxKind.StringKeyword)))
+                                && type.Keyword.RawKind == (int)SyntaxKind.StringKeyword))
                         {
                             violations.Add(file + ": URL/path deletion overload");
                         }
