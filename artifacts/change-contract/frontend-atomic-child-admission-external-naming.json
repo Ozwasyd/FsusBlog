@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/frontend-atomic/property-replay.mjs",
+                "tools/test/frontend-atomic/benchmark-admission.mjs",
+                "tools/test/temporal-source-observation-contract.mjs"
+            ],
+            "reason": "Preserve canonical process environment, replay, temporal and measurement owner field spellings while consuming the unchanged temporal source contract."
+        }
+    ]
+}

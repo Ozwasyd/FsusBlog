@@ -66,6 +66,51 @@ must block dependent consumers through the existing scheduler.
 
 ## Required integration by existing owners
 
+The next source increment supplies `prepareFrontendChildReplay(options)` for
+`frontend-property` and `frontend-state-machines`. It consumes the original replay
+and temporal JSON bytes, all three existing independently verified authority
+references, source/worktree/run/producer/first-attempt identity, explicit command
+environment and an independently supplied discovery list. It verifies the current
+Vitest identity, original single shard and explicitly disabled framework retries.
+It also verifies the current
+catalog's consumer/test/stream/version/budget material against a catalog-owner
+child projection; only child producer and explicitly assigned receipt ownership
+may change during migration. The existing `deriveRandomConsumerStream` and
+`deriveReplayStream` functions remain the only seed derivation owners. No root seed
+is generated, no catalog is mutated, and non-random state-machine declarations
+must retain an empty stream set. A source projection is not held catalog authority.
+
+`validateFrontendChildObservations(prepared, observations)` consumes complete
+actual Node observations through the unchanged temporal validator from
+`28ace8d57ef74b2595c352f1c5731c60cbfe5c0c` and exact stream observations through
+the original random observation validator. It refuses missing/duplicate/reduced
+observations and cross-run/attempt/plan bindings. It fills no planned fields and
+generates no receipt. These functions return `qualificationEligible:false`.
+Authenticated child collection, full discovery and independent product/replay
+qualification remain with their existing owners.
+
+`prepareFrontendBenchmarkAdmission(options)` binds the same current child context
+to the actual perf package command, explicit first measurement attempt and evidence
+roots, non-random replay, and unchanged full-capacity exclusive resource declaration.
+It retains `benchmark-window` rather than passing the benchmark to the current
+correctness-only compiler. `runFrontendBenchmarkAdmission(options)` delegates once
+to the existing `runTaskScopedPerformanceAdmission`, with explicit run identity,
+attempt sequence, product evidence and authority roots. It refuses another inherited
+measurement owner and requires the original frontend working directory. Physical
+scope collection, noise refusals, product conclusions and original errors remain
+with that existing owner. Resource declaration equality does not prove a scheduler
+lease: the shared scheduler owner must admit that exclusive capacity before dispatch.
+No alternate collector, fabricated metric or benchmark terminal receipt is added.
+
+CPU source `cb583495989a2482e0ef8ab6e561086505ca423f` was inspected: its
+`cpuCapacitySchedulerInput` verifies a sealed CPU selection and preserves current
+memory/load observations. That API belongs to the shared scheduler input boundary,
+so it is not copied, invoked with invented observations or treated as measurement
+evidence here. The current registry and property package wrapper still name
+`frontend-property-model-perf`; actual child activation requires their canonical
+owners' cutover. Ordinary child controls use explicitly proposed fixture catalog
+projections and synthetic held references, not admitted production authority.
+
 The published framework at `ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c`, including
 behavior correction `653ef38e2ce6dbcf8e2671bd8e091eb9c04538a0`, now supplies the
 canonical declaration/compiler/attempt execution API. The followup consumer
