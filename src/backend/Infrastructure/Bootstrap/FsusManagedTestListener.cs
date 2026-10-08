@@ -24,8 +24,8 @@ internal static class FsusManagedTestListener
         string Required(string key) => Environment.GetEnvironmentVariable(key) is { } value && !string.IsNullOrWhiteSpace(value)
             ? value : throw new InvalidOperationException($"Inherited listener binding missing: {key}.");
 
-        _ = Required("FSUS_TEST_RUN_ID");
-        _ = Required("TEST_NAMESPACE");
+        _ = Required("FSUSBLOG_TEST_RUN_ID");
+        _ = Required("FSUSBLOG_TEST_NAMESPACE");
         _ = Required("FSUSBLOG_RUNTIME_PORT_LEASE_ID");
         _ = Required("FSUSBLOG_RUNTIME_LISTEN_ATTEMPT_ID");
         string inode = Required("FSUSBLOG_RUNTIME_LISTEN_SOCKET");
