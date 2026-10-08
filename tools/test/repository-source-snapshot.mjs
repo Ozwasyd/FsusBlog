@@ -11,7 +11,7 @@ function git(root, args)
 {
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
     const result = spawnSync('git', ['--no-replace-objects', '-C', root, ...args], {
-        env: { ...env, GIT_OPTIONAL_LOCKS: '0', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' },
+        env: { ...env, GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' },
         encoding: 'utf8', maxBuffer: maximumFileBytes
     });
     if (result.error || result.status !== 0)
@@ -237,6 +237,13 @@ export function snapshotRepositorySourceIdentity(repositoryRoot, { sourcePolicy 
     if (git(root, ['rev-parse', '--is-shallow-repository']).trim() !== 'false')
     {
         throw new Error('shallow source repository is ambiguous');
+    }
+    // An object lookup in a promisor repository can otherwise fetch and write
+    // missing objects. Reject it before resolving HEAD or index blob objects.
+    const localConfigKeys = git(root, ['config', '--local', '--name-only', '--list']).split('\n');
+    if (localConfigKeys.some((key) => /^extensions\.partialclone$/iu.test(key) || /^remote\..+\.promisor$/iu.test(key)))
+    {
+        throw new Error('partial/promisor source repository requires an independently materialized object store');
     }
     const before = inventory(root);
     if (!/^[a-f0-9]{40}$/u.test(before.head))

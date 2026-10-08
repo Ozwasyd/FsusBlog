@@ -203,3 +203,13 @@ test('source snapshot records deletion of an entire tracked directory', (t) =>
     fs.rmSync(path.join(fixture.root, 'nested'), { recursive: true });
     assert.equal(snapshot(fixture.root).worktreeEntries['nested/source'].fileType, 'missing');
 });
+
+test('source snapshot refuses promisor lookup before a missing object can trigger repair', (t) =>
+{
+    const fixture = gitFixture(t);
+    fixture.git('config', 'remote.source.promisor', 'true');
+    fixture.git('update-index', '--cacheinfo', `100644,${'1'.repeat(40)},source.txt`);
+    const objectsBefore = fixture.git('count-objects', '-v');
+    assert.throws(() => snapshot(fixture.root), /partial\/promisor/u);
+    assert.equal(fixture.git('count-objects', '-v'), objectsBefore);
+});
