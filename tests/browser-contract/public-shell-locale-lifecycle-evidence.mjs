@@ -579,6 +579,10 @@ export async function readPublicShellLocalePreference(context, bindings, { rawCa
 export function assertPublicShellLocalePreferenceOutcome({ scene, before, after, writes, outcome })
 {
     assert.ok(['commit', 'rollback'].includes(outcome), 'preference outcome required');
+    for (const revision of [before.snapshot.revision, after.snapshot.revision])
+    {
+        assert.ok(Number.isSafeInteger(revision) && revision >= 0, 'preference revision must be an exact nonnegative integer');
+    }
     const successes = writes.filter((write) => write.status === 200);
     if (outcome === 'rollback')
     {
@@ -590,6 +594,10 @@ export function assertPublicShellLocalePreferenceOutcome({ scene, before, after,
     assert.equal(successes.length, 1, 'exactly one preference PUT receipt required');
     const write = successes[0];
     assert.ok(write.command && write.preference && !write.observationError, 'PUT command/response were not observed');
+    for (const revision of [write.command.expectedRevision, write.preference.revision])
+    {
+        assert.ok(Number.isSafeInteger(revision) && revision >= 0, 'preference PUT revision must be an exact nonnegative integer');
+    }
     assert.equal(write.command.mode, 'fixed', 'selector must issue a fixed preference');
     assert.equal(write.command.fixedLocale, scene.locale, 'PUT target differs from clicked target');
     assert.equal(write.command.expectedRevision, before.snapshot.revision, 'PUT used a stale revision');

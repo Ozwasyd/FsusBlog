@@ -2816,3 +2816,18 @@ for (const stage of ['operation', 'capture'])
         assert.equal(listeners.size, 0);
     });
 }
+
+
+for (const [name, revision] of [['negative', -1], ['fractional', 0.5], ['unsafe', Number.MAX_SAFE_INTEGER + 1],
+    ['NaN', Number.NaN], ['string', '7']])
+{
+    test(`preference outcome rejects coherently forged ${name} CAS revisions`, () =>
+    {
+        const input = commitFixture('user');
+        input.before.snapshot.revision = revision;
+        input.writes[0].command.expectedRevision = revision;
+        input.after.snapshot.revision = revision + 1;
+        input.writes[0].preference.revision = revision + 1;
+        assert.throws(() => assertPublicShellLocalePreferenceOutcome(input), /revision/u);
+    });
+}
