@@ -43,7 +43,8 @@ internal abstract class GpuNativeApi(IGpuNativeLibrary library)
 
     protected static void RejectOutOfMemory(int status)
     {
-        // CUDA_ERROR_OUT_OF_MEMORY / hipErrorOutOfMemory report no allocation.
+        // Only payload-allocation entry points classify CUDA_ERROR_OUT_OF_MEMORY / hipErrorOutOfMemory here.
+        // A rejected request releases its reservation; context-restore failure still requires quarantine.
         if (status == 2)
         {
             throw new GpuAllocationRejectedException();

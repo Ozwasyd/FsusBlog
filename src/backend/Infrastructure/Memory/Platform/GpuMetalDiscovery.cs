@@ -139,7 +139,8 @@ public static class GpuMetalDiscovery
         }
         finally
         {
-            // On failure, sessions have no allocations/submissions and can release their queues/devices.
+            // Discovery creates managed sessions and native queues before publishing them to a caller.
+            // It never requests payload buffers or submits DMA, so failed discovery can release these owners.
             if (api is not null)
             {
                 if (!discovered)
