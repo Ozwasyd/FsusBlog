@@ -55,6 +55,33 @@ an HTTP context. The job owner must still supply its authorization adapter and
 prove frozen coordinates, revisions and resource custody; this permission port
 alone cannot qualify a job or a download.
 
+## Shared attempt resources
+
+`IDocumentExportAttemptJobProvider` is the explicit resource consumer port. After
+claiming the worker, the job owner calls `CreateAttemptResources` once with the
+same execution task/input and its `TimeProvider`, then passes that exact instance
+to `ExportAsync` and `VerifyAsync`. Check `RequireCompleted` again at publication
+boundaries alongside the existing deadline/cancellation checks. An adapter without
+this port must be refused for aggregate qualification, not silently delegated to
+the old per-stage methods. The original job owner must wire this additional port;
+its SiteScope source migration alone does not provide aggregate accounting.
+
+The canonical renderer and the final sandbox stage use the resource-aware
+overloads with that same instance. Stages cannot overlap, repeat the same role,
+reset after failure, or start after publication sealing. The sole sandbox tightens
+CPU, wall, file count, input/output and log budgets to the remaining allowance,
+using its real cgroup observations and mutable-file snapshots. HTML also charges
+its actual composed output length. First failures and physical cleanup refusal
+remain authoritative; this object produces no independent cleanup receipt.
+
+Mutable-file bytes retain the original aggregate envelope of output plus both
+logs; `MaxFileBytes` remains the per-file limit. Accounting sums each completed
+stage's observed high-water marks. It does not measure transient creation/deletion
+between observations or total kernel read/write traffic, nor host managed CPU.
+Those physical qualification limits remain open. Plans/receipts keep their current
+versions and identities; providers and the independent verifier still need all
+original current-candidate native evidence. PDF/DOCX/EPUB remain inactive.
+
 Construct `DocumentExportJobService` with the existing `ReleaseStorageLayout`,
 shared `IDataProtectionProvider`, the exact permission adapter and `TimeProvider`.
 The existing integration owner registers this service and schedules its internal
