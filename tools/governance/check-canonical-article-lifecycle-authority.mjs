@@ -61,6 +61,18 @@ export function checkCanonicalArticleLifecycleAuthority(repositoryRoot = default
     {
         violations.push("independent public verification must reread and match the sealed projection aggregate");
     }
+    const publicationProjectionEnd = publicContentVerification.indexOf(
+        'else if (original.Kind is "category" or "tag")', publicationProjectionStart);
+    const publicationProjectionObservation = publicationProjectionStart >= 0 && publicationProjectionEnd > publicationProjectionStart
+        ? publicContentVerification.slice(publicationProjectionStart, publicationProjectionEnd) : "";
+    if (!publicationProjectionObservation.includes("snapshot.Publications")
+        || !publicationProjectionObservation.includes(".SingleOrDefault(item => item.ArticleId == id)")
+        || !publicationProjectionObservation.includes("RequirePublicationInvocation(snapshot, id)")
+        || !/fields\["projectionAggregate"\]\s*=\s*await projectionVerifier\.VerifyAsync\(\s*preparedPublication, invocation\.Request, cancellationToken\)/u.test(publicationProjectionObservation)
+        || !/RequireVerificationEquality\(original\.Fields, fields,\s*"projectionAggregate", "requiredProjectionEdgesVerified"\)/u.test(publicationProjectionObservation))
+    {
+        violations.push("independent publication verification must reread and match the sealed projection aggregate using its original invocation");
+    }
     const registration = read("src/backend/Infrastructure/Bootstrap/RuntimeDomainServiceCollectionExtensions.cs");
 
     const requiredVariants = [
