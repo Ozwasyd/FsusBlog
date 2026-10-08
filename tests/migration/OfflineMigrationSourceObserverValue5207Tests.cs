@@ -293,9 +293,15 @@ public sealed class OfflineMigrationSourceObserverValue5207Tests
             Assert.NotEqual(before.ContentDigest, changedBody);
             await WriteSqliteAsync(path, "UPDATE sqlite_sequence SET seq=20 WHERE name='article'", null, cancellation);
             Assert.NotEqual(changedBody, (await ReadSqliteAsync(path, cancellation)).ContentDigest);
-            InvalidOperationException unavailable = await Assert.ThrowsAsync<InvalidOperationException>(() =>
-                new OfflineMigrationSourceObserver().ObserveAsync(CurrentSchemaProviderKind.Sqlite, path, cancellation));
-            Assert.Equal("offline_source_provider_full_content_capability_unavailable", unavailable.Message);
+            // The existing provider now owns a native observation path. Require
+            // its actual identity and content; an unavailable FILESTAT capability
+            // cannot stand in for successful instance measurement or write admission.
+            OfflineMigrationSourceObservation admitted = await new OfflineMigrationSourceObserver().ObserveAsync(
+                CurrentSchemaProviderKind.Sqlite, new SqliteConnectionStringBuilder { DataSource = path, Pooling = false }.ToString(), cancellation);
+            Assert.NotEqual(changedBody, admitted.ContentDigest);
+            Assert.Equal(Path.GetFullPath(path), admitted.Database.DatabaseId);
+            Assert.StartsWith("sqlite:", admitted.Database.InstanceId);
+            Assert.Equal((await ReadSqliteAsync(path, cancellation)).ContentDigest, admitted.ContentDigest);
         });
     }
 
