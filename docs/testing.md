@@ -265,7 +265,7 @@ generatedSectionId: testing.coverage-entry-count
 render: scalar
 -->
 <!-- FSUSBLOG-GENERATED:BEGIN testing.coverage-entry-count -->
-264
+266
 <!-- FSUSBLOG-GENERATED:END testing.coverage-entry-count -->
 
 `config/testing/content-shape-catalog.json` 是 Unicode、script、正负 eligibility
@@ -1691,6 +1691,7 @@ render: enum-set
 - `soak-long-evidence-import`
 - `soak-long-scheduled`
 - `soak-short-runtime`
+- `source-governance`
 - `static-governance`
 - `test-inventory`
 - `test-quality-lint`
@@ -1698,6 +1699,7 @@ render: enum-set
 - `ux-viewport-plan-progress`
 - `ux-viewport-smoke`
 - `ux-viewport-visual`
+- `validate-declarations`
 - `validate-matrix`
 - `visual`
 - `visual-console`
