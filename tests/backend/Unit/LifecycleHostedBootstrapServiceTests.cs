@@ -20,10 +20,10 @@ namespace FsusBlog.Server.Tests;
 public sealed class LifecycleHostedBootstrapServiceTests
 {
     [Theory]
-    [InlineData(Environments.Development, "")]
-    [InlineData(Environments.Development, "relative/receipt.json")]
-    [InlineData(Environments.Production, "")]
-    [InlineData(Environments.Production, "relative/receipt.json")]
+    [InlineData("Development", "")]
+    [InlineData("Development", "relative/receipt.json")]
+    [InlineData("Production", "")]
+    [InlineData("Production", "relative/receipt.json")]
     public async Task RealHost_DoesNotStartBusinessServicesAfterActualReceiptRefusal(string environmentName, string receiptPath)
     {
         string root = CreateTempRoot();
@@ -575,7 +575,10 @@ public sealed class LifecycleHostedBootstrapServiceTests
 
     private sealed class BusinessHostProbe : IHostedService
     {
-        public int Starts { get; private set; }
+        public int Starts
+        {
+            get; private set;
+        }
 
         public Task StartAsync(CancellationToken cancellationToken)
         {
