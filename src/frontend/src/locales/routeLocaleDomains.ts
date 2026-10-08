@@ -22,8 +22,9 @@ export type LocaleRoutePreparationPort = (
 // route command, so every full-app route must prepare its copy before mount.
 // AccountLayout also keeps PolicyModal mounted for its header command on every
 // account and admin route, so those shells must prepare auth copy as well.
-// Public AOT/SSR uses requiredLocaleDomainsForPublicPage and stays unchanged.
-const PUBLIC_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'public', 'security'] as const);
+// Public AOT/SSR and hydration do not mount that application-level host.
+const PUBLIC_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'public'] as const);
+const PUBLIC_APP_DOMAINS = append(PUBLIC_SHELL_DOMAINS, 'security');
 const AUTH_DOMAINS = Object.freeze(['common', 'layout', 'public', 'auth', 'errors', 'security'] as const);
 const ACCOUNT_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'admin', 'auth', 'errors', 'security'] as const);
 const ADMIN_SHELL_DOMAINS = Object.freeze(['common', 'layout', 'admin', 'auth', 'errors', 'security'] as const);
@@ -96,17 +97,17 @@ export function requiredLocaleDomainsForRoute(
     }
     if (name === 'ArticleDetail')
     {
-        return append(PUBLIC_SHELL_DOMAINS, 'article');
+        return append(PUBLIC_APP_DOMAINS, 'article');
     }
     if (name.length > 0 && route.meta.routeState === 'public-shareable')
     {
-        return PUBLIC_SHELL_DOMAINS;
+        return PUBLIC_APP_DOMAINS;
     }
     if (name === 'Home' || name === 'Archive' || name === 'About' || name === 'Privacy'
     || name === 'Guidelines' || name === 'Copyright' || name === 'Category'
     || name === 'TagById' || name === 'Tag' || name === 'Search')
     {
-        return PUBLIC_SHELL_DOMAINS;
+        return PUBLIC_APP_DOMAINS;
     }
     throw new Error(`locale_route_domains_missing:${name || route.path}`);
 }
