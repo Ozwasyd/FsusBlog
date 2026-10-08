@@ -86,6 +86,12 @@
         }
       },
       "fsusblog.articlevault.windows": {
+        "type": "Project",
+        "dependencies": {
+          "FsusBlog.Shared": "[1.0.0, )"
+        }
+      },
+      "fsusblog.shared": {
         "type": "Project"
       },
       "xunit.extensibility.execution": {

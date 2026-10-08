@@ -31,7 +31,7 @@ public sealed class LinuxVaultRootPathScopeTests
     public void AdmittedScope_UsesRelativeControlPathAndRechecksRootManifestDrift()
     {
         using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
-        LinuxVaultRootPathScope scope = LinuxVaultRootPathScope.Open(root.Path, root.Manifest, "root-path-test-agent");
+        using LinuxVaultRootPathScope scope = LinuxVaultRootPathScope.Open(root.Path, root.Manifest, "root-path-test-agent");
         VaultPathStructuralAnalysis result = scope.AnalyzeProjection(ArticleVaultSchemas.RootManifestPath, []);
         Assert.Equal(VaultPathStructuralClass.RegisteredControlPath, result.Classification);
         Assert.True(result.RequiresNativeAdmission);
@@ -58,7 +58,7 @@ public sealed class LinuxVaultRootPathScopeTests
     public void AdmittedScope_RejectsAbsolutePathAndNativeSymlinkDescendant()
     {
         using LinuxVaultTestRoot root = LinuxVaultTestRoot.Create();
-        LinuxVaultRootPathScope scope = LinuxVaultRootPathScope.Open(root.Path, root.Manifest, "root-path-test-agent");
+        using LinuxVaultRootPathScope scope = LinuxVaultRootPathScope.Open(root.Path, root.Manifest, "root-path-test-agent");
         Assert.Throws<InvalidDataException>(() => scope.AnalyzeProjection(root.Path, []));
         Directory.CreateSymbolicLink(Path.Combine(root.Path, "escape"), Path.GetDirectoryName(root.Path)!);
 

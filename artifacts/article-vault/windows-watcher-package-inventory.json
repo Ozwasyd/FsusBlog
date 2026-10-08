@@ -16,7 +16,9 @@
             "src/article-vault/windows/WindowsVaultRawFactCodec.cs",
             "src/article-vault/windows/WindowsVaultTestAccess.cs",
             "src/article-vault/windows/WindowsVaultWatchContracts.cs",
-            "src/article-vault/windows/WindowsVaultWatcherSession.cs"
+            "src/article-vault/windows/WindowsVaultWatcherSession.cs",
+            "src/article-vault/windows/WindowsVaultRootPathNative.cs",
+            "src/article-vault/windows/WindowsVaultRootPathScope.cs"
         ],
         "role": "Windows platform module beside existing Linux module, not another full agent"
     },
@@ -29,7 +31,8 @@
         "WindowsVaultWatermark",
         "WindowsVaultRawFact",
         "WindowsVaultRawFactCodec",
-        "WindowsVaultWatcherSession"
+        "WindowsVaultWatcherSession",
+        "WindowsVaultRootPathScope"
     ],
     "nativeBoundary": {
         "library": "kernel32.dll",
@@ -52,12 +55,14 @@
         "sources": [
             "tests/article-vault/windows/WindowsVaultRawFactContractTests.cs",
             "tests/article-vault/windows/WindowsVaultWatcherNtfsTests.cs",
-            "tests/article-vault/windows/WindowsVaultNtfsFixture.cs"
-        ]
+            "tests/article-vault/windows/WindowsVaultNtfsFixture.cs",
+            "tests/article-vault/windows/WindowsVaultRootPathScopeTests.cs"
+        ],
+        "rootPathCommand": "dotnet test tests/article-vault/windows/FsusBlog.ArticleVault.Windows.Tests.csproj --no-restore --filter FullyQualifiedName~WindowsVaultRootPathScopeTests"
     },
     "admission": {
         "productionFactory": "absent; construction assembly-private",
-        "nextCapability": "#2109 exact Windows verified-root handle and per-event native root-relative path/control-tree admission",
+        "nextCapability": "#2109 native scope now supplies owned overlap-capable root handles and revalidation callbacks; canonical observer factory integration and actual NTFS execution remain required",
         "watermark": "always invalid; no raw digest acknowledgement",
         "sourceContentDigest": "null; only #2110 stable snapshot owner can produce body digest",
         "renameCookieAndFileId": "null; FILE_NOTIFY_INFORMATION has neither; old/new actions remain separate",
@@ -70,13 +75,13 @@
         "fullAgentCommand": null,
         "nextCapabilities": [
             "real Windows NTFS host",
-            "#2109 Windows native admission",
             "#2110 stable snapshots/materialization",
             "#2112 normalization/rescan",
             "#2113 lease/closed IPC",
             "#2114 lifecycle",
             "#1909 complete verified protocol receipts",
-            "#1865 canonical bytes/APIs from #3560"
+            "#1865 canonical bytes/APIs from #3560",
+            "actual #2109 NTFS root/path controls and complete control-tree ACL ownership"
         ]
     },
     "documentation": "src/article-vault/windows/README.md",

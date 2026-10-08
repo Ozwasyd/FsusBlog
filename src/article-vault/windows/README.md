@@ -1,5 +1,15 @@
 # Windows Article Vault raw watcher
 
+The canonical root/path scope now exposes `WindowsVaultRootPathScope.Open` and
+relative `AnalyzeProjection`. Private construction admits a real local NTFS root,
+pins its ancestry, verifies volume identity and directory case mode, rejects
+reparse/hardlink aliases and rechecks actual control-manifest bytes. Serialized
+structural results grant no native capability. Same-assembly observer integration
+can consume `DuplicateRootHandleForWatcher`, `CreateWatchIdentity`, `RevalidateRoot`
+and `RevalidatePath`; duplicated handles have independent ownership. The watcher
+factory must still be wired by its original owner. Full ACL/control-tree exclusive
+ownership, rescan admission and real Windows qualification remain separate gates.
+
 This Windows platform module belongs to #2670. It observes an owned overlapped
 NTFS directory handle through `ReadDirectoryChangesW`, retains native action and
 UTF-16 relative spelling, and emits bounded content-addressed facts. Rename old

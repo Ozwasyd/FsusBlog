@@ -128,6 +128,24 @@ context. It never constructs native authority. Every structural analysis retains
 `RequiresNativeAdmission=true`, including one returned after native inspection:
 future content access needs fresh verification at its own use boundary.
 
+The scope now owns an initial native root descriptor and implements `IDisposable`.
+`OpenSourceFile(relativePath)` opens only a registered source projection read-only;
+`OpenOwnedParent(sourceRelativePath)` derives its parent without accepting an
+arbitrary parent or control-tree path. `RevalidateForUse(issuedDescriptor)` accepts
+only handles issued by that live scope, independently reopens their exact relative
+paths and checks root/mount/device/inode identity. The scope closes its root and all
+issued handles, supports repeated disposal and bounds live handles to 64.
+
+Relative resolution uses `openat2` with beneath, no-symlink and no-mount-crossing
+constraints. Missing kernel interfaces fail closed. Native metadata queries reject
+casefold directories and unavailable directory semantics, including root, control
+tree and each source parent. Only the fixed control manifest is read for binding;
+source content and mutations remain with their respective owners. Revalidation is
+an observation: a later external rename can still intervene before a writer uses
+a parent. Each content owner must perform its own root-anchored resolve/use and
+completion checks. These APIs do not grant stable-read, atomic-write, lease,
+exclusive control-tree ownership or native qualification.
+
 The original Linux project registers the dedicated owner filter in the existing
 package inventory:
 
