@@ -2128,8 +2128,7 @@
         {
             "id": "memory-ledger-metadata",
             "sourcePaths": [
-                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
-                "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs"
+                "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs"
             ],
             "pathStatus": "baseline-reported",
             "owner": "MemoryReservationCoordinator bounded entry set, resource topology, fixed event ring and frozen disk bound adapter",
@@ -2157,10 +2156,6 @@
                 {
                     "path": "src/backend/Infrastructure/Memory/Accounting/MemoryReservationCoordinator.cs",
                     "anchor": "public sealed class MemoryReservationCoordinator"
-                },
-                {
-                    "path": "src/backend/Infrastructure/Memory/Accounting/FrozenDiskPhysicalAllocationPolicy.cs",
-                    "anchor": "public sealed class FrozenDiskPhysicalAllocationPolicy"
                 }
             ]
         },
