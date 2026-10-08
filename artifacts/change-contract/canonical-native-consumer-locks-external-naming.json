@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "benchmarks/core/packages.lock.json",
+                "src/migration/packages.lock.json",
+                "tests/backend/packages.lock.json",
+                "tests/migration/packages.lock.json",
+                "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+                "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+                "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+                "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+                "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json"
+            ],
+            "reason": "preserve official NuGet package and project-reference dependency keys, requested ranges and exact package hashes while binding the already-declared AngleSharp 1.5.0 reader and canonical versionless native SQLite 3.53.3 source to current downstream consumer locks"
+        }
+    ]
+}
