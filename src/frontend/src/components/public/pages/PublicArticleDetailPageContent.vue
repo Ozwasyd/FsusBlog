@@ -312,9 +312,16 @@ const { messages, t } = useI18nText();
 
 const siteTitle = usePublicSiteTitle();
 const draftArticleId = computed(() => props.articleId === null ? null : safeArticleId.value);
-const admittedDraftResponsibility = computed(() => props.draftResponsibility === undefined ? undefined
-    : props.draftResponsibility && admitArticleDraftResponsibilitySnapshot(props.draftResponsibility,
-        { articleId: draftArticleId.value, content: props.bodyContent }) ? props.draftResponsibility : null);
+const admittedDraftResponsibility = computed(() =>
+{
+    const value = props.draftResponsibility;
+    if (value === undefined)
+    {
+        return undefined;
+    }
+    const reading = { articleId: draftArticleId.value, content: props.bodyContent };
+    return value && admitArticleDraftResponsibilitySnapshot(value, reading) ? value : null;
+});
 const effectiveResponsibilityAuthors = computed(() => (
     props.draftResponsibility !== undefined
         ? admittedDraftResponsibility.value?.snapshot.authors ?? []
