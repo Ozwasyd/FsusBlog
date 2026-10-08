@@ -191,6 +191,12 @@ EOF
 Quality Gate runs on pull_request, main and master push, and workflow_dispatch.
 EOF
 
+    if [[ "${1:-}" == "ordinary-parser" ]]; then
+        local ordinaryStatus=0
+        RunOrdinaryParserFixtures "$tempDir" || ordinaryStatus=$?
+        return "$ordinaryStatus"
+    fi
+
     FSUSBLOG_GATE_INTEGRITY_ROOT="$tempDir" "$0" >/dev/null
 
     rm "$tempDir/tools/ok.sh"
@@ -353,6 +359,77 @@ EOF
 
     echo "[gate-integrity:self-test] ok"
 }
+
+RunOrdinaryParserFixtures() {
+    node --input-type=module - "$1" "$CHECKER_ROOT/tools/check-gate-integrity.sh" <<'NODE'
+import fs from 'node:fs';
+import path from 'node:path';
+import { spawnSync } from 'node:child_process';
+
+const root = process.argv[2];
+const checker = process.argv[3];
+const workflowPath = path.join(root, '.github/workflows/quality-gate.yml');
+const matrixPath = path.join(root, 'tests/matrix.yml');
+const workflow = fs.readFileSync(workflowPath, 'utf8');
+const matrix = fs.readFileSync(matrixPath, 'utf8');
+const owner = './tools/test.sh ci-tier validate-matrix --no-deps';
+const tierOwner = 'tools/test/run-matrix-governance-once.sh validate-matrix';
+const cases = [];
+function workflowCase(name, expected, replacement) {
+  cases.push({ name, expected, workflow: workflow.replace(`run: ${owner}`, replacement), matrix });
+}
+function extraCommand(name, expected, command) {
+  cases.push({ name, expected, workflow: `${workflow}\n  extra:\n    steps:\n      - run: ${command}\n`, matrix });
+}
+workflowCase('plain', 0, `run: ${owner}`);
+workflowCase('single-quoted YAML', 0, `run: '${owner}'`);
+workflowCase('double-quoted YAML', 0, `run: "${owner}"`);
+workflowCase('trailing YAML comment', 0, `run: ${owner} # canonical owner`);
+workflowCase('folded adjacent lines', 0, 'run: >\n          ./tools/test.sh ci-tier\n          validate-matrix --no-deps');
+workflowCase('folded interior blank', 1, 'run: >\n          ./tools/test.sh ci-tier\n\n          validate-matrix --no-deps');
+workflowCase('folded shell comment', 1, `run: >\n          # disabled owner\n          ${owner}`);
+workflowCase('literal separate lines', 1, 'run: |\n          ./tools/test.sh ci-tier\n          validate-matrix --no-deps');
+workflowCase('disabled step', 1, `if: false\n        run: ${owner}`);
+workflowCase('enabled step', 0, `if: true\n        run: ${owner}`);
+workflowCase('dynamic step condition', 0, `if: github.event_name == 'push'\n        run: ${owner}`);
+workflowCase('unbound owner substring', 1, `run: echo ${owner}`);
+workflowCase('direct canonical route', 1, `run: ${tierOwner}`);
+cases.push({ name: 'disabled job', expected: 1, workflow: workflow.replace('  validate-matrix:\n', '  validate-matrix:\n    if: false\n'), matrix });
+cases.push({ name: 'dynamic job condition', expected: 0, workflow: workflow.replace('  validate-matrix:\n', '  validate-matrix:\n    if: github.event_name == \'push\'\n'), matrix });
+cases.push({ name: 'folded matrix comment', expected: 1, workflow, matrix: matrix.replace(`command: ${tierOwner}`, `command: >\n      # disabled canonical owner\n      ${tierOwner}`) });
+cases.push({ name: 'wrong matrix command', expected: 1, workflow, matrix: matrix.replace(`command: ${tierOwner}`, 'command: tools/ok.sh') });
+cases.push({ name: 'renamed tier', expected: 1, workflow, matrix: matrix.replace('id: validate-matrix', 'id: renamed-matrix') });
+cases.push({ name: 'quoted duplicate tier', expected: 1, workflow, matrix: `${matrix}\n  - id: "validate-matrix"\n    command: ${tierOwner}\n` });
+cases.push({ name: 'duplicate command field', expected: 1, workflow, matrix: matrix.replace(`command: ${tierOwner}`, `command: ${tierOwner}\n    command: ${tierOwner}`) });
+cases.push({ name: 'renamed workflow job', expected: 1, workflow: workflow.replace('  validate-matrix:', '  renamed-job:'), matrix });
+for (const script of ["'tools/run-test-matrix.mjs'", '"tools/run-test-matrix.mjs"', "tools/'run-test-matrix'.mjs", 'tools/run-test-matri\\x.mjs']) {
+  for (const verb of ['validate', 'preflight', 'evidence-plan']) extraCommand(`${script} ${verb}`, 1, `node ${script} ${verb}`);
+}
+extraCommand('quoted argv', 1, 'node "tools/run-test-matrix.mjs" "validate"');
+extraCommand('longer subcommand', 0, 'node "tools/run-test-matrix.mjs" validate-declarations');
+extraCommand('shell comment', 0, 'echo ok # node "tools/run-test-matrix.mjs" validate');
+extraCommand('empty argv word', 0, 'node "tools/run-test-matrix.mjs" \'\' validate');
+extraCommand('shell separator', 0, 'node "tools/run-test-matrix.mjs"; echo validate');
+cases.push({ name: 'disabled duplicate owner', expected: 1, workflow: `${workflow}\n  disabled:\n    if: false\n    steps:\n      - run: ${owner}\n`, matrix });
+let failed = 0;
+for (const fixture of cases) {
+  fs.writeFileSync(workflowPath, fixture.workflow);
+  fs.writeFileSync(matrixPath, fixture.matrix);
+  const result = spawnSync('bash', [checker], { env: { ...process.env, FSUSBLOG_GATE_INTEGRITY_ROOT: root }, encoding: 'utf8' });
+  const passed = result.status === fixture.expected;
+  if (!passed) failed += 1;
+  console.log(JSON.stringify({ name: fixture.name, expectedExit: fixture.expected, actualExit: result.status, passed }));
+  if (!passed) process.stderr.write(result.stderr || result.stdout);
+}
+console.log(`[gate-integrity:ordinary-parser] ${cases.length - failed} passed, ${failed} failed`);
+process.exitCode = failed ? 1 : 0;
+NODE
+}
+
+if [[ "${1:-}" == "--ordinary-parser-self-test" ]]; then
+    RunSelfTest ordinary-parser
+    exit 0
+fi
 
 if [[ "${1:-}" == "--self-test" ]]; then
     RunSelfTest
@@ -544,11 +621,72 @@ function rawWorkflowCommands(text) {
     const run = line.match(/^(\s*)(?:-\s+)?run:\s*(.*)$/);
     if (run) {
       blockIndent = isYamlRunBlock(run[2]) ? run[1].length : -1;
-      if (blockIndent < 0) commands.push(run[2].trim());
+      // Inline YAML scalars are decoded by the canonical parser, including quotes
+      // and trailing YAML comments. Only block contents need this interim guard.
     }
   }
   flushRunBlock();
   return commands;
+}
+
+// Match literal shell word identity without executing or expanding shell text.
+// Separators interrupt argv adjacency; quoting and escapes preserve literal words.
+function shellLiteralWords(command) {
+  const words = [];
+  let word = '';
+  let started = false;
+  let quote = '';
+  function flushWord() {
+    if (started) words.push(word);
+    word = '';
+    started = false;
+  }
+  for (let index = 0; index < command.length; index += 1) {
+    const character = command[index];
+    if (quote === "'") {
+      if (character === quote) quote = '';
+      else word += character;
+      continue;
+    }
+    if (character === '\\' && quote !== "'") {
+      const next = command[index + 1];
+      if (next === '\n') index += 1;
+      else if (next !== undefined && (!quote || /[$`"\\]/u.test(next))) {
+        word += next;
+        started = true;
+        index += 1;
+      } else word += character;
+      continue;
+    }
+    if (quote === '"') {
+      if (character === quote) quote = '';
+      else word += character;
+      continue;
+    }
+    if (character === "'" || character === '"') {
+      quote = character;
+      started = true;
+    } else if (character === '#' && !started) {
+      while (index < command.length && command[index] !== '\n') index += 1;
+      words.push(null);
+    } else if (/[\n;&|()<>]/u.test(character)) {
+      flushWord();
+      words.push(null);
+    } else if (/\s/u.test(character)) flushWord();
+    else {
+      word += character;
+      started = true;
+    }
+  }
+  flushWord();
+  return words;
+}
+
+function bypassesMatrixOwner(command) {
+  const words = shellLiteralWords(command);
+  return words.some((word, index) =>
+    typeof word === 'string' && /^(?:\.?\/)?tools\/run-test-matrix\.mjs$/u.test(word)
+    && ['preflight', 'validate', 'evidence-plan'].includes(words[index + 1]));
 }
 
 function scanWorkflow(file) {
@@ -577,26 +715,28 @@ function scanWorkflow(file) {
       addError(`${file} invalid workflow: ${error.message}`);
       return;
     }
-    const executableCommands = Object.values(jobs).flatMap((job) =>
+    const declaredCommands = Object.values(jobs).flatMap((job) =>
       (job.steps ?? []).filter((step) => typeof step.run === 'string').map((step) => step.run.trim()));
-    // The structural parser is intentionally conservative about YAML comments.
-    // Keep raw shell text too: a comment in a folded scalar can disable its command.
+    // Until the shared parser preserves block contents, retain the existing raw
+    // guard: a comment in a folded scalar can disable its command.
     const rawCommands = rawWorkflowCommands(text);
     const schedulerStep = './tools/test.sh ci-tier validate-matrix --no-deps';
-    for (const commands of [executableCommands, rawCommands]) {
-      const matrixInvocations = commands.filter((command) =>
+    const matrixInvocations = declaredCommands.filter((command) =>
         /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command)
         && (command.includes('validate-matrix') || command.includes('run-matrix-governance-once.sh')));
-      if (matrixInvocations.length !== 1 || matrixInvocations[0] !== schedulerStep) {
-        addError(`${file} workflow must invoke the scheduler-owned canonical tier exactly once`);
-        break;
-      }
+    const invalidRawOwner = rawCommands.some((command) =>
+      /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command)
+      && (command.includes('validate-matrix') || command.includes('run-matrix-governance-once.sh'))
+      && command !== schedulerStep);
+    if (matrixInvocations.length !== 1 || matrixInvocations[0] !== schedulerStep || invalidRawOwner) {
+      addError(`${file} workflow must invoke the scheduler-owned canonical tier exactly once`);
     }
     if (!Object.hasOwn(jobs, 'validate-matrix')) {
       addError(`${file} must declare exactly one validate-matrix job`);
     } else {
-      const runSteps = (jobs['validate-matrix'].steps ?? [])
-        .filter((step) => typeof step.run === 'string').map((step) => step.run.trim());
+      const owner = jobs['validate-matrix'];
+      const runSteps = owner.if === false ? [] : (owner.steps ?? [])
+        .filter((step) => step.if !== false && typeof step.run === 'string').map((step) => step.run.trim());
       const matrixOwnerSteps = runSteps.filter((command) =>
         command.includes('validate-matrix')
         && /(?:tools\/test\.sh|tools\/run-test-matrix\.mjs|run-matrix-governance-once\.sh)/u.test(command));
@@ -604,8 +744,7 @@ function scanWorkflow(file) {
         addError(`${file} validate-matrix job must invoke the scheduler-owned canonical tier exactly once`);
       }
     }
-    if (executableCommands.some((command) =>
-      /(?:^|[\s"'])\.?\/?tools\/run-test-matrix\.mjs\s+(?:preflight|validate|evidence-plan|'(?:preflight|validate|evidence-plan)'|"(?:preflight|validate|evidence-plan)")(?=\s|[;&|]|$)/u.test(command))) {
+    if (declaredCommands.some(bypassesMatrixOwner)) {
       addError(`${file} bypasses the canonical matrix governance owner`);
     }
     if (!text.includes('node tools/run-test-matrix.mjs ci-plan --format github-actions --out .tmp/ci-plan.json')) {
