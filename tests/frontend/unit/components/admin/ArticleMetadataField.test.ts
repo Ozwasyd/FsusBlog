@@ -1,0 +1,357 @@
+// @vitest-environment happy-dom
+
+import { mount } from '@vue/test-utils';
+import { nextTick } from 'vue';
+import { afterEach, describe, expect, it, vi } from 'vitest';
+
+import { decodeArticlePropertyValueReadResponse, type ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
+import ArticleMetadataField from '@/components/admin/article/ArticleMetadataField.vue';
+import { FsusUiButton } from '@/fsusui/button';
+import { FsusUiInput } from '@/fsusui/input';
+import { FsusUiSelect } from '@/fsusui/select';
+import { FsusUiSwitch } from '@/fsusui/switch';
+import { ArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
+
+import golden from '../../../../fixtures/protocol/article-property-value-read-wire-golden.json';
+
+function response(): ArticlePropertyValueReadResponse
+{
+    const fixture = golden.cases.find((candidate) => candidate.name === 'current-8');
+    if (!fixture) throw new Error('missing canonical wire fixture');
+    return decodeArticlePropertyValueReadResponse(Uint8Array.from(Buffer.from(fixture.payloadHex, 'hex')));
+}
+function context()
+{
+    return new ArticleDocumentContextAdapter({ articleId: 7, draftId: 'article-7', editorSessionId: 'editor-7',
+        siteScope: 'site:blog.example', userScope: 'user:42', content: 'body' }).context;
+}
+const labels = {
+    unavailable: 'Unavailable field', editorUnavailable: 'Editor port unavailable', commitUnavailable: 'Save unavailable',
+    unvalidated: 'Unsubmitted input; not validated; save unavailable', choose: 'Choose option', unknownOption: 'Unavailable option',
+    defaultApplied: 'Server default applied', required: 'Required', conflict: 'Refresh changed definition', cancel: 'Cancel', save: 'Save',
+    presence: ['Missing', 'Null', 'Present'], reconciliation: ['Current', 'Definition unavailable', 'Inactive definition',
+        'Changed definition', 'Value rejected', 'Reference authority unavailable', 'Required value missing', 'Default pending']
+};
+const wrappers: ReturnType<typeof mount>[] = [];
+function render(type = 0, overrides = {})
+{
+    const model = response();
+    // Golden bytes witness wire shape only. Simulate the actual service's
+    // reconciliation states here; this is not an authenticated server receipt.
+    model.reconciliation = model.definitions.map((item) => ({ definitionId: item.definitionId,
+        status: item.valueType === 6 ? 5 as const : 0 as const, reasonCode: 'test-server-state' }));
+    const definition = model.definitions.find((item) => item.valueType === type);
+    if (!definition) throw new Error('missing typed definition');
+    const wrapper = mount(ArticleMetadataField, { attachTo: document.body, props: { model, definitionId: definition.definitionId,
+        definitionOwnerUserId: '42', context: context(), enabled: true, editable: true, readKey: 'permission-1', locale: 'en-US', labels,
+        ...overrides } });
+    wrappers.push(wrapper);
+    return { wrapper, model, definition };
+}
+function value(model: ArticlePropertyValueReadResponse, id: string)
+{
+    const entry = model.current?.snapshot.values.find((item) => item.definitionId === id);
+    if (!entry) throw new Error('missing value');
+    return entry;
+}
+function button(wrapper: ReturnType<typeof mount>, name: string)
+{
+    const found = wrapper.findAllComponents(FsusUiButton).find((item) => item.text() === name);
+    if (!found) throw new Error(`missing button ${name}`);
+    return found;
+}
+function inputHandler(wrapper: ReturnType<typeof mount>)
+{
+    const handler = wrapper.getComponent(FsusUiInput).vm.$.vnode.props?.['onUpdate:modelValue'];
+    if (typeof handler !== 'function') throw new Error('missing real input handler');
+    return handler as (value: unknown) => void;
+}
+afterEach(() =>
+{
+    wrappers.splice(0).forEach((wrapper) => wrapper.unmount());
+    document.body.innerHTML = '';
+    vi.restoreAllMocks();
+});
+
+describe('ArticleMetadataField public controls and real canonical read states', () =>
+{
+    it.each([0, 1, 2, 3, 4, 5, 6, 7])('projects type %i without coercion or invented ports', (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        const original = structuredClone(model);
+        const payload = value(model, definition.definitionId).value;
+        expect(wrapper.text()).toContain(labels.presence[value(model, definition.definitionId).presence]);
+        if ([0, 7].includes(type))
+            expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe(payload?.type === 0 ? payload.text : payload?.type === 7 ? payload.url : '');
+        else if (type === 2)
+            expect(wrapper.getComponent(FsusUiSwitch).props('modelValue')).toBe(payload?.type === 2 && payload.boolean);
+        else if ([4, 5].includes(type))
+        {
+            expect(wrapper.getComponent(FsusUiSelect).props('modelValue')).toEqual(payload?.type === 4 ? payload.optionId : payload?.type === 5 ? payload.optionIds : undefined);
+            expect(wrapper.getComponent(FsusUiSelect).props('filterable')).toBe(false);
+            expect(wrapper.getComponent(FsusUiSelect).props('allowCreate')).toBe(false);
+        }
+        else
+        {
+            expect(wrapper.findAll('input, textarea, [role="switch"], [role="combobox"]')).toHaveLength(0);
+            expect(wrapper.text()).toContain(labels.editorUnavailable);
+            expect(wrapper.text()).not.toContain('9007199254740993');
+        }
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+        expect(Object.keys(wrapper.emitted()).filter((name) => !['input', 'change', 'click'].includes(name))).toEqual([]);
+        expect(model).toEqual(original);
+    });
+
+    it.each([0, 7])('stages exact type %i strings, marks them unvalidated and cancels with stale event rejection', async (type) =>
+    {
+        const { wrapper, model } = render(type);
+        const original = structuredClone(model);
+        const oldText = wrapper.getComponent(FsusUiInput).props('modelValue');
+        const oldHandler = inputHandler(wrapper);
+        // Emit directly to avoid native single-line URL input newline sanitization.
+        wrapper.getComponent(FsusUiInput).vm.$emit('update:modelValue', '  <script>private</script>\n');
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('  <script>private</script>\n');
+        expect(wrapper.text()).toContain(labels.unvalidated);
+        await button(wrapper, 'Cancel').trigger('click');
+        oldHandler('late-from-cancelled-control');
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe(oldText);
+        expect(wrapper.text()).not.toContain(labels.unvalidated);
+        expect(model).toEqual(original);
+        expect(Object.keys(wrapper.emitted()).filter((name) => !['input', 'change', 'click'].includes(name))).toEqual([]);
+    });
+
+    it('retains false and rejects boolean string coercion', async () =>
+    {
+        const { wrapper, model, definition } = render(2);
+        const initial = value(model, definition.definitionId).value;
+        wrapper.getComponent(FsusUiSwitch).vm.$emit('update:modelValue', true);
+        await nextTick();
+        wrapper.getComponent(FsusUiSwitch).vm.$emit('update:modelValue', 'false');
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiSwitch).props('modelValue')).toBe(true);
+        wrapper.getComponent(FsusUiSwitch).vm.$emit('update:modelValue', false);
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiSwitch).props('modelValue')).toBe(false);
+        await button(wrapper, 'Cancel').trigger('click');
+        expect(wrapper.getComponent(FsusUiSwitch).props('modelValue')).toBe(initial?.type === 2 && initial.boolean);
+        expect(value(model, definition.definitionId).value).toEqual(initial);
+    });
+
+    it.each([4, 5])('preserves type %i missing selected IDs and disabled deprecated/deleted options', async (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        const changed = structuredClone(model);
+        const missingId = '11111111-1111-4111-8111-111111111111';
+        value(changed, definition.definitionId).value = type === 4 ? { type: 4, optionId: missingId } : { type: 5, optionIds: [missingId] };
+        changed.definitions = changed.definitions.map((item) => item.definitionId === definition.definitionId
+            ? { ...item, options: item.options.map((option, index) => ({ ...option, status: index === 0 ? 1 as const : 2 as const })) } : item);
+        await wrapper.setProps({ model: changed });
+        const options = wrapper.getComponent(FsusUiSelect).props('options');
+        expect(options.every((item) => 'disabled' in item && item.disabled)).toBe(true);
+        expect(options.find((item) => 'value' in item && item.value === missingId)?.label).toBe(labels.unknownOption);
+        expect(wrapper.getComponent(FsusUiSelect).props('modelValue')).toEqual(type === 4 ? missingId : [missingId]);
+        wrapper.getComponent(FsusUiSelect).vm.$emit('update:modelValue', type === 4 ? 42 : [42]);
+        await nextTick();
+        expect(wrapper.text()).not.toContain(labels.unvalidated);
+    });
+
+    it.each([0, 1, 2, 3, 4, 5, 6, 7])('shows safe server reconciliation %i', async (status) =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        changed.reconciliation = [{ definitionId: definition.definitionId, status: status as 0, reasonCode: 'private-value-secret' }];
+        await wrapper.setProps({ model: changed });
+        expect(wrapper.text()).toContain(labels.reconciliation[status]);
+        expect(wrapper.text()).not.toContain('private-value-secret');
+        expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe([1, 2, 3, 5].includes(status));
+        expect(wrapper.find('textarea').attributes('aria-invalid')).toBe(String([4, 6].includes(status)));
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+    });
+
+    it.each([0, 1, 2])('distinguishes presence %i, empty text, required and server-applied default', async (presence) =>
+    {
+        const { wrapper, model, definition } = render();
+        const changed = structuredClone(model);
+        Object.assign(value(changed, definition.definitionId), { presence, value: presence === 2 ? { type: 0, text: '' } : null, defaultApplied: presence !== 0 });
+        changed.definitions = changed.definitions.map((item) => item.definitionId === definition.definitionId ? { ...item, required: true } : item);
+        await wrapper.setProps({ model: changed });
+        expect(wrapper.find('[data-presence]').attributes('data-presence')).toBe(String(presence));
+        expect(wrapper.text()).toContain(labels.presence[presence]);
+        expect(wrapper.text()).toContain(labels.required);
+        expect(wrapper.text().includes(labels.defaultApplied)).toBe(presence !== 0);
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('');
+    });
+
+
+    it('keeps staging unavailable without canonical reconciliation', async () =>
+    {
+        const { wrapper, model } = render();
+        await wrapper.setProps({ model: { ...model, reconciliation: [] } });
+        inputHandler(wrapper)('unverified-candidate');
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe(true);
+        expect(wrapper.text()).toContain(labels.reconciliation[1]);
+        expect(wrapper.text()).not.toContain(labels.unvalidated);
+    });
+
+    it.each([4, 5])('stages type %i stable IDs and cancels without mutating canonical selections', async (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        const before = structuredClone(value(model, definition.definitionId));
+        const ids = definition.options.map((option) => option.optionId);
+        wrapper.getComponent(FsusUiSelect).vm.$emit('update:modelValue', type === 4 ? ids[0] : ids);
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiSelect).props('modelValue')).toEqual(type === 4 ? ids[0] : ids);
+        expect(wrapper.text()).toContain(labels.unvalidated);
+        await button(wrapper, 'Cancel').trigger('click');
+        expect(value(model, definition.definitionId)).toEqual(before);
+        expect(wrapper.text()).not.toContain(labels.unvalidated);
+    });
+
+    it.each([1, 2])('blocks definition lifecycle status %i without hiding its stored field', async (status) =>
+    {
+        const { wrapper, model, definition } = render();
+        await wrapper.setProps({ model: { ...model, definitions: model.definitions.map((item) => item.definitionId === definition.definitionId
+            ? { ...item, status: status as 1 } : item) } });
+        inputHandler(wrapper)('late-inactive');
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe(true);
+        expect(wrapper.text()).toContain(labels.reconciliation[2]);
+        expect(wrapper.text()).not.toContain(labels.unvalidated);
+    });
+
+    it('refuses URL side effects and reference disclosure', async () =>
+    {
+        const fetch = vi.spyOn(globalThis, 'fetch');
+        const open = vi.spyOn(window, 'open');
+        const storage = vi.spyOn(Storage.prototype, 'setItem');
+        const { wrapper } = render(7);
+        await wrapper.find('input').setValue('javascript:alert("private")');
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('javascript:alert("private")');
+        expect(wrapper.findAll('a, iframe, img, script')).toHaveLength(0);
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+        const reference = render(6).wrapper;
+        expect(reference.findAll('a, input, textarea')).toHaveLength(0);
+        expect(reference.text()).toContain(labels.editorUnavailable);
+        expect(fetch).not.toHaveBeenCalled();
+        expect(open).not.toHaveBeenCalled();
+        expect(storage).not.toHaveBeenCalled();
+    });
+});
+
+describe('ArticleMetadataField cancellation and stale callback negatives', () =>
+{
+    it.each([
+        ['article', { articleId: 8 }], ['document', { documentId: 'other' }], ['epoch', { documentEpoch: 2 }],
+        ['session', { editorSessionId: 'other' }], ['site', { siteScope: 'site:other' }], ['user', { userScope: 'user:43' }],
+        ['draft', { draftId: 'other' }], ['draft revision', { draftRevision: '51' }]
+    ])('withdraws same-model fields after %s switch and ignores captured handlers', async (_name, changed) =>
+    {
+        const { wrapper, model } = render();
+        const oldHandler = inputHandler(wrapper);
+        await wrapper.find('textarea').setValue('unsubmitted-private');
+        await wrapper.setProps({ context: { ...context(), ...changed } });
+        oldHandler('late-event');
+        await nextTick();
+        expect(wrapper.findAll('input, textarea')).toHaveLength(0);
+        expect(wrapper.text()).toBe(labels.unavailable);
+        if (!('articleId' in changed) && !('draftRevision' in changed))
+        {
+            await wrapper.setProps({ model: structuredClone(model) });
+            expect(wrapper.find('textarea').exists()).toBe(true);
+            expect(wrapper.getComponent(FsusUiInput).props('modelValue')).not.toBe('late-event');
+        }
+    });
+
+    it.each([
+        ['read permission', { enabled: false }], ['binding release', { context: null }], ['owner', { definitionOwnerUserId: '43' }],
+        ['refresh', { readKey: 'permission-2' }], ['loading', { model: null }], ['unknown definition', { definitionId: 'unknown' }]
+    ])('withdraws old data and callbacks after %s', async (_name, changed) =>
+    {
+        const { wrapper } = render();
+        const oldHandler = inputHandler(wrapper);
+        await wrapper.find('textarea').setValue('private-staged-value');
+        await wrapper.setProps(changed);
+        oldHandler('late-private-value');
+        await nextTick();
+        expect(wrapper.text()).toBe(labels.unavailable);
+        expect(wrapper.findAll('input, textarea')).toHaveLength(0);
+        expect(Object.keys(wrapper.emitted()).filter((name) => !['input', 'change', 'click'].includes(name))).toEqual([]);
+    });
+
+    it('requires a fresh canonical model after permission restoration', async () =>
+    {
+        const { wrapper, model } = render();
+        await wrapper.setProps({ enabled: false });
+        await wrapper.setProps({ enabled: true });
+        expect(wrapper.text()).toBe(labels.unavailable);
+        await wrapper.setProps({ model: structuredClone(model) });
+        expect(wrapper.find('textarea').exists()).toBe(true);
+    });
+
+    it('write permission loss resets input and refuses old handlers', async () =>
+    {
+        const { wrapper } = render();
+        const original = wrapper.getComponent(FsusUiInput).props('modelValue');
+        const oldHandler = inputHandler(wrapper);
+        await wrapper.find('textarea').setValue('pending');
+        await wrapper.setProps({ editable: false });
+        oldHandler('late-pending');
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe(original);
+        expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe(true);
+        expect(button(wrapper, 'Cancel').props('disabled')).toBe(true);
+    });
+
+    it.each(['article', 'property', 'definition', 'digest', 'snapshot', 'option'])('discards input on canonical %s refresh', async (change) =>
+    {
+        const { wrapper, model, definition } = render();
+        const original = wrapper.getComponent(FsusUiInput).props('modelValue');
+        const oldHandler = inputHandler(wrapper);
+        await wrapper.find('textarea').setValue('pending');
+        const changed = structuredClone(model);
+        if (change === 'article') changed.currentArticleRevisionId = '9007199254740994';
+        if (change === 'property') changed.propertyRevision = '9007199254740994';
+        if (change === 'snapshot' && changed.current) changed.current.snapshotId = '22222222-2222-4222-8222-222222222222';
+        if (['definition', 'digest', 'option'].includes(change))
+            changed.definitions = changed.definitions.map((item) => item.definitionId === definition.definitionId
+                ? { ...item, schemaRevision: change === 'definition' ? '2' : item.schemaRevision,
+                    contentDigest: change === 'digest' ? 'f'.repeat(64) : item.contentDigest,
+                    options: change === 'option' ? [] : item.options } : item);
+        await wrapper.setProps({ model: changed });
+        oldHandler('late-pending');
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe(original);
+        expect(wrapper.text()).not.toContain(labels.unvalidated);
+        if (['definition', 'digest'].includes(change))
+        {
+            expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe(true);
+            expect(wrapper.text()).toContain(labels.conflict);
+        }
+    });
+
+    it('keeps pending metadata and focus when only body revision/digests change', async () =>
+    {
+        const { wrapper } = render();
+        const input = wrapper.find('textarea');
+        (input.element as HTMLTextAreaElement).focus();
+        await input.setValue('pending');
+        await wrapper.setProps({ context: { ...wrapper.props('context')!, sourceRevision: 99, contentDigest: 'body-change', contextDigest: 'body-context-change' } });
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('pending');
+        expect(document.activeElement).toBe(input.element);
+    });
+
+    it('captured controls cannot act after unmount', async () =>
+    {
+        const { wrapper, model } = render();
+        const original = structuredClone(model);
+        const oldHandler = inputHandler(wrapper);
+        wrapper.unmount();
+        oldHandler('late-after-unmount');
+        await nextTick();
+        expect(model).toEqual(original);
+        expect(Object.keys(wrapper.emitted()).filter((name) => !['input', 'change', 'click'].includes(name))).toEqual([]);
+    });
+});

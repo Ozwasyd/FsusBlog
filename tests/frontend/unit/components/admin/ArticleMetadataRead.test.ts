@@ -230,7 +230,7 @@ describe('ArticleMetadataRead canonical API consumer', () =>
         await flushPromises();
         expect(slot().model).toBeNull();
         expect(slot().state).toBe('loading');
-        second.resolve(response('current-0'));
+        second.resolve({ ...response('current-0'), scope: { ...response('current-0').scope, definitionOwnerUserId: '43' } });
         await flushPromises();
         expect(slot().state).toBe('ready');
     });
@@ -286,7 +286,7 @@ describe('ArticleMetadataRead canonical API consumer', () =>
 
     it('uses the real API global-owner path and refuses invalid owners before any transport call', async () =>
     {
-        transport.requestBinaryOnly.mockResolvedValueOnce(response('current-0'));
+        transport.requestBinaryOnly.mockResolvedValueOnce({ ...response('current-0'), scope: { ...response('current-0').scope, definitionOwnerUserId: null } });
         const { wrapper, slot } = render({ definitionOwnerUserId: null });
         await flushPromises();
         expect(transport.requestBinaryOnly.mock.calls[0]?.[0].binaryUrl).toBe('/api/binary/author/articles/7/properties');

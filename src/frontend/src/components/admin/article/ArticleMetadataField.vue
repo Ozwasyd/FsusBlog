@@ -1,0 +1,298 @@
+<template>
+    <section
+        v-if="definition"
+        class="article-metadata-field"
+        :aria-labelledby="labelId"
+    >
+        <label :id="labelId">{{ fieldName }}</label>
+        <p
+            :id="statusId"
+            class="article-metadata-field__status"
+            role="status"
+        >
+            {{ serverStatus }}
+        </p>
+        <div
+            :key="generation"
+            class="article-metadata-field__control"
+        >
+            <FsusUiInput
+                v-if="definition.valueType === 0 || definition.valueType === 7"
+                :model-value="text"
+                :type="definition.valueType === 0 ? 'textarea' : 'text'"
+                :rows="2"
+                resize="vertical"
+                :inputmode="definition.valueType === 7 ? 'url' : 'text'"
+                :aria-labelledby="labelId"
+                :aria-describedby="statusId"
+                :aria-invalid="invalid"
+                :disabled="blocked"
+                :validate-event="false"
+                @update:model-value="handlers.text"
+            />
+            <FsusUiSwitch
+                v-else-if="definition.valueType === 2"
+                :model-value="boolean"
+                :aria-labelledby="labelId"
+                :aria-describedby="statusId"
+                :aria-invalid="invalid"
+                :disabled="blocked"
+                :validate-event="false"
+                @update:model-value="handlers.boolean"
+            />
+            <FsusUiSelect
+                v-else-if="definition.valueType === 4 || definition.valueType === 5"
+                :model-value="definition.valueType === 4 ? single : multiple"
+                :multiple="definition.valueType === 5"
+                :options="options"
+                :placeholder="labels.choose"
+                :collapse-tags="true"
+                :aria-labelledby="labelId"
+                :aria-describedby="statusId"
+                :aria-invalid="invalid"
+                :disabled="blocked"
+                :validate-event="false"
+                @update:model-value="handlers.options"
+            />
+            <p v-else>{{ labels.editorUnavailable }}</p>
+        </div>
+        <p
+            class="article-metadata-field__status"
+            :data-presence="presence"
+        >
+            {{ labels.presence[presence] }}
+            <span v-if="entry?.defaultApplied"> · {{ labels.defaultApplied }}</span>
+            <span v-if="definition.required"> · {{ labels.required }}</span>
+        </p>
+        <p
+            class="article-metadata-field__status"
+            role="status"
+        >
+            {{ dirty ? labels.unvalidated : labels.commitUnavailable }}
+        </p>
+        <div class="article-metadata-field__actions">
+            <FsusUiButton
+                :disabled="!dirty"
+                @click="cancel"
+            >
+                {{ labels.cancel }}
+            </FsusUiButton>
+            <FsusUiButton disabled>{{ labels.save }}</FsusUiButton>
+        </div>
+    </section>
+    <p
+        v-else
+        role="status"
+    >{{ labels.unavailable }}</p>
+</template>
+
+<script setup lang="ts">
+import { computed, onBeforeUnmount, ref, shallowRef, useId, watch } from 'vue';
+
+import type { ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
+import { FsusUiButton } from '@/fsusui/button';
+import { FsusUiInput } from '@/fsusui/input';
+import { FsusUiSelect } from '@/fsusui/select';
+import { FsusUiSwitch } from '@/fsusui/switch';
+import type { ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
+
+// Leaf control for the one owner-mounted inspector. Only immutable canonical
+// reads enter; transient input is neither a command nor a persisted value. The
+// canonical owner has not supplied a mutation/validation/reference editor port.
+const props = defineProps<{
+    model: ArticlePropertyValueReadResponse | null;
+    definitionId: string;
+    definitionOwnerUserId: string | null;
+    context: ArticleDocumentContext | null;
+    enabled: boolean;
+    editable: boolean;
+    readKey: string;
+    locale: string;
+    labels: {
+        unavailable: string;
+        editorUnavailable: string;
+        commitUnavailable: string;
+        unvalidated: string;
+        choose: string;
+        unknownOption: string;
+        defaultApplied: string;
+        required: string;
+        conflict: string;
+        cancel: string;
+        save: string;
+        presence: readonly string[];
+        reconciliation: readonly string[];
+    };
+}>();
+
+const labelId = useId();
+const statusId = useId();
+const revokedModel = shallowRef<ArticlePropertyValueReadResponse | null>(null);
+watch([
+    () => props.context?.articleId,
+    () => props.context?.documentId,
+    () => props.context?.documentEpoch,
+    () => props.context?.editorSessionId,
+    () => props.context?.siteScope,
+    () => props.context?.userScope,
+    () => props.context?.draftId,
+    () => props.context?.draftRevision,
+    () => props.definitionOwnerUserId,
+    () => props.enabled,
+    () => props.readKey
+], () =>
+{
+    // A same-article session/permission switch cannot reuse the previous read.
+    // The read owner must supply a fresh model; body-only changes are excluded.
+    revokedModel.value = props.model;
+}, { flush: 'sync' });
+
+const visible = computed(() => props.enabled && props.context !== null
+    && props.context.articleId === props.model?.articleId
+    && props.context.draftRevision === null
+    && props.model !== revokedModel.value
+    && props.model?.scope.definitionOwnerUserId === props.definitionOwnerUserId);
+const definition = computed(() => visible.value
+    ? props.model?.definitions.find((item) => item.definitionId === props.definitionId) ?? null
+    : null);
+const entry = computed(() => definition.value
+    ? props.model?.current?.snapshot.values.find((item) => item.definitionId === props.definitionId) ?? null
+    : null);
+const reconciliation = computed(() => definition.value
+    ? props.model?.reconciliation.find((item) => item.definitionId === props.definitionId) ?? null
+    : null);
+const incompatible = computed(() => !!entry.value && !!definition.value
+    && (entry.value.definitionSchemaRevision !== definition.value.schemaRevision
+        || entry.value.definitionDigest !== definition.value.contentDigest
+        || (entry.value.value !== null && entry.value.value.type !== definition.value.valueType)));
+const blocked = computed(() => !props.editable || definition.value?.status !== 0
+    || incompatible.value || [1, 2, 3, 5].includes(reconciliation.value?.status ?? 1));
+const invalid = computed(() => [4, 6].includes(reconciliation.value?.status ?? -1));
+const serverStatus = computed(() => incompatible.value ? props.labels.conflict
+    : props.labels.reconciliation[definition.value?.status !== 0 ? 2 : reconciliation.value?.status ?? 1] ?? props.labels.unavailable);
+const fieldName = computed(() => definition.value?.displayNames.find((name) => name.locale === props.locale)?.value
+    ?? definition.value?.machineKey ?? props.labels.unavailable);
+const presence = computed(() => entry.value?.presence ?? 0);
+const options = computed(() =>
+{
+    const choices = definition.value?.options.map((option) => ({
+        value: option.optionId,
+        label: option.localizedLabels.find((name) => name.locale === props.locale)?.value ?? option.label,
+        disabled: option.status !== 0
+    })) ?? [];
+    const value = entry.value?.value;
+    const selected = value?.type === 4 ? [value.optionId] : value?.type === 5 ? value.optionIds : [];
+    for (const optionId of selected)
+    {
+        if (!choices.some((option) => option.value === optionId))
+        {
+            choices.push({ value: optionId, label: props.labels.unknownOption, disabled: true });
+        }
+    }
+    return choices;
+});
+
+const generation = ref(0);
+const text = ref('');
+const boolean = ref(false);
+const single = ref<string | undefined>(undefined);
+const multiple = ref<string[]>([]);
+const dirty = ref(false);
+let disposed = false;
+const ignore = (): void =>
+{
+    return;
+};
+const handlers = shallowRef<{
+    text: (value: unknown) => void;
+    boolean: (value: unknown) => void;
+    options: (value: unknown) => void;
+}>({ text: ignore, boolean: ignore, options: ignore });
+
+function cancel(): void
+{
+    generation.value++;
+    dirty.value = false;
+    const value = entry.value?.value;
+    text.value = value?.type === 0 ? value.text : value?.type === 7 ? value.url : '';
+    boolean.value = value?.type === 2 ? value.boolean : false;
+    single.value = value?.type === 4 ? value.optionId : undefined;
+    multiple.value = value?.type === 5 ? [...value.optionIds] : [];
+    const currentGeneration = generation.value;
+    const current = (): boolean => !disposed && currentGeneration === generation.value
+        && visible.value && !blocked.value;
+    handlers.value = {
+        text: (candidate) =>
+        {
+            if (current() && typeof candidate === 'string')
+            {
+                text.value = candidate;
+                dirty.value = true;
+            }
+        },
+        boolean: (candidate) =>
+        {
+            if (current() && typeof candidate === 'boolean')
+            {
+                boolean.value = candidate;
+                dirty.value = true;
+            }
+        },
+        options: (candidate) =>
+        {
+            if (!current())
+            {
+                return;
+            }
+            if (definition.value?.valueType === 4 && typeof candidate === 'string')
+            {
+                single.value = candidate;
+                dirty.value = true;
+            }
+            else if (definition.value?.valueType === 5 && Array.isArray(candidate)
+                && candidate.every((optionId: unknown) => typeof optionId === 'string'))
+            {
+                multiple.value = [...candidate];
+                dirty.value = true;
+            }
+        }
+    };
+}
+
+watch([() => props.model, () => props.definitionId, () => props.editable, visible], cancel,
+      { immediate: true, deep: true, flush: 'sync' });
+onBeforeUnmount(() =>
+{
+    disposed = true;
+    cancel();
+});
+</script>
+
+<style scoped>
+.article-metadata-field
+ {
+    display: grid;
+    min-width: 0;
+    gap: var(--space-2);
+    overflow-wrap: anywhere;
+}
+
+.article-metadata-field__control
+ {
+    min-width: 0;
+}
+
+.article-metadata-field__status
+ {
+    margin: 0;
+    overflow-wrap: anywhere;
+    color: var(--text-secondary);
+}
+
+.article-metadata-field__actions
+ {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--space-2);
+}
+</style>
