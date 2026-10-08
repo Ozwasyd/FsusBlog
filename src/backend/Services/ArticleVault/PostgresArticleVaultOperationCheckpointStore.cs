@@ -238,6 +238,6 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
     private static string Encode<T>(T value)
         => Encoding.UTF8.GetString(ArticleVaultOperationCodec.Serialize(value));
 
-    private static InvalidDataException Rejected(string reasonCode)
+    private static ArticleVaultExecutionRejectedException Rejected(string reasonCode)
         => new(reasonCode);
 }
