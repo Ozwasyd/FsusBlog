@@ -6,7 +6,7 @@ import { test } from 'node:test';
 
 const {validateJsonSchema} = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext, semanticOutcomeDigest} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
-const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, requireResolvedTemporalRole, requireResolvedTemporalEntityRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
+const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForDotNet, projectTemporalRolesForPostgres, readTemporalDomainProducerInventory, requireResolvedTemporalRole, requireResolvedTemporalEntityRole, resolveTemporalEntityRoles, resolveTemporalRoles, resolveTemporalRolesForProducer, validateTemporalDomainProducerInventory, verifyResolvedTemporalArtifact} = await import(new URL('../../tools/test/temporal-role-resolver.mjs', import.meta.url));
 const repositoryRoot = path.resolve(import.meta.dirname, '../..');
 const sourceCommit = 'a'.repeat(40);
 const sourceFingerprint = `sha256:${'b'.repeat(64)}`;
@@ -563,4 +563,52 @@ test('entity original demo and scale chronology conflicts remain refused without
     nested.distribution.stateCounts.comment.approved = 2;
     nested.distribution.rootNested.push({ commentIdentity: 'nested-comment', parentIdentity: 'root-comment', rootIdentity: 'root-comment' });
     assert.throws(() => resolveOrdinaryEntityPlan(nested), /cross-field invariant/u);
+});
+
+test('entity registrations keep undefined source fields unbound and validate exact canonical closure', () =>
+{
+    const inventory = readTemporalDomainProducerInventory();
+    assert.equal(inventory.producerBindings.length, 6);
+    for (const producerId of ['development-demo', 'scale-data'])
+    {
+        const binding = inventory.producerBindings.find((producer) => producer.producerId === producerId);
+        assert.ok(binding.unsupportedFields.every((unsupported) => !binding.fieldMappings.some((mapping) => mapping.field === unsupported.field)));
+    }
+    const change = (mutate, pattern) =>
+    {
+        const invalid = structuredClone(inventory);
+        const binding = invalid.producerBindings.find((producer) => producer.producerId === 'scale-data');
+        mutate(binding);
+        assert.throws(() => validateTemporalDomainProducerInventory(invalid), pattern);
+    };
+    change((binding) => binding.fieldMappings.push({ ...binding.unsupportedFields[0], consumer: 'entity-lifecycle' }), /cannot be mapped/u);
+    change((binding) => binding.unsupportedFields.push(structuredClone(binding.unsupportedFields[0])), /duplicated/u);
+    change((binding) =>
+    {
+        binding.unsupportedFields[0].reason = '';
+    }, /canonical role\/reason/u);
+    change((binding) =>
+    {
+        binding.unsupportedFields[0].roleId = 'unknown.role';
+    }, /canonical role\/reason/u);
+    change((binding) =>
+    {
+        binding.unsupportedFields[0].observed = true;
+    }, /exact field, roleId and reason/u);
+    change((binding) =>
+    {
+        binding.scalarRoleIds = ['unknown.role'];
+    }, /canonical scalar roles/u);
+    change((binding) =>
+    {
+        binding.fieldMappings[0].roleId = 'unknown.role';
+    }, /unknown canonical role/u);
+    change((binding) =>
+    {
+        binding.fieldMappings[0].roleId = 'session.authenticated';
+    }, /outside its declared temporal shape/u);
+    change((binding) =>
+    {
+        binding.requiredRoleIds.pop();
+    }, /complete canonical role closure/u);
 });

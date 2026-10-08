@@ -403,8 +403,13 @@ export function resolveTemporalRolesForProducer({
 
 export function readTemporalDomainProducerInventory()
 {
-    const inventory = JSON.parse(readFileSync(producerInventoryPath, 'utf8'));
-    if (inventory.schema !== 'fsusblog.temporal-domain-producer-inventory.v1'
+    return validateTemporalDomainProducerInventory(JSON.parse(readFileSync(producerInventoryPath, 'utf8')));
+}
+
+/** Validate source field registrations without turning explicitly unsupported fields into bindings. */
+export function validateTemporalDomainProducerInventory(inventory, { catalogState = readTemporalShapeCatalog() } = {})
+{
+    if (!plainObject(inventory) || inventory.schema !== 'fsusblog.temporal-domain-producer-inventory.v1'
       || inventory.catalog !== 'config/testing/temporal-shape-catalog.json'
       || inventory.resolvedArtifactSchema !== 'config/testing/resolved-temporal-roles.schema.json'
       || !Array.isArray(inventory.producerBindings))
@@ -426,6 +431,7 @@ export function readTemporalDomainProducerInventory()
         {
             fail('temporal.producer-inventory-invalid', `${binding.producerId} inventory is incomplete`);
         }
+        let permittedRoles;
         if (binding.resolutionMode !== undefined)
         {
             if (binding.resolutionMode !== 'entity-plan' || !Array.isArray(binding.requiredRoleIds)
@@ -433,12 +439,24 @@ export function readTemporalDomainProducerInventory()
             {
                 fail('temporal.producer-inventory-invalid', 'entity producer requires exact resolution and role closure declarations');
             }
-            const shape = resolveTemporalEntityShape(binding.shapeId).shape;
+            const shape = resolveTemporalEntityShape(binding.shapeId, { catalog: catalogState }).shape;
             const required = [...new Set(shape.entityKinds.flatMap((kind) => kind.roles.map((role) => role.roleId)))];
             if (digestCanonical([...binding.requiredRoleIds].sort()) !== digestCanonical(required.sort()))
             {
                 fail('temporal.producer-inventory-invalid', 'entity producer must bind the complete canonical role closure');
             }
+            if (!Array.isArray(binding.unsupportedFields)
+                || new Set(binding.scalarRoleIds).size !== binding.scalarRoleIds.length
+                || binding.scalarRoleIds.some((roleId) => !catalogState.roleIds.has(roleId)))
+            {
+                fail('temporal.producer-inventory-invalid', 'entity producer requires explicit unsupported fields and canonical scalar roles');
+            }
+            permittedRoles = new Set([...required, ...binding.scalarRoleIds]);
+        }
+        else
+        {
+            permittedRoles = new Set(resolveTemporalShape(binding.shapeId, { catalog: catalogState }).shape.timestampRoles
+                .map((role) => role.roleId));
         }
         const fields = new Set();
         for (const mapping of binding.fieldMappings)
@@ -446,11 +464,35 @@ export function readTemporalDomainProducerInventory()
             stableIdentity(mapping?.field, `${binding.producerId}.field`);
             stableIdentity(mapping?.roleId, `${binding.producerId}.roleId`);
             stableIdentity(mapping?.consumer, `${binding.producerId}.consumer`);
+            if (!catalogState.roleIds.has(mapping.roleId))
+            {
+                fail('temporal.producer-inventory-invalid', `${binding.producerId}.${mapping.field} references an unknown canonical role`);
+            }
+            if (!permittedRoles.has(mapping.roleId))
+            {
+                fail('temporal.producer-inventory-invalid', `${binding.producerId}.${mapping.field} is outside its declared temporal shape`);
+            }
             if (fields.has(mapping.field))
             {
                 fail('temporal.producer-inventory-invalid', `${binding.producerId} has duplicate field ${mapping.field}`);
             }
             fields.add(mapping.field);
+        }
+        const unsupportedFields = new Set();
+        for (const unsupported of binding.unsupportedFields ?? [])
+        {
+            if (!plainObject(unsupported) || Object.keys(unsupported).sort().join(',') !== 'field,reason,roleId')
+            {
+                fail('temporal.producer-inventory-invalid', 'unsupported source field requires exact field, roleId and reason');
+            }
+            stableIdentity(unsupported.field, `${binding.producerId}.unsupportedField`);
+            stableIdentity(unsupported.roleId, `${binding.producerId}.unsupportedRole`);
+            if (!catalogState.roleIds.has(unsupported.roleId) || typeof unsupported.reason !== 'string' || !unsupported.reason.trim()
+                || fields.has(unsupported.field) || unsupportedFields.has(unsupported.field))
+            {
+                fail('temporal.producer-inventory-invalid', 'unsupported source field cannot be mapped, duplicated or missing its canonical role/reason');
+            }
+            unsupportedFields.add(unsupported.field);
         }
     }
     return Object.freeze(inventory);
