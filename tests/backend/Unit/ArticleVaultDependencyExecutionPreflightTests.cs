@@ -57,6 +57,27 @@ public sealed class ArticleVaultDependencyExecutionPreflightTests
     }
 
     [Fact]
+    public void ResealedBundleCannotReuseAValidRootDigestForDifferentManifestBytes()
+    {
+        Scenario scenario = CreateScenario();
+        ArticleVaultSealedExecutionBundle tampered = scenario.Bundle with
+        {
+            RootManifest = scenario.Bundle.RootManifest with
+            {
+                DeviceIdentity = "device:other"
+            }
+        };
+        tampered = tampered with
+        {
+            ContentSha256 = ArticleVaultExecutionIntegrity.SealBundle(tampered)
+        };
+        Assert.False(Verify(scenario with
+        {
+            Bundle = tampered
+        }).IsValid);
+    }
+
+    [Fact]
     public void ExpiredPlanAndPayloadContentTamperAreRejected()
     {
         Scenario scenario = CreateScenario();

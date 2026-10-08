@@ -45,6 +45,13 @@ public static class ArticleVaultDependencyExecutionPreflight
             return ArticleVaultValidationResult.Invalid("article_vault_dependency_bundle_binding_mismatch");
         }
 
+        ArticleVaultValidationResult bundleInputs = ArticleVaultSyncPlanVerifier.VerifyCurrent(
+            bundle.Plan, bundle.RootManifest, bundle.ArticleManifests, bundle.PlannedObservations, context);
+        if (!bundleInputs.IsValid)
+        {
+            return bundleInputs;
+        }
+
         return ArticleVaultDependencyPlanner.VerifyCurrent(dependencies, bundle.Plan, request,
             context, currentInputs, budgets, timeProvider);
     }
