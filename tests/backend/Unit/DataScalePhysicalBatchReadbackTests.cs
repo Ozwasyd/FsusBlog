@@ -118,9 +118,27 @@ public sealed class DataScalePhysicalBatchReadbackTests
         DataScaleArticlePhysicalBatch batch = Batch(2);
         object?[] row = batch.Tables[0].Rows[0].ToArray();
         row[0] = invalidId;
-        batch = batch with { Tables = [batch.Tables[0] with { Rows = [row, batch.Tables[0].Rows[1]] }] };
+        batch = batch with
+        {
+            Tables = [batch.Tables[0] with { Rows = [row, batch.Tables[0].Rows[1]] }]
+        };
         await Assert.ThrowsAsync<InvalidOperationException>(() => DataScalePhysicalBatchReadback.ObserveRecoveryAsync(
             connection, transaction, DataScaleBulkProvider.Sqlite, batch, CancellationToken.None));
+    }
+
+    [Fact]
+    public async Task RecoveryObservation_OversizedKeyRosterIsRefusedBeforeDatabaseRead()
+    {
+        await using SqliteConnection connection = await OpenAsync();
+        await using DbTransaction transaction = await connection.BeginTransactionAsync();
+        InvalidOperationException error = await Assert.ThrowsAsync<InvalidOperationException>(
+            () => DataScalePhysicalBatchReadback.ObserveRecoveryAsync(connection, transaction,
+                DataScaleBulkProvider.Sqlite, Batch(50_001), CancellationToken.None));
+        Assert.Equal("physical_expected_batch_shape_invalid", error.Message);
+        await using DbCommand count = connection.CreateCommand();
+        count.Transaction = transaction;
+        count.CommandText = "SELECT COUNT(*) FROM readback_rows";
+        Assert.Equal(0L, await count.ExecuteScalarAsync());
     }
 
     [Fact]
