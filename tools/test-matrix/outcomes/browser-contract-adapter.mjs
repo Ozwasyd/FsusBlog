@@ -78,6 +78,13 @@ function readArtifact(root, reference)
     }
 }
 
+/** Reopen a caller-held byte reference using the adapter's contained reader. */
+export function readBrowserContractOutcomeArtifact(repositoryRoot, reference)
+{
+    exactKeys(reference, ['path', 'digest'], 'held browser artifact reference');
+    return readArtifact(fs.realpathSync(repositoryRoot), reference);
+}
+
 function readDocument(root, reference, schema, fields)
 {
     const value = JSON.parse(readArtifact(root, reference).toString('utf8'));

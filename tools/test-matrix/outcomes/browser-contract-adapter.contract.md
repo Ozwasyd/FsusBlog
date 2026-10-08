@@ -120,10 +120,52 @@ not change the semantic payload; changing correctness bytes does.
 
 The current Browser Contract runner does not yet emit this complete sealed
 member/assertion input set. Its scenario-level receipt alone is insufficient.
-The original runner/report owner must supply the bridge without changing tests,
-projects, workers, retries or assertions, including canonical failure identity
-and explicit correctness artifact disposition. The global outcome registry
+The original runner/report owner must supply individual assertion emission
+without changing tests, projects, workers, retries or assertions, including
+canonical failure identity and explicit correctness artifact disposition. The global outcome registry
 owner must register these candidate membership fields and relations before
 canonical producer analysis can admit this profile. This adapter does not
 modify either shared owner, authorize sealed outcomes, execute browsers,
 compute fingerprints, aggregate results or claim runtime qualification.
+
+## Original runner binding
+
+`readBrowserContractOutcomeRunnerBinding` reopens a byte-bound original native
+Browser Contract receipt with `validateBrowserContractReceipt`. Its independently
+held `expected` object has exactly `identity`, `attemptId`, `fixtureNamespace`,
+`browserPlanDigest`, `browserActualDigest` and `fixtureCapabilities`. Native
+source, build, run, attempt, fixture lifecycle, selected scenario membership,
+browser plan/actual identity and finalization must match. Pending source
+scenarios remain unexecuted. Original coarse classifications remain diagnostic;
+they cannot supply canonical individual assertion failure kinds.
+
+A successful native source requires explicit independent `temporalAuthority`
+and `rawObservationReferences` with byte references named `candidatePlan` and
+`receipt`. The original `verifyBrowserContractRaw` independently reopens the
+production build, runner, preview and temporal sources. Its upstream path must
+identify the same native receipt. A failed native source requires
+`rawObservationReferences: null`; a successful observation cannot replace its
+failed or pending terminals.
+
+`releaseReliability` must be explicit: null outside that context, or exactly
+`{ environment, identityReference }`. In context, the original
+`readReleaseReliabilityEvidenceBinding` checks its five held environment fields
+and canonical identity path/seal; the byte-held identity must bind the same
+source, build and run. This consumes the existing #1590 source API without
+claiming the #1591 exact-seven lifecycle or terminal acceptance.
+
+`adaptBrowserContractRunnerSemanticOutcome` composes that binding with the
+independently held member documents above. The report must hold the identical
+native reference at `diagnostics.runnerReceipt`; planned test IDs must equal
+the native `browser-contract:<scenario-id>` set. A native pending scenario
+cannot acquire executed assertions; successful scenarios cannot mask failed
+members; failed scenarios require failed or blocked members. Native failure
+also preserves failed, unqualified first-attempt provenance. Launched runtime
+identities must match the native browser. The existing candidate receives
+verified native/raw/reliability input references, with unchanged semantic
+membership fields. The bridge does not generate assertions from group status
+or treat raw observation diagnostic facts as correctness artifacts.
+
+The contract tests use the existing original source fixture and readers. Their
+synthetic member documents exercise consumer behavior, not a physical browser
+run, an independently admitted global outcome profile or release qualification.
