@@ -1,0 +1,133 @@
+## Linked Issue
+
+Refs #3582
+
+
+## Scope Summary
+
+- Bind Article Vault execution source lock to current compiled behavior and preserve original forbidden-side-path controls.
+- Read current server revision bytes through the original sealed plan, exact revision ID, full group observation and live permission guards; retain Blocked disposition and execution refusal.
+- Compose the canonical shared dispatcher and durable-cancel adapter with the sole execution/checkpoint stores using explicit trusted DI. Consume the complete exact canonical native source closure, including its sole compatible lease codec/transition guards. Actual native/session and first-execution authority remain unqualified.
+- Consume exact immutable proposal/recovery storage and the sole checkpoint writer's same-transaction journal staging; compose shared scoped instances without a second store/provider.
+- Add strict private AEDS historical reads with the actual admin principal, live article permission checks and server-owned Vault-site binding. Historical reads deny execution and base commit.
+- Consume canonical existing-key AES-256-GCM protection and compose shared DI with the existing key owner; preserve SOURCE HOLD, native protection, current candidate and full metadata prerequisites. Current execution, native materialization and product qualification remain incomplete.
+
+## Change Classification
+
+- [x] Behavior change
+- [ ] Format-only
+- [ ] Naming-only
+- [x] Generated output
+- [x] Public contract change
+- [x] External naming exception
+- Contract impact: compatible
+
+`Behavior change`, `Format-only`, and `Naming-only` are mutually exclusive. `Generated output`, `Public contract change`, and `External naming exception` are supplementary.
+
+The gate reads fields only from their named section, rejects duplicate fields or headings hidden in fenced examples, and requires contract checkboxes to be checked. Record a not-applicable reason in `Notes For Reviewers` before checking that review item.
+
+## Tests Run
+
+- [ ] `./tools/test.sh fast`
+- [x] Frozen production `e1d9c841d1ccdf5e4905676c15ba5f177b731c07`: original SDK10.0.302 Release/locked backend build completed. Exact compiled original backend251 + original Linux-project pure controls38 + real task PostgreSQL rollback/crash-replay2 passed,291 distinct/0 failed/0 skipped in final runs. Source/assembly/run identities and cleanup are retained.
+- [x] Initial combined backend run failed one original metadata-cache 2x timing assertion (250 passed/1 failed). No code/threshold was changed. Same assemblies passed isolated original inspector18 and one unchanged complete251 retry; initial failure remains archived and is not erased or counted as a pass.
+- [x] Original scanner17 + native-control static7 passed24; owner/boundary original scans have zero findings. Canonical native source style7 and original owner/root DI style3 passed. Document lifecycle379, authoritative docs11 and own incremental commit range passed.
+- [x] Historical protection112/PG25, transport327/frontend27 and prior current-source241 retain their original SHAs and are not added to current291. Prior partial-consumption compile failure is retained; sole-owner provenance proves the omitted lease dependency is supplied in0af, and that closure is now integrated.
+- [x] Required current matrix structure remains red on original finite-authority/parser/index closure gates. Remote generated PR metadata remains red pending the sole content-writer queue. Held native lease/kernel, browser/product/installer, first-execution and full fast are not run or qualified.
+
+## UI Evidence
+
+- [ ] Screenshots or video attached for UI changes
+- [ ] Mobile layout checked
+- [ ] Dark mode checked
+- [ ] Accessibility and reduced-motion impact considered
+
+## Coding Convention
+
+- [x] C# mother-style mapping checked
+- [x] Formatter/linter run
+- [x] No tool default overrides repository style
+- [x] Mechanical formatting separated from logic
+- [x] `.git-blame-ignore-revs` updated when applicable
+
+For a `Format-only` change, complete every field. The idempotence evidence must be one repository-relative `.json` path changed by this PR and conform to `fsusblog.format-idempotence-evidence.v1`. Use `none` for other changes.
+
+- Formatter identity: none
+- Formatter version: none
+- Formatter command: none
+- Formatter idempotence evidence: none
+- Blame-ignore revision: none
+
+## External Naming Exception
+
+For a checked `External naming exception`, point to one changed repository-relative JSON manifest using `fsusblog.external-naming-exceptions.v1`. Each entry binds one registered exception ID to its own changed paths and substantive reason; the union must exactly cover every changed registered naming surface. A missing manifest already named by an authoritative merged PR may instead use `fsusblog.post-merge-external-naming-evidence-repair.v1`; that strict repair binds immutable merge history, unchanged source blob/revision identity, the registered surface, and the exact missing artifact without changing the source again. Use `none` otherwise.
+
+- Exceptions manifest: artifacts/change-contract/article-vault-conflict-contract-external-naming.json
+
+## Documentation / Intent
+
+- [x] Public API docs updated
+- [x] Ownership/security/performance intent updated
+- [x] Historical handoff archived or source-of-truth updated
+- [x] TODO/FIXME references valid issues
+
+## Compatibility And Risk
+
+- [x] [Cross-language coding conventions](../docs/development/coding-conventions.md) reviewed
+- [x] Document lifecycle updated: stable facts are current; issue handoffs are historical/proposed; generated docs identify their producer
+- [x] External wire / ABI / database / third-party names preserved or explicitly adapted
+- [x] Public API impact reviewed
+- [x] AEDS frame / binary contract impact reviewed
+- [x] Database migration impact reviewed
+- [x] Security, auth, moderation, PoW, or privacy impact reviewed
+- [x] Docs updated or a reason is recorded below
+- [x] Known limitations updated if applicable
+
+## Performance Claim
+
+Use `none` and `Evidence path: none` unless the PR title type is `perf`. For S/M/R/C, the evidence path must be a changed repository-relative JSON manifest using `fsusblog.performance-claim-evidence.v1`; it binds the one perf commit SHA, claim level, `structural-only`/`measured` status, and each changed evidence file with its SHA-256 digest.
+
+- Claim level: none
+- Evidence path: none
+- Non-goals: No measured performance, prototype or runtime qualification.
+
+## Release Note
+
+The matching `release-note:*` label selects the generated release category. GitHub renders the merged PR title as the release entry, so every included category requires `Summary` to exactly equal the summary portion of the PR title after `type(scope):`; `Category: none` instead requires `Summary: none`. Pure formatting, internal renames, and CI rearrangement must use `Internal/Tooling` or `none`.
+
+- Audience: internal
+- Category: Internal/Tooling
+- Summary: add coordinate-bound Vault readers and conflict classification
+
+## Generated Output
+
+For a checked `Generated output`, bind the output to its source through one repository-relative `.json` manifest path changed by this PR. Normal atomic source/output changes use `fsusblog.generated-output-binding.v1`. A generated-only repair for a source omission already merged into the PR base uses `fsusblog.post-merge-generated-output-repair.v1`; it must name one trusted producer and leave its source and generator unchanged. A trusted ordered multi-producer repair uses `fsusblog.post-merge-generated-output-repair-dag.v2` and its registry-owned canonical manifest path. An authenticated bot must identify itself exactly. Use `none` otherwise.
+
+- Generator source: tests/matrix.yml, config/development/document-lifecycle.json, src/shared/Contracts/Validation/aeds-protocol.json, src/shared/Contracts/Validation/aeds-endpoint-contracts.json
+- Generated outputs: docs/index.md, docs/testing.generated.md, config/testing/correctness-attempt-producers.json, config/development/document-inventory.generated.json, src/core/Algorithms/AedsFrameType.cs, src/shared/AedsFrameHeader.cs, src/frontend/wasm/aeds/include/aeds_frame.hpp, src/frontend/wasm/web/protocol/frame.ts, tests/backend/Fixtures/aeds-golden-catalog.json, src/shared/Contracts/Validation/fsusblog.openapi.json
+- Digest/evidence: artifacts/change-contract/article-vault-conflict-contract-generated-binding.json
+- Automation identity: none
+
+## Rollout / Rollback
+
+- Rollout: Draft source review only; current acceptance and authority gates remain blocked. No deployment.
+- Rollback: Revert the affected root DI/provider consumption increments if the original controls regress; preserve the existing key owner, sync planner and sole canonical writer.
+- Deferred work: Remaining authorized V1 metadata/persisted property and portable typed taxonomy/property binding, operation-bound Git/native readers and canonical finite matrix/inventory projection from their owners, followed by original complete acceptance.
+- Known limitations: Source-only classification binding is not automatic eligibility. Full fast and product/platform qualification are not passed. Applicable exact-SHA local evidence may replace remote CI; independent source review remains mandatory. All linked issues remain open.
+
+## Notes For Reviewers
+
+Related to [#3582](https://github.com/Ozwasyd/FsusBlog/issues/3582), [#1871](https://github.com/Ozwasyd/FsusBlog/issues/1871) and the coordinated Vault implementation chains. Exact canonical handoffs consumed: recovery0ba8e8eca81798f07540aaec232e1abaffb7e2b2, sole transaction writer39459f8162c775b79747a35228cd38b3c5b5faf6, product display contracts4d2c895bf2a9155366eaaed78eacbe65f07182d0 and finite package APIsf6334b35c5b420f7affb56efc20179bc38aed26e. Their runtime/product acceptance is not inherited from source availability.
+
+No visual UI was changed in this increment. Canonical migration definitions and compatible AEDS frames253/254 were added through existing owners/producers; no production migration or deployment was run. Independent review, complete fast/CI and native/product qualifications remain open. The verified historical route cannot execute, resume, materialize or commit base. The root retains shared IPC/current decision integration; the canonical existing-key AES-GCM provider is integrated and currently tested; actual key custody/lifecycle/native capture and the full authoritative executable candidate remain unqualified. No private fallback writer, second store/provider, inferred current facts or permission grant is supplied.
+
+Latest fetched and consumed master: 6e287562b3f861d3eb81dcb23f93e6243205abd8. Non-mutating merge preview passes; own incremental commit range passes. All49 assigned acceptance records remain unaccepted; the global cross-chain review/merge barrier is preserved. Latest source-consumption evidence and all49 issue statuses: artifacts/article-vault/chain-3582-asset-input-handoff/summary.json and issue-accounting.json. Earlier archives retain their exact tested SHAs.
+
+Current ownership is20 retained /29 delegated across11 subchains; #1871 belongs to its dedicated prototype owner. Exact current-source provider/field/method/owner handoff and all49 statuses are archived. Full verified-decision/executable-candidate admission remains root-owned unfinished work. Canonical d262/0af durable cancel/dispatcher/inventory and the complete native session/lease dependency source are consumed at e1d9c841. Existing66ff was the exact sole-owner1e3da cherry-pick; supplied0af includes its compatiblec84cd30ff successor. The earlier compile gap was an omitted source closure and is resolved. Real filesystem/kernel/IPC/session terminal acceptance remains blocked; no first-execution or native authority is granted. Exact package frozen writer8472af99b53d9e63584c0d6cda0bd0bc69859f66 has been fetched/inspected and supplies actual finite ZIP bytes; full current V1 source/metadata authority remains unqualified, and no duplicate writer is introduced.
+
+Current increment evidence and all49 statuses: artifacts/article-vault/chain-3582-native-closure-handoff/. GitHub content updates are queued; this prepared body is local evidence only until authorized publication.
+
+
+Latest scoped additions: NativeRegularFileGuard mechanical repair is split into exact format56f49e4b49e2c10c86900bfdfefc3ffbec87342a, naming318436fa293a1ecae3c920c54c15ee18023af96a and evidence88cba316e4afaa29cba7371260425382b9c66a15. Original style1 and three allowlisted original governance controls pass. Actual before/after compiled metadata proves all49 method IL/signatures,8 nested types, native imports/flags/marshalling/layout offsets identical; three source-only negative controls reject EntryPoint, layout and mask changes. No target assembly loading, native calls or qualification. Official two-pass idempotence and exact formatting blame-ignore SHA are archived in artifacts/style/native-regular-file-guard-mechanical/.
+
+Canonical asset consistency API from2900bbc18b074859f3c7555a10ade8c567a9a21f is available and compiles in actual root sourcee933ae5197f4990433cdabfaec34668695984e2a. Original current component AssetValidation42 passed0failed/0skipped; target style1 passed. This is not the new full-current verifier positive fixture or supplier220/113/8 evidence. Root still needs original operation/plan/item identity, authenticated principal/current rights, authorized asset bytes and AssetRecord, exact server version/reference ledger and original reuse/upload grants before a genuine callsite and root executable-candidate integration can proceed. The supplied test fixture and plural-enum source closure were not consumed; canonical existing root graph owners are preserved. No inferred inputs, duplicated writer/provider or native authority is created. Evidence and all49 statuses: artifacts/article-vault/chain-3582-asset-input-handoff/.

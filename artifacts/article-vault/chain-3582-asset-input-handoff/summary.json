@@ -12,12 +12,19 @@
     "style1": 0,
     "matrix": "Previous original finite authority/parser/index failure not changed/waived; no full or held graph/native/lease/race/receipt/replacement QA.",
     "githubContentWriteHeld": true,
-    "guardRepair": "../.. /style/native-regular-file-guard-mechanical/summary.json; pure format56f49e4b, pure naming318436fa, compiled identity88cba316e published separately.",
+    "guardRepair": "../../style/native-regular-file-guard-mechanical/summary.json; pure format56f49e4b, pure naming318436fa, compiled identity88cba316e published separately.",
     "rootVerifiedExecutableCandidateStillUnfinished": true,
     "accepted": 0,
     "retained": 20,
     "delegated": 29,
     "tracking": 8,
     "allIssues": 49,
-    "nativeOrProductQualified": false
+    "nativeOrProductQualified": false,
+    "localPreparedPrGate": {
+        "head": "e5991c09e9ee31b68015ad4659466df571593ef3",
+        "exitCode": 0,
+        "body": "pending-pr-body.txt",
+        "gate": "prepared-pr-gate.log",
+        "remoteBodyUpdated": false
+    }
 }
