@@ -6,6 +6,7 @@ using Xunit;
 namespace FsusBlog.ArticleVault.Linux.Tests;
 
 [Trait("Category", "LinuxArticleVaultRootPath")]
+[Trait("Category", "LinuxArticleVaultWatcher")]
 public sealed class LinuxVaultRootPathScopeTests
 {
     [Fact]
