@@ -108,6 +108,37 @@ public sealed class GpuPeerMappingTests
     }
 
     [Fact]
+    public void PreheldDisabledOwnerCannotStartMapping()
+    {
+        var driver = new MappingDriver();
+        var allocation = new GpuPeerTestHold(driver.AllocationSession, new byte[4]) { CanSubmit = false };
+        Assert.True(allocation.IsCurrent);
+        Assert.Throws<InvalidOperationException>(() => GpuMappedReadLease.Map(driver, allocation, 0, 4, 2));
+        Assert.Equal(0, driver.Maps);
+        Assert.True(allocation.Disposed);
+    }
+
+    [Fact]
+    public void DisabledOwnerBlocksNewConsumersWhileExistingReadConsumerDrains()
+    {
+        var driver = new MappingDriver();
+        var allocation = new GpuPeerTestHold(driver.AllocationSession, new byte[] { 1, 2, 3, 4 });
+        GpuMappedReadLease lease = GpuMappedReadLease.Map(driver, allocation, 0, 4, 2);
+        GpuMappedReadConsumer consumer = lease.TryAcquireConsumer().Value!;
+        allocation.CanSubmit = false;
+        Assert.Equal(MemoryFailure.TierUnavailable, lease.TryAcquireConsumer().Failure);
+        byte[] actual = new byte[4];
+        Assert.Null(consumer.Read(0, actual));
+        Assert.Equal(new byte[] { 1, 2, 3, 4 }, actual);
+        lease.Dispose();
+        Assert.False(allocation.Disposed);
+        Assert.Equal(0, driver.Unmaps);
+        consumer.Dispose();
+        Assert.True(allocation.Disposed);
+        Assert.Equal(1, driver.Unmaps);
+    }
+
+    [Fact]
     public void ApiIdentityChangeInvalidatesExistingLease()
     {
         var driver = new MappingDriver();
