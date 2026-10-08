@@ -131,47 +131,53 @@ async function scenarioExecutionFixture(evidenceRoot, outcome, t, { boundary = f
         executionContext, producerContext, schedulerGrant, startedMarker, runtimeReference: fixture.references.runtime };
 }
 
-for (const outcome of ['success', 'product-failure', 'cancelled'])
+async function exerciseScenarioAttempt(outcome, t)
 {
-    test(`security scenario canonical attempt records original ${outcome} once with replay and artifacts`, async (t) =>
+    const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'security-scenario-attempt-'));
+    const fixture = await scenarioExecutionFixture(directory, outcome, t);
+    t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
+    const controller = new AbortController();
+    fixture.producerContext.signal = controller.signal;
+    const observed = runSecurityScenarioAttempt(fixture);
+    if (outcome === 'cancelled')
     {
-        const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'security-scenario-attempt-'));
-        const fixture = await scenarioExecutionFixture(directory, outcome, t);
-        t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
-        const controller = new AbortController();
-        fixture.producerContext.signal = controller.signal;
-        const observed = runSecurityScenarioAttempt(fixture);
-        if (outcome === 'cancelled')
+        const deadline = Date.now() + 3000;
+        try
         {
-            const deadline = Date.now() + 3000;
-            try
+            while (!fs.existsSync(fixture.startedMarker) && Date.now() < deadline)
             {
-                while (!fs.existsSync(fixture.startedMarker) && Date.now() < deadline)
-                {
-                    await new Promise((resolve) => setTimeout(resolve, 10));
-                }
-                assert.ok(fs.existsSync(fixture.startedMarker), 'actual owned scenario child started');
+                await new Promise((resolve) => setTimeout(resolve, 10));
             }
-            finally
-            {
-                controller.abort(new Error('owned security scenario cancelled'));
-            }
+            assert.ok(fs.existsSync(fixture.startedMarker), 'actual owned scenario child started');
         }
-        const result = await observed;
-        assert.equal(result.attempts.length, 1);
-        const attempt = result.attempts[0];
-        assert.equal(attempt.attemptNumber, 1);
-        assert.equal(attempt.maxAttempts, 1);
-        assert.equal(attempt.producerId, fixture.producer.producerId);
-        assert.equal(attempt.replayPlanDigest, fixture.compiled.steps.find((step) => step.id === fixture.producer.producerId).replayPlanRef.contentDigest);
-        assert.equal(attempt.failureKind, outcome === 'success' ? null
-            : outcome === 'cancelled' ? 'runner-cancelled' : 'assertion-mismatch');
-        assert.equal(result.aggregate.cleanFirstAttempt, outcome === 'success');
-        assert.ok(attempt.artifactPaths.includes(outcome === 'cancelled' ? 'stderr.log' : 'payload.json'));
-        assert.equal(fs.existsSync(path.join(result.producerRoot, 'attempt-2')), false);
-        assert.ok(fixture.calls.includes('runtime') && fixture.calls.includes('reset') && fixture.calls.includes('host'));
-    });
+        finally
+        {
+            controller.abort(new Error('owned security scenario cancelled'));
+        }
+    }
+    const result = await observed;
+    assert.equal(result.attempts.length, 1);
+    const attempt = result.attempts[0];
+    assert.equal(attempt.attemptNumber, 1);
+    assert.equal(attempt.maxAttempts, 1);
+    assert.equal(attempt.producerId, fixture.producer.producerId);
+    assert.equal(attempt.replayPlanDigest, fixture.compiled.steps.find((step) => step.id === fixture.producer.producerId).replayPlanRef.contentDigest);
+    assert.equal(attempt.failureKind, outcome === 'success' ? null
+        : outcome === 'cancelled' ? 'runner-cancelled' : 'assertion-mismatch');
+    assert.equal(result.aggregate.cleanFirstAttempt, outcome === 'success');
+    assert.ok(attempt.artifactPaths.includes(outcome === 'cancelled' ? 'stderr.log' : 'payload.json'));
+    assert.equal(fs.existsSync(path.join(result.producerRoot, 'attempt-2')), false);
+    assert.ok(fixture.calls.includes('runtime') && fixture.calls.includes('reset') && fixture.calls.includes('host'));
 }
+
+test('security scenario canonical attempt records original success once with replay and artifacts',
+    (t) => exerciseScenarioAttempt('success', t));
+
+test('security scenario canonical attempt records original product-failure once with replay and artifacts',
+    (t) => exerciseScenarioAttempt('product-failure', t));
+
+test('security scenario canonical attempt records original cancelled once with replay and artifacts',
+    (t) => exerciseScenarioAttempt('cancelled', t));
 
 test('firewall boundary consumes explicit evidence and writes its independent canonical first attempt', async (t) =>
 {
