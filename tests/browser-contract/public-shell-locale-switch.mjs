@@ -34,6 +34,7 @@ export function assertPublicShellLocaleSwitch({ scene, copy, record, requests = 
     equal(record.preference, preparing ? scene.transition.sourceLocale : scene.locale, 'preference');
     equal(record.commitGeneration, preparing ? 0 : 1, 'commit generation');
     equal(record.supersededCommitted, false, 'superseded result');
+    exactKeys(record.copy, Object.keys(copy), 'typed copy');
     for (const [key, value] of Object.entries(copy))
     {
         equal(record.copy[key], value, `typed copy ${key}`);

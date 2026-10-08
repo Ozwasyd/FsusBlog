@@ -106,3 +106,40 @@ test('switch rejects a superseded preference write', async () =>
         /superseded/u
     );
 });
+
+for (const [index, locale] of matrix.locales.entries())
+{
+    test(`switch covers catalog-derived target ${locale.code} across successful stages`, async () =>
+    {
+        const route = index % 2 === 0 ? 'Home' : 'ArticleDetail';
+        const auth = ['anonymous', 'authenticated', 'admin'][index % 3];
+        let sourceCopy;
+        let targetCopy;
+        for (const stage of ['preparing', 'commit', 'post-commit', 'spa-navigation', 'refresh', 'back-forward', 'latest-wins'])
+        {
+            const caseScene = matrix.scenes.find((item) => item.issue === 2086 && item.locale === locale.code
+                && item.stage === stage && item.route === route && item.authActionContext === auth
+                && item.viewport.width === 390);
+            assert.ok(caseScene, 'catalog transaction representative is missing');
+            if (stage === 'preparing')
+            {
+                sourceCopy = await resolvePublicShellLocaleCopy(matrix, caseScene.id);
+            }
+            else if (stage === 'commit')
+            {
+                targetCopy = await resolvePublicShellLocaleCopy(matrix, caseScene.id);
+            }
+            const caseCopy = stage === 'preparing' ? sourceCopy : targetCopy;
+            const evidence = assertPublicShellLocaleSwitch({ scene: caseScene, copy: caseCopy,
+                record: record(caseScene, caseCopy) });
+            assert.equal(evidence.observed.target, locale.code);
+            assert.equal(evidence.qualificationEligible, false);
+        }
+    });
+}
+
+test('switch rejects unregistered visible-copy facts', () =>
+{
+    assert.throws(() => assertPublicShellLocaleSwitch({ scene: commit, copy: commitCopy,
+        record: record(commit, commitCopy, { copy: { ...commitCopy, 'unregistered.copy': 'wrong-copy' } }) }), /switch/u);
+});
