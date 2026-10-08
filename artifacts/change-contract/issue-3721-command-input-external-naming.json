@@ -4,7 +4,9 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/development/command-wrapper-input-registry.json"
+                "config/development/command-wrapper-input-registry.json",
+                "config/testing/release-final-execution-authority-index.json",
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
             ],
             "reason": "Preserve the reviewed policy schema and external compiler, header, model and environment key identities; internal names remain governed by repository conventions."
         },
