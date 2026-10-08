@@ -4,6 +4,7 @@ import '@/assets/main.css'
 import ArticleCommentComposer from '@/components/article/ArticleCommentComposer.vue'
 import type { CommentAuthorMode } from '@/api/comment'
 import type { CommentPrivacyUiState } from '@/privacy/commentPrivacyTypes'
+import { createCommentPublicDraftStorageKey, prepareCommentPublicDraftStorage, writeCommentPublicDraft } from '@/privacy/commentPublicDraftStorage'
 
 type Submission = { content: string; authorMode: CommentAuthorMode; confirmed: boolean; mutationId: string }
 type ComposerProps = InstanceType<typeof ArticleCommentComposer>['$props']
@@ -19,21 +20,23 @@ declare global {
 }
 
 const params = new URL(window.location.href).searchParams
+const draftPolicy = params.get('draft')
+const restoringDraft = draftPolicy === 'matching' || draftPolicy === 'changed'
 const props = reactive({
-    modelValue: '',
+    modelValue: params.has('privateBody') ? '当前私密正文' : '',
     isLoggedIn: true,
     isBanned: false,
     isPowCalculating: false,
     isSubmitting: false,
     redirectPath: '/articles/42',
     replyTarget: null,
-    authorMode: 'zk_anonymous' as CommentAuthorMode,
-    publicSendConfirmed: false,
+    authorMode: (params.get('priorIdentity') === 'public' ? 'public' : 'zk_anonymous') as CommentAuthorMode,
+    publicSendConfirmed: params.get('priorIdentity') === 'public',
     anonymousCommentsEnabled: true,
     publicCommentsEnabled: true,
     zkAnonymousEnabled: true,
-    articleId: null,
-    accountId: null,
+    articleId: restoringDraft ? 42 : null,
+    accountId: restoringDraft ? 7 : null,
     commentMaxChars: 1000,
     commentMaxUtf8Bytes: 4096,
     policySnapshotHash: 'policy-42',
@@ -41,6 +44,18 @@ const props = reactive({
     displayLanguage: 'zh-CN' as const,
     anonymousScope: 'article:42'
 })
+if (restoringDraft) {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    if (!preparation.scopeId) throw new Error('fixture draft storage unavailable')
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId, articleId: 42, replyId: null })
+    if (!writeCommentPublicDraft(localStorage, key, {
+        version: 3,
+        content: '待审公开草稿',
+        savedAt: Date.now(),
+        policyHash: draftPolicy === 'matching' ? 'policy-42' : 'policy-old',
+        clientMutationId: '018ff003-1234-7abc-8def-0123456789ab'
+    })) throw new Error('fixture draft seed failed')
+}
 const generation = ref(0)
 const submissions: Submission[] = []
 window.articleCommentComposerFixture = {

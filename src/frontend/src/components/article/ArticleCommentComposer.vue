@@ -90,7 +90,7 @@
             aria-live="polite"
         >
             <span v-if="draftNeedsReview">
-                评论策略已更新。请先审查草稿，发布身份不会自动恢复。
+                {{ localDraft.policyHash !== policySnapshotHash ? '评论策略已更新。' : '' }}请先审查草稿，本次发布身份需重新确认。
             </span>
             <span v-else>已恢复公开草稿{{ draftSavedAtText ? ` ${draftSavedAtText}` : '' }}</span>
             <span class="comment-composer-draft__actions">
@@ -372,6 +372,7 @@ let editorSelection: CommentEditorSelection | null = null;
 let focusModeTrigger: HTMLElement | null = null;
 let pendingEditorTransition: (() => void) | null = null;
 const localDraft = ref<CommentDraftSnapshot | null>(null);
+let reviewedPublicDraft: CommentDraftSnapshot | null = null;
 const restoredDraftVisible = ref(false);
 const draftNeedsReview = ref(false);
 const draftPrivacyBlocked = ref(false);
@@ -431,7 +432,7 @@ const authorModeModel = computed<CommentAuthorMode>(() =>
 });
 
 const publicIdentityModel = computed({
-    get: () => authorModeModel.value === 'public' && props.publicSendConfirmed,
+    get: () => !draftNeedsReview.value && authorModeModel.value === 'public' && props.publicSendConfirmed,
     set: (value: boolean) =>
     {
         if (value && !props.publicCommentsEnabled)
@@ -449,7 +450,7 @@ const publicIdentityModel = computed({
 });
 
 const publicIdentityDisabled = computed(() =>
-    props.isBanned || props.isPowCalculating || props.isSubmitting || !props.publicCommentsEnabled
+    props.isBanned || props.isPowCalculating || props.isSubmitting || !props.publicCommentsEnabled || draftNeedsReview.value
 );
 
 const publicIdentityReason = computed(() =>
@@ -469,6 +470,10 @@ const publicIdentityReason = computed(() =>
     if (!props.publicCommentsEnabled)
     {
         return '当前文章或讨论串不允许公开署名评论';
+    }
+    if (draftNeedsReview.value)
+    {
+        return '请先审查恢复的草稿，再确认本次公开署名';
     }
     if (draftPrivacyBlocked.value)
     {
@@ -836,19 +841,10 @@ const restoreCommentDraft = (): void =>
 
     localDraft.value = result.draft;
     restoredDraftVisible.value = true;
-    if (result.draft.policyHash !== props.policySnapshotHash)
-    {
-        draftNeedsReview.value = true;
-        return;
-    }
-
-    draftNeedsReview.value = false;
-    if (!contentModel.value.trim())
-    {
-        emit('update:modelValue', result.draft.content);
-        emit('update:authorMode', 'public');
-        emit('update:publicSendConfirmed', true);
-    }
+    draftNeedsReview.value = true;
+    reviewedPublicDraft = null;
+    emit('update:authorMode', 'zk_anonymous');
+    emit('update:publicSendConfirmed', false);
 };
 
 const clearPersistedCommentDraft = (): boolean =>
@@ -892,14 +888,15 @@ const saveCommentDraft = (): void =>
         return;
     }
 
+    const retryDraft = localDraft.value ?? reviewedPublicDraft;
     const draft: CommentDraftSnapshot = {
         version: 3,
         content,
         savedAt: Date.now(),
         policyHash: props.policySnapshotHash,
-        clientMutationId: localDraft.value?.content === content &&
-            localDraft.value.policyHash === props.policySnapshotHash
-            ? localDraft.value.clientMutationId
+        clientMutationId: retryDraft?.content === content &&
+            retryDraft.policyHash === props.policySnapshotHash
+            ? retryDraft.clientMutationId
             : createCommentMutationId()
     };
 
@@ -943,6 +940,9 @@ const reviewCommentDraft = (): void =>
     {
         draftPrivacyBlocked.value = true;
     }
+    // Keep only the reviewed public retry identity in this composer. Anonymous
+    // submits never consult it, and identity-wide/anonymous-memory purge clears it.
+    reviewedPublicDraft = draft.policyHash === props.policySnapshotHash ? draft : null;
     emit('update:modelValue', draft.content);
     emit('update:authorMode', 'zk_anonymous');
     emit('update:publicSendConfirmed', false);
@@ -951,6 +951,7 @@ const reviewCommentDraft = (): void =>
 
 const discardCommentDraft = (): void =>
 {
+    reviewedPublicDraft = null;
     const draftContent = localDraft.value?.content ?? '';
     if (!clearPersistedCommentDraft())
     {
@@ -975,6 +976,7 @@ const identityWideDraftPurgeReasons = new Set<CommentPrivacyCredentialPurgeReaso
 
 const clearDraftMemory = (): void =>
 {
+    reviewedPublicDraft = null;
     if (draftSaveTimer)
     {
         clearTimeout(draftSaveTimer);

@@ -4,12 +4,12 @@ import type {} from '../fixtures/articleCommentComposer'
 
 const fixtureModule = `/@fs/${fileURLToPath(new URL('../fixtures/articleCommentComposer.ts', import.meta.url)).replaceAll('\\', '/')}`
 
-async function openComposer(page: Page, theme = 'light'): Promise<void> {
+async function openComposer(page: Page, theme = 'light', fixtureParams = ''): Promise<void> {
     await page.route('**/__article-comment-composer-fixture**', route => route.fulfill({
         contentType: 'text/html',
         body: `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Comment composer fixture</title></head><body><main id="article-comment-composer-fixture"></main><script type="module" src="${fixtureModule}"></script></body></html>`
     }))
-    await page.goto(`/__article-comment-composer-fixture?theme=${theme}`, { waitUntil: 'domcontentloaded' })
+    await page.goto(`/__article-comment-composer-fixture?theme=${theme}${fixtureParams}`, { waitUntil: 'domcontentloaded' })
     await expect.poll(() => page.evaluate(() => document.documentElement.dataset.commentComposerFixtureReady)).toBe('true')
 }
 
@@ -19,6 +19,43 @@ const selection = (editor: ReturnType<typeof normalEditor>) => editor.evaluate(e
     const textarea = element as HTMLTextAreaElement
     return [textarea.selectionStart, textarea.selectionEnd, textarea.selectionDirection]
 })
+
+for (const policy of ['matching', 'changed']) {
+    test(`restored ${policy} policy draft preserves private text and requires review then a new Checkbox choice`, async ({ page }) => {
+        await openComposer(page, 'light', `&draft=${policy}&priorIdentity=public&privateBody=1`)
+        const checkbox = page.getByRole('checkbox', { name: /公开显示我的名称/ })
+        await expect(checkbox).not.toBeChecked()
+        await expect(checkbox).toBeDisabled()
+        await expect(normalEditor(page)).toHaveValue('当前私密正文')
+        const storedBefore = await page.evaluate(() => ({ ...localStorage }))
+        await normalEditor(page).press('Control+Enter')
+        await page.evaluate(() => window.dispatchEvent(new Event('pagehide')))
+        expect(await page.evaluate(() => ({ ...localStorage }))).toEqual(storedBefore)
+        expect(await page.evaluate(() => window.articleCommentComposerFixture.submissions)).toEqual([])
+
+        await page.getByRole('button', { name: '审查草稿', exact: true }).click()
+        await expect(normalEditor(page)).toHaveValue('待审公开草稿')
+        await expect(checkbox).not.toBeChecked()
+        await expect(checkbox).toBeEnabled()
+        expect(await page.evaluate(() => Object.keys(localStorage).filter(key => key.startsWith('fsus:comment-public-draft:v3:')))).toEqual([])
+        const nonDraftStorage = await page.evaluate(() => Object.fromEntries(
+            Object.entries({ ...localStorage }).filter(([key]) => !key.startsWith('fsus:comment-public-draft:v3:'))
+        ))
+        const cookies = await page.context().cookies()
+        await page.getByText('公开显示我的名称', { exact: true }).click()
+        await expect(checkbox).toBeChecked()
+        expect(await page.evaluate(() => window.articleCommentComposerFixture.submissions)).toEqual([])
+        expect(await page.evaluate(() => Object.fromEntries(
+            Object.entries({ ...localStorage }).filter(([key]) => !key.startsWith('fsus:comment-public-draft:v3:'))
+        ))).toEqual(nonDraftStorage)
+        expect(await page.context().cookies()).toEqual(cookies)
+        await normalEditor(page).press('Control+Enter')
+        const submissions = await page.evaluate(() => window.articleCommentComposerFixture.submissions)
+        expect(submissions).toEqual([expect.objectContaining({ content: '待审公开草稿', authorMode: 'public', confirmed: true })])
+        if (policy === 'matching') expect(submissions[0]!.mutationId).toBe('018ff003-1234-7abc-8def-0123456789ab')
+        else expect(submissions[0]!.mutationId).not.toBe('018ff003-1234-7abc-8def-0123456789ab')
+    })
+}
 
 for (const theme of ['light', 'dark']) {
     for (const width of [375, 768, 1440]) {

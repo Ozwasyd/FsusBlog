@@ -256,36 +256,61 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     wrapper.unmount()
   })
 
-  it('restores a matching public draft after a new mount', async () => {
+  it.each(['policy-42', 'policy-old'])('requires review and a new public choice for a restored draft with %s', async policyHash => {
+    useDraftFakeTimers()
     const preparation = prepareCommentPublicDraftStorage(localStorage)
     const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
     writeCommentPublicDraft(localStorage, key, {
       version: 3,
       content: '跨刷新公开草稿',
       savedAt: 123,
-      policyHash: 'policy-42',
+      policyHash,
       clientMutationId: '018ff003-1234-7abc-8def-0123456789ab'
     })
 
-    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    const stored = localStorage.getItem(key)
+    const wrapper = mountComposer({ articleId: 42, accountId: 7, authorMode: 'public', publicSendConfirmed: true })
     await nextTick()
 
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(wrapper.emitted('update:authorMode')).toEqual([['zk_anonymous']])
+    expect(wrapper.emitted('update:publicSendConfirmed')).toEqual([[false]])
+    expect(wrapper.text()).toContain('请先审查草稿，本次发布身份需重新确认')
+    const identity = wrapper.get<HTMLInputElement>('input[type=checkbox]')
+    expect(identity.element.checked).toBe(false)
+    expect(identity.element.disabled).toBe(true)
+    expect(wrapper.text()).toContain('请先审查恢复的草稿，再确认本次公开署名')
+    await wrapper.setProps({ authorMode: 'zk_anonymous', publicSendConfirmed: false })
+    await vi.advanceTimersByTimeAsync(1000)
+    window.dispatchEvent(new Event('pagehide'))
+    expect(localStorage.getItem(key)).toBe(stored)
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')).toBeUndefined()
+
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
     expect(wrapper.emitted('update:modelValue')).toContainEqual(['跨刷新公开草稿'])
+    expect(wrapper.emitted('update:authorMode')).not.toContainEqual(['public'])
+    expect(wrapper.emitted('update:publicSendConfirmed')).not.toContainEqual([true])
+    expect(localStorage.getItem(key)).toBeNull()
+    await wrapper.setProps({ modelValue: '跨刷新公开草稿' })
+    expect(identity.element.checked).toBe(false)
+    expect(identity.element.disabled).toBe(false)
+    await identity.setValue(true)
     expect(wrapper.emitted('update:authorMode')).toContainEqual(['public'])
     expect(wrapper.emitted('update:publicSendConfirmed')).toContainEqual([true])
-    expect(wrapper.text()).toContain('已恢复公开草稿')
 
     await wrapper.setProps({
       modelValue: '跨刷新公开草稿',
       authorMode: 'public',
       publicSendConfirmed: true
     })
-    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))
-    expect(submit).toBeTruthy()
-    await submit!.trigger('click')
-    expect(wrapper.emitted('submit')).toEqual([
-      ['018ff003-1234-7abc-8def-0123456789ab']
-    ])
+    await submit.trigger('click')
+    const mutationId = wrapper.emitted('submit')![0]![0]
+    if (policyHash === 'policy-42') expect(mutationId).toBe('018ff003-1234-7abc-8def-0123456789ab')
+    else expect(mutationId).not.toBe('018ff003-1234-7abc-8def-0123456789ab')
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')![1]![0]).toBe(mutationId)
 
     wrapper.unmount()
   })
@@ -306,7 +331,8 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
 
     expect(wrapper.text()).toContain('评论策略已更新')
     expect(wrapper.emitted('update:modelValue')).toBeUndefined()
-    expect(wrapper.emitted('update:authorMode')).toBeUndefined()
+    expect(wrapper.emitted('update:authorMode')).toEqual([['zk_anonymous']])
+    expect(wrapper.emitted('update:publicSendConfirmed')).toEqual([[false]])
     expect(wrapper.get('button').exists()).toBe(true)
 
     await wrapper.get('.comment-composer-draft__actions button').trigger('click')
@@ -315,6 +341,75 @@ describe('ArticleCommentComposer mounted identity behavior', () => {
     expect(wrapper.emitted('update:publicSendConfirmed')).toContainEqual([false])
     expect(localStorage.getItem(key)).toBeNull()
 
+    wrapper.unmount()
+  })
+
+  it('preserves the private in-memory body and unreviewed stored candidate across restoration and unmount', async () => {
+    useDraftFakeTimers()
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '待审公开草稿', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff005-1234-7abc-8def-0123456789ab'
+    })
+    const stored = localStorage.getItem(key)
+    const wrapper = mountComposer({ articleId: 42, accountId: 7, modelValue: '当前私密正文' })
+    await nextTick()
+    await vi.advanceTimersByTimeAsync(1000)
+    expect(wrapper.emitted('update:modelValue')).toBeUndefined()
+    expect(wrapper.props('modelValue')).toBe('当前私密正文')
+    expect(localStorage.getItem(key)).toBe(stored)
+    wrapper.unmount()
+    expect(localStorage.getItem(key)).toBe(stored)
+  })
+
+  it('uses a new anonymous mutation identity after review and keeps cleanup failures closed', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '审查后匿名发送', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff006-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    await wrapper.setProps({ modelValue: '审查后匿名发送' })
+    const submit = wrapper.findAll('button').find(button => button.text().includes('发送'))!
+    await submit.trigger('click')
+    expect(wrapper.emitted('submit')![0]![0]).not.toBe('018ff006-1234-7abc-8def-0123456789ab')
+    wrapper.unmount()
+
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '无法清理的公开草稿', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff007-1234-7abc-8def-0123456789ab'
+    })
+    vi.spyOn(Storage.prototype, 'removeItem').mockImplementation(() => { throw new Error('storage deletion denied') })
+    const blocked = mountComposer({ articleId: 42, accountId: 7 })
+    await blocked.get('.comment-composer-draft__actions button').trigger('click')
+    await blocked.setProps({ modelValue: '无法清理的公开草稿' })
+    expect(blocked.text()).toContain('强匿名发布已暂停')
+    await blocked.findAll('button').find(button => button.text().includes('发送'))!.trigger('click')
+    expect(blocked.emitted('submit')).toBeUndefined()
+    expect(blocked.get<HTMLInputElement>('input[type=checkbox]').element.checked).toBe(false)
+    blocked.unmount()
+  })
+
+  it('drops reviewed public retry identity when the anonymous credential lifecycle is purged', async () => {
+    const preparation = prepareCommentPublicDraftStorage(localStorage)
+    const key = createCommentPublicDraftStorageKey({ scopeId: preparation.scopeId!, articleId: 42, replyId: null })
+    writeCommentPublicDraft(localStorage, key, {
+      version: 3, content: '已审查正文', savedAt: 123, policyHash: 'policy-42',
+      clientMutationId: '018ff008-1234-7abc-8def-0123456789ab'
+    })
+    const wrapper = mountComposer({ articleId: 42, accountId: 7 })
+    await wrapper.get('.comment-composer-draft__actions button').trigger('click')
+    await wrapper.setProps({ modelValue: '已审查正文' })
+    await purgeCommentPrivacyCredentialState('epoch-changed', { broadcast: false })
+    expect(wrapper.emitted('update:modelValue')).toContainEqual([''])
+    await wrapper.setProps({ modelValue: '' })
+    await wrapper.get<HTMLInputElement>('input[type=checkbox]').setValue(true)
+    await wrapper.setProps({ modelValue: '已审查正文', authorMode: 'public', publicSendConfirmed: true })
+    await wrapper.findAll('button').find(button => button.text().includes('发送'))!.trigger('click')
+    expect(wrapper.emitted('submit')![0]![0]).not.toBe('018ff008-1234-7abc-8def-0123456789ab')
     wrapper.unmount()
   })
 
