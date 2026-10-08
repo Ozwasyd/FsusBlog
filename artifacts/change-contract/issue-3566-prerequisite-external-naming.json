@@ -14,9 +14,10 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/backend/Infrastructure/AuthoringExtensions/AuthoringExtensionExecutionResolver.cs",
                 "tools/test/correctness-attempt-migration.mjs"
             ],
-            "reason": "preserve the canonical execution owner and environment authority spellings in the exact supplied migration capability without changing naming or runtime admission rules"
+            "reason": "preserve original environment authority spellings in the supplied migration capability; the registered src/**/*.cs family also requires the resolver path, whose scalar validation correction adds no environment access or renamed external name"
         }
     ]
 }
