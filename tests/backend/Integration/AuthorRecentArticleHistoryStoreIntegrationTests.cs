@@ -1,21 +1,27 @@
+using System.Reflection;
 using System.Security.Claims;
 
 using FsusBlog.Contracts.Articles;
+using FsusBlog.Contracts.Schema;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Server.Infrastructure.Auth;
 using FsusBlog.Server.Infrastructure.Cache;
 using FsusBlog.Server.Infrastructure.PublicAot;
+using FsusBlog.Server.Infrastructure.SchemaMigration;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Articles;
 using FsusBlog.Server.Services.Authoring;
 using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Tests.TestInfrastructure;
+using FsusBlog.Shared.Algorithms.Schema;
 
 using Microsoft.AspNetCore.DataProtection;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.Logging.Abstractions;
+
+using Npgsql;
 
 using NSubstitute;
 
@@ -31,6 +37,94 @@ namespace FsusBlog.Server.Tests.Integration;
 public sealed class AuthorRecentArticleHistoryStoreIntegrationTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly AuthorRecentArticleHistoryOwner s_owner = new(1, "primary-site");
+
+    [Theory]
+    [InlineData("current")]
+    [InlineData("compiled")]
+    [InlineData("direction")]
+    [InlineData("null-placement")]
+    [InlineData("operand-order")]
+    [InlineData("missing-expression")]
+    [InlineData("function")]
+    [InlineData("arity")]
+    [InlineData("last-key-direction")]
+    public async Task HistoryIndex_ActualPostgresRetainsExpressionAndRejectsNativeDrift(string mutation)
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        const string original = "GREATEST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc)";
+        if (mutation == "compiled")
+        {
+            Assembly assembly = typeof(CurrentSchemaOwnedProjectionExporter).Assembly;
+            string source = assembly.GetCustomAttributes<AssemblyMetadataAttribute>()
+                .Single(static attribute => attribute.Key == "FsusBlog.SourceCommit").Value!;
+            string taskRoot = Directory.CreateTempSubdirectory("fsusblog-history-index-owner-").FullName;
+            var owned = await FsusBlog.Migration.OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync(
+                assembly.Location, source, taskRoot, CancellationToken.None);
+            Assert.Equal(0, owned.Execution.ExitCode);
+            string sql = Assert.Single(owned.Compile(SchemaProviderKind.PostgreSql).Commands,
+                static command => command.Sql.StartsWith("CREATE INDEX \"ix_author_recent_history_entry_order\"", StringComparison.Ordinal)).Sql;
+            await db.Ado.ExecuteCommandAsync("DROP INDEX ix_author_recent_history_entry_order;");
+            await db.Ado.ExecuteCommandAsync(sql);
+        }
+        else if (mutation != "current")
+        {
+            string expression = mutation switch
+            {
+                "operand-order" => "GREATEST(last_edited_at_utc, last_opened_at_utc, last_activated_at_utc)",
+                "missing-expression" => "last_opened_at_utc",
+                "function" => "LEAST(last_opened_at_utc, last_edited_at_utc, last_activated_at_utc)",
+                "arity" => "GREATEST(last_opened_at_utc, last_edited_at_utc)",
+                _ => original
+            };
+            string direction = mutation == "direction" ? "ASC" : "DESC";
+            string nulls = mutation == "null-placement" ? " NULLS LAST" : string.Empty;
+            string lastDirection = mutation == "last-key-direction" ? "ASC" : "DESC";
+            await db.Ado.ExecuteCommandAsync($"""
+                DROP INDEX ix_author_recent_history_entry_order;
+                CREATE INDEX ix_author_recent_history_entry_order ON author_recent_history_entry(
+                    owner_admin_principal_id, site_scope, {expression} {direction}{nulls}, article_id {lastDirection});
+                """);
+        }
+        var inspector = new SchemaModelInspector();
+        CurrentSchemaProjection entity = CurrentSchemaCanonicalAuthority.Generate(
+            inspector.BuildCanonicalModel(inspector.GetManagedEntityTypes()));
+        CurrentSchemaCompletePhysicalProjection whole = CurrentSchemaCanonicalAuthority.ProjectOwnedTarget(
+            entity, CurrentSchemaOwnedProjectionExporter.DescribeRequiredRecipes(), SchemaProviderKind.PostgreSql);
+        SchemaTableModel table = whole.Tables.Tables["author_recent_history_entry"];
+        var expected = new CurrentSchemaCompletePhysicalProjection(new SchemaModelSnapshot(
+            new Dictionary<string, SchemaTableModel> { [table.Name] = table }, provider: SchemaProviderKind.PostgreSql), [], []);
+        await using var connection = new NpgsqlConnection(db.CurrentConnectionConfig.ConnectionString);
+        await connection.OpenAsync();
+        await using var transaction = await connection.BeginTransactionAsync(System.Data.IsolationLevel.RepeatableRead);
+        if (mutation is "function" or "arity")
+        {
+            await Assert.ThrowsAsync<InvalidOperationException>(() => PgCurrentSchemaCatalogObserver.ReadTableAsync(
+                connection, transaction, table.Name, CancellationToken.None));
+            return;
+        }
+        SchemaModelSnapshot actual = await PgCurrentSchemaCatalogObserver.ReadTableAsync(
+            connection, transaction, table.Name, CancellationToken.None);
+        PgCurrentSchemaEffectObservation effects = await PgCurrentSchemaEffectObserver.ReadControlTableAsync(
+            connection, transaction, table.Name, CancellationToken.None);
+        IReadOnlyList<string> errors = PgCurrentSchemaNativeObserver.Compare(expected, actual, effects);
+        if (mutation is not ("current" or "compiled"))
+        {
+            Assert.Contains(errors, static error => error.Contains("index mismatch", StringComparison.Ordinal));
+            return;
+        }
+        Assert.Empty(errors);
+        SchemaIndexKeyModel key = actual.Tables[table.Name].IndexDefinitions["ix_author_recent_history_entry_order"].Keys[2];
+        Assert.Equal(string.Empty, key.Column);
+        Assert.True(SchemaExpressionIdentity.Equal(table.IndexDefinitions["ix_author_recent_history_entry_order"].Keys[2].Expression!, key.Expression!));
+        // The neutral tree survives serialization without relying on child-list reference identity.
+        SchemaModelSnapshot replay = System.Text.Json.JsonSerializer.Deserialize<SchemaModelSnapshot>(
+            System.Text.Json.JsonSerializer.Serialize(actual))!;
+        Assert.Empty(PgCurrentSchemaNativeObserver.Compare(expected, replay, effects));
+        await using var command = connection.CreateCommand();
+        command.Transaction = transaction;
+        command.CommandText = "SELECT GREATEST(NULL::timestamp, TIMESTAMP '2026-01-01', NULL::timestamp);";
+        Assert.Equal(new DateTime(2026, 1, 1), await command.ExecuteScalarAsync());
+    }
 
     [Fact]
     public async Task Store_EnforcesCasIdempotencyProjectionOrderAndDurableSideEffects()

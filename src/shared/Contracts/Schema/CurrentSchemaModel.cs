@@ -86,6 +86,13 @@ public sealed record SchemaIndexKeyModel(
     string OperatorClass,
     string Collation)
 {
+    /// <summary>Complete neutral expression facts; expression keys have an empty Column, never a fabricated column name.</summary>
+    [System.Text.Json.Serialization.JsonIgnore(Condition = System.Text.Json.Serialization.JsonIgnoreCondition.WhenWritingNull)]
+    public SchemaExpressionNode? Expression
+    {
+        get; init;
+    }
+
     /// <summary>Required for physical MySQL comparison; null is unobserved, not a complete key.</summary>
     public SchemaMySqlIndexKeyPhysicalFacts? MySqlPhysical { get; init; }
 }
