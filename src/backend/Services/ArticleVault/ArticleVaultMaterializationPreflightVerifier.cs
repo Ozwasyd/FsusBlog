@@ -58,9 +58,10 @@ public static class ArticleVaultMaterializationPreflightVerifier
                     ArticleVaultMaterializationInstructionCodec.Schema,
                     ArticleVaultMaterializationInstructionCodec.Version,
                     bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.Plan.DeviceIdentity, operation.AgentIdentity,
-                    bundle.PlanReference, bundle.PlanSha256, result.ResultReference, result.ContentSha256,
+                    bundle.PlanReference, bundle.PlanSha256, bundle.Plan.RootManifestSha256,
+                    result.ResultReference, result.ContentSha256,
                     group.GroupIdentity, item.OperationIdentity, item.PortableArticleIdentity,
-                    article.PathProjection, action, oldSource, newSource, item.Base.ContentSha256,
+                    article.PathProjection, action, oldSource, newSource, item.Local.MetadataManifestSha256, item.Base.ContentSha256,
                     operation.OperationIdentity, string.Empty);
                 instructions.Add(instruction with
                 {
