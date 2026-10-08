@@ -99,7 +99,7 @@ test('scheduler waits for its real producer child terminal before returning canc
     });
     const started = [];
     const tiers = ['producer', 'pending'].map((id) => ({ id, command: 'controlled producer adapter',
-        cacheInputs: [], executionDependsOn: [], services: [], parallelizable: true,
+        cacheInputs: [], executionDependsOn: id === 'pending' ? ['producer'] : [], services: [], parallelizable: true,
         exclusiveResources: [], resourceClass: 'cpu', cpuUnits: 1, memoryGiB: 1 }));
     const execution = runDag({ root, runsRoot: path.join(root, 'runs'), runId: 'producer-terminal-run',
         targetTierId: 'pending', signal: controller.signal, tiers, maxParallel: 1, collectFailures: true,
