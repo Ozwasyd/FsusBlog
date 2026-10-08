@@ -1,0 +1,33 @@
+{
+  "sourceSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "branch": "codex/issue-2177-canonical-lock-integration-20261008",
+  "command": [
+    "git",
+    "-c",
+    "credential.helper=!gh auth git-credential",
+    "push",
+    "-u",
+    "origin",
+    "codex/issue-2177-canonical-lock-integration-20261008"
+  ],
+  "startedAt": "2026-10-08T10:25:58.235392+00:00",
+  "exitCode": 0,
+  "remoteHost": "github.com",
+  "logSha256": "1ae5af4751400f0eb5407353786309f0ba3320b28e01634d9c39fa7bcc737b83",
+  "remoteReadback": {
+    "command": [
+      "git",
+      "-c",
+      "credential.helper=!gh auth git-credential",
+      "ls-remote",
+      "origin",
+      "refs/heads/codex/issue-2177-canonical-lock-integration-20261008"
+    ],
+    "exitCode": 0,
+    "text": "97f372a803d9435175b3864d3c577bb0bdc48a89\trefs/heads/codex/issue-2177-canonical-lock-integration-20261008",
+    "logSha256": "664b07fe829e550a6ba557ddb4e4c7716e20e66b74c20ac44a034b76722091fd"
+  },
+  "published": true,
+  "formalTestsPassed": false,
+  "issue2177Accepted": false
+}

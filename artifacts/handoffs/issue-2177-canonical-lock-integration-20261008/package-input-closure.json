@@ -1,0 +1,550 @@
+{
+  "sourceSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "frozenSourceSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "canonicalSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+  "inventoryDefinition": "all tracked csproj/props/targets/packages.lock.json inputs; distinct from compiled source closure",
+  "rows": [
+    {
+      "path": "Directory.Build.props",
+      "blobs": {
+        "base": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+        "frozen": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+        "canonical": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+        "composition": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "Directory.Packages.props",
+      "blobs": {
+        "base": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+        "frozen": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+        "canonical": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+        "composition": "0abc085c29fb28bcc5982c8f45e4085d2b739812"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+      "blobs": {
+        "base": "4aca7ddd43f73dd995bf29b93040056d4623c72d",
+        "frozen": "4aca7ddd43f73dd995bf29b93040056d4623c72d",
+        "canonical": "4aca7ddd43f73dd995bf29b93040056d4623c72d",
+        "composition": "4aca7ddd43f73dd995bf29b93040056d4623c72d"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "benchmarks/core/packages.lock.json",
+      "blobs": {
+        "base": "53990209a76199c44fa8772a2fd04171e5e2506a",
+        "frozen": "53990209a76199c44fa8772a2fd04171e5e2506a",
+        "canonical": "53990209a76199c44fa8772a2fd04171e5e2506a",
+        "composition": "53990209a76199c44fa8772a2fd04171e5e2506a"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj",
+      "blobs": {
+        "base": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e",
+        "frozen": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e",
+        "canonical": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e",
+        "composition": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/article-vault/linux/packages.lock.json",
+      "blobs": {
+        "base": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199",
+        "frozen": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199",
+        "canonical": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199",
+        "composition": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/backend/FsusBlog.Server.csproj",
+      "blobs": {
+        "base": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+        "frozen": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+        "canonical": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+        "composition": "c7e38c66b974862cddaef76897c957c9c28a5d81"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/backend/packages.lock.json",
+      "blobs": {
+        "base": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+        "frozen": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+        "canonical": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+        "composition": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/core/FsusBlog.Core.csproj",
+      "blobs": {
+        "base": "dca4d483ac841a816c9b2a2405cb431773f47f2a",
+        "frozen": "dca4d483ac841a816c9b2a2405cb431773f47f2a",
+        "canonical": "dca4d483ac841a816c9b2a2405cb431773f47f2a",
+        "composition": "dca4d483ac841a816c9b2a2405cb431773f47f2a"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/core/packages.lock.json",
+      "blobs": {
+        "base": "96f49c26fa2525f2e6b51c73723de710fd8e06c3",
+        "frozen": "96f49c26fa2525f2e6b51c73723de710fd8e06c3",
+        "canonical": "96f49c26fa2525f2e6b51c73723de710fd8e06c3",
+        "composition": "96f49c26fa2525f2e6b51c73723de710fd8e06c3"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/migration/FsusBlog.Migration.csproj",
+      "blobs": {
+        "base": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264",
+        "frozen": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264",
+        "canonical": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264",
+        "composition": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/migration/packages.lock.json",
+      "blobs": {
+        "base": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3",
+        "frozen": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3",
+        "canonical": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3",
+        "composition": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/shared/FsusBlog.Shared.csproj",
+      "blobs": {
+        "base": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47",
+        "frozen": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47",
+        "canonical": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47",
+        "composition": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "src/shared/packages.lock.json",
+      "blobs": {
+        "base": "6afd6786b95a8c85febce85cf6219643ee860872",
+        "frozen": "6afd6786b95a8c85febce85cf6219643ee860872",
+        "canonical": "6afd6786b95a8c85febce85cf6219643ee860872",
+        "composition": "6afd6786b95a8c85febce85cf6219643ee860872"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
+      "blobs": {
+        "base": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b",
+        "frozen": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b",
+        "canonical": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b",
+        "composition": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/article-vault/linux/packages.lock.json",
+      "blobs": {
+        "base": "f83c2accc6e97fd537bd8f88372c687a47601d32",
+        "frozen": "f83c2accc6e97fd537bd8f88372c687a47601d32",
+        "canonical": "f83c2accc6e97fd537bd8f88372c687a47601d32",
+        "composition": "f83c2accc6e97fd537bd8f88372c687a47601d32"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "blobs": {
+        "base": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+        "frozen": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+        "canonical": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+        "composition": "eabae0a574d36a17a9af7885ef2528ec4f010707"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "blobs": {
+        "base": "6b9bfe36493a1aa0aec4a5d75afa57c70c5f151f",
+        "frozen": "6b9bfe36493a1aa0aec4a5d75afa57c70c5f151f",
+        "canonical": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+        "composition": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/cache-coordination-probe/CacheCoordinationProbe.csproj",
+      "blobs": {
+        "base": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783",
+        "frozen": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783",
+        "canonical": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783",
+        "composition": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/cache-coordination-probe/packages.lock.json",
+      "blobs": {
+        "base": "ec1b8e08c5ea44c1769d194f801cc30137fb575b",
+        "frozen": "ec1b8e08c5ea44c1769d194f801cc30137fb575b",
+        "canonical": "ec1b8e08c5ea44c1769d194f801cc30137fb575b",
+        "composition": "ec1b8e08c5ea44c1769d194f801cc30137fb575b"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "blobs": {
+        "base": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210",
+        "frozen": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210",
+        "canonical": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210",
+        "composition": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "blobs": {
+        "base": "9e289962c72dce2a415191635d02079fa7172888",
+        "frozen": "9e289962c72dce2a415191635d02079fa7172888",
+        "canonical": "9e289962c72dce2a415191635d02079fa7172888",
+        "composition": "9e289962c72dce2a415191635d02079fa7172888"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+      "blobs": {
+        "base": "94bf9c67257e799e344738bda5bf87301374c1b5",
+        "frozen": "94bf9c67257e799e344738bda5bf87301374c1b5",
+        "canonical": "94bf9c67257e799e344738bda5bf87301374c1b5",
+        "composition": "94bf9c67257e799e344738bda5bf87301374c1b5"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+      "blobs": {
+        "base": "721102ac7bd2f3b9b46fda035eb44eb365b75933",
+        "frozen": "721102ac7bd2f3b9b46fda035eb44eb365b75933",
+        "canonical": "721102ac7bd2f3b9b46fda035eb44eb365b75933",
+        "composition": "721102ac7bd2f3b9b46fda035eb44eb365b75933"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "blobs": {
+        "base": "ac6538f325848d6a55343abda0092169edc16d8a",
+        "frozen": "ac6538f325848d6a55343abda0092169edc16d8a",
+        "canonical": "ac6538f325848d6a55343abda0092169edc16d8a",
+        "composition": "ac6538f325848d6a55343abda0092169edc16d8a"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "blobs": {
+        "base": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "frozen": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "canonical": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "composition": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "blobs": {
+        "base": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+        "frozen": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+        "canonical": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+        "composition": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "blobs": {
+        "base": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "frozen": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "canonical": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "composition": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "blobs": {
+        "base": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+        "frozen": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+        "canonical": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+        "composition": "44286797b3f0ab2f6b79b03b2022c34537997e54"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "blobs": {
+        "base": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "frozen": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "canonical": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "composition": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "blobs": {
+        "base": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+        "frozen": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+        "canonical": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+        "composition": "f4e2b49036284183ee1d9f93e928c12aa43e902d"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "blobs": {
+        "base": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "frozen": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "canonical": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+        "composition": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+      "blobs": {
+        "base": "bdd3c1797230ebb548de84107f57ac83b8d5680a",
+        "frozen": "bdd3c1797230ebb548de84107f57ac83b8d5680a",
+        "canonical": "bdd3c1797230ebb548de84107f57ac83b8d5680a",
+        "composition": "bdd3c1797230ebb548de84107f57ac83b8d5680a"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "blobs": {
+        "base": "08e62e583616c40424a919b7eb188b5238e33d47",
+        "frozen": "08e62e583616c40424a919b7eb188b5238e33d47",
+        "canonical": "08e62e583616c40424a919b7eb188b5238e33d47",
+        "composition": "08e62e583616c40424a919b7eb188b5238e33d47"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj",
+      "blobs": {
+        "base": "e87963bebc64439e73d0921934e0e55e1daf1d4a",
+        "frozen": "e87963bebc64439e73d0921934e0e55e1daf1d4a",
+        "canonical": "e87963bebc64439e73d0921934e0e55e1daf1d4a",
+        "composition": "e87963bebc64439e73d0921934e0e55e1daf1d4a"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/packages.lock.json",
+      "blobs": {
+        "base": "3f9ff51e18261dc48ed4bcdad3700284aa230951",
+        "frozen": "3f9ff51e18261dc48ed4bcdad3700284aa230951",
+        "canonical": "3f9ff51e18261dc48ed4bcdad3700284aa230951",
+        "composition": "3f9ff51e18261dc48ed4bcdad3700284aa230951"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
+      "blobs": {
+        "base": "4e7749e833090b5c3a6bc48d2a8997d46487679b",
+        "frozen": "4e7749e833090b5c3a6bc48d2a8997d46487679b",
+        "canonical": "4e7749e833090b5c3a6bc48d2a8997d46487679b",
+        "composition": "4e7749e833090b5c3a6bc48d2a8997d46487679b"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/packages.lock.json",
+      "blobs": {
+        "base": "e7f43bef25ef367c43529f769dca98e146883ae2",
+        "frozen": "e7f43bef25ef367c43529f769dca98e146883ae2",
+        "canonical": "e7f43bef25ef367c43529f769dca98e146883ae2",
+        "composition": "e7f43bef25ef367c43529f769dca98e146883ae2"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj",
+      "blobs": {
+        "base": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3",
+        "frozen": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3",
+        "canonical": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3",
+        "composition": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/AdapterFixtureTests.csproj",
+      "blobs": {
+        "base": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37",
+        "frozen": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37",
+        "canonical": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37",
+        "composition": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/packages.lock.json",
+      "blobs": {
+        "base": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c",
+        "frozen": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c",
+        "canonical": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c",
+        "composition": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/packages.lock.json",
+      "blobs": {
+        "base": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279",
+        "frozen": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279",
+        "canonical": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279",
+        "composition": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/FsusBlog.XunitReplayRunner.csproj",
+      "blobs": {
+        "base": "d9657b758fd382985b0f1b483d8a118ad88ebaf5",
+        "frozen": "d9657b758fd382985b0f1b483d8a118ad88ebaf5",
+        "canonical": "d9657b758fd382985b0f1b483d8a118ad88ebaf5",
+        "composition": "d9657b758fd382985b0f1b483d8a118ad88ebaf5"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/packages.lock.json",
+      "blobs": {
+        "base": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b",
+        "frozen": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b",
+        "canonical": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b",
+        "composition": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj",
+      "blobs": {
+        "base": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+        "frozen": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+        "canonical": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+        "composition": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/Inject.targets",
+      "blobs": {
+        "base": "fd53f985fb4e1c5a38134359703789eb0b8ad727",
+        "frozen": "fd53f985fb4e1c5a38134359703789eb0b8ad727",
+        "canonical": "fd53f985fb4e1c5a38134359703789eb0b8ad727",
+        "composition": "fd53f985fb4e1c5a38134359703789eb0b8ad727"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json",
+      "blobs": {
+        "base": "8b79dba10730ad9b2e04e413be07a2375968e969",
+        "frozen": "8b79dba10730ad9b2e04e413be07a2375968e969",
+        "canonical": "8b79dba10730ad9b2e04e413be07a2375968e969",
+        "composition": "8b79dba10730ad9b2e04e413be07a2375968e969"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/FsusBlog.Http3Lab.csproj",
+      "blobs": {
+        "base": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024",
+        "frozen": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024",
+        "canonical": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024",
+        "composition": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/packages.lock.json",
+      "blobs": {
+        "base": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c",
+        "frozen": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c",
+        "canonical": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c",
+        "composition": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c"
+      },
+      "baseEqualsFrozen": true,
+      "canonicalEqualsComposition": true
+    }
+  ],
+  "allBaseFrozenInputsIdentical": true,
+  "allCanonicalCompositionInputsIdentical": true
+}

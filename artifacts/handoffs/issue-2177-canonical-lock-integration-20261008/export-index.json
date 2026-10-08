@@ -1,0 +1,219 @@
+{
+  "testedCompositionSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "formalTestsPassed": false,
+  "issue2177Accepted": false,
+  "qualificationEligible": false,
+  "files": [
+    {
+      "file": "assignment-status-current.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/assignment-status-current.json",
+      "sha256": "9a54591666c99cf6d4ef7546ecb574ab4563c54a6f800f50ad737805820ac09b",
+      "sizeBytes": 153338,
+      "byteExact": true
+    },
+    {
+      "file": "canonical-3654-file-delta.patch",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/canonical-3654-file-delta.patch",
+      "sha256": "1a105ad10377e7bea700183452f5032353dfcdb742d098efcf92be11f24aa5be",
+      "sizeBytes": 3101,
+      "byteExact": true
+    },
+    {
+      "file": "canonical-fetch.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/canonical-fetch.json",
+      "sha256": "6df72ff9cf1f99bcefcdca211b95415107a29abe09cee30c5cf4beaba7471257",
+      "sizeBytes": 611,
+      "byteExact": true
+    },
+    {
+      "file": "canonical-fetch.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/canonical-fetch.log",
+      "sha256": "2894260023349c5b2680a0ccb33141033499faaeeb15c45a922d285684865ade",
+      "sizeBytes": 174,
+      "byteExact": true
+    },
+    {
+      "file": "composed-candidate-handoff.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/composed-candidate-handoff.json",
+      "sha256": "445900a54ea185c6aa397330135a85896c4ff8933e62eeb04b291024a8be3d06",
+      "sizeBytes": 11868,
+      "byteExact": true
+    },
+    {
+      "file": "composition-source-and-produced-artifact-binding.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/composition-source-and-produced-artifact-binding.json",
+      "sha256": "2382d0687832faefdafb51eea9be95bf6444c22da47367aff5271cf8aa114a20",
+      "sizeBytes": 10156,
+      "byteExact": true
+    },
+    {
+      "file": "current-pr-plan.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/current-pr-plan.json",
+      "sha256": "add09c121792aae8e2a2d9b4ab52e0e770e0c23dfb1001408087c167d2f20802",
+      "sizeBytes": 71566,
+      "byteExact": true
+    },
+    {
+      "file": "current-source-governance-result.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/current-source-governance-result.json",
+      "sha256": "532b34834120466a1925570fe56e86ab221a022d7aa4e7470b50218ba477fd73",
+      "sizeBytes": 8136,
+      "byteExact": true
+    },
+    {
+      "file": "evaluated-project-source-closure.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/evaluated-project-source-closure.json",
+      "sha256": "ab442849733a0952b9883cf17e1b25b39429bd6edb911ba38c13baa524eb3883",
+      "sizeBytes": 731192,
+      "byteExact": true
+    },
+    {
+      "file": "evaluation-FsusBlog.Core.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/evaluation-FsusBlog.Core.json",
+      "sha256": "23239456b1a0021e0c102729525ffedcccae845e63a43fa14c67e46d0dd2b030",
+      "sizeBytes": 101447,
+      "byteExact": true
+    },
+    {
+      "file": "evaluation-FsusBlog.DiLifetimeAnalyzer.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/evaluation-FsusBlog.DiLifetimeAnalyzer.json",
+      "sha256": "cdb8fd6a2ce7a6982daf7944f9a687a102e126b4dccf59ebbe224ae2c6feaf8e",
+      "sizeBytes": 1136,
+      "byteExact": true
+    },
+    {
+      "file": "evaluation-FsusBlog.Migration.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/evaluation-FsusBlog.Migration.json",
+      "sha256": "55a47b9c062485995d6792cf07a501fa7fc431a040e68ed0cc57505121f9531e",
+      "sizeBytes": 173366,
+      "byteExact": true
+    },
+    {
+      "file": "evaluation-FsusBlog.Server.Tests.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/evaluation-FsusBlog.Server.Tests.json",
+      "sha256": "3a354dd3152317348fba1251aeb19d28dcfb011d62c8b7574f279eade7667630",
+      "sizeBytes": 708699,
+      "byteExact": true
+    },
+    {
+      "file": "evaluation-FsusBlog.Server.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/evaluation-FsusBlog.Server.json",
+      "sha256": "3a01cffbf49e1c762c6b4b41b2db08b2770183f0b26ae3de0d22ed6a23929504",
+      "sizeBytes": 995574,
+      "byteExact": true
+    },
+    {
+      "file": "evaluation-FsusBlog.Shared.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/evaluation-FsusBlog.Shared.json",
+      "sha256": "96f44f23cb6ff1c1dcd67b3b3eddd500afd102e5875558155548691dfbf3a25f",
+      "sizeBytes": 130863,
+      "byteExact": true
+    },
+    {
+      "file": "formal-compilation-blocker.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/formal-compilation-blocker.json",
+      "sha256": "367070a16c66b49dd499cd898359200b9232581291edbd44e43088e86967df3f",
+      "sizeBytes": 3699,
+      "byteExact": true
+    },
+    {
+      "file": "formal-locked-restore.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/formal-locked-restore.json",
+      "sha256": "7686775167c6498a09f18eca9c49234ba99eb7eb51ba95664baa0f68933be3b0",
+      "sizeBytes": 745,
+      "byteExact": true
+    },
+    {
+      "file": "formal-locked-restore.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/formal-locked-restore.log",
+      "sha256": "f39f2dce3d8f8103ac07350c5b054379fc26fac0da0cee00de5df84497a4d1b8",
+      "sizeBytes": 1346,
+      "byteExact": true
+    },
+    {
+      "file": "formal-policy-tests.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/formal-policy-tests.json",
+      "sha256": "a676dac9fd539cc5d1e2f931362d72dee5444cbc785b120587ecdde9b6010b6d",
+      "sizeBytes": 1495,
+      "byteExact": true
+    },
+    {
+      "file": "formal-policy-tests.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/formal-policy-tests.log",
+      "sha256": "1b4be012d0421937b0c0f416fdee5fc5a19172c959662ea3439dc01fb2aa14e5",
+      "sizeBytes": 349378,
+      "byteExact": true
+    },
+    {
+      "file": "package-input-closure.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/package-input-closure.json",
+      "sha256": "e9ee63cacb1801af56f507be487a06071c885fd27ef3a25eb25e39ba7fea08dc",
+      "sizeBytes": 22124,
+      "byteExact": true
+    },
+    {
+      "file": "range-contract.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/range-contract.json",
+      "sha256": "dcb9fac80d689fde85e5f17a328d2e0dee2c1ee67aaed10911ad2a09aee74bba",
+      "sizeBytes": 578,
+      "byteExact": true
+    },
+    {
+      "file": "range-contract.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/range-contract.log",
+      "sha256": "505451cefb41a9f4449fea79a195595672450e9334a9869ca21154045177e9aa",
+      "sizeBytes": 117,
+      "byteExact": true
+    },
+    {
+      "file": "sdk-version.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/sdk-version.json",
+      "sha256": "e85082910e80beca51f2ef9454db236e323e0ffdd155d76b3551a103fc1bd66b",
+      "sizeBytes": 614,
+      "byteExact": true
+    },
+    {
+      "file": "sdk-version.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/sdk-version.log",
+      "sha256": "2ce58527da281756131055b7331465f5ce5b423056ed2668637ee2a683c82c86",
+      "sizeBytes": 9,
+      "byteExact": true
+    },
+    {
+      "file": "source-publication.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/source-publication.json",
+      "sha256": "0f0452c80cf670bafbbc75acbc6583de383b316cb1c99eaa133691b85705a367",
+      "sizeBytes": 1035,
+      "byteExact": true
+    },
+    {
+      "file": "source-push.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/source-push.log",
+      "sha256": "1ae5af4751400f0eb5407353786309f0ba3320b28e01634d9c39fa7bcc737b83",
+      "sizeBytes": 800,
+      "byteExact": true
+    },
+    {
+      "file": "source-readback.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/source-readback.log",
+      "sha256": "664b07fe829e550a6ba557ddb4e4c7716e20e66b74c20ac44a034b76722091fd",
+      "sizeBytes": 105,
+      "byteExact": true
+    },
+    {
+      "file": "source-stage.json",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/source-stage.json",
+      "sha256": "a0c2c7f99e0223ec646233f15b7d29f50c87cd61785919e456ade4e576f1fe40",
+      "sizeBytes": 582,
+      "byteExact": true
+    },
+    {
+      "file": "source-stage.log",
+      "sourcePath": "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008/source-stage.log",
+      "sha256": "039186819cada355c60104e388061399adbeaddbc259b569213f10b3c2aae68e",
+      "sizeBytes": 256,
+      "byteExact": true
+    }
+  ],
+  "testRerunForExport": false
+}

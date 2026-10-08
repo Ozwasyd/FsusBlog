@@ -1,0 +1,255 @@
+{
+  "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "frozenSourceSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "nineFrozenPathsPreserved": [
+    {
+      "path": "artifacts/change-contract/issue-2177-pure-comment-source-external-naming.json",
+      "frozenBlob": "083ea1d65f3accdeebe8852e9678ae90424fb037",
+      "composedBlob": "083ea1d65f3accdeebe8852e9678ae90424fb037",
+      "byteIdentical": true
+    },
+    {
+      "path": "docs/architecture/comment-command-boundary.md",
+      "frozenBlob": "48401be64ef3b086c36db116ef69b58b5f22af3e",
+      "composedBlob": "48401be64ef3b086c36db116ef69b58b5f22af3e",
+      "byteIdentical": true
+    },
+    {
+      "path": "src/backend/Services/ArticleCommentPolicyService.cs",
+      "frozenBlob": "17dc99fed8d7375eec13da375e35650b8aaa5e40",
+      "composedBlob": "17dc99fed8d7375eec13da375e35650b8aaa5e40",
+      "byteIdentical": true
+    },
+    {
+      "path": "src/backend/Services/CommentModerationService.cs",
+      "frozenBlob": "1a9854726f4baa1a7c2ffb4dc12d02ab9c7b96f1",
+      "composedBlob": "1a9854726f4baa1a7c2ffb4dc12d02ab9c7b96f1",
+      "byteIdentical": true
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "frozenBlob": "e780e21342614401233f66d23447a168fdd26b01",
+      "composedBlob": "e780e21342614401233f66d23447a168fdd26b01",
+      "byteIdentical": true
+    },
+    {
+      "path": "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
+      "frozenBlob": "0e06d3df71fa2ab10f578af6ece328cc8277c875",
+      "composedBlob": "0e06d3df71fa2ab10f578af6ece328cc8277c875",
+      "byteIdentical": true
+    },
+    {
+      "path": "tests/backend/Unit/CommentModerationInitialStateTests.cs",
+      "frozenBlob": "3b7fe6110d4fd4d1ec307107d90146c466775ea7",
+      "composedBlob": "3b7fe6110d4fd4d1ec307107d90146c466775ea7",
+      "byteIdentical": true
+    },
+    {
+      "path": "tests/backend/Unit/CommentPurePolicyContractTests.cs",
+      "frozenBlob": "e5e81c7b3abab9bc5069cd642dfe70d6ae4f5eb2",
+      "composedBlob": "e5e81c7b3abab9bc5069cd642dfe70d6ae4f5eb2",
+      "byteIdentical": true
+    },
+    {
+      "path": "tests/backend/Unit/CommentServiceValidationTests.cs",
+      "frozenBlob": "f64cb3ca8e6a81fdaf9ca1c419c833e17621a80e",
+      "composedBlob": "f64cb3ca8e6a81fdaf9ca1c419c833e17621a80e",
+      "byteIdentical": true
+    }
+  ],
+  "producedBuildAndRestoreArtifacts": [
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Core.dll",
+      "sha256": "020b82e86564361acf6da0ee392c9017bacb576a83e0cd1d4aabe10cb10f15d4",
+      "sizeBytes": 769024
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Core.pdb",
+      "sha256": "719f7bdb024e6ecb94debb4c1907e6db0df1eeac29d326e724d1fba19efdc2b4",
+      "sizeBytes": 211996
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.deps.json",
+      "sha256": "2bc9be989d0c6615a0a1676391804396193120785d2bed49900ed2a34182f4c5",
+      "sizeBytes": 50386
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.dll",
+      "sha256": "f9962a99d1d60e35238e5baa3524b2b928de03fdfcb8ed39577a5f10570e8f49",
+      "sizeBytes": 19571200
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.pdb",
+      "sha256": "01a884d27574099eb76acc909c0f75dcba89a15bca433d9c29d69c59e4de15b7",
+      "sizeBytes": 3921928
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.runtimeconfig.json",
+      "sha256": "2558fd059c714bdce2d9cae59e0d892ca8e801831f30c64e2b9b988f4813737c",
+      "sizeBytes": 489
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Server.staticwebassets.endpoints.json",
+      "sha256": "eb6525c892afda953a2560f151f9c5e5bc6e79ef6741d886488ac450262c91e3",
+      "sizeBytes": 51
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sha256": "fb41ab0bacd237f28984679cae34081d4630ca84511bebc39723ab8b51c7c23b",
+      "sizeBytes": 1671168
+    },
+    {
+      "path": "src/backend/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sha256": "f12693ab95d3ae6bdf5bc48070089aaf269c90f01a3f9fca8d48c96d2a323fe2",
+      "sizeBytes": 314544
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Core.deps.json",
+      "sha256": "8fdbb4dcf3542e1c40a094428b9afa9f953552804937f20e2e76862fe68dfeee",
+      "sizeBytes": 3029
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Core.dll",
+      "sha256": "020b82e86564361acf6da0ee392c9017bacb576a83e0cd1d4aabe10cb10f15d4",
+      "sizeBytes": 769024
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Core.pdb",
+      "sha256": "719f7bdb024e6ecb94debb4c1907e6db0df1eeac29d326e724d1fba19efdc2b4",
+      "sizeBytes": 211996
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sha256": "fb41ab0bacd237f28984679cae34081d4630ca84511bebc39723ab8b51c7c23b",
+      "sizeBytes": 1671168
+    },
+    {
+      "path": "src/core/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sha256": "f12693ab95d3ae6bdf5bc48070089aaf269c90f01a3f9fca8d48c96d2a323fe2",
+      "sizeBytes": 314544
+    },
+    {
+      "path": "src/shared/bin/Debug/net10.0/FsusBlog.Shared.deps.json",
+      "sha256": "042521838f642e4bcd4d3ff5c2241dd414388980975a2a370d41a0a3ef12f284",
+      "sizeBytes": 417
+    },
+    {
+      "path": "src/shared/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sha256": "fb41ab0bacd237f28984679cae34081d4630ca84511bebc39723ab8b51c7c23b",
+      "sizeBytes": 1671168
+    },
+    {
+      "path": "src/shared/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sha256": "f12693ab95d3ae6bdf5bc48070089aaf269c90f01a3f9fca8d48c96d2a323fe2",
+      "sizeBytes": 314544
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.deps.json",
+      "sha256": "60147a0f9dfc9ff1850c3b0a524f1f7d31efd9aa621ea17ec2b0ef2aec26d860",
+      "sizeBytes": 31599
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.dll",
+      "sha256": "01080813fe38aac8f411674b9a9da32a55498f5a377397bcaa468ce360fbc3d4",
+      "sizeBytes": 2581504
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.pdb",
+      "sha256": "ee44977576cbb1437dcd9d8bcbeeba3becb1acfc7da7c9713485f8930c2cd9a2",
+      "sizeBytes": 378328
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Migration.runtimeconfig.json",
+      "sha256": "f9bc8e9f0c46247078ed47309f19a7576b4b94e4300e9de0003917d6bd2d667a",
+      "sizeBytes": 259
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Shared.dll",
+      "sha256": "fb41ab0bacd237f28984679cae34081d4630ca84511bebc39723ab8b51c7c23b",
+      "sizeBytes": 1671168
+    },
+    {
+      "path": "src/migration/bin/Debug/net10.0/FsusBlog.Shared.pdb",
+      "sha256": "f12693ab95d3ae6bdf5bc48070089aaf269c90f01a3f9fca8d48c96d2a323fe2",
+      "sizeBytes": 314544
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.deps.json",
+      "sha256": "053ba757fa388e96208a2ab31d3ceb9cd3153ac22bce7f43ad42be441dc4d6b3",
+      "sizeBytes": 11113
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.dll",
+      "sha256": "9648e1d3d34653e10a95731715d31911e8f2c09368d635687f461ce53d16da00",
+      "sizeBytes": 16384
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/bin/Debug/netstandard2.0/FsusBlog.DiLifetimeAnalyzer.pdb",
+      "sha256": "5d0644c70f8cc6b2e73431189b6923524afaa86ceb0ce53643005268395419c7",
+      "sizeBytes": 12088
+    },
+    {
+      "path": "tests/backend/obj/FsusBlog.Server.Tests.csproj.nuget.dgspec.json",
+      "sha256": "8cec269f103699329c2cb7f0506a6929254bbbd043efddeb614bed3bb79e6287",
+      "sizeBytes": 155782
+    },
+    {
+      "path": "tests/backend/obj/project.assets.json",
+      "sha256": "ee7982fee6f0b004184afcf9064171cacf25e99c1265f07bb5edc09fc1761c5d",
+      "sizeBytes": 291859
+    },
+    {
+      "path": "src/backend/obj/FsusBlog.Server.csproj.nuget.dgspec.json",
+      "sha256": "430a7d35485fddf8ddfaf213c61bc426aaf62a13b4d0d8402050c3df0ab5dfb1",
+      "sizeBytes": 87298
+    },
+    {
+      "path": "src/backend/obj/project.assets.json",
+      "sha256": "2b42421b414dae808dced0a10ddb1b12dd5ca44fd8f59b5f6c7de2f09c46776c",
+      "sizeBytes": 163834
+    },
+    {
+      "path": "src/core/obj/FsusBlog.Core.csproj.nuget.dgspec.json",
+      "sha256": "303c8d8d0111bb67121891beb2e7793b28fde0a5c829baecc0b42f6362edf3e3",
+      "sizeBytes": 48218
+    },
+    {
+      "path": "src/core/obj/project.assets.json",
+      "sha256": "1893a4ef1a9a71201ebae779dbf9ef658a099f970e129e462fbf747effc272f7",
+      "sizeBytes": 30753
+    },
+    {
+      "path": "src/shared/obj/FsusBlog.Shared.csproj.nuget.dgspec.json",
+      "sha256": "f8ed77c405adf90465d3bb99fb93ea590bc95bb8671d6b00500a030877e718a7",
+      "sizeBytes": 23846
+    },
+    {
+      "path": "src/shared/obj/project.assets.json",
+      "sha256": "a5fcda86e8b682fb6d61fc58c256de4ff6452abef1111b1eedbf04d0022c4ff3",
+      "sizeBytes": 23031
+    },
+    {
+      "path": "src/migration/obj/FsusBlog.Migration.csproj.nuget.dgspec.json",
+      "sha256": "85103f56cd56a40727a86bb73a46048f051633f95df77cd68f9462c505ee0643",
+      "sizeBytes": 48857
+    },
+    {
+      "path": "src/migration/obj/project.assets.json",
+      "sha256": "37f7031077209d6135e75017cdeeacc033eba9a8e3fc923f18f3f339b074f0dd",
+      "sizeBytes": 93177
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/obj/FsusBlog.DiLifetimeAnalyzer.csproj.nuget.dgspec.json",
+      "sha256": "755f43d96aa99bc21c76aecf479c308a7d9e44cfde3916befda9602c0632486f",
+      "sizeBytes": 5609
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/obj/project.assets.json",
+      "sha256": "6884afbd4f08d29fc0ca11d83ca918709df2637091a896ae0237b33727fe9a8e",
+      "sizeBytes": 110448
+    }
+  ],
+  "formalTestAssemblyProduced": false,
+  "formalTestExecutionClaimed": false,
+  "note": "Artifacts are from this actual failed formal original-project test invocation. Product/reference assemblies and restore graphs do not qualify a missing test assembly or runtime tests."
+}

@@ -1,0 +1,51 @@
+{
+  "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "formalRestoreExitCode": 0,
+  "formalTestCommandExitCode": 1,
+  "failureStage": "test assembly compilation; runtime test cases not started",
+  "trxProduced": false,
+  "errors": [
+    "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(23,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+    "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(24,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+    "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(25,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+    "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]"
+  ],
+  "ownerIssue": 3654,
+  "baseFrozenCompositionFileBindings": [
+    {
+      "sha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+      "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+    },
+    {
+      "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+      "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+    },
+    {
+      "sha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+      "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+    },
+    {
+      "sha": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+      "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+      "gitBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+      "fileSha256": "667c54dd931ee283086e54bf64829182a3d5dc73e80ac181fd1ad1f4a4f96160"
+    }
+  ],
+  "baselineErrorFileUnchanged": true,
+  "priorSuppliedOwnerHead": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+  "actualOwnerFileCommit": "5d71bb2eec8c7c3645a799560e2ba28675d5357b",
+  "priorOwnerFileDeltaIncludes": [
+    "four InlineData constant literals",
+    "two startup detail expectation changes",
+    "BusinessHostProbe property formatting"
+  ],
+  "ownerDeltaConsumed": false,
+  "request": "Canonical #3654 owner/coordinator must supply a minimum legitimate current compilation prerequisite, exact consumable commit and source dependencies, and update coordinated review scope. This chain will not independently repair their tests, omit compile items or use a linked harness as formal acceptance.",
+  "issue2177Accepted": false
+}

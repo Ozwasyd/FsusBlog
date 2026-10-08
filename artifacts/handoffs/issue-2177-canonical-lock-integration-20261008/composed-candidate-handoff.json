@@ -1,0 +1,234 @@
+{
+  "issue": 2177,
+  "sourceSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+  "branch": "codex/issue-2177-canonical-lock-integration-20261008",
+  "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+  "canonicalLockCommit": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+  "ancestry": {
+    "bothFrozenAndCanonicalAreAncestors": true,
+    "mergeConflict": false,
+    "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "fetchedMasterSha": "cb6f4e4a174ac65735707c7e44286352803e742b",
+    "newMasterConsumed": false
+  },
+  "compositionDeltaFromFrozen": [
+    "artifacts/change-contract/backend-existing-reader-lock-external-naming.json",
+    "tests/backend/packages.lock.json"
+  ],
+  "nineFrozenComponentBlobsIdentical": true,
+  "packageClosure": {
+    "inventoryFiles": 49,
+    "allBaseFrozenIdentical": true,
+    "allCanonicalComposedIdentical": true,
+    "onlyChangedPackageInput": "tests/backend/packages.lock.json",
+    "manifest": "package-input-closure.json"
+  },
+  "evaluatedProjectSourceClosure": {
+    "projects": 6,
+    "repoInputs": 2013,
+    "manifest": "evaluated-project-source-closure.json",
+    "kind": "real SDK evaluation; actual complete formal test assembly compilation failed",
+    "notSuccessfulCompiledClosure": true
+  },
+  "checks": {
+    "sdk-version": {
+      "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "canonicalLockSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "--version"
+      ],
+      "startedAt": "2026-10-08T10:18:22.601726+00:00",
+      "exitCode": 0,
+      "logSha256": "2ce58527da281756131055b7331465f5ce5b423056ed2668637ee2a683c82c86",
+      "originalProject": true,
+      "usesNoRestore": false,
+      "lockedModeWaived": false,
+      "wholeIssueAccepted": false,
+      "qualificationEligible": false
+    },
+    "formal-locked-restore": {
+      "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "canonicalLockSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "restore",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "--locked-mode",
+        "-p:NuGetAudit=true",
+        "-m:1",
+        "-nodeReuse:false"
+      ],
+      "startedAt": "2026-10-08T10:18:22.710352+00:00",
+      "exitCode": 0,
+      "logSha256": "f39f2dce3d8f8103ac07350c5b054379fc26fac0da0cee00de5df84497a4d1b8",
+      "originalProject": true,
+      "usesNoRestore": false,
+      "lockedModeWaived": false,
+      "wholeIssueAccepted": false,
+      "qualificationEligible": false
+    },
+    "formal-policy-tests": {
+      "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "frozenComponentSha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+      "canonicalLockSha": "ea4e47dd2979cdab87e5287c33888fbbf7e6d768",
+      "command": [
+        "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+        "test",
+        "tests/backend/FsusBlog.Server.Tests.csproj",
+        "-p:RestoreLockedMode=true",
+        "-p:NuGetAudit=true",
+        "-m:1",
+        "-nodeReuse:false",
+        "-p:UseSharedCompilation=false",
+        "--filter",
+        "FullyQualifiedName~ArticleCommentPolicyServiceTests|FullyQualifiedName~AnonymousCommentPolicyTests|FullyQualifiedName~AnonymousCommentScopePolicyTests|FullyQualifiedName~CommentModerationInitialStateTests|FullyQualifiedName~CommentModerationDispositionPolicyTests|FullyQualifiedName~CommentCommandBoundaryTests|FullyQualifiedName~CommentPurePolicyContractTests|FullyQualifiedName~CommentServiceValidationTests.ResolveReplyRecipientId_DependsOnlyOnTargetAndExcludesPublicSelfReply",
+        "--logger",
+        "trx;LogFileName=formal-policy-tests.trx",
+        "--results-directory",
+        "/workspace/FsusBlog-2177-canonical-lock-integration/.tmp/issue-2177-canonical-lock-integration-20261008"
+      ],
+      "startedAt": "2026-10-08T10:18:24.724569+00:00",
+      "exitCode": 1,
+      "logSha256": "1b4be012d0421937b0c0f416fdee5fc5a19172c959662ea3439dc01fb2aa14e5",
+      "originalProject": true,
+      "usesNoRestore": false,
+      "lockedModeWaived": false,
+      "wholeIssueAccepted": false,
+      "qualificationEligible": false
+    },
+    "range-contract": {
+      "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..97f372a803d9435175b3864d3c577bb0bdc48a89"
+      ],
+      "startedAt": "2026-10-08T10:24:20.681113+00:00",
+      "exitCode": 0,
+      "logSha256": "505451cefb41a9f4449fea79a195595672450e9334a9869ca21154045177e9aa",
+      "qualificationEligible": false
+    },
+    "source-stage": {
+      "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+      "baseSha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+      "command": [
+        "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "ci-pr-smart",
+        "--stage",
+        "source-integration",
+        "--base-ref",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+      ],
+      "startedAt": "2026-10-08T10:24:22.017106+00:00",
+      "exitCode": 0,
+      "logSha256": "039186819cada355c60104e388061399adbeaddbc259b569213f10b3c2aae68e",
+      "qualificationEligible": false
+    }
+  },
+  "publication": {
+    "sourceSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+    "branch": "codex/issue-2177-canonical-lock-integration-20261008",
+    "command": [
+      "git",
+      "-c",
+      "credential.helper=!gh auth git-credential",
+      "push",
+      "-u",
+      "origin",
+      "codex/issue-2177-canonical-lock-integration-20261008"
+    ],
+    "startedAt": "2026-10-08T10:25:58.235392+00:00",
+    "exitCode": 0,
+    "remoteHost": "github.com",
+    "logSha256": "1ae5af4751400f0eb5407353786309f0ba3320b28e01634d9c39fa7bcc737b83",
+    "remoteReadback": {
+      "command": [
+        "git",
+        "-c",
+        "credential.helper=!gh auth git-credential",
+        "ls-remote",
+        "origin",
+        "refs/heads/codex/issue-2177-canonical-lock-integration-20261008"
+      ],
+      "exitCode": 0,
+      "text": "97f372a803d9435175b3864d3c577bb0bdc48a89\trefs/heads/codex/issue-2177-canonical-lock-integration-20261008",
+      "logSha256": "664b07fe829e550a6ba557ddb4e4c7716e20e66b74c20ac44a034b76722091fd"
+    },
+    "published": true,
+    "formalTestsPassed": false,
+    "issue2177Accepted": false
+  },
+  "formalTestCasesStarted": false,
+  "formalTrxProduced": false,
+  "formalTestsPassed": false,
+  "formalCompilationBlocker": {
+    "composedSha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+    "formalRestoreExitCode": 0,
+    "formalTestCommandExitCode": 1,
+    "failureStage": "test assembly compilation; runtime test cases not started",
+    "trxProduced": false,
+    "errors": [
+      "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(23,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+      "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(24,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+      "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(25,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]",
+      "/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs(26,17): error CS0182: An attribute argument must be a constant expression, typeof expression or array creation expression of an attribute parameter type [/workspace/FsusBlog-2177-canonical-lock-integration/tests/backend/FsusBlog.Server.Tests.csproj]"
+    ],
+    "ownerIssue": 3654,
+    "baseFrozenCompositionFileBindings": [
+      {
+        "sha": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+        "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+      },
+      {
+        "sha": "10a5d40511e9a943319288937fa2d6a7aaa2e403",
+        "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+        "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+      },
+      {
+        "sha": "97f372a803d9435175b3864d3c577bb0bdc48a89",
+        "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "gitBlob": "ad410a636f0e96f1b69435cb7db1bef02895b95d",
+        "fileSha256": "4c3889c9023efa47d422c2369e78a568d31a9305586140d0bb0d6d5d7822e029"
+      },
+      {
+        "sha": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+        "file": "tests/backend/Unit/LifecycleHostedBootstrapServiceTests.cs",
+        "gitBlob": "3a5ee99747d89b2aede5295ef5fe94364019da14",
+        "fileSha256": "667c54dd931ee283086e54bf64829182a3d5dc73e80ac181fd1ad1f4a4f96160"
+      }
+    ],
+    "baselineErrorFileUnchanged": true,
+    "priorSuppliedOwnerHead": "f53b6b79f8cf051bd190cad2e49a57ea4a1cc1bd",
+    "actualOwnerFileCommit": "5d71bb2eec8c7c3645a799560e2ba28675d5357b",
+    "priorOwnerFileDeltaIncludes": [
+      "four InlineData constant literals",
+      "two startup detail expectation changes",
+      "BusinessHostProbe property formatting"
+    ],
+    "ownerDeltaConsumed": false,
+    "request": "Canonical #3654 owner/coordinator must supply a minimum legitimate current compilation prerequisite, exact consumable commit and source dependencies, and update coordinated review scope. This chain will not independently repair their tests, omit compile items or use a linked harness as formal acceptance.",
+    "issue2177Accepted": false
+  },
+  "prior55IndependentAnd80HarnessEvidence": "Remain bound only to frozen10a; neither result relabeled onto this composition.",
+  "nugetAuditWarning": "NU1903 for SQLitePCLRaw.lib.e_sqlite3 2.1.11 remains disclosed and unchanged; no audit disablement or native package update.",
+  "allRepositoryCodeIntent": "Coordinator reported same allocation-comment failure on baseline at frozen10a; not rerun/waived/claimed green on new97 composition.",
+  "heldFixtureAuditTestsExecuted": false,
+  "harnessFallbackUsed": false,
+  "lockedModeWaived": false,
+  "noRestoreUsed": false,
+  "newPrCreated": false,
+  "centralQueueHold": "No PR/comment/content API writes without grant. Source and evidence use ordinary isolated Git branches.",
+  "sameReviewerNextInput": "This exact published composition with SOURCE/range pass, restore pass, and formal compilation failure; coordinate canonical3654 prerequisite scope update before rerunning formal tests.",
+  "issue2177Accepted": false,
+  "mergeEligible": false,
+  "wholeAssignmentComplete": false
+}
