@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Fixtures/CanonicalArticleLifecycleFixturePort.cs",
+                "tools/test/data-scale-runtime-owner.mjs",
+                "tools/test/temporal-context-contract.mjs"
+            ],
+            "reason": "Preserve existing registered test environment contract keys while enforcing exact UTC fixture ingress and owned runtime teardown; internal clock and resource bindings retain their existing source owner names."
+        }
+    ]
+}
