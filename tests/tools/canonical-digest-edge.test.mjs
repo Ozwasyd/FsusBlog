@@ -664,3 +664,52 @@ test('source-diff cannot execute candidate CLI or parser with forged matching ve
         assert.deepEqual(fs.readdirSync(path.join(root, '.tmp/frontend-style')), ['source-diff.json']);
     });
 });
+
+test('canonical registry is an independently sealed SOURCE data input with omission and drift refusal', async () =>
+{
+    const { sourceGovernanceChildEntries, sourceGovernanceDataInputs, sourceGovernanceExecutionTarget } =
+        await import(new URL('../../tools/test-matrix/pr-impact-plan.mjs', import.meta.url));
+    const { inspectReleaseFinalCommandTarget, validateSourceGovernanceChildExecution } =
+        await import(new URL('../../tools/test-matrix/release-final-static-boundary.mjs', import.meta.url));
+    assert.equal(sourceGovernanceDataInputs.filter((file) => file === edgeRegistryPath).length, 1);
+    const authority = JSON.parse(fs.readFileSync(path.join(repositoryRoot,
+        'tests/fixtures/test-matrix/release-final-execution-target-authority.json'), 'utf8'));
+    const current = inspectReleaseFinalCommandTarget({ repositoryRoot, target: sourceGovernanceChildEntries.frontend,
+        additionalTargets: sourceGovernanceDataInputs });
+    assert.deepEqual(current.errors, []);
+    assert.deepEqual(validateSourceGovernanceChildExecution(current, authority, sourceGovernanceChildEntries.frontend), []);
+    const inputs = current.dependencyClosure.filter((record) => record.path === edgeRegistryPath);
+    assert.equal(inputs.length, 1);
+    assert.equal(inputs[0].contentDigest, inputs[0].indexDigest);
+    const omittedDeclaration = structuredClone(authority);
+    const owner = omittedDeclaration.targets.find((target) => target.target === sourceGovernanceExecutionTarget);
+    owner.dependencyClosure = owner.dependencyClosure.filter((file) => file !== edgeRegistryPath);
+    assert.ok(validateSourceGovernanceChildExecution(current, omittedDeclaration, sourceGovernanceChildEntries.frontend)
+        .some((error) => error === `source governance execution closure omits child ${edgeRegistryPath}`));
+    const omittedCurrent = { ...current,
+        dependencyClosure: current.dependencyClosure.filter((record) => record.path !== edgeRegistryPath) };
+    assert.ok(validateSourceGovernanceChildExecution(omittedCurrent, authority, sourceGovernanceChildEntries.frontend)
+        .some((error) => error === `source governance child current data input omitted: ${edgeRegistryPath}`));
+    const duplicatedCurrent = { ...current, dependencyClosure: [...current.dependencyClosure, inputs[0]] };
+    assert.ok(validateSourceGovernanceChildExecution(duplicatedCurrent, authority, sourceGovernanceChildEntries.frontend)
+        .some((error) => error === `source governance child current data input omitted: ${edgeRegistryPath}`));
+    const duplicatedAuthority = structuredClone(authority);
+    duplicatedAuthority.closureFiles.push(structuredClone(
+        duplicatedAuthority.closureFiles.find((record) => record.path === edgeRegistryPath)));
+    assert.ok(validateSourceGovernanceChildExecution(current, duplicatedAuthority, sourceGovernanceChildEntries.frontend)
+        .some((error) => error === `source governance child current source/index closure drifted: ${edgeRegistryPath}`));
+    for (const mutation of ['missing', 'content', 'index'])
+    {
+        const stale = structuredClone(authority);
+        if (mutation === 'missing')
+        {
+            stale.closureFiles = stale.closureFiles.filter((record) => record.path !== edgeRegistryPath);
+        }
+        else
+        {
+            stale.closureFiles.find((record) => record.path === edgeRegistryPath)[`${mutation}Digest`] = `sha256:${'0'.repeat(64)}`;
+        }
+        assert.ok(validateSourceGovernanceChildExecution(current, stale, sourceGovernanceChildEntries.frontend)
+            .some((error) => error === `source governance child current source/index closure drifted: ${edgeRegistryPath}`));
+    }
+});

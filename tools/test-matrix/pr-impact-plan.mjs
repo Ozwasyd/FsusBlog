@@ -437,6 +437,7 @@ export function sourceShellSyntaxArguments(file)
 export const sourceGovernanceDataInputs = Object.freeze([
     'config/development/frontend-style-policy.json',
     'config/development/frontend-style-rule-registry.json',
+    'config/development/canonical-digest-edge.json',
     'tools/frontend/style-toolchain/package.json',
     'tools/frontend/style-toolchain/package-lock.json',
     '.editorconfig', 'eslint.config.mjs', 'stylelint.config.mjs',

@@ -190,6 +190,10 @@ the edge refusal by disabling the rule's own diagnostic.
 The fixture command declares its own caller, canonical owner, configuration and
 parser inputs; a containing lane's broad source identity is not a substitute for
 the command's actual input ownership.
+The SOURCE child additionally declares the canonical registry as an exact data
+input in the existing source-governance roster. The original execution-authority
+producer seals its current content and Git index identity; omitted, duplicated or
+stale registry witnesses cannot authorize a child execution.
 
 The `source-diff` diagnostic runs both the Git base and candidate through the
 executing authority's unchanged ESLint configuration. Its base scratch root

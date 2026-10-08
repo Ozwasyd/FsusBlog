@@ -34,6 +34,11 @@
             "indexDigest": "sha256:7dbcae5d4b2f9270cf2ed27f1b402f46210dd9001f333cd79d13dd8470258f78"
         },
         {
+            "path": "config/development/canonical-digest-edge.json",
+            "contentDigest": "sha256:05fdca2a2ff1aba7a186ec614aeed8522593526bdcf62820ea2345b5b74c3a75",
+            "indexDigest": "sha256:05fdca2a2ff1aba7a186ec614aeed8522593526bdcf62820ea2345b5b74c3a75"
+        },
+        {
             "path": "config/development/frontend-style-policy.json",
             "contentDigest": "sha256:a2c649d9263bcde63e81d6bcc7b98b920a702aa8c4f0d62246352d90df5ff9a1",
             "indexDigest": "sha256:a2c649d9263bcde63e81d6bcc7b98b920a702aa8c4f0d62246352d90df5ff9a1"
@@ -4385,8 +4390,8 @@
         },
         {
             "path": "tools/test-matrix/pr-impact-plan.mjs",
-            "contentDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe",
-            "indexDigest": "sha256:afd191aa442139c15a3bd7f42f58d9a4115515b2a367986c8c10f60e47b720fe"
+            "contentDigest": "sha256:b64853b4bac5596ee96df0483a563cdce7e90619999404662e5f8006d9836fd5",
+            "indexDigest": "sha256:b64853b4bac5596ee96df0483a563cdce7e90619999404662e5f8006d9836fd5"
         },
         {
             "path": "tools/test-matrix/priority-score.mjs",
@@ -6943,6 +6948,7 @@
                 ".editorconfig",
                 ".markdownlint-cli2.jsonc",
                 "config/development/authoritative-development-docs.json",
+                "config/development/canonical-digest-edge.json",
                 "config/development/frontend-style-policy.json",
                 "config/development/frontend-style-rule-registry.json",
                 "config/development/native-tooling-style-baseline.json",

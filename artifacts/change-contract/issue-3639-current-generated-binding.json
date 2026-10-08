@@ -8,7 +8,8 @@
         "tools/frontend/style-toolchain/closed-canonical-edge.mjs",
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "tools/governance/change-contract-registry.mjs",
-        "tools/frontend/check-frontend-style-source-base.test.mjs"
+        "tools/frontend/check-frontend-style-source-base.test.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs"
     ],
     "outputs": [
         {
@@ -25,7 +26,7 @@
         },
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "2f2a77205cbcbc808f3066a518c56affafd340e0f313b475cf5d53632991479a"
+            "sha256": "d6dc6d04a85f0c470a91050b48298880b5eb82f3d2d6c8f54eb7453bc5135baf"
         }
     ]
 }
