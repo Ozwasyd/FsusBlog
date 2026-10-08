@@ -21,6 +21,54 @@ internal sealed record DataScalePostgresArticleProduction(
 /// </summary>
 internal static class DataScalePostgresArticleProducer
 {
+    /// <summary>
+    /// Same-task test/evidence handoff of an actual resolved ProduceAsync result. The original
+    /// callbacks/store persist allocation evidence before rows and authenticate the exact
+    /// committed checkpoint before consumption. This adds no admission record or qualification.
+    /// Missing upstream resolved values must remain missing; this port generates none.
+    /// </summary>
+    internal static async Task<TResult> ProduceAndConsumeResolvedAsync<TResult>(
+        DbConnection connection, ArticleScalePlan plan, IReadOnlyList<ArticleScaleArticleGraph> factoryBatch,
+        ArticleScaleResolvedGraphBatch resolvedBatch,
+        IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
+        IReadOnlyDictionary<string, long> externalIdentities,
+        string runId, string runtimeIdentity, string sourceCommit, string factoryBatchReference,
+        ReadOnlyMemory<byte> taskKey, DataScaleBatchCheckpointStore store,
+        Func<DataScalePostgresArticleProduction, ArticleScalePlan, ArticleScaleResolvedGraphBatch,
+            DbConnection, DataScaleBatchCheckpointIdentity, ReadOnlyMemory<byte>, string, CancellationToken, Task<TResult>> consume,
+        CancellationToken cancellationToken, DataScaleArticleTaxonomySchema? taxonomySchema = null)
+    {
+        ArgumentNullException.ThrowIfNull(resolvedBatch);
+        ArgumentNullException.ThrowIfNull(consume);
+        ArgumentNullException.ThrowIfNull(store);
+        byte[] key = taskKey.ToArray();
+        string? allocationEvidence = null;
+        async Task Persist(IReadOnlyList<DataScaleNativeIdentityObservation> observations,
+            IReadOnlyDictionary<string, ArticleScaleGraphIdentityBindings> bindings, CancellationToken token)
+        {
+            allocationEvidence = await store.PersistNativeAllocationEvidenceAsync(observations, bindings, token).ConfigureAwait(false);
+            await store.VerifyNativeAllocationEvidenceAsync(allocationEvidence, observations, bindings, token).ConfigureAwait(false);
+        }
+        DataScalePostgresArticleProduction production = await ProduceAsync(connection, plan, factoryBatch, schema,
+            externalIdentities, runId, runtimeIdentity, sourceCommit, factoryBatchReference, key,
+            Persist, store.PersistAsync, cancellationToken, resolvedBatch, taxonomySchema).ConfigureAwait(false);
+        if (production.Execution.Transport.State != DataScaleBulkCommitState.Committed
+            || production.Execution.Checkpoint?.Stage != DataScaleBatchCheckpointStage.Committed)
+        {
+            throw new InvalidOperationException("resolved_producer_handoff_requires_committed_checkpoint");
+        }
+        // Observe from the executed original authority and live connection, never from the
+        // checkpoint being verified. No new run/runtime/epoch/seed fields are constructed.
+        DataScaleBatchCheckpointIdentity current = production.Authority.Identity(connection, DataScaleBulkProvider.PostgreSql);
+        DataScaleBatchCheckpoint persisted = await store.ReadAsync(production.Execution.Checkpoint.Signature, current,
+            key, cancellationToken).ConfigureAwait(false);
+        persisted.Validate(current, key, DataScaleBatchCheckpointStage.Committed);
+        await store.VerifyNativeAllocationEvidenceAsync(allocationEvidence!, production.NativeAllocation,
+            production.NativeBindings, cancellationToken).ConfigureAwait(false);
+        return await consume(production, plan, resolvedBatch, connection, current, key, allocationEvidence!,
+            cancellationToken).ConfigureAwait(false);
+    }
+
     internal static async Task<DataScalePostgresArticleProduction> ProduceAsync(
         DbConnection connection, ArticleScalePlan plan, IReadOnlyList<ArticleScaleArticleGraph> factoryBatch,
         IReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding> schema,
@@ -34,6 +82,13 @@ internal static class DataScalePostgresArticleProducer
     {
         ArgumentNullException.ThrowIfNull(persistNativeAllocation);
         ArgumentNullException.ThrowIfNull(persistCheckpoint);
+        // Refuse unusable authentication before consuming native sequences; copy the
+        // original caller key so mutation during awaited persistence cannot change it.
+        if (taskKey.Length is < 32 or > 4096)
+        {
+            throw new InvalidOperationException("checkpoint_task_key_invalid");
+        }
+        taskKey = taskKey.ToArray();
         factoryBatch = Array.AsReadOnly(factoryBatch.ToArray());
         schema = new System.Collections.ObjectModel.ReadOnlyDictionary<ArticleScaleRowKind, DataScaleEntityTransportBinding>(
             schema.ToDictionary(pair => pair.Key, pair => pair.Value with
@@ -54,6 +109,11 @@ internal static class DataScalePostgresArticleProducer
         }
         if (resolvedBatch is not null)
         {
+            if (resolvedBatch.Coverage.PlanDigest != ArticleScalePlanDigest.Compute(plan)
+                || !factoryBatch.Select(graph => graph.ArticleOrdinal).Order().SequenceEqual(resolvedBatch.ArticleOrdinals))
+            {
+                throw new InvalidOperationException("native_article_resolved_roster_mismatch");
+            }
             foreach (ArticleScaleArticleGraph graph in factoryBatch)
             {
                 ArticleScaleArticleGraph expected = CanonicalArticleGraphFactory.BuildArticleGraph(plan, graph.ArticleOrdinal,

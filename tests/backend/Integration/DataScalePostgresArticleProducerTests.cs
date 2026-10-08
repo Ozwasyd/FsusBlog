@@ -1,4 +1,5 @@
 using System.Data.Common;
+using System.Diagnostics;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text.Json;
@@ -19,6 +20,215 @@ namespace FsusBlog.Server.Tests.Integration;
 public sealed class DataScalePostgresArticleProducerTests(PostgresSchemaMigrationFixture fixture)
 {
     private static readonly byte[] s_key = SHA256.HashData("isolated-native-producer-component-key"u8);
+
+    // Diagnostic fixtures exercise this adapter, not the ordinary #2555 positive.
+    // Their content/time/shape references and the existing fixture key are not an
+    // authenticated assignment/content/media/temporal owner bundle or admission.
+    [Theory]
+    [InlineData(ArticleScaleVariant.Published)]
+    [InlineData(ArticleScaleVariant.Scheduled)]
+    [InlineData(ArticleScaleVariant.PublishedWithScheduledUpdate)]
+    [InlineData(ArticleScaleVariant.Archived)]
+    [InlineData(ArticleScaleVariant.Deleted)]
+    public async Task DiagnosticResolvedHandoff_PersistsActualMapsAndPassesOriginalLiveObjects(ArticleScaleVariant variant)
+    {
+        var (plan, example, _) = DataScaleArticlePhysicalProjectionTests.Graph(variant);
+        ArticleScaleResolvedGraphBatch resolved = DiagnosticResolved(plan, [example.ArticleOrdinal]);
+        ArticleScaleArticleGraph graph = CanonicalArticleGraphFactory.BuildArticleGraph(plan, example.ArticleOrdinal,
+            variant, ArticleScaleVariantContractCatalog.Get(variant), null, resolved);
+        var schema = DataScaleArticlePhysicalProjectionTests.Schema();
+        await using NpgsqlConnection db = await OpenAsync(schema);
+        string root = Path.Combine(Path.GetTempPath(), "fsus-resolved-handoff-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new DataScaleBatchCheckpointStore(root);
+            bool consumed = await DataScalePostgresArticleProducer.ProduceAndConsumeResolvedAsync(db, plan, [graph], resolved,
+                schema, DataScaleArticlePhysicalProjectionTests.Principals(plan), CurrentRun(), db.DataSource + "/" + db.Database,
+                CurrentSource(), DataScaleArticleBatchAuthority.ComputeGraphDigest([graph]), s_key, store,
+                async (production, originalPlan, originalResolved, live, current, key, evidence, token) =>
+                {
+                    Assert.Same(plan, originalPlan);
+                    Assert.Same(resolved, originalResolved);
+                    Assert.Same(db, live);
+                    Assert.Equal(production.Authority.Identity(db, DataScaleBulkProvider.PostgreSql), current);
+                    Assert.Equal(DataScaleBulkCommitState.Committed, production.Execution.Transport.State);
+                    Assert.False(production.Execution.CompleteSeedAccepted);
+                    await store.VerifyNativeAllocationEvidenceAsync(evidence, production.NativeAllocation, production.NativeBindings, token);
+                    string address = Path.Combine(root, "native-allocation-" + evidence[7..] + ".json");
+                    using JsonDocument document = JsonDocument.Parse(await File.ReadAllBytesAsync(address, token));
+                    Assert.Equal(new[] { "Observations", "Bindings" }, document.RootElement.EnumerateObject().Select(item => item.Name));
+                    DataScaleBatchCheckpoint persisted = await store.ReadAsync(production.Execution.Checkpoint!.Signature, current, key, token);
+                    persisted.Validate(current, key.Span, DataScaleBatchCheckpointStage.Committed);
+                    DataScaleArticleBatchExecution replay = await DataScaleArticleBatchWriter.WriteAsync(db, DataScaleBulkProvider.PostgreSql,
+                        production.Authority, persisted, key, store.PersistAsync, token);
+                    Assert.True(replay.AlreadyPresent);
+                    Assert.Equal(0, replay.Transport.WriteCommands);
+                    byte[] changed = await File.ReadAllBytesAsync(address, token);
+                    changed[changed.Length / 2] ^= 1;
+                    await File.WriteAllBytesAsync(address, changed, token);
+                    await Assert.ThrowsAsync<InvalidOperationException>(() => store.VerifyNativeAllocationEvidenceAsync(evidence,
+                        production.NativeAllocation, production.NativeBindings, token));
+                    File.Delete(address);
+                    await Assert.ThrowsAsync<FileNotFoundException>(() => store.VerifyNativeAllocationEvidenceAsync(evidence,
+                        production.NativeAllocation, production.NativeBindings, token));
+                    return true;
+                }, CancellationToken.None);
+            Assert.True(consumed);
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: true);
+            }
+        }
+    }
+
+    [Theory]
+    [InlineData("missing-resolved")]
+    [InlineData("roster-mismatch")]
+    [InlineData("bad-key")]
+    public async Task DiagnosticResolvedHandoff_InvalidInputRefusesBeforeNativeReservation(string scenario)
+    {
+        var (plan, example, _) = DataScaleArticlePhysicalProjectionTests.Graph(ArticleScaleVariant.Published);
+        ArticleScaleResolvedGraphBatch resolved = DiagnosticResolved(plan,
+            scenario == "roster-mismatch" ? [example.ArticleOrdinal, example.ArticleOrdinal + 1] : [example.ArticleOrdinal]);
+        ArticleScaleArticleGraph graph = CanonicalArticleGraphFactory.BuildArticleGraph(plan, example.ArticleOrdinal,
+            example.Variant, ArticleScaleVariantContractCatalog.Get(example.Variant), null, resolved);
+        var schema = DataScaleArticlePhysicalProjectionTests.Schema();
+        await using NpgsqlConnection db = await OpenAsync(schema);
+        string root = Path.Combine(Path.GetTempPath(), "fsus-resolved-refusal-" + Guid.NewGuid().ToString("N"));
+        try
+        {
+            var store = new DataScaleBatchCheckpointStore(root);
+            bool called = false;
+            Exception? error = await Record.ExceptionAsync(() => DataScalePostgresArticleProducer.ProduceAndConsumeResolvedAsync(
+                db, plan, [graph], scenario == "missing-resolved" ? null! : resolved, schema,
+                DataScaleArticlePhysicalProjectionTests.Principals(plan), CurrentRun(), db.DataSource + "/" + db.Database,
+                CurrentSource(), DataScaleArticleBatchAuthority.ComputeGraphDigest([graph]),
+                scenario == "bad-key" ? ReadOnlyMemory<byte>.Empty : s_key, store,
+                (_, _, _, _, _, _, _, _) => { called = true; return Task.FromResult(true); }, CancellationToken.None));
+            if (scenario == "missing-resolved")
+            {
+                Assert.IsType<ArgumentNullException>(error);
+            }
+            else
+            {
+                Assert.IsType<InvalidOperationException>(error);
+            }
+            Assert.False(called);
+            await using DbCommand sequence = db.CreateCommand();
+            sequence.CommandText = "SELECT is_called FROM article_id_seq";
+            Assert.Equal(false, await sequence.ExecuteScalarAsync());
+            Assert.Empty(Directory.EnumerateFiles(root));
+        }
+        finally
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+
+    private static ArticleScaleResolvedGraphBatch DiagnosticResolved(ArticleScalePlan plan, IReadOnlyList<int> ordinals)
+    {
+        var inputs = new List<ArticleScaleResolvedInput>();
+        int ordinal = plan.IdAllocation.ArticleOrdinalBase;
+        foreach (ArticleScaleVariantAllocation allocation in plan.StateDistribution)
+        {
+            for (int index = 0; index < allocation.Count; index++)
+            {
+                inputs.Add(new(ordinal, allocation.Variant, "Diagnostic resolved title", "# Diagnostic resolved body " + ordinal,
+                    "Diagnostic summary", null, 1, new[] { 1, 3 }, 1234,
+                    CanonicalArticleGraphFactory.ResolveTemporalMap(ordinal, allocation.Contract), plan.Artifacts,
+                    "diagnostic-only-hotness-reference"));
+                ordinal++;
+            }
+        }
+        var coverage = new ArticleScaleAssignmentCoverage(plan, "diagnostic-only-coverage",
+            inputs.Select(input => new ArticleScaleOrdinalAssignment(input.ArticleOrdinal, input.Variant,
+                ArticleScaleAssignmentCoverage.ComputeInputDigest(input))).ToArray());
+        return new(plan, coverage, inputs.Where(input => ordinals.Contains(input.ArticleOrdinal)).ToArray());
+    }
+
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public async Task DiagnosticResolvedHandoff_RefusesInvalidPersistenceOrPreservesCommittedConsumerFailure(bool failConsumer)
+    {
+        var (plan, example, _) = DataScaleArticlePhysicalProjectionTests.Graph(ArticleScaleVariant.Published);
+        ArticleScaleResolvedGraphBatch resolved = DiagnosticResolved(plan, [example.ArticleOrdinal]);
+        ArticleScaleArticleGraph graph = CanonicalArticleGraphFactory.BuildArticleGraph(plan, example.ArticleOrdinal,
+            example.Variant, ArticleScaleVariantContractCatalog.Get(example.Variant), null, resolved);
+        var schema = DataScaleArticlePhysicalProjectionTests.Schema();
+        await using NpgsqlConnection db = await OpenAsync(schema);
+        string root = Path.Combine(Path.GetTempPath(), "fsus-resolved-terminal-" + Guid.NewGuid().ToString("N"));
+        string target = root + "-target";
+        bool called = false;
+        DataScalePostgresArticleProduction? committed = null;
+        try
+        {
+            var store = new DataScaleBatchCheckpointStore(root);
+            if (!failConsumer)
+            {
+                Directory.Delete(root);
+                Directory.CreateDirectory(target);
+                Directory.CreateSymbolicLink(root, target);
+            }
+            Exception? error = await Record.ExceptionAsync(() => DataScalePostgresArticleProducer.ProduceAndConsumeResolvedAsync<bool>(
+                db, plan, [graph], resolved, schema, DataScaleArticlePhysicalProjectionTests.Principals(plan), CurrentRun(),
+                db.DataSource + "/" + db.Database, CurrentSource(), DataScaleArticleBatchAuthority.ComputeGraphDigest([graph]), s_key, store,
+                (production, _, _, _, _, _, _, _) =>
+                {
+                    called = true;
+                    committed = production;
+                    throw new IOException("diagnostic consumer failure after commit");
+                }, CancellationToken.None));
+            Assert.Equal(failConsumer, called);
+            if (failConsumer)
+            {
+                Assert.IsType<IOException>(error);
+                Assert.Equal(DataScaleBulkCommitState.Committed, committed!.Execution.Transport.State);
+                DataScaleBatchCheckpoint saved = await store.ReadAsync(committed.Execution.Checkpoint!.Signature,
+                    committed.Authority.Identity(db, DataScaleBulkProvider.PostgreSql), s_key, CancellationToken.None);
+                Assert.Equal(DataScaleBatchCheckpointStage.Committed, saved.Stage);
+            }
+            else
+            {
+                Assert.IsType<InvalidOperationException>(error);
+                Assert.Empty(Directory.EnumerateFiles(target));
+            }
+            await using DbCommand rows = db.CreateCommand();
+            rows.CommandText = "SELECT COUNT(*) FROM article";
+            Assert.Equal(failConsumer ? 1L : 0L, await rows.ExecuteScalarAsync());
+            rows.CommandText = "SELECT is_called FROM article_id_seq";
+            Assert.Equal(true, await rows.ExecuteScalarAsync());
+        }
+        finally
+        {
+            if (Directory.Exists(root))
+            {
+                Directory.Delete(root, recursive: failConsumer);
+            }
+            if (Directory.Exists(target))
+            {
+                Directory.Delete(target, recursive: true);
+            }
+        }
+    }
+
+    private static string CurrentRun() => Environment.GetEnvironmentVariable("FSUSBLOG_TEST_RUN_ID") ?? "local";
+
+    private static string CurrentSource()
+    {
+        using var git = new Process { StartInfo = new ProcessStartInfo("git") { RedirectStandardOutput = true, RedirectStandardError = true } };
+        git.StartInfo.ArgumentList.Add("rev-parse");
+        git.StartInfo.ArgumentList.Add("HEAD");
+        git.Start();
+        string source = git.StandardOutput.ReadToEnd().Trim();
+        git.WaitForExit();
+        Assert.Equal(0, git.ExitCode);
+        Assert.Equal(40, source.Length);
+        return source;
+    }
 
     [Theory]
     [InlineData(ArticleScaleVariant.Published, false)]
