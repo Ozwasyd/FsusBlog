@@ -10,6 +10,7 @@
 
 import { createHash } from 'node:crypto';
 
+import { assertAccountCleanupOwnership, composeAccountDeviceRequests } from '../account-device-composition.mjs';
 import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForPostgres, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
@@ -241,7 +242,7 @@ async function invoke(context, action, body, signal)
     if (!response.ok)
     {
         throw new Error(
-            `account profile/preference ${action} failed HTTP ${response.status}: ${payload?.detail ?? text.slice(0, 400)}`
+            `account profile/preference ${action} failed HTTP ${response.status}`
         );
     }
     return payload;
@@ -405,6 +406,7 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         validateBackendTemporalObservation(context.temporalContext, producerResult.temporalObservation);
         validateBackendTemporalObservation(context.temporalContext, producerResult.compositionReceipt.temporalObservation);
         const verifiedIdentityReferences = verifyIdentityReferences(context, producerResult);
+        assertAccountCleanupOwnership(context, producerResult, verifiedIdentityReferences);
         const verification = await invoke(
             context,
             'verify',
@@ -414,7 +416,20 @@ export async function verifyAccountProfilePreferences(context, producerResult, s
         if (verification?.ok !== true
             || verification.contentDigest !== producerResult.compositionReceipt.contentDigest)
         {
-            return { ok: false, producerId, reason: verification?.failure ?? 'live verification failed' };
+            return { ok: false, producerId, reason: 'live verification failed' };
+        }
+        const deviceProjectionRequests = composeAccountDeviceRequests(context, producerResult, verifiedIdentityReferences);
+        if (deviceProjectionRequests.length > 0)
+        {
+            // The source service resolves locale inputs but does not observe a real
+            // browser first request/Public AOT. #2170 must supply that authority.
+            return {
+                ok: false,
+                producerId,
+                reason: 'verified device/Public AOT authority #2170 is unavailable',
+                accountSourcesVerified: true,
+                deviceProjectionRequests
+            };
         }
         return {
             ok: true,
@@ -443,6 +458,8 @@ export async function cleanupAccountProfilePreferences(context, producerResult, 
     {
         throw new Error('account profile/preference cleanup requires the exact composition receipt');
     }
+    const verifiedIdentities = verifyIdentityReferences(context, producerResult);
+    assertAccountCleanupOwnership(context, producerResult, verifiedIdentities);
     await invoke(context, 'cleanup', producerResult.compositionReceipt, signal);
 }
 

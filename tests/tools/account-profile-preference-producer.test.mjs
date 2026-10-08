@@ -5,6 +5,8 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
+import { accountCompositionTestSource } from './support/account-device-composition-fixture.mjs';
+
 const {plan} = await import(new URL('../../tools/test-fixtures/orchestrator.mjs', import.meta.url));
 const {createProducerContext} = await import(new URL('../../tools/test-fixtures/producer-port.mjs', import.meta.url));
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
@@ -42,7 +44,8 @@ function plannedContext({
             namespace: 'profile-preferences',
             handles: {
                 accountProfilePreferenceIdentityRefs: references,
-                accountProfilePreferenceAdapter: adapter
+                accountProfilePreferenceAdapter: adapter,
+                accountDeviceSiteOrigin: 'http://127.0.0.1:37568'
             }
         }
     );
@@ -179,58 +182,7 @@ function compositionAdapter()
         async prepare(request)
         {
             calls.push({ action: 'prepare', request });
-            const entities = request.capabilities.map((capability, index) => ({
-                kind: capability.startsWith('profile.') ? 'profile' : 'preference',
-                id: `user-${index + 100}`,
-                owned: true,
-                capabilityHint: capability,
-                postconditionId: capability.replaceAll('.', '-'),
-                fields: {
-                    revision: 1,
-                    readerMatchesDatabase: true
-                }
-            }));
-            return {
-                strategy: 'transaction-fixture',
-                producerId,
-                namespace: request.namespace,
-                runId: request.runId,
-                owner: request.owner,
-                localeCatalogDigest: digest,
-                providedCapabilities: request.capabilities,
-                entityIdentities: entities.map((entity) => ({
-                    kind: entity.kind,
-                    id: entity.id,
-                    handle: null,
-                    capabilityHint: entity.capabilityHint
-                })),
-                observations: {
-                    source: 'production-command-and-independent-readers',
-                    database: {
-                        namespace: request.namespace,
-                        schemaIdentity: 'public',
-                        entities
-                    },
-                    cache: {
-                        namespace: request.namespace,
-                        entries: entities.map((entity) => ({
-                            domain: 'application-reader',
-                            identity: entity.id,
-                            matchesDatabase: true,
-                            revision: 1
-                        }))
-                    }
-                },
-                deviceProjections: [],
-                cleanupState: [],
-                identityReferences: request.identityReferences,
-                temporalObservation: {
-                    businessEpochUtc: '2024-02-29T23:59:59.000Z',
-                    backendCulture: 'Invariant',
-                    postgresTimezone: 'UTC'
-                },
-                contentDigest: digest
-            };
+            return accountCompositionTestSource(request);
         },
         async verify(receipt)
         {
@@ -296,7 +248,7 @@ test('profile preference preparation rejects missing actual temporal observation
     );
 });
 
-test('producer independently verifies and cleans the exact composition receipt', async () =>
+test('producer verifies account sources but refuses a verified aggregate without actual device/AOT authority', async () =>
 {
     const adapter = compositionAdapter();
     const context = plannedContext({ adapter });
@@ -305,7 +257,10 @@ test('producer independently verifies and cleans the exact composition receipt',
     const verification = await verifyAccountProfilePreferences(context, result);
     await cleanupAccountProfilePreferences(context, result);
 
-    assert.equal(verification.ok, true);
+    assert.equal(verification.ok, false);
+    assert.equal(verification.accountSourcesVerified, true);
+    assert.equal(verification.deviceProjectionRequests.length, 8);
+    assert.match(verification.reason, /authority #2170 is unavailable/u);
     assert.equal(adapter.calls[1].action, 'verify');
     assert.strictEqual(adapter.calls[1].receipt, result.compositionReceipt);
     assert.equal(adapter.calls[2].action, 'cleanup');
@@ -382,7 +337,7 @@ test('live transport sends prepare identity headers only to the prepare endpoint
     try
     {
         const result = await prepareAccountProfilePreferences(context);
-        assert.equal((await verifyAccountProfilePreferences(context, result)).ok, true);
+        assert.equal((await verifyAccountProfilePreferences(context, result)).accountSourcesVerified, true);
         await cleanupAccountProfilePreferences(context, result);
     }
     finally
