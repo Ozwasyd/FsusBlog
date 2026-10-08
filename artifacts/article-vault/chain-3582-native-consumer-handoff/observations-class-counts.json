@@ -1,0 +1,26 @@
+{
+    "ArticleVaultAtomicWriteAssessmentTests": {
+        "Passed": 10
+    },
+    "ArticleVaultEventNormalizationTests": {
+        "Passed": 26
+    },
+    "ArticleVaultSnapshotAssessmentTests": {
+        "Passed": 16
+    },
+    "LinuxVaultDirectoryRecordCodecTests": {
+        "Passed": 7
+    },
+    "LinuxVaultPreparationNativeTests": {
+        "Failed": 4
+    },
+    "LinuxVaultSnapshotReaderBoundaryTests": {
+        "Passed": 1
+    },
+    "LinuxVaultSnapshotReaderNativeTests": {
+        "Failed": 3
+    },
+    "LinuxVaultTemporarySourcePreparerTests": {
+        "Passed": 2
+    }
+}

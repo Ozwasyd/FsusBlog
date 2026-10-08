@@ -1,0 +1,13 @@
+{
+    "candidate": "65b3904551d2a7fbc5e2c08e3e52f62dcda40cec",
+    "recordedAt": "2026-10-08T09:30:36.285250+00:00",
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "tests/backend/Unit/ArticleVaultExecutionTests.cs"
+    ],
+    "setup": "source /workspace/.setup/activate.sh; actual SDK10.0.302 on PATH",
+    "exitCode": 0,
+    "log": "root-owner-style.log"
+}

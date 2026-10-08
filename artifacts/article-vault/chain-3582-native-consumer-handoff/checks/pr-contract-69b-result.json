@@ -1,0 +1,14 @@
+{
+    "checkedRemoteHead": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+    "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "draft": true,
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--github-event",
+        ".tmp/chain-3582-expanded/snapshot-b74-current/pr-event-69b.json"
+    ],
+    "startedAt": "2026-10-08T09:23:48.621290+00:00",
+    "endedAt": "2026-10-08T09:23:49.591123+00:00",
+    "exitCode": 1
+}

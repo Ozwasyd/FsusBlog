@@ -1,0 +1,44 @@
+[
+    {
+        "class": "LinuxVaultPreparationNativeTests",
+        "testName": "FsusBlog.ArticleVault.Observations.Tests.LinuxVaultPreparationNativeTests.RealUpdatePreparationLeavesSourceUntouchedAndRejectsLaterConcurrentEdit",
+        "outcome": "Failed",
+        "message": "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException : linux_vault_filesystem_unsupported"
+    },
+    {
+        "class": "LinuxVaultPreparationNativeTests",
+        "testName": "FsusBlog.ArticleVault.Observations.Tests.LinuxVaultPreparationNativeTests.RealDirectoryCountBoundFailsWithoutCompleteInventoryOrTerminalReceipt",
+        "outcome": "Failed",
+        "message": "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException : linux_vault_filesystem_unsupported"
+    },
+    {
+        "class": "LinuxVaultPreparationNativeTests",
+        "testName": "FsusBlog.ArticleVault.Observations.Tests.LinuxVaultPreparationNativeTests.RealTreeRescanFindsUnknownSourceAndKeepsExactFailuresAndAdmissionBlock",
+        "outcome": "Failed",
+        "message": "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException : linux_vault_filesystem_unsupported"
+    },
+    {
+        "class": "LinuxVaultPreparationNativeTests",
+        "testName": "FsusBlog.ArticleVault.Observations.Tests.LinuxVaultPreparationNativeTests.RealCreatePreparesFlushedExactTemporaryWithoutCreatingFinalSourceOrBase",
+        "outcome": "Failed",
+        "message": "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException : linux_vault_filesystem_unsupported"
+    },
+    {
+        "class": "LinuxVaultSnapshotReaderNativeTests",
+        "testName": "FsusBlog.ArticleVault.Observations.Tests.LinuxVaultSnapshotReaderNativeTests.RealEmptySourceAndPreCancelledRead_CannotYieldPartialSnapshot",
+        "outcome": "Failed",
+        "message": "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException : linux_vault_filesystem_unsupported"
+    },
+    {
+        "class": "LinuxVaultSnapshotReaderNativeTests",
+        "testName": "FsusBlog.ArticleVault.Observations.Tests.LinuxVaultSnapshotReaderNativeTests.RealRootBoundRead_EqualSamplesWithoutCompletionReturnNoBodyOrAdmission",
+        "outcome": "Failed",
+        "message": "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException : linux_vault_filesystem_unsupported"
+    },
+    {
+        "class": "LinuxVaultSnapshotReaderNativeTests",
+        "testName": "FsusBlog.ArticleVault.Observations.Tests.LinuxVaultSnapshotReaderNativeTests.RealRootDisposedAndControlPath_ReturnStructuredDenialWithoutCachedBody",
+        "outcome": "Failed",
+        "message": "FsusBlog.ArticleVault.Linux.LinuxVaultWatcherException : linux_vault_filesystem_unsupported"
+    }
+]

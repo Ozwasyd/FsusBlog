@@ -1,0 +1,12 @@
+{
+    "candidate": "65b3904551d2a7fbc5e2c08e3e52f62dcda40cec",
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/test-suite-convergence.test.mjs"
+    ],
+    "startedAt": "2026-10-08T09:25:34.172244+00:00",
+    "endedAt": "2026-10-08T09:25:34.816622+00:00",
+    "exitCode": 0,
+    "scope": "Original backend source-lock scanner positive and refusal fixtures plus convergence unit tests; not full convergence acceptance."
+}

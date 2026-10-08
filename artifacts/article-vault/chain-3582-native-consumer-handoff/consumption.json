@@ -1,0 +1,102 @@
+{
+    "canonicalSource": "b74df8814da2a8ff6455ec2b5f1d97956183040c",
+    "consumedSource": "69b340d6f9063a60c67c95eeabbea24b9ed62a54",
+    "verifiedPublishedMetadataHead": "65b3904551d2a7fbc5e2c08e3e52f62dcda40cec",
+    "recordedAt": "2026-10-08T09:30:36.285250+00:00",
+    "sourceByteEquality": {
+        "artifacts/change-contract/vault-native-rescan-preparation-external-naming.json": {
+            "canonicalSha256": "00ef089ff5697da532f2625386170ac72644053686c78fb135a782519d39f952",
+            "currentSha256": "00ef089ff5697da532f2625386170ac72644053686c78fb135a782519d39f952",
+            "equal": true
+        },
+        "src/article-vault/observations/LinuxVaultDirectoryRecordCodec.cs": {
+            "canonicalSha256": "14ce9db94509d4ea110114bc77df20b7e8f41ecd7ec834a15b706c1eb69d03a1",
+            "currentSha256": "14ce9db94509d4ea110114bc77df20b7e8f41ecd7ec834a15b706c1eb69d03a1",
+            "equal": true
+        },
+        "src/article-vault/observations/LinuxVaultRescanNative.cs": {
+            "canonicalSha256": "3634c414485fa078f2ae561a19d02641b030173db5b7898b7cc64748a0aba6da",
+            "currentSha256": "3634c414485fa078f2ae561a19d02641b030173db5b7898b7cc64748a0aba6da",
+            "equal": true
+        },
+        "src/article-vault/observations/LinuxVaultRescanReader.cs": {
+            "canonicalSha256": "aa6bb58f81a14434e1381a31d1387a6f3ec1f17207ad1f5779768505f4d6f0c0",
+            "currentSha256": "aa6bb58f81a14434e1381a31d1387a6f3ec1f17207ad1f5779768505f4d6f0c0",
+            "equal": true
+        },
+        "src/article-vault/observations/LinuxVaultSnapshotReader.cs": {
+            "canonicalSha256": "eb439bfe48f49e5a23b193e90568c62b1330696240d004e7f5914a4d48d31e21",
+            "currentSha256": "eb439bfe48f49e5a23b193e90568c62b1330696240d004e7f5914a4d48d31e21",
+            "equal": true
+        },
+        "src/article-vault/observations/LinuxVaultTemporarySourcePreparer.cs": {
+            "canonicalSha256": "7d35f89fd666d2f5ec2d35ebadea9fd2a3024afdfdc3160dd0da4cd3fad847a0",
+            "currentSha256": "7d35f89fd666d2f5ec2d35ebadea9fd2a3024afdfdc3160dd0da4cd3fad847a0",
+            "equal": true
+        },
+        "src/shared/Contracts/ArticleVault/ArticleVaultLocalPreparationDigestCodec.cs": {
+            "canonicalSha256": "533b561ed0c564bfc82ab1ea37445ce5cab980db60cb057a7b0c7f5bc5305397",
+            "currentSha256": "533b561ed0c564bfc82ab1ea37445ce5cab980db60cb057a7b0c7f5bc5305397",
+            "equal": true
+        },
+        "src/shared/Contracts/ArticleVault/ArticleVaultRescanTracker.cs": {
+            "canonicalSha256": "bada609b4647ab6ce1b6f0fc2f79cb19baf0c14bb210b243b7c5d01deb6ac55d",
+            "currentSha256": "bada609b4647ab6ce1b6f0fc2f79cb19baf0c14bb210b243b7c5d01deb6ac55d",
+            "equal": true
+        },
+        "tests/article-vault-observations/ArticleVaultEventNormalizationTests.cs": {
+            "canonicalSha256": "cd374a2d3e09572dffd6c9ed67d48f4b3b32cef8b142b8f6d2850d93c32e8389",
+            "currentSha256": "cd374a2d3e09572dffd6c9ed67d48f4b3b32cef8b142b8f6d2850d93c32e8389",
+            "equal": true
+        },
+        "tests/article-vault-observations/LinuxVaultDirectoryRecordCodecTests.cs": {
+            "canonicalSha256": "fe8ccbe0b8ad02df586a87a5ed5fc425d761d7912c3b9473019c2c66fc8b504a",
+            "currentSha256": "fe8ccbe0b8ad02df586a87a5ed5fc425d761d7912c3b9473019c2c66fc8b504a",
+            "equal": true
+        },
+        "tests/article-vault-observations/LinuxVaultPreparationNativeTests.cs": {
+            "canonicalSha256": "71a0ae35a1704d0798f683065744d5adb77b0246e3ddfedf8caf4410ba63b313",
+            "currentSha256": "71a0ae35a1704d0798f683065744d5adb77b0246e3ddfedf8caf4410ba63b313",
+            "equal": true
+        },
+        "tests/article-vault-observations/LinuxVaultTemporarySourcePreparerTests.cs": {
+            "canonicalSha256": "cd7b58106c9e19b15cd67b2c1c33beae4ed5296fdf715c742a4256b990f9bbd1",
+            "currentSha256": "cd7b58106c9e19b15cd67b2c1c33beae4ed5296fdf715c742a4256b990f9bbd1",
+            "equal": true
+        }
+    },
+    "sourceOnlyDifferenceAfterTest": [
+        "artifacts/change-contract/article-vault-conflict-contract-external-naming.json",
+        "docs/architecture/article-vault-linux-watcher.md"
+    ],
+    "sdk": "10.0.302",
+    "nativePlatform": "Linux x64 Debian13; actual supported filesystem admission denied",
+    "fullNativePass": false,
+    "canExecuteConditionalReplacement": false,
+    "canCommitBase": false,
+    "watchEventCutAndProtectedLeaseVerified": false,
+    "canonicalCommitRangeError": "Original Refs: #2110, #2112 footer rejected by current single canonical Refs footer gate; original canonical source and history preserved.",
+    "connectivityCheckpoint": {
+        "utc": "2026-10-08T09:27:18Z",
+        "cwd": "/workspace/FsusBlog",
+        "commands": [
+            {
+                "command": "date -u +%Y-%m-%dT%H:%M:%SZ",
+                "exitCode": 0,
+                "stdout": "2026-10-08T09:27:18Z"
+            },
+            {
+                "command": "pwd",
+                "exitCode": 0,
+                "stdout": "/workspace/FsusBlog"
+            },
+            {
+                "command": "git status --short",
+                "exitCode": 0,
+                "stdout": ""
+            }
+        ],
+        "sameExecutorAvailable": true,
+        "noTestsRepeatedForConnectivity": true
+    }
+}

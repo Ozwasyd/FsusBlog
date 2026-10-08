@@ -1,0 +1,12 @@
+{
+    "candidate": "3e9c6dbfa8037ddd78cb5ec46dad76396697797c",
+    "endCandidate": "3e9c6dbfa8037ddd78cb5ec46dad76396697797c",
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/check-test-suite-convergence.mjs"
+    ],
+    "startedAt": "2026-10-08T09:22:02.534015+00:00",
+    "endedAt": "2026-10-08T09:22:13.744135+00:00",
+    "exitCode": 1,
+    "scope": "Original governance gate; no authority or threshold edits."
+}

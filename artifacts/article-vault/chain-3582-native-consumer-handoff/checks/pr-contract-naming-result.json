@@ -1,0 +1,14 @@
+{
+    "candidate": "65b3904551d2a7fbc5e2c08e3e52f62dcda40cec",
+    "checkedRemoteHead": "65b3904551d2a7fbc5e2c08e3e52f62dcda40cec",
+    "base": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "draft": true,
+    "command": [
+        ".tmp/chain-3582/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--github-event",
+        ".tmp/chain-3582-expanded/snapshot-b74-current/pr-event-naming.json"
+    ],
+    "checkedAt": "2026-10-08T09:27:03.957715+00:00",
+    "exitCode": 0
+}
