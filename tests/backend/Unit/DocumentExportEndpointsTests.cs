@@ -2,7 +2,11 @@ using System.Collections.Immutable;
 using System.Security.Claims;
 
 using FsusBlog.Core.Algorithms;
+using FsusBlog.Core.Common;
+using FsusBlog.Server.Infrastructure.Results;
+using FsusBlog.Server.Infrastructure.Storage;
 using FsusBlog.Server.Modules.Endpoints.Binary;
+using FsusBlog.Server.Services.DocumentExport;
 using FsusBlog.Server.Services.DocumentExport.Jobs;
 
 using NSubstitute;
@@ -10,7 +14,10 @@ using NSubstitute.ExceptionExtensions;
 
 namespace FsusBlog.Server.Tests.Unit;
 
-/// <summary>Endpoint adapter controls; these substitutes do not qualify real jobs or output storage.</summary>
+/// <summary>
+/// Endpoint controls including the real durable service. Identity/freezing and
+/// frame writers remain controlled adapters, not wire or production qualification.
+/// </summary>
 public sealed class DocumentExportEndpointsTests
 {
     [Fact]
@@ -135,6 +142,251 @@ public sealed class DocumentExportEndpointsTests
 
         Assert.Empty(jobs.ReceivedCalls());
         Assert.Empty(binding.ReceivedCalls());
+    }
+
+    [Theory]
+    [Trait("Platform", "Unix")]
+    [InlineData("self-contained-html")]
+    [InlineData("pdf")]
+    [InlineData("docx")]
+    [InlineData("epub")]
+    public async Task DurableAdmission_IdempotencyAndRestartUseTheOriginalFrozenTask(string format)
+    {
+        using var fixture = new DurableFixture(format);
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        DocumentExportJobSnapshot original = Assert.IsType<DocumentExportJobSnapshot>(fixture.LastSnapshot);
+        Assert.Equal(DocumentExportTaskStatus.Queued, original.Task.Status);
+        Assert.Null(original.Output);
+
+        fixture.Task = DocumentExportContractValidator.Seal(fixture.Task with
+        {
+            TaskId = "response-loss-retry",
+            RequestId = "response-loss-retry-request"
+        });
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        Assert.Equal(original.Task.TaskId, fixture.LastSnapshot!.Task.TaskId);
+        Assert.Single(await fixture.Service().ListAsync(Actor(), default));
+
+        await BinaryEndpoints.HandleDocumentExportStatusAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        Assert.Equal(original.Task, fixture.LastSnapshot!.Task);
+        Assert.Equal(original.Version, fixture.LastSnapshot.Version);
+        Assert.Equal(fixture.Input.ContentDigest, fixture.LastSnapshot!.Task.InputDigest);
+        Assert.Equal(fixture.Input.Coordinate, fixture.LastSnapshot.Task.Coordinate);
+        Assert.NotEmpty(File.ReadAllBytes(fixture.StatePath));
+        Assert.DoesNotContain("private-endpoint-source", System.Text.Encoding.UTF8.GetString(File.ReadAllBytes(fixture.StatePath)));
+    }
+
+    [Fact]
+    [Trait("Platform", "Unix")]
+    public async Task DurableList_ReturnsOnlyTheRequestedPageAndHidesRevokedJobs()
+    {
+        using var fixture = new DurableFixture();
+        for (int index = 0; index < 5; index++)
+        {
+            fixture.Task = DocumentExportContractValidator.Seal(fixture.Task with
+            {
+                TaskId = $"page-task-{index}",
+                RequestId = $"page-request-{index}",
+                IdempotencyKey = $"page-key-{index}"
+            });
+            await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+                fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        }
+        HttpContext context = AuthenticatedContext();
+        context.Request.QueryString = new QueryString("?offset=1&limit=2");
+        await BinaryEndpoints.HandleDocumentExportListAsync(context,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        ImmutableArray<DocumentExportJobSnapshot> expected = await fixture.Service().ListAsync(Actor(), default);
+        Assert.Equal(expected.Skip(1).Take(2).Select(snapshot => snapshot.Task.TaskId),
+            fixture.LastPage.Select(snapshot => snapshot.Task.TaskId));
+        Assert.Equal(2, fixture.LastPage.Length);
+
+        fixture.Authorization.Allowed = false;
+        await BinaryEndpoints.HandleDocumentExportListAsync(context,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        Assert.Empty(fixture.LastPage);
+    }
+
+    [Fact]
+    [Trait("Platform", "Unix")]
+    public async Task DurableAdmission_DeniedPermissionCreatesNoJobStore()
+    {
+        using var fixture = new DurableFixture();
+        fixture.Authorization.Allowed = false;
+        HttpContext resultContext = AuthenticatedContext();
+        IResult result = await BinaryEndpoints.HandleDocumentExportRequestAsync(resultContext,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(resultContext, result);
+        Assert.False(Directory.Exists(fixture.JobRoot));
+        Assert.Null(fixture.LastSnapshot);
+    }
+
+    [Fact]
+    [Trait("Platform", "Unix")]
+    public async Task DurableRevocation_UniformlyDeniesStatusCancelAndDownloadWithoutChangingState()
+    {
+        using var fixture = new DurableFixture();
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        byte[] before = File.ReadAllBytes(fixture.StatePath);
+        fixture.Authorization.Allowed = false;
+        HttpContext statusContext = AuthenticatedContext();
+        IResult status = await BinaryEndpoints.HandleDocumentExportStatusAsync(statusContext,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(statusContext, status);
+        HttpContext cancelContext = AuthenticatedContext();
+        IResult cancel = await BinaryEndpoints.HandleDocumentExportCancelAsync(cancelContext,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(cancelContext, cancel);
+        HttpContext downloadContext = AuthenticatedContext();
+        IResult download = await BinaryEndpoints.HandleDocumentExportDownloadAsync(downloadContext,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(downloadContext, download);
+        Assert.Equal(before, File.ReadAllBytes(fixture.StatePath));
+    }
+
+    [Fact]
+    [Trait("Platform", "Unix")]
+    public async Task DurableCancelAndDelete_ReturnActualPersistedStateAndDenyRetryOrDownload()
+    {
+        using var fixture = new DurableFixture();
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await BinaryEndpoints.HandleDocumentExportCancelAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        Assert.Equal(DocumentExportTaskStatus.Cancelled, fixture.LastSnapshot!.Task.Status);
+        await BinaryEndpoints.HandleDocumentExportDeleteAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        DocumentExportJobSnapshot persisted = await fixture.Service().GetAsync(Actor(), fixture.Task.TaskId, default);
+        Assert.Equal(persisted.Task, fixture.LastSnapshot!.Task);
+        Assert.Equal(persisted.Version, fixture.LastSnapshot.Version);
+        Assert.Null(fixture.LastSnapshot!.Output);
+        HttpContext retryContext = AuthenticatedContext();
+        IResult retry = await BinaryEndpoints.HandleDocumentExportRetryAsync(retryContext,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(retryContext, retry);
+        HttpContext downloadContext = AuthenticatedContext();
+        IResult download = await BinaryEndpoints.HandleDocumentExportDownloadAsync(downloadContext,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(downloadContext, download);
+    }
+
+    [Fact]
+    [Trait("Platform", "Unix")]
+    public async Task DurableExpiry_ReturnsActualExpiredProjectionAndDeniesDownload()
+    {
+        using var fixture = new DurableFixture();
+        await BinaryEndpoints.HandleDocumentExportRequestAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        fixture.Time.Now = fixture.LastSnapshot!.ExpiresAt.AddSeconds(1);
+        await BinaryEndpoints.HandleDocumentExportStatusAsync(AuthenticatedContext(),
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        Assert.Equal(DocumentExportTaskStatus.Expired, fixture.LastSnapshot!.Task.Status);
+        Assert.Equal("expired", fixture.LastSnapshot.Reason);
+        Assert.Null(fixture.LastSnapshot.Output);
+        HttpContext downloadContext = AuthenticatedContext();
+        IResult download = await BinaryEndpoints.HandleDocumentExportDownloadAsync(downloadContext,
+            fixture.Service(), fixture.Binding, new AedsEncoder(), default);
+        await AssertDeniedAsync(downloadContext, download);
+    }
+
+    private sealed class DurableTime : TimeProvider
+    {
+        public DateTimeOffset Now { get; set; } = DateTimeOffset.UtcNow;
+        public override DateTimeOffset GetUtcNow() => Now;
+    }
+
+    private sealed class DurableAuthorization : IDocumentExportJobAuthorization
+    {
+        public bool Allowed { get; set; } = true;
+
+        public ValueTask<bool> IsAllowedAsync(DocumentExportJobActor actor, DocumentExportArticleCoordinate coordinate,
+            DocumentExportJobOperation operation, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            return ValueTask.FromResult(Allowed && actor == Actor());
+        }
+    }
+
+    private sealed class DurableFixture : IDisposable
+    {
+        private readonly string _root = Path.Combine(Path.GetTempPath(), $"fsusblog-endpoint-jobs-{Guid.NewGuid():N}");
+        private readonly Microsoft.AspNetCore.DataProtection.EphemeralDataProtectionProvider _protection = new();
+        private readonly ReleaseStorageLayout _layout;
+        public DurableAuthorization Authorization { get; } = new();
+        public DurableTime Time { get; } = new();
+        public IDocumentExportEndpointBinding Binding { get; } = Substitute.For<IDocumentExportEndpointBinding>();
+        public DocumentExportTask Task
+        {
+            get; set;
+        }
+        public DocumentExportFrozenInput Input
+        {
+            get;
+        }
+        public DocumentExportJobSnapshot? LastSnapshot
+        {
+            get; private set;
+        }
+        public ImmutableArray<DocumentExportJobSnapshot> LastPage { get; private set; } = [];
+        public string JobRoot => Path.Combine(_layout.Paths.PrivateAssetRoot, "document-export");
+        public string StatePath => Path.Combine(JobRoot, "state.bin");
+
+        public DurableFixture(string format = "self-contained-html")
+        {
+            _layout = new ReleaseStorageLayout(Path.Combine(_root, "shared"), Path.Combine(_root, "derived"),
+                Path.Combine(_root, "assets"), Path.Combine(_root, "instances"), "20261008060000-0123456789ab",
+                "blue", "endpoint-tests", Path.Combine(_root, "webroot"));
+            Directory.CreateDirectory(_layout.Paths.PrivateAssetRoot);
+            Directory.CreateDirectory(_layout.Paths.UploadCommitRoot);
+            DocumentExportProviderContract provider = DocumentExportContractCatalog.RequireProvider(format);
+            Input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput("# private-endpoint-source") with
+            {
+                UserId = Actor().UserId,
+                SiteId = Actor().SiteId,
+                RendererId = provider.RendererId,
+                RendererVersion = provider.RendererVersion
+            });
+            Task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(Input) with
+            {
+                FormatId = format,
+                ProviderId = provider.ProviderId,
+                ProviderVersion = provider.ProviderVersion
+            });
+            string taskId = Task.TaskId;
+            Binding.ResolveActorAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(Actor());
+            Binding.FreezeRequestAsync(Arg.Any<HttpContext>(), Actor(), Arg.Any<CancellationToken>())
+                .Returns(_ => (Task, Input));
+            Binding.ReadTaskIdAsync(Arg.Any<HttpContext>(), Arg.Any<CancellationToken>()).Returns(taskId);
+            Binding.WriteSnapshot(Arg.Any<DocumentExportJobSnapshot>(), Arg.Any<IAedsEncoder>()).Returns(call =>
+            {
+                LastSnapshot = call.Arg<DocumentExportJobSnapshot>();
+                // No job response codec exists yet. Record the real projection,
+                // but do not serialize or claim a successful HTTP/job receipt.
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "Controlled job writer unavailable"),
+                    call.Arg<IAedsEncoder>());
+            });
+            Binding.WritePage(Arg.Any<ImmutableArray<DocumentExportJobSnapshot>>(), Arg.Any<int>(), Arg.Any<int>(),
+                Arg.Any<IAedsEncoder>()).Returns(call =>
+            {
+                LastPage = call.Arg<ImmutableArray<DocumentExportJobSnapshot>>();
+                return BinaryResults.FromError(ErrorDetail.Create(ErrorCode.InfraFailure, "Controlled job writer unavailable"),
+                    call.Arg<IAedsEncoder>());
+            });
+        }
+
+        public DocumentExportJobService Service() => new(_layout, _protection, Authorization, Time);
+
+        public void Dispose()
+        {
+            if (Directory.Exists(_root))
+            {
+                Directory.Delete(_root, recursive: true);
+            }
+        }
     }
 
     private static DocumentExportJobActor Actor() => new(42, 7, "admin-session");

@@ -251,7 +251,7 @@ export function useDocumentExport<TSnapshot, TRequest>(port: DocumentExportUiPor
         }
         if (name === 'retry')
         {
-            return [7, 8].includes(view.status);
+            return view.status === 7;
         }
         if (name === 'download')
         {

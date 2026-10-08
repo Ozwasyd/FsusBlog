@@ -44,6 +44,15 @@ async function open(center: ReturnType<typeof createPort>['center']) {
 }
 
 describe('one canonical export receipt view', () => {
+    it('does not offer retry for a blocked job because the canonical service admits only failed retry', async () => {
+        const { center, port } = createPort([view('task', 8)]);
+        await open(center);
+        center.select('task');
+        expect(center.actionAllowed('retry', center.selectedView.value!)).toBe(false);
+        await center.act('retry', 'task');
+        expect(port.retry).not.toHaveBeenCalled();
+    });
+
     it('coalesces uncertainty reconciliation and keeps new delivery pending', async () => {
         const result = { ...view('task', 6), output: { filename: 'export.pdf', bytes: 4, mediaType: 'application/pdf', expiresAt: '2099-01-01', deleted: false } };
         const { center, port } = createPort([result]);
