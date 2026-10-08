@@ -27,3 +27,6 @@ b3dab49538a9b24d0047e387f20595b58c39c0c8
 
 # Schema migration runner formatting for #3092.
 bf5028585074ead295baf02d36f7ce9ccf0525eb
+
+# NuGet native lock serialization correction for #3663.
+6888d5f4ee266fef3aeb4e81214c8010d65cc24d
