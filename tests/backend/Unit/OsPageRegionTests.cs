@@ -84,6 +84,7 @@ public sealed class OsPageRegionTests
         Assert.True(region.Commit());
         Assert.False(region.Decommit());
         Assert.Equal(OsPageRegionState.Faulted, region.Observe().State);
+        Assert.Null(region.Observe().CommittedBytes);
         Assert.Throws<InvalidOperationException>(() => region.Read(0, new byte[1]));
         Assert.False(region.Commit());
         Assert.Equal(0, reservation.Charge!.Releases);
@@ -113,7 +114,8 @@ public sealed class OsPageRegionTests
         var reservation = new TestReservation(descriptor);
         OsPageRegion region = OsPageRegion.TryReserve(native, descriptor, reservation, false).Value!;
         reservation.Charge!.FailNextRelease = true;
-        Assert.Throws<InvalidOperationException>(region.Dispose);
+        OsPageRegionCleanupException error = Assert.Throws<OsPageRegionCleanupException>(region.Dispose);
+        Assert.Same(region, error.Region);
         Assert.Equal(1, native.Releases);
         Assert.Equal(4096, region.Observe().ChargedBytes);
         region.Dispose();
@@ -157,7 +159,7 @@ public sealed class OsPageRegionTests
         Assert.False(region.Decommit());
         native.FailUnlock = true;
         Assert.False(region.Unlock());
-        Assert.Equal(4096, region.Observe().LockedBytes);
+        Assert.Null(region.Observe().LockedBytes);
         native.FailUnlock = false;
         Assert.True(region.Unlock());
         Assert.True(region.Decommit());

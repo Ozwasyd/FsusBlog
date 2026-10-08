@@ -21,7 +21,7 @@ internal sealed class OsPageRegionCleanupException(OsPageRegion region, Exceptio
 }
 
 internal sealed record OsPageRegionObservation(string Backend, OsPageRegionState State,
-    long ReservedBytes, long CommittedBytes, long ChargedBytes, long LockedBytes,
+    long ReservedBytes, long? CommittedBytes, long ChargedBytes, long? LockedBytes,
     bool OsReadOnly, OsPageStrategy RequestedStrategy, bool LargePageHintAccepted,
     bool ExplicitLargeMappingAllocated, long? ObservedPhysicalPageBytes, int? RequestedNumaNode, bool NumaPolicyAccepted, int LastNativeError);
 
@@ -34,8 +34,8 @@ internal sealed class OsPageRegion : IDisposable
     private readonly object _gate = new();
     private readonly IOsPageNativeApi _native;
     private readonly MemoryAllocationDescriptor _descriptor;
-    private readonly nint _address;
-    private readonly nint _payload;
+    private nint _address;
+    private nint _payload;
     private readonly nuint _reservedBytes;
     private readonly nuint _payloadBytes;
     private IMemoryAllocationCharge? _charge;
@@ -45,6 +45,7 @@ internal sealed class OsPageRegion : IDisposable
     private bool _hintAccepted;
     private OsPageStrategy _requestedStrategy;
     private bool _locked;
+    private bool _lockObservationKnown = true;
     private int _lastNativeError;
     private int? _requestedNumaNode;
     private bool _numaPolicyAccepted;
@@ -98,15 +99,15 @@ internal sealed class OsPageRegion : IDisposable
         {
             charges.Add(new(subset, MemoryResourceUnit.Bytes, payloadBytes));
         }
+        var region = new OsPageRegion(native, descriptor, 0, (nuint)capacity, guardBytes);
         nint address = native.Reserve((nuint)capacity, out _);
         if (address == 0)
         {
             return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
         }
-        var region = new OsPageRegion(native, descriptor, address, (nuint)capacity, guardBytes)
-        {
-            _pendingReservation = reservation
-        };
+        region._address = address;
+        region._payload = address + guardBytes;
+        region._pendingReservation = reservation;
         if ((nuint)address % (nuint)native.PageBytes != 0)
         {
             region.Dispose();
@@ -133,12 +134,19 @@ internal sealed class OsPageRegion : IDisposable
         {
             try
             {
-                if (!region.Commit() || !region.Observe(native.Lock(region._payload, region._payloadBytes)))
+                if (!region.Commit())
+                {
+                    region.Dispose();
+                    return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
+                }
+                region._lockObservationKnown = false;
+                if (!region.Observe(native.Lock(region._payload, region._payloadBytes)))
                 {
                     region.Dispose();
                     return MemoryOperationResult<OsPageRegion>.Reject(MemoryFailure.TierUnavailable);
                 }
                 region._locked = true;
+                region._lockObservationKnown = true;
             }
             catch (OsPageRegionCleanupException)
             {
@@ -188,6 +196,7 @@ internal sealed class OsPageRegion : IDisposable
             }
             if (!Observe(_native.Commit(_payload, _payloadBytes)))
             {
+                _state = OsPageRegionState.Faulted;
                 return false;
             }
             _committedBytes = (long)_payloadBytes;
@@ -247,11 +256,13 @@ internal sealed class OsPageRegion : IDisposable
             {
                 return true;
             }
+            _lockObservationKnown = false;
             if (!Observe(_native.Unlock(_payload, _payloadBytes)))
             {
                 return false;
             }
             _locked = false;
+            _lockObservationKnown = true;
             return true;
         }
     }
@@ -298,8 +309,9 @@ internal sealed class OsPageRegion : IDisposable
         {
             bool released = _state == OsPageRegionState.Released;
             return new(_native.Backend, _state, released ? 0 : (long)_reservedBytes,
-                _committedBytes, _charge is null ? 0 : _descriptor.Layout.CapacityBytes,
-                _locked ? (long)_payloadBytes : 0, _state == OsPageRegionState.Sealed,
+                _state == OsPageRegionState.Faulted ? null : _committedBytes,
+                _charge is null ? 0 : _descriptor.Layout.CapacityBytes,
+                _lockObservationKnown ? (_locked ? (long)_payloadBytes : 0) : null, _state == OsPageRegionState.Sealed,
                 _requestedStrategy, _hintAccepted, _native.UsesExplicitLargePages && !released, null,
                 _requestedNumaNode, _numaPolicyAccepted, _lastNativeError);
         }
@@ -320,14 +332,22 @@ internal sealed class OsPageRegion : IDisposable
                 _state = OsPageRegionState.Released;
                 _committedBytes = 0;
                 _locked = false;
+                _lockObservationKnown = true;
                 _hintAccepted = false;
             }
             // A charge-release exception must leave its token retryable even when
             // the native range has already been released. Never free that range twice.
-            _charge?.Dispose();
-            _charge = null;
-            _pendingReservation?.Dispose();
-            _pendingReservation = null;
+            try
+            {
+                _charge?.Dispose();
+                _charge = null;
+                _pendingReservation?.Dispose();
+                _pendingReservation = null;
+            }
+            catch (Exception exception)
+            {
+                throw new OsPageRegionCleanupException(this, exception);
+            }
         }
     }
 
