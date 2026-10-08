@@ -3,8 +3,8 @@
   "runId": "2026-10-08T03:35:23.928106+00:00",
   "trackingIssue": 3551,
   "mode": "tracking-only",
-  "testedCandidate": "b80675d07a577eb5cbaf569af65046ed6de0f597",
-  "master": "53da546cc8ab9fd8603067395d988b7ddb650394",
+  "testedCandidate": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+  "master": "0e9dd5751bdd584204fd149bdb1526b97ff682a6",
   "originalInventoryCommit": "b19b3dc715691b871f0e3cab598ec5da8f27633c",
   "accepted": false,
   "scopeDiscrepancy": "Original body retains its historical b19 baseline. Current master source findings are zero; original inventory and every child gate remain accounted, without rewriting scope.",
@@ -1697,8 +1697,99 @@
     ]
   },
   "earlyIndependentReviewEligible": false,
-  "earlyReviewRefusal": "Four original unit tests and original AST/generated/retention/C# policy gates still fail; unavailable native capabilities are not the only blocker.",
+  "earlyReviewRefusal": "Four bootstrap/projection source controls now pass, but original C# style, migration compile, AST/generated/retention gates still fail; not only environment omissions.",
   "actual17OwnerExecution": {
+    "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+    "counts": {
+      "total": "738",
+      "executed": "738",
+      "passed": "689",
+      "failed": "49",
+      "error": "0",
+      "timeout": "0",
+      "aborted": "0",
+      "inconclusive": "0",
+      "passedButRunAborted": "0",
+      "notRunnable": "0",
+      "notExecuted": "0",
+      "disconnected": "0",
+      "warning": "0",
+      "completed": "0",
+      "inProgress": "0",
+      "pending": "0"
+    },
+    "classCounts": {
+      "DocumentExportSystemdCgroupAuthorityTests": {
+        "Failed": 3,
+        "Passed": 11
+      },
+      "DocumentExportSandboxTests": {
+        "Passed": 14,
+        "Failed": 22
+      },
+      "AuthoringCommandContributionTests": {
+        "Passed": 44
+      },
+      "PrivateAssetDeliveryTests": {
+        "Passed": 28
+      },
+      "SpaAssetManifestServiceTests": {
+        "Passed": 73
+      },
+      "ArticleVaultExecutionTests": {
+        "Passed": 33
+      },
+      "AuthoringExtensionRpcTests": {
+        "Passed": 111
+      },
+      "DocumentExportHtmlProviderTests": {
+        "Passed": 10,
+        "Failed": 21
+      },
+      "DocumentExportContractTests": {
+        "Passed": 70
+      },
+      "PrivateAssetStoreTests": {
+        "Passed": 39
+      },
+      "PublicArtifactRevocationTests": {
+        "Passed": 50
+      },
+      "PublicHotReadDbAdmissionTests": {
+        "Passed": 16
+      },
+      "AuthoringExtensionExecutionResolverTests": {
+        "Passed": 31
+      },
+      "AuthoringExtensionWorkerSandboxTests": {
+        "Failed": 2,
+        "Passed": 29
+      },
+      "AuthoringExtensionServiceBrokerTests": {
+        "Passed": 45,
+        "Failed": 1
+      },
+      "CanonicalArticlePublicationFixturePortTests": {
+        "Passed": 34
+      },
+      "AuthoringExtensionPackagePersistenceTests": {
+        "Passed": 51
+      }
+    },
+    "trxSha256": "2a9363d3f0cfe70c17e12df00936e9cb157b27e1e046f71181ce7740c8442352",
+    "accepted": false,
+    "protectedNativeFailures": 49,
+    "limit": "All current 738 names executed; 49 original physical admission failures remain failed. Whole child/matrix/independent acceptance remains unaccepted."
+  },
+  "exactFailureRouting": "artifacts/governance/issue-3551-exact-failure-routing.json",
+  "classificationCorrection": {
+    "from": "coarse 48 environment / 4 code-or-contract in the 728-case run",
+    "to": "46 missing owned systemd manager; 2 missing native Node host; 1 protected namespace-start/readiness stage; 3 code/fixture contract failures",
+    "effect": "All 52 remain failed; native readiness and all negative controls require admitted rerun. Four recurring bootstrap/projection failures are accounted separately."
+  },
+  "localCiSubstitutionAuthorized": true,
+  "ciPolicy": "Applicable candidate-bound local verification may replace remote CI. Missing remote checks alone does not block. Actual code/unit/style, protected identity/generated/retention admission and independent review requirements remain open.",
+  "previousActual17OwnerExecution": {
     "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
     "counts": {
       "total": "738",
@@ -1781,99 +1872,6 @@
     "protectedNativeFailures": 49,
     "limit": "All 738 current names executed unchanged; 49 physical admission failures remain failed. Full child/matrix/independent acceptance remains unaccepted."
   },
-  "exactFailureRouting": "artifacts/governance/issue-3551-exact-failure-routing.json",
-  "classificationCorrection": {
-    "from": "coarse 48 environment / 4 code-or-contract in the 728-case run",
-    "to": "46 missing owned systemd manager; 2 missing native Node host; 1 protected namespace-start/readiness stage; 3 code/fixture contract failures",
-    "effect": "All 52 remain failed; native readiness and all negative controls require admitted rerun. Four recurring bootstrap/projection failures are accounted separately."
-  },
-  "localCiSubstitutionAuthorized": true,
-  "ciPolicy": "Applicable candidate-bound local verification may replace remote CI. Missing remote checks alone does not block. Actual code/unit/style, protected identity/generated/retention admission and independent review requirements remain open.",
-  "previousActual17OwnerExecution": {
-    "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
-    "counts": {
-      "total": "738",
-      "executed": "738",
-      "passed": "689",
-      "failed": "49",
-      "error": "0",
-      "timeout": "0",
-      "aborted": "0",
-      "inconclusive": "0",
-      "passedButRunAborted": "0",
-      "notRunnable": "0",
-      "notExecuted": "0",
-      "disconnected": "0",
-      "warning": "0",
-      "completed": "0",
-      "inProgress": "0",
-      "pending": "0"
-    },
-    "classCounts": {
-      "ArticleVaultExecutionTests": {
-        "Passed": 33
-      },
-      "DocumentExportContractTests": {
-        "Passed": 70
-      },
-      "SpaAssetManifestServiceTests": {
-        "Passed": 73
-      },
-      "CanonicalArticlePublicationFixturePortTests": {
-        "Passed": 34
-      },
-      "AuthoringExtensionPackagePersistenceTests": {
-        "Passed": 51
-      },
-      "DocumentExportSystemdCgroupAuthorityTests": {
-        "Failed": 3,
-        "Passed": 11
-      },
-      "AuthoringExtensionWorkerSandboxTests": {
-        "Failed": 2,
-        "Passed": 29
-      },
-      "PublicArtifactRevocationTests": {
-        "Passed": 50
-      },
-      "DocumentExportSandboxTests": {
-        "Failed": 22,
-        "Passed": 14
-      },
-      "AuthoringCommandContributionTests": {
-        "Passed": 44
-      },
-      "AuthoringExtensionExecutionResolverTests": {
-        "Passed": 31
-      },
-      "DocumentExportHtmlProviderTests": {
-        "Passed": 10,
-        "Failed": 21
-      },
-      "AuthoringExtensionRpcTests": {
-        "Passed": 111
-      },
-      "PublicHotReadDbAdmissionTests": {
-        "Passed": 16
-      },
-      "PrivateAssetDeliveryTests": {
-        "Passed": 28
-      },
-      "AuthoringExtensionServiceBrokerTests": {
-        "Passed": 45,
-        "Failed": 1
-      },
-      "PrivateAssetStoreTests": {
-        "Passed": 39
-      }
-    },
-    "trxSha256": "8eefcfff9440d52aaf22934b1c1d0854aa502dd97a844e996fcafece68dc26ca",
-    "accepted": false,
-    "failureClasses": {
-      "protectedNativeAdmission": 49
-    },
-    "limit": "All 49 failed native tests remain unaccepted; three fixture/compiled-surface failures are repaired on the exact supplied increments. Original inventory, policy, matrix and full child/independent acceptance remain incomplete."
-  },
   "currentRunId": "2026-10-08T04:58:26.754956+00:00",
   "currentProjectionBootstrapExecution": {
     "testedCommit": "2d05d3b9d9e34f457e3933a2fc64a30d25b90de1",
@@ -1927,12 +1925,31 @@
   },
   "latestSharedCompatibilityVerification": "artifacts/style/suite-convergence-shared-fixture-style-verification.json",
   "currentSevenClassExecution": {
-    "testedCommit": "b80675d07a577eb5cbaf569af65046ed6de0f597",
+    "name": "seven-original-classes",
+    "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
+    "command": [
+      "timeout",
+      "300",
+      "dotnet",
+      "test",
+      "tests/backend/FsusBlog.Server.Tests.csproj",
+      "--no-restore",
+      "--no-build",
+      "--configuration",
+      "Debug",
+      "--filter",
+      "FullyQualifiedName~TaxonomyExactMetadataTests|FullyQualifiedName~SecurityAdminPolicyDefaultsTests|FullyQualifiedName~RealConcurrencyHarnessTests|FullyQualifiedName~CanonicalArticleLifecycleScheduledFailureTests|FullyQualifiedName~AuthoringExtensionRpcBrokerTests|FullyQualifiedName~LifecycleHostedBootstrapServiceTests|FullyQualifiedName~CanonicalArticleProjectionVerifierTests",
+      "--results-directory",
+      "/tmp/fsusblog-3593/support-semantic-3654/seven-original-classes-results",
+      "--logger",
+      "trx"
+    ],
+    "exitCode": 0,
     "counts": {
       "total": "248",
       "executed": "248",
-      "passed": "244",
-      "failed": "4",
+      "passed": "248",
+      "failed": "0",
       "error": "0",
       "timeout": "0",
       "aborted": "0",
@@ -1950,28 +1967,33 @@
       "SecurityAdminPolicyDefaultsTests": {
         "Passed": 43
       },
-      "CanonicalArticleProjectionVerifierTests": {
-        "Passed": 110,
-        "Failed": 2
-      },
       "AuthoringExtensionRpcBrokerTests": {
         "Passed": 51
       },
-      "TaxonomyExactMetadataTests": {
-        "Passed": 14
+      "CanonicalArticleProjectionVerifierTests": {
+        "Passed": 112
       },
       "CanonicalArticleLifecycleScheduledFailureTests": {
         "Passed": 8
       },
+      "LifecycleHostedBootstrapServiceTests": {
+        "Passed": 13
+      },
+      "TaxonomyExactMetadataTests": {
+        "Passed": 14
+      },
       "RealConcurrencyHarnessTests": {
         "Passed": 7
-      },
-      "LifecycleHostedBootstrapServiceTests": {
-        "Passed": 11,
-        "Failed": 2
       }
     },
-    "trxSha256": "b76d6a8acb77f509851039a7f0e2c62313575ef349ce3fb6d0857cc7cdeda598"
+    "trxSha256": "331e410c9b1b784fde51d9d5260272fb58662d2922f9044209e4db49481d60b6"
   },
-  "currentAssertionContractClarification": "Parent instruction says preserve original assertions/cases. Requested formal contract/source evidence or explicit reconciliation for these four expected-value changes; compatible formatting was completed independently."
+  "currentAssertionContractClarification": {
+    "resolved": true,
+    "basis": "https://github.com/Ozwasyd/FsusBlog/issues/3654#issuecomment-6053286651",
+    "productionUnchanged": true,
+    "exactOriginalCorrection": "44cfc4e0b4f2abb5d503e5f2f6bd441526c58aca"
+  },
+  "previousAssertionContractClarification": "Parent instruction says preserve original assertions/cases. Requested formal contract/source evidence or explicit reconciliation for these four expected-value changes; compatible formatting was completed independently.",
+  "latestSemanticControlVerification": "artifacts/style/suite-convergence-semantic-control-correction.json"
 }
