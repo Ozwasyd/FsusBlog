@@ -10,6 +10,8 @@
         "stylelint.config.mjs",
         "src/frontend/eslint.config.mjs",
         "src/frontend/stylelint.config.mjs",
+        "src/frontend/scripts/run-local-fsusui-typecheck.mjs",
+        "src/frontend/scripts/fsusui-root.mjs",
         "tools/frontend/check-frontend-style.mjs",
         "tools/frontend/style-toolchain/eslint.config.mjs",
         "tools/frontend/style-toolchain/stylelint.config.mjs"
