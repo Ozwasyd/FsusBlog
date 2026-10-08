@@ -246,6 +246,14 @@ every borrower succeeds. A failed borrower faults the composite without closing
 the root, while other actual drains remain observed. Store never closes a borrowed
 root. Faulted GPU/quarantine drain likewise preserves custody and reports DrainFault
 instead of Off or a permitted restart. These adapters do not qualify any platform.
+`MemoryCapabilityGpuAllocationPolicy` retains explicitly declared device/staging
+physical upper bounds, scoped to capability, device identity/epoch, policy and
+accounting revisions, and finite UTC/monotonic validity. Missing bounds reject use;
+request bytes and observed allocation size never invent a conservative upper bound.
+Resolution checks the enforced common byte/slot caps including shared UMA parents.
+The actual GPU module then reserves those bounds before allocation and commits the
+observed physical capacity, rechecking admission if pressure changed after resolution.
+This policy contract supplies no calibrated production values or hardware qualification.
 Read-only selection performs no probing or
 pressure-file I/O. These classes are not registered at startup or wired to public
 readiness/diagnostics routes; existing authorities retain those responsibilities.
