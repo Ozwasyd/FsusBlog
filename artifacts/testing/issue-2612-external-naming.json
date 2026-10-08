@@ -7,9 +7,10 @@
                 "tests/fixtures/test-replacement/issue-2612-generated-binding.json",
                 "tests/test-replacement-receipts/issue-2612.json",
                 "tests/test-replacement-transactions/issue-2612.json",
-                "tests/backend/packages.lock.json"
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "Preserve existing replacement-artifact JSON schemas and the canonical NuGet lock schema while consuming coordinator-supplied lock correction b104b99d84b91af577336efd6430d492c25683c9; case consolidation and supporting locks change no schema keys."
+            "reason": "Preserve canonical replacement-artifact, NuGet lock and lifecycle-registry JSON schema keys while applying verified supporting lock and registry corrections; test case consolidation and duplicate registration removal change no schema keys."
         }
     ]
 }
