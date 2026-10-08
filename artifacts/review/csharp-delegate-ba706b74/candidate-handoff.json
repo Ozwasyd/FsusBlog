@@ -1,0 +1,361 @@
+{
+  "kind": "separate-ordinary-delegate-classifier-source-not-Access-policy-or-GPU-runtime-acceptance",
+  "base": "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131",
+  "candidate": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+  "testedCore": "505ada2728740ffa21f25d452337a8279543f346",
+  "branch": "codex/csharp-delegate-declaration-source-20261008",
+  "evidenceBranch": "codex/csharp-delegate-declaration-review-evidence-20261008",
+  "fullChangedPaths": [
+    {
+      "path": "artifacts/change-contract/csharp-delegate-declaration-external-naming.json",
+      "mode": "100644",
+      "blob": "4346b342d0af7000bec90219c515ae8e269784d8",
+      "sha256": "38f9bffb5eb4bc344ea6876a8f56dfbb04778cf93df11ad03299b3a2b42bdd46"
+    },
+    {
+      "path": "artifacts/change-contract/csharp-delegate-declaration-generated-binding.json",
+      "mode": "100644",
+      "blob": "661575218b6e3c5c3348fe233ce7326b673b1371",
+      "sha256": "89f1f74923f58ae21a3cad613ecceca017d510375831e673740bcca9744d529e"
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "mode": "100644",
+      "blob": "74a5107730750d73d8fa9f9e0ff76c97439296f2",
+      "sha256": "1344be5e2fbf7367802c9a5b0d4a87023b31d8b563d12185b08b4ebdbfbb3d55"
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "mode": "100644",
+      "blob": "4240783468d842f2d8802724ed1265e32e8206bd",
+      "sha256": "1bfda2d8fda1513f6e227ec5536505acbea56d73f31ccf32f086d5b0fa94622c"
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "mode": "100644",
+      "blob": "8127aa4c48cb9f1bd188ecd833994d63aa7ed5f6",
+      "sha256": "0ec0eb973613e854476d768b32aa09f47a803fa0082c521bc9d570d73285c334"
+    },
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "mode": "100644",
+      "blob": "239ea42e6fb8bf6bf2d997a935acae5b4b7e5e2c",
+      "sha256": "7e7721b0fe57c5c6f95bfc04be0c98ad6c151ce5499f78ae44de5a2fa2a139e8"
+    }
+  ],
+  "completeSourceDiffSha256": "6b9cd01f9bdb524b1398872cb8d8298885c03a8c90789b27d00e46134f3fdef1",
+  "testedCoreCandidateInputEquivalence": [
+    {
+      "path": "tools/dotnet/check-csharp-style.mjs",
+      "testedCoreAndCandidateIdenticalBlob": "239ea42e6fb8bf6bf2d997a935acae5b4b7e5e2c"
+    },
+    {
+      "path": "tests/tools/csharp-style.test.mjs",
+      "testedCoreAndCandidateIdenticalBlob": "8127aa4c48cb9f1bd188ecd833994d63aa7ed5f6"
+    },
+    {
+      "path": "docs/development/csharp-style-enforcement.md",
+      "testedCoreAndCandidateIdenticalBlob": "74a5107730750d73d8fa9f9e0ff76c97439296f2"
+    }
+  ],
+  "baseCandidateUnchangedPaths": [
+    "config/development/csharp-style-policy.json",
+    "config/development/csharp-style-baseline.json",
+    "config/testing/release-final-execution-authority-index.json",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "authorityChangedFields": [
+    {
+      "field": "$.closureFiles[612].contentDigest",
+      "old": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+      "new": "sha256:7e7721b0fe57c5c6f95bfc04be0c98ad6c151ce5499f78ae44de5a2fa2a139e8"
+    },
+    {
+      "field": "$.closureFiles[612].indexDigest",
+      "old": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+      "new": "sha256:7e7721b0fe57c5c6f95bfc04be0c98ad6c151ce5499f78ae44de5a2fa2a139e8"
+    }
+  ],
+  "authorityTargets": 102,
+  "authorityClosureFiles": 1128,
+  "authoritySha256": "1bfda2d8fda1513f6e227ec5536505acbea56d73f31ccf32f086d5b0fa94622c",
+  "nativeInputs": [
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuCudaNativeApi.cs",
+      "gpuCandidateBlob": "a35dfda6a6e07484ed81f53953373bcdd19b81b8",
+      "sha256": "fe7cb825192c131de69a53dfbd3cf74a3bce44e54d423df7db79968679cdb065"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuHipNativeApi.cs",
+      "gpuCandidateBlob": "49ec8a1f0e362c375c68f70411d53d3f760a41b1",
+      "sha256": "eb4f0d4249218b090f88da4b5a83a5d95e50cd71f3972ff8d2c27579526551ca"
+    },
+    {
+      "path": "src/backend/Infrastructure/Memory/Platform/GpuMetalNativeApi.cs",
+      "gpuCandidateBlob": "a9a004e88c9ceb6d7119cf07d997cd750e1d43b0",
+      "sha256": "6916590d8be98706d3a38afd6caa3e46d9a1a4eb9ab7d5234db0d2e8108182a8"
+    }
+  ],
+  "nativeDiagnosticEvidenceCommit": "82731645f2ee2c61cb5d022cc333b06b00660f90",
+  "nativeInputGpuCandidate": "ec2187e4cb101257633beb4fda723992d0987b98",
+  "actualCurrentChecks": {
+    "ordinary-15-current": {
+      "kind": "actual-ordinary-source-test-observation-not-qualification",
+      "headBefore": "505ada2728740ffa21f25d452337a8279543f346",
+      "headAfter": "505ada2728740ffa21f25d452337a8279543f346",
+      "argv": [
+        "node",
+        "--test",
+        "--test-name-pattern=^(?:C\\#\\ style\\ governance\\ accepts\\ Roslyn\\ expression\\ braces\\ and\\ multiline\\ verbatim\\ content|C\\#\\ style\\ governance\\ aggregates\\ tabs\\ braces\\ indentation\\ using\\ naming\\ and\\ line\\-ending\\ failures|parameter\\ attributes\\ keep\\ framework\\ enum\\ arguments\\ separate\\ from\\ multiline\\ parameter\\ names|C\\#\\ source\\ lexer\\ preserves\\ the\\ three\\ character\\-class\\ regex\\ match\\ contracts|C\\#\\ source\\ lexer\\ retains\\ real\\ array\\ and\\ generic\\ naming\\ and\\ declaration\\ refusals|contextual\\ record\\ expressions\\ do\\ not\\ exempt\\ lowercase\\ types\\ named\\ with|singular\\ Miss\\ enums\\ and\\ plural\\ flags\\ retain\\ both\\ naming\\ refusal\\ controls|array\\-valued\\ attributes\\ retain\\ genuine\\ contextual\\ record\\ expressions|delegate\\ declarations\\ check\\ the\\ actual\\ name\\ across\\ native\\ and\\ C\\#\\ return\\-type\\ syntax|delegate\\ declarations\\ retain\\ naming\\ refusals\\ for\\ each\\ return\\-type\\ syntax|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ first\\ multiline\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ continuation\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ named\\ attribute\\ argument|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ multiple\\ attributes|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ ordinary\\ parameter)$",
+        "tests/tools/csharp-style.test.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T14:54:45.292606+00:00",
+      "endedAtUtc": "2026-10-08T14:54:59.992160+00:00",
+      "exitCode": 0,
+      "expectedCount": 15,
+      "actualCount": 15,
+      "log": "ordinary-15-current.log",
+      "logSha256": "a637f935a2b21657303576b8ad1a6a61c5bd5a3196e74476285f3fd7803e92f7",
+      "heldControlsExecuted": false
+    },
+    "official-syntax-68": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "505ada2728740ffa21f25d452337a8279543f346",
+      "headAfter": "505ada2728740ffa21f25d452337a8279543f346",
+      "argv": [
+        "dotnet",
+        "build",
+        ".tmp/csharp-delegate/syntax-authority/Syntax.csproj",
+        "--nologo",
+        "-v",
+        "minimal"
+      ],
+      "startedAtUtc": "2026-10-08T14:54:40.720937+00:00",
+      "endedAtUtc": "2026-10-08T14:54:45.237854+00:00",
+      "exitCode": 0,
+      "log": "official-syntax-68.log",
+      "logSha256": "dd2edc7b24e4a7f9b45df3d15c454c2e4118629daad1e6a04ec6a38c15e5883c"
+    },
+    "native-original-45-current": {
+      "kind": "actual-ordinary-native-lexical-probe-not-GPU-runtime-acceptance",
+      "head": "505ada2728740ffa21f25d452337a8279543f346",
+      "inputGpuCandidate": "ec2187e4cb101257633beb4fda723992d0987b98",
+      "argv": [
+        "node",
+        ".tmp/csharp-delegate/base-checker.mjs",
+        "--root",
+        "/tmp/fsusblog-delegate-native-probe-20261008",
+        "--mode",
+        "full"
+      ],
+      "startedAtUtc": "2026-10-08T14:55:46.978968+00:00",
+      "endedAtUtc": "2026-10-08T14:55:47.142625+00:00",
+      "exitCode": 1,
+      "typeNameFindings": 45,
+      "log": "native-original-45-current.log",
+      "logSha256": "e9da71477d0505bac7c9af5d59bf4b42e64b0a9e43d7bbc5252b56dd1533c825",
+      "productionGpuEdits": false,
+      "heldControlsExecuted": false
+    },
+    "native-candidate-zero-current": {
+      "kind": "actual-ordinary-native-lexical-probe-not-GPU-runtime-acceptance",
+      "head": "505ada2728740ffa21f25d452337a8279543f346",
+      "inputGpuCandidate": "ec2187e4cb101257633beb4fda723992d0987b98",
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/tmp/fsusblog-delegate-native-probe-20261008",
+        "--mode",
+        "full"
+      ],
+      "startedAtUtc": "2026-10-08T14:55:47.143933+00:00",
+      "endedAtUtc": "2026-10-08T14:55:47.273424+00:00",
+      "exitCode": 0,
+      "typeNameFindings": 0,
+      "log": "native-candidate-zero-current.log",
+      "logSha256": "58217e7675dae3f3a8a6e9003bc3fe122abf5b9d6cedb3f1d71d4e1c0777e941",
+      "productionGpuEdits": false,
+      "heldControlsExecuted": false
+    },
+    "native-invalid-names-45-current": {
+      "kind": "actual-ordinary-native-lexical-probe-not-GPU-runtime-acceptance",
+      "head": "505ada2728740ffa21f25d452337a8279543f346",
+      "inputGpuCandidate": "ec2187e4cb101257633beb4fda723992d0987b98",
+      "argv": [
+        "node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--root",
+        "/tmp/fsusblog-delegate-native-probe-20261008",
+        "--mode",
+        "full"
+      ],
+      "startedAtUtc": "2026-10-08T14:55:47.275294+00:00",
+      "endedAtUtc": "2026-10-08T14:55:47.412011+00:00",
+      "exitCode": 1,
+      "typeNameFindings": 45,
+      "log": "native-invalid-names-45-current.log",
+      "logSha256": "a4c7e66b8e2a5276a16b7966d5b134edf567bedcd6415e8bfb08992fb4649374",
+      "productionGpuEdits": false,
+      "heldControlsExecuted": false
+    },
+    "access-compatibility-4-current": {
+      "kind": "actual-disposable-ordinary-compatibility-probe-not-policy-review-or-acceptance",
+      "head": "505ada2728740ffa21f25d452337a8279543f346",
+      "accessInputCommit": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+      "delegatePatchCommit": "505ada272",
+      "argv": [
+        "node",
+        "--test",
+        "--test-name-pattern=^(?:singular\\ Access\\ retains\\ the\\ eight\\ ordinary\\ and\\ flags\\ controls|singular\\ Miss\\ enums\\ and\\ plural\\ flags\\ retain\\ both\\ naming\\ refusal\\ controls|delegate\\ declarations\\ check\\ the\\ actual\\ name\\ across\\ native\\ and\\ C\\#\\ return\\-type\\ syntax|delegate\\ declarations\\ retain\\ naming\\ refusals\\ for\\ each\\ return\\-type\\ syntax)$",
+        "/tmp/fsusblog-delegate-access-compatibility-unihfkj2/tests/tools/csharp-style.test.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T14:55:47.560773+00:00",
+      "endedAtUtc": "2026-10-08T14:55:52.900316+00:00",
+      "exitCode": 0,
+      "expectedCount": 4,
+      "actualCount": 4,
+      "combinedCheckerSha256": "3553cb3a396a781c6ec2bf60f3e0ce57541de3955cce51391c48318e7020afb7",
+      "log": "access-compatibility-4-current.log",
+      "logSha256": "d57393dd263058231b6240016143dc48b952ed7b86f65655d413faef4cd8b642",
+      "productionOrReviewHeadEdits": false,
+      "heldControlsExecuted": false
+    },
+    "canonical-authority-producer-current": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "505ada2728740ffa21f25d452337a8279543f346",
+      "headAfter": "505ada2728740ffa21f25d452337a8279543f346",
+      "argv": [
+        "node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T14:55:10.309834+00:00",
+      "endedAtUtc": "2026-10-08T14:58:04.411984+00:00",
+      "exitCode": 0,
+      "log": "canonical-authority-producer-current.log",
+      "logSha256": "ed374e39dd98bfc5343a4cb07ccc5033bc450ebc4931f2675bda49ee73695c12"
+    },
+    "js-style-current": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+      "headAfter": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+      "argv": [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "tests/tools/csharp-style.test.mjs"
+      ],
+      "startedAtUtc": "2026-10-08T14:59:13.609236+00:00",
+      "endedAtUtc": "2026-10-08T14:59:20.974415+00:00",
+      "exitCode": 0,
+      "log": "js-style-current.log",
+      "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+    },
+    "trusted-range-current": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+      "headAfter": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-delegate-source",
+        "--range",
+        "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131..HEAD"
+      ],
+      "startedAtUtc": "2026-10-08T14:59:21.047042+00:00",
+      "endedAtUtc": "2026-10-08T14:59:23.307636+00:00",
+      "exitCode": 0,
+      "log": "trusted-range-current.log",
+      "logSha256": "03469f9658c780f5467cb7422bc587f6832f00c2c88727f4b673b3d307b694b7"
+    },
+    "trusted-prospective-pr-final": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+      "headAfter": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+      "argv": [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-delegate-source",
+        "--github-event",
+        "/tmp/fsusblog-csharp-delegate-source/.tmp/csharp-delegate/prepared-pr-event.json"
+      ],
+      "startedAtUtc": "2026-10-08T15:00:41.959542+00:00",
+      "endedAtUtc": "2026-10-08T15:00:44.551654+00:00",
+      "exitCode": 0,
+      "log": "trusted-prospective-pr-final.log",
+      "logSha256": "1557a56c7ea3f7c83e108a5f4554901baef72e1aa89247e3100a2494158e09cc"
+    },
+    "doc-style": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+      "headAfter": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+      "argv": [
+        "node",
+        "tools/style/check-native-tooling-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "docs/development/csharp-style-enforcement.md"
+      ],
+      "startedAtUtc": "2026-10-08T14:49:22.614614+00:00",
+      "endedAtUtc": "2026-10-08T14:49:23.134988+00:00",
+      "exitCode": 0,
+      "log": "doc-style.log",
+      "logSha256": "60d6a0fd0e363daa8e735fe0a5c5481545d13d1cbbb45cb56488ae88e08c8da2"
+    },
+    "doc-lifecycle": {
+      "kind": "actual-command-observation-not-qualification-receipt",
+      "headBefore": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+      "headAfter": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+      "argv": [
+        "node",
+        "tools/docs/generate-document-lifecycle.mjs",
+        "--check"
+      ],
+      "startedAtUtc": "2026-10-08T14:49:23.279519+00:00",
+      "endedAtUtc": "2026-10-08T14:49:23.522470+00:00",
+      "exitCode": 0,
+      "log": "doc-lifecycle.log",
+      "logSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6"
+    }
+  },
+  "representativeSignatureCount": 23,
+  "validAndLowercasePairedSignatures": 46,
+  "additionalInvalidNames": 4,
+  "officialCompilerDeclarations": 68,
+  "ordinaryNodeCaseCounts": [
+    15,
+    4
+  ],
+  "heldControlsExecuted": false,
+  "completeCurrentModuleOrAggregateRun": false,
+  "policyOrBaselineEdited": false,
+  "gpuProductionSourceEdited": false,
+  "frozenAccessSource": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "separateAccessCurrentIntegration": "6bce29c5b6c3986e877bb92c3ab9ba5b763db5f4",
+  "independentReview": "required, not performed by this source owner",
+  "noGitHubContentApiWrites": true,
+  "notRun": [
+    "complete103 delegate module",
+    "SOURCE/global aggregates",
+    "held Git-replacement/cohort/receipt controls or audits",
+    "GPU142/nativeGPU/runtime/product/qualification or release gates"
+  ],
+  "rawExecutedFailuresRetained": [
+    "before-controls.log:2 failures on original return-token capture",
+    "after-controls.log:intermediate multiline header refusal failure",
+    "attributed-generics-before-repair.log:lowercase generic attributed name missed",
+    "native-original-45-invalid-fixture-placement.json/log:actually ran but selected0files, invalid as acceptance",
+    "history-9797/trusted-prospective-pr.json/log:required Digest/evidence and Known limitations fields missing",
+    "trusted-prospective-pr-current.json/log:required Deferred work field missing"
+  ],
+  "preparedPrTitle": "fix(governance): classify delegate declaration names precisely",
+  "preparedBody": "prepared-pr-body.md",
+  "syntheticEvent": "prepared-pr-event.json number0 prospective only"
+}

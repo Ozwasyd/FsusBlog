@@ -1,0 +1,263 @@
+diff --git a/artifacts/change-contract/csharp-delegate-declaration-external-naming.json b/artifacts/change-contract/csharp-delegate-declaration-external-naming.json
+new file mode 100644
+index 000000000..4346b342d
+--- /dev/null
++++ b/artifacts/change-contract/csharp-delegate-declaration-external-naming.json
+@@ -0,0 +1,26 @@
++{
++    "schema": "fsusblog.external-naming-exceptions.v1",
++    "exceptions": [
++        {
++            "id": "json-wire-key",
++            "paths": [
++                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
++            ],
++            "reason": "Preserve the existing execution authority JSON keys while the unchanged canonical producer binds only the corrected ordinary CSharp declaration classifier. No execution or permission policy changes."
++        },
++        {
++            "id": "css-like-contract",
++            "paths": [
++                "docs/development/csharp-style-enforcement.md"
++            ],
++            "reason": "Retain existing editor and command spellings in the current style documentation while describing delegate identifier extraction after its return type."
++        },
++        {
++            "id": "environment-variable",
++            "paths": [
++                "tools/dotnet/check-csharp-style.mjs"
++            ],
++            "reason": "Preserve the existing environment-variable spellings in the checker. The bounded delegate name extraction adds no path, symbol, baseline or naming exception."
++        }
++    ]
++}
+diff --git a/artifacts/change-contract/csharp-delegate-declaration-generated-binding.json b/artifacts/change-contract/csharp-delegate-declaration-generated-binding.json
+new file mode 100644
+index 000000000..661575218
+--- /dev/null
++++ b/artifacts/change-contract/csharp-delegate-declaration-generated-binding.json
+@@ -0,0 +1,12 @@
++{
++    "schema": "fsusblog.generated-output-binding.v1",
++    "sources": [
++        "tools/dotnet/check-csharp-style.mjs"
++    ],
++    "outputs": [
++        {
++            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
++            "sha256": "1bfda2d8fda1513f6e227ec5536505acbea56d73f31ccf32f086d5b0fa94622c"
++        }
++    ]
++}
+diff --git a/docs/development/csharp-style-enforcement.md b/docs/development/csharp-style-enforcement.md
+index e2ae6e964..74a510773 100644
+--- a/docs/development/csharp-style-enforcement.md
++++ b/docs/development/csharp-style-enforcement.md
+@@ -79,6 +79,8 @@ The gate requires meaningful XML documentation for public declarations in shared
+ 
+ No placeholder SHA is accepted in `.git-blame-ignore-revs`. A formatting commit is ignored only after it exists and has been reviewed as purely mechanical.
+ 
++The read-only declaration checker extracts a delegate's identifier immediately before its outer parameter list, after the return type and optional generic type parameters. Primitive, qualified, nullable, array, tuple, pointer and ref return types are not declaration names. Multiline declarations and escaped identifiers retain the same PascalCase check; genuinely invalid delegate identifiers are rejected without native-path exemptions. Compilation and Roslyn remain the syntax authority.
++
+ The read-only text checker follows the outer method parameter list across lines before extracting parameter identifiers. Parameter attributes, including `MarshalAs(UnmanagedType.LPUTF8Str)` and named attribute arguments, remain metadata; camelCase checks apply to the actual parameter names. This does not execute C# or replace Roslyn, compilation, runtime or release verification.
+ 
+ ## Bounded policy digest rebind
+diff --git a/tests/fixtures/test-matrix/release-final-execution-target-authority.json b/tests/fixtures/test-matrix/release-final-execution-target-authority.json
+index 9027a72af..424078346 100644
+--- a/tests/fixtures/test-matrix/release-final-execution-target-authority.json
++++ b/tests/fixtures/test-matrix/release-final-execution-target-authority.json
+@@ -3080,8 +3080,8 @@
+         },
+         {
+             "path": "tools/dotnet/check-csharp-style.mjs",
+-            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+-            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
++            "contentDigest": "sha256:7e7721b0fe57c5c6f95bfc04be0c98ad6c151ce5499f78ae44de5a2fa2a139e8",
++            "indexDigest": "sha256:7e7721b0fe57c5c6f95bfc04be0c98ad6c151ce5499f78ae44de5a2fa2a139e8"
+         },
+         {
+             "path": "tools/fact-extractors/governance.mjs",
+diff --git a/tests/tools/csharp-style.test.mjs b/tests/tools/csharp-style.test.mjs
+index 6cd1a6de0..8127aa4c4 100644
+--- a/tests/tools/csharp-style.test.mjs
++++ b/tests/tools/csharp-style.test.mjs
+@@ -1462,3 +1462,67 @@ public sealed record AttributedRecord(string Name)
+         assert.equal(result.status, 0, output(result));
+     });
+ });
++
++const delegateDeclarations = [
++    ['primitive', 'internal delegate int Init(uint flags);', 'Init'],
++    ['native integer', 'private delegate nint CopyDevices();', 'CopyDevices'],
++    ['void', 'private delegate void PoolPop(nint pool);', 'PoolPop'],
++    ['unsigned integer', 'private delegate ulong SendInteger(nint value);', 'SendInteger'],
++    ['byte', 'private delegate byte SendBoolean(nint value);', 'SendBoolean'],
++    ['qualified', 'internal delegate System.Int32 ReadValue();', 'ReadValue'],
++    ['alias-qualified generic', 'internal delegate global::System.Collections.Generic.Dictionary<string, int[]> ReadValues();', 'ReadValues'],
++    ['generic variance', 'internal delegate TResult Convert<in T, out TResult>(T value);', 'Convert'],
++    ['attributed generic less-than', 'internal delegate TResult Convert<T, [Flag(1 < 2)] TResult>(T value);', 'Convert'],
++    ['attributed generic greater-than', 'internal delegate TResult Convert<T, [Flag(2 > 1)] TResult>(T value);', 'Convert'],
++    ['nullable array', 'internal delegate int?[] ReadValues();', 'ReadValues'],
++    ['tuple', 'internal delegate (int Left, System.Int32 Right) ReadPair();', 'ReadPair'],
++    ['ref return', 'internal delegate ref int ReadValue();', 'ReadValue'],
++    ['readonly ref return', 'internal delegate ref readonly int ReadValue();', 'ReadValue'],
++    ['readonly ref tuple return', 'internal delegate ref readonly (int Left, int Right) ReadPair();', 'ReadPair'],
++    ['pointer return', 'internal unsafe delegate int* ReadPointer();', 'ReadPointer'],
++    ['function pointer return', 'internal unsafe delegate delegate* unmanaged[Cdecl]<int, void> ReadCallback();', 'ReadCallback'],
++    ['escaped name', 'internal delegate int @ReadValue();', 'ReadValue'],
++    ['inline attribute', '[System.Obsolete] internal delegate int ReadValue();', 'ReadValue'],
++    ['multiline header', 'internal delegate\n    ref readonly\n    int\n    ReadValue\n    ();', 'ReadValue'],
++    ['multiline generic header', 'internal delegate TResult\n    Convert<\n        in T,\n        out TResult>\n    (T value);', 'Convert'],
++    ['native attributed parameter', 'private delegate nint RegisterSelector([System.Runtime.InteropServices.MarshalAs(System.Runtime.InteropServices.UnmanagedType.LPUTF8Str)] string name);', 'RegisterSelector'],
++    ['native multiline parameters', 'private delegate void SendCopy(nint value, nint selector, nint source, ulong sourceOffset,\n    nint destination, ulong destinationOffset, ulong bytes);', 'SendCopy']
++];
++
++test('delegate declarations check the actual name across native and C# return-type syntax', () =>
++{
++    withFixture((fixtureRoot) =>
++    {
++        for (const [description, declaration] of delegateDeclarations)
++        {
++            writeFixture(fixtureRoot, 'src/sample/DelegateType.cs', `namespace Fixture;\n\n${declaration}\n`);
++            const result = runChecker(fixtureRoot, ['--mode', 'full']);
++            assert.equal(result.status, 0, `${description}: ${output(result)}`);
++            assert.match(result.stdout, /ok files=1 violations=0 new=0/u);
++        }
++    });
++});
++
++test('delegate declarations retain naming refusals for each return-type syntax', () =>
++{
++    withFixture((fixtureRoot) =>
++    {
++        for (const [description, declaration, name] of delegateDeclarations)
++        {
++            const invalidName = name[0].toLowerCase() + name.slice(1);
++            const invalid = declaration.replace(name, invalidName);
++            writeFixture(fixtureRoot, 'src/sample/DelegateType.cs', `namespace Fixture;\n\n${invalid}\n`);
++            const result = runChecker(fixtureRoot, ['--mode', 'full']);
++            assert.equal(result.status, 1, `${description}: ${output(result)}`);
++            assert.match(result.stderr, new RegExp(`type-name: type must use PascalCase \\[${invalidName}\\]`, 'u'), description);
++            assert.equal((result.stderr.match(/type-name:/gu) ?? []).length, 1, output(result));
++        }
++        for (const name of ['Read_Value', 'Read__Value', '_ReadValue', '@event'])
++        {
++            writeFixture(fixtureRoot, 'src/sample/DelegateType.cs', `namespace Fixture;\n\ninternal delegate System.Int32 ${name}();\n`);
++            const result = runChecker(fixtureRoot, ['--mode', 'full']);
++            assert.equal(result.status, 1, output(result));
++            assert.match(result.stderr, /type-name: type must use PascalCase/u);
++        }
++    });
++});
+diff --git a/tools/dotnet/check-csharp-style.mjs b/tools/dotnet/check-csharp-style.mjs
+index 7a716357c..239ea42e6 100644
+--- a/tools/dotnet/check-csharp-style.mjs
++++ b/tools/dotnet/check-csharp-style.mjs
+@@ -1139,6 +1139,88 @@ function checkRoslynCompatibilityExceptions(file, lines)
+     return violations;
+ }
+ 
++// A delegate's return type precedes its declaration identifier. Locate the
++// outer parameter list without treating return tuples, generic arguments or
++// function-pointer signatures as that list. Roslyn remains the syntax authority.
++function parseDelegateDeclaration(codeLines, lineIndex)
++{
++    const header = stripLeadingScopeAttributes(codeLines[lineIndex]);
++    const start = header.match(/^(?:(?:public|protected|private|internal|file|new|unsafe)\s+)*delegate(?:\s+|$)/u);
++    if (!start)
++    {
++        return null;
++    }
++    const declaration = [header.slice(start[0].length), ...codeLines.slice(lineIndex + 1)].join('\n');
++    let angles = 0;
++    let genericStart = -1;
++    let completedGenericStart = -1;
++    let brackets = 0;
++    let parentheses = 0;
++    for (let index = 0; index < declaration.length; index += 1)
++    {
++        const character = declaration[index];
++        if (character === '(' && angles === 0 && brackets === 0 && parentheses === 0)
++        {
++            let prefix = declaration.slice(0, index).trimEnd();
++            if (prefix.endsWith('>') && completedGenericStart >= 0)
++            {
++                prefix = prefix.slice(0, completedGenericStart).trimEnd();
++            }
++            const name = prefix.match(/(?:^|\s)(@?[A-Za-z_]\w*)$/u);
++            // "ref readonly (T, T)" starts a return tuple, not a delegate
++            // called readonly. Escaped keyword identifiers remain names.
++            if (name && name[1] !== 'readonly' && prefix.slice(0, name.index).trim())
++            {
++                const nameIndex = prefix.length - name[1].length;
++                return {
++                    name: name[1].replace(/^@/u, ''),
++                    line: lineIndex + 1 + declaration.slice(0, nameIndex).split('\n').length - 1
++                };
++            }
++        }
++        // Attribute arguments can contain comparison operators. Their
++        // brackets/parentheses do not open or close a generic parameter list.
++        if (character === '<' && brackets === 0 && parentheses === 0)
++        {
++            if (angles === 0)
++            {
++                genericStart = index;
++            }
++            angles += 1;
++        }
++        else if (character === '>' && brackets === 0 && parentheses === 0)
++        {
++            angles = Math.max(0, angles - 1);
++            if (angles === 0)
++            {
++                completedGenericStart = genericStart;
++            }
++        }
++        else if (character === '[')
++        {
++            brackets += 1;
++        }
++        else if (character === ']')
++        {
++            brackets = Math.max(0, brackets - 1);
++        }
++        else if (character === '(')
++        {
++            parentheses += 1;
++        }
++        else if (character === ')')
++        {
++            parentheses = Math.max(0, parentheses - 1);
++        }
++        else if ((character === ';' || character === '{' || character === '}')
++            && angles === 0 && brackets === 0 && parentheses === 0)
++        {
++            return null;
++        }
++    }
++    return null;
++}
++
+ function parseMethodDeclaration(trimmed, codeLines = [], lineIndex = codeLines.length)
+ {
+     if (!/^(?:public|protected|private|internal)\s+/u.test(trimmed))
+@@ -1286,12 +1368,18 @@ function checkFile(file, xmlScopePatterns, xmlMemberScopePatterns, segmentedMeth
+         {
+             violations.push(makeViolation(file, lineNumber, 'interface-name', interfaceMatch[1], 'interface must use I + PascalCase'));
+         }
+-        const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum|delegate)\s+([A-Za-z_]\w*)/u);
++        const typeMatch = trimmed.match(/^(?:(?:public|protected|private|internal|file|new|static|abstract|sealed|partial|readonly|ref|unsafe)\s+)*(?:class|struct|record(?:\s+(?:class|struct))?|enum)\s+([A-Za-z_]\w*)/u);
+         if (typeMatch && !recordExpressionLines[index] && !isPascalCase(typeMatch[1]))
+         {
+             violations.push(makeViolation(file, lineNumber, 'type-name', typeMatch[1], 'type must use PascalCase'));
+         }
+ 
++        const delegate = parseDelegateDeclaration(codeLines, index);
++        if (delegate && !isPascalCase(delegate.name))
++        {
++            violations.push(makeViolation(file, delegate.line, 'type-name', delegate.name, 'type must use PascalCase'));
++        }
++
+         const fieldMatch = trimmed.match(/^(?<access>public|protected|private|internal)\s+(?<modifiers>(?:(?:static|readonly|volatile|const|unsafe|required|new)\s+)*)(?<type>[A-Za-z_][\w<>,.?[\]]*)\s+(?<name>[A-Za-z_]\w*)\s*(?<terminator>=>|=|;|\{)/u);
+         if (fieldMatch?.groups)
+         {

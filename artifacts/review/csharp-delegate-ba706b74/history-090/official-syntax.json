@@ -1,0 +1,29 @@
+{
+  "kind": "actual-official-syntax-build-observed-result-not-GPU-runtime-acceptance",
+  "observedAtUtc": "2026-10-08T14:38:49.341565+00:00",
+  "head": "090480cc52067a13535469827ca5b3817d76eff6",
+  "argv": [
+    "dotnet",
+    "build",
+    ".tmp/csharp-delegate/syntax-authority/Syntax.csproj",
+    "--nologo",
+    "-v",
+    "minimal"
+  ],
+  "exitCode": 0,
+  "sdkVersion": "10.0.302",
+  "nativeDeclarations": 45,
+  "representativeDeclarations": 21,
+  "warnings": 0,
+  "errors": 0,
+  "startedAtUtc": null,
+  "log": "official-syntax.log",
+  "logSha256": "d6908af918f6a538a0168a78353908740b914a3404bcacf832b9a62afca52385",
+  "inputDigests": {
+    "packages.lock.json": "03eeadc5ef377c17f787ab65f41fb4c8a9c936bb7f7f4171111fdeec8a81cb46",
+    "Syntax.csproj": "3a9664388184d0e904fb19358fb226b2468942e31dd08e2317f87d589e31a8b1",
+    "Syntax.cs": "ca35423ce1af1a0e2d2d04c3a3956e12b23bac46f1bf29737ef4ba9447fda81f"
+  },
+  "compilerOnly": true,
+  "heldControlsExecuted": false
+}

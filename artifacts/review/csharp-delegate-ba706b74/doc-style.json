@@ -1,0 +1,18 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+  "headAfter": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+  "argv": [
+    "node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--mode",
+    "changed",
+    "--file",
+    "docs/development/csharp-style-enforcement.md"
+  ],
+  "startedAtUtc": "2026-10-08T14:49:22.614614+00:00",
+  "endedAtUtc": "2026-10-08T14:49:23.134988+00:00",
+  "exitCode": 0,
+  "log": "doc-style.log",
+  "logSha256": "60d6a0fd0e363daa8e735fe0a5c5481545d13d1cbbb45cb56488ae88e08c8da2"
+}

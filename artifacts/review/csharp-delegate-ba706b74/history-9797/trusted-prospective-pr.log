@@ -1,0 +1,3 @@
+[change-contract] generated change requires Digest/evidence
+[change-contract] PR body requires Known limitations
+[change-contract] Generated Digest/evidence must be one repository-relative .json path

@@ -1,0 +1,18 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "505ada2728740ffa21f25d452337a8279543f346",
+  "headAfter": "505ada2728740ffa21f25d452337a8279543f346",
+  "argv": [
+    "dotnet",
+    "build",
+    ".tmp/csharp-delegate/syntax-authority/Syntax.csproj",
+    "--nologo",
+    "-v",
+    "minimal"
+  ],
+  "startedAtUtc": "2026-10-08T14:54:40.720937+00:00",
+  "endedAtUtc": "2026-10-08T14:54:45.237854+00:00",
+  "exitCode": 0,
+  "log": "official-syntax-68.log",
+  "logSha256": "dd2edc7b24e4a7f9b45df3d15c454c2e4118629daad1e6a04ec6a38c15e5883c"
+}

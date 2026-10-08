@@ -1,0 +1,3 @@
+patching file tools/dotnet/check-csharp-style.mjs
+Hunk #1 succeeded at 1144 (offset 5 lines).
+Hunk #2 succeeded at 1373 (offset 5 lines).

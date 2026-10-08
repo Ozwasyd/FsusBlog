@@ -1,0 +1,11 @@
+{
+  "kind": "read-only-publication-integrity-not-new-test-or-qualification",
+  "candidate": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+  "sixPathBlobsVerified": true,
+  "threeTestedInputsEquivalent": true,
+  "policyBaselineProducerIndexUnchanged": true,
+  "onlyTwoCheckerAuthorityFieldsChanged": true,
+  "originalCopiedCheckerExactlyMatchesC1GitBlob": true,
+  "nativeInputExactPublicCommit": "ec2187e4cb101257633beb4fda723992d0987b98",
+  "testSuitesRunForPublication": false
+}

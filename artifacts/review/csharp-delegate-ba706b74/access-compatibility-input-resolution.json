@@ -1,0 +1,7 @@
+{
+  "kind": "read-only-exact-input-resolution-for-original-abbreviated-Git-argument",
+  "originalArgument": "505ada272",
+  "resolvedCommit": "505ada2728740ffa21f25d452337a8279543f346",
+  "matchesActuallyObservedHead": true,
+  "rawObservationUnmodified": true
+}

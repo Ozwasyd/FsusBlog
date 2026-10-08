@@ -1,0 +1,19 @@
+{
+  "kind": "actual-ordinary-source-test-observation-not-qualification",
+  "headBefore": "090480cc52067a13535469827ca5b3817d76eff6",
+  "headAfter": "090480cc52067a13535469827ca5b3817d76eff6",
+  "argv": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:C\\#\\ style\\ governance\\ accepts\\ Roslyn\\ expression\\ braces\\ and\\ multiline\\ verbatim\\ content|C\\#\\ style\\ governance\\ aggregates\\ tabs\\ braces\\ indentation\\ using\\ naming\\ and\\ line\\-ending\\ failures|parameter\\ attributes\\ keep\\ framework\\ enum\\ arguments\\ separate\\ from\\ multiline\\ parameter\\ names|C\\#\\ source\\ lexer\\ preserves\\ the\\ three\\ character\\-class\\ regex\\ match\\ contracts|C\\#\\ source\\ lexer\\ retains\\ real\\ array\\ and\\ generic\\ naming\\ and\\ declaration\\ refusals|contextual\\ record\\ expressions\\ do\\ not\\ exempt\\ lowercase\\ types\\ named\\ with|singular\\ Miss\\ enums\\ and\\ plural\\ flags\\ retain\\ both\\ naming\\ refusal\\ controls|array\\-valued\\ attributes\\ retain\\ genuine\\ contextual\\ record\\ expressions|delegate\\ declarations\\ check\\ the\\ actual\\ name\\ across\\ native\\ and\\ C\\#\\ return\\-type\\ syntax|delegate\\ declarations\\ retain\\ naming\\ refusals\\ for\\ each\\ return\\-type\\ syntax|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ first\\ multiline\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ continuation\\ parameter|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ named\\ attribute\\ argument|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ multiple\\ attributes|parameter\\ attributes\\ still\\ reject\\ an\\ uppercase\\ ordinary\\ parameter)$",
+    "tests/tools/csharp-style.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-08T14:36:07.472482+00:00",
+  "endedAtUtc": "2026-10-08T14:36:24.492222+00:00",
+  "exitCode": 0,
+  "expectedCount": 15,
+  "actualCount": 15,
+  "log": "ordinary-15.log",
+  "logSha256": "ed695df6bd78dc81536c757e3315efa3c96fd960d16bce9f3cd4fbf6a2b11573",
+  "heldControlsExecuted": false
+}

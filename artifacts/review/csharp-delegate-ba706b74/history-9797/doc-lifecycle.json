@@ -1,0 +1,15 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+  "headAfter": "9797ac1ff82fa4cd9cce76cde760922371e824ea",
+  "argv": [
+    "node",
+    "tools/docs/generate-document-lifecycle.mjs",
+    "--check"
+  ],
+  "startedAtUtc": "2026-10-08T14:49:23.279519+00:00",
+  "endedAtUtc": "2026-10-08T14:49:23.522470+00:00",
+  "exitCode": 0,
+  "log": "doc-lifecycle.log",
+  "logSha256": "51a9f3c799369132c68eb516a3fe71cfbc1979d8f13d6b28ac7b6968c53344d6"
+}

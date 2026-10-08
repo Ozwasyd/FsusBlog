@@ -1,0 +1,43 @@
+{
+  "expectedInvocations": 3,
+  "checks": [
+    [
+      "js-style-current",
+      [
+        "node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--file",
+        "tests/tools/csharp-style.test.mjs"
+      ]
+    ],
+    [
+      "trusted-range-current",
+      [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-delegate-source",
+        "--range",
+        "c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131..ba706b74c4d027b83c54a138ebf114e55fab992d"
+      ]
+    ],
+    [
+      "trusted-prospective-pr-current",
+      [
+        "node",
+        "/tmp/fsusblog-csharp-current-trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/tmp/fsusblog-csharp-delegate-source",
+        "--github-event",
+        "/tmp/fsusblog-csharp-delegate-source/.tmp/csharp-delegate/prepared-pr-event.json"
+      ]
+    ]
+  ],
+  "nodeTestCases": 0,
+  "reason": "new JS source and corrected prospective metadata changed; prior doc/lifecycle inputs unchanged",
+  "heldControlsExecuted": false
+}

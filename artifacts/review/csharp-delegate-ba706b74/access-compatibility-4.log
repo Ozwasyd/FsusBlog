@@ -1,0 +1,12 @@
+✔ singular Miss enums and plural flags retain both naming refusal controls (632.861348ms)
+✔ singular Access retains the eight ordinary and flags controls (702.652108ms)
+✔ delegate declarations check the actual name across native and C# return-type syntax (1752.976963ms)
+✔ delegate declarations retain naming refusals for each return-type syntax (2145.179029ms)
+ℹ tests 4
+ℹ suites 0
+ℹ pass 4
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 5342.294651

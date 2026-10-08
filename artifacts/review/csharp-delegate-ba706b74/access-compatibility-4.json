@@ -1,0 +1,22 @@
+{
+  "kind": "actual-disposable-ordinary-compatibility-probe-not-policy-review-or-acceptance",
+  "head": "090480cc52067a13535469827ca5b3817d76eff6",
+  "accessInputCommit": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "delegatePatchCommit": "090480cc52067a13535469827ca5b3817d76eff6",
+  "argv": [
+    "node",
+    "--test",
+    "--test-name-pattern=^(?:singular\\ Access\\ retains\\ the\\ eight\\ ordinary\\ and\\ flags\\ controls|singular\\ Miss\\ enums\\ and\\ plural\\ flags\\ retain\\ both\\ naming\\ refusal\\ controls|delegate\\ declarations\\ check\\ the\\ actual\\ name\\ across\\ native\\ and\\ C\\#\\ return\\-type\\ syntax|delegate\\ declarations\\ retain\\ naming\\ refusals\\ for\\ each\\ return\\-type\\ syntax)$",
+    "/tmp/fsusblog-delegate-access-compatibility-gii2f767/tests/tools/csharp-style.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-08T14:41:27.652920+00:00",
+  "endedAtUtc": "2026-10-08T14:41:33.068432+00:00",
+  "exitCode": 0,
+  "expectedCount": 4,
+  "actualCount": 4,
+  "combinedCheckerSha256": "beea9314fa8bdbd7d1d515e380571bb4ebb09a3020b3765c59ec81677007ecbe",
+  "log": "access-compatibility-4.log",
+  "logSha256": "8635246f3bf354a5209a7368704a93b1895c7dd1e15e81792a2b09ea961cb003",
+  "productionOrReviewHeadEdits": false,
+  "heldControlsExecuted": false
+}

@@ -1,0 +1,9 @@
+{
+  "kind": "actual-probe-setup-failure-retained",
+  "initialExitCode": 0,
+  "initialSelectedFiles": 0,
+  "reason": "fixture beneath an existing Git worktree caused full scan to select tracked parent paths; zero files were selected",
+  "corrected": "standalone disposable fixture outside any Git repository",
+  "notAcceptance": true,
+  "heldControlsExecuted": false
+}

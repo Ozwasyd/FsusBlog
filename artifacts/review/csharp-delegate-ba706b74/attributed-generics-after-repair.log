@@ -1,0 +1,10 @@
+✔ delegate declarations check the actual name across native and C# return-type syntax (1668.086692ms)
+✔ delegate declarations retain naming refusals for each return-type syntax (1963.449399ms)
+ℹ tests 2
+ℹ suites 0
+ℹ pass 2
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 3739.488125

@@ -1,0 +1,9 @@
+  Determining projects to restore...
+  Restored /tmp/fsusblog-csharp-delegate-source/.tmp/csharp-delegate/syntax-authority/Syntax.csproj (in 105 ms).
+  Syntax -> /tmp/fsusblog-csharp-delegate-source/.tmp/csharp-delegate/syntax-authority/bin/Debug/net10.0/Syntax.dll
+
+Build succeeded.
+    0 Warning(s)
+    0 Error(s)
+
+Time Elapsed 00:00:04.43

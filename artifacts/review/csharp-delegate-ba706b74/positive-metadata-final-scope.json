@@ -1,0 +1,7 @@
+{
+  "expectedInvocations": 1,
+  "command": "trusted original ordinary prospective PR contract checker",
+  "nodeTestCases": 0,
+  "reason": "add required Deferred work field to prepared body; source candidate unchanged",
+  "heldControlsExecuted": false
+}

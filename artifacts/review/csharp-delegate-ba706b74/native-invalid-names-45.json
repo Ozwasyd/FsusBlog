@@ -1,0 +1,21 @@
+{
+  "kind": "actual-ordinary-native-lexical-probe-not-GPU-runtime-acceptance",
+  "head": "090480cc52067a13535469827ca5b3817d76eff6",
+  "inputGpuCandidate": "ec2187e4cb101257633beb4fda723992d0987b98",
+  "argv": [
+    "node",
+    "tools/dotnet/check-csharp-style.mjs",
+    "--root",
+    "/tmp/fsusblog-delegate-native-probe-20261008",
+    "--mode",
+    "full"
+  ],
+  "startedAtUtc": "2026-10-08T14:39:17.742015+00:00",
+  "endedAtUtc": "2026-10-08T14:39:17.848995+00:00",
+  "exitCode": 1,
+  "typeNameFindings": 45,
+  "log": "native-invalid-names-45.log",
+  "logSha256": "a4c7e66b8e2a5276a16b7966d5b134edf567bedcd6415e8bfb08992fb4649374",
+  "productionGpuEdits": false,
+  "heldControlsExecuted": false
+}

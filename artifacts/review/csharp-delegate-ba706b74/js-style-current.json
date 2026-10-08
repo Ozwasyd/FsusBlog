@@ -1,0 +1,20 @@
+{
+  "kind": "actual-command-observation-not-qualification-receipt",
+  "headBefore": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+  "headAfter": "ba706b74c4d027b83c54a138ebf114e55fab992d",
+  "argv": [
+    "node",
+    "tools/frontend/check-frontend-style.mjs",
+    "--mode",
+    "changed",
+    "--file",
+    "tools/dotnet/check-csharp-style.mjs",
+    "--file",
+    "tests/tools/csharp-style.test.mjs"
+  ],
+  "startedAtUtc": "2026-10-08T14:59:13.609236+00:00",
+  "endedAtUtc": "2026-10-08T14:59:20.974415+00:00",
+  "exitCode": 0,
+  "log": "js-style-current.log",
+  "logSha256": "498bfbd91fd2d00d14f962b8649a1975f8d7306b21e185349439962e1f473ad7"
+}

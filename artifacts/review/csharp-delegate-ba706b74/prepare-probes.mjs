@@ -1,0 +1,32 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import { execFileSync } from 'node:child_process';
+const directory='.tmp/csharp-delegate';
+const source=fs.readFileSync('tests/tools/csharp-style.test.mjs','utf8');
+const table=source.slice(source.indexOf('const delegateDeclarations = ['),source.indexOf("test('delegate declarations check"));
+const cases=Function(`${table}; return delegateDeclarations;`)();
+const candidate='ec2187e4cb101257633beb4fda723992d0987b98';
+const sources=['GpuCudaNativeApi','GpuHipNativeApi','GpuMetalNativeApi'];
+const fixture=path.resolve(directory,'gpu-probe');
+fs.mkdirSync(path.join(fixture,'config/development'),{recursive:true});
+fs.copyFileSync('.editorconfig',path.join(fixture,'.editorconfig'));
+for(const file of ['csharp-style-policy.json','csharp-import-compatibility.json']) fs.copyFileSync(`config/development/${file}`,path.join(fixture,'config/development',file));
+let syntax='using System;\nusing System.Runtime.InteropServices;\nusing System.Text;\n\nnamespace DelegateSyntax;\n\n';
+syntax += '[AttributeUsage(AttributeTargets.GenericParameter)]\ninternal sealed class FlagAttribute : Attribute\n{\n    public FlagAttribute(bool value)\n    {\n    }\n}\n\n';
+let count=0;
+for(const name of sources){
+ const file=`src/backend/Infrastructure/Memory/Platform/${name}.cs`;
+ const bytes=execFileSync('git',['show',`${candidate}:${file}`]);
+ fs.mkdirSync(path.dirname(path.join(fixture,file)),{recursive:true});fs.writeFileSync(path.join(fixture,file),bytes);
+ const declarations=[...bytes.toString().matchAll(/\[UnmanagedFunctionPointer\(CallingConvention\.Cdecl\)\]\s*(?:(?:internal|private)\s+delegate[\s\S]*?;)/gu)].map(match=>match[0]);
+ count+=declarations.length;
+ syntax+=`internal class ${name}\n{\n${declarations.map(d=>d.split('\n').map(l=>'    '+l.trim()).join('\n')).join('\n\n')}\n}\n\n`;
+}
+if(count!==45)throw Error(`native declarations ${count}`);
+for (let index=0;index<cases.length;index++)syntax+=`internal class Case${index}\n{\n${cases[index][1].split('\n').map(line=>'    '+line).join('\n')}\n}\n\n`;
+const project=path.join(directory,'syntax-authority');fs.mkdirSync(project,{recursive:true});
+fs.writeFileSync(path.join(project,'Syntax.cs'),syntax);
+fs.writeFileSync(path.join(project,'Syntax.csproj'),'<Project Sdk="Microsoft.NET.Sdk">\n    <PropertyGroup>\n        <TargetFramework>net10.0</TargetFramework>\n        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>\n        <Nullable>enable</Nullable>\n    </PropertyGroup>\n</Project>\n');
+fs.writeFileSync(path.join(directory,'syntax-scope.json'),JSON.stringify({nativeDeclarations:count,representativeCases:cases.length,compilerOnly:true,heldControlsExecuted:false},null,2)+'\n');
+fs.writeFileSync(path.join(directory,'base-checker.mjs'),execFileSync('git',['show','c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131:tools/dotnet/check-csharp-style.mjs']));
+console.log(`prepared ${count} exact native + ${cases.length} representative declarations`);

@@ -1,0 +1,16 @@
+import datetime,hashlib,json,pathlib,re,subprocess,tempfile
+root=pathlib.Path.cwd();out=root/'.tmp/csharp-delegate';fixture=pathlib.Path(tempfile.mkdtemp(prefix='fsusblog-delegate-access-compatibility-'))
+access='e6a273473b275dee0c4c2993ebd54e17a882ba33';delegate='505ada272' ;base='c1c6d0d4f676b434e94eebaeec2bc8ccd27a0131'
+paths=['.editorconfig','config/development/csharp-style-policy.json','config/development/csharp-style-baseline.json','config/development/csharp-import-compatibility.json','tools/dotnet/check-csharp-style.mjs','tests/tools/csharp-style.test.mjs']
+for file in paths:
+ p=fixture/file;p.parent.mkdir(parents=True,exist_ok=True);p.write_bytes(subprocess.check_output(['git','show',access+':'+file]))
+patch=subprocess.check_output(['git','diff',base,delegate,'--','tools/dotnet/check-csharp-style.mjs']);(out/'delegate-only-checker.diff').write_bytes(patch)
+result=subprocess.run(['patch','--batch','-p1'],input=patch,cwd=fixture,stdout=subprocess.PIPE,stderr=subprocess.STDOUT);(out/'access-compatibility-application.log').write_bytes(result.stdout);assert result.returncode==0,result.stdout
+p=fixture/'tests/tools/csharp-style.test.mjs';p.write_text(p.read_text()+'\n'+(root/'tests/tools/csharp-style.test.mjs').read_text().split('const delegateDeclarations = [',1)[1].join(['const delegateDeclarations = [','']))
+names=['singular Access retains the eight ordinary and flags controls','singular Miss enums and plural flags retain both naming refusal controls','delegate declarations check the actual name across native and C# return-type syntax','delegate declarations retain naming refusals for each return-type syntax']
+scope={'expectedCount':4,'allowedNames':names,'accessInputCommit':access,'delegatePatchCommit':delegate,'syntheticDisposableCompatibilityOnly':True,'reviewHeadsUnchanged':True,'heldCasesExcluded':'all rebind/history/receipt/cohort/Git-replacement controls and all unselected tests'}
+(out/'positive-access-compatibility-scope.json').write_text(json.dumps(scope,indent=2)+'\n')
+cmd=['node','--test','--test-name-pattern=^(?:'+'|'.join(re.escape(n) for n in names)+')$',str(fixture/'tests/tools/csharp-style.test.mjs')];start=datetime.datetime.now(datetime.timezone.utc).isoformat()
+r=subprocess.run(cmd,cwd=fixture,stdout=subprocess.PIPE,stderr=subprocess.STDOUT,text=True);log=out/'access-compatibility-4-current.log';log.write_text(r.stdout);count=re.search(r'^ℹ tests (\d+)$',r.stdout,re.M)
+data={'kind':'actual-disposable-ordinary-compatibility-probe-not-policy-review-or-acceptance','head':subprocess.check_output(['git','rev-parse','HEAD'],text=True).strip(),'accessInputCommit':access,'delegatePatchCommit':delegate,'argv':cmd,'startedAtUtc':start,'endedAtUtc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'exitCode':r.returncode,'expectedCount':4,'actualCount':int(count[1]) if count else None,'combinedCheckerSha256':hashlib.sha256((fixture/'tools/dotnet/check-csharp-style.mjs').read_bytes()).hexdigest(),'log':log.name,'logSha256':hashlib.sha256(log.read_bytes()).hexdigest(),'productionOrReviewHeadEdits':False,'heldControlsExecuted':False}
+(out/'access-compatibility-4-current.json').write_text(json.dumps(data,indent=2)+'\n');print(json.dumps(data,indent=2));assert r.returncode==0 and data['actualCount']==4,r.stdout

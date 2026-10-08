@@ -1,0 +1,14 @@
+{
+  "expectedCount": 4,
+  "allowedNames": [
+    "singular Access retains the eight ordinary and flags controls",
+    "singular Miss enums and plural flags retain both naming refusal controls",
+    "delegate declarations check the actual name across native and C# return-type syntax",
+    "delegate declarations retain naming refusals for each return-type syntax"
+  ],
+  "accessInputCommit": "e6a273473b275dee0c4c2993ebd54e17a882ba33",
+  "delegatePatchCommit": "505ada272",
+  "syntheticDisposableCompatibilityOnly": true,
+  "reviewHeadsUnchanged": true,
+  "heldCasesExcluded": "all rebind/history/receipt/cohort/Git-replacement controls and all unselected tests"
+}
