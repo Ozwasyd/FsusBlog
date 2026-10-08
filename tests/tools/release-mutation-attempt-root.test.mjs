@@ -253,3 +253,15 @@ test('current invocation observes failed retained root independently and refuses
     fs.writeFileSync(path.join(receipt.root, 'root-receipt.json'), '{}');
     await assert.rejects(readMutationAttemptObservation(options), /bytes/u);
 });
+
+test('fresh Debug/Release entry cannot select an authority without a sealed invocation', () =>
+{
+    const result = spawnSync(process.execPath, ['tools/test/run-release-mutation-parity-build.mjs',
+        '--produce-source', '--authority', '/nonexistent/authority', '--policy', '/nonexistent/policy',
+        '--run-id', 'run-1951', '--invocation-id', 'invocation-1', '--attempt-id', 'attempt-1',
+        '--build-receipt', '/nonexistent/build', '--build-receipt-digest', `sha256:${'0'.repeat(64)}`],
+    { encoding: 'utf8' });
+    assert.notEqual(result.status, 0);
+    assert.match(result.stderr, /canonical sealed run identity/u);
+    assert.doesNotMatch(result.stderr, /ENOENT/u);
+});

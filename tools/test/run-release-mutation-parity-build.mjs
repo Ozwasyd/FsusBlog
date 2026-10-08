@@ -113,6 +113,7 @@ assertMutationRootLocation({ repositoryRoot: root, outputRoot });
 const invocationId = option('--invocation-id');
 const attemptId = option('--attempt-id');
 let runBinding = null;
+let runIdentity = null;
 let buildReceiptPath = option('--build-receipt');
 let buildReceiptDigest = option('--build-receipt-digest');
 const identityPath = option('--identity');
@@ -128,6 +129,7 @@ if (identityPath)
     } });
     runBinding = binding;
     const identity = JSON.parse(fs.readFileSync(path.resolve(root, identityPath), 'utf8'));
+    runIdentity = identity;
     if (!binding || identity.build.status !== 'complete' || attemptId !== `${invocationId}.attempt-1`)
     {
         throw new Error('mutation attempt is not bound to the canonical current invocation');
@@ -139,24 +141,39 @@ if (!invocationId || !attemptId || !buildReceiptPath || !buildReceiptDigest)
 {
     throw new Error('Release mutation requires --invocation-id --attempt-id --build-receipt --build-receipt-digest');
 }
-const authority = JSON.parse(fs.readFileSync(path.resolve(authorityFile), 'utf8'));
-const policy = JSON.parse(fs.readFileSync(path.resolve(policyFile), 'utf8'));
-if (authority.evidenceClass !== 'source-level' || authority.producer?.runId !== runId)
+const produceSource = process.argv.includes('--produce-source');
+if (produceSource && !runBinding)
+{
+    throw new Error('fresh Debug/Release mutation requires the canonical sealed run identity');
+}
+let authority = produceSource ? null : JSON.parse(fs.readFileSync(path.resolve(authorityFile), 'utf8'));
+const policyBytes = fs.readFileSync(path.resolve(policyFile));
+const policy = JSON.parse(policyBytes);
+if (produceSource && (path.resolve(policyFile) !== path.resolve(root, runIdentity.policy.mutationSubset.path)
+    || sha256(policyBytes) !== runIdentity.policy.mutationSubset.fileDigest))
+{
+    throw new Error('mutation subset policy differs from the sealed invocation policy');
+}
+if (!produceSource && (authority.evidenceClass !== 'source-level' || authority.producer?.runId !== runId))
 {
     throw new Error('Release parity requires a source-level authority');
 }
-const resolvedSubset = resolveReleaseMutationSubset(authority, policy);
-const sourceConfig = path.resolve(root, authority.config?.path ?? '');
+const sourceConfig = path.resolve(root, produceSource ? 'config/testing/mutation/critical.json' : authority.config?.path ?? '');
 if (!sourceConfig.startsWith(`${root}${path.sep}`) || !fs.existsSync(sourceConfig))
 {
     throw new Error('Release parity source authority config is missing or escapes the repository');
 }
+if (fs.realpathSync(sourceConfig) !== sourceConfig)
+{
+    throw new Error('mutation source config filesystem alias is forbidden');
+}
 const rawSourceConfig = fs.readFileSync(sourceConfig);
-if (sha256(rawSourceConfig).replace(/^sha256:/u, '') !== authority.config.sha256.replace(/^sha256:/u, ''))
+if (!produceSource && sha256(rawSourceConfig).replace(/^sha256:/u, '') !== authority.config.sha256.replace(/^sha256:/u, ''))
 {
     throw new Error('Release mutation source config digest mismatch');
 }
-const config = JSON.parse(rawSourceConfig);
+const sourceConfiguration = JSON.parse(rawSourceConfig);
+const config = structuredClone(sourceConfiguration);
 if (config['stryker-config']?.configuration !== 'Debug')
 {
     throw new Error('Release parity source authority must originate from the Debug critical config');
@@ -168,12 +185,19 @@ if ('project' in config['stryker-config'])
 config['stryker-config'].configuration = 'Release';
 config['stryker-config'].concurrency = 1;
 config['stryker-config']['additional-timeout'] = 120000;
-const sourceState = authority.producer.sourceState;
+const sourceState = produceSource
+    ? { commit: runBinding.sourceState.commit, worktreeFingerprint: runBinding.sourceState.worktreeFingerprint.replace(/^sha256:/u, '') }
+    : authority.producer.sourceState;
 if (runBinding && (sourceState.commit !== runBinding.sourceState.commit
-    || sourceState.worktreeFingerprint.replace(/^sha256:/u, '')
-        !== runBinding.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')))
+    || sourceState.worktreeFingerprint.replace(/^sha256:/u, '') !== runBinding.sourceState.worktreeFingerprint.replace(/^sha256:/u, '')))
 {
     throw new Error('mutation source authority does not match the canonical run identity');
+}
+if (produceSource && (process.env.FSUSBLOG_TEST_RUN_ID !== runId
+    || process.env.FSUSBLOG_TEST_SOURCE_COMMIT !== sourceState.commit
+    || process.env.FSUSBLOG_TEST_SOURCE_FINGERPRINT !== sourceState.worktreeFingerprint))
+{
+    throw new Error('mutation source producer transport differs from the sealed run identity');
 }
 const rootReceipt = await createMutationAttemptRoot({
     repositoryRoot: root, outputRoot, runId, invocationId, attemptId, sourceState,
@@ -213,6 +237,41 @@ try
     writeBoundary = prepareMutationWriteBoundary(rootReceipt, expectedRoot, environment);
     const { observeExecutableIdentity } = await import('./execution-envelope-environment.mjs');
     writeBoundary.dotnetExecutable = observeExecutableIdentity('dotnet', { pathValue: environment.PATH }).realPath;
+    if (produceSource)
+    {
+        const debugOutput = path.join(output, 'debug');
+        fs.mkdirSync(debugOutput, { mode: 0o700 });
+        const debugBinding = path.join(debugOutput, 'tool-binding.json');
+        reachedPhase = 'sealed-critical-Debug-Stryker';
+        await run(process.execPath, [path.join(root, 'tools/mutation/stryker-tool.mjs'), 'run',
+            '--working-directory', mutationProjectRoot, '--attestation-output', debugBinding,
+            '--root-receipt', path.join(runRoot, 'root-receipt.json'), '--stage', 'Debug', '--',
+            '--config-file', sourceConfig, '--output', debugOutput, '--log-to-file', '--verbosity', 'trace'],
+        { cwd: root, stdio: 'inherit', env: environment }, 'sealed critical Debug mutation');
+        const debugReportFile = path.join(debugOutput, 'reports', sourceConfiguration['stryker-config']['report-file-name'] + '.json');
+        const ownedAuthorityFile = path.join(debugOutput, 'authority.json');
+        await run(process.execPath, [path.join(root, 'tools/test/check-stryker-report.mjs'), debugReportFile,
+            '--config', sourceConfig, '--tier', 'release-mutation-critical-slice', '--out', ownedAuthorityFile,
+            '--tool-binding', debugBinding, '--trace-log', traceFile(debugOutput), '--source-root', 'src/core'],
+        { cwd: root, encoding: 'utf8', env: environment }, 'canonical Debug source authority');
+        authority = JSON.parse(fs.readFileSync(ownedAuthorityFile, 'utf8'));
+        const { checkMutationInventory } = await import('./check-mutation-inventory.mjs');
+        const inventory = checkMutationInventory({
+            authority, policy: JSON.parse(fs.readFileSync(path.join(root, 'config/testing/mutation/inventory-retention.json'), 'utf8')),
+            repositoryRoot: root, environment,
+            authorityInputs: {
+                toolBinding: JSON.parse(fs.readFileSync(debugBinding)),
+                report: JSON.parse(fs.readFileSync(debugReportFile)), rawReport: fs.readFileSync(debugReportFile),
+                reportPath: authority.rawReport.path, reportAbsolutePath: debugReportFile,
+                rawTrace: fs.readFileSync(traceFile(debugOutput)), tracePath: authority.rawTrace.path,
+                config: sourceConfiguration, rawConfig: rawSourceConfig, configPath: authority.config.path,
+                tierId: authority.tierId, runId, sourceState, generatedAt: authority.producer.generatedAt,
+                repositoryRoot: root, sourceRoot: 'src/core', releaseReliability: runBinding
+            }
+        });
+        writeJson(path.join(debugOutput, 'inventory-retention.json'), inventory);
+    }
+    const resolvedSubset = resolveReleaseMutationSubset(authority, policy);
     const debugCompilerProperties = await readCompilerProperties(sourceProject, 'Debug', environment);
     const releaseCompilerProperties = await readCompilerProperties(sourceProject, 'Release', environment);
     if (path.resolve(releaseCompilerProperties.MSBuildProjectFullPath) !== sourceProject
@@ -394,6 +453,15 @@ try
             cursor = path.dirname(cursor);
         }
         writeJson(expected, receipt);
+        if (produceSource)
+        {
+            const expectedAuthority = path.join(root, '.tmp/mutation/backend-critical/authority.json');
+            if (path.resolve(authorityFile) !== expectedAuthority)
+            {
+                throw new Error('source mutation control authority path is not canonical');
+            }
+            writeJson(expectedAuthority, authority);
+        }
     }
 }
 catch (error)
@@ -402,7 +470,7 @@ catch (error)
     {
         writeMutationRootTerminal(rootReceipt, expectedRoot, {
             phase: reachedPhase, producerSpawned, producerOutcome, firstBlockingReason: error.message,
-                enforcement: writeBoundary?.binding ?? null
+            enforcement: writeBoundary?.binding ?? null
         });
     }
     throw error;

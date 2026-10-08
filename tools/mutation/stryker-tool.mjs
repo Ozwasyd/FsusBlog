@@ -411,6 +411,7 @@ function main(args)
     const attestationFlag = args.shift();
     const attestationOutput = args.shift();
     let mutationAttempt = null;
+    let mutationStage = 'Release';
     if (args[0] === '--root-receipt')
     {
         args.shift();
@@ -429,6 +430,15 @@ function main(args)
             fail('Release mutation custody is not bound to the exact attempt and production source');
         }
     }
+    if (mutationAttempt && args[0] === '--stage')
+    {
+        args.shift();
+        mutationStage = args.shift();
+        if (!['Debug', 'Release'].includes(mutationStage))
+        {
+            fail('mutation stage is not canonical');
+        }
+    }
     const separator = args.shift();
     if (workingDirectoryFlag !== '--working-directory' || !workingDirectory
         || attestationFlag !== '--attestation-output' || !attestationOutput || separator !== '--')
@@ -438,7 +448,8 @@ function main(args)
         return;
     }
     const outputPath = resolve(rootDir, attestationOutput);
-    if (mutationAttempt ? outputPath !== resolve(mutationAttempt.paths.physical, 'tool-binding.json')
+    if (mutationAttempt ? outputPath !== resolve(mutationAttempt.paths.physical,
+        ...(mutationStage === 'Debug' ? ['debug'] : []), 'tool-binding.json')
         : !relative(rootDir, outputPath).split(sep).join('/').startsWith('.tmp/mutation/'))
     {
         fail('tool binding output must belong to the current mutation output owner');
