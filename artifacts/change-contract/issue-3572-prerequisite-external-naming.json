@@ -1,0 +1,13 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json",
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the original NuGet lock schema keys and canonical serialized test and lifecycle identifiers while importing the exact coordinator-verified dependency and registry prerequisite commits; no naming policy, public contract or runtime adapter is changed."
+        }
+    ]
+}
