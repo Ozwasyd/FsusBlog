@@ -183,7 +183,10 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
         var admission = new VaultDependencyAdmission(ArticleEmbedPermissionStatus.Allowed,
             VaultDependencyRight.Read | VaultDependencyRight.Reference,
             VaultDependencyRight.Read | VaultDependencyRight.Reference, Digest, Digest, Digest);
-        VaultDependencyBinding targetBinding = binding with { PortableArticleIdentity = Target };
+        VaultDependencyBinding targetBinding = binding with
+        {
+            PortableArticleIdentity = Target
+        };
         VaultDependencyNode[] nodes =
         [
             new VaultFrozenEmbedDependency(binding, admission, Coordinate(17), targetBinding, Digest, 128),
@@ -225,11 +228,16 @@ public sealed class ArticleVaultFrozenEmbedAdmissionTests
         Assert.NotEqual(PortableDependencyCodec.NodeKey(nodes[0]), PortableDependencyCodec.NodeKey(nodes[1]));
         Assert.True(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, graph,
             fixture.SourceBytes, nodes, edges, Digest).IsValid);
+        Assert.False(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, null!,
+            fixture.SourceBytes, nodes, edges, Digest).IsValid);
         Assert.False(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, graph,
             fixture.SourceBytes, nodes, [], Digest).IsValid);
         VaultFrozenEmbedDependency crossScope = ((VaultFrozenEmbedDependency)nodes[0]) with
         {
-            TargetBinding = targetBinding with { VaultIdentity = "vault:other" }
+            TargetBinding = targetBinding with
+            {
+                VaultIdentity = "vault:other"
+            }
         };
         Assert.False(ArticleVaultFrozenEmbedAdmission.VerifyGraph(input, candidate, graph,
             fixture.SourceBytes, [crossScope, nodes[1]], edges, Digest).IsValid);

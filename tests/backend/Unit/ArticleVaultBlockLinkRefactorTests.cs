@@ -119,6 +119,20 @@ public sealed class ArticleVaultBlockLinkRefactorTests
     }
 
     [Fact]
+    public void MissingCanonicalGraphOrRouteProjectionProducesNoCandidateFacts()
+    {
+        (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new");
+        AssertRejected(input with
+        {
+            Graph = null!
+        }, bytes, "vault_block_link_input_invalid");
+        AssertRejected(input with
+        {
+            After = null!
+        }, bytes, "vault_block_link_input_invalid");
+    }
+
+    [Fact]
     public void UnauthorizedRelationProducesNoTargetOrSourceFragment()
     {
         (ArticleVaultBlockLinkRefactorInput input, byte[] bytes) = Input("new");
@@ -174,7 +188,10 @@ public sealed class ArticleVaultBlockLinkRefactorTests
             VaultDependencyRight.Read | VaultDependencyRight.Reference, Digest, Digest, Digest);
         var node = new VaultLinkDependency(binding, admission,
             new ArticleEmbedTargetIdentity(Target, ArticleEmbedTargetKind.Block, null, "stable"),
-            binding with { PortableArticleIdentity = Target }, Digest);
+            binding with
+            {
+                PortableArticleIdentity = Target
+            }, Digest);
         var graph = new PortableDependencyManifest(PortableDependencySchemas.Manifest, PortableDependencySchemas.Version,
             binding, manifest.ServerArticleIdentity, manifest.Coordinates, VaultDependencySourceSide.Server,
             sourceBytes, Digest, [node], [], string.Empty, string.Empty);
