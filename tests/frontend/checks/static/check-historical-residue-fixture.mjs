@@ -13,6 +13,20 @@ const runtimeBridgeMethod = ['BridgeToLegacy', 'Authoring', 'EndpointAsync'].joi
 
 const violationCases = [
     {
+        name: 'forced client account override in a frontend comment object',
+        expected: 'retired comment-create account override residue detected',
+        files: {
+            'src/frontend/src/api/comment.ts': 'const request = { articleId: 42, content: "reply", replyToUserId: 7 }; createComment(request);'
+        }
+    },
+    {
+        name: 'retired account slot restored in the canonical request model',
+        expected: 'retired comment-create account override residue detected',
+        files: {
+            'src/core/Mapping/Models/CommentCreateRequest.Generated.cs': 'public readonly record struct CommentCreateRequestCoreModel(long? ReplyToUserId);'
+        }
+    },
+    {
         name: 'retired JSON comment writer behind a canonical function name',
         expected: 'old comment-create V1 residue detected',
         files: {
