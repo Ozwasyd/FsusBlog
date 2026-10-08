@@ -229,16 +229,52 @@ serializer. A killed process cannot truthfully emit its own terminal event.
 The parent must retain its actual `close(code,signal)`, PID and command context;
 a journal without terminal is incomplete, not guessed success or `not-run`.
 
-Exact remaining producer/consumer contract: the original parent
-`tools/test/xunit-replay-adapter.mjs::spawnSlot` already observes `{pid,code,signal}`
-but its `execute` requires a complete final slot receipt. Its owner must retain a
-partial-run record referencing the actual sibling journal path/raw digest, actual
-`pid`, `code`, `signal`, queue manifest/plan digest/slot ID, and the attempt command,
-source/run/envelope/temporal authority references. These fields must come from the
-real process and execution owner. Only then may an owned outcome consumer join
-completed native tests, incomplete starts and unstarted queue cases to independently
-held assertion observations. No PID, signal, assertion or authority is manufactured
-by this source increment, and no partial outcome adapter is activated here.
+## Existing parent process and partial publication
+
+The original `tools/test/xunit-replay-adapter.mjs` now exports its existing
+`spawnSlot` and `execute` functions. Both accept `inputReferences` and
+`executionReferences` arrays, copied at entry and retained without qualification.
+The CLI retains its actual sealed plan/manifest path and digest references. Its
+optional `--execution-references <file>` reads the execution owner's existing JSON
+array through the bounded private-file reader; absent references remain `[]`.
+No attempt, envelope or temporal authority is inferred or created.
+
+Each existing native spawn persists `processes/<slot>.json.running.json` with its
+actual PID, command, start time, queue reference and supplied references. On actual
+`close(code,signal)`, `processes/<slot>.json` adds that code/signal, finish time,
+spawn/receipt IO errors and available final receipt path/raw digest. Stdout/stderr
+remain mirrored to the original console and are retained in uniquely named private
+logs, bounded to 16 MiB each with actual stored/raw digests, total/stored byte counts,
+truncation and IO status. `process-results.json` retains those process results and
+the original plan's source, producer and run. All new process records explicitly
+set `qualificationEligible=false`.
+
+The parent reads only complete native journal lines within the original journal
+caps and checks the actual plan, slot, PID and monotonic sequence before retaining
+a callback prefix. The journal reference always uses its actual raw-byte digest;
+incomplete trailing bytes remain diagnostic and cannot become callbacks. Journal
+status is explicit: complete, partial, stopped, unavailable or invalid.
+
+If a process is interrupted or has no usable final receipt, the parent writes
+`partial-framework-actual.json` before returning the original CLI failure. It
+retains actual process terminal information, queue/plan/source/run identity,
+supplied references and observed admissions, starts and outcomes. Case IDs join
+only the original queue; unknown cases remain null. It creates no canonical replay
+receipt, verification result or guessed terminal test outcome. The complete path
+still uses the original final receipt, exact membership checks and replay verifier;
+ordinary assertion failure continues to return exit 1.
+
+`tests/tools/xunit-replay-partial-publication.test.mjs` runs that actual CLI for
+success, assertion failure and cancellation. The success control preserves an
+explicit unqualified reference to actual fixture source bytes; it supplies no
+runtime authority. The cancellation control kills only its observed native child
+and checks retained pass/fail/skip callbacks plus the live incomplete start.
+Controls bound and clean up their own process groups.
+
+Remaining consumer contract: the held semantic bridge still requires independently
+held structured assertion observations and original attempt/envelope/temporal
+references. This increment provides real process/journal evidence but does not
+activate a qualified partial outcome adapter or infer those missing capabilities.
 
 Ordinary callback/output tests live in
 `tests/tools/xunit-replay-slot-journal.test.mjs` and use the separate locked

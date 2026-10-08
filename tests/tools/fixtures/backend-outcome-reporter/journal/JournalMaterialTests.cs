@@ -48,3 +48,21 @@ public sealed class JournalCallbackOrderer : ITestCaseOrderer
         return testCases.OrderBy(test => test.TestMethod.Method.Name, StringComparer.Ordinal);
     }
 }
+
+public sealed class JournalSuccessTests
+{
+    [Fact]
+    public void NativeSuccess()
+    {
+        Assert.Equal(1, 1);
+    }
+}
+
+public sealed class JournalFailureTests
+{
+    [Fact]
+    public void NativeFailure()
+    {
+        Assert.Equal(1, 2);
+    }
+}
