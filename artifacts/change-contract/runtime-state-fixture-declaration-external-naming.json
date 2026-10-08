@@ -4,9 +4,10 @@
         {
             "id": "json-wire-key",
             "paths": [
-                "config/testing/runtime-state-domain-catalog.json"
+                "config/testing/runtime-state-domain-catalog.json",
+                "tests/governance/test-lifecycle-registry.json"
             ],
-            "reason": "Preserve the existing runtime-state JSON keys, canonical step IDs, domain IDs, assertion IDs and shell owner source references while restoring exact fixture creation declarations."
+            "reason": "Preserve existing runtime-state JSON keys, canonical step/domain/assertion IDs and source references while restoring fixture declarations; preserve the lifecycle registry identifiers while consuming the authorized canonical article-suite registration repair."
         }
     ]
 }
