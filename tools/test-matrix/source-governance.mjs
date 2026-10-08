@@ -49,7 +49,7 @@ for (const file of files)
     }
 }
 const groups = [
-    ...sourceFrontendCheckGroups(files, effectivePrExecutionStage(callerContext), evidence.baseCommit)
+    ...sourceFrontendCheckGroups(files, effectivePrExecutionStage(callerContext), evidence.baseCommit, root)
         .map(value => [sourceGovernanceChildEntries.frontend, value.options, value.files]),
     [sourceGovernanceChildEntries.csharp, ['--mode', 'full'], files.filter(file => file.endsWith('.cs'))],
     [sourceGovernanceChildEntries.docs, ['--mode', 'full', '--domain', 'docs', '--operation', 'lint', '--require-tools'], files.filter(file => file.endsWith('.md'))],

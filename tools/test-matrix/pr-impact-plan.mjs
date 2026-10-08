@@ -1,5 +1,7 @@
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
+import fs from 'node:fs';
+import path from 'node:path';
 
 const eligiblePrTier = tier => tier.localOnly !== true && tier.nightlyOnly !== true && tier.manualOnly !== true
     && !['nightly', 'release-manual'].includes(tier.cadence);
@@ -455,10 +457,83 @@ export function assertSourceShellSyntaxInspection(input)
     }
 }
 
-export function sourceFrontendCheckGroups(files, stage, baseCommit)
+export function inspectSourceFrontendConfiguration(repositoryRoot, baseCommit)
+{
+    if (typeof repositoryRoot !== 'string' || !/^[a-f0-9]{40}$/u.test(baseCommit ?? ''))
+    {
+        throw new Error('SOURCE frontend configuration requires the actual repository and exact base commit');
+    }
+    const git = args => execFileSync('git', ['-C', repositoryRoot, ...args]);
+    git(['merge-base', '--is-ancestor', baseCommit, 'HEAD']);
+    function read(file, revision, required)
+    {
+        if (typeof file !== 'string' || !file || file.startsWith('/') || file.startsWith('-')
+            || file.split('/').includes('..') || /[\\\0\r\n]/u.test(file))
+        {
+            throw new Error('SOURCE frontend configuration contains an invalid input path');
+        }
+        const record = git(['ls-tree', '-z', revision, '--', file]).toString('utf8');
+        if (!record && !required)
+        {
+            return null;
+        }
+        if (!/^100(?:644|755) blob [a-f0-9]{40}\t/u.test(record)
+            || record.slice(record.indexOf('\t') + 1) !== `${file}\0`)
+        {
+            throw new Error(`SOURCE frontend configuration requires a tracked regular input: ${file}`);
+        }
+        if (revision !== 'HEAD')
+        {
+            return git(['show', `${revision}:${file}`]);
+        }
+        const absolute = path.resolve(repositoryRoot, file);
+        if (!fs.existsSync(absolute) || !fs.lstatSync(absolute).isFile()
+            || !fs.realpathSync(absolute).startsWith(`${fs.realpathSync(repositoryRoot)}${path.sep}`))
+        {
+            throw new Error(`SOURCE frontend configuration refuses a nonregular or escaped input: ${file}`);
+        }
+        return fs.readFileSync(absolute);
+    }
+    const policyPath = 'config/development/frontend-style-policy.json';
+    const priorPolicy = JSON.parse(read(policyPath, baseCommit, true));
+    const currentPolicy = JSON.parse(read(policyPath, 'HEAD', true));
+    function inputs(policy)
+    {
+        if (!Array.isArray(policy.configurationSources) || !policy.configurationSources.length)
+        {
+            throw new Error('SOURCE frontend configuration requires the complete policy input set');
+        }
+        return new Set([...sourceGovernanceDataInputs, ...policy.configurationSources,
+            policy.ruleRegistry, policy.toolchain?.package, policy.toolchain?.lock,
+            policy.eslintConfig, policy.stylelintConfig]);
+    }
+    const priorInputs = inputs(priorPolicy);
+    const currentInputs = inputs(currentPolicy);
+    const identities = [...new Set([...priorInputs, ...currentInputs])].sort().map(file =>
+    {
+        const prior = read(file, baseCommit, priorInputs.has(file));
+        const current = read(file, 'HEAD', currentInputs.has(file));
+        const digest = bytes => bytes === null ? null : `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+        return { file, baseDigest: digest(prior), currentDigest: digest(current) };
+    });
+    return { baseCommit, changed: identities.some(value => value.baseDigest !== value.currentDigest), identities };
+}
+
+export function sourceFrontendCheckGroups(files, stage, baseCommit, repositoryRoot)
 {
     const applicable = files.filter(file => /\.(?:mjs|js|cjs|ts|tsx|vue|css|scss)$/u.test(file));
     if (stage !== 'source-integration')
+    {
+        return [{ options: ['--mode', 'strict-full'], files: applicable }];
+    }
+    const configuration = inspectSourceFrontendConfiguration(repositoryRoot, baseCommit);
+    const actual = readGitChangedPaths(repositoryRoot, baseCommit).changedFiles
+        .filter(file => fs.existsSync(path.join(repositoryRoot, file))).sort();
+    if (JSON.stringify([...files].sort()) !== JSON.stringify(actual))
+    {
+        throw new Error('SOURCE frontend routing requires the complete actual changed-source scope');
+    }
+    if (configuration.changed)
     {
         return [{ options: ['--mode', 'strict-full'], files: applicable }];
     }
