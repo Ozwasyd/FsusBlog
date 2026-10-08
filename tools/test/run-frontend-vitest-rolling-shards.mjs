@@ -291,6 +291,13 @@ export function readLiveVitestGrant(env = process.env, readFile = (file) => fs.r
         {
             throw new Error(`rolling Vitest grant is missing or invalid for ${tierId}`);
         }
+        const budgetCpuUnits = readPositive(document.resourceBudget?.cpuUnits);
+        const budgetMemoryGiB = readPositive(document.resourceBudget?.memoryGiB);
+        if (!Number.isInteger(cpuUnits) || !Number.isInteger(budgetCpuUnits)
+            || !budgetMemoryGiB || cpuUnits > budgetCpuUnits || memoryGiB > budgetMemoryGiB)
+        {
+            throw new Error(`rolling Vitest grant exceeds or has an invalid parent resource budget for ${tierId}`);
+        }
         return { cpuUnits, memoryGiB, source: 'scheduler-resource-grants' };
     }
     const cpuUnits = readPositive(env.FSUSBLOG_STEP_CPU_BUDGET)
