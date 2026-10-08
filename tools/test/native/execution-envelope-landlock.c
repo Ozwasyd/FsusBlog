@@ -21,6 +21,7 @@ _Static_assert(LANDLOCK_ACCESS_FS_IOCTL_DEV == (1ULL << 15), "Landlock ioctl rig
 
 typedef struct landlock_path_beneath_attr LandlockPathBeneathAttr;
 typedef struct landlock_ruleset_attr LandlockRulesetAttr;
+typedef struct stat FileStatus;
 
 static int CreateRuleset(const LandlockRulesetAttr* attr, size_t size, uint32_t flags)
 {
@@ -134,8 +135,8 @@ static void AllowOwnedTemporaryAlias(
     {
         Fail("cannot open private temporary alias");
     }
-    struct stat sourceStat;
-    struct stat aliasStat;
+    FileStatus sourceStat;
+    FileStatus aliasStat;
     if (fstat(sourceFd, &sourceStat) < 0 || fstat(aliasFd, &aliasStat) < 0)
     {
         Fail("cannot inspect owned temporary alias descriptors");
