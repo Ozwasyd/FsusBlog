@@ -1,0 +1,19 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/backend/packages.lock.json"
+            ],
+            "reason": "Preserve NuGet-owned package lock fields, package identities and version constraints while adding the current Server dependency edge."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "tests/governance/test-lifecycle-registry.json"
+            ],
+            "reason": "Preserve the registered lifecycle JSON fields, distinct test and governance identifiers, categories and existing execution ownership while removing only the duplicate suite registration."
+        }
+    ]
+}
