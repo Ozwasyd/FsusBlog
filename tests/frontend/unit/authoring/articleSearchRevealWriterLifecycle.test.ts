@@ -118,7 +118,7 @@ async function openWriter()
         const result = port!.dispatchTransaction({ changes, history: 'separate', origin: 'programmatic',
             documentIdentity: authoring.authoringDocumentIdentity.value,
             expectedRevision: session.binding.context.sourceRevision });
-        expect(result.accepted).toBe(true);
+        expect({ accepted: result.accepted, reason: result.reason }).toEqual({ accepted: true, reason: undefined });
         expect(consumed.at(-1)).toBe(true);
         expect(session.binding.context.sourceRevision).toBe(result.revision);
         return result;
@@ -452,7 +452,7 @@ describe('selected-ID transport is consumed under the original Writer search lea
         const pending = revalidateArticleSearchSelection(selectionRequest(), state.session.search);
         const lease = state.session.search.currentTask!;
         if (transition === 'cancel') state.session.search.cancel();
-        if (transition === 'native-edit') state.dispatch([{ from: 0, deleteCount: 0, insertText: 'prefix ' }]);
+        if (transition === 'native-edit') state.dispatch([{ from: 0, to: 0, insert: 'prefix ' }]);
         if (transition === 'release') state.session.release();
         if (transition === 'complete') lease.complete(state.session.binding.context.sourceRevision);
         if (transition === 'admin-logout') privateRequestRuntime.advanceForAuthTransition('admin-logout');
