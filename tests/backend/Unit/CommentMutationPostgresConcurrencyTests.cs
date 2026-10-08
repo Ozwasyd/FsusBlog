@@ -454,7 +454,6 @@ public sealed class CommentMutationPostgresConcurrencyTests(PostgresSchemaMigrat
             null,
             null,
             null,
-            null,
             CommentAuthorModes.Public,
             true,
             null,
