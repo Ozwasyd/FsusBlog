@@ -1,0 +1,506 @@
+{
+    "schema": "fsusblog.issue-3534-finite-format-parser-source-evidence.v1",
+    "recordedAt": "2026-10-08T05:35:22.933171+00:00",
+    "runId": "issue-3534-finite-format-parser-20261008-4355f2308",
+    "status": "bounded-source-capability-implemented-and-currently-verified-independent-review-pending",
+    "baseline": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+    "sourceCapabilityCommit": "5e01897f5bed3a31d17b87d65b15a653cd8f1517",
+    "testedSourceAndCoupledOutputCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+    "branch": "codex/issue-3534-finite-format-parser-20261008",
+    "draftPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3934",
+    "earlyHandoff": "https://github.com/Ozwasyd/FsusBlog/issues/1686#issuecomment-6052955778",
+    "coordination": "Parent explicitly assigned sole finite-parser ownership for the #3058/#2210 historical refusal needed by #1686. No sibling parser repair, scheduler change or cross-chain integration performed.",
+    "exactScope": {
+        "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+        "singleIndexAdditionOnly": {
+            "owner": "tools/governance/javascript-format-equivalence.mjs",
+            "sourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+            "expressionDigest": "sha256:1194f26d255953521c4695d2e2c8f846dbd455bb916275c81e8cdf5a4951d015",
+            "kind": "runtime-require-path",
+            "dependencies": [
+                "tools/governance/javascript-format-parser/package.json",
+                "tools/governance/javascript-format-parser/package-lock.json"
+            ]
+        },
+        "allOriginalEntriesAndMetadataPreserved": true,
+        "protectedSourceIdentities": [
+            {
+                "path": "tools/governance/javascript-format-equivalence.mjs",
+                "sha256": "91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "tools/governance/javascript-format-parser/package.json",
+                "sha256": "e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "tools/governance/javascript-format-parser/package-lock.json",
+                "sha256": "d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "tools/test-matrix/release-final-static-boundary.mjs",
+                "sha256": "89e18f63eb9edaf6541b4b4bf2c07f7bf93a045a764b7b1fa171299cd6e2adb3",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "tools/governance/change-contract.mjs",
+                "sha256": "fadc2e75e9ca35cf4ee3b1efd88747a1f004ae2cfef53bfd02867b146ddc9463",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "tools/governance/change-contract-registry.mjs",
+                "sha256": "019a39477af6b874eb8321b29cf54f08049509829255e896f0d69ccdc490c1df",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "tools/frontend/check-frontend-style.mjs",
+                "sha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "config/development/frontend-style-policy.json",
+                "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "config/development/frontend-style-baseline.json",
+                "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+                "byteIdenticalToBase": true
+            },
+            {
+                "path": "config/development/frontend-style-reviewed-residual.json",
+                "sha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+                "byteIdenticalToBase": true
+            }
+        ],
+        "sourceStyle": {
+            "sourceCheckPassed": true,
+            "baseCommit": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+            "candidateCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "files": [
+                {
+                    "file": "tests/tools/release-final-static-boundary.test.mjs",
+                    "candidateSourceSha256": "abf1de5f01ead7f1683bd2e0c4254ba22d7b3e0acbf7f22627ff98581be16df3",
+                    "baseFindings": 6,
+                    "candidateFindings": 6,
+                    "existing": 6,
+                    "unexpected": 0,
+                    "failure": null
+                }
+            ]
+        }
+    },
+    "sourceBinding": {
+        "owner": "tools/governance/javascript-format-equivalence.mjs",
+        "sourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+        "expressionDigest": "sha256:1194f26d255953521c4695d2e2c8f846dbd455bb916275c81e8cdf5a4951d015",
+        "kind": "runtime-require-path",
+        "dependencies": [
+            "tools/governance/javascript-format-parser/package.json",
+            "tools/governance/javascript-format-parser/package-lock.json"
+        ]
+    },
+    "callerPrerequisite": "Consume exact5e018 source capability after coordinator identity confirmation. The4355 coupled output/evidence is specific to base0a755. Parent must use the original producer on its own stable candidate and rebind output; do not blind-copy this whole fixture or inherit source/runtime acceptance.",
+    "fixedPoint": {
+        "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+        "results": [
+            {
+                "iteration": 1,
+                "exitCode": 0,
+                "beforeSha256": "9b216afc11f82f204ee5f0fc3ca2b9a8276f9c0b0930c317f6b4a3e929489870",
+                "afterSha256": "9b216afc11f82f204ee5f0fc3ca2b9a8276f9c0b0930c317f6b4a3e929489870",
+                "byteIdentical": true
+            },
+            {
+                "iteration": 2,
+                "exitCode": 0,
+                "beforeSha256": "9b216afc11f82f204ee5f0fc3ca2b9a8276f9c0b0930c317f6b4a3e929489870",
+                "afterSha256": "9b216afc11f82f204ee5f0fc3ca2b9a8276f9c0b0930c317f6b4a3e929489870",
+                "byteIdentical": true
+            }
+        ],
+        "trackedTreeUnchanged": true
+    },
+    "generatedOutputDelta": {
+        "base": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+        "sourceCommit": "5e01897f5bed3a31d17b87d65b15a653cd8f1517",
+        "changedFields": [
+            "sourceIndexDigest"
+        ],
+        "before": {
+            "sourceIndexDigest": "sha256:6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5"
+        },
+        "after": {
+            "sourceIndexDigest": "sha256:3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6"
+        }
+    },
+    "installedOfficialParserPackages": [
+        {
+            "name": "espree",
+            "version": "10.4.0",
+            "lockedIntegrity": "sha512-j6PAQ2uUr79PZhBjP5C5fhl8e39FmRnOjsD5lGnWrFU8i2G776tBK7+nP8KuQUTTyAZUwfQqXAgrVH5MbH9CYQ==",
+            "packageManifestSha256": "76d68e5b8ac5aae00882165c4feae4a8a8825ccb4ea76ab8af0f02ba320fd250",
+            "realLocalDirectory": true
+        },
+        {
+            "name": "acorn",
+            "version": "8.18.0",
+            "lockedIntegrity": "sha512-lGq+9yr1/GuAWaVYIHRjvvySG5/4VfKIvC8EWxStPdcDh/Ka7FG3twP6v4d5BkravUilhIAsG4Qj83t02LWUPQ==",
+            "packageManifestSha256": "5c1ed7259579a7899b303f514b0194adcb9fe474fc7d136a84c6a45f10eefc84",
+            "realLocalDirectory": true
+        },
+        {
+            "name": "acorn-jsx",
+            "version": "5.3.2",
+            "lockedIntegrity": "sha512-rq9s+JNhf0IChjtDXxllJ7g41oZk5SlXtp0LHwyA5cejwn7vKmKp4pPri6YEePv2PU65sAsegbXtIinmDFDXgQ==",
+            "packageManifestSha256": "5e123a5ee3b16fd10fe4b44ef70ff7885f05117fb9ae75f72a0d821f919d423d",
+            "realLocalDirectory": true
+        },
+        {
+            "name": "eslint-visitor-keys",
+            "version": "4.2.1",
+            "lockedIntegrity": "sha512-Uhdk5sfqcee/9H/rCOJikYz67o0a2Tw2hGRPOG2Y1R2dg7brRe1uG0yaNQDHu+TO/uQPF/5eCapvYSmHUjt7JQ==",
+            "packageManifestSha256": "f479c384cbd48ab3d95ba3f02f332ee42320b408a09f1cb8f1d3da96273ed4d3",
+            "realLocalDirectory": true
+        }
+    ],
+    "node": "v24.16.0",
+    "astTokenCommentAlgorithm": "Byte-identical original javascript-format-equivalence.mjs; no historical fingerprint, format receipt, numeric gate or lexer/parser configuration rewritten. All source/entry/dependency/tree/cwd/NODE_PATH/symlink/cache negatives remain original.",
+    "newControlVariants": [
+        "exact",
+        "absent",
+        "wrong-owner",
+        "wrong-source",
+        "wrong-expression",
+        "wrong-kind",
+        "foreign-owner",
+        "source-drift",
+        "unknown-load",
+        "symlink-owner",
+        "symlink-parser-input",
+        "missing-parser-input"
+    ],
+    "runtimeAuthorityNotExpanded": "One exact known existing-owner source/expression/kind binding. No wildcard, generic evaluator relaxation or new finalizer capability. Unknown added require remains refused even when fixture sourceDigest is rebound to the modified source.",
+    "artifacts": [
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/baseline-inspection.json.gz",
+            "rawSha256": "ae6a1c50944c496dc84b32e430b026393b133b397250c6785888ec32a0efe02b",
+            "gzipSha256": "9a930d98dc06aaa7fcece9a03c18359d8ce236763e7bdef298cf1fa3ea928e20",
+            "rawBytes": 709,
+            "kind": "actual original-tool output or source identity comparison"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-inspection.json.gz",
+            "rawSha256": "b6b39b5238f9939e76f91f3e66953531d00668c37616d4b4f3efc8f36f03a1c2",
+            "gzipSha256": "d3d7c109f4d153e6079f75a5a72402be8f4673f9639a05f7c30842263210679f",
+            "rawBytes": 1193,
+            "kind": "actual original-tool output or source identity comparison"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/identity-and-scope.json.gz",
+            "rawSha256": "d87e2132df75bfd6b33d981adf42304616fad661f1337661ef41881883034e7c",
+            "gzipSha256": "207e641930d97cb1e64127d8e5a1eeef3d9aff9f20c9fd0a34086bb7419e3422",
+            "rawBytes": 3540,
+            "kind": "actual original-tool output or source identity comparison"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/producer-output-delta.json.gz",
+            "rawSha256": "bac99ee0d40dbe743a588698d205d46fd34a7dc67fbb64363b51a5114a47cba1",
+            "gzipSha256": "206a6aa26dbaba14208b488c34fe09c58444b70e74584841ccf0c00a0918a836",
+            "rawBytes": 432,
+            "kind": "actual original-tool output or source identity comparison"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-source-style.json.gz",
+            "rawSha256": "7df7c323575577beffda240409b0352de0ac7f0d150db066763c125bfa9960ee",
+            "gzipSha256": "723288a4c18d017d91dfbacac14cffd5f829878d6bebefa8841cf29b76b35437",
+            "rawBytes": 248870,
+            "kind": "actual original-tool output or source identity comparison"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-fixedpoint.json.gz",
+            "rawSha256": "22291b8171fb0889496520c3d53ae9fb67ee53c999da610abb295cade406822a",
+            "gzipSha256": "e2d746e1aba1f4f568b06ac0196a1c38b143c4fd5aed72b5257fd913540066bf",
+            "rawBytes": 726,
+            "kind": "actual original-tool output or source identity comparison"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/pr-base-advance.log.gz",
+            "rawSha256": "d2fd78defab2931abd1b5fd7d05a0dc849e1e15c8dba2e384459633a873dbfa3",
+            "gzipSha256": "965764d01b75a11f03558204cc8046bebe19f08b60a0951c463aa542326e8da3",
+            "rawBytes": 287,
+            "kind": "actual original-tool output or source identity comparison"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/baseline-inspection.log.gz",
+            "rawSha256": "850f563e3ad6d0c8c72d8b905ef1d3bf02de1edc33ca511e2f06097a9f3a6aff",
+            "gzipSha256": "665c9671a539acad253e03dc41941ad2cbdcb9766e1daa2b1aba45c7943aa7e8",
+            "rawBytes": 664,
+            "kind": "captured command",
+            "command": "node .tmp/issue-3534-finite-parser/inspect-parser.mjs baseline-inspection.json",
+            "exitCode": 1,
+            "result": "Actual unchanged format owner refuses requireParser(entry) with exact supplied source/expression digests",
+            "testedCommit": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+            "status": "failed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/official-parser-install.log.gz",
+            "rawSha256": "134919a9e3170ad92fdbcbc6cf0acc262a12637f72c33d8acfeb11b3bb2c1d8b",
+            "gzipSha256": "e471ec530915d59658719009919a6688c88229aa014c6a00292ef2b6c9ef9bf1",
+            "rawBytes": 27,
+            "kind": "captured command",
+            "command": "npm ci --ignore-scripts --no-audit --no-fund --prefix tools/governance/javascript-format-parser --cache /tmp/issue-3534-npm-cache",
+            "exitCode": 0,
+            "result": "Official locked script-free installation;4 original parser packages",
+            "testedCommit": "0a755584aa256995fd9997ca974806e8a0e29d2e",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-inspection.log.gz",
+            "rawSha256": "9d658528834d9de6e00175899c816a8310e3dbde06dd10e131905c489ca656b4",
+            "gzipSha256": "e8f20e283fb02d60bec7b4efba18db43356ef09c5fa3b4c1ef69323711af36d6",
+            "rawBytes": 977,
+            "kind": "captured command",
+            "command": "node .tmp/issue-3534-finite-parser/inspect-parser.mjs final-inspection.json",
+            "exitCode": 0,
+            "result": "Actual source-bound inspection admits only unchanged format source and records package.json/package-lock.json plus tools/package.json",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-focused-binding-controls.log.gz",
+            "rawSha256": "9d85a3fc630b19c8b3b8bda2f67c678a1a5166beb4cc4c7a8fd726cddb6dd9d8",
+            "gzipSha256": "a8434b1c4530237e2d79b8c3cac37c7d513afde881b4b18e326db5a9e62b51b1",
+            "rawBytes": 722,
+            "kind": "captured command",
+            "command": "node --test --test-name-pattern='format parser runtime require' tests/tools/release-final-static-boundary.test.mjs",
+            "exitCode": 0,
+            "result": "13/13, zero skips; exact positive and11 negative variants",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-original-parser-controls.log.gz",
+            "rawSha256": "ae7be425c7539902b50e4fb082be00cab01deec05f1f11303785a9fae7239550",
+            "gzipSha256": "2b18f4d81255fbc0f525ad58f8922fd02cd66896ea3bc5c35818e1b53e02d832",
+            "rawBytes": 710,
+            "kind": "captured command",
+            "command": "node --test --test-name-pattern='JavaScript formatting|canonical transaction brace|JavaScript formatter|JavaScript parser|checker parser installation' tests/tools/change-contract.test.mjs",
+            "exitCode": 0,
+            "result": "6/6, zero skips; original AST/token/comment equivalence and refusal controls unchanged",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-change-contract-regressions.log.gz",
+            "rawSha256": "12d445c5308540ed16a18df00960ba6f348107953f1cf43a218e47f3e8042d6d",
+            "gzipSha256": "cccb67599dae0daf328a501bc4d4daa62068b91a70af35b8891f1a99b7b5c02a",
+            "rawBytes": 10024,
+            "kind": "captured command",
+            "command": "node --test tests/tools/change-contract.test.mjs",
+            "exitCode": 0,
+            "result": "102/102, zero skips; full original contract suite",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-boundary-regressions.log.gz",
+            "rawSha256": "25c6dfe398d70bdf1055ee9471d67422ea494d2eb9a8ca8df90b54cb47a9b5c8",
+            "gzipSha256": "9986dba40ab03c7af9f42b1ff9c277933acad1e5bcd2f0771dd5e1eff00388c9",
+            "rawBytes": 8699,
+            "kind": "captured command",
+            "command": "node --test tests/tools/release-final-static-boundary.test.mjs",
+            "exitCode": 0,
+            "result": "116/116, zero skips;103 original cases plus13 new controls",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-boundary-check.log.gz",
+            "rawSha256": "35081b971b5345c82f34da06c5c45cedeaabf6c59974f3e24fdae4334db59289",
+            "gzipSha256": "c4c4fa3d90934278388d006b98ac7f31f43885667df61c02de9bf87d30c93301",
+            "rawBytes": 270,
+            "kind": "captured command",
+            "command": "node tools/test-matrix/release-final-static-boundary.mjs --check",
+            "exitCode": 0,
+            "result": "Original full static boundary passes; no finalizer/product execution",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-source-style.log.gz",
+            "rawSha256": "bfd1ce666425c74df1df0bdcb2c33d1d616881c21318df5e98be6dc94d5bb70a",
+            "gzipSha256": "c27905da30cda9a7ea091b2452715410ddf877d9e2813e2132c31b6b1274d8b4",
+            "rawBytes": 68,
+            "kind": "captured command",
+            "command": "node tools/frontend/check-frontend-style.mjs --mode source-diff --base 0a755584aa256995fd9997ca974806e8a0e29d2e --file tests/tools/release-final-static-boundary.test.mjs",
+            "exitCode": 0,
+            "result": "Exact base/current import witnesses preserve six original findings; zero unexpected/new findings; no lint policy/debt edits",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-native-style.log.gz",
+            "rawSha256": "60d6a0fd0e363daa8e735fe0a5c5481545d13d1cbbb45cb56488ae88e08c8da2",
+            "gzipSha256": "c5d1da282356b0244e1f39f47dce7439fe016f222793afaa3b7f3403ecc7ba1d",
+            "rawBytes": 110,
+            "kind": "captured command",
+            "command": "node tools/style/check-native-tooling-style.mjs --mode changed --file config/testing/release-final-execution-authority-index.json --file tests/fixtures/test-matrix/release-final-execution-target-authority.json --file artifacts/change-contract/finite-format-parser-generated-binding.json --file artifacts/change-contract/finite-format-parser-external-naming.json",
+            "exitCode": 0,
+            "result": "Original native scope selects/checks1 path; zero violations. Excluded metadata/output surfaces are not claimed checked.",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-syntax.log.gz",
+            "rawSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+            "gzipSha256": "f61f27bd17de546264aa58f40f3aafaac7021e0ef69c17f6b1b4cd7664a037ec",
+            "rawBytes": 0,
+            "kind": "captured command",
+            "command": "node --check tests/tools/release-final-static-boundary.test.mjs",
+            "exitCode": 0,
+            "result": "Updated test source parses",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-range-contract.log.gz",
+            "rawSha256": "4e46ca60b279bf8edae57564aceb4488b74b49ac5320708126b436cd4c215c51",
+            "gzipSha256": "a7a0633ab6ba34ad0fd52cd90948eeb3ff6d0fc7378116fcd0b3d79cd9a30baf",
+            "rawBytes": 81,
+            "kind": "captured command",
+            "command": "node tools/governance/check-change-contract.mjs --range 0a755584aa256995fd9997ca974806e8a0e29d2e..HEAD",
+            "exitCode": 0,
+            "result": "Both published capability/output commits satisfy original commit contract",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-repository-contract.log.gz",
+            "rawSha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885",
+            "gzipSha256": "d7f981890ec0783808b8ecd5a49b52fab6f5038536bd91dde8776cd137d46a8d",
+            "rawBytes": 51,
+            "kind": "captured command",
+            "command": "node tools/governance/check-change-contract.mjs --repository",
+            "exitCode": 0,
+            "result": "Original repository contract passes:12 types/34 scopes",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-pr-contract-fetched-base.log.gz",
+            "rawSha256": "3da5f6c9a0401ee60e10c416d611553a5401050f6065900a9e9b142e79caece1",
+            "gzipSha256": "4aa536ef85a3eaad38ac28a416c0f0df6485226eab2c2cc5e4e57353726e7463",
+            "rawBytes": 42,
+            "kind": "captured command",
+            "command": "node tools/governance/check-change-contract.mjs --github-event .tmp/issue-3534-finite-parser/pr-current-event.json",
+            "exitCode": 0,
+            "result": "Actual PR3934 snapshot, base53da546cc8ab9fd8603067395d988b7ddb650394 fetched;5 changed paths admitted. This does not prove merge/rebase/current-master runtime acceptance.",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/producer-refresh.log.gz",
+            "rawSha256": "244191d9c9c9147c7ba4e42eb24e8aac5183b8f9d4db65c2df1a1ed022eb427b",
+            "gzipSha256": "614f6431b953431634e4b57917f62b91a94d5cc0fceafd7de9008d2b0f0e7048",
+            "rawBytes": 258,
+            "kind": "captured command",
+            "command": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "exitCode": 0,
+            "result": "Original producer after stable source5e018: output changes only sourceIndexDigest",
+            "testedCommit": "5e01897f5bed3a31d17b87d65b15a653cd8f1517",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-fixedpoint-1.log.gz",
+            "rawSha256": "5de91090668ebecfcb3096f9784819728863b8764c174baafc9ef832d3d2174b",
+            "gzipSha256": "dba12dbe7ca730c99456aa1c85bb8f6f7041b1469f38297b59bf74286ca6af6f",
+            "rawBytes": 258,
+            "kind": "captured command",
+            "command": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "exitCode": 0,
+            "result": "First current-candidate repeat, exit0 and output byte-identical",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-fixedpoint-2.log.gz",
+            "rawSha256": "0f68381b28cb6a329122cc990ab9ccad98fe8525dce12fc1452b196465852ccc",
+            "gzipSha256": "5a1cec7549ac0859a37c58cbec833b9140c8790bcef80992b4a7e6944501a9ee",
+            "rawBytes": 258,
+            "kind": "captured command",
+            "command": "node tools/test-matrix/generate-release-final-execution-authority.mjs",
+            "exitCode": 0,
+            "result": "Second current-candidate repeat, exit0 and output byte-identical",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "passed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/final-pr-contract.log.gz",
+            "rawSha256": "f61a40d2a34b3a622ef7f5b6938e3525f239ef0bbed1a718e49d84e676cd894c",
+            "gzipSha256": "d193ca94e4d081086440a4a26a0396c592cd86562fba819f897017fcd7db7d7d",
+            "rawBytes": 1356,
+            "kind": "captured command",
+            "command": "node tools/governance/check-change-contract.mjs --github-event .tmp/issue-3534-finite-parser/pr-current-event.json (before fetching actual new base)",
+            "exitCode": 1,
+            "result": "Initial local capability refusal: actual PR base commit missing locally. Fetched exact53da source; original checker then passes without edits.",
+            "testedCommit": "4355f230802d8d0bf151592859bbabde92e468c8",
+            "status": "failed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/binding-index-native-style.log.gz",
+            "rawSha256": "ebbc5f607ce909ac212871c529a0666444512438c36deee478ed06da2ee6e23b",
+            "gzipSha256": "80879bb9580b0f9947fb0e2ed688c4eafff2c525f66a997ccb1d10189e8d87ce",
+            "rawBytes": 617,
+            "kind": "captured command",
+            "command": "node tools/style/check-native-tooling-style.mjs --mode changed --domain json --file config/testing/release-final-execution-authority-index.json",
+            "exitCode": 1,
+            "result": "Invalid diagnostic invocation: original tool has no json domain. Corrected original all-domain invocation passes; no tool code changed.",
+            "testedCommit": null,
+            "status": "failed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/boundary-regressions.log.gz",
+            "rawSha256": "b08bc0790a871e6439f2bcfbe0ff9a099bcd54e4840095d96b0b1a4267cf3082",
+            "gzipSha256": "988801d15f08877de420ea6005eab27e4d7218e2b351d7ba0e924a72370179fb",
+            "rawBytes": 19301,
+            "kind": "captured command",
+            "command": "node --test tests/tools/release-final-static-boundary.test.mjs (pre-refresh diagnostic)",
+            "exitCode": 1,
+            "result": "108/116, zero skips; original authority rejects stale sourceIndexDigest before original producer refresh. Not final-candidate acceptance.",
+            "testedCommit": null,
+            "status": "failed"
+        },
+        {
+            "path": "artifacts/style/issue-3534-finite-parser/change-contract-regressions.log.gz",
+            "rawSha256": "eba625c9bb2776b1efd4822b6c2516daeb40f19e4b63f278e9dcf35c17cddc67",
+            "gzipSha256": "f99ff0f455cc8587f861c79002c99935614b6328a78634697e62b3d31b2b4e0a",
+            "rawBytes": 10021,
+            "kind": "captured command",
+            "command": "node --test tests/tools/change-contract.test.mjs (initial source-only diagnostic)",
+            "exitCode": 0,
+            "result": "102/102; run began before source publication and ended near its HEAD change. Protected source bytes unchanged, but not relabeled as exact final-candidate acceptance; final4355 run separately passed.",
+            "testedCommit": null,
+            "status": "passed"
+        }
+    ],
+    "newPrBase": {
+        "sha": "53da546cc8ab9fd8603067395d988b7ddb650394",
+        "fetched": true,
+        "exactPrContract": "passed",
+        "interveningChanges": "browser fixture permission source, provenance manifests and shared execution-authority output",
+        "overlap": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "automaticIntegration": "not performed; original0a755 baseline and4355 tests retained. Later integration/conflict/current-master qualification remains pending."
+    },
+    "remainingAcceptance": {
+        "independentReview": "pending draft review before authorized integration",
+        "parent1686": "Complete original catalog/projection/governance/native/physical criteria remain with sole #1686 owner; this supplies only the exact finite-parser prerequisite.",
+        "root3534": "Original scanner-style baseline/history/full independent acceptance remains WIP; this narrow leaf capability does not satisfy whole root issue.",
+        "githubCI": "Disabled by user; exact-candidate local evidence substitutes without waiving failures; no dispatch/wait.",
+        "unrelatedRuntime": "No backend/native/db/browser/physical/runtime qualification issued or repeated."
+    },
+    "separate3905Consultation": "https://github.com/Ozwasyd/FsusBlog/pull/3905#issuecomment-6052784262 remains actionable; sole #2899 owner implements literal URL/native constructor binding and requalifies its own candidate; scheduler was not edited here.",
+    "publicationRequirement": "Evidence-only publication must add these packet/log paths without modifying any existing tracked4355 file. Tests remain bound to4355, not relabeled to publication SHA or advanced master."
+}
