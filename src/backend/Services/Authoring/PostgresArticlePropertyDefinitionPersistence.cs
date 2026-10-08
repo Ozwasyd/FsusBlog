@@ -43,6 +43,123 @@ public sealed class PostgresArticlePropertyDefinitionPersistence(
         return await ReadDefinitionAsync(owner, definitionId, cancellationToken).ConfigureAwait(false);
     }
 
+    public async Task<IReadOnlyList<ArticlePropertyDefinition>> GetManyAsync(
+        ArticlePropertyDefinitionOwner owner,
+        IReadOnlyList<Guid> definitionIds,
+        CancellationToken cancellationToken = default)
+    {
+        ArticlePropertyDefinitionContract.ValidateOwner(owner);
+        Guid[] ids = ArticlePropertyDefinitionBatchRead.HoldIds(definitionIds);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (ids.Length == 0)
+        {
+            return Array.Empty<ArticlePropertyDefinition>();
+        }
+        var rows = new List<DefinitionRow>(ids.Length);
+        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                   $"""
+                   SELECT {DefinitionColumns}
+                   FROM article_property_definition
+                   WHERE owner_user_id = @OwnerUserId AND site_scope = @SiteScope
+                     AND definition_id = ANY(@DefinitionIds)
+                   ORDER BY definition_id;
+                   """, DefinitionParameters(owner, new SugarParameter("@DefinitionIds", ids) { IsArray = true }))
+                   .ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                rows.Add(ReadDefinitionRow(reader));
+            }
+        }
+        if (rows.Count == 0)
+        {
+            return Array.Empty<ArticlePropertyDefinition>();
+        }
+        // Close each reader before the next command on the same Npgsql connection.
+        // Deleted definitions are retained for reconciliation; value validation rejects them.
+        Guid[] foundIds = rows.Select(static row => row.DefinitionId).ToArray();
+        var names = await ReadBatchNamesAsync(foundIds, optionLabels: false, cancellationToken).ConfigureAwait(false);
+        var optionRows = new Dictionary<Guid, List<OptionRow>>();
+        using (DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(
+                   """
+                   SELECT definition_id, option_id, label, option_order, status
+                   FROM article_property_definition_option
+                   WHERE definition_id = ANY(@DefinitionIds)
+                   ORDER BY definition_id, option_order, option_id;
+                   """, new SugarParameter("@DefinitionIds", foundIds) { IsArray = true }).ConfigureAwait(false))
+        {
+            while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+            {
+                Guid id = reader.GetGuid(0);
+                if (!optionRows.TryGetValue(id, out List<OptionRow>? options))
+                {
+                    optionRows.Add(id, options = []);
+                }
+                if (options.Count >= ArticlePropertyDefinitionContract.MaxOptionsPerDefinition)
+                {
+                    throw new ArticlePropertyDefinitionBudgetExceededException("article_property_definition_budget_exceeded");
+                }
+                options.Add(new(reader.GetGuid(1), reader.GetString(2), reader.GetInt32(3),
+                    (ArticlePropertyOptionStatus)reader.GetInt16(4)));
+            }
+        }
+        var labels = optionRows.Count == 0
+            ? new Dictionary<(Guid DefinitionId, Guid OptionId), List<ArticlePropertyLocalizedName>>()
+            : await ReadBatchNamesAsync(optionRows.Keys.ToArray(), optionLabels: true, cancellationToken).ConfigureAwait(false);
+        var result = new List<ArticlePropertyDefinition>(rows.Count);
+        foreach (DefinitionRow row in rows)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            IReadOnlyList<ArticlePropertyLocalizedName> displayNames = names.TryGetValue((row.DefinitionId, Guid.Empty), out var heldNames)
+                ? heldNames.AsReadOnly() : Array.Empty<ArticlePropertyLocalizedName>();
+            IReadOnlyList<ArticlePropertyOption> options = optionRows.TryGetValue(row.DefinitionId, out var heldOptions)
+                ? Array.AsReadOnly(heldOptions.Select(option => new ArticlePropertyOption(option.OptionId,
+                    option.Label, option.Order, option.Status,
+                    labels.TryGetValue((row.DefinitionId, option.OptionId), out var heldLabels)
+                        ? heldLabels.AsReadOnly() : Array.Empty<ArticlePropertyLocalizedName>())).ToArray())
+                : Array.Empty<ArticlePropertyOption>();
+            result.Add(HydrateDefinition(row, displayNames, options));
+        }
+        return Array.AsReadOnly(result.OrderBy(static definition => definition.DefinitionId).ToArray());
+    }
+
+    private async Task<Dictionary<(Guid DefinitionId, Guid OptionId), List<ArticlePropertyLocalizedName>>> ReadBatchNamesAsync(
+        Guid[] definitionIds,
+        bool optionLabels,
+        CancellationToken cancellationToken)
+    {
+        string query = optionLabels
+            ? """
+              SELECT definition_id, option_id, locale, value
+              FROM article_property_definition_option_label
+              WHERE definition_id = ANY(@DefinitionIds)
+              ORDER BY definition_id, option_id, locale;
+              """
+            : """
+              SELECT definition_id, locale, value
+              FROM article_property_definition_display_name
+              WHERE definition_id = ANY(@DefinitionIds)
+              ORDER BY definition_id, locale;
+              """;
+        var result = new Dictionary<(Guid DefinitionId, Guid OptionId), List<ArticlePropertyLocalizedName>>();
+        using DbDataReader reader = (DbDataReader)await db.Ado.GetDataReaderAsync(query,
+            new SugarParameter("@DefinitionIds", definitionIds) { IsArray = true }).ConfigureAwait(false);
+        while (await reader.ReadAsync(cancellationToken).ConfigureAwait(false))
+        {
+            var key = (reader.GetGuid(0), optionLabels ? reader.GetGuid(1) : Guid.Empty);
+            if (!result.TryGetValue(key, out List<ArticlePropertyLocalizedName>? names))
+            {
+                result.Add(key, names = []);
+            }
+            if (names.Count >= ArticlePropertyDefinitionContract.MaxDisplayNames)
+            {
+                throw new ArticlePropertyDefinitionBudgetExceededException("article_property_definition_budget_exceeded");
+            }
+            names.Add(new(reader.GetString(optionLabels ? 2 : 1), reader.GetString(optionLabels ? 3 : 2)));
+        }
+        return result;
+    }
+
     public async Task<ArticlePropertyDefinitionPage> ListAsync(
         ArticlePropertyDefinitionOwner owner,
         ArticlePropertyDefinitionPageCursor? cursor,
@@ -1005,6 +1122,14 @@ public sealed class PostgresArticlePropertyDefinitionPersistence(
         IReadOnlyList<ArticlePropertyOption> options = await ReadOptionsAsync(
             row.DefinitionId,
             cancellationToken).ConfigureAwait(false);
+        return HydrateDefinition(row, names, options);
+    }
+
+    private static ArticlePropertyDefinition HydrateDefinition(
+        DefinitionRow row,
+        IReadOnlyList<ArticlePropertyLocalizedName> names,
+        IReadOnlyList<ArticlePropertyOption> options)
+    {
         ArticlePropertyDefaultValue? defaultValue = ReadDefault(row);
         ArticlePropertyReferencePolicy? referencePolicy = ReadReferencePolicy(row);
         ArticlePropertyUrlPolicy? urlPolicy = ReadUrlPolicy(row);
