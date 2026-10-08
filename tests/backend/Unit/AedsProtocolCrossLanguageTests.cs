@@ -534,6 +534,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.True(PodBinaryCodec.TryDecodeArticlePage(decodedFrame.Value.Payload, out var decoded));
         Assert.Equal([801L, 802L], decoded.Items.Select(static item => item.CurrentRevisionId).ToArray());
         Assert.Equal([1201L, 1202L], decoded.Items.Select(static item => item.CurrentPublicationId!.Value).ToArray());
+        ExportCurrentProtocolFixture("article-list-frame.hex", encoded);
     }
 
     [Fact]
@@ -661,6 +662,7 @@ public sealed class AedsProtocolCrossLanguageTests
         Assert.Equal(7, item.RevisionNo);
         Assert.Equal(1201, item.CurrentPublicationId);
         Assert.Equal(4, item.PublicationNo);
+        ExportCurrentProtocolFixture("article-search-frame.hex", encoded);
     }
 
     [Fact]
@@ -836,6 +838,18 @@ public sealed class AedsProtocolCrossLanguageTests
         string stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();
         Assert.True(process.ExitCode == 0, $"{stdout}{Environment.NewLine}{stderr}");
+    }
+
+    private static void ExportCurrentProtocolFixture(string fileName, byte[] frame)
+    {
+        string? outputDirectory = Environment.GetEnvironmentVariable("FSUSBLOG_PROTOCOL_GOLDEN_OUTPUT_DIRECTORY");
+        if (string.IsNullOrWhiteSpace(outputDirectory))
+        {
+            return;
+        }
+        Assert.Contains(fileName, new[] { "article-list-frame.hex", "article-search-frame.hex" });
+        Directory.CreateDirectory(outputDirectory);
+        File.WriteAllText(Path.Combine(outputDirectory, fileName), Convert.ToHexString(frame).ToLowerInvariant() + "\n");
     }
 
     private static byte[] ReadProtocolFixtureBytes(string fileName)
