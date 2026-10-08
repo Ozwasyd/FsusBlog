@@ -5135,8 +5135,8 @@
         },
         {
             "path": "tools/test/lanes/soak-cache-churn.mjs",
-            "contentDigest": "sha256:b1066fdcc3e8132e23a91a84d4f9323743d4247f2f4d647682234a6714806309",
-            "indexDigest": "sha256:b1066fdcc3e8132e23a91a84d4f9323743d4247f2f4d647682234a6714806309"
+            "contentDigest": "sha256:ec979ecddb7dccecca1c30883fb94822e9b7a8199327703a709a1b1415ddab8b",
+            "indexDigest": "sha256:ec979ecddb7dccecca1c30883fb94822e9b7a8199327703a709a1b1415ddab8b"
         },
         {
             "path": "tools/test/legacy-real-dump-contract.mjs",
