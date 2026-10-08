@@ -3,6 +3,8 @@ using System.Text.Json;
 
 using SqlSugar;
 
+using FsusBlog.Shared.Contracts.AuthoringCanvas;
+
 namespace FsusBlog.Server.Services.Authoring;
 
 /// <summary>

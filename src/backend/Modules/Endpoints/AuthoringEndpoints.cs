@@ -46,6 +46,9 @@ public static partial class AuthoringEndpoints
         MapAuthoringWorkflowRoutes(group);
         MapAuthoringModerationRoutes(group);
         MapAuthoringOperationsRoutes(group);
+        AuthoringCanvasEndpoints.MapAuthoringCanvasRoutes(group);
+        MapArticleCanvasLinkRoutes(group);
+        MapArticlePropertyValueRoutes(group);
         return app;
     }
 

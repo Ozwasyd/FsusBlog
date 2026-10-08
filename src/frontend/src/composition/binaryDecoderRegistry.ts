@@ -16,6 +16,8 @@ import { mapPageContentFromPayload, mapSeoConfigFromPayload, mapSiteComplianceCo
 import { mapCategoryListFromPayload, mapTagListFromPayload, mapTaxonomyExactMetadataFromPayload } from '@/adapters/binary/taxonomyAdapter';
 import { mapUploadCompleteFromPayload, mapUploadInitFromPayload, mapUploadPartAckFromPayload, mapUploadPartMapFromPayload, mapUploadStatusFromPayload } from '@/adapters/binary/uploadAdapter';
 import { mapAdminUserPageFromPayload } from '@/adapters/binary/userAdapter';
+import { decodeArticleCanvasLinkReceipt, decodeArticleCanvasLinkHistoryResponse } from '@/codecs/binary/articleCanvasLinkWire.generated';
+import { decodeArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadWire.generated';
 import { AEDS_ACCESS_PROFILE, type AedsAccessProfileId } from '@/generated/aedsAccessProfiles';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
@@ -35,6 +37,9 @@ export const binaryFrameDecoderFrameTypes = Object.freeze([
     FrameType.ArticleSearch,
     FrameType.ArticleFeatured,
     FrameType.ArticleRelatedReading,
+    FrameType.ArticleCanvasLinkReceipt,
+    FrameType.ArticleCanvasLinkHistoryResponse,
+    FrameType.ArticlePropertyValueReadResponse,
     FrameType.HumanReadChallengeResponse,
     FrameType.HumanReadSubmitResponse,
     FrameType.TrashClearResponse,
@@ -374,7 +379,10 @@ export const binaryFrameDecoderRegistrations = Object.freeze([
     [FrameType.SiteSubscriptionResponse, mapSiteSubscriptionResponseFromPayload],
     [FrameType.AdminPrincipalSnapshot, mapAuthoringJsonFromPayload],
     [FrameType.EmptySuccess, mapEmptySuccessFromPayload],
-    [FrameType.MutationId, mapMutationIdFromPayload]
+    [FrameType.MutationId, mapMutationIdFromPayload],
+    [FrameType.ArticleCanvasLinkReceipt, decodeArticleCanvasLinkReceipt],
+    [FrameType.ArticleCanvasLinkHistoryResponse, decodeArticleCanvasLinkHistoryResponse],
+    [FrameType.ArticlePropertyValueReadResponse, decodeArticlePropertyValueReadResponse]
 ] as const satisfies readonly BinaryFrameDecoderRegistration[]);
 
 export const binaryFrameDecoderRegistry = createBinaryFrameDecoderRegistry(

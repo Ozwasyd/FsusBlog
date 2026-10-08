@@ -1,4 +1,5 @@
 using System.Collections.Immutable;
+using System.Security.Cryptography;
 using System.Text.Json;
 
 using FsusBlog.Server.Services.Articles.Bulk;
@@ -7,6 +8,61 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class ArticleBulkRegistryTests
 {
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(100)]
+    [InlineData(10_000)]
+    public void DigestMatchesCanonicalUtf8JsonForTypedValuesAndLargePlans(int itemCount)
+    {
+        const string Digest = "sha256:aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa";
+        var payload = new
+        {
+            Registry = ArticleBulkOperationRegistry.Current,
+            Values = new object?[]
+            {
+                null, true, false, long.MinValue, long.MaxValue, decimal.MinValue, decimal.MaxValue,
+                0.1234567890123456789012345670m, 1.25d, "\u0000 café 中文 🌱 <>&\r\n",
+                Guid.Parse("b06a22ed-143f-44cf-9702-70a6c831e1aa"),
+                new DateTime(638962848000000001, DateTimeKind.Utc),
+                new DateTimeOffset(2026, 10, 8, 12, 34, 56, TimeSpan.FromHours(5.5)),
+                ArticleBulkExecutionStrategy.AllOrNothing,
+                JsonSerializer.SerializeToElement(new { Text = "文", Number = 2.5m, Enabled = true }),
+                new Dictionary<string, object?> { ["UpperKey"] = "exact", ["empty"] = null }
+            },
+            Items = Enumerable.Range(0, itemCount).Select(index => new ArticleBulkPlanItem(
+                $"article-{index:D5}", ArticleBulkPlanItemStatus.Eligible, "eligible", $"revision-{index}",
+                "draft", Digest, Digest, [Digest], Digest, Digest)).ToImmutableArray()
+        };
+        byte[] canonicalBytes = JsonSerializer.SerializeToUtf8Bytes(
+            payload, new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = false });
+
+        Assert.Equal(
+            $"sha256:{Convert.ToHexStringLower(SHA256.HashData(canonicalBytes))}",
+            ArticleBulkDigest.Of(payload));
+    }
+
+    [Fact]
+    public void DigestPreservesCanonicalJsonRefusalForNonFiniteNumbersAndDepthOverflow()
+    {
+        var options = new JsonSerializerOptions(JsonSerializerDefaults.Web) { WriteIndented = false };
+        foreach (double value in new[] { double.NaN, double.PositiveInfinity, double.NegativeInfinity })
+        {
+            Exception? before = Record.Exception(() => JsonSerializer.SerializeToUtf8Bytes(value, options));
+            Exception? after = Record.Exception(() => ArticleBulkDigest.Of(value));
+            Assert.NotNull(before);
+            Assert.NotNull(after);
+            Assert.Equal(before.GetType(), after.GetType());
+        }
+        using JsonDocument document = JsonDocument.Parse(
+            new string('[', 65) + "0" + new string(']', 65), new JsonDocumentOptions { MaxDepth = 128 });
+        Exception? legacyDepth = Record.Exception(() => JsonSerializer.SerializeToUtf8Bytes(document.RootElement, options));
+        Exception? currentDepth = Record.Exception(() => ArticleBulkDigest.Of(document.RootElement));
+        Assert.NotNull(legacyDepth);
+        Assert.NotNull(currentDepth);
+        Assert.Equal(legacyDepth.GetType(), currentDepth.GetType());
+    }
+
     [Fact]
     public void Registry_IsClosedVersionedAndStrategyExact()
     {
