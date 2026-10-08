@@ -1,0 +1,418 @@
+{
+    "schema": "fsusblog.issue-3534-canonical-import-review.v1",
+    "recordedAt": "2026-10-08T05:10:03.281675+00:00",
+    "runId": "issue-3534-2899-import-review-20261008-2c62a8e",
+    "requestedBy": "coordinating #2899 owner thread; current canonical source/style decision only",
+    "status": "bounded-structural-option-supported-by-diagnostic-evidence; owner-implementation-and-source-acceptance-pending",
+    "reviewedCandidate": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+    "reviewedCandidateBase": "8b1c739cacef47995f441f096835863d377dc347",
+    "reviewedPullRequest": "https://github.com/Ozwasyd/FsusBlog/pull/3905",
+    "reviewedBranch": "task/2899-memory-unit-review-20261008",
+    "ownerCoordinationComment": "https://github.com/Ozwasyd/FsusBlog/pull/3905#issuecomment-6052668182",
+    "ownerBranchUnmodified": true,
+    "implementationCommitProduced": false,
+    "probeQualification": false,
+    "decision": {
+        "recommendation": "Owner-reviewed direct literal URL module-load structure preserving canonical path, bindings and source authority; no trusted checker or exception edit",
+        "nativeImport": "import { fileURLToPath, URL } from 'node:url';",
+        "placement": "After the unchanged original static import/re-export header, before checkpointSchema; do not interleave the runtime declaration through the static import roster",
+        "mapping": "const { validateCurrentRunEvidenceContext, validateEvidenceLocatorRegistry } = await import(new URL('../test/evidence-location-contract.mjs', import.meta.url));",
+        "requirements": [
+            "const named destructuring with exact original exports; no alias/default/rest binding",
+            "lexical native URL from node:url",
+            "literal original relative path and import.meta.url; no normalization/wrapper/re-export substitute",
+            "original validator module and all authority checkers/policy/registry unchanged",
+            "classify as behavior change because module initialization adds top-level await; validate owner controlled and negative cases on its actual new commit",
+            "use original pinned producer only after stable source/index commit; refresh paired generated-output evidence and rerun real SOURCE stage"
+        ]
+    },
+    "known3534GrammarLimit": "7393f936fbed9c0ad9bc8ab276ba6bee16d46e30 /30aa8a6660b881b61e15cffdd31fd18ed36c789a /b4dfcb7dab1219106deb40ee4393b447054e42b5 qualify only exact scanner complete fixture program, path/source bytes/helper AST/callback and all14 rules. They are not a scheduler exemption and need not be imported into #2899.",
+    "policyEvidence": {
+        "namedExceptionOnly": "docs/development/frontend-style-enforcement.md:139-146 and tools/frontend/style-toolchain/eslint.config.mjs:186-195 allow only tools/docs/behavior-doc-minimal-contract-build-v3-contract.mjs with literal ../fact-extractors/lib/canonicalize.mjs",
+        "generalRule": "import-x/no-relative-parent-imports remains error; no suppression moved or activated",
+        "finiteImportInheritance": "tools/frontend/check-frontend-style.mjs:1334-1395 and source-unit-style-diff.mjs:478-519 require unique tracked full roster witnesses and source/config identity. Existing import/re-export duplicate rows and changed roster remain ineligible for inheritance. Proposed candidate has zero diagnostics, so it does not claim inheritance or repair that checker."
+    },
+    "sourceIdentities": [
+        {
+            "path": "docs/development/frontend-style-enforcement.md",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "eb0cfba1ab76f3872a88296cf552a0409be3525b",
+            "sha256": "8cc81624257694eea24b2002c5f45c2611af118ab8c9901b25683ea23c03ab1e",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "e025c8826fc4436b23bc77f44d27ea429eeccc32",
+            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "config/development/frontend-style-policy.json",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "config/development/frontend-style-rule-registry.json",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "459b501e13eb867aa4ba13025408377fefe73432",
+            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "tools/frontend/check-frontend-style.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "9ad32515a023d564ca3db6942dabea7e2058d248",
+            "sha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "tools/frontend/source-unit-style-diff.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "050c1c22ac718c07c3a005891e40581330598cab",
+            "sha256": "948feb93aa3b03ac7864337247d45328a0fbd703eb2e4fcbce9389d8957cd84e",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "tools/test-matrix/release-final-static-boundary.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "792b48725fb592713dab0cea0052b4540d4018fb",
+            "sha256": "89e18f63eb9edaf6541b4b4bf2c07f7bf93a045a764b7b1fa171299cd6e2adb3",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "tools/test/evidence-location-contract.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "13f1ab92fc36715171a858d4f11e0ff89749a2e3",
+            "sha256": "f27aa3990261faf03888afec9cc6fc84c5a454e8bd1db70359344dc076fb3db9",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "tools/test-matrix/scheduler.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "6acfa324195699dab18794ddefbb25f66e50a4c8",
+            "sha256": "ca533ce8ae82c1c8edf2714f31fbb692afd377cd4160b7c5cbe0b783c6221d1f",
+            "probeBytesUnchanged": false
+        },
+        {
+            "path": "tests/tools/system-memory.test.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "512155e37569b6478ebba93462f9c8bd02a7729a",
+            "sha256": "d629dbfefbebcd2ef381ce43e5abbac3e6833eda44422b9f3f2d43344d47d99e",
+            "probeBytesUnchanged": true
+        },
+        {
+            "path": "tests/tools/reliability-scheduler-conflicts.test.mjs",
+            "reviewedCommit": "2c62a8e7c9c71fdf838e9dbb15b03133b8bec1c5",
+            "gitBlob": "b2802b1571e566f45bd0c557b88607296f4fca3e",
+            "sha256": "36d2fd5a6a82b6c724a92362fb48d425c1e0ce578a63323736ca3d40984ff96e",
+            "probeBytesUnchanged": true
+        }
+    ],
+    "proposalIdentity": {
+        "diagnosticOnly": true,
+        "proposalSha256": "449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+        "completeNonImportStatementBytesPreserved": true,
+        "existingExportStatementBytesPreserved": true,
+        "canonicalPath": "../test/evidence-location-contract.mjs",
+        "bindingIdentityPreserved": true,
+        "realRuntimeModuleNamespaceIdentityPreserved": true,
+        "validatorSourceSha256": "f27aa3990261faf03888afec9cc6fc84c5a454e8bd1db70359344dc076fb3db9",
+        "validatorImports": [
+            "node:crypto"
+        ],
+        "initializationChange": "top-level await; leaf validator has no scheduler import/cycle; native module singleton identity preserved",
+        "sourceStageAcceptance": "not run on this uncommitted diagnostic; original producer and full candidate source checks remain mandatory"
+    },
+    "dependencyComparison": {
+        "dependencyCount": 125,
+        "completeClosureRowsByteIdentical": true,
+        "rootSourceDigestChanged": true,
+        "rootIndexUnchanged": true,
+        "canonicalValidatorRowUnchanged": true,
+        "dirtyCandidateSealRefusal": [
+            "tools/test-matrix/scheduler.mjs working-tree bytes differ from the repository index"
+        ],
+        "notAQualificationReceipt": true
+    },
+    "negativeDependencyControls": {
+        "diagnosticOnly": true,
+        "originalSourceBytesRestored": true,
+        "controls": [
+            {
+                "variant": "canonical-owner-byte-mutation",
+                "originalCheckerRefused": true,
+                "errors": [
+                    "tools/test-matrix/scheduler.mjs working-tree bytes differ from the repository index",
+                    "tools/test/evidence-location-contract.mjs working-tree bytes differ from the repository index"
+                ]
+            },
+            {
+                "variant": "canonical-owner-file-missing",
+                "originalCheckerRefused": true,
+                "errors": [
+                    "tools/test-matrix/scheduler.mjs working-tree bytes differ from the repository index",
+                    "tools/test-matrix/scheduler.mjs: tools/test-matrix/scheduler.mjs local dependency ../test/evidence-location-contract.mjs is unresolved"
+                ]
+            }
+        ]
+    },
+    "environment": {
+        "node": "24.16.0",
+        "eslint": "10.8.0",
+        "espree": "10.4.0",
+        "taskScopedRealLockedToolCopy": true,
+        "frontendParserFiles": "four exact frozen parser files copied as0644, regular file/nlink1; original package/lock tracked bytes unchanged"
+    },
+    "publishedArtifacts": [
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/scheduler-before.mjs.gz",
+            "rawSha256": "ca533ce8ae82c1c8edf2714f31fbb692afd377cd4160b7c5cbe0b783c6221d1f",
+            "gzipSha256": "3a3559421c250d827b6514cccac155a1bf85ec753cc4f75eee8f3a565ffe7caa",
+            "rawBytes": 318178,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/scheduler-after.mjs.gz",
+            "rawSha256": "449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+            "gzipSha256": "df0180d416c7389fbdfc43c71869e0f161893b88720bafe12039b40089ea6f58",
+            "rawBytes": 318212,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/explicit-url-diagnostic.diff.gz",
+            "rawSha256": "931745ef5a5538918e17fafd0bd7730f1288284c13066480e562776e90c09b96",
+            "gzipSha256": "a2223abde41d165f232bd6bb0aaf0260f49d470bf3625162f459e5e9530752c5",
+            "rawBytes": 1593,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/inspect-closure.mjs.gz",
+            "rawSha256": "a178e25821fc2873bb12259cf409b5cbdb975e4e7cb2470f50a87ca426655c39",
+            "gzipSha256": "ccf618d4f6e867a449153052e5e06ee1c3ae28cc341b39e2280cda417733a13a",
+            "rawBytes": 641,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/validate-proposal.mjs.gz",
+            "rawSha256": "c6bba01ab12c576ad87a371337803303afdd7d6474846ff9739ea404684391b3",
+            "gzipSha256": "b3a5d9edc9fef27633446c664b3d03ce9102860083a17b97f3f52bca3bda8487",
+            "rawBytes": 3965,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/negative-dependency-controls.mjs.gz",
+            "rawSha256": "0768b93e02a83a1c8e1ad67855adc45eab2bbef0944ed3bafa7d9de8ed7d92b1",
+            "gzipSha256": "6c8af223bc45c494e8e3aa6a634b739decdf4d10dea05ffd0141ac4212cd7b82",
+            "rawBytes": 1831,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/baseline-source-diff.json.gz",
+            "rawSha256": "90ddb8d3b9a361501816df248c785299f63428bdfffc4c43aa9104fffe21df10",
+            "gzipSha256": "494bc5a2c5c16bd7d00e6f2d2caaedbf8f8d25c95b640c498df64b0843f021ef",
+            "rawBytes": 783256,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-source-diff.json.gz",
+            "rawSha256": "7dce23cab22e1d4639c99b42a9719e842b6d280a29e24d1d0547547aa37662f5",
+            "gzipSha256": "9ffbf15a78beb38e97acba5d0cbb36a48aca3be3319be8a7450ab240ac4295f3",
+            "rawBytes": 454158,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-full-scoped-source-diff.json.gz",
+            "rawSha256": "614b4035675523cc5896be4b2006af36e7d9c45a46c0a2c1f2489a2cf84236e2",
+            "gzipSha256": "e4dd77dfbcd5b6e6c4d1f8fbef0183fdff108fb1d6f0f356eea0acb319e661cf",
+            "rawBytes": 475713,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/baseline-closure.json.gz",
+            "rawSha256": "d15440996b7809fcc629b9041be14d1ac98c330a65e0f4546978f0c66b9884cf",
+            "gzipSha256": "30682e405a5a4e03339644f1be7727efdc31ccbc6542f32fc3c6ce02a689d23e",
+            "rawBytes": 37097,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-closure-dirty.json.gz",
+            "rawSha256": "66f02d47d02bf436dff167ac25790854bc40fccd826f7d66dd6af299da62bc22",
+            "gzipSha256": "6eef8e9447da4e19fce9bbc034e551bac6b824cf9df4a190f92267d62416cc14",
+            "rawBytes": 37196,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/proposal-structure-and-identity.json.gz",
+            "rawSha256": "d14b6fb91380fd46aaa78559a7fe067b8c9d5936a0f7e1ee94d105b1b2606bc0",
+            "gzipSha256": "54fceb00467561f79e4852d338df16e6d1391839c60a7252a3d050c7ddbeaf71",
+            "rawBytes": 813,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/dependency-comparison.json.gz",
+            "rawSha256": "879dfdde7c4f7245a2ee3336e3acaf2578fe20b77288f97b51fdf1659aa45527",
+            "gzipSha256": "c7fcddf05c452475de22a869af1da93523ab5440843e18e9a0c17f121b1f72fc",
+            "rawBytes": 364,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/negative-dependency-controls.json.gz",
+            "rawSha256": "4998db907643052c28c74cf9d9ae94fed1b9dda40fba95be87cfa3db1db792a6",
+            "gzipSha256": "085fdd40be3acdd12d83e224eeb42f491c121e58328873dd53ad97869a3e0e9d",
+            "rawBytes": 884,
+            "kind": "diagnostic-source-or-original-tool-output; not a candidate qualification receipt"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/baseline-strict-actual.log.gz",
+            "rawSha256": "9655cf67592e781a34de47ba00244ba553b0eb94a947e142fa6e559734bdfe5f",
+            "gzipSha256": "d660fc06c17095b54d1b676da18375b7724e403dd9562da7123b9bf57a743db8",
+            "rawBytes": 394,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 1,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/test-matrix/scheduler.mjs",
+            "result": "Original exact candidate refuses canonical parent import at27:8"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/baseline-source-diff.log.gz",
+            "rawSha256": "dc432da14c857889375c3faeb73b4623e0774203d3782773d9415683db3e6708",
+            "gzipSha256": "b0f5a93519be5d619318dfbe06dc5a2691115ef7c52cc81e761ee1938fc82e3b",
+            "rawBytes": 387,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 1,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode source-diff --base 8b1c739cacef47995f441f096835863d377dc347 --file tools/test-matrix/scheduler.mjs",
+            "result": "Original source-diff refuses exactly same finding; no accepted inheritance"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-full-scoped-strict.log.gz",
+            "rawSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+            "gzipSha256": "60dbfbc30341a628169b27ffccfc595369bfe3552fe2cc690b69acc9c3426f1e",
+            "rawBytes": 68,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/test-matrix/scheduler.mjs --file tests/tools/system-memory.test.mjs --file tests/tools/reliability-scheduler-conflicts.test.mjs",
+            "result": "Diagnostic proposed source: all3 changed owner source files, zero violations"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-full-scoped-source-diff.log.gz",
+            "rawSha256": "e96d80ef8b2ce4fd7ce8e0efb466f4fc7253033b2766d1ddb74181057621b7c7",
+            "gzipSha256": "60dbfbc30341a628169b27ffccfc595369bfe3552fe2cc690b69acc9c3426f1e",
+            "rawBytes": 68,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode source-diff --base 8b1c739cacef47995f441f096835863d377dc347 --file tools/test-matrix/scheduler.mjs --file tests/tools/system-memory.test.mjs --file tests/tools/reliability-scheduler-conflicts.test.mjs",
+            "result": "Diagnostic proposed source: sourceCheckPassed=true; no unexpected findings. Raw candidateSourceSha256 binds actual uncommitted source."
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-controlled-regressions.log.gz",
+            "rawSha256": "151cae1819768bf8fdc6c3623f8318cd8b3eb22e8e9e9ce329f39fab715cda05",
+            "gzipSha256": "760a403eed129bd82060b238ef57c14be80d54adc58a289a3bf91096be6ce4b1",
+            "rawBytes": 2849,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node --test tests/tools/system-memory.test.mjs tests/tools/reliability-scheduler-conflicts.test.mjs",
+            "result": "32/32, zero skips; original controlled sampler/physical rejection/zero-spawn controls"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-admission-regressions.log.gz",
+            "rawSha256": "950d503cfabeaeb332f71228d23daa385cd41c99652d7682c434330ed9a33a69",
+            "gzipSha256": "4330d02d639cb7dd2b96cf24d96e5d8171549cb255f8bcbfdea74f3688fa941a",
+            "rawBytes": 1039,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node --test --test-name-pattern='dynamic|resident leases' tests/tools/test-matrix-scheduler.test.mjs",
+            "result": "9/9 selected, zero skips; dynamic admission/resident plus actual dynamic-import fixture materializer"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-additional-admission-regressions.log.gz",
+            "rawSha256": "3a039e593bf3ea1172885864052c865de8e0cfa996c3e80f5c8dbf25dffffdfd",
+            "gzipSha256": "b3cf8ebb0c3faca3dfd2cddaf7177c14128e09dd946d4d1ac025e5cceb6ba2f0",
+            "rawBytes": 336,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node --test --test-name-pattern='five-CPU startup|failed resident producer' tests/tools/test-matrix-scheduler.test.mjs",
+            "result": "2/2 additional disjoint selected cases, zero skips;11 cumulative admission/materialization controls"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/baseline-closure.log.gz",
+            "rawSha256": "6d4a9f607bf75b28a95ec2705bd5d5ca1dd0640d66870c68b636e25db21abaad",
+            "gzipSha256": "f088600a498ddb5fc7babed949b84cd2dd350a17a64d439c8bc09469ad59c252",
+            "rawBytes": 280,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node inspect-closure.mjs baseline-closure.json",
+            "result": "Original closure errors=[],125dependency rows, canonical validator bound"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/url-closure-dirty.log.gz",
+            "rawSha256": "f2ec9ee2382d02ae593d7013b90bdb8e0091e52abbb01473e62135adc9f24d60",
+            "gzipSha256": "78f3ccce07c8154ca41ac91d182c0f9ca87758f895907630c4926aea8238050d",
+            "rawBytes": 365,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node inspect-closure.mjs url-closure-dirty.json",
+            "result": "Probe script completed; authority inspection correctly REFUSES dirty scheduler/index mismatch. Full125dependency rows byte-identical; no full closure acceptance."
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/proposal-structure-and-identity.log.gz",
+            "rawSha256": "063d1ea9fceec295ad6f741be7288ac2394a3c2e82312863ee293e4ec554a579",
+            "gzipSha256": "9c88ee18ee30bde66997be22d4ceeed6c945ca2829219427b28030cfa4dfdf8f",
+            "rawBytes": 732,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node validate-proposal.mjs",
+            "result": "Actual original canonical namespace/function object identity preserved; complete existing nonimport/export statement bytes equal; leaf validator imports onlynode:crypto"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/negative-dependency-controls.log.gz",
+            "rawSha256": "8cc94baf729bde379f566288af3bacb68acff29379caeefad412bd040e5bdf24",
+            "gzipSha256": "f50b21dfd4c98a9af96362e83f36afb26ca669d2d2b631ea70e8f694fafa72b7",
+            "rawBytes": 646,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 0,
+            "command": "node negative-dependency-controls.mjs",
+            "result": "Original authority rejects true canonical-byte mutation and missing dependency; original bytes restored in finally"
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/baseline-strict.log.gz",
+            "rawSha256": "135f0a72ab3542d65cb97c13c3c21d2e8cf2caf4777fc2a6f19a92884796d844",
+            "gzipSha256": "301493e03e1feb0c492a7d297102846942dd903590bef137b4d41ddf495f9631",
+            "rawBytes": 64,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 1,
+            "command": "node tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/test-matrix/scheduler.mjs",
+            "result": "Initial task-local tooling symlink appeared as untracked directory; EISDIR setup failure. Replaced with actual locked tool files; later original exact-candidate check still fails genuine parent import."
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/baseline-strict-setup-diagnostic.log.gz",
+            "rawSha256": "00bae5123c9a5fa673ace8c8ddb4f63857bf2298757796fc435a2c759a914b1d",
+            "gzipSha256": "03e0bf3794bc348ebacdb53f69a3b887811b32704dd2f17b7ee958b39a988539",
+            "rawBytes": 994,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 1,
+            "command": "node --import trace-read.mjs tools/frontend/check-frontend-style.mjs --mode strict-full --file tools/test-matrix/scheduler.mjs",
+            "result": "Diagnostic only: unchanged checker stack confirms task-local tool symlink directory read; no checker edited."
+        },
+        {
+            "path": "artifacts/style/issue-3534-2899-import-review/proposal-structure-initial.log.gz",
+            "rawSha256": "f79445ba8e68a967bdf8444c36d0d7bbc9018496fd4c82960c09221cb93ba416",
+            "gzipSha256": "32c810af1d9e8dee95e89d3ae33a3af04e271bc9d998f36f38afb0a2b7b6823f",
+            "rawBytes": 263316,
+            "kind": "actual-local-diagnostic-command",
+            "exitCode": 1,
+            "command": "node validate-proposal.mjs (initial diagnostic script)",
+            "result": "Diagnostic script used reference equality across separate AST parses and failed; corrected to exact AST node spans. Candidate source unchanged; result not treated as source failure or qualification."
+        }
+    ],
+    "acceptanceLimits": {
+        "actualOwnerSOURCEStage": "Not run on uncommitted diagnostic source; source-diff records candidateCommit2c62 HEAD plus actual candidateSourceSha256449d, which is not the immutable2c62 source. Do not relabel as candidate2c62 acceptance.",
+        "authorityAdmission": "Dirty proposal is actually rejected for source/index mismatch;125dependency identities and canonical byte/missing controls are preserved. Original producer refresh and committed exact-candidate checks required.",
+        "original93PureSOURCERegressions": "Owner original93/93 reported in PR3905; not rerun or promoted for this diagnostic.",
+        "physicalStaticGovernance": "Remains original #2899 owner requirement; no repeated host/backend probes or physical acceptance claim.",
+        "independentReview": "Owner/coordinator review required before implementation. No implementation pushed to PR3905.",
+        "root3534": "Original root issue full-style baseline/history/independent acceptance status remains WIP; this bounded downstream review grants no extra exception."
+    },
+    "nextOwnerAction": "Choose/authorize bounded module-load change using this exact diagnostic diff, commit source on the owned branch, run the original producer after stable index, update generated binding, then rerun strict/source-diff, original controlled negatives and actual ci-pr-smart --stage source-integration on that exact new SHA. Report independent review and whole static-governance criteria separately."
+}
