@@ -24,6 +24,20 @@ export function adaptReleaseFinalizerSemanticOutcome({ identity, inputAuthorityR
     {
         reasons.push(reason('product.state-mismatch', releaseFinalizerOutcomeProducerId, { semanticId: id }));
     }
+    const terminalIds = [...verifiedInputIds, ...failedInputIds, ...blockedInputIds];
+    const terminal = new Set(terminalIds);
+    for (const id of requiredInputIds.filter((id) => !terminal.has(id)))
+    {
+        reasons.push(reason('contract.missing-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: `${id}:terminal` }));
+    }
+    for (const id of terminal)
+    {
+        if (!requiredInputIds.includes(id) || !consumedInputIds.includes(id)
+            || terminalIds.filter((actual) => actual === id).length > 1)
+        {
+            reasons.push(reason('contract.ambiguous-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: `${id}:terminal` }));
+        }
+    }
     for (const id of requiredOutputIds.filter((id) => !producedOutputIds.includes(id)))
     {
         reasons.push(reason('contract.missing-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: id }));
@@ -33,6 +47,10 @@ export function adaptReleaseFinalizerSemanticOutcome({ identity, inputAuthorityR
         reasons.push(reason('contract.ambiguous-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: id }));
     }
     const outputDigests = evidence?.outputDigests ?? {};
+    for (const id of Object.keys(outputDigests).filter((id) => !producedOutputIds.includes(id)))
+    {
+        reasons.push(reason('contract.ambiguous-evidence', releaseFinalizerOutcomeProducerId, { evidenceId: `${id}:digest` }));
+    }
     for (const id of producedOutputIds)
     {
         if (!/^sha256:[0-9a-f]{64}$/u.test(String(outputDigests[id] ?? '')))
