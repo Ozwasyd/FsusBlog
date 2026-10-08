@@ -616,8 +616,7 @@
             "sourcePaths": [
                 "src/backend/Infrastructure/Memory/Contracts/MemoryAllocationLayout.cs",
                 "src/backend/Infrastructure/Memory/Contracts/MemoryHostAccess.cs",
-                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs",
-                "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs"
+                "src/backend/Infrastructure/Memory/Contracts/MemoryIdentity.cs"
             ],
             "intentKinds": [
                 "ownership",
@@ -648,17 +647,11 @@
                     "marker": "OWNERSHIP:",
                     "symbol": "record struct BlobId",
                     "maxLineDistance": 32
-                },
-                {
-                    "path": "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
-                    "marker": "OWNERSHIP:",
-                    "symbol": "class ManagedMemoryBacking",
-                    "maxLineDistance": 32
                 }
             ],
             "claimLevel": "S",
             "status": "structural-only",
-            "structuralBoundary": "One physical owner retains its charge through actual role/read/pin/operation completion. A host view never performs I/O or qualification. This is a structural ownership contract, not measured runtime capacity or performance evidence."
+            "structuralBoundary": "Canonical descriptors and identity tokens distinguish blob, physical allocation, residency and location. The charge/read-lease contracts retain actual ownership through completion and exclude I/O or qualification from host-view acquisition. This registers the source contracts only, not measured runtime capacity or backend qualification."
         },
         {
             "id": "os-dedicated-page-owner",
