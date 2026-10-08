@@ -685,6 +685,16 @@ refuse. MySQL and SQLite do not acquire an expression-key implementation from
 this PostgreSQL capability. Fresh v5 target/source identities are required; old
 artifacts remain unchanged and cannot grant current admission.
 
+The sole PostgreSQL entity-projection compiler preserves the original CodeFirst
+physical policies from the declared entity facts: nullable bounded strings with
+no explicit default retain their native NULL default; text and non-nullable
+strings do not acquire one. Declared Int64 defaults keep their original logical
+input literal. The extractor's generated primary role uses PostgreSQL's native
+implicit constraint/backing-index name; explicit names remain explicit. These
+policies apply to the entity projection only. Recipe/control renderers and other
+provider owners remain responsible for their original facts. The complete
+original-vs-compiled PostgreSQL snapshot comparison stays unfiltered.
+
 For a direct comparison against an independently typed double-precision column,
 only a closed literal operand is interpreted in PostgreSQL's `float8` domain.
 The existing physical-float64 node preserves the exact IEEE operand bits. Proven
