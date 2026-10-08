@@ -609,3 +609,58 @@ test('source-diff executes the original sealed classifier for both Git base and 
         assert.equal(fs.readFileSync(path.join(root, owner), 'utf8'), originalOwner);
     });
 });
+
+test('source-diff cannot execute candidate CLI or parser with forged matching version metadata', () =>
+{
+    fixture((root) =>
+    {
+        const git = (...args) => execFileSync('git', args, { cwd: root, encoding: 'utf8' }).trim();
+        git('init', '--quiet');
+        git('config', 'user.name', 'FsusBlog Candidate Fixture');
+        git('config', 'user.email', 'fixture@fsus.invalid');
+        for (const relative of [edgeRegistryPath, 'tools/frontend/style-toolchain/closed-canonical-edge.mjs'])
+        {
+            write(root, relative, fs.readFileSync(path.join(authorityRoot, relative)));
+        }
+        const file = 'tools/source-diff-candidate-control.mjs';
+        write(root, file, 'export const value = 1;\n');
+        git('add', '.');
+        git('commit', '-qm', 'fixture unchanged policy and clean source');
+        const check = () => execFileSync(process.execPath,
+            [path.join(authorityRoot, 'tools/frontend/check-frontend-style.mjs'),
+                '--root', root, '--mode', 'source-diff', '--base', 'HEAD', '--file', file],
+            { encoding: 'utf8', stdio: 'pipe' });
+        // Candidate dependencies are not required to execute the original authority.
+        check();
+        const markers = ['candidate-cli-ran', 'candidate-parser-ran'];
+        for (const name of ['eslint', 'espree', 'eslint-scope'])
+        {
+            const metadata = JSON.parse(fs.readFileSync(path.join(authorityRoot,
+                `tools/frontend/style-toolchain/node_modules/${name}/package.json`), 'utf8'));
+            write(root, `tools/frontend/style-toolchain/node_modules/${name}/package.json`,
+                JSON.stringify({ name, version: metadata.version, main: 'index.cjs' }));
+        }
+        write(root, 'tools/frontend/style-toolchain/node_modules/.bin/eslint', `
+            const fs = require('node:fs');
+            const path = require('node:path');
+            fs.writeFileSync(${JSON.stringify(path.join(root, markers[0]))}, 'executed');
+            process.stdout.write(JSON.stringify([{ filePath: path.resolve(process.argv.at(-1)), messages: [] }]));
+        `);
+        write(root, 'tools/frontend/style-toolchain/node_modules/espree/index.cjs', `
+            require('node:fs').writeFileSync(${JSON.stringify(path.join(root, markers[1]))}, 'executed');
+            module.exports = require(${JSON.stringify(path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules/espree'))});
+        `);
+        write(root, file, 'export const value = 1;\ndebugger;\n');
+        assert.throws(check, (error) => error.status === 1 && /no-debugger: Unexpected/u.test(error.stderr));
+        for (const marker of markers)
+        {
+            assert.equal(fs.existsSync(path.join(root, marker)), false);
+        }
+        const report = JSON.parse(fs.readFileSync(path.join(root, '.tmp/frontend-style/source-diff.json'), 'utf8'));
+        assert.equal(report.sourceCheckPassed, false);
+        assert.equal(report.files[0].rawBase.exitCode, 0);
+        assert.equal(report.files[0].rawCandidate.exitCode, 1);
+        assert.ok(report.files[0].unexpected.some((finding) => finding.tool === 'eslint' && finding.rule === 'no-debugger'));
+        assert.deepEqual(fs.readdirSync(path.join(root, '.tmp/frontend-style')), ['source-diff.json']);
+    });
+});

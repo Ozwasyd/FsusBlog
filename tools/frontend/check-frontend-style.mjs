@@ -1218,7 +1218,7 @@ export function materializeSourceDiffBase({ repositoryRoot, baseCommit, scratch,
     const dependencies = [];
     const unresolved = [];
     let totalBytes = 0;
-    const parser = createRequire(path.join(repositoryRoot, 'tools/frontend/style-toolchain/package.json'))('espree');
+    const parser = createRequire(path.join(authorityRoot, 'tools/frontend/style-toolchain/package.json'))('espree');
     function resolveReference(owner, reference)
     {
         const relative = contained(path.posix.normalize(path.posix.join(path.posix.dirname(owner), reference)));
@@ -1332,7 +1332,7 @@ export function materializeSourceDiffBase({ repositoryRoot, baseCommit, scratch,
 
 function sourceDiffImportContext({ file, baseSource, candidateSource, baseInputs, identities })
 {
-    const parser = createRequire(path.join(root, 'tools/frontend/style-toolchain/package.json'))('espree');
+    const parser = createRequire(path.join(authorityRoot, 'tools/frontend/style-toolchain/package.json'))('espree');
     const imports = (source) => parser.parse(source, { ecmaVersion: 'latest', sourceType: 'module' }).body
         .filter((node) => node.type === 'ImportDeclaration').map((node) => node.source.value);
     const prior = baseInputs.dependencies.filter((dependency) => dependency.owner === file);
@@ -1423,8 +1423,8 @@ function checkSourceDiff(args, files)
         configurationIdentities: identities, qualification: false, files: [], failures: [] };
     report.toolVersions = Object.fromEntries(['eslint', 'espree', 'eslint-scope'].map((name) =>
     {
-        const installed = readJson(path.join(root, `tools/frontend/style-toolchain/node_modules/${name}/package.json`), name);
-        const locked = readJson(path.join(root, policy.toolchain.lock), policy.toolchain.lock)?.packages?.[`node_modules/${name}`];
+        const installed = readJson(path.join(authorityRoot, `tools/frontend/style-toolchain/node_modules/${name}/package.json`), name);
+        const locked = readJson(path.join(authorityRoot, policy.toolchain.lock), policy.toolchain.lock)?.packages?.[`node_modules/${name}`];
         if (!installed || !locked || installed.version !== locked.version)
         {
             throw new Error(`source-diff installed tool does not match original lock: ${name}`);
@@ -1442,7 +1442,7 @@ function checkSourceDiff(args, files)
             fs.mkdirSync(path.dirname(destination), { recursive: true });
             fs.writeFileSync(destination, command(['git', 'show', `${base}:${file}`]).stdout);
         }
-        fs.symlinkSync(fs.realpathSync(path.join(root, 'tools/frontend/style-toolchain/node_modules')),
+        fs.symlinkSync(fs.realpathSync(path.join(authorityRoot, 'tools/frontend/style-toolchain/node_modules')),
             path.join(scratch, 'tools/frontend/style-toolchain/node_modules'), 'dir');
         report.baseResolverInputs = materializeSourceDiffBase({ repositoryRoot: root, baseCommit: base, scratch,
             files: files.filter((file) => command(['git', 'ls-tree', base, '--', file]).stdout.length > 0) });
@@ -1464,7 +1464,7 @@ function checkSourceDiff(args, files)
             }
             function lint(workingRoot)
             {
-                const result = spawnSync(process.execPath, ['--max-old-space-size=512', path.join(root, policy.toolchain.eslint),
+                const result = spawnSync(process.execPath, ['--max-old-space-size=512', path.join(authorityRoot, policy.toolchain.eslint),
                     '--config', path.join(authorityRoot, policy.eslintConfig), '--format', 'json', file],
                 { cwd: workingRoot, encoding: 'utf8', maxBuffer: 16 * 1024 * 1024,
                     env: { ...process.env, FSUSBLOG_STYLE_ROOT: workingRoot } });
@@ -1518,6 +1518,18 @@ function checkSourceDiff(args, files)
             {
                 fail(`source-diff configuration changed during inspection: ${identity.file}`);
             }
+            if (sha256(fs.readFileSync(path.join(authorityRoot, identity.file))) !== identity.sha256)
+            {
+                fail(`source-diff authority configuration changed during inspection: ${identity.file}`);
+            }
+        }
+        try
+        {
+            validateCandidatePolicy(root);
+        }
+        catch (error)
+        {
+            fail(`source-diff final authority validation failed: ${error.message}`);
         }
         report.failures = [...failures];
         report.sourceCheckPassed = failures.length === 0;

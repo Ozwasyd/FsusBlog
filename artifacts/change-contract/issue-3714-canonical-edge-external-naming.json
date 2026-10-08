@@ -15,7 +15,8 @@
             "id": "content-doc-exactness-authority",
             "paths": [
                 "config/testing/correctness-attempt-producers.json",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/test-retention-replacements.json"
             ],
             "reason": "Preserve the trusted registered external contract spellings during complete canonical-edge source integration; internal identifiers continue to follow repository naming rules."
         },

@@ -194,7 +194,9 @@ the command's actual input ownership.
 The `source-diff` diagnostic runs both the Git base and candidate through the
 executing authority's unchanged ESLint configuration. Its base scratch root
 contains exact Git policy and source witnesses, not another executable classifier
-authority. Configuration must match the base, candidate and executing authority;
+authority. The actual CLI, parser, installed version checks and lock come from that
+authority; matching candidate dependency metadata cannot select executable tools.
+Configuration must match the base, candidate and executing authority;
 changed configuration still requires strict checks. Canonical caller validation
 also applies to the base witnesses. Scratch cleanup and configuration/source drift
 refusal remain mandatory, and this diagnostic never grants qualification.
