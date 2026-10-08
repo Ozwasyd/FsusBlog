@@ -11,10 +11,9 @@
                 "tests/governance/test-lifecycle-registry.json",
                 "config/testing/correctness-attempt-producers.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/migration/packages.lock.json",
-                "artifacts/style/reader-migration-fixture-idempotence.json"
+                "tests/migration/packages.lock.json"
             ],
-            "reason": "Preserve canonical JSON schema keys while applying exact test, lock, registry, producer-inventory corrections and recording formatter idempotence evidence."
+            "reason": "Preserve canonical JSON schema keys while applying the exact supplied test, lock, registry and producer-inventory capability corrections."
         },
         {
             "id": "environment-variable",
@@ -23,6 +22,13 @@
                 "tools/test-inventory/discovery.mjs"
             ],
             "reason": "preserve the canonical execution and environment authority spellings while verifying the current producer roster and interpreting bounded observed MSBuild path separators"
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve the canonical generated testing snapshot and literal tier/evidence path identities while refreshing only its existing producer projection."
         }
     ]
 }
