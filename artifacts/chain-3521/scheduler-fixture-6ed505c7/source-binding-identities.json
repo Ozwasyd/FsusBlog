@@ -1,0 +1,57 @@
+{
+  "sourceCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "canonicalFrameworkCommit": "ebf0d6e0e555ba8bf64ceb4dbc9de6427cc1699c",
+  "frameworkChecks": [
+    {
+      "path": "tests/tools/atomic-producer-compiler.test.mjs",
+      "frameworkBlob": "18aad9805cc2e2b25384b9285148e99a459d990b",
+      "sourceBlob": "18aad9805cc2e2b25384b9285148e99a459d990b",
+      "identical": true
+    },
+    {
+      "path": "tests/tools/atomic-producer-contract.test.mjs",
+      "frameworkBlob": "61b09704c65ea7021a7f07b480393641a6ca024e",
+      "sourceBlob": "61b09704c65ea7021a7f07b480393641a6ca024e",
+      "identical": true
+    },
+    {
+      "path": "tests/tools/support/atomic-producer-fixture.mjs",
+      "frameworkBlob": "27c152f0d8ab31f96a764a908500ef061a64b561",
+      "sourceBlob": "27c152f0d8ab31f96a764a908500ef061a64b561",
+      "identical": true
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/README.md",
+      "frameworkBlob": "743555e1fbbe0cf9f381f53bffe491b42d36aec3",
+      "sourceBlob": "743555e1fbbe0cf9f381f53bffe491b42d36aec3",
+      "identical": true
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/compiler.mjs",
+      "frameworkBlob": "f9f0ba7630adc30273ec20a03b8704f1e0640496",
+      "sourceBlob": "f9f0ba7630adc30273ec20a03b8704f1e0640496",
+      "identical": true
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/contract.mjs",
+      "frameworkBlob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d",
+      "sourceBlob": "0a6d61bc2a2cdee8138605e06f6275b163f22e1d",
+      "identical": true
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/disposition.mjs",
+      "frameworkBlob": "51d943c0c0ba19eba280edb0afcc82ae0dcaa742",
+      "sourceBlob": "51d943c0c0ba19eba280edb0afcc82ae0dcaa742",
+      "identical": true
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/execution.mjs",
+      "frameworkBlob": "a8f14145c0412a2adb0645fe9005e22c1f0e9fa8",
+      "sourceBlob": "a8f14145c0412a2adb0645fe9005e22c1f0e9fa8",
+      "identical": true
+    }
+  ],
+  "inspectedRemoteMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "requestedMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "requestedMasterAncestor": true
+}

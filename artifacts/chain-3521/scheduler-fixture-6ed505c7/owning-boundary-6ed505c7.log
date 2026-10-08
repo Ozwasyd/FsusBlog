@@ -1,0 +1,127 @@
+(node:466893) ExperimentalWarning: stripTypeScriptTypes is an experimental feature and might change at any time
+(Use `node --trace-warnings ...` to show where the warning was created)
+✔ release-final script and execution graph expose only the finalizer consumer (183806.401564ms)
+▶ missing, failed, and stale seals keep finalizer spawn count at zero
+  ✔ missing (0.325119ms)
+  ✔ failed (0.144127ms)
+  ✔ stale (0.18642ms)
+✔ missing, failed, and stale seals keep finalizer spawn count at zero (1.58764ms)
+✔ accepted seal exposes one spawn only while the static boundary remains valid (0.271308ms)
+✔ scheduler environment applies the reusable decision before the production shell path (1980.421249ms)
+▶ static boundary kills direct and hidden forbidden command mutations
+  ✔ producer (1838.30003ms)
+  ✔ repair (1668.542639ms)
+  ✔ parser (1656.206147ms)
+  ✔ mutation (1578.10365ms)
+  ✔ governance (1939.954535ms)
+  ✔ create-correctness (1917.248576ms)
+  ✔ publish-parent (1701.674587ms)
+✔ static boundary kills direct and hidden forbidden command mutations (12304.297029ms)
+✔ execution graph mutation is rejected before finalizer or producer spawn (1608.368579ms)
+▶ duplicate finalizer command, authority alias, and shadow tier fail closed
+  ✔ shadow tier (1349.841588ms)
+  ✔ command alias (1588.704261ms)
+  ✔ authority alias (1827.632086ms)
+✔ duplicate finalizer command, authority alias, and shadow tier fail closed (4768.282824ms)
+▶ declarative execution grammar rejects aliases and unsupported execution forms
+  ✔ ./tools/test/lanes/release-final.sh (1599.339895ms)
+  ✔ tools/test/lanes/./release-final.sh (1383.227151ms)
+  ✔ bash tools/test/lanes/release-final.sh (1547.58584ms)
+  ✔ bash -c 'exec ./tools/test/lanes/release-final.sh' (4.905845ms)
+  ✔ sh ./tools/test/lanes/release-final.sh (1642.683962ms)
+  ✔ env bash ./tools/test/lanes/release-final.sh (4.253103ms)
+  ✔ bash -c '$PWD/tools/test/lanes/release-final.sh' (3.628413ms)
+  ✔ true; ./tools/test/lanes/release-final.sh (3.251375ms)
+  ✔ "tools/test/lanes/release-final.sh" (1387.470234ms)
+  ✔ bash   -c   ' exec   "$PWD"/tools/test/lanes/./release-final.sh ' (4.923382ms)
+  ✔ env   sh   "./tools/test/lanes/release-final.sh" (5.014309ms)
+  ✔ true &&
+  "$PWD"/tools/test/lanes/release-final.sh (4.670101ms)
+  ✔ finalizer=./tools/test/lanes/release-final.sh; exec "$finalizer" (3.144644ms)
+  ✔ p=./tools/test/lanes/release-; exec "${p}final.sh" (2.964232ms)
+  ✔ p=./tools/test/lanes/release-; s=final.sh; exec "$p$s" (3.235612ms)
+  ✔ ./tools/test/lanes/release-final.s? (3.058244ms)
+  ✔ bash -c 'p=./tools/test/lanes/release-; exec "${p}final.sh"' (2.990592ms)
+  ✔ exec ./tools/test/lanes/release-$(printf final).sh (2.762329ms)
+  ✔ exec ./tools/test/lanes/release-{final,preview}.sh (2.790681ms)
+  ✔ exec "./tools/test/lanes/release-${x:-final}.sh" (2.714616ms)
+  ✔ exec "$late"; late=./tools/test/lanes/release-final.sh (2.932004ms)
+  ✔ cd tools/test/lanes && ./release-final.sh (3.561562ms)
+  ✔ python -c 'import os; os.system("./tools/test/lanes/release-final.sh")' (3.185776ms)
+  ✔ bash -c './tools/test/lanes/release-final.s""h' (2.964203ms)
+  ✔ bash -c './tools/test/lanes/release-final.s\h' (2.798793ms)
+  ✔ printf tools/test/lanes/release-final.sh | bash (3.642975ms)
+  ✔ run_finalizer() { tools/test/lanes/release-final.sh; }; run_finalizer (3.180147ms)
+  ✔ command_argv=(tools/test/lanes/release-final.sh); "${command_argv[@]}" (3.018515ms)
+  ✔ eval tools/test/lanes/release-final.sh (2.729529ms)
+  ✔ source tools/test/lanes/release-final.sh (7.553091ms)
+  ✔ . tools/test/lanes/release-final.sh (3.218505ms)
+  ✔ time tools/test/lanes/release-final.sh (3.053266ms)
+  ✔ find tools/test/lanes -name release-final.sh -exec tools/test/lanes/release-final.sh ';' (2.772434ms)
+  ✔ printf tools/test/lanes/release-final.sh | xargs bash (2.665102ms)
+  ✔ if test -f tools/test/lanes/release-final.sh; then tools/test/lanes/release-final.sh; fi (3.147038ms)
+  ✔ "$dynamicExecutable" tools/test/lanes/release-final.sh (2.845694ms)
+  ✔ node "$dynamicEntrypoint" tools/test/lanes/release-final.sh (2.634636ms)
+  ✔ bash "$dynamicScript" tools/test/lanes/release-final.sh (2.902199ms)
+  ✔ tools/test/lanes/_suite-support.sh (4581.670256ms)
+  ✔ echo data
+tools/test/lanes/release-final.sh (3.910968ms)
+  ✔ printf data
+tools/test/lanes/release-final.sh (4.076737ms)
+  ✔ test -f tools/test/lanes/release-final.sh
+tools/test/lanes/release-final.sh (3.664597ms)
+  ✔ env true
+tools/test/lanes/release-final.sh (3.090012ms)
+  ✔ bash tools/test/lanes/release-preview.sh
+tools/test/lanes/release-final.sh (3.25442ms)
+  ✔ echo data tools/test/lanes/release-final.sh (3.530715ms)
+✔ declarative execution grammar rejects aliases and unsupported execution forms (12284.940757ms)
+▶ unsupported execution forms fail declaration validation without a finalizer path
+  ✔ printf tools/test/lanes/release-preview.sh | bash (4.335617ms)
+  ✔ run_preview() { tools/test/lanes/release-preview.sh; }; run_preview (3.863716ms)
+  ✔ command_argv=(tools/test/lanes/release-preview.sh); "${command_argv[@]}" (3.484255ms)
+  ✔ eval tools/test/lanes/release-preview.sh (3.30815ms)
+  ✔ source tools/test/lanes/release-preview.sh (3.160809ms)
+  ✔ . tools/test/lanes/release-preview.sh (2.827858ms)
+  ✔ time tools/test/lanes/release-preview.sh (3.472137ms)
+  ✔ find tools/test/lanes -name release-preview.sh -exec tools/test/lanes/release-preview.sh ';' (3.236253ms)
+  ✔ printf tools/test/lanes/release-preview.sh | xargs bash (3.418476ms)
+  ✔ "$dynamicExecutable" tools/test/lanes/release-preview.sh (3.622203ms)
+✔ unsupported execution forms fail declaration validation without a finalizer path (36.212445ms)
+▶ raw line separators block real Bash follow-on finalizer execution before spawn
+  ✔ separator mutation 1 (20.813273ms)
+  ✔ separator mutation 2 (17.490441ms)
+  ✔ separator mutation 3 (15.891333ms)
+  ✔ separator mutation 4 (17.218441ms)
+  ✔ separator mutation 5 (16.050043ms)
+  ✔ separator mutation 6 (13.366432ms)
+✔ raw line separators block real Bash follow-on finalizer execution before spawn (105.559673ms)
+✔ production scheduler admission rejects a newline command before executeTier child spawn (80.923005ms)
+✔ target inspection rejects file and parent symlinks plus indirect ordinary wrappers (14.276392ms)
+✔ target inspection rejects hardlinks and working-tree bytes that differ from the Git index (65.594638ms)
+✔ shell execution closure distinguishes code-bearing argv from data and fails closed on dynamic source (25.027326ms)
+✔ Node closure resolves immutable aliases, package imports, and conditional self exports (14.850306ms)
+✔ sealed Node parser transforms TypeScript and rejects TSX without an unbound parser (11.864361ms)
+▶ only explicit non-executing argv data and noncanonical basenames remain admitted
+  ✔ printf "%s\n" ./tools/test/lanes/release-final.sh (1584.79014ms)
+  ✔ echo ./tools/test/lanes/release-final.sh (1476.248799ms)
+  ✔ test -f ./tools/test/lanes/release-final.sh (1545.178302ms)
+  ✔ printf "%s\n" release-final.sh (1526.44461ms)
+  ✔ echo release-final.sh (1674.076947ms)
+  ✔ test -f release-final.sh (1619.023334ms)
+✔ only explicit non-executing argv data and noncanonical basenames remain admitted (9428.470267ms)
+▶ exact command argv authority rejects same-target subcommand and executable-path argument drift
+  ✔ matrix subcommand (1548.119196ms)
+  ✔ release reliability executable arguments (1586.195386ms)
+✔ exact command argv authority rejects same-target subcommand and executable-path argument drift (3135.289118ms)
+✔ removing the required seal control-flow cannot be re-admitted by unchanged allowed lines (1584.701262ms)
+✔ Node AST closure binds actual build.mjs dynamic import(new URL(...)) dependencies (179.322525ms)
+✔ unknown seal states and malformed boundary diagnostics fail closed (0.533934ms)
+ℹ tests 103
+ℹ suites 0
+ℹ pass 103
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 233765.747785

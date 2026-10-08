@@ -1,0 +1,11 @@
+{
+  "testedCommit": "341c35c644fab606c28742bdd1cc0d4c95320134",
+  "check": "original commit range validator",
+  "outcome": "failed before publication",
+  "errors": [
+    "scope test-matrix is not in canonical scope registry",
+    "missing required Refs: #1234 footer"
+  ],
+  "action": "amend unpublished commit metadata using registered scope test and Refs: #3521; source/fixture blobs unchanged",
+  "qualification": false
+}

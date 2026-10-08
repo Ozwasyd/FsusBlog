@@ -1,0 +1,13 @@
+{
+  "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "exitCode": 0,
+  "durationSeconds": 149.051,
+  "bytesUnchanged": true,
+  "fixtureSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "workingTreeClean": true,
+  "qualification": false
+}

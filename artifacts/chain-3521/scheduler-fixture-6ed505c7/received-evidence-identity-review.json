@@ -1,0 +1,47 @@
+{
+  "evidenceCommit": "e4e84b4cee970c5f7262963db2c1c72affc2a043",
+  "sourceCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "checks": [
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/canonical-owner-request.json",
+      "bytesMatch": true,
+      "hashMatch": true
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-candidate.patch",
+      "bytesMatch": true,
+      "hashMatch": true
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-output-delta.json",
+      "bytesMatch": true,
+      "hashMatch": true
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-candidate.json",
+      "bytesMatch": true,
+      "hashMatch": true
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/producer-final-candidate.log",
+      "bytesMatch": true,
+      "hashMatch": true
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/final-diagnostic-source.json",
+      "bytesMatch": true,
+      "hashMatch": true
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/final-diagnostic-source.log",
+      "bytesMatch": true,
+      "hashMatch": true
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/2eda290c/source-target-bindings.json",
+      "bytesMatch": true,
+      "hashMatch": true
+    }
+  ],
+  "qualification": false
+}

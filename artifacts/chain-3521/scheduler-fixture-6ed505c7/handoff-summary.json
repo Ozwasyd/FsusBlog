@@ -1,0 +1,57 @@
+{
+    "sourceParent": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+    "publishedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "branch": "codex/chain-3521-scheduler-fixture-current",
+    "baseMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+    "sourceRunIdentity": "chain3521-fixture-6ed505c7-20261008",
+    "sourceGate": {
+        "exitCode": 0,
+        "controlsPassed": 93,
+        "controlsFailed": 0,
+        "skipped": 0,
+        "jsFilesChecked": 28,
+        "markdownFilesChecked": 1
+    },
+    "owningBoundary": {
+        "exitCode": 0,
+        "controlsPassed": 103,
+        "controlsFailed": 0,
+        "skipped": 0
+    },
+    "repositoryCheckExitCode": 0,
+    "completeCommitRangeExitCode": 0,
+    "fixedPoint": {
+        "exitCode": 0,
+        "bytesUnchanged": true,
+        "workingTreeClean": true,
+        "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25"
+    },
+    "changedFiles": [
+        "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "artifacts/change-contract/scheduler-terminal-current-execution-generated-binding.json"
+    ],
+    "fixtureSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+    "unchangedIndependentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+    "wholeHeaderTargetRosterOwnersDeclarationsPreserved": true,
+    "exactFrameworkEightBlobIdentitiesPreserved": true,
+    "sourceBranchesAndEvidenceConsumed": [
+        "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+        "e4e84b4cee970c5f7262963db2c1c72affc2a043"
+    ],
+    "qualificationEligible": false,
+    "runtimeOrCohortQualification": false,
+    "historyOrPolicyPromotion": false,
+    "issuesClosed": false,
+    "chainComplete": false,
+    "prCreated": false,
+    "prContentQueue": "GitHub content-write cooldown remains; local integration draft only",
+    "limits": [
+        "Only compatible with exact supplied source candidate; changed source needs the canonical full producer again.",
+        "Ordinary generated metadata binds full source/output candidate against master; no new generated-only exception is claimed against2eda.",
+        "Root3521 independent current epoch promotion,3520 dependent historical repair admission, seven migration replacement owners and2040 Audit transition remain outstanding.",
+        "Original SDK physical owner/runtime acceptance remains separate."
+    ],
+    "parentNextAction": "Consume exact6ed505c7 commit atop exact2eda290c after reviewing this finite current-source evidence; no merge/issue closure/global conflict resolution authorized.",
+    "incrementComplete": "bounded current-candidate source binding implemented and verified",
+    "prDraft": "pr-body-draft.md; local queue draft, not live PR metadata"
+}

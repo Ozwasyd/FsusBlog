@@ -1,0 +1,80 @@
+{
+  "tests": 93,
+  "passes": 93,
+  "fails": 0,
+  "skips": 0,
+  "receiptStatus": "success",
+  "qualificationEligible": false,
+  "sourceState": {
+    "commit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "worktreeFingerprint": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a"
+  },
+  "checkerResults": [
+    {
+      "checker": "tools/frontend/check-frontend-style.mjs",
+      "files": [
+        "tests/tools/atomic-producer-compiler.test.mjs",
+        "tests/tools/atomic-producer-contract.test.mjs",
+        "tests/tools/correctness-input-manifest.test.mjs",
+        "tests/tools/correctness-provisional-receipt.test.mjs",
+        "tests/tools/correctness-scheduler-authority.test.mjs",
+        "tests/tools/correctness-terminal-seal-journal.test.mjs",
+        "tests/tools/correctness-terminal-seal.test.mjs",
+        "tests/tools/scheduler-canonical-resume.test.mjs",
+        "tests/tools/scheduler-correctness-finalizer.test.mjs",
+        "tests/tools/scheduler-grant-generation.test.mjs",
+        "tests/tools/support/atomic-producer-command.mjs",
+        "tests/tools/support/atomic-producer-fixture.mjs",
+        "tests/tools/support/canonical-scheduler-fixture.mjs",
+        "tests/tools/support/correctness-terminal-fixture.mjs",
+        "tests/tools/test-evidence-receipt-authority.test.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/release/test-evidence-receipts-cli.mjs",
+        "tools/test-matrix/atomic-producers/compiler.mjs",
+        "tools/test-matrix/atomic-producers/contract.mjs",
+        "tools/test-matrix/atomic-producers/disposition.mjs",
+        "tools/test-matrix/atomic-producers/execution.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test/bundles/bundle-steps.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "checker": "tools/style/check-native-tooling-style.mjs",
+      "files": [
+        "tools/test-matrix/atomic-producers/README.md"
+      ],
+      "exitCode": 0
+    },
+    {
+      "checker": "tests/tools/pr-impact-plan.test.mjs",
+      "exitCode": 0,
+      "qualificationEligible": false
+    },
+    {
+      "checker": "tests/tools/pr-applicable-execution-authority.test.mjs",
+      "exitCode": 0,
+      "qualificationEligible": false
+    },
+    {
+      "checker": "tools/frontend/source-unit-style-diff.test.mjs",
+      "exitCode": 0,
+      "qualificationEligible": false
+    },
+    {
+      "checker": "tests/tools/native-tooling-style.test.mjs",
+      "exitCode": 0,
+      "qualificationEligible": false
+    },
+    {
+      "checker": "tools/configuration/solution-source.test.mjs",
+      "exitCode": 0,
+      "qualificationEligible": false
+    }
+  ]
+}

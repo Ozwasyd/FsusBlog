@@ -1,0 +1,15 @@
+{
+  "testedCommit": "341c35c644fab606c28742bdd1cc0d4c95320134",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+  ],
+  "exitCode": 1,
+  "durationSeconds": 9.107,
+  "qualification": false
+}

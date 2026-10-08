@@ -1,0 +1,23 @@
+{
+  "sourceCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "evidenceCommit": "e4e84b4cee970c5f7262963db2c1c72affc2a043",
+  "outputSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "headerUnchanged": true,
+  "targetRosterUnchanged": true,
+  "targetDeclarationsUnchanged": true,
+  "changedTargetRecords": 62,
+  "all62TargetDigestsMatchSuppliedProducer": true,
+  "bindingSourcesAllCurrentPrChangesAndCurrentClosureMembers": true,
+  "bindingSources": [
+    "tools/release/correctness-provisional-receipt.mjs",
+    "tools/release/correctness-scheduler-authority.mjs",
+    "tools/release/correctness-terminal-receipt.mjs",
+    "tools/release/correctness-terminal-seal-journal.mjs",
+    "tools/release/test-evidence-receipts-cli.mjs",
+    "tools/test-matrix/correctness-input-manifest.mjs",
+    "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+    "tools/test-matrix/scheduler.mjs",
+    "tools/test/bundles/bundle-steps.mjs"
+  ],
+  "qualification": false
+}
