@@ -21,7 +21,8 @@ async function open(page: Page, state: string, theme: string)
         body: `<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Typography controlled settings fixture</title></head><body><div id="author-typography-fixture"></div><script type="module" src="${fixtureModule}"></script></body></html>`
     }));
     await page.goto(`/__author-typography-fixture?state=${state}&theme=${theme}`, { waitUntil: 'domcontentloaded' });
-    await expect.poll(() => page.evaluate(() => document.documentElement.dataset.typographyFixtureReady)).toBe('true');
+    await expect(page.locator('html')).toHaveAttribute('data-typography-fixture-ready', 'true');
+    expect(await page.evaluate(() => matchMedia('(prefers-reduced-motion: reduce)').matches)).toBe(true);
     // The actual trusted renderer must finish; source text or a stub is insufficient.
     await expect(page.getByRole('heading', { name: '写作样例' })).toBeVisible();
     return { errors, external };
@@ -32,7 +33,7 @@ for (const theme of themes)
 {
     test.describe(`${viewport.width} ${theme}`, () =>
     {
-        test.use({ viewport, reducedMotion: 'reduce' });
+        test.use({ viewport, contextOptions: { reducedMotion: 'reduce' } });
         test('five disabled dimensions and readable actual sample fit without horizontal page overflow', async ({ page }, testInfo) =>
         {
             const observed = await open(page, 'current', theme);
@@ -61,7 +62,7 @@ for (const theme of themes)
 
 test.describe('controlled states and keyboard', () =>
 {
-    test.use({ viewport: { width: 375, height: 812 }, reducedMotion: 'reduce' });
+    test.use({ viewport: { width: 375, height: 812 }, contextOptions: { reducedMotion: 'reduce' } });
     for (const state of states)
     {
         test(state, async ({ page }) =>
