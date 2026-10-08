@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url';
 // Diagnostic prerequisite probe for #1892. Failures remain failures; this is
 // neither product acceptance nor permission to patch the consumer's viewer.
 // FSUSBLOG_PROBE_BROWSER selects chromium (default) or installed WebKit.
+// FSUSBLOG_PROBE_FORCED_COLORS selects none (default) or browser-emulated active.
 const repositoryRoot = fileURLToPath(new URL('../../../..', import.meta.url));
 const frontendRoot = path.join(repositoryRoot, 'src/frontend');
 const { resolveRuntimeBrowserTimeoutPlan } = await import(pathToFileURL(
@@ -27,6 +28,7 @@ const { resolveLocalFsusUiRepositoryRoot } = await import(pathToFileURL(
 const args = process.argv.slice(2);
 const mode = args[0];
 const browserEngine = process.env.FSUSBLOG_PROBE_BROWSER ?? 'chromium';
+const forcedColors = process.env.FSUSBLOG_PROBE_FORCED_COLORS ?? 'none';
 if (!['local', 'published'].includes(mode) || args.length !== 2)
 {
     throw new Error('usage: node tests/frontend/checks/runtime/probe-image-viewer-consumer.mjs local|published OUTPUT_DIRECTORY');
@@ -41,6 +43,8 @@ const report = {
     runId: `${new Date().toISOString()}-${process.pid}`,
     mode,
     browserEngine,
+    forcedColors,
+    forcedColorsEvidence: forcedColors === 'active' ? 'browser emulation; physical OS/device acceptance remains open' : 'default browser mode',
     blogSha: git(repositoryRoot, 'rev-parse', 'HEAD'),
     blogDirty: git(repositoryRoot, 'status', '--porcelain'),
     probeSha256: digest(fileURLToPath(import.meta.url)),
@@ -76,6 +80,10 @@ try
     if (!['chromium', 'webkit'].includes(browserEngine))
     {
         throw new Error(`unsupported browser engine: ${browserEngine}`);
+    }
+    if (!['none', 'active'].includes(forcedColors))
+    {
+        throw new Error(`unsupported forced-colors mode: ${forcedColors}`);
     }
     process.env.FSUSBLOG_USE_LOCAL_FSUSUI = mode === 'local' ? '1' : '0';
     const localRoot = mode === 'local' ? resolveLocalFsusUiRepositoryRoot({
@@ -188,7 +196,7 @@ probe.app.mount('#app');`);
         timeout: Math.max(30_000, timeoutPlan.requestTimeoutMs)
     });
     report.browser = browser.version();
-    const context = await browser.newContext({ viewport: { width: 375, height: 844 }, hasTouch: true });
+    const context = await browser.newContext({ viewport: { width: 375, height: 844 }, hasTouch: true, forcedColors });
     context.setDefaultTimeout(actionTimeoutMs);
     context.setDefaultNavigationTimeout(navigationTimeoutMs);
     page = await context.newPage();
@@ -226,6 +234,11 @@ probe.app.mount('#app');`);
         .filter((image) => globalThis.getComputedStyle(image).display !== 'none')
         .map((image) => ({ src: image.getAttribute('src'), alt: image.getAttribute('alt') })));
     await open();
+    if (forcedColors === 'active')
+    {
+        const active = await page.evaluate(() => globalThis.matchMedia('(forced-colors: active)').matches);
+        check('browser-emulated forced colors active', active, { mode: forcedColors, emulated: true });
+    }
     check('SSR closed hydration', !errors.some((error) => /hydration|mismatch/iu.test(error)), {});
     report.publicApi = await snapshot();
     const dialogCount = await page.getByRole('dialog', { name: '查看大图' }).count();
