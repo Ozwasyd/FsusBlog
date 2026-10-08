@@ -92,6 +92,7 @@ prepareNetworkSandbox({command:[process.execPath,'--version'],cwd:process.cwd(),
             assert.equal(result.binding.semanticQuery.exitCode, 0);
             assert.deepEqual(result.binding.semantic.ownedInputClasses, ['main.argc', 'main.argv']);
             assert.equal(result.binding.qualificationEligible, false);
+            assert.equal(result.binding.callerInputAdmission, false);
             assert.equal(result.binding.policyPromotion, false);
             assert.deepEqual(result.binding.analyzerOptions, []);
             assert.equal(fs.existsSync(result.binding.productionCompile.output.path), false, 'private compilation must be cleaned');

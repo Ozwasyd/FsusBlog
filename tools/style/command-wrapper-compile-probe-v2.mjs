@@ -459,7 +459,7 @@ export function observeUnpromotedMetadataCompileBinding({ root, file, entry, pol
         revalidate();
         const binding = {
             schema: commandWrapperCompileProbeV2Schema, qualificationEligible: false, policyPromotion: false,
-            analyzerOptions: [], semantic, semanticResourceDirectory: policy.semanticResourceDirectory,
+            callerInputAdmission: false, analyzerOptions: [], semantic, semanticResourceDirectory: policy.semanticResourceDirectory,
             source: sourceIdentity, owner: productionOwner, root, entry,
             compiler, semanticCompiler, canonicalToolchain, executedArguments, semanticArguments: astArguments,
             productionCompile: { exitCode: 0, stderrSha256: digest(compiled.stderr), output: regularFile(executedArguments[7]) },
