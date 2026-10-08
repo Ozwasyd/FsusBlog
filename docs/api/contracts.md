@@ -2958,3 +2958,55 @@ implementation of `IArticlePropertyReferenceValueAuthority.RequireAllowedAsync`
 and observed frozen relation facts. Pure self-consistent candidates cannot
 satisfy those gates. Title, summary, taxonomy, rights/responsibility and complete
 manifest/privacy/version-migration policy remain outside this property subset.
+
+## Article package title and summary candidate
+
+`ArticlePackageTitleSummaryMapper` is the package owner's bounded title/summary
+projection alongside the typed-property mapper. It accepts the existing
+`FsusBlog.Contracts.Articles.ArticleCanonicalInput`; its source hash is computed
+only by `ArticleCanonicalHashV1`, the owner used by `ArticleRightsSnapshotBuilder`
+and the integrity pipeline. It does not introduce another article canonicalizer,
+manifest schema, snapshot reader, or identity catalog.
+
+`TryMapCandidate(source, binding, out candidate)` returns `IsValid` and a fixed,
+content-free `ReasonCode`. The explicit `ArticlePackageTitleSummaryBinding` supplies
+positive source article/revision/revision-number coordinates, the exact lowercase
+64-hex canonical hash, and an existing `ArticlePackageIdentity` of Article kind.
+All coordinates must match the supplied source; the mapper recomputes the entire
+canonical input hash. It never derives portable identity from a database ID,
+route, title, URL, or array position. Missing revision coordinates are rejected.
+
+The component rejects null mandatory canonical inputs, more than 1000 tag IDs,
+and more than 1048576 aggregate UTF-16 code units across title, summary, public
+route, cover URL, and Markdown before canonical hashing. All five strings must
+encode as strict UTF-8. Optional timestamps must be UTC when present: implicit
+local-time conversion is not admitted. These are projection-local resource and
+determinism limits, not changes to the canonical article contract. The bounded
+tag list is copied by index before invoking the existing hash owner.
+
+The closed, get-only candidate contains schema version 1, the explicit portable
+article pairing, source coordinates/hash, exact title, nullable summary, and an
+independent mapping digest. Title and summary are not trimmed, normalized,
+truncated, parsed as YAML, or replaced by defaults. Null, empty, whitespace,
+CRLF/LF, decomposed Unicode, and trailing/final newlines remain distinct.
+The canonical source hash retains its owner's NFC/LF semantics; it is not an
+exact-text or raw-Markdown byte receipt.
+
+The mapping digest uses SHA-256 with domain
+`fsusblog.article-package.title-summary-candidate.v1`. Its ordered inputs are
+length-framed domain, Int32 schema version, Int32 source article ID, Int64 source
+revision ID, Int32 source revision number, source canonical hash, portable article
+identity, title, and summary. Integers are little-endian; strings use strict UTF-8
+with an Int32 byte length, and null uses length -1. The output is lowercase
+64-hex. `ValidateCandidate` reprojects the source and compares every candidate
+field and exact text, so copying an old digest cannot hide a modified projection.
+
+Only title and summary are projected. Lifecycle, taxonomy, rights/responsibility,
+assets, syntax/media dependencies, publication authority, and permission facts
+have no fields in this candidate and cannot be admitted through extensions.
+Coordinates, portable pairs, and self-consistent canonical hashes remain supplied
+facts. Authorized actor/site-bound persisted exact reads, immutable snapshot
+provenance, privacy admission, and full package/schema acceptance remain separate
+canonical-owner gates before export or import. This API reads no stores, grants
+no permissions, emits no audit receipt, changes no business state, and is not a
+wire endpoint or executable import plan.
