@@ -2,6 +2,8 @@ import path from 'node:path';
 import process from 'node:process';
 import { fileURLToPath } from 'node:url';
 
+const {assertProductionMeasurementQuiescenceAvailable} = await import(new URL('../quiescence-measurement-inventory.mjs', import.meta.url));
+
 const performanceAdmission = path.resolve(
     path.dirname(fileURLToPath(import.meta.url)),
     '../performance-admission.mjs'
@@ -17,9 +19,14 @@ export function wrapTaskScopedMeasurementCommand({
     authorityManifestRoot = null,
     priorAuthorityRoots = [],
     policyFile = null,
-    productEvidenceFile = null
+    productEvidenceFile = null,
+    consumerId = null
 } = {})
 {
+    if (consumerId !== null)
+    {
+        assertProductionMeasurementQuiescenceAvailable(consumerId);
+    }
     if (!String(windowId ?? '').trim())
     {
         throw new Error('bundle measurement window id is required');

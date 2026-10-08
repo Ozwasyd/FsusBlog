@@ -19,6 +19,7 @@ import {
     finalizeMeasurementQualificationRequests,
     measurementQualificationRequestEnvironment
 } from './measurement-product-conclusion.mjs';
+import {assertProductionMeasurementQuiescenceAvailable, retainedQuiescenceConsumerForWindow} from './quiescence-measurement-inventory.mjs';
 
 export const measurementEnvelopeOwnerEnvironment = 'FSUSBLOG_MEASUREMENT_ENVELOPE_OWNER';
 
@@ -482,6 +483,11 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     try
     {
         const options = parseCli(process.argv.slice(2));
+        const quiescenceConsumerId = retainedQuiescenceConsumerForWindow(options.windowId);
+        if (quiescenceConsumerId)
+        {
+            assertProductionMeasurementQuiescenceAvailable(quiescenceConsumerId);
+        }
         fs.mkdirSync(path.dirname(options.evidenceFile), { recursive: true });
         if (String(process.env[measurementEnvelopeOwnerEnvironment] ?? '').trim())
         {

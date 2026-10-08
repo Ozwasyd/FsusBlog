@@ -123,6 +123,7 @@ export async function runRuntimeQuiescenceBarrier({authorities, owner, journal, 
     let attemptedAcquire = false;
     let frozen = false;
     let handedOff = false;
+    let consumerCustody = false;
     let lastSequence = 0;
     let releasePromise = null;
     let sessionCancellation = null;
@@ -318,12 +319,15 @@ export async function runRuntimeQuiescenceBarrier({authorities, owner, journal, 
                     await guard();
                     sessionCancellation = () =>
                     {
-                        void cleanup('cancelled');
+                        if (!consumerCustody)
+                        {
+                            void cleanup('cancelled');
+                        }
                     };
                     signal?.addEventListener('abort', sessionCancellation, {once: true});
                     signal?.throwIfAborted();
                     handedOff = true;
-                    const sessionCheck = async (renew) =>
+                    const sessionCheck = async (renew, releaseOnFailure = true) =>
                     {
                         try
                         {
@@ -345,12 +349,29 @@ export async function runRuntimeQuiescenceBarrier({authorities, owner, journal, 
                         }
                         catch (error)
                         {
-                            await cleanup('failed');
+                            if (releaseOnFailure)
+                            {
+                                await cleanup('failed');
+                            }
                             throw error;
                         }
                     };
                     return {status: 'quiescent', receipt, plan, trace: [...trace],
-                        validate: () => sessionCheck(false), renew: () => sessionCheck(true), release: cleanup};
+                        validate: () => sessionCheck(false), renew: () => sessionCheck(true),
+                        claimConsumerCustody: () =>
+                        {
+                            if (consumerCustody || releasePromise || state !== 'sealed')
+                            {
+                                throw new QuiescenceBarrierError('consumer custody already claimed or session inactive', 'failed');
+                            }
+                            signal?.throwIfAborted();
+                            consumerCustody = true;
+                            return Object.freeze({leaseId: lease.leaseId, generation: lease.generation,
+                                receiptDigest: receipt.contentDigest, invalidationSignal: signal ?? null});
+                        },
+                        // Measurement holders cancel and observe their producers before
+                        // invoking the same final-release owner; never release early.
+                        validateHeld: () => sessionCheck(false, false), renewHeld: () => sessionCheck(true, false), release: cleanup};
                 }
             }
             // Backoff is transport only. No timer or script completion can set state sealed.

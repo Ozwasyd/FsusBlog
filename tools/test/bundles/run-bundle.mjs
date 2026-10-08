@@ -53,6 +53,8 @@ import { wrapTaskScopedMeasurementCommand } from './measurement-step-command.mjs
 import { readRuntimeEnvironment } from './runtime-environment.mjs';
 import { writeBundleSummaryAtomically } from './terminal-summary.mjs';
 
+const {assertProductionMeasurementQuiescenceAvailable} = await import(new URL('../quiescence-measurement-inventory.mjs', import.meta.url));
+
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../..');
 const profileId = process.env.FSUSBLOG_LOCAL_PROFILE || 'production';
@@ -576,7 +578,6 @@ const runMarkerProducers = {
     'behavior-evidence-ready': ['backend-tests', 'behavior-evidence-pre-runtime'],
     'backend-coverage-ready': ['backend-tests', 'backend-coverage-summary'],
     'frontend-coverage-ready': ['frontend-tests', 'frontend-coverage-summary'],
-    'runtime-state-ready': ['runtime-browser', 'runtime-state-stable'],
     'backend-quiet-ready': ['backend-tests', 'backend-tests-quiet'],
     'frontend-quiet-ready': ['frontend-tests', 'frontend-tests-quiet'],
     'build-static-quiet-ready': ['build-static', 'build-static-quiet']
@@ -628,9 +629,6 @@ function resetReceiptArtifactsProducedByStep(catalog, stepId)
 
 function currentRunMarkerArtifacts(markerId)
 {
-    const namespace = String(process.env.FSUSBLOG_TEST_NAMESPACE ?? '').trim();
-    const environmentRoot = path.resolve(
-        process.env.FSUSBLOG_ACCEPTANCE_ENV_ROOT ?? path.join(root, '.tmp/env'));
     return {
         'production-build-artifacts-ready': [productionBuildReceiptFile()],
         'pr-smart-gate-plan-ready': [
@@ -643,7 +641,6 @@ function currentRunMarkerArtifacts(markerId)
         ],
         'backend-coverage-ready': [coverageDirectory('backend-merged', 'Summary.json')],
         'frontend-coverage-ready': [coverageDirectory('frontend', 'Summary.json')],
-        'runtime-state-ready': [path.join(environmentRoot, `${namespace}.env`)],
         'backend-quiet-ready': [runMarkerFile('backend-coverage-ready')],
         'frontend-quiet-ready': [runMarkerFile('frontend-coverage-ready')],
         'build-static-quiet-ready': [frontendBuildReadyFile()]
@@ -1329,6 +1326,7 @@ async function executeStep(step)
         : null;
     const wrappedCommand = measurementEvidenceFile
         ? wrapTaskScopedMeasurementCommand({
+        consumerId: step.id,
         windowId: measurementWindowId,
         evidenceFile: measurementEvidenceFile,
         command: [workloadExecutable, ...workloadArgs],
@@ -2986,8 +2984,9 @@ async function executeRuntimeStep(step)
     let result;
     if (step.id === 'runtime-state-stable')
     {
-        result = await executeRuntimeStepBody(step);
-        publishCurrentRunMarker('runtime-state-ready', step.id);
+        // Scheduler completion cannot publish an independent readiness marker.
+        // The current production locator/lease transport is explicitly missing.
+        assertProductionMeasurementQuiescenceAvailable('backend-perf');
     }
     else
     {
@@ -3090,10 +3089,13 @@ async function waitForResidentHandoff()
 async function executePerformanceStep(step)
 {
     beginPhysicalProducer(step);
+    if (step.id === 'runtime-state-ready')
+    {
+        assertProductionMeasurementQuiescenceAvailable('backend-perf');
+    }
     const markerId = {
         'backend-coverage-ready': 'backend-coverage-ready',
         'frontend-coverage-ready': 'frontend-coverage-ready',
-        'runtime-state-ready': 'runtime-state-ready',
         'backend-quiet-ready': 'backend-quiet-ready',
         'frontend-quiet-ready': 'frontend-quiet-ready',
         'build-static-quiet-ready': 'build-static-quiet-ready'

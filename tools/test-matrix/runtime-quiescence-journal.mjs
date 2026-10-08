@@ -3,6 +3,23 @@ import fs from 'node:fs';
 import {quiescenceDigest} from './quiescence-contract.mjs';
 
 const maximumJournalBytes = 8 * 1024 * 1024;
+
+export function validateQuiescenceReleaseReceipt(release, {identity, attemptId, leaseId, generation})
+{
+    const {contentDigest, ...payload} = release ?? {};
+    if (release?.schema !== 'fsusblog.quiescence-release.v1' ||
+        (attemptId !== undefined && release.attemptId !== attemptId) ||
+        (leaseId !== undefined && release.leaseId !== leaseId) ||
+        (generation !== undefined && release.generation !== generation) ||
+        quiescenceDigest(release.identity) !== quiescenceDigest(identity) ||
+        !['released', 'failed'].includes(release.status) || !Array.isArray(release.errors) ||
+        contentDigest !== quiescenceDigest(payload) || (release.status === 'released' && release.errors.length))
+    {
+        throw new Error('quiescence journal release proof missing or invalid');
+    }
+    return release;
+}
+
 const transitions = new Map([
     ['initial', new Set(['prepared', 'released'])],
     ['prepared', new Set(['frozen', 'released'])],
@@ -28,15 +45,7 @@ export function validateQuiescenceJournal(entries, {attemptId, identity})
         }
         if (entry.event.state === 'released')
         {
-            const release = entry.event.releaseReceipt;
-            const {contentDigest: releaseDigest, ...releasePayload} = release ?? {};
-            if (release?.schema !== 'fsusblog.quiescence-release.v1' || release.attemptId !== attemptId ||
-                quiescenceDigest(release.identity) !== quiescenceDigest(identity) ||
-                !['released', 'failed'].includes(release.status) || !Array.isArray(release.errors) ||
-                releaseDigest !== quiescenceDigest(releasePayload) || (release.status === 'released' && release.errors.length))
-            {
-                throw new Error('quiescence journal release proof missing or invalid');
-            }
+            validateQuiescenceReleaseReceipt(entry.event.releaseReceipt, {identity, attemptId});
         }
         state = entry.event.state;
         previous = contentDigest;

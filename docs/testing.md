@@ -96,6 +96,41 @@ queue cleanup or new lease/fence store is introduced. Source tests include pure
 owner models and real task-private filesystem journal/locator operations; they
 do not establish full runtime or crash-recovery acceptance.
 
+Measurement consumers are declared separately in
+`config/testing/measurement-quiescence-consumers.json`, linked to the existing
+measurement-window and state-domain authorities. Unknown consumer IDs and a
+consumer contract that differs from its canonical declaration refuse. Worker
+invalidation/recovery measurements use their distinct active-state authority and
+cannot consume a foreground quiescence receipt.
+
+`tools/test/quiescence-measurement-consumer.mjs` owns consumer holders. It reads
+only the explicit protected locator through the existing receipt validator and
+uses the held barrier session for serialized validation/renewal during the whole
+measurement. A single `claimConsumerCustody` handoff binds its receipt/lease and
+forwards overall cancellation to the consumer holder owner. The canonical
+session's `validateHeld`/`renewHeld` methods refuse drift while retaining the lease until producer terminal proof; its existing
+standalone validation/release behavior is preserved. Start/end checks, event invalidation, cancellation, holder terminal
+proof and final release results are audited. Parallel holders and declared
+consumers that have not started keep the lease active. The last terminal holder
+uses the original barrier release/post-observation; unavailable producer terminal
+proof retains its holder for actual owner recovery and cannot qualify the run.
+
+The retained production measurement wrapper, declared direct measurement CLI
+windows and qualifying reliability scenarios refuse before producer spawn when
+protected locator, current-lease transport and shared holder authority are
+unavailable. Runtime stability coordination no longer publishes or reads an
+independent `runtime-state-ready` marker. A scheduler terminal, caller environment,
+fixed sleep or queue counter cannot admit measurements. Current source does not
+provide the production transport, cross-process holder service or process-crash
+recovery owner. Source model controls therefore establish no runtime qualification.
+Performance thresholds, sampling, workloads and business assertions are unchanged.
+Consumer execution requires the existing producer plan's explicit timeout budget;
+the holder owner supplies no new measurement duration or workload default.
+
+Run `node --test tests/tools/quiescence-measurement-consumer.test.mjs` for consumer
+protocol controls, including actual task-private locator/filesystem operations and
+real CLI spawn-zero refusal. Positive lease facts are explicitly unit-owner models.
+
 Run `node --test tests/tools/runtime-quiescence-barrier.test.mjs tests/tools/runtime-quiescence-receipt.test.mjs tests/tools/runtime-quiescence-journal.test.mjs` for focused protocol controls.
 
 Run `node tools/test-matrix/quiescence-contract.mjs` and

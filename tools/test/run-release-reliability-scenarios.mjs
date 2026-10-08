@@ -20,6 +20,7 @@ import {
     createTimeline,
     sealDocument
 } from './release-reliability-receipt.mjs';
+const {assertProductionMeasurementQuiescenceAvailable, loadMeasurementQuiescenceConsumers} = await import(new URL('./quiescence-measurement-inventory.mjs', import.meta.url));
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const catalogPath = path.join(root, 'config/testing/release-reliability-scenario-catalog.json');
@@ -782,6 +783,10 @@ export async function executeScenario({
     if (!scenario)
     {
         throw new Error(`Unknown scenario: ${scenarioId}`);
+    }
+    if (evidenceClass === 'correctness' && loadMeasurementQuiescenceConsumers().consumers.some((entry) => entry.consumerId === scenarioId))
+    {
+        assertProductionMeasurementQuiescenceAvailable(scenarioId);
     }
     const commandToolId = path.basename(scenario.command.executable).replace(/\.exe$/iu, '');
     const resolvedExecutable = identity?.tools?.find((tool) => tool.id === commandToolId)?.executable
