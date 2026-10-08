@@ -12,7 +12,13 @@ public sealed record PdfDocumentExportResult(
     DocumentExportSandboxPlan CanonicalSandboxPlan,
     DocumentExportSandboxReceipt CanonicalSandboxReceipt,
     int PageCount,
-    int FontCount);
+    int FontCount)
+{
+    internal DocumentExportAttemptResources? AttemptResources
+    {
+        get; init;
+    }
+}
 
 /// <summary>
 /// Converts the one canonical renderer output into a verified, paginated PDF.
@@ -41,16 +47,35 @@ public sealed class PdfDocumentExportProvider
         CancellationToken cancellationToken = default)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        return await ExportAsync(task, input, CreateAttemptResources(task, input, TimeProvider.System), cancellationToken);
+    }
+
+    internal DocumentExportAttemptResources CreateAttemptResources(
+        DocumentExportTask task, DocumentExportFrozenInput input, TimeProvider time)
+        => _sandbox.CreateAttemptResources(task, input, time);
+
+    public async Task<PdfDocumentExportResult> ExportAsync(
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(resources);
+        cancellationToken.ThrowIfCancellationRequested();
         DocumentExportFrozenInput frozenInput = DocumentExportContractValidator.Seal(input);
         DocumentExportContractValidator.Validate(task, frozenInput);
         DocumentExportProviderContract provider = RequireActiveProvider(task.FormatId);
         DocumentExportToolContract tool = _sandbox.RequireRegisteredTool("pdf");
-        CanonicalDocumentRendererResult canonical = await _renderer.RenderAsync(task, frozenInput, cancellationToken);
+        CanonicalDocumentRendererResult canonical = await _renderer.RenderAsync(task, frozenInput, resources, cancellationToken);
+        if (!ReferenceEquals(resources, canonical.AttemptResources))
+        {
+            throw new InvalidDataException("Canonical renderer did not retain the PDF attempt resource owner.");
+        }
         ValidateCanonicalEvidence(canonical.ResponseBytes, canonical.SandboxPlan, canonical.SandboxReceipt,
             task, frozenInput, _renderer.Tool, _sandbox.HostBuildDigest);
         DocumentExportRendererResponse canonicalResponse = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(canonical.ResponseBytes);
         PdfPrintRenderRequest request = PdfPrintDocumentLayout.Compose(canonicalResponse, frozenInput, provider.Budgets.MaxOutputBytes);
-        DocumentExportSandboxResult rendered = await ExecuteAsync(task, frozenInput, tool, request, cancellationToken);
+        DocumentExportSandboxResult rendered = await ExecuteAsync(task, frozenInput, tool, request, resources, verification: false, cancellationToken);
         PdfPrintRenderResponse response = ReadResponse(rendered.OutputBytes, provider.Budgets.MaxOutputBytes);
         byte[] bytes = DecodePdf(response, provider.Budgets.MaxOutputBytes);
         string[] features = ValidateFeatures(canonicalResponse.ObservedFeatures, provider);
@@ -72,7 +97,10 @@ public sealed class PdfDocumentExportProvider
         cancellationToken.ThrowIfCancellationRequested();
         return new PdfDocumentExportResult(
             new DocumentExportProviderResult(bytes, rendered.OutputBytes, receipt, rendered.Plan, rendered.Receipt),
-            canonical.ResponseBytes, canonical.SandboxPlan, canonical.SandboxReceipt, response.PageCount, response.FontCount);
+            canonical.ResponseBytes, canonical.SandboxPlan, canonical.SandboxReceipt, response.PageCount, response.FontCount)
+        {
+            AttemptResources = resources
+        };
     }
 
     /// <summary>
@@ -91,6 +119,26 @@ public sealed class PdfDocumentExportProvider
     {
         ArgumentNullException.ThrowIfNull(result);
         cancellationToken.ThrowIfCancellationRequested();
+        return await ValidateResultAsync(result, task, input, expectedHostBuildDigest,
+            result.AttemptResources ?? throw new InvalidDataException("PDF result has no original attempt resource owner."),
+            cancellationToken);
+    }
+
+    public async Task<DocumentExportSandboxResult> ValidateResultAsync(
+        PdfDocumentExportResult result,
+        DocumentExportTask task,
+        DocumentExportFrozenInput input,
+        string expectedHostBuildDigest,
+        DocumentExportAttemptResources resources,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(result);
+        ArgumentNullException.ThrowIfNull(resources);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (!ReferenceEquals(resources, result.AttemptResources))
+        {
+            throw new InvalidDataException("PDF verification must retain the original attempt resource owner.");
+        }
         DocumentExportContractValidator.Validate(task, input);
         DocumentExportProviderContract provider = RequireActiveProvider(task.FormatId);
         DocumentExportToolContract tool = _sandbox.RequireRegisteredTool("pdf");
@@ -124,7 +172,7 @@ public sealed class PdfDocumentExportProvider
         {
             PdfBase64 = response.PdfBase64
         };
-        DocumentExportSandboxResult verified = await ExecuteAsync(task, input, tool, request, cancellationToken);
+        DocumentExportSandboxResult verified = await ExecuteAsync(task, input, tool, request, resources, verification: true, cancellationToken);
         DocumentExportSandboxRuntime.ValidatePlan(verified.Plan, task, input, provider, tool, expectedHostBuildDigest);
         PdfPrintRenderResponse verification = ReadResponse(verified.OutputBytes, provider.Budgets.MaxOutputBytes);
         if (!DecodePdf(verification, provider.Budgets.MaxOutputBytes).AsSpan().SequenceEqual(output.Bytes)
@@ -135,41 +183,20 @@ public sealed class PdfDocumentExportProvider
             throw new InvalidDataException("Independent PDF verification disagrees with the sealed render result.");
         }
         cancellationToken.ThrowIfCancellationRequested();
+        resources.RequireCompleted(task, input);
         return verified;
-    }
-
-    internal async Task<DocumentExportSandboxResult> ValidateProviderResultAsync(
-        DocumentExportProviderResult result,
-        DocumentExportTask task,
-        DocumentExportFrozenInput input,
-        string expectedHostBuildDigest,
-        CancellationToken cancellationToken)
-    {
-        ArgumentNullException.ThrowIfNull(result);
-        cancellationToken.ThrowIfCancellationRequested();
-        DocumentExportContractValidator.Validate(task, input);
-        DocumentExportProviderContract provider = RequireActiveProvider(task.FormatId);
-        DocumentExportToolContract tool = _sandbox.RequireRegisteredTool("pdf");
-        DocumentExportContractValidator.Validate(result.Receipt, task, input, provider);
-        DocumentExportSandboxRuntime.ValidatePlan(result.SandboxPlan, task, input, provider, tool, expectedHostBuildDigest);
-        DocumentExportSandboxRuntime.ValidateReceipt(result.SandboxReceipt, result.SandboxPlan,
-            task, input, tool, expectedHostBuildDigest, result.SandboxOutputBytes);
-        PdfPrintRenderResponse response = ReadResponse(result.SandboxOutputBytes, provider.Budgets.MaxOutputBytes);
-        // The job contract retains generic output evidence, so reconstruct the
-        // canonical semantics from the same frozen input for independent checking.
-        // This never renders a replacement PDF or creates provider-owned storage.
-        CanonicalDocumentRendererResult canonical = await _renderer.RenderAsync(task, input, cancellationToken);
-        return await ValidateResultAsync(new PdfDocumentExportResult(
-            result, canonical.ResponseBytes, canonical.SandboxPlan, canonical.SandboxReceipt,
-            response.PageCount, response.FontCount), task, input, expectedHostBuildDigest, cancellationToken);
     }
 
     private async Task<DocumentExportSandboxResult> ExecuteAsync(
         DocumentExportTask task, DocumentExportFrozenInput input, DocumentExportToolContract tool,
-        PdfPrintRenderRequest request, CancellationToken cancellationToken)
+        PdfPrintRenderRequest request, DocumentExportAttemptResources resources,
+        bool verification, CancellationToken cancellationToken)
     {
-        DocumentExportSandboxResult result = await _sandbox.ExecuteAsync(task, input, tool,
-            (stream, token) => DocumentExportDigest.SerializeAsync(stream, request, token), cancellationToken);
+        DocumentExportSandboxResult result = verification
+            ? await _sandbox.ExecuteVerificationAsync(task, input, tool,
+                (stream, token) => DocumentExportDigest.SerializeAsync(stream, request, token), resources, cancellationToken)
+            : await _sandbox.ExecuteAsync(task, input, tool,
+                (stream, token) => DocumentExportDigest.SerializeAsync(stream, request, token), resources, cancellationToken);
         DocumentExportSandboxRuntime.ValidateReceipt(result.Receipt, result.Plan, task, input,
             tool, _sandbox.HostBuildDigest, result.OutputBytes);
         return result;

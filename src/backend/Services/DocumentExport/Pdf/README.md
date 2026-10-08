@@ -138,14 +138,27 @@ activate PDF. Exact integration requirements:
    shared sanitizer's accepted input vocabulary.
    Unusually complex SVG/math/footnote ordering still needs complete canonical
    renderer fixtures; no silent fallback is implemented.
-5. The shared job adapter consumes #2434's `IDocumentExportJobProvider`; no extra
+5. The shared job adapter consumes #2434's `IDocumentExportJobProvider` through
+   #3653's exact `IDocumentExportAttemptJobProvider` port from
+   `a94243f85cf9747741c02278d5c5123cccc0a584`; no extra
    task/store/permission implementation belongs here. Canonical evidence and
    verification must remain available without creating a provider-owned store.
-   `PdfDocumentExportJobProvider` directly implements that exact interface.
-   Because its shared result does not carry the original canonical phase evidence,
-   job verification deliberately reruns the canonical renderer on the same frozen
-   input, then independently parses the original PDF. It neither retries PDF
-   rendering nor stores a format-specific task/result dictionary. The composition
+   `PdfDocumentExportJobProvider` implements that exact interface. The job owner
+   creates one resource owner after claim and passes that same object to Export
+   and Verify. Export forwards it through the canonical renderer and PDF provider
+   stages; Verify forwards it to the sole sandbox's `ExecuteVerificationAsync`
+   and calls `RequireCompleted(task, input)` after actual verification succeeds.
+   Canonical evidence from Export is retained only as a weak, in-memory reference
+   keyed by the original resource owner and consumed once by Verify. This
+   carries the actual canonical bytes, plan and receipt across the current call
+   pair, without rerunning the canonical renderer or adding persistent custody.
+   The job owner can privately copy output bytes before Verify; the copy must
+   match the original output bytes, sandbox output and phase identity digests,
+   and the actual copied bytes and all receipts are then revalidated. An unknown
+   attempt, changed output, another resource owner or repeated Verify fails closed;
+   the job owner must admit a new attempt rather than reset a resource budget.
+   Legacy calls retain the resource owner for the original result object; copied
+   results use the explicit attempt port. The composition
    root supplies the trusted host build digest; callers cannot choose it per job.
 
 ## Focused checks
