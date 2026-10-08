@@ -1,0 +1,90 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "2563e0ad63dea0e7eb52017a44e7c26344e8bfc4",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace --folder --include src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs src/shared/Contracts/Schema/CurrentSchemaModel.cs src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs --verbosity minimal"
+    },
+    "paths": [
+        "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+        "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs"
+    ],
+    "firstPassTreeSha256": "a5ce69a32f64ac3200ad06eef46b74adad386d162fd70046b9be172e89e3bc8b",
+    "secondPassTreeSha256": "a5ce69a32f64ac3200ad06eef46b74adad386d162fd70046b9be172e89e3bc8b",
+    "idempotent": true,
+    "executionEvidenceSourceRevision": "38ce8451b39ae2039fed9882179ec64a3a3b5e41",
+    "executionEvidenceMetadataHead": "af4a8e32b9d2aeae9bd25ca8c3803f0de1e8d2d8",
+    "originalEvidence": "artifacts/style/issue-1688-schema-upstream-format.json",
+    "originalEvidenceSha256": "f88e25d015c176cd3c989e2bd298c2220bd7afe9f857340f15d116a4758163e7",
+    "formatterExecutedInConsumer": false,
+    "sourceConsumerByteEqualityVerified": true,
+    "digestDerivation": "Restriction of the original ten-file idempotent execution tree to four byte-identical paths; original full-run digests match metadata head af4a8e32 (including subsequent documentation). No new formatter execution is claimed.",
+    "originalDeclaredFormatRevisionTreeDigest": "f33bae6e684b52b7f87c14f7d82ce2f3840cc36d03a2db7cf988ea60d9590fdf",
+    "originalMetadataTreeDigest": "4de7fb065839702299bd5958b10e22ff06d7844812adfbee9e54b046ca6af929",
+    "actualConsumerRoslynEquivalence": {
+        "schema": "fsusblog.roslyn-format-equivalence.v1",
+        "parserAssemblyVersion": "5.9.0.0",
+        "parserIdentity": "Microsoft.CodeAnalysis.CSharp from official .NET SDK 10.0.401",
+        "paths": [
+            {
+                "path": "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs",
+                "tokenCount": 2225,
+                "beforeTokenSha256": "06c2962d942293a10c1c548f7c96064f80fa30ed0ddc003895c3783086cd3bd2",
+                "afterTokenSha256": "06c2962d942293a10c1c548f7c96064f80fa30ed0ddc003895c3783086cd3bd2",
+                "beforeAnchoredTriviaSha256": "8733ea13a1add262fce6be278d445f30324f3b586b9864fa30354a60320523ec",
+                "afterAnchoredTriviaSha256": "8733ea13a1add262fce6be278d445f30324f3b586b9864fa30354a60320523ec",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs",
+                "tokenCount": 454,
+                "beforeTokenSha256": "016bfb8ba4306d0f590368146330ea0f224c719e3071b6327f50a12573a377a6",
+                "afterTokenSha256": "016bfb8ba4306d0f590368146330ea0f224c719e3071b6327f50a12573a377a6",
+                "beforeAnchoredTriviaSha256": "1387495279a3e963e249736a5c32a4925f120f1b9498d7c7800a5840d05b3fa7",
+                "afterAnchoredTriviaSha256": "1387495279a3e963e249736a5c32a4925f120f1b9498d7c7800a5840d05b3fa7",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+                "tokenCount": 1675,
+                "beforeTokenSha256": "94bd81823283d2aa0d0f6a0c696d1d03842c67df7a8153f811f88771865144f4",
+                "afterTokenSha256": "94bd81823283d2aa0d0f6a0c696d1d03842c67df7a8153f811f88771865144f4",
+                "beforeAnchoredTriviaSha256": "326602f4d479fbffca76a99825944cf57b5cd4e602651793c5b9b134aeb7e96a",
+                "afterAnchoredTriviaSha256": "326602f4d479fbffca76a99825944cf57b5cd4e602651793c5b9b134aeb7e96a",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            },
+            {
+                "path": "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs",
+                "tokenCount": 1682,
+                "beforeTokenSha256": "844bcb8ab61ea8f0845570386bd10c98a5fdbcde16d1ff23f3224e296a306eff",
+                "afterTokenSha256": "844bcb8ab61ea8f0845570386bd10c98a5fdbcde16d1ff23f3224e296a306eff",
+                "beforeAnchoredTriviaSha256": "76c631bd29461113c97d6ad40e778cff973b67c5f9101de38c0f05325abd2a88",
+                "afterAnchoredTriviaSha256": "76c631bd29461113c97d6ad40e778cff973b67c5f9101de38c0f05325abd2a88",
+                "tokensEquivalent": true,
+                "anchoredTriviaEquivalent": true,
+                "syntaxErrorCount": 0
+            }
+        ],
+        "equivalent": true
+    },
+    "blockedBehavioralPaths": [
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaModel.cs"
+    ],
+    "backendTestsExecuted": 0,
+    "wholeSchemaQualification": false,
+    "qualificationEligible": false
+}

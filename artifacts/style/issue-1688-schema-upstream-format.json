@@ -1,0 +1,24 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "revision": "38ce8451b39ae2039fed9882179ec64a3a3b5e41",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace --folder --include src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs src/shared/Contracts/Schema/CurrentSchemaModel.cs src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs --verbosity minimal"
+    },
+    "paths": [
+        "src/backend/Infrastructure/SchemaMigration/CurrentSchemaRecipeFactExtractor.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaCatalogObserver.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaEffectObserver.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaExpressionParser.cs",
+        "src/shared/Algorithms/Schema/PgCurrentSchemaNativeObserver.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaCanonicalAuthority.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaModel.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaOwnedTargetArtifact.cs",
+        "src/shared/Contracts/Schema/CurrentSchemaRecipeFacts.cs",
+        "src/shared/Contracts/SchemaMigration/CurrentSchemaReceiptContracts.cs"
+    ],
+    "firstPassTreeSha256": "4de7fb065839702299bd5958b10e22ff06d7844812adfbee9e54b046ca6af929",
+    "secondPassTreeSha256": "4de7fb065839702299bd5958b10e22ff06d7844812adfbee9e54b046ca6af929",
+    "idempotent": true
+}
