@@ -1,10 +1,12 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { hostDeclarations } from '../docs/behavior-doc-minimal-contract-build-v3-contract.mjs';
-import { resolveDotnetProjectSourceClosure, sealSourceIdentity } from '../fact-extractors/identity.mjs';
-import { validateRunBoundProjection } from './run-once.mjs';
+
 import { resolveExecutablePath } from './execution-envelope-environment.mjs';
+import { validateRunBoundProjection } from './run-once.mjs';
+
+const { hostDeclarations } = await import(new URL('../docs/behavior-doc-minimal-contract-build-v3-contract.mjs', import.meta.url));
+const { resolveDotnetProjectSourceClosure, sealSourceIdentity } = await import(new URL('../fact-extractors/identity.mjs', import.meta.url));
 
 const digest = (bytes) => createHash('sha256').update(bytes).digest('hex');
 const equal = (left, right) => JSON.stringify(left) === JSON.stringify(right);
@@ -126,7 +128,10 @@ function lockedNugetClosure(repositoryRoot, projects)
         {
             for (const [id, dependency] of Object.entries(dependencies))
             {
-                if (dependency.type === 'Project') continue;
+                if (dependency.type === 'Project')
+                {
+                    continue;
+                }
                 const version = dependency.resolved;
                 if (!/^[A-Za-z0-9_.+-]+$/u.test(id) || !/^[A-Za-z0-9_.+-]+$/u.test(version ?? '')
                     || !/^[A-Za-z0-9+/]{86}==$/u.test(dependency.contentHash ?? ''))
@@ -143,7 +148,10 @@ function lockedNugetClosure(repositoryRoot, projects)
             }
         }
     }
-    if (packages.size === 0) throw new Error('NuGet preparation requires a nonempty locked graph');
+    if (packages.size === 0)
+    {
+        throw new Error('NuGet preparation requires a nonempty locked graph');
+    }
     return { projects, sourceClosureDigests,
         packages: [...packages.values()].sort((left, right) => left.path.localeCompare(right.path)) };
 }
@@ -259,35 +267,51 @@ export function inventoryNugetOfflineFeed(root, closure, allocationBlockSize = 4
     });
     if (!equal(feed.entries.map((entry) => entry.path).sort(), expected.map((record) => record.file).sort())
         || feed.entries.some((entry) => entry.kind !== 'file'))
-    { throw new Error('Offline feed must contain only the complete finite locked archive roster'); }
+    {
+        throw new Error('Offline feed must contain only the complete finite locked archive roster');
+    }
     let expandedAllocatedBytes = allocationBlockSize;
     for (const record of expected)
     {
         const bytes = regular(path.join(feed.root, record.file));
         if (!/^[A-Za-z0-9+/]{86}==$/u.test(record.contentHash ?? ''))
-        { throw new Error('Offline feed requires an exact package lock content hash'); }
+        {
+            throw new Error('Offline feed requires an exact package lock content hash');
+        }
         record.archiveSha512 = createHash('sha512').update(bytes).digest('base64');
         let footer = -1;
         for (let offset = bytes.length - 22; offset >= Math.max(0, bytes.length - 65557); offset--)
         {
             if (bytes.readUInt32LE(offset) === 0x06054b50
                 && offset + 22 + bytes.readUInt16LE(offset + 20) === bytes.length)
-            { footer = offset; break; }
+            {
+                footer = offset;
+                break;
+            }
         }
         if (footer < 0 || bytes.readUInt16LE(footer + 4) || bytes.readUInt16LE(footer + 6)
             || bytes.readUInt16LE(footer + 8) !== bytes.readUInt16LE(footer + 10))
-        { throw new Error('Offline feed has no bounded single-volume ZIP resource directory'); }
+        {
+            throw new Error('Offline feed has no bounded single-volume ZIP resource directory');
+        }
         const count = bytes.readUInt16LE(footer + 10);
         const start = bytes.readUInt32LE(footer + 16);
         if (count === 0xffff || start + bytes.readUInt32LE(footer + 12) !== footer)
-        { throw new Error('Offline feed ZIP64 resource sizes are unsupported'); }
+        {
+            throw new Error('Offline feed ZIP64 resource sizes are unsupported');
+        }
         let cursor = start;
         for (let index = 0; index < count; index++)
         {
             if (cursor + 46 > footer || bytes.readUInt32LE(cursor) !== 0x02014b50)
-            { throw new Error('Offline feed ZIP resource directory is incomplete'); }
+            {
+                throw new Error('Offline feed ZIP resource directory is incomplete');
+            }
             const size = bytes.readUInt32LE(cursor + 24);
-            if (size === 0xffffffff) throw new Error('Offline feed ZIP64 entry resource sizes are unsupported');
+            if (size === 0xffffffff)
+            {
+                throw new Error('Offline feed ZIP64 entry resource sizes are unsupported');
+            }
             // Each file and each possible ancestor gets a full additional allocation block.
             const nameLength = bytes.readUInt16LE(cursor + 28);
             const name = bytes.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
@@ -295,13 +319,21 @@ export function inventoryNugetOfflineFeed(root, closure, allocationBlockSize = 4
                 + 2 + name.split('/').length) * allocationBlockSize;
             cursor += 46 + nameLength + bytes.readUInt16LE(cursor + 30) + bytes.readUInt16LE(cursor + 32);
             if (cursor > footer || !Number.isSafeInteger(expandedAllocatedBytes))
-            { throw new Error('Offline feed expanded resource bound is invalid'); }
+            {
+                throw new Error('Offline feed expanded resource bound is invalid');
+            }
         }
-        if (cursor !== footer) throw new Error('Offline feed ZIP resource directory is not fully consumed');
+        if (cursor !== footer)
+        {
+            throw new Error('Offline feed ZIP resource directory is not fully consumed');
+        }
     }
     // NuGet retains each archive, hash and metadata in addition to expanded entries.
     expandedAllocatedBytes += feed.allocatedBytes + expected.length * 4 * allocationBlockSize;
-    if (!Number.isSafeInteger(expandedAllocatedBytes)) throw new Error('Offline feed expanded resource bound overflow');
+    if (!Number.isSafeInteger(expandedAllocatedBytes))
+    {
+        throw new Error('Offline feed expanded resource bound overflow');
+    }
     return { ...feed, archives: expected, expandedAllocatedBytes };
 }
 
@@ -329,7 +361,10 @@ export async function readPreparedMatrixNativeNuget({ repositoryRoot, runId, fil
 
 async function readPreparedNuget({ repositoryRoot, runId, file, purpose })
 {
-    if (!file) throw new Error(`${purpose} correctness requires explicit offline NuGet preparation`);
+    if (!file)
+    {
+        throw new Error(`${purpose} correctness requires explicit offline NuGet preparation`);
+    }
     const input = path.resolve(file);
     const bytes = regular(input);
     const preparation = JSON.parse(bytes);
@@ -342,7 +377,9 @@ async function readPreparedNuget({ repositoryRoot, runId, file, purpose })
         || preparation.artifactsRoot !== path.join(attempt, 'artifacts')
         || preparation.feedRoot !== path.join(attempt, 'feed')
         || preparation.configFile !== path.join(attempt, 'NuGet.Config'))
-    { throw new Error('NuGet preparation paths escape the exact task-owned transfer'); }
+    {
+        throw new Error('NuGet preparation paths escape the exact task-owned transfer');
+    }
     const source = sealSourceIdentity(repositoryRoot);
     const closure = purpose === 'matrix-native' ? matrixNativeNugetClosure(repositoryRoot) : behaviorDocNugetClosure(repositoryRoot);
     if (!equal(preparation.source, source) || !equal(preparation.closure, closure))
@@ -354,14 +391,19 @@ async function readPreparedNuget({ repositoryRoot, runId, file, purpose })
     if (transfer?.runId !== runId || transfer.consumerId !== consumerId
         || !new RegExp(`^${consumerId}-[a-f0-9-]{36}$`, 'u').test(transfer.key ?? '')
         || transfer.root !== path.join(path.resolve(repositoryRoot), '.tmp/physical-executions'))
-    { throw new Error('NuGet transfer is foreign to this scheduler run or original producer'); }
+    {
+        throw new Error('NuGet transfer is foreign to this scheduler run or original producer');
+    }
     const verified = await validateRunBoundProjection({ ...transfer, verifyOutputs: true });
     const receipt = verified.receipt;
     let allocationRoot = path.join(repositoryRoot, '.tmp/test-execution-envelope/run-owned');
     while (!fs.existsSync(allocationRoot))
     {
         const parent = path.dirname(allocationRoot);
-        if (parent === allocationRoot) throw new Error('NuGet attempt filesystem is unknown');
+        if (parent === allocationRoot)
+        {
+            throw new Error('NuGet attempt filesystem is unknown');
+        }
         allocationRoot = parent;
     }
     const allocationBlockSize = Number(fs.statfsSync(allocationRoot).bsize);
@@ -445,6 +487,7 @@ export function seedPreparedNuget(prepared, destination)
         throw new Error('NuGet preparation drifted or destination is not a fresh canonical cache');
     }
     let firstFailure = null;
+    let cleanupFailure = null;
     try
     {
         for (const entry of before.entries)
@@ -468,8 +511,14 @@ export function seedPreparedNuget(prepared, destination)
         const rootMode = fs.statSync(destination).mode & 0o777;
         fs.chmodSync(destination, 0o500);
         let after;
-        try { after = inventoryPreparedNuget(destination); }
-        finally { fs.chmodSync(destination, rootMode); }
+        try
+        {
+            after = inventoryPreparedNuget(destination);
+        }
+        finally
+        {
+            fs.chmodSync(destination, rootMode);
+        }
         if (after.treeDigest !== before.treeDigest
             || inventoryPreparedNuget(prepared.root).treeDigest !== before.treeDigest)
         {
@@ -484,7 +533,6 @@ export function seedPreparedNuget(prepared, destination)
     finally
     {
         // A partial copy must also remain removable. No child has started at this preparation boundary.
-        let cleanupFailure = null;
         for (const entry of [...before.entries].reverse())
         {
             const target = path.join(destination, entry.path);
@@ -495,12 +543,21 @@ export function seedPreparedNuget(prepared, destination)
                     fs.chmodSync(target, entry.kind === 'directory' ? 0o700 : 0o600);
                 }
             }
-            catch (error) { cleanupFailure ??= error; }
+            catch (error)
+            {
+                cleanupFailure ??= error;
+            }
         }
         if (cleanupFailure)
         {
-            if (firstFailure) firstFailure.cleanupError = cleanupFailure;
-            else throw cleanupFailure;
+            if (firstFailure)
+            {
+                firstFailure.cleanupError = cleanupFailure;
+            }
         }
+    }
+    if (cleanupFailure)
+    {
+        throw cleanupFailure;
     }
 }
