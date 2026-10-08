@@ -1,0 +1,292 @@
+{
+  "sourceCommit": "d1c0eb777f19359fd34d825c0adde0ee0e9c7325",
+  "configuration": "Debug",
+  "framework": "net10.0",
+  "sourceInventoryDigest": "sha256:29a02fb7843c8eb352fd2b71df0e3734016261b36a668fa928d1e2514799c0c2",
+  "inventorySha256": "5352e276c0a00287349657adb97cb2f801652ce54a53a0be642a466bf0dab87e",
+  "originalInventorySourceRecords": [
+    {
+      "file": "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+      "sourceRecord": {
+        "adapter": "xunit",
+        "adapterVersion": "xunit.v2",
+        "caseIdentity": {
+          "extractionStatus": "ready",
+          "inventoryObligation": "case records for this file are produced by the xunit-adapter adapter and merged into the canonical inventory",
+          "mode": "static",
+          "owner": "xunit-adapter"
+        },
+        "declaredBy": [
+          "coverage:backend-online-schema-migration-protocol",
+          "coverage:backend-physical-account-subject-retirement",
+          "directory",
+          "matrix:evidence:integration",
+          "requirement:evidence:backend-concurrency",
+          "requirement:evidence:backend-test-governance"
+        ],
+        "kind": "discoverable-test",
+        "path": "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+        "sourceDigest": "sha256:6ae8f7d0f4aafbd954d3bd1b185bc224b910c41f6a41bf856c22641df40cee66"
+      },
+      "currentCaseDeclarations": 0,
+      "publishedAuditDeclaration": []
+    },
+    {
+      "file": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+      "sourceRecord": {
+        "adapter": "xunit",
+        "adapterVersion": "xunit.v2",
+        "caseIdentity": {
+          "extractionStatus": "ready",
+          "inventoryObligation": "case records for this file are produced by the xunit-adapter adapter and merged into the canonical inventory",
+          "mode": "static",
+          "owner": "xunit-adapter"
+        },
+        "declaredBy": [
+          "coverage:backend-legacy-20260517-real-dump",
+          "directory",
+          "matrix:evidence:legacy-20260517-real-dump",
+          "requirement:evidence:legacy-20260517-real-dump"
+        ],
+        "kind": "discoverable-test",
+        "path": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+        "sourceDigest": "sha256:485902ec140da35c17503105388b7bd5b39275c1a86f14627cdf399f5bccf238"
+      },
+      "currentCaseDeclarations": 0,
+      "publishedAuditDeclaration": []
+    },
+    {
+      "file": "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs",
+      "sourceRecord": {
+        "adapter": "xunit",
+        "adapterVersion": "xunit.v2",
+        "caseIdentity": {
+          "extractionStatus": "ready",
+          "inventoryObligation": "case records for this file are produced by the xunit-adapter adapter and merged into the canonical inventory",
+          "mode": "static",
+          "owner": "xunit-adapter"
+        },
+        "declaredBy": [
+          "coverage:backend-audit-behavior",
+          "directory",
+          "matrix:evidence:backend-unit",
+          "xunit:compile:tests/backend/FsusBlog.Server.Tests.csproj:Debug"
+        ],
+        "kind": "discoverable-test",
+        "path": "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs",
+        "sourceDigest": "sha256:0d2b65da7ccc46fd83375c9210b0db07b01a0fa2bb2a4cb890a1f04d5e85d37c"
+      },
+      "currentCaseDeclarations": 1,
+      "publishedAuditDeclaration": [
+        {
+          "id": "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#FsusBlog.Server.Tests.Unit.AuditFallbackWriterBehaviorTests.WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState#case-0000",
+          "ownerFile": "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs",
+          "ownerSuite": "FsusBlog.Server.Tests.Unit.AuditFallbackWriterBehaviorTests",
+          "methodName": "WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState",
+          "sourceSpan": {
+            "end": {
+              "column": 6,
+              "line": 53
+            },
+            "start": {
+              "column": 5,
+              "line": 10
+            }
+          }
+        }
+      ]
+    }
+  ],
+  "committedConfigAndSourceDigests": [
+    {
+      "path": "Directory.Build.props",
+      "sha256": "c7ae432a946a85fbfabb8e12208b66fd77a6a50cfa3354dc2d547afc79f943a4",
+      "gitBlob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "sha256": "2493ace52b71f6d772ba9bf605db4465e7fdf9fecf0e2444fe7fb7a322776d7f",
+      "gitBlob": "0abc085c29fb28bcc5982c8f45e4085d2b739812"
+    },
+    {
+      "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+      "gitBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707"
+    },
+    {
+      "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "sha256": "bb2b2bcafc4eb624e62ea2ef44070ae8e2a428b17482318657a6459ed47729be",
+      "gitBlob": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210"
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "sha256": "47cd7d607c29ed5c47ae7b9952bc066ec60f96b6efcf075ae324553825c5c8c9",
+      "gitBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5"
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "sha256": "5b3208a3c880021b003e6e653286d5debb3cf959a7e2dfb48d22d0e6f3d275b6",
+      "gitBlob": "9e289962c72dce2a415191635d02079fa7172888"
+    },
+    {
+      "path": "tools/test-inventory/discovery.mjs",
+      "sha256": "721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+      "gitBlob": "321a60d2ed1a2ce70cad0daae74334e8899e9bb6"
+    },
+    {
+      "path": "tools/test-inventory/produce.mjs",
+      "sha256": "53519cd6f1efb08aa489a334e46726a83337b52626870041e65cea50319d5007",
+      "gitBlob": "50fbfd453a9dd7ca276c1d1b896660864889af11"
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj",
+      "sha256": "d3f0fbb4b96002c3f01515a4e7ee8081b134d5d869e1e0bd75d4c77c6041b151",
+      "gitBlob": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3"
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/XunitAdapterProjectContext.cs",
+      "sha256": "0966456b3495f2500163f2f4869a92de5798bc16ec32a174fd56aa9533e4d791",
+      "gitBlob": "bd6301d2846def3d1ccf73f9cb8d9e5f72114a5c"
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/XunitAdapterReferenceResolution.cs",
+      "sha256": "5db59ad6742ce06f98ab3fa1f4a20f26fd42ed8108dd47a60efa542ed5a5c9ce",
+      "gitBlob": "c3f0d46f467ddd4e451c55636b63feada065afb2"
+    },
+    {
+      "path": "tools/test-inventory/xunit-projects.mjs",
+      "sha256": "16bb766da6a497b4a1de52c26b4a3be00dec451d3515a8df4ced604f7a61f5aa",
+      "gitBlob": "498d1fffb8f50b2e2380446b2859b1ae96811620"
+    },
+    {
+      "path": "tests/test-retention-replacements.json",
+      "sha256": "c56c7f168af626392bc3dd5e0b38b653244e5b2c7d8b98e92b55c267dd11e1db",
+      "gitBlob": "00f850a2fbbc5e5afe1c1c201e0b1f21117beee3"
+    }
+  ],
+  "retainedDebugArtifactsObservedNow": [
+    {
+      "path": "tests/backend/bin/Debug/net10.0/FsusBlog.Server.Tests.dll",
+      "bytes": 14468096,
+      "sha256": "48c0b70dd25dc6e342694d643a2cf89eebd1940d7b6d94af8df008b057a8df06",
+      "evidenceClass": "Existing retained Debug output observed at handoff collection; not an original-run sealed output digest",
+      "mtimeUtc": "2026-10-08T07:17:22.970860+00:00"
+    },
+    {
+      "path": "tests/backend/obj/Debug/net10.0/FsusBlog.Server.Tests.dll",
+      "bytes": 14468096,
+      "sha256": "48c0b70dd25dc6e342694d643a2cf89eebd1940d7b6d94af8df008b057a8df06",
+      "evidenceClass": "Existing retained Debug output observed at handoff collection; not an original-run sealed output digest",
+      "mtimeUtc": "2026-10-08T07:17:22.970860+00:00"
+    },
+    {
+      "path": "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll",
+      "bytes": 1329152,
+      "sha256": "f0d4fa160530d22a698e7f845f345ee458469cf0b012c8aff95a0f678ed01453",
+      "evidenceClass": "Existing retained Debug output observed at handoff collection; not an original-run sealed output digest",
+      "mtimeUtc": "2026-10-08T07:15:19.571841+00:00"
+    },
+    {
+      "path": "tests/migration/obj/Debug/net10.0/FsusBlog.Migration.Tests.dll",
+      "bytes": 1329152,
+      "sha256": "f0d4fa160530d22a698e7f845f345ee458469cf0b012c8aff95a0f678ed01453",
+      "evidenceClass": "Existing retained Debug output observed at handoff collection; not an original-run sealed output digest",
+      "mtimeUtc": "2026-10-08T07:15:19.571841+00:00"
+    }
+  ],
+  "missingOriginalRawContextReceipt": "Original producer MSBuild item observations/WeakMap provenance and per-project Roslyn stdout were consumed in-process, not separately archived. No current-head raw MSBuild receipt or original-run binary hash is manufactured. Prior saved standalone context belongs to451c5fb8 and is not rebound.",
+  "rerun": false,
+  "qualification": false,
+  "existingOriginalCommandResults": [
+    {
+      "command": [
+        "dotnet",
+        "test",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "--configuration",
+        "Debug",
+        "--no-restore",
+        "--filter",
+        "FullyQualifiedName~FsusBlog.Migration.Tests.OfflineMigrationExpandSafetyTests",
+        "--logger",
+        "trx;LogFileName=expand-d1c0eb777.trx",
+        "--results-directory",
+        ".tmp/chain-3611/migration-compat-d1c0eb777/test-results",
+        "--nologo",
+        "--verbosity",
+        "minimal"
+      ],
+      "sourceCommit": "d1c0eb777f19359fd34d825c0adde0ee0e9c7325",
+      "startedAt": "2026-10-08T07:14:53.004628+00:00",
+      "completedAt": "2026-10-08T07:15:21.690832+00:00",
+      "exitCode": 0,
+      "sha256": "1b7cd669ddf7db4d56fa0bfdbdab1c720667a668abc4b47ede94f3beeea913fe",
+      "originalLogName": "original-expand-controls.log"
+    },
+    {
+      "command": [
+        "node",
+        "tools/test-inventory/produce.mjs",
+        "--configuration",
+        "Debug",
+        "--out",
+        ".tmp/chain-3611/migration-compat-d1c0eb777/inventory.json"
+      ],
+      "sourceCommit": "d1c0eb777f19359fd34d825c0adde0ee0e9c7325",
+      "startedAt": "2026-10-08T07:15:21.692166+00:00",
+      "completedAt": "2026-10-08T07:19:09.753215+00:00",
+      "exitCode": 0,
+      "sha256": "eb54cc029f933218897502ef049b1fc4545976054957c2e81e80439984f7bf0b",
+      "originalLogName": "actual-inventory-producer.log"
+    },
+    {
+      "command": [
+        "node",
+        "--test",
+        "tests/tools/test-inventory.test.mjs",
+        "tests/tools/test-retention-audit.test.mjs"
+      ],
+      "sourceCommit": "d1c0eb777f19359fd34d825c0adde0ee0e9c7325",
+      "startedAt": "2026-10-08T07:19:09.753634+00:00",
+      "completedAt": "2026-10-08T07:23:45.456793+00:00",
+      "exitCode": 1,
+      "sha256": "d8e2feb7aee78367f8f3ec847a31a086af42f5aa0003ce2d500433888ac8cc95",
+      "originalLogName": "original-inventory-retention.log"
+    },
+    {
+      "command": [
+        "node",
+        "tools/test-inventory/produce.mjs",
+        "--check",
+        "--configuration",
+        "Debug",
+        "--out",
+        ".tmp/chain-3611/migration-compat-d1c0eb777/inventory.json"
+      ],
+      "sourceCommit": "d1c0eb777f19359fd34d825c0adde0ee0e9c7325",
+      "startedAt": "2026-10-08T07:25:31.443105+00:00",
+      "completedAt": "2026-10-08T07:28:47.893585+00:00",
+      "exitCode": 0,
+      "sha256": "02fe5094e7a2155e5a8ce016c82aa85b8b510935da829e2c99f1aa6897c7c3b1",
+      "originalLogName": "actual-inventory-check.log"
+    }
+  ],
+  "retentionRunIdentity": "production-final (the unchanged original controlled CLI test argument; not a production deployment/resource)",
+  "inventoryOriginalArtifactRepositoryPath": ".tmp/chain-3611/migration-compat-d1c0eb777/inventory.json",
+  "inventoryOriginalArtifactBytes": 268201654,
+  "toolVersions": {
+    "Node": "24.16.0",
+    "dotnetSdk": "10.0.401",
+    "framework": "net10.0"
+  },
+  "collectionUtc": "2026-10-08T08:01:02.162433+00:00",
+  "originalRetainedStandaloneContextSource": "451c5fb87dffd8be95f977249b01a5e16aee5d83; not this candidate; not rebound",
+  "currentOwnerAcceptance": {
+    "firstSevenReplacementIds": "No established current compiled replacement owner; current source-present Compile-excluded records cannot establish deletion or historical replacement. Owner unknown.",
+    "eighthAuditReference": "Current Debug owner declaration established for Publishes method, but trusted old Appends-to-Publishes replacement mapping remains unaccepted."
+  },
+  "safety": "Bounded existing evidence excerpts only; no absolute machine paths, environment variables, credentials, binary assemblies, history rewrite or acceptance promotion.",
+  "producerStdoutTransformation": "Removed only the original absolute workspace prefix; normalized output is not asserted byte-identical to original raw stdout.",
+  "retentionExcerptTransformation": "Selected35 unique original error lines verbatim; full original log hash retained, excerpt has own hash.",
+  "originalFullInventoryNotPublished": "268201654-byte artifact remains retained; this bundle carries original digest, original byte hash and three unmodified source records/current Audit declaration excerpts. No complete raw per-project MSBuild/Roslyn archive was retained."
+}

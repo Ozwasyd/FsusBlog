@@ -1,0 +1,1 @@
+[test-inventory] ok files=3051 cases=19828 digest=sha256:29a02fb7843c8eb352fd2b71df0e3734016261b36a668fa928d1e2514799c0c2

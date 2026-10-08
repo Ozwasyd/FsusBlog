@@ -1,0 +1,27 @@
+{
+  "testedSourceCommit": "d1c0eb777f19359fd34d825c0adde0ee0e9c7325",
+  "qualifies": false,
+  "rerun": false,
+  "files": {
+    "inventory-producer-normalized-stdout.txt": {
+      "bytes": 183,
+      "sha256": "892a89ed32bc96accdff1beebf8dae72e3b4132e97234b65787243bde07431eb"
+    },
+    "inventory-check-original-stdout.txt": {
+      "bytes": 122,
+      "sha256": "02fe5094e7a2155e5a8ce016c82aa85b8b510935da829e2c99f1aa6897c7c3b1"
+    },
+    "retention-errors-original-excerpt.txt": {
+      "bytes": 13901,
+      "sha256": "d5ff92c9423f6625adae2bd1533faad9f0979277da4524655b25e902afa47021"
+    },
+    "existing-context-and-results.json": {
+      "bytes": 13332,
+      "sha256": "2325cf0e9d89657f57b4ee771102793b7f2ebf628490bf0e254f623a4709be53"
+    },
+    "replacement-references.json": {
+      "bytes": 11229,
+      "sha256": "15a4584c22e68bd3f7c7128cdb265e527eebfee5915a31d2a8ec53a73a0534a5"
+    }
+  }
+}

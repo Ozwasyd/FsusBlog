@@ -1,0 +1,204 @@
+{
+  "forSoleOwner": 3521,
+  "sourceCommit": "d1c0eb777f19359fd34d825c0adde0ee0e9c7325",
+  "sourceBranch": "task/chain-3611-20261008",
+  "canonicalMigrationSource": "dbeac12cf8ac83d1f27f6a858f29bc530455dba9",
+  "sourceInventoryDigest": "sha256:29a02fb7843c8eb352fd2b71df0e3734016261b36a668fa928d1e2514799c0c2",
+  "sourceInventorySha256": "5352e276c0a00287349657adb97cb2f801652ce54a53a0be642a466bf0dab87e",
+  "manifest": "tests/test-retention-replacements.json",
+  "manifestSha256": "c56c7f168af626392bc3dd5e0b38b653244e5b2c7d8b98e92b55c267dd11e1db",
+  "rawMissingReferenceCount": 35,
+  "distinctReplacementIdCount": 8,
+  "replacementReferences": [
+    {
+      "exactReplacementId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
+      "file": "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+      "classMethod": "AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent",
+      "method": "Backfill_UsesCanonicalHasherAndIsIdempotent",
+      "currentSourceOccurrenceLines": [
+        17
+      ],
+      "manifestJsonPointers": [
+        "/deletedTests/540/replacementTestIds/0",
+        "/deletedTests/655/replacementTestIds/0",
+        "/deletedTests/656/replacementTestIds/0",
+        "/deletedTests/768/replacementTestIds/0",
+        "/deletedTests/769/replacementTestIds/0",
+        "/deletedTests/1114/replacementTestIds/0",
+        "/deletedTests/1115/replacementTestIds/0"
+      ],
+      "rawMissingReferenceCount": 7,
+      "compileBoundaryEvidence": "Explicit Compile Remove and None enrollment in tests/backend/FsusBlog.Server.Tests.csproj; source exists, not a current test owner",
+      "diagnosticCurrentLiveCandidate": [],
+      "notAnAuthorizedMapping": true
+    },
+    {
+      "exactReplacementId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation",
+      "file": "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+      "classMethod": "AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation",
+      "method": "OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation",
+      "currentSourceOccurrenceLines": [
+        104
+      ],
+      "manifestJsonPointers": [
+        "/deletedTests/540/replacementTestIds/1",
+        "/deletedTests/768/replacementTestIds/1"
+      ],
+      "rawMissingReferenceCount": 2,
+      "compileBoundaryEvidence": "Explicit Compile Remove and None enrollment in tests/backend/FsusBlog.Server.Tests.csproj; source exists, not a current test owner",
+      "diagnosticCurrentLiveCandidate": [],
+      "notAnAuthorizedMapping": true
+    },
+    {
+      "exactReplacementId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist",
+      "file": "tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs",
+      "classMethod": "AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist",
+      "method": "StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist",
+      "currentSourceOccurrenceLines": [
+        86
+      ],
+      "manifestJsonPointers": [
+        "/deletedTests/655/replacementTestIds/1",
+        "/deletedTests/656/replacementTestIds/1",
+        "/deletedTests/768/replacementTestIds/2",
+        "/deletedTests/769/replacementTestIds/1",
+        "/deletedTests/1114/replacementTestIds/1",
+        "/deletedTests/1115/replacementTestIds/1"
+      ],
+      "rawMissingReferenceCount": 6,
+      "compileBoundaryEvidence": "Explicit Compile Remove and None enrollment in tests/backend/FsusBlog.Server.Tests.csproj; source exists, not a current test owner",
+      "diagnosticCurrentLiveCandidate": [],
+      "notAnAuthorizedMapping": true
+    },
+    {
+      "exactReplacementId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.PostgresLockTimeoutSimulation_RollsBackAndAllowsFollowUpQuery",
+      "file": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+      "classMethod": "SchemaMigrationIntegrationTests.PostgresLockTimeoutSimulation_RollsBackAndAllowsFollowUpQuery",
+      "method": "PostgresLockTimeoutSimulation_RollsBackAndAllowsFollowUpQuery",
+      "currentSourceOccurrenceLines": [
+        2138
+      ],
+      "manifestJsonPointers": [
+        "/deletedTests/1299/replacementTestIds/0"
+      ],
+      "rawMissingReferenceCount": 1,
+      "compileBoundaryEvidence": "Explicit Compile Remove and None enrollment in tests/backend/FsusBlog.Server.Tests.csproj; source exists, not a current test owner",
+      "diagnosticCurrentLiveCandidate": [],
+      "notAnAuthorizedMapping": true
+    },
+    {
+      "exactReplacementId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns",
+      "file": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+      "classMethod": "SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns",
+      "method": "RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns",
+      "currentSourceOccurrenceLines": [
+        2621
+      ],
+      "manifestJsonPointers": [
+        "/deletedTests/683/replacementTestIds/0",
+        "/deletedTests/691/replacementTestIds/0"
+      ],
+      "rawMissingReferenceCount": 2,
+      "compileBoundaryEvidence": "Explicit Compile Remove and None enrollment in tests/backend/FsusBlog.Server.Tests.csproj; source exists, not a current test owner",
+      "diagnosticCurrentLiveCandidate": [],
+      "notAnAuthorizedMapping": true
+    },
+    {
+      "exactReplacementId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns",
+      "file": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+      "classMethod": "SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns",
+      "method": "RunAsync_RenamesAnonymousCredentialAccountBindingColumns",
+      "currentSourceOccurrenceLines": [
+        2732
+      ],
+      "manifestJsonPointers": [
+        "/deletedTests/713/replacementTestIds/2",
+        "/deletedTests/714/replacementTestIds/2",
+        "/deletedTests/715/replacementTestIds/2",
+        "/deletedTests/716/replacementTestIds/2",
+        "/deletedTests/717/replacementTestIds/2",
+        "/deletedTests/718/replacementTestIds/2",
+        "/deletedTests/719/replacementTestIds/2",
+        "/deletedTests/720/replacementTestIds/2",
+        "/deletedTests/721/replacementTestIds/2",
+        "/deletedTests/722/replacementTestIds/2",
+        "/deletedTests/723/replacementTestIds/2",
+        "/deletedTests/724/replacementTestIds/2",
+        "/deletedTests/725/replacementTestIds/2",
+        "/deletedTests/726/replacementTestIds/2"
+      ],
+      "rawMissingReferenceCount": 14,
+      "compileBoundaryEvidence": "Explicit Compile Remove and None enrollment in tests/backend/FsusBlog.Server.Tests.csproj; source exists, not a current test owner",
+      "diagnosticCurrentLiveCandidate": [],
+      "notAnAuthorizedMapping": true
+    },
+    {
+      "exactReplacementId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided",
+      "file": "tests/backend/Integration/SchemaMigrationIntegrationTests.cs",
+      "classMethod": "SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided",
+      "method": "RunAsync_UpgradesLegacy20260517RealDump_WhenProvided",
+      "currentSourceOccurrenceLines": [
+        1994
+      ],
+      "manifestJsonPointers": [
+        "/deletedTests/657/replacementTestIds/0"
+      ],
+      "rawMissingReferenceCount": 1,
+      "compileBoundaryEvidence": "Explicit Compile Remove and None enrollment in tests/backend/FsusBlog.Server.Tests.csproj; source exists, not a current test owner",
+      "diagnosticCurrentLiveCandidate": [],
+      "notAnAuthorizedMapping": true
+    },
+    {
+      "exactReplacementId": "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState",
+      "file": "tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs",
+      "classMethod": "AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState",
+      "method": "WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState",
+      "currentSourceOccurrenceLines": [],
+      "manifestJsonPointers": [
+        "/deletedTests/885/replacementTestIds/0",
+        "/deletedTests/891/replacementTestIds/1"
+      ],
+      "rawMissingReferenceCount": 2,
+      "compileBoundaryEvidence": "Original replacement method name is absent; actual existing method is WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState",
+      "diagnosticCurrentLiveCandidate": [
+        {
+          "id": "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#FsusBlog.Server.Tests.Unit.AuditFallbackWriterBehaviorTests.WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState#case-0000",
+          "methodName": "WriteBatchAsync_PublishesEveryDurableRecordAndUpdatesRuntimeState",
+          "ownerSuite": "FsusBlog.Server.Tests.Unit.AuditFallbackWriterBehaviorTests"
+        }
+      ],
+      "notAnAuthorizedMapping": true
+    }
+  ],
+  "compileRemoveEvidence": {
+    "file": "tests/backend/FsusBlog.Server.Tests.csproj",
+    "gitBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+    "sha256": "67269f83c194ee6605fefcd67689c9a2cc1eeae4f906b4650c764c388304108c",
+    "lines": [
+      {
+        "line": 52,
+        "text": "<Compile Remove=\"Integration\\SchemaMigrationIntegrationTests.cs\" />"
+      },
+      {
+        "line": 53,
+        "text": "<None Include=\"Integration\\SchemaMigrationIntegrationTests.cs\" />"
+      },
+      {
+        "line": 54,
+        "text": "<Compile Remove=\"Integration\\AccountSubjectHashMigrationIntegrationTests.cs\" />"
+      },
+      {
+        "line": 55,
+        "text": "<None Include=\"Integration\\AccountSubjectHashMigrationIntegrationTests.cs\" />"
+      }
+    ],
+    "matchesFetchedMaster": true,
+    "fetchedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d"
+  },
+  "boundaryContract": "Preserve actual Compile graph and assertions. Source existence grants no testcase enrollment; current candidate lookup is diagnostic only and cannot authorize a historical ledger mapping.",
+  "suitesRerun": false,
+  "githubApiWrites": false,
+  "qualification": false,
+  "originalRawRetentionLogSha256": "d8e2feb7aee78367f8f3ec847a31a086af42f5aa0003ce2d500433888ac8cc95",
+  "rawRetentionExcerpt": "retention-errors-original-excerpt.txt"
+}
