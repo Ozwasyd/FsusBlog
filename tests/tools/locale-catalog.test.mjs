@@ -35,7 +35,9 @@ const checkerRejectsMutation = async (relative, mutate) =>
     const original = await readFile(target, 'utf8');
     try
     {
-        await writeFile(target, mutate(original));
+        const mutated = mutate(original);
+        assert.notEqual(mutated, original, `${relative} negative fixture did not change the source`);
+        await writeFile(target, mutated);
         const result = spawnSync('node', [checker], { cwd: root, encoding: 'utf8' });
         assert.notEqual(result.status, 0, `${relative} mutation unexpectedly passed`);
     }
