@@ -210,6 +210,19 @@ function parseCanonicalAuthorityJson(content, indentation, label)
     return document;
 }
 
+function parseAuthorityLockJson(content, parser, label)
+{
+    try
+    {
+        const source = new TextDecoder('utf-8', { fatal: true }).decode(content);
+        return parseMachineJson(source, yamlParserAuthority.lockPath, parser);
+    }
+    catch (error)
+    {
+        zeroLegacyFail(`${label} must be strict duplicate-free JSON: ${error.message}`);
+    }
+}
+
 function admittedInventoryAuthority(repositoryRoot, inventory, relative, options = {})
 {
     const entry = inventory.files.find((candidate) => candidate.file === relative);
@@ -281,7 +294,8 @@ function canonicalYamlParser(repositoryRoot, inventory)
     const consumer = parseCanonicalAuthorityJson(consumerAuthority.content, 4, 'YAML parser consumer');
     const lockAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.lockPath,
         { expectedModes: [0o600, 0o644, 0o664] });
-    const lock = parseCanonicalAuthorityJson(lockAuthority.content, 2, 'YAML parser package lock');
+    const lock = parseAuthorityLockJson(lockAuthority.content,
+        canonicalJsoncParser(repositoryRoot, inventory), 'YAML parser package lock');
     const packageAuthority = readCanonicalAuthorityFile(repositoryRoot, yamlParserAuthority.packagePath, {
         expectedDigest: yamlParserAuthority.packageSha256,
         expectedModes: [0o644, 0o664]
@@ -318,7 +332,6 @@ function canonicalJsoncParser(repositoryRoot, inventory)
     const consumer = parseCanonicalAuthorityJson(consumerAuthority.content, 4, 'JSONC parser consumer');
     const lockAuthority = admittedInventoryAuthority(repositoryRoot, inventory, yamlParserAuthority.lockPath,
         { expectedModes: [0o600, 0o644, 0o664] });
-    const lock = parseCanonicalAuthorityJson(lockAuthority.content, 2, 'JSONC parser package lock');
     const packageAuthority = readCanonicalAuthorityFile(repositoryRoot, jsoncParserAuthority.packagePath, {
         expectedDigest: jsoncParserAuthority.packageSha256,
         expectedModes: [0o644, 0o664]
@@ -328,6 +341,12 @@ function canonicalJsoncParser(repositoryRoot, inventory)
         expectedDigest: jsoncParserAuthority.bundleSha256,
         expectedModes: [0o644, 0o664]
     });
+    const parser = executeSealedCommonJs(bundleAuthority, path.resolve(repositoryRoot, jsoncParserAuthority.bundlePath));
+    if (typeof parser?.parseJsonText !== 'function')
+    {
+        zeroLegacyFail('sealed JSONC parser export is invalid');
+    }
+    const lock = parseAuthorityLockJson(lockAuthority.content, parser, 'JSONC parser package lock');
     const consumerVersion = consumer.devDependencies?.[jsoncParserAuthority.dependencyName];
     const lockedConsumerVersion = lock.packages?.['']?.devDependencies?.[jsoncParserAuthority.dependencyName];
     const lockedPackage = lock.packages?.['node_modules/typescript'];
@@ -338,11 +357,6 @@ function canonicalJsoncParser(repositoryRoot, inventory)
         || !lockedPackage.integrity.startsWith('sha512-'))
     {
         zeroLegacyFail('JSONC parser consumer and package-lock chain is not exact');
-    }
-    const parser = executeSealedCommonJs(bundleAuthority, path.resolve(repositoryRoot, jsoncParserAuthority.bundlePath));
-    if (typeof parser?.parseJsonText !== 'function')
-    {
-        zeroLegacyFail('sealed JSONC parser export is invalid');
     }
     return parser;
 }
@@ -1358,17 +1372,81 @@ function structuralNodeIdentity(node, parser)
     return createHash('sha256').update(JSON.stringify(shape(node))).digest('hex');
 }
 
+function explicitScannerImportDeclaration(statement, parser, file)
+{
+    if (!parser.isVariableStatement(statement) || statement.modifiers?.length
+        || (statement.declarationList.flags & (parser.NodeFlags.Let | parser.NodeFlags.Const | parser.NodeFlags.Using)) !== parser.NodeFlags.Const
+        || statement.declarationList.declarations.length !== 1)
+    {
+        return null;
+    }
+    const declaration = statement.declarationList.declarations[0];
+    const initializer = declaration.initializer;
+    if (!parser.isObjectBindingPattern(declaration.name) || declaration.type || declaration.exclamationToken
+        || !initializer || !parser.isAwaitExpression(initializer))
+    {
+        return null;
+    }
+    const call = initializer.expression;
+    if (!parser.isCallExpression(call) || call.expression.kind !== parser.SyntaxKind.ImportKeyword
+        || call.arguments.length !== 1 || call.typeArguments?.length)
+    {
+        return null;
+    }
+    const url = call.arguments[0];
+    if (!parser.isNewExpression(url) || !parser.isIdentifier(url.expression) || url.expression.text !== 'URL'
+        || url.arguments?.length !== 2 || url.typeArguments?.length)
+    {
+        return null;
+    }
+    const [specifier, base] = url.arguments;
+    const relative = path.posix.relative(path.posix.dirname(file), scannerImplementationPath);
+    if (!parser.isStringLiteral(specifier) || specifier.text !== relative
+        || !parser.isPropertyAccessExpression(base) || base.name.text !== 'url'
+        || !parser.isMetaProperty(base.expression) || base.expression.keywordToken !== parser.SyntaxKind.ImportKeyword
+        || base.expression.name.text !== 'meta'
+        || declaration.name.elements.some((binding) => binding.dotDotDotToken || binding.initializer
+            || !parser.isIdentifier(binding.name) || (binding.propertyName && !parser.isIdentifier(binding.propertyName))))
+    {
+        return null;
+    }
+    return declaration;
+}
+
 function assertedFixtureProperties(sourceFile, parser, context)
 {
     // v1 admits only the reviewed complete IO program and complete fourteen-field
     // rejection callback. Unknown shapes remain findings, including new fixtures.
-    const helperShape = '284b6dee33386749749b8acca76119bd9663dd9ba058c5894e273ba8569c4b8b';
+    const helperShape = '8d358833a3261d31aa585a37d3f34c1e27a078c1cdc8779729df23287f8d3421';
     const callbackShape = '355a8d983d2d52070759c70b2d4e9a94e53f068f9556ffaac32ae6ab2507ad4d';
     const helperPath = 'tests/tools/support/zero-legacy-scanner-fixture.mjs';
     const imports = new Map();
+    const explicitDeclarations = new Set();
+    const intrinsicNames = new Set(['Object', 'JSON', 'Buffer', 'URL', 'Reflect', 'Function', 'global', 'globalThis', 'eval']);
+    let ambiguousImport = false;
+    const registerImport = (name, modulePath, imported, node) =>
+    {
+        const nativeUrlBinding = name === 'URL' && modulePath === 'node:url' && imported === 'URL';
+        if (imports.has(name) || (intrinsicNames.has(name) && !nativeUrlBinding))
+        {
+            ambiguousImport = true;
+        }
+        imports.set(name, { modulePath, imported, node });
+    };
     for (const statement of sourceFile.statements)
     {
-        if (!parser.isImportDeclaration(statement) || !parser.isStringLiteral(statement.moduleSpecifier))
+        const explicitDeclaration = explicitScannerImportDeclaration(statement, parser, context.file);
+        if (explicitDeclaration)
+        {
+            explicitDeclarations.add(explicitDeclaration);
+            for (const binding of explicitDeclaration.name.elements)
+            {
+                registerImport(binding.name.text, scannerImplementationPath, (binding.propertyName ?? binding.name).text, binding.name);
+            }
+            continue;
+        }
+        if (!parser.isImportDeclaration(statement) || !parser.isStringLiteral(statement.moduleSpecifier)
+            || statement.attributes || statement.importClause?.isTypeOnly)
         {
             continue;
         }
@@ -1378,14 +1456,22 @@ function assertedFixtureProperties(sourceFile, parser, context)
         const clause = statement.importClause;
         if (clause?.name)
         {
-            imports.set(clause.name.text, { modulePath, imported: 'default', node: clause.name });
+            registerImport(clause.name.text, modulePath, 'default', clause.name);
         }
         if (clause?.namedBindings && parser.isNamedImports(clause.namedBindings))
         {
             for (const binding of clause.namedBindings.elements)
             {
-                imports.set(binding.name.text, { modulePath, imported: (binding.propertyName ?? binding.name).text, node: binding.name });
+                if (binding.isTypeOnly)
+                {
+                    continue;
+                }
+                registerImport(binding.name.text, modulePath, (binding.propertyName ?? binding.name).text, binding.name);
             }
+        }
+        if (clause?.namedBindings && parser.isNamespaceImport(clause.namedBindings))
+        {
+            registerImport(clause.namedBindings.name.text, modulePath, '*', clause.namedBindings.name);
         }
     }
     const requiredImports = [
@@ -1393,13 +1479,27 @@ function assertedFixtureProperties(sourceFile, parser, context)
         ['createZeroLegacyScannerFixture', helperPath, 'createZeroLegacyScannerFixture'],
         ['scanZeroLegacyGovernance', scannerImplementationPath, 'scanZeroLegacyGovernance']
     ];
-    if (requiredImports.some(([name, modulePath, imported]) => imports.get(name)?.modulePath !== modulePath
+    if (ambiguousImport || (explicitDeclarations.size > 0 && (imports.get('URL')?.modulePath !== 'node:url'
+        || imports.get('URL')?.imported !== 'URL'))
+        || requiredImports.some(([name, modulePath, imported]) => imports.get(name)?.modulePath !== modulePath
         || imports.get(name)?.imported !== imported))
     {
         return new Set();
     }
-    const protectedNames = new Set([...imports.keys(), 'Object', 'JSON', 'Buffer', 'Reflect', 'Function', 'global', 'globalThis', 'eval']);
+    const protectedNames = new Set([...imports.keys(), ...intrinsicNames]);
     let unsupported = false;
+    const bindingNames = (binding) =>
+    {
+        if (parser.isIdentifier(binding))
+        {
+            return [binding.text];
+        }
+        if (parser.isObjectBindingPattern(binding) || parser.isArrayBindingPattern(binding))
+        {
+            return binding.elements.flatMap((element) => parser.isBindingElement(element) ? bindingNames(element.name) : []);
+        }
+        return [];
+    };
     const rootIdentifier = (node) =>
     {
         while (parser.isPropertyAccessExpression(node) || parser.isElementAccessExpression(node))
@@ -1408,6 +1508,36 @@ function assertedFixtureProperties(sourceFile, parser, context)
         }
         return parser.isIdentifier(node) ? node.text : null;
     };
+    const writesProtectedBinding = (node) =>
+    {
+        if (!node)
+        {
+            return false;
+        }
+        if (parser.isParenthesizedExpression(node))
+        {
+            return writesProtectedBinding(node.expression);
+        }
+        if (parser.isArrayLiteralExpression(node))
+        {
+            return node.elements.some(writesProtectedBinding);
+        }
+        if (parser.isObjectLiteralExpression(node))
+        {
+            return node.properties.some((property) => writesProtectedBinding(
+                parser.isPropertyAssignment(property) ? property.initializer
+                    : parser.isShorthandPropertyAssignment(property) ? property.name : property.expression));
+        }
+        if (parser.isSpreadElement(node) || parser.isSpreadAssignment(node))
+        {
+            return writesProtectedBinding(node.expression);
+        }
+        if (parser.isBinaryExpression(node) && node.operatorToken.kind === parser.SyntaxKind.EqualsToken)
+        {
+            return writesProtectedBinding(node.left);
+        }
+        return protectedNames.has(rootIdentifier(node));
+    };
     const inspect = (node) =>
     {
         if (parser.isIdentifier(node) && ['eval', 'Reflect', 'Function', 'global', 'globalThis'].includes(node.text))
@@ -1415,13 +1545,13 @@ function assertedFixtureProperties(sourceFile, parser, context)
             unsupported = true;
         }
         if ((parser.isVariableDeclaration(node) || parser.isParameter(node) || parser.isFunctionDeclaration(node)
-            || parser.isClassDeclaration(node)) && node.name && parser.isIdentifier(node.name)
-            && protectedNames.has(node.name.text))
+            || parser.isClassDeclaration(node)) && node.name && !explicitDeclarations.has(node)
+            && bindingNames(node.name).some((name) => protectedNames.has(name)))
         {
             unsupported = true;
         }
         if (parser.isBinaryExpression(node) && node.operatorToken.kind >= parser.SyntaxKind.FirstAssignment
-            && node.operatorToken.kind <= parser.SyntaxKind.LastAssignment && protectedNames.has(rootIdentifier(node.left)))
+            && node.operatorToken.kind <= parser.SyntaxKind.LastAssignment && writesProtectedBinding(node.left))
         {
             unsupported = true;
         }
@@ -1441,6 +1571,12 @@ function assertedFixtureProperties(sourceFile, parser, context)
         }
         if (parser.isIdentifier(node) && ['JSON', 'Object', 'Buffer'].includes(node.text)
             && !(parser.isPropertyAccessExpression(node.parent) && node.parent.expression === node))
+        {
+            unsupported = true;
+        }
+        if (parser.isIdentifier(node) && node.text === 'URL'
+            && node !== imports.get('URL')?.node
+            && !(parser.isNewExpression(node.parent) && node.parent.expression === node))
         {
             unsupported = true;
         }
