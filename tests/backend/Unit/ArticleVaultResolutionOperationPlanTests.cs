@@ -38,6 +38,17 @@ public sealed class ArticleVaultResolutionOperationPlanTests
         ArticleVaultResolutionPlan proposal = ArticleVaultResolutionPlanner.Build(current).Plan!;
         ArticleVaultResolutionOperationPlan first = ArticleVaultResolutionOperationPlanner.Build(proposal, current).Plan!;
         Assert.Equal(first.ContentSha256, ArticleVaultResolutionOperationPlanner.Build(proposal, current).Plan!.ContentSha256);
+        ArticleVaultResolutionPlanInput later = current with
+        {
+            Metadata = current.Metadata with
+            {
+                Context = current.Metadata.Context with
+                {
+                    NowUnixMs = current.Metadata.Context.NowUnixMs + 1
+                }
+            }
+        };
+        Assert.True(ArticleVaultResolutionOperationPlanner.VerifyCurrent(first, proposal, later).IsValid);
         ArticleVaultResolutionPlanInput cancelled = current with
         {
             Decisions = [new(VaultConflictType.MetadataDisjoint, VaultConflictAction.CancelOperation,

@@ -55,7 +55,7 @@ public static class ArticleVaultResolutionOperationPlanner
             current.Metadata.Root, current.Metadata.Articles, current.Metadata.Observations,
             proposal.Groups.Select((group, index) => new VaultPlanGroupRequest(groups[index].ResolutionGroupIdentity,
                 group.PortableArticleIdentities, group.Dependencies)).ToArray(), current.Metadata.Context.Direction,
-            current.Metadata.Context.NowUnixMs, proposal.ExpiresAtUnixMs,
+            proposal.Confirmation.ConfirmedAtUnixMs, proposal.ExpiresAtUnixMs,
             proposal.State == VaultResolutionPlanState.Cancelled));
         if (!built.IsSuccess)
         {
