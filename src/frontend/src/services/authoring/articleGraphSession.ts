@@ -42,14 +42,23 @@ export class ArticleGraphSession
     private navigationController: AbortController | null = null;
     private layoutController: AbortController | null = null;
     private layoutGeneration = 0;
+    private readonly host: ArticleGraphQueryHost;
+    private readonly navigation: ArticleGraphNavigationHost | undefined;
+    private readonly changed: ((state: ArticleGraphSessionState) => void) | undefined;
+    private readonly layoutRunner: ArticleGraphLayoutRunner;
 
     public constructor(
-        private readonly host: ArticleGraphQueryHost = unavailableArticleGraphHost,
-        private readonly navigation?: ArticleGraphNavigationHost,
-        private readonly changed?: (state: ArticleGraphSessionState) => void,
-        private readonly layoutRunner: ArticleGraphLayoutRunner = runArticleGraphLayoutTask
+        host: ArticleGraphQueryHost = unavailableArticleGraphHost,
+        navigation?: ArticleGraphNavigationHost,
+        changed?: (state: ArticleGraphSessionState) => void,
+        layoutRunner: ArticleGraphLayoutRunner = runArticleGraphLayoutTask
     )
-    {}
+    {
+        this.host = host;
+        this.navigation = navigation;
+        this.changed = changed;
+        this.layoutRunner = layoutRunner;
+    }
 
     public get state(): ArticleGraphSessionState
     {

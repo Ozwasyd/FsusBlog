@@ -136,8 +136,13 @@ export function runArticleGraphLayoutTask(result: ArticleGraphResult, signal: Ab
     let slices = 0;
     let cpuMilliseconds = 0;
     let maxSliceMilliseconds = 0;
-    const outcome = (status: ArticleGraphLayoutOutcome['status'], reason: ArticleGraphLayoutReason | null, layout: ArticleGraphLayout | null): ArticleGraphLayoutOutcome => Object.freeze({ status, reason, layout,
-        usage: Object.freeze({ slices, cpuMilliseconds, maxSliceMilliseconds, wallMilliseconds: performance.now() - started, pendingTasks: 0, ports: 0 }) });
+    const outcome = (status: ArticleGraphLayoutOutcome['status'], reason: ArticleGraphLayoutReason | null, layout: ArticleGraphLayout | null): ArticleGraphLayoutOutcome =>
+    {
+        const wallMilliseconds = performance.now() - started;
+        const timedOut = status === 'settled' && wallMilliseconds > budget.wallMilliseconds;
+        return Object.freeze({ status: timedOut ? 'blocked' : status, reason: timedOut ? 'time-budget' : reason, layout: timedOut ? null : layout,
+            usage: Object.freeze({ slices, cpuMilliseconds, maxSliceMilliseconds, wallMilliseconds, pendingTasks: 0, ports: 0 }) });
+    };
     const reason = sizeReason(result);
     if (reason || signal.aborted || typeof MessageChannel === 'undefined')
     {
@@ -208,10 +213,15 @@ export function runArticleGraphLayoutTask(result: ArticleGraphResult, signal: Ab
                 finish('blocked', 'layout-error', null);
                 return;
             }
-            const elapsed = performance.now() - sliceStart;
+            const sliceEnd = performance.now();
+            const elapsed = sliceEnd - sliceStart;
             cpuMilliseconds += elapsed;
             maxSliceMilliseconds = Math.max(maxSliceMilliseconds, elapsed);
-            if (elapsed > budget.sliceMilliseconds || cpuMilliseconds > budget.cpuMilliseconds)
+            if (sliceEnd - started > budget.wallMilliseconds)
+            {
+                finish('blocked', 'time-budget', null);
+            }
+            else if (elapsed > budget.sliceMilliseconds || cpuMilliseconds > budget.cpuMilliseconds)
             {
                 finish('blocked', 'cpu-budget', null);
             }
