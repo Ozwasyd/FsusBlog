@@ -1,0 +1,21 @@
+{
+  "candidate": "7738d5d0c2efbb37c8e05c07a4bbfbcd4feb4172",
+  "sourceAfter": "7738d5d0c2efbb37c8e05c07a4bbfbcd4feb4172",
+  "runId": "mem-7738d5d0c-20261008-real-directory-reader",
+  "startedAt": "2026-10-08T14:17:31.729437+00:00",
+  "command": [
+    "dotnet",
+    "test",
+    "tests/backend/FsusBlog.Server.Tests.csproj",
+    "--no-restore",
+    "--filter",
+    "FullyQualifiedName~LinuxCgroupDirectoryReaderTests|FullyQualifiedName~LinuxCgroupScopeResolverTests|FullyQualifiedName~LinuxProcMemoryPressureTests|FullyQualifiedName~PortableMemoryPressureTests|FullyQualifiedName~MemoryGovernorTests|FullyQualifiedName~MemoryGovernorAdmissionTests",
+    "--logger",
+    "trx;LogFileName=memory-7738d5d0c.trx",
+    "--results-directory",
+    ".tmp/memory-integration/7738d5d0c/test-results"
+  ],
+  "exitCode": 0,
+  "artifact": ".tmp/memory-integration/7738d5d0c/tests.log",
+  "taskOwnedDataRoot": "/workspace/.tmp-mem-3444-compliant/.tmp/memory-integration/7738d5d0c/data"
+}
