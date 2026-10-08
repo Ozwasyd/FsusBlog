@@ -1,0 +1,734 @@
+{
+  "schema": "fsusblog.issue-3593-compatible-parser-followup.v1",
+  "issue": 3593,
+  "status": "OPEN / compatible finite-parser source and own output verified; exact blame-port integration conflict is unresolved",
+  "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+  "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+  "branch": "task/3593-leaf-source-port",
+  "reviewedSourcePreserved": "cdc7b00932a448effdae08b9c9550b59e535a423",
+  "sameIndependentReviewer": "01a11bee-ee2f-71f8-b929-9e6fc95fa00b",
+  "reviewerNeedsThisFullScope": true,
+  "sourceCompareUrl": "https://github.com/Ozwasyd/FsusBlog/compare/85aa75af8949401ef9997c5042d22b1071414e0a...a6fb8b34f68fb306819de24049f6adccaa64e2de",
+  "completePathClosure": {
+    "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+    "reviewedPredecessor": "cdc7b00932a448effdae08b9c9550b59e535a423",
+    "originalSourceBranchFrozen": "task/3593-leaf-review-boundary",
+    "followupBranch": "task/3593-leaf-source-port",
+    "totalChangedPaths": 11,
+    "productionRuntimeSources": 0,
+    "categoryCounts": {
+      "indispensable-governed-metadata": 5,
+      "consumed-canonical-prerequisite": 5,
+      "owned-js-leaf-source": 1
+    },
+    "completePathClosure": [
+      {
+        "path": ".git-blame-ignore-revs",
+        "status": "M",
+        "category": "indispensable-governed-metadata",
+        "productionRuntimeSource": false,
+        "role": "governed-metadata",
+        "blob": "02ffa70e5adf9a8aca340aa97562aebce9280b26",
+        "sha256": "d8ab2deb7f0af5e1550e5a0e4f19f2610606027cf38658d47c4b73c269519f1e",
+        "reason": "Original later blame registration is mandatory, reachable and validated against actual pure format parent diff."
+      },
+      {
+        "path": "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+        "status": "A",
+        "category": "indispensable-governed-metadata",
+        "productionRuntimeSource": false,
+        "role": "governed-metadata",
+        "blob": "2dcb8877d6e15dcfcf9faa6c3faa1f3008bb04f1",
+        "sha256": "40145113c885298b6da0c3f9c61e98fd18c6095ba52b2a7c330506e4d170e405",
+        "reason": "Original changed-head v1 migration-to-authority metadata schema from parent-supplied40d9774b; digest independently rebuilt from this candidate original producer output."
+      },
+      {
+        "path": "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+        "status": "A",
+        "category": "indispensable-governed-metadata",
+        "productionRuntimeSource": false,
+        "role": "governed-metadata",
+        "blob": "6dbf1eae48168326477966ffd1a1a0d3a77da924",
+        "sha256": "d1687a1e5592cd85a11f85d6bb9a4156efd23d22406513f52db693277abb10bb",
+        "reason": "Original external-naming v1 schema, exact registered json-wire-key/environment-variable surfaces and no registry additions."
+      },
+      {
+        "path": "artifacts/style/suite-convergence-leaf-idempotence.json",
+        "status": "A",
+        "category": "indispensable-governed-metadata",
+        "productionRuntimeSource": false,
+        "role": "governed-metadata",
+        "blob": "006da5ebf875e0628dc694da59fa27bd22b3cecf",
+        "sha256": "2a30d09a647c1010d6d6b79a783313c922ea3b549a32f06574cc3d15f3cee1b0",
+        "reason": "Original format footer and change-contract require exact candidate HEAD idempotence evidence in changed files."
+      },
+      {
+        "path": "config/testing/correctness-attempt-producers.json",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "productionRuntimeSource": false,
+        "role": "canonical-generated-metadata",
+        "blob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+        "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+        "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+      },
+      {
+        "path": "config/testing/release-final-execution-authority-index.json",
+        "category": "consumed-canonical-prerequisite",
+        "productionRuntimeSource": false,
+        "role": "bounded-execution-source-index",
+        "reason": "Exact compatible sole3534 source5e01897f5bed3a31d17b87d65b15a653cd8f1517; original parser algorithm unchanged, actual source91339e... and expression1194f... matched two sealed package inputs. Full module callbacks remain unrun; current original primitive and canonical producer separately passed.",
+        "blob": "b881ab993faf6cd5d44136277510bba669fa66ea",
+        "sha256": "3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6",
+        "status": "M"
+      },
+      {
+        "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+        "status": "M",
+        "category": "indispensable-governed-metadata",
+        "productionRuntimeSource": false,
+        "role": "canonical-generated-metadata",
+        "blob": "e91a2c34326335f4518c91d8a16b75f065caefdf",
+        "sha256": "0e3f84275984fe9a9054ee1018faa3b58471646a317776492aeadf5519cb9cda",
+        "reason": "Original canonical execution authority generated twice from actual latest master index/source; only leaf migration closure digest pair differs from current master."
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "productionRuntimeSource": false,
+        "role": "test-source",
+        "blob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+        "sha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+        "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+      },
+      {
+        "path": "tests/tools/release-final-static-boundary.test.mjs",
+        "category": "consumed-canonical-prerequisite",
+        "productionRuntimeSource": false,
+        "role": "canonical-owner-test-source",
+        "reason": "Exact compatible sole3534 source5e01897f5bed3a31d17b87d65b15a653cd8f1517; original parser algorithm unchanged, actual source91339e... and expression1194f... matched two sealed package inputs. Full module callbacks remain unrun; current original primitive and canonical producer separately passed.",
+        "blob": "3a989ca888b4801ebfe0f1a8e199f6ba76d9d25a",
+        "sha256": "abf1de5f01ead7f1683bd2e0c4254ba22d7b3e0acbf7f22627ff98581be16df3",
+        "status": "M"
+      },
+      {
+        "path": "tests/tools/test-suite-convergence.test.mjs",
+        "status": "M",
+        "category": "owned-js-leaf-source",
+        "productionRuntimeSource": false,
+        "role": "test-source",
+        "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+        "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+        "reason": "Original issue3593 test owner, exact unchanged17 IDs; original format/syntax history remains."
+      },
+      {
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "status": "M",
+        "category": "consumed-canonical-prerequisite",
+        "productionRuntimeSource": false,
+        "role": "tooling-source",
+        "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+        "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+        "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+      }
+    ],
+    "sourceMetadataStillOriginalSchemas": true,
+    "evidenceOnlyPathsInSourceDiff": 0,
+    "unconsumedPortPaths": [
+      "tests/tools/blame-ignore-source.test.mjs",
+      "tests/tools/pr-impact-plan.test.mjs",
+      "tools/test-matrix/blame-ignore-source.mjs",
+      "tools/test-matrix/pr-impact-plan.mjs",
+      "tools/test-matrix/source-governance.mjs"
+    ]
+  },
+  "canonicalSourceConsumption": {
+    "owner3534": {
+      "supplied": "5e01897f5bed3a31d17b87d65b15a653cd8f1517",
+      "localReplay": "0f3f26518901f49b0be600fc81ecadc5d4eb64a6",
+      "upstreamTestedCandidate": "4355f230802d8d0bf151592859bbabde92e468c8",
+      "upstreamPr": "https://github.com/Ozwasyd/FsusBlog/pull/3934",
+      "sourceConsumed": true,
+      "supplierReceiptsCopied": false
+    },
+    "owner3659": {
+      "supplied": "0a88beb347d1941d140898cfa39c49285841e2d5",
+      "sourceConsumed": false,
+      "reason": "One actual import conflict in tools/test-matrix/pr-impact-plan.mjs; preserved all three real stages and partial diff then aborted. Original instruction requires pause; no conflict resolution performed.",
+      "exactConflict": {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "reviewedSource": "cdc7b00932a448effdae08b9c9550b59e535a423",
+        "headBeforePort": "0f3f26518901f49b0be600fc81ecadc5d4eb64a6",
+        "supplierPort": "0a88beb347d1941d140898cfa39c49285841e2d5",
+        "cherryPickExitCode": 1,
+        "conflictingPaths": [
+          "tools/test-matrix/pr-impact-plan.mjs"
+        ],
+        "automaticOtherPaths": [
+          "tests/tools/blame-ignore-source.test.mjs",
+          "tests/tools/pr-impact-plan.test.mjs",
+          "tools/test-matrix/blame-ignore-source.mjs",
+          "tools/test-matrix/source-governance.mjs"
+        ],
+        "commands": [
+          {
+            "command": [
+              "git",
+              "ls-files",
+              "--unmerged"
+            ],
+            "exitCode": 0,
+            "log": "unmerged.log"
+          },
+          {
+            "command": [
+              "git",
+              "diff",
+              "--",
+              "tools/test-matrix/pr-impact-plan.mjs"
+            ],
+            "exitCode": 0,
+            "log": "conflict-diff.log"
+          },
+          {
+            "command": [
+              "git",
+              "status",
+              "--short"
+            ],
+            "exitCode": 0,
+            "log": "port-attempt-status.log"
+          }
+        ],
+        "originalInstruction": "If incorporating supplied prerequisite commits conflicts, report the affected files and pause that dependent step; finish independent ready work. Do not silently perform the later cross-chain conflict-resolution phase.",
+        "resolutionPerformed": false,
+        "requiredOwnerAction": "Supply exact compatible canonical port revision retaining current fs/path imports, or explicitly authorize this particular integration conflict. The current partial port is not accepted or published.",
+        "observedAt": "2026-10-08T15:03:13.355928+00:00"
+      }
+    }
+  },
+  "producerResults": [
+    {
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "cwd": "/workspace/FsusBlog-3593-source-port",
+      "sourceInputHead": "0f3f26518901f49b0be600fc81ecadc5d4eb64a6",
+      "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+      "exitCode": 0,
+      "log": "original-authority-pass-0.log"
+    },
+    {
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "cwd": "/workspace/FsusBlog-3593-source-port",
+      "sourceInputHead": "0f3f26518901f49b0be600fc81ecadc5d4eb64a6",
+      "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+      "exitCode": 0,
+      "log": "original-authority-pass-1.log"
+    }
+  ],
+  "canonicalOutputProof": {
+    "sourceInputHead": "0f3f26518901f49b0be600fc81ecadc5d4eb64a6",
+    "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "twoFreshCanonicalPassesByteIdentical": true,
+    "outputSha256": "0e3f84275984fe9a9054ee1018faa3b58471646a317776492aeadf5519cb9cda",
+    "portsUnresolvedAndNotPresent": true,
+    "oldReviewedBranchFrozen": "cdc7b00932a448effdae08b9c9550b59e535a423",
+    "handEdited": false,
+    "qualification": false
+  },
+  "wholeOutputPreservation": {
+    "oldReviewedSource": "cdc7b00932a448effdae08b9c9550b59e535a423",
+    "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "targetsPreserved": 102,
+    "closureRowsPreserved": 1128,
+    "allTargetsAndClosureRowsByteEquivalent": true,
+    "onlySourceIndexDigestChanges": true,
+    "actualSourceIndexDigest": "sha256:3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6",
+    "supplierDeclarationBlob": "b881ab993faf6cd5d44136277510bba669fa66ea",
+    "currentDeclarationBlob": "b881ab993faf6cd5d44136277510bba669fa66ea",
+    "supplierSourceBindingExact": true,
+    "outputsAreOwnFreshCanonicalBytes": true,
+    "qualification": false
+  },
+  "actualOriginalParserInspection": {
+    "owner": "tools/governance/javascript-format-equivalence.mjs",
+    "index": "config/testing/release-final-execution-authority-index.json",
+    "exactActualSourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+    "actualFiniteEntry": [
+      {
+        "owner": "tools/governance/javascript-format-equivalence.mjs",
+        "sourceDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+        "expressionDigest": "sha256:1194f26d255953521c4695d2e2c8f846dbd455bb916275c81e8cdf5a4951d015",
+        "kind": "runtime-require-path",
+        "dependencies": [
+          "tools/governance/javascript-format-parser/package.json",
+          "tools/governance/javascript-format-parser/package-lock.json"
+        ]
+      }
+    ],
+    "sourceBindingActual": true,
+    "expressionBindingActual": true,
+    "actualInputs": [
+      {
+        "path": "tools/governance/javascript-format-parser/package.json",
+        "digest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6"
+      },
+      {
+        "path": "tools/governance/javascript-format-parser/package-lock.json",
+        "digest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+      }
+    ],
+    "inspection": {
+      "errors": [],
+      "target": "tools/governance/javascript-format-equivalence.mjs",
+      "contentDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+      "indexDigest": "sha256:91339e735204607942d352c80095ef493f9361821c963ccf74079eeaa7f5fa90",
+      "dependencyClosure": [
+        {
+          "path": "config/testing/release-final-execution-authority-index.json",
+          "contentDigest": "sha256:3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6",
+          "indexDigest": "sha256:3f78fef68734af5595d12fc560a043fcc4c20f4bb2ad0a2174fd4450e347d6c6"
+        },
+        {
+          "path": "tools/governance/javascript-format-parser/package-lock.json",
+          "contentDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9",
+          "indexDigest": "sha256:d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+        },
+        {
+          "path": "tools/governance/javascript-format-parser/package.json",
+          "contentDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6",
+          "indexDigest": "sha256:e7c51ab6034480283bb32005d9acdec08880ae014d0e01ce1b26dea88bc17ff6"
+        },
+        {
+          "path": "tools/package.json",
+          "contentDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+          "indexDigest": "sha256:ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd"
+        }
+      ]
+    },
+    "exitCode": 0,
+    "fullTestModuleExecuted": false,
+    "heldCallbackExecuted": false,
+    "qualification": false
+  },
+  "originalApplicableChecks": {
+    "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+    "runId": "issue-3593-independent-parser-20261008T151226Z",
+    "results": [
+      {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+        "runId": "issue-3593-independent-parser-20261008T151226Z",
+        "name": "trusted-base-parser-locked-install",
+        "command": [
+          "npm",
+          "ci",
+          "--ignore-scripts",
+          "--prefix",
+          "tools/governance/javascript-format-parser"
+        ],
+        "cwd": "/tmp/fsusblog-3593/source-port-base-authority",
+        "exitCode": 0,
+        "log": "trusted-base-parser-locked-install.log",
+        "logSha256": "d02c734f0063303befb135643de410d15fae273f353935b708ac5b359f4ee663"
+      },
+      {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+        "runId": "issue-3593-independent-parser-20261008T151226Z",
+        "name": "independent-original-range",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "/tmp/fsusblog-3593/source-port-base-authority/tools/governance/check-change-contract.mjs",
+          "--root",
+          "/workspace/FsusBlog-3593-source-port",
+          "--range",
+          "85aa75af8949401ef9997c5042d22b1071414e0a..a6fb8b34f68fb306819de24049f6adccaa64e2de"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "independent-original-range.log",
+        "logSha256": "24a455861506bf38be3f0a0ae906ae75650bf3f3c3a7a7bc3f5d2751bddfb058"
+      },
+      {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+        "runId": "issue-3593-independent-parser-20261008T151226Z",
+        "name": "independent-source-style",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/frontend/check-frontend-style.mjs",
+          "--mode",
+          "source-diff",
+          "--base",
+          "85aa75af8949401ef9997c5042d22b1071414e0a",
+          "--file",
+          "tests/tools/test-suite-convergence.test.mjs",
+          "--file",
+          "tests/tools/correctness-attempt-migration.test.mjs",
+          "--file",
+          "tests/tools/release-final-static-boundary.test.mjs",
+          "--file",
+          "tools/test/correctness-attempt-migration.mjs"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "independent-source-style.log",
+        "logSha256": "1f03676a5bb973c85395d16129b83dfd9c84a87f8014d2525ff966892874eebe"
+      },
+      {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+        "runId": "issue-3593-independent-parser-20261008T151226Z",
+        "name": "independent-original-static-reader",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "--input-type=module",
+          "-e",
+          "import {validateRepositoryReleaseFinalStaticBoundary} from './tools/test-matrix/release-final-static-boundary.mjs';const errors=validateRepositoryReleaseFinalStaticBoundary(process.cwd());console.log(JSON.stringify({errors},null,2));if(errors.length)process.exitCode=1;"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "independent-original-static-reader.log",
+        "logSha256": "53094068de318c4d3a10cd6b4b8d953baacc3d5e06bb6ed30558d613fda8292f"
+      },
+      {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+        "runId": "issue-3593-independent-parser-20261008T151226Z",
+        "name": "independent-qps-original-refusals",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/check-test-suite-convergence.mjs",
+          "--out",
+          "/tmp/fsusblog-3593/source-port-followup/independent-qps-current.json"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 1,
+        "log": "independent-qps-original-refusals.log",
+        "logSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2"
+      },
+      {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+        "runId": "issue-3593-independent-parser-20261008T151226Z",
+        "name": "independent-catalog-check",
+        "command": [
+          "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+          "tools/test/generate-correctness-attempt-producers.mjs",
+          "--check"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "independent-catalog-check.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      },
+      {
+        "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+        "sourceCandidate": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+        "runId": "issue-3593-independent-parser-20261008T151226Z",
+        "name": "independent-diff-check",
+        "command": [
+          "git",
+          "diff",
+          "--check",
+          "85aa75af8949401ef9997c5042d22b1071414e0a..a6fb8b34f68fb306819de24049f6adccaa64e2de"
+        ],
+        "cwd": "/workspace/FsusBlog-3593-source-port",
+        "exitCode": 0,
+        "log": "independent-diff-check.log",
+        "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+      }
+    ]
+  },
+  "currentOriginalMetadataGate": {
+    "base": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "head": "a6fb8b34f68fb306819de24049f6adccaa64e2de",
+    "changedFiles": [
+      ".git-blame-ignore-revs",
+      "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+      "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+      "artifacts/style/suite-convergence-leaf-idempotence.json",
+      "config/testing/correctness-attempt-producers.json",
+      "config/testing/release-final-execution-authority-index.json",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "tests/tools/correctness-attempt-migration.test.mjs",
+      "tests/tools/release-final-static-boundary.test.mjs",
+      "tests/tools/test-suite-convergence.test.mjs",
+      "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "originalCheckerAuthority": "/tmp/fsusblog-3593/source-port-base-authority",
+    "preparedLocalMetadataOnly": true,
+    "actualPullRequest": false,
+    "errors": [],
+    "blameErrors": [],
+    "exitCode": 0,
+    "originalUnsupported": [
+      ".git-blame-ignore-revs"
+    ],
+    "portConsumed": false,
+    "qualification": false
+  },
+  "actualGitHubPrGate": "NOT_RUN: root is sole content writer; this result is only original local prepared metadata validation.",
+  "actualMasterInputOverlap": {
+    "newMaster": "85aa75af8949401ef9997c5042d22b1071414e0a",
+    "previousBase": "8a95130ab5e391729d5606275d483edc678e9b5d",
+    "savedViewMasterPaths": [
+      "artifacts/change-contract/saved-view-request-identity-external-naming.json",
+      "src/backend/Services/Authoring/AuthorSavedViewApplicationFacade.cs",
+      "src/backend/Services/Authoring/AuthorSavedViewStore.cs",
+      "src/frontend/src/components/admin/saved-views/SavedViewQueryBuilder.vue",
+      "src/frontend/src/components/admin/saved-views/SavedViewSurface.vue",
+      "src/frontend/src/components/admin/saved-views/savedViewBuilder.ts",
+      "src/frontend/src/components/admin/saved-views/savedViewDeepLink.ts",
+      "tests/backend/Integration/AuthorSavedViewPostgresIntegrationTests.cs",
+      "tests/backend/Unit/AuthorSavedViewApplicationFacadeTests.cs",
+      "tests/backend/Unit/AuthorSavedViewStoreTests.cs",
+      "tests/frontend/unit/components/admin/saved-views/savedViews.test.ts"
+    ],
+    "followupOwnedPaths": [
+      ".git-blame-ignore-revs",
+      "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+      "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+      "artifacts/style/suite-convergence-leaf-idempotence.json",
+      "config/testing/correctness-attempt-producers.json",
+      "config/testing/release-final-execution-authority-index.json",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "tests/tools/correctness-attempt-migration.test.mjs",
+      "tests/tools/release-final-static-boundary.test.mjs",
+      "tests/tools/test-suite-convergence.test.mjs",
+      "tools/test/correctness-attempt-migration.mjs"
+    ],
+    "actualDirectSourceOverlap": [],
+    "originalCanonicalAuthorityAll1128RowsAnd102TargetsPreserved": true,
+    "savedViewRuntimeAcceptanceClaimed": false
+  },
+  "boundedEvidenceReuse": {
+    "previousActualExecutedCandidate": "cdc7b00932a448effdae08b9c9550b59e535a423",
+    "currentSourceInputHead": "0f3f26518901f49b0be600fc81ecadc5d4eb64a6",
+    "ordinary7AndRouting6ActualSourceInputEquality": [
+      {
+        "path": "config/testing/correctness-attempt-producers.json",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+        "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
+      },
+      {
+        "path": "config/testing/release-reliability-scenario-catalog.json",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "fa013344a0d627568398f03b1bfa08e98b2ddfcd",
+        "sha256": "5b35b04eba2fd6aed179b24ea427dfc18d35b91b29e182af93dfc23dea914582"
+      },
+      {
+        "path": "config/testing/replay-qualification-producers.json",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "b0f326176988df53f5793a545e2c56150b40140f",
+        "sha256": "5610b07e0acb3862fff2d4a4d294993f8e3e181398a80b14c4589f43d4855398"
+      },
+      {
+        "path": "config/testing/test-execution-envelope-applicability.json",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "fc10fc2e4d98939b046e4f5ceee900aaebad1151",
+        "sha256": "56187457f27a922333626fca45f50424d7a4c388ede1e176ed6515952387791c"
+      },
+      {
+        "path": "tests/matrix.yml",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "a166e3ddb89917ee988bc752982cf9764f1adadb",
+        "sha256": "db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03"
+      },
+      {
+        "path": "tests/tools/correctness-attempt-build-release.test.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "b7ce8d1ee64431c61fe96d1b3a1293442e112c27",
+        "sha256": "c3e7a816a68c82bb962ee7b0148da058e46831f44d92bc2c9c04559eb810ea44"
+      },
+      {
+        "path": "tests/tools/correctness-attempt-migration.test.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+        "sha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7"
+      },
+      {
+        "path": "tests/tools/correctness-attempt-test-producers.test.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "201f670ea1a8363f78f16fc20a459aca4f9370f1",
+        "sha256": "f25d7e910ffb7283d3d66cf6163b2004e66c1f72a21553ac90f467303130631c"
+      },
+      {
+        "path": "tests/tools/pr-impact-plan.test.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "cfda2e5a922df92b8cbe6a38cdec1e32ccb8cc1c",
+        "sha256": "5bbb7b156c07b09e892d5011240b3f48b7c323c01d48f5355bffd54804b46bcc"
+      },
+      {
+        "path": "tools/frontend/style-toolchain/package-lock.json",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+        "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+      },
+      {
+        "path": "tools/test-inventory/ts-ast-adapter/package-lock.json",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "93789521276e236cc462db8ebec1f44733a0625b",
+        "sha256": "9abf3b4108ce246f59a8bf0fbb08db7a95614a25d3b2c7fe0693b415e1cde9de"
+      },
+      {
+        "path": "tools/test-matrix/parse-matrix.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "250740a6954ae70b7aa3ccfa8c567004eca93dab",
+        "sha256": "c5835664eb11b311a62bd5e74c743121981c04e6283a7f3324ed829f66d0fccd"
+      },
+      {
+        "path": "tools/test-matrix/pr-impact-plan.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "b029809944b91ffda389d759fc69b75d5c9126f7",
+        "sha256": "c6c409c515c1d191530de4dd674ca16f7d325817fa92d88ac354dad8874d282f"
+      },
+      {
+        "path": "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "bc9619a35bb378ce2b254c9988127e6f9d6179f5",
+        "sha256": "d0fa3f6a5062739922c5121c38fc4026c7392d6817b4e3b7c1b6fbb53580dd82"
+      },
+      {
+        "path": "tools/test/attempt-provenance.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "810164e738a37ad745a78ee2213060743879973d",
+        "sha256": "588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e"
+      },
+      {
+        "path": "tools/test/attempt-runner.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "e6d7de217ac788b7cb7f4ebf85d80f85a572c4c6",
+        "sha256": "a42fe86b68e31ac6357a660c33376b2c241933fee9992e5e0e23e90ca4daba6c"
+      },
+      {
+        "path": "tools/test/correctness-attempt-migration.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+        "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e"
+      },
+      {
+        "path": "tools/test/correctness-attempt-producers.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "79d189041567a6c916456f9688e324cb17a9cab7",
+        "sha256": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e"
+      },
+      {
+        "path": "tools/test/measurement-noise-envelope.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "a493448f289137cfc66df6812bc62e6031845843",
+        "sha256": "738a628e6a8202a9868edea5848c25ec09cf2ad3291c7a2dd149d1b370f416da"
+      },
+      {
+        "path": "tools/test/temporal-context-contract.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "0332df0ce8dafa9da4f798c46d1656ab7ea7967e",
+        "sha256": "7d12a5f5c1e123c2572ea829120d742b8517779f839a81dd7076bcea3197cc82"
+      },
+      {
+        "path": "tools/test/temporal-context.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "9f814c306ccbd9483ba81b9829304d4a633b6da7",
+        "sha256": "492dba7f4c65b8aa716c33cc851f812d99718e088678f8c530e8488c38192f36"
+      },
+      {
+        "path": "tools/yaml/parse-document.mjs",
+        "oldAndCurrentSourceBytesEqual": true,
+        "blob": "45a7068280a0704a7b118862d5d2c3bb2528b83f",
+        "sha256": "d8426da317d00b40c4dffe41b2f30b350de0c2c833015e32a2e3a0132ffd3c8d"
+      }
+    ],
+    "priorCountsAreHistoricalAtCdc7": {
+      "canonical": 7,
+      "routing": 6
+    },
+    "newHeadPositiveCallbackExecutions": 0,
+    "longAndHeldSuitesReexecuted": false,
+    "reason": "Reuse exactly identical canonical inventory/control source and routing source inputs. Latest SavedView master and parser index/test increment have no overlap with these ordinary callback read sets; original catalog check will independently verify current canonical bytes.",
+    "excludedTestModule": "tests/tools/release-final-static-boundary.test.mjs",
+    "excludedModuleReason": "The added parser callback is ordinary, but loading its surrounding module constructs a synthetic spawn seal at top level. Use the original read-only parser inspection and actual producer instead; do not execute the whole module or inherit supplier counts.",
+    "qualification": false
+  },
+  "currentCallbackExecutions": 0,
+  "previous13CaseControlsAtReviewedCdc7Only": true,
+  "fullSourceStageExecuted": false,
+  "currentOriginalQpsErrors": [
+    "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88: replacement declaration does not resolve in the compact before snapshot",
+    "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30: replacement declaration does not resolve in the compact before snapshot"
+  ],
+  "frozenBefore": {
+    "blob": "65890e4bcfb2e524f4c8eebe90247055c0eb268f",
+    "sha256": "d7f94274b023110ba2ebaa1fc97f654118ffb3bef1d971a828891925651fcc46",
+    "unchanged": true
+  },
+  "reviewedSourceAndEvidencePreserved": true,
+  "remainingGeneratedBindingFailures": {
+    "ordinaryCurrentMigrationAndIndexToAuthority": "None observed: original localv1 metadata validation passes for actual current module+index/output bytes.",
+    "canonicalCatalogHistoryQualification": "Unresolved independent current-epoch generated-only historical admission3520/3521 remains per actual supplied handoff. No eight dispositions invented, no consumer-to-catalog generation edge fabricated, no historical repair policy modified.",
+    "fullPrAdmission": "Not claimed: no actual PR event or root content mutation, and SOURCE port conflict and held callback stage remain open."
+  },
+  "remainingGates": [
+    {
+      "owner": "sole3659 / coordinator",
+      "status": "CONFLICT_BLOCKED",
+      "path": "tools/test-matrix/pr-impact-plan.mjs",
+      "nextAction": "Provide a compatible exact canonical port revision preserving existing node:fs/node:path imports, or explicitly authorize resolution of this single archived import conflict."
+    },
+    {
+      "owner": "SOURCE held-stage coordinator",
+      "status": "NOT_RUN / unsupported",
+      "details": "Without consumed port, original complete11 path inspection still rejects .git-blame-ignore-revs. Do not omit, allowlist or fabricate its consumer-validated receipt. Whole callback suites remain excluded by current held Git/receipt/cohort/lease restriction."
+    },
+    {
+      "owner": "canonical QPS Node post-anchor history owner",
+      "status": "FAILED",
+      "details": [
+        "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88: replacement declaration does not resolve in the compact before snapshot",
+        "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30: replacement declaration does not resolve in the compact before snapshot"
+      ]
+    },
+    {
+      "owner": "canonical catalog current-epoch history owner3520/3521",
+      "status": "BLOCKED",
+      "details": "Ordinary fixture binding now passes; it is not catalog generated-only formal provenance."
+    },
+    {
+      "owner": "same reviewer 01a11bee-ee2f-71f8-b929-9e6fc95fa00b",
+      "status": "NEEDS_UPDATED_COMPLETE_SCOPE",
+      "details": "Review this compatible11-path followup and real blocked port. The reviewed9-path predecessor remains unchanged and no prior61/93 results are promoted."
+    },
+    {
+      "owner": "compiled/native/PG/runtime/fullCI acceptance",
+      "status": "NOT_RUN",
+      "details": "No production, SDK/native, cohort, lease or held replacement/substitution suites run here."
+    }
+  ],
+  "ownedIssueStatus": [
+    {
+      "issue": 3593,
+      "status": "OPEN / precise source port import conflict and unchanged original admission boundaries"
+    }
+  ],
+  "trackingOnlyIssues": [],
+  "noNewPolicyException": true,
+  "negativeHistoryControlsPreserved": true,
+  "githubContentApiMutations": false,
+  "masterPush": false,
+  "mergePr": false,
+  "closeIssue": false,
+  "deploy": false,
+  "rawArchive": "suite-convergence-source-port-followup-raw.tar.gz",
+  "sealedAt": "2026-10-08T15:32:57.963454+00:00",
+  "rawFilesVerified": 53,
+  "rawArchiveSha256": "fb74d4adf83e2ee72b1206e43529a139cfa189d18aea48dfb1826d3c5a773c02"
+}

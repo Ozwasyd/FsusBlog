@@ -1,0 +1,112 @@
+{
+  "base": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "sourceCandidate": "cdc7b00932a448effdae08b9c9550b59e535a423",
+  "totalChangedPaths": 9,
+  "productionRuntimeSources": 0,
+  "categoryCounts": {
+    "indispensable-governed-metadata": 5,
+    "consumed-canonical-prerequisite": 3,
+    "owned-js-leaf-source": 1
+  },
+  "completeSourceBoundary": [
+    {
+      "path": ".git-blame-ignore-revs",
+      "status": "M",
+      "category": "indispensable-governed-metadata",
+      "productionRuntimeSource": false,
+      "role": "governed-metadata",
+      "blob": "02ffa70e5adf9a8aca340aa97562aebce9280b26",
+      "sha256": "d8ab2deb7f0af5e1550e5a0e4f19f2610606027cf38658d47c4b73c269519f1e",
+      "reason": "Original later blame registration is mandatory, reachable and validated against actual pure format parent diff."
+    },
+    {
+      "path": "artifacts/change-contract/correctness-current-migration-execution-binding.json",
+      "status": "A",
+      "category": "indispensable-governed-metadata",
+      "productionRuntimeSource": false,
+      "role": "governed-metadata",
+      "blob": "f805bf9b789a8ea7fa88aa100d58ed403dc44a9f",
+      "sha256": "d6433de31adc047cc915f72091652fc3aaa09c9eb93c155d354ee88d976a2a86",
+      "reason": "Original changed-head v1 migration-to-authority metadata schema from parent-supplied40d9774b; digest independently rebuilt from this candidate original producer output."
+    },
+    {
+      "path": "artifacts/change-contract/suite-convergence-leaf-external-naming.json",
+      "status": "A",
+      "category": "indispensable-governed-metadata",
+      "productionRuntimeSource": false,
+      "role": "governed-metadata",
+      "blob": "b5a06f2c5acc0bbc1a376346ed37b3a5be8ac760",
+      "sha256": "e4837792d6b908e3a8e4fd614d33f98e1c25041d2c02ec4d2d69cfc05a0c2013",
+      "reason": "Original external-naming v1 schema, exact registered json-wire-key/environment-variable surfaces and no registry additions."
+    },
+    {
+      "path": "artifacts/style/suite-convergence-leaf-idempotence.json",
+      "status": "A",
+      "category": "indispensable-governed-metadata",
+      "productionRuntimeSource": false,
+      "role": "governed-metadata",
+      "blob": "006da5ebf875e0628dc694da59fa27bd22b3cecf",
+      "sha256": "2a30d09a647c1010d6d6b79a783313c922ea3b549a32f06574cc3d15f3cee1b0",
+      "reason": "Original format footer and change-contract require exact candidate HEAD idempotence evidence in changed files."
+    },
+    {
+      "path": "config/testing/correctness-attempt-producers.json",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "productionRuntimeSource": false,
+      "role": "canonical-generated-metadata",
+      "blob": "a0dcda03bc64a5e26910db172eff6e28dbe011ac",
+      "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+      "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+    },
+    {
+      "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+      "status": "M",
+      "category": "indispensable-governed-metadata",
+      "productionRuntimeSource": false,
+      "role": "canonical-generated-metadata",
+      "blob": "be41483b81e11bbf3d70513c34c9501bf596be47",
+      "sha256": "843f18beb15ddc85e2ca502559cf12bada949049749ad1f630e2f14cb7a9a762",
+      "reason": "Original canonical execution authority generated twice from actual latest master index/source; only leaf migration closure digest pair differs from current master."
+    },
+    {
+      "path": "tests/tools/correctness-attempt-migration.test.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "productionRuntimeSource": false,
+      "role": "test-source",
+      "blob": "33e14abbbed9b3d7d074aae96cc679e9e313b8b3",
+      "sha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+      "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+    },
+    {
+      "path": "tests/tools/test-suite-convergence.test.mjs",
+      "status": "M",
+      "category": "owned-js-leaf-source",
+      "productionRuntimeSource": false,
+      "role": "test-source",
+      "blob": "4cad13021658379c7189cf5de84af0fe6d60daea",
+      "sha256": "17b6d8622108eb53421af1f830f0cd37dba60ede4ed65c9c554b596e20cdd238",
+      "reason": "Original issue3593 test owner, exact unchanged17 IDs; original format/syntax history remains."
+    },
+    {
+      "path": "tools/test/correctness-attempt-migration.mjs",
+      "status": "M",
+      "category": "consumed-canonical-prerequisite",
+      "productionRuntimeSource": false,
+      "role": "tooling-source",
+      "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+      "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+      "reason": "Parent-supplied canonical roster capability from fae117436a4c829748c04c6381d86db6be764e76 and completed ordinary source variant40d9774b3bab7e21b845984eff7e963d5c832c52. Module/catalog bytes match supplied owner; test differs only separately preserved import ordering. Catalog historical formal qualification is not inferred."
+    }
+  ],
+  "evidenceOnlyPathsInSourceDiff": 0,
+  "sourceFrozenForIndependentReviewer": "01a11bee-ee2f-71f8-b929-9e6fc95fa00b",
+  "preservedHistoricalEvidenceHead": "86428e0279d38cf6da2285232bcf7f914766a8bf",
+  "formatEvidenceBlameSyntaxSequencePreserved": [
+    "f6e6aa2455489c4d3fe65b9cbd6ad5831f6d2f04",
+    "e8def31887dab241d74ad712226290f715ace23d",
+    "27a09aa6223ca61922c08e96fb1d1760e912c163",
+    "f1291150a5b2ff6a7c327fe1bc3b4355bca7f12c"
+  ]
+}
