@@ -350,36 +350,52 @@ export class ArticleAnchorContextAdapter
         for (const transaction of transactions)
         {
             if (!transaction.accepted || !transaction.positionMap || transaction.beforeRevision !== revision
+                || typeof transaction.positionMap.map !== 'function' || typeof transaction.positionMap.mapRange !== 'function'
                 || transaction.revision <= revision || transaction.revision > binding.document.sourceRevision
                 || transaction.documentIdentity?.id !== binding.document.documentId
                 || transaction.documentIdentity?.epoch !== binding.document.documentEpoch)
             {
                 return command('rejected', 'transaction-chain-invalid');
             }
-            const collapsed = range?.start === range?.end && range !== null;
-            if (range)
+            try
             {
-                const outcome = transaction.positionMap.mapRange(range);
-                if (outcome.deleted)
+                const collapsed = range?.start === range?.end && range !== null;
+                if (range)
                 {
-                    range = null;
-                    traces.push('deleted');
+                    const outcome = transaction.positionMap.mapRange(range);
+                    if (typeof outcome.deleted !== 'boolean' || typeof outcome.partiallyDeleted !== 'boolean')
+                    {
+                        return command('rejected', 'mapped-range-invalid');
+                    }
+                    if (outcome.deleted)
+                    {
+                        range = null;
+                        traces.push('deleted');
+                    }
+                    else if (!outcome.range || !validRange(outcome.range) || outcome.range.end > transaction.value.length)
+                    {
+                        return command('rejected', 'mapped-range-invalid');
+                    }
+                    else
+                    {
+                        range = outcome.range;
+                        traces.push(outcome.partiallyDeleted ? 'partial' : 'mapped');
+                    }
                 }
-                else if (!outcome.range || !validRange(outcome.range))
+                point = transaction.positionMap.map(point, saved.affinity === 'before' ? -1 : 1);
+                if (!Number.isSafeInteger(point) || point < 0 || point > transaction.value.length)
                 {
-                    return command('rejected', 'mapped-range-invalid');
+                    return command('rejected', 'mapped-point-invalid');
                 }
-                else
+                // A collapsed caret must retain the public point association too.
+                if (range && collapsed)
                 {
-                    range = outcome.range;
-                    traces.push(outcome.partiallyDeleted ? 'partial' : 'mapped');
+                    range = { start: point, end: point };
                 }
             }
-            point = transaction.positionMap.map(point, saved.affinity === 'before' ? -1 : 1);
-            // A collapsed caret must retain the public point association too.
-            if (range && collapsed)
+            catch
             {
-                range = { start: point, end: point };
+                return command('rejected', 'public-position-map-invalid');
             }
             revision = transaction.revision;
         }

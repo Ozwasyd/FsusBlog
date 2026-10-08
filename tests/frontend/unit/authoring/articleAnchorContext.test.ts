@@ -130,6 +130,22 @@ describe('ArticleAnchorContextAdapter (#2246) real public map consumption', () =
         expect(editor.restore(saved, [result])).toMatchObject({ status: 'ready', range: { start: point, end: point }, affinity });
     });
 
+    it('fails closed with a receipt when a real dispatch map is missing, throws, or reports invalid bounds', () =>
+    {
+        const editor = open();
+        const saved = editor.capture();
+        const result = editor.dispatch([{ from: 0, to: 0, insert: 'X' }]);
+        if (!result.positionMap) throw new Error('public map missing');
+        const missing = { ...result, positionMap: { ...result.positionMap, map: undefined } } as unknown as MarkdownEditorDispatchResult;
+        expect(editor.restore(saved, [missing]).reason).toBe('transaction-chain-invalid');
+        const throwing = { ...result, positionMap: { ...result.positionMap, mapRange: () => { throw new Error('interrupted public map'); } } };
+        const failed = editor.restore(saved, [throwing]);
+        expect(failed.reason).toBe('public-position-map-invalid');
+        expect(validateArticleAnchorCommand(failed)).toBe(true);
+        const invalid = { ...result, positionMap: { ...result.positionMap, map: () => -1 } };
+        expect(editor.restore(saved, [invalid]).reason).toBe('mapped-point-invalid');
+    });
+
     it('uses explicit partial, deleted semantic-neighbor and approximate percentage outcomes', () =>
     {
         const partial = open();
