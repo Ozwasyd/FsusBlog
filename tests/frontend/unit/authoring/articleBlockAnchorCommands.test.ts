@@ -203,7 +203,7 @@ describe('Same-key canonical block mutation command guard (#2444/#2445/#2449)', 
         expect(dispatch).not.toHaveBeenCalled();
     });
 
-    it.each(['full', 'content'] as const)('keeps the actual paragraph %s endpoint closed until native form target binding is safe', async endpoint =>
+    it.each(['full', 'content'] as const)('keeps the actual paragraph %s endpoint closed until mounted runtime admission', async endpoint =>
     {
         const { binding, context, dispatch, owner } = fixture('First.\r\n\r\nSecond.');
         const resolved = context.projection!.resolve(context.syntax!.nodeId);
@@ -218,9 +218,9 @@ describe('Same-key canonical block mutation command guard (#2444/#2445/#2449)', 
         expect(core.enabled?.(current)).not.toBe(false);
         expect(await core.run(current)).toEqual({ focus: 'surface', surface: 'anchor-properties' });
         expect(guarded.enabled?.(current)).toBe(false);
-        expect(guarded.disabledReason?.(current)).toBe('诊断：anchor-surface-target-unbound');
+        expect(guarded.disabledReason?.(current)).toBe('诊断：anchor-runtime-admission-required');
         expect(await runMarkdownEditorCommand(guarded, current)).toBeUndefined();
-        expect(() => guarded.run(current)).toThrow('诊断：anchor-surface-target-unbound');
+        expect(() => guarded.run(current)).toThrow('诊断：anchor-runtime-admission-required');
         expect(dispatch).not.toHaveBeenCalled();
         expect(owner.context.sourceRevision).toBe(0);
     });

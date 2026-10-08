@@ -16,7 +16,7 @@ export type ArticleBlockAnchorCommandReason = ArticleBlockAnchorAdmissionReason
     | 'reveal-map-invalid'
     | 'anchor-transactions-unavailable'
     | 'anchor-create-position-required'
-    | 'anchor-surface-target-unbound';
+    | 'anchor-runtime-admission-required';
 
 export interface ArticleBlockAnchorCommandCopy {
     readonly label: string;
@@ -62,7 +62,7 @@ function resolveBinding(binding: ArticleEditorRuntimeBinding, context: CommandCo
     return { reason: null, document, map: position.map };
 }
 
-/** Keep native anchor mutation surfaces closed until target binding and current impact are safe. */
+/** Keep native anchor mutation surfaces closed until mounted runtime and current impact are admitted. */
 export function guardArticleBlockAnchorCoreCommands(
     coreCommands: readonly FsusUiAuthoringCommand[],
     binding: ArticleEditorRuntimeBinding,
@@ -104,9 +104,9 @@ export function guardArticleBlockAnchorCoreCommands(
             {
                 return 'anchor-create-position-required';
             }
-            // The native form currently follows selection changes into existing-anchor edits.
-            // Only FsusUI can bind its mutation intent/target; Blog must not duplicate that handler.
-            return command.enabled?.(context) === false ? 'anchor-transactions-unavailable' : 'anchor-surface-target-unbound';
+            // Exact upstream source probes establish capability, not mounted runtime admission.
+            // The original owner supplies that integration; Blog never duplicates the native handler.
+            return command.enabled?.(context) === false ? 'anchor-transactions-unavailable' : 'anchor-runtime-admission-required';
         };
         return Object.freeze<FsusUiAuthoringCommand>({
             ...command,

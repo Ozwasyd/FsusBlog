@@ -21,7 +21,7 @@ const cleanups: (() => void)[] = [];
 afterEach(() => cleanups.splice(0).reverse().forEach(cleanup => cleanup()));
 
 // This probe bypasses the closed Blog insert gate to inspect the actual upstream form contract.
-// Its expected-denial regression remains failed until FsusUI freezes or rejects a changed target.
+// Preserve its expected-denial regression unchanged across upstream source offers.
 function nativeInsertFixture(source: string)
 {
     let value = source;
@@ -76,6 +76,76 @@ function nativeInsertFixture(source: string)
 
 describe('Unqualified native anchor form contract through actual FsusUI and original Blog binding (#2444)', () =>
 {
+    it.each(['Escape', 'cancel-button'])('discards a cancelled native creation draft through %s before a fresh same-editor transaction', async cancellation =>
+    {
+        const source = 'First.\n\nOther ^existing';
+        const { owner, wrapper, observations, readSource, open } = nativeInsertFixture(source);
+        const identity = owner.documentIdentity;
+        const editorInstance = wrapper.vm;
+        const cancelled = await open();
+        await cancelled.get('input').setValue('old-draft');
+        if (cancellation === 'Escape')
+        {
+            await cancelled.trigger('keydown', { key: 'Escape' });
+        }
+        else
+        {
+            const button = cancelled.findAll('button').find(item => item.text() === resolveMarkdownEditorLocaleText().contextual.cancel)!;
+            await button.trigger('click');
+        }
+        await flushPromises();
+        expect(wrapper.find('form[role="dialog"]').exists()).toBe(false);
+        expect(document.activeElement).toBe(wrapper.get('textarea').element);
+        expect(readSource()).toBe(source);
+        expect(owner.context.sourceRevision).toBe(0);
+        expect(observations.every(item => item.consumed && item.event.accepted && item.event.transaction.changes.length === 0)).toBe(true);
+        const fresh = await open();
+        expect(fresh.get('input').element.value).toBe('');
+        expect(fresh.find('[role="alert"]').exists()).toBe(false);
+        expect(fresh.findAll('button')).toHaveLength(2);
+        await fresh.get('input').setValue('new-section');
+        await fresh.trigger('submit');
+        await flushPromises();
+        expect(readSource()).toBe('First. ^new-section\n\nOther ^existing');
+        expect(owner.context.sourceRevision).toBe(1);
+        expect(owner.documentIdentity).toEqual(identity);
+        expect(wrapper.vm).toBe(editorInstance);
+        expect(observations.every(item => item.consumed && item.event.accepted)).toBe(true);
+        expect(observations.filter(item => item.event.transaction.changes.length > 0)).toHaveLength(1);
+    });
+
+    it('requires cancellation and a fresh open after selection-only creation target drift through the real binding', async () =>
+    {
+        const source = 'First.\n\nOther ^existing';
+        const { owner, editor, wrapper, observations, readSource, open } = nativeInsertFixture(source);
+        const identity = owner.documentIdentity;
+        const stale = await open();
+        await stale.get('input').setValue('old-draft');
+        editor.dispatchTransaction({ changes: [], history: 'skip', origin: 'programmatic',
+            documentIdentity: identity, expectedRevision: 0, selection: { start: 0, end: 0, direction: 'none' } });
+        await flushPromises();
+        await stale.trigger('submit');
+        await flushPromises();
+        expect(stale.get('[role="alert"]').text()).toBe(resolveMarkdownEditorLocaleText().results.stale);
+        expect(readSource()).toBe(source);
+        expect(owner.context.sourceRevision).toBe(0);
+        expect(observations.every(item => item.consumed && item.event.accepted && item.event.transaction.changes.length === 0)).toBe(true);
+        await stale.trigger('keydown', { key: 'Escape' });
+        await flushPromises();
+        const fresh = await open();
+        expect(fresh.get('input').element.value).toBe('');
+        expect(fresh.find('[role="alert"]').exists()).toBe(false);
+        await fresh.get('input').setValue('new-section');
+        await fresh.trigger('submit');
+        await flushPromises();
+        expect(readSource()).toBe('First. ^new-section\n\nOther ^existing');
+        expect(owner.context.sourceRevision).toBe(1);
+        expect(owner.documentIdentity).toEqual(identity);
+        expect(wrapper.vm).toBe(editor);
+        expect(observations.every(item => item.consumed && item.event.accepted)).toBe(true);
+        expect(observations.filter(item => item.event.transaction.changes.length > 0)).toHaveLength(1);
+    });
+
     it('does not turn an admitted insert form into an existing-anchor rename after a selection-only transaction', async () =>
     {
         const source = 'First.\n\nOther ^existing';
