@@ -13,7 +13,8 @@ export type ArticleBlockAnchorCommandReason = ArticleBlockAnchorAdmissionReason
     | 'source-mode-required'
     | 'editor-binding-unavailable'
     | 'editor-binding-stale'
-    | 'reveal-map-invalid';
+    | 'reveal-map-invalid'
+    | 'anchor-transactions-unavailable';
 
 export interface ArticleBlockAnchorCommandCopy {
     readonly label: string;
@@ -29,6 +30,80 @@ export class ArticleBlockAnchorCommandError extends Error
     }
 }
 
+function resolveBinding(binding: ArticleEditorRuntimeBinding, context: CommandContext)
+{
+    if (context.mode !== 'source')
+    {
+        return { reason: 'source-mode-required' as const };
+    }
+    if (context.readonly)
+    {
+        return { reason: 'editor-readonly' as const };
+    }
+    let position: ReturnType<ArticleEditorRuntimeBinding['positionBinding']>;
+    try
+    {
+        position = binding.positionBinding();
+    }
+    catch
+    {
+        return { reason: 'editor-binding-unavailable' as const };
+    }
+    const document = binding.context;
+    if (position.document.contextDigest !== document.contextDigest
+        || position.map.documentIdentity.id !== document.documentId
+        || position.map.documentIdentity.epoch !== document.documentEpoch
+        || position.map.source !== context.value)
+    {
+        return { reason: 'editor-binding-stale' as const };
+    }
+    return { reason: null, document, map: position.map };
+}
+
+/** Decorate existing same-key core commands until their sole transaction/impact consumers exist. */
+export function guardArticleBlockAnchorCoreCommands(
+    coreCommands: readonly FsusUiAuthoringCommand[],
+    binding: ArticleEditorRuntimeBinding,
+    copy: Pick<ArticleBlockAnchorCommandCopy, 'reason'>
+): readonly FsusUiAuthoringCommand[]
+{
+    return Object.freeze(coreCommands.map(command =>
+    {
+        if (command.key !== 'anchor-insert' && command.key !== 'anchor-properties')
+        {
+            return command;
+        }
+        const key = command.key;
+        const reason = (context: CommandContext): ArticleBlockAnchorCommandReason =>
+        {
+            const current = resolveBinding(binding, context);
+            if (current.reason !== null)
+            {
+                return current.reason;
+            }
+            const admission = resolveArticleBlockAnchorAdmission(current.document, context,
+                key === 'anchor-insert' ? 'create' : 'request-remove');
+            // Opening the canonical insert form precedes its user-supplied ID. No source write is admitted here.
+            if (admission.reason !== null
+                && !(key === 'anchor-insert' && admission.reason === 'anchor-id-invalid' && admission.candidateId === null))
+            {
+                return admission.reason;
+            }
+            return key === 'anchor-insert' ? 'anchor-transactions-unavailable' : 'current-impact-required';
+        };
+        return Object.freeze<FsusUiAuthoringCommand>({
+            ...command,
+            enabled: () => false,
+            disabledReason: context => copy.reason(reason(context)),
+            run: context =>
+            {
+                const refusal = reason(context);
+                throw new ArticleBlockAnchorCommandError(refusal, copy.reason(refusal));
+            }
+        });
+    }));
+}
+
 /** One navigation consumer of the original owner's binding and public command session. */
 export function createArticleBlockAnchorRevealCommand(
     binding: ArticleEditorRuntimeBinding,
@@ -37,31 +112,12 @@ export function createArticleBlockAnchorRevealCommand(
 {
     const resolve = (context: CommandContext) =>
     {
-        if (context.mode !== 'source')
+        const current = resolveBinding(binding, context);
+        if (current.reason !== null)
         {
-            return { reason: 'source-mode-required' as const };
+            return current;
         }
-        if (context.readonly)
-        {
-            return { reason: 'editor-readonly' as const };
-        }
-        let position: ReturnType<ArticleEditorRuntimeBinding['positionBinding']>;
-        try
-        {
-            position = binding.positionBinding();
-        }
-        catch
-        {
-            return { reason: 'editor-binding-unavailable' as const };
-        }
-        const document = binding.context;
-        if (position.document.contextDigest !== document.contextDigest
-            || position.map.documentIdentity.id !== document.documentId
-            || position.map.documentIdentity.epoch !== document.documentEpoch
-            || position.map.source !== context.value)
-        {
-            return { reason: 'editor-binding-stale' as const };
-        }
+        const document = current.document;
         const admission = resolveArticleBlockAnchorAdmission(document, context, 'reveal-source');
         if (admission.reason !== null || admission.range === null)
         {
@@ -69,7 +125,7 @@ export function createArticleBlockAnchorRevealCommand(
         }
         try
         {
-            const reveal = position.map.sourceRangeToReveal(admission.range);
+            const reveal = current.map.sourceRangeToReveal(admission.range);
             if (reveal.documentIdentity.id !== document.documentId
                 || reveal.documentIdentity.epoch !== document.documentEpoch
                 || reveal.reveal.documentIdentity.id !== document.documentId

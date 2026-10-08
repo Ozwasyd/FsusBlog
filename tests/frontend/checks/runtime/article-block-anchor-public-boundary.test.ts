@@ -5,6 +5,7 @@ import {
     MARKDOWN_ANCHOR_ID,
     collectMarkdownAnchorNodes,
     createMarkdownEditorProjection,
+    parseMarkdownAnchorMarker,
     reviveMarkdownStableProjection,
     snapshotMarkdownStableProjection,
     stabilizeMarkdownEditorProjection
@@ -45,8 +46,11 @@ describe('Required actual public block-anchor boundary (#2444)', () =>
 
     it.each(['bad_name', '章节', 'a'.repeat(65)])('reports invalid marker %j without losing the diagnostic', candidate =>
     {
-        const nodes = collectMarkdownAnchorNodes(`Paragraph ^${candidate}`);
-        expect(nodes.some(node => !node.ok && node.code === 'anchor-invalid-id')).toBe(true);
+        const source = `Paragraph ^${candidate}`;
+        const parsed = parseMarkdownAnchorMarker(source, 0);
+        const nodes = collectMarkdownAnchorNodes(source);
+        expect({ parsed, nodes }).toMatchObject({ parsed: { ok: false, code: 'anchor-invalid-id' },
+            nodes: [expect.objectContaining({ ok: false, code: 'anchor-invalid-id' })] });
     });
 
     it('retains duplicate diagnostics and exact standard fragments', () =>

@@ -5,3 +5,5 @@ export {
 } from '@ozwasyd/element-plus/markdown-runtime';
 
 export type { MarkdownEditorCommandContext } from '@ozwasyd/element-plus';
+
+export { defaultMarkdownEditorCommands as fsusUiMarkdownCoreCommands } from '@ozwasyd/element-plus';
