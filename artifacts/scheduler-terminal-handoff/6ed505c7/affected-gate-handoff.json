@@ -1,0 +1,123 @@
+{
+  "exactSourceCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "ownerEvidenceCommit": "d8206ec8592cea27399a4bf7f2c56452504e34dc",
+  "ownerEvidenceBundle": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/bundle-index.json",
+  "executionAttribution": "Original #3521 canonical owner executed these exact-candidate checks. This partition consumed the exact unchanged source commit and verified evidence provenance; it did not rerun expensive tests or undertake independent semantic/cohort audits.",
+  "results": {
+    "SOURCE": {
+      "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+      "runIdentity": "chain3521-fixture-6ed505c7-20261008",
+      "command": [
+        "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+        "tools/run-test-matrix.mjs",
+        "ci-pr-smart",
+        "--stage",
+        "source-integration",
+        "--base-ref",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 123.818,
+      "finishedAtUtc": "2026-10-08T08:53:13.778870+00:00",
+      "qualification": false
+    },
+    "boundary": {
+      "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+      "command": [
+        "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/release-final-static-boundary.test.mjs"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 233.848,
+      "rerunReason": "bind owning positive/refusal controls to corrected publication commit, after initial metadata rejection",
+      "qualification": false
+    },
+    "repository": {
+      "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+      "command": [
+        "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--repository"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 3.263,
+      "qualification": false
+    },
+    "range": {
+      "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+      "command": [
+        "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+        "tools/governance/check-change-contract.mjs",
+        "--range",
+        "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d..HEAD"
+      ],
+      "exitCode": 0,
+      "qualification": false
+    },
+    "fixedPoint": {
+      "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+      "command": [
+        "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "exitCode": 0,
+      "durationSeconds": 149.051,
+      "bytesUnchanged": true,
+      "fixtureSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+      "workingTreeClean": true,
+      "qualification": false
+    },
+    "originalProducer": {
+      "sourceCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+      "command": [
+        "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-matrix/generate-release-final-execution-authority.mjs"
+      ],
+      "exitCode": 0,
+      "outcome": "completed",
+      "durationSeconds": 147.043,
+      "beforeSha256": "6c7c448cb46af78814bba22f28558355b2a2dc5b115d7f229c27b6e00ab2bdf6",
+      "afterSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+      "indexByteUnchanged": true,
+      "expectedAfterSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+      "qualification": false
+    }
+  },
+  "counts": {
+    "SOURCE": {
+      "exitCode": 0,
+      "controlsPassed": 93,
+      "controlsFailed": 0,
+      "skipped": 0,
+      "jsFilesChecked": 28,
+      "markdownFilesChecked": 1
+    },
+    "owningBoundary": {
+      "exitCode": 0,
+      "controlsPassed": 103,
+      "controlsFailed": 0,
+      "skipped": 0
+    }
+  },
+  "sourceMetrics": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/source-metrics-6ed505c7.json",
+  "rawLogPaths": {
+    "SOURCE": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/source-integration-6ed505c7.log",
+    "boundaryReadable": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/owning-boundary-6ed505c7.log",
+    "boundaryOriginalGzip": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/owning-boundary-6ed505c7.log.gz",
+    "producer": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/original-producer.log",
+    "fixedPoint": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/fixed-point-6ed505c7.log"
+  },
+  "earlierLocalControls": {
+    "testedCommit": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+    "passed": 75,
+    "failed": 0,
+    "skipped": 0,
+    "rerunOn6ed": false,
+    "claimedAs6edTestExecution": false,
+    "sourceModuleAndTestBlobsUnchanged": true
+  },
+  "testsRerunForConsumption": false,
+  "runtimeCohortHistoricalQualification": false,
+  "GitHubCI": "Disabled; no remote dispatch, waiting or success claimed."
+}

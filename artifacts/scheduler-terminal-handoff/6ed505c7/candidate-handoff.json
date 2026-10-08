@@ -1,0 +1,87 @@
+{
+  "repository": "Ozwasyd/FsusBlog",
+  "sourceThread": "01a1142b-a0b5-7419-a4df-a8bbe54660dd",
+  "integrationOwner": "01a1195c-41e6-75d9-a27f-ca1481cfd007",
+  "coordinator": "01a119be-e15d-7134-badb-2af41ed14004",
+  "exactSourceCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "sourceBranch": "task/scheduler-terminal-canonical-source",
+  "sourcePublished": true,
+  "baseMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "currentOwnerIncrement": {
+    "commit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "directParent": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+    "scope": [
+      "artifacts/change-contract/scheduler-terminal-current-execution-generated-binding.json",
+      "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+    ],
+    "fixtureSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+    "unchangedIndependentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+    "owner": "Original #3521; consumed exactly, not independently regenerated or edited."
+  },
+  "fullCandidateScopeFile": "complete-source-scope.json",
+  "gateHandoffFile": "affected-gate-handoff.json",
+  "provenanceFile": "consumption-provenance.json",
+  "remainingIssueGapsFile": "issue-by-issue-gaps.json",
+  "ownerEvidenceCommit": "d8206ec8592cea27399a4bf7f2c56452504e34dc",
+  "ownerEvidencePrefix": "artifacts/chain-3521/scheduler-fixture-6ed505c7/",
+  "newReviewOrContentMutation": false,
+  "scopeOfThisTurn": "Exact authorized owner-capability intake and handoff only; preserve prior denied audit boundaries. No new implementation semantics or runtime/cohort audit.",
+  "SOURCEStatus": "PASS on exact6ed, executed by canonical owner, 93pass0fail0skip; previous2eda fixture binding rejection resolved by this owner-approved increment.",
+  "BoundaryStatus": "PASS on exact6ed, executed by canonical owner, 103pass0fail0skip.",
+  "runtimeQualificationEligible": false,
+  "historicalPromotion": false,
+  "issuesClosed": false,
+  "selfMerged": false,
+  "testsRerun": false,
+  "canonicalRegistryMatrixOrHistoricalLedgersChanged": false,
+  "priorRuntimeAndCandidateGapsPreserved": true,
+  "existingDraftContractPRs": [
+    {
+      "number": 3938,
+      "url": "https://github.com/Ozwasyd/FsusBlog/pull/3938",
+      "head": "3280c8b2e7accfe6a1986f1c5e6219baf627e851",
+      "base": "master",
+      "baseSha": "53da546cc8ab9fd8603067395d988b7ddb650394",
+      "changedFileCount": 3,
+      "draft": true,
+      "merged": false,
+      "verification": "Exact-head native provisional controls: 8/8, exit0. Trusted-base PR contract: exit0 (3 changed files)."
+    },
+    {
+      "number": 3983,
+      "url": "https://github.com/Ozwasyd/FsusBlog/pull/3983",
+      "head": "a540575e05554c98aa1c830730cbc388b1b965d8",
+      "base": "task/correctness-provisional-contract",
+      "baseSha": "3280c8b2e7accfe6a1986f1c5e6219baf627e851",
+      "changedFileCount": 5,
+      "draft": true,
+      "merged": false,
+      "verification": "Exact-head native authority controls: 6/6, exit0. Exact-head original CLI controls: 2/2, exit0. Trusted-base PR contract: exit0 (5 changed files)."
+    },
+    {
+      "number": 3984,
+      "url": "https://github.com/Ozwasyd/FsusBlog/pull/3984",
+      "head": "c5c91ed112b07314c0a767531698193c0963b01a",
+      "base": "task/correctness-authority-boundary",
+      "baseSha": "a540575e05554c98aa1c830730cbc388b1b965d8",
+      "changedFileCount": 3,
+      "draft": true,
+      "merged": false,
+      "verification": "Exact-head native terminal controls: 6/6, exit0. Trusted-base PR contract: exit0 (3 changed files)."
+    },
+    {
+      "number": 3985,
+      "url": "https://github.com/Ozwasyd/FsusBlog/pull/3985",
+      "head": "fa6a530ae6538aa59626a4443edf08fad485ed1f",
+      "base": "task/correctness-terminal-binding",
+      "baseSha": "c5c91ed112b07314c0a767531698193c0963b01a",
+      "changedFileCount": 5,
+      "draft": true,
+      "merged": false,
+      "verification": "Exact-head combined native contracts: 25/25, exit0. Exact-head git diff --check: exit0. Trusted-base PR contract: exit0 (5 changed files). Canonical ci-pr-smart --stage source-integration --base-ref 53da546cc8ab9fd8603067395d988b7ddb650394: exit0, 11 source paths pass strict style, source-governance success with qualificationEligible:false; no runtime/release qualification."
+    }
+  ],
+  "newPRCreated": false,
+  "contentWriteQueue": "No new PR/issue/comment without coordinator grant.",
+  "exportCandidateWarning": "This handoff branch is evidence only. Its additional evidence commit is not a new tested source candidate; consume exact6ed for the described source evidence. If integration source changes, rebind/reverify through original owners."
+}

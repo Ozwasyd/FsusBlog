@@ -1,0 +1,182 @@
+{
+  "sourceBefore": "2eda290cc6098971b685b3fb1465d7193bd3dde2",
+  "ownerApprovedSource": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "ownerEvidenceCommit": "d8206ec8592cea27399a4bf7f2c56452504e34dc",
+  "changedPaths": [
+    "artifacts/change-contract/scheduler-terminal-current-execution-generated-binding.json",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "directParentMatches": true,
+  "canonicalOwnerIncrementOnly": true,
+  "verifiedEvidenceFileCount": 25,
+  "evidenceFiles": [
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/handoff-summary.json",
+      "sha256": "3c7dbde21b127f5c5e7590f3df95f8f8d8736495692f5e09bbd381e855e6a54e",
+      "bytes": 2778
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/source-binding-identities.json",
+      "sha256": "819d8ae59cecf82edaba2d799371f3188a04595e0f6f8b352e24ce08510a497c",
+      "bytes": 2198
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/adoption-review.json",
+      "sha256": "ba6fd2f65de7d14867c8f64d694e393124da2132acf4925ce3e90c35d8bfb7dd",
+      "bytes": 994
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/original-producer.json",
+      "sha256": "fe8c5b44a26be329e3711d0e57272199ce762df8937f70f41f6735bcedd6219b",
+      "bytes": 631
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/original-producer.log",
+      "sha256": "2cebb790367ae9392ae415c353cbf0cc670d2d86c318c5cf457b05ddc5b5ddde",
+      "bytes": 258
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/producer-first-attempt-timeout.json",
+      "sha256": "5aa3f3c78caba34bc07d9d9996272cf5d554ae3f8237bdb9bb6aca81ee5d13ed",
+      "bytes": 283
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/source-integration-341c35c.json",
+      "sha256": "df63cf72def6695d5ff0f12833f85e87b41f2ade587093021d8b0481bb34a6f6",
+      "bytes": 396
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/source-integration-341c35c.log",
+      "sha256": "9301af5c258869e9a9b4dc913d20fffe2aceada5a0d4c860ed1b3df88370c5f0",
+      "bytes": 1108
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/initial-commit-metadata-failure.json",
+      "sha256": "7348f084f741cc6e8d9b4a7decd62c3389d92a3692158cc5b5733f56b0ac9808",
+      "bytes": 425
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/source-integration-6ed505c7.json",
+      "sha256": "9fad75dc15f2ab4e9d9dfecdbefe474331239873dd2cc4d5c2d5a3498e4b06dd",
+      "bytes": 509
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/source-integration-6ed505c7.log",
+      "sha256": "339a317ba5c518e97ec78ded092c1920127c920f0e3e89c36df2f02ab9599805",
+      "bytes": 10499
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/source-governance-result-6ed505c7.json",
+      "sha256": "bd9ef3f89d563d24f2fba9da2cff8e436af5b983ed873d801c661dfac7df2d95",
+      "bytes": 12859
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/pr-plan-6ed505c7.json",
+      "sha256": "14dbc338eb733a3c99662b39057edd5b5afd339d89efdcdbbf238f4310137095",
+      "bytes": 76540
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/source-metrics-6ed505c7.json",
+      "sha256": "dab4168771467b3e801557709561dce1603018eb1a22e4af4fa52123e9e689e5",
+      "bytes": 2973
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/owning-boundary-6ed505c7.json",
+      "sha256": "6b2361ec7d5e7da798a750127833cadf26671297ab6d7ba94a08862fbaf105c4",
+      "bytes": 435
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/owning-boundary-6ed505c7.log",
+      "sha256": "9c4f9201f9d8e14a412cfa455ebdb2039b471da5b537308c9e5a6199a4e971fd",
+      "bytes": 8124
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/repository-6ed505c7.json",
+      "sha256": "a58eb9a947092fcb98017793fd03307b6fc3b098763f372f5323ab017aa7bd5d",
+      "bytes": 307
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/repository-6ed505c7.log",
+      "sha256": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885",
+      "bytes": 51
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/range-6ed505c7.json",
+      "sha256": "57ad0bb5264d5cbe3f196bd0109680941afa6bb5fd902cb97188d53bded40a50",
+      "bytes": 328
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/range-6ed505c7.log",
+      "sha256": "4cc6d8f588a334811a2d8151c69c2d6b3d34bd527e432d328250150db2648297",
+      "bytes": 81
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/fixed-point-6ed505c7.json",
+      "sha256": "5eefc5ae56d0109a5df5915317d1536074cfb5f701aa4c157af6230eb917e672",
+      "bytes": 452
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/fixed-point-6ed505c7.log",
+      "sha256": "215afbae6a96f7fbb2043145aae3c09e892252094cc14c58f5481d4908c64ba7",
+      "bytes": 258
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/pr-body-draft.md",
+      "sha256": "9707442927dee56b6b1372822e61aa5381d12242a143da8d7e6eb9361f3a3053",
+      "bytes": 3557
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/received-evidence-identity-review.json",
+      "sha256": "5a5c8dbf7b19892ad01e8f20345b6af86ac850e9b61f51342ec765dd8425524e",
+      "bytes": 1418
+    },
+    {
+      "path": "artifacts/chain-3521/scheduler-fixture-6ed505c7/owning-boundary-6ed505c7.log.gz",
+      "sha256": "d09a9cdf84f878cb612ef30420f177f2ec2964f8017ae13924e7a2211814bd07",
+      "bytes": 2563
+    }
+  ],
+  "fixtureSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "independentIndexUnchangedAgainstParentAndCurrentMaster": true,
+  "headerRosterOwnersDeclarationsPreserved": true,
+  "intakeScope": "Requested exact provenance/hash/file-range intake only, no independent semantic/cohort audit or test execution.",
+  "SOURCEevidence": {
+    "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "runIdentity": "chain3521-fixture-6ed505c7-20261008",
+    "command": [
+      "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+      "tools/run-test-matrix.mjs",
+      "ci-pr-smart",
+      "--stage",
+      "source-integration",
+      "--base-ref",
+      "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 123.818,
+    "finishedAtUtc": "2026-10-08T08:53:13.778870+00:00",
+    "qualification": false
+  },
+  "boundaryEvidence": {
+    "testedCommit": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "command": [
+      "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+      "--test",
+      "tests/tools/release-final-static-boundary.test.mjs"
+    ],
+    "exitCode": 0,
+    "durationSeconds": 233.848,
+    "rerunReason": "bind owning positive/refusal controls to corrected publication commit, after initial metadata rejection",
+    "qualification": false
+  },
+  "runtimeQualificationEligible": false,
+  "sourceBranchPublishedAtExactOwnerCommit": true,
+  "sourceBranch": "task/scheduler-terminal-canonical-source",
+  "remoteSourceHead": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "currentRemoteMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "originalOwnerEvidenceBundle": "https://github.com/Ozwasyd/FsusBlog/blob/d8206ec8592cea27399a4bf7f2c56452504e34dc/artifacts/chain-3521/scheduler-fixture-6ed505c7/bundle-index.json",
+  "earlierPartitionEvidenceExport": {
+    "commit": "e4e84b4cee970c5f7262963db2c1c72affc2a043",
+    "path": "artifacts/scheduler-terminal-handoff/2eda290c/export-manifest.json"
+  }
+}
