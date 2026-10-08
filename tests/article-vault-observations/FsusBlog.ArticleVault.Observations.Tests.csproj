@@ -15,7 +15,7 @@
         </PackageReference>
     </ItemGroup>
     <ItemGroup>
-        <ProjectReference Include="../../../src/article-vault/observations/FsusBlog.ArticleVault.Observations.csproj" />
-        <ProjectReference Include="../../../src/shared/FsusBlog.Shared.csproj" />
+        <ProjectReference Include="../../src/article-vault/observations/FsusBlog.ArticleVault.Observations.csproj" />
+        <ProjectReference Include="../../src/shared/FsusBlog.Shared.csproj" />
     </ItemGroup>
 </Project>
