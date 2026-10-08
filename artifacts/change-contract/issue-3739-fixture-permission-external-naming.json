@@ -7,7 +7,8 @@
                 "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json"
+                "tests/governance/test-lifecycle-registry.json",
+                "tests/migration/packages.lock.json"
             ],
             "reason": "Preserve existing serialized lock, lifecycle, retention, execution and producer authority keys while consuming the exact canonical-owner source deltas and synchronizing restored controls through the original producer."
         },
