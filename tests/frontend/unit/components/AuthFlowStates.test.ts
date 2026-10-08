@@ -1,6 +1,7 @@
 // @vitest-environment happy-dom
 
 import { mount } from '@vue/test-utils'
+import { ElButton, ElCheckbox, ElInput } from '@ozwasyd/element-plus'
 import { computed, defineComponent, nextTick, ref } from 'vue'
 import type { ComputedRef, Ref } from 'vue'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -131,6 +132,19 @@ const mountOptions = {
       PasskeyRegisterModal: true,
       PolicyModal: true,
       RouterLink: RouterLinkStub
+    }
+  }
+}
+
+const publicControlsMountOptions = {
+  global: {
+    ...mountOptions.global,
+    components: { ElButton, ElCheckbox, ElInput },
+    stubs: {
+      ...mountOptions.global.stubs,
+      ElButton: false,
+      ElCheckbox: false,
+      ElInput: false
     }
   }
 }
@@ -266,4 +280,36 @@ describe('auth page component states', () => {
     await wrapper.get('form').trigger('submit')
     expect(state.login!.handleMfaVerify).toHaveBeenCalledTimes(1)
   })
+
+  it('keeps the public Checkbox remember selection and disabled state in the Login slot', async () => {
+    const wrapper = mount(Login, publicControlsMountOptions)
+    const checkbox = wrapper.get('input[name="rememberMe"]')
+    expect(wrapper.get('.login-remember-label').text()).not.toBe('')
+    expect((checkbox.element as HTMLInputElement).checked).toBe(true)
+    await checkbox.setValue(false)
+    expect(state.login!.rememberMe.value).toBe(false)
+    await wrapper.get('.login-passkey-button').trigger('click')
+    expect(state.passkey!.loginWithPasskey).toHaveBeenCalledWith(false)
+    state.passkey!.loading.value = true
+    await nextTick()
+    expect((checkbox.element as HTMLInputElement).disabled).toBe(true)
+    wrapper.unmount()
+  })
+
+  it('keeps the public agreement Checkbox separate from the guidelines action', async () => {
+    const wrapper = mount(Register, publicControlsMountOptions)
+    const checkbox = wrapper.get('input[name="agreement"]')
+    const guidelines = wrapper.get('.register-guidelines-button')
+    expect(wrapper.get('.register-agreement-label').text()).not.toBe('')
+    await guidelines.trigger('click')
+    expect(state.onboarding!.handleGuidelinesActivator).toHaveBeenCalledTimes(1)
+    expect(state.onboarding!.isAgreed.value).toBe(false)
+    await checkbox.setValue(true)
+    expect(state.onboarding!.isAgreed.value).toBe(true)
+    state.onboarding!.loading.value = true
+    await nextTick()
+    expect((checkbox.element as HTMLInputElement).disabled).toBe(true)
+    wrapper.unmount()
+  })
+
 })

@@ -17,8 +17,14 @@
       "owner": "FsusBlog",
       "removedDeepOccurrences": 19,
       "replacement": "data-policy-document markup-owner boundary",
-      "viewports": ["390x844", "1440x1000"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "390x844",
+        "1440x1000"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": 0,
       "focusRingMaximumDifferencePx": 0,
       "screenshotResult": "before/after PNG byte-identical in all four scenarios"
@@ -28,8 +34,14 @@
       "owner": "FsusBlog",
       "removedDeepOccurrences": 6,
       "replacement": "data-fsus-comment-markdown generated-content boundary",
-      "viewports": ["mobile", "desktop"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "mobile",
+        "desktop"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": 0,
       "focusRingMaximumDifferencePx": 0,
       "screenshotResult": "geometry and overflow assertions passed; mobile-dark PNG was not byte-identical"
@@ -39,8 +51,16 @@
       "owner": "FsusBlog",
       "removedDeepOccurrences": 5,
       "replacement": "PublicArticleList presentation=home-feed",
-      "viewports": ["375", "768", "1024", "1440"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "375",
+        "768",
+        "1024",
+        "1440"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": 0,
       "focusRingMaximumDifferencePx": 0,
       "screenshotResult": "browser geometry assertions passed; the successful runner did not retain PNG files"
@@ -63,8 +83,14 @@
       "replacement": "ElInput textarea-variant=editor-title",
       "fsusUiIssue": "Ozwasyd/FsusUI#258",
       "fsusUiCommit": "794165a308ecf4d843116f3e2c8c606feca8b90e",
-      "viewports": ["375x812", "1440x900"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "375x812",
+        "1440x900"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": 0,
       "focusRingMaximumDifferencePx": 0,
       "screenshotResult": "system Chrome geometry, overflow and keyboard focus assertions passed"
@@ -79,8 +105,14 @@
         "35ad4a227a88631f4529fe32b5269fa7b1531185",
         "f5755e8b7b95d461ed5280225f8a71cdda66b0a3"
       ],
-      "viewports": ["mobile", "desktop"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "mobile",
+        "desktop"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": null,
       "focusRingMaximumDifferencePx": null,
       "screenshotResult": "integrated system Chrome passed 4/4 geometry, focus, active-state and overflow assertions; no before/after delta claim"
@@ -105,8 +137,14 @@
       "replacement": "FsusUI Table, DataList and ResponsiveCollection public contracts",
       "fsusUiIssue": "Ozwasyd/FsusUI#258",
       "fsusUiCommit": "343f31250269f8c6395b28d9a463a566580f498c",
-      "viewports": ["375x812", "1440x900"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "375x812",
+        "1440x900"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": 0,
       "focusRingMaximumDifferencePx": 0,
       "screenshotResult": "table fixed-column and compact collection geometry assertions passed"
@@ -119,8 +157,14 @@
       "replacement": "FsusUI Form, Input, Select, InputNumber and Switch public contracts",
       "fsusUiIssue": "Ozwasyd/FsusUI#258",
       "fsusUiCommit": "343f31250269f8c6395b28d9a463a566580f498c",
-      "viewports": ["375x812", "1440x900"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "375x812",
+        "1440x900"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": 0,
       "focusRingMaximumDifferencePx": 0,
       "screenshotResult": "form controls and plugin config grid geometry assertions passed"
@@ -133,11 +177,38 @@
       "replacement": "FsusUI Button, ButtonGroup, Tabs and Dialog public contracts",
       "fsusUiIssue": "Ozwasyd/FsusUI#258",
       "fsusUiCommit": "343f31250269f8c6395b28d9a463a566580f498c",
-      "viewports": ["375x812", "1440x900"],
-      "themes": ["light", "dark"],
+      "viewports": [
+        "375x812",
+        "1440x900"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
       "geometryMaximumDifferencePx": 0,
       "focusRingMaximumDifferencePx": 0,
       "screenshotResult": "button gap, dialog layout and tabs overflow geometry assertions passed"
+    },
+    {
+      "surface": "AdminArticleCompactCard/Login/Register public labels",
+      "owner": "FsusBlog",
+      "removedDeepOccurrences": 0,
+      "removedBoundaryOccurrences": 3,
+      "removedUnregisteredDeepOccurrences": 3,
+      "replacement": "Public Tag class fallthrough and Blog-owned Checkbox default-slot labels; restore the existing zero selector budget",
+      "viewports": [
+        "390x1000",
+        "1440x1000"
+      ],
+      "themes": [
+        "light",
+        "dark"
+      ],
+      "geometryMaximumDifferencePx": 0,
+      "focusRingMaximumDifferencePx": null,
+      "screenshotResult": "Real Chromium before/after public-alias component diagnostics: 12 cases passed; measured bounds identical, no page overflow; selection, disabled and unchanged action identities passed. Controlled business-state fixture only; no backend authentication or independent UX acceptance. Focus-ring pixel delta not measured.",
+      "baselineSourceCommit": "ee808392b54d690d5f99a1e95140bc975a76d5d4",
+      "fsusUiSourceCommit": "c987c645a6ddc915bbc28429a97a3f21fafe258b"
     }
   ]
 }
