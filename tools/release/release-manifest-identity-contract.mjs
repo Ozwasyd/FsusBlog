@@ -67,14 +67,14 @@ export function validateReleaseIdentityRoster(manifest)
         }
         artifact(identity.backend.artifact, 'identity.backend.artifact');
     }
-    if (fields(identity.frontend, ['buildId', 'buildReceipt', 'assetManifest', 'wasmArtifact'], 'identity.frontend'))
+    if (fields(identity.frontend, ['buildId', 'buildReceipt', 'buildManifest', 'assetManifest', 'wasmArtifact'], 'identity.frontend'))
     {
-        if (!exact(identity.frontend.buildId) || identity.frontend.buildId !== identity.source?.buildId || identity.frontend.assetManifest?.sha256 !== manifest.frontendManifestHash
+        if (!exact(identity.frontend.buildId) || identity.frontend.buildId !== identity.source?.buildId || identity.frontend.buildManifest?.sha256 !== manifest.frontendManifestHash
             || identity.frontend.wasmArtifact?.sha256 !== manifest.wasmArtifactHash)
         {
             errors.push('identity.frontend must match current build/assets/Wasm');
         }
-        for (const key of ['buildReceipt', 'assetManifest', 'wasmArtifact'])
+        for (const key of ['buildReceipt', 'buildManifest', 'assetManifest', 'wasmArtifact'])
         {
             artifact(identity.frontend[key], `identity.frontend.${key}`);
         }
