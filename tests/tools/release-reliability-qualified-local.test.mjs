@@ -615,7 +615,9 @@ NODE
         sealMatrixFixtureProfile(bootstrapTiers[0])
     );
     assert.equal(expected.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID, 'acceptance-representative');
-    assert.equal(expected.FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS, 'acceptance');
+    // The acceptance profile and runtime execution class are separate canonical contracts.
+    assert.equal(bootstrapTiers[0].executionClass, 'runtime');
+    assert.equal(expected.FSUSBLOG_SEALED_FIXTURE_EXECUTION_CLASS, 'runtime');
     assert.deepEqual(JSON.parse(fs.readFileSync(capture, 'utf8')), {
         FSUSBLOG_SEALED_FIXTURE_PROFILE_ID: expected.FSUSBLOG_SEALED_FIXTURE_PROFILE_ID,
         FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST: expected.FSUSBLOG_SEALED_FIXTURE_CATALOG_DIGEST,
