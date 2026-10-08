@@ -83,11 +83,11 @@ public sealed class OwnedSpillRoot : IDisposable
         _directory.Delete(name);
     }
 
-    internal void Delete(string name, DiskFileFootprint expected)
+    internal bool Delete(string name, DiskFileFootprint expected)
     {
         ArgumentNullException.ThrowIfNull(expected);
         ValidateName(name);
-        _directory.Delete(name, expected);
+        return _directory.Delete(name, expected);
     }
 
     public DiskFileFootprint ObserveRootFootprint(TimeProvider? timeProvider = null)
