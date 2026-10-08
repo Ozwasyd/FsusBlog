@@ -5,6 +5,7 @@
             "id": "environment-variable",
             "paths": [
                 "tools/test-matrix/fixture-switch-evidence.mjs",
+                "tools/test-matrix/fixture-switch-scheduler-adapter.mjs",
                 "tools/test/check-fixture-matrix-governance.mjs",
                 "tools/test/fixture-matrix-governance.mjs"
             ],

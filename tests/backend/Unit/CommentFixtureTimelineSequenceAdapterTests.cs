@@ -53,7 +53,7 @@ public sealed class CommentFixtureTimelineSequenceAdapterTests
         Assert.Same(primary, exception.InnerException);
         Assert.Empty(exception.CompletedSteps);
         Assert.Equal(2, exception.PendingMutation!.After.CurrentVersion);
-        Assert.Single(port.ReceivedCalls().Where(call => call.GetMethodInfo().Name == "ExecuteMutationAsync"));
+        Assert.Single(port.ReceivedCalls(), call => call.GetMethodInfo().Name == "ExecuteMutationAsync");
     }
 
     [Fact]
