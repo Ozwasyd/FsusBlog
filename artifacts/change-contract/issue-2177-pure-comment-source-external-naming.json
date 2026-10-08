@@ -7,25 +7,14 @@
                 "src/backend/Services/ArticleCommentPolicyService.cs",
                 "src/backend/Services/CommentModerationService.cs",
                 "src/backend/Services/CommentService.cs",
-                "src/backend/Services/Security/AnonymousCommentPolicyService.cs",
-                "tools/test/correctness-attempt-migration.mjs"
+                "src/backend/Services/Security/AnonymousCommentPolicyService.cs"
             ],
-            "reason": "Preserve existing production configuration and process environment names while exposing the same compiled pure policy methods; the migration owner is unchanged prerequisite ancestry."
+            "reason": "Preserve existing production configuration and process environment names while exposing the same compiled pure policy methods."
         },
         {
             "id": "css-like-contract",
             "paths": ["docs/architecture/comment-command-boundary.md"],
             "reason": "Preserve canonical configuration, thread and generated-section identifiers while documenting the exact production-shared policy API."
-        },
-        {
-            "id": "json-wire-key",
-            "paths": [
-                "config/testing/correctness-attempt-producers.json",
-                "tests/backend/packages.lock.json",
-                "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/governance/test-lifecycle-registry.json"
-            ],
-            "reason": "Preserve serialized producer, lifecycle, release fixture and NuGet lock fields already present in coordinator-supplied prerequisite ancestry."
         }
     ]
 }
