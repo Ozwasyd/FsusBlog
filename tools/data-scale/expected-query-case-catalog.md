@@ -101,7 +101,7 @@ receipt or query-runner admission is supplied by this seam.
 
 `inspectExpectedQueryOwnerInventory(binding)` calls the original
 `buildQueryCaseInventory(binding)` from published query owner source
-`e66650ec61b56af6e45bcb393b98cd648a3ccef8`. It preserves the original inventory
+`e7d7a880b5bfd61958c647e2311f88ecb237e500`. It preserves the original inventory
 and its source-byte owner identities, then reports missing kinds using only
 the closed schema vocabulary. It retains unresolved canonical role bindings,
 scenario applicability and per-case blockers. Raw collector input fields,
@@ -109,10 +109,33 @@ route parameters and the declared anonymous actor cannot substitute for
 canonical graph roles. This inspection is always blocked and unqualified;
 it does not normalize an incomplete inventory into accepted `currentInputs`.
 
-The original owner declares seven kinds across sixteen case IDs. In
+The same inspector directly consumes the original
+`buildQuerySemanticOwnerInventory({ binding, kinds })`, passing only the sole
+closed schema vocabulary. Its returned `semanticOwners` retain the original
+business-owner source refs, exact current-byte digests, entrypoints, signature
+parameter types, actor constraints and routes. Their query-inventory digest
+must equal the independently read original case inventory. All native
+declaration blockers remain attributed to their domain and kind.
+
+These are newly usable typed source declarations across all twenty-four kinds,
+including the real publication-receipt/current-invocation verifier overload and
+cache/AOT/HotRead readers. The original AOT article route is
+`/article/{articleId}`, with its original route-identity owner. Declaration
+availability does not add executed cases or supply missing producer inputs.
+Original `inputs`, `canonicalRoleBindings` and `scenarioApplicability` stay
+null. No receipts, coordinates or normalized graph roles are manufactured.
+
+Consistency intake still needs actual same-run/business-epoch publication and
+revision/content coordinates plus cache/AOT/HotRead generation and bytes.
+The existing outer public-content source/run identity and temporal observation
+must be retained by the original runner. No-hit and search-ranking authorities
+remain missing; source-version/extractor repair belongs to that runner owner.
+
+The original case inventory declares seven kinds across sixteen case IDs. In
 particular, middle/last comment cursors and nested expansion declare
 `pagination-order`; nested expansion explicitly does not establish a full
-`public-thread`. Seventeen required kinds lack original owner declarations.
+`public-thread`. Seventeen required kinds still lack case mappings, while
+source owner declarations cover all twenty-four kinds.
 The earlier synthetic control mapping is not production coverage evidence.
 
 ## Current integration limits

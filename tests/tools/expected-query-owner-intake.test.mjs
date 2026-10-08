@@ -5,7 +5,7 @@ import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
 const { expectedQueryKinds, inspectExpectedQueryOwnerInventory } = await import(new URL('../../tools/data-scale/expected-query-case-catalog.mjs', import.meta.url));
-const { buildQueryCaseInventory, queryCaseIds } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseInventory, buildQuerySemanticOwnerInventory, queryCaseIds } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
 const { validateJsonSchema } = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 
@@ -36,8 +36,11 @@ test('owner intake preserves the exact canonical inventory and all native blocke
     const binding = syntheticInventoryBinding();
     const before = structuredClone(binding);
     const native = buildQueryCaseInventory(binding);
+    const nativeSemanticOwners = buildQuerySemanticOwnerInventory({ binding, kinds: expectedQueryKinds() });
     const result = inspectExpectedQueryOwnerInventory(binding);
     assert.deepEqual(result.inventory, native);
+    assert.deepEqual(result.semanticOwners, nativeSemanticOwners);
+    assert.equal(result.semanticOwners.queryInventoryDigest, native.contentDigest);
     assert.deepEqual(binding, before);
     assert.equal(result.status, 'blocked');
     assert.equal(result.qualification, false);
@@ -49,7 +52,9 @@ test('owner intake preserves the exact canonical inventory and all native blocke
     assert.deepEqual(result.missingKinds, missingKindsFor(native));
     const nativeBlockers = native.cases.flatMap((entry) => entry.blockers.map((blocker) => `query:${entry.id}:${blocker}`));
     const coverageBlockers = result.missingKinds.map(({ domain, kind }) => `coverage:${domain}:${kind}:canonical_query_missing`);
-    assert.deepEqual(result.blockers, [...new Set([...nativeBlockers, ...coverageBlockers])]);
+    const ownerBlockers = nativeSemanticOwners.requirements.flatMap((entry) => entry.blockers
+        .map((blocker) => `owner:${entry.domain}:${entry.kind}:${blocker}`));
+    assert.deepEqual(result.blockers, [...new Set([...nativeBlockers, ...coverageBlockers, ...ownerBlockers])]);
     assert.equal(new Set(result.blockers).size, result.blockers.length);
 });
 
@@ -112,6 +117,111 @@ test('native inventory rows cannot become normalized closed query-owner projecti
     {
         assert.ok(errors.some((error) => error.includes(`required property '${field}'`)), field);
     }
+});
+
+test('all twenty-four original semantic declarations retain unresolved contracts without adding cases', () =>
+{
+    const result = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding());
+    const vocabulary = expectedQueryKinds();
+    const expectedKinds = Object.entries(vocabulary).flatMap(([domain, kinds]) => kinds.map((kind) => ({ domain, kind })));
+    assert.deepEqual(result.semanticOwners.requirements.map(({ domain, kind }) => ({ domain, kind })), expectedKinds);
+    assert.equal(result.semanticOwners.requirements.length, 24);
+    assert.equal(result.semanticOwners.vocabularyDigest, computeSha256(vocabulary));
+    assert.equal(result.semanticOwners.qualification, false);
+    assert.equal(result.semanticOwners.releaseEvidenceEligible, false);
+    assert.equal(Object.hasOwn(result.semanticOwners, 'cases'), false);
+    const mappedIds = [];
+    for (const requirement of result.semanticOwners.requirements)
+    {
+        assert.equal(requirement.inputs, null);
+        assert.equal(requirement.canonicalRoleBindings, null);
+        assert.equal(requirement.scenarioApplicability, null);
+        assert.equal(requirement.qualification, false);
+        assert.equal(requirement.releaseEvidenceEligible, false);
+        assert.deepEqual(requirement.existingCaseIds, result.inventory.cases
+            .filter((entry) => entry.domain === requirement.domain && entry.kind === requirement.kind)
+            .map((entry) => entry.id));
+        mappedIds.push(...requirement.existingCaseIds);
+    }
+    assert.deepEqual([...mappedIds].sort(), [...queryCaseIds].sort());
+    assert.equal(new Set(mappedIds).size, queryCaseIds.length);
+    const ownerOnlyKinds = result.semanticOwners.requirements
+        .filter((entry) => entry.status === 'owner-declaration-only')
+        .map(({ domain, kind }) => ({ domain, kind }));
+    assert.deepEqual(ownerOnlyKinds, result.missingKinds);
+    assert.equal(result.missingKinds.length, 17);
+});
+
+test('all fifty-three business source references preserve current exact bytes and declaration identity', () =>
+{
+    const result = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding());
+    const original = buildQuerySemanticOwnerInventory({ binding: syntheticInventoryBinding(), kinds: expectedQueryKinds() });
+    const references = result.semanticOwners.requirements.flatMap((entry) => entry.businessOwners);
+    assert.equal(references.length, 53);
+    assert.deepEqual(result.semanticOwners, original);
+    for (const reference of references)
+    {
+        const bytes = fs.readFileSync(path.join(repositoryRoot, reference.path));
+        assert.equal(reference.contentDigest, computeSha256(bytes), reference.entrypoint);
+        assert.equal(reference.version, `source-${reference.contentDigest.slice('sha256:'.length)}`);
+    }
+    const { contentDigest, ...declarationContent } = result.semanticOwners;
+    assert.equal(contentDigest, computeSha256(declarationContent));
+    // These are source declarations; methods and consistency verifiers are not executed here.
+});
+
+test('three consistency declarations preserve the original verifier signature and same-run receipt blocker', () =>
+{
+    const result = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding());
+    const consistencyKinds = ['cache-consistency', 'aot-consistency', 'hot-read-consistency'];
+    const original = buildQuerySemanticOwnerInventory({ binding: syntheticInventoryBinding(), kinds: expectedQueryKinds() });
+    for (const kind of consistencyKinds)
+    {
+        const requirement = result.semanticOwners.requirements.find((entry) => entry.domain === 'article' && entry.kind === kind);
+        const originalRequirement = original.requirements.find((entry) => entry.domain === 'article' && entry.kind === kind);
+        assert.deepEqual(requirement, originalRequirement);
+        const verifier = requirement.businessOwners.find((owner) => owner.entrypoint === 'FsusBlog.Server.Services.Fixtures.CanonicalArticleProjectionVerifier.VerifyAsync');
+        assert.ok(verifier, kind);
+        assert.deepEqual(verifier.parameterTypes, [
+            'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationReceipt',
+            'FsusBlog.Server.Services.Fixtures.CanonicalArticlePublicationRequest',
+            'System.Threading.CancellationToken'
+        ]);
+        const blocker = 'original_same_run_publication_receipt_and_current_invocation_missing';
+        assert.ok(requirement.blockers.includes(blocker));
+        assert.ok(result.blockers.includes(`owner:article:${kind}:${blocker}`));
+        assert.equal(requirement.qualification, false);
+    }
+});
+
+test('AOT declaration keeps the actual public route and original route identity owner verbatim', () =>
+{
+    const binding = syntheticInventoryBinding();
+    const result = inspectExpectedQueryOwnerInventory(binding);
+    const native = buildQuerySemanticOwnerInventory({ binding, kinds: expectedQueryKinds() });
+    const requirement = result.semanticOwners.requirements.find((entry) => entry.domain === 'article' && entry.kind === 'aot-consistency');
+    assert.deepEqual(requirement, native.requirements.find((entry) => entry.domain === 'article' && entry.kind === 'aot-consistency'));
+    assert.deepEqual(requirement.routePatterns, ['/article/{articleId}']);
+    assert.ok(requirement.businessOwners.some((owner) => owner.path === 'src/backend/Infrastructure/PublicAot/PublicRouteIdentity.cs'
+        && owner.entrypoint === 'FsusBlog.Server.Infrastructure.PublicAot.PublicRouteIdentity.BuildCanonicalPath'));
+    assert.ok(requirement.blockers.includes('original_aot_artifact_and_route_identity_missing'));
+});
+
+test('original semantic declarations cannot become closed currentInputs query owners', () =>
+{
+    const result = inspectExpectedQueryOwnerInventory(syntheticInventoryBinding());
+    const schema = JSON.parse(fs.readFileSync(path.join(repositoryRoot, 'config/schemas/expected-query-case-catalog.schema.json'), 'utf8'));
+    const errors = validateJsonSchema(result.semanticOwners.requirements, {
+        $schema: schema.$schema,
+        $defs: schema.$defs,
+        $ref: '#/$defs/currentInputs/properties/queryOwners'
+    });
+    assert.ok(errors.length > 0);
+    for (const field of ['id', 'queryOwner', 'actorClass', 'semantics', 'scenarioIds', 'expectedSchema'])
+    {
+        assert.ok(errors.some((error) => error.includes(`required property '${field}'`)), field);
+    }
+    assert.ok(errors.some((error) => error.includes('/inputs must be array')));
 });
 
 for (const [name, binding] of [

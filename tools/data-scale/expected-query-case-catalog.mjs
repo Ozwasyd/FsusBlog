@@ -3,7 +3,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { inspectQueryScenarioApplicability } from './distribution-query-binding.mjs';
-import { buildQueryCaseInventory, queryCaseIds } from './query-case-registry.mjs';
+import { buildQueryCaseInventory, buildQuerySemanticOwnerInventory, queryCaseIds } from './query-case-registry.mjs';
 import { computeSha256 } from './runtime-plan.mjs';
 
 const { validateJsonSchema } = await import(new URL('../test-matrix/schema-validator/validate.mjs', import.meta.url));
@@ -35,17 +35,26 @@ export function inspectExpectedQueryScenarioApplicability(applicability)
 export function inspectExpectedQueryOwnerInventory(binding)
 {
     const inventory = buildQueryCaseInventory(binding);
-    const missingKinds = Object.entries(expectedQueryKinds()).flatMap(([domain, kinds]) => kinds
+    const kinds = expectedQueryKinds();
+    const semanticOwners = buildQuerySemanticOwnerInventory({ binding, kinds });
+    if (semanticOwners.queryInventoryDigest !== inventory.contentDigest)
+    {
+        throw new Error('query semantic owner inventory differs from original case inventory');
+    }
+    const missingKinds = Object.entries(kinds).flatMap(([domain, values]) => values
         .filter((kind) => !inventory.cases.some((entry) => entry.domain === domain && entry.kind === kind))
         .map((kind) => ({ domain, kind })));
     const blockers = inventory.cases.flatMap((entry) => entry.blockers
         .map((blocker) => `query:${entry.id}:${blocker}`));
     blockers.push(...missingKinds.map(({ domain, kind }) => `coverage:${domain}:${kind}:canonical_query_missing`));
+    blockers.push(...semanticOwners.requirements.flatMap((entry) => entry.blockers
+        .map((blocker) => `owner:${entry.domain}:${entry.kind}:${blocker}`)));
     return {
         status: 'blocked',
         qualification: false,
         releaseEvidenceEligible: false,
         inventory,
+        semanticOwners,
         missingKinds,
         blockers: [...new Set(blockers)]
     };
