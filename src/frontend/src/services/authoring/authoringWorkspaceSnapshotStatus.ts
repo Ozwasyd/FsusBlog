@@ -51,7 +51,15 @@ export function authoringWorkspaceSnapshotStatusModel(sync: AuthoringWorkspaceSn
     }
     if (plan)
     {
-        requirePreparedWorkspaceSnapshotRestorePlan(plan);
+        try
+        {
+            requirePreparedWorkspaceSnapshotRestorePlan(plan);
+        }
+        catch
+        {
+            // Old summaries lose their authority with the observation; the current status still renders.
+            plan = null;
+        }
     }
     if (plan && state.online && state.status === 'current' && plan.serverRevision === state.serverRevision
         && plan.scopeDigest === state.scopeDigest && plan.sourceDigest === state.sourceDigest && plan.summary.skipped + plan.summary.blocked > 0)
@@ -62,7 +70,7 @@ export function authoringWorkspaceSnapshotStatusModel(sync: AuthoringWorkspaceSn
     }
     const unsigned = { state: status, message, role: 'status' as const, live: 'polite' as const,
         canInspectReasons: Object.keys(reasonCounts).length > 0, reasonCounts,
-        canReset: state.online && !state.dirty && (state.status === 'current' || state.status === 'defaulted') && state.serverRevision !== null };
+        canReset: state.online && !state.dirty && !state.resetting && (state.status === 'current' || state.status === 'defaulted') && state.serverRevision !== null };
     return freezeWorkspaceSnapshot({ ...unsigned, contentDigest: workspaceSnapshotDigest(unsigned) });
 }
 export class AuthoringWorkspaceSnapshotResetController
