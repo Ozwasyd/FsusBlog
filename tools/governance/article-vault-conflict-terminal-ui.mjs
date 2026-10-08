@@ -9,11 +9,13 @@ import { fileURLToPath } from 'node:url';
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 export const articleVaultConflictUiFiles = Object.freeze([
     'src/frontend/src/components/article-vault/conflictEvidencePresentation.ts',
-    'src/frontend/src/components/article-vault/VaultConflictList.vue'
+    'src/frontend/src/components/article-vault/VaultConflictList.vue',
+    'src/frontend/src/components/article-vault/resolutionStatusPresentation.ts',
+    'src/frontend/src/components/article-vault/VaultResolutionStatus.vue'
 ]);
 
 const imports = new Set([
-    'vue', '@ozwasyd/element-plus', '@/fsusui/button', './conflictEvidencePresentation',
+    'vue', '@ozwasyd/element-plus', '@/fsusui/button', './conflictEvidencePresentation', './resolutionStatusPresentation',
     '../../../../shared/Contracts/ArticleVault/article-vault-conflict-evidence.schema.json'
 ]);
 const forbiddenReferences = new Set([
@@ -41,7 +43,7 @@ export function readArticleVaultConflictUiSources(root = repositoryRoot)
     return new Map(articleVaultConflictUiFiles.map(file => [file, readFileSync(path.join(root, file), 'utf8')]));
 }
 
-/** A deliberately scoped AST check for the two presentation owners; not browser or terminal acceptance. */
+/** A deliberately scoped AST check for the conflict/recovery presentation owners; not terminal acceptance. */
 export function checkArticleVaultConflictUiSources(sources, root = repositoryRoot)
 {
     const require = createRequire(path.join(root, 'src/frontend/package.json'));

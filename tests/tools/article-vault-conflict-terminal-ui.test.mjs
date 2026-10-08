@@ -7,7 +7,7 @@ const {
     readArticleVaultConflictUiSources
 } = await import(new URL('../../tools/governance/article-vault-conflict-terminal-ui.mjs', import.meta.url));
 
-const [presentation, component] = articleVaultConflictUiFiles;
+const [presentation, component, statusPresentation, statusComponent] = articleVaultConflictUiFiles;
 
 function diagnostics(file, mutation)
 {
@@ -18,7 +18,35 @@ function diagnostics(file, mutation)
 
 test('actual Vue script, render AST and presentation retain the read-only authority boundary', () =>
 {
+    assert.equal(articleVaultConflictUiFiles.length, 4);
     assert.deepEqual(checkArticleVaultConflictUiSources(readArticleVaultConflictUiSources()), []);
+});
+
+test('plan/checkpoint presentation owners cannot acquire recovery writers or mutate canonical truth', () =>
+{
+    for (const fixture of [
+        'journal.state = "complete";',
+        'const recovery = await import("@/services/articleVault/recovery");',
+        'recoverLatest();',
+        'const debug = console.log; debug(journal);'
+    ])
+    {
+        assert.match(diagnostics(statusPresentation, source => `${source}\n${fixture}\n`),
+            /canonical machine|dependency|writer|privacy/u);
+    }
+});
+
+test('checkpoint render expressions cannot write, choose latest recovery or expose raw backup HTML', () =>
+{
+    for (const fixture of [
+        '<button @click="journal.state = \'complete\'">Finish</button>',
+        '<button @click="recoverLatest()">Recover</button>',
+        '<div v-html="journal.privateBackupBytes" />'
+    ])
+    {
+        assert.match(diagnostics(statusComponent, source => source.replace('</template>', `${fixture}\n</template>`)),
+            /canonical machine|writer|raw HTML/u);
+    }
 });
 
 test('comments and ordinary display strings do not become executable authority', () =>
