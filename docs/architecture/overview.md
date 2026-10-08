@@ -306,6 +306,24 @@ create asset qualification, an authorized asset observation transport or publish
 operation coordinates, and do not promote the server normalization response to
 complete prepublication acceptance.
 
+`useArticlePreviewGeneration` optionally borrows the original attachment business
+owner through the read-only `ArticlePreviewAttachmentPort.assess/verify` contract.
+It retains the owner's immutable projection reference, rejects foreign or
+tampered context and blocking nodes, and calls that same owner's live verifier
+before the request and again before response commit. It creates no asset
+inventory, upload provider, intent authority, reference ledger or cleanup receipt.
+An omitted owner leaves source-only preview explicitly `missing`; a configured
+but unavailable owner blocks generation. A configured owner also requires the
+existing document adapter's context subscription. Context changes, superseding
+requests and consumer disposal cancel only this consumer's work and withdraw its
+attachment projection; they do not release the Writer host. `attachmentState`
+being `ready` describes the checked request-time attachment snapshot, not complete
+preview or publication qualification. Fresh verification is still required for
+authority changes without a document revision because this read port supplies no
+authority-change notification. The Writer host owns mounting the actual business
+state and current draft responsibility/site-author inputs; source-history digests
+and native upload observations cannot supply those authorities.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
