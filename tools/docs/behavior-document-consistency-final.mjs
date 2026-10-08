@@ -1425,7 +1425,8 @@ function assertedFixtureProperties(sourceFile, parser, context)
     let ambiguousImport = false;
     const registerImport = (name, modulePath, imported, node) =>
     {
-        if (imports.has(name) || intrinsicNames.has(name))
+        const nativeUrlBinding = name === 'URL' && modulePath === 'node:url' && imported === 'URL';
+        if (imports.has(name) || (intrinsicNames.has(name) && !nativeUrlBinding))
         {
             ambiguousImport = true;
         }
@@ -1472,7 +1473,9 @@ function assertedFixtureProperties(sourceFile, parser, context)
         ['createZeroLegacyScannerFixture', helperPath, 'createZeroLegacyScannerFixture'],
         ['scanZeroLegacyGovernance', scannerImplementationPath, 'scanZeroLegacyGovernance']
     ];
-    if (ambiguousImport || requiredImports.some(([name, modulePath, imported]) => imports.get(name)?.modulePath !== modulePath
+    if (ambiguousImport || (explicitDeclarations.size > 0 && (imports.get('URL')?.modulePath !== 'node:url'
+        || imports.get('URL')?.imported !== 'URL'))
+        || requiredImports.some(([name, modulePath, imported]) => imports.get(name)?.modulePath !== modulePath
         || imports.get(name)?.imported !== imported))
     {
         return new Set();
@@ -1566,6 +1569,7 @@ function assertedFixtureProperties(sourceFile, parser, context)
             unsupported = true;
         }
         if (parser.isIdentifier(node) && node.text === 'URL'
+            && node !== imports.get('URL')?.node
             && !(parser.isNewExpression(node.parent) && node.parent.expression === node))
         {
             unsupported = true;

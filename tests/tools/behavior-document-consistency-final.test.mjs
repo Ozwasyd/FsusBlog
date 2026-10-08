@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, URL } from 'node:url';
 
 const {
     buildFinalConsistencyReport,
@@ -833,8 +833,8 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         "import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs'"
     ].join('\n');
     const explicitImport = "const { scanZeroLegacyGovernance } = await import(new URL('../../tools/docs/behavior-document-consistency-final.mjs', import.meta.url));";
-    const explicitImports = imports.replace(
-        "import { scanZeroLegacyGovernance } from '../../tools/docs/behavior-document-consistency-final.mjs'", explicitImport);
+    const explicitImports = `${imports.replace(
+        "import { scanZeroLegacyGovernance } from '../../tools/docs/behavior-document-consistency-final.mjs'", explicitImport)}\nimport { URL } from 'node:url';`;
     const scannerPath = 'tools/docs/behavior-document-consistency-final.mjs';
     const helperPath = 'tests/tools/support/zero-legacy-scanner-fixture.mjs';
     const scanner = fs.readFileSync(path.join(repositorySourceRoot, scannerPath), 'utf8');
@@ -879,6 +879,8 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['explicit-url-wrong-export', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ fakeScanner: scanZeroLegacyGovernance }'), true],
         ['explicit-url-intrinsic-binding', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ scanZeroLegacyGovernance, JSON }'), true],
         ['explicit-url-constructor-shadow', representative, helper, `${explicitImports}\nconst URL = fakeURL;`, true],
+        ['explicit-url-unbound-constructor', representative, helper, explicitImports.replace("import { URL } from 'node:url';", ''), true],
+        ['explicit-url-fake-constructor-import', representative, helper, explicitImports.replace("from 'node:url'", "from './fake-url.mjs'"), true],
         ['explicit-url-destructured-shadow', representative, helper, `${explicitImports}\nconst { URL } = fakeURL;`, true],
         ['explicit-url-constructor-alias', representative, helper, `${explicitImports}\nconst aliased = URL;`, true],
         ['explicit-url-constructor-mutation', representative, helper, `${explicitImports}\nURL = fakeURL;`, true],
