@@ -525,8 +525,8 @@
         },
         {
             "path": "src/frontend/src/locales/routeLocaleDomains.ts",
-            "contentDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4",
-            "indexDigest": "sha256:7247439abba6b698bef938b72198c3b3a619e85a0239b1c9293e8a71d0ee16b4"
+            "contentDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14",
+            "indexDigest": "sha256:67d3744142a48bf5eb188ff9e8dddab84ee04b18040e84867e5f8174febb3f14"
         },
         {
             "path": "src/frontend/src/locales/ru-RU/admin.ts",
@@ -3080,8 +3080,8 @@
         },
         {
             "path": "tools/dotnet/check-csharp-style.mjs",
-            "contentDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1",
-            "indexDigest": "sha256:172dfcbbf22808f3fcf2befe20ccf544cecab3ccc6c7eecf9488f363093d5ee1"
+            "contentDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f",
+            "indexDigest": "sha256:754a8bb0e2c5505c2b404746fb289c5740d39dc17b9f0274f1eba6368c620e4f"
         },
         {
             "path": "tools/fact-extractors/governance.mjs",
@@ -4585,8 +4585,8 @@
         },
         {
             "path": "tools/test-matrix/scheduler.mjs",
-            "contentDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808",
-            "indexDigest": "sha256:e7fbf540795bd70fb566a9ff0d5ea0e586a101a83b2dde4a5461c920b9425808"
+            "contentDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+            "indexDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7"
         },
         {
             "path": "tools/test-matrix/schema-validator/package.json",
