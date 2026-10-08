@@ -154,7 +154,7 @@ public sealed class ArticleVaultBlockLinkRefactorTests
         var range = new ArticleRelationSourceRange(start, start + markdown.Length, markdown);
         ArticleRelationRecord relation = ArticleRelationContractValidator.Seal(new ArticleRelationRecord(
             ArticleRelationSchemas.Relation, ArticleRelationSchemas.Version, string.Empty, 1, ArticleRelationKind.Outgoing,
-            source, new ArticleRelationOccurrence("显示", range, range, 1),
+            source, new ArticleRelationOccurrence(markdown, range, range, 1),
             new ArticleRelationTargetFacts(new ArticleRelationTargetIdentity(Target, ArticleRelationTargetKind.Block, null, "stable"),
                 "revision:01991e72-bbbb-7a86-bc95-5518cf8bd7dc", 17, ArticleRelationRevisionKind.Published,
                 ArticleRelationLifecycleState.Published, ArticleRelationPermissionState.Allowed),
