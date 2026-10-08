@@ -33,14 +33,14 @@
             />
             <FsusUiInput
                 ref="control"
-                v-if="definition.valueType === 0 || definition.valueType === 7"
+                v-if="[0, 1, 3, 7].includes(definition.valueType)"
                 :model-value="text"
                 :type="definition.valueType === 0 ? 'textarea' : 'text'"
                 :rows="2"
                 resize="vertical"
-                :inputmode="definition.valueType === 7 ? 'url' : 'text'"
+                :inputmode="definition.valueType === 7 ? 'url' : definition.valueType === 1 ? 'decimal' : 'text'"
                 :aria-labelledby="labelId"
-                :aria-describedby="statusId"
+                :aria-describedby="inputDescription"
                 :aria-invalid="invalid"
                 :disabled="blocked || draftPresence !== 2"
                 :validate-event="false"
@@ -74,6 +74,17 @@
                 @update:model-value="handlers.options"
             />
             <p v-else>{{ labels.editorUnavailable }}</p>
+            <p
+                v-if="definition.valueType === 1 || definition.valueType === 3"
+                :id="exactHintId"
+                class="article-metadata-field__status"
+            >{{ definition.valueType === 1 ? labels.exactEditHints.number : labels.exactEditHints.utc }}</p>
+            <p
+                v-if="exactEditError"
+                :id="exactErrorId"
+                class="article-metadata-field__status"
+                role="status"
+            >{{ labels.exactEditErrors[exactEditError] }}</p>
         </div>
         <p
             class="article-metadata-field__status"
@@ -138,6 +149,9 @@ import { FsusUiSelect } from '@/fsusui/select';
 import { FsusUiSwitch } from '@/fsusui/switch';
 import type { ArticleDocumentContext } from '@/services/authoring/articleDocumentContext';
 
+import { formatArticlePropertyExactDecimal, formatArticlePropertyUtcTicks, parseArticlePropertyExactDecimal, parseArticlePropertyUtcTicks,
+         type ArticleMetadataExactEditError } from './articleMetadataExactEdit';
+
 // Leaf control for the one owner-mounted inspector. Only immutable canonical
 // reads enter; transient input is neither a command nor a persisted value. The
 // canonical owner has not supplied a mutation/validation/reference editor port.
@@ -165,6 +179,8 @@ const props = defineProps<{
         presenceLabel: string;
         presence: readonly string[];
         reconciliation: readonly string[];
+        exactEditHints: { number: string; utc: string; };
+        exactEditErrors: Readonly<Record<ArticleMetadataExactEditError, string>>;
         definitionSummary: {
             toggle: string;
             searchEligible: string;
@@ -194,6 +210,8 @@ const labelId = useId();
 const statusId = useId();
 const presenceLabelId = useId();
 const summaryId = useId();
+const exactHintId = useId();
+const exactErrorId = useId();
 const summaryExpanded = ref(false);
 const summaryDisclosure = shallowRef<HTMLDetailsElement | null>(null);
 const revokedModel = shallowRef<ArticlePropertyValueReadResponse | null>(null);
@@ -236,7 +254,7 @@ const incompatible = computed(() => !!entry.value && !!definition.value
         || (entry.value.value !== null && entry.value.value.type !== definition.value.valueType)));
 const blocked = computed(() => !props.editable || definition.value?.status !== 0
     || incompatible.value || [1, 2, 3, 5].includes(reconciliation.value?.status ?? 1));
-const invalid = computed(() => [4, 6].includes(reconciliation.value?.status ?? -1));
+const invalid = computed(() => [4, 6].includes(reconciliation.value?.status ?? -1) || exactEditError.value !== null);
 const serverStatus = computed(() => incompatible.value ? props.labels.conflict
     : props.labels.reconciliation[definition.value?.status !== 0 ? 2 : reconciliation.value?.status ?? 1] ?? props.labels.unavailable);
 const fieldName = computed(() => definition.value?.displayNames.find((name) => name.locale === props.locale)?.value
@@ -297,7 +315,7 @@ const summaryRows = computed(() =>
 });
 type ValuePresence = NonNullable<ArticlePropertyValueReadResponse['current']>['snapshot']['values'][number]['presence'];
 const presence = computed<ValuePresence>(() => entry.value?.presence ?? 0);
-const supported = computed(() => [0, 2, 4, 5, 7].includes(definition.value?.valueType ?? -1));
+const supported = computed(() => [0, 1, 2, 3, 4, 5, 7].includes(definition.value?.valueType ?? -1));
 const presenceOptions = computed(() => ([0, 1, 2] as const).map((value) => ({ value, label: props.labels.presence[value] })));
 const draftPresence = ref<ValuePresence>(0);
 const options = computed(() =>
@@ -327,6 +345,19 @@ const boolean = ref(false);
 const single = ref<string | undefined>(undefined);
 const multiple = ref<string[]>([]);
 const dirty = ref(false);
+const exactEditError = computed<ArticleMetadataExactEditError | null>(() =>
+{
+    if (!dirty.value || draftPresence.value !== 2)
+    {
+        return null;
+    }
+    const result = definition.value?.valueType === 1 ? parseArticlePropertyExactDecimal(text.value)
+        : definition.value?.valueType === 3 ? parseArticlePropertyUtcTicks(text.value) : null;
+    return result && !result.ok ? result.error : null;
+});
+const inputDescription = computed(() => [statusId,
+                                         ...([1, 3].includes(definition.value?.valueType ?? -1) ? [exactHintId] : []),
+                                         ...(exactEditError.value ? [exactErrorId] : [])].join(' '));
 let disposed = false;
 const ignore = (): void =>
 {
@@ -346,6 +377,11 @@ function cancel(): void
     draftPresence.value = presence.value;
     const value = entry.value?.value;
     text.value = value?.type === 0 ? value.text : value?.type === 7 ? value.url : '';
+    if (value?.type === 1 || value?.type === 3)
+    {
+        const formatted = value.type === 1 ? formatArticlePropertyExactDecimal(value.number) : formatArticlePropertyUtcTicks(value.utc);
+        text.value = formatted.ok ? formatted.value : '';
+    }
     boolean.value = value?.type === 2 ? value.boolean : false;
     single.value = value?.type === 4 ? value.optionId : undefined;
     multiple.value = value?.type === 5 ? [...value.optionIds] : [];
@@ -414,7 +450,7 @@ async function cancelFromControl(event: MouseEvent): Promise<void>
         // SelectV2 documents focus(), but this active baseline does not
         // expose it. Keep the stable Cancel button focused for selection or
         // absent values; do not access private internals to emulate that API.
-        if (draftPresence.value === 2 && [0, 2, 7].includes(definition.value?.valueType ?? -1))
+        if (draftPresence.value === 2 && [0, 1, 2, 3, 7].includes(definition.value?.valueType ?? -1))
         {
             control.value?.focus();
         }

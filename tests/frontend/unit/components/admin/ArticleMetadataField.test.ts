@@ -6,6 +6,8 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { decodeArticlePropertyValueReadResponse, encodeArticlePropertyValueReadResponse, type ArticlePropertyValueReadResponse } from '@/codecs/binary/articlePropertyValueReadCodecs';
 import ArticleMetadataField from '@/components/admin/article/ArticleMetadataField.vue';
+import { formatArticlePropertyExactDecimal, formatArticlePropertyUtcTicks, parseArticlePropertyExactDecimal,
+    parseArticlePropertyUtcTicks } from '@/components/admin/article/articleMetadataExactEdit';
 import { FsusUiButton } from '@/fsusui/button';
 import { FsusUiInput } from '@/fsusui/input';
 import { FsusUiSelect } from '@/fsusui/select';
@@ -31,6 +33,10 @@ const labels = {
     defaultApplied: 'Server default applied', required: 'Required', conflict: 'Refresh changed definition', cancel: 'Cancel', save: 'Save',
     presenceLabel: 'Value presence', presence: ['Missing', 'Null', 'Present'], reconciliation: ['Current', 'Definition unavailable', 'Inactive definition',
         'Changed definition', 'Value rejected', 'Reference authority unavailable', 'Required value missing', 'Default pending'],
+    exactEditHints: { number: 'Decimal point; preserve sign and fractional zeros', utc: 'UTC date and time with seven fractional digits' },
+    exactEditErrors: { syntax: 'Use the exact edit format', 'coefficient-range': 'Coefficient exceeds decimal96',
+        'scale-range': 'Fraction exceeds28 digits', 'calendar-range': 'Invalid UTC calendar value',
+        'tick-range': 'UTC value exceeds supported range', 'invalid-value': 'Invalid exact value' },
     definitionSummary: {
         toggle: 'Definition flags and policies', searchEligible: 'Author search', filterable: 'Author filtering', sortable: 'Author sorting',
         required: 'Required policy', missing: 'Missing policy', null: 'Null policy', empty: 'Empty policy',
@@ -103,6 +109,14 @@ describe('ArticleMetadataField public controls and real canonical read states', 
         expect(wrapper.text()).toContain(labels.presence[value(model, definition.definitionId).presence]);
         if ([0, 7].includes(type))
             expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe(payload?.type === 0 ? payload.text : payload?.type === 7 ? payload.url : '');
+        else if (type === 1 || type === 3)
+        {
+            const expected = payload?.type === 1 ? formatArticlePropertyExactDecimal(payload.number)
+                : payload?.type === 3 ? formatArticlePropertyUtcTicks(payload.utc) : null;
+            expect(expected?.ok).toBe(true);
+            expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe(expected?.ok ? expected.value : '');
+            expect(wrapper.getComponent(FsusUiInput).props('type')).toBe('text');
+        }
         else if (type === 2)
             expect(wrapper.getComponent(FsusUiSwitch).props('modelValue')).toBe(payload?.type === 2 && payload.boolean);
         else if ([4, 5].includes(type))
@@ -409,20 +423,20 @@ describe('ArticleMetadataField cancellation and stale callback negatives', () =>
 
 describe('ArticleMetadataField canonical presence staging and lossless typed buffers', () =>
 {
-    it.each([0, 2, 4, 5, 7])('stages missing/null for type %i without erasing the typed buffer or Server facts', async (type) =>
+    it.each([0, 1, 2, 3, 4, 5, 7])('stages missing/null for type %i without erasing the typed buffer or Server facts', async (type) =>
     {
         const { wrapper, model } = render(type);
         const before = structuredClone(model);
-        const original = type === 0 || type === 7 ? wrapper.getComponent(FsusUiInput).props('modelValue')
+        const original = [0, 1, 3, 7].includes(type) ? wrapper.getComponent(FsusUiInput).props('modelValue')
             : type === 2 ? wrapper.getComponent(FsusUiSwitch).props('modelValue') : valueSelect(wrapper).props('modelValue');
-        const currentValue = (): unknown => type === 0 || type === 7 ? wrapper.getComponent(FsusUiInput).props('modelValue')
+        const currentValue = (): unknown => [0, 1, 3, 7].includes(type) ? wrapper.getComponent(FsusUiInput).props('modelValue')
             : type === 2 ? wrapper.getComponent(FsusUiSwitch).props('modelValue') : valueSelect(wrapper).props('modelValue');
         for (const presence of [0, 1])
         {
             presenceSelect(wrapper).vm.$emit('update:modelValue', presence);
             await nextTick();
             expect(presenceSelect(wrapper).props('modelValue')).toBe(presence);
-            const typedControl = type === 0 || type === 7 ? wrapper.getComponent(FsusUiInput)
+            const typedControl = [0, 1, 3, 7].includes(type) ? wrapper.getComponent(FsusUiInput)
                 : type === 2 ? wrapper.getComponent(FsusUiSwitch) : valueSelect(wrapper);
             expect(typedControl.vm.$props.disabled).toBe(true);
             const typedHandler = typedControl.vm.$.vnode.props?.['onUpdate:modelValue'];
@@ -549,7 +563,7 @@ describe('ArticleMetadataField canonical presence staging and lossless typed buf
 
 describe('ArticleMetadataField public control labels', () =>
 {
-    it.each([0, 2, 4, 5, 7])('labels the real type %i presence combobox through its public label prop', (type) =>
+    it.each([0, 1, 2, 3, 4, 5, 7])('labels the real type %i presence combobox through its public label prop', (type) =>
     {
         const { wrapper } = render(type);
         const id = presenceSelect(wrapper).props('label');
@@ -567,13 +581,13 @@ describe('ArticleMetadataField public control labels', () =>
 });
 
 
-describe('ArticleMetadataField unavailable exact editors preserve canonical wire precision', () =>
+describe('ArticleMetadataField released exact editors preserve canonical wire precision', () =>
 {
     it.each([
         { lo: 4294967295, mid: 4294967295, hi: 4294967295, scale: 0, negative: false },
         { lo: 4294967295, mid: 4294967295, hi: 4294967295, scale: 28, negative: true },
         { lo: 0, mid: 0, hi: 0, scale: 28, negative: true }
-    ])('preserves every decimal96 limb, scale and sign through the real codec while editing is unavailable', async (number) =>
+    ])('preserves every decimal96 limb, scale and sign through the real codec and exact editor', async (number) =>
     {
         const { wrapper, model, definition } = render(1);
         const changed = structuredClone(model);
@@ -583,8 +597,9 @@ describe('ArticleMetadataField unavailable exact editors preserve canonical wire
         expect(value(decoded, definition.definitionId).value).toEqual({ type: 1, number });
         const before = structuredClone(decoded);
         await wrapper.setProps({ model: decoded });
-        expect(wrapper.findAll('input, textarea, [role="combobox"]')).toHaveLength(0);
-        expect(wrapper.text()).toContain(labels.editorUnavailable);
+        const text = wrapper.getComponent(FsusUiInput).props('modelValue');
+        expect(parseArticlePropertyExactDecimal(String(text))).toEqual({ ok: true, value: number });
+        expect(wrapper.text()).not.toContain(labels.editorUnavailable);
         expect(button(wrapper, 'Save').props('disabled')).toBe(true);
         expect(decoded).toEqual(before);
     });
@@ -597,8 +612,8 @@ describe('ArticleMetadataField unavailable exact editors preserve canonical wire
         const decoded = decodeArticlePropertyValueReadResponse(encodeArticlePropertyValueReadResponse(changed));
         expect(value(decoded, definition.definitionId).value).toEqual({ type: 3, utc });
         await wrapper.setProps({ model: decoded });
-        expect(wrapper.findAll('input, textarea, [role="combobox"]')).toHaveLength(0);
-        expect(wrapper.text()).toContain(labels.editorUnavailable);
+        expect(parseArticlePropertyUtcTicks(String(wrapper.getComponent(FsusUiInput).props('modelValue')))).toEqual({ ok: true, value: utc });
+        expect(wrapper.text()).not.toContain(labels.editorUnavailable);
         expect(value(decoded, definition.definitionId).value).toEqual({ type: 3, utc });
     });
 
@@ -614,8 +629,9 @@ describe('ArticleMetadataField unavailable exact editors preserve canonical wire
             expect(value(decoded, definition.definitionId).presence).toBe(presence);
             expect(value(decoded, definition.definitionId).value).toBeNull();
             expect(wrapper.find('[data-presence]').attributes('data-presence')).toBe(String(presence));
-            expect(wrapper.findAll('input, textarea, [role="combobox"]')).toHaveLength(0);
-            expect(wrapper.text()).toContain(labels.editorUnavailable);
+            expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('');
+            expect(wrapper.getComponent(FsusUiInput).props('disabled')).toBe(true);
+            expect(wrapper.text()).not.toContain(labels.editorUnavailable);
         }
     });
 
@@ -844,5 +860,91 @@ describe('ArticleMetadataField on-demand readonly definition summary', () =>
         expect(wrapper.get('dl').text()).toContain('作者搜索');
         expect(wrapper.find('script').exists()).toBe(false);
         expect(wrapper.find('dl').exists()).toBe(true);
+    });
+});
+
+describe('ArticleMetadataField exact numeric and UTC staging', () =>
+{
+    it.each([
+        [1, '-7.9228162514264337593543950335', '0.00000000000000000000000000000', 'scale-range'],
+        [3, '9999-12-31T23:59:59.9999999Z', '1900-02-29T00:00:00.0000000Z', 'calendar-range']
+    ] as const)('stages type %i exact text and localized structural errors without Server validation or writes', async (type, valid, invalid, error) =>
+    {
+        const { wrapper, model } = render(type);
+        const before = structuredClone(model);
+        const control = wrapper.getComponent(FsusUiInput);
+        const original = control.props('modelValue');
+        expect(control.props('type')).toBe('text');
+        expect(control.get('input').attributes('inputmode')).toBe(type === 1 ? 'decimal' : 'text');
+        control.vm.$emit('update:modelValue', valid);
+        await nextTick();
+        expect(control.props('modelValue')).toBe(valid);
+        expect(wrapper.text()).toContain(labels.unvalidated);
+        expect(control.get('input').attributes('aria-invalid')).toBe('false');
+        expect(model).toEqual(before);
+        const previous = inputHandler(wrapper);
+        control.vm.$emit('update:modelValue', invalid);
+        await nextTick();
+        expect(control.props('modelValue')).toBe(invalid);
+        expect(control.get('input').attributes('aria-invalid')).toBe('true');
+        expect(wrapper.text()).toContain(labels.exactEditErrors[error]);
+        const description = control.get('input').attributes('aria-describedby');
+        if (!description) throw new Error('missing actual input description');
+        const ids = description.split(' ');
+        expect(ids.every((id) => document.getElementById(id))).toBe(true);
+        expect(ids.map((id) => document.getElementById(id)?.textContent).join(' ')).toContain(labels.exactEditErrors[error]);
+        presenceSelect(wrapper).vm.$emit('update:modelValue', 1);
+        await nextTick();
+        expect(wrapper.text()).not.toContain(labels.exactEditErrors[error]);
+        expect(control.props('modelValue')).toBe(invalid);
+        presenceSelect(wrapper).vm.$emit('update:modelValue', 2);
+        await nextTick();
+        expect(wrapper.text()).toContain(labels.exactEditErrors[error]);
+        const cancel = button(wrapper, 'Cancel');
+        (cancel.element as HTMLButtonElement).focus();
+        await cancel.trigger('click');
+        previous('late exact input');
+        await nextTick();
+        expect(control.props('modelValue')).toBe(original);
+        expect(document.activeElement?.tagName).toBe('INPUT');
+        expect(wrapper.text()).not.toContain(labels.exactEditErrors[error]);
+        expect(button(wrapper, 'Save').props('disabled')).toBe(true);
+        expect(model).toEqual(before);
+        expect(wrapper.emitted('focusin')?.every(([event]) => event instanceof FocusEvent)).toBe(true);
+        expect(wrapper.emitted('focusout')?.every(([event]) => event instanceof FocusEvent)).toBe(true);
+        expect(Object.keys(wrapper.emitted()).filter((name) => !['input', 'change', 'click', 'focusin', 'focusout'].includes(name))).toEqual([]);
+    });
+
+    it.each([1, 3])('does not use definition constraints or defaults to normalize exact type %i staging', async (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        const changed = structuredClone(model);
+        Object.assign(changed.definitions.find((item) => item.definitionId === definition.definitionId)!, {
+            required: true, presence: { missing: 1, null: 1, empty: 2 }
+        });
+        Object.assign(value(changed, definition.definitionId), { presence: 0, value: null, defaultApplied: false });
+        await wrapper.setProps({ model: changed });
+        const before = structuredClone(changed);
+        presenceSelect(wrapper).vm.$emit('update:modelValue', 2);
+        await nextTick();
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).toBe('');
+        expect(wrapper.text()).toContain(labels.exactEditErrors.syntax);
+        expect(value(changed, definition.definitionId).value).toBeNull();
+        expect(changed).toEqual(before);
+    });
+
+    it.each([1, 3])('withdraws exact type %i pending input and structural errors on schema/context changes', async (type) =>
+    {
+        const { wrapper, model, definition } = render(type);
+        wrapper.getComponent(FsusUiInput).vm.$emit('update:modelValue', 'private-not-a-number-or-time');
+        await nextTick();
+        expect(wrapper.text()).toContain(labels.exactEditErrors.syntax);
+        const changed = structuredClone(model);
+        changed.definitions.find((item) => item.definitionId === definition.definitionId)!.schemaRevision = '2';
+        await wrapper.setProps({ model: changed });
+        expect(wrapper.getComponent(FsusUiInput).props('modelValue')).not.toBe('private-not-a-number-or-time');
+        expect(wrapper.text()).not.toContain(labels.exactEditErrors.syntax);
+        await wrapper.setProps({ context: { ...context(), editorSessionId: 'withdrawn' } });
+        expect(wrapper.text()).toBe(labels.unavailable);
     });
 });
