@@ -27,6 +27,7 @@ public sealed class DocxDocumentExportProvider : IDocumentExportJobProvider
     public Task VerifyAsync(DocumentExportProviderResult result, DocumentExportTask task,
         DocumentExportFrozenInput input, CancellationToken cancellationToken)
     {
+        cancellationToken.ThrowIfCancellationRequested();
         ValidateResult(result, task, input, _renderer.Tool, _hostBuildDigest, cancellationToken);
         return Task.CompletedTask;
     }
@@ -41,8 +42,10 @@ public sealed class DocxDocumentExportProvider : IDocumentExportJobProvider
         DocumentExportContractValidator.Validate(task, frozen);
         DocumentExportProviderContract provider = RequireActiveProvider(task.FormatId);
         CanonicalDocumentRendererResult rendered = await _renderer.RenderAsync(task, frozen, cancellationToken);
-        DocumentExportSandboxRuntime.ValidatePlan(rendered.SandboxPlan, task, frozen, provider, rendered.Tool, _hostBuildDigest);
-        DocumentExportSandboxRuntime.ValidateReceipt(rendered.SandboxReceipt, rendered.SandboxPlan,
+        // Renderer-stage receipts retain the final DOCX task identity. They do
+        // not attest resource enforcement for the subsequent host conversion.
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(rendered.SandboxPlan, task, frozen, rendered.Tool, _hostBuildDigest);
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(rendered.SandboxReceipt, rendered.SandboxPlan,
             task, frozen, rendered.Tool, _hostBuildDigest, rendered.ResponseBytes);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(rendered.ResponseBytes);
         if (response.ContentDigest != rendered.Response.ContentDigest)
@@ -81,8 +84,8 @@ public sealed class DocxDocumentExportProvider : IDocumentExportJobProvider
         ArgumentNullException.ThrowIfNull(result);
         DocumentExportContractValidator.Validate(task, input);
         DocumentExportProviderContract provider = RequireActiveProvider(task.FormatId);
-        DocumentExportSandboxRuntime.ValidatePlan(result.SandboxPlan, task, input, provider, tool, expectedHostBuildDigest);
-        DocumentExportSandboxRuntime.ValidateReceipt(result.SandboxReceipt, result.SandboxPlan,
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(result.SandboxPlan, task, input, tool, expectedHostBuildDigest);
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(result.SandboxReceipt, result.SandboxPlan,
             task, input, tool, expectedHostBuildDigest, result.SandboxOutputBytes);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(result.SandboxOutputBytes);
         DocumentExportDocxProjection projection = DocumentExportDocxProjection.Create(response, input, cancellationToken);
