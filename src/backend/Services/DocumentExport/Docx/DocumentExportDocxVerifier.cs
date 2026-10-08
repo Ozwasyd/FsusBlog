@@ -85,11 +85,10 @@ internal static class DocumentExportDocxVerifier
             // the producer. Exact normalized-part binding additionally protects
             // whitespace, styles, numbering, layout and media placement from
             // schema-valid mutations that preserve the coarser semantic checks.
-            Dictionary<string, byte[]> expectedParts = ReadParts(
-                DocumentExportDocxPackage.Render(projection, cancellationToken), projection, cancellationToken);
-            if (parts.Any(part => !part.Value.AsSpan().SequenceEqual(expectedParts[part.Key])))
+            byte[] expectedBytes = DocumentExportDocxPackage.Render(projection, cancellationToken);
+            if (!bytes.AsSpan().SequenceEqual(expectedBytes))
             {
-                throw new InvalidDataException("DOCX normalized parts differ from the frozen projection/style profile.");
+                throw new InvalidDataException("DOCX normalized package differs from the frozen projection/style profile.");
             }
             using IncrementalHash digest = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
             foreach ((string path, byte[] content) in parts.OrderBy(part => part.Key, StringComparer.Ordinal))
@@ -151,7 +150,7 @@ internal static class DocumentExportDocxVerifier
             {
                 throw new InvalidDataException("DOCX media drifted from frozen inventory.");
             }
-            DocumentExportDocxPackage.VerifyImage(parts[media[index]], image.MediaType);
+            DocumentExportDocxPackage.VerifyImage(parts[media[index]], image.MediaType, cancellationToken);
         }
         return parts;
     }

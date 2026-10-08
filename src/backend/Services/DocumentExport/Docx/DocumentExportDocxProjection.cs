@@ -30,6 +30,7 @@ internal sealed record DocumentExportDocxProjection(
         CancellationToken cancellationToken)
     {
         cancellationToken.ThrowIfCancellationRequested();
+        DocumentExportContractValidator.Validate(input);
         SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(response, input);
         if (response.HtmlFragment.Length > MaximumCharacters)
         {
@@ -90,7 +91,8 @@ internal sealed record DocumentExportDocxProjection(
             }
             if (element.Name.LocalName == "aside"
                 && ((string?)element.Attribute("id"))?.StartsWith("footnote-", StringComparison.Ordinal) == true
-                && element.Descendants().Any(child => child.Name.LocalName is "a" or "img" or "table" or "aside"))
+                && element.Descendants().Any(child => child.Name.LocalName is "a" or "img" or "table" or "aside" or "pre"
+                    or "h1" or "h2" or "h3" or "h4" or "h5" or "h6" || child.Attribute("id") is not null))
             {
                 throw new InvalidDataException("DOCX complex footnotes require a separately registered relationship scope.");
             }

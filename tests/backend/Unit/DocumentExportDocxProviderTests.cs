@@ -187,6 +187,8 @@ public sealed class DocumentExportDocxProviderTests
         Assert.Throws<InvalidDataException>(() => DocumentExportDocxVerifier.Validate(metadata, projection));
         parts = Parts(DocumentExportDocxPackage.Render(projection));
         Assert.Throws<InvalidDataException>(() => DocumentExportDocxVerifier.Validate(Pack(parts, duplicate: true), projection));
+        byte[] trailing = DocumentExportDocxPackage.Render(projection).Concat("trailing"u8.ToArray()).ToArray();
+        Assert.Throws<InvalidDataException>(() => DocumentExportDocxVerifier.Validate(trailing, projection));
     }
 
     [Theory]
@@ -229,14 +231,14 @@ public sealed class DocumentExportDocxProviderTests
     public void PreservesInheritedInlineDirectionAndEmptyOrMultiParagraphListItems()
     {
         DocumentExportDocxProjection projection = Projection(
-            "<div dir=\"rtl\"><p>שלום <span dir=\"ltr\">left</span></p></div><ul><li></li><li><p>first</p><p>continuation</p></li></ul>", image: false);
+            "<div dir=\"rtl\"><p>שלום <span dir=\"ltr\">left</span></p></div><ul><li></li><li><p>first</p><p>continuation</p></li><li><ul><li>child</li></ul></li></ul><p><a id=\"link-id\" href=\"https://example.com\" dir=\"rtl\">label</a><a href=\"#link-id\">local</a></p>", image: false);
         byte[] bytes = DocumentExportDocxPackage.Render(projection);
         DocumentExportDocxVerifier.Validate(bytes, projection);
         XElement document = Xml(Parts(bytes)["word/document.xml"]);
         XNamespace w = DocumentExportDocxPackage.Word;
         Assert.Single(document.Descendants(w + "bidi"));
         Assert.Contains(document.Descendants(w + "rtl"), direction => (string?)direction.Attribute(w + "val") == "0");
-        Assert.Equal(2, document.Descendants(w + "numPr").Count());
+        Assert.Equal(4, document.Descendants(w + "numPr").Count());
     }
 
     [Fact]

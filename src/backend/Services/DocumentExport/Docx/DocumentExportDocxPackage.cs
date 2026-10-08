@@ -206,6 +206,10 @@ internal sealed class DocumentExportDocxPackage
                             numbered = true;
                         }
                     }
+                    if (!numbered)
+                    {
+                        itemBlocks.AddFirst(Paragraph([], "Normal", null, number, level + 1));
+                    }
                     if (item.Attribute("id") is not null)
                     {
                         itemBlocks.AddFirst(Paragraph([], "Normal", item, null, 0));
@@ -301,13 +305,20 @@ internal sealed class DocumentExportDocxPackage
                 throw new InvalidDataException("DOCX projection contains a non-semantic node.");
             }
             string name = element.Name.LocalName;
+            if (name is "a" or "img" or "svg" or "br")
+            {
+                Bookmark(element, destination, () => { });
+            }
             if (name == "a")
             {
+                string? linkDirection = (string?)element.Attribute("dir");
+                IReadOnlyList<string> linkMarks = linkDirection is "rtl" or "ltr"
+                    ? marks.Where(value => value is not ("rtl" or "ltr")).Append(linkDirection).ToArray() : marks;
                 string href = (string?)element.Attribute("href") ?? throw new InvalidDataException("DOCX link lacks a target.");
                 if (href.StartsWith('#') && _notes.TryGetValue(href[1..], out int note))
                 {
                     // Preserve the canonical visible link label beside the structured note reference.
-                    AppendInline(element.Nodes(), destination, marks);
+                    AppendInline(element.Nodes(), destination, linkMarks);
                     destination.Add(new XElement(Word + "r", new XElement(Word + "footnoteReference", W("id", note))));
                 }
                 else
@@ -315,7 +326,7 @@ internal sealed class DocumentExportDocxPackage
                     XElement hyperlink = href.StartsWith('#')
                         ? new XElement(Word + "hyperlink", W("anchor", _bookmarks[href[1..]]))
                         : new XElement(Word + "hyperlink", new XAttribute(Relationship + "id", AddRelationship("hyperlink", href, external: true)));
-                    AppendInline(element.Nodes(), hyperlink, marks);
+                    AppendInline(element.Nodes(), hyperlink, linkMarks);
                     destination.Add(hyperlink);
                 }
             }
@@ -579,6 +590,11 @@ internal sealed class DocumentExportDocxPackage
                 }
                 int length = checked((int)size);
                 ReadOnlySpan<byte> type = bytes.Slice(offset + 4, 4);
+                if (offset != 8 && type.SequenceEqual("IHDR"u8)
+                    || !type.SequenceEqual("IHDR"u8) && !type.SequenceEqual("IDAT"u8) && !type.SequenceEqual("IEND"u8))
+                {
+                    throw new InvalidDataException("DOCX PNG chunk sequence or ancillary encoding is unsupported.");
+                }
                 uint crc = uint.MaxValue;
                 foreach (byte value in bytes.Slice(offset + 4, length + 4))
                 {
