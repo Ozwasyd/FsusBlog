@@ -39,7 +39,7 @@ public sealed class DocumentExportAttemptResources
     private bool _activeStage;
     private bool _failed;
     private bool _sealed;
-    private readonly HashSet<bool> _stageKinds = [];
+    private readonly HashSet<StageKind> _stageKinds = [];
     private int _completedStages;
     private long _cpuMicroseconds;
     private int _files;
@@ -68,6 +68,21 @@ public sealed class DocumentExportAttemptResources
 
     internal Stage BeginStage(DocumentExportTask task, DocumentExportFrozenInput input,
         DocumentExportResourceBudgets declared, bool canonicalRenderer)
+        => BeginStage(task, input, declared, canonicalRenderer ? StageKind.CanonicalRenderer : StageKind.Provider);
+
+    internal Stage BeginVerificationStage(DocumentExportTask task, DocumentExportFrozenInput input,
+        DocumentExportResourceBudgets declared)
+        => BeginStage(task, input, declared, StageKind.IndependentVerification);
+
+    private enum StageKind
+    {
+        CanonicalRenderer,
+        Provider,
+        IndependentVerification
+    }
+
+    private Stage BeginStage(DocumentExportTask task, DocumentExportFrozenInput input,
+        DocumentExportResourceBudgets declared, StageKind kind)
     {
         DocumentExportContractValidator.Validate(task, input);
         lock (_sync)
@@ -77,7 +92,10 @@ public sealed class DocumentExportAttemptResources
                 _failed = true;
                 throw new InvalidDataException("Document export resource owner does not bind this frozen attempt.");
             }
-            if (_failed || _sealed || _activeStage || !_stageKinds.Add(canonicalRenderer))
+            if (_failed || _sealed || _activeStage
+                || (kind == StageKind.IndependentVerification && !_stageKinds.Contains(StageKind.Provider))
+                || (kind == StageKind.CanonicalRenderer && _stageKinds.Count != 0)
+                || !_stageKinds.Add(kind))
             {
                 _failed = true;
                 throw new InvalidOperationException("Document export attempt cannot reset, overlap or retry its resource stages.");
@@ -100,7 +118,7 @@ public sealed class DocumentExportAttemptResources
                 MaxWorkingSetBytes = Math.Min(declared.MaxWorkingSetBytes, _maximum.MaxWorkingSetBytes),
                 MaxFileCount = checked((int)Math.Min(declared.MaxFileCount,
                     Remaining(_maximum.MaxFileCount, _files, "task-file-count-budget"))),
-                MaxFileBytes = Math.Min(declared.MaxFileBytes, remainingFileBytes),
+                MaxFileBytes = Math.Min(declared.MaxFileBytes, Math.Min(_maximum.MaxFileBytes, remainingFileBytes)),
                 MaxInputBytes = Math.Min(declared.MaxInputBytes,
                     Remaining(_maximum.MaxInputBytes, _inputBytes, "task-input-budget")),
                 MaxOutputBytes = Math.Min(declared.MaxOutputBytes,
@@ -136,6 +154,24 @@ public sealed class DocumentExportAttemptResources
                 throw Budget("task-wall-time-budget");
             }
             _sealed = true;
+        }
+    }
+
+    /// <summary>
+    /// Binds completion to the actual task/input being verified or published.
+    /// A completed resource owner for another attempt never qualifies this one.
+    /// </summary>
+    public void RequireCompleted(DocumentExportTask task, DocumentExportFrozenInput input)
+    {
+        DocumentExportContractValidator.Validate(task, input);
+        lock (_sync)
+        {
+            if (task.ContentDigest != _task.ContentDigest || input.ContentDigest != _input.ContentDigest)
+            {
+                _failed = true;
+                throw new InvalidDataException("Document export resource completion does not bind this frozen attempt.");
+            }
+            RequireCompleted();
         }
     }
 
