@@ -317,16 +317,46 @@ public sealed class PortableDependencyManifestTests
         };
         ArticleVaultSyncPlan sync = ArticleVaultSyncPlanner.Build(request).Plan!;
         Assert.NotNull(sync);
+        Assert.Equal(VaultSyncPlanStatus.Ready, sync.Status);
         Assert.Equal(VaultSyncDecision.PullUpdate, Assert.Single(Assert.Single(sync.Groups).Items).Decision);
         ArticleVaultPlanVerificationContext context = new(request.CreatedAtUnixMs, request.Direction, false);
         VaultDependencyPlanInput input = new(fresh, freshBytes, fresh.Nodes, fresh.Edges, DigestA);
-        Assert.NotNull(ArticleVaultDependencyPlanner.Build(sync, request, context, [input], s_budgets).Plan);
+        ArticleVaultDependencyPlan extension = ArticleVaultDependencyPlanner.Build(sync, request, context, [input], s_budgets).Plan!;
+        Assert.NotNull(extension);
+        Assert.True(ArticleVaultDependencyPlanner.VerifyCurrent(extension, sync, request, context, [input], s_budgets).IsValid);
         PortableDependencyManifest stale = PortableDependencyCodec.Seal(stored with
         {
             SourceSide = VaultDependencySourceSide.Server
         });
-        Assert.Null(ArticleVaultDependencyPlanner.Build(sync, request, context,
-            [new(stale, s_source, stale.Nodes, stale.Edges, DigestA)], s_budgets).Plan);
+        VaultDependencyPlanInput staleInput = new(stale, s_source, stale.Nodes, stale.Edges, DigestA);
+        Assert.Null(ArticleVaultDependencyPlanner.Build(sync, request, context, [staleInput], s_budgets).Plan);
+        Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(extension, sync, request, context, [staleInput], s_budgets).IsValid);
+
+        // A legacy extension can have a valid seal while retaining the saved server graph.
+        ArticleVaultDependencyPlan staleExtension = extension with
+        {
+            Items = [Assert.Single(extension.Items) with { Manifest = stale }],
+            ContentSha256 = string.Empty
+        };
+        staleExtension = staleExtension with { ContentSha256 = PortableDependencyCodec.PlanDigest(staleExtension) };
+        Assert.True(ArticleVaultDependencyPlanner.ValidateStructure(staleExtension).IsValid);
+        Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(staleExtension, sync, request, context, [input], s_budgets).IsValid);
+        Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(staleExtension, sync, request, context, [staleInput], s_budgets).IsValid);
+
+        Assert.True(PortableDependencyVerifier.VerifyCurrent(fresh, article, freshBytes, fresh.Nodes,
+            fresh.Edges, DigestA, s_budgets, currentServerCoordinate: currentServer).IsValid);
+        Assert.False(PortableDependencyVerifier.VerifyCurrent(stale, article, s_source, stale.Nodes,
+            stale.Edges, DigestA, s_budgets, currentServerCoordinate: currentServer).IsValid);
+
+        foreach (VaultDependencyPlanInput drift in new[]
+        {
+            input with { SourceBytes = s_source },
+            input with { CurrentRelationSha256 = DigestB }
+        })
+        {
+            Assert.Null(ArticleVaultDependencyPlanner.Build(sync, request, context, [drift], s_budgets).Plan);
+            Assert.False(ArticleVaultDependencyPlanner.VerifyCurrent(extension, sync, request, context, [drift], s_budgets).IsValid);
+        }
     }
 
     [Fact]
