@@ -14,6 +14,13 @@
         "src/backend/Services/Authoring/AuthorFullTextSearchVerifier.cs"
       ],
       "reason": "The trusted environment-variable registry mechanically covers these C# source paths. This author-private implementation introduces no process environment keys, preserves canonical source-coordinate/tokenizer authority, and does not broaden any external naming rule. The manifest records the changed path coverage required by that existing registry."
+    },
+    {
+      "id": "json-wire-key",
+      "paths": [
+        "tests/backend/packages.lock.json"
+      ],
+      "reason": "preserve official NuGet project-reference dependency keys and package content hashes while recording the already-declared Server AngleSharp 1.5.0 dependency in the existing backend test lock"
     }
   ]
 }
