@@ -171,6 +171,8 @@ store before returning the new pointer. A first execution still refuses with
 The shared dispatcher and lifecycle inventory retain successful canonical pointers
 and drain/revoke session work before cancellation. These ordinary contract controls
 do not qualify native lock ownership, IPC host registration or session cleanup on an
-admitted filesystem. The Linux control-session implementation additionally requires
-the canonical lease codec and transition-verification APIs; integration must wait
-for their owner rather than replace the already integrated lease implementation.
+admitted filesystem. The Linux control-session implementation uses the same
+canonical lease owner's codec and transition-verification APIs. These source APIs
+validate receipt shape and chain transitions; they do not establish native lock
+ownership or qualify host IPC/session cleanup. Shared DI remains explicit and
+does not start a native session or supply first-execution admission.

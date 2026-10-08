@@ -17,7 +17,7 @@
         },
         {
             "path": "config/development/document-inventory.generated.json",
-            "sha256": "95df167a0769cc3561203e13a18de3f8d779db4b3c35f940865745b37b48026b"
+            "sha256": "b1dc935a3987352ab42a809030d95244203344d31681c0fd23a50e7ac7ce630b"
         },
         {
             "path": "src/core/Algorithms/AedsFrameType.cs",
@@ -42,6 +42,10 @@
         {
             "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
             "sha256": "24ae5bc8ce726822c9e3a30b5ee6a53b102582d74eef0b6d06f0ca513287068e"
+        },
+        {
+            "path": "docs/index.md",
+            "sha256": "7ecf4ec01e3703f7b28ae8d58d8444832a035c593c3a015e33ebe2a813f3bb03"
         }
     ]
 }

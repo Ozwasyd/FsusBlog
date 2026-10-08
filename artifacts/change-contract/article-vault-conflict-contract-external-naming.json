@@ -25,10 +25,16 @@
         {
             "id": "environment-variable",
             "paths": [
+                "src/article-vault/linux/LinuxVaultAgentControlSession.cs",
+                "src/article-vault/linux/LinuxVaultAgentGrantLedger.cs",
+                "src/article-vault/linux/LinuxVaultAgentLifecycleJournal.cs",
                 "src/article-vault/linux/LinuxVaultGitObserver.cs",
+                "src/article-vault/linux/LinuxVaultLeaseNative.cs",
+                "src/article-vault/linux/LinuxVaultLocalIpcEndpoint.cs",
                 "src/article-vault/linux/LinuxVaultPathNative.cs",
                 "src/article-vault/linux/LinuxVaultRootPathScope.Operations.cs",
                 "src/article-vault/linux/LinuxVaultRootPathScope.cs",
+                "src/article-vault/linux/LinuxVaultWriterLeaseScope.cs",
                 "src/article-vault/macos/FSEventsNative.cs",
                 "src/article-vault/macos/MacVaultObservationAdapter.cs",
                 "src/article-vault/macos/MacVaultRawFactBuffer.cs",

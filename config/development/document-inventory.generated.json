@@ -1,7 +1,7 @@
 {
     "schema": "fsusblog.document-inventory.v3",
     "policy": "config/development/document-lifecycle.json",
-    "policyDigest": "sha256:017171bf5f22500e1b70a3a18c122b5e89404e771d34b29c0fbae209db12cb76",
+    "policyDigest": "sha256:70c88f712e57567852225c139841fb70a3abf532b099e857781d0a7480003842",
     "documents": [
         {
             "path": "docs/CODE_OF_CONDUCT.md",
@@ -470,6 +470,21 @@
             "supersededBy": null,
             "relatedIssues": [
                 1871
+            ],
+            "producer": null
+        },
+        {
+            "path": "docs/architecture/article-vault-agent-control.md",
+            "title": "Article Vault agent control boundary",
+            "kind": "markdown",
+            "status": "current",
+            "owner": "backend",
+            "sourceOfTruth": true,
+            "supersedes": [],
+            "supersededBy": null,
+            "relatedIssues": [
+                2113,
+                2114
             ],
             "producer": null
         },

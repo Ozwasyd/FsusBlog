@@ -3457,6 +3457,17 @@
             ],
             "supersedes": [],
             "supersededBy": null
+        },
+        {
+            "path": "docs/architecture/article-vault-agent-control.md",
+            "status": "current",
+            "owner": "backend",
+            "relatedIssues": [
+                2113,
+                2114
+            ],
+            "supersedes": [],
+            "supersededBy": null
         }
     ],
     "legacyNamingCompatibility": [

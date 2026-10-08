@@ -36,6 +36,7 @@ This index is generated from explicit metadata in `config/development/document-l
 - [Article PropertyDefinition authority](architecture/article-property-definition-authority.md)
 - [Article property value validation boundary](architecture/article-property-value-boundary.md)
 - [Article revision concurrency](architecture/article-revision-concurrency.md)
+- [Article Vault agent control boundary](architecture/article-vault-agent-control.md)
 - [Article Vault dependency coordinates](architecture/article-vault-dependencies.md)
 - [Article Vault Linux watcher boundary](architecture/article-vault-linux-watcher.md)
 - [Article Vault macOS watcher boundary](architecture/article-vault-macos-watcher.md)

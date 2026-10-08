@@ -38,6 +38,36 @@ public static class ArticleVaultWriterLease
 {
     public const long MaximumLeaseMilliseconds = 60000;
 
+    public static bool VerifyTransition(ArticleVaultWriterLeaseReceipt? previous, ArticleVaultWriterLeaseReceipt next)
+    {
+        if (!Verify(next) || (previous is not null && !Verify(previous)))
+        {
+            return false;
+        }
+
+        ArticleVaultWriterLeaseAction action = next.State switch
+        {
+            ArticleVaultWriterLeaseState.Active => previous?.State == ArticleVaultWriterLeaseState.Active
+                ? ArticleVaultWriterLeaseAction.Renew : ArticleVaultWriterLeaseAction.Acquire,
+            ArticleVaultWriterLeaseState.Released => ArticleVaultWriterLeaseAction.Release,
+            ArticleVaultWriterLeaseState.Revoked => ArticleVaultWriterLeaseAction.Revoke,
+            ArticleVaultWriterLeaseState.Expired => ArticleVaultWriterLeaseAction.Expire,
+            _ => throw new InvalidDataException("writer_lease_state_invalid")
+        };
+        try
+        {
+            ArticleVaultWriterLeaseReceipt expected = Transition(previous, next.Binding, action,
+                previous?.ContentSha256, next.ObservedUnixMilliseconds,
+                next.State == ArticleVaultWriterLeaseState.Active
+                    ? next.DeadlineUnixMilliseconds - next.ObservedUnixMilliseconds : MaximumLeaseMilliseconds);
+            return expected == next;
+        }
+        catch (InvalidDataException)
+        {
+            return false;
+        }
+    }
+
     public static bool Verify(ArticleVaultWriterLeaseReceipt? receipt)
         => receipt is not null && receipt.Schema == ArticleVaultAgentProtocol.LeaseSchema
             && ArticleVaultAgentProtocol.IsBinding(receipt.Binding)
@@ -45,6 +75,9 @@ public static class ArticleVaultWriterLease
             && receipt.ObservedUnixMilliseconds >= 0
             && receipt.DeadlineUnixMilliseconds >= receipt.ObservedUnixMilliseconds
             && receipt.DeadlineUnixMilliseconds - receipt.ObservedUnixMilliseconds <= MaximumLeaseMilliseconds
+            && (receipt.State != ArticleVaultWriterLeaseState.Active || receipt.DeadlineUnixMilliseconds > receipt.ObservedUnixMilliseconds)
+            && (receipt.PreviousReceiptSha256 is not null
+                || (receipt.Generation == 1 && receipt.State == ArticleVaultWriterLeaseState.Active))
             && (receipt.PreviousReceiptSha256 is null || ArticleVaultAgentProtocol.IsDigest(receipt.PreviousReceiptSha256))
             && ArticleVaultAgentProtocol.IsDigest(receipt.ContentSha256)
             && receipt.ContentSha256 == ArticleVaultAgentProtocol.Digest(receipt with
@@ -124,5 +157,20 @@ public static class ArticleVaultWriterLease
         {
             ContentSha256 = ArticleVaultAgentProtocol.Digest(receipt)
         };
+    }
+}
+
+/// <summary>Reads closed lease receipts; a decoded receipt is not native process ownership.</summary>
+public static class ArticleVaultWriterLeaseCodec
+{
+    public static ArticleVaultWriterLeaseReceipt Decode(ReadOnlySpan<byte> bytes)
+    {
+        ArticleVaultWriterLeaseReceipt receipt = ArticleVaultAgentProtocol.Decode<ArticleVaultWriterLeaseReceipt>(bytes);
+        if (!ArticleVaultWriterLease.Verify(receipt))
+        {
+            throw new InvalidDataException("writer_lease_receipt_invalid");
+        }
+
+        return receipt;
     }
 }
