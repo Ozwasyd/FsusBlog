@@ -1,0 +1,917 @@
+{
+  "schema": "fsusblog.suite-convergence-migration-prerequisite-verification.v1",
+  "runId": "issue-3593-migration-dbeac-20261008T071502Z",
+  "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+  "latestFetchedMaster": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+  "issues": {
+    "execution": [
+      3593
+    ],
+    "trackingOnly": [
+      3551
+    ]
+  },
+  "accepted": false,
+  "earlyIndependentReviewEligible": false,
+  "replay": {
+    "runId": "issue-3593-migration-dbeac-20261008T071502Z",
+    "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+    "master": "a4fa942e95b6141e1f1dec42f7cddf1daf54144d",
+    "original": "dbeac12cf8ac83d1f27f6a858f29bc530455dba9",
+    "replay": "ea21316571e18f70f9f11d5471656198319e343f",
+    "stablePatchId": "ec52ad382a88e9c35387e40cb34049ef3aeda707",
+    "exactSourcePostimage": true,
+    "changesOnlyTwoCanonicalConstructors": true,
+    "negativeControlsUnchanged": true,
+    "environment": {
+      "sdk": "10.0.302",
+      "runtime": "10.0.10",
+      "NUGET_PACKAGES": "/workspace/FsusBlog/.tmp/issue-3593-sdk-compile/20261008T062019Z/nuget-packages",
+      "RestoreLockedMode": true,
+      "nativeMySqlEnvironmentPresent": false
+    }
+  },
+  "build": {
+    "sdk": "10.0.302",
+    "runtime": "10.0.10",
+    "lockedRestoreExit": 0,
+    "buildExit": 0,
+    "warnings": 2484,
+    "errors": 0,
+    "originalTwoCompilationErrorsResolved": true
+  },
+  "assemblyBinding": {
+    "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+    "assemblies": [
+      {
+        "path": "tests/migration/bin/Debug/net10.0/FsusBlog.Migration.Tests.dll",
+        "sha256": "2bd69ae327e84c22fc577b5164cb830708d247f98938d1ae27dfe173f2056e37",
+        "mtimeUtc": "2026-10-08T07:15:28.326843+00:00"
+      },
+      {
+        "path": "tests/migration/obj/Debug/net10.0/FsusBlog.Migration.Tests.dll",
+        "sha256": "2bd69ae327e84c22fc577b5164cb830708d247f98938d1ae27dfe173f2056e37",
+        "mtimeUtc": "2026-10-08T07:15:28.326843+00:00"
+      }
+    ]
+  },
+  "runtimeBatches": [
+    {
+      "name": "expand-original",
+      "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "exitCode": 0,
+      "command": [
+        "timeout",
+        "600",
+        "dotnet",
+        "test",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--filter",
+        "FullyQualifiedName~OfflineMigrationExpandSafetyTests",
+        "--results-directory",
+        "/tmp/fsusblog-3593/migration-dbeac/expand-original-results",
+        "--logger",
+        "trx"
+      ],
+      "counts": {
+        "total": "71",
+        "executed": "71",
+        "passed": "71",
+        "failed": "0",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "trxSha256": "b0cf423a11e716678c6dc1dccd90a700df2129670d9270f5c5f318af5b3a7b72"
+    },
+    {
+      "name": "migration-complete",
+      "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "exitCode": 1,
+      "command": [
+        "timeout",
+        "600",
+        "dotnet",
+        "test",
+        "tests/migration/FsusBlog.Migration.Tests.csproj",
+        "--no-restore",
+        "--no-build",
+        "--configuration",
+        "Debug",
+        "--results-directory",
+        "/tmp/fsusblog-3593/migration-dbeac/migration-complete-results",
+        "--logger",
+        "trx"
+      ],
+      "counts": {
+        "total": "1647",
+        "executed": "1647",
+        "passed": "1530",
+        "failed": "117",
+        "error": "0",
+        "timeout": "0",
+        "aborted": "0",
+        "inconclusive": "0",
+        "passedButRunAborted": "0",
+        "notRunnable": "0",
+        "notExecuted": "0",
+        "disconnected": "0",
+        "warning": "0",
+        "completed": "0",
+        "inProgress": "0",
+        "pending": "0"
+      },
+      "trxSha256": "37c3dffea7a7190b76db105696eab913add199f22f030efb18650a71d7b744f0"
+    }
+  ],
+  "ownerReportedFullMigrationResultNotInherited": {
+    "total": 1647,
+    "passed": 1610,
+    "failed": 37,
+    "actualAdditionalFailed": 80,
+    "discrepancy": "Observed candidate differs from the owner report; exact owner tested SHA, additional canonical increments and evidence required. No failure is assumed to be native or waived."
+  },
+  "exactMigrationFailureRouting": "artifacts/governance/issue-3551-migration-prerequisite-failures.json",
+  "inventory": {
+    "producerExit": 0,
+    "sourceState": {
+      "commit": "ea21316571e18f70f9f11d5471656198319e343f"
+    },
+    "inventoryDigest": "sha256:44e5441e68fe902dae3253f37f556e155d46a0ccaf91f541c9117285c2f5a4f1",
+    "artifactSha256": "81bb2967c9c1f012b8159bf197c01402182a1239f9443cdd6ceafbebd25fe496",
+    "sourceFiles": 3051,
+    "canonicalCaseRecords": 19835,
+    "diagnosticCounts": {
+      "bySeverity": {
+        "error": 169,
+        "info": 939
+      },
+      "byCode": {
+        "native-table-not-closed": 169,
+        "dynamic-case-obligation": 939
+      }
+    },
+    "expandCanonicalRecords": 9,
+    "expandRuntimeRows": 71,
+    "migrationCanonicalRecords": 1585,
+    "migrationRuntimeRows": 1647,
+    "sdkProgramTestCaseOwners": 0,
+    "schemaProductionIsClosureAcceptance": false,
+    "completeAccepted": false,
+    "limit": "169 native-table-not-closed errors plus 939 dynamic-case obligations remain. Expand has9 canonical method/data records, including2 dynamic templates; actual71 cases execute separately. Do not compare1585 Migration canonical records directly with1647 runtime rows."
+  },
+  "originalNodeControls": {
+    "exitCode": 0,
+    "passed": 54,
+    "failed": 0,
+    "skipped": 0
+  },
+  "sdkContextControls": {
+    "exitCode": 0,
+    "passed": 19,
+    "failed": 0,
+    "skipped": 0
+  },
+  "rootOwner": {
+    "strictStyleExit": 0,
+    "diagnostics": 0,
+    "staticIds": 17,
+    "unchanged": true
+  },
+  "sourceChecks": [
+    {
+      "name": "root-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/frontend/check-frontend-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/tools/test-suite-convergence.test.mjs"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "trusted-range",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--range",
+        "origin/master..HEAD"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "current-ast",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/test-inventory/ts-ast-adapter/index.mjs",
+        "/tmp/fsusblog-3593/support-msbuild-separators/ast-request.json"
+      ],
+      "exitCode": 0
+    },
+    {
+      "name": "ast-retention",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/test-replacement-transaction.mjs",
+        "check-diff",
+        "origin/master"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "convergence",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/check-test-suite-convergence.mjs",
+        "--out",
+        "/tmp/fsusblog-3593/migration-dbeac/convergence.json"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "conflict-preview",
+      "command": [
+        "git",
+        "merge-tree",
+        "--write-tree",
+        "HEAD",
+        "origin/master"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "sourceRegressions": [
+    {
+      "name": "new-owner-style",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "tools/dotnet/check-csharp-style.mjs",
+        "--mode",
+        "changed",
+        "--file",
+        "tests/migration/OfflineMigrationExpandSafetyTests.cs"
+      ],
+      "exitCode": 1
+    },
+    {
+      "name": "original-controls",
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "--test",
+        "tests/tools/test-suite-convergence.test.mjs",
+        "tests/tools/test-replacement-transaction.test.mjs",
+        "tools/post-baseline-history.test.mjs"
+      ],
+      "exitCode": 0
+    }
+  ],
+  "retention": {
+    "cliExit": 1,
+    "errors": 35,
+    "auditArtifactPresent": false,
+    "exactRefusals": {
+      "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+      "exitCode": 1,
+      "errors": 35,
+      "rows": [
+        {
+          "deletedTestId": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#documents-the-operator-smoke-flow-and-intentional-destru-bd4e7f2aef",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent"
+        },
+        {
+          "deletedTestId": "vitest:tests/frontend/unit/view-contracts/anonymousIdentityColdStartQuality.test.ts#documents-the-operator-smoke-flow-and-intentional-destru-bd4e7f2aef",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Integration/LegacyIdentityColdStartResetIntegrationTests.cs#LegacyIdentityColdStartResetIntegrationTests.RunAsync_DeletesLegacyIdentityCommentsAndUserBoundMessages_WhenConfirmationMatches",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Integration/LegacyIdentityColdStartResetIntegrationTests.cs#LegacyIdentityColdStartResetIntegrationTests.RunAsync_DeletesLegacyIdentityCommentsAndUserBoundMessages_WhenConfirmationMatches",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Integration/LegacyIdentityColdStartResetIntegrationTests.cs#LegacyIdentityColdStartResetIntegrationTests.RunAsync_FailsBeforeDeletingRows_WhenConfirmationIsMissing",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Integration/LegacyIdentityColdStartResetIntegrationTests.cs#LegacyIdentityColdStartResetIntegrationTests.RunAsync_FailsBeforeDeletingRows_WhenConfirmationIsMissing",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenEnabled",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_UpgradesLegacy20260517RealDump_WhenProvided"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.AdminPrincipalPlane_DefinesIndependentTablesAndMigration",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AdminPrincipalSecurityContractTests.cs#AdminPrincipalSecurityContractTests.RootAdminBootstrap_UsesDatabaseUniquenessAndTransaction",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_CreatesFreshAuthoringAndCommentTablesWithAdminPrincipalColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentGovernance_DefinesStorageAndMigration",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentGovernance_RegistersPolicyCredentialAndNullifierServices",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicy_DefaultsAndValidatesConfigurableCommentLimits",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicy_DefaultsToAnonymousAndRejectsImplicitPublicMode",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicy_DisabledAnonymousRejectsAnonymousAndZkModes",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicy_UpdateCanExposeZkAndCuratedLanguages",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicy_UpdateRejectsInvalidAuthorMode",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicy_UpdateRejectsOutOfRangeCommentLimits",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicyService_LoadsPersistsInvalidatesAndReloadsRuntimeSnapshot",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCommentPolicyService_UsesPersistentRuntimeSnapshotAndInvalidatesPolicyCache",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCredentialAccountBoundContract_DoesNotMixUserAndZkCommitmentSemantics",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.AnonymousCredentialAccountBoundMigration_RenamesLegacyBindingColumns",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.CredentialAndNullifierServices_DoNotExposeReverseLookupFromNullifierToAccount",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousCommentGovernanceContractTests.cs#AnonymousCommentGovernanceContractTests.EngineeringAnonymousNullifier_UsesPepperedDomainSeparatedHmacWithoutAccountOrProof",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.RunAsync_RenamesAnonymousCredentialAccountBindingColumns"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetIntegrationTestsAndSmokeDocs_PinDestructiveCutoverEvidence",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetIntegrationTestsAndSmokeDocs_PinDestructiveCutoverEvidence",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.OnlineBackfillHandler_ResumesFromDurableKeysetTokenAndFinalizesValidation"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetIntegrationTestsAndSmokeDocs_PinDestructiveCutoverEvidence",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetOperation_GuardsBeforeTransactionAndPurgesLegacyProductionTables",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AnonymousIdentityColdStartQualityContractTests.cs#AnonymousIdentityColdStartQualityContractTests.ColdStartResetOperation_GuardsBeforeTransactionAndPurgesLegacyProductionTables",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.AuditFallbackWriter_SourceBatchesFallbackWrites",
+          "missingReplacementTestId": "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/AuditSystemContractTests.cs#AuditSystemContractTests.ExplicitAuditServiceAndFallbackWriter_ArePresent",
+          "missingReplacementTestId": "xunit:tests/backend/Unit/AuditFallbackWriterBehaviorTests.cs#AuditFallbackWriterBehaviorTests.WriteBatchAsync_AppendsEveryDurableRecordAndUpdatesRuntimeState"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/LegacyIdentityColdStartResetOperationTests.cs#LegacyIdentityColdStartResetOperationTests.Operation_DeletesAnonymousIdentityDerivedTablesAndReportsCounts",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/LegacyIdentityColdStartResetOperationTests.cs#LegacyIdentityColdStartResetOperationTests.Operation_DeletesAnonymousIdentityDerivedTablesAndReportsCounts",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/LegacyIdentityColdStartResetOperationTests.cs#LegacyIdentityColdStartResetOperationTests.Operation_RemovesLegacyUserCachePoliciesAfterCommit",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.Backfill_UsesCanonicalHasherAndIsIdempotent"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/LegacyIdentityColdStartResetOperationTests.cs#LegacyIdentityColdStartResetOperationTests.Operation_RemovesLegacyUserCachePoliciesAfterCommit",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/AccountSubjectHashMigrationIntegrationTests.cs#AccountSubjectHashMigrationIntegrationTests.StartupGate_RechecksProjectionAfterMigrationHistoryCouldAlreadyExist"
+        },
+        {
+          "deletedTestId": "xunit:tests/backend/Unit/ReleaseFinalStabilityContractTests.cs#ReleaseFinalStabilityContractTests.PostgresSchemaMigrationFixture_UsesCoverageFriendlyConnectionBudgets",
+          "missingReplacementTestId": "xunit:tests/backend/Integration/SchemaMigrationIntegrationTests.cs#SchemaMigrationIntegrationTests.PostgresLockTimeoutSimulation_RollsBackAndAllowsFollowUpQuery"
+        }
+      ],
+      "reason": "Actual original ledger targets fail to resolve against newly available canonical inventory; no mappings dropped or rewritten.",
+      "requiredHandoff": "Exact canonical retention-owner repair and original identity/replacement evidence"
+    },
+    "lifecycleControls": {
+      "exitCode": 1,
+      "total": 64,
+      "passed": 63,
+      "failed": 1,
+      "skipped": 0
+    },
+    "priorMissingMigrationOutputRefusalResolved": true
+  },
+  "remainingGates": {
+    "migrationRuntime": "117 actual failed rows across16 classes; no skips and no qualification.",
+    "newMigrationOwnerStyle": {
+      "exitCode": 1,
+      "originalUnchangedLine": 123,
+      "reason": "dotnet format whitespace requires deletion of8 indentation characters; canonical owner increment required."
+    },
+    "astRetention": {
+      "exitCode": 1,
+      "currentFirstRefusal": "tests/frontend/unit/locales/localeDomainBundleStore.test.ts identity extraction incomplete against current master; original native-registration/renamed-case gates remain preserved."
+    },
+    "convergence": {
+      "exitCode": 1,
+      "unresolvedCompactBeforeIds": [
+        "c81f0d3f88",
+        "e536405a30"
+      ]
+    },
+    "matrixValidation": {
+      "exitCode": 1,
+      "reason": "Original dependency phase inversion control and release-final parser/execution target authority closure drift; full matrix lanes not rerun in this followup."
+    },
+    "prGate": {
+      "command": [
+        "/tmp/fsusblog-3593/node24.16/node-v24.16.0-linux-x64/bin/node",
+        "/tmp/fsusblog-3593/trusted-base/tools/governance/check-change-contract.mjs",
+        "--root",
+        "/workspace/FsusBlog",
+        "--github-event",
+        "/tmp/fsusblog-3593/migration-dbeac/pr-event.json"
+      ],
+      "exitCode": 1,
+      "actualApiHead": "ea21316571e18f70f9f11d5471656198319e343f",
+      "actualApiBase": "b9c076e4b763130075218ff9d50f9a6c36784f59",
+      "errors": 9,
+      "reason": "Eight unchanged original generated inputs and atomic source/output closure; actual API base retained."
+    },
+    "existingCanonicalOwnerStyle": "Previous resolver/RPC failures retained at their exact prior checkpoints.",
+    "fullQualification": "Original independent review, full matrix/PG/native/retained-build/nested-channel qualification incomplete."
+  },
+  "conflictPreview": {
+    "exitCode": 0,
+    "tree": "1eb86a8177fe4331a1921e6e68441171d8d78d7c",
+    "actualMergePerformed": false
+  },
+  "taskBuildServersCleanupExit": 0,
+  "limits": [
+    "Only exact two-line coordinator-supplied constructor repair consumed; stable patch identity and entire original owner postimage identical. No unrelated branch changes or replacement namespace workaround.",
+    "Every destructive typed/SQL negative source is unchanged. Original71 Expand cases pass as dry-run/preflight tests, not native execution or backup/restore proof.",
+    "All117 failed full Migration rows preserved with exact test name, original source blob, message and stack. Owner1610/37 report is not our result.",
+    "Canonical inventory producer now runs and emits its schema, but169 error diagnostics and939 dynamic obligations remain. Inventory records/templates and runtime parameter rows are distinct.",
+    "Retention reaches35 actual missing-target refusals; no target dropped, alias invented, baseline rewritten or audit fabricated.",
+    "All prior CS0246/missing-DLL/runtime failures remain immutable at prior commits. Backend738-case results are not rerun or relabeled in this followup.",
+    "GitHub content writes paused globally. Source/evidence code push only; no comments, PR edits, merge, production credentials, deployment or denied-scope retries."
+  ],
+  "proofs": [
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/assembly-binding.json.gz",
+      "sha256": "ed9942a7cecc30b82a820026a4705c2e5420d10d2b1e5135ba5951b0cf2b7cc7",
+      "rawSha256": "73bdd86ba0c5cde08eddfe0f9321ec6ed381467d0270a797d981b7ad2568fead",
+      "rawBytes": 547,
+      "compressedBytes": 261
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/ast-retention.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/ast-retention.log.gz",
+      "sha256": "dc54199005b7dcf609160bb7b9dc922b7460af3d876689cd7f19ab545558b1e8",
+      "rawSha256": "64a203a80206a709d891bb2c492d09a27ae6ca434f4f062108804d0611d114d1",
+      "rawBytes": 151,
+      "compressedBytes": 132
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/binding.json.gz",
+      "sha256": "e09aef29c7d3617466d7d5f36044bcbfc1f091f467a5e2b46aa9d09d84c0ed18",
+      "rawSha256": "08aaea505c968b1c1f9f6b8da8a251763d7ca712146da37456bb691c2979d5df",
+      "rawBytes": 724,
+      "compressedBytes": 458
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/build-server-cleanup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/build-server-cleanup.log.gz",
+      "sha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c",
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf",
+      "rawBytes": 156,
+      "compressedBytes": 97
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/commands.json.gz",
+      "sha256": "5241f9397661dc83f39a09f508b5ccbeafbf009e5494e978b964e7183512dc45",
+      "rawSha256": "d329cc86b0df51e4373d4a68d6da59fc223541340b09128d7d495fe344c67225",
+      "rawBytes": 2464,
+      "compressedBytes": 576
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/conflict-preview.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/conflict-preview.log.gz",
+      "sha256": "7db8d0a2ca48ebf7e9dea46834f82971e757271a836bf5b2beb412c84e80b0ba",
+      "rawSha256": "e16a35dcbb8c00382b1b7fcff23ba3d2c624bf7b2a4e18a26be0fbdf79a9d652",
+      "rawBytes": 41,
+      "compressedBytes": 59
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/context-controls-command.json.gz",
+      "sha256": "8f9a703e90f0094552c5a2f30388f6da5e02f7a6e9a8b3df7276790d75a215b8",
+      "rawSha256": "a45391061fe0435742aab7f7301f7e8d331b7394be627f130f5f869891fefa8c",
+      "rawBytes": 178,
+      "compressedBytes": 155
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/context-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/context-controls.log.gz",
+      "sha256": "cc5601994084a0434428eb2097faf5efe6bc0f29724a433ffd396f8003736f08",
+      "rawSha256": "e9eb3ce445b3a8e2344d2ce952b295d13aba238dac8016a65bb20058517f27f3",
+      "rawBytes": 2297,
+      "compressedBytes": 1033
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/convergence.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/convergence.json.gz",
+      "sha256": "fe48dba04310a6010af8d6e7ca2d994d025e69c61c6b393989d65fd75578d7dc",
+      "rawSha256": "19a1631d4b039f2916ccb3393abc371e0a9412aa0a333f765e8259ecdc481ca9",
+      "rawBytes": 21589,
+      "compressedBytes": 3452
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/convergence.log.gz",
+      "sha256": "7f2042467ea001bce15383b7bb665239f9bc4175a4c1b0b33fea09726797dd65",
+      "rawSha256": "dcae7b8a6db22d79c7b5d60bdda6a0be4ae8df29c3a715d6fb7be4f59e37b8b2",
+      "rawBytes": 466,
+      "compressedBytes": 224
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/current-ast.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/current-ast.log.gz",
+      "sha256": "905843fe4682aacd2bf41056f85ce311431878cbc770c4ec4581c806258aebdb",
+      "rawSha256": "f9efd84a152ba5065e5abf629fe42a2c2c4172f0ba54171ce512c2f525cfc2d1",
+      "rawBytes": 230177,
+      "compressedBytes": 20219
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/exact-migration-failures.json.gz",
+      "sha256": "885ea7a057a54126b7be074064c46a81945f646225d4ec935f707d186f0f27bf",
+      "rawSha256": "cf344f85e8927a6ef867ec9f31c59b6b25b53c45c42925027866c153886c934d",
+      "rawBytes": 227410,
+      "compressedBytes": 13499
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/expand-original.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/expand-original.log.gz",
+      "sha256": "28e7cba3cc7fbb383d34120308e511e81c973af96a340ee4cad285c33a95962c",
+      "rawSha256": "b2662982619224e1af89652da69940c498d790a36ffa51935c1952055b74d481",
+      "rawBytes": 428,
+      "compressedBytes": 299
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/final-build-server-cleanup.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/final-build-server-cleanup.log.gz",
+      "sha256": "84c53ffe297096af1ac00c41255a2f44f6f76f43aee361514ef58041c4d5f77c",
+      "rawSha256": "830e5cd707f90e485d1b96b500318ea1d4c6248cd46f3da146a5887084144dbf",
+      "rawBytes": 156,
+      "compressedBytes": 97
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/inventory-summary.json.gz",
+      "sha256": "727ff06c2e7deecede311ea6807b050f543f45181fc7a9a808418e66ba10e469",
+      "rawSha256": "2e2b375cde12ff7e8c3339786970c091b7e321b3676c251df646cfb0521eea84",
+      "rawBytes": 298514,
+      "compressedBytes": 12534
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/inventory.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/inventory.json.gz",
+      "sha256": "9ece68069db0687932851245a102ece79265f6a363f0ea96bded431e33dbf4e4",
+      "rawSha256": "81bb2967c9c1f012b8159bf197c01402182a1239f9443cdd6ceafbebd25fe496",
+      "rawBytes": 268231720,
+      "compressedBytes": 11621141
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/inventory.log.gz",
+      "sha256": "be2db8de62bcf568075f6ff7942a795d7a601c7a2ba1167b30181e00289e3a6f",
+      "rawSha256": "b56e983cdec9ca3e058d0687398fbea350f2ddde50e4297751c50ea4e15a4871",
+      "rawBytes": 175,
+      "compressedBytes": 161
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/lifecycle-retention-controls.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/lifecycle-retention-controls.log.gz",
+      "sha256": "0cf3742e46bca1011af0e7efc8988d96f2c09d27dfeee7e9680a8ff764f8e820",
+      "rawSha256": "1c157dae608a1401423c01ab1060c611a33a3e04eb70da77e56ca867b3708a68",
+      "rawBytes": 55366,
+      "compressedBytes": 4856
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/locked-restore.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/locked-restore.log.gz",
+      "sha256": "aa2fdf89386d669b9fdaebacae935b0ee83249d64faa9433bf5f2e59cdfc23ef",
+      "rawSha256": "ec2cb2c946c07d64808660e43dad8eff27a632137e9e470f255e0b6461f5ea69",
+      "rawBytes": 584,
+      "compressedBytes": 266
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/matrix-command.json.gz",
+      "sha256": "e552ce7f51a48d1c784313a936cb792733ef79b3279e44b0b94d80f429e7ce27",
+      "rawSha256": "c328d75b0de86195a2e124cc6762bb3d4b23b86cd1a3c7a580abbe88cc624b15",
+      "rawBytes": 143,
+      "compressedBytes": 140
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/matrix-validation.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/matrix-validation.log.gz",
+      "sha256": "dee3fe8e40d1f1d9b08f2f2cbb57dc6404026339474fc71b746be143d134ad1d",
+      "rawSha256": "836a5049c1e88422af36de283d6020d74de48759dcac13ae028c91bcaf07aa35",
+      "rawBytes": 671,
+      "compressedBytes": 438
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/migration-build.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/migration-build.log.gz",
+      "sha256": "707b011b6ad0e9a0c3d2ffac03006537f0786807fda228bd55a7b21a6b9a211f",
+      "rawSha256": "d20fd96ea18b52eb2be34ec638d19966fcc7e20ef9cf7b720796c9ff9472d4af",
+      "rawBytes": 1332020,
+      "compressedBytes": 29932
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/migration-complete.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/migration-complete.log.gz",
+      "sha256": "968b94670f9469b5d6cb3f16e3b27bc3c691113046bbc3b4bcba3f274e5f8e24",
+      "rawSha256": "109c44a1f76a1696675bcfbc65f970a8c6d3e75673ef8ccae84dac46f0a68758",
+      "rawBytes": 205644,
+      "compressedBytes": 10873
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/migration-failure-routing.json.gz",
+      "sha256": "879c6ee0dbbeb123082f3853cf3499ba6c624de4369e0cd8501983e6c8798a7f",
+      "rawSha256": "d133da28a154b6e6431e2a2e83b66a7b6b0ff4d430b64ee9cfcb4d5dbbc96353",
+      "rawBytes": 35833,
+      "compressedBytes": 4183
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/new-owner-style.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/new-owner-style.log.gz",
+      "sha256": "31b9f5b7c34299b1240754d03d1ebc6e4d33fa3087d0eb80fa7c2bf3e0fd2e37",
+      "rawSha256": "48b4a5e3d2cd4b09c01f7ed0f7145c76ac1040f65afa6fd86ecdc6b0fedc1be8",
+      "rawBytes": 234,
+      "compressedBytes": 192
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/original-controls.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/original-controls.log.gz",
+      "sha256": "dd197f9a0f8afc89fc53e8950a190af31858252b2f88a6b75aeb59f619085b50",
+      "rawSha256": "52fff8f25893fe494d058f7fb4b837e86789493967b69c94ed652b627de19dd7",
+      "rawBytes": 6744,
+      "compressedBytes": 2479
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/pr-gate-binding.json.gz",
+      "sha256": "af8181ef52fff5b21e4072adee4c3db57859f899c7438d8a70e7d7a07721f2d9",
+      "rawSha256": "d1b714dbecb90025aaed82e3aed31ba3d744c8e48f3a0495be99cca383f93531",
+      "rawBytes": 435,
+      "compressedBytes": 294
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/pr-gate.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/pr-gate.log.gz",
+      "sha256": "c5c25023ccef1cba1acc046edc556b89374d58754536ef4855bee77bd6346850",
+      "rawSha256": "a05fccc92a6276afbe4c1de9ef3bb6a4ffeb0c031b8600e39ab1efbd086e1cae",
+      "rawBytes": 970,
+      "compressedBytes": 276
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/results.json.gz",
+      "sha256": "7e20ec03134f6200221c0e23d8f8dbfe87376d9a25f6897f0747c40f6ee2e117",
+      "rawSha256": "d50feadfa75a73f33eb8ab2e7746ec8c6077e8070dca010fe822a79d7adb6389",
+      "rawBytes": 2998,
+      "compressedBytes": 744
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/retention-cli.exit.gz",
+      "sha256": "d381e5a9b7c1c71b5fb3fef202103bf4b6098ce288f148735de1ecf61d4e3b75",
+      "rawSha256": "4355a46b19d348dc2f57c046f8ef63d4538ebb936000f3c9ee954a27460dd865",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/retention-cli.log.gz",
+      "sha256": "cb9b683ae4548e33f5ce5674e1f459a35c7bdf38635d970380ac7fee936083b6",
+      "rawSha256": "fc8cb942584db99196bd7783e45aad1f3a9e690f59daabc994aabfc420f0eb0d",
+      "rawBytes": 13890,
+      "compressedBytes": 1443
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/retention-refusals.json.gz",
+      "sha256": "7569f14048824cacc6a74b30f2ab247937afdddf754bac19dc85b7633f1ec61a",
+      "rawSha256": "e2d87cc4a9b96448fd5a6ddbe11516a01c0973f418e0c53548d0a387cf80bb6e",
+      "rawBytes": 14997,
+      "compressedBytes": 1645
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/root-identity.json.gz",
+      "sha256": "6e871647a16f17c8886afe73e309fd5895567fd055c3c5afda293186b5167282",
+      "rawSha256": "b65d1f302c62fde0a97a01284ab7ca7a0e511d5bba919431daedeeb5e55b1a45",
+      "rawBytes": 2237,
+      "compressedBytes": 727
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/root-style.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/root-style.log.gz",
+      "sha256": "ab0b0871a71531dfdb391755ae16c4ca1b099e6c8d7fe3c97ed91b6debd5bfb8",
+      "rawSha256": "854168e7010c12d1c1a376018f5b2464a396a5f1dfa5adda3886518c52c433ca",
+      "rawBytes": 68,
+      "compressedBytes": 79
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/runtime-summary.json.gz",
+      "sha256": "8b7c8997e72192bfa0a68fb330580c4ef8b7da9547305982c50a8981bb7abbeb",
+      "rawSha256": "c905a3516f107e3e0548bf48472cac440917bab2d8fb1691623b33788167bc12",
+      "rawBytes": 196186,
+      "compressedBytes": 10960
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/source-regression-results.json.gz",
+      "sha256": "32ee0409c221b63dcd608f8b5defa429eb299f79a50b2d93fbd3ab5efd40d006",
+      "rawSha256": "60631eade0ab3e4df6929bde404f4f54e61db29637e336b6048575c7aafec175",
+      "rawBytes": 639,
+      "compressedBytes": 306
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/source-results.json.gz",
+      "sha256": "dc655de376812a61997dbf59d5116375deea14cbd9d8fed51b62b1f72c3c11fe",
+      "rawSha256": "d7d62fcd0dde749b5d5a59414f789e17e33d708c3617a3e445bf046aa93a3bc4",
+      "rawBytes": 1620,
+      "compressedBytes": 473
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/trusted-range.exit.gz",
+      "sha256": "cabc3a30b39528db601f65ca3ced008dd775595c901102d08ac8ae8976b29bcf",
+      "rawSha256": "9a271f2a916b0b6ee6cecb2426f0b3206ef074578be55d9bc94f6f3fe3ab86aa",
+      "rawBytes": 2,
+      "compressedBytes": 22
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/trusted-range.log.gz",
+      "sha256": "270052ba984db189f68e51666e646713ae92b5a2444406b7b6b9f302b41e334b",
+      "rawSha256": "d94f762c58590df66eccf3ee15e4d1488f5210469b256b5fd99983a77aae5d08",
+      "rawBytes": 54,
+      "compressedBytes": 72
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/expand-original-results.trx.gz",
+      "sha256": "56e6b9af465d24c2d2cec53e16bdbd9cb1d5252a5d59a9a226b1ef51a634a2c9",
+      "rawSha256": "b0cf423a11e716678c6dc1dccd90a700df2129670d9270f5c5f318af5b3a7b72",
+      "rawBytes": 67873,
+      "compressedBytes": 7093
+    },
+    {
+      "path": "artifacts/style/suite-convergence-migration-prerequisite-verification/migration-complete-results.trx.gz",
+      "sha256": "dcbec86b55a63a032ba8c80b5729fafcdffca26c4ad65235a070102f79b59da3",
+      "rawSha256": "37c3dffea7a7190b76db105696eab913add199f22f030efb18650a71d7b744f0",
+      "rawBytes": 2817241,
+      "compressedBytes": 461999
+    }
+  ]
+}

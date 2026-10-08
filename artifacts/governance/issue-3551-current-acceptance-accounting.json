@@ -1697,7 +1697,7 @@
     ]
   },
   "earlyIndependentReviewEligible": false,
-  "earlyReviewRefusal": "Four bootstrap/projection source controls now pass, but original C# style, migration compile, AST/generated/retention gates still fail; not only environment omissions.",
+  "earlyReviewRefusal": "Migration compilation is repaired, but full Migration117 failures,35 replacement-target refusals,169 inventory errors and939 dynamic obligations, style, AST/generated/matrix gates still fail. Not environment-only.",
   "actual17OwnerExecution": {
     "testedCommit": "db33476d2a709a54fcad2291741c3b5fab2ccb31",
     "counts": {
@@ -2055,18 +2055,130 @@
   "gitHubWritePause": "Coordinator secondary-rate-limit instruction: no new issue comments or nonessential writes; WIP handoff retained locally.",
   "latestAcceptedSdkMasterVerification": "artifacts/style/suite-convergence-after-accepted-sdk-master.json",
   "currentOriginalInventoryRetention": {
-    "testedCommit": "98f5999e663d34747ccf8f3dc06b68bdff852adc",
-    "runId": "issue-3593-after-4008-20261008T065548Z",
-    "inventoryExit": 1,
+    "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+    "runId": "issue-3593-migration-dbeac-20261008T071502Z",
+    "inventoryProducerExit": 0,
+    "inventorySourceFiles": 3051,
+    "inventoryCanonicalCaseRecords": 19835,
+    "inventoryDiagnosticCounts": {
+      "bySeverity": {
+        "error": 169,
+        "info": 939
+      },
+      "byCode": {
+        "native-table-not-closed": 169,
+        "dynamic-case-obligation": 939
+      }
+    },
+    "completeInventoryAccepted": false,
     "retentionCliExit": 1,
+    "retentionMissingTargets": 35,
     "lifecycleControls": {
+      "exitCode": 1,
       "total": 64,
       "passed": 63,
       "failed": 1,
-      "skipped": 0,
-      "reason": "Migration Debug output/intermediate DLL missing; actual original compilation still has two CS0246 errors."
+      "skipped": 0
     },
-    "generatedInventoryPresent": false,
+    "generatedInventoryPresent": true,
     "generatedRetentionPresent": false
+  },
+  "latestMigrationPrerequisiteVerification": "artifacts/style/suite-convergence-migration-prerequisite-verification.json",
+  "currentSupportingMigrationExecution": {
+    "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+    "runId": "issue-3593-migration-dbeac-20261008T071502Z",
+    "build": {
+      "sdk": "10.0.302",
+      "runtime": "10.0.10",
+      "lockedRestoreExit": 0,
+      "buildExit": 0,
+      "warnings": 2484,
+      "errors": 0,
+      "originalTwoCompilationErrorsResolved": true
+    },
+    "batches": [
+      {
+        "name": "expand-original",
+        "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+        "exitCode": 0,
+        "command": [
+          "timeout",
+          "600",
+          "dotnet",
+          "test",
+          "tests/migration/FsusBlog.Migration.Tests.csproj",
+          "--no-restore",
+          "--no-build",
+          "--configuration",
+          "Debug",
+          "--filter",
+          "FullyQualifiedName~OfflineMigrationExpandSafetyTests",
+          "--results-directory",
+          "/tmp/fsusblog-3593/migration-dbeac/expand-original-results",
+          "--logger",
+          "trx"
+        ],
+        "counts": {
+          "total": "71",
+          "executed": "71",
+          "passed": "71",
+          "failed": "0",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "trxSha256": "b0cf423a11e716678c6dc1dccd90a700df2129670d9270f5c5f318af5b3a7b72"
+      },
+      {
+        "name": "migration-complete",
+        "testedCommit": "ea21316571e18f70f9f11d5471656198319e343f",
+        "exitCode": 1,
+        "command": [
+          "timeout",
+          "600",
+          "dotnet",
+          "test",
+          "tests/migration/FsusBlog.Migration.Tests.csproj",
+          "--no-restore",
+          "--no-build",
+          "--configuration",
+          "Debug",
+          "--results-directory",
+          "/tmp/fsusblog-3593/migration-dbeac/migration-complete-results",
+          "--logger",
+          "trx"
+        ],
+        "counts": {
+          "total": "1647",
+          "executed": "1647",
+          "passed": "1530",
+          "failed": "117",
+          "error": "0",
+          "timeout": "0",
+          "aborted": "0",
+          "inconclusive": "0",
+          "passedButRunAborted": "0",
+          "notRunnable": "0",
+          "notExecuted": "0",
+          "disconnected": "0",
+          "warning": "0",
+          "completed": "0",
+          "inProgress": "0",
+          "pending": "0"
+        },
+        "trxSha256": "37c3dffea7a7190b76db105696eab913add199f22f030efb18650a71d7b744f0"
+      }
+    ],
+    "qualified": false,
+    "failures": "artifacts/governance/issue-3551-migration-prerequisite-failures.json"
   }
 }
