@@ -54,7 +54,7 @@ test('provenance reads actual current Git blobs and keeps absent pipeline files 
 {
     assert.equal(sourceReference.sourceCommit, sourceCommit);
     assert.equal(sourceReference.executionCapability, false);
-    assert.equal(sourceReference.files.length, 8);
+    assert.equal(sourceReference.files.length, 18);
     for (const file of sourceReference.files)
     {
         const actual = execFileSync('git', ['-C', repositoryRoot, 'ls-tree', sourceCommit, '--', file.path],
@@ -112,7 +112,8 @@ test('published real writer source exposes its observed 1000-graph bound without
         sourceCommit: '1440291b065a8e30b6d5f64ed864c090d5a9d79e'
     });
     assert.equal(published.physicalBatchGraphLimit, 1000);
-    assert.equal(published.files.filter((file) => file.status === 'missing').length, 0);
+    assert.equal(published.files.filter((file) => file.status === 'present').length, 8);
+    assert.equal(published.resolvedSourceReviewed, false);
     for (const batchSize of [1, 1000])
     {
         const request = createDistributionArticleWriterRequest({ ...options(), sourceReference: published, batchSize });
@@ -137,6 +138,65 @@ test('published real writer source exposes its observed 1000-graph bound without
     }
     assert.throws(() => createDistributionArticleWriterRequest({ ...options(), sourceReference: published, batchSize: -0 }),
         /distribution_noncanonical_json/u);
+});
+
+test('actual new owner source provides typed resolved intake and replaces obsolete missing API blockers', () =>
+{
+    const published = readArticleBulkWriterSourceReference({
+        repositoryRoot,
+        sourceCommit: 'c2847aaae1c1230a87435a26c13eae465d6b681c'
+    });
+    assert.equal(published.files.length, 18);
+    assert.equal(published.files.filter((file) => file.status === 'missing').length, 0);
+    assert.equal(published.resolvedSourceReviewed, true);
+    assert.equal(published.executionCapability, false);
+    for (const scenarioId of distributionScenarioIds)
+    {
+        const request = createDistributionArticleWriterRequest({ ...options(scenarioId), sourceReference: published, batchSize: 1000 });
+        assert.ok(!request.blockers.includes('article_writer_semantic_assignment_input_missing'));
+        assert.ok(!request.blockers.includes('article_writer_complete_plan_admission_host_missing'));
+        assert.ok(request.blockers.includes('article_writer_js_typed_intake_bridge_missing'));
+        assert.deepEqual(request.ownerRequest.existingProjectionArguments,
+            ['plan', 'graphs', 'identities', 'schema', 'externalIdentities', 'resolvedBatch']);
+        assert.equal(request.ownerRequest.existingTypedInput.input, 'ArticleScaleResolvedInput');
+        assert.equal(request.ownerRequest.existingTypedInput.inputDigest, 'ArticleScaleAssignmentCoverage.ComputeInputDigest');
+        assert.equal(request.ownerRequest.existingTypedInput.preflightScope, 'whole-roster-and-current-batch-payload-only');
+        assert.equal(request.ownerRequest.existingTypedInput.postgresProducer, 'DataScalePostgresArticleProducer.ProduceAsync');
+        assert.equal(request.ownerRequest.proposedContractStatus, 'typed-input-available-js-bridge-required');
+        const serialized = serializeDistributionArticleWriterRequest(request, published, request.contentDigest);
+        assert.deepEqual(JSON.parse(serialized), request);
+        let reads = 0;
+        const assignments = Object.defineProperty({}, Symbol.iterator, { get: () =>
+        {
+            reads += 1;
+            throw new Error('must-not-read');
+        } });
+        assert.throws(() => prepareDistributionArticleWriterBatches(request, published, request.contentDigest, assignments),
+            /article_writer_js_typed_intake_bridge_missing/u);
+        assert.equal(reads, 0);
+        assert.equal(request.executionEligible, false);
+        assert.equal(request.releaseEvidenceEligible, false);
+    }
+});
+
+test('new typed source request refuses resealed importer, scope and qualification claims', () =>
+{
+    const published = readArticleBulkWriterSourceReference({
+        repositoryRoot,
+        sourceCommit: 'c2847aaae1c1230a87435a26c13eae465d6b681c'
+    });
+    const request = createDistributionArticleWriterRequest({ ...options(), sourceReference: published, batchSize: 1000 });
+    for (const field of ['bridgeStatus', 'digestAuthority', 'preflightScope', 'postgresProducer'])
+    {
+        const changed = structuredClone(request);
+        changed.ownerRequest.existingTypedInput[field] = 'invented-qualified-host';
+        const sealed = reseal(changed);
+        assert.throws(() => validateDistributionArticleWriterRequest(sealed, published, sealed.contentDigest), /identity_mismatch/u);
+    }
+    const changed = structuredClone(request);
+    changed.sourceReference.executionCapability = true;
+    const sealed = reseal(changed);
+    assert.throws(() => validateDistributionArticleWriterRequest(sealed, published, sealed.contentDigest), /identity_mismatch/u);
 });
 
 test('same inputs are byte stable while changed scenario, namespace and owner digest invalidate identity', () =>
