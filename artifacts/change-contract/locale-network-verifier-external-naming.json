@@ -7,6 +7,13 @@
                 "tools/test-matrix/verify-public-shell-locale.mjs"
             ],
             "reason": "Preserve the verifier's existing FSUSBLOG_BROWSER_CONTRACT_RECEIPT process input while rechecking immutable locale network budgets; no environment or CLI spelling changes."
+        },
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+            ],
+            "reason": "Preserve the canonical execution-authority wire schema while its trusted producer reseals the exact changed locale-domain and network-verifier source closure under the indexed Node parser."
         }
     ]
 }
