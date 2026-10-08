@@ -10,9 +10,18 @@ internal readonly record struct OsPageCall(bool Succeeded, int Error);
 // pointer is rounded into a page range, and no machine-global policy is changed.
 internal interface IOsPageNativeApi
 {
-    int PageBytes { get; }
-    string Backend { get; }
-    bool UsesExplicitLargePages { get; }
+    int PageBytes
+    {
+        get;
+    }
+    string Backend
+    {
+        get;
+    }
+    bool UsesExplicitLargePages
+    {
+        get;
+    }
     nint Reserve(nuint bytes, out int error);
     OsPageCall Commit(nint address, nuint bytes);
     OsPageCall Protect(nint address, nuint bytes, bool writable);

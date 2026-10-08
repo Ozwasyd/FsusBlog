@@ -237,9 +237,18 @@ public sealed class OsPageRegionTests
 
     private sealed class TestNumaApi : IOsNumaRangeApi
     {
-        public int Calls { get; private set; }
-        public nint Address { get; private set; }
-        public nuint Bytes { get; private set; }
+        public int Calls
+        {
+            get; private set;
+        }
+        public nint Address
+        {
+            get; private set;
+        }
+        public nuint Bytes
+        {
+            get; private set;
+        }
         public OsPageCall Bind(nint address, nuint bytes, int node)
         {
             Calls++;
@@ -293,9 +302,18 @@ public sealed class OsPageRegionTests
         {
             new MemoryResourceCharge(descriptor.Domain, MemoryResourceUnit.Bytes, descriptor.Layout.CapacityBytes)
         };
-        public bool RejectCommit { get; init; }
-        public TestCharge? Charge { get; private set; }
-        public int Releases { get; private set; }
+        public bool RejectCommit
+        {
+            get; init;
+        }
+        public TestCharge? Charge
+        {
+            get; private set;
+        }
+        public int Releases
+        {
+            get; private set;
+        }
 
         public MemoryOperationResult<IMemoryAllocationCharge> Commit(AllocationId allocation,
             IReadOnlyList<MemoryResourceCharge> actualCharges) => throw new NotSupportedException();
@@ -321,8 +339,14 @@ public sealed class OsPageRegionTests
         public AllocationId Allocation => descriptor.Allocation;
         public MemoryAllocationDescriptor Descriptor => descriptor;
         public IReadOnlyList<MemoryResourceCharge> ActualCharges => charges;
-        public int Releases { get; private set; }
-        public bool FailNextRelease { get; set; }
+        public int Releases
+        {
+            get; private set;
+        }
+        public bool FailNextRelease
+        {
+            get; set;
+        }
         public void Dispose()
         {
             if (FailNextRelease)
@@ -339,17 +363,50 @@ public sealed class OsPageRegionTests
     {
         public int PageBytes => 4096;
         public string Backend => "contract-fixture";
-        public bool UsesExplicitLargePages { get; init; }
-        public int Reserves { get; private set; }
-        public int Releases { get; private set; }
-        public nint Address { get; private set; }
-        public nint LastAddress { get; private set; }
-        public nuint LastBytes { get; private set; }
-        public bool FailLock { get; init; }
-        public bool FailProtection { get; set; }
-        public bool FailDecommit { get; init; }
-        public bool FailRelease { get; set; }
-        public bool FailUnlock { get; set; }
+        public bool UsesExplicitLargePages
+        {
+            get; init;
+        }
+        public int Reserves
+        {
+            get; private set;
+        }
+        public int Releases
+        {
+            get; private set;
+        }
+        public nint Address
+        {
+            get; private set;
+        }
+        public nint LastAddress
+        {
+            get; private set;
+        }
+        public nuint LastBytes
+        {
+            get; private set;
+        }
+        public bool FailLock
+        {
+            get; init;
+        }
+        public bool FailProtection
+        {
+            get; set;
+        }
+        public bool FailDecommit
+        {
+            get; init;
+        }
+        public bool FailRelease
+        {
+            get; set;
+        }
+        public bool FailUnlock
+        {
+            get; set;
+        }
 
         public unsafe nint Reserve(nuint bytes, out int error)
         {
