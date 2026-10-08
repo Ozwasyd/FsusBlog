@@ -814,6 +814,9 @@ internal static class RuntimeRoleObservationHost
             NativeClaimEligible: false);
     }
 
+    private static string DigestFile(string path)
+        => "sha256:" + Convert.ToHexString(SHA256.HashData(File.ReadAllBytes(path))).ToLowerInvariant();
+
     private static string CanonicalObjectWithout(JsonElement value, string omittedProperty)
     {
         var builder = new StringBuilder();
