@@ -96,3 +96,20 @@ lock-tree checks do not replace actual `npm ci` or Docker build acceptance.
 ## Full App Typecheck
 
 The focused FsusUI export contract is separate from full app `vue-tsc` because the full app can fail on unrelated baseline errors. Full app typecheck should still be run as part of broader frontend cleanup, but FsusUI package/local alias failures should be diagnosed with the two focused modes first.
+
+For the complete application with source aliases, run
+`node src/frontend/scripts/run-local-fsusui-typecheck.mjs --application` from the
+repository root. The existing producer inherits every app/Wasm/SFC include and
+strict compiler setting from `tsconfig.app.json`, adds the local declarations,
+and resolves Vue and `@vue/*` through the consumer's installed dependencies.
+The generated project lives under `src/frontend/.tmp/typecheck`, so each
+worktree resolves its own installed `vite/client` and Node type libraries.
+Composite emission is disabled for this source-consumption typecheck; strictness,
+unused checks and the application's syntax checks remain inherited.
+
+Canonical ESLint and the standard style executor select this same complete
+project when local source consumption is enabled. They do not use the three
+export-contract fixtures as the application program. Invalid configured local
+roots fail closed. With `FSUSBLOG_USE_LOCAL_FSUSUI=0`, the original registry
+project service remains active. Local-source style checks recheck mutable
+external source types without the registry-mode ESLint content cache.
