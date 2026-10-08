@@ -6,6 +6,7 @@ import { canonicalDigest, deepFreeze, exactKeys } from './distribution-contract.
 
 const { validateTemporalShapeCatalog } = await import(new URL('../test/temporal-shape-catalog.mjs', import.meta.url));
 const { validateMediaShapeCatalog } = await import(new URL('../test-fixtures/media-shape-catalog.mjs', import.meta.url));
+const { shapeContentDigest } = await import(new URL('../testing/content-shape-catalog.mjs', import.meta.url));
 
 const repositoryRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 const authorityPaths = Object.freeze({
@@ -58,6 +59,14 @@ function loadAuthorities(root)
     {
         const source = fs.readFileSync(path.join(root, relativePath), 'utf8');
         const document = id === 'article' ? source : JSON.parse(source);
+        if (id === 'content')
+        {
+            for (const shape of document.shapes)
+            {
+                requireCondition(shape.contentDigest === shapeContentDigest(shape),
+                    `distribution_content_authority_invalid:${shape.id}`);
+            }
+        }
         documents[id] = document;
         references[id] = {
             path: relativePath,

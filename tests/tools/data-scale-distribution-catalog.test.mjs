@@ -3,7 +3,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const {
     distributionCatalog,
@@ -308,6 +308,50 @@ test('changed private parameters cannot create a second accepted catalog', () =>
     const changed = cloneCatalog();
     changed.scenarios[0].fixedSeed = 'changed-seed';
     assertInvalid(reseal(changed), 'distribution_unregistered_parameters');
+});
+
+test('current content shapes with stale owner digests fail before catalog propagation', async () =>
+{
+    const temporary = fs.mkdtempSync(path.join(os.tmpdir(), 'distribution-stale-content-'));
+    const { shapeContentDigest } = await import(new URL('../../tools/testing/content-shape-catalog.mjs', import.meta.url));
+    try
+    {
+        const dependencies = [
+            'tools/data-scale/distribution-catalog.mjs',
+            'tools/data-scale/distribution-contract.mjs',
+            'tools/test-fixtures/receipt/canonical.mjs',
+            'tools/test-fixtures/media-shape-catalog.mjs',
+            'tools/test/temporal-shape-catalog.mjs',
+            'tools/test/temporal-context.mjs',
+            'tools/test/temporal-context-contract.mjs',
+            'tools/testing/content-shape-catalog.mjs',
+            'config/testing/temporal-policy.json',
+            ...Object.values(distributionCatalog.authorities).map((authority) => authority.path)
+        ];
+        for (const relativePath of dependencies)
+        {
+            const target = path.join(temporary, relativePath);
+            fs.mkdirSync(path.dirname(target), { recursive: true });
+            fs.copyFileSync(path.join(repositoryRoot, relativePath), target);
+        }
+        const contentPath = path.join(temporary, distributionCatalog.authorities.content.path);
+        const content = JSON.parse(fs.readFileSync(contentPath, 'utf8'));
+        const shape = content.shapes.find((row) => row.id === 'script.combining');
+        assert.equal(shape.target.ordinaryUtf16Units, 32);
+        shape.target.ordinaryUtf16Units = 33;
+        assert.notEqual(shape.contentDigest, shapeContentDigest(shape));
+        fs.writeFileSync(contentPath, JSON.stringify(content));
+        const inspected = validateDistributionCatalog(distributionCatalog, { root: temporary });
+        assert.equal(inspected.status, 'invalid');
+        assert.ok(inspected.errors.some((error) => error.includes('distribution_content_authority_invalid:script.combining')),
+            JSON.stringify(inspected));
+        await assert.rejects(import(pathToFileURL(path.join(temporary, 'tools/data-scale/distribution-catalog.mjs'))),
+            /distribution_content_authority_invalid:script\.combining/u);
+    }
+    finally
+    {
+        fs.rmSync(temporary, { recursive: true, force: true });
+    }
 });
 
 test('old catalog snapshots fail against changed live authority bytes', () =>

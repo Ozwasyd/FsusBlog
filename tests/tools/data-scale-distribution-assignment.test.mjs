@@ -260,6 +260,32 @@ test('stream generation and replay snapshot inputs before caller iteration mutat
     assert.equal(verifyDistributionSamplingShards(kernel, replayRequest, adversarialIterator()).sampleCount, 23);
 });
 
+test('unsafe ordinal interval fails before the first shard or verifier input is consumed', () =>
+{
+    const kernel = createDistributionSamplingKernel(options);
+    const unsafe = { ...request, startOrdinal: Number.MAX_SAFE_INTEGER, count: 2, shardSize: 1 };
+    const iterator = createDistributionSamplingShards(kernel, unsafe);
+    assert.throws(() => iterator.next(), /distribution_sampling_count_invalid/u);
+    let consumed = false;
+    function* input()
+    {
+        consumed = true;
+        yield {};
+    }
+    assert.throws(() => verifyDistributionSamplingShards(kernel, unsafe, input()), /distribution_sampling_count_invalid/u);
+    assert.equal(consumed, false);
+    for (const valid of [
+        { startOrdinal: Number.MAX_SAFE_INTEGER, count: 1, shardSize: 1 },
+        { startOrdinal: Number.MAX_SAFE_INTEGER - 1, count: 2, shardSize: 1 },
+        { startOrdinal: Number.MAX_SAFE_INTEGER - 2, count: 3, shardSize: 2 }
+    ])
+    {
+        const validRequest = { ...request, ...valid };
+        const shards = [...createDistributionSamplingShards(kernel, validRequest)];
+        assert.equal(verifyDistributionSamplingShards(kernel, validRequest, shards).sampleCount, valid.count);
+    }
+});
+
 test('stream requests reject impossible count, memory size and forged local capability', () =>
 {
     const kernel = createDistributionSamplingKernel(options);
