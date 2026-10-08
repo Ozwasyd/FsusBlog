@@ -1,0 +1,20 @@
+{
+    "schema": "fsusblog.generated-output-binding.v1",
+    "sources": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/release/test-evidence-receipts-cli.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test/bundles/bundle-steps.mjs"
+    ],
+    "outputs": [
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d"
+        }
+    ]
+}
