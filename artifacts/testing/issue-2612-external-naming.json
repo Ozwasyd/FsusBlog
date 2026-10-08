@@ -11,9 +11,10 @@
                 "tests/governance/test-lifecycle-registry.json",
                 "config/testing/correctness-attempt-producers.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/migration/packages.lock.json"
+                "tests/migration/packages.lock.json",
+                "artifacts/style/reader-migration-fixture-idempotence.json"
             ],
-            "reason": "Preserve canonical JSON schema keys while applying the exact supplied test, lock, registry and producer-inventory capability corrections."
+            "reason": "Preserve canonical JSON schema keys while applying exact test, lock, registry, producer-inventory corrections and recording formatter idempotence evidence."
         },
         {
             "id": "environment-variable",
