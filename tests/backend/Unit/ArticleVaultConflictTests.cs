@@ -171,7 +171,9 @@ public sealed class ArticleVaultConflictTests
             or VaultConflictType.SchemaConflict or VaultConflictType.DependencyConflict or VaultConflictType.GitMarkerPresent)
         {
             Assert.Equal(VaultConflictDisposition.Rejected, entry.Disposition);
-            Assert.Equal([VaultConflictAction.RefreshEvidence, VaultConflictAction.CancelOperation], entry.AllowedActions);
+            Assert.Collection(entry.AllowedActions,
+                action => Assert.Equal(VaultConflictAction.RefreshEvidence, action),
+                action => Assert.Equal(VaultConflictAction.CancelOperation, action));
         }
     }
 
@@ -294,7 +296,16 @@ public sealed class ArticleVaultConflictTests
         ];
         foreach (ArticleVaultConflictEvidence evidence in invalid)
         {
-            Assert.False(ArticleVaultConflictVerifier.ValidateStructure(Seal(evidence)).IsValid);
+            if (evidence.Items.Any(static value => !Enum.IsDefined(value.Type)))
+            {
+                Assert.Equal("article_vault_conflict_type_unknown_or_duplicate",
+                    ArticleVaultConflictVerifier.ValidateStructure(evidence).ReasonCode);
+                Assert.Throws<System.Text.Json.JsonException>(() => Seal(evidence));
+            }
+            else
+            {
+                Assert.False(ArticleVaultConflictVerifier.ValidateStructure(Seal(evidence)).IsValid);
+            }
         }
         Assert.Equal("article_vault_conflict_digest_mismatch", ArticleVaultConflictVerifier.ValidateStructure(
             fixture.Evidence with
@@ -369,13 +380,14 @@ public sealed class ArticleVaultConflictTests
         VaultArticleCoordinate[] drifts =
         [
             Seal(server with { ServerRevision = 6 }),
-            Seal(server with { MetadataManifestSha256 = DigestA }),
-            Seal(server with { DependencySha256 = DigestA }),
-            Seal(server with { PermissionSha256 = DigestA }),
+            Seal(server with { MetadataManifestSha256 = DigestB }),
+            Seal(server with { DependencySha256 = DigestB }),
+            Seal(server with { PermissionSha256 = DigestB }),
             Seal(server with { Source = server.Source! with { Sha256 = DigestA } })
         ];
         foreach (VaultArticleCoordinate changed in drifts)
         {
+            Assert.NotEqual(server.ContentSha256, changed.ContentSha256);
             VaultConflictBinding binding = fixture.Evidence.Binding with
             {
                 Coordinates = fixture.Evidence.Binding.Coordinates with
@@ -483,14 +495,29 @@ public sealed class ArticleVaultConflictTests
         ];
         foreach (ImmutableArray<VaultConflictMetadataChange> changes in invalid)
         {
-            Assert.False(ArticleVaultConflictVerifier.ValidateStructure(WithObservation(fixture.Evidence,
-                observed with
+            VaultConflictObservation changed = observed with
+            {
+                Metadata = observed.Metadata! with
                 {
-                    Metadata = observed.Metadata! with
-                    {
-                        Changes = changes
-                    }
-                })).IsValid);
+                    Changes = changes
+                }
+            };
+            if (changes.Any(static value => !Enum.IsDefined(value.Field)))
+            {
+                VaultConflictRegistryEntry entry = ArticleVaultConflictRegistry.Find(changed.Type)!;
+                ArticleVaultConflictEvidence invalidEvidence = fixture.Evidence with
+                {
+                    Items = [new(changed.Type, entry.Disposition, entry.AllowedActions, changed)]
+                };
+                Assert.Equal("article_vault_conflict_metadata_field_invalid",
+                    ArticleVaultConflictVerifier.ValidateStructure(invalidEvidence).ReasonCode);
+                Assert.Throws<System.Text.Json.JsonException>(() => WithObservation(fixture.Evidence, changed));
+            }
+            else
+            {
+                Assert.False(ArticleVaultConflictVerifier.ValidateStructure(
+                    WithObservation(fixture.Evidence, changed)).IsValid);
+            }
         }
         ArticleVaultConflictEvidence evidence = WithObservation(fixture.Evidence, observed);
         Assert.Equal("article_vault_conflict_current_facts_drift", Verify(fixture with

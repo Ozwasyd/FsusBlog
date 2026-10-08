@@ -122,7 +122,10 @@ test('schema opening, type/version drift and missing bound identity cannot chang
         {
             schema.$defs.type.enum.push('generic-winner');
         },
-        (schema) => { schema.required = schema.required.filter((field) => field !== 'binding'); }
+        (schema) =>
+        {
+            schema.required = schema.required.filter((field) => field !== 'binding');
+        }
     ])
     {
         assert.match(diagnostics(file, (source) =>
