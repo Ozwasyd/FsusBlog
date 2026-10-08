@@ -9,16 +9,28 @@
         "tools/test/lanes/static-governance.sh",
         "tests/tools/required-evidence-dependencies.test.mjs",
         "tests/matrix.yml",
-        "tools/test-matrix/execution-dependency-contract.mjs"
+        "tools/test-matrix/execution-dependency-contract.mjs",
+        "config/testing/release-reliability-scenario-catalog.json",
+        "tools/test-matrix/production-fresh-run-bound-outputs.mjs",
+        "config/testing/replay-qualification-producers.json",
+        "config/testing/test-execution-envelope-applicability.json",
+        "tools/test/attempt-runner.mjs",
+        "tools/test/temporal-context.mjs",
+        "tools/test/temporal-context-contract.mjs",
+        "tools/test/correctness-attempt-migration.mjs"
     ],
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "3d9220020a7884d20639bc19d6300f95019622058df62076228c77d0b1c28705"
+            "sha256": "b87fb3d79e73de3b45743674d38e6f62afcbc423aab623295ae22c0d5a0fdb01"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
             "sha256": "21e85965ad3c002ed963a237439286c88c7552493818b0d14a6785cf6fa950a5"
+        },
+        {
+            "path": "config/testing/correctness-attempt-producers.json",
+            "sha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42"
         }
     ]
 }
