@@ -6,7 +6,6 @@
             "paths": [
                 "config/testing/correctness-attempt-producers.json",
                 "tests/backend/packages.lock.json",
-                "tests/coverage-registry.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
                 "tests/governance/test-lifecycle-registry.json"
             ],
@@ -26,10 +25,23 @@
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/api/contracts.md",
-                "docs/testing.generated.md"
+                "docs/api/contracts.md"
             ],
             "reason": "Preserve caller-visible documented DOM/token spelling and existing document identifiers; regenerate the testing projection through its original producer."
+        },
+        {
+            "id": "content-doc-exactness-authority",
+            "paths": [
+                "tests/coverage-registry.json"
+            ],
+            "reason": "Preserve existing external coverage assertion and receipt identifiers while adding the owned diagnostic source-governance coverage."
+        },
+        {
+            "id": "search-index-utf8-scalar-owner",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "Preserve existing external testing document identifiers including the search scalar owner while the original matrix generator projects the added diagnostic tier."
         }
     ]
 }
