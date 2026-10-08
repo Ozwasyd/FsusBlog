@@ -8,7 +8,7 @@ import test from 'node:test';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 const { parseWorkflow, validateBehaviorDocStaticAdmissionTopology } = await import(new URL("../../tools/check-workflow-matrix-sync.mjs", import.meta.url));
-const { buildIdentitiesFromMinimalReceipt, hostDeclarations, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
+const { buildIdentitiesFromMinimalReceipt, hostDeclarations, reproduceRuntimeRoleAssembly, runMinimalContractBuild, runtimeReproduciblePathMapArgument } = await import(new URL("../../tools/docs/behavior-doc-minimal-contract-build.mjs", import.meta.url));
 const { behaviorDocAdmissionReceiptSchema, validateBehaviorDocStaticAdmissionReceipt, writeFactObservationReceipts } = await import(new URL("../../tools/docs/behavior-doc-static-admission.mjs", import.meta.url));
 const { digestPath, digestValue, sealSourceIdentity } = await import(new URL("../../tools/fact-extractors/identity.mjs", import.meta.url));
 const { loadRegistry } = await import(new URL("../../tools/fact-extractors/registry.mjs", import.meta.url));
@@ -33,6 +33,96 @@ function seal(value)
     receipt.contentDigest = digestValue(receipt);
     return receipt;
 }
+
+test('runtime-role build keeps the default audit argument and canonical argv', (t) =>
+{
+    const repositoryRoot = tempDirectory('runtime-role-default-audit-argv');
+    t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    const buildKey = 'a'.repeat(64);
+    const outputAbsolute = path.join(repositoryRoot, '.tmp/runtime-role-reproducible-builds', buildKey);
+    for (const auditOption of [{}, { nuGetAudit: false }])
+    {
+        let calls = 0;
+        assert.throws(() => reproduceRuntimeRoleAssembly({
+            repositoryRoot,
+            buildKey,
+            ...auditOption,
+            spawn: (command, args, options) =>
+            {
+                calls += 1;
+                assert.equal(command, 'dotnet');
+                assert.equal(options.cwd, repositoryRoot);
+                assert.deepEqual(args, [
+                    'build', hostDeclarations['runtime-role-observation'].project,
+                    '--configuration', 'Release', '--no-incremental', '--disable-build-servers',
+                    '--artifacts-path', outputAbsolute,
+                    '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
+                    `/p:PathMap=${outputAbsolute}=/_/artifacts%2C${repositoryRoot}=/_/src`,
+                    '/p:NuGetAudit=false', '/m:1'
+                ]);
+                return { status: 1, stderr: 'argv probe stopped before build' };
+            }
+        }), /runtime-role reproducible build failed: argv probe stopped before build/u);
+        assert.equal(calls, 1);
+    }
+});
+
+test('runtime-role build accepts explicit audit-on with canonical argv', (t) =>
+{
+    const repositoryRoot = tempDirectory('runtime-role-audit-on-argv');
+    t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    const buildKey = 'a'.repeat(64);
+    const outputAbsolute = path.join(repositoryRoot, '.tmp/runtime-role-reproducible-builds', buildKey);
+    let calls = 0;
+    assert.throws(() => reproduceRuntimeRoleAssembly({
+        repositoryRoot,
+        buildKey,
+        nuGetAudit: true,
+        spawn: (command, args, options) =>
+        {
+            calls += 1;
+            assert.equal(command, 'dotnet');
+            assert.equal(options.cwd, repositoryRoot);
+            assert.deepEqual(args, [
+                'build', hostDeclarations['runtime-role-observation'].project,
+                '--configuration', 'Release', '--no-incremental', '--disable-build-servers',
+                '--artifacts-path', outputAbsolute,
+                '/p:Deterministic=true', '/p:ContinuousIntegrationBuild=true',
+                `/p:PathMap=${outputAbsolute}=/_/artifacts%2C${repositoryRoot}=/_/src`,
+                '/p:NuGetAudit=true', '/m:1'
+            ]);
+            return { status: 1, stderr: 'argv probe stopped before build' };
+        }
+    }), /runtime-role reproducible build failed: argv probe stopped before build/u);
+    assert.equal(calls, 1);
+});
+
+test('runtime-role build rejects non-boolean audit modes before cleanup or spawn', (t) =>
+{
+    const repositoryRoot = tempDirectory('runtime-role-invalid-audit-argv');
+    t.after(() => fs.rmSync(repositoryRoot, { recursive: true, force: true }));
+    const buildKey = 'a'.repeat(64);
+    const outputAbsolute = path.join(repositoryRoot, '.tmp/runtime-role-reproducible-builds', buildKey);
+    fs.mkdirSync(outputAbsolute, { recursive: true });
+    const retainedFile = path.join(outputAbsolute, 'retained.txt');
+    fs.writeFileSync(retainedFile, 'retain before option validation');
+    let calls = 0;
+    for (const nuGetAudit of [null, 'true', 'false', 0, 1, '/p:NuGetAudit=true /p:RestoreLockedMode=false'])
+    {
+        assert.throws(() => reproduceRuntimeRoleAssembly({
+            repositoryRoot,
+            buildKey,
+            nuGetAudit,
+            spawn: () =>
+            {
+                calls += 1;
+                throw new Error('invalid audit option must not spawn');
+            }
+        }), /runtime-role reproducible build requires a boolean nuGetAudit option/u);
+        assert.equal(fs.readFileSync(retainedFile, 'utf8'), 'retain before option validation');
+    }
+    assert.equal(calls, 0);
+});
 
 test('successful fact observations are materialized for canonical drift repair', (t) =>
 {

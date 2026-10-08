@@ -102,14 +102,20 @@ function removeCanonicalBuildDirectory(repositoryRoot, relative)
     }
 }
 
+/** Explicit audit-on project builds retain the canonical admission command by default. */
 export function reproduceRuntimeRoleAssembly({
     repositoryRoot,
     buildKey,
     verification = false,
+    nuGetAudit = false,
     spawn = spawnSync,
     timeoutMs = 15 * 60_000
 })
 {
+    if (typeof nuGetAudit !== 'boolean')
+    {
+        throw new Error('runtime-role reproducible build requires a boolean nuGetAudit option');
+    }
     if (!/^[a-f0-9]{64}$/u.test(buildKey))
     {
         throw new Error('runtime-role reproducible build requires an exact build key');
@@ -133,7 +139,7 @@ export function reproduceRuntimeRoleAssembly({
         '/p:Deterministic=true',
         '/p:ContinuousIntegrationBuild=true',
         physicalPathMapArgument,
-        '/p:NuGetAudit=false',
+        `/p:NuGetAudit=${nuGetAudit}`,
         '/m:1'
     ];
     const result = spawn('dotnet', commandArguments, {
