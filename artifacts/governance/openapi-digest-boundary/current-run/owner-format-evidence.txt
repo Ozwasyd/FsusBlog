@@ -1,0 +1,26 @@
+{
+  "runId": "chain-3537-resume-2026-10-08T04:02:45.169Z",
+  "candidate": "38bfe5d1904da2db8cd79069bff9b00b6bd5f95a",
+  "formatter": "10.8.0",
+  "node": "v24.16.0",
+  "command": "node tools/frontend/check-frontend-style.mjs --mode changed --fix --file tools/fact-extractors/openapi-aeds/extract.mjs --file tests/tools/openapi-aeds-observation.test.mjs",
+  "migration": "none-needed-no-source-change",
+  "treeAlgorithm": "sha256(sorted repository path + NUL + exact UTF-8 bytes + NUL), matching change-contract treeDigest",
+  "completeAstRawTokenCommentEquivalent": true,
+  "byteIdentical": true,
+  "passTreeSha256": [
+    "f1037f7f5adfa5a3e86749d4607cb171215e4d30b7e8d95c82344268403b5162",
+    "f1037f7f5adfa5a3e86749d4607cb171215e4d30b7e8d95c82344268403b5162",
+    "f1037f7f5adfa5a3e86749d4607cb171215e4d30b7e8d95c82344268403b5162"
+  ],
+  "files": [
+    {
+      "path": "tools/fact-extractors/openapi-aeds/extract.mjs",
+      "sourceSha256": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c"
+    },
+    {
+      "path": "tests/tools/openapi-aeds-observation.test.mjs",
+      "sourceSha256": "5d89aa1024a313f88cae6e646c6198f318dc1065164267efb7fe81a0bec2437a"
+    }
+  ]
+}

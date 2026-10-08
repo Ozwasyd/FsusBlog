@@ -1,0 +1,11 @@
+{
+  "candidate": "38bfe5d1904da2db8cd79069bff9b00b6bd5f95a",
+  "start": "2026-10-08T04:02:45.345965+00:00",
+  "end": "2026-10-08T04:05:21.374677+00:00",
+  "command": [
+    "/workspace/scratch/chain-3540/node-toolchain/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/release-final-static-boundary.mjs",
+    "--check"
+  ],
+  "exitCode": 0
+}

@@ -1,0 +1,61 @@
+{
+  "runId": "chain-3540-3537-current-20261008T0357Z",
+  "master": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+  "candidate": "38bfe5d1904da2db8cd79069bff9b00b6bd5f95a",
+  "evidenceOnly": true,
+  "sourceAndAuthority": {
+    "config/development/frontend-style-policy.json": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+    "config/development/frontend-style-baseline.json": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+    "config/development/frontend-style-rule-registry.json": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+    "config/development/frontend-style-reviewed-residual.json": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+    "tools/frontend/check-frontend-style.mjs": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+    "tools/frontend/style-toolchain/eslint.config.mjs": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+    "tools/frontend/style-toolchain/package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+    "tools/fact-extractors/lib/canonicalize.mjs": "33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8",
+    "tools/fact-extractors/openapi-aeds/extract.mjs": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c",
+    "tools/fact-extractors/runner.mjs": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598",
+    "tests/tools/openapi-aeds-observation.test.mjs": "5d89aa1024a313f88cae6e646c6198f318dc1065164267efb7fe81a0bec2437a"
+  },
+  "masterSources": {
+    "config/development/frontend-style-policy.json": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85",
+    "config/development/frontend-style-baseline.json": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0",
+    "config/development/frontend-style-rule-registry.json": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5",
+    "config/development/frontend-style-reviewed-residual.json": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8",
+    "tools/frontend/check-frontend-style.mjs": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75",
+    "tools/frontend/style-toolchain/eslint.config.mjs": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635",
+    "tools/frontend/style-toolchain/package-lock.json": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4",
+    "tools/fact-extractors/lib/canonicalize.mjs": "33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8",
+    "tools/fact-extractors/openapi-aeds/extract.mjs": "30ab4b2e57b5ce40ee6f6169a95d58af6108c08ecb537a02cb6548cb06064f2c",
+    "tools/fact-extractors/runner.mjs": "a379b789959b603fe2440a94e292a65470138058a0565122085609258ed78598",
+    "tests/tools/openapi-aeds-observation.test.mjs": "9135ac1f4857a8e52dc1f8b7dae498d39d5cbcb6aa6488166f8cad3993e6a0a5"
+  },
+  "baselineEntries": [
+    {
+      "path": "tools/fact-extractors/lib/canonicalize.mjs",
+      "sourceSha256": "33abf393dda9109bf34ae240a11398fdf1432b1d7f24911c4e91e9fa6a5f5dc8",
+      "violationCount": 0,
+      "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rules": {}
+    },
+    {
+      "path": "tools/fact-extractors/openapi-aeds/extract.mjs",
+      "sourceSha256": "d2760cd210e1f03ea136a411da84a6c53f44904049142b9b5d243b9064439707",
+      "violationCount": 0,
+      "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rules": {}
+    },
+    {
+      "path": "tools/fact-extractors/runner.mjs",
+      "sourceSha256": "614c1c3e78a8d46a3e7ae5e1ca3ff8d9df54201ce93942faded547b8ba63d9be",
+      "violationCount": 0,
+      "violationDigest": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "rules": {}
+    }
+  ],
+  "ownerRawDiagnostics": {
+    "count": 0,
+    "identities": [],
+    "identitySha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  "baselineAndPolicyUnchanged": true
+}
