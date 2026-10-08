@@ -61,6 +61,21 @@ public sealed class CommentPurePolicyContractTests
         => Assert.Equal(expected, CommentCommandService.ResolveReplyRecipientId(target, actor));
 
     [Fact]
+    public void ArticleWriteDecision_UsesTheExplicitClockAtTheExactClosureBoundary()
+    {
+        DateTime closedAt = DateTime.UnixEpoch.AddTicks(1);
+        var site = new AnonymousCommentPolicySnapshot(true, true, true, CommentAuthorModes.ZkAnonymous, ["en"]);
+        var article = new ArticleCommentPolicy { ArticleId = 42, Enabled = true, ClosedAtUtc = closedAt };
+        EffectiveArticleCommentPolicy policy = ArticleCommentPolicyService.Compose(42, site, article, null);
+
+        Assert.True(ArticleCommentPolicyService.EvaluateWrite(policy, CommentAuthorModes.Public, closedAt.AddTicks(-1)).Allowed);
+        CommentPolicyWriteDecision atBoundary = ArticleCommentPolicyService.EvaluateWrite(policy, CommentAuthorModes.Public, closedAt);
+
+        Assert.False(atBoundary.Allowed);
+        Assert.Equal("comment_policy_closed", atBoundary.Status);
+    }
+
+    [Fact]
     public void PurePolicyInputs_ArePublicWithoutFriendAssemblyOrServiceConstruction()
     {
         Assert.NotNull(typeof(ArticleCommentPolicyService).GetMethod("Compose", BindingFlags.Public | BindingFlags.Static));

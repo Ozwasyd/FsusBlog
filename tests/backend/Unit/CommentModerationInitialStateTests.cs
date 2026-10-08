@@ -89,7 +89,10 @@ public sealed class CommentModerationInitialStateTests
 
         CommentInitialModerationDecision hidden = service.ResolveInitialState(PublicActor(), Region(hideUntilReviewed: true));
         CommentInitialModerationDecision manual = service.ResolveInitialState(PublicActor(), Region(requiresManualReview: true));
-        CommentInitialModerationDecision actorReview = service.ResolveInitialState(PublicActor() with { RequiresModeration = true }, Region());
+        CommentInitialModerationDecision actorReview = service.ResolveInitialState(PublicActor() with
+        {
+            RequiresModeration = true
+        }, Region());
 
         Assert.Equal(CommentModerationStatus.Hidden, hidden.Status);
         Assert.Equal("pending_region_review", manual.ReasonCode);
