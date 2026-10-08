@@ -1,36 +1,38 @@
 # Chain #3735 evidence ledger
 
-Original closure **123 issues**. Retained root **70 = 62 execution + 8 tracking**; transferred sole ownership **53**; fully accepted **0**. JSON preserves original issue/body/comment snapshots, worker records and historical negatives. Tracking is aggregation only.
+Original closure **123 issues**. Retained root **70 = 62 execution + 8 tracking**; transferred sole ownership **53**; fully accepted **0**. The complete table below preserves every owned issue and its outstanding gate. Tracking is evidence aggregation only.
 
-Current published/tested source: `54f1c0ab4d3adfd6caf0b92a6d7d2b5309732a38`. Official SDK10.0.401 stamped Release build exit0/errors0/warnings1522; 2368 inputs/15 embedded resources/122 MSBuild controls +3 explicit golden controls =125; actual Server+Migration source metadata and six DLLs stable. Focused358 units and actual Shared Scope reflection passed. This is component verification, not whole-candidate acceptance.
+Published source `bb109c208764cc00f96d3087d97bd911add70ff3`, branch `codex/chain-3735-20261008`, [draft PR #3839](https://github.com/Ozwasyd/FsusBlog/pull/3839). Initial verified master `3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8`; latest fetched master `dbb373071db1ad21aaa665f4a1512bfb43f59950`. No master push, merge, auto-merge, closure or deployment occurred.
 
-| Evidence | Exact source | Result / limit |
+| Actual tested source | Result | Limit |
 |---|---|---|
-| Current focused units | 54f1c0a | 358 passed, 0 failed, 0 skipped: ReadV2 91 + SnapshotABI53 + mutation31/foundation43/definition140; original case parity retained |
-| Current compiled observer | 54f1c0a | 290 operations/7 self-tests; three tracked products exactly equal; actual Shared Scope reflection passed separately from OpenAPI frameRef |
-| Earlier fresh snapshot units | 9bb4b13 | 48 passed, 0 failed, 0 skipped: original Snapshot24 + root21 + strict Rollup3 |
-| Historical canonical units | c3c0945 | 653: 652 passed, 1 failed, 0 skipped; integration289/domain273/wire91; failure preserved |
-| Earlier real PG18.6 | 9bb4b13 | 3: 2 passed, 1 failed, 0 skipped; real cleanup; strict compiled-recipe refusal; not rerun54f |
-| Historical real PG18.6 | c3c0945 | 18 passed, 0 failed, 0 skipped; component only |
-| Recipe extraction | 9bb4b13 | 80: 69 extracted, 11 refused; no qualification or dropped negatives |
-| Historical wire reuse | c3c0945 → 9bb4b13 | 91 source-matched old cases, no fresh execution; new54f suites separately verified144 (ReadV2 91 + SnapshotABI53) |
-| Snapshot ordinary source | 8f7ac0f → 9bb4b13 | ordinary78/Node7/source-controls13 passed; strict types FAILED195, added0 |
-| Scope-v2 standalone | 54f1c0a | parent FE52/Node-native10 passed; 87 goldens24 valid/63 negative including35 retired; not live HTTP or production-native qualification |
+| bb109c208764cc00f96d3087d97bd911add70ff3 | Exact SDK0errors/1529warnings;2391boundinputs/15embedded/128controls;43units26selection-shape+17catalog allpass;52generator controls, fourproduction native refusals andfiveproduct bytes unchanged | DTO/reservations276/277 only; real source closure and authenticated wire route pending |
+| f1cef71ba0bd39cd69ef9e9787621bb9bdacb5d8 | SDK10.0.401 Release0errors/1529warnings; 481/481 focusedunits; actualPG18.6 44/44,0skip,2containers disposed | CurrentSource87, WritingAid contracts/codecs/wire, canonical raw-source save and real permission SQL; no HTTP/UX admission |
+| f0636170194b8885d082e1bf78ace4c8644df548 | Exact SDK0errors/1529warnings; 40 exporter/rollup units20pass20fail; actualPG18.6 Snapshot2pass/strictDDL1fail; actual80recipes72extracted/8refused | Supplied numeric/inlineCHECK source works; remaining unnamed constraints/text/arrays/expression keys/DEFAULT+CHECK and formal schema gates remain |
+| 77d5a0602692da09a37ead6f544b1f09322b597a | Exact SDK0errors/1529warnings; 2389boundinputs/15embedded/128controls; actualServer+Migration metadata and6DLL stable; 144units16Upload+17catalog+111WritingAid allpass | Managed bounded preview codec; not live preview endpoint, TS consumer or original upload/cutover admission |
+| 00624dabb68d944650038f0ba3b976de03985c1d | Contemporaneous18input g++14.2 source binding; 23typed empty-payload,9retired,2unknown controls pass | Native source only; broad pre-existing legacy-positive mismatches preserved; no Emsdk/runtime/browser qualification |
+| Source frozen at77d5 plus exact committed transport419482… overlay | Full canonical app264diagnostics, exact prior267 minus3fixed/new0; transport60pass/1oldcursorfail | Full types remainFAIL; service style2unchanged findings and JS-only source-diff refusal remainFAIL |
+| Exact f063 frontend source | Actual canonical parser704roots/184SFC/9Wasm; selected8files/style0violations; focusedexportpass; canonicaltools1pass3missing-policyfail | Actual `/workspace/FsusUI` f2 source; locked privatepackage E401, formal6c836 baseline and production build remain unaccepted |
+| Latest generator/private native source | Original52generator controls and10WritingAid tools pass; 106goldens41valid65negative, productionDecodeFrame1334/private1323 | Earlier7pass2fail/count andWerror negative preserved; no domain/policy/service/device authority invented |
 
-No fresh54f Postgres or full matrix run is claimed. QA/harness hold remains from parent explicit text notification; no local clearance artifact. Snapshot default outline=true; reset refuses `default_layout_unqualified` pending root1805 real exact alignedSHA. Live Rail preferences remain. Full types/private package baseline, schema qualification, authenticated HTTP/session/PoW, rendered UX and full CI are unaccepted.
+The source reader is registered through existing scoped DI: `IAuthoringArticleCurrentSourceReader.ReadCurrentAuthorizedAsync(owner, articleId, requestId, cancellationToken)`. It brackets the actual sealed current revision with existing permission and head/scalar authority, freezes mutable pins before awaits, and preserves exact original bytes. Only the existing `primary-site`→`primary` bridge is supported. Portable identity, FsUI safe body/heading/block/range dependencies, runtime envelope and current document epoch are separate missing producers; `DocumentEpoch` remains null.
 
-Out-of-ownership handoffs: #2286 requests next free frame272 but ID is **not assigned** (current max271); canonical site/device producer conflicts between primary-site and RecentHistory SITE_BASEURL; Embed full1194ee45037862aa30803650ec2a622700631224 was supplied and inspected; the genuine source/projection authority remains a separate gap. No owned issues added or missing APIs invented.
+WritingAid source frames **272/273/274** and native error15 are reconciled with final owner contracts. UploadPreview source frame **275**, family`upload-response`, goldenOrder266, native error16 and760B POD use exact supplied75fd domain source. Original bytes≤8,387,832; payload≤8,388,592; frame≤8,388,608. Oversize refuses; ordinary upload/commit20MiB is unchanged. Root1975 must regenerate its actual TS/native/endpoint consumer and return exact source evidence. Old253/error11 candidate source is not consumed as a whole branch.
 
-Official54f no-rebuild OpenAPI sync passed. Its incorrect unreferenced Migration dependency precheck failed and is preserved separately; no command-specific before capture was invented. Canonical input/six-DLL postcheck stayed exact.
+Selected revalidation Shared DTO/reservations are published at `bb109c208764cc00f96d3087d97bd911add70ff3`. Request owner is absent; stale response token is null; Int64 frontend values must remain decimal strings. No active276/277 codec or HTTP binding exists: exact finald365 source closure and source-bound evidence are requested from parent. Existing source dependencies were inspected only, not copied from unsupplied ancestors.
 
-Embed declaration paths are resolved. Five real FsUI API controls passed with Blog/UI source hashes unchanged. The adapter still needs the genuine portable/site, safe projection, scoped dependency and authority-envelope producers; no empty dependency or identity fallback was invented.
+The previous c672 realPG37pass/7fail is preserved; genuine SqlSugar projection repair atf1 makes original44 pass. The previous69/11 strictrecipe refusal remains historical; actual f063 now72/8, still failing strictPG and complete exporter. Do not aggregate overlapping unit runs or relabel old receipts as current whole-candidate proof.
 
-Receipt paths/SHA256/run IDs/commands/exits are indexed in these deliverables; source frontier is not a whole-candidate replay of historical evidence.
+Remaining formal gates: root3657 schema/native issuer; root2246/roots3560/3663 portable/site/semantic projection/relation producers; root2286 actual missing policy source; root1975 regenerated275 consumers; locked FsUI/private package, full264 types, production build, admitted HTTP/admin-session/PoW/provider, rendered UX and independent CI/QA. Parent-withdrawn QA was not reconstructed. Snapshot normative outline=false versus source=true is still unqualified; reset fails closed and live Rail preferences remain.
 
-- [Assignment status](assignment-status-20261008.json)
-- [Verification evidence](verification-20261008.json)
-- [Embed real source/API handoff](embed-source-adapter-handoff.md) and [13-field authority mapping](embed-source-adapter-review.json)
-- [Queued PR body](queued-pr-body.md), saved locally during GitHub content-write throttling
+The diagnostic Emsdk6.0.0 basic/speed compile succeeded, but CMake3.28.3 differs from repository4.3.3 pin and no contemporaneous source binding was captured. Retrospective hashes cannot prove a frozen build or formal Wasm receipt. This limit is preserved explicitly.
+
+- [Selected revalidation source handoff](navigation-revalidation-handoff.md)
+- [Current exact source/run evidence](source-frontier-20261008.json)
+- [All123 snapshots and current70 ownership](assignment-status-20261008.json)
+- [Verification with historical negatives](verification-20261008.json)
+- [Embed source/API handoff](embed-source-adapter-handoff.md)
+- [Queued PR body](queued-pr-body.md), local only while GitHub content writes remain throttled
 
 ## All 70 retained issues
 
@@ -103,9 +105,9 @@ Receipt paths/SHA256/run IDs/commands/exits are indexed in these deliverables; s
 | [#2498](https://github.com/Ozwasyd/FsusBlog/issues/2498) | execution | source/capability progress; acceptance open | sourcechangesafterrunrequirefreeze/retest; allterminalmandatory runtime/product/resources/privacy/a11y/CI evidence missing |
 | [#1872](https://github.com/Ozwasyd/FsusBlog/issues/1872) | tracking | aggregation only; acceptance open | Aggregation only: exact child evidence #2483, #2485, #2486, #2487, #2488, #2489, #2490, #2491, #2492, #2493, #2494, #2495, #2496, #2497, #2498. Child acceptance gates open, no independent implementation/closure. Roots #3735/#3736/#3738 and roots3560/3663 formal APIs required. |
 | [#3716](https://github.com/Ozwasyd/FsusBlog/issues/3716) | execution | source/capability progress; acceptance open | Need actual FsusUI public exported editor lifecycle/session factory and canonical Blog runtime receipt identity; actual defineExpose lacks API. No fake readiness; full types/CI remain unaccepted. |
-| [#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735) | execution | source integration implemented; component receipts; acceptance open | Sole typed Server Canvas source + current54f compiled observer290 usable; canonical extractor/issuer owner must resolve historical9bb 11 strict recipe refusals and PG failure. Need formal isolated HTTP/admin-session/PoW/provider/full types/CI/independent qualification. |
+| [#3735](https://github.com/Ozwasyd/FsusBlog/issues/3735) | execution | source integration implemented; component receipts; acceptance open | Sole typed Server Canvas source, genuine f1 current-source reader and current exact component results usable; root3657 extractor/issuer owner must resolve current80recipes72extract/8refuse and strictPG failure. Need formal isolated HTTP/admin-session/PoW/provider/full types/CI/independent qualification. |
 | [#3736](https://github.com/Ozwasyd/FsusBlog/issues/3736) | execution | source integration implemented; component receipts; acceptance open | Remote composition/Outline and ordinary8f7 source usable. Need roots3560/3663 zero-write portable package, actual FsusUI context/session/reveal and authenticated mobile UX/HTTP/PG/full types. QA hold persists; ordinary source is not clearance. |
-| [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738) | execution | source integration implemented; component receipts; acceptance open | Canonical ArticleService/link/deletion and originalPURE41 C3 preserved. Fresh9bb strict SQL unit parity passed, but real recipe PG failed (11refused). Need formal native/schema/HTTP/session/PoW/FsusUI edit transaction/relation/rendered conversion/recovery qualification. |
+| [#3738](https://github.com/Ozwasyd/FsusBlog/issues/3738) | execution | source integration implemented; component receipts; acceptance open | Canonical ArticleService/link/deletion and originalPURE41 C3 preserved. Fresh9bb strict SQL unit parity passed, but current strict recipe PG failed (8refused of80). Need formal native/schema/HTTP/session/PoW/FsusUI edit transaction/relation/rendered conversion/recovery qualification. |
 
 
 All53 transferred rows retain sole-owner/thread identity; peer consumption never accepts their issues. No closure, merge, deployment, production migration, QA clearance or final conflict resolution occurred.
