@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
-const { buildQueryCaseRegistry, queryCaseIds, queryMatrixTiers } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseInventory, buildQueryCaseRegistry, queryCaseIds, queryMatrixTiers } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 const { compareQueryTrends, evaluateQueryCase, evaluateQueryMatrix, sqlFingerprint, summarizeActualPlan, validateQueryPolicy, verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
 const { decodeAedsFrame, decodeTaxonomyList, encodeAedsFrame, encodeTaxonomyList } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
 const { runQueryMatrix, runQueryMatrixFiles } = await import(new URL('../../tools/data-scale/run-query-matrix.mjs', import.meta.url));
@@ -50,6 +50,33 @@ function fixture(tier = 'scale-s')
         canaries: { commentArticleId: 1, nestedRootId: '1', titleSearch: { token: 'title-only', articleIds: [1] }, bodySearch: { token: 'body-only', articleIds: [1] } }
     };
 }
+
+test('source inventory preserves all cases and exposes semantic and scenario gaps without claiming coverage', () =>
+{
+    const inventory = buildQueryCaseInventory(binding);
+    assert.deepEqual(inventory.cases.map((entry) => entry.id), queryCaseIds);
+    assert.deepEqual(buildQueryCaseRegistry(fixture()).inventory, inventory);
+    assert.equal(inventory.qualification, 'not-performed');
+    assert.equal(inventory.releaseEvidenceEligible, false);
+    const kinds = [...new Set(inventory.cases.map((entry) => entry.kind).filter(Boolean))].sort();
+    assert.deepEqual(kinds, ['category-filter', 'detail', 'latest-list', 'pagination-order', 'public-list', 'search-hit', 'tag-filter']);
+    const child = inventory.cases.find((entry) => entry.id === 'comment-nested-root-expansion');
+    assert.equal(child.kind, 'pagination-order');
+    assert.ok(child.blockers.includes('child_expansion_is_not_full_public_thread'));
+    for (const entry of inventory.cases)
+    {
+        assert.deepEqual(entry.applicableTiers, queryMatrixTiers);
+        assert.equal(entry.actorClass, 'anonymous');
+        assert.equal(entry.canonicalRoleBindings, null);
+        assert.equal(entry.scenarioApplicability, null);
+        assert.ok(entry.blockers.includes('query_owner_scenario_receipt_intake_missing'));
+        assert.equal(entry.queryOwner.contentDigest, computeSha256(fs.readFileSync(new URL(`../../${entry.queryOwner.path}`, import.meta.url))));
+        assert.equal(entry.queryOwner.version, `source-${entry.queryOwner.contentDigest.slice('sha256:'.length)}`);
+    }
+    const { contentDigest, ...body } = inventory;
+    assert.equal(contentDigest, computeSha256(body));
+    assert.throws(() => buildQueryCaseInventory({ ...binding, sourceCommit: '' }));
+});
 
 function policy()
 {
