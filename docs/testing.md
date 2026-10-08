@@ -1747,7 +1747,15 @@ exact providers and admits no successful output acknowledgement. Run these
 controls with `dotnet test tests/backend/FsusBlog.Server.Tests.csproj -c Release
 --filter FullyQualifiedName~DocumentExportTaskQueueTests` after the existing
 admission and locked restore. They do not freeze an article through its real
-permission/database authorities or provide durable recovery, retries, provider
-execution, host-stop evidence, output storage, download, or public API acceptance.
+permission/database authorities or provide durable recovery, provider execution,
+host-stop evidence, output storage, download, or public API acceptance.
 Those stages retain their original gates; an executor acknowledgement in these
 scheduling tests is not a real sandbox cleanup receipt.
+
+The same scheduler keeps a bounded attempt ledger (at most three attempts).
+Retries reuse the exact frozen input/provider/options and original expiry after
+confirmed unsuccessful stop and cleanup. Each attempt owns a distinct identity,
+request and sealed timing/status projection; the first terminal task and failure
+remain unchanged. Duplicate retry requests are idempotent and old attempt ACKs
+cannot release the current attempt's slot. These ledger controls remain separate
+from real sandbox stop receipts and durable crash recovery acceptance.

@@ -289,6 +289,8 @@ public sealed class DocumentExportTaskQueueTests
             valid with { MaxTasks = 0 },
             valid with { MaxTasks = 1001 },
             valid with { MaxConcurrency = 0 },
+            valid with { MaxAttempts = 0 },
+            valid with { MaxAttempts = 4 },
             valid with { MaxConcurrency = 3 },
             valid with { MaxFrozenBytes = 0 },
             valid with { MaxFrozenBytes = 1073741825 },
@@ -327,6 +329,96 @@ public sealed class DocumentExportTaskQueueTests
         Assert.Equal("task-1", (await queue.TryClaimAsync())!.TaskId);
         Assert.Equal("task-2", (await queue.TryClaimAsync())!.TaskId);
         Assert.Null(await queue.TryClaimAsync());
+    }
+
+    [Fact]
+    public async Task Retry_PreservesFirstFailureAndFrozenIdentityWhileMintingANewAttempt()
+    {
+        var queue = Queue(maxConcurrency: 1);
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        await queue.EnqueueAsync(CreateTask(input, 1), input);
+        DocumentExportTaskClaim first = Assert.IsType<DocumentExportTaskClaim>(await queue.TryClaimAsync());
+        await queue.StartAsync(first);
+        DocumentExportQueueSnapshot failed = await queue.AcknowledgeStoppedAsync(
+            first, DocumentExportProviderResultStatus.Failed, cleanupComplete: true);
+        DocumentExportAttemptSnapshot firstReceipt = failed.CurrentAttempt;
+        DocumentExportQueueSnapshot retry = await queue.RetryAsync(input.UserId, input.SiteId, first.TaskId, "retry-request-2");
+        Assert.Equal(failed.Task, retry.Task);
+        Assert.Equal(DocumentExportTaskStatus.Failed, retry.Task.Status);
+        Assert.Equal(DocumentExportProviderResultStatus.Failed, retry.StopOutcome);
+        Assert.Equal(DocumentExportTaskStatus.Queued, retry.CurrentAttempt.Status);
+        Assert.NotEqual(firstReceipt.AttemptId, retry.CurrentAttempt.AttemptId);
+        Assert.Equal(2, retry.CurrentAttempt.Number);
+        Assert.Equal(retry, await queue.RetryAsync(input.UserId, input.SiteId, first.TaskId, "retry-request-2"));
+        DocumentExportTaskClaim second = Assert.IsType<DocumentExportTaskClaim>(await queue.TryClaimAsync());
+        (DocumentExportTask task, DocumentExportFrozenInput frozen) = await queue.StartAsync(second);
+        Assert.Equal(input.ContentDigest, frozen.ContentDigest);
+        Assert.Equal(input.ContentDigest, task.InputDigest);
+        Assert.Equal("retry-request-2", task.RequestId);
+        Assert.Equal(DocumentExportTaskStatus.Running, task.Status);
+        // A delayed duplicate completion of the old attempt never frees this slot.
+        await queue.AcknowledgeStoppedAsync(first, DocumentExportProviderResultStatus.Failed, cleanupComplete: true);
+        Assert.Null(await queue.TryClaimAsync());
+        Assert.True((await queue.ReadAsync(input.UserId, input.SiteId, first.TaskId)).ExecutionOutstanding);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => queue.StartAsync(first));
+        IReadOnlyList<DocumentExportAttemptSnapshot> history = await queue.ReadAttemptsAsync(input.UserId, input.SiteId, first.TaskId);
+        Assert.Equal(firstReceipt, history[0]);
+        Assert.Equal(DocumentExportDigest.Compute(history[1] with
+        {
+            ContentDigest = string.Empty
+        }), history[1].ContentDigest);
+        await queue.AcknowledgeStoppedAsync(second, DocumentExportProviderResultStatus.Blocked, cleanupComplete: true);
+        Assert.Equal(DocumentExportProviderResultStatus.Failed,
+            (await queue.ReadAsync(input.UserId, input.SiteId, first.TaskId)).StopOutcome);
+    }
+
+    [Fact]
+    public async Task Retry_RefusesPendingCleanupAndCapsAttemptsWithoutExtendingExpiry()
+    {
+        var queue = Queue(maxConcurrency: 1);
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        DocumentExportQueueSnapshot admitted = await queue.EnqueueAsync(CreateTask(input, 1), input);
+        DocumentExportTaskClaim first = Assert.IsType<DocumentExportTaskClaim>(await queue.TryClaimAsync());
+        await queue.AcknowledgeStoppedAsync(first, DocumentExportProviderResultStatus.Failed, cleanupComplete: false);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => queue.RetryAsync(input.UserId, input.SiteId, first.TaskId, "retry-2"));
+        await queue.AcknowledgeStoppedAsync(first, DocumentExportProviderResultStatus.Failed, cleanupComplete: true);
+        for (int attempt = 2; attempt <= 3; attempt++)
+        {
+            DocumentExportQueueSnapshot retry = await queue.RetryAsync(input.UserId, input.SiteId, first.TaskId, $"retry-{attempt}");
+            Assert.Equal(admitted.ExpiresAtUtc, retry.ExpiresAtUtc);
+            DocumentExportTaskClaim claim = Assert.IsType<DocumentExportTaskClaim>(await queue.TryClaimAsync());
+            await queue.AcknowledgeStoppedAsync(claim, DocumentExportProviderResultStatus.Failed, cleanupComplete: true);
+        }
+        await Assert.ThrowsAsync<InvalidOperationException>(() => queue.RetryAsync(input.UserId, input.SiteId, first.TaskId, "retry-4"));
+        Assert.Equal(3, (await queue.ReadAttemptsAsync(input.UserId, input.SiteId, first.TaskId)).Count);
+        Assert.Null(await queue.TryClaimAsync());
+    }
+
+    [Fact]
+    public async Task RetryCancellationAndExpiry_CannotOverwriteOriginalTerminalOrLeakCapacity()
+    {
+        var clock = new ManualClock();
+        var queue = Queue(clock, maxConcurrency: 1);
+        DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
+        await queue.EnqueueAsync(CreateTask(input, 1), input);
+        DocumentExportTaskClaim first = Assert.IsType<DocumentExportTaskClaim>(await queue.TryClaimAsync());
+        DocumentExportQueueSnapshot failed = await queue.AcknowledgeStoppedAsync(
+            first, DocumentExportProviderResultStatus.Failed, cleanupComplete: true);
+        await queue.RetryAsync(input.UserId, input.SiteId, first.TaskId, "retry-2");
+        DocumentExportTaskClaim second = Assert.IsType<DocumentExportTaskClaim>(await queue.TryClaimAsync());
+        await queue.CancelAsync(input.UserId, input.SiteId, first.TaskId);
+        Assert.True(second.CancellationToken.IsCancellationRequested);
+        DocumentExportQueueSnapshot cancelled = await queue.AcknowledgeStoppedAsync(
+            second, DocumentExportProviderResultStatus.Cancelled, cleanupComplete: true);
+        Assert.Equal(failed.Task, cancelled.Task);
+        Assert.Equal(DocumentExportTaskStatus.Cancelled, cancelled.CurrentAttempt.Status);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => queue.RetryAsync(input.UserId, input.SiteId, first.TaskId, "retry-3"));
+        clock.Advance(TimeSpan.FromMinutes(5));
+        await queue.ExpireAsync();
+        await Assert.ThrowsAsync<KeyNotFoundException>(() => queue.ReadAttemptsAsync(input.UserId, input.SiteId, first.TaskId));
+        await queue.EnqueueAsync(CreateTask(input, 1), input);
+        await Assert.ThrowsAsync<InvalidOperationException>(() => queue.AcknowledgeStoppedAsync(
+            second, DocumentExportProviderResultStatus.Cancelled, cleanupComplete: true));
     }
 
     private static DocumentExportTask CreateTask(DocumentExportFrozenInput input, int index)
