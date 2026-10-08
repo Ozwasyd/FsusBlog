@@ -998,8 +998,8 @@ test('native owned private /tmp refuses absent binding before its command', { sk
     const sentinel = path.join(owner.fragment.directories.temp, 'must-not-execute');
     const sandbox = prepareNetworkSandbox({ command: [process.execPath, '-e',
         `require('node:fs').writeFileSync(${JSON.stringify(sentinel)}, 'bad')`], cwd: root,
-        directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
-        writableRoots: owner.fragment.writableRoots, environment, policy });
+    directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
+    writableRoots: owner.fragment.writableRoots, environment, policy });
     const result = spawnSync(sandbox.command[0], sandbox.command.slice(1), { cwd: root, env: environment, encoding: 'utf8' });
     assert.equal(result.status, 125, result.stderr);
     assert.match(result.stderr, /owned temporary alias object identity mismatch/u);
@@ -1038,10 +1038,13 @@ test('original physical owner binds only current owned /tmp and retains external
         `try { fs.writeFileSync(${JSON.stringify(external)}, 'bad'); throw Error('external writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }`,
         "try { fs.writeFileSync('/var/tmp/fsusblog-must-not-write', 'bad'); throw Error('var/tmp writable'); } catch (e) { if (!['EACCES','EPERM','EROFS'].includes(e.code)) throw e; }"
     ].join(';')], cwd: root, directories: owner.fragment.directories, ownedDirectoryEnvelope: owner,
-        writableRoots: owner.fragment.writableRoots, environment, policy });
+    writableRoots: owner.fragment.writableRoots, environment, policy });
     assert.equal(sandbox.linuxReadWritePaths.includes('/tmp'), false);
     assert.equal(sandbox.linuxReadWritePaths.includes('/var/tmp'), false);
-    const quiet = new Writable({ write(_chunk, _encoding, callback) { callback(); } });
+    const quiet = new Writable({ write(_chunk, _encoding, callback)
+    {
+        callback();
+    } });
     try
     {
         physicalStarted = true;
@@ -1049,7 +1052,11 @@ test('original physical owner binds only current owned /tmp and retains external
             linuxNetworkPolicy: sandbox.linuxNetworkPolicy, linuxReadWritePaths: sandbox.linuxReadWritePaths,
             linuxOwnedPrivateTmp: sandbox.linuxOwnedPrivateTmp, stdout: quiet, stderr: quiet });
     }
-    catch (error) { terminal = error.physicalExecution; throw error; }
+    catch (error)
+    {
+        terminal = error.physicalExecution;
+        throw error;
+    }
     assert.equal(terminal.postObservation, 'zero-members');
     const actual = terminal.executionAdmission.ownedPrivateTmp;
     assert.equal(actual.sourceDevice, actual.aliasDevice);
