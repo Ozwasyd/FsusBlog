@@ -280,8 +280,55 @@ process.stdin.on('end', () => {
         if (!literal(node)) throw new Error('non-literal ' + kind + ' dependency')
         dependencies.push({ kind, specifier: node.value })
     }
-    const walk = (node, enclosingFunction = null) => {
+    const bindsUrl = (node) => {
+        if (!node) return false
+        if (node.type === 'Identifier') return node.name === 'URL'
+        if (node.type === 'RestElement') return bindsUrl(node.argument)
+        if (node.type === 'AssignmentPattern') return bindsUrl(node.left)
+        if (node.type === 'ArrayPattern') return node.elements.some(bindsUrl)
+        if (node.type === 'ObjectPattern') return node.properties.some(item => bindsUrl(item.value ?? item.argument))
+        return false
+    }
+    const writesUrl = (node) => {
+        const current = unwrap(node)
+        return bindsUrl(current) || (current?.type === 'MemberExpression' && writesUrl(current.object))
+    }
+    const pureUrlParser = (node) => {
+        const constructor = node?.type === 'NewExpression'
+            && node.callee?.type === 'Identifier' && node.callee.name === 'URL'
+        const staticParser = node?.type === 'CallExpression'
+            && node.callee?.type === 'MemberExpression' && propertyName(node.callee) === 'parse'
+            && node.callee.object?.type === 'Identifier' && node.callee.object.name === 'URL'
+        return (constructor || staticParser)
+            && (node.arguments.length === 1 || (node.arguments.length === 2
+                && literal(node.arguments[1]) && /^https?:\/\//u.test(node.arguments[1].value)))
+    }
+    const walk = (node, enclosingFunction = null, parent = null, grandparent = null) => {
         if (!node || typeof node !== 'object') return
+        const plainDataKey = parent?.type === 'Property' && parent.key === node
+            && parent.computed === false && parent.shorthand === false
+        if (process.argv[3] === 'pure' && node.type === 'Identifier'
+            && ['process', 'globalThis', 'global'].includes(node.name) && !plainDataKey)
+            throw new Error('ambient process/global capability is forbidden in a pure receipt contract')
+        if (process.argv[3] === 'pure')
+        {
+            const standardUrlRead = pureUrlParser(parent) && parent.callee === node
+                || parent?.type === 'MemberExpression' && parent.object === node
+                    && pureUrlParser(grandparent) && grandparent.callee === parent
+            if (node.type === 'Identifier' && node.name === 'URL' && !standardUrlRead)
+                throw new Error('URL capability outside standard value parsing is forbidden in a pure receipt contract')
+            if (node.type === 'Identifier' && ['fetch', 'WebSocket', 'XMLHttpRequest', 'EventSource'].includes(node.name))
+                throw new Error('network capability is forbidden in a pure receipt contract')
+            if ((node.type === 'VariableDeclarator' && bindsUrl(node.id))
+                || (['FunctionDeclaration', 'FunctionExpression', 'ArrowFunctionExpression'].includes(node.type)
+                    && (bindsUrl(node.id) || node.params.some(bindsUrl)))
+                || (['ClassDeclaration', 'ClassExpression'].includes(node.type) && bindsUrl(node.id))
+                || (node.type === 'CatchClause' && bindsUrl(node.param))
+                || (node.type?.startsWith('Import') && bindsUrl(node.local))
+                || (node.type === 'AssignmentExpression' && writesUrl(node.left))
+                || (node.type === 'UpdateExpression' && writesUrl(node.argument)))
+                throw new Error('shadowed or mutable URL is forbidden in a pure receipt contract')
+        }
         const functionName = (node.type === 'FunctionDeclaration' || node.type === 'FunctionExpression'
             || node.type === 'ArrowFunctionExpression') ? (node.id?.name ?? enclosingFunction) : enclosingFunction
         if (node.type === 'VariableDeclarator' && node.id?.type === 'Identifier'
@@ -353,7 +400,11 @@ process.stdin.on('end', () => {
         }
         else if ((node.type === 'ExportNamedDeclaration' || node.type === 'ExportAllDeclaration') && node.source)
             add('import', node.source)
-        else if (node.type === 'ImportExpression') add('import', node.source)
+        else if (node.type === 'ImportExpression')
+        {
+            if (process.argv[3] === 'pure') throw new Error('dynamic import is forbidden in a pure receipt contract')
+            add('import', node.source)
+        }
         else if (node.type === 'CallExpression'
             && (requireCallee(node.callee) || requireFactoryCall(node.callee)))
         {
@@ -370,7 +421,8 @@ process.stdin.on('end', () => {
             throw new Error('computed module factory method is forbidden in the reader closure')
         if (node.type === 'NewExpression' && node.callee?.type === 'Identifier' && node.callee.name === 'URL')
         {
-            if (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value))
+            const pureValueParser = process.argv[3] === 'pure' && pureUrlParser(node)
+            if (!pureValueParser && (!literal(node.arguments[0]) || forbiddenReaderPath(node.arguments[0].value)))
                 throw new Error('dynamic or documentation URL is forbidden in the reader closure')
         }
         if (node.type === 'CallExpression' && node.callee?.type === 'MemberExpression'
@@ -419,8 +471,8 @@ process.stdin.on('end', () => {
         for (const [key, value] of Object.entries(node))
         {
             if (key === 'start' || key === 'end') continue
-            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName))
-            else walk(value, functionName)
+            if (Array.isArray(value)) value.forEach((entry) => walk(entry, functionName, node, parent))
+            else walk(value, functionName, node, parent)
         }
     }
     for (const statement of ast.body ?? [])
@@ -835,14 +887,15 @@ function assertIndexSnapshotUnchanged(repositoryRoot, entries)
     }
 }
 
-function parseExecutableDependencies(source, relative)
+function parseExecutableDependencies(source, relative, pure = false)
 {
     const sourceType = relative.endsWith('.cjs') ? 'script' : 'module';
     try
     {
         return JSON.parse(execFileSync(process.execPath, [
             '--expose-internals', '--input-type=commonjs', '--eval', acornDependencyParser, sourceType,
-            relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : ''
+            relative === readerFirewallEntry ? readPinnedRepositoryFile.toString() : '',
+            pure ? 'pure' : ''
         ], { input: source, encoding: 'utf8', stdio: ['pipe', 'pipe', 'pipe'] }));
     }
     catch (error)
@@ -926,7 +979,7 @@ export function validatePostRuntimeReaderFirewall(repositoryRoot = root, entry =
         }
         const source = readPinnedRepositoryFile(repositoryRoot, relative,
             `reader module ${relative}`).bytes.toString('utf8');
-        const dependencies = parseExecutableDependencies(source, relative);
+        const dependencies = parseExecutableDependencies(source, relative, pure);
         for (const dependency of dependencies)
         {
             if (pure && (isBuiltin(dependency.specifier)
