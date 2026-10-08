@@ -116,21 +116,16 @@ test('scheduler receipt generation rejects stale summaries and cannot seal a run
     const repositoryRoot = path.resolve(import.meta.dirname, '../..');
     const fixture = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-1151-scheduler-summary-'));
     context.after(() => fs.rmSync(fixture, { recursive: true, force: true }));
-    for (const relativeFile of [
-        'tools/release/test-evidence-receipts-cli.mjs',
-        'tools/release/correctness-scheduler-authority.mjs',
-        'tools/release/test-evidence-receipts.mjs',
-        'tools/release/release-domain-final-binding.mjs',
-        'tools/release/release-reliability-qualified-receipt.mjs',
-        'tools/test-matrix/content-addressed-evidence-store.mjs',
-        'tools/test-matrix/parse-matrix.mjs',
-        'tools/yaml/parse-document.mjs'
-    ])
-    {
-        const target = path.join(fixture, relativeFile);
-        fs.mkdirSync(path.dirname(target), { recursive: true });
-        fs.copyFileSync(path.join(repositoryRoot, relativeFile), target);
-    }
+    // Snapshot the current tooling sources and declared schemas, rather than an
+    // obsolete hand-picked import list that fails before exercising authority.
+    fs.cpSync(path.join(repositoryRoot, 'tools'), path.join(fixture, 'tools'), {
+        recursive: true,
+        filter: (file) => !file.split(path.sep).includes('node_modules')
+    });
+    fs.cpSync(path.join(repositoryRoot, 'config'), path.join(fixture, 'config'), { recursive: true });
+    fs.cpSync(path.join(repositoryRoot, 'tests/browser-contract'), path.join(fixture, 'tests/browser-contract'), { recursive: true });
+    fs.cpSync(path.join(repositoryRoot, 'tools/test-matrix/schema-validator/node_modules'),
+        path.join(fixture, 'tools/test-matrix/schema-validator/node_modules'), { recursive: true });
     fs.mkdirSync(path.join(fixture, 'tests'), { recursive: true });
     fs.writeFileSync(path.join(fixture, 'tests/matrix.yml'), `version: 1\ntiers:\n  - id: unit\n    executionDependsOn: []\n    requiresPlaywright: none\n  - id: production-correctness\n    executionDependsOn: [unit]\n    requiresPlaywright: none\n`);
 
