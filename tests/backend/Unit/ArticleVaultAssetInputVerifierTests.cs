@@ -334,7 +334,7 @@ public sealed class ArticleVaultAssetInputVerifierTests
         Fixture fixture = CreateFixture(bytes, twoAssets: true);
         VaultAssetDependency[] assets = Assert.Single(fixture.Dependencies.Items).Manifest.Nodes.OfType<VaultAssetDependency>().ToArray();
         Assert.Equal(2, assets.Length);
-        VaultAssetDependency other = Assert.Single(assets.Where(asset => asset.AssetIdentity != fixture.Asset.AssetIdentity));
+        VaultAssetDependency other = Assert.Single(assets, asset => asset.AssetIdentity != fixture.Asset.AssetIdentity);
         Assert.Equal(fixture.Asset.ContentSha256, other.ContentSha256);
         Assert.NotEqual(fixture.Asset.OwnerAdminPrincipalId, other.OwnerAdminPrincipalId);
         Assert.NotEqual(fixture.Asset.Admission.RightsSha256, other.Admission.RightsSha256);
