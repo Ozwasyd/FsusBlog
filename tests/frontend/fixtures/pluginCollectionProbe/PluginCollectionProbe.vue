@@ -14,6 +14,9 @@
                 row-key="pluginId"
                 :active-key="selectedId"
                 :loading-key="state === 'loading' ? selectedId : null"
+                :loading="collectionLoading"
+                :disabled="disabled"
+                :disabled-keys="disabledKeys"
                 aria-label="已安装插件"
                 density="compact"
                 variant="navigation"
@@ -140,6 +143,9 @@ const selectedId = ref('');
 const activations = ref<string[]>([]);
 const acceptSelection = ref(true);
 const mounted = ref(true);
+const disabled = ref(false);
+const disabledKeys = ref<string[]>([]);
+const collectionLoading = ref(false);
 const columns = [
     { key: 'identity', label: '插件', grid: 'minmax(0, 1fr)' },
     { key: 'status', label: '状态', grid: 'minmax(90px, 0.5fr)', align: 'end' as const }
@@ -183,12 +189,18 @@ const probe = {
         state?: ProbeState;
         acceptSelection?: boolean;
         longId?: boolean;
+        disabled?: boolean;
+        disabledKeys?: string[];
+        collectionLoading?: boolean;
     })
     {
         mounted.value = false;
         await nextTick();
         candidate.value = value.candidate;
         state.value = value.state ?? 'ready';
+        disabled.value = value.disabled ?? false;
+        disabledKeys.value = value.disabledKeys ?? [];
+        collectionLoading.value = value.collectionLoading ?? false;
         acceptSelection.value = value.acceptSelection ?? true;
         activations.value = [];
         plugins.value = Array.from({ length: value.count }, (_, index) => ({
