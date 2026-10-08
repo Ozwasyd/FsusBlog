@@ -1,0 +1,17 @@
+{
+    "schema": "fsusblog.format-idempotence-evidence.v1",
+    "formatter": {
+        "identity": "dotnet-format",
+        "version": "10.0.401-servicing.26423.113+e34a38d2ae1fc26406a317517196e55c68ff83ab",
+        "command": "dotnet format whitespace /workspace/FsusBlog --folder --include src/backend/Infrastructure/Middlewares/RuntimeCacheEvidenceMiddleware.cs src/backend/Infrastructure/Testing/QueryPlanCommandCapture.cs tools/data-scale/query-plan-collector/CollectorControls.cs --verbosity quiet"
+    },
+    "paths": [
+        "src/backend/Infrastructure/Middlewares/RuntimeCacheEvidenceMiddleware.cs",
+        "src/backend/Infrastructure/Testing/QueryPlanCommandCapture.cs",
+        "tools/data-scale/query-plan-collector/CollectorControls.cs"
+    ],
+    "firstPassTreeSha256": "74349cb8d316b5965076d373b990402f93b6cf1f02159d2773f59e09fbf6ee4e",
+    "secondPassTreeSha256": "74349cb8d316b5965076d373b990402f93b6cf1f02159d2773f59e09fbf6ee4e",
+    "idempotent": true,
+    "revision": "1444da59840f27cca70dd124aa2feb0db00a0bb0"
+}
