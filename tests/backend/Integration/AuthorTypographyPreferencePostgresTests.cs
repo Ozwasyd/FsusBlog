@@ -1,3 +1,5 @@
+using System.Text.Json;
+
 using FsusBlog.Migration;
 using FsusBlog.Migration.Definitions;
 using FsusBlog.Shared.Contracts.AuthoringPreferences;
@@ -364,6 +366,45 @@ public sealed class AuthorTypographyPreferencePostgresTests(PostgresSchemaMigrat
             or AuthorTypographyPreferenceWriteOutcome.Unavailable, $"Tampered device binding returned {result.Outcome}.");
         Assert.Null(result.Record);
         Assert.Equal(1, await CountAsync(db, "user_authoring_preference_operation"));
+    }
+
+    [Fact]
+    public async Task LegacyUnboundReceipt_RefusesReplayWithoutRebindingDeletingOrChangingCurrentFacts()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        AuthorTypographyMutationRequest request = Request(0, AuthorTypographyMutation.SetProfile, s_fixtureDefault);
+        AuthorTypographyPreferenceWriteResult committed = await Service(db, false).UpdateTypographyAsync(s_scope, DeviceA, request);
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Committed, committed.Outcome);
+        // Reproduce the exact previous producer's public-record JSON and device-free request digest.
+        // This test fixture is not a runtime migration, device verifier or replacement persistence codec.
+        string legacyReceipt = JsonSerializer.Serialize(committed.Record,
+            new JsonSerializerOptions { PropertyNamingPolicy = JsonNamingPolicy.CamelCase });
+        await db.Ado.ExecuteCommandAsync(
+            "UPDATE user_authoring_preference_operation SET receipt = @Receipt, request_digest = @Digest;",
+            new SugarParameter("@Receipt", legacyReceipt),
+            new SugarParameter("@Digest", AuthorTypographyContractValidator.ComputeRequestDigest(s_scope, request)));
+        foreach (string device in new[] { DeviceA, DeviceB })
+        {
+            AuthorTypographyPreferenceWriteResult retry = await Service(db, false).UpdateTypographyAsync(s_scope, device, request);
+            Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Unavailable, retry.Outcome);
+            Assert.Null(retry.Record);
+            Assert.Null(retry.CurrentSnapshot);
+        }
+        AuthorTypographyPreferenceReadResult observed = await Service(db, false).GetTypographyAsync(s_scope);
+        Assert.Equal(AuthorTypographyPreferenceReadOutcome.Stored, observed.Outcome);
+        Assert.Equal(committed.Record!.CommittedSnapshot, observed.Snapshot);
+        Assert.Equal(1, await CountAsync(db, "user_authoring_preference_operation"));
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Committed,
+            (await Service(db, false).UpdateTypographyAsync(s_scope, DeviceA,
+                Request(1, AuthorTypographyMutation.SetProfile, s_fixtureDefault))).Outcome);
+        Assert.Equal(2, (await Service(db, false).GetTypographyAsync(s_scope)).Snapshot!.Revision);
+        Assert.Equal(2, await CountAsync(db, "user_authoring_preference_operation"));
+        Assert.Equal(legacyReceipt,
+            await db.Ado.GetStringAsync("SELECT receipt FROM user_authoring_preference_operation WHERE operation_id = @Id;",
+                new SugarParameter("@Id", request.RequestId)));
+        Assert.Equal(AuthorTypographyPreferenceWriteOutcome.Unavailable,
+            (await Service(db, false).UpdateTypographyAsync(s_scope, DeviceA, request)).Outcome);
+        Assert.Equal(2, await CountAsync(db, "user_authoring_preference_operation"));
     }
 
     private async Task<SqlSugarClient> CreateDatabaseAsync()
