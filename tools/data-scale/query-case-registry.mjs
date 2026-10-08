@@ -167,96 +167,96 @@ export function buildQuerySemanticOwnerInventory({ binding, kinds })
             const blockers = ['canonical_input_role_bindings_missing', 'query_owner_scenario_receipt_intake_missing'];
             switch (`${domain}:${kind}`)
             {
-            case 'article:latest-list':
-            case 'article:category-filter':
-            case 'article:tag-filter':
-                businessOwners = [article('GetPageListAsync')];
-                routePatterns = inventory.cases.filter((row) => row.kind === kind).map((row) => row.routePattern);
-                break;
-            case 'article:detail':
-                businessOwners = [article('GetPublicArtifactBackedDetailAsync'), article('GetByIdAsync')];
-                routePatterns = ['/api/binary/article/{id}.aeds'];
-                break;
-            case 'article:search-hit':
-            case 'article:search-no-hit':
-                businessOwners = [sourceRef('src/core/Services/Abstractions/IArticleCoreService.cs',
-                    'FsusBlog.Core.Services.Abstractions.IArticleCoreService.SearchArticlesAsync')];
-                routePatterns = ['/api/binary/article/search/query.aeds'];
-                blockers.push('search_ranking_role_contract_missing');
-                break;
-            case 'article:top-list':
-                businessOwners = [article('GetHotArticlesAsync'), article('GetFeaturedArticlesAsync')];
-                routePatterns = ['/api/binary/admin/article/hot', '/api/binary/admin/article/featured'];
-                actorConstraint = 'AdminPermissions.ArticleWrite';
-                blockers.push('canonical_top_semantics_missing_hot_and_featured_are_distinct');
-                break;
-            case 'article:prev-next':
-                businessOwners = [sourceRef('src/backend/Services/Distribution/RelatedReadingService.cs',
-                    'FsusBlog.Server.Services.Distribution.RelatedReadingService.BuildFrameAsync')];
-                routePatterns = ['/api/binary/article/{articleId:int}/related.aeds'];
-                break;
-            case 'article:cache-consistency':
-                businessOwners = [article('GetPublicArtifactBackedDetailAsync'),
-                    sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs',
-                        'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IPublicArticleProjectionStore.TryReadAsync')];
-                routePatterns = ['/api/binary/article/{id}.aeds'];
-                blockers.push('mutation_and_cache_generation_coordinates_missing');
-                break;
-            case 'article:aot-consistency':
-                businessOwners = [sourceRef('src/backend/Infrastructure/PublicAot/IPublicAotShellService.cs',
-                    'FsusBlog.Server.Infrastructure.PublicAot.IPublicAotShellService.BuildNavigationSnapshotAsync')];
-                routePatterns = ['/api/public/navigation-snapshot.aeds'];
-                blockers.push('original_aot_artifact_and_route_identity_missing');
-                break;
-            case 'article:hot-read-consistency':
-                businessOwners = [sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs',
-                    'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadFastPath.TryServeAsync')];
-                routePatterns = ['/api/binary/article/{id}.aeds'];
-                actorConstraint = 'original PublicHotRead security gates';
-                blockers.push('original_hot_read_generation_and_residency_coordinates_missing');
-                break;
-            case 'comment:public-list':
-            case 'comment:pagination-order':
-                businessOwners = [comment('GetTreeRootsAsync'), comment('GetChildrenAsync')];
-                routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/children/{parentId:long}'];
-                break;
-            case 'comment:public-thread':
-            case 'comment:deleted-root':
-            case 'comment:deleted-reply':
-                businessOwners = [comment('GetTreeRootsAsync'), comment('GetRepliesAsync')];
-                routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/thread/{rootId:long}'];
-                blockers.push('canonical_thread_edges_and_deleted_placeholder_coordinates_missing');
-                break;
-            case 'comment:approved-visibility':
-            case 'comment:region-filter':
-                businessOwners = [comment('GetTreeRootsAsync'), sourceRef('src/backend/Interfaces/IRegionLegalModerationService.cs',
-                    'FsusBlog.Server.Interfaces.IRegionLegalModerationService.NormalizeRegion')];
-                routePatterns = ['/api/binary/comment/{articleId:int}'];
-                blockers.push('canonical_status_region_and_publication_coordinates_missing');
-                break;
-            case 'comment:moderation-queue':
-                businessOwners = [authorQueue()];
-                routePatterns = ['/api/binary/author/comments/moderation'];
-                actorConstraint = 'AdminPermissions.CommentModerate';
-                blockers.push('original_admin_actor_and_moderation_status_coordinates_missing');
-                break;
-            case 'comment:pending-visibility':
-            case 'comment:rejected-visibility':
-            case 'comment:hidden-visibility':
-            case 'comment:actor-filter':
-                businessOwners = [actorRead(), visibilityProjection()];
-                routePatterns = ['/api/binary/comment/me'];
-                actorConstraint = 'RequireAnonymousAccountPrincipal';
-                blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
-                break;
-            case 'comment:permission-filter':
-                businessOwners = [actorRead(), authorQueue(), comment('GetTreeRootsAsync')];
-                routePatterns = ['/api/binary/comment/me', '/api/binary/author/comments/moderation', '/api/binary/comment/{articleId:int}'];
-                actorConstraint = 'RequireAnonymousAccountPrincipal / AdminPermissions.CommentModerate / AllowAnonymous';
-                blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
-                break;
-            default:
-                throw new Error(`query semantic owner is undeclared: ${domain}:${kind}`);
+                case 'article:latest-list':
+                case 'article:category-filter':
+                case 'article:tag-filter':
+                    businessOwners = [article('GetPageListAsync')];
+                    routePatterns = inventory.cases.filter((row) => row.kind === kind).map((row) => row.routePattern);
+                    break;
+                case 'article:detail':
+                    businessOwners = [article('GetPublicArtifactBackedDetailAsync'), article('GetByIdAsync')];
+                    routePatterns = ['/api/binary/article/{id}.aeds'];
+                    break;
+                case 'article:search-hit':
+                case 'article:search-no-hit':
+                    businessOwners = [sourceRef('src/core/Services/Abstractions/IArticleCoreService.cs',
+                        'FsusBlog.Core.Services.Abstractions.IArticleCoreService.SearchArticlesAsync')];
+                    routePatterns = ['/api/binary/article/search/query.aeds'];
+                    blockers.push('search_ranking_role_contract_missing');
+                    break;
+                case 'article:top-list':
+                    businessOwners = [article('GetHotArticlesAsync'), article('GetFeaturedArticlesAsync')];
+                    routePatterns = ['/api/binary/admin/article/hot', '/api/binary/admin/article/featured'];
+                    actorConstraint = 'AdminPermissions.ArticleWrite';
+                    blockers.push('canonical_top_semantics_missing_hot_and_featured_are_distinct');
+                    break;
+                case 'article:prev-next':
+                    businessOwners = [sourceRef('src/backend/Services/Distribution/RelatedReadingService.cs',
+                        'FsusBlog.Server.Services.Distribution.RelatedReadingService.BuildFrameAsync')];
+                    routePatterns = ['/api/binary/article/{articleId:int}/related.aeds'];
+                    break;
+                case 'article:cache-consistency':
+                    businessOwners = [article('GetPublicArtifactBackedDetailAsync'),
+                        sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicArticleProjectionStore.cs',
+                            'FsusBlog.Server.Infrastructure.PublicReadArtifacts.IPublicArticleProjectionStore.TryReadAsync')];
+                    routePatterns = ['/api/binary/article/{id}.aeds'];
+                    blockers.push('mutation_and_cache_generation_coordinates_missing');
+                    break;
+                case 'article:aot-consistency':
+                    businessOwners = [sourceRef('src/backend/Infrastructure/PublicAot/IPublicAotShellService.cs',
+                        'FsusBlog.Server.Infrastructure.PublicAot.IPublicAotShellService.BuildNavigationSnapshotAsync')];
+                    routePatterns = ['/api/public/navigation-snapshot.aeds'];
+                    blockers.push('original_aot_artifact_and_route_identity_missing');
+                    break;
+                case 'article:hot-read-consistency':
+                    businessOwners = [sourceRef('src/backend/Infrastructure/PublicReadArtifacts/PublicHotReadFastPath.Serving.cs',
+                        'FsusBlog.Server.Infrastructure.PublicReadArtifacts.PublicHotReadFastPath.TryServeAsync')];
+                    routePatterns = ['/api/binary/article/{id}.aeds'];
+                    actorConstraint = 'original PublicHotRead security gates';
+                    blockers.push('original_hot_read_generation_and_residency_coordinates_missing');
+                    break;
+                case 'comment:public-list':
+                case 'comment:pagination-order':
+                    businessOwners = [comment('GetTreeRootsAsync'), comment('GetChildrenAsync')];
+                    routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/children/{parentId:long}'];
+                    break;
+                case 'comment:public-thread':
+                case 'comment:deleted-root':
+                case 'comment:deleted-reply':
+                    businessOwners = [comment('GetTreeRootsAsync'), comment('GetRepliesAsync')];
+                    routePatterns = ['/api/binary/comment/{articleId:int}', '/api/binary/comment/{articleId:int}/thread/{rootId:long}'];
+                    blockers.push('canonical_thread_edges_and_deleted_placeholder_coordinates_missing');
+                    break;
+                case 'comment:approved-visibility':
+                case 'comment:region-filter':
+                    businessOwners = [comment('GetTreeRootsAsync'), sourceRef('src/backend/Interfaces/IRegionLegalModerationService.cs',
+                        'FsusBlog.Server.Interfaces.IRegionLegalModerationService.NormalizeRegion')];
+                    routePatterns = ['/api/binary/comment/{articleId:int}'];
+                    blockers.push('canonical_status_region_and_publication_coordinates_missing');
+                    break;
+                case 'comment:moderation-queue':
+                    businessOwners = [authorQueue()];
+                    routePatterns = ['/api/binary/author/comments/moderation'];
+                    actorConstraint = 'AdminPermissions.CommentModerate';
+                    blockers.push('original_admin_actor_and_moderation_status_coordinates_missing');
+                    break;
+                case 'comment:pending-visibility':
+                case 'comment:rejected-visibility':
+                case 'comment:hidden-visibility':
+                case 'comment:actor-filter':
+                    businessOwners = [actorRead(), visibilityProjection()];
+                    routePatterns = ['/api/binary/comment/me'];
+                    actorConstraint = 'RequireAnonymousAccountPrincipal';
+                    blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
+                    break;
+                case 'comment:permission-filter':
+                    businessOwners = [actorRead(), authorQueue(), comment('GetTreeRootsAsync')];
+                    routePatterns = ['/api/binary/comment/me', '/api/binary/author/comments/moderation', '/api/binary/comment/{articleId:int}'];
+                    actorConstraint = 'RequireAnonymousAccountPrincipal / AdminPermissions.CommentModerate / AllowAnonymous';
+                    blockers.push('canonical_actor_status_and_permission_visibility_coordinates_missing');
+                    break;
+                default:
+                    throw new Error(`query semantic owner is undeclared: ${domain}:${kind}`);
             }
             const existingCaseIds = inventory.cases.filter((row) => row.domain === domain && row.kind === kind).map((row) => row.id);
             if (!existingCaseIds.length)
