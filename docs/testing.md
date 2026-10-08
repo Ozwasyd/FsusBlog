@@ -1784,3 +1784,25 @@ former253-as-Canvas and one-byte-over-budget refusals. Pin source commit/run ide
 and inspect actual object/media/SHA/ledger and owned teardown results. These checks
 establish bounded consumer behavior; they do not grant browser/provider rights,
 article-operation/revision authority or terminal migration/security qualification.
+
+## Attachment business consumer controls
+
+Run the original Vitest entry with
+`tests/frontend/unit/services/authoring/articleAttachmentBusinessState.test.ts`,
+`articleAttachmentUploadProvider.test.ts` and `tests/frontend/unit/api/upload.test.ts`.
+The upload controls call actual API functions through a controlled binary
+transport. Preserve the negative controls for unknown status, tampered bytes,
+missing authority, changed ledger/reference/source coordinates, internal URLs,
+late completion, uncertain abort, interrupted commit and repeated retry/cancel.
+Business controls exercise the original callback ports for save/leave/prepublish
+and revision, explicit draft refs, source/node conflict, cleanup obligations and
+caption independence. Callback and transport fixtures are unit oracles: they do
+not certify HTTP, current production grants, reload/crash recovery or rendered
+Writer integration. Bind the run to the exact candidate SHA and source hashes.
+
+Check changed source with the canonical frontend style checker and run local
+FsusUI typecheck with `--application` for the complete application; its default
+focused export check is not a substitute. Compare concrete diagnostics against
+the exact supplied source baseline. Shared mapper/fixture failures must remain
+visible and be routed to their sole owner rather than waived or repaired through
+this consumer boundary.

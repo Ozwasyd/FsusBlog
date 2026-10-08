@@ -368,3 +368,47 @@ render: enum-set
 - `wasm-fuzz-regression->production-correctness`
 - `wasm-fuzz-regression->release-evidence`
 <!-- FSUSBLOG-GENERATED:END testing.dependency-edges -->
+
+## Article attachment business contribution
+
+`articleAttachmentBusinessState.ts` consumes stable nodes and removed/cancelled
+node tombstones from the original intent/transaction owner, the existing
+`ArticleDocumentContext`, and actual observations from an already-owned upload
+session. It does not scan Markdown, own source text/history, create intents,
+perform conversion or maintain another asset ledger. `AttachmentBusinessPorts`
+defines integration callbacks for the existing draft/autosave, leave guard,
+prepublish and revision owners. The shared Writer owner still owns their wiring.
+These ports are consumer requirements, not newly implemented server authorities.
+
+The versioned projection binds each intent/node/transaction/provider ref to the
+current source coordinates. Draft refs retain explicit pending/failed/stale and
+recovery states without upload tokens, bytes, progress, URLs or caption data.
+Successful revision refs require the current canonical asset and reference facts,
+matching source URL and original reference-operation receipt. Preview resources
+come from those same successful facts. Missing intent/reference authority blocks
+success. An unreferenced removed/cancelled node requires the original owner's
+recorded cleanup obligation; this module performs no storage deletion.
+
+Every action re-observes provider/reference facts and detects source/node drift.
+The original save may acknowledge a new draft revision while keeping all source
+coordinates and nodes; other action drift conflicts. Original callbacks retain
+save/conflict/dirty authority and must enforce their source/reference CAS in the
+canonical transaction. The adapter cannot undo an external mutation after a
+callback. The existing leave guard receives unresolved attachment risks and its
+allow result cannot silently discard them. Projection verification recomputes
+its digest and re-observes facts; this is not independent product qualification.
+
+`articleAttachmentUploadProvider.ts` wraps original status/complete/preview/abort
+API calls with the original owner token. It coalesces same-session commits,
+retains uncertain RPC outcomes and cancels the owned client commit task. Once a
+commit may have started, the original abort API supplies no atomic committed
+asset/cleanup outcome: cancellation only observes facts and retains recovery
+obligations. An uncertain abort prevents subsequent commit racing a removed
+session. Completed uploads above the preview byte budget require the missing
+public facts-only counterpart to `IFileService.ObserveCommittedUploadAsync`;
+they remain recovery-required rather than changing the original20MiB policy.
+
+Production binding of verified intent, current article/resource-operation grants,
+reference-ledger/cleanup observations, original node tombstones and crash recovery
+remains the responsibility of their canonical owners. Controlled callback tests
+cannot qualify those authorities or shared Writer/browser behavior.

@@ -62,7 +62,7 @@ export function initUploadSession(payload: UploadSessionInitRequest, signal?: Ab
     });
 }
 
-export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
+export function getUploadStatus(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
 {
     return requestBinaryOnly<UploadStatusViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}/status`,
@@ -71,7 +71,8 @@ export function getUploadStatus(uploadId: string, signal?: AbortSignal): Promise
         signal,
         requestOptions: {
             method: 'GET',
-            requiresPow: true
+            requiresPow: true,
+            headers: uploadToken ? { 'X-Fsus-Upload-Token': uploadToken } : undefined
         }
     });
 }
@@ -140,7 +141,7 @@ export function completeUpload(uploadId: string, uploadToken: string, sha256?: s
     });
 }
 
-export function abortUpload(uploadId: string, signal?: AbortSignal): Promise<UploadStatusViewModel>
+export function abortUpload(uploadId: string, signal?: AbortSignal, uploadToken?: string): Promise<UploadStatusViewModel>
 {
     return requestBinaryOnly<UploadStatusViewModel>({
         binaryUrl: `/api/binary/upload/${uploadId}`,
@@ -149,7 +150,8 @@ export function abortUpload(uploadId: string, signal?: AbortSignal): Promise<Upl
         signal,
         requestOptions: {
             method: 'DELETE',
-            requiresPow: true
+            requiresPow: true,
+            headers: uploadToken ? { 'X-Fsus-Upload-Token': uploadToken } : undefined
         }
     });
 }
