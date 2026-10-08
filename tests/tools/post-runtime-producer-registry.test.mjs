@@ -6,6 +6,8 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
+import { currentSchemaContractFixture, sealRuntimeRoleFixture } from './support/runtime-role-current-schema-fixture.mjs';
+
 const { digestValue } = await import(new URL('../../tools/fact-extractors/lib/canonicalize.mjs', import.meta.url));
 const { BehaviorId } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
 const { sealBrowserContractReceipt } = await import(new URL('../../tools/release/test-evidence-receipts.mjs', import.meta.url));
@@ -119,13 +121,13 @@ function createRuntimeRoleAdmission(sourceState)
             artifact.buildReceipt.projectDigest = artifact.projectDigest;
         }
         const value = artifactId === 'runtime-role-observation'
-            ? {
-                schema: 'fsusblog.runtime-role-observation.v2',
+            ? sealRuntimeRoleFixture({
+                schema: 'fsusblog.runtime-role-observation.v3',
+                modes: [], staticRoleCapabilities: {}, unsupportedCombinations: [],
                 ownership: { claimEligible: true },
-                deploymentAuthority: {
-                    observationDigest: deploymentObservationDigest
-                }
-            }
+                deploymentAuthority: { observationDigest: deploymentObservationDigest },
+                currentSchemaContract: currentSchemaContractFixture(sourceState.sourceCommit)
+            })
             : { schema: `fsusblog.${artifactId}.fixture.v1` };
         const output = writeJson(artifact.path, value);
         artifact.artifactDigest = fileDigestHex(output);
@@ -1061,7 +1063,7 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(observation, null, 2)}\n`
             );
             resealMinimal(admission, observationFile, 'artifact');
-        }, /runtime-role v2 observation authority/u],
+        }, /runtime-role current-only compiled-contract authority/u],
         [({ admission, deploymentFile, resealMinimal }) =>
         {
             const deployment = JSON.parse(fs.readFileSync(deploymentFile, 'utf8'));
@@ -1071,7 +1073,7 @@ test('runtime-role admission rejects missing, unknown, stale and coordinated v2 
                 `${JSON.stringify(deployment, null, 2)}\n`
             );
             resealMinimal(admission, deploymentFile, 'deployment');
-        }, /runtime-role v2 observation authority/u]
+        }, /runtime-role current-only compiled-contract authority/u]
     ])
     {
         const receipt = producerReceipt(classId);
