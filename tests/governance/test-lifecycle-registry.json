@@ -7641,6 +7641,18 @@
                 "category": "real-subprocess-lifecycle",
                 "physicalOwner": "process:lifecycle"
             }
+        },
+        {
+            "file": "tests/tools/canonical-digest-edge.test.mjs",
+            "owner": "manual-diagnostic:tests/tools/canonical-digest-edge.test.mjs",
+            "executionCategory": "manual-diagnostic",
+            "lifecycle": "manual-diagnostic",
+            "physicalExecutionCount": 0,
+            "classifications": [
+                "source-text",
+                "runtime",
+                "compatibility-wrapper"
+            ]
         }
     ]
 }
