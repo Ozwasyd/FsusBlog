@@ -526,6 +526,7 @@
             "fsusblog.server": {
                 "type": "Project",
                 "dependencies": {
+                    "AngleSharp": "[1.5.0, )",
                     "BCrypt.Net-Next": "[4.1.0, )",
                     "BouncyCastle.Cryptography": "[2.6.2, )",
                     "Fido2": "[4.0.1, )",
