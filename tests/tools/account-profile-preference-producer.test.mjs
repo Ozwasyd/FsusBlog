@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 
 import { accountCompositionTestSource } from './support/account-device-composition-fixture.mjs';
 
-const {plan} = await import(new URL('../../tools/test-fixtures/orchestrator.mjs', import.meta.url));
+const {cleanup: orchestratorCleanup, plan, prepare: orchestratorPrepare} = await import(new URL('../../tools/test-fixtures/orchestrator.mjs', import.meta.url));
 const {createProducerContext} = await import(new URL('../../tools/test-fixtures/producer-port.mjs', import.meta.url));
 const {defaultTimeoutPolicyDigest, qualificationTemporalContext} = await import(new URL('../../tools/test/temporal-context.mjs', import.meta.url));
 const {cleanupAccountProfilePreferences, prepareAccountProfilePreferences, verifyAccountProfilePreferences} = await import(new URL('../../tools/test-fixtures/producers/account-profile-preference-producer.mjs', import.meta.url));
@@ -652,3 +652,118 @@ test('producer source has no direct database, Cookie, localStorage, or fallback 
     assert.doesNotMatch(observer, /\b(?:INSERT|UPDATE|DELETE)\b/iu);
     assert.doesNotMatch(service, /"(?:de-DE|en-US|ja-JP|ko-KR|fr-FR|es-419|pt-BR|ru-RU|zh-Hant)"/u);
 });
+
+// Ordinary same-plan context controls: synthetic adapters, no authority publication.
+function ordinaryCleanupPorts(context, prepared, outcomes)
+{
+    const catalogs = readFixtureCatalogs();
+    const spec = (id) => catalogs.producer.producers.find((item) => item.id === id);
+    return ['auth-session', producerId].map((id) => ({
+        id,
+        strategy: spec(id).strategy,
+        providedCapabilities: spec(id).provides,
+        consumedCapabilities: spec(id).consumes,
+        async prepare(portContext)
+        {
+            if (id === producerId)
+            {
+                return prepared;
+            }
+            return {
+                ...context.producerOutputs['auth-session'],
+                variantIds: portContext.variantPlan.variants.map((item) => item.id).sort(),
+                producerVariantPlanDigest: portContext.variantPlan.producerVariantPlanDigest
+            };
+        },
+        async verify()
+        {
+            throw new Error('ordinary cleanup control does not publish fixture authority');
+        },
+        async cleanup(portContext, result)
+        {
+            outcomes.push({ id, producerReceipts: portContext.producerReceipts });
+            if (id === producerId)
+            {
+                const outcome = await cleanupAccountProfilePreferences(portContext, result);
+                outcomes.at(-1).outcome = outcome;
+                return outcome;
+            }
+            return null;
+        }
+    }));
+}
+
+for (const sealed of [false, true])
+{
+    test(`ordinary cleanup context: explicit cleanup carries ${sealed ? 'existing sealed' : 'prepare-only'} allocation`, async () =>
+    {
+        const adapter = compositionAdapter();
+        const context = plannedContext({ adapter });
+        const prepared = await prepareAccountProfilePreferences(context);
+        const outcomes = [];
+        const state = {
+            schema: 'fsusblog.fixture-prepare-state.v1', terminalState: 'prepared', plan: context.plan,
+            producerOutputs: { ...context.producerOutputs, [producerId]: prepared },
+            producerReceipts: sealed ? [context.producerReceipts['auth-session']] : [],
+            mutations: ['auth-session', producerId]
+        };
+        const result = await orchestratorCleanup(state, ordinaryCleanupPorts(context, prepared, outcomes));
+        assert.equal(result.terminalState, 'cleaned');
+        assert.deepEqual(adapter.calls.map((call) => call.action), ['prepare', 'verify', 'cleanup']);
+        assert.deepEqual(outcomes.map((item) => item.id), [producerId, 'auth-session']);
+        assert.strictEqual(outcomes[0].producerReceipts['auth-session'], sealed ? state.producerReceipts[0] : undefined);
+        assert.equal(outcomes[0].outcome.cleanupCompletionVerified, false);
+        assert.equal(outcomes[0].outcome.notAuthoritative, true);
+    });
+}
+
+for (const compensationFails of [false, true])
+{
+    test(`ordinary cleanup context: prepare failure retains primary with ${compensationFails ? 'failed' : 'successful'} compensation`, async () =>
+    {
+        const adapter = compositionAdapter();
+        const context = plannedContext({ adapter });
+        const prepared = await prepareAccountProfilePreferences(context);
+        const primary = new Error('ordinary prepared outlet failure');
+        const compensation = new Error('ordinary canonical compensation failure');
+        if (compensationFails)
+        {
+            adapter.cleanup = async (receipt) =>
+            {
+                adapter.calls.push({ action: 'cleanup', receipt });
+                throw compensation;
+            };
+        }
+        const outcomes = [];
+        await assert.rejects(() => orchestratorPrepare(context.plan, ordinaryCleanupPorts(context, prepared, outcomes), undefined, {
+            artifactOutlet: {
+                consumerId: 'ordinary-cleanup-context',
+                recordPort(portContext, action)
+                {
+                    if (action === 'prepare' && portContext.producerId === producerId)
+                    {
+                        throw primary;
+                    }
+                }
+            }
+        }), (error) =>
+        {
+            assert.strictEqual(error.cause, primary);
+            assert.equal(error.receipt.primaryFailure.message, primary.message);
+            if (compensationFails)
+            {
+                assert.equal(error.receipt.terminalState, 'cleanup-failed');
+                assert.equal(error.receipt.cleanupFailure.cause.message, compensation.message);
+            }
+            else
+            {
+                assert.equal(error.receipt.terminalState, 'cleaned');
+                assert.equal(error.receipt.cleanupFailure, null);
+            }
+            return true;
+        });
+        assert.deepEqual(adapter.calls.map((call) => call.action), ['prepare', 'verify', 'cleanup']);
+        assert.deepEqual(outcomes.map((item) => item.id), [producerId, 'auth-session']);
+        assert.deepEqual(outcomes[0].producerReceipts, {});
+    });
+}

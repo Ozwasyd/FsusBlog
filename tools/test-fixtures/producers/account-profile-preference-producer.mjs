@@ -14,7 +14,7 @@ import { projectVerifiedIdentityReferences } from './auth-session-producer.mjs';
 import { validateBackendTemporalObservation } from './backend-temporal-observer.mjs';
 
 const { assertAccountLocaleOwnershipCurrent } = await import(new URL('../../test/account-locale-fixture-inventory.mjs', import.meta.url));
-const { assertAccountCleanupOwnership, composeAccountDeviceRequests } = await import(new URL('../account-device-composition.mjs', import.meta.url));
+const { assertAccountCleanupOwnership, assertAccountPreparedCleanupOwnership, composeAccountDeviceRequests } = await import(new URL('../account-device-composition.mjs', import.meta.url));
 const {createTemporalDomainProducerReceipt, projectTemporalRolesForBrowser, projectTemporalRolesForPostgres, resolveTemporalRolesForProducer, verifyResolvedTemporalArtifact} = await import(new URL('../../test/temporal-role-resolver.mjs', import.meta.url));
 const producerId = 'account-profile-preferences';
 const strategy = 'transaction-fixture';
@@ -530,8 +530,46 @@ export async function cleanupAccountProfilePreferences(context, producerResult, 
     }
     freezeSource(compositionReceipt);
     const sourceResult = { ...producerResult, compositionReceipt };
-    const verifiedIdentities = verifyIdentityReferences(context, sourceResult);
-    assertAccountCleanupOwnership(context, sourceResult, verifiedIdentities);
+    if (Object.hasOwn(context.producerReceipts ?? {}, 'auth-session'))
+    {
+        const verifiedIdentities = verifyIdentityReferences(context, sourceResult);
+        assertAccountCleanupOwnership(context, sourceResult, verifiedIdentities);
+    }
+    else
+    {
+        // Prepare compensation precedes receipt publication. Bind the original
+        // provisional allocation, then let the canonical backend verify/restore it.
+        const authResult = context.producerOutputs?.['auth-session'];
+        if (authResult?.producerId !== 'auth-session' || !Array.isArray(authResult.identityPrepareReferences))
+        {
+            throw new Error('account cleanup requires the original auth-session prepare allocation');
+        }
+        const allocated = identityReferences(context);
+        const byRole = new Map(authResult.identityPrepareReferences
+            .filter((reference) => reference.consumerProducerId === producerId)
+            .map((reference) => [reference.role, reference]));
+        const prepared = compositionReceipt.identityReferences;
+        if (!Array.isArray(prepared) || prepared.length !== allocated.references.length
+            || prepared.some((reference) =>
+            {
+                const allocation = allocated.references.find((item) => item.role === reference.role);
+                const source = byRole.get(reference.role);
+                return !allocation || !source || allocation.digest !== source.digest
+                    || reference.digest !== allocation.digest
+                    || reference.publicId !== allocation.publicId
+                    || reference.fixtureIdentity !== allocation.fixtureIdentity
+                    || reference.ownerProducerId !== allocation.ownerProducerId;
+            }))
+        {
+            throw new Error('account cleanup allocation does not match the original prepare source');
+        }
+        assertAccountPreparedCleanupOwnership(context, sourceResult, {
+            namespace: context.namespace,
+            runId: context.runIdentity,
+            profileId: context.profileIdentity?.profileId,
+            references: allocated.references
+        });
+    }
     const verification = await invoke(context, 'verify', compositionReceipt, signal);
     if (verification?.ok !== true || verification.contentDigest !== compositionReceipt.contentDigest
         || !Array.isArray(verification.verifiedCapabilities)

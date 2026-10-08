@@ -228,11 +228,11 @@
             "path": "src/backend/Services/Fixtures/AccountProfilePreferenceFixtureService.cs"
         },
         {
-            "digest": "sha256:43fe0176f75d62b5222670e04bff840afc3e58063aef48995b1cdbebd1c06a2d",
+            "digest": "sha256:ca009996d00b3ae1c3dc08e9e121cc47d02c9a2e2a2c8ea2e7c0aac344532b31",
             "path": "tools/test-fixtures/account-device-composition.mjs"
         },
         {
-            "digest": "sha256:8fa91884ad1b8bd5d709b96841d1b999d090fe066b830560f8d15d905d124b6a",
+            "digest": "sha256:a9e479ccab295a37af2222f205c12f7c7b510abcda1a537b08281849e824e447",
             "path": "tools/test-fixtures/producers/account-profile-preference-producer.mjs"
         },
         {

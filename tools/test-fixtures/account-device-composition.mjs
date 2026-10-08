@@ -229,6 +229,17 @@ export function composeAccountDeviceRequests(context, result, verifiedIdentities
 /** Validate the existing backend compensation plan without treating it as cleanup evidence. */
 export function assertAccountCleanupOwnership(context, result, verifiedIdentities)
 {
+    assertCleanupOwnership(context, result, verifiedIdentities, true);
+}
+
+/** Recovery binds provisional allocation facts; it never publishes verified auth facts. */
+export function assertAccountPreparedCleanupOwnership(context, result, preparedIdentities)
+{
+    assertCleanupOwnership(context, result, preparedIdentities, false);
+}
+
+function assertCleanupOwnership(context, result, verifiedIdentities, sealed)
+{
     const raw = result?.compositionReceipt;
     assertNoAccountPrivateMaterial(raw);
     requireCondition(raw?.namespace === context.namespace && raw.runId === context.runIdentity
@@ -253,8 +264,12 @@ export function assertAccountCleanupOwnership(context, result, verifiedIdentitie
     {
         const ref = verifiedIdentities.references.find((item) => item.publicId === String(state.userId));
         const entity = entities.find((item) => item.id === `user-${state.userId}`);
-        requireCondition(ref?.verified === true && users.has(`user-${state.userId}`)
-            && ref.role === state.semanticRole && ref.prepareReferenceDigest === state.identityReferenceDigest
+        requireCondition(ref?.verified === sealed
+            && ref.schema === (sealed ? 'fsusblog.fixture-identity-reference.v1' : 'fsusblog.fixture-identity-prepare-reference.v1')
+            && ref.ownerProducerId === 'auth-session' && ref.consumerProducerId === producerId
+            && users.has(`user-${state.userId}`)
+            && ref.role === state.semanticRole
+            && (sealed ? ref.prepareReferenceDigest : ref.digest) === state.identityReferenceDigest
             && /^[a-f0-9]{64}$/u.test(state.securityStateDigest)
             && (!entity || state.securityStateDigest === entity.fields.securityStateDigest), 'cleanup-unowned-account');
         requireCondition(typeof state.profileChanged === 'boolean' && typeof state.preferenceChanged === 'boolean'
