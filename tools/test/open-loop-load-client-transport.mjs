@@ -11,6 +11,17 @@ const policyKeys = ['transportId', 'nodeVersion', 'clientLibrary', 'clientVersio
     'maxConnectionsPerOrigin', 'maxPipelining', 'keepAliveTimeoutMs', 'connectTimeoutMs', 'headersTimeoutMs',
     'bodyTimeoutMs', 'connectionReusePolicy', 'dnsMode', 'dnsResult', 'proxyMode', 'tlsPolicy'];
 const proxyKeys = ['HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY', 'http_proxy', 'https_proxy', 'all_proxy', 'NODE_USE_ENV_PROXY'];
+const controlErrors = new WeakMap();
+const deadlineStages = new Set(['connect-timeout', 'headers-timeout', 'body-timeout', 'request-timeout']);
+const networkCodes = new Map([
+    ['ENOTFOUND', 'dns'], ['EAI_AGAIN', 'dns'], ['EAI_FAIL', 'dns'],
+    ['ECONNREFUSED', 'connect'], ['EHOSTUNREACH', 'connect'], ['ENETUNREACH', 'connect'], ['EADDRNOTAVAIL', 'connect'],
+    ['ETIMEDOUT', 'connect'],
+    ['ECONNRESET', 'reset'], ['EPIPE', 'reset'], ['ERR_STREAM_PREMATURE_CLOSE', 'reset'],
+    ['ERR_TLS_CERT_ALTNAME_INVALID', 'tls'], ['DEPTH_ZERO_SELF_SIGNED_CERT', 'tls'], ['CERT_HAS_EXPIRED', 'tls'],
+    ['UNABLE_TO_VERIFY_LEAF_SIGNATURE', 'tls'], ['ERR_SSL_WRONG_VERSION_NUMBER', 'tls'], ['ERR_TLS_HANDSHAKE_TIMEOUT', 'tls'],
+    ['HPE_INVALID_CONSTANT', 'http-protocol'], ['HPE_INVALID_VERSION', 'http-protocol']
+]);
 
 function freeze(value)
 {
@@ -85,7 +96,110 @@ function transportError(stage)
 {
     const error = new Error(`transport ${stage}`);
     error.transportStage = stage;
+    controlErrors.set(error, deadlineStages.has(stage) ? 'deadline' : 'control');
     return error;
+}
+
+function errorFacts(error, depth = 0)
+{
+    return freeze({ name: typeof error?.name === 'string' ? error.name : null,
+        code: typeof error?.code === 'string' || typeof error?.code === 'number' ? error.code : null,
+        syscall: typeof error?.syscall === 'string' ? error.syscall : null,
+        cause: error?.cause && depth < 3 ? errorFacts(error.cause, depth + 1) : null });
+}
+
+function validateErrorFacts(error, depth = 0)
+{
+    exactObject(error, ['name', 'code', 'syscall', 'cause'], 'typed transport error');
+    if ((error.name !== null && (typeof error.name !== 'string' || !error.name))
+        || (error.code !== null && !(typeof error.code === 'string' && error.code) && !Number.isSafeInteger(error.code))
+        || (error.syscall !== null && (typeof error.syscall !== 'string' || !error.syscall))
+        || (error.cause !== null && depth >= 3))
+    {
+        throw new Error('invalid typed transport error facts');
+    }
+    if (error.cause !== null)
+    {
+        validateErrorFacts(error.cause, depth + 1);
+    }
+}
+
+/**
+ * Classify only captured typed facts and the first failing control-flow event.
+ * External merged signals require independent caller/deadline signal ports; an
+ * AbortError/TimeoutError name or a timeout-shaped message never establishes origin.
+ * TLS codes are understood for consumers, but this HTTP-only adapter does not run TLS.
+ * The result contains no inferred worker, dispatcher timestamp origin, or run receipt.
+ */
+export function classifyLoadTransportFailure(facts)
+{
+    exactObject(facts, ['stage', 'event', 'error', 'cancellation'], 'transport failure facts');
+    if (!['dns', 'pool', 'connect', 'headers', 'body', 'request'].includes(facts.stage)
+        || !['native-error', 'control-error', 'deadline', 'signal-abort'].includes(facts.event))
+    {
+        throw new Error('missing or unsupported transport failure stage/event');
+    }
+    validateErrorFacts(facts.error);
+    exactObject(facts.cancellation, ['origin', 'abortedSignals'], 'cancellation provenance');
+    const { origin: cancellationOrigin, abortedSignals } = facts.cancellation;
+    const signalNames = ['request-budget', 'transport-close', 'caller', 'dispatcher-deadline', 'merged', 'route-oracle'];
+    if (!Array.isArray(abortedSignals) || new Set(abortedSignals).size !== abortedSignals.length
+        || abortedSignals.some((name) => !signalNames.includes(name)))
+    {
+        throw new Error('invalid cancellation signal facts');
+    }
+    let outcome;
+    let errorKind;
+    let errorCode = facts.error.code;
+    if (facts.event === 'deadline')
+    {
+        if (cancellationOrigin !== 'transport-stage-deadline' || abortedSignals.length !== 0
+            || facts.error.name !== 'Error' || facts.error.code !== null
+            || facts.error.syscall !== null || facts.error.cause !== null)
+        {
+            throw new Error('deadline requires actual owned timer control flow');
+        }
+        outcome = 'timeout';
+        errorKind = `${facts.stage}-deadline`;
+    }
+    else if (facts.event === 'signal-abort')
+    {
+        const originSignal = new Map([['transport-request-deadline', 'request-budget'],
+            ['route-oracle-deadline', 'route-oracle'], ['dispatcher-deadline', 'dispatcher-deadline'],
+            ['caller', 'caller'], ['transport-close', 'transport-close']]);
+        const requiredSignal = originSignal.get(cancellationOrigin);
+        const explicit = abortedSignals.filter((name) => name !== 'merged');
+        if (!requiredSignal || explicit.length !== 1 || explicit[0] !== requiredSignal)
+        {
+            throw new Error('missing or ambiguous cancellation provenance');
+        }
+        outcome = ['caller', 'transport-close'].includes(cancellationOrigin) ? 'cancelled' : 'timeout';
+        errorKind = cancellationOrigin;
+    }
+    else
+    {
+        if (facts.event !== 'native-error' || cancellationOrigin !== 'none' || abortedSignals.length !== 0)
+        {
+            throw new Error('transport failure lacks classifiable native error provenance');
+        }
+        const codes = [];
+        for (let error = facts.error; error !== null; error = error.cause)
+        {
+            if (networkCodes.has(error.code))
+            {
+                codes.push(error.code);
+            }
+        }
+        const kinds = new Set(codes.map((code) => networkCodes.get(code)));
+        if (kinds.size !== 1 || !facts.error.name)
+        {
+            throw new Error('missing or ambiguous typed network error code');
+        }
+        outcome = 'network-error';
+        [errorKind] = kinds;
+        [errorCode] = codes;
+    }
+    return freeze({ outcome, errorKind, errorCode, errorDigest: digest(facts) });
 }
 
 async function bounded(operation, timeoutMs, signal)
@@ -220,6 +334,10 @@ export function assertLoadTransportCohort(identity, observations)
  * which is false when a queued request directly receives a previously used socket.
  * connectTimeoutMs covers DNS verification, pool wait and TCP connect separately; the
  * schedule's requestTimeoutMs also bounds the complete operation including response body.
+ * request-error.failureFacts preserves typed errors before the route oracle catches them.
+ * Optional request callerSignal/deadlineSignal identify distinct dispatcher origins;
+ * the legacy merged signal alone cannot prove cancellation versus dispatcher deadline.
+ * Failure provenance stays in onObservation, preserving the returned route sample shape.
  * close() destroys owned sockets and waits for outstanding request cleanup.
  */
 export async function createOpenLoopLoadClientTransport({ policy: candidate, endpoint, runBinding,
@@ -299,7 +417,7 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
         }
     });
 
-    async function execute(arrival, { signal, requestTimeoutMs })
+    async function execute(arrival, { signal, requestTimeoutMs, callerSignal, deadlineSignal })
     {
         if (closed)
         {
@@ -308,6 +426,10 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
         if (!Number.isSafeInteger(requestTimeoutMs) || requestTimeoutMs < 1 || requestTimeoutMs > 60_000)
         {
             throw new Error('transport requires a bounded schedule request timeout');
+        }
+        if ([signal, callerSignal, deadlineSignal].some((value) => value !== undefined && !(value instanceof AbortSignal)))
+        {
+            throw new Error('transport cancellation ports must be actual AbortSignals');
         }
         rejectAmbientProxy();
         const contract = routeContract(arrival.routeId);
@@ -324,10 +446,49 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
             throw new Error('headers cannot override transport authority or connection policy');
         }
         const scope = new AbortController();
-        const combined = AbortSignal.any([scope.signal, lifecycle.signal, ...(signal ? [signal] : [])]);
+        const combined = AbortSignal.any([scope.signal, lifecycle.signal,
+            ...[signal, callerSignal, deadlineSignal].filter((value) => value !== undefined)]);
         const totalTimer = setTimeout(() => scope.abort(transportError('request-timeout')), requestTimeoutMs);
         let transport = null;
         let failureStage = null;
+        let phase = 'dns';
+        let failureRecorded = false;
+
+        function recordFailure(error, event, oracleSignal)
+        {
+            if (failureRecorded)
+            {
+                return;
+            }
+            failureRecorded = true;
+            const ports = [['request-budget', scope.signal], ['transport-close', lifecycle.signal],
+                ['caller', callerSignal], ['dispatcher-deadline', deadlineSignal], ['merged', signal], ['route-oracle', oracleSignal]];
+            const aborted = ports.filter(([, port]) => port?.aborted);
+            const explicit = aborted.filter(([name]) => name !== 'merged');
+            let cancellationOrigin = 'none';
+            if (event === 'deadline')
+            {
+                cancellationOrigin = 'transport-stage-deadline';
+            }
+            else if (event === 'signal-abort')
+            {
+                const origins = new Map([['request-budget', 'transport-request-deadline'],
+                    ['transport-close', 'transport-close'], ['caller', 'caller'],
+                    ['dispatcher-deadline', 'dispatcher-deadline'], ['route-oracle', 'route-oracle-deadline']]);
+                const merged = aborted.find(([name]) => name === 'merged');
+                cancellationOrigin = explicit.length > 1 ? 'ambiguous' : explicit.length === 0 ? 'unattributed'
+                    : merged && merged[1].reason !== explicit[0][1].reason ? 'ambiguous' : origins.get(explicit[0][0]);
+            }
+            else if (aborted.length > 0)
+            {
+                cancellationOrigin = 'ambiguous';
+            }
+            const failureFacts = freeze({ stage: phase, event, error: errorFacts(error),
+                cancellation: { origin: cancellationOrigin,
+                    abortedSignals: event === 'deadline' ? [] : aborted.map(([name]) => name) } });
+            observe('request-error', { sampleId: arrival.sampleId, sequence: arrival.sequence,
+                routeId: arrival.routeId, transport, failureFacts });
+        }
         try
         {
             const currentDns = await resolveLoadTransportDns(endpoint, { resolver, timeoutMs: policy.connectTimeoutMs, signal: combined });
@@ -347,12 +508,15 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                 if (combined.aborted)
                 {
                     failureStage = combined.reason?.transportStage ?? 'aborted';
+                    recordFailure(combined.reason, 'signal-abort');
                     reject(combined.reason);
                     return;
                 }
                 if (target !== requestUrl.href || options.method !== contract.method || options.redirect !== 'manual')
                 {
-                    reject(new Error('route sampler changed request transport semantics'));
+                    const error = new Error('route sampler changed request transport semantics');
+                    recordFailure(error, 'control-error');
+                    reject(error);
                     return;
                 }
                 const requestSignal = AbortSignal.any([combined, options.signal]);
@@ -360,10 +524,22 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                 let timer;
                 let settled = false;
                 let response;
-                const request = http.request(requestUrl, { method: contract.method, headers: requestHeaders, agent,
-                    family: pinned.family, autoSelectFamily: false,
-                    lookup: (_host, _options, callback) => callback(null, pinned.address, pinned.family) });
-                function finish(error, value)
+                phase = 'pool';
+                let request;
+                try
+                {
+                    request = http.request(requestUrl, { method: contract.method, headers: requestHeaders, agent,
+                        family: pinned.family, autoSelectFamily: false,
+                        lookup: (_host, _options, callback) => callback(null, pinned.address, pinned.family) });
+                }
+                catch (error)
+                {
+                    failureStage = 'request-failed';
+                    recordFailure(error, 'native-error', options.signal);
+                    reject(error);
+                    return;
+                }
+                function finish(error, value, event = 'native-error')
                 {
                     if (settled)
                     {
@@ -372,9 +548,18 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                     settled = true;
                     clearTimeout(timer);
                     requestSignal.removeEventListener('abort', abort);
-                    if (error)
+                    if (error !== null && error !== undefined)
                     {
                         failureStage = error.transportStage ?? (requestSignal.aborted ? 'aborted' : 'request-failed');
+                        let observationError;
+                        try
+                        {
+                            recordFailure(error, event, options.signal);
+                        }
+                        catch (observerError)
+                        {
+                            observationError = observerError;
+                        }
                         // Node leaves destroyed queued requests until a socket becomes free.
                         // Remove this owned request before destroying sockets during close.
                         for (const [key, queued] of Object.entries(agent.requests))
@@ -391,7 +576,7 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                         }
                         response?.destroy();
                         request.destroy();
-                        reject(error);
+                        reject(observationError ?? error);
                     }
                     else
                     {
@@ -401,15 +586,16 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                 function stageTimeout(stage, timeoutMs)
                 {
                     clearTimeout(timer);
-                    timer = setTimeout(() => finish(transportError(`${stage}-timeout`)), timeoutMs);
+                    timer = setTimeout(() => finish(transportError(`${stage}-timeout`), null, 'deadline'), timeoutMs);
                 }
                 function abort()
                 {
-                    finish(requestSignal.reason ?? transportError('aborted'));
+                    finish(requestSignal.reason ?? transportError('aborted'), null, 'signal-abort');
                 }
                 request.on('error', (error) => finish(error));
                 request.once('socket', (socket) =>
                 {
+                    phase = socket.connecting ? 'connect' : 'headers';
                     const state = sockets.get(socket);
                     clearTimeout(state?.idleTimer);
                     function connected()
@@ -438,12 +624,13 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                             {
                                 throw new Error('actual remote endpoint differs from current-run backend');
                             }
+                            phase = 'headers';
                             stageTimeout('headers', policy.headersTimeoutMs);
                             observe('socket-assigned', { sampleId: arrival.sampleId, transport });
                         }
                         catch (error)
                         {
-                            finish(error);
+                            finish(error, null, 'control-error');
                         }
                     }
                     if (socket.connecting)
@@ -466,9 +653,10 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                     }
                     catch (error)
                     {
-                        finish(error);
+                        finish(error, null, 'control-error');
                         return;
                     }
+                    phase = 'body';
                     stageTimeout('body', policy.bodyTimeoutMs);
                     const chunks = [];
                     let bytes = 0;
@@ -477,13 +665,21 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                         bytes += chunk.length;
                         if (bytes > contract.maximumBodyBytes)
                         {
-                            finish(transportError('body-size-out-of-bounds'));
+                            finish(transportError('body-size-out-of-bounds'), null, 'control-error');
                             return;
                         }
                         chunks.push(chunk);
                     });
                     incoming.on('error', (error) => finish(error));
-                    incoming.once('aborted', () => finish(transportError('response-aborted')));
+                    // IncomingMessage emits aborted before its typed ECONNRESET error.
+                    // Preserve that native error; close supplies a code-less fallback only.
+                    incoming.once('close', () =>
+                    {
+                        if (!incoming.complete)
+                        {
+                            finish(transportError('response-aborted'), null, 'control-error');
+                        }
+                    });
                     incoming.once('end', () =>
                     {
                         try
@@ -494,7 +690,7 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                         }
                         catch (error)
                         {
-                            finish(error);
+                            finish(error, null, 'control-error');
                         }
                     });
                 });
@@ -519,6 +715,14 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
             }
             observe('request-completed', { sampleId: arrival.sampleId, transport, failureStage, ok: sample.ok });
             return { ...sample, transport, transportFailureStage: failureStage };
+        }
+        catch (error)
+        {
+            const event = combined.aborted && combined.reason === error ? 'signal-abort'
+                : controlErrors.get(error) === 'deadline' ? 'deadline'
+                    : typeof error?.code === 'string' || typeof error?.code === 'number' ? 'native-error' : 'control-error';
+            recordFailure(error, event);
+            throw error;
         }
         finally
         {
