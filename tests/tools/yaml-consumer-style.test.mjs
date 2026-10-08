@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process'
 import test from 'node:test'
 import { fileURLToPath } from 'node:url'
 
-import { parseMatrix } from '../../tools/test-matrix/parse-matrix.mjs'
+import { parseMatrix, parseMatrixValue } from '../../tools/test-matrix/parse-matrix.mjs'
 import { parseYamlDocument } from '../../tools/yaml/parse-document.mjs'
 import { parseWorkflowJobNeeds } from '../../tools/yaml/workflow-structure.mjs'
 
@@ -102,6 +102,91 @@ test('workflow needs parser accepts inline, block and multiline flow sequences',
     /workflow needs must be a sequence/u
   )
 })
+
+test('structured YAML parser preserves ordinary block scalar semantics', () =>
+{
+    const fixtures = [
+        ['adjacent folded lines', 'run: >\n  first\n  second\n', 'first second\n'],
+        ['interior blank line', 'run: >\n  first\n\n  second\n', 'first\nsecond\n'],
+        ['multiple interior blanks', 'run: >\n  first\n\n\n  second\n', 'first\n\nsecond\n'],
+        ['leading blank', 'run: >\n\n  first\n', '\nfirst\n'],
+        ['folded shell comment', 'run: >\n  # disabled owner\n  first\n', '# disabled owner first\n'],
+        ['inline shell comment', 'run: >\n  first # shell comment\n  second\n', 'first # shell comment second\n'],
+        ['literal shell comment', 'run: |\n  # disabled owner\n  first\n', '# disabled owner\nfirst\n'],
+        ['document markers in scalar', 'run: >\n  ---\n  ...\n', '--- ...\n'],
+        ['more-indented folded line', 'run: >\n  first\n    second\n  third\n', 'first\n  second\nthird\n'],
+        ['blanks around more-indented line', 'run: >\n  first\n\n    second\n\n  third\n', 'first\n\n  second\n\nthird\n'],
+        ['scalar trailing spaces', 'run: >\n  first  \n  second\n', 'first   second\n'],
+        ['tab inside scalar content', 'run: |\n  first\tsecond\n', 'first\tsecond\n'],
+        ['folded scalar without final break', 'run: >\n  first\n  second', 'first second'],
+        ['literal scalar without final break', 'run: |\n  first\n  second', 'first\nsecond'],
+        ['CRLF block breaks', 'run: >\r\n  first\r\n\r\n  second\r\n', 'first\nsecond\n'],
+        ['folded clip', 'run: >\n  first\n  second\n\n', 'first second\n'],
+        ['folded strip', 'run: >-\n  first\n  second\n\n', 'first second'],
+        ['folded keep', 'run: >+\n  first\n  second\n\n', 'first second\n\n'],
+        ['literal clip', 'run: |\n  first\n  second\n\n', 'first\nsecond\n'],
+        ['literal strip', 'run: |-\n  first\n  second\n\n', 'first\nsecond'],
+        ['literal keep', 'run: |+\n  first\n  second\n\n', 'first\nsecond\n\n'],
+        ['empty clip', 'run: >\n\n', ''],
+        ['empty strip', 'run: |-\n\n', ''],
+        ['empty keep', 'run: |+\n\n\n', '\n\n'],
+        ['single quoted value', "run: 'first # literal' # YAML comment\n", 'first # literal'],
+        ['double quoted value', 'run: "first # literal" # YAML comment\n', 'first # literal'],
+        ['plain trailing comment', 'run: first # YAML comment\n', 'first'],
+        ['plain non-comment hash', 'run: first#literal\n', 'first#literal']
+    ];
+    assert.equal(fixtures.length, 28);
+    for (const [name, yaml, expected] of fixtures)
+    {
+        assert.equal(parseYamlDocument(yaml).run, expected, name);
+    }
+    const refusals = [
+        ['over-indented leading blank', 'run: >\n    \n  first\n', /leading empty line is over-indented/u],
+        ['decreased scalar indentation', 'run: >\n    first\n  second\n', /block scalar indentation decreased/u],
+        ['structural tab indentation', 'jobs:\n\tjob: value\n', /indentation must not contain tabs/u],
+        ['unsupported numeric indicator', 'run: >2\n  first\n', /unsupported YAML block scalar/u]
+    ];
+    assert.equal(refusals.length, 4);
+    for (const [name, yaml, expected] of refusals)
+    {
+        assert.throws(() => parseYamlDocument(yaml), expected, name);
+    }
+});
+
+test('matrix parser preserves ordinary folded command values', () =>
+{
+    const owner = 'tools/test/run-matrix-governance-once.sh validate-matrix';
+    const fixtures = [
+        ['adjacent folded command', '>\n      tools/test/run-matrix-governance-once.sh\n      validate-matrix\n', `${owner}\n`],
+        ['stripped folded command', '>-\n      tools/test/run-matrix-governance-once.sh\n      validate-matrix\n', owner],
+        ['separate folded commands', '>\n      tools/test/run-matrix-governance-once.sh\n\n      validate-matrix\n', 'tools/test/run-matrix-governance-once.sh\nvalidate-matrix\n'],
+        ['folded shell comment', `>\n      # disabled canonical owner\n      ${owner}\n`, `# disabled canonical owner ${owner}\n`],
+        ['literal command', `|\n      ${owner}\n`, `${owner}\n`],
+        ['quoted command', `'${owner}' # YAML comment\n`, owner],
+        ['plain command', `${owner} # YAML comment\n`, owner]
+    ];
+    assert.equal(fixtures.length, 7);
+    for (const [name, value, expected] of fixtures)
+    {
+        const matrix = parseMatrix(`tiers:\n  - id: validate-matrix\n    command: ${value}    executionDependsOn: []\n# structural comment\n`);
+        assert.equal(matrix.tiers[0].command, expected, name);
+        assert.deepEqual(matrix.tiers[0].executionDependsOn, [], name);
+    }
+    const refusals = [
+        ['sequence root', '- value\n', /root must be a YAML mapping/u],
+        ['non-mapping profiles', 'localProfiles: []\n', /localProfiles must be a YAML mapping/u],
+        ['non-sequence tiers', 'tiers: value\n', /tiers must be a YAML sequence/u],
+        ['non-sequence evidence', 'tiers:\n  - id: one\n    executionDependsOn: []\n    requiresEvidenceFrom: producer\n', /requiresEvidenceFrom as an array/u]
+    ];
+    assert.equal(refusals.length, 4);
+    for (const [name, yaml, expected] of refusals)
+    {
+        assert.throws(() => parseMatrix(yaml), expected, name);
+    }
+    assert.equal(parseMatrixValue("'first # literal'"), 'first # literal');
+    assert.deepEqual(parseMatrixValue('[first, second]'), ['first', 'second']);
+    assert.equal(parseMatrixValue('false'), false);
+});
 
 test('security matrix checker accepts four-space records and fails closed on malformed fixtures', () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'fsusblog-security-yaml-'))

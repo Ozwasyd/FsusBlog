@@ -572,7 +572,10 @@ function scanMatrix() {
     addError(`${source} must declare exactly one validate-matrix tier`);
     return;
   }
-  if (owners[0].command !== 'tools/test/run-matrix-governance-once.sh validate-matrix') {
+  // YAML clip/keep terminators are shell whitespace; internal breaks and comments
+  // remain part of the command and cannot qualify the canonical owner.
+  if (typeof owners[0].command !== 'string'
+    || owners[0].command.trim() !== 'tools/test/run-matrix-governance-once.sh validate-matrix') {
     addError(`${source} validate-matrix tier must run the canonical matrix governance owner exactly once`);
   }
 }
