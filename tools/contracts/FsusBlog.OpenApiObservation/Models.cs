@@ -15,7 +15,10 @@ internal sealed record ObservedOperation(
     string? SourceIdentity,
     IReadOnlyList<ObservedRequestType> RequestTypes,
     IReadOnlyList<RequestParameterContract> RequestParameters,
-    IReadOnlyDictionary<int, IReadOnlyList<string>> CompiledErrorStatusEvidence);
+    IReadOnlyDictionary<int, IReadOnlyList<string>> CompiledErrorStatusEvidence)
+{
+    public required string CredentialPolicy { get; init; }
+}
 
 internal sealed record CompiledEndpointContract(
     string OperationId,
@@ -352,6 +355,11 @@ internal sealed class ObservationOperation
         get; init;
     }
 
+    public required string CredentialPolicy
+    {
+        get; init;
+    }
+
     public required string Permission
     {
         get; init;
@@ -645,6 +653,7 @@ internal static class ObservationMerger
                 ResponseFrame = live.Contract.ResponseFrame!,
                 ErrorFrame = live.Contract.ErrorFrame!,
                 Auth = live.Auth,
+                CredentialPolicy = live.CredentialPolicy,
                 Permission = live.Permission,
                 Pow = live.Pow,
                 RateLimit = live.RateLimit,

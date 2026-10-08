@@ -597,6 +597,16 @@ function requestSecurityBinary<T>(
     });
 }
 
+function securityQuery(params: Record<string, string | number | null | undefined>): URLSearchParams
+{
+    const search = new URLSearchParams();
+    for (const [key, value] of Object.entries(params))
+    {
+        if (value !== undefined && value !== null && value !== '') search.set(key, String(value));
+    }
+    return search;
+}
+
 export const getSecurityOverview = (config?: ApiRequestConfig) =>
     requestSecurityBinary<SecurityOverviewResponse>({ operationId: 'binary_get_admin_security_overview' }, FrameType.SecurityOverview, config);
 
@@ -610,7 +620,7 @@ export const simulateRiskControl = (request: RiskControlSimulationRequest, confi
     });
 
 export const getSecurityChallengeMetrics = (params: { kind?: string | null; } = {}, config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityChallengeMetricsResponse>({ operationId: 'binary_get_admin_security_challenges_overview', query: params }, FrameType.SecurityOverview, config);
+    requestSecurityBinary<SecurityChallengeMetricsResponse>({ operationId: 'binary_get_admin_security_challenges_overview', query: securityQuery(params) }, FrameType.SecurityOverview, config);
 
 export const getSecurityPolicyConsole = (config?: ApiRequestConfig) =>
     requestSecurityBinary<SecurityPolicyConsoleResponse>({ operationId: 'binary_get_admin_security_policies_overview' }, FrameType.SecurityOverview, config);
@@ -718,10 +728,10 @@ export const syncCrawlerRanges = (config?: ApiRequestConfig) =>
     requestSecurityBinary<CrawlerRangeSyncResponse>({ operationId: 'binary_post_admin_security_anti_crawler_crawler_ranges_sync' }, FrameType.CrawlerRangeSyncResponse, config, { });
 
 export const listSecurityRiskEvents = (params: { source?: string | null; reason?: string | null; limit?: number; } = {}, config?: ApiRequestConfig) =>
-    requestSecurityBinary<AntiCrawlerRiskEventResponse[]>({ operationId: 'binary_get_admin_security_risk_events', query: params }, FrameType.SecurityRiskEventList, config);
+    requestSecurityBinary<AntiCrawlerRiskEventResponse[]>({ operationId: 'binary_get_admin_security_risk_events', query: securityQuery(params) }, FrameType.SecurityRiskEventList, config);
 
 export const listSecurityRiskSnapshots = (limit = 100, config?: ApiRequestConfig) =>
-    requestSecurityBinary<SecurityRiskSnapshotResponse[]>({ operationId: 'binary_get_admin_security_risk_snapshots', query: { limit } }, FrameType.SecurityRiskSnapshotList, config);
+    requestSecurityBinary<SecurityRiskSnapshotResponse[]>({ operationId: 'binary_get_admin_security_risk_snapshots', query: securityQuery({ limit }) }, FrameType.SecurityRiskSnapshotList, config);
 
 export const resetSecurityRisk = (request: SecurityRiskResetRequest, config?: ApiRequestConfig) =>
     requestSecurityBinary<SecurityRiskResetResponse>({ operationId: 'binary_post_admin_security_risk_dimension_reset', params: { dimension: 'ip' } }, FrameType.SecurityRiskResetResponse, config, {

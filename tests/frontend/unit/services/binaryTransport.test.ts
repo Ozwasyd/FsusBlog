@@ -334,7 +334,7 @@ describe('binaryTransport ApiError mapping', () => {
     })
     expect(mockBinaryRequest).toHaveBeenLastCalledWith(
       '/api/binary/system/seo',
-      expect.objectContaining({ credentials: 'omit' })
+      expect.not.objectContaining({ credentials: 'omit' })
     )
 
     mockBinaryRequest.mockResolvedValueOnce(readProtocolFixtureBuffer('page-content-frame.hex'))

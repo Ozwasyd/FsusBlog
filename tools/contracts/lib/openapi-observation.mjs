@@ -677,6 +677,11 @@ export function validateObservationAgainstProtocol(observation, protocol = loadP
         {
             errors.push(`${key} invalid auth ${op.auth}`);
         }
+        if (!['include', 'omit'].includes(op.credentialPolicy)
+            || (op.auth !== 'anonymous' && op.credentialPolicy !== 'include'))
+        {
+            errors.push(`${key} invalid credentialPolicy ${op.credentialPolicy}`);
+        }
         if (typeof op.pow !== 'boolean')
         {
             errors.push(`${key} pow must be boolean`);
@@ -770,6 +775,7 @@ export function observationToFactObservations(observation)
             responseFrame: op.responseFrame,
             errorFrame: op.errorFrame,
             auth: op.auth,
+            credentialPolicy: op.credentialPolicy,
             permission: op.permission,
             pow: op.pow,
             rateLimit: op.rateLimit,
