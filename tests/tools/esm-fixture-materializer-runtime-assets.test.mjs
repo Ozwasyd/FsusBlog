@@ -125,3 +125,41 @@ test('runner locale destination cannot follow a linked leaf or parent', (t) =>
     assert.throws(() => materializeTestMatrixRunner(source, fixture), /destination parent must be a literal directory/u);
     assert.deepEqual(fs.readdirSync(outside), ['sentinel.json']);
 });
+
+function assertReleaseFinalSourceRefusal(t, linked)
+{
+    const { source, fixture } = runnerSource(t);
+    const relative = 'tools/test/lanes/release-final.sh';
+    const asset = path.join(source, relative);
+    const bytes = fs.readFileSync(asset);
+    materializeTestMatrixRunner(source, fixture);
+    fs.rmSync(asset);
+    if (linked)
+    {
+        fs.symlinkSync(path.join(fixture, relative), asset);
+    }
+    for (let attempt = 0; attempt < 2; attempt += 1)
+    {
+        assert.throws(() => materializeTestMatrixRunner(source, fixture), linked
+            ? /runtime asset must be a literal regular file.*release-final\.sh/u
+            : /runtime asset is missing.*release-final\.sh/u);
+        assert.deepEqual(fs.readFileSync(path.join(fixture, relative)), bytes);
+    }
+    if (linked)
+    {
+        fs.rmSync(asset);
+    }
+    fs.writeFileSync(asset, bytes);
+    materializeTestMatrixRunner(source, fixture);
+    assert.deepEqual(fs.readFileSync(path.join(fixture, relative)), bytes);
+}
+
+test('original runner refuses missing release-final source despite an existing fixture copy', (t) =>
+{
+    assertReleaseFinalSourceRefusal(t, false);
+});
+
+test('original runner refuses linked release-final source despite an existing fixture copy', (t) =>
+{
+    assertReleaseFinalSourceRefusal(t, true);
+});
