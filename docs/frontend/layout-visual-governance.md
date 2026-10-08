@@ -164,6 +164,16 @@ compiler. It checks the original source bytes and rejects authored marker
 attributes. It never writes product files. The browser probe retains hidden
 nodes, joins native/component markers to parsed sources, and checks heading,
 action, region, material, nesting, chrome and content-order observations.
+Structural conditions inside a public component may be resolved only from that
+exact call's literal props/defaults and statically provided slots, through the
+actual parsed `computed`/`Boolean` expressions. The source graph binds all parsed
+resolver inputs, including prop declarations. The DOM join checks each rendered
+call's conditional element count; dynamic props, conditional/dynamic slots,
+ancestor-dependent branches, loops and arbitrary functions remain unbound.
+This bounded structural proof neither supplies product state bindings nor
+qualifies a source-only result. A missing public surface/material emission stays
+an upstream capability error even when the component's structural conditions
+are proven.
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;

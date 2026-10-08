@@ -285,6 +285,192 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         return null;
     }
+    // Resolve only structural conditions determined by this exact public call's
+    // literal props/slots. Product state, mutable locals and arbitrary functions
+    // remain unbound; this is not a substitute for a qualified state producer.
+    const unbound = Symbol('unbound-structural-input');
+    function propDeclaration(record, name)
+    {
+        function find(node, file, seen = new Set())
+        {
+            if (!node)
+            {
+                return null;
+            }
+            if (ts.isAsExpression(node) || ts.isParenthesizedExpression(node) || ts.isSatisfiesExpression(node))
+            {
+                return find(node.expression, file, seen);
+            }
+            if (ts.isIdentifier(node))
+            {
+                const identity = `${file}#${node.text}`;
+                if (seen.has(identity))
+                {
+                    return null;
+                }
+                seen.add(identity);
+                const current = resolver.parse(file);
+                const imported = current.imports.get(node.text);
+                return imported ? find(resolver.parse(importFile(file, imported.specifier)).variables.get(imported.name), importFile(file, imported.specifier), seen)
+                    : find(current.variables.get(node.text), file, seen);
+            }
+            if (ts.isCallExpression(node) && ts.isIdentifier(node.expression))
+            {
+                const imported = resolver.parse(file).imports.get(node.expression.text);
+                return imported?.name === 'buildProps' && imported.specifier === '@element-plus/utils' ? find(node.arguments[0], file, seen) : null;
+            }
+            if (ts.isObjectLiteralExpression(node))
+            {
+                if (node.properties.some((property) => ts.isSpreadAssignment(property) || !ts.isPropertyAssignment(property)))
+                {
+                    return null;
+                }
+                const property = node.properties.find((item) => item.name.getText().replaceAll("'", '').replaceAll('"', '') === name);
+                return property ? { node: property.initializer, file } : null;
+            }
+            return null;
+        }
+        for (const value of record.variables.values())
+        {
+            if (ts.isCallExpression(value) && ts.isIdentifier(value.expression) && value.expression.text === 'defineProps')
+            {
+                return find(value.arguments[0], record.file);
+            }
+        }
+        return null;
+    }
+    function closedLiteral(node)
+    {
+        if (!node)
+        {
+            return unbound;
+        }
+        if (ts.isParenthesizedExpression(node) || ts.isAsExpression(node) || ts.isSatisfiesExpression(node))
+        {
+            return closedLiteral(node.expression);
+        }
+        if (ts.isStringLiteral(node) || ts.isNumericLiteral(node))
+        {
+            return ts.isStringLiteral(node) ? node.text : Number(node.text);
+        }
+        if (node.kind === ts.SyntaxKind.TrueKeyword || node.kind === ts.SyntaxKind.FalseKeyword)
+        {
+            return node.kind === ts.SyntaxKind.TrueKeyword;
+        }
+        if (node.kind === ts.SyntaxKind.NullKeyword)
+        {
+            return null;
+        }
+        return unbound;
+    }
+    function structuralCondition(node, call, condition)
+    {
+        const record = resolver.parse(node.file);
+        function prop(name)
+        {
+            const declaration = propDeclaration(record, name);
+            if (!declaration || call.directives.some((directive) => directive.name === 'bind' && (!directive.argument || directive.argumentStatic === false)))
+            {
+                return unbound;
+            }
+            const binding = call.directives.find((directive) => directive.name === 'bind' && directive.argument === name);
+            if (binding)
+            {
+                return binding.expression ? closedLiteral(expression(binding.expression, call.file)) : unbound;
+            }
+            if (Object.hasOwn(call.attributes, name))
+            {
+                return call.attributes[name];
+            }
+            let config = declaration.node;
+            if (ts.isAsExpression(config) || ts.isSatisfiesExpression(config))
+            {
+                config = config.expression;
+            }
+            if (!ts.isObjectLiteralExpression(config))
+            {
+                return unbound;
+            }
+            if (config.properties.some((property) => !ts.isPropertyAssignment(property)))
+            {
+                return unbound;
+            }
+            const defaultValue = config.properties.find((property) => property.name.getText() === 'default');
+            return defaultValue ? closedLiteral(defaultValue.initializer) : unbound;
+        }
+        function slots(name)
+        {
+            return Object.hasOwn(call.slotInputs.present, name) ? (call.slotInputs.present[name] === null ? unbound : call.slotInputs.present[name])
+                : call.slotInputs.unknown ? unbound : false;
+        }
+        function evaluate(exp, seen = new Set())
+        {
+            const literal = closedLiteral(exp);
+            if (literal !== unbound)
+            {
+                return literal;
+            }
+            if (ts.isParenthesizedExpression(exp))
+            {
+                return evaluate(exp.expression, seen);
+            }
+            if (ts.isIdentifier(exp) && !seen.has(exp.text))
+            {
+                const value = record.variables.get(exp.text);
+                if (value && ts.isCallExpression(value) && ts.isIdentifier(value.expression)
+                    && record.imports.get(value.expression.text)?.specifier === 'vue'
+                    && record.imports.get(value.expression.text)?.name === 'computed'
+                    && value.arguments.length === 1 && ts.isArrowFunction(value.arguments[0])
+                    && value.arguments[0].parameters.length === 0 && !value.arguments[0].modifiers?.length
+                    && !ts.isBlock(value.arguments[0].body))
+                {
+                    return evaluate(value.arguments[0].body, new Set([...seen, exp.text]));
+                }
+            }
+            if (ts.isPropertyAccessExpression(exp) && ts.isIdentifier(exp.expression))
+            {
+                const variable = record.variables.get(exp.expression.text);
+                if (exp.expression.text === '$slots')
+                {
+                    return slots(exp.name.text);
+                }
+                if (variable && ts.isCallExpression(variable) && ts.isIdentifier(variable.expression))
+                {
+                    if (variable.expression.text === 'defineProps')
+                    {
+                        return prop(exp.name.text);
+                    }
+                    const imported = record.imports.get(variable.expression.text);
+                    if (variable.expression.text === 'defineSlots' || (imported?.specifier === 'vue' && imported.name === 'useSlots'))
+                    {
+                        return slots(exp.name.text);
+                    }
+                }
+            }
+            if (ts.isCallExpression(exp) && ts.isIdentifier(exp.expression) && exp.expression.text === 'Boolean'
+                && !record.variables.has('Boolean') && !record.imports.has('Boolean')
+                && !record.scripts.some(({ ast }) => ast.statements.some((statement) => statement.name?.getText() === 'Boolean'))
+                && exp.arguments.length === 1)
+            {
+                const value = evaluate(exp.arguments[0], seen);
+                return value === unbound ? unbound : Boolean(value);
+            }
+            if (ts.isBinaryExpression(exp) && [ts.SyntaxKind.BarBarToken, ts.SyntaxKind.AmpersandAmpersandToken].includes(exp.operatorToken.kind))
+            {
+                const left = evaluate(exp.left, seen);
+                if (left === unbound)
+                {
+                    return unbound;
+                }
+                return exp.operatorToken.kind === ts.SyntaxKind.BarBarToken ? (left || evaluate(exp.right, seen)) : (left && evaluate(exp.right, seen));
+            }
+            return unbound;
+        }
+        const value = evaluate(expression(condition.expression, node.file));
+        return value === unbound ? null : { sourceNode: node.id, callNode: call.id, directive: condition.name,
+            expression: condition.expression, expected: Boolean(value),
+            inputDigest: controlDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }) };
+    }
     function parse(file)
     {
         file = realpathSync(file);
@@ -327,7 +513,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 }
                 else if (prop.type === dom.NodeTypes.DIRECTIVE)
                 {
-                    directives.push({ name: prop.name, argument: prop.arg?.content ?? null, expression: prop.exp?.content ?? null });
+                    directives.push({ name: prop.name, argument: prop.arg?.content ?? null, argumentStatic: prop.arg?.isStatic ?? null, expression: prop.exp?.content ?? null });
                     if (prop.exp?.content.trim() && prop.name !== 'for' && prop.name !== 'slot')
                     {
                         const exp = expression(prop.exp.content, file);
@@ -391,7 +577,39 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 origin = { kind: 'unknown', message: error.message };
                 errors.push({ ...location(file, offset), reason: 'unknown-component-source', message: error.message });
             }
-            const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition,
+            const slotInputs = { present: {}, unknown: false };
+            const rootSlot = node.props.find((prop) => prop.type === dom.NodeTypes.DIRECTIVE && prop.name === 'slot');
+            if (rootSlot)
+            {
+                if (rootSlot.arg && !rootSlot.arg.isStatic)
+                {
+                    slotInputs.unknown = true;
+                }
+                else
+                {
+                    slotInputs.present[rootSlot.arg?.content ?? 'default'] = true;
+                }
+            }
+            for (const child of rootSlot ? [] : node.children ?? [])
+            {
+                const slot = child.type === dom.NodeTypes.ELEMENT && child.props.find((prop) => prop.type === dom.NodeTypes.DIRECTIVE && prop.name === 'slot');
+                if (slot)
+                {
+                    if (slot.arg && !slot.arg.isStatic)
+                    {
+                        slotInputs.unknown = true;
+                    }
+                    else
+                    {
+                        slotInputs.present[slot.arg?.content ?? 'default'] = child.props.some((prop) => prop.type === dom.NodeTypes.DIRECTIVE && ['if', 'else-if', 'else', 'for'].includes(prop.name)) ? null : true;
+                    }
+                }
+                else if (child.type !== dom.NodeTypes.COMMENT && (child.type !== dom.NodeTypes.TEXT || child.content.trim()))
+                {
+                    slotInputs.present.default = true;
+                }
+            }
+            const current = { id, ...location(file, offset), tag: node.tag, parentId, attributes, directives, origin, definition, slotInputs,
                 sourceDigest: controlDigest(node.loc.source), ancestors,
                 structural: origin.kind === 'framework-structure',
                 conditional: directives.filter(({ name }) => ['if', 'else-if', 'else', 'show', 'for'].includes(name)),
@@ -424,8 +642,6 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                 errors.push({ file, reason: 'unknown-ast-parse', message: error.message });
             }
         }
-        const bindings = resolver.sourceBindings();
-        errors.push(...bindings.errors);
         const reachable = new Set();
         function visit(file)
         {
@@ -446,8 +662,38 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         entryFiles.forEach(visit);
         const files = [...records.values()].filter((record) => reachable.has(record.file));
         const graphNodes = [...nodes.values()].filter((node) => reachable.has(node.file));
+        const structuralBindings = [];
+        for (const node of graphNodes.filter((node) => !node.structural && node.file.startsWith(upstream + '/')))
+        {
+            const conditions = node.conditional.filter((condition) => ['if', 'show'].includes(condition.name) && condition.expression);
+            if (conditions.length !== node.conditional.length || node.ancestors.some((id) => nodes.get(id).conditional.length))
+            {
+                continue;
+            }
+            for (const call of graphNodes.filter((call) => call.origin.kind === 'fsusui-public' && call.definition === node.file))
+            {
+                for (const condition of conditions)
+                {
+                    try
+                    {
+                        const binding = structuralCondition(node, call, condition);
+                        if (binding)
+                        {
+                            structuralBindings.push(binding);
+                        }
+                    }
+                    catch (error)
+                    {
+                        errors.push({ ...location(node.file, node.offset), reason: 'unknown-structural-condition-source', message: error.message });
+                    }
+                }
+            }
+        }
+        const bindings = resolver.sourceBindings();
+        errors.push(...bindings.errors);
         return { schema: compositionSourceVersion, entries: entryFiles, sourceIdentity: resolver.identity, upstreamRoot: upstream,
-            files, nodes: graphNodes, errors: errors.filter((error) => !error.file || reachable.has(error.file)), sourceDigest: controlDigest(files.map(({ file, digest }) => ({ file, digest }))) };
+            files, nodes: graphNodes, structuralBindings, resolverInputs: bindings.files,
+            errors: errors.filter((error) => !error.file || reachable.has(error.file)), sourceDigest: controlDigest({ files: files.map(({ file, digest }) => ({ file, digest })), resolverInputs: bindings.files }) };
     }
     function instrument(file, code)
     {

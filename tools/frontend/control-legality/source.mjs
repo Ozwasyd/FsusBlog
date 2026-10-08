@@ -283,10 +283,6 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         const next = new Set([...visiting, file]);
         const result = new Map();
         const record = parse(file);
-        if (file.endsWith('.vue'))
-        {
-            result.set('default', { file, name: 'default', component: true });
-        }
         const set = (name, origin) =>
         {
             if (result.has(name) && JSON.stringify(result.get(name)) !== JSON.stringify(origin))
@@ -363,6 +359,10 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
                     }
                 }
             }
+        }
+        if (file.endsWith('.vue') && !result.has('default'))
+        {
+            result.set('default', { file, name: 'default', component: true });
         }
         exported.set(file, result);
         return result;

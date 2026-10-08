@@ -81,6 +81,45 @@ test('conflicting star exports fail closed instead of choosing an arbitrary comp
     assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source' && error.message.includes('ambiguous')));
 });
 
+test('an explicit Vue script default and the SFC default identify one component', () =>
+{
+    const owner = fixture('<script>import {defineComponent} from "vue";export default defineComponent({});</script><template><div/></template>', 'ExplicitDefault.vue');
+    const s = source();
+    assert.equal(s.resolver.exportsOf(owner).get('default').ambiguous, undefined);
+    const graph = s.graph([fixture('<script setup>import Owner from "./ExplicitDefault.vue";</script><template><Owner/></template>')]);
+    assert.deepEqual(graph.errors, []);
+    assert.ok(graph.nodes.some((node) => node.file === owner && node.tag === 'div'));
+});
+
+test('public structural conditions bind exact static props and provided slots', () =>
+{
+    const graph = source().graph([fixture('<script setup>import {FsusTaskPageHeader as Header,FsusCollectionToolbar as Toolbar} from "@ozwasyd/element-plus";</script><template><Header title="Current"/><Toolbar #actions><span>Action</span></Toolbar></template>')]);
+    assert.deepEqual(graph.errors, []);
+    const header = graph.nodes.find((node) => node.tag === 'Header');
+    const toolbar = graph.nodes.find((node) => node.tag === 'Toolbar');
+    const headerBindings = graph.structuralBindings.filter((binding) => binding.callNode === header.id);
+    assert.deepEqual(Object.fromEntries(headerBindings.map((binding) => [binding.expression, binding.expected])),
+        { hasTitle: true, hasDescription: false, hasActions: false });
+    const toolbarBindings = graph.structuralBindings.filter((binding) => binding.callNode === toolbar.id);
+    assert.deepEqual(Object.fromEntries(toolbarBindings.map((binding) => [binding.expression, binding.expected])),
+        { hasPrimary: false, '$slots.filters': false, '$slots.actions': true });
+    assert.ok(graph.resolverInputs.some((input) => input.path.endsWith('/task-page-header/src/task-page-header.ts')));
+});
+
+test('dynamic props and conditional slots cannot acquire structural proof', () =>
+{
+    const graph = source().graph([fixture('<script setup>import {FsusTaskPageHeader as Header} from "@ozwasyd/element-plus";</script><template><Header :title="currentTitle"><template #actions v-if="showActions">Action</template></Header></template>')]);
+    assert.deepEqual(graph.errors, []);
+    assert.ok(!graph.structuralBindings.some((binding) => binding.expression === 'hasTitle' || binding.expression === 'hasActions'));
+    assert.ok(graph.structuralBindings.some((binding) => binding.expression === 'hasDescription' && binding.expected === false));
+    const spread = source().graph([fixture('<script setup>import {FsusTaskPageHeader as Header} from "@ozwasyd/element-plus";</script><template><Header title="Current" v-bind="unknownAttrs"/></template>')]);
+    assert.ok(!spread.structuralBindings.some((binding) => binding.expression === 'hasTitle'));
+    const dynamicAttribute = source().graph([fixture('<script setup>import {FsusTaskPageHeader as Header} from "@ozwasyd/element-plus";</script><template><Header title="Current" :[key]="unknownValue"/></template>')]);
+    assert.ok(!dynamicAttribute.structuralBindings.some((binding) => binding.expression === 'hasTitle'));
+    const dynamicSlot = source().graph([fixture('<script setup>import {FsusCollectionToolbar as Toolbar} from "@ozwasyd/element-plus";</script><template><Toolbar #[slotName]>Content</Toolbar></template>')]);
+    assert.equal(dynamicSlot.structuralBindings.length, 0);
+});
+
 test('slot branches, teleport and responsive directives retain concrete node locations', () =>
 {
     fixture('<template><slot :open="true"/></template>', 'SlotOwner.vue');

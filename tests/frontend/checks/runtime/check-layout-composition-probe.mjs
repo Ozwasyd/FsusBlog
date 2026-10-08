@@ -48,6 +48,14 @@ const cases = [
     { name: 'baseline', content: fixture(baseMarkup), expected: null },
     { name: 'public-icon-star-export', content: fixture(baseMarkup.replace('<p>Current content</p>', '<Busy/><p>Current content</p>'),
         baseScript + 'import {Loading as Busy} from "@ozwasyd/element-plus/icons-vue";'), expected: null },
+    { name: 'dynamic-public-prop-is-unbound', content: fixture(baseMarkup.replace('title="Current document"', ':title="currentTitle"'),
+        baseScript + 'import {ref} from "vue";const currentTitle=ref("Current document");'), expected: 'unknown-conditional-state-binding' },
+    { name: 'dynamic-public-attribute-is-unbound', content: fixture(baseMarkup.replace('title="Current document"', 'title="Current document" :[propKey]="currentTitle"'),
+        baseScript + 'import {ref} from "vue";const propKey="title";const currentTitle=ref("Current document");'), expected: 'unknown-conditional-state-binding' },
+    { name: 'conditional-public-slot-is-unbound', content: fixture(baseMarkup.replace('</Toolbar>', '<template #actions v-if="showActions"><span>Action</span></template></Toolbar>'),
+        baseScript + 'import {ref} from "vue";const showActions=ref(false);'), expected: 'unknown-conditional-state-binding' },
+    { name: 'public-structural-render-count-drift', content: fixture(baseMarkup), mutation: 'duplicate-public-title', expected: 'structural-condition-render-mismatch' },
+    { name: 'missing-public-call-provenance', content: fixture(baseMarkup), mutation: 'remove-public-call-marker', expected: 'unknown-conditional-state-binding' },
     { name: 'two-task-page-headers', content: fixture(baseMarkup + header), expected: 'task-header-not-exact-one' },
     { name: 'three-same-priority-primary-buttons', content: fixture(baseMarkup.replace(action, action.repeat(3))), expected: 'primary-action-not-exact' },
     { name: 'section-card-card-nesting', content: fixture(baseMarkup.replace('<p>Current content</p>', '<section data-fsus-surface="data-region" data-fsus-material="boundary"><section data-fsus-surface="data-region" data-fsus-material="boundary">Nested</section></section>')), expected: 'forbidden-surface-nesting' },
@@ -112,6 +120,14 @@ try
                 assert.ok(call.definition.endsWith('/icons-vue/src/components/loading.vue'));
                 assert.ok(graph.nodes.some((node) => node.file === call.definition && node.tag === 'svg'));
             }
+            if (item.mutation === 'duplicate-public-title')
+            {
+                await page.locator('h1').evaluate((title) => title.parentElement.append(title.cloneNode(true)));
+            }
+            if (item.mutation === 'remove-public-call-marker')
+            {
+                await page.locator('header').evaluate((header) => header.removeAttribute('data-fsus-composition-call'));
+            }
             const candidate = structuredClone(archetype);
             if (item.contractInput)
             {
@@ -129,7 +145,7 @@ try
                 baselineReasons = reasons;
                 // Current FsusUI has no public composition surface/material provenance contract.
                 // This limitation stays a failing observation, never a forged clean baseline.
-                assert.deepEqual([...reasons].sort(), ['unknown-conditional-state-binding', 'unproved-public-surface-capability'].sort());
+                assert.deepEqual(reasons, ['unproved-public-surface-capability']);
             }
             if (item.expected)
             {
