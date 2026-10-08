@@ -35,7 +35,7 @@
             "command": "node --test tests/tools/physical-execution-process-tree.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs",
             "exitCode": 1,
             "status": "failed",
-            "log": "containment-cleanup.tap",
+            "log": "containment-cleanup.tap.gz",
             "counts": {
                 "passed": 53,
                 "failed": 13,
@@ -47,7 +47,7 @@
             "command": "node --test tests/tools/production-resource-enforcement.test.mjs",
             "exitCode": 1,
             "status": "failed",
-            "log": "resource-enforcement.tap",
+            "log": "resource-enforcement.tap.gz",
             "counts": {
                 "passed": 97,
                 "failed": 42,
@@ -136,13 +136,13 @@
         "full production matrix and protected remote qualification checks"
     ],
     "evidenceSha256": {
-        "README.md": "480fe00a4a942320a2f90ce4f6fc9c5146785447d88d0c6e0bf26c0745c9a3c1",
+        "README.md": "66b13b5e5976eb9248aedeec282d5afda88b3bbe6edc36b6d0421d42cf0dcfb7",
         "backend-unit-pinned-node.log": "af51a4bd4caedd3b658d56964c80af242e2c9761ddd07007888517097ffff94b",
         "backend-unit.log": "bdfddbff1cda5d43d25ed0579ecd6558da8997af70854be9a5a4ba573422bad4",
         "build-owner-finalizer.tap": "ddd03d8455712cca911d6debf33b31a61e974a707bbdbf49b8084e6b86a6c33e",
         "capabilities.log": "57d8bee3ea2d0f4d24cca191dcf37dafab29039134eb4c153e3dd9d746d28cbf",
         "change-contract-repository.log": "b8c0c60ac9356d4652034579f01ad599d12bf6eb4bb847dc5e3db5d4fa2c7885",
-        "containment-cleanup.tap": "1af4aaaabd0b77efd55c932db2a4e6709f4228b622779b3948df35a382179e5b",
+        "containment-cleanup.tap.gz": "08d7d0582ee65e3a53ef0c5db062d75466cc194323e1fedcaab0e9397bb46295",
         "dotnet-install.log": "075e6500835d85127ab158b01259f88662caa870c8913357890548e41ecf6556",
         "javascript-parser-install-retry.log": "5451cd83e2e3ce65282022eea5d8c6ad381f874fc1ec4b6eaf2c47e222d7f3b4",
         "javascript-parser-install.log": "1b3d6ef281447bc4249b4c24a7f0ad415ed446d4dcc8ebf4d2c54ac2f2e25c36",
@@ -154,8 +154,12 @@
         "node-selected-shasum.txt": "822c405858f3e6d3e1b4659954f06b4ea5f6ed62c0c6ba4e669facd433ee4ddf",
         "pinned-node-focused.tap": "ebc70f36c97969edc2d35ff1a7ee8d6288ae4dcfa464fd3c7c877a8c225c5d5a",
         "process-identity.tap": "44b70a24e3db0a9de4a49730328c82ca9cab1e948688b0a6f4547dc72c6c4368",
-        "resource-enforcement.tap": "c9224eab5adeb810fc6b571f2259ef1674fc7b7ba9ca6c248d82f4ad56c7897c",
+        "resource-enforcement.tap.gz": "d7c700b841683157614b41d7bd4f7d10121723a7feac7276c6fea7e561a8f78b",
         "ts-parser-install-retry.log": "84b3615a2b55669c4069410770606e7290261ae70a9db72789bff656c372ce48",
         "ts-parser-install.log": "e13e95d5e39e789b2ef406e6ed2a700114c99e323fbe4d823d3dfc7818373d6a"
+    },
+    "uncompressedEvidenceSha256": {
+        "containment-cleanup.tap.gz": "1af4aaaabd0b77efd55c932db2a4e6709f4228b622779b3948df35a382179e5b",
+        "resource-enforcement.tap.gz": "c9224eab5adeb810fc6b571f2259ef1674fc7b7ba9ca6c248d82f4ad56c7897c"
     }
 }

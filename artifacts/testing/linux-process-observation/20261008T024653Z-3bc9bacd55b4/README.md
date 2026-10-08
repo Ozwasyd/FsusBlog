@@ -25,8 +25,8 @@ The issue remains blocked on current canonical execution and finalized cleanup.
 | Command | Toolchain | Exit | Result | Raw evidence |
 | --- | --- | --- | --- | --- |
 | `node --test tests/tools/run-once-process-identity.test.mjs` | Node 24.19.0 | 0 | 22 passed, zero failed/skipped | [Identity](process-identity.tap) |
-| `node --test tests/tools/physical-execution-process-tree.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs` | Node 24.19.0 | 1 | 53 passed, 13 failed, 11 skipped | [Containment](containment-cleanup.tap) |
-| `node --test tests/tools/production-resource-enforcement.test.mjs` | Node 24.19.0 | 1 | 97 passed, 42 failed, 1 skipped | [Resources](resource-enforcement.tap) |
+| `node --test tests/tools/physical-execution-process-tree.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs` | Node 24.19.0 | 1 | 53 passed, 13 failed, 11 skipped | [Containment](containment-cleanup.tap.gz) |
+| `node --test tests/tools/production-resource-enforcement.test.mjs` | Node 24.19.0 | 1 | 97 passed, 42 failed, 1 skipped | [Resources](resource-enforcement.tap.gz) |
 | `node --test tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs` | Node 24.19.0 | 0 | 18 passed, zero failed/skipped | [Owner/finalizer](build-owner-finalizer.tap) |
 | `/workspace/chain3620-node/bin/node --test tests/tools/run-once-process-identity.test.mjs tests/tools/production-build-owner-identity.test.mjs tests/tools/scheduler-finalizer-boundary.test.mjs` | Node 24.16.0 | 0 | 40 passed, zero failed/skipped | [Pinned focused](pinned-node-focused.tap) |
 | `node tools/run-test-matrix.mjs validate` | Node 24.19.0 | 1 | Rejected matrix parsing; no matrix acceptance | [Matrix](matrix-validate.log) |
@@ -40,6 +40,9 @@ reappearing PID, missing/empty boot identity, unreadable root/boot, and EACCES n
 controls all ran in the original identity test owner. Darwin and Windows controlled
 collector cases passed, but native Darwin/Windows acceptance was not run. The finalizer
 unit model is explicitly a component model; its pass does not certify scheduler cleanup.
+The two failing-suite transcripts are losslessly gzip-compressed to retain the
+original Node reporter whitespace and bytes. Their decompressed SHA-256 digests
+are recorded separately; compression/decompression equality was checked.
 All broad-suite failures were observed on unchanged master source, before evidence edits.
 Their original assertions and skips remain intact. There is no claimed newly repaired
 containment behavior, current downstream receipt, successful MySQL execution, or clean finalizer.
