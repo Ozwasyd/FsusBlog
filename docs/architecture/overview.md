@@ -198,6 +198,19 @@ context against the existing editor owner before admitting this input; the
 display projection does not create another document owner or prove route
 authorization, complete draft composition or editor continuity.
 
+`ArticlePreviewSourceAdmission.attach` verifies the existing editor host context
+and source bytes before acquiring another binding to that same canonical owner.
+Preview requests use its existing task registry and cancellation signal; newer
+requests, source revisions and document switches reject late results. Admission
+also rereads responsibility/site-author inputs and validated bounded attachment
+lifecycle history, so metadata edits and provider cancellation cannot reuse an
+older result merely because Markdown bytes are unchanged. The history digest is
+only an invalidation input: historical transaction receipts do not establish
+the current asset inventory, verified AssetIds or resource activation. This
+source admission slice does not qualify the complete preview request, rights,
+renderer identity, route authorization or editor history/selection continuity.
+Its caller must dispose the binding with the preview lifecycle.
+
 ## Standalone document export boundary
 
 Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
