@@ -1,0 +1,18 @@
+{
+  "canonical": "6019f3834df477627cd59e55e297cf086ff0bae3",
+  "files": [
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultResolutionProposalStore.cs",
+      "sha256": "a21c3e78b82d995e44853f571f3f5835c2bce4c3edfa7d69e315c14ac9faebcb"
+    },
+    {
+      "path": "src/backend/Services/ArticleVault/ArticleVaultConflictReviewReader.cs",
+      "sha256": "2bb67ddd1d313a148ed5d773570b6ba40238561154c3a5ad734a8981315d1de2"
+    },
+    {
+      "path": "tests/backend/Unit/ArticleVaultConflictReviewReaderTests.cs",
+      "sha256": "643c20fa6bf3fc280a45cd9b8aa9e9880df07ea04f7a541053266a6d6ddd7eeb"
+    }
+  ],
+  "paused": "Postgres proposal store requires TryDeserialize in conflicted resolution-plan owner; no conflict resolution performed"
+}

@@ -1,0 +1,457 @@
+{
+    "metadata-working.trx": {
+        "counters": {
+            "total": "435",
+            "executed": "435",
+            "passed": "434",
+            "failed": "1",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "classes": {
+            "ArticleVaultExecutionTests": {
+                "Passed": 37
+            },
+            "ArticleVaultScalarMetadataMergeTests": {
+                "Passed": 16
+            },
+            "ArticlePackageManifestCandidatePlannerTests": {
+                "Passed": 54
+            },
+            "ArticlePackageManifestCandidateCodecTests": {
+                "Passed": 91
+            },
+            "ArticlePackageTitleSummaryMapperTests": {
+                "Passed": 67
+            },
+            "ArticlePackagePropertyMapperTests": {
+                "Passed": 69
+            },
+            "ArticleVaultPropertyMetadataMergeTests": {
+                "Passed": 41,
+                "Failed": 1
+            },
+            "ArticlePackageSourceByteTests": {
+                "Passed": 12
+            },
+            "ArticlePropertyValueFoundationTests": {
+                "Passed": 43
+            },
+            "ArticleVaultSourceAdmissionTests": {
+                "Passed": 4
+            }
+        },
+        "nonPassing": [
+            {
+                "test": "FsusBlog.Server.Tests.Unit.ArticleVaultPropertyMetadataMergeTests.PackageBridge_RejectsVersionDriftAndRetainsExplicitOverlap",
+                "outcome": "Failed",
+                "message": "Assert.Equal() Failure: Collections differ\nExpected: [ArticlePackageIdentity { Kind = Definition, Value = portable-definition:41180000-0000-4000-8000-000000000001, FileNameToken = 41180000-0000-4000-8000-000000000001 }]\nActual:   [ArticlePackageIdentity { Kind = Definition, Value = portable-definition:41180000-0000-4000-8000-000000000001, FileNameToken = 41180000-0000-4000-8000-000000000001 }]"
+            }
+        ]
+    },
+    "metadata-frozen.trx": {
+        "counters": {
+            "total": "446",
+            "executed": "446",
+            "passed": "424",
+            "failed": "22",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "classes": {
+            "ArticlePackageTitleSummaryMapperTests": {
+                "Passed": 67
+            },
+            "ArticlePackageManifestCandidatePlannerTests": {
+                "Passed": 54
+            },
+            "ArticlePackageSourceByteTests": {
+                "Passed": 12
+            },
+            "AccountSubjectHashProjectionTests": {
+                "Passed": 18
+            },
+            "ArticleVaultPropertyMetadataMergeTests": {
+                "Passed": 42
+            },
+            "ArticlePackageManifestCandidateCodecTests": {
+                "Passed": 91
+            },
+            "ArticlePackagePropertyMapperTests": {
+                "Passed": 69
+            },
+            "ArticleVaultSourceAdmissionTests": {
+                "Passed": 4
+            },
+            "DocumentExportSandboxTests": {
+                "Passed": 14,
+                "Failed": 22
+            },
+            "ArticleVaultScalarMetadataMergeTests": {
+                "Passed": 16
+            },
+            "ArticleVaultExecutionTests": {
+                "Passed": 37
+            }
+        },
+        "nonPassing": [
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConcurrentTasksHaveDistinctRunOwnershipAndNoResidualFiles",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsUnregisteredShellFloatingPathAndChangedExecutableBytes",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.OutputBudgetRejectsBeforeReadingAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.TreatsUserStringsAsInputBytesInsteadOfArguments",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.PreStartFailureCleansRunDirectoryAndSealsReceiptWithoutClaimingIsolation",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileCountBudgetTerminatesAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CancellationKillsOwnedProcessTreeThenSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.IndependentVerifierRejectsReceiptAndBuildIdentityTamper",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.FileBytesBudgetTerminatesAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"symlink-output\")",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StaticGovernanceKeepsOneBrokerWithoutShellFetchOrInheritedEnvironment",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardErrorBudgetDrainsBoundedlyAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.RejectsArtifactMutationAndPreservesQualifiedFailureReceipt(mode: \"two-files\")",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportSandboxExecutionException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.CpuBudgetTerminatesTreeAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.MemoryBudgetTerminatesTreeAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ConstructorRejectsRegistryAndLimitDriftBeforeCreatingItsRunRoot",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(System.IO.InvalidDataException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.StandardOutputBudgetDrainsBoundedlyAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.InputAndMessageBudgetsRejectBeforeRunAdmission",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.ProcessCountBudgetTerminatesTreeAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.WallBudgetTerminatesTreeAndSealsFailureReceipt",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.UsesExactBrokeredToolMinimalEnvironmentNoNetworkAndPostCleanupReceipt",
+                "outcome": "Failed",
+                "message": "System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            },
+            {
+                "test": "FsusBlog.Server.Tests.Unit.DocumentExportSandboxTests.DaemonizedSessionCannotEscapeWallLimitOrCgroupCleanup",
+                "outcome": "Failed",
+                "message": "Assert.Throws() Failure: Exception type was not an exact match\nExpected: typeof(FsusBlog.Server.Services.DocumentExport.DocumentExportBudgetExceededException)\nActual:   typeof(System.PlatformNotSupportedException)\n---- System.PlatformNotSupportedException : Document export requires an active, owned systemd user manager."
+            }
+        ]
+    },
+    "metadata-frozen-exact.trx": {
+        "counters": {
+            "total": "435",
+            "executed": "435",
+            "passed": "435",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "classes": {
+            "ArticleVaultPropertyMetadataMergeTests": {
+                "Passed": 42
+            },
+            "ArticlePropertyValueFoundationTests": {
+                "Passed": 43
+            },
+            "ArticlePackagePropertyMapperTests": {
+                "Passed": 69
+            },
+            "ArticlePackageManifestCandidateCodecTests": {
+                "Passed": 91
+            },
+            "ArticleVaultExecutionTests": {
+                "Passed": 37
+            },
+            "ArticlePackageManifestCandidatePlannerTests": {
+                "Passed": 54
+            },
+            "ArticlePackageTitleSummaryMapperTests": {
+                "Passed": 67
+            },
+            "ArticleVaultScalarMetadataMergeTests": {
+                "Passed": 16
+            },
+            "ArticlePackageSourceByteTests": {
+                "Passed": 12
+            },
+            "ArticleVaultSourceAdmissionTests": {
+                "Passed": 4
+            }
+        },
+        "nonPassing": []
+    },
+    "final-backend.trx": {
+        "counters": {
+            "total": "650",
+            "executed": "650",
+            "passed": "650",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "classes": {
+            "ArticleVaultPropertyMetadataMergeTests": {
+                "Passed": 42
+            },
+            "DocumentExportContractTests": {
+                "Passed": 70
+            },
+            "ArticlePackageManifestCandidatePlannerTests": {
+                "Passed": 54
+            },
+            "ArticlePackageManifestCandidateCodecTests": {
+                "Passed": 91
+            },
+            "ArticleVaultRecoveryAcceptedSourceTests": {
+                "Passed": 13
+            },
+            "ArticlePackageTitleSummaryMapperTests": {
+                "Passed": 67
+            },
+            "ArticleVaultConflictReviewReaderTests": {
+                "Passed": 45
+            },
+            "ArticleVaultExecutionTests": {
+                "Passed": 37
+            },
+            "ArticleVaultScalarMetadataMergeTests": {
+                "Passed": 16
+            },
+            "ArticlePackagePropertyMapperTests": {
+                "Passed": 69
+            },
+            "ArticleVaultOperationCheckpointPostgresTests": {
+                "Passed": 4
+            },
+            "AccountSubjectHashProjectionTests": {
+                "Passed": 18
+            },
+            "ArticleVaultAcceptedSourceAdapterTests": {
+                "Passed": 29
+            },
+            "ArticleVaultRecoveryCheckpointReaderTests": {
+                "Passed": 4
+            },
+            "ArticlePropertyValueFoundationTests": {
+                "Passed": 43
+            },
+            "ArticlePackageSourceByteTests": {
+                "Passed": 12
+            },
+            "ArticleVaultOperationProtocolTests": {
+                "Passed": 12
+            },
+            "ArticleVaultRecoveryServiceRegistrationTests": {
+                "Passed": 6
+            },
+            "ArticleVaultMaterializationPreflightTests": {
+                "Passed": 12
+            },
+            "ArticleVaultSourceAdmissionTests": {
+                "Passed": 4
+            },
+            "ArticleVaultExecutionPostgresIntegrationTests": {
+                "Passed": 2
+            }
+        },
+        "nonPassing": []
+    },
+    "di-working-repaired.trx": {
+        "counters": {
+            "total": "92",
+            "executed": "92",
+            "passed": "92",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "classes": {
+            "ArticleVaultConflictReviewReaderTests": {
+                "Passed": 45
+            },
+            "ArticleVaultExecutionTests": {
+                "Passed": 37
+            },
+            "ArticleVaultRecoveryServiceRegistrationTests": {
+                "Passed": 6
+            },
+            "ArticleVaultRecoveryCheckpointReaderTests": {
+                "Passed": 4
+            }
+        },
+        "nonPassing": []
+    },
+    "metadata-working-repaired.trx": {
+        "counters": {
+            "total": "435",
+            "executed": "435",
+            "passed": "435",
+            "failed": "0",
+            "error": "0",
+            "timeout": "0",
+            "aborted": "0",
+            "inconclusive": "0",
+            "passedButRunAborted": "0",
+            "notRunnable": "0",
+            "notExecuted": "0",
+            "disconnected": "0",
+            "warning": "0",
+            "completed": "0",
+            "inProgress": "0",
+            "pending": "0"
+        },
+        "classes": {
+            "ArticlePackagePropertyMapperTests": {
+                "Passed": 69
+            },
+            "ArticlePackageTitleSummaryMapperTests": {
+                "Passed": 67
+            },
+            "ArticlePackageManifestCandidateCodecTests": {
+                "Passed": 91
+            },
+            "ArticleVaultExecutionTests": {
+                "Passed": 37
+            },
+            "ArticlePackageSourceByteTests": {
+                "Passed": 12
+            },
+            "ArticlePackageManifestCandidatePlannerTests": {
+                "Passed": 54
+            },
+            "ArticleVaultPropertyMetadataMergeTests": {
+                "Passed": 42
+            },
+            "ArticlePropertyValueFoundationTests": {
+                "Passed": 43
+            },
+            "ArticleVaultScalarMetadataMergeTests": {
+                "Passed": 16
+            },
+            "ArticleVaultSourceAdmissionTests": {
+                "Passed": 4
+            }
+        },
+        "nonPassing": []
+    }
+}
