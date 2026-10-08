@@ -11,11 +11,12 @@ const { buildSettledPhaseJoinEvidence, executeWeightedStepDag, StepDagExecutionE
 
 export class AtomicProducerExecutionError extends Error
 {
-    constructor(vector, cause)
+    constructor(vector, cause, publicationError = null)
     {
         super('atomic producer DAG reached a non-success terminal state', { cause });
         this.name = 'AtomicProducerExecutionError';
         this.terminalVector = vector;
+        this.publicationError = publicationError;
     }
 }
 
@@ -132,6 +133,7 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
         throw new Error('runtime execution requires the canonical state conflict policy');
     }
     const preflight = new Map();
+    const inputAdmissions = new Map();
     for (const step of verified.steps)
     {
         if (!isAtomicExecutable(step))
@@ -148,6 +150,17 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
         if (!supplied || typeof supplied.verifyAuthority !== 'function')
         {
             throw new Error(`missing externally verified producer context: ${step.id}`);
+        }
+        if (supplied.requiredInputAdmission !== undefined)
+        {
+            const admission = supplied.requiredInputAdmission;
+            if (!admission || Object.keys(admission).sort().join(',') !== 'inputClosureRef,validate'
+                || typeof admission.validate !== 'function'
+                || digestCanonical(admission.inputClosureRef) !== digestCanonical(step.inputClosureRef))
+            {
+                throw new Error(`required input admission must bind the compiled input closure: ${step.id}`);
+            }
+            inputAdmissions.set(step.id, admission.validate);
         }
         const references = validateExternalAuthorityReferences(supplied.authorityReferences, supplied.verifyAuthority, {
             sourceCommit: context.sourceCommit,
@@ -205,24 +218,50 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
             let result;
             if (isAtomicExecutable(step))
             {
+                let phase = 'attempt-runner';
                 try
                 {
                     const input = preflight.get(step.id);
                     const liveCapacity = typeof capacity === 'function' ? capacity() : capacity;
                     const signals = [input.signal, liveCapacity?.signal].filter(Boolean);
                     const signal = signals.length > 0 ? AbortSignal.any(signals) : undefined;
+                    const validateRequiredInputs = inputAdmissions.get(step.id);
+                    if (validateRequiredInputs)
+                    {
+                        phase = 'required-input-admission';
+                        // Domain readers check inputs under the admitted grant. Their
+                        // return value cannot replace commands or runner authorities.
+                        await validateRequiredInputs(Object.freeze({
+                            producerId: step.id,
+                            inputClosureRef: step.inputClosureRef,
+                            commandSourceRef: step.commandSourceRef,
+                            command: step.command,
+                            dependencyOutcomes: Object.freeze({ ...step.dependencyOutcomes }),
+                            runtimeCapacity: Object.freeze({ ...step.runtimeCapacity }),
+                            context: Object.freeze({ ...context }),
+                            signal
+                        }));
+                        phase = 'attempt-runner';
+                    }
                     const attempt = await runProducerAttempts({ ...input, signal });
                     attempts.set(step.id, attempt);
                     result = attemptOutcome(attempt, signal);
                 }
                 catch (error)
                 {
+                    const refusedInput = phase === 'required-input-admission';
                     const evidence = sealContentDigest({
                         producerId: step.id,
                         compiledDagDigest: verified.contentDigest,
-                        receiptKind: 'adapter-failure-without-verified-attempt',
-                        terminalState: 'internal-error',
-                        reasonCode: 'attempt-runner-internal-error',
+                        receiptKind: refusedInput ? 'required-input-admission-refused-before-attempt'
+                            : 'adapter-failure-without-verified-attempt',
+                        terminalState: refusedInput ? 'failed' : 'internal-error',
+                        reasonCode: refusedInput ? 'required-input-admission-failed' : 'attempt-runner-internal-error',
+                        ...(refusedInput ? {
+                            inputClosureRef: step.inputClosureRef,
+                            attemptAllocationCount: 0,
+                            physicalSpawnCount: 0
+                        } : {}),
                         reason: error instanceof Error ? error.message : String(error)
                     });
                     result = {
@@ -278,7 +317,18 @@ export async function executeCompiledAtomicProducerDag(compiled, options)
         failure = error;
     }
     const vector = terminalVector(verified, scheduler, attempts, context);
-    fs.writeFileSync(path.join(directory, 'terminal-vector.json'), `${JSON.stringify(vector, null, 4)}\n`, { flag: 'wx', mode: 0o444 });
+    try
+    {
+        fs.writeFileSync(path.join(directory, 'terminal-vector.json'), `${JSON.stringify(vector, null, 4)}\n`, { flag: 'wx', mode: 0o444 });
+    }
+    catch (publicationError)
+    {
+        if (failure)
+        {
+            throw new AtomicProducerExecutionError(vector, failure, publicationError);
+        }
+        throw publicationError;
+    }
     if (failure)
     {
         throw new AtomicProducerExecutionError(vector, failure);
