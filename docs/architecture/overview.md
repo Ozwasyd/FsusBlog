@@ -251,6 +251,7 @@ These outputs should remain standards-compatible even while undocumented interna
 The stable project direction is single-process FsusBlog with Kestrel, PostgreSQL, Redis, public AOT/HotRead, AEDS runtime API, moderation, security, and admin console baselines.
 
 The exact internal API shape, AEDS frame layout, database schema, admin routes, deployment configuration, and third-party client compatibility are not stable unless explicitly classified by a dedicated stability document.
+
 ## Current test dependency edges
 
 <!-- fsus-doc-claim
