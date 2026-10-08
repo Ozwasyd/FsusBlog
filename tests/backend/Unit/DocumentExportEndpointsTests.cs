@@ -59,7 +59,7 @@ public sealed class DocumentExportEndpointsTests
         IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
         IDocumentExportEndpointBinding binding = Binding();
         binding.ResolveActorAsync(context, Arg.Any<CancellationToken>())
-            .Returns(new DocumentExportJobActor(99, 7, "admin-session"));
+            .Returns(new DocumentExportJobActor(99, Actor().SiteScope, "admin-session"));
 
         IResult result = await BinaryEndpoints.HandleDocumentExportStatusAsync(
             context, jobs, binding, new AedsEncoder(), default);
@@ -103,7 +103,6 @@ public sealed class DocumentExportEndpointsTests
     public async Task Download_ConsumesCanonicalGrantWithoutExposingTokenAndPreservesMime()
     {
         HttpContext context = AuthenticatedContext();
-        context.RequestServices = new ServiceCollection().AddLogging().BuildServiceProvider();
         IDocumentExportJobs jobs = Substitute.For<IDocumentExportJobs>();
         jobs.GrantAsync(Actor(), "task", Arg.Any<CancellationToken>())
             .Returns(new DocumentExportDownloadGrant("private-grant-fixture", DateTimeOffset.UtcNow.AddMinutes(1)));
@@ -346,7 +345,7 @@ public sealed class DocumentExportEndpointsTests
             Input = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidInput("# private-endpoint-source") with
             {
                 UserId = Actor().UserId,
-                SiteId = Actor().SiteId,
+                SiteScope = Actor().SiteScope,
                 RendererId = provider.RendererId,
                 RendererVersion = provider.RendererVersion
             });
@@ -389,7 +388,7 @@ public sealed class DocumentExportEndpointsTests
         }
     }
 
-    private static DocumentExportJobActor Actor() => new(42, 7, "admin-session");
+    private static DocumentExportJobActor Actor() => new(42, "https://export.example/site", "admin-session");
 
     private static IDocumentExportEndpointBinding Binding()
     {
@@ -402,6 +401,10 @@ public sealed class DocumentExportEndpointsTests
     private static HttpContext AuthenticatedContext()
         => new DefaultHttpContext
         {
+            RequestServices = new ServiceCollection().AddLogging()
+                .AddSingleton<IConfiguration>(new ConfigurationBuilder().AddInMemoryCollection(
+                    new Dictionary<string, string?> { ["SITE_BASEURL"] = $" {Actor().SiteScope}/ " }).Build())
+                .BuildServiceProvider(),
             User = new ClaimsPrincipal(new ClaimsIdentity(
             [
                 new Claim("identity_kind", "admin_principal"),
