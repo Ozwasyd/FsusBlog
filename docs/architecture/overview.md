@@ -77,6 +77,22 @@ to the current viewport height and use instant positioning for reduced motion.
 Surface/tool consumers execute these commands; the adapter owns no DOM, parser,
 render cache, preference persistence, or product entry point.
 
+The attachment input boundary in `services/authoring/articleAttachmentContext.ts`
+consumes the public FsusUI picker capture and clipboard priority policy. Its
+created-stage handles seal file metadata, ordered public item identity, provider
+version, the shared anchor context and the canonical task envelope; runtime
+signals cancel on document/source changes or disposal. Pending insertion plans
+come from FsusUI and carry the current expected revision and document identity.
+Created handles are bounded to 64 and never execute upload IO.
+
+Created-stage handles are not provider completion admission. The current task
+registry cancels their signals on the insertion's source revision. Continuing
+pending items across sibling completion transactions requires the canonical
+document lifecycle subscription and public-map rebase integration. Until that
+integration is available, completion, retry/redo/replace, removed-node denial and
+full attachment lifecycle acceptance remain unfinished; no product input is
+rewired to this created-stage boundary.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:
