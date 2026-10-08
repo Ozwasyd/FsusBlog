@@ -2290,8 +2290,8 @@
         },
         {
             "path": "tests/tools/test-matrix-scheduler.test.mjs",
-            "contentDigest": "sha256:346da26666ac9a71925a868f9643ffadf6c24e66affa490564df6fc55533d679",
-            "indexDigest": "sha256:346da26666ac9a71925a868f9643ffadf6c24e66affa490564df6fc55533d679"
+            "contentDigest": "sha256:fef696350675ecf9b2cf4b3f284635201823448d7adb20dcb6934773bc163284",
+            "indexDigest": "sha256:fef696350675ecf9b2cf4b3f284635201823448d7adb20dcb6934773bc163284"
         },
         {
             "path": "tests/tools/test-matrix-topology.test.mjs",
@@ -4632,6 +4632,11 @@
             "path": "tools/test-matrix/windows-job-members.mjs",
             "contentDigest": "sha256:98678cafad61f3c7e1b7dfa47047b27eaeeeb6f7200f7e4443e288d191c73183",
             "indexDigest": "sha256:98678cafad61f3c7e1b7dfa47047b27eaeeeb6f7200f7e4443e288d191c73183"
+        },
+        {
+            "path": "tools/test-matrix/workflow-fixture-needs.mjs",
+            "contentDigest": "sha256:dcc9ed3e3e4c646965d9f0289c3233f7a8a9f92c67197c9172680c87bf409e2f",
+            "indexDigest": "sha256:dcc9ed3e3e4c646965d9f0289c3233f7a8a9f92c67197c9172680c87bf409e2f"
         },
         {
             "path": "tools/test-observations/adapters.mjs",
@@ -40783,6 +40788,7 @@
                 "tools/test-matrix/verify-behavior-test-evidence.mjs",
                 "tools/test-matrix/verify-public-shell-locale.mjs",
                 "tools/test-matrix/windows-job-members.mjs",
+                "tools/test-matrix/workflow-fixture-needs.mjs",
                 "tools/test-observations/adapters.mjs",
                 "tools/test-observations/ledger.mjs",
                 "tools/test-observations/source-identity.mjs",

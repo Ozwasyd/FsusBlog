@@ -22,7 +22,7 @@
     "outputs": [
         {
             "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-            "sha256": "ee1061e4b72309208f26cb714ca07e5e8fadae41211640fda0fddf2b48518203"
+            "sha256": "3f9d9c85f05a7359cd22ae2f1bae765f1ba38e16e7a192f8485349251cdcf832"
         },
         {
             "path": "tests/fixtures/test-matrix/execution-dependency-contract.json",
