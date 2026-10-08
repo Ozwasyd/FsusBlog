@@ -91,6 +91,42 @@ test('matrix governance runner passes the host input only for the two admitted p
         assert.equal(result.status, 0, result.stderr);
         assert.match(result.stdout, new RegExp(`--producer-id ${producerId}`, 'u'));
         assert.equal(result.stdout.includes('--env FSUSBLOG_CONTENT_FIELD_DOTNET'), admitted);
+        assert.equal(result.stdout.includes('--env DOTNET_ROOT'), producerId === 'validate-matrix');
+    }
+});
+
+test('validation SDK and backend-unit MySQL stay bound to their actual matrix requirements', () =>
+{
+    const validation = catalog.producers.find((entry) => entry.producerId === 'validate-matrix');
+    assert.equal(matrix.tiers.find((tier) => tier.id === 'validate-matrix').requiresDotnet, true);
+    assert.deepEqual(validation.allowedEnvironment, ['DOTNET_ROOT', 'FSUSBLOG_CONTENT_FIELD_DOTNET', 'PATH']);
+    const backend = catalog.producers.find((entry) => entry.producerId === 'backend-unit');
+    assert.deepEqual(backend.requiredServices, ['mysql']);
+    assert.deepEqual(backend.fieldApplicability.services, {
+        status: 'required', observerId: 'service-topology-runtime', notApplicableReason: null
+    });
+    for (const mutate of [
+        (candidate) => candidate.producers.find((entry) => entry.producerId === 'validate-matrix')
+            .allowedEnvironment.shift(),
+        (candidate) =>
+        {
+            candidate.producers.find((entry) => entry.producerId === 'backend-unit').requiredServices = [];
+        },
+        (candidate) =>
+        {
+            candidate.producers.find((entry) => entry.producerId === 'backend-unit').fieldApplicability.services = {
+                status: 'not-applicable', observerId: null, notApplicableReason: 'matrix-declares-no-services-or-coordination-store'
+            };
+        },
+        (candidate) =>
+        {
+            candidate.producers.find((entry) => entry.producerId === 'backend-unit').requiredServices = ['unregistered-service'];
+        }
+    ])
+    {
+        const candidate = valid();
+        mutate(candidate.catalog);
+        assert.match(validateExecutionEnvelopeContracts(candidate).join('\n'), /allowed environment drift|service applicability drift|is not an allowed value/u);
     }
 });
 
@@ -138,7 +174,7 @@ test('missing, unknown, duplicate, ambiguous, and defaulted policy state fails c
         },
         ({ matrix: candidate }) =>
         {
-            candidate.tiers[0].executionClass = 'acceptance';
+            candidate.tiers.find((tier) => tier.id === 'validate-matrix').executionClass = 'acceptance';
         },
         ({ catalog: candidate }) =>
         {
@@ -174,7 +210,7 @@ test('missing, unknown, duplicate, ambiguous, and defaulted policy state fails c
     {
         const candidate = valid();
         mutate(candidate);
-        assert.notDeepEqual(validateExecutionEnvelopeContracts(candidate), []);
+        assert.notDeepEqual(validateExecutionEnvelopeContracts(candidate), [], String(mutate));
     }
 });
 
