@@ -74,6 +74,8 @@ import {
     articleDocumentContextAuthority,
     type ArticleDocumentContextAdapter
 } from '@/services/authoring/articleDocumentContext';
+import type { ArticleEditorContinuityPort } from '@/services/authoring/articleEditorContinuity';
+import { bindArticleEditorRuntime, type ArticleEditorRuntimeBinding, type ArticleEditorRuntimeBindingOptions } from '@/services/authoring/articleEditorRuntimeBinding';
 import { purgeRetiredArticleDraftMetadata } from '@/services/privateStorageRegistry';
 import { useAdminStore } from '@/store/admin';
 import { showErrorToast, showWarningToast } from '@/utils/errorPresentation';
@@ -906,6 +908,43 @@ export function useAdminArticleWrite()
                 attachmentEditor = null;
                 authoringAttachments.cancelPending('article-attachment-editor-release');
             };
+        }
+    });
+    let editorRuntimeBinding: ArticleEditorRuntimeBinding | null = null;
+    let releaseEditorRuntime: (() => void) | null = null;
+    const authoringEditorRuntime = Object.freeze({
+        bindEditor: (editor: ArticleEditorContinuityPort, options: ArticleEditorRuntimeBindingOptions) =>
+        {
+            if (!active || editorRuntimeBinding)
+            {
+                throw new Error('article-editor-runtime-already-bound');
+            }
+            const releaseAttachmentEditor = authoringAttachmentRuntime.bindEditor({ dispatch: transaction => editor.dispatchTransaction(transaction) });
+            let binding: ArticleEditorRuntimeBinding;
+            try
+            {
+                binding = bindArticleEditorRuntime(articleDocumentContextAdapter, authoringAnchors, authoringAttachments,
+                    attachmentPort, () => articleForm.content, editor, options);
+            }
+            catch (error)
+            {
+                releaseAttachmentEditor();
+                throw error;
+            }
+            editorRuntimeBinding = binding;
+            const release = (): void =>
+            {
+                if (editorRuntimeBinding !== binding)
+                {
+                    return;
+                }
+                editorRuntimeBinding = null;
+                releaseEditorRuntime = null;
+                binding.dispose();
+                releaseAttachmentEditor();
+            };
+            releaseEditorRuntime = release;
+            return Object.freeze({ binding, release });
         }
     });
     const initTask = useAbortableTask({
@@ -3120,6 +3159,7 @@ export function useAdminArticleWrite()
         disposeArticleRecoveryLifecycle?.();
         disposeArticleRecoveryLifecycle = null;
         recoveryCoordinator.dispose();
+        releaseEditorRuntime?.();
         attachmentEditor = null;
         authoringAttachments.dispose();
         articleDocumentContextBinding.release();
@@ -3198,6 +3238,7 @@ export function useAdminArticleWrite()
         authoringDocumentContext,
         authoringDocumentIdentity,
         authoringAttachmentRuntime,
+        authoringEditorRuntime,
         currentRevisionId,
         currentRevisionNo,
         articleRightsUsingSiteDefaults,

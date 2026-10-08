@@ -114,6 +114,24 @@ the request and before committing its response. An aborted hash operation,
 newer generation, same-source document switch or source-revision change rejects
 old work. This guard is not attachment eligibility or an AssetId/rights receipt.
 
+`useAdminArticleWrite.authoringEditorRuntime.bindEditor` composes the existing
+anchor, attachment, render-cache and continuity owners on one actual public editor
+port. The returned `binding` keeps live canonical context, render-state and pending
+attachment-lease getters. Transactions enter the document owner before model
+updates; selection and focus enter the existing continuity adapter. Automatic
+refresh uses the sole render-refresh policy and the actual FsusUI render producer.
+Preview and compare tasks use canonical document leases; release cancels the
+owned tool, continuity, cache and attachment work without releasing borrowed
+owners. Tool-result admission still requires the current live binding context.
+
+Initialization uses a public selection-only transaction with the current document
+identity and expected revision. A fresh FsusUI editor at revision zero cannot bind
+a retained advanced document owner and fails closed. This composition neither
+resets the canonical epoch nor synthesizes revision/history initialization,
+viewport observations or focus acknowledgements. Those public runtime gaps and
+product event wiring remain acceptance limits; successful restore admission alone
+is not completed focus or viewport restoration.
+
 ## Security, Moderation, And Anti-Crawler
 
 Security is built as infrastructure, not only endpoint code:

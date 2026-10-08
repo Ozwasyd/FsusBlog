@@ -55,3 +55,4 @@ export type { LocalTypePreservingAdapterContract }
 export { ArticleAnchorContextAdapter } from '../../../src/frontend/src/services/authoring/articleAnchorContext'
 export { ArticleAttachmentContextAdapter } from '../../../src/frontend/src/services/authoring/articleAttachmentContext'
 export type * from './article-editor-continuity'
+export { bindArticleEditorRuntime } from '../../../src/frontend/src/services/authoring/articleEditorRuntimeBinding'
