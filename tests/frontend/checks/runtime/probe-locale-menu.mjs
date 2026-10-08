@@ -20,7 +20,7 @@ if (!['local', 'published'].includes(mode) || !dependencyRootArgument || !eviden
 const dependencyRoot = path.resolve(dependencyRootArgument);
 const evidenceRoot = path.resolve(evidenceRootArgument);
 const requireDependency = createRequire(path.join(dependencyRoot, 'package.json'));
-const localRoot = mode === 'local' ? resolveLocalFsusUiRoot() : null;
+const localRoot = mode === 'local' ? resolveLocalFsusUiRoot(process.env.FSUSBLOG_LOCAL_FSUSUI_ROOT) : null;
 const git = (root, ...args) => execFileSync('git', ['-C', root, ...args], { encoding: 'utf8' }).trim();
 const sha256 = (value) => createHash('sha256').update(value).digest('hex');
 const report = {
