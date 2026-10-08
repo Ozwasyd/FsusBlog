@@ -39,7 +39,7 @@ public sealed class PdfDocumentExportProvider
         DocumentExportToolContract tool = _sandbox.RequireRegisteredTool("pdf");
         CanonicalDocumentRendererResult canonical = await _renderer.RenderAsync(task, frozenInput, cancellationToken);
         ValidateCanonicalEvidence(canonical.ResponseBytes, canonical.SandboxPlan, canonical.SandboxReceipt,
-            task, frozenInput, canonical.SandboxPlan.HostBuildDigest);
+            task, frozenInput, _renderer.Tool, _sandbox.HostBuildDigest);
         DocumentExportRendererResponse canonicalResponse = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(canonical.ResponseBytes);
         PdfPrintRenderRequest request = PdfPrintDocumentLayout.Compose(canonicalResponse, frozenInput, provider.Budgets.MaxOutputBytes);
         DocumentExportSandboxResult rendered = await ExecuteAsync(task, frozenInput, tool, request, cancellationToken);
@@ -81,7 +81,7 @@ public sealed class PdfDocumentExportProvider
         DocumentExportProviderContract provider = RequireActiveProvider(task.FormatId);
         DocumentExportToolContract tool = _sandbox.RequireRegisteredTool("pdf");
         ValidateCanonicalEvidence(result.CanonicalRendererOutputBytes, result.CanonicalSandboxPlan,
-            result.CanonicalSandboxReceipt, task, input, expectedHostBuildDigest);
+            result.CanonicalSandboxReceipt, task, input, _renderer.Tool, expectedHostBuildDigest);
         DocumentExportRendererResponse canonical = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(result.CanonicalRendererOutputBytes);
         SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(canonical, input);
         DocumentExportProviderResult output = result.ProviderResult;
@@ -154,15 +154,16 @@ public sealed class PdfDocumentExportProvider
         DocumentExportSandboxResult result = await _sandbox.ExecuteAsync(task, input, tool,
             (stream, token) => DocumentExportDigest.SerializeAsync(stream, request, token), cancellationToken);
         DocumentExportSandboxRuntime.ValidateReceipt(result.Receipt, result.Plan, task, input,
-            tool, result.Plan.HostBuildDigest, result.OutputBytes);
+            tool, _sandbox.HostBuildDigest, result.OutputBytes);
         return result;
     }
 
-    private void ValidateCanonicalEvidence(
+    internal static void ValidateCanonicalEvidence(
         byte[] bytes, DocumentExportSandboxPlan plan, DocumentExportSandboxReceipt receipt,
-        DocumentExportTask task, DocumentExportFrozenInput input, string expectedHostBuildDigest)
+        DocumentExportTask task, DocumentExportFrozenInput input, DocumentExportToolContract tool,
+        string expectedHostBuildDigest)
     {
-        DocumentExportSandboxRuntime.ValidateReceipt(receipt, plan, task, input, _renderer.Tool,
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(receipt, plan, task, input, tool,
             expectedHostBuildDigest, bytes);
         SelfContainedHtmlDocumentExportProvider.ValidateRendererResponse(
             DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(bytes), input);

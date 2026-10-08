@@ -135,6 +135,50 @@ public sealed class DocumentExportPdfProviderTests
         Assert.Throws<InvalidDataException>(() => PdfDocumentExportProvider.ReadResponse(DocumentExportDigest.Serialize(response), 4));
     }
 
+    [Fact]
+    public void CanonicalPdfEvidence_RejectsInactivePdfBeforeInspectingAReceipt()
+    {
+        DocumentExportFrozenInput input = WithoutImages();
+        DocumentExportProviderContract pdf = DocumentExportContractCatalog.RequireProvider("pdf");
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            FormatId = pdf.FormatId,
+            ProviderId = pdf.ProviderId,
+            ProviderVersion = pdf.ProviderVersion,
+            ContentDigest = string.Empty
+        });
+        DocumentExportToolContract tool = CanonicalTool();
+
+        Assert.Throws<InvalidOperationException>(() => PdfDocumentExportProvider.ValidateCanonicalEvidence(
+            [], null!, null!, task, input, tool, DocumentExportContractTests.Digest("trusted-host")));
+        // A canonical tool binding cannot qualify the final PDF phase.
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateReceipt(
+            null!, null!, task, input, tool, DocumentExportContractTests.Digest("trusted-host"), []));
+    }
+
+    [Fact]
+    public void CanonicalPdfEvidence_RejectsFrozenInputDriftBeforeInspectingAReceipt()
+    {
+        DocumentExportFrozenInput input = WithoutImages();
+        DocumentExportProviderContract pdf = DocumentExportContractCatalog.RequireProvider("pdf");
+        DocumentExportTask task = DocumentExportContractValidator.Seal(DocumentExportContractTests.ValidTask(input) with
+        {
+            FormatId = pdf.FormatId,
+            ProviderId = pdf.ProviderId,
+            ProviderVersion = pdf.ProviderVersion,
+            InputDigest = DocumentExportContractTests.Digest("other-input"),
+            ContentDigest = string.Empty
+        });
+
+        Assert.Throws<InvalidDataException>(() => PdfDocumentExportProvider.ValidateCanonicalEvidence(
+            [], null!, null!, task, input, CanonicalTool(), DocumentExportContractTests.Digest("trusted-host")));
+    }
+
+    private static DocumentExportToolContract CanonicalTool()
+        => new("canonical-markdown-renderer", "current-v1", "/not-executed/renderer",
+            DocumentExportContractTests.Digest("not-executed-tool"), "/not-executed/runtime",
+            DocumentExportContractTests.Digest("not-executed-runtime"), ["render"]);
+
     private static DocumentExportFrozenInput WithoutImages()
     {
         DocumentExportFrozenInput input = DocumentExportContractTests.ValidInput();
