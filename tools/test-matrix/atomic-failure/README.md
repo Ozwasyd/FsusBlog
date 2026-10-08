@@ -6,8 +6,9 @@ checkpoint through their source-owned I/O contracts. Its returned facts are admi
 under the explicit host budgets after those original reads. Every projection has
 `dataOnly: true` and `verificationStatus: unverified`. The display `contentDigest`
 detects modification; it does not authenticate a graph, producer, attempt,
-aggregate or replay input. No module runs tests, retries a producer, scans a run
-directory, writes a checkpoint or qualifies release evidence.
+aggregate or replay input. Projection APIs never run tests, retry producers or
+qualify release evidence. The explicit execution interface below dispatches the
+original executor; it never scans a run directory or writes a checkpoint.
 
 ## Consumer interfaces
 
@@ -33,10 +34,10 @@ and history are consumed unchanged by a normal merge. Missing or ambiguous canon
 and runtime `stateAccessRef` without its canonical fact bridge are refused.
 
 `projectCanonicalLaneAtomicCiMaterial` consumes original backend, static, frontend
-and public-runtime lane admissions. It invokes `compileBackendAtomicBridge`,
+and public-runtime lane admissions, plus original coverage action contracts. It invokes `compileBackendAtomicBridge`,
 `bindStaticAtomicCompilation`, `prepareFrontendManifestAdmission` and
 `compilePublicRuntimeProducerDag` from exact source9690f092, ab9a2493, be307751 and
-43470d5c. The canonical global matrix/compiled DAG remains owner-supplied. Every
+43470d5c, and `compileCoverageProducerDag` from d033e029. The canonical global matrix/compiled DAG remains owner-supplied. Every
 original lane step must match that graph exactly; duplicate primary owners,
 cross-run/source replay and missing graph children are refused. Static thirteen
 producer assertion memberships and original public runtime requirements remain
@@ -49,14 +50,29 @@ no empty state access or runtime success is fabricated. With complete static/bui
 sources, the existing canonical CI projection yields one invocation per shared
 runner for all consumed lanes. Global job maps never come from lane fragments.
 
-Lane execution requires original preparation ports: static/backend pre-execution
-context checks currently live inside their executor wrappers, and backend/frontend
-admission accepts only scoped graphs. The original owners must expose preparation
-against the canonical global graph, with owned-step scope, and original terminal
-projection against its complete vector. The integration must execute the global
-DAG once rather than execute one wrapper per lane. Public reset/admission remains
-with the original public/runtime authority owner. No synthetic fixture compilation
-or original lane component test qualifies native/runtime/CI acceptance.
+`prepareCanonicalAtomicCiGroup` calls the available original frontend fragment
+admissions and `preparePublicRuntimeAttemptContexts`, binding their steps to the
+global graph. It installs original coverage request/material preparation through
+the original required-input admission seam from 39466f9a. Existing held validators
+remain first in that seam; coverage source/request bytes and upstream materials
+are checked by their original validators after dependency/resource admission and
+before attempt allocation. Host-held callbacks remain private capabilities and do
+not become DATA_ONLY proof. No prepared context qualifies runtime.
+
+`executeCanonicalAtomicCiGroup` executes fully consumed frontend and coverage
+graphs in one original canonical DAG invocation. It preserves capacity, commands,
+attempt policy, finalizers, and the original error/full terminal vector. Complete
+selection and exactly one canonical CI runner group are required; original
+selected/job-scoped dispatch ports are still absent. Its source-only dependency
+consumption includes publication-error preservation from 5c1b8cd7 and input
+admission from 39466f9a, without adopting their ancestor's authority fixture.
+
+Backend/static pre-execution checks remain inside their original wrappers; the
+prepare-only ports are genuinely missing. Their owner must expose those checks
+without dispatch. Public preparation is already callable and used, but original
+runtime admission and settled-reset postflight remain pending. Complete-vector
+domain outcome projection remains with each original owner. No synthetic fixture
+execution or original component control qualifies native/runtime/CI acceptance.
 
 `projectCompiledAtomicRuntimeCiMaterial` extends the compiler/CI-plan projection
 with the original runtime state's catalogue and registry facts. Each original

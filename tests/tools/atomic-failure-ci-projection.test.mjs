@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial, projectCanonicalLaneAtomicCiMaterial } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
+const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial, projectCanonicalLaneAtomicCiMaterial, prepareCanonicalAtomicCiGroup, executeCanonicalAtomicCiGroup } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
 const { compileAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/compiler.mjs', import.meta.url));
 const { AtomicProducerExecutionError, executeCompiledAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/execution.mjs', import.meta.url));
 const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
@@ -455,7 +455,7 @@ test('original runtime catalog drift is refused before a later admission wave', 
 
 const laneHostLimits = { maxDepth: 60, maxNodes: 200000, maxBytes: 20000000, maxItems: 140000 };
 
-for (const kind of ['backend', 'static', 'frontend', 'public-runtime'])
+for (const kind of ['backend', 'static', 'frontend', 'public-runtime', 'coverage'])
 {
     test(`canonical planner consumes the original ${kind} lane compiler without launching children`, async (t) =>
     {
@@ -528,4 +528,153 @@ test('canonical lane projection refuses cross-run replay source without rewritin
     const { material, frontendContexts } = composeOriginalLaneFixtures([originalLaneFixture(t, 'static')]);
     await assert.rejects(projectCanonicalLaneAtomicCiMaterial({ ...material, context: { ...material.context, schedulerRunId: 'other-run' },
         graphRef: { ...material.graphRef, path: '.tmp/test-runs/other-run/graph.json' } }, laneHostLimits, frontendContexts), /replay run/u);
+});
+
+function frontendExecutionFixture(t, scenarios = {})
+{
+    const fragment = originalLaneFixture(t, 'frontend', scenarios);
+    const combined = composeOriginalLaneFixtures([fragment]);
+    const options = { ...fragment.frontendContext, ...combined.frontendContexts[fragment.lane.id] };
+    return { ...combined, options };
+}
+
+test('canonical CI invocation executes original frontend attempts once and returns the complete vector', async (t) =>
+{
+    const { material, options } = frontendExecutionFixture(t);
+    let cleanupCount = 0;
+    Object.values(options.finalizerOperations)[0].execute = () => cleanupCount++;
+    const capacity = structuredClone(options.capacity);
+    const result = await executeCanonicalAtomicCiGroup(material, laneHostLimits, options);
+    assert.equal(result.terminalVector.status, 'success');
+    assert.equal(result.terminalVector.receipts.length, material.compiled.steps.length);
+    assert.equal(result.ciMaterial.ciProjection.jobs[0].invocationCount, 1);
+    assert.equal(cleanupCount, 1);
+    assert.deepEqual(options.capacity, capacity);
+    assert.equal(fs.readdirSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'atomic-dag')).length, 1);
+    for (const receipt of result.terminalVector.receipts.filter((entry) => entry.attemptRef))
+    {
+        const attempt = JSON.parse(fs.readFileSync(receipt.attemptRef.path, 'utf8'));
+        assert.equal(attempt.attemptNumber, 1);
+        assert.equal(attempt.maxAttempts, 1);
+    }
+});
+
+test('one frontend CI invocation preserves both independent failures, blocked child and cleanup in the original error', async (t) =>
+{
+    const { material, options } = frontendExecutionFixture(t, { alphaScenario: 'product-failure', betaScenario: 'product-failure' });
+    let cleanupCount = 0;
+    Object.values(options.finalizerOperations)[0].execute = () => cleanupCount++;
+    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), (error) =>
+    {
+        assert.ok(error instanceof AtomicProducerExecutionError);
+        const receipts = Object.fromEntries(error.terminalVector.receipts.map((entry) => [entry.producerId, entry]));
+        assert.equal(receipts['alpha-check'].terminalState, 'failed');
+        assert.equal(receipts['beta-check'].terminalState, 'failed');
+        assert.equal(receipts['dependent-check'].terminalState, 'blocked');
+        assert.equal(receipts['dependent-check'].attemptRef, null);
+        assert.equal(receipts['cleanup-inventory'].terminalState, 'success');
+        assert.equal(error.terminalVector.qualificationEligible, false);
+        return true;
+    });
+    assert.equal(cleanupCount, 1);
+    assert.equal(fs.existsSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'dependent-check')), false);
+});
+
+test('canonical frontend invocation refuses partial selection and unknown CI ownership before creating attempts', async (t) =>
+{
+    const { material, options } = frontendExecutionFixture(t);
+    await assert.rejects(executeCanonicalAtomicCiGroup({ ...material, selectedIds: [] }, laneHostLimits, options), /full-selection/u);
+    const unrelatedJob = structuredClone(material);
+    unrelatedJob.ciPlan.jobs.push({ id: 'second-ci-job', tiers: [] });
+    // Empty planner jobs do not create another runner; actual step ownership stays canonical.
+    unrelatedJob.ciPlan.jobs[0].tiers = [];
+    await assert.rejects(executeCanonicalAtomicCiGroup(unrelatedJob, laneHostLimits, options), /exact-one canonical CI job/u);
+    assert.deepEqual(fs.readdirSync(options.context.evidenceRoot), []);
+});
+
+function coverageFrontendExecutionFixture(t, scenarios = {})
+{
+    const coverage = originalLaneFixture(t, 'coverage', scenarios);
+    const frontend = originalLaneFixture(t, 'frontend');
+    const combined = composeOriginalLaneFixtures([coverage, frontend]);
+    const options = { ...coverage.coverageContext,
+        producerContexts: { ...coverage.coverageContext.producerContexts,
+            ...combined.frontendContexts[frontend.lane.id].producerContexts },
+        finalizerOperations: frontend.frontendContext.finalizerOperations };
+    return { ...combined, options, coverage };
+}
+
+test('one global CI invocation executes original coverage input preparation alongside frontend without duplicate attempts', async (t) =>
+{
+    const { material, options } = coverageFrontendExecutionFixture(t);
+    const result = await executeCanonicalAtomicCiGroup(material, laneHostLimits, options);
+    assert.equal(result.terminalVector.status, 'success');
+    assert.equal(result.terminalVector.receipts.length, material.compiled.steps.length);
+    assert.equal(result.ciMaterial.laneBindings.length, 2);
+    assert.equal(fs.readdirSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'atomic-dag')).length, 1);
+});
+
+test('separate canonical CI runner groups require the absent original job-scoped executor port', async (t) =>
+{
+    const { material, options, coverage } = coverageFrontendExecutionFixture(t);
+    material.ciPlan.jobs = [{ id: 'coverage-runner', tiers: coverage.lane.input.matrix.tiers.map((entry) => entry.id) },
+        { id: 'frontend-runner', tiers: ['frontend-source-fixture'] }];
+    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), /job-scoped execution capability/u);
+    assert.equal(fs.existsSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId)), false);
+});
+
+test('one global CI invocation settles real coverage collection failure and an independent frontend group', async (t) =>
+{
+    const { material, options, coverage } = coverageFrontendExecutionFixture(t, { failedDomain: 'backend' });
+    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), (error) =>
+    {
+        assert.ok(error instanceof AtomicProducerExecutionError);
+        assert.equal(error.terminalVector.receipts.length, material.compiled.steps.length);
+        const receipts = Object.fromEntries(error.terminalVector.receipts.map((entry) => [entry.producerId, entry]));
+        assert.equal(receipts['coverage-backend'].terminalState, 'failed');
+        assert.equal(receipts['coverage-frontend'].terminalState, 'success');
+        assert.equal(receipts['coverage-merge'].terminalState, 'blocked');
+        assert.equal(receipts['coverage-merge'].attemptRef, null);
+        assert.equal(receipts['alpha-check'].terminalState, 'success');
+        assert.equal(receipts['beta-check'].terminalState, 'success');
+        return true;
+    });
+    assert.equal(fs.readdirSync(path.join(options.context.evidenceRoot, options.context.schedulerRunId, 'atomic-dag')).length, 1);
+    assert.equal(fs.existsSync(path.join(coverage.lane.input.root, 'evidence', options.context.schedulerRunId, 'coverage-merge')), false);
+});
+
+test('global coverage input preparation preserves a held refusal with zero attempts and independent frontend success', async (t) =>
+{
+    const { material, options } = coverageFrontendExecutionFixture(t);
+    const step = material.compiled.steps.find((entry) => entry.id === 'coverage-backend');
+    options.producerContexts[step.id].requiredInputAdmission = { inputClosureRef: step.inputClosureRef,
+        validate: () =>
+        {
+            throw new Error('held original input refusal');
+        } };
+    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), (error) =>
+    {
+        const receipts = Object.fromEntries(error.terminalVector.receipts.map((entry) => [entry.producerId, entry]));
+        assert.equal(receipts[step.id].reasonCode, 'required-input-admission-failed');
+        assert.equal(receipts[step.id].attemptRef, null);
+        assert.equal(receipts['coverage-merge'].terminalState, 'blocked');
+        assert.equal(receipts['alpha-check'].terminalState, 'success');
+        return true;
+    });
+});
+
+test('public runtime preparation consumes its available original context port without granting reset or runtime admission', async (t) =>
+{
+    const fragment = originalLaneFixture(t, 'public-runtime');
+    const { material } = composeOriginalLaneFixtures([fragment]);
+    const held = fragment.publicRuntimeContext;
+    const options = { ...held.executionOptions, publicRuntimeContexts: { [fragment.lane.id]: held } };
+    const prepared = await prepareCanonicalAtomicCiGroup(material, laneHostLimits, options);
+    assert.equal(prepared.lanePreparations[0].preparation.runtimeAuthorityStatus, 'unverified');
+    assert.equal(prepared.ciMaterial.ciProjection, null);
+    assert.equal(prepared.pendingLanes[0].reason, 'original-runtime-admission-and-reset-postflight-required');
+    await assert.rejects(executeCanonicalAtomicCiGroup(material, laneHostLimits, options), /preparation remains pending/u);
+    held.timeoutProfiles.load = 0;
+    await assert.rejects(prepareCanonicalAtomicCiGroup(material, laneHostLimits, options), /original timeout profile/u);
+    assert.equal(fs.existsSync(held.context.evidenceRoot), false);
 });

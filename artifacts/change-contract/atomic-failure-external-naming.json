@@ -4,6 +4,12 @@
         {
             "id": "environment-variable",
             "paths": [
+                "tools/coverage/atomic-coverage-command.mjs",
+                "tools/coverage/atomic-coverage-compiler-bridge.mjs",
+                "tools/coverage/atomic-coverage-execution.mjs",
+                "tools/coverage/atomic-coverage-inputs.mjs",
+                "tools/coverage/atomic-coverage-plan.mjs",
+                "tools/coverage/atomic-coverage-projection.mjs",
                 "tools/release/correctness-provisional-receipt.mjs",
                 "tools/release/correctness-scheduler-authority.mjs",
                 "tools/release/correctness-terminal-receipt.mjs",
@@ -41,7 +47,7 @@
                 "tools/test/static-atomic/summary.mjs",
                 "tools/test/static-atomic/terminal-bridge.mjs"
             ],
-            "reason": "preserve original process/replay naming while consuming exact canonical terminal and backend/static/frontend/public lane bridges; private atomic planner consumers keep original source owners"
+            "reason": "preserve original process/replay naming while consuming exact canonical terminal, required-input and backend/static/frontend/public/coverage lane bridges; private atomic consumers retain original source owners"
         },
         {
             "id": "shell-environment-variable",

@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { coverageCompilerFixture } from './atomic-coverage-compiler-fixtures.mjs';
 import { atomicExecutionOptions, atomicFixture as originalAtomicFixture, rebindAtomicFixture } from './atomic-producer-fixture.mjs';
 import { backendCompilerFixture } from './backend-atomic-compiler-fixture.mjs';
 import { publicRuntimeCompilerFixture } from './public-runtime-compiler-fixture.mjs';
@@ -76,11 +77,13 @@ export function atomicFixture()
 }
 
 /** Controlled attachments from original lane helpers; never production matrix or qualification. */
-export function originalLaneFixture(t, kind)
+export function originalLaneFixture(t, kind, scenarios = {})
 {
     let lane;
     let identity;
     let frontendContext;
+    let publicRuntimeContext;
+    let coverageContext;
     if (kind === 'backend')
     {
         const directory = fs.mkdtempSync(path.join(os.tmpdir(), 'atomic-lane-backend-'));
@@ -103,10 +106,19 @@ export function originalLaneFixture(t, kind)
         const { declarations, attachment, authorities, matrix } = fixture;
         lane = { id: 'public-source', kind, input: { declarations, attachment, authorities, matrix }, options: fixture.compilerOptions };
         identity = fixture.context;
+        publicRuntimeContext = fixture;
+    }
+    else if (kind === 'coverage')
+    {
+        const fixture = coverageCompilerFixture(t, scenarios);
+        const { root, plan, requests, matrix, authorities } = fixture;
+        lane = { id: 'coverage-source', kind, input: { root, plan, requests, matrix, authorities }, options: {} };
+        identity = fixture.executionOptions.context;
+        coverageContext = fixture.executionOptions;
     }
     else
     {
-        const fixture = originalAtomicFixture();
+        const fixture = originalAtomicFixture(scenarios);
         const groupId = 'frontend-source-fixture';
         fixture.matrix.tiers[0].id = groupId;
         fixture.matrix.atomicProducerDeclarations.nodes.forEach((node) => node.logicalParentId = groupId);
@@ -129,7 +141,7 @@ export function originalLaneFixture(t, kind)
             matrix: fixture.matrix, authorities: fixture.authorities, groupId }, options: {} };
         identity = frontendContext.context;
     }
-    return { lane, identity, frontendContext };
+    return { lane, identity, frontendContext, publicRuntimeContext, coverageContext };
 }
 
 /** Align only synthetic replay identities; original commands, membership and resource sources remain untouched. */
