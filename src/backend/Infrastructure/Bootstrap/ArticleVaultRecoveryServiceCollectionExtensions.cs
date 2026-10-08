@@ -13,7 +13,8 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
     {
         ArgumentNullException.ThrowIfNull(services);
         if (services.Any(static descriptor => descriptor.ServiceType == typeof(IArticleVaultResolutionProposalStore)
-            || descriptor.ServiceType == typeof(IArticleVaultOperationCheckpointStore)))
+            || descriptor.ServiceType == typeof(IArticleVaultOperationCheckpointStore)
+            || descriptor.ServiceType == typeof(IArticleVaultRecoveryOperationCheckpointWriter)))
         {
             throw new InvalidOperationException("article_vault_recovery_store_already_registered");
         }
@@ -23,6 +24,27 @@ public static class ArticleVaultRecoveryServiceCollectionExtensions
         services.AddScoped<PostgresArticleVaultOperationCheckpointStore>();
         services.AddScoped<IArticleVaultOperationCheckpointStore>(
             provider => provider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
+        services.AddScoped<IArticleVaultRecoveryOperationCheckpointWriter>(
+            provider => provider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
+        return services;
+    }
+
+    /// <summary>Requires the host's real dedicated protection authority; never derives a substitute key.</summary>
+    public static IServiceCollection AddFsusArticleVaultEncryptedRecoveryStorage(this IServiceCollection services)
+    {
+        ArgumentNullException.ThrowIfNull(services);
+        if (!services.Any(static descriptor => descriptor.ServiceType == typeof(IArticleVaultRecoveryBackupProtectionAuthority)))
+        {
+            throw new InvalidOperationException("article_vault_recovery_protection_authority_unavailable");
+        }
+        if (services.Any(static descriptor => descriptor.ServiceType == typeof(PostgresArticleVaultRecoveryStorage)
+            || descriptor.ServiceType == typeof(IArticleVaultTransactionalRecoveryJournalStore)))
+        {
+            throw new InvalidOperationException("article_vault_recovery_journal_store_already_registered");
+        }
+        services.AddScoped<PostgresArticleVaultRecoveryStorage>();
+        services.AddScoped<IArticleVaultTransactionalRecoveryJournalStore>(
+            provider => provider.GetRequiredService<PostgresArticleVaultRecoveryStorage>());
         return services;
     }
 

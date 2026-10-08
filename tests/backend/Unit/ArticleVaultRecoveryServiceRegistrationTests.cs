@@ -59,6 +59,7 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
         var store = first.ServiceProvider.GetRequiredService<IArticleVaultOperationCheckpointStore>();
         Assert.IsType<PostgresArticleVaultOperationCheckpointStore>(store);
         Assert.Same(store, first.ServiceProvider.GetRequiredService<PostgresArticleVaultOperationCheckpointStore>());
+        Assert.Same(store, first.ServiceProvider.GetRequiredService<IArticleVaultRecoveryOperationCheckpointWriter>());
         var proposals = first.ServiceProvider.GetRequiredService<IArticleVaultResolutionProposalStore>();
         Assert.IsType<PostgresArticleVaultResolutionProposalStore>(proposals);
         Assert.Same(proposals, first.ServiceProvider.GetRequiredService<PostgresArticleVaultResolutionProposalStore>());
@@ -90,6 +91,32 @@ public sealed class ArticleVaultRecoveryServiceRegistrationTests
             ValidateScopes = true,
             ValidateOnBuild = true
         }));
+    }
+
+    [Fact]
+    public void EncryptedRecoveryComposition_RequiresProtectionAndUsesTheSoleStorageInstance()
+    {
+        var services = new ServiceCollection();
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultEncryptedRecoveryStorage());
+        Assert.Empty(services);
+        services.AddSingleton(Substitute.For<IArticleVaultRecoveryBackupProtectionAuthority>());
+        services.AddSingleton(Substitute.For<IArticleVaultExecutionStore>());
+        services.AddSingleton(Substitute.For<IArticleVaultResolutionProposalStore>());
+        services.AddSingleton(Substitute.For<IArticleVaultOperationCheckpointStore>());
+        services.AddSingleton<TimeProvider>(TimeProvider.System);
+        using NpgsqlDataSource dataSource = NpgsqlDataSource.Create("Host=127.0.0.1;Database=vault-di-only;Username=vault-di-only");
+        services.AddSingleton(dataSource);
+        services.AddFsusArticleVaultEncryptedRecoveryStorage();
+        Assert.Throws<InvalidOperationException>(() => services.AddFsusArticleVaultEncryptedRecoveryStorage());
+        using ServiceProvider provider = services.BuildServiceProvider(new ServiceProviderOptions
+        {
+            ValidateScopes = true,
+            ValidateOnBuild = true
+        });
+        using IServiceScope scope = provider.CreateScope();
+        Assert.Same(scope.ServiceProvider.GetRequiredService<PostgresArticleVaultRecoveryStorage>(),
+            scope.ServiceProvider.GetRequiredService<IArticleVaultTransactionalRecoveryJournalStore>());
+        Assert.Throws<InvalidOperationException>(() => provider.GetRequiredService<IArticleVaultTransactionalRecoveryJournalStore>());
     }
 
     [Fact]

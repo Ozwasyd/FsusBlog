@@ -3124,7 +3124,14 @@ trustedVaultSiteIdentity)` composes the original readers and live permission
 projection with an explicit server-owned opaque Vault site. Startup opts into both
 only when `ArticleVault:TrustedSiteIdentity` is configured; unavailable store
 resources fail composition rather than creating a fallback. Duplicate stores and
-conflicting site composition are refused.
+conflicting site composition are refused. `IArticleVaultRecoveryOperationCheckpointWriter`
+resolves to the same canonical checkpoint store; its recovery append stages journal
+facts in that writer's transaction and revalidates before commit. Explicit
+`AddFsusArticleVaultEncryptedRecoveryStorage()` requires a host-supplied real
+`IArticleVaultRecoveryBackupProtectionAuthority` and exposes the sole storage through
+`IArticleVaultTransactionalRecoveryJournalStore`. Missing protection prevents this
+composition; no Data Protection/key-generation fallback is registered. Transaction
+bookkeeping does not grant decision/candidate, native recovery or base admission.
 
 `POST /api/binary/author/vault/recovery/history` requires the actual authenticated
 admin session and ArticleWrite policy. It accepts AEDS v2 frame 253 only, with a

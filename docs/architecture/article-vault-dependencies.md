@@ -114,6 +114,11 @@ Native owner commit `8b2634d06d543246bc3208076be6c3db2f84e651` was inspected and
 contain the Linux peer/grant dispatcher and canonical operation adapter. Consumption
 still requires the coordinated handoff and applicable native runtime qualification.
 Current-resolution fact acquisition, decision/candidate admission, real dedicated
-backup protection authority and the original checkpoint transaction's `StageAsync`
-wiring remain open. These authority gaps are distinct from ordinary branch conflicts.
+backup protection authority remain open. The checkpoint owner commit
+`39459f8162c775b79747a35228cd38b3c5b5faf6` now invokes canonical `StageAsync`
+before checkpoint insertion and again before the same transaction commits; the
+root registers `IArticleVaultRecoveryOperationCheckpointWriter` to that same scoped
+checkpoint store. Explicit encrypted storage composition requires an already
+registered real protection authority and shares the sole recovery storage instance.
+These authority gaps are distinct from ordinary branch conflicts.
 Historical browser reads do not qualify current execution or product acceptance.

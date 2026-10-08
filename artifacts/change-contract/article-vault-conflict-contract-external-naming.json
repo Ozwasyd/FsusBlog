@@ -64,6 +64,7 @@
                 "src/backend/Services/ArticleVault/ArticleVaultPropertyMetadataMerge.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultRecoveryCheckpointReader.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultRecoveryHistoryReader.cs",
+                "src/backend/Services/ArticleVault/ArticleVaultRecoveryOperationCheckpointWriter.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultRecoveryStorage.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultRecoveryStoredProposalReader.cs",
                 "src/backend/Services/ArticleVault/ArticleVaultResolutionProposalStore.cs",

@@ -320,6 +320,10 @@ const validPayloadByDecoder = new Map<string, () => Uint8Array>([
   ['mapMutationIdFromPayload', zeroPayload(8)]
 ])
 
+const historicalRegistrations = binaryFrameDecoderRegistrations.filter(
+  ([frameType]) => frameType !== FrameType.ArticleVaultRecoveryHistoryResponse
+)
+
 const EXPECTED_REGISTRATION_SHA256 = '9aff665d1307f662734af11513a13f9dee610f4d58e3180a5e714918d8083295'
 
 // The original replacement ledger remains bound to its original retired tests.
@@ -394,7 +398,17 @@ describe('decodeBinaryFramePayload', () => {
     })
   })
 
-  it('throws for FrameType.Unknown (0)', () => {
+  it('decodes only the admitted historical response through the existing authoring JSON decoder', () => {
+    const response = { isHistorical: true, canExecute: false, canCommitBase: false }
+    expect(decodeBinaryFramePayload(FrameType.ArticleVaultRecoveryHistoryResponse,
+      new TextEncoder().encode(JSON.stringify(response)))).toEqual(response)
+    expect(() => decodeBinaryFramePayload(FrameType.ArticleVaultRecoveryHistoryResponse,
+      new Uint8Array([0xff]))).toThrow('authoring_json_payload_invalid')
+    expect(() => decodeBinaryFramePayload(FrameType.ArticleVaultRecoveryHistoryRequest,
+      new TextEncoder().encode(JSON.stringify(response)))).toThrow('frame_type_unsupported:253')
+  })
+
+  it('throws for FrameType.Unknown (0)' , () => {
     expect(() => decodeBinaryFramePayload(FrameType.Unknown, new Uint8Array(0))).toThrow()
   })
 
@@ -404,8 +418,9 @@ describe('decodeBinaryFramePayload', () => {
 
   it('builds one authoritative decoder registration per supported frame', () => {
     const frameTypes = binaryFrameDecoderRegistrations.map(([frameType]) => frameType)
-    expect(binaryFrameDecoderRegistrations).toHaveLength(144)
-    expect(registrationFingerprint(binaryFrameDecoderRegistrations))
+    expect(binaryFrameDecoderRegistrations).toHaveLength(145)
+    expect(historicalRegistrations).toHaveLength(144)
+    expect(registrationFingerprint(historicalRegistrations))
       .toBe(EXPECTED_REGISTRATION_SHA256)
     expect(new Set(frameTypes).size).toBe(frameTypes.length)
     expect(binaryFrameDecoderFrameTypes).toEqual(frameTypes)
@@ -434,10 +449,10 @@ describe('decodeBinaryFramePayload', () => {
       ...binaryFrameDecoderRegistrations,
       [FrameType.ArticleWriteRequest, () => null]
     ], binaryFrameDecoderFrameTypes)).toThrow('decoder_frame_type_unexpected')
-    expect(registrationFingerprint(binaryFrameDecoderRegistrations.slice(1)))
+    expect(registrationFingerprint(historicalRegistrations.slice(1)))
       .not.toBe(EXPECTED_REGISTRATION_SHA256)
-    const rewired = binaryFrameDecoderRegistrations.map((registration, index) => index === 0
-      ? [registration[0], binaryFrameDecoderRegistrations[1][1]] as const
+    const rewired = historicalRegistrations.map((registration, index) => index === 0
+      ? [registration[0], historicalRegistrations[1][1]] as const
       : registration)
     expect(registrationFingerprint(rewired))
       .not.toBe(EXPECTED_REGISTRATION_SHA256)
