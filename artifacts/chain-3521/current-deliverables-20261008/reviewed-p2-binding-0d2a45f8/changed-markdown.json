@@ -1,0 +1,29 @@
+{
+  "key": "changed-markdown",
+  "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "cwd": "/workspace/FsusBlog-scheduler-fixture-p2",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/style/check-native-tooling-style.mjs",
+    "--operation",
+    "lint",
+    "--mode",
+    "changed",
+    "--domain",
+    "docs",
+    "--base",
+    "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+    "--file",
+    "tools/test-matrix/atomic-producers/README.md",
+    "--require-tools"
+  ],
+  "startedUtc": "2026-10-08T10:50:48.607942+00:00",
+  "completedUtc": "2026-10-08T10:50:50.068235+00:00",
+  "elapsedSeconds": 1.46,
+  "exitCode": 0,
+  "pid": 534616,
+  "logSha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4",
+  "logBytes": 111,
+  "rawLogArchive": "changed-markdown.log.gz",
+  "qualification": false
+}

@@ -1,0 +1,19 @@
+{
+  "key": "finalizer-ordinary-errors",
+  "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "cwd": "/workspace/FsusBlog-scheduler-fixture-p2",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/correctness-seal-error-precedence.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T10:50:48.758939+00:00",
+  "completedUtc": "2026-10-08T10:50:50.867847+00:00",
+  "elapsedSeconds": 2.109,
+  "exitCode": 0,
+  "pid": 534662,
+  "logSha256": "bf86fb4114e552a49e2e19cc056c946cbcd5fd7a48aade5b16b096e3da309ed8",
+  "logBytes": 592,
+  "rawLogArchive": "finalizer-ordinary-errors.log.gz",
+  "qualification": false
+}

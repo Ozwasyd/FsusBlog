@@ -1,0 +1,84 @@
+{
+  "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "node": "v24.16.0",
+  "selectedAtomicTests": [
+    "terminal publication failure retains the earlier producer failure as primary",
+    "terminal publication failure retains the original cancellation Error object",
+    "terminal publication failure without an earlier execution failure rejects with the write Error"
+  ],
+  "registeredAtomicTests": 22,
+  "excludedAtomicTests": [
+    "compiler gives direct Fresh resume and CI consumers the same immutable DAG identity",
+    "compiler rejects tampered and independently resealed commands before execution",
+    "real first attempts succeed once while parent and join project without spawning",
+    "failed alpha does not terminate independent beta and hard dependent is blocked with zero spawn",
+    "failed producer releases its sole CPU and memory grant so independent work completes",
+    "timeout retains the first failed attempt and still runs cleanup and independent sibling",
+    "per-producer cancellation preserves terminal evidence and cleanup without cancelling sibling",
+    "source rejects two executable authorities inside a producer and commands on finalizers",
+    "missing or changed external replay authority fails before any producer is spawned",
+    "same-run reentry cannot create a second attempt or overwrite first failure evidence",
+    "terminal vector tamper and resealed blocked-as-success substitutions are refused",
+    "global abort after a real child starts runs cleanup once and seals all terminal dispositions",
+    "returned failure refs without Error keep their typed primary cause ahead of cleanup errors",
+    "assertion mismatch and timeout retain attempt failure causes when cleanup also fails",
+    "producer-only cancellation keeps the original Error when cleanup also fails",
+    "pre-aborted DAG performs finalization once with no fabricated attempt receipts",
+    "attempt runner exception records internal error and releases grants while sibling and cleanup complete",
+    "cross-run replay environment and finalizer capability drift refuse before spawn",
+    "exit-zero command without a sidecar retains the real shared runner refusal"
+  ],
+  "sharedTopLevelHooks": [],
+  "importInspections": [
+    {
+      "target": "tests/tools/correctness-seal-error-precedence.test.mjs",
+      "errors": [],
+      "dependencies": [
+        "tests/tools/package.json",
+        "tools/package.json",
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/content-addressed-evidence-store.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "tools/test-matrix/scheduler-run-owner.mjs",
+        "tools/test/process-identity.mjs",
+        "tools/test/temporal-context-contract.mjs"
+      ]
+    },
+    {
+      "target": "tests/tools/atomic-producer-compiler.test.mjs",
+      "errors": [],
+      "dependencies": [
+        "tests/tools/package.json",
+        "tests/tools/support/atomic-producer-fixture.mjs",
+        "tools/package.json",
+        "tools/test-matrix/atomic-producers/compiler.mjs",
+        "tools/test-matrix/atomic-producers/contract.mjs",
+        "tools/test-matrix/atomic-producers/execution.mjs",
+        "tools/test-matrix/receipt-command-sources.mjs",
+        "tools/test-matrix/schema-validator/package.json",
+        "tools/test-matrix/schema-validator/validate.mjs",
+        "tools/test/attempt-provenance.mjs",
+        "tools/test/attempt-runner.mjs",
+        "tools/test/bundles/bundle-steps.mjs",
+        "tools/test/execution-replay-contract.mjs"
+      ]
+    }
+  ],
+  "reviewedHelpers": [
+    "withEvidence: callback-scoped temporary directory",
+    "failTerminalPublication: test-context fs mock invoked only in the three selected tests",
+    "atomicFixture/atomicExecutionOptions: unchanged from approved frozen source",
+    "atomic-producer-command: unchanged fixture scenarios; selected cancellation is pre-aborted"
+  ],
+  "noNewHarnessIntroduced": true,
+  "explicitPermission": "Coordinator authorized exact owner-supplied three ordinary P2 controls plus five ordinary finalizer Error-object controls; exclude all other callbacks and held suites.",
+  "consumerCandidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "consumerDirectInspectionCompletedUtc": "2026-10-08T10:50:26.379245+00:00",
+  "consumerInspectedSelectedBodies": true,
+  "topLevelHooksAbsent": true,
+  "noNewHarnessOrTestByCanonicalOwner": true
+}

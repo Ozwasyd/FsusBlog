@@ -1,0 +1,20 @@
+{
+  "key": "published-final-range",
+  "sourceCommit": "a8d854853a23ab8ba5cb003e4a519c2fe26ee431",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-current",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "5798707d359ce5ee57752aa868d0ccbf3f889494..HEAD"
+  ],
+  "startedUtc": "2026-10-08T13:18:44.992765+00:00",
+  "completedUtc": "2026-10-08T13:18:47.628613+00:00",
+  "elapsedSeconds": 2.636,
+  "exitCode": 1,
+  "pid": 619813,
+  "logSha256": "2c7583851d0bc4891eca8086ae6bdfd11c0768f4a12b57e9afe52a65bf33ad2c",
+  "logBytes": 123,
+  "rawLogArchive": "published-final-range.log.gz",
+  "qualification": false
+}

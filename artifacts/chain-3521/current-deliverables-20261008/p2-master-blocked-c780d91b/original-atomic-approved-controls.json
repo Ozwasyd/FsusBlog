@@ -1,0 +1,21 @@
+{
+  "key": "original-atomic-approved-controls",
+  "sourceCommit": "c780d91b5bf71032458d2b0ebcc273a1623f13be",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-master",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "--test-name-pattern",
+    "^terminal publication failure (retains the earlier producer failure as primary|retains the original cancellation Error object|without an earlier execution failure rejects with the write Error)$",
+    "tests/tools/atomic-producer-compiler.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T13:14:46.344017+00:00",
+  "completedUtc": "2026-10-08T13:14:46.878791+00:00",
+  "elapsedSeconds": 0.535,
+  "exitCode": 1,
+  "pid": 612021,
+  "logSha256": "cd05383ab914ad7188bd0a078d92037154fe4ac376cc1bf4c9952ccbfab2c67b",
+  "logBytes": 1533,
+  "rawLogArchive": "original-atomic-approved-controls.log.gz",
+  "qualification": false
+}

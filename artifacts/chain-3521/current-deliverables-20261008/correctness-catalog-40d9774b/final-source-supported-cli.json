@@ -1,0 +1,23 @@
+{
+  "key": "final-source-supported-cli",
+  "sourceCommit": "8a49fcaf871a01e0231e44ccb6ee694b1d25d17a",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-current",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "5798707d359ce5ee57752aa868d0ccbf3f889494"
+  ],
+  "startedUtc": "2026-10-08T13:15:22.960529+00:00",
+  "completedUtc": "2026-10-08T13:16:17.925473+00:00",
+  "elapsedSeconds": 54.965,
+  "exitCode": 1,
+  "pid": 612418,
+  "logSha256": "79f6d43c2577bfb824a464f57b60edbb0b35a793111bc69ee04e72482aeb1aa9",
+  "logBytes": 10616,
+  "rawLogArchive": "final-source-supported-cli.log.gz",
+  "qualification": false
+}

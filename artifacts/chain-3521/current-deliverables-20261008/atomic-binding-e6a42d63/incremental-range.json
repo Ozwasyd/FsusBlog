@@ -1,0 +1,20 @@
+{
+  "key": "incremental-range",
+  "sourceCommit": "e6a42d63861278c630c31dc025787ad452d42ce2",
+  "cwd": "/workspace/FsusBlog-atomic-fixture-395703a2",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "395703a20dc438cf5fc74a71287536e1fa7d16c1..HEAD"
+  ],
+  "startedUtc": "2026-10-08T12:54:12.474780+00:00",
+  "completedUtc": "2026-10-08T12:54:15.684215+00:00",
+  "elapsedSeconds": 3.209,
+  "exitCode": 0,
+  "pid": 598851,
+  "logSha256": "6bccc13d3ce4b201054dbfa4b4d0232fe5998097539ce95fffb3bc0689b3a1e5",
+  "logBytes": 81,
+  "rawLogArchive": "incremental-range.log.gz",
+  "qualification": false
+}

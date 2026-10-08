@@ -1,0 +1,23 @@
+{
+  "master": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "reviewedSource": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "exactFiveApprovedBlobsPreserved": true,
+  "changedFiles": [
+    "tests/tools/atomic-producer-compiler.test.mjs",
+    "tests/tools/correctness-seal-error-precedence.test.mjs",
+    "tools/test-matrix/atomic-producers/README.md",
+    "tools/test-matrix/atomic-producers/execution.mjs",
+    "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+  ],
+  "missingOriginalImportsAtMaster": [
+    "tools/test-matrix/atomic-producers/compiler.mjs",
+    "tools/test-matrix/atomic-producers/contract.mjs",
+    "tests/tools/support/atomic-producer-fixture.mjs",
+    "tools/release/correctness-provisional-receipt.mjs",
+    "tools/release/correctness-terminal-receipt.mjs",
+    "tools/release/correctness-terminal-seal-journal.mjs"
+  ],
+  "sharedCurrentMasterMetadataPreserved": true,
+  "qualified": false,
+  "blocker": "Original canonical dependency modules are absent at master; no side implementation or guessed sibling consumption authorized."
+}

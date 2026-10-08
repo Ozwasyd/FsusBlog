@@ -1,0 +1,18 @@
+{
+  "key": "producer",
+  "sourceCommit": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+  "cwd": "/workspace/FsusBlog-atomic-fixture-395703a2",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-08T12:48:36.829174+00:00",
+  "completedUtc": "2026-10-08T12:51:11.928676+00:00",
+  "elapsedSeconds": 155.1,
+  "exitCode": 0,
+  "pid": 594797,
+  "logSha256": "f96cb4ad5704f80e250826fa07362d900518c460acefeced56fd2a62385f82fa",
+  "logBytes": 258,
+  "rawLogArchive": "producer.log.gz",
+  "qualification": false
+}

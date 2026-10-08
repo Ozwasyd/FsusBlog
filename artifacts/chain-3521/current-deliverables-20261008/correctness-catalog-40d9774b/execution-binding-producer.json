@@ -1,0 +1,18 @@
+{
+  "key": "execution-binding-producer",
+  "sourceCommit": "fae117436a4c829748c04c6381d86db6be764e76",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-current",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-08T13:03:15.153933+00:00",
+  "completedUtc": "2026-10-08T13:06:02.765017+00:00",
+  "elapsedSeconds": 167.611,
+  "exitCode": 0,
+  "pid": 604921,
+  "logSha256": "34ecb0e21682f34b1f0053f8a3b286508f1638971186b635354860b479f8b5fd",
+  "logBytes": 258,
+  "rawLogArchive": "execution-binding-producer.log.gz",
+  "qualification": false
+}

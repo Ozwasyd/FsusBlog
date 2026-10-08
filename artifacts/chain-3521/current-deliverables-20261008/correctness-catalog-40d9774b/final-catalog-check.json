@@ -1,0 +1,19 @@
+{
+  "key": "final-catalog-check",
+  "sourceCommit": "8a49fcaf871a01e0231e44ccb6ee694b1d25d17a",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-current",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test/generate-correctness-attempt-producers.mjs",
+    "--check"
+  ],
+  "startedUtc": "2026-10-08T13:15:22.942098+00:00",
+  "completedUtc": "2026-10-08T13:15:23.261922+00:00",
+  "elapsedSeconds": 0.32,
+  "exitCode": 0,
+  "pid": 612406,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "final-catalog-check.log.gz",
+  "qualification": false
+}

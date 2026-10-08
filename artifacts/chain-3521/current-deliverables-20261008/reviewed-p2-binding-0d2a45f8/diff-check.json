@@ -1,0 +1,20 @@
+{
+  "key": "diff-check",
+  "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "cwd": "/workspace/FsusBlog-scheduler-fixture-p2",
+  "command": [
+    "git",
+    "diff",
+    "--check",
+    "6ed505c7a47029463d979682ad64fa8fbd58ba25..HEAD"
+  ],
+  "startedUtc": "2026-10-08T10:51:34.801116+00:00",
+  "completedUtc": "2026-10-08T10:51:34.918511+00:00",
+  "elapsedSeconds": 0.117,
+  "exitCode": 0,
+  "pid": 537033,
+  "logSha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+  "logBytes": 0,
+  "rawLogArchive": "diff-check.log.gz",
+  "qualification": false
+}

@@ -1,0 +1,9 @@
+{
+  "status": "failed local assertion",
+  "exitCode": 1,
+  "scope": "analyst-only preservation assumption, no test or production code executed",
+  "incorrectAssumption": "closed source indexDigest stays unchanged and dependent target digests change",
+  "actualProducerResult": "source contentDigest and indexDigest both change; all target records remain identical",
+  "correctedProof": "output-preservation.json",
+  "policyOrTestModified": false
+}

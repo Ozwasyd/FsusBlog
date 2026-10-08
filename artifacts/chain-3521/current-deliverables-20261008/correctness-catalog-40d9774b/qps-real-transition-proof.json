@@ -1,0 +1,33 @@
+{
+  "sourceCommit": "8a49fcaf871a01e0231e44ccb6ee694b1d25d17a",
+  "observedUtc": "2026-10-08T13:16:15.415516+00:00",
+  "historyTransition": "71932bb4333248ae82559fa1bf0983822086a766",
+  "originalOwnerIssue": 1851,
+  "historyTransitionParent": "ed65233111fe5c162d7fe23108382dd3d7327705",
+  "path": "tests/tools/backend-qps-runtime-cache-migration.test.mjs",
+  "parentBlob": "3dbfa33fbd13e70f4b934fc94752efd13127b767",
+  "transitionBlob": "ec49ddc21181a34721f01864c0a9dcacfb391011",
+  "fixedBeforeCutoff": "b144a2e54e655b6e363948cb9f6773a59cbf7be7",
+  "fixedHistoryAnchor": "d653afbde02b75814d8384777886b10419fb38a1",
+  "sourcePresentAtBeforeCutoff": false,
+  "transitionWithinTrustedHistoryAnchor": false,
+  "records": [
+    {
+      "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#backend-qps-lane-rejects-every-legacy-argument-before-ex-c81f0d3f88",
+      "oldTitle": "backend-qps lane rejects every legacy argument before executing the runtime cache lane",
+      "oldTitleLiteralPresentAtParent": true,
+      "oldTitleLiteralAbsentAtTransition": true,
+      "titleOrdinalHashSuffix": "c81f0d3f88"
+    },
+    {
+      "id": "node-test:tests/tools/backend-qps-runtime-cache-migration.test.mjs#zero-argument-backend-qps-lane-delegates-only-to-the-cur-e536405a30",
+      "oldTitle": "zero-argument backend-qps lane delegates only to the current runtime cache lane",
+      "oldTitleLiteralPresentAtParent": true,
+      "oldTitleLiteralAbsentAtTransition": true,
+      "titleOrdinalHashSuffix": "e536405a30"
+    }
+  ],
+  "qualification": false,
+  "scenarioCallbacksExecuted": false,
+  "currentHistoryAdmission": "BLOCKED: frozen BEFORE and prebaseline deletion index have no identities; later Node transition is outside anchored path grammar; independent current-epoch exact-history admission required"
+}

@@ -1,0 +1,20 @@
+{
+  "key": "original-boundary",
+  "sourceCommit": "e6a42d63861278c630c31dc025787ad452d42ce2",
+  "cwd": "/workspace/FsusBlog-atomic-fixture-395703a2",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--input-type=module",
+    "-e",
+    "import {validateRepositoryReleaseFinalStaticBoundary} from './tools/test-matrix/release-final-static-boundary.mjs'; import {execFileSync} from 'node:child_process'; const errors=validateRepositoryReleaseFinalStaticBoundary(process.cwd());console.log(JSON.stringify({sourceCommit:execFileSync('git',['rev-parse','HEAD'],{encoding:'utf8'}).trim(),nodeVersion:process.version,originalBoundaryErrors:errors,qualification:false,heldScenarioCallbacksExecuted:false}));process.exitCode=errors.length?1:0;"
+  ],
+  "startedUtc": "2026-10-08T12:54:11.083893+00:00",
+  "completedUtc": "2026-10-08T12:56:56.049857+00:00",
+  "elapsedSeconds": 164.966,
+  "exitCode": 0,
+  "pid": 598811,
+  "logSha256": "81f33ff3b79fe151dffff385c44e1f226e5df1f03c06d00f6cb361a32547081a",
+  "logBytes": 357,
+  "rawLogArchive": "original-boundary.log.gz",
+  "qualification": false
+}

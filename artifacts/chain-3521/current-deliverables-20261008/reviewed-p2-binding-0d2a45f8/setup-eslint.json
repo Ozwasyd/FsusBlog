@@ -1,0 +1,26 @@
+{
+  "key": "setup-eslint",
+  "sourceCommit": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "cwd": "/workspace/FsusBlog-scheduler-fixture-p2",
+  "command": [
+    "node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--prefix",
+    "tools/frontend/style-toolchain",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund",
+    "--cache",
+    "/workspace/.setup/npm-cache"
+  ],
+  "startedUtc": "2026-10-08T10:49:29.611845+00:00",
+  "completedUtc": "2026-10-08T10:49:35.311687+00:00",
+  "elapsedSeconds": 5.7,
+  "exitCode": 0,
+  "pid": 533839,
+  "logSha256": "b46647547de0d1403c3235de8bd40b8506f81541648be3e3b353004f99787712",
+  "logBytes": 26,
+  "rawLogArchive": "setup-eslint.log.gz",
+  "qualification": false
+}

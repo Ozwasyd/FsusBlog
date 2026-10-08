@@ -1,0 +1,20 @@
+{
+  "key": "incremental-range",
+  "sourceCommit": "c780d91b5bf71032458d2b0ebcc273a1623f13be",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-master",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "5798707d359ce5ee57752aa868d0ccbf3f889494..HEAD"
+  ],
+  "startedUtc": "2026-10-08T13:15:22.977117+00:00",
+  "completedUtc": "2026-10-08T13:15:25.974890+00:00",
+  "elapsedSeconds": 2.998,
+  "exitCode": 0,
+  "pid": 612425,
+  "logSha256": "06ba914063b1d61bc8c750a5d1a9ff3f44eb056ae36aed211491b17527fa85a3",
+  "logBytes": 81,
+  "rawLogArchive": "incremental-range.log.gz",
+  "qualification": false
+}

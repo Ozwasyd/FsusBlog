@@ -1,0 +1,19 @@
+{
+  "key": "original-finalizer-controls",
+  "sourceCommit": "c780d91b5bf71032458d2b0ebcc273a1623f13be",
+  "cwd": "/workspace/FsusBlog-scheduler-p2-master",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/correctness-seal-error-precedence.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T13:14:46.372599+00:00",
+  "completedUtc": "2026-10-08T13:14:48.983222+00:00",
+  "elapsedSeconds": 2.611,
+  "exitCode": 1,
+  "pid": 612026,
+  "logSha256": "18a10bec23a93280e56e307c88073893f8f17dce4ed29d6a0166a4ee04c60735",
+  "logBytes": 1551,
+  "rawLogArchive": "original-finalizer-controls.log.gz",
+  "qualification": false
+}

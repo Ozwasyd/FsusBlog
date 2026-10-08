@@ -1,0 +1,26 @@
+{
+  "sourceCommit": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+  "existingClosedFileByteDifferences": [
+    {
+      "path": "tools/release/test-evidence-receipts-cli.mjs",
+      "fixtureContentDigest": "sha256:e4f1fd2773a6fef791a4ac57f06d59cad3604d435ad13786ec4ae95f0efc935a",
+      "actualContentDigest": "sha256:491c509ac99f95c814f6809bd40e9f41dddb7dccfeb9dea18cfafe890b99eaae"
+    },
+    {
+      "path": "tools/test-inventory/discovery.mjs",
+      "fixtureContentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
+      "actualContentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
+    },
+    {
+      "path": "tools/test-matrix/scheduler.mjs",
+      "fixtureContentDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+      "actualContentDigest": "sha256:fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631"
+    },
+    {
+      "path": "tools/test/bundles/bundle-steps.mjs",
+      "fixtureContentDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727",
+      "actualContentDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad"
+    }
+  ],
+  "qualification": false
+}

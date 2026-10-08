@@ -1,0 +1,38 @@
+{
+  "sourceCommit": "c780d91b5bf71032458d2b0ebcc273a1623f13be",
+  "baseCommit": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "reviewedSource": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "observedUtc": "2026-10-08T13:16:35.109511+00:00",
+  "paths": [
+    {
+      "path": "tests/tools/atomic-producer-compiler.test.mjs",
+      "reviewedBlob": "d3c80b3db8ea2438971a0a93b646efd9966c2047",
+      "candidateBlob": "d3c80b3db8ea2438971a0a93b646efd9966c2047"
+    },
+    {
+      "path": "tests/tools/correctness-seal-error-precedence.test.mjs",
+      "reviewedBlob": "c0421ac160fbd01d895445c1ad1364c537cd93eb",
+      "candidateBlob": "c0421ac160fbd01d895445c1ad1364c537cd93eb"
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/README.md",
+      "reviewedBlob": "122df0149aa473aaca35df0e3694308dff529e17",
+      "candidateBlob": "122df0149aa473aaca35df0e3694308dff529e17"
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/execution.mjs",
+      "reviewedBlob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda",
+      "candidateBlob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda"
+    },
+    {
+      "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+      "reviewedBlob": "a4554583b5761c898d3a1538ee7d348bf17093af",
+      "candidateBlob": "a4554583b5761c898d3a1538ee7d348bf17093af"
+    }
+  ],
+  "diffCheckExit": 0,
+  "directParent": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "trackedWorktreeChanges": "",
+  "testStatus": "BLOCKED: original module imports fail before all five finalizer and three approved atomic callback controls",
+  "sourceAndExecutionBindingStatus": "NOT_RUN: canonical imports and scheduler wiring absent from base. Fixture regeneration alone cannot declare a new route. Need parent-authorized exact prerequisite source/acceptance, not guessed framework."
+}

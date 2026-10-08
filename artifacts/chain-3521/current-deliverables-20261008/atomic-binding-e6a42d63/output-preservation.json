@@ -1,0 +1,878 @@
+{
+  "producerSourceCommit": "395703a20dc438cf5fc74a71287536e1fa7d16c1",
+  "fixtureAfterSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "existingDigestChanges": [
+    {
+      "before": {
+        "path": "tools/release/test-evidence-receipts-cli.mjs",
+        "contentDigest": "sha256:e4f1fd2773a6fef791a4ac57f06d59cad3604d435ad13786ec4ae95f0efc935a",
+        "indexDigest": "sha256:e4f1fd2773a6fef791a4ac57f06d59cad3604d435ad13786ec4ae95f0efc935a"
+      },
+      "after": {
+        "path": "tools/release/test-evidence-receipts-cli.mjs",
+        "contentDigest": "sha256:491c509ac99f95c814f6809bd40e9f41dddb7dccfeb9dea18cfafe890b99eaae",
+        "indexDigest": "sha256:491c509ac99f95c814f6809bd40e9f41dddb7dccfeb9dea18cfafe890b99eaae"
+      }
+    },
+    {
+      "before": {
+        "path": "tools/test-inventory/discovery.mjs",
+        "contentDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665",
+        "indexDigest": "sha256:305c6ee5b38118f90443afb99abe8e2f8743d734b20f939f5d42d09f4ea66665"
+      },
+      "after": {
+        "path": "tools/test-inventory/discovery.mjs",
+        "contentDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa",
+        "indexDigest": "sha256:721dc0a76f3aa80b9a4c5f60e51dac07c7f31fd58a6038bd396cbe0851ec39aa"
+      }
+    },
+    {
+      "before": {
+        "path": "tools/test-matrix/scheduler.mjs",
+        "contentDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7",
+        "indexDigest": "sha256:449d182ded10c8000a6e0793edec43431e209dd1a0298878bc7974dfd90e64c7"
+      },
+      "after": {
+        "path": "tools/test-matrix/scheduler.mjs",
+        "contentDigest": "sha256:fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631",
+        "indexDigest": "sha256:fb09ae4aa7c688436304b7269f5c4e517254b2ad70deca51ca0127415245b631"
+      }
+    },
+    {
+      "before": {
+        "path": "tools/test/bundles/bundle-steps.mjs",
+        "contentDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727",
+        "indexDigest": "sha256:8b1b875a804be78e91aa439a217f1004fbd8c0a35e0623b7b359d5e39d67a727"
+      },
+      "after": {
+        "path": "tools/test/bundles/bundle-steps.mjs",
+        "contentDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad",
+        "indexDigest": "sha256:051a1477f86a8b31827af82e548d5eaaf1282e19ff23d58367f61e658e0be5ad"
+      }
+    }
+  ],
+  "addedClosedFiles": [
+    {
+      "path": "tools/release/correctness-provisional-receipt.mjs",
+      "contentDigest": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f",
+      "indexDigest": "sha256:52fd5b34b4033bddbb6803b307261fa7453772c51064c01cc9ac4a99abfefe0f"
+    },
+    {
+      "path": "tools/release/correctness-scheduler-authority.mjs",
+      "contentDigest": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47",
+      "indexDigest": "sha256:40d8ca3f06d8789a8130727b2c3e31af22eaedaeded516449fd7cb52e5df2e47"
+    },
+    {
+      "path": "tools/release/correctness-terminal-receipt.mjs",
+      "contentDigest": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df",
+      "indexDigest": "sha256:5b2f2cd51ea3517a55844581b9947897e87c18d6ad1d960cc99d4ac9a69a18df"
+    },
+    {
+      "path": "tools/release/correctness-terminal-seal-journal.mjs",
+      "contentDigest": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22",
+      "indexDigest": "sha256:dc92b41b8ff6d02123cfe9f0fe09011ee3729d230ad0cc4f856698cd5fcd2f22"
+    },
+    {
+      "path": "tools/test-matrix/correctness-input-manifest.mjs",
+      "contentDigest": "sha256:63b57c873c46fd9ec402acd6c0c5504d973b5b9e160d50f196ed3995b4d17627",
+      "indexDigest": "sha256:63b57c873c46fd9ec402acd6c0c5504d973b5b9e160d50f196ed3995b4d17627"
+    },
+    {
+      "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+      "contentDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e",
+      "indexDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e"
+    }
+  ],
+  "closedFilesRemoved": [],
+  "targetCount": 102,
+  "targetsWithDependencyAdditions": [
+    {
+      "target": "tools/coverage/collect-backend-coverage.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/run-test-matrix.mjs",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test-matrix/source-governance.mjs",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/acceptance-playwright.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/aeds-compression-profile.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/aeds-frame-cost.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/article-private-preview.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-api-integration.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-auth-state-machine.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-benchmark-regression.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-build-governance.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-concurrency.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-fast.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-golden.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-mutation-changed-critical.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-mutation.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-property.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-test-governance.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/backend-unit.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/behavior-test-evidence.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/bootstrap-acceptance-env.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/browser-contract.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/browser-diagnostics.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/browser-runtime-risk-diagnostics.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/cross-browser-smoke.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/cross-stack-contract.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/csrf-browser-matrix.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/data-scale.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/distributed-contract-fast.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/fault-injection.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/frontend-build.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/frontend-property-model-perf.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/frontend-runtime-contracts.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/frontend-static-governance.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/frontend-unit-shard.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/homogeneous-two-node-fixture.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/load-smoke.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/perception-v2-test-matrix.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/perf-regression.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/plan-pr-risk.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/privacy-zk-comment-matrix.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/production-correctness-receipt.sh",
+      "addedDependencies": [
+        "tools/contracts/behavior-owner-binding.mjs",
+        "tools/contracts/lib/config-error-security-observation.mjs",
+        "tools/docs/behavior-doc-minimal-contract-build.mjs",
+        "tools/docs/behavior-doc-static-admission.mjs",
+        "tools/docs/doc-claim-staleness-mutation/catalog.mjs",
+        "tools/docs/doc-claim-staleness-mutation/fixture.mjs",
+        "tools/docs/doc-claim-staleness-mutation/governance.mjs",
+        "tools/docs/doc-claim-staleness-mutation/layers.mjs",
+        "tools/docs/doc-claim-staleness-mutation/runner.mjs",
+        "tools/docs/generated-fact-sections/governance.mjs",
+        "tools/docs/prose-claim-verifier/governance.mjs",
+        "tools/fact-extractors/governance.mjs",
+        "tools/fact-extractors/runner.mjs",
+        "tools/governance/check-monolithic-distributed-architecture.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-fixtures/services/mysql.mjs",
+        "tools/test-matrix/artifact-digest-table.mjs",
+        "tools/test-matrix/async-log-pipeline.mjs",
+        "tools/test-matrix/behavior-doc-static-admission-contract.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/execution-envelope-policy.mjs",
+        "tools/test-matrix/local-profile.mjs",
+        "tools/test-matrix/mysql-fixture-recovery.mjs",
+        "tools/test-matrix/pr-impact-plan.mjs",
+        "tools/test-matrix/priority-score.mjs",
+        "tools/test-matrix/production-build-layout.mjs",
+        "tools/test-matrix/production-capacity-reservation.mjs",
+        "tools/test-matrix/production-disk-demand.mjs",
+        "tools/test-matrix/production-fresh-exclusive-lease.mjs",
+        "tools/test-matrix/production-fresh-orphan-runtime-discovery.mjs",
+        "tools/test-matrix/production-fresh-port-lease.mjs",
+        "tools/test-matrix/production-resource-enforcement.mjs",
+        "tools/test-matrix/production-systemd-resource-boundary.mjs",
+        "tools/test-matrix/release-final-spawn-seal.mjs",
+        "tools/test-matrix/release-final-static-boundary.mjs",
+        "tools/test-matrix/release-reliability-scheduler-projection.mjs",
+        "tools/test-matrix/resident-resource-leases.mjs",
+        "tools/test-matrix/resource-utilization.mjs",
+        "tools/test-matrix/scheduler-admission-support.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "tools/test-matrix/scheduler.mjs",
+        "tools/test-matrix/windows-job-members.mjs",
+        "tools/test/behavior-doc-nuget-preparation.mjs",
+        "tools/test/current-run-evidence-checkpoint.mjs",
+        "tools/test/current-run-evidence-publication.mjs",
+        "tools/test/data-scale-disk-demand.mjs",
+        "tools/test/data-scale-runtime-admission.mjs",
+        "tools/test/data-scale-runtime-caller.mjs",
+        "tools/test/data-scale-runtime-owner.mjs",
+        "tools/test/data-scale-runtime-resource-pool.mjs",
+        "tools/test/data-scale-runtime-scheduler-owner.mjs",
+        "tools/test/execution-envelope-directories.mjs",
+        "tools/test/execution-envelope-environment.mjs",
+        "tools/test/execution-envelope-network.mjs",
+        "tools/test/execution-envelope-receipt.mjs",
+        "tools/test/execution-envelope-services.mjs",
+        "tools/test/execution-failure-diagnostic.mjs",
+        "tools/test/execution-replay-contract.mjs",
+        "tools/test/mysql-fixture-admission.mjs",
+        "tools/test/physical-execution-linux-systemd-adapter.mjs",
+        "tools/test/physical-execution-nested-channel.mjs",
+        "tools/test/physical-execution-private-dotnet-scratch.mjs",
+        "tools/test/physical-execution-process-tree.mjs",
+        "tools/test/physical-execution-systemd-sender.mjs",
+        "tools/test/physical-execution-windows-job-adapter.mjs",
+        "tools/test/playwright-browser-identity.mjs",
+        "tools/test/release-reliability-receipt.mjs",
+        "tools/test/run-deterministic-command.mjs",
+        "tools/test/run-once.mjs",
+        "tools/test/scheduler-replay-contract.mjs",
+        "tools/test/system-memory.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/production-xss-fast.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/production-xss-release.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/release-evidence.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/release-final.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/release-public.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/resilience-runtime.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/risk-control-test-matrix.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/runtime-integration.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/security-runtime.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/soak.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/static-governance.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-boundaries.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-smoke.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/ux-viewport-visual.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/visual-console-playwright.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/lanes/visual-public-playwright.sh",
+      "addedDependencies": [
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/run-matrix-governance-once.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/run-release-reliability-qualified-local.sh",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/run-release-reliability-scenarios.mjs",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    },
+    {
+      "target": "tools/test/run-runtime-order-equivalence.mjs",
+      "addedDependencies": [
+        "tools/release/browser-contract-receipt-contract.mjs",
+        "tools/release/correctness-provisional-receipt.mjs",
+        "tools/release/correctness-scheduler-authority.mjs",
+        "tools/release/correctness-terminal-receipt.mjs",
+        "tools/release/correctness-terminal-seal-journal.mjs",
+        "tools/test-matrix/correctness-input-manifest.mjs",
+        "tools/test-matrix/scheduler-correctness-finalizer.mjs"
+      ]
+    }
+  ],
+  "allTargetOwnersDeclarationsContentAndIndexDigestsUnchanged": true,
+  "headerParserIdentityIndependentIndexUnchanged": true,
+  "boundActualChangedSources": [
+    "tools/release/correctness-provisional-receipt.mjs",
+    "tools/release/correctness-scheduler-authority.mjs",
+    "tools/release/correctness-terminal-receipt.mjs",
+    "tools/release/correctness-terminal-seal-journal.mjs",
+    "tools/release/test-evidence-receipts-cli.mjs",
+    "tools/test-matrix/correctness-input-manifest.mjs",
+    "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+    "tools/test-matrix/scheduler.mjs",
+    "tools/test/bundles/bundle-steps.mjs"
+  ],
+  "preexistingCurrentSourceDrift": {
+    "path": "tools/test-inventory/discovery.mjs",
+    "candidateAndBaseBlob": "321a60d2ed1a2ce70cad0daae74334e8899e9bb6",
+    "sourceIsUnchangedAgainstBase": true,
+    "qualification": "fresh canonical output consumes the real unchanged source; not declared as a candidate source change"
+  },
+  "parentReportedElevenDrifts": "Original consumer error roster requested; our producer changes 10 closed-file records plus target dependencies. No invented eleventh source.",
+  "sameBytesAsEarlierCanonicalOutput": "Observed hash equality only; original producer executed at exact395703a2, no old receipt copied.",
+  "heldScenariosExecuted": false,
+  "qualification": false
+}

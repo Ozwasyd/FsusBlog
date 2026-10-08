@@ -1,0 +1,18 @@
+{
+  "key": "producer-fixed-point",
+  "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "cwd": "/workspace/FsusBlog-scheduler-fixture-p2",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-08T10:50:47.320853+00:00",
+  "completedUtc": "2026-10-08T10:53:13.541804+00:00",
+  "elapsedSeconds": 146.221,
+  "exitCode": 0,
+  "pid": 534548,
+  "logSha256": "0647c3a90bb5ef95d0b95721d472c3c80c8723ac60fbdc4cab2cbeebf32dcd97",
+  "logBytes": 258,
+  "rawLogArchive": "producer-fixed-point.log.gz",
+  "qualification": false
+}

@@ -1,0 +1,15 @@
+{
+  "sourceCommit": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-08T10:46:31.736140+00:00",
+  "completedUtc": "2026-10-08T10:49:00.593229+00:00",
+  "elapsedSeconds": 148.857,
+  "pid": 531052,
+  "exitCode": 0,
+  "logSha256": "0421b2492bc2899d1c14dbf12e3029c2086774beae124c4781f763e96fa8ecdc",
+  "fixtureSha256": "ca643ebf3c6e4a4b34bc37f48496c2aacf44f6f6c311727d7c8b17f0990ae567",
+  "qualification": false
+}

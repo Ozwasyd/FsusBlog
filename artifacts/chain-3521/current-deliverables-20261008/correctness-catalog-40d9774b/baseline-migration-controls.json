@@ -1,0 +1,19 @@
+{
+  "key": "baseline-migration-controls",
+  "sourceCommit": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-current",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/correctness-attempt-migration.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T12:57:28.091518+00:00",
+  "completedUtc": "2026-10-08T12:57:28.409337+00:00",
+  "elapsedSeconds": 0.318,
+  "exitCode": 1,
+  "pid": 602006,
+  "logSha256": "82b15d9192076fa6ad762cdeb9d07d67dd2ad9e061af905d1a06d8be4b511d02",
+  "logBytes": 1116,
+  "rawLogArchive": "baseline-migration-controls.log.gz",
+  "qualification": false
+}

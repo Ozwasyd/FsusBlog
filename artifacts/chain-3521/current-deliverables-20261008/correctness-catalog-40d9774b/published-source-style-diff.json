@@ -1,0 +1,612 @@
+{
+    "schema": "fsusblog.frontend-style-source-diff.v1",
+    "baseCommit": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+    "candidateCommit": "a8d854853a23ab8ba5cb003e4a519c2fe26ee431",
+    "configurationIdentities": [
+        {
+            "file": "config/development/frontend-style-policy.json",
+            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        },
+        {
+            "file": "config/development/frontend-style-rule-registry.json",
+            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/package.json",
+            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/package-lock.json",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+        },
+        {
+            "file": ".editorconfig",
+            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+        },
+        {
+            "file": "eslint.config.mjs",
+            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+        },
+        {
+            "file": "stylelint.config.mjs",
+            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+        },
+        {
+            "file": "src/frontend/eslint.config.mjs",
+            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+        },
+        {
+            "file": "src/frontend/stylelint.config.mjs",
+            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+        },
+        {
+            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+        }
+    ],
+    "qualification": false,
+    "files": [
+        {
+            "file": "tests/tools/correctness-attempt-migration.test.mjs",
+            "baseSourceSha256": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980",
+            "candidateSourceSha256": "0103479f0ce7ccf2a30a6a2460fd3fcb82f48e8b518c6c14528a4c548fa1aac7",
+            "rawBase": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-correctness-catalog-current/.tmp/frontend-style/source-diff-base-eF4CdL/tests/tools/correctness-attempt-migration.test.mjs",
+                        "messages": [],
+                        "suppressedMessages": [
+                            {
+                                "ruleId": "import-x/no-relative-parent-imports",
+                                "severity": 2,
+                                "message": "Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `correctness-attempt-migration.test.mjs` to same directory as `../../tools/test/correctness-attempt-migration.mjs` or consider making `../../tools/test/correctness-attempt-migration.mjs` a package.",
+                                "line": 8,
+                                "column": 8,
+                                "messageId": "noAllowed",
+                                "endLine": 8,
+                                "endColumn": 60,
+                                "suppressions": [
+                                    {
+                                        "kind": "directive",
+                                        "justification": "This contract test imports the repository tool under test."
+                                    }
+                                ]
+                            }
+                        ],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-correctness-catalog-current/tests/tools/correctness-attempt-migration.test.mjs",
+                        "messages": [],
+                        "suppressedMessages": [
+                            {
+                                "ruleId": "import-x/no-relative-parent-imports",
+                                "severity": 2,
+                                "message": "Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `correctness-attempt-migration.test.mjs` to same directory as `../../tools/test/correctness-attempt-migration.mjs` or consider making `../../tools/test/correctness-attempt-migration.mjs` a package.",
+                                "line": 8,
+                                "column": 8,
+                                "messageId": "noAllowed",
+                                "endLine": 8,
+                                "endColumn": 60,
+                                "suppressions": [
+                                    {
+                                        "kind": "directive",
+                                        "justification": "This contract test imports the repository tool under test."
+                                    }
+                                ]
+                            },
+                            {
+                                "ruleId": "import-x/no-relative-parent-imports",
+                                "severity": 2,
+                                "message": "Relative imports from parent directories are not allowed. Please either pass what you're importing through at runtime (dependency injection), move `correctness-attempt-migration.test.mjs` to same directory as `../../tools/test/correctness-attempt-producers.mjs` or consider making `../../tools/test/correctness-attempt-producers.mjs` a package.",
+                                "line": 9,
+                                "column": 58,
+                                "messageId": "noAllowed",
+                                "endLine": 9,
+                                "endColumn": 110,
+                                "suppressions": [
+                                    {
+                                        "kind": "directive",
+                                        "justification": "This contract test imports the repository tool under test."
+                                    }
+                                ]
+                            }
+                        ],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": {
+                "base": {
+                    "sourcePath": "tests/tools/correctness-attempt-migration.test.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                            "specifier": "../../tools/test/correctness-attempt-migration.mjs",
+                            "kind": "repository",
+                            "path": "tools/test/correctness-attempt-migration.mjs",
+                            "blob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+                            "sha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+                        },
+                        {
+                            "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                            "specifier": "node:assert/strict",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        },
+                        {
+                            "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                            "specifier": "node:test",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        }
+                    ]
+                },
+                "candidate": {
+                    "sourcePath": "tests/tools/correctness-attempt-migration.test.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                            "specifier": "../../tools/test/correctness-attempt-migration.mjs",
+                            "kind": "repository",
+                            "path": "tools/test/correctness-attempt-migration.mjs",
+                            "blob": "21c4c489e99bccdb9a8bd64d9f1b3dbe863f8212",
+                            "sha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e"
+                        },
+                        {
+                            "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                            "specifier": "../../tools/test/correctness-attempt-producers.mjs",
+                            "kind": "repository",
+                            "path": "tools/test/correctness-attempt-producers.mjs",
+                            "blob": "79d189041567a6c916456f9688e324cb17a9cab7",
+                            "sha256": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e"
+                        },
+                        {
+                            "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                            "specifier": "node:assert/strict",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        },
+                        {
+                            "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                            "specifier": "node:test",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        }
+                    ]
+                }
+            },
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        },
+        {
+            "file": "tools/test/correctness-attempt-migration.mjs",
+            "baseSourceSha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
+            "candidateSourceSha256": "f3e73793fcce521925553b22effb801841c3f01e911de74361fb119eb494378e",
+            "rawBase": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-correctness-catalog-current/.tmp/frontend-style/source-diff-base-eF4CdL/tools/test/correctness-attempt-migration.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "rawCandidate": {
+                "exitCode": 0,
+                "reports": [
+                    {
+                        "filePath": "/workspace/FsusBlog-correctness-catalog-current/tools/test/correctness-attempt-migration.mjs",
+                        "messages": [],
+                        "suppressedMessages": [],
+                        "errorCount": 0,
+                        "fatalErrorCount": 0,
+                        "warningCount": 0,
+                        "fixableErrorCount": 0,
+                        "fixableWarningCount": 0,
+                        "usedDeprecatedRules": []
+                    }
+                ],
+                "findings": []
+            },
+            "importContext": {
+                "base": {
+                    "sourcePath": "tools/test/correctness-attempt-migration.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "./attempt-provenance.mjs",
+                            "kind": "repository",
+                            "path": "tools/test/attempt-provenance.mjs",
+                            "blob": "810164e738a37ad745a78ee2213060743879973d",
+                            "sha256": "588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "./correctness-attempt-producers.mjs",
+                            "kind": "repository",
+                            "path": "tools/test/correctness-attempt-producers.mjs",
+                            "blob": "79d189041567a6c916456f9688e324cb17a9cab7",
+                            "sha256": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "node:fs",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "node:path",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "node:url",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        }
+                    ]
+                },
+                "candidate": {
+                    "sourcePath": "tools/test/correctness-attempt-migration.mjs",
+                    "configurationIdentities": [
+                        {
+                            "file": ".editorconfig",
+                            "sha256": "24949667312110a6c830875b44945b2a80de46c8d0f3aef575be2f1502e70d26"
+                        },
+                        {
+                            "file": "config/development/frontend-style-policy.json",
+                            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+                        },
+                        {
+                            "file": "config/development/frontend-style-rule-registry.json",
+                            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+                        },
+                        {
+                            "file": "eslint.config.mjs",
+                            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+                        },
+                        {
+                            "file": "src/frontend/eslint.config.mjs",
+                            "sha256": "12925f8af100c4539ea9890ef00bd92c955903dcdaa0ecb48f206a13f9e58e41"
+                        },
+                        {
+                            "file": "src/frontend/stylelint.config.mjs",
+                            "sha256": "85ef57f9634401236dc48d7e0db67e1908db33c62e0bc12ba298a3c05dd389bf"
+                        },
+                        {
+                            "file": "stylelint.config.mjs",
+                            "sha256": "578d9f3ba84261849c3d1eb97b3dc465f0b6161efc52a875fd3295262efce925"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/eslint.config.mjs",
+                            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package-lock.json",
+                            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/package.json",
+                            "sha256": "aa097ffb87b819ab18a3a67aa8fdc10d37753fad28f43c26191aec87a8ab5f95"
+                        },
+                        {
+                            "file": "tools/frontend/style-toolchain/stylelint.config.mjs",
+                            "sha256": "3e4f6abcba4badae3b5f916667d2b5ffa40fbd35e8558ca96cc8f31f546369fe"
+                        }
+                    ],
+                    "dependencies": [
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "./attempt-provenance.mjs",
+                            "kind": "repository",
+                            "path": "tools/test/attempt-provenance.mjs",
+                            "blob": "810164e738a37ad745a78ee2213060743879973d",
+                            "sha256": "588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "./correctness-attempt-producers.mjs",
+                            "kind": "repository",
+                            "path": "tools/test/correctness-attempt-producers.mjs",
+                            "blob": "79d189041567a6c916456f9688e324cb17a9cab7",
+                            "sha256": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "node:fs",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "node:path",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        },
+                        {
+                            "owner": "tools/test/correctness-attempt-migration.mjs",
+                            "specifier": "node:url",
+                            "kind": "builtin",
+                            "nodeVersion": "v24.16.0"
+                        }
+                    ]
+                }
+            },
+            "existing": [],
+            "unexpected": [],
+            "failure": null
+        }
+    ],
+    "failures": [],
+    "toolVersions": {
+        "eslint": "10.8.0",
+        "espree": "10.4.0",
+        "eslint-scope": "9.1.2"
+    },
+    "baseResolverInputs": {
+        "baseCommit": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+        "files": [
+            {
+                "file": "tests/tools/correctness-attempt-migration.test.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "470d1c518eb69e2e370570d6393b66ad00969afd",
+                "size": 2983,
+                "sha256": "d8a2bc6e0d66f24addb821b48c11b69229fc55a3bd929e6e9d550e5515a49980",
+                "bytes": 2983
+            },
+            {
+                "file": "tests/tools/package.json",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "e87915fda143144d01e6342e0995b2a61d3dc857",
+                "size": 182,
+                "sha256": "553a3def95f5b06bde33391361004fcd540a1d6f395f577a9227d20879e8b251",
+                "bytes": 182
+            },
+            {
+                "file": "tools/package.json",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "723791a9b54fec7e5dcf4d304a74e010f8ca66fd",
+                "size": 417,
+                "sha256": "ffac7ad8e589e84c0278480f5dd405983d45c28ac76ceddfd51b316a0ad636bd",
+                "bytes": 417
+            },
+            {
+                "file": "tools/test/attempt-provenance.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "810164e738a37ad745a78ee2213060743879973d",
+                "size": 27516,
+                "sha256": "588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e",
+                "bytes": 27516
+            },
+            {
+                "file": "tools/test/correctness-attempt-migration.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+                "size": 4112,
+                "sha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502",
+                "bytes": 4112
+            },
+            {
+                "file": "tools/test/correctness-attempt-producers.mjs",
+                "mode": "100644",
+                "kind": "blob",
+                "blob": "79d189041567a6c916456f9688e324cb17a9cab7",
+                "size": 10078,
+                "sha256": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e",
+                "bytes": 10078
+            }
+        ],
+        "dependencies": [
+            {
+                "owner": "tests/tools/correctness-attempt-migration.test.mjs",
+                "specifier": "../../tools/test/correctness-attempt-migration.mjs",
+                "path": "tools/test/correctness-attempt-migration.mjs",
+                "blob": "03cc98b74786d6a2d4c80337b57dd093f74ebb39",
+                "sha256": "1a051f03d7870391e01eed4ecf18ff65fa6e0c39e119089a9370c854598e7502"
+            },
+            {
+                "owner": "tools/test/correctness-attempt-migration.mjs",
+                "specifier": "./attempt-provenance.mjs",
+                "path": "tools/test/attempt-provenance.mjs",
+                "blob": "810164e738a37ad745a78ee2213060743879973d",
+                "sha256": "588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e"
+            },
+            {
+                "owner": "tools/test/correctness-attempt-migration.mjs",
+                "specifier": "./correctness-attempt-producers.mjs",
+                "path": "tools/test/correctness-attempt-producers.mjs",
+                "blob": "79d189041567a6c916456f9688e324cb17a9cab7",
+                "sha256": "05d79d2bdc0f709e6d1888c6a4ea1de66eeefba7aff7dfef264db5dc18b27d9e"
+            },
+            {
+                "owner": "tools/test/correctness-attempt-producers.mjs",
+                "specifier": "./attempt-provenance.mjs",
+                "path": "tools/test/attempt-provenance.mjs",
+                "blob": "810164e738a37ad745a78ee2213060743879973d",
+                "sha256": "588d132a5e30a772f1990a3ed3d3f0e9e774d7743d2a41f43b5149edbca8bf1e"
+            }
+        ],
+        "unresolved": [],
+        "totalBytes": 45288,
+        "purpose": "static ESLint resolver inputs; no imported module execution",
+        "qualification": false
+    },
+    "sourceCheckPassed": true
+}

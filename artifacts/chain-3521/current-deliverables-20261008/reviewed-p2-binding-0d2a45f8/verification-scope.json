@@ -1,0 +1,15 @@
+{
+  "candidate": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "allowedTests": "5 original finalizer ordinary Error controls and exact 3 original atomic terminal-publication controls",
+  "registeredAtomicCallbacks": 22,
+  "excludedAtomicCallbacksNotExecuted": 19,
+  "coupledFinalizerSuites": "NOT RUN",
+  "heldSemanticCohortTamperAuditsAndEquivalentHarnesses": "NOT RUN",
+  "fullSOURCE": "NOT RUN; original93/boundary103 receipts on frozen6ed not inherited",
+  "runtimeCohortHistoryQualification": false,
+  "twoProducerInvocations": "original supported writer, sequential generation at83 followed by fixed-point at publication candidate; no concurrent duplicate producer",
+  "generatorExecutesTargetCommands": false,
+  "newTestsOrEquivalentHarnesses": false,
+  "ledgerAndBackendHistorySurfacesChanged": false,
+  "independentReviewPending": true
+}

@@ -1,0 +1,23 @@
+{
+  "key": "verified-candidate-source",
+  "sourceCommit": "40d9774b3bab7e21b845984eff7e963d5c832c52",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-verified",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/run-test-matrix.mjs",
+    "ci-pr-smart",
+    "--stage",
+    "source-integration",
+    "--base-ref",
+    "5798707d359ce5ee57752aa868d0ccbf3f889494"
+  ],
+  "startedUtc": "2026-10-08T13:25:10.194174+00:00",
+  "completedUtc": "2026-10-08T13:26:08.590836+00:00",
+  "elapsedSeconds": 58.397,
+  "exitCode": 0,
+  "pid": 627764,
+  "logSha256": "de7857e90d4020bdf147ca412b5442af2ecac8750ffe0fab90ef8a7b2ef10ec1",
+  "logBytes": 10370,
+  "rawLogArchive": "verified-candidate-source.log.gz",
+  "qualification": false
+}

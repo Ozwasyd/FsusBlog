@@ -1,0 +1,14 @@
+{
+  "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "observedUtc": "2026-10-08T10:54:10.145328+00:00",
+  "producerExitCode": 0,
+  "fixtureByteIdenticalToPublishedGitBlob": true,
+  "fixtureSha256": "ca643ebf3c6e4a4b34bc37f48496c2aacf44f6f6c311727d7c8b17f0990ae567",
+  "worktreeClean": true,
+  "firstProducerPid": 531052,
+  "secondProducerPid": 534548,
+  "producerProcessesAliveAtFinalObservation": [],
+  "sequentialInvocations": true,
+  "heldCallbacksExecuted": false,
+  "qualification": false
+}

@@ -1,0 +1,16 @@
+{
+  "sourceCommit": "40d9774b3bab7e21b845984eff7e963d5c832c52",
+  "baseCommit": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "completeProducerRows": 226,
+  "allCompleteProducerRowsUnchanged": true,
+  "changedDocumentKeys": [
+    "sourceDigests",
+    "contentDigest"
+  ],
+  "catalogOutputSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+  "generatorSourceUnchanged": true,
+  "matrixSourceUnchanged": true,
+  "fullCanonicalRosterValidatorUnchanged": true,
+  "sourceCandidateTreeEqualsPreviousSourceVerifiedA8": true,
+  "qualification": false
+}

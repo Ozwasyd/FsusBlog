@@ -1,0 +1,18 @@
+{
+  "key": "verified-source-fixed-point",
+  "sourceCommit": "40d9774b3bab7e21b845984eff7e963d5c832c52",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-verified",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "startedUtc": "2026-10-08T13:21:46.204548+00:00",
+  "completedUtc": "2026-10-08T13:24:32.685087+00:00",
+  "elapsedSeconds": 166.481,
+  "exitCode": 0,
+  "pid": 624536,
+  "logSha256": "5b8515d57e157609ad3adc867d2511de9966d841bd776f76df62afbc3c2e5d23",
+  "logBytes": 258,
+  "rawLogArchive": "verified-source-fixed-point.log.gz",
+  "qualification": false
+}

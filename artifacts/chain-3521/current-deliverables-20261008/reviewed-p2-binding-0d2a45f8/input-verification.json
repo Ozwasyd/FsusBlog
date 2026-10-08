@@ -1,0 +1,109 @@
+{
+  "candidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "evidenceCommit": "7d47071eec6af1a096aec86cd577f0884fdc5ea9",
+  "master": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "cleanBeforeFirstWrite": true,
+  "evidenceFiles": [
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/finalizer-ordinary-errors.json",
+      "sha256": "ce32a9536e767bddf0ce7ddae5d72d9da91ac163090660660a2029effb07cbc0",
+      "bytes": 471
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/finalizer-ordinary-errors.log",
+      "sha256": "561db5439fcd614fe63449a1a9121de4fe1dcf83b217fd63af3f46e0bd5844e9",
+      "bytes": 593
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/atomic-publication-ordinary.json",
+      "sha256": "6d8e052b63f3e00a73073bc41bd931496f6be791171fe785cea6299aa5022f5a",
+      "bytes": 694
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/atomic-publication-ordinary.log",
+      "sha256": "7086530f7b6a80f0679ac74cde2d294b5b49f86d5ecd1d414455a1b8688914df",
+      "bytes": 420
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-eslint.json",
+      "sha256": "6eb6d293d371c913a75098a83323ce8d2d511150ba45cb75d729228234198cc9",
+      "bytes": 677
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-eslint.log",
+      "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+      "bytes": 0
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-markdown.json",
+      "sha256": "ab8583a13dc48f25929462a80cf21f69a4d6c37911f7acbcdcd26d669e9efe6a",
+      "bytes": 666
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/changed-markdown.log",
+      "sha256": "b608acafb63a002126a587f683eb22e426cb681ff44d215c85f96dee49eb5ec4",
+      "bytes": 111
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/bounded-range.json",
+      "sha256": "72ce8ece9d9e0355105d952621811bcf3d33d751df45e83abceeb276476ab153",
+      "bytes": 526
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/bounded-range.log",
+      "sha256": "11a2c5fe9416c9d2836fb6571b67983aba86132ec75266d39929d27a9a10c83a",
+      "bytes": 117
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/composition-provenance.json",
+      "sha256": "799a391cee73bae418a8f0320169e979a300b08387bcdf27bd5dd7115373422e",
+      "bytes": 2139
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/pre-test-import-hook-check.json",
+      "sha256": "29b4c26d5bee71eb2a5107a88ec0bfe832057adddfa4b9a313babc5ddf5e22df",
+      "bytes": 4426
+    },
+    {
+      "path": "artifacts/scheduler-terminal-handoff/83d4908a/canonical-binding-request.json",
+      "sha256": "7f56e4de725ea138d8cc9f7491a0a23b46b699ec81290074fa4bf569bbb60b0d",
+      "bytes": 1425
+    }
+  ],
+  "ownerBlobs": [
+    {
+      "path": "tests/tools/atomic-producer-compiler.test.mjs",
+      "owner": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "blob": "d3c80b3db8ea2438971a0a93b646efd9966c2047",
+      "sha256": "98edee8fe3e6fbe304d4f8ee5430b1cdb7355ea5cedfdaa6d60c49a764df2e76"
+    },
+    {
+      "path": "tests/tools/correctness-seal-error-precedence.test.mjs",
+      "owner": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+      "blob": "c0421ac160fbd01d895445c1ad1364c537cd93eb",
+      "sha256": "e96a54fdd39f7be7eabf087f70c9ada1de22af7270188957707aa6e83a6fc8e8"
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/README.md",
+      "owner": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "blob": "122df0149aa473aaca35df0e3694308dff529e17",
+      "sha256": "ba0e2c68be7940631d1808e2680c080ed613a469abfced856c4dd5ee2de87131"
+    },
+    {
+      "path": "tools/test-matrix/atomic-producers/execution.mjs",
+      "owner": "5c1b8cd7a9dd4e3902d38f1ce451b4c8998f907f",
+      "blob": "8de3589ece367f3f8a6029f0b0dce0d8a5e03bda",
+      "sha256": "b8c6db1665e4e6cd6a970c48af9c38e466cc276f88b23fef5314ea43c2ea8d5f"
+    },
+    {
+      "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+      "owner": "dbda69ceb81e5c79481db2e13515e7371a6d291e",
+      "blob": "a4554583b5761c898d3a1538ee7d348bf17093af",
+      "sha256": "4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312"
+    }
+  ],
+  "frozenIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "oldBindingUnchanged": true,
+  "matrixUnchanged": true,
+  "qualification": false
+}

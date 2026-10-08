@@ -1,0 +1,10 @@
+{
+  "sourceCommit": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "startedUtc": "2026-10-08T10:46:31.736140+00:00",
+  "pid": 531052,
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/test-matrix/generate-release-final-execution-authority.mjs"
+  ],
+  "nodeVersion": "v24.16.0"
+}

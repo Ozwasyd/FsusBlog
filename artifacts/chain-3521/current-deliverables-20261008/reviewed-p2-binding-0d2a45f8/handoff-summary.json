@@ -1,0 +1,95 @@
+{
+  "repository": "Ozwasyd/FsusBlog",
+  "runIdentity": "chain3521-ordinary-p2-binding-0d2a45f8-20261008",
+  "coordinator": "01a119be-e15d-7134-badb-2af41ed14004",
+  "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "sourceBranch": "codex/chain-3521-scheduler-fixture-p2",
+  "suppliedCandidate": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "suppliedEvidenceCommit": "7d47071eec6af1a096aec86cd577f0884fdc5ea9",
+  "frozenCandidate": "6ed505c7a47029463d979682ad64fa8fbd58ba25",
+  "actualMasterAtStart": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "remoteSourceVerified": true,
+  "currentIncrementChangedFiles": [
+    "artifacts/change-contract/scheduler-terminal-p2-execution-generated-binding.json",
+    "tests/fixtures/test-matrix/release-final-execution-target-authority.json"
+  ],
+  "fixtureSha256": "ca643ebf3c6e4a4b34bc37f48496c2aacf44f6f6c311727d7c8b17f0990ae567",
+  "changedClosedSource": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+  "closedContentAndIndexDigest": "sha256:4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312",
+  "independentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "all102TargetRecordsPreserved": true,
+  "all1134ClosedPathsPreserved": true,
+  "oldBindingMatrixLedgerAndFiveOwnerBlobsPreserved": true,
+  "originalProducer": {
+    "sourceCommit": "83d4908a1420c519dddb5fbb87f225880a731f13",
+    "exitCode": 0,
+    "elapsedSeconds": 148.857,
+    "startedUtc": "2026-10-08T10:46:31.736140+00:00",
+    "completedUtc": "2026-10-08T10:49:00.593229+00:00"
+  },
+  "publicationFixedPoint": {
+    "key": "producer-fixed-point",
+    "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+    "cwd": "/workspace/FsusBlog-scheduler-fixture-p2",
+    "command": [
+      "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+      "tools/test-matrix/generate-release-final-execution-authority.mjs"
+    ],
+    "startedUtc": "2026-10-08T10:50:47.320853+00:00",
+    "completedUtc": "2026-10-08T10:53:13.541804+00:00",
+    "elapsedSeconds": 146.221,
+    "exitCode": 0,
+    "pid": 534548,
+    "logSha256": "0647c3a90bb5ef95d0b95721d472c3c80c8723ac60fbdc4cab2cbeebf32dcd97",
+    "logBytes": 258,
+    "rawLogArchive": "producer-fixed-point.log.gz",
+    "qualification": false
+  },
+  "publicationOriginalControls": {
+    "finalizer": {
+      "tests": 5,
+      "pass": 5,
+      "fail": 0,
+      "skipped": 0,
+      "exitCode": 0
+    },
+    "atomic": {
+      "registered": 22,
+      "selectedTests": 3,
+      "pass": 3,
+      "fail": 0,
+      "skipped": 0,
+      "excludedNotExecuted": 19,
+      "exitCode": 0
+    }
+  },
+  "styleAndRange": {
+    "fourJSFilesESLintExitCode": 0,
+    "oneMarkdownPinnedLintExitCode": 0,
+    "boundedRangeExitCode": 0,
+    "diffCheckExitCode": 0
+  },
+  "fullSOURCE": "NOT RUN on this candidate; no frozen success receipt inherited",
+  "fullBoundary103": "NOT RUN",
+  "coupledFinalizerSuites": "NOT RUN",
+  "heldSemanticCohortTamperAuditsAndEquivalentHarnesses": "NOT RUN",
+  "runtimeCohortHistoricalQualification": false,
+  "independentReviewPending": true,
+  "ordinaryBoundedBindingIncrementComplete": true,
+  "roots": {
+    "3521": "OPEN: independent exact current epoch owner-controlled history policy promotion remains blocked",
+    "3520": "OPEN: dependent canonical history repair admission remains blocked"
+  },
+  "other103AssignedIssues": "Canonical disjoint owners retained per coordinator split; no implementation or acceptance granted here",
+  "separateLedgerIncrement": {
+    "source": "b70d3115e66a28c76e3c4497f1fe509da37f2e30",
+    "evidence": "29d4a99436dec6bddf7c92d13e74e32f97224c0d",
+    "independentRecheck": "PENDING; distinct from this scheduler binding",
+    "MigrationAudit35References": "BLOCKED and unchanged"
+  },
+  "chainComplete": false,
+  "issuesClosed": false,
+  "newPRCreated": false,
+  "PRQueue": "GitHub content-write queue retained; local pr-body-draft.md is not accepted live PR metadata",
+  "parentNextAction": "Consume exact source 0d2a45f8 only atop exact83d4908a for the ordinary two-P2 composition; complete existing bounded independent review and separately authorize any current SOURCE admission. Do not inherit6ed93/103 receipts or held-audit acceptance."
+}

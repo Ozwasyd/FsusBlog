@@ -1,0 +1,21 @@
+{
+  "key": "final-ordinary-seven",
+  "sourceCommit": "8a49fcaf871a01e0231e44ccb6ee694b1d25d17a",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-current",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/correctness-attempt-migration.test.mjs",
+    "tests/tools/correctness-attempt-test-producers.test.mjs",
+    "tests/tools/correctness-attempt-build-release.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T13:15:22.937680+00:00",
+  "completedUtc": "2026-10-08T13:15:23.561537+00:00",
+  "elapsedSeconds": 0.624,
+  "exitCode": 0,
+  "pid": 612405,
+  "logSha256": "4f895a6447ea0016ff0e5412d28fd7de4c8da75552d900251c2a0fdef23547f0",
+  "logBytes": 772,
+  "rawLogArchive": "final-ordinary-seven.log.gz",
+  "qualification": false
+}

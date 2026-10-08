@@ -1,0 +1,20 @@
+{
+  "key": "bounded-range",
+  "sourceCommit": "0d2a45f82914ac2b028324a1883f7cdcbafa9b2d",
+  "cwd": "/workspace/FsusBlog-scheduler-fixture-p2",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "6ed505c7a47029463d979682ad64fa8fbd58ba25..HEAD"
+  ],
+  "startedUtc": "2026-10-08T10:50:48.723666+00:00",
+  "completedUtc": "2026-10-08T10:50:52.227147+00:00",
+  "elapsedSeconds": 3.503,
+  "exitCode": 0,
+  "pid": 534649,
+  "logSha256": "bcb37d7757f52777944e1b1e034d688fd20ae96843a180d1bee02722f04a33ce",
+  "logBytes": 81,
+  "rawLogArchive": "bounded-range.log.gz",
+  "qualification": false
+}

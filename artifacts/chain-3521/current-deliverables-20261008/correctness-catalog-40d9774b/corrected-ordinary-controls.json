@@ -1,0 +1,21 @@
+{
+  "key": "corrected-ordinary-controls",
+  "sourceCommit": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-current",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/correctness-attempt-migration.test.mjs",
+    "tests/tools/correctness-attempt-test-producers.test.mjs",
+    "tests/tools/correctness-attempt-build-release.test.mjs"
+  ],
+  "startedUtc": "2026-10-08T13:01:50.652271+00:00",
+  "completedUtc": "2026-10-08T13:01:51.231325+00:00",
+  "elapsedSeconds": 0.579,
+  "exitCode": 0,
+  "pid": 604134,
+  "logSha256": "0503cbd9dbdbb0d0daab0acb8886aa09ab909ceccdb88646f3e5b8a6852fb954",
+  "logBytes": 773,
+  "rawLogArchive": "corrected-ordinary-controls.log.gz",
+  "qualification": false
+}

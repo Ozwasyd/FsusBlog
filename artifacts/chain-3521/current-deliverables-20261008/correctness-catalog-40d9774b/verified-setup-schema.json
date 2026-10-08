@@ -1,0 +1,24 @@
+{
+  "key": "verified-setup-schema",
+  "sourceCommit": "40d9774b3bab7e21b845984eff7e963d5c832c52",
+  "cwd": "/workspace/FsusBlog-correctness-catalog-verified",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/lib/node_modules/npm/bin/npm-cli.js",
+    "ci",
+    "--prefix",
+    "tools/configuration/schema-validator",
+    "--ignore-scripts",
+    "--no-audit",
+    "--no-fund"
+  ],
+  "startedUtc": "2026-10-08T13:21:46.163700+00:00",
+  "completedUtc": "2026-10-08T13:21:47.258124+00:00",
+  "elapsedSeconds": 1.094,
+  "exitCode": 1,
+  "pid": 624520,
+  "logSha256": "03ebe76098260c3ff0924a9ed4a988e6213b3f1d5fb9bf7ef037a47c4263672f",
+  "logBytes": 3328,
+  "rawLogArchive": "verified-setup-schema.log.gz",
+  "qualification": false
+}

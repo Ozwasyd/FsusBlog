@@ -1,0 +1,18 @@
+{
+  "base": "5798707d359ce5ee57752aa868d0ccbf3f889494",
+  "consumerSource": "b62ca4b1a666a9b63594fd4950db53167dfd6a2b",
+  "entries": 226,
+  "allEntryRowsUnchanged": true,
+  "orderedProducerIdSha256": "1b2e49ac73e14c9eb4d2356cfcea68c452ceef453724045dbe91e88c95b71717",
+  "completeEntryArraySha256": "72271c23b75eb6b01e98c2c095a5c0e7847d3d563a4369605a72005238f2e249",
+  "onlyCanonicalOutputFieldsChanged": [
+    "sourceDigests.tests/matrix.yml",
+    "contentDigest"
+  ],
+  "matrixSha256": "db612313706fa070e1cc6fa3734c3ab44f5b0e536e72908681b8fec67a093d03",
+  "originalGeneratedOutputSha256": "cb0f7b8dfd937619f712ac7f468bed86e230d4e49bcd987d494ea209eb082b42",
+  "originalMigrationBaseline": "after legitimate regeneration, original controls fail solely on obsolete 225 requirement; crossed execution-owner control passes",
+  "canonicalExactRosterValidatorUnchanged": true,
+  "historySnapshotsLedgerPolicyMatrixSchemaUnchanged": true,
+  "qualification": false
+}

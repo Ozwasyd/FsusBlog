@@ -1,0 +1,30 @@
+{
+  "producerSourceCommit": "83d4908a1420c519dddb5fbb87f225880a731f13",
+  "fixtureBeforeSha256": "8611eb05a7762979be2db15520fdb55da92582f275927eb040b8412c70f0458d",
+  "fixtureAfterSha256": "ca643ebf3c6e4a4b34bc37f48496c2aacf44f6f6c311727d7c8b17f0990ae567",
+  "independentIndexSha256": "6b300d847439000eb5865930325696cee56ac3a294e5b0b8e0978dcd570abcc5",
+  "fixtureHeaderUnchanged": true,
+  "closedFileCount": 1134,
+  "closedPathsUnchanged": true,
+  "changedClosedFiles": [
+    {
+      "before": {
+        "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "contentDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e",
+        "indexDigest": "sha256:568694b4c3b6214b13bf174850ce64aa173cc322e81ac9490a987b8612e8ef4e"
+      },
+      "after": {
+        "path": "tools/test-matrix/scheduler-correctness-finalizer.mjs",
+        "contentDigest": "sha256:4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312",
+        "indexDigest": "sha256:4ef6d5eec6c94b4a214c2787cc82129e346073ad0c8de9a5b41ebf3c8c44e312"
+      }
+    }
+  ],
+  "targetCount": 102,
+  "allTargetRecordsUnchanged": true,
+  "existingDependentTargetCount": 62,
+  "atomicExecutionNotInThisFixtureClosure": true,
+  "oldBindingAndMatrixUnchanged": true,
+  "productionTargetCommandsExecuted": false,
+  "qualification": false
+}
