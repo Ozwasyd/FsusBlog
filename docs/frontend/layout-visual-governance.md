@@ -75,3 +75,68 @@ external opener rather than the last internal rail control. A save conflict,
 publish blocker, or high-severity check remains discoverable as one low-noise action in the
 existing command/status surface and opens its owning view; the rail and command
 surface do not expose a persistent per-view count wall.
+
+## Composition contract definitions and identity
+
+Every existing representative in `layout-archetype-matrix.json` owns one
+`compositionContract`. The matrix retains its route and screenshot fields for
+fixture identity; the composition contract uses semantic region, owner, action,
+material and state IDs. It never treats a selector, current CSS, a historical
+snapshot or copied token values as design authority. The schema is
+`config/schemas/layout-composition-contract.schema.json`; the pure validator and
+identity functions are in
+`tests/frontend/support/layout/compositionContracts.mjs`.
+
+Contracts reference the current FsusUI design document and the maintained Blog
+governance, surface, public-layout, typography, task-geometry and page-title
+sources. They bind the existing matrix coverage, viewport corpus and available
+fixture sources rather than creating another representative-route or screenshot
+registry. State requirements live in the contract itself. A fixture source
+reference records provenance only: `pending-current-run` never claims that the
+state has been produced or accepted. A missing binding stays explicit with a
+null `fixtureRef` and its binding owner; unrelated loading/empty fixtures cannot
+stand in for a save, permission or icon-generation state.
+
+Action rules are exact-one or partitioned by one semantic state dimension.
+Exclusive cases cover all values of that dimension once. An explicitly passive
+case declares zero primary submit actions and retains only its named secondary
+actions; it does not manufacture a save button. Settings site, compliance and
+page publishing share the header authority, while media preferences have no
+submit action. Data previews and genuine status/risk regions retain their own
+roles and required boundaries; ordinary fields and repeated items remain flat.
+
+`createCompositionIdentity` binds the exact supplied source commit and existing
+FsusUI baseline receipt to the schema, validator content/version, semantic
+contracts, current design-document bytes, fixture sources, complete archetype
+matrix and sole visual ledger. Local and published baseline identities may
+differ; the semantic contract and schema do not branch by mode. Callers must
+resolve and verify their actual effective design source and baseline, including
+published provenance; merely finding a local checkout does not qualify a
+published package. `verifyCompositionIdentity` rejects stale or tampered
+bindings. Changing a route or screenshot target changes fixture identity without
+redefining the semantic contract.
+
+The current contract-definition result is `contract-defined`, with explicit
+pending capability and state bindings. `requireCompositionRuntimeBindings`
+rejects these pending bindings. These functions perform no SFC/DOM analysis,
+browser execution, rendered visual adjudication or full acceptance. Exact
+external capability commits and current-run state producer contracts remain
+required before any runtime qualification. Their integration must retain the
+canonical governance and visual lanes; this pure contract module is not an
+alternate release runner.
+
+The private repository package exposes the existing resolver, schema validator
+and layout helpers through `@fsusblog/layout-governance` exports. Both test
+packages consume its local file dependency; source files retain their canonical
+owners. Install the locked tools and test-package links before running the schema
+and identity negative controls:
+
+```bash
+npm ci --ignore-scripts --prefix tools/test-matrix/schema-validator
+npm ci --ignore-scripts --prefix tests/frontend
+npm ci --ignore-scripts --prefix tests/tools
+node --test tests/tools/layout-composition-contracts.test.mjs
+```
+
+These are synthetic contract mutations against the actual loaded definitions;
+they are not product-source mutations or evidence that a page renders correctly.

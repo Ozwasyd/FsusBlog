@@ -1,0 +1,1386 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:fsusblog:layout-composition-contract:v1",
+  "title": "FsusBlog layout composition contracts v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "sourceIssue",
+    "coverage",
+    "compositionGovernance",
+    "archetypes"
+  ],
+  "properties": {
+    "version": {
+      "const": "fsusblog-layout-archetype-matrix-v1"
+    },
+    "sourceIssue": {
+      "const": 1313
+    },
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "viewports",
+        "themes",
+        "media",
+        "contracts"
+      ],
+      "properties": {
+        "viewports": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "desktop"
+              }
+            },
+            {
+              "contains": {
+                "const": "mobile"
+              }
+            }
+          ]
+        },
+        "themes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "light"
+              }
+            },
+            {
+              "contains": {
+                "const": "dark"
+              }
+            }
+          ]
+        },
+        "media": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "reduced-motion"
+              }
+            },
+            {
+              "contains": {
+                "const": "high-contrast"
+              }
+            }
+          ]
+        },
+        "contracts": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          },
+          "allOf": [
+            {
+              "contains": {
+                "const": "keyboard"
+              }
+            },
+            {
+              "contains": {
+                "const": "focus-visible"
+              }
+            },
+            {
+              "contains": {
+                "const": "hit-targets"
+              }
+            },
+            {
+              "contains": {
+                "const": "horizontal-overflow"
+              }
+            },
+            {
+              "contains": {
+                "const": "aot-hydration-parity"
+              }
+            }
+          ]
+        }
+      }
+    },
+    "compositionGovernance": {
+      "$ref": "#/$defs/governance"
+    },
+    "archetypes": {
+      "type": "array",
+      "minItems": 12,
+      "uniqueItems": true,
+      "items": {
+        "$ref": "#/$defs/archetype"
+      },
+      "maxItems": 12
+    }
+  },
+  "$defs": {
+    "semanticId": {
+      "type": "string",
+      "pattern": "^[a-z][a-z0-9]*(?:-[a-z0-9]+)*$"
+    },
+    "authorityId": {
+      "enum": [
+        "fsusui-design",
+        "blog-governance",
+        "blog-surface-profiles",
+        "blog-public-layout",
+        "blog-reading-typography",
+        "blog-task-geometry",
+        "blog-page-title"
+      ]
+    },
+    "fixtureRef": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "source",
+        "pointer"
+      ],
+      "properties": {
+        "source": {
+          "type": "string",
+          "pattern": "^tests/frontend/(fixtures/[A-Za-z0-9-]+\\.(json|ts)|e2e/visual/(public|console)-visual\\.spec\\.ts)$"
+        },
+        "pointer": {
+          "type": "string",
+          "pattern": "^(?:/[A-Za-z0-9~/-]+|source-file)$"
+        }
+      }
+    },
+    "compositionContract": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "designSourceRefs",
+        "surfaceProfile",
+        "primaryRegion",
+        "primaryVisualAnchor",
+        "pageHeadingOwner",
+        "allowedSecondaryRegions",
+        "contentOrder",
+        "actionPriority",
+        "fixedChromeOwners",
+        "surfaceRoles",
+        "allowedSurfaceNesting",
+        "firstFoldInvariants",
+        "requiredStateFixtures",
+        "requiredViewportThemeMatrix",
+        "requiredEvidenceIds"
+      ],
+      "properties": {
+        "schema": {
+          "const": "fsusblog.layout-composition-contract.v1"
+        },
+        "designSourceRefs": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "fsusui-design",
+              "blog-governance",
+              "blog-surface-profiles",
+              "blog-public-layout",
+              "blog-reading-typography",
+              "blog-task-geometry",
+              "blog-page-title"
+            ]
+          }
+        },
+        "surfaceProfile": {
+          "enum": [
+            "public-editorial",
+            "reading",
+            "task"
+          ]
+        },
+        "primaryRegion": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "ownerId"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/semanticId"
+            },
+            "ownerId": {
+              "$ref": "#/$defs/semanticId"
+            }
+          }
+        },
+        "primaryVisualAnchor": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "regionId"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/semanticId"
+            },
+            "regionId": {
+              "$ref": "#/$defs/semanticId"
+            }
+          }
+        },
+        "pageHeadingOwner": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "id",
+            "regionId",
+            "cardinality",
+            "semantics",
+            "authorityRef"
+          ],
+          "properties": {
+            "id": {
+              "$ref": "#/$defs/semanticId"
+            },
+            "regionId": {
+              "$ref": "#/$defs/semanticId"
+            },
+            "cardinality": {
+              "const": 1
+            },
+            "semantics": {
+              "const": "page-title"
+            },
+            "authorityRef": {
+              "$ref": "#/$defs/authorityId"
+            }
+          }
+        },
+        "allowedSecondaryRegions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "ownerId",
+              "priority",
+              "placement"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/semanticId"
+              },
+              "ownerId": {
+                "$ref": "#/$defs/semanticId"
+              },
+              "priority": {
+                "const": "secondary"
+              },
+              "placement": {
+                "enum": [
+                  "flow",
+                  "chrome",
+                  "overlay"
+                ]
+              }
+            }
+          }
+        },
+        "contentOrder": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/semanticId"
+          }
+        },
+        "actionPriority": {
+          "oneOf": [
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "primaryOwnerId",
+                "primaryActionId",
+                "secondaryOwnerIds"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "exact-one"
+                },
+                "primaryOwnerId": {
+                  "$ref": "#/$defs/semanticId"
+                },
+                "primaryActionId": {
+                  "$ref": "#/$defs/semanticId"
+                },
+                "secondaryOwnerIds": {
+                  "type": "array",
+                  "minItems": 0,
+                  "uniqueItems": true,
+                  "items": {
+                    "$ref": "#/$defs/semanticId"
+                  }
+                }
+              }
+            },
+            {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "kind",
+                "stateDimensionId",
+                "cases"
+              ],
+              "properties": {
+                "kind": {
+                  "const": "exclusive-states"
+                },
+                "stateDimensionId": {
+                  "$ref": "#/$defs/semanticId"
+                },
+                "cases": {
+                  "type": "array",
+                  "minItems": 2,
+                  "uniqueItems": true,
+                  "items": {
+                    "oneOf": [
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "stateId",
+                          "primaryCardinality",
+                          "primaryOwnerId",
+                          "primaryActionId",
+                          "secondaryActions"
+                        ],
+                        "properties": {
+                          "stateId": {
+                            "$ref": "#/$defs/semanticId"
+                          },
+                          "primaryCardinality": {
+                            "const": 1
+                          },
+                          "primaryOwnerId": {
+                            "$ref": "#/$defs/semanticId"
+                          },
+                          "primaryActionId": {
+                            "$ref": "#/$defs/semanticId"
+                          },
+                          "secondaryActions": {
+                            "type": "array",
+                            "minItems": 0,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "ownerId",
+                                "actionId"
+                              ],
+                              "properties": {
+                                "ownerId": {
+                                  "$ref": "#/$defs/semanticId"
+                                },
+                                "actionId": {
+                                  "$ref": "#/$defs/semanticId"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      },
+                      {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                          "stateId",
+                          "primaryCardinality",
+                          "primaryOwnerId",
+                          "primaryActionId",
+                          "secondaryActions"
+                        ],
+                        "properties": {
+                          "stateId": {
+                            "$ref": "#/$defs/semanticId"
+                          },
+                          "primaryCardinality": {
+                            "const": 0
+                          },
+                          "primaryOwnerId": {
+                            "type": "null"
+                          },
+                          "primaryActionId": {
+                            "type": "null"
+                          },
+                          "secondaryActions": {
+                            "type": "array",
+                            "minItems": 0,
+                            "uniqueItems": true,
+                            "items": {
+                              "type": "object",
+                              "additionalProperties": false,
+                              "required": [
+                                "ownerId",
+                                "actionId"
+                              ],
+                              "properties": {
+                                "ownerId": {
+                                  "$ref": "#/$defs/semanticId"
+                                },
+                                "actionId": {
+                                  "$ref": "#/$defs/semanticId"
+                                }
+                              }
+                            }
+                          }
+                        }
+                      }
+                    ]
+                  }
+                }
+              }
+            }
+          ]
+        },
+        "fixedChromeOwners": {
+          "type": "array",
+          "minItems": 0,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "regionId",
+              "responsibility",
+              "cardinality",
+              "authorityRef"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/semanticId"
+              },
+              "regionId": {
+                "$ref": "#/$defs/semanticId"
+              },
+              "responsibility": {
+                "enum": [
+                  "navigation",
+                  "command",
+                  "status",
+                  "context"
+                ]
+              },
+              "cardinality": {
+                "const": 1
+              },
+              "authorityRef": {
+                "$ref": "#/$defs/authorityId"
+              }
+            }
+          }
+        },
+        "surfaceRoles": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "regionId",
+              "role",
+              "material",
+              "authorityRef"
+            ],
+            "properties": {
+              "regionId": {
+                "$ref": "#/$defs/semanticId"
+              },
+              "role": {
+                "enum": [
+                  "document",
+                  "control-group",
+                  "data-region",
+                  "overlay",
+                  "status",
+                  "risk"
+                ]
+              },
+              "material": {
+                "enum": [
+                  "flat",
+                  "boundary",
+                  "floating"
+                ]
+              },
+              "authorityRef": {
+                "$ref": "#/$defs/authorityId"
+              }
+            }
+          }
+        },
+        "allowedSurfaceNesting": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "mode",
+            "pairs",
+            "ordinaryFields",
+            "repeatedItems",
+            "decorativeShells"
+          ],
+          "properties": {
+            "mode": {
+              "const": "explicit-region-pairs"
+            },
+            "pairs": {
+              "type": "array",
+              "minItems": 0,
+              "uniqueItems": true,
+              "items": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "parentRegionId",
+                  "childRegionId"
+                ],
+                "properties": {
+                  "parentRegionId": {
+                    "$ref": "#/$defs/semanticId"
+                  },
+                  "childRegionId": {
+                    "$ref": "#/$defs/semanticId"
+                  }
+                }
+              }
+            },
+            "ordinaryFields": {
+              "const": "flat"
+            },
+            "repeatedItems": {
+              "const": "flat"
+            },
+            "decorativeShells": {
+              "const": "forbidden"
+            }
+          }
+        },
+        "firstFoldInvariants": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "predicate",
+              "regionId",
+              "authorityRef"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/semanticId"
+              },
+              "predicate": {
+                "enum": [
+                  "single-primary-focus",
+                  "primary-content-visible",
+                  "primary-anchor-unoccluded",
+                  "secondary-regions-subordinate",
+                  "content-order-preserved",
+                  "border-first-material",
+                  "non-decorative-restraint",
+                  "single-brand-surface",
+                  "single-primary-recommendation",
+                  "no-competing-aside",
+                  "reading-body-first",
+                  "reading-aids-secondary",
+                  "continuous-document-canvas",
+                  "on-demand-authoring-tools",
+                  "single-save-authority",
+                  "flat-settings-fields",
+                  "task-before-summary",
+                  "flat-ledger",
+                  "no-kpi-wall",
+                  "collection-scan-first",
+                  "single-toolbar-authority",
+                  "diagnostic-before-raw-detail",
+                  "no-badge-wall",
+                  "identity-task-first",
+                  "single-risk-authority",
+                  "inbox-context-preserved"
+                ]
+              },
+              "regionId": {
+                "$ref": "#/$defs/semanticId"
+              },
+              "authorityRef": {
+                "$ref": "#/$defs/authorityId"
+              }
+            }
+          }
+        },
+        "requiredStateFixtures": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "$ref": "#/$defs/stateFixture"
+          }
+        },
+        "requiredViewportThemeMatrix": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "viewportsRef",
+              "themesRef",
+              "mediaRef"
+            ],
+            "properties": {
+              "viewportsRef": {
+                "$ref": "#/$defs/fixtureRef"
+              },
+              "themesRef": {
+                "$ref": "#/$defs/fixtureRef"
+              },
+              "mediaRef": {
+                "$ref": "#/$defs/fixtureRef"
+              }
+            }
+          }
+        },
+        "requiredEvidenceIds": {
+          "type": "array",
+          "minItems": 6,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "composition-contract",
+              "sfc-component-source",
+              "rendered-dom-owners",
+              "browser-geometry-state",
+              "rendered-screenshot",
+              "visual-adjudication"
+            ]
+          }
+        }
+      },
+      "allOf": [
+        {
+          "properties": {
+            "firstFoldInvariants": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "predicate"
+                ],
+                "properties": {
+                  "predicate": {
+                    "const": "single-primary-focus"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "properties": {
+            "firstFoldInvariants": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "predicate"
+                ],
+                "properties": {
+                  "predicate": {
+                    "const": "primary-content-visible"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "properties": {
+            "firstFoldInvariants": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "predicate"
+                ],
+                "properties": {
+                  "predicate": {
+                    "const": "primary-anchor-unoccluded"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "properties": {
+            "firstFoldInvariants": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "predicate"
+                ],
+                "properties": {
+                  "predicate": {
+                    "const": "secondary-regions-subordinate"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "properties": {
+            "firstFoldInvariants": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "predicate"
+                ],
+                "properties": {
+                  "predicate": {
+                    "const": "content-order-preserved"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "properties": {
+            "firstFoldInvariants": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "predicate"
+                ],
+                "properties": {
+                  "predicate": {
+                    "const": "border-first-material"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "properties": {
+            "firstFoldInvariants": {
+              "contains": {
+                "type": "object",
+                "required": [
+                  "predicate"
+                ],
+                "properties": {
+                  "predicate": {
+                    "const": "non-decorative-restraint"
+                  }
+                }
+              },
+              "type": "array"
+            }
+          },
+          "type": "object"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requiredStateFixtures": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": [
+                  "family"
+                ],
+                "properties": {
+                  "family": {
+                    "const": "loading"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requiredStateFixtures": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": [
+                  "family"
+                ],
+                "properties": {
+                  "family": {
+                    "const": "empty"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requiredStateFixtures": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": [
+                  "family"
+                ],
+                "properties": {
+                  "family": {
+                    "const": "error"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requiredStateFixtures": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": [
+                  "family"
+                ],
+                "properties": {
+                  "family": {
+                    "const": "populated"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requiredStateFixtures": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": [
+                  "family"
+                ],
+                "properties": {
+                  "family": {
+                    "const": "disabled"
+                  }
+                }
+              }
+            }
+          }
+        },
+        {
+          "type": "object",
+          "properties": {
+            "requiredStateFixtures": {
+              "type": "array",
+              "contains": {
+                "type": "object",
+                "required": [
+                  "family"
+                ],
+                "properties": {
+                  "family": {
+                    "const": "permission"
+                  }
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    "archetype": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "surface",
+        "kind",
+        "path",
+        "label",
+        "primary",
+        "screenshotTarget",
+        "snapshot",
+        "critical",
+        "compositionContract"
+      ],
+      "properties": {
+        "surface": {
+          "enum": [
+            "public",
+            "identity",
+            "admin"
+          ]
+        },
+        "kind": {
+          "enum": [
+            "feed",
+            "reading",
+            "index",
+            "document",
+            "filter-search",
+            "identity-settings",
+            "inbox-takeover",
+            "dashboard",
+            "collection",
+            "form",
+            "settings",
+            "console"
+          ]
+        },
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "label": {
+          "type": "string",
+          "minLength": 1
+        },
+        "primary": {
+          "type": "string",
+          "minLength": 1
+        },
+        "screenshotTarget": {
+          "type": "string",
+          "minLength": 1
+        },
+        "snapshot": {
+          "type": "boolean"
+        },
+        "critical": {
+          "type": "boolean"
+        },
+        "compositionContract": {
+          "$ref": "#/$defs/compositionContract"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "surface": {
+                "const": "public"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "feed",
+                  "reading",
+                  "index",
+                  "document",
+                  "filter-search"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "type": "object"
+        },
+        {
+          "if": {
+            "properties": {
+              "surface": {
+                "const": "identity"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "identity-settings",
+                  "inbox-takeover"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "type": "object"
+        },
+        {
+          "if": {
+            "properties": {
+              "surface": {
+                "const": "admin"
+              }
+            },
+            "type": "object"
+          },
+          "then": {
+            "properties": {
+              "kind": {
+                "enum": [
+                  "dashboard",
+                  "collection",
+                  "form",
+                  "settings",
+                  "console"
+                ]
+              }
+            },
+            "type": "object"
+          },
+          "type": "object"
+        }
+      ]
+    },
+    "governance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "schema",
+        "schemaRef",
+        "matrixRef",
+        "ledgerRef",
+        "designSources",
+        "capabilityBindings",
+        "fixtureBindingStatus",
+        "fixtureBindingOwnerIssue",
+        "fixtureInfrastructureRefs"
+      ],
+      "properties": {
+        "schema": {
+          "const": "fsusblog.layout-composition-governance.v1"
+        },
+        "schemaRef": {
+          "const": "config/schemas/layout-composition-contract.schema.json"
+        },
+        "matrixRef": {
+          "const": "tests/frontend/fixtures/layout-archetype-matrix.json"
+        },
+        "ledgerRef": {
+          "const": "tests/frontend/fixtures/layout-visual-change-ledger.json"
+        },
+        "designSources": {
+          "type": "array",
+          "minItems": 7,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "repository",
+              "path"
+            ],
+            "properties": {
+              "id": {
+                "$ref": "#/$defs/authorityId"
+              },
+              "repository": {
+                "enum": [
+                  "FsusUI",
+                  "FsusBlog"
+                ]
+              },
+              "path": {
+                "enum": [
+                  "docs/design.md",
+                  "docs/design/governance.md",
+                  "docs/design/surface-profiles.md",
+                  "docs/public-layout-rules.md",
+                  "docs/design/reading-typography.md",
+                  "docs/design/task-surface-geometry.md",
+                  "docs/design/page-title-scale.md"
+                ]
+              }
+            },
+            "oneOf": [
+              {
+                "properties": {
+                  "id": {
+                    "const": "fsusui-design"
+                  },
+                  "repository": {
+                    "const": "FsusUI"
+                  },
+                  "path": {
+                    "const": "docs/design.md"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "const": "blog-governance"
+                  },
+                  "repository": {
+                    "const": "FsusBlog"
+                  },
+                  "path": {
+                    "const": "docs/design/governance.md"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "const": "blog-surface-profiles"
+                  },
+                  "repository": {
+                    "const": "FsusBlog"
+                  },
+                  "path": {
+                    "const": "docs/design/surface-profiles.md"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "const": "blog-public-layout"
+                  },
+                  "repository": {
+                    "const": "FsusBlog"
+                  },
+                  "path": {
+                    "const": "docs/public-layout-rules.md"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "const": "blog-reading-typography"
+                  },
+                  "repository": {
+                    "const": "FsusBlog"
+                  },
+                  "path": {
+                    "const": "docs/design/reading-typography.md"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "const": "blog-task-geometry"
+                  },
+                  "repository": {
+                    "const": "FsusBlog"
+                  },
+                  "path": {
+                    "const": "docs/design/task-surface-geometry.md"
+                  }
+                },
+                "type": "object"
+              },
+              {
+                "properties": {
+                  "id": {
+                    "const": "blog-page-title"
+                  },
+                  "repository": {
+                    "const": "FsusBlog"
+                  },
+                  "path": {
+                    "const": "docs/design/page-title-scale.md"
+                  }
+                },
+                "type": "object"
+              }
+            ]
+          },
+          "maxItems": 7
+        },
+        "capabilityBindings": {
+          "type": "array",
+          "minItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "issue",
+              "capability",
+              "status",
+              "sourceCommit",
+              "evidenceRefs"
+            ],
+            "properties": {
+              "issue": {
+                "enum": [
+                  1814,
+                  1895
+                ]
+              },
+              "capability": {
+                "enum": [
+                  "authoring-product-model",
+                  "fsusui-control-origin"
+                ]
+              },
+              "status": {
+                "const": "pending-exact-commit"
+              },
+              "sourceCommit": {
+                "type": "null"
+              },
+              "evidenceRefs": {
+                "type": "array",
+                "maxItems": 0
+              }
+            }
+          },
+          "maxItems": 2
+        },
+        "fixtureBindingStatus": {
+          "const": "requires-current-run-state-binding"
+        },
+        "fixtureBindingOwnerIssue": {
+          "const": 2099
+        },
+        "fixtureInfrastructureRefs": {
+          "type": "array",
+          "minItems": 2,
+          "maxItems": 2,
+          "uniqueItems": true,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "source",
+              "pointer"
+            ],
+            "properties": {
+              "source": {
+                "enum": [
+                  "tests/frontend/e2e/visual/public-visual.spec.ts",
+                  "tests/frontend/e2e/visual/console-visual.spec.ts"
+                ]
+              },
+              "pointer": {
+                "const": "source-file"
+              }
+            }
+          }
+        }
+      }
+    },
+    "stateFixture": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "family",
+        "dimensionId",
+        "value",
+        "fixtureRef",
+        "bindingStatus",
+        "bindingOwnerIssue"
+      ],
+      "properties": {
+        "id": {
+          "$ref": "#/$defs/semanticId"
+        },
+        "family": {
+          "enum": [
+            "loading",
+            "empty",
+            "error",
+            "populated",
+            "disabled",
+            "permission",
+            "pending",
+            "success",
+            "partial",
+            "task-selection"
+          ]
+        },
+        "dimensionId": {
+          "$ref": "#/$defs/semanticId"
+        },
+        "value": {
+          "$ref": "#/$defs/semanticId"
+        },
+        "fixtureRef": {
+          "oneOf": [
+            {
+              "type": "null"
+            },
+            {
+              "$ref": "#/$defs/fixtureRef"
+            }
+          ]
+        },
+        "bindingStatus": {
+          "const": "pending-current-run"
+        },
+        "bindingOwnerIssue": {
+          "const": 2099
+        }
+      }
+    }
+  }
+}
