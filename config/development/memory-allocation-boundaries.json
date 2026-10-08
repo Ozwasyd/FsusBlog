@@ -2100,7 +2100,7 @@
             "owner": "ManagedMemoryBacking physical array owner and exact role/read/pin/operation tokens",
             "producer": "TryCreate reserves array capacity before new byte[capacity], initializes logical payload, and commits one fresh allocation/block identity",
             "consumers": "Current/LastGood/Sticky/Overlay role tokens, host reader views and actual ConsumeAsync consumer; GCHandle pin tokens retain the same allocation independently",
-            "releaseEvent": "Explicit Close rejects new independent acquisitions and removes root role; final role, reader, operation and GCHandle pin release detach backing and dispose its one committed allocation charge outside the lifetime gate",
+            "releaseEvent": "Explicit Close rejects new independent acquisitions and removes root role; final role, reader, operation and GCHandle pin release permit clearing all backing capacity, then disposing the one committed allocation charge outside the lifetime gate",
             "capacityModel": "Capacity is exact byte-array Length; exposed views are bounded by LogicalLength. All retained views/roles/pins share one charged capacity, including a small overlay slice. CLR object/header and hold metadata are not represented as payload bytes",
             "frequency": "Per admitted backing creation, lease/role/pin acquisition and asynchronous operation; no request-path sampler or actual production rate is claimed",
             "asyncEscape": "ConsumeAsync awaits the actual consumer ValueTask once; an independently canceled outer waiter cannot dispose its source or reserved operation slot; role and pin tokens may survive root/read disposal",
@@ -2364,6 +2364,40 @@
                 }
             ],
             "traceId": "owned-aeds-frame"
+        },
+        {
+            "id": "portable-pressure-observation-metadata",
+            "sourcePaths": [
+                "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs"
+            ],
+            "pathStatus": "baseline-reported",
+            "owner": "PortableMemoryPressureSource finite resource bindings and fixed sample trace ring",
+            "producer": "Explicit background Capture reads installed .NET GC/process APIs and the canonical MemoryReservationCoordinator snapshot",
+            "consumers": "Caller-held immutable pressure samples and pure MemoryPressureNormalizer replay comparisons",
+            "releaseEvent": "Ring replacement/domain invalidation drops sampler-held sample references; returned sample lifetime remains with its caller and the GC; no payload allocation is freed by pressure observations",
+            "capacityModel": "Seven fixed portable observations plus at most the exact finite resource-domain roster; explicit traceCapacity bounds retained samples; control metadata is outside payload-byte charges",
+            "frequency": "Per explicit background capture; no timer or request handler is registered",
+            "asyncEscape": "Diagnostic sample callers may retain immutable snapshots; old domain revisions cannot enter the current ring and cannot compare against a newer active domain revision",
+            "classification": "ephemeral-scratch",
+            "eligibilityOwner": "Existing protected observability owner retains diagnostic publication; resource topology and ledger remain canonical; no payload eligibility is conferred",
+            "migrationDisposition": "Managed control metadata only; no spill/device/sharing permission",
+            "exclusionReason": "Raw portable GC/process observations do not establish OS pressure domain qualification, Auto selection or physical free-memory admission",
+            "observationHeadroom": "Measure sampling allocations, duration and returned-sample retention against the later frozen P01/P02 limits; ring boundedness alone is not performance acceptance",
+            "permissions": {
+                "disk": false,
+                "device": false,
+                "sharing": false,
+                "deduplication": false,
+                "crossGenerationReuse": false,
+                "staleServing": false
+            },
+            "testOwner": "tests/backend/Unit/PortableMemoryPressureTests.cs",
+            "evidence": [
+                {
+                    "path": "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
+                    "anchor": "public sealed class PortableMemoryPressureSource"
+                }
+            ]
         },
         {
             "id": "private-article-vault",

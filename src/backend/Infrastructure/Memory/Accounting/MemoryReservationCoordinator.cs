@@ -26,6 +26,8 @@ public sealed class MemoryReservationCoordinator
     private ulong _sequence;
     private bool _faulted;
 
+    internal MemoryResourceTopology Topology => _topology;
+
     public MemoryReservationCoordinator(MemoryResourceTopology topology, IEnumerable<MemoryResourceLimit> limits,
         ulong policyRevision, int entryLimit, int eventCapacity)
     {

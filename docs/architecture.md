@@ -160,8 +160,18 @@ retain external result mapping.
 Resource observations retain an explicit unit, source, sample time and Unknown,
 Denied, Malformed or Stale state without a numeric value. Resource topology records
 capacity aliases and containment rather than summing host, UMA, locked subsets or
-same-volume paths as independent extra capacity. These are contracts; pressure sampling
-remain separate implementations. `MemoryReservationCoordinator` performs all-or-nothing
+same-volume paths as independent extra capacity. `PortableMemoryPressureSource` reads
+the installed .NET GC/process APIs and canonical ledger through an explicit background
+capture call. It retains source instance/API identity, domain revision, units, capture
+clock, validity, GC collection index and bounded trace history. Last-collection GC data
+and runtime capacity are snapshot observations, never instantaneous free physical RAM.
+The normalizer requires the currently active domain/revision, rejects missing/stale or
+discontinuous samples, distinguishes cumulative-counter reset from a genuine decrease
+in retained charges, and supplies no rate from last-collection snapshots. This does not
+implement qualified cgroup/native pressure sources, an Auto sampling lifecycle or a
+governor; no request hook, timer, public health route or additional scheduler is installed.
+Sampling overhead still requires the frozen P01/P02 limits and actual platform evidence.
+`MemoryReservationCoordinator` performs all-or-nothing
 resource-vector admission and reservation conversion under one gate, expands containing
 constraints, and charges aliases once. Its callers supply explicit finite caps and metadata
 bounds. A shrink keeps all existing charges; converted reservations cannot release their
@@ -180,6 +190,9 @@ independent acquisitions and removes the root role; existing readers may finish 
 their storage. Its bounded snapshot reports each remaining hold class, and `Drained`
 completes only after the last hold releases the allocation charge. There is no forced
 free, owning-token pool, thread affinity or asynchronous finalizer.
+Unclassified backing has no public-immutable clear exemption: final drain clears the
+entire capacity before releasing its charge; unpublished failure cleanup follows the
+same order. Existing legal readers and pins finish before that clear occurs.
 
 `ConsumeAsync` reserves an operation slot and awaits the consumer ValueTask exactly once.
 Canceling a separate outer wait does not release that slot or its source. Unexpected

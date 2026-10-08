@@ -29,6 +29,7 @@
                 "src/backend/Infrastructure/Memory/Contracts/MemoryOperationResult.cs",
                 "src/backend/Infrastructure/Memory/Contracts/MemoryResourceDomain.cs",
                 "src/backend/Infrastructure/Memory/Lifetime/ManagedMemoryBacking.cs",
+                "src/backend/Infrastructure/Memory/Pressure/PortableMemoryPressureSource.cs",
                 "tools/governance/memory-allocation-inventory.mjs",
                 "tools/test/correctness-attempt-migration.mjs"
             ],
