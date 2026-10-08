@@ -5,9 +5,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import type { ArticleRevisionResponsibilitySnapshotResponse } from '@/api/authoring';
 import ArticleResponsibilityDisclosure from '@/components/article/ArticleResponsibilityDisclosure.vue';
+import PublicArticleDetailPageContent from '@/components/public/pages/PublicArticleDetailPageContent.vue';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
 import { createArticleDraftResponsibilitySnapshot, bindArticleDraftResponsibilitySnapshot, admitArticleDraftResponsibilitySnapshot,
     verifyArticleDraftResponsibilitySnapshot, type ArticleDraftResponsibilitySource } from '@/view-contracts/articleDraftResponsibility';
+import { createArticleDetailPageViewContract } from '@/view-contracts/articleDetail';
+
+import { articleRightsFixture } from '../fixtures/articleRights';
 
 const owner = (articleId: number | null = 42) => createArticleDocumentContextAdapter({ articleId,
     draftId: articleId === null ? 'draft:new' : `article:${articleId}`, editorSessionId: 'session:responsibility',
@@ -24,6 +28,49 @@ const draft = (adapter = owner(), input: ArticleDraftResponsibilitySource | null
 afterEach(() => vi.unstubAllGlobals());
 
 describe('draft responsibility public composition (#2283)', () => {
+    it('withdraws actual reading-page author microdata and disclosure when its owner is released', async () => {
+        const adapter = owner();
+        // Reading-component unit input, with no asset activation, publication or backend receipt claim.
+        const input = { id: 42, title: 'Draft unit', content: 'same source', summary: 'Unit summary',
+            coverImageUrl: null, views: 0, createTime: '2026-10-08T00:00:00Z', publishedAt: '2026-10-08T00:00:00Z',
+            updatedAt: '2026-10-08T00:00:00Z', category: { id: 2, name: 'Unit' }, tags: [], rights: articleRightsFixture };
+        const wrapper = mount(PublicArticleDetailPageContent, { props: {
+            detailView: createArticleDetailPageViewContract(input, 0, false), articleId: 42,
+            authorName: 'Published fallback', draftResponsibility: draft(adapter), articleSummary: input.summary,
+            hasBodyContent: false, bodyContent: input.content, linkMode: 'anchor'
+        } });
+        expect(wrapper.find('meta[itemprop="author"]').attributes('content')).toBe('Draft author');
+        adapter.dispose();
+        await flushPromises();
+        expect(wrapper.find('meta[itemprop="author"]').exists()).toBe(false);
+        expect(wrapper.text()).not.toContain('Draft author');
+        expect(wrapper.text()).not.toContain('Published fallback');
+        expect(wrapper.find('[data-article-responsibility]').attributes('data-manifest-state')).toBe('invalid');
+        wrapper.unmount();
+    });
+    it.each(['revision', 'dispose'])('withdraws attribution on actual owner %s without receiving new preview props', async action => {
+        const adapter = owner();
+        const wrapper = mount(ArticleResponsibilityDisclosure, { props: { articleId: 42,
+            fallbackAuthor: 'Published fallback', draftResponsibility: draft(adapter) } });
+        expect(wrapper.text()).toContain('Draft author');
+        expect(() => adapter.updateSource('same source', adapter.context.sourceRevision))
+            .toThrow('article-document-source-revision-must-advance');
+        await flushPromises();
+        expect(wrapper.attributes('data-manifest-state')).toBe('ready');
+        if (action === 'revision')
+        {
+            adapter.updateSource('same source', adapter.context.sourceRevision + 1);
+        }
+        else
+        {
+            adapter.dispose();
+        }
+        await flushPromises();
+        expect(wrapper.attributes('data-manifest-state')).toBe('invalid');
+        expect(wrapper.text()).not.toContain('Draft author');
+        expect(wrapper.text()).not.toContain('Published fallback');
+        wrapper.unmount();
+    });
     it('rejects retained disclosures after actual owner revision/disposal and current responsibility replacement', () => {
         const adapter = owner();
         let current = { source: source(), siteAuthor: 'Site author' };
