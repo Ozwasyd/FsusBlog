@@ -6,7 +6,7 @@ import path from 'node:path';
 import process from 'node:process';
 
 const { assertReleaseIdentity, isValidReleaseId } = await import(new URL('../release/release-id.mjs', import.meta.url));
-const { validateReleaseManifest } = await import(new URL('../release/release-manifest.mjs', import.meta.url));
+const { validateReleaseManifest, deriveReleaseCandidateId, deriveReleaseManifestContentDigest } = await import(new URL('../release/release-manifest.mjs', import.meta.url));
 const { validateReleaseRuntimeMatrix } = await import(new URL('../runtime-profiles/release-runtime-matrix.mjs', import.meta.url));
 const {
     createProductionFreshRunBoundLocator,
@@ -2222,6 +2222,10 @@ async function runSelfTest()
             }
         }
     };
+    const { releaseSlot: unitSlot, ...unitManifest } = base.releaseIdentity;
+    unitManifest.candidateId = deriveReleaseCandidateId(unitManifest);
+    unitManifest.contentDigest = deriveReleaseManifestContentDigest(unitManifest);
+    base.releaseIdentity = { ...unitManifest, releaseSlot: unitSlot };
     base.artifacts.authenticatedDast = 'authenticatedDast';
     base.artifacts.fuzz = 'fuzz';
     base.artifacts.faultInjection = 'faultInjection';

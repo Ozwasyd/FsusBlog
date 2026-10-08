@@ -75,7 +75,7 @@ try
     });
     const output = path.resolve(options.output);
     writeReleaseManifestAtomic(output, manifest);
-    console.log(JSON.stringify({ status: 'ok', releaseId: manifest.releaseId, imageRef: manifest.imageRef, manifest: output }));
+    console.log(JSON.stringify({ status: 'ok', candidateId: manifest.candidateId, contentDigest: manifest.contentDigest, releaseId: manifest.releaseId, imageRef: manifest.imageRef, manifest: output }));
 }
 catch (error)
 {

@@ -29,7 +29,7 @@ import {
     isNonBlockingDiagnosticVisualGateSkip
 } from './release-final-diagnostics.mjs';
 import { createReleaseFinalDomainEvidence } from './release-final-domain-evidence.mjs';
-import { validateReleaseManifest } from './release-manifest.mjs';
+import { validateReleaseManifest, deriveReleaseCandidateId, deriveReleaseManifestContentDigest } from './release-manifest.mjs';
 import { writeJsonAtomic } from './test-evidence-receipts.mjs';
 import { validateThemeCssSafetyEvidence } from './theme-css-safety-evidence.mjs';
 const root = path.resolve(path.join(path.dirname(fileURLToPath(import.meta.url)), '../..'));
@@ -462,6 +462,10 @@ async function runSelfTest()
             }
         }
     };
+    const { releaseSlot: unitSlot, ...unitManifest } = manifest.releaseIdentity;
+    unitManifest.candidateId = deriveReleaseCandidateId(unitManifest);
+    unitManifest.contentDigest = deriveReleaseManifestContentDigest(unitManifest);
+    manifest.releaseIdentity = { ...unitManifest, releaseSlot: unitSlot };
     const errors = validateManifest(manifest, manifestFile);
     if (errors.length > 0)
     {
