@@ -96,6 +96,7 @@
                 "src/migration/Definitions/ArticleVaultRecoveryStorageMigrationDefinitions.cs",
                 "src/migration/Definitions/ArticleVaultResolutionProposalMigrationDefinitions.cs",
                 "src/shared/AedsFrameHeader.cs",
+                "src/shared/Algorithms/IO/NativeRegularFileGuard.cs",
                 "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
                 "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
                 "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs",
