@@ -23,7 +23,7 @@ from html.parser import HTMLParser
 from pathlib import Path
 from urllib.parse import urlsplit
 
-tool_version = "weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v3"
+tool_version = "weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v4"
 maximum_input = 32 * 1024 * 1024
 maximum_output = 16 * 1024 * 1024
 maximum_resource = 8 * 1024 * 1024
@@ -310,16 +310,16 @@ def print_layout(request):
                 raise PdfRejected("page-budget")
             for page in document.pages:
                 for box in page._page_box.descendants():
-                    if getattr(box, "text", None) or type(box).__name__.endswith(
-                        "ReplacedBox"
+                    if (
+                        getattr(box, "text", None)
+                        or type(box).__name__.endswith("ReplacedBox")
+                    ) and (
+                        box.position_x < -1
+                        or box.position_y < -1
+                        or box.position_x + box.width > page.width + 1
+                        or box.position_y + box.height > page.height + 1
                     ):
-                        if (
-                            box.position_x < -1
-                            or box.position_y < -1
-                            or box.position_x + box.width > page.width + 1
-                            or box.position_y + box.height > page.height + 1
-                        ):
-                            raise PdfRejected("layout-overflow")
+                        raise PdfRejected("layout-overflow")
             if failures:
                 raise PdfRejected("print-layout-or-resource-warning")
             yield document
@@ -477,7 +477,10 @@ def layout_witnesses(document, request):
                 and type(box.replacement).__name__ == "RasterImage"
             ):
                 with Image.open(io.BytesIO(box.replacement.image_data.data)) as image:
-                    signature = image_signature(image)
+                    signature = (
+                        image_signature(image),
+                        box.style["image_rendering"] == "auto",
+                    )
                     rgba = image.convert("RGBA")
                     white = Image.new("RGBA", rgba.size, (255, 255, 255, 255))
                     appearance = Image.alpha_composite(white, rgba).convert("RGB")
@@ -497,6 +500,7 @@ def layout_witnesses(document, request):
                             y + box.height * 0.75,
                         ),
                         "signature": signature,
+                        "imageData": bytes(box.replacement.image_data.data),
                         "visibleInk": visible_ink,
                     }
                 )
@@ -580,6 +584,40 @@ def validate_layout_images(page, signatures, expected):
         raise PdfRejected("image-semantics")
 
 
+def frozen_image_paint(page_size, expected):
+    import pypdfium2
+    from PIL import Image
+
+    # A fresh, never-serialized native page contains only frozen source pixels
+    # at their canonical layout positions. No candidate clip, transform, blend
+    # state or image object is copied into this independent appearance oracle.
+    with (
+        closing(pypdfium2.PdfDocument.new()) as oracle,
+        closing(oracle.new_page(*page_size)) as page,
+    ):
+        for reference in expected:
+            image_object = pypdfium2.PdfImage.new(oracle)
+            with Image.open(io.BytesIO(reference["imageData"])) as image:
+                if image.format == "JPEG":
+                    image_object.load_jpeg(
+                        io.BytesIO(reference["imageData"]), inline=True
+                    )
+                else:
+                    with closing(
+                        pypdfium2.PdfBitmap.from_pil(image.convert("RGBA"))
+                    ) as bitmap:
+                        image_object.set_bitmap(bitmap)
+            x0, y0, x1, y1 = reference["rectangle"]
+            image_object.set_matrix(
+                pypdfium2.PdfMatrix(x1 - x0, 0, 0, y1 - y0, x0, page_size[1] - y1)
+            )
+            page.insert_obj(image_object)
+        with closing(
+            page.render(scale=2, draw_annots=False, no_smoothimage=True)
+        ) as bitmap:
+            return bitmap.to_pil().convert("RGB").copy()
+
+
 def validate_visible_images(data, page_number, expected):
     import pypdfium2
     import pypdfium2.raw as pdfium
@@ -587,38 +625,54 @@ def validate_visible_images(data, page_number, expected):
 
     if not expected:
         return
-    # This private in-memory parse is never serialized. Rendering the existing
-    # image objects in isolation gives an unoccluded appearance oracle using
-    # the same PDFium decoder, transform, alpha and pixel grid as the real page.
-    with closing(pypdfium2.PdfDocument(data)) as pdf:
-        with closing(pdf[page_number]) as page:
-            with closing(page.render(scale=2)) as bitmap:
-                actual = bitmap.to_pil().convert("RGB").copy()
-            objects = list(page.get_objects(max_depth=1))
-            images = [obj for obj in objects if obj.type == pdfium.FPDF_PAGEOBJ_IMAGE]
-            if len(images) != len(expected):
+    with (
+        closing(pypdfium2.PdfDocument(data)) as pdf,
+        closing(pdf[page_number]) as page,
+    ):
+        objects = list(page.get_objects(max_depth=1))
+        images = [obj for obj in objects if obj.type == pdfium.FPDF_PAGEOBJ_IMAGE]
+        if len(images) != len(expected):
+            raise PdfRejected("unverifiable-image-paint")
+        with closing(page.render(scale=2)) as bitmap:
+            actual = bitmap.to_pil().convert("RGB").copy()
+        # Native nearest sampling compares source paint without inheriting the
+        # candidate's clipping/transform. Declared interpolation is bound to
+        # the canonical style separately; normal rendering below is retained.
+        with closing(page.render(scale=2, no_smoothimage=True)) as bitmap:
+            actual_source_paint = bitmap.to_pil().convert("RGB").copy()
+        canonical = frozen_image_paint(page.get_size(), expected)
+        # Preserve the existing normal-render occlusion check. This candidate
+        # isolation is only an extra overlay check, not the source-paint oracle.
+        for obj in objects:
+            if obj.type != pdfium.FPDF_PAGEOBJ_IMAGE:
+                page.remove_obj(obj)
+                obj.close()
+        with closing(page.render(scale=2, draw_annots=False)) as bitmap:
+            isolated = bitmap.to_pil().convert("RGB").copy()
+        for reference in expected:
+            x0, y0, x1, y1 = (value * 2 for value in reference["rectangle"])
+            bounds = (math.ceil(x0), math.ceil(y0), math.floor(x1), math.floor(y1))
+            if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
                 raise PdfRejected("unverifiable-image-paint")
-            for obj in objects:
-                if obj.type != pdfium.FPDF_PAGEOBJ_IMAGE:
-                    page.remove_obj(obj)
-                    obj.close()
-            with closing(page.render(scale=2, draw_annots=False)) as bitmap:
-                isolated = bitmap.to_pil().convert("RGB").copy()
-            for reference in expected:
-                x0, y0, x1, y1 = (value * 2 for value in reference["rectangle"])
-                bounds = (math.ceil(x0), math.ceil(y0), math.floor(x1), math.floor(y1))
-                if bounds[2] <= bounds[0] or bounds[3] <= bounds[1]:
-                    raise PdfRejected("unverifiable-image-paint")
-                original = actual.crop(bounds)
-                unobscured = isolated.crop(bounds)
-                if ImageChops.difference(original, unobscured).getbbox() is not None:
-                    raise PdfRejected("occluded-image-semantics")
-                white = Image.new("RGB", unobscured.size, (255, 255, 255))
-                if (
-                    reference["visibleInk"]
-                    and ImageChops.difference(unobscured, white).getbbox() is None
-                ):
-                    raise PdfRejected("invisible-image-semantics")
+            unoccluded = isolated.crop(bounds)
+            if (
+                ImageChops.difference(actual.crop(bounds), unoccluded).getbbox()
+                is not None
+            ):
+                raise PdfRejected("occluded-image-semantics")
+            white = Image.new("RGB", unoccluded.size, (255, 255, 255))
+            if (
+                reference["visibleInk"]
+                and ImageChops.difference(unoccluded, white).getbbox() is None
+            ):
+                raise PdfRejected("invisible-image-semantics")
+            if (
+                ImageChops.difference(
+                    actual_source_paint.crop(bounds), canonical.crop(bounds)
+                ).getbbox()
+                is not None
+            ):
+                raise PdfRejected("changed-image-paint-semantics")
 
 
 def validate_code_lines(page, expected):
@@ -698,8 +752,10 @@ def read_body_text(page, body, rtl_lines):
                 raise PdfRejected("text-order-or-content")
             index = min(
                 candidates,
-                key=lambda index: abs(clusters[index]["x"] - expected["x"])
-                + abs(clusters[index]["y"] - expected["y"]),
+                key=lambda index: (
+                    abs(clusters[index]["x"] - expected["x"])
+                    + abs(clusters[index]["y"] - expected["y"])
+                ),
             )
             used.add(index)
             pieces.append((expected["order"], clusters[index]["text"]))
@@ -783,7 +839,11 @@ def verify_pdf(data, request, witnesses=None):
         raise PdfRejected("pdf-header-or-size")
     font_count = 0
     image_signatures = {}
-    with pikepdf.Pdf.open(io.BytesIO(data), attempt_recovery=False) as pdf:
+    try:
+        structure = pikepdf.Pdf.open(io.BytesIO(data), attempt_recovery=False)
+    except pikepdf.PdfError as error:
+        raise PdfRejected("pdf-structure") from error
+    with structure as pdf:
         if (
             pdf.is_encrypted
             or pdf.check_pdf_syntax()
@@ -791,10 +851,10 @@ def verify_pdf(data, request, witnesses=None):
         ):
             raise PdfRejected("pdf-structure")
         for obj in pdf.objects:
-            if isinstance(obj, pikepdf.Dictionary) or isinstance(obj, pikepdf.Stream):
+            if isinstance(obj, (pikepdf.Dictionary, pikepdf.Stream)):
                 if any(
                     key in obj
-                    for key in {
+                    for key in (
                         "/JS",
                         "/JavaScript",
                         "/AA",
@@ -804,7 +864,7 @@ def verify_pdf(data, request, witnesses=None):
                         "/EF",
                         "/XFA",
                         "/RichMedia",
-                    }
+                    )
                 ):
                     raise PdfRejected("pdf-active-content")
                 if isinstance(obj, pikepdf.Stream) and "/F" in obj:
@@ -818,7 +878,10 @@ def verify_pdf(data, request, witnesses=None):
                             pikepdf.PdfImage(obj["/SMask"]).as_pil_image().convert("L")
                         )
                         image.putalpha(alpha)
-                    image_signatures[obj.objgen[0]] = image_signature(image)
+                    image_signatures[obj.objgen[0]] = (
+                        image_signature(image),
+                        bool(obj.get("/Interpolate", False)),
+                    )
                 if "/S" in obj and str(obj["/S"]) not in {
                     "/URI",
                     "/GoTo",
@@ -835,7 +898,7 @@ def verify_pdf(data, request, witnesses=None):
                     descriptor = obj["/FontDescriptor"]
                     if not any(
                         key in descriptor
-                        for key in {"/FontFile", "/FontFile2", "/FontFile3"}
+                        for key in ("/FontFile", "/FontFile2", "/FontFile3")
                     ):
                         raise PdfRejected("unembedded-font")
                     font_count += 1
@@ -912,9 +975,11 @@ def verify_pdf(data, request, witnesses=None):
             # PDFium is the visible-page authority. MuPDF remains a distinct
             # text/link parser; its CFF rendering behavior is not used as a
             # proxy for the actual visible glyphs.
-            with closing(visible_pdf[page.number]) as visible_page:
-                with closing(visible_page.render(scale=1)) as bitmap:
-                    pixel_bytes = bitmap.to_pil().convert("RGB").tobytes()
+            with (
+                closing(visible_pdf[page.number]) as visible_page,
+                closing(visible_page.render(scale=1)) as bitmap,
+            ):
+                pixel_bytes = bitmap.to_pil().convert("RGB").tobytes()
             projection["pages"].append(
                 {
                     "pixels": digest(pixel_bytes),
@@ -978,12 +1043,17 @@ def main():
             raise PdfRejected("message-budget")
         sys.stdout.buffer.write(output)
         return 0
-    except Exception as error:
-        # Never include document text, remote URL, credentials or private paths.
-        code = str(error) if isinstance(error, PdfRejected) else "pdf-tool-failed"
-        sys.stderr.write(code + "\n")
+    except PdfRejected as error:
+        sys.stderr.write(str(error) + "\n")
         return 1
 
 
+def private_exception_hook(_exception_type, _exception_value, _traceback):
+    # Unexpected failures retain Python's nonzero exit without disclosing their
+    # exception value or traceback (which may contain source text or paths).
+    sys.stderr.write("pdf-tool-failed\n")
+
+
 if __name__ == "__main__":
+    sys.excepthook = private_exception_hook
     sys.exit(main())

@@ -48,10 +48,18 @@ positions. Logical output is rebuilt from those verified actual clusters, includ
 lam-alef, rather than reversing a mixed line or supplying expected source letters.
 A changed letter or digit order remains a hard failure. This uses the existing
 print-engine/native dependencies and adds no new parser or package authority.
-Raster images also undergo a PDFium visibility check. An independently parsed
-in-memory page retains only its direct image painting objects; its image-region
-pixels must agree with the original full page. Full or partial overlays are
-rejected. This parse is never saved as a PDF and never changes the returned bytes.
+Raster images also undergo a PDFium visibility check. Frozen source image pixels
+are painted at canonical layout positions on a separate in-memory native page.
+No candidate image object, clipping, transform or blend state enters this expected
+painting. Its image-region pixels must agree with the actual original full page,
+rejecting full/partial overlays and clipping or rotation that changes appearance.
+The native scratch page is never serialized and never changes the returned bytes.
+Source-paint comparison uses matching native nearest sampling at two pixels per
+point; the actual image's interpolation declaration is checked against the
+canonical style separately. This avoids different PDF-image/bitmap interpolation
+heuristics without adding a pixel tolerance. The existing normal-render occlusion
+and visible-ink checks remain, and the full-page normalization still uses normal
+PDFium rendering.
 Image placements that cannot be proven this way, including nested image forms or
 regions with no complete verification pixel, fail with `unverifiable-image-paint`.
 
@@ -109,7 +117,7 @@ activate PDF. Exact integration requirements:
 2. Register the sole PDF provider owner
    `FsusBlog.Server.Services.DocumentExport.PdfDocumentExportProvider`, tool ID
    `document-export-pdf-toolchain`, version
-   `weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v3`, arguments exactly `["render"]`,
+   `weasyprint-66.0-pikepdf-9.11.0-mupdf-1.26.4-pdfium-4.30.0-v4`, arguments exactly `["render"]`,
    and proposed normalization `normalized-pdf-visible-v1`. The normalization
    catalog must explicitly list object IDs/timestamps/document IDs/font subset
    labels as excluded metadata. The registry constructs the internal provider
@@ -142,7 +150,8 @@ activate PDF. Exact integration requirements:
 
 ## Focused checks
 
-From the repository root, using a development environment with the locked tools:
+From the repository root, using a development environment with the locked PDF
+dependencies and the repository's Ruff 0.16.10:
 
 ```sh
 python -m pytest -q src/backend/Services/DocumentExport/Pdf/Tests/test_pdf_renderer.py

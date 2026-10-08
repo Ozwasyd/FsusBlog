@@ -72,6 +72,7 @@ def render_in_process(value):
         input=json.dumps(value).encode(),
         capture_output=True,
         timeout=60,
+        check=False,
     )
     if completed.returncode:
         raise tool.PdfRejected(completed.stderr.decode().strip())
@@ -124,7 +125,7 @@ def test_normalized_digest_is_stable_across_real_render_attempts():
 
 @pytest.mark.parametrize("data", [b"", b"%PDF-1.7\n%%EOF", b"<html>not PDF</html>"])
 def test_invalid_pdf_is_rejected(data):
-    with pytest.raises(Exception):
+    with pytest.raises(tool.PdfRejected):
         tool.verify_pdf(data, request())
 
 
@@ -227,7 +228,9 @@ def test_closed_fields_and_profile():
 
 def test_fixed_cli_arguments_and_private_errors():
     result = subprocess.run(
-        [sys.executable, str(tool_path), "--eval", "private title"], capture_output=True
+        [sys.executable, str(tool_path), "--eval", "private title"],
+        capture_output=True,
+        check=False,
     )
     assert result.returncode == 1
     assert result.stdout == b""
@@ -250,19 +253,21 @@ def test_cjk_and_emoji_with_registered_frozen_fonts():
     assert result["fontCount"] >= 2
     data = base64.b64decode(result["pdfBase64"])
     with pymupdf.open(stream=data) as parsed:
-        chinese = [
+        chinese = next(
             span
             for block in parsed[0].get_text("dict")["blocks"]
             for line in block.get("lines", [])
             for span in line["spans"]
             if "中文" in span["text"]
-        ][0]
-    with closing(pypdfium2.PdfDocument(data)) as visible:
-        with closing(visible[0]) as page:
-            with closing(page.render(scale=2)) as bitmap:
-                bounds = [int(value * 2) for value in chinese["bbox"]]
-                pixels = bitmap.to_pil().convert("RGB").crop(bounds)
-                assert any(low < 200 for low, high in pixels.getextrema())
+        )
+    with (
+        closing(pypdfium2.PdfDocument(data)) as visible,
+        closing(visible[0]) as page,
+        closing(page.render(scale=2)) as bitmap,
+    ):
+        bounds = [int(value * 2) for value in chinese["bbox"]]
+        pixels = bitmap.to_pil().convert("RGB").crop(bounds)
+        assert any(low < 200 for low, high in pixels.getextrema())
 
 
 def test_rtl_with_registered_font_has_actual_extraction():
@@ -374,6 +379,84 @@ def image_fragment(mode="RGB", image_format="PNG"):
     Image.new(mode, (20, 10), color).save(image, format=image_format)
     media_type = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp"}[image_format]
     return f"<img src='data:image/{media_type};base64,{base64.b64encode(image.getvalue()).decode()}'/>"
+
+
+def patterned_image_fragment(mode="RGB", image_format="PNG"):
+    picture = Image.new(mode, (40, 20), (40, 100, 200))
+    for x in range(40):
+        for y in range(20):
+            color = (200, 50, 30) if x < 10 else (40, 100 + y, 200)
+            if mode == "RGBA":
+                color += ((0, 64, 128, 255)[x // 10],)
+            picture.putpixel((x, y), color)
+    raster = io.BytesIO()
+    picture.save(raster, format=image_format)
+    media_type = {"PNG": "png", "JPEG": "jpeg", "WEBP": "webp"}[image_format]
+    return f"<img src='data:image/{media_type};base64,{base64.b64encode(raster.getvalue()).decode()}'/>"
+
+
+@pytest.mark.parametrize("paint_prefix", ["q 0 0 0.5 1 re W n", "q -1 0 0 -1 1 1 cm"])
+def test_verifier_rejects_changed_image_clip_or_rotation(paint_prefix):
+    value = request("<p>Caption</p>" + patterned_image_fragment(), "Caption")
+    original = base64.b64decode(render_in_process(value)["pdfBase64"])
+    with pikepdf.Pdf.open(io.BytesIO(original)) as pdf:
+        page = pdf.pages[0]
+        instructions = []
+        for item in pikepdf.parse_content_stream(page):
+            is_image = str(item.operator) == "Do" and page.Resources.XObject[
+                item.operands[0]
+            ].get("/Subtype") == pikepdf.Name("/Image")
+            if is_image:
+                instructions.extend(
+                    pikepdf.parse_content_stream(
+                        pikepdf.Stream(pdf, paint_prefix.encode())
+                    )
+                )
+                instructions.append(item)
+                instructions.extend(
+                    pikepdf.parse_content_stream(pikepdf.Stream(pdf, b"Q"))
+                )
+            else:
+                instructions.append(item)
+        page.Contents = pikepdf.Stream(
+            pdf, pikepdf.unparse_content_stream(instructions)
+        )
+        output = io.BytesIO()
+        pdf.save(output)
+    with pytest.raises(tool.PdfRejected, match="changed-image-paint-semantics"):
+        render_in_process(
+            value | {"pdfBase64": base64.b64encode(output.getvalue()).decode()}
+        )
+
+
+@pytest.mark.parametrize(
+    "mode,image_format",
+    [
+        ("RGB", "PNG"),
+        ("RGB", "JPEG"),
+        ("RGB", "WEBP"),
+        ("RGBA", "PNG"),
+        ("RGBA", "WEBP"),
+    ],
+)
+def test_frozen_patterned_images_keep_pixels_orientation_and_alpha(mode, image_format):
+    image = patterned_image_fragment(mode, image_format)
+    scaled = image.replace("<img ", "<img width='160' height='80' ")
+    value = request(f"<p>Caption</p>{scaled}{image}", "Caption")
+    result = render_in_process(value)
+    assert tool.execute(value | {"pdfBase64": result["pdfBase64"]}) == result
+
+
+def test_unexpected_cli_failure_keeps_exception_value_and_traceback_private():
+    result = subprocess.run(
+        [sys.executable, str(tool_path), "render"],
+        input=b'{"private title /private/path https://private.test":',
+        capture_output=True,
+        check=False,
+    )
+    assert result.returncode == 1
+    assert result.stdout == b""
+    assert result.stderr == b"pdf-tool-failed\n"
 
 
 def test_verifier_rejects_missing_frozen_image():
