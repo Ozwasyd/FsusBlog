@@ -6,8 +6,8 @@ namespace FsusBlog.Server.Services.ArticleVault;
 
 /// <summary>
 /// Requires the real dedicated Vault recovery key owner to authenticate encrypted bytes, plaintext
-/// identity and the complete scope. No implementation, key derivation or Data Protection fallback
-/// is supplied here; a missing authority must prevent backup storage and recovery admission.
+/// identity and the complete scope. Trusted composition must supply the actual provider and existing
+/// independent-domain key; a missing authority/key prevents backup storage and recovery admission.
 /// </summary>
 public interface IArticleVaultRecoveryBackupProtectionAuthority
 {
