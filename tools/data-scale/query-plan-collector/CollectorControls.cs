@@ -81,7 +81,11 @@ internal static class CollectorControls
         try
         {
             string address = app.Services.GetRequiredService<IServer>().Features.Get<IServerAddressesFeature>()!.Addresses.Single();
-            using var client = new HttpClient(new HttpClientHandler { UseProxy = false }) { BaseAddress = new Uri(address) };
+            using var client = new HttpClient(new HttpClientHandler { UseProxy = false })
+            {
+                BaseAddress = new Uri(address),
+                Timeout = TimeSpan.FromSeconds(30)
+            };
             JsonElement[] inventory = registry.RootElement.GetProperty("inventory").GetProperty("cases").EnumerateArray().ToArray();
             var results = new List<object>();
             foreach (JsonElement entry in registry.RootElement.GetProperty("cases").EnumerateArray())
