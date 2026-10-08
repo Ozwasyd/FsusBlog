@@ -174,8 +174,10 @@ class Reader
 {
     private offset = 0;
     private readonly view: DataView;
-    constructor(private readonly bytes: Uint8Array)
+    private readonly bytes: Uint8Array;
+    constructor(bytes: Uint8Array)
     {
+        this.bytes = bytes;
         if (!(bytes instanceof Uint8Array) || bytes.length > 626)
         {
             invalid();
