@@ -1,0 +1,26 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/backend/Services/Authoring/ArticlePropertyReferenceValueAuthority.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueDefinitionValidation.cs",
+                "src/backend/Services/Authoring/ArticlePropertyValueValidator.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueContracts.cs",
+                "src/shared/Contracts/ArticleProperties/ArticlePropertyValueDigest.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageIdentity.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackagePropertyMappingContracts.cs",
+                "src/backend/Services/Authoring/ArticlePackagePropertyMapper.cs"
+            ],
+            "reason": "Bind the existing canonical source naming surface to the exact selected typed-input, identity and mapper dependency closure. No environment spelling, private catalog or trusted-policy exception is introduced."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve documented caller-visible spellings on this exact maintained API document; no new selector, token or broader path admission."
+        }
+    ]
+}
