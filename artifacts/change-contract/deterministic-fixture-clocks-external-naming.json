@@ -12,6 +12,7 @@
                 "tools/test/data-scale-runtime-owner.mjs",
                 "tools/test/temporal-context-contract.mjs",
                 "tools/test/temporal-context.mjs",
+                "tools/test/temporal-entity-stream.mjs",
                 "tools/test/temporal-role-resolver.mjs",
                 "tools/test/temporal-shape-catalog.mjs"
             ],

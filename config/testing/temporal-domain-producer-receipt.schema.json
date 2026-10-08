@@ -8,6 +8,9 @@
         },
         {
             "$ref": "#/$defs/entityReceipt"
+        },
+        {
+            "$ref": "#/$defs/entityBatchReceipt"
         }
     ],
     "$defs": {
@@ -836,6 +839,630 @@
                             "pattern": "^sha256:[0-9a-f]{64}$"
                         }
                     }
+                }
+            }
+        },
+        "entityStreamPlan": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "schema",
+                "sourcePlanDigest",
+                "distribution",
+                "recordCount",
+                "relationshipCount",
+                "batchCount"
+            ],
+            "properties": {
+                "schema": {
+                    "const": "fsusblog.temporal-entity-stream-plan.v1"
+                },
+                "sourcePlanDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "distribution": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "kind",
+                        "tier",
+                        "ordinalBase",
+                        "counts",
+                        "stateCounts"
+                    ],
+                    "properties": {
+                        "kind": {
+                            "enum": [
+                                "demo",
+                                "scale"
+                            ]
+                        },
+                        "tier": {
+                            "type": [
+                                "string",
+                                "null"
+                            ]
+                        },
+                        "ordinalBase": {
+                            "enum": [
+                                0,
+                                1
+                            ]
+                        },
+                        "counts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "article",
+                                "comment",
+                                "audit"
+                            ],
+                            "properties": {
+                                "article": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000
+                                },
+                                "comment": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000
+                                },
+                                "audit": {
+                                    "type": "integer",
+                                    "minimum": 0,
+                                    "maximum": 1000000
+                                }
+                            }
+                        },
+                        "stateCounts": {
+                            "type": "object",
+                            "additionalProperties": false,
+                            "required": [
+                                "article",
+                                "comment",
+                                "audit"
+                            ],
+                            "properties": {
+                                "article": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "draft",
+                                        "scheduled",
+                                        "published",
+                                        "archived",
+                                        "deleted"
+                                    ],
+                                    "properties": {
+                                        "draft": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "scheduled": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "published": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "archived": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "deleted": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        }
+                                    }
+                                },
+                                "comment": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "approved",
+                                        "pending",
+                                        "rejected",
+                                        "deleted"
+                                    ],
+                                    "properties": {
+                                        "approved": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "pending": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "rejected": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        },
+                                        "deleted": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        }
+                                    }
+                                },
+                                "audit": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "recorded"
+                                    ],
+                                    "properties": {
+                                        "recorded": {
+                                            "type": "integer",
+                                            "minimum": 0,
+                                            "maximum": 1000000
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                },
+                "recordCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 10000000
+                },
+                "relationshipCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000000
+                },
+                "batchCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000
+                }
+            }
+        },
+        "entityStreamBatchDescriptor": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "index",
+                "inputDigest",
+                "entityCount",
+                "relationshipCount"
+            ],
+            "properties": {
+                "index": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 20000
+                },
+                "inputDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "entityCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000
+                },
+                "relationshipCount": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "maximum": 1000
+                }
+            }
+        },
+        "entityStreamRevisionReference": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "semanticIdentity",
+                "revisionNumber",
+                "role"
+            ],
+            "properties": {
+                "semanticIdentity": {
+                    "type": "string",
+                    "minLength": 1,
+                    "maxLength": 512
+                },
+                "revisionNumber": {
+                    "type": "integer",
+                    "minimum": 1
+                },
+                "role": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "roleId",
+                        "applicability",
+                        "instantUtc",
+                        "epochMilliseconds"
+                    ],
+                    "properties": {
+                        "roleId": {
+                            "const": "article.revision"
+                        },
+                        "applicability": {
+                            "const": "instant"
+                        },
+                        "instantUtc": {
+                            "$ref": "#/$defs/instant"
+                        },
+                        "epochMilliseconds": {
+                            "type": "integer"
+                        }
+                    }
+                }
+            }
+        },
+        "entityBatchReceipt": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "contextIdentity",
+                "fixtureIdentity",
+                "catalog",
+                "shape",
+                "scalarRoles",
+                "scalarRolesPurpose",
+                "unsupportedFields",
+                "qualificationEligible",
+                "semanticDigest",
+                "contentDigest",
+                "streamPlan",
+                "streamPlanDigest",
+                "schema",
+                "batch",
+                "entities",
+                "relationships",
+                "referencedRevisions",
+                "temporalContext",
+                "resolvedArtifactDigest"
+            ],
+            "properties": {
+                "contextIdentity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "sourceCommit",
+                        "sourceFingerprint",
+                        "producerId",
+                        "schedulerRunId",
+                        "businessEpochUtc",
+                        "contextDigest"
+                    ],
+                    "properties": {
+                        "sourceCommit": {
+                            "type": "string",
+                            "pattern": "^[0-9a-f]{40}$"
+                        },
+                        "sourceFingerprint": {
+                            "$ref": "#/$defs/digest"
+                        },
+                        "producerId": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "schedulerRunId": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "businessEpochUtc": {
+                            "$ref": "#/$defs/instant"
+                        },
+                        "contextDigest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "fixtureIdentity": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "producerId",
+                        "runId",
+                        "namespace",
+                        "fixtureId"
+                    ],
+                    "properties": {
+                        "producerId": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "runId": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "namespace": {
+                            "type": "string",
+                            "minLength": 1
+                        },
+                        "fixtureId": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "planDigest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "catalog": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "schema",
+                        "digest"
+                    ],
+                    "properties": {
+                        "schema": {
+                            "const": "fsusblog.temporal-shape-catalog.v1"
+                        },
+                        "digest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "shape": {
+                    "type": "object",
+                    "additionalProperties": false,
+                    "required": [
+                        "id",
+                        "digest"
+                    ],
+                    "properties": {
+                        "id": {
+                            "$ref": "#/$defs/id"
+                        },
+                        "digest": {
+                            "$ref": "#/$defs/digest"
+                        }
+                    }
+                },
+                "scalarRoles": {
+                    "type": "null"
+                },
+                "scalarRolesPurpose": {
+                    "const": "canonical-planned-offsets"
+                },
+                "unsupportedFields": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "field",
+                            "roleId",
+                            "reason"
+                        ],
+                        "properties": {
+                            "field": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "roleId": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "reason": {
+                                "type": "string",
+                                "minLength": 1
+                            }
+                        }
+                    }
+                },
+                "qualificationEligible": {
+                    "const": false
+                },
+                "semanticDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "contentDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "streamPlan": {
+                    "$ref": "#/$defs/entityStreamPlan"
+                },
+                "streamPlanDigest": {
+                    "$ref": "#/$defs/digest"
+                },
+                "schema": {
+                    "const": "fsusblog.temporal-entity-batch-receipt.v1"
+                },
+                "batch": {
+                    "$ref": "#/$defs/entityStreamBatchDescriptor"
+                },
+                "entities": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "coordinate",
+                            "state",
+                            "stateFacts",
+                            "roles",
+                            "relations"
+                        ],
+                        "properties": {
+                            "coordinate": {
+                                "$ref": "#/$defs/entityCoordinate"
+                            },
+                            "state": {
+                                "$ref": "#/$defs/id"
+                            },
+                            "stateFacts": {
+                                "type": "object",
+                                "additionalProperties": {
+                                    "type": "boolean"
+                                }
+                            },
+                            "roles": {
+                                "type": "array",
+                                "minItems": 1,
+                                "items": {
+                                    "oneOf": [
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "roleId",
+                                                "applicability",
+                                                "instantUtc",
+                                                "epochMilliseconds"
+                                            ],
+                                            "properties": {
+                                                "roleId": {
+                                                    "$ref": "#/$defs/id"
+                                                },
+                                                "applicability": {
+                                                    "const": "instant"
+                                                },
+                                                "instantUtc": {
+                                                    "$ref": "#/$defs/instant"
+                                                },
+                                                "epochMilliseconds": {
+                                                    "type": "integer"
+                                                }
+                                            }
+                                        },
+                                        {
+                                            "type": "object",
+                                            "additionalProperties": false,
+                                            "required": [
+                                                "roleId",
+                                                "applicability",
+                                                "instantUtc",
+                                                "epochMilliseconds"
+                                            ],
+                                            "properties": {
+                                                "roleId": {
+                                                    "$ref": "#/$defs/id"
+                                                },
+                                                "applicability": {
+                                                    "enum": [
+                                                        "null",
+                                                        "not-generated"
+                                                    ]
+                                                },
+                                                "instantUtc": {
+                                                    "type": "null"
+                                                },
+                                                "epochMilliseconds": {
+                                                    "type": "null"
+                                                }
+                                            }
+                                        }
+                                    ]
+                                }
+                            },
+                            "relations": {
+                                "type": "array",
+                                "items": {
+                                    "type": "object",
+                                    "additionalProperties": false,
+                                    "required": [
+                                        "id",
+                                        "roleIds",
+                                        "status",
+                                        "nullRoleIds"
+                                    ],
+                                    "properties": {
+                                        "id": {
+                                            "$ref": "#/$defs/id"
+                                        },
+                                        "roleIds": {
+                                            "type": "array",
+                                            "minItems": 1,
+                                            "items": {
+                                                "$ref": "#/$defs/id"
+                                            }
+                                        },
+                                        "status": {
+                                            "enum": [
+                                                "verified",
+                                                "state-bound"
+                                            ]
+                                        },
+                                        "nullRoleIds": {
+                                            "type": "array",
+                                            "items": {
+                                                "$ref": "#/$defs/id"
+                                            }
+                                        },
+                                        "parentIdentity": {
+                                            "type": [
+                                                "string",
+                                                "null"
+                                            ],
+                                            "minLength": 1,
+                                            "maxLength": 512
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "maxItems": 1000
+                },
+                "relationships": {
+                    "type": "array",
+                    "items": {
+                        "type": "object",
+                        "additionalProperties": false,
+                        "required": [
+                            "commentIdentity",
+                            "parentIdentity",
+                            "rootIdentity"
+                        ],
+                        "properties": {
+                            "commentIdentity": {
+                                "type": "string",
+                                "minLength": 1,
+                                "maxLength": 512
+                            },
+                            "parentIdentity": {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 512
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            },
+                            "rootIdentity": {
+                                "anyOf": [
+                                    {
+                                        "type": "string",
+                                        "minLength": 1,
+                                        "maxLength": 512
+                                    },
+                                    {
+                                        "type": "null"
+                                    }
+                                ]
+                            }
+                        }
+                    },
+                    "maxItems": 1000
+                },
+                "referencedRevisions": {
+                    "type": "array",
+                    "maxItems": 1000,
+                    "items": {
+                        "$ref": "#/$defs/entityStreamRevisionReference"
+                    }
+                },
+                "temporalContext": {
+                    "$ref": "#/$defs/context"
+                },
+                "resolvedArtifactDigest": {
+                    "$ref": "#/$defs/digest"
                 }
             }
         }
