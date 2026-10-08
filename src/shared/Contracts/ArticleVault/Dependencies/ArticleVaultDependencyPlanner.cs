@@ -80,12 +80,14 @@ public static class ArticleVaultDependencyPlanner
                 }
                 ArticleVaultValidationResult validation = PortableDependencyVerifier.VerifyCurrent(input.Manifest,
                     articles[item.PortableArticleIdentity], input.SourceBytes.Span, input.CurrentAuthorityNodes, input.CurrentAuthorityEdges,
-                    input.CurrentRelationSha256, budgets, time);
+                    input.CurrentRelationSha256, budgets, time, item.Server);
                 if (!validation.IsValid)
                 {
                     return Failed(validation.ReasonCode!);
                 }
-                if (input.Manifest.SourceSide != RequiredSide(item.Decision))
+                if (input.Manifest.Coordinates.Base != item.Base || input.Manifest.Coordinates.Local != item.Local
+                    || input.Manifest.Coordinates.Server != item.Server
+                    || input.Manifest.SourceSide != RequiredSide(item.Decision))
                 {
                     return Failed("portable_dependency_source_side_mismatch");
                 }

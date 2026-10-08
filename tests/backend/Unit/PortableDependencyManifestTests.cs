@@ -270,6 +270,66 @@ public sealed class PortableDependencyManifestTests
     }
 
     [Fact]
+    public void PullExtension_BindsFreshObservationInsteadOfStoredServerCoordinate()
+    {
+        PortableDependencyManifest stored = Create([Asset()]);
+        ArticleVaultArticleManifest article = Article(stored);
+        ArticleVaultPlanRequest original = Request(article);
+        byte[] freshBytes = Encoding.UTF8.GetBytes("new server source\r\n");
+        PortableDependencyManifest fresh = stored with
+        {
+            SourceSide = VaultDependencySourceSide.Server,
+            Source = ArticleVaultManifestCodec.CaptureSourceBytes(freshBytes)
+        };
+        string graph = PortableDependencyCodec.GraphDigest(fresh);
+        VaultArticleCoordinate currentServer = stored.Coordinates.Server with
+        {
+            Source = fresh.Source,
+            ServerRevision = 5,
+            DependencySha256 = graph,
+            ContentSha256 = string.Empty
+        };
+        currentServer = currentServer with
+        {
+            ContentSha256 = ArticleVaultManifestCodec.ComputeContentSha256(currentServer)
+        };
+        fresh = PortableDependencyCodec.Seal(fresh with
+        {
+            Coordinates = fresh.Coordinates with
+            {
+                Server = currentServer
+            },
+            GraphSha256 = graph
+        });
+        ArticleVaultServerObservation observation = original.ServerObservations[0] with
+        {
+            ServerCoordinate = currentServer,
+            ContentSha256 = string.Empty
+        };
+        observation = observation with
+        {
+            ContentSha256 = ArticleVaultSyncPlanCodec.ComputeContentSha256(observation)
+        };
+        ArticleVaultPlanRequest request = original with
+        {
+            ServerObservations = [observation],
+            Direction = VaultSyncDirection.Pull
+        };
+        ArticleVaultSyncPlan sync = ArticleVaultSyncPlanner.Build(request).Plan!;
+        Assert.NotNull(sync);
+        Assert.Equal(VaultSyncDecision.PullUpdate, Assert.Single(Assert.Single(sync.Groups).Items).Decision);
+        ArticleVaultPlanVerificationContext context = new(request.CreatedAtUnixMs, request.Direction, false);
+        VaultDependencyPlanInput input = new(fresh, freshBytes, fresh.Nodes, fresh.Edges, DigestA);
+        Assert.NotNull(ArticleVaultDependencyPlanner.Build(sync, request, context, [input], s_budgets).Plan);
+        PortableDependencyManifest stale = PortableDependencyCodec.Seal(stored with
+        {
+            SourceSide = VaultDependencySourceSide.Server
+        });
+        Assert.Null(ArticleVaultDependencyPlanner.Build(sync, request, context,
+            [new(stale, s_source, stale.Nodes, stale.Edges, DigestA)], s_budgets).Plan);
+    }
+
+    [Fact]
     public void MalformedAuthorityMembers_ReturnBlockers()
     {
         VaultDependencyNode[] nodes = [Asset(), Link()];
