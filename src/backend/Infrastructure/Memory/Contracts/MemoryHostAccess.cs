@@ -9,7 +9,7 @@ public interface IMemoryReservation : IDisposable
     {
         get;
     }
-    IMemoryAllocationCharge Commit(AllocationId allocation, IReadOnlyList<MemoryResourceCharge> actualCharges);
+    MemoryOperationResult<IMemoryAllocationCharge> Commit(AllocationId allocation, IReadOnlyList<MemoryResourceCharge> actualCharges);
 }
 
 // OWNERSHIP: Only the backing owner's final role/read/pin/operation release disposes this charge.
