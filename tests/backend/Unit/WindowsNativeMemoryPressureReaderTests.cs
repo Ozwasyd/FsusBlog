@@ -90,10 +90,11 @@ public sealed class WindowsNativeMemoryPressureReaderTests
         Assert.Equal(8, IntPtr.Size);
         Assert.Equal(64, Marshal.SizeOf<WindowsNativeMemoryPressureReader.NativeMemoryStatus>());
         Assert.Equal(104, Marshal.SizeOf<WindowsNativeMemoryPressureReader.NativePerformanceInfo>());
-        Assert.Equal(88, Marshal.SizeOf<WindowsNativeMemoryPressureReader.NativeProcessMemory>());
+        // Official PSAPI EX layout: two DWORDs plus nine 64-bit SIZE_T fields.
+        Assert.Equal(80, Marshal.SizeOf<WindowsNativeMemoryPressureReader.NativeProcessMemory>());
         Assert.Equal(8, Marshal.OffsetOf<WindowsNativeMemoryPressureReader.NativePerformanceInfo>("_commitTotal").ToInt32());
         Assert.Equal(80, Marshal.OffsetOf<WindowsNativeMemoryPressureReader.NativePerformanceInfo>("_pageSize").ToInt32());
-        Assert.Equal(80, Marshal.OffsetOf<WindowsNativeMemoryPressureReader.NativeProcessMemory>("_privateUsage").ToInt32());
+        Assert.Equal(72, Marshal.OffsetOf<WindowsNativeMemoryPressureReader.NativeProcessMemory>("_privateUsage").ToInt32());
     }
 
     [Fact]
