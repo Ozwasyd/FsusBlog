@@ -1,5 +1,6 @@
 import { BinaryReader, readBlobText, readCountChecked, readFixedUtf8, readInt32, readInt64Number, readInt64String, readIsoDate64, readSliceRef, readSliceText } from '@/codecs/binary/reader';
 import type { ArticleDetailResponse, ArticleListItemResponse, ArticleRightsResponse, BinaryPageResponse as PageResponse, FeaturedArticleItem, PopularArticleSummaryResponse, RelatedReadingItemResponse, RelatedReadingResponse, TrashClearResponse } from '@/contracts/binaryApi';
+import { ARTICLE_SEARCH_WIRE } from '@/generated/aedsArticleSearchWire';
 import { ARTICLE_LIST_WIRE } from '@/generated/aedsArticleListWire';
 import { AppErrorCode, createAppError } from '@/utils/appError';
 
@@ -19,8 +20,6 @@ const ARTICLE_DETAIL_V3_HEADER_SIZE = 44;
 const ARTICLE_DETAIL_V3_RECORD_SIZE = 84;
 const ARTICLE_DETAIL_V4_RECORD_SIZE = 92;
 const ARTICLE_DETAIL_V5_RECORD_SIZE = 116;
-const ARTICLE_SEARCH_V4_MAGIC = 0x34534146;
-const ARTICLE_SEARCH_V4_VERSION = 4;
 const ARTICLE_DETAIL_TAG_V3_RECORD_SIZE = 12;
 const ARTICLE_RIGHTS_V3_RECORD_SIZE = 112;
 const ARTICLE_DETAIL_RIGHTS_KNOWN_FLAGS = (1 << 11) - 1;
@@ -243,14 +242,8 @@ export function mapArticlePageFromPodPayload(payload: Uint8Array): PageResponse<
 
 export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
 {
-    const magic = payload.byteLength >= 4 ? readInt32(payload, 0) : 0;
-    if (payload.byteLength < 24 || (magic !== 0x33525346 && magic !== 0x34525346))
-    {
-        return mapArticleSearchListPayload(payload);
-    }
-
-    const version = readInt32(payload, 4);
-    if (version !== 3 && version !== 4)
+    if (payload.byteLength < ARTICLE_SEARCH_WIRE.headerBytes || readInt32(payload, 0) !== ARTICLE_SEARCH_WIRE.magic
+        || readInt32(payload, 4) !== ARTICLE_SEARCH_WIRE.version)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_version_invalid');
     }
@@ -259,121 +252,86 @@ export function mapArticleSearchFromPodPayload(payload: Uint8Array): PageRespons
     const count = readCountChecked(new BinaryReader(payload.subarray(12, 16)), 'article_search_count_invalid');
     const tagOffset = readInt32(payload, 16);
     const blobOffset = readInt32(payload, 20);
-    const hasVersionCoordinates = version === 4;
-    const itemRecordSize = hasVersionCoordinates ? 76 : 52;
-    const tagRecordSize = 12;
-    const itemStart = 24;
+    const itemRecordSize = ARTICLE_SEARCH_WIRE.recordBytes;
+    const tagRecordSize = ARTICLE_SEARCH_WIRE.tagRecordBytes;
+    const itemStart = ARTICLE_SEARCH_WIRE.headerBytes;
     const itemEnd = itemStart + count * itemRecordSize;
-    if (count < 0 || total < 0 || tagOffset < itemEnd || blobOffset < tagOffset || blobOffset > payload.byteLength)
+    if (count < 0 || total < count || tagOffset !== itemEnd || blobOffset < tagOffset || blobOffset > payload.byteLength || (blobOffset - tagOffset) % tagRecordSize !== 0)
     {
         throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_layout_invalid');
     }
 
     const blob = payload.subarray(blobOffset);
+    const o = ARTICLE_SEARCH_WIRE.offsets;
     const items: ArticleListItemResponse[] = [];
+    let usedTags = 0;
+    let blobEnd = 0;
     for (let i = 0; i < count; i++)
     {
         const offset = itemStart + i * itemRecordSize;
-        const tagStart = readInt32(payload, offset + 44);
-        const tagCount = readInt32(payload, offset + 48);
-        if (tagStart < 0 || tagCount < 0 || tagOffset + (tagStart + tagCount) * tagRecordSize > blobOffset)
+        const tagStart = readInt32(payload, offset + o.tagStart);
+        const tagCount = readInt32(payload, offset + o.tagCount);
+        if (tagStart !== usedTags || tagCount < 0 || tagOffset + (tagStart + tagCount) * tagRecordSize > blobOffset)
         {
             throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_tag_layout_invalid');
         }
 
+        usedTags += tagCount;
+        blobEnd = Math.max(blobEnd,
+            readInt32(payload, offset + o.categoryName) + readInt32(payload, offset + o.categoryName + 4),
+            readInt32(payload, offset + o.title) + readInt32(payload, offset + o.title + 4),
+            readInt32(payload, offset + o.summary) + readInt32(payload, offset + o.summary + 4));
         const tags: ArticleListItemResponse['tags'] = [];
         for (let tagIndex = 0; tagIndex < tagCount; tagIndex++)
         {
             const tagRecordOffset = tagOffset + (tagStart + tagIndex) * tagRecordSize;
+            blobEnd = Math.max(blobEnd, readInt32(payload, tagRecordOffset + 4) + readInt32(payload, tagRecordOffset + 8));
             tags.push({
                 id: readInt32(payload, tagRecordOffset),
-                name: readSliceText(blob, {
+                name: readArticleStrictSlice(blob, {
                     offset: readInt32(payload, tagRecordOffset + 4),
                     length: readInt32(payload, tagRecordOffset + 8)
                 })
             });
         }
 
+        const revisionId = readInt64String(payload, offset + o.currentRevisionId);
+        const revisionNo = readInt32(payload, offset + o.revisionNo);
+        const publicationId = readInt64String(payload, offset + o.currentPublicationId);
+        const publicationNo = readInt32(payload, offset + o.publicationNo);
+        validateArticleVersionCoordinates(revisionId, revisionNo, publicationId, publicationNo);
         items.push({
             id: readInt32(payload, offset),
-            views: readInt32(payload, offset + 4),
-            createTime: new Date(readInt64Number(payload, offset + 8)).toISOString(),
+            views: readInt32(payload, offset + o.views),
+            createTime: new Date(readInt64Number(payload, offset + o.createTimeUnixMs)).toISOString(),
             category: {
-                id: readInt32(payload, offset + 16),
-                name: readSliceText(blob, {
-                    offset: readInt32(payload, offset + 20),
-                    length: readInt32(payload, offset + 24)
+                id: readInt32(payload, offset + o.categoryId),
+                name: readArticleStrictSlice(blob, {
+                    offset: readInt32(payload, offset + o.categoryName),
+                    length: readInt32(payload, offset + o.categoryName + 4)
                 })
             },
-            title: readSliceText(blob, {
-                offset: readInt32(payload, offset + 28),
-                length: readInt32(payload, offset + 32)
+            title: readArticleStrictSlice(blob, {
+                offset: readInt32(payload, offset + o.title),
+                length: readInt32(payload, offset + o.title + 4)
             }),
-            summary: readSliceText(blob, {
-                offset: readInt32(payload, offset + 36),
-                length: readInt32(payload, offset + 40)
+            summary: readArticleStrictSlice(blob, {
+                offset: readInt32(payload, offset + o.summary),
+                length: readInt32(payload, offset + o.summary + 4)
             }),
             tags,
-            currentRevisionId: hasVersionCoordinates ? readInt64String(payload, offset + 52) : '0',
-            revisionNo: hasVersionCoordinates ? readInt32(payload, offset + 60) : 0,
-            currentPublicationId: hasVersionCoordinates && readInt64String(payload, offset + 64) !== '0'
-                ? readInt64String(payload, offset + 64)
-                : null,
-            publicationNo: hasVersionCoordinates && readInt32(payload, offset + 72) > 0
-                ? readInt32(payload, offset + 72)
-                : null
+            currentRevisionId: revisionId,
+            revisionNo,
+            currentPublicationId: publicationId === '0' ? null : publicationId,
+            publicationNo: publicationNo === 0 ? null : publicationNo
         });
     }
 
+    if (usedTags * tagRecordSize !== blobOffset - tagOffset || blobEnd !== blob.length)
+    {
+        throw createAppError(AppErrorCode.ProtocolFailure, 'search_result_trailing_bytes_invalid');
+    }
     return { items, total };
-}
-
-function mapArticleSearchListPayload(payload: Uint8Array): PageResponse<ArticleListItemResponse>
-{
-    const hasVersionCoordinates = payload.byteLength >= 12 && readInt32(payload, 0) === ARTICLE_SEARCH_V4_MAGIC;
-    if (hasVersionCoordinates && readInt32(payload, 4) !== ARTICLE_SEARCH_V4_VERSION)
-    {
-        throw createAppError(AppErrorCode.ProtocolFailure, 'article_search_version_invalid');
-    }
-    const reader = new BinaryReader(hasVersionCoordinates ? payload.subarray(8) : payload);
-    const count = readCountChecked(reader, 'article_search_count_invalid');
-    const items: ArticleListItemResponse[] = [];
-    for (let i = 0; i < count; i += 1)
-    {
-        const pod = reader.readSpan(ARTICLE_LIST_ITEM_POD_SIZE);
-        const tags = readTagList(reader);
-        const blob = reader.readBlob();
-        const item: ArticleListItemResponse = {
-            id: readInt32(pod, 0),
-            views: readInt32(pod, 4),
-            createTime: readIsoDate64(pod, 8),
-            category: readCategoryPod(pod, 16, 20, 128),
-            title: readFixedUtf8(pod, 148, 256),
-            summary: readBlobText(pod, blob, 404),
-            tags,
-            currentRevisionId: '0',
-            revisionNo: 0,
-            currentPublicationId: null,
-            publicationNo: null
-        };
-        if (hasVersionCoordinates)
-        {
-            item.currentRevisionId = readInt64String(reader.readSpan(8), 0);
-            item.revisionNo = reader.readInt32();
-            const publicationId = readInt64String(reader.readSpan(8), 0);
-            const publicationNo = reader.readInt32();
-            item.currentPublicationId = publicationId === '0' ? null : publicationId;
-            item.publicationNo = publicationNo > 0 ? publicationNo : null;
-        }
-        items.push(item);
-    }
-
-    if (reader.remaining() !== 0)
-    {
-        throw createAppError(AppErrorCode.ProtocolFailure, 'article_search_trailing_payload_invalid');
-    }
-
-    return { items, total: count };
 }
 
 export function mapArticleHotFromPodPayload(payload: Uint8Array): PopularArticleSummaryResponse[]

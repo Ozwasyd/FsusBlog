@@ -1,3 +1,4 @@
+#include "../../aeds/include/aeds_article_search_wire.generated.hpp"
 #include <algorithm>
 #include <bit>
 #include <chrono>
@@ -23,8 +24,8 @@ constexpr std::uint32_t KPatchMagic = 0x54505346u; // FSPT
 constexpr std::uint32_t KPatchVersion = 3u;
 constexpr std::uint32_t KPackageMagic = 0x4B505346u; // FSPK
 constexpr std::uint32_t KPackageVersion = 4u;
-constexpr std::uint32_t KSearchResultMagic = 0x34525346u; // FSR4
-constexpr std::uint32_t KSearchResultVersion = 4u;
+constexpr std::uint32_t KSearchResultMagic = FsusBlog::AedsWire::ArticleSearchMagic;
+constexpr std::uint32_t KSearchResultVersion = FsusBlog::AedsWire::ArticleSearchVersion;
 constexpr double KBm25K1 = 1.2;
 constexpr double KBm25B = 0.75;
 constexpr double KTitleBoost = 2.5;
@@ -573,9 +574,9 @@ void BuildBinaryPage(const std::vector<ScoreEntry>& scores, std::size_t page, st
 
     t_lastResult.clear();
     const std::size_t ItemCount = Start < Total ? std::min(Total - Start, SafeSize) : 0;
-    constexpr std::size_t HeaderSize = 24;
-    constexpr std::size_t ItemRecordSize = 76;
-    constexpr std::size_t TagRecordSize = 12;
+    constexpr std::size_t HeaderSize = FsusBlog::AedsWire::ArticleSearchHeaderBytes;
+    constexpr std::size_t ItemRecordSize = FsusBlog::AedsWire::ArticleSearchRecordBytes;
+    constexpr std::size_t TagRecordSize = FsusBlog::AedsWire::ArticleSearchTagRecordBytes;
     std::string records;
     std::string tagRecords;
     std::string blob;

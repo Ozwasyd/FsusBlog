@@ -49,7 +49,10 @@ test('the original producer owns five products with manifest-derived identities 
     assert.deepEqual(outputs.slice(5).map(([file]) => file), [
         'src/shared/Contracts/Validation/AedsArticleListWire.Generated.cs',
         'src/frontend/src/generated/aedsArticleListWire.ts',
-        'src/frontend/wasm/aeds/include/aeds_article_list_wire.generated.hpp'
+        'src/frontend/wasm/aeds/include/aeds_article_list_wire.generated.hpp',
+        'src/shared/Contracts/Validation/AedsArticleSearchWire.Generated.cs',
+        'src/frontend/src/generated/aedsArticleSearchWire.ts',
+        'src/frontend/wasm/aeds/include/aeds_article_search_wire.generated.hpp'
     ]);
     const golden = goldenFrom(manifest);
     assert.equal(golden.version, manifest.goldenCatalog.version);
