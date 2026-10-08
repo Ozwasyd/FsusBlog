@@ -56,9 +56,10 @@ public sealed class DatabaseMaterializationScopeTests
         var (ledger, host, operations) = TransientMemoryTestLedger.Create(128);
         using var cancellation = new CancellationTokenSource();
         using var table = new DataTable();
-        table.Columns.Add("text", typeof(string));
-        table.Rows.Add("stable");
-        table.Rows.Add(new string('x', 17));
+        // DataTableReader.GetChars exposes char[] columns, including its length probe.
+        table.Columns.Add("text", typeof(char[]));
+        table.Rows.Add("stable".ToCharArray());
+        table.Rows.Add(new string('x', 17).ToCharArray());
         using DbDataReader reader = table.CreateDataReader();
         var result = await DatabaseMaterializationScope.RunAsync(ledger, host, operations,
             new(2, 16, 32, 128), (scope, _) =>
