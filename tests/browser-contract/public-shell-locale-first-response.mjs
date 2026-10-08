@@ -209,7 +209,7 @@ function one(document, selector)
 }
 
 /** Inspect immutable response bytes, never a hydrated document. This is not a qualification writer. */
-export async function assertPublicShellLocaleFirstResponse({ response, scene, copy, expected })
+export async function assertPublicShellLocaleFirstResponse({ response, scene, copy, expected, resolverResult = null })
 {
     assert.ok(scene.issue === 2083 && scene.stage === 'first-response', 'first response requires its matrix scene');
     assert.ok(Buffer.isBuffer(response.body) && response.body.length > 0, 'first response requires original HTML bytes');
@@ -217,6 +217,19 @@ export async function assertPublicShellLocaleFirstResponse({ response, scene, co
     {
         assert.ok(typeof expected.identity[field] === 'string' && expected.identity[field].length > 0, `missing expected ${field}`);
         equal(response.identity[field], expected.identity[field], field);
+    }
+    // Optional diagnostic input is the canonical LocaleResolutionResult shape. The
+    // current HTTP capture exposes no such result: absence must remain explicit,
+    // and neither scene expectations nor Content-Language can supply Source/reason.
+    let resolution = null;
+    if (resolverResult !== null)
+    {
+        equal(resolverResult.locale?.code, scene.locale, 'resolver locale');
+        equal(resolverResult.source, scene.expectedResolution.source, 'resolver source');
+        equal(resolverResult.matchedRange, scene.expectedResolution.matchedRange, 'resolver matched range');
+        equal(resolverResult.catalogDigest, expected.bootstrap.localeCatalogDigest, 'resolver catalog digest');
+        resolution = { locale: resolverResult.locale.code, source: resolverResult.source,
+            matchedRange: resolverResult.matchedRange, catalogDigest: resolverResult.catalogDigest };
     }
     const headers = new Headers(response.headers);
     equal(response.status, 200, 'status');
@@ -227,6 +240,15 @@ export async function assertPublicShellLocaleFirstResponse({ response, scene, co
     equal(headers.get('cache-control'), expected.cacheControl, 'cache policy');
     assert.ok(expected.metadata.title && expected.metadata.description && expected.metadata.canonicalUrl, 'missing fixture metadata');
     assert.ok(expected.frontendBuildIdentity, 'missing expected frontend build identity');
+    let html;
+    try
+    {
+        html = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(response.body);
+    }
+    catch
+    {
+        throw new Error('first response UTF8 is invalid');
+    }
     const codec = await loadPublicShellFirstResponseCodec();
     const window = new Window({ settings: {
         enableJavaScriptEvaluation: false,
@@ -237,7 +259,7 @@ export async function assertPublicShellLocaleFirstResponse({ response, scene, co
     } });
     try
     {
-        const document = new window.DOMParser().parseFromString(response.body.toString('utf8'), 'text/html');
+        const document = new window.DOMParser().parseFromString(html, 'text/html');
         equal(document.documentElement.lang, scene.document.language, 'html lang');
         equal(document.documentElement.getAttribute('dir'), scene.document.direction, 'html direction');
         equal(one(document, 'title').textContent, expected.metadata.title, 'document title');
@@ -332,7 +354,9 @@ export async function assertPublicShellLocaleFirstResponse({ response, scene, co
             observed: {
                 locale: scene.locale,
                 route: scene.route,
-                authActionContext: scene.authActionContext
+                authActionContext: scene.authActionContext,
+                resolution,
+                resolutionCaptureState: resolution === null ? 'not-captured' : 'caller-supplied-diagnostic'
             }
         };
     }
