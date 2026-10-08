@@ -786,8 +786,8 @@ public sealed class DocumentExportHtmlProviderTests
         ];
         ConstructorInfo providerConstructor = ProviderConstructor();
         MethodInfo requireTool = RegisteredToolMethod();
-        Assert.Empty(ReadSoleConstructor(typeof(TextOnlyRegistryFixture))
-            .Where(instruction => instruction.OpCode == OpCodes.Newobj && instruction.Member == providerConstructor));
+        Assert.DoesNotContain(ReadSoleConstructor(typeof(TextOnlyRegistryFixture)),
+            instruction => instruction.OpCode == OpCodes.Newobj && instruction.Member == providerConstructor);
         IlInstruction otherConstruction = Assert.Single(ReadSoleConstructor(typeof(OtherProviderRegistryFixture)),
             instruction => instruction.OpCode == OpCodes.Newobj
                 && instruction.Member?.DeclaringType == typeof(OtherProviderRegistryFixture.SelfContainedHtmlDocumentExportProvider));
