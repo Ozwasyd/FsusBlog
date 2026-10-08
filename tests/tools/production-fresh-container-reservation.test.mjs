@@ -18,10 +18,15 @@ const valid = {
 test('publisher reservation rejects mutable images and unbounded or escaping resource options', () =>
 {
     validateContainerReservationOptions(valid);
+    validateContainerReservationOptions({ ...valid, resourceArgs: [...resources,
+        '--label', 'io.fsusblog.test.run-id=probe-run', '--label', 'io.fsusblog.test.namespace=probe-namespace',
+        '--label', 'io.fsusblog.test.bundle-id=probe-bundle', '--label', 'io.fsusblog.test.step-id=probe-step'] });
     for (const change of [
         { imageReference: 'redis:7-alpine' }, { resourceArgs: [] },
         { resourceArgs: [...resources, '--privileged', 'true'] },
         { resourceArgs: [...resources, '--label', 'io.fsusblog.test.run-id=another-run'] },
+        { resourceArgs: [...resources, '--label', 'io.fsusblog.test.namespace=another-namespace'] },
+        { resourceArgs: [...resources, '--label', 'io.fsusblog.test.reservation-role=redis'] },
         { env: { FSUSBLOG_RESERVATION_ACTIVATION: 'forged' } },
         { name: 'production-redis' }, { containerPort: 5432 },
         { resourceArgs: ['--cpus', '1', '--memory', '1', '--memory-reservation', '2', '--pids-limit', '128'] }
@@ -112,10 +117,16 @@ test('real final publishers retain socket and attempt identity through business 
                 ...valid, role, gateRoot, runId: attempt, namespace: `probe-${attempt}`,
                 imageReference, port: await choosePort(), containerPort: role === 'postgres' ? 5432 : 6379,
                 name: `fsusblog-test-publisher-${role}-${attempt}`,
+                resourceArgs: [...resources, '--label', `io.fsusblog.test.run-id=${attempt}`,
+                    '--label', `io.fsusblog.test.namespace=probe-${attempt}`,
+                    '--label', 'io.fsusblog.test.bundle-id=probe-bundle', '--label', 'io.fsusblog.test.step-id=probe-step'],
                 env: role === 'postgres' ? { POSTGRES_USER: 'fsusblog', POSTGRES_PASSWORD: 'isolated_probe', POSTGRES_DB: 'fsusblog' } : {}
             });
             reservations.push(reservation);
             const before = await reservation.observe();
+            assert.equal(before.labels['io.fsusblog.test.bundle-id'], 'probe-bundle');
+            assert.equal(before.labels['io.fsusblog.test.step-id'], 'probe-step');
+            await assert.rejects(reservation.transferToRuntime(), /before activation/u);
             await assert.rejects(bind(before.publisher.port), { code: 'EADDRINUSE' });
             const id = before.containerId;
             assert.throws(() => docker(['exec', id, ...(role === 'postgres' ? ['pg_isready', '-U', 'fsusblog', '-d', 'fsusblog'] : ['redis-cli', 'ping'])]));
@@ -195,6 +206,23 @@ test('real final publishers retain socket and attempt identity through business 
         await cancelled.close();
         assert.throws(() => docker(['inspect', cancelledId]));
         await assert.rejects(cancelled.activate(), /released/u);
+        const transferredController = new AbortController();
+        const transferred = await reserveContainerPublisher({
+            ...valid, gateRoot, port: await choosePort(), signal: transferredController.signal,
+            imageReference: reservations[1].ownerIdentity.imageReference,
+            name: `fsusblog-test-publisher-transferred-${attempt}`
+        });
+        try
+        {
+            await transferred.activate();
+            const transferredIdentity = await transferred.transferToRuntime();
+            transferredController.abort(new Error('reservation owner terminal after handoff'));
+            assert.deepEqual(await transferred.observe(), transferredIdentity);
+            await eventually(() => redisHostCanary(transferredIdentity.port, attempt));
+            await assert.rejects(bind(transferredIdentity.port), { code: 'EADDRINUSE' });
+        }
+        finally { await transferred.close(); }
+        assert.throws(() => docker(['inspect', transferred.ownerIdentity.containerId]));
         assert.equal((await fs.readdir(gateRoot)).length, 2);
         // Recover the exact reservation after a real owner process is killed, without a live helper object.
         const recoveryOptions = {

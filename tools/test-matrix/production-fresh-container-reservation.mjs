@@ -77,8 +77,14 @@ export function validateContainerReservationOptions(options)
         if (flag === '--label')
         {
             const key = value.split('=')[0];
+            const labelValue = value.slice(value.indexOf('=') + 1);
+            const expectedCanonical = {
+                [`${labelPrefix}run-id`]: options.runId,
+                [`${labelPrefix}namespace`]: options.namespace
+            };
             if (!value.includes('=') || !value.startsWith(labelPrefix) || labels.has(key) ||
-                /^(?:io\.fsusblog\.test\.)(?:run-id|namespace|reservation-task|reservation-role|reservation-token)=/u.test(value))
+                key.startsWith(`${labelPrefix}reservation-`) ||
+                Object.hasOwn(expectedCanonical, key) && expectedCanonical[key] !== labelValue)
             {
                 throw new Error('container reservation label conflicts with owner identity');
             }
@@ -294,6 +300,7 @@ export async function reserveContainerPublisher(options)
     let ownerIdentity = null;
     let closed = false;
     let activated = false;
+    let transferred = false;
     let closePromise = null;
     let activationPromise = null;
     const expectedLabels = {
@@ -359,7 +366,7 @@ export async function reserveContainerPublisher(options)
     async function observe()
     {
         if (closed) throw new Error('container reservation is released');
-        options.signal?.throwIfAborted();
+        if (!transferred) options.signal?.throwIfAborted();
         const container = await inspectContainer(containerId);
         assertOwned(container);
         const resources = {
@@ -399,6 +406,16 @@ export async function reserveContainerPublisher(options)
         options.signal?.throwIfAborted();
         return {
             ownerIdentity, gateDirectory, observe, close,
+            async transferToRuntime()
+            {
+                if (!activated) throw new Error('container reservation cannot transfer before activation');
+                const observed = await observe();
+                if (closed) throw new Error('container reservation is released');
+                options.signal?.throwIfAborted();
+                transferred = true;
+                options.signal?.removeEventListener('abort', onAbort);
+                return observed;
+            },
             async activate()
             {
                 if (activationPromise) return activationPromise;
