@@ -1,10 +1,11 @@
 // @vitest-environment happy-dom
-import { ElMarkdownEditor } from '@ozwasyd/element-plus';
+import { ElDrawer, ElIcon, ElMarkdownEditor } from '@ozwasyd/element-plus';
 import { MARKDOWN_RENDERER_VERSION, createMarkdownAnchorMap, renderMarkdownResultWithRuntime } from '@ozwasyd/element-plus/markdown-runtime';
 import { mount } from '@vue/test-utils';
 import { nextTick } from 'vue';
 import { afterEach, describe, expect, it } from 'vitest';
 
+import ArticleWriteEditor from '@/components/admin/article/ArticleWriteEditor.vue';
 import { ArticleAnchorContextAdapter } from '@/services/authoring/articleAnchorContext';
 import { createArticleDocumentContextAdapter } from '@/services/authoring/articleDocumentContext';
 import { createArticleEditorContinuityAcknowledgement, validateArticleEditorContinuityReceipt } from '@/services/authoring/articleEditorContinuity';
@@ -22,7 +23,7 @@ afterEach(() => cleanup.splice(0).reverse().forEach(dispose => dispose()));
 const viewport = { inlineSize: 1366, mobile: false };
 const restore = { origin: 'tool' as const, now: 100, viewportHeight: 500, reducedMotion: true };
 
-async function host(initialSurface: 'live' | 'source' = 'source', initialSource = '\ufeff# Heading\r\n\r\nparagraph  \r\n')
+async function host(initialSurface: 'live' | 'source' = 'source', initialSource = '\ufeff# Heading\r\n\r\nparagraph  \r\n', productionWrapper = false)
 {
     let source = initialSource;
     const owner = createArticleDocumentContextAdapter({ articleId: 1, draftId: 'article:1', editorSessionId: 'session:compare', siteScope: 'site:test', userScope: 'user:test', content: source });
@@ -31,14 +32,30 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
     const identity = { rendererVersion: MARKDOWN_RENDERER_VERSION, projectionVersion: MARKDOWN_RENDERER_VERSION, featureConfigurationDigest: digest(configuration), themeDigest: digest({ theme: 'light' }), locale: 'zh-CN' };
     const attachments = new ArticleAttachmentContextAdapter(owner, 'compare-test', 'v1.0', anchors);
     let runtime: ArticleEditorRuntimeBinding | null = null;
-    const wrapper = mount(ElMarkdownEditor, { attachTo: document.body, props: {
-        modelValue: source, mode: initialSurface, documentIdentity: owner.documentIdentity,
+    const wrapper = mount(productionWrapper ? ArticleWriteEditor : ElMarkdownEditor, { attachTo: document.body,
+        global: { components: { ElDrawer, ElIcon } }, props: {
+        modelValue: source, ...(productionWrapper ? {} : { mode: initialSurface }), documentIdentity: owner.documentIdentity,
+        'onUpdate:modelValue': async (value: string): Promise<void> => { await wrapper.setProps({ modelValue: value }); },
+        onEditorFocus: (event: 'focusin' | 'focusout') => runtime?.consumeFocus(event),
+        onSelectionChange: (event: Parameters<ArticleEditorRuntimeBinding['consumeSelection']>[0]) => runtime?.consumeSelection(event),
         onTransaction: (result: MarkdownEditorDispatchResult) => {
             if (!result.accepted) return;
             runtime?.consumeTransaction(result);
         }
     } });
-    const editor = wrapper.vm as unknown as ArticleEditorContinuityPort;
+    await nextTick();
+    if (productionWrapper && initialSurface === 'live')
+    {
+        await wrapper.get('[data-authoring-surface="live"]').trigger('click');
+    }
+    const exposed = wrapper.vm as unknown as { getAuthoringEditorPort(): ArticleEditorContinuityPort | null; };
+    const editor = productionWrapper ? exposed.getAuthoringEditorPort()! : wrapper.vm as unknown as ArticleEditorContinuityPort;
+    if (productionWrapper)
+    {
+        expect(editor).not.toBeNull();
+        expect(exposed.getAuthoringEditorPort()).toBe(editor);
+        expect(wrapper.findAllComponents(ElMarkdownEditor)).toHaveLength(1);
+    }
     const binding = () => ({ document: owner.context, map: createMarkdownAnchorMap({ identity: owner.documentIdentity, source }) });
     runtime = bindArticleEditorRuntime(owner, anchors, attachments, {
         dispatch: transaction => editor.dispatchTransaction(transaction),
@@ -60,8 +77,11 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
     };
     const focusIn = () => adapter.observeFocus(editor, { document: owner.context, event: 'focusin' });
     const focusOut = () => adapter.observeFocus(editor, { document: owner.context, event: 'focusout' });
-    wrapper.element.addEventListener('focusin', focusIn);
-    wrapper.element.addEventListener('focusout', focusOut);
+    if (!productionWrapper)
+    {
+        wrapper.element.addEventListener('focusin', focusIn);
+        wrapper.element.addEventListener('focusout', focusOut);
+    }
     cleanup.push(() => {
         owner.dispose(); compare.dispose(); bound.dispose(); attachments.dispose(); wrapper.unmount();
     });
@@ -70,7 +90,14 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
     const complete = async (receipt: ArticleEditorContinuityReceipt) => {
         const admitted = adapter.apply(receipt.requestRef);
         expect(admitted.status).toBe('awaiting-ack');
-        await wrapper.setProps({ mode: admitted.targetSurface });
+        if (productionWrapper)
+        {
+            await wrapper.get(`[data-authoring-surface="${admitted.targetSurface}"]`).trigger('click');
+        }
+        else
+        {
+            await wrapper.setProps({ mode: admitted.targetSurface });
+        }
         await nextTick(); await nextTick();
         // The fixture reads actual mounted state after public dispatch, matching the upstream acknowledgement contract.
         const textarea = wrapper.find('textarea').element as HTMLTextAreaElement;
@@ -98,10 +125,41 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
         return opening;
     };
     const close = () => compare.close(binding(), options(), restore);
-    return { owner, anchors, runtime: bound, compare, wrapper, adapter, identity, binding: bound.positionBinding, options, dispatch, complete, open, close, source: () => source };
+    return { owner, anchors, runtime: bound, compare, wrapper, editor, adapter, identity, binding: bound.positionBinding, options, dispatch, complete, open, close, source: () => source };
 }
 
 describe('temporary compare using actual shared owners (#2284 source stage)', () => {
+    it.each(['live', 'source'] as const)('consumes the real production wrapper port from %s and rejects disposed admission after the canonical fix', async surface => {
+        const h = await host(surface, '\ufeff# Heading\r\n\r\nparagraph  \r\n', true);
+        const exposed = h.wrapper.vm as unknown as { getAuthoringEditorPort(): ArticleEditorContinuityPort | null; };
+        const instance = h.editor;
+        const initial = h.owner.context;
+        h.dispatch({ changes: [{ from: 14, to: 14, insert: 'new ' }], history: 'record' });
+        await nextTick(); await nextTick();
+        const before = h.adapter.capture(h.binding(), h.options());
+        const bytes = h.source();
+        expect(h.wrapper.emitted('transaction')!.length).toBeGreaterThan(0);
+        expect(h.wrapper.emitted('selection-change')!.length).toBeGreaterThan(0);
+        const textarea = h.wrapper.get('textarea').element as HTMLTextAreaElement;
+        textarea.focus(); await nextTick();
+        expect(h.wrapper.emitted('editor-focus')!.some(event => event[0] === 'focusin')).toBe(true);
+        await h.open();
+        const planned = h.close();
+        const restored = await h.complete(planned);
+        expect(restored.after!.history).toEqual(before.history);
+        expect(restored.after!.anchor.direction).toBe('backward');
+        expect(exposed.getAuthoringEditorPort()).toBe(instance);
+        expect(h.wrapper.findAllComponents(ElMarkdownEditor)).toHaveLength(1);
+        expect(h.owner.context.documentId).toBe(initial.documentId);
+        expect(h.owner.context.documentEpoch).toBe(initial.documentEpoch);
+        expect(h.source()).toBe(bytes);
+        const current = h.owner.context;
+        h.owner.dispose();
+        expect(h.owner.isCurrentContext(current)).toBe(false);
+        expect(() => h.compare.open(viewport, h.identity, h.binding(), h.options(), restore)).toThrow();
+        expect(h.compare.state.open).toBe(false);
+        expect(h.compare.retainedRender).toBeNull();
+    });
     it.each(['live', 'source'] as const)('restores mounted %s context through actual owner acknowledgement independently of renderer availability', async surface => {
         const h = await host(surface);
         const before = h.owner.context;
