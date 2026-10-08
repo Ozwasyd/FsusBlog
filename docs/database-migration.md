@@ -681,6 +681,18 @@ refuse. MySQL and SQLite do not acquire an expression-key implementation from
 this PostgreSQL capability. Fresh v5 target/source identities are required; old
 artifacts remain unchanged and cannot grant current admission.
 
+The original apply-journal control's non-nullability remains owned by its seven
+canonical column facts. PostgreSQL 18 additionally records each inline `NOT NULL`
+declaration in `pg_constraint` with type `n`. The sole native catalog observer
+checks the complete version-dependent roster, exact column and generated name,
+validation/enforcement, absence of inheritance, deferral and unrelated constraint
+effects, and agreement with measured column nullability before projecting that
+representation onto `IsNullable=false`. PostgreSQL 17 retains its original column
+representation without those catalog rows. Unknown, missing or changed `n` facts
+refuse; they are not ignored or treated as extra permitted objects. This preserves
+the v5 model and current control semantics; fresh producer/verifier byte bindings
+and independent native qualification remain required.
+
 The original Server executable exposes `export-current-schema-owned-target
 --output <new-absolute-file>` before Web host, DI or database configuration.
 `OwnedCurrentSchemaTarget.InvokeOriginalOwnerAsync` invokes that original producer

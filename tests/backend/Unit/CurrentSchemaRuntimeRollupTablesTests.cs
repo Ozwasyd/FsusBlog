@@ -195,6 +195,77 @@ public sealed class CurrentSchemaRuntimeRollupTablesTests
 public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchemaMigrationFixture fixture)
 {
     [Fact]
+    public async Task NativeCatalogObserver_ControlNotNullRowsPreserveCanonicalColumnGuarantees()
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
+        var connection = (System.Data.Common.DbConnection)db.Ado.Connection;
+        var transaction = (System.Data.Common.DbTransaction)db.Ado.Transaction;
+        try
+        {
+            await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(connection, transaction, CancellationToken.None);
+            SchemaModelSnapshot actual = await PgCurrentSchemaCatalogObserver.ReadTableAsync(
+                connection, transaction, CurrentSchemaControlShape.ApplyJournalTableName, CancellationToken.None);
+            PgCurrentSchemaEffectObservation effects = await PgCurrentSchemaEffectObserver.ReadControlTableAsync(
+                connection, transaction, CurrentSchemaControlShape.ApplyJournalTableName, CancellationToken.None);
+            Assert.Empty(PgCurrentSchemaControlShape.CompareApplyJournal(actual, effects));
+            SchemaTableModel table = Assert.Single(actual.Tables).Value;
+            Assert.Equal(7, table.Columns.Count);
+            Assert.All(table.Columns.Values, static column => Assert.False(column.IsNullable));
+            Assert.Equal(4, table.Constraints.Count);
+            int version = await db.Ado.GetIntAsync("SELECT current_setting('server_version_num')::integer;");
+            int notNullRows = await db.Ado.GetIntAsync($"SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.{table.Name}'::regclass AND contype = 'n';");
+            Assert.Equal(version >= 180000 ? 7 : 0, notNullRows);
+            Assert.Same(transaction, db.Ado.Transaction);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Theory]
+    [InlineData("nullable", "current_schema_control_not_null_roster_unavailable")]
+    [InlineData("name", "current_schema_control_not_null_metadata_invalid")]
+    [InlineData("not-valid", "current_schema_control_not_null_metadata_invalid")]
+    [InlineData("no-inherit", "current_schema_control_not_null_metadata_invalid")]
+    public async Task NativeCatalogObserver_ControlNotNullRejectsActualColumnConstraintDrift(string drift, string reason)
+    {
+        using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
+        await db.Ado.BeginTranAsync(IsolationLevel.RepeatableRead);
+        var connection = (System.Data.Common.DbConnection)db.Ado.Connection;
+        var transaction = (System.Data.Common.DbTransaction)db.Ado.Transaction;
+        try
+        {
+            await PgCurrentSchemaControlShape.EnsureApplyJournalAsync(connection, transaction, CancellationToken.None);
+            const string Journal = CurrentSchemaControlShape.ApplyJournalTableName;
+            string sql = drift switch
+            {
+                "nullable" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload DROP NOT NULL;",
+                "name" => $"ALTER TABLE public.{Journal} RENAME CONSTRAINT {Journal}_entry_payload_not_null TO unexpected_not_null;",
+                "not-valid" => $"ALTER TABLE public.{Journal} ALTER COLUMN entry_payload DROP NOT NULL; ALTER TABLE public.{Journal} ADD CONSTRAINT {Journal}_entry_payload_not_null NOT NULL entry_payload NOT VALID;",
+                "no-inherit" => $"ALTER TABLE public.{Journal} ALTER CONSTRAINT {Journal}_entry_payload_not_null NO INHERIT;",
+                _ => throw new InvalidOperationException("Unknown native NOT NULL drift.")
+            };
+            await db.Ado.ExecuteCommandAsync(sql);
+            if (drift == "not-valid")
+                Assert.Equal(0, await db.Ado.GetIntAsync($"SELECT convalidated::integer FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass AND conname = '{Journal}_entry_payload_not_null';"));
+            if (drift == "no-inherit")
+                Assert.Equal(1, await db.Ado.GetIntAsync($"SELECT connoinherit::integer FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass AND conname = '{Journal}_entry_payload_not_null';"));
+            InvalidOperationException rejected = await Assert.ThrowsAsync<InvalidOperationException>(() =>
+                PgCurrentSchemaControlShape.ValidateApplyJournalAsync(connection, transaction, CancellationToken.None));
+            Assert.Equal(reason, rejected.Message);
+            Assert.Same(transaction, db.Ado.Transaction);
+            Assert.Equal(1, await db.Ado.GetIntAsync("SELECT 1;"));
+        }
+        finally
+        {
+            await db.Ado.RollbackTranAsync();
+        }
+    }
+
+    [Fact]
     public async Task CompleteRuntimeObserver_BorrowsActualCallerRrButCannotAdmitOrOwnItsTerminal()
     {
         using SqlSugarClient db = await PostgresSqlSugarTestClient.CreateAsync(fixture);
@@ -288,7 +359,8 @@ public sealed class CurrentSchemaRuntimeRollupTablesDatabaseTests(PostgresSchema
             await Assert.ThrowsAsync<CurrentSchemaMismatchException>(() => observer.ReadAsync(CancellationToken.None));
             if (drift == "same-shape-standalone-index")
             {
-                Assert.Equal(3, await db.Ado.GetIntAsync($"SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass;"));
+                int version = await db.Ado.GetIntAsync("SELECT current_setting('server_version_num')::integer;");
+                Assert.Equal(version >= 180000 ? 10 : 3, await db.Ado.GetIntAsync($"SELECT count(*) FROM pg_constraint WHERE conrelid = 'public.{Journal}'::regclass;"));
                 await Assert.ThrowsAsync<InvalidOperationException>(() => PgCurrentSchemaControlShape.ValidateApplyJournalAsync(
                     (System.Data.Common.DbConnection)db.Ado.Connection,
                     (System.Data.Common.DbTransaction)caller, CancellationToken.None));
