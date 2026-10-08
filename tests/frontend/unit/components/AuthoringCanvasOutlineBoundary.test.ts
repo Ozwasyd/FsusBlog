@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { mount } from '@vue/test-utils';
 import { ElPagination } from '@ozwasyd/element-plus';
 import AuthoringCanvasOutlineView from '@/components/admin/canvas/AuthoringCanvasOutlineView.vue';
@@ -22,7 +22,7 @@ describe('Canvas bounded outline display', () => {
         expect(wrapper.find('.outline-item').attributes('data-outline-id')).toBe(items[0].id);
         wrapper.unmount();
     });
-    it('keeps an externally selected item visible without modifying source identities or actions', async () => {
+    it('keeps an externally selected item in the rendered page without modifying source identities or actions', async () => {
         const wrapper = mount(AuthoringCanvasOutlineView, { props: { items } });
         const selected = items.map((item, index) => ({ ...item, selected: index === 3005 }));
         await wrapper.setProps({ items: selected });
@@ -34,6 +34,36 @@ describe('Canvas bounded outline display', () => {
         await wrapper.setProps({ items: reordered });
         expect(wrapper.find('.outline-item.selected').attributes('data-outline-id')).toBe(items[3005].id);
         wrapper.unmount();
+    });
+    it('places the public responsive pager before the scrolling list', () => {
+        const wrapper = mount(AuthoringCanvasOutlineView, { props: { items } });
+        const pager = wrapper.findComponent(ElPagination);
+        expect(pager.props('responsive')).toBe('auto');
+        expect(pager.element.compareDocumentPosition(wrapper.find('.outline-list').element)
+            & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+        wrapper.unmount();
+    });
+    it('reveals same-page and last-page selection without stealing external focus, and returns owned focus to selection', async () => {
+        const reveal = vi.spyOn(HTMLElement.prototype, 'scrollIntoView').mockImplementation(() => {});
+        const outside = document.createElement('button');
+        document.body.append(outside);
+        const wrapper = mount(AuthoringCanvasOutlineView, { props: { items }, attachTo: document.body });
+        outside.focus();
+        await wrapper.setProps({ items: items.map((item, index) => ({ ...item, selected: index === 99 })) });
+        await wrapper.vm.$nextTick();
+        expect(document.activeElement).toBe(outside);
+        expect(reveal.mock.instances.at(-1)).toBe(wrapper.find('.outline-item.selected').element);
+        expect(reveal).toHaveBeenLastCalledWith({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+        (wrapper.find('.outline-item').element as HTMLElement).focus();
+        await wrapper.setProps({ items: items.map((item, index) => ({ ...item, selected: index === 9999 })) });
+        await wrapper.vm.$nextTick();
+        expect(wrapper.findAll('.outline-item')).toHaveLength(100);
+        expect(wrapper.find('.outline-item.selected').attributes('data-outline-id')).toBe(items[9999].id);
+        expect(document.activeElement).toBe(wrapper.find('.outline-item.selected').element);
+        expect(reveal.mock.instances.at(-1)).toBe(wrapper.find('.outline-item.selected').element);
+        wrapper.unmount();
+        outside.remove();
+        reveal.mockRestore();
     });
     it('returns removed row focus to a visible row, preserves pagination focus and handles empty items', async () => {
         const wrapper = mount(AuthoringCanvasOutlineView, { props: { items }, attachTo: document.body });

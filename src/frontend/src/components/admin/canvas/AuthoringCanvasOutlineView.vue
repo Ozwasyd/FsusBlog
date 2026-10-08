@@ -10,7 +10,16 @@
             <span class="outline-count">{{ items.length }}</span>
         </div>
 
+        <ElPagination
+            v-if="items.length > pageSize"
+            v-model:current-page="page"
+            :page-size="pageSize"
+            :total="items.length"
+            responsive="auto"
+            layout="prev, pager, next"
+        />
         <ul
+            ref="outlineList"
             class="outline-list"
             role="list"
         >
@@ -76,13 +85,6 @@
                 {{ t('admin.canvas.empty') }}
             </li>
         </ul>
-        <ElPagination
-            v-if="items.length > pageSize"
-            v-model:current-page="page"
-            :page-size="pageSize"
-            :total="items.length"
-            layout="prev, pager, next"
-        />
     </section>
 </template>
 
@@ -98,6 +100,7 @@ const props = defineProps<{
 const pageSize = 100;
 const page = ref(1);
 const outlineRoot = ref<HTMLElement>();
+const outlineList = ref<HTMLElement>();
 const pageItems = computed(() => props.items.slice((page.value - 1) * pageSize, page.value * pageSize));
 watch(() => [props.items[0]?.id, props.items.length, props.items.findIndex(item => item.selected)] as const,
       ([firstId, count, selectedIndex], previous) =>
@@ -115,17 +118,25 @@ watch(() => [props.items[0]?.id, props.items.length, props.items.findIndex(item 
               page.value = Math.min(page.value, Math.max(1, Math.ceil(count / pageSize)));
           }
       }, { immediate: true });
-watch(page, async () =>
+watch([page, () => props.items], async ([currentPage], previous) =>
 {
     const active = document.activeElement;
     const restoreRowFocus = active instanceof HTMLElement && active.closest('.outline-item')
         && outlineRoot.value?.contains(active);
     await nextTick();
+    if (previous && currentPage !== previous[0] && outlineList.value)
+    {
+        outlineList.value.scrollTop = 0;
+    }
+    const selectedRow = outlineList.value?.querySelector<HTMLElement>('.outline-item.selected');
     if (restoreRowFocus)
     {
-        outlineRoot.value?.querySelector<HTMLElement>('.outline-item')?.focus();
+        const focusTarget = selectedRow ?? (!active.isConnected
+            ? outlineList.value?.querySelector<HTMLElement>('.outline-item') : undefined);
+        focusTarget?.focus({ preventScroll: true });
     }
-});
+    selectedRow?.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'auto' });
+}, { immediate: true });
 defineEmits<{
     (e: 'select-item', item: OutlineItem): void;
     (e: 'delete-item', item: OutlineItem): void;
@@ -165,9 +176,10 @@ function statusLabel(status: string): string
     display: flex;
     flex-direction: column;
     height: 100%;
+    min-height: 0;
     background: var(--el-bg-color-overlay);
     border-left: 1px solid var(--el-border-color);
-    overflow-y: auto;
+    overflow: hidden;
     padding: var(--fsus-space-4);
     box-sizing: border-box;
 }
@@ -198,6 +210,10 @@ function statusLabel(status: string): string
 
 .outline-list
  {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    scroll-behavior: auto;
     list-style: none;
     margin: 0;
     padding: 0;
