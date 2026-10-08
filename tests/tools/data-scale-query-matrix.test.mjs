@@ -676,13 +676,34 @@ test('versioned thread reply case consumes typed inputs without inferring roles 
     assert.throws(() => buildQueryCaseRegistry({ ...fixture(), threadReplies: threadInput() }), /explicit v2/u);
     assert.throws(() => queryCaseIdsForSchema('invented-schema'), /unsupported/u);
     for (const alter of [
-        (value) => { value.rootId = 1; },
-        (value) => { value.articleId = 2147483648; },
-        (value) => { value.pageSize = 101; },
-        (value) => { value.rootId = '9223372036854775808'; },
-        (value) => { value.expectedReplies.reverse(); },
-        (value) => { value.expectedReplies[1].id = '2'; },
-        (value) => { value.expectedReplies[1].rootId = '99'; }
+        (value) =>
+        {
+            value.rootId = 1;
+        },
+        (value) =>
+        {
+            value.articleId = 2147483648;
+        },
+        (value) =>
+        {
+            value.pageSize = 101;
+        },
+        (value) =>
+        {
+            value.rootId = '9223372036854775808';
+        },
+        (value) =>
+        {
+            value.expectedReplies.reverse();
+        },
+        (value) =>
+        {
+            value.expectedReplies[1].id = '2';
+        },
+        (value) =>
+        {
+            value.expectedReplies[1].rootId = '99';
+        }
     ])
     {
         const value = threadInput();
@@ -695,18 +716,27 @@ test('versioned thread reply case consumes typed inputs without inferring roles 
 test('versioned thread runner refuses resealed verified flags before its HTTP request and retains all cases', async () =>
 {
     const registry = buildQueryCaseRegistry({ ...fixture(), registrySchema: queryRegistrySchemas[1], threadReplies: threadInput() });
-    registry.cases.forEach((row) => { row.status = 'blocked'; });
+    registry.cases.forEach((row) =>
+    {
+        row.status = 'blocked';
+    });
     const thread = registry.cases.at(-1);
     thread.status = 'ready';
     thread.normalizedRoles = { verified: true };
     thread.exactRevisions = { verified: true };
     const { contentDigest, ...body } = registry;
+    assert.notEqual(contentDigest, computeSha256(body));
     registry.contentDigest = computeSha256(body);
     let calls = 0;
     const matrix = await runQueryMatrix({ registry, policies: Object.fromEntries(queryCaseIdsForSchema(registry.schema).map((id) => [id, policy()])),
-        baseUrl: 'http://127.0.0.1:18888', secret: 'ordinary-control', verifyRuntime: async () => {},
+        baseUrl: 'http://127.0.0.1:18888', secret: 'ordinary-control', verifyRuntime: async () =>
+        {},
         decoders: Object.fromEntries(queryCaseIdsForSchema(registry.schema).map((id) => [id, decodeControlled])),
-        fetchImpl: async () => { calls += 1; throw new Error('must not execute'); } });
+        fetchImpl: async () =>
+        {
+            calls += 1;
+            throw new Error('must not execute');
+        } });
     assert.equal(calls, 0);
     assert.equal(matrix.status, 'failed');
     assert.equal(matrix.qualification, 'not-performed');

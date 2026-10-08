@@ -164,7 +164,7 @@ export function buildQueryCaseInventory(binding, registrySchema = queryRegistryS
     });
     const inventory = { schema: registrySchema === queryRegistrySchemas[0]
         ? 'fsusblog.data-scale-query-inventory.v1' : 'fsusblog.data-scale-query-inventory.v2', binding,
-        qualification: 'not-performed', releaseEvidenceEligible: false, cases };
+    qualification: 'not-performed', releaseEvidenceEligible: false, cases };
     return { ...inventory, contentDigest: computeSha256(inventory) };
 }
 
@@ -673,5 +673,5 @@ function threadReplyCoordinate(input)
     });
     return { ...pageCoordinate(rows, input.pageSize, 0,
         `/api/binary/comment/${input.articleId}/thread/${input.rootId}?limit=${input.pageSize}`, false, true),
-        threadRootId: input.rootId, cursorKind: 'int64-last-item' };
+    threadRootId: input.rootId, cursorKind: 'int64-last-item' };
 }

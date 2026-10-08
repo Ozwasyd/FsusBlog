@@ -181,10 +181,26 @@ test('thread reply case verifies original product POD traversal and rejects boun
     for (const alter of [
         (payload) => payload.slice(0, -1),
         (payload) => Uint8Array.from([...payload, 0]),
-        (payload) => { payload[16] = 2; return payload; },
-        (payload) => { new DataView(payload.buffer).setInt32(17, 101, true); return payload; },
-        (payload) => { new DataView(payload.buffer).setInt32(81, -1, true); return payload; },
-        (payload) => { new DataView(payload.buffer).setBigInt64(0, 99n, true); return payload; }
+        (payload) =>
+        {
+            payload[16] = 2;
+            return payload;
+        },
+        (payload) =>
+        {
+            new DataView(payload.buffer).setInt32(17, 101, true);
+            return payload;
+        },
+        (payload) =>
+        {
+            new DataView(payload.buffer).setInt32(81, -1, true);
+            return payload;
+        },
+        (payload) =>
+        {
+            new DataView(payload.buffer).setBigInt64(0, 99n, true);
+            return payload;
+        }
     ])
     {
         assert.throws(() => decode(alter(payloads[0].slice())));
@@ -215,11 +231,31 @@ test('search extractor honors current original FAS4 and explicit fixed-POD contr
     for (const alter of [
         (bytes) => bytes.slice(0, -1),
         (bytes) => Uint8Array.from([...bytes, 0]),
-        (bytes) => { bytes.set(Buffer.from('FSR4'), 0); return bytes; },
-        (bytes) => { new DataView(bytes.buffer).setInt32(4, 5, true); return bytes; },
-        (bytes) => { new DataView(bytes.buffer).setInt32(8, 10001, true); return bytes; },
-        (bytes) => { new DataView(bytes.buffer).setInt32(432, -1, true); return bytes; },
-        (bytes) => { new DataView(bytes.buffer).setInt32(436, 2147483647, true); return bytes; }
+        (bytes) =>
+        {
+            bytes.set(Buffer.from('FSR4'), 0);
+            return bytes;
+        },
+        (bytes) =>
+        {
+            new DataView(bytes.buffer).setInt32(4, 5, true);
+            return bytes;
+        },
+        (bytes) =>
+        {
+            new DataView(bytes.buffer).setInt32(8, 10001, true);
+            return bytes;
+        },
+        (bytes) =>
+        {
+            new DataView(bytes.buffer).setInt32(432, -1, true);
+            return bytes;
+        },
+        (bytes) =>
+        {
+            new DataView(bytes.buffer).setInt32(436, 2147483647, true);
+            return bytes;
+        }
     ])
     {
         assert.throws(() => extractArticleSearchHitIds(alter(payload.slice())));
