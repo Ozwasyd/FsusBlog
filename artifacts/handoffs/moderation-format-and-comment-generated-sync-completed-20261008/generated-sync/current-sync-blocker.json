@@ -1,0 +1,31 @@
+{
+  "candidateSha": "8a95130ab5e391729d5606275d483edc678e9b5d",
+  "supplierSha": "40bee2cb5cf9b90e873443b888efa323ab7e6785",
+  "regions": [
+    {
+      "documentPath": "docs/architecture/comment-command-boundary.md",
+      "sectionId": "content.comment.child-limit",
+      "oldRowsStillPresent": true,
+      "expectedRowsPresent": false,
+      "sourceBlob": "48401be64ef3b086c36db116ef69b58b5f22af3e",
+      "documentSha256": "e5fb59aee6bb9171d2cc4825e185c68498219c30e90a444e7edb35270181e8d3"
+    },
+    {
+      "documentPath": "docs/architecture/comment-query-boundary.md",
+      "sectionId": "content.comment.max-depth",
+      "oldRowsStillPresent": true,
+      "expectedRowsPresent": false,
+      "sourceBlob": "127f638b8dbde3d49958f3215f6a997b6667c8cd",
+      "documentSha256": "05d91094f45ce5487381e15d2014d31ea3e9f67b2135095a28fad2e0defcee9f"
+    }
+  ],
+  "syncAlreadyPublishedAtCheckedMaster": false,
+  "sourceFilesModified": false,
+  "currentHostBuildExitCode": 1,
+  "blockedCapability": "NU1004 ContentLifecycleObservation packages.lock.json inconsistent with referenced FsusBlog.Server dependency graph",
+  "smallestNextAction": "canonical lock owner supplies exact ContentLifecycleObservation lock commit and acceptance; consume that identity and rerun original compiled producer",
+  "oldSupplierReceiptsReused": false,
+  "backendTestsExecuted": 0,
+  "excludedControlsExecuted": [],
+  "wholeIssueAccepted": false
+}

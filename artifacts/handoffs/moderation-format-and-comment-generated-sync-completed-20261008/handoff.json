@@ -1,0 +1,82 @@
+{
+  "createdAtUtc": "2026-10-08T15:04:58.597630+00:00",
+  "format": {
+    "publishedSourceHead": "d9d9e721f45d1fd535be00bea77b32b5aebed784",
+    "mechanicalCommit": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+    "idempotenceArtifact": "artifacts/style/moderation-two-file-format-idempotence-20261008.json",
+    "allExistingBlameEntriesPreserved": true,
+    "registeredBlameEntry": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+    "rangeExitCode": 0,
+    "positiveAllowlistBackendTests": 0,
+    "executedBackendTests": 0,
+    "excludedControlsExecuted": [],
+    "postFormatBlobs": {
+      "src/backend/Interfaces/IModerationRuntimeStateService.cs": "5de880a687276d382c52ec48b28bb44bb5c74854",
+      "src/backend/Services/Fixtures/CommentModerationFixturePort.cs": "2f5d25c0a88387a3935b6a38f11a9a60a6b0cd2b"
+    },
+    "whole3576Accepted": false,
+    "componentFormattingComplete": true
+  },
+  "generatedSync": {
+    "baseSha": "8a95130ab5e391729d5606275d483edc678e9b5d",
+    "publishedSourceSha": "d5a2e80e37dfa428cb40a51eb2491650be2e1c62",
+    "branch": "codex/comment-two-generated-regions-20261008",
+    "scopePaths": [
+      "docs/architecture/comment-command-boundary.md",
+      "docs/architecture/comment-query-boundary.md",
+      "tests/tools/generated-fact-sections.test.mjs",
+      "tests/tools/native-tooling-style.test.mjs",
+      "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "tools/docs/generated-fact-sections/renderers.mjs"
+    ],
+    "ownedDocumentSourceCommit": "d5a2e80e37dfa428cb40a51eb2491650be2e1c62",
+    "lockCompositionCommit": "3a6101639c067439950f6a8952525f21c5b8b701",
+    "canonicalLockDonor": "c9875e42267816facd8d6109a457cb7b330d4332",
+    "canonicalLockEvidence": "fc8d64b12c2d2f65d226635a25d13a32b3825e70",
+    "canonicalRendererComposition": "9e2adf37b3997d9d9a6caacaf4b11a744df0f19f",
+    "canonicalRendererDonor": "4c3debe800a97455e92e4ff77db8a2b98056e550",
+    "canonicalRendererIdentitySupplier": "40bee2cb5cf9b90e873443b888efa323ab7e6785",
+    "producerEntryPoints": [
+      "produceContentLifecycleObservation",
+      "uncached runExtractor(content-lifecycle-fact-extractor)",
+      "existing full canonical planDocumentSections for two owned documents",
+      "existing materializeDocument"
+    ],
+    "wholeCatalogEdited": false,
+    "currentRegisteredSectionsVerified": 4,
+    "documentsVerified": 2,
+    "changedAssignedSections": [
+      "content.comment.child-limit",
+      "content.comment.max-depth"
+    ],
+    "compiledObservationSourceSha": "d5a2e80e37dfa428cb40a51eb2491650be2e1c62",
+    "currentObservationReceiptContentDigest": "70548a15656a539a615fcdba0e087adc27a30824841ece3fee43998c4b5fc741",
+    "exactFinalChecks": {
+      "final-source-host-build": 0,
+      "final-source-current-check": 0,
+      "final-source-current-idempotence": 0,
+      "final-source-range-contract": 0
+    },
+    "idempotenceWrites": [],
+    "wholeDocumentExteriorProseAndUnchangedSectionsPreserved": true,
+    "oldSupplierReceiptsReused": false,
+    "priorInvalidScopeReceiptsRebound": false,
+    "backendTestsExecuted": 0,
+    "excludedControlsExecuted": [],
+    "globalCatalog84SectionAcceptance": false,
+    "nativeAdmissionRestarted": false,
+    "githubContentWrites": false,
+    "componentGeneratedCommentSyncComplete": true,
+    "wholeIssue3576Accepted": false,
+    "wholeAssignmentComplete": false
+  },
+  "bothSourceRemoteHeadsVerified": true,
+  "backendTestsExecuted": 0,
+  "excludedControlsExecuted": [],
+  "sourceProducerComponentsAcceptedOnlyWithinBoundedScope": true,
+  "globalNativeOrWholeCatalogQualification": false,
+  "githubContentWrites": false,
+  "wholeAssignmentComplete": false,
+  "remainingAssignmentAccounting": "artifacts/handoffs/comment-construction-formal-components-20261008/assignment-status-current.json",
+  "remainingLimits": "Original domain qualification, matrix/generated-repair/retirement gates, supplied canonical reader/private role/clock/actor inputs and held audit boundaries remain; these source deliveries do not close the original41 assignment."
+}

@@ -1,0 +1,9 @@
+{
+  "unpublishedPriorSha": "be0fdfeca5cdfb73dffde8dc8f756a1cf3ff370e",
+  "correctedSourceSha": "d5a2e80e37dfa428cb40a51eb2491650be2e1c62",
+  "reason": "architecture is not a registered commit scope; use docs",
+  "sourceTreeIdentical": true,
+  "oldReceiptsPreserved": "/workspace/FsusBlog-comment-generated-sync/.tmp/comment-two-generated-regions-20261008/prior-invalid-scope-be0f",
+  "oldReceiptsRebound": false,
+  "newActualVerificationRequired": true
+}

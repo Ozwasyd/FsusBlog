@@ -1,0 +1,11 @@
+import pathlib,subprocess,os,json,datetime,hashlib
+w=pathlib.Path('/workspace/FsusBlog-comment-generated-sync');r=w/'.tmp/comment-two-generated-regions-20261008';node='/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node';dotnet='/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet';env=os.environ.copy();env.update(DOTNET_CLI_HOME='/workspace/.setup/dotnet-home',NUGET_PACKAGES='/workspace/.setup/nuget',DOTNET_CLI_TELEMETRY_OPTOUT='1');env['PATH']=str(pathlib.Path(dotnet).parent)+':'+env['PATH'];head=subprocess.check_output(['git','rev-parse','HEAD'],cwd=w,text=True).strip()
+checks=[('final-source-host-build',[dotnet,'build','tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj','-c','Release','-p:RestoreLockedMode=true','-p:NuGetAudit=true','-m:1','-nodeReuse:false','-p:UseSharedCompilation=false']),('final-source-current-check',[node,str(r/'produce-owned-comment-regions.mjs'),'check','final-source-current-check']),('final-source-current-idempotence',[node,str(r/'produce-owned-comment-regions.mjs'),'generate','final-source-current-idempotence']),('final-source-range-contract',[node,'tools/governance/check-change-contract.mjs','--range','8a95130ab5e391729d5606275d483edc678e9b5d..'+head])]
+for name,cmd in checks:
+ assert not subprocess.check_output(['git','status','--porcelain'],cwd=w,text=True).strip()
+ start=datetime.datetime.now(datetime.timezone.utc).isoformat()
+ with (r/(name+'.log')).open('wb') as log:p=subprocess.run(cmd,cwd=w,env=env,stdout=log,stderr=subprocess.STDOUT)
+ d={'candidateSha':head,'command':cmd,'startedAtUtc':start,'endedAtUtc':datetime.datetime.now(datetime.timezone.utc).isoformat(),'exitCode':p.returncode,'logSha256':hashlib.sha256((r/(name+'.log')).read_bytes()).hexdigest(),'expectedDocuments':2,'expectedRegisteredSections':4,'backendTestsExecuted':0,'excludedControlsExecuted':[]};(r/(name+'-command.json')).write_text(json.dumps(d,indent=2)+'\n');print(json.dumps(d),flush=True)
+ if name!='final-source-host-build':print((r/(name+'.log')).read_text(),flush=True)
+ if p.returncode:raise SystemExit(p.returncode)
+ assert not subprocess.check_output(['git','status','--porcelain'],cwd=w,text=True).strip()

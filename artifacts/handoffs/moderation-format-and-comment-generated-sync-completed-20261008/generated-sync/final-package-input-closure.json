@@ -1,0 +1,254 @@
+{
+  "candidateSha": "d5a2e80e37dfa428cb40a51eb2491650be2e1c62",
+  "actualInventoryCount": 49,
+  "changedPackageInputs": [
+    "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json"
+  ],
+  "inputs": [
+    {
+      "path": "Directory.Build.props",
+      "currentBlob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715",
+      "beforeBlob": "40bc4f96fba4923b72fcb8ac8322f6d2e63a5715"
+    },
+    {
+      "path": "Directory.Packages.props",
+      "currentBlob": "0abc085c29fb28bcc5982c8f45e4085d2b739812",
+      "beforeBlob": "0abc085c29fb28bcc5982c8f45e4085d2b739812"
+    },
+    {
+      "path": "FsusBlog.slnx",
+      "currentBlob": "b9f1425add22a786cc6b2e4d08e5cdaa4115a067",
+      "beforeBlob": "b9f1425add22a786cc6b2e4d08e5cdaa4115a067"
+    },
+    {
+      "path": "benchmarks/core/FsusBlog.Core.Benchmarks.csproj",
+      "currentBlob": "4aca7ddd43f73dd995bf29b93040056d4623c72d",
+      "beforeBlob": "4aca7ddd43f73dd995bf29b93040056d4623c72d"
+    },
+    {
+      "path": "benchmarks/core/packages.lock.json",
+      "currentBlob": "53990209a76199c44fa8772a2fd04171e5e2506a",
+      "beforeBlob": "53990209a76199c44fa8772a2fd04171e5e2506a"
+    },
+    {
+      "path": "src/article-vault/linux/FsusBlog.ArticleVault.Linux.csproj",
+      "currentBlob": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e",
+      "beforeBlob": "17d2ee14cf50d8ba3709fd0e5b8a81e9dc0c629e"
+    },
+    {
+      "path": "src/article-vault/linux/packages.lock.json",
+      "currentBlob": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199",
+      "beforeBlob": "a09c9f7ced5b678ee6ef082fcb73263a0c3be199"
+    },
+    {
+      "path": "src/backend/FsusBlog.Server.csproj",
+      "currentBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81",
+      "beforeBlob": "c7e38c66b974862cddaef76897c957c9c28a5d81"
+    },
+    {
+      "path": "src/backend/packages.lock.json",
+      "currentBlob": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21",
+      "beforeBlob": "d0f3030e8e8aa91f3ea07371fdb52fe528504d21"
+    },
+    {
+      "path": "src/core/FsusBlog.Core.csproj",
+      "currentBlob": "dca4d483ac841a816c9b2a2405cb431773f47f2a",
+      "beforeBlob": "dca4d483ac841a816c9b2a2405cb431773f47f2a"
+    },
+    {
+      "path": "src/core/packages.lock.json",
+      "currentBlob": "96f49c26fa2525f2e6b51c73723de710fd8e06c3",
+      "beforeBlob": "96f49c26fa2525f2e6b51c73723de710fd8e06c3"
+    },
+    {
+      "path": "src/migration/FsusBlog.Migration.csproj",
+      "currentBlob": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264",
+      "beforeBlob": "f4d1c7d1f1b76ee7a8295b08c9e5c17f58237264"
+    },
+    {
+      "path": "src/migration/packages.lock.json",
+      "currentBlob": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3",
+      "beforeBlob": "e74965f2a58cdc8abf2bec593089aa1aa7da10c3"
+    },
+    {
+      "path": "src/shared/FsusBlog.Shared.csproj",
+      "currentBlob": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47",
+      "beforeBlob": "fd5ab10d4e68c771aad5e80f0eb53447e51e0a47"
+    },
+    {
+      "path": "src/shared/packages.lock.json",
+      "currentBlob": "6afd6786b95a8c85febce85cf6219643ee860872",
+      "beforeBlob": "6afd6786b95a8c85febce85cf6219643ee860872"
+    },
+    {
+      "path": "tests/article-vault/linux/FsusBlog.ArticleVault.Linux.Tests.csproj",
+      "currentBlob": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b",
+      "beforeBlob": "442575a6bdad454c0467beebd6ba1e4e8ad1cf7b"
+    },
+    {
+      "path": "tests/article-vault/linux/packages.lock.json",
+      "currentBlob": "f83c2accc6e97fd537bd8f88372c687a47601d32",
+      "beforeBlob": "f83c2accc6e97fd537bd8f88372c687a47601d32"
+    },
+    {
+      "path": "tests/backend/FsusBlog.Server.Tests.csproj",
+      "currentBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707",
+      "beforeBlob": "eabae0a574d36a17a9af7885ef2528ec4f010707"
+    },
+    {
+      "path": "tests/backend/packages.lock.json",
+      "currentBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5",
+      "beforeBlob": "47ecd9ad5fc0f6b2210db3302be15014f44ed5f5"
+    },
+    {
+      "path": "tests/cache-coordination-probe/CacheCoordinationProbe.csproj",
+      "currentBlob": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783",
+      "beforeBlob": "62156e3c29de8539fcc7ecb2b9eeed6f7026e783"
+    },
+    {
+      "path": "tests/cache-coordination-probe/packages.lock.json",
+      "currentBlob": "ec1b8e08c5ea44c1769d194f801cc30137fb575b",
+      "beforeBlob": "ec1b8e08c5ea44c1769d194f801cc30137fb575b"
+    },
+    {
+      "path": "tests/migration/FsusBlog.Migration.Tests.csproj",
+      "currentBlob": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210",
+      "beforeBlob": "a0429efa5ba4ad42af667b0af5d9f5c117e7d210"
+    },
+    {
+      "path": "tests/migration/packages.lock.json",
+      "currentBlob": "9e289962c72dce2a415191635d02079fa7172888",
+      "beforeBlob": "9e289962c72dce2a415191635d02079fa7172888"
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj",
+      "currentBlob": "94bf9c67257e799e344738bda5bf87301374c1b5",
+      "beforeBlob": "94bf9c67257e799e344738bda5bf87301374c1b5"
+    },
+    {
+      "path": "tools/architecture/FsusBlog.DiLifetimeAnalyzer/packages.lock.json",
+      "currentBlob": "721102ac7bd2f3b9b46fda035eb44eb365b75933",
+      "beforeBlob": "721102ac7bd2f3b9b46fda035eb44eb365b75933"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/FsusBlog.AuthSessionObservation.csproj",
+      "currentBlob": "ac6538f325848d6a55343abda0092169edc16d8a",
+      "beforeBlob": "ac6538f325848d6a55343abda0092169edc16d8a"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.AuthSessionObservation/packages.lock.json",
+      "currentBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "beforeBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/FsusBlog.ConfigErrorSecurityObservation.csproj",
+      "currentBlob": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7",
+      "beforeBlob": "3d9e5c92d7dc0d49d8e44ab2b47dead7ded60ce7"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ConfigErrorSecurityObservation/packages.lock.json",
+      "currentBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "beforeBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+      "currentBlob": "44286797b3f0ab2f6b79b03b2022c34537997e54",
+      "beforeBlob": "44286797b3f0ab2f6b79b03b2022c34537997e54"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/packages.lock.json",
+      "currentBlob": "93328bedf95349a3e857b68b0c76897e971dfd7a",
+      "beforeBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/FsusBlog.OpenApiObservation.csproj",
+      "currentBlob": "f4e2b49036284183ee1d9f93e928c12aa43e902d",
+      "beforeBlob": "f4e2b49036284183ee1d9f93e928c12aa43e902d"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.OpenApiObservation/packages.lock.json",
+      "currentBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f",
+      "beforeBlob": "7848b7f7a26418c82edf4a652d430912eb7b739f"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/FsusBlog.RuntimeRoleObservation.csproj",
+      "currentBlob": "bdd3c1797230ebb548de84107f57ac83b8d5680a",
+      "beforeBlob": "bdd3c1797230ebb548de84107f57ac83b8d5680a"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.RuntimeRoleObservation/packages.lock.json",
+      "currentBlob": "08e62e583616c40424a919b7eb188b5238e33d47",
+      "beforeBlob": "08e62e583616c40424a919b7eb188b5238e33d47"
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/FsusBlog.AnonymousCredentialRootBootstrap.csproj",
+      "currentBlob": "e87963bebc64439e73d0921934e0e55e1daf1d4a",
+      "beforeBlob": "e87963bebc64439e73d0921934e0e55e1daf1d4a"
+    },
+    {
+      "path": "tools/security/AnonymousCredentialRootBootstrap/packages.lock.json",
+      "currentBlob": "3f9ff51e18261dc48ed4bcdad3700284aa230951",
+      "beforeBlob": "3f9ff51e18261dc48ed4bcdad3700284aa230951"
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/FsusBlog.SecuritySourceAnalyzer.csproj",
+      "currentBlob": "4e7749e833090b5c3a6bc48d2a8997d46487679b",
+      "beforeBlob": "4e7749e833090b5c3a6bc48d2a8997d46487679b"
+    },
+    {
+      "path": "tools/security/FsusBlog.SecuritySourceAnalyzer/packages.lock.json",
+      "currentBlob": "e7f43bef25ef367c43529f769dca98e146883ae2",
+      "beforeBlob": "e7f43bef25ef367c43529f769dca98e146883ae2"
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/FsusBlog.XunitRoslynAdapter.csproj",
+      "currentBlob": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3",
+      "beforeBlob": "ace25f7c171862b761cf6b5a8bb47d6bacb629f3"
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/AdapterFixtureTests.csproj",
+      "currentBlob": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37",
+      "beforeBlob": "ae12b127ed93fb722b1538450a8a0ff75c0e7c37"
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/fixtures/AdapterFixtureTests/packages.lock.json",
+      "currentBlob": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c",
+      "beforeBlob": "7d008c89e63fa5c8ccc90ff074e1f289ce8bd18c"
+    },
+    {
+      "path": "tools/test-inventory/xunit-roslyn-adapter/packages.lock.json",
+      "currentBlob": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279",
+      "beforeBlob": "ea63e2eec8ed69b1d04d3a4fd3e4f46733dcb279"
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/FsusBlog.XunitReplayRunner.csproj",
+      "currentBlob": "d9657b758fd382985b0f1b483d8a118ad88ebaf5",
+      "beforeBlob": "d9657b758fd382985b0f1b483d8a118ad88ebaf5"
+    },
+    {
+      "path": "tools/test/xunit-replay-runner/packages.lock.json",
+      "currentBlob": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b",
+      "beforeBlob": "6e591efdacc92a916206fd6ed48c42c9faa1ac7b"
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/FsusBlog.ContentFieldContractExtractor.csproj",
+      "currentBlob": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171",
+      "beforeBlob": "2060e0490c5dcfe9dfda2a4a409c4bc6befbf171"
+    },
+    {
+      "path": "tools/testing/FsusBlog.ContentFieldContractExtractor/packages.lock.json",
+      "currentBlob": "8b79dba10730ad9b2e04e413be07a2375968e969",
+      "beforeBlob": "8b79dba10730ad9b2e04e413be07a2375968e969"
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/FsusBlog.Http3Lab.csproj",
+      "currentBlob": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024",
+      "beforeBlob": "09e5f9ada359c0f81a53b5e41e8376c04b5e1024"
+    },
+    {
+      "path": "tools/transport/FsusBlog.Http3Lab/packages.lock.json",
+      "currentBlob": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c",
+      "beforeBlob": "f2d03b0dd31eb73eb213a3e8a02b20f8e23c2e9c"
+    }
+  ]
+}

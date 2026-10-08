@@ -1,0 +1,27 @@
+{
+  "supplierArtifactCommit": "40bee2cb5cf9b90e873443b888efa323ab7e6785",
+  "canonicalRendererCommit": "4c3debe800a97455e92e4ff77db8a2b98056e550",
+  "paths": [
+    {
+      "path": "tests/tools/generated-fact-sections.test.mjs",
+      "currentBlob": "eaaef6f1a20bf89406743207d2eb81134cdc2e90",
+      "canonicalPreimage": "eaaef6f1a20bf89406743207d2eb81134cdc2e90",
+      "canonicalPostimage": "9230f580fef0261612d4baddba201b8c986dbfc6",
+      "compatible": true
+    },
+    {
+      "path": "tests/tools/native-tooling-style.test.mjs",
+      "currentBlob": "c3560ee7012786b7c5b7f4b838c91cb754bd9b99",
+      "canonicalPreimage": "c3560ee7012786b7c5b7f4b838c91cb754bd9b99",
+      "canonicalPostimage": "5b9c95becacaa732cf467d972a81d4d3dde10518",
+      "compatible": true
+    },
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "currentBlob": "11ae5224b18c2253c31c418b4ee47344caf49ded",
+      "canonicalPreimage": "11ae5224b18c2253c31c418b4ee47344caf49ded",
+      "canonicalPostimage": "2bc76708a827aa5bd176ecd33c01524c107c1d84",
+      "compatible": true
+    }
+  ]
+}

@@ -1,0 +1,10 @@
+tree bbed88a24a749cea4a694a0bb767aa885d7e9056
+parent 9e2adf37b3997d9d9a6caacaf4b11a744df0f19f
+author djsms <lyuaoss@gmail.com> 1791471416 +0000
+committer djsms <lyuaoss@gmail.com> 1791471416 +0000
+
+docs(architecture): synchronize generated comment bounds
+
+Generate the two assigned comment bound regions through the existing canonical renderer and document producer APIs from a newly compiled, uncached current ContentLifecycleObservation receipt. Preserve all exterior prose and the other two canonical sections in these documents.
+
+Refs: #3576, #3612

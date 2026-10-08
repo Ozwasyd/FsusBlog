@@ -1,0 +1,24 @@
+{
+  "candidateSha": "d5a2e80e37dfa428cb40a51eb2491650be2e1c62",
+  "suppliedCanonicalRenderer": "4c3debe800a97455e92e4ff77db8a2b98056e550",
+  "suppliedIdentitySource": "40bee2cb5cf9b90e873443b888efa323ab7e6785 generated-region-diagnostics.json rendererCanonicalInput",
+  "paths": [
+    {
+      "path": "tools/docs/generated-fact-sections/renderers.mjs",
+      "canonicalAndCurrentBlob": "2bc76708a827aa5bd176ecd33c01524c107c1d84",
+      "canonicalWholeBytesPreserved": true
+    },
+    {
+      "path": "tests/tools/generated-fact-sections.test.mjs",
+      "canonicalAndCurrentBlob": "9230f580fef0261612d4baddba201b8c986dbfc6",
+      "canonicalWholeBytesPreserved": true
+    },
+    {
+      "path": "tests/tools/native-tooling-style.test.mjs",
+      "canonicalAndCurrentBlob": "5b9c95becacaa732cf467d972a81d4d3dde10518",
+      "canonicalWholeBytesPreserved": true
+    }
+  ],
+  "testsExecuted": 0,
+  "heldControlsExecuted": []
+}

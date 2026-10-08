@@ -1,0 +1,61 @@
+import fs from 'node:fs';
+import path from 'node:path';
+import crypto from 'node:crypto';
+import { produceContentLifecycleObservation } from '../../tools/contracts/lib/content-lifecycle-observation.mjs';
+import { runExtractor } from '../../tools/fact-extractors/runner.mjs';
+import { sealSourceIdentity } from '../../tools/fact-extractors/identity.mjs';
+import { loadCatalog } from '../../tools/docs/generated-fact-sections/catalog.mjs';
+import { indexReceiptsByExtractor, planDocumentSections, materializeDocument } from '../../tools/docs/generated-fact-sections/generator.mjs';
+import { parseGeneratedMarkers } from '../../tools/docs/generated-fact-sections/markers.mjs';
+const root = process.cwd();
+const evidence = path.dirname(new URL(import.meta.url).pathname);
+const mode = process.argv[2];
+const name = process.argv[3];
+if (!['generate', 'check'].includes(mode) || !name) throw new Error('explicit generate/check and run name required');
+const run = path.join(evidence, name);
+fs.mkdirSync(run, { recursive: true });
+const identity = sealSourceIdentity(root);
+const produced = produceContentLifecycleObservation({ repositoryRoot: root, rebuild: false });
+const extracted = await runExtractor({ extractorId: 'content-lifecycle-fact-extractor', repositoryRoot: root, buildIdentity: produced.buildIdentity, buildReceiptPath: produced.receiptPath, useCache: false });
+if (extracted.receipt.status !== 'ok' || extracted.cacheHit) throw new Error('genuine uncached successful content receipt required');
+fs.writeFileSync(path.join(run, 'content-lifecycle-fact-extractor.json'), JSON.stringify(extracted.receipt, null, 2) + '\n');
+fs.copyFileSync(produced.observationPath, path.join(run, 'content-lifecycle-observation.json'));
+fs.copyFileSync(produced.receiptPath, path.join(run, 'compiled-build-receipt.json'));
+const catalog = loadCatalog(root);
+const receiptsByExtractor = indexReceiptsByExtractor([extracted.receipt]);
+const documents = ['docs/architecture/comment-command-boundary.md', 'docs/architecture/comment-query-boundary.md'];
+const allowedChangedRegions = new Set(['content.comment.child-limit', 'content.comment.max-depth']);
+const results = [];
+const writes = [];
+const actualChanged = [];
+const sha = bytes => crypto.createHash('sha256').update(bytes).digest('hex');
+for (const documentPath of documents)
+{
+    const file = path.join(root, documentPath);
+    const before = fs.readFileSync(file, 'utf8');
+    const sections = catalog.sections.filter(section => section.documentPath === documentPath);
+    const plan = planDocumentSections({ documentPath, source: before, catalogSections: sections, receiptsByExtractor, expectedIdentity: identity });
+    const next = materializeDocument(before, plan.replacements);
+    const changes = [];
+    for (const [sectionId, body] of plan.replacements)
+    {
+        if (materializeDocument(before, new Map([[sectionId, body]])) !== before)
+        {
+            if (!allowedChangedRegions.has(sectionId)) throw new Error('unowned generated drift: ' + sectionId);
+            changes.push(sectionId);
+            actualChanged.push(sectionId);
+        }
+    }
+    const markersBefore = parseGeneratedMarkers(before, documentPath);
+    const markersAfter = parseGeneratedMarkers(next, documentPath);
+    if (markersBefore.length !== sections.length || markersAfter.length !== sections.length) throw new Error('canonical registered section coverage mismatch');
+    results.push({ documentPath, registeredSections: sections.map(section => section.sectionId), changedSections: changes, beforeSha256: sha(before), afterSha256: sha(next), currentObservationContentDigest: extracted.receipt.contentDigest });
+    if (mode === 'generate' && next !== before) writes.push({ file, next });
+}
+if (results.reduce((n, r) => n + r.registeredSections.length, 0) !== 4) throw new Error('expected all four canonical sections in exactly two documents');
+if (mode === 'check' && actualChanged.length) throw new Error('owned generated sections drift: ' + actualChanged.join(','));
+if (mode === 'generate' && actualChanged.length && [...actualChanged].sort().join('|') !== [...allowedChangedRegions].sort().join('|')) throw new Error('expected exactly the two assigned changed regions');
+for (const { file, next } of writes) fs.writeFileSync(file, next);
+const result = { sourceIdentity: identity, mode, runName: name, receiptsProduced: 1, registeredSectionsChecked: 4, documentCount: 2, cacheHit: false, results, writtenDocuments: writes.map(entry => path.relative(root, entry.file)), backendTestsExecuted: 0, excludedControlsExecuted: [], wholeCatalogAcceptance: false, wholeIssueAccepted: false };
+fs.writeFileSync(path.join(run, 'producer-result.json'), JSON.stringify(result, null, 2) + '\n');
+console.log(JSON.stringify(result));

@@ -1,0 +1,1 @@
+[change-contract] be0fdfeca5cdfb73dffde8dc8f756a1cf3ff370e: scope must be one of: admin, aeds, api, auth, backend, build, cache, ci, cmake, contracts, core, cpp, csharp, database, deployment, docs, frontend, governance, json, markdown, operations, performance, privacy, public, release, security, shared, shell, style, test, tooling, wasm, yaml, zk

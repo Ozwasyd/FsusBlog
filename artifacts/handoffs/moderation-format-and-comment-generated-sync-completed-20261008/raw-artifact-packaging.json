@@ -1,0 +1,17 @@
+{
+  "purpose": "Lossless raw export of original whitespace-bearing command output and patch; no raw bytes stripped or assertions changed",
+  "encodedArtifacts": [
+    {
+      "originalPath": "generated-sync/push.log",
+      "encoding": "base64",
+      "decodedBytes": 712,
+      "decodedSha256": "5c99a96519309ac53d79e9fd759f40ef8245d4de146d6878ebe144ecb4cb01bc"
+    },
+    {
+      "originalPath": "generated-sync/prior-invalid-scope-be0f/actual-old-source-diff.patch",
+      "encoding": "base64",
+      "decodedBytes": 1722,
+      "decodedSha256": "c4bb81584cc34984188c7d0bb7b86a3f3427f80413eee88f7838748304a0804a"
+    }
+  ]
+}

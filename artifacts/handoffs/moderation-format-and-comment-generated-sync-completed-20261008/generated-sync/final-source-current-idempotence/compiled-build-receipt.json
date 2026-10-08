@@ -1,0 +1,13 @@
+{
+  "schema": "fsusblog.content-lifecycle-observation-build-receipt.v1",
+  "artifactId": "content-lifecycle-observation",
+  "observationPath": ".tmp/contracts/content-lifecycle/content-lifecycle-observation.json",
+  "observationDigest": "b8d5039959cd40992cb2648fc7db167f80447265e2c67161825bf2561452f2a4",
+  "artifactDigest": "6826ed3c3f0738b73f60780c768feb40892e289931b8510f1d375335c242f35d",
+  "configuration": "Release",
+  "buildIdentity": {
+    "artifactId": "content-lifecycle-observation",
+    "receiptDigest": "d0eea175179324fa49d53717ee5bce3681c0a1f5213c29725c5b91be7847804d",
+    "artifactDigest": "6826ed3c3f0738b73f60780c768feb40892e289931b8510f1d375335c242f35d"
+  }
+}

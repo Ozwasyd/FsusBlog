@@ -1,0 +1,17 @@
+{
+  "candidateSha": "be0fdfeca5cdfb73dffde8dc8f756a1cf3ff370e",
+  "command": [
+    "/workspace/FsusBlog/.tmp/issue-3576-20261008/node-24.16.0/node-v24.16.0-linux-x64/bin/node",
+    "/workspace/FsusBlog-comment-generated-sync/.tmp/comment-two-generated-regions-20261008/produce-owned-comment-regions.mjs",
+    "check",
+    "final-source-current-check"
+  ],
+  "startedAtUtc": "2026-10-08T14:59:02.326082+00:00",
+  "endedAtUtc": "2026-10-08T14:59:03.246468+00:00",
+  "exitCode": 0,
+  "logSha256": "722f258e0ce1915a1d93bd53fb33120c45b4140ada620c8e4537501ed6c956a9",
+  "expectedDocuments": 2,
+  "expectedRegisteredSections": 4,
+  "backendTestsExecuted": 0,
+  "excludedControlsExecuted": []
+}

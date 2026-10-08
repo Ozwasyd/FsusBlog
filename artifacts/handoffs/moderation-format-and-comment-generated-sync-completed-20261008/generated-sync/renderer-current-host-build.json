@@ -1,0 +1,18 @@
+{
+  "candidateSha": "9e2adf37b3997d9d9a6caacaf4b11a744df0f19f",
+  "command": [
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet",
+    "build",
+    "tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj",
+    "-c",
+    "Release",
+    "-p:RestoreLockedMode=true",
+    "-p:NuGetAudit=true",
+    "-m:1",
+    "-nodeReuse:false",
+    "-p:UseSharedCompilation=false"
+  ],
+  "exitCode": 0,
+  "atUtc": "2026-10-08T14:56:36.933432+00:00",
+  "logSha256": "a883c6ec0802f842bfa62d8e7ddc7f8c6863590f5e6f0b71a566db89e2da0e73"
+}

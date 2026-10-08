@@ -1,0 +1,13 @@
+{
+  "candidateSha": "d5a2e80e37dfa428cb40a51eb2491650be2e1c62",
+  "sdk": "10.0.302",
+  "hashes": {
+    "tools/contracts/FsusBlog.ContentLifecycleObservation/bin/Release/net10.0/FsusBlog.ContentLifecycleObservation.dll": "36b6859b5f4d279cbaa36f25c97c75181e8215a37c8675c8c3f707f7189a78bc",
+    "src/backend/bin/Release/net10.0/FsusBlog.Server.dll": "d64c823dd4072aec08483cadc1f161d5d8a351788ff896097aba7910fe36d61f",
+    "src/shared/bin/Release/net10.0/FsusBlog.Shared.dll": "28ae673c19e3a599d0ecfaec1750829e56ffd9607c157a64286896ff55484a71",
+    "src/core/bin/Release/net10.0/FsusBlog.Core.dll": "6bf430cc6ce09502f55a73b3e3a54bd509406c58b90472deaa8bfd9bcd7a3b95",
+    "/workspace/FsusBlog/.tmp/fixture-chain-preflight-20261008/dotnet302/dotnet": "55117d7d1f27537ee6e7a81b8b9f84f0b50c8cbd2d1d1e21684c31db1518230a"
+  },
+  "sourceBoundBuildCommand": "final-source-host-build-command.json",
+  "atUtc": "2026-10-08T15:04:02.750183+00:00"
+}

@@ -1,0 +1,8 @@
+{
+  "confirmedAtUtc": "2026-10-08T14:51:15.725598+00:00",
+  "source": "coordinating parent exact delegation",
+  "confirmation": "#3654 completed/published; no active .git-blame-ignore-revs writer; #3657 no present reservation; bounded registration explicitly authorized",
+  "workingTreeWasClean": true,
+  "formatSourceCommit": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+  "preservedEveryPriorEntryByte": true
+}

@@ -1,0 +1,15 @@
+  Determining projects to restore...
+/workspace/FsusBlog-comment-generated-sync/tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+  Restored /workspace/FsusBlog-comment-generated-sync/src/shared/FsusBlog.Shared.csproj (in 146 ms).
+  Failed to restore /workspace/FsusBlog-comment-generated-sync/tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj (in 142 ms).
+  Restored /workspace/FsusBlog-comment-generated-sync/src/core/FsusBlog.Core.csproj (in 661 ms).
+  Restored /workspace/FsusBlog-comment-generated-sync/tools/architecture/FsusBlog.DiLifetimeAnalyzer/FsusBlog.DiLifetimeAnalyzer.csproj (in 668 ms).
+  Restored /workspace/FsusBlog-comment-generated-sync/src/backend/FsusBlog.Server.csproj (in 495 ms).
+
+Build FAILED.
+
+/workspace/FsusBlog-comment-generated-sync/tools/contracts/FsusBlog.ContentLifecycleObservation/FsusBlog.ContentLifecycleObservation.csproj : error NU1004: The project references fsusblog.server whose dependencies has changed.The packages lock file is inconsistent with the project dependencies so restore can't be run in locked mode. Disable the RestoreLockedMode MSBuild property or pass an explicit --force-evaluate option to run restore to update the lock file.
+    0 Warning(s)
+    1 Error(s)
+
+Time Elapsed 00:00:01.81

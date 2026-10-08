@@ -1,0 +1,737 @@
+{
+  "schema": "fsusblog.fact-observation-receipt.v1",
+  "extractorId": "content-lifecycle-fact-extractor",
+  "behaviorIds": [
+    "article-comment-lifecycle-outbox"
+  ],
+  "sourceCommit": "be0fdfeca5cdfb73dffde8dc8f756a1cf3ff370e",
+  "worktreeFingerprint": "a690a9bc3f484bed534475e49a7e1856bfcd3bf20a2a443de66e80f1d1b7bd48",
+  "buildIdentity": {
+    "artifactId": "content-lifecycle-observation",
+    "receiptDigest": "d0eea175179324fa49d53717ee5bce3681c0a1f5213c29725c5b91be7847804d",
+    "artifactDigest": "6826ed3c3f0738b73f60780c768feb40892e289931b8510f1d375335c242f35d"
+  },
+  "extractorDigest": "f356594982d0954475f54f31d55829c821df3676bcfed0b680a686a93480debb",
+  "registryDigest": "dd2566d3d9c34900fb7b13220adc8b1243fae897b7839eeeccd0cbdcd1632bc2",
+  "consumedInputDigests": [
+    {
+      "path": "src/backend/Entities/Article.cs",
+      "digest": "12f51b27621347070b9d639decd499eb30026194f6e5fad5b5fcfa24a1468f97"
+    },
+    {
+      "path": "src/backend/Entities/Comment.cs",
+      "digest": "bd270408991fd6ac8e0fbea01514fb3a1c9be00f24d302b6c5c1a82131f1e5c1"
+    },
+    {
+      "path": "src/backend/Entities/CommentMutationOutbox.cs",
+      "digest": "6e431fa0947eb082eb58b90324d220b4f3eabf1b98a6b50d60389686bf39ed6c"
+    },
+    {
+      "path": "src/backend/Models/Moderation/AntiSpamModerationModels.cs",
+      "digest": "52333a707574af11253170072e703b733d2e9387de06aec2967dd0b1338f87a1"
+    },
+    {
+      "path": "src/backend/Services/ArticleMutationSideEffects.cs",
+      "digest": "dc5165741aa6277f686ee0ceba20f5516bcac806cafc3335d95e23b977eacb96"
+    },
+    {
+      "path": "src/backend/Services/ArticlePublicationTransition.cs",
+      "digest": "5aa21070a20e0f1999cf8fe5439b71ca8a009ea236d6853895d2e18eee8b6cb5"
+    },
+    {
+      "path": "src/backend/Services/Background/CommentMutationOutboxWorker.cs",
+      "digest": "b25b9328a31a39cc1817927f6245ccfa0851291254cb27ecb62a110ee1bc6d97"
+    },
+    {
+      "path": "src/backend/Services/CommentService.cs",
+      "digest": "0fbda401d1121c9158b834a3831813ad517b3e7c4998561737d40ed243f3d74e"
+    },
+    {
+      "path": "src/backend/Services/Moderation/CommentModerationTransitions.cs",
+      "digest": "40afc188196b6b8a84955472b8085f945ea32c39f243b422f39e8d16cb23490a"
+    },
+    {
+      "path": "src/shared/Contracts/Articles/ArticleStatusTransitionPolicy.cs",
+      "digest": "c61b34fd9d3b59ed9998492c9f9944c217b251def331f07cf02ab7c5c6e35abb"
+    },
+    {
+      "path": "tools/contracts/FsusBlog.ContentLifecycleObservation/Program.cs",
+      "digest": "f600f73ed599acc44c3533a694ffa72b0c7e324426f4f01e6cbe9cac87451589"
+    }
+  ],
+  "observations": {
+    "artifactDigest": "6826ed3c3f0738b73f60780c768feb40892e289931b8510f1d375335c242f35d",
+    "coherence": {
+      "articleEntityCoreProjection": "consistent",
+      "articleOutboxRequiredOptional": "consistent",
+      "commentOutboxProducerDispatcher": "consistent",
+      "commentPublicAdminVisibilitySeparated": true,
+      "layers": {
+        "articleEntity": "ArticleStatus / ArticlePublication",
+        "articleOutbox": "ArticleMutationReplayEdges",
+        "articlePolicy": "ArticleStatusTransitionPolicy",
+        "commentOutbox": "CommentMutationOutboxConsumers",
+        "commentPublicReader": "CommentQueryService Approved filter",
+        "commentTransitions": "CommentModerationTransitions",
+        "privacyProjection": "AntiSpamModerationContract.ForbiddenIdentityFields"
+      }
+    },
+    "facts": {
+      "article.admin-visibility.states": [
+        "Archived",
+        "Deleted",
+        "Draft",
+        "Published",
+        "Scheduled"
+      ],
+      "article.delete.causal": {
+        "condition": "the current non-deleted row wins the row-version guarded dedicated delete flow",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "article.delete.visibility-history",
+        "object": "current revision publication pointer and immutable history without creating revision publication or tombstone",
+        "predicate": "preserves",
+        "proofTests": [
+          "article-delete-coordinate-preservation"
+        ],
+        "schemaVersion": 1,
+        "scope": "article.revision-publication-visibility",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs",
+            "range": "ArticleService.DeleteAsync"
+          }
+        },
+        "subject": "soft delete",
+        "truthValue": "true"
+      },
+      "article.delete.semantics": {
+        "createsPublication": false,
+        "createsRevision": false,
+        "createsTombstone": false,
+        "enterVia": "dedicated-delete-flow",
+        "ordinaryTransitionTarget": "forbidden",
+        "outboxEventType": "deleted",
+        "permanentDeleteEventType": "permanently-deleted",
+        "preservesCurrentPublicationPointer": true,
+        "preservesImmutableHistory": true,
+        "softDelete": true,
+        "status": "Deleted",
+        "visibilityTransition": "current-to-deleted"
+      },
+      "article.lifecycle.allowed-transitions": [
+        "Create:Archived->Archived",
+        "Create:Draft->Draft",
+        "Create:Published->Published",
+        "Create:Scheduled->Scheduled",
+        "Restore:Deleted->Published",
+        "Rollback:Archived->Archived",
+        "Rollback:Archived->Draft",
+        "Rollback:Archived->Published",
+        "Rollback:Draft->Archived",
+        "Rollback:Draft->Draft",
+        "Rollback:Draft->Published",
+        "Rollback:Published->Archived",
+        "Rollback:Published->Draft",
+        "Rollback:Published->Published",
+        "Rollback:Scheduled->Archived",
+        "Rollback:Scheduled->Draft",
+        "Rollback:Scheduled->Published",
+        "ScheduledPublish:Published->Published",
+        "ScheduledPublish:Scheduled->Published",
+        "Update:Archived->Archived",
+        "Update:Archived->Draft",
+        "Update:Archived->Published",
+        "Update:Archived->Scheduled",
+        "Update:Draft->Archived",
+        "Update:Draft->Draft",
+        "Update:Draft->Published",
+        "Update:Draft->Scheduled",
+        "Update:Published->Archived",
+        "Update:Published->Draft",
+        "Update:Published->Published",
+        "Update:Published->Scheduled",
+        "Update:Scheduled->Archived",
+        "Update:Scheduled->Draft",
+        "Update:Scheduled->Published",
+        "Update:Scheduled->Scheduled"
+      ],
+      "article.lifecycle.forbidden-transitions": [
+        "Create:Archived->Deleted:article_deleted_requires_delete_flow",
+        "Create:Archived->Draft:article_status_transition_invalid",
+        "Create:Archived->Published:article_status_transition_invalid",
+        "Create:Archived->Scheduled:article_status_transition_invalid",
+        "Create:Deleted->Archived:article_status_transition_invalid",
+        "Create:Deleted->Deleted:article_deleted_requires_delete_flow",
+        "Create:Deleted->Draft:article_status_transition_invalid",
+        "Create:Deleted->Published:article_status_transition_invalid",
+        "Create:Deleted->Scheduled:article_status_transition_invalid",
+        "Create:Draft->Archived:article_status_transition_invalid",
+        "Create:Draft->Deleted:article_deleted_requires_delete_flow",
+        "Create:Draft->Published:article_status_transition_invalid",
+        "Create:Draft->Scheduled:article_status_transition_invalid",
+        "Create:Published->Archived:article_status_transition_invalid",
+        "Create:Published->Deleted:article_deleted_requires_delete_flow",
+        "Create:Published->Draft:article_status_transition_invalid",
+        "Create:Published->Scheduled:article_status_transition_invalid",
+        "Create:Scheduled->Archived:article_status_transition_invalid",
+        "Create:Scheduled->Deleted:article_deleted_requires_delete_flow",
+        "Create:Scheduled->Draft:article_status_transition_invalid",
+        "Create:Scheduled->Published:article_status_transition_invalid",
+        "Restore:Archived->Archived:article_status_transition_invalid",
+        "Restore:Archived->Deleted:article_deleted_requires_delete_flow",
+        "Restore:Archived->Draft:article_status_transition_invalid",
+        "Restore:Archived->Published:article_status_transition_invalid",
+        "Restore:Archived->Scheduled:article_status_transition_invalid",
+        "Restore:Deleted->Archived:article_status_transition_invalid",
+        "Restore:Deleted->Deleted:article_deleted_requires_delete_flow",
+        "Restore:Deleted->Draft:article_status_transition_invalid",
+        "Restore:Deleted->Scheduled:article_status_transition_invalid",
+        "Restore:Draft->Archived:article_status_transition_invalid",
+        "Restore:Draft->Deleted:article_deleted_requires_delete_flow",
+        "Restore:Draft->Draft:article_status_transition_invalid",
+        "Restore:Draft->Published:article_status_transition_invalid",
+        "Restore:Draft->Scheduled:article_status_transition_invalid",
+        "Restore:Published->Archived:article_status_transition_invalid",
+        "Restore:Published->Deleted:article_deleted_requires_delete_flow",
+        "Restore:Published->Draft:article_status_transition_invalid",
+        "Restore:Published->Published:article_status_transition_invalid",
+        "Restore:Published->Scheduled:article_status_transition_invalid",
+        "Restore:Scheduled->Archived:article_status_transition_invalid",
+        "Restore:Scheduled->Deleted:article_deleted_requires_delete_flow",
+        "Restore:Scheduled->Draft:article_status_transition_invalid",
+        "Restore:Scheduled->Published:article_status_transition_invalid",
+        "Restore:Scheduled->Scheduled:article_status_transition_invalid",
+        "Rollback:Archived->Deleted:article_deleted_requires_delete_flow",
+        "Rollback:Archived->Scheduled:article_status_transition_invalid",
+        "Rollback:Deleted->Archived:article_status_transition_invalid",
+        "Rollback:Deleted->Deleted:article_deleted_requires_delete_flow",
+        "Rollback:Deleted->Draft:article_status_transition_invalid",
+        "Rollback:Deleted->Published:article_status_transition_invalid",
+        "Rollback:Deleted->Scheduled:article_status_transition_invalid",
+        "Rollback:Draft->Deleted:article_deleted_requires_delete_flow",
+        "Rollback:Draft->Scheduled:article_status_transition_invalid",
+        "Rollback:Published->Deleted:article_deleted_requires_delete_flow",
+        "Rollback:Published->Scheduled:article_status_transition_invalid",
+        "Rollback:Scheduled->Deleted:article_deleted_requires_delete_flow",
+        "Rollback:Scheduled->Scheduled:article_status_transition_invalid",
+        "ScheduledPublish:Archived->Archived:article_status_transition_invalid",
+        "ScheduledPublish:Archived->Deleted:article_deleted_requires_delete_flow",
+        "ScheduledPublish:Archived->Draft:article_status_transition_invalid",
+        "ScheduledPublish:Archived->Published:article_status_transition_invalid",
+        "ScheduledPublish:Archived->Scheduled:article_status_transition_invalid",
+        "ScheduledPublish:Deleted->Archived:article_status_transition_invalid",
+        "ScheduledPublish:Deleted->Deleted:article_deleted_requires_delete_flow",
+        "ScheduledPublish:Deleted->Draft:article_status_transition_invalid",
+        "ScheduledPublish:Deleted->Published:article_status_transition_invalid",
+        "ScheduledPublish:Deleted->Scheduled:article_status_transition_invalid",
+        "ScheduledPublish:Draft->Archived:article_status_transition_invalid",
+        "ScheduledPublish:Draft->Deleted:article_deleted_requires_delete_flow",
+        "ScheduledPublish:Draft->Draft:article_status_transition_invalid",
+        "ScheduledPublish:Draft->Published:article_status_transition_invalid",
+        "ScheduledPublish:Draft->Scheduled:article_status_transition_invalid",
+        "ScheduledPublish:Published->Archived:article_status_transition_invalid",
+        "ScheduledPublish:Published->Deleted:article_deleted_requires_delete_flow",
+        "ScheduledPublish:Published->Draft:article_status_transition_invalid",
+        "ScheduledPublish:Published->Scheduled:article_status_transition_invalid",
+        "ScheduledPublish:Scheduled->Archived:article_status_transition_invalid",
+        "ScheduledPublish:Scheduled->Deleted:article_deleted_requires_delete_flow",
+        "ScheduledPublish:Scheduled->Draft:article_status_transition_invalid",
+        "ScheduledPublish:Scheduled->Scheduled:article_status_transition_invalid",
+        "Update:Archived->Deleted:article_deleted_requires_delete_flow",
+        "Update:Deleted->Archived:article_status_transition_invalid",
+        "Update:Deleted->Deleted:article_deleted_requires_delete_flow",
+        "Update:Deleted->Draft:article_status_transition_invalid",
+        "Update:Deleted->Published:article_status_transition_invalid",
+        "Update:Deleted->Scheduled:article_status_transition_invalid",
+        "Update:Draft->Deleted:article_deleted_requires_delete_flow",
+        "Update:Published->Deleted:article_deleted_requires_delete_flow",
+        "Update:Scheduled->Deleted:article_deleted_requires_delete_flow"
+      ],
+      "article.lifecycle.states": [
+        "Archived",
+        "Deleted",
+        "Draft",
+        "Published",
+        "Scheduled"
+      ],
+      "article.outbox.event-types": [
+        "category-updated",
+        "created",
+        "deleted",
+        "permanently-deleted",
+        "responsibility-updated",
+        "restored",
+        "rights-proof-updated",
+        "scheduled-published",
+        "tag-updated",
+        "trash-cleared",
+        "updated"
+      ],
+      "article.outbox.optional-edges": [
+        "integrity-proof",
+        "notification"
+      ],
+      "article.outbox.required-edges": [
+        "article-detail-aeds",
+        "http-cache-invalidation",
+        "public-aot-invalidation",
+        "public-artifact-revocation",
+        "public-hot-read",
+        "search-projection",
+        "taxonomy-projection"
+      ],
+      "article.outbox.terminal-states": [
+        "completed",
+        "failed",
+        "skipped"
+      ],
+      "article.public-visibility.states": {
+        "Archived": false,
+        "Deleted": false,
+        "Draft": false,
+        "Published": true,
+        "Scheduled": false
+      },
+      "article.publication.required-coordinates": [
+        "publicationId",
+        "publicationNo",
+        "responsibilitySnapshotId",
+        "responsibilityVersion",
+        "revisionId",
+        "revisionNo",
+        "rightsSnapshotId"
+      ],
+      "article.responsibility.requirement": {
+        "publicProjection": "article_responsibility_snapshot without admin-actor fields",
+        "requiredCoordinateWhenPresent": "responsibilitySnapshotId",
+        "snapshotOptionalOnNonPublish": true,
+        "versionField": "responsibilityVersion"
+      },
+      "article.restore.causal": {
+        "condition": "a soft-deleted article is restored from its existing current revision",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "article.restore.new-publication-no-revision",
+        "object": "new publication coordinate without reviving the old publication or creating a new revision",
+        "predicate": "creates",
+        "proofTests": [
+          "article-restore-coordinate",
+          "article-restore-new-publication"
+        ],
+        "schemaVersion": 1,
+        "scope": "article.revision-publication",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/ArticleService.LifecycleAndReadModels.cs",
+            "range": "ArticleService.RestoreAsync"
+          },
+          "source2": {
+            "owner": "src/backend/Services/ArticlePublicationTransition.cs",
+            "range": "ArticlePublicationTransitionWriter.ApplyAsync"
+          }
+        },
+        "subject": "restore",
+        "truthValue": "true"
+      },
+      "article.restore.semantics": {
+        "createsPublication": true,
+        "operation": "Restore",
+        "revivesOldPublicationPointer": false,
+        "source": "Deleted",
+        "target": "Published"
+      },
+      "article.rights.required-fields": [
+        "copyPolicy",
+        "enabled",
+        "licenseType",
+        "rightsSnapshotId"
+      ],
+      "article.rollback.causal": {
+        "condition": "the requested historical revision is accepted as the rollback source",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "article.rollback.new-revision-publication",
+        "object": "new revision and new publication coordinates from a historical revision while preserving immutable history",
+        "predicate": "creates",
+        "proofTests": [
+          "article-rollback-new-revision",
+          "article-rollback-new-publication"
+        ],
+        "schemaVersion": 1,
+        "scope": "article.revision-publication",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/ArticleService.Mutations.cs",
+            "range": "ArticleService.UpdateAsync"
+          },
+          "source2": {
+            "owner": "src/backend/Services/ArticlePublicationTransition.cs",
+            "range": "ArticlePublicationTransitionWriter.ApplyAsync"
+          }
+        },
+        "subject": "rollback",
+        "truthValue": "true"
+      },
+      "article.rollback.semantics": {
+        "allowedTargets": [
+          "Archived",
+          "Draft",
+          "Published"
+        ],
+        "clonesResponsibilityFromSourceRevision": true,
+        "createsPublication": true,
+        "forbiddenTargets": [
+          "Deleted",
+          "Scheduled"
+        ],
+        "operation": "Rollback"
+      },
+      "article.scheduled.boundary": {
+        "nonScheduledScheduledAt": "forbidden",
+        "scheduledPublishAt": {
+          "boundary": "exclusive",
+          "relationToUtcNow": "strictly-after",
+          "required": true,
+          "unit": "utc-instant"
+        },
+        "status": "Scheduled"
+      },
+      "article.scheduled.dueTransition": {
+        "condition": "scheduledPublishAt or pendingPublicationAt is at or before the worker current time",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "article.scheduled.due-publication-transition",
+        "object": "new publication coordinate and switches current pointer without creating another revision",
+        "predicate": "creates",
+        "proofTests": [
+          "scheduled-publish-transition",
+          "article-publication-coordinate"
+        ],
+        "schemaVersion": 1,
+        "scope": "article.publication.current-pointer",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+            "range": "ScheduledPublishWorker.ClaimDueArticlesAsync"
+          },
+          "source2": {
+            "owner": "src/backend/Services/ArticlePublicationTransition.cs",
+            "range": "ArticlePublicationTransitionWriter.ApplyAsync"
+          }
+        },
+        "subject": "scheduled due transition",
+        "truthValue": "true"
+      },
+      "article.scheduled.preDueCurrent": {
+        "condition": "an article already has a current publication and pendingPublicationAt is still in the future",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "article.scheduled.pre-due-current-publication",
+        "object": "old current publication coordinate",
+        "predicate": "preserves",
+        "proofTests": [
+          "article-publication-transition-plan",
+          "scheduled-publish-due-boundary"
+        ],
+        "schemaVersion": 1,
+        "scope": "article.publication.current-pointer",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/ArticlePublicationTransition.cs",
+            "range": "ArticlePublicationTransitionWriter.CreatePlan"
+          },
+          "source2": {
+            "owner": "src/backend/Services/Background/ScheduledPublishQuery.cs",
+            "range": "ScheduledPublishQuery.PendingPublicationPredicateSql"
+          }
+        },
+        "subject": "scheduled transition before due",
+        "truthValue": "true"
+      },
+      "article.scheduled.replaceCancelStale": {
+        "condition": "the due predicate no longer matches or the row loses the FOR UPDATE SKIP LOCKED claim",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "article.scheduled.replace-cancel-stale",
+        "object": "current publication pointer before a due row is successfully claimed",
+        "predicate": "does-not-switch",
+        "proofTests": [
+          "scheduled-publish-due-claim",
+          "scheduled-publish-stale-row"
+        ],
+        "schemaVersion": 1,
+        "scope": "article.publication.scheduler",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/Background/ScheduledPublishQuery.cs",
+            "range": "ScheduledPublishQuery.BuildDueArticlesCte"
+          },
+          "source2": {
+            "owner": "src/backend/Services/Background/ScheduledPublishWorker.cs",
+            "range": "ScheduledPublishWorker.ClaimDueArticlesAsync"
+          }
+        },
+        "subject": "replacement cancellation or stale schedule",
+        "truthValue": "true"
+      },
+      "comment.admin-visibility.states": [
+        "Approved",
+        "Hidden",
+        "Pending",
+        "Rejected"
+      ],
+      "comment.appeal.allowed-source-states": [
+        "Hidden",
+        "Rejected"
+      ],
+      "comment.deletedRoot.adminDescendants": {
+        "condition": "the projection is authorized for administrative or author attribution access",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "comment.deleted-root.admin-descendants",
+        "object": "direct or recursive descendant entities from the admin and attributable projections",
+        "predicate": "does-not-hide",
+        "proofTests": [
+          "comment-deleted-root-admin-descendants"
+        ],
+        "schemaVersion": 1,
+        "scope": "comment.admin-projection",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/CommentQueryService.cs",
+            "range": "CommentQueryService.GetAttributableAsync"
+          }
+        },
+        "subject": "deleted root",
+        "truthValue": "true"
+      },
+      "comment.deletedRoot.publicDescendants": {
+        "condition": "each descendant remains Approved region-visible and belongs to the same published article",
+        "conflictStatus": "consistent",
+        "direction": "subject-to-object",
+        "factId": "comment.deleted-root.public-descendants",
+        "object": "independently visible direct and recursive descendants while the root is a deleted placeholder",
+        "predicate": "does-not-hide",
+        "proofTests": [
+          "comment-deleted-root-public-descendants"
+        ],
+        "schemaVersion": 1,
+        "scope": "comment.public-thread-projection",
+        "sourceRanges": {
+          "source1": {
+            "owner": "src/backend/Services/CommentQueryService.cs",
+            "range": "CommentQueryService.PublicVisibleChainCte"
+          }
+        },
+        "subject": "deleted root",
+        "truthValue": "true"
+      },
+      "comment.edit-delete.version-semantics": {
+        "editWindow": {
+          "configurationKey": "Comments:AuthorEditWindowMinutes",
+          "default": {
+            "unit": "minutes",
+            "value": 30
+          }
+        },
+        "expectedVersionCas": true,
+        "nextVersion": "currentVersion + 1",
+        "operations": [
+          "created",
+          "deleted",
+          "edited"
+        ],
+        "softDeleteProjectsAsHiddenNextStatus": true
+      },
+      "comment.moderation.allowed-transitions": [
+        "Approved->Hidden",
+        "Approved->Rejected",
+        "Hidden->Approved",
+        "Hidden->Rejected",
+        "Pending->Approved",
+        "Pending->Hidden",
+        "Pending->Rejected",
+        "Rejected->Approved",
+        "Rejected->Hidden"
+      ],
+      "comment.moderation.forbidden-transitions": [
+        "Approved->Approved",
+        "Approved->Pending",
+        "Hidden->Hidden",
+        "Hidden->Pending",
+        "Pending->Pending",
+        "Rejected->Pending",
+        "Rejected->Rejected"
+      ],
+      "comment.moderation.states": [
+        "Approved",
+        "Hidden",
+        "Pending",
+        "Rejected"
+      ],
+      "comment.notification.conditions": {
+        "anonymousReplyDoesNotMapIdentity": true,
+        "publishAdded": "transition-into-Approved",
+        "publishRemoved": "transition-out-of-Approved-or-delete",
+        "replyNotificationEvent": "CommentReplyNotificationRequested",
+        "requiresPublicRecipientAccount": true
+      },
+      "comment.outbox.consumer-registry": [
+        "audit-projection",
+        "cache-version",
+        "model-moderation",
+        "realtime-stream",
+        "site-notification"
+      ],
+      "comment.outbox.required-edges": {
+        "CommentCreated": [
+          "audit-projection",
+          "cache-version",
+          "model-moderation",
+          "realtime-stream"
+        ],
+        "CommentDeleted": [
+          "audit-projection",
+          "cache-version",
+          "realtime-stream",
+          "site-notification"
+        ],
+        "CommentEdited": [
+          "audit-projection",
+          "cache-version",
+          "realtime-stream"
+        ],
+        "CommentModerationChanged": [
+          "audit-projection",
+          "cache-version",
+          "realtime-stream",
+          "site-notification"
+        ],
+        "CommentReplyNotificationRequested": [
+          "site-notification"
+        ],
+        "CommentVisibilityChanged": [
+          "audit-projection",
+          "cache-version",
+          "realtime-stream"
+        ]
+      },
+      "comment.outbox.terminal-states": [
+        "completed",
+        "poison",
+        "processed",
+        "terminal-failed"
+      ],
+      "comment.privacy.forbidden-exact-fields": [
+        "accountId",
+        "account_id",
+        "authorId",
+        "author_id",
+        "email",
+        "ip",
+        "lastIp",
+        "last_ip",
+        "publicHandle",
+        "public_handle",
+        "replyToUserId",
+        "reply_to_user_id",
+        "userId",
+        "userName",
+        "user_id",
+        "user_name",
+        "userid",
+        "username"
+      ],
+      "comment.privacy.persisted-fields": [
+        "account_age_bucket",
+        "anonymous_display_language",
+        "anonymous_display_name",
+        "anonymous_handle",
+        "anonymous_nullifier_hash",
+        "anonymous_rate_class",
+        "anonymous_scope",
+        "anonymous_ticket_hash",
+        "author_mode",
+        "credential_level",
+        "moderation_subject_hash",
+        "public_handle",
+        "reputation_bucket"
+      ],
+      "comment.public-visibility.states": {
+        "Approved": true,
+        "Hidden": false,
+        "Pending": false,
+        "Rejected": false
+      },
+      "comment.region.visibility-states": {
+        "adminSurface": "full-moderation-states",
+        "publicSurface": {
+          "blockedRegionFilter": "viewer-region-aware",
+          "requires": "Approved",
+          "unknownViewer": "apply-all-blocked-regions"
+        },
+        "states": [
+          "deleted",
+          "hidden",
+          "limited",
+          "pending",
+          "public",
+          "rejected"
+        ]
+      },
+      "comment.thread.child-limit": {
+        "boundary": "exclusive-upper-on-count",
+        "compare": "childCount < maxChildren",
+        "configurationKey": "CommentThreads:MaxChildrenPerNode",
+        "default": {
+          "unit": "children",
+          "value": 500
+        },
+        "enforcement": "reject-new-write",
+        "maximum": {
+          "boundary": "inclusive",
+          "unit": "children",
+          "value": 10000
+        },
+        "minimum": {
+          "boundary": "inclusive",
+          "unit": "children",
+          "value": 1
+        }
+      },
+      "comment.thread.max-depth": {
+        "compare": "parent.depth + 1 <= maxDepth",
+        "configurationKey": "CommentThreads:MaxDepth",
+        "default": {
+          "unit": "levels",
+          "value": 32
+        },
+        "enforcement": "reject-new-write",
+        "maximum": {
+          "boundary": "inclusive",
+          "unit": "levels",
+          "value": 256
+        },
+        "minimum": {
+          "boundary": "inclusive",
+          "unit": "levels",
+          "value": 2
+        }
+      },
+      "comment.thread.root-parent-invariants": {
+        "depth": "max(1, parent.Depth + 1)",
+        "parentMustBePubliclyApprovedVisible": true,
+        "replyToCommentIdDefaultsToParent": true,
+        "requestedRootMustMatchComputed": true,
+        "rootId": "parent.RootId ?? parent.Id",
+        "rootRequiresParent": true
+      }
+    },
+    "observationDigest": "b8d5039959cd40992cb2648fc7db167f80447265e2c67161825bf2561452f2a4",
+    "source": "compiled-production-constants"
+  },
+  "status": "ok",
+  "failureReasons": [],
+  "contentDigest": "5c137173630a6af793856be836e6fb9533131d45fcaf0acc504bb3e53159cbc6"
+}

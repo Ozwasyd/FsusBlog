@@ -1,0 +1,17 @@
+{
+  "publishedSourceHead": "d9d9e721f45d1fd535be00bea77b32b5aebed784",
+  "mechanicalCommit": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+  "idempotenceArtifact": "artifacts/style/moderation-two-file-format-idempotence-20261008.json",
+  "allExistingBlameEntriesPreserved": true,
+  "registeredBlameEntry": "a0db452fdb86ea27c55ea77720ad20b9ef509c78",
+  "rangeExitCode": 0,
+  "positiveAllowlistBackendTests": 0,
+  "executedBackendTests": 0,
+  "excludedControlsExecuted": [],
+  "postFormatBlobs": {
+    "src/backend/Interfaces/IModerationRuntimeStateService.cs": "5de880a687276d382c52ec48b28bb44bb5c74854",
+    "src/backend/Services/Fixtures/CommentModerationFixturePort.cs": "2f5d25c0a88387a3935b6a38f11a9a60a6b0cd2b"
+  },
+  "whole3576Accepted": false,
+  "componentFormattingComplete": true
+}
