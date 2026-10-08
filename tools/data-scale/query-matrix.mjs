@@ -56,6 +56,15 @@ export function verifyQueryTraversal({ coordinate, samples, binding, decode })
             throw new Error('payload frame type mismatch');
         }
         const decoded = decode(frame.payload);
+        if (coordinate.expectedPayloadProjection !== undefined)
+        {
+            if (samples.length !== 1 || coordinate.frameType !== 27
+                || computeSha256(decoded) !== computeSha256(coordinate.expectedPayloadProjection))
+            {
+                throw new Error('related reading membership, role or content projection mismatch');
+            }
+            return { pageCount: 1, itemCount: decoded.related.length + Number(decoded.previous !== null) + Number(decoded.next !== null) };
+        }
         if (coordinate.threadRootId !== undefined && decoded.rootId !== coordinate.threadRootId)
         {
             throw new Error('thread reply envelope root does not match the explicit coordinate');
@@ -311,7 +320,7 @@ export function evaluateQueryMatrix({ registry, samples, policies, decoders })
     const unknownIds = [...registry.cases, ...samples].filter((row) => !queryCaseIds.includes(row.id)).map((row) => row.id);
     return {
         schema: 'fsusblog.data-scale-query-matrix-evaluation.v1',
-        ...(registry.schema.endsWith('.v2') ? { registrySchema: registry.schema } : {}),
+        ...(registry.schema.endsWith('.v1') ? {} : { registrySchema: registry.schema }),
         tier: registry.tier,
         binding: registry.binding,
         status: unknownIds.length || results.some((row) => row.status !== 'ok') ? 'failed' : 'ok',

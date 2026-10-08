@@ -6,7 +6,7 @@ import path from 'node:path';
 import test from 'node:test';
 
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
-const { buildQueryCaseInventory, buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryCaseIdsForSchema, queryRegistrySchemas, queryMatrixTiers, threadReplyCaseId } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseInventory, buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryCaseIdsForSchema, queryRegistrySchemas, queryMatrixTiers, threadReplyCaseId, relatedReadingCaseId } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 const { compareQueryTrends, evaluateQueryCase, evaluateQueryMatrix, sqlFingerprint, summarizeActualPlan, validateQueryPolicy, verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
 const { decodeAedsFrame, decodeTaxonomyList, encodeAedsFrame, encodeTaxonomyList } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
 const { runQueryMatrix, runQueryMatrixFiles } = await import(new URL('../../tools/data-scale/run-query-matrix.mjs', import.meta.url));
@@ -742,4 +742,63 @@ test('versioned thread runner refuses resealed verified flags before its HTTP re
     assert.equal(matrix.qualification, 'not-performed');
     assert.equal(matrix.results.length, 17);
     assert.ok(matrix.results.at(-1).failureReasons.some((reason) => reason.includes('normalized_role_reader_unavailable')));
+});
+
+test('v3 related/prev-next case preserves frozen registries and legitimate cross-role article aliases', () =>
+{
+    const row = { id: 2, title: 'neighbor', summary: null, createTime: binding.businessEpochUtc, reason: 'related-control' };
+    const relatedReading = { articleId: 1, related: [row], previous: { ...row, reason: 'previous-control' },
+        next: { ...row, id: 3, reason: 'next-control' } };
+    const input = { ...fixture(), registrySchema: queryRegistrySchemas[2], threadReplies: threadInput(), relatedReading };
+    const registry = buildQueryCaseRegistry(input);
+    assert.deepEqual(registry.cases.slice(0, 17).map((item) => item.id), queryCaseIdsForSchema(queryRegistrySchemas[1]));
+    assert.deepEqual(registry.cases.map((item) => item.id), queryCaseIdsForSchema(queryRegistrySchemas[2]));
+    const entry = registry.cases.at(-1);
+    assert.equal(entry.id, relatedReadingCaseId);
+    assert.equal(entry.status, 'blocked');
+    assert.equal(entry.coordinate.frameType, 27);
+    assert.equal(entry.coordinate.path, '/api/binary/article/1/related.aeds');
+    assert.equal(entry.coordinate.expectedPayloadProjection.related[0].id, entry.coordinate.expectedPayloadProjection.previous.id);
+    assert.equal(registry.inventory.cases.at(-1).kind, 'prev-next');
+    assert.equal(registry.inventory.schema, 'fsusblog.data-scale-query-inventory.v3');
+    assert.throws(() => buildQueryCaseRegistry({ ...input, registrySchema: queryRegistrySchemas[1] }), /v3/u);
+    for (const alter of [
+        (value) =>
+        {
+            value.articleId = 0;
+        },
+        (value) =>
+        {
+            delete value.previous;
+        },
+        (value) =>
+        {
+            value.related.push(value.related[0]);
+        },
+        (value) =>
+        {
+            value.related[0].id = 1;
+        },
+        (value) =>
+        {
+            value.related[0].summary = {};
+        },
+        (value) =>
+        {
+            value.next.id = value.previous.id;
+        },
+        (value) =>
+        {
+            value.related = Array.from({ length: 7 }, (_, index) => ({ ...row, id: index + 2 }));
+        }
+    ])
+    {
+        const value = structuredClone(relatedReading);
+        alter(value);
+        assert.equal(buildQueryCaseRegistry({ ...input, relatedReading: value }).cases.at(-1).coordinate, undefined);
+    }
+    const forged = { ...entry, status: 'ready', publicationReceipt: { verified: true }, normalizedRoles: { verified: true } };
+    const evaluated = evaluateQueryCase({ entry: forged, sample: { status: 'collected' }, policy: policy(), binding, decode: decodeControlled });
+    assert.equal(evaluated.status, 'failed');
+    assert.ok(evaluated.failureReasons.some((reason) => reason.includes('semantic_coordinates_missing')));
 });

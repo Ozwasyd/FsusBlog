@@ -34,6 +34,24 @@ using SqlSugar;
 // Executable collector controls, never a product fixture or runtime qualification.
 internal static class CollectorControls
 {
+    internal static void RunRelatedPayloadControls(string directory, string sourceCommit)
+    {
+        CurrentSchemaTestMaterializer.ValidateAssemblySourceCommit(sourceCommit);
+        DateTime now = DateTime.Parse("2026-10-08T00:00:00Z", null, System.Globalization.DateTimeStyles.AdjustToUniversal);
+        var related = new RelatedReadingItem(2, "neighbor", null, now, "related-control");
+        var previous = new RelatedReadingItem(2, "neighbor", null, now, "previous-control");
+        var next = new RelatedReadingItem(3, "next", "next-summary", now, "next-control");
+        byte[] payload = PodBinaryCodec.EncodeRelatedReading(new RelatedReadingResponse([related], previous, next));
+        byte[] empty = PodBinaryCodec.EncodeRelatedReading(new RelatedReadingResponse([], null, null));
+        QueryPlanCollector.WritePrivate(Path.Combine(directory, "related-payload-controls.json"), new
+        {
+            sourceCommit,
+            qualification = "not-performed",
+            scope = "original-related-reading-POD-encoder-only",
+            payload = Convert.ToBase64String(payload),
+            emptyPayload = Convert.ToBase64String(empty)
+        });
+    }
     private static readonly Assembly s_server = typeof(SqlSugarInitializer).Assembly;
     private const BindingFlags InstanceFlags = BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic;
     private const BindingFlags StaticFlags = BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic;
@@ -191,8 +209,8 @@ internal static class CollectorControls
             foreach (JsonElement entry in registry.RootElement.GetProperty("cases").EnumerateArray())
             {
                 string? status = entry.GetProperty("status").GetString();
-                // A blocked v2 case can prove route registration, never handler/runtime admission.
-                Require(status == "ready" || (entry.GetProperty("id").GetString() == "comment-thread-replies"
+                // A blocked added case can prove registration, never handler/runtime admission.
+                Require(status == "ready" || (entry.GetProperty("id").GetString() is "comment-thread-replies" or "article-related-prev-next"
                     && status == "blocked" && entry.TryGetProperty("coordinate", out _)),
                     "route control requires a structurally valid coordinate");
                 string id = entry.GetProperty("id").GetString()!;

@@ -8,13 +8,67 @@ import { fileURLToPath } from 'node:url';
 
 const { mapCanonicalQueryExpectedModel } = await import(new URL('../../tools/data-scale/query-expected-model.mjs', import.meta.url));
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
-const { buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIds, queryRegistrySchemas, threadReplyCaseId } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseRegistry, buildQuerySemanticOwnerInventory, queryCaseIdsForSchema, queryRegistrySchemas, threadReplyCaseId, relatedReadingCaseId } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
 const { extractArticleSearchHitIds, executeProductSearchHttpApi } = await import(new URL('../../tools/data-scale/search-evidence.mjs', import.meta.url));
 const { loadQueryPayloadDecoders } = await import(new URL('../../tools/data-scale/query-payload-decoders.mjs', import.meta.url));
 const { verifyQueryTraversal } = await import(new URL('../../tools/data-scale/query-matrix.mjs', import.meta.url));
 const { encodeAedsFrame } = await import(new URL('../../tools/data-scale/aeds-decoders.mjs', import.meta.url));
+const { runQueryMatrixFiles } = await import(new URL('../../tools/data-scale/run-query-matrix.mjs', import.meta.url));
+
+test('real native intake precedes expected mapping and repeated file probes cannot admit verified flags', async () =>
+{
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    const directory = path.join(root, '.tmp/query-matrix-native-intake-controls', randomUUID());
+    fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
+    const collectorPath = process.env.FSUSBLOG_QUERY_INTAKE_COLLECTOR
+        ?? path.join(root, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll');
+    const binding = { sourceCommit, dataScaleRunId: 'native-intake-refusal-control', fixtureGeneration: 'no-admitted-fixture',
+        seedReceiptDigest: computeSha256('no-admitted-seed'), expectedModelDigest: computeSha256('no-admitted-model'),
+        businessEpochUtc: '2026-10-08T00:00:00.000Z' };
+    fs.writeFileSync(path.join(directory, 'query-binding.json'), JSON.stringify(binding), { mode: 0o600 });
+    // Ordinary negative inputs are not producer objects or physical receipts.
+    fs.writeFileSync(path.join(directory, 'query-expected-input.json'), JSON.stringify({ registrySchema: queryRegistrySchemas[2],
+        normalizedRoles: { verified: true }, production: { verified: true, committed: true }, articles: {} }), { mode: 0o600 });
+    const oldFetch = globalThis.fetch;
+    let calls = 0;
+    globalThis.fetch = async () =>
+    {
+        calls += 1;
+        throw new Error('must not call HTTP');
+    };
+    try
+    {
+        for (let attempt = 0; attempt < 2; attempt += 1)
+        {
+            const result = await runQueryMatrixFiles({ tier: 'scale-xs', directory, collectorPath });
+            assert.equal(result.status, 'failed');
+            assert.equal(result.qualification, 'not-performed');
+            assert.equal(result.results.length, 18);
+            const refusal = JSON.parse(fs.readFileSync(path.join(directory, 'query-producer-intake.json')));
+            assert.equal(refusal.sourceCommit, sourceCommit);
+            assert.equal(refusal.originalProducerObjectsSupplied, false);
+            assert.equal(refusal.releaseEvidenceEligible, false);
+            if (process.env.FSUSBLOG_QUERY_INTAKE_COLLECTOR)
+            {
+                assert.equal(refusal.originalInterfacesLinked, true);
+                assert.equal(refusal.roleBlockers.length, 4);
+                assert.equal(refusal.postgresBlockers.length, 11);
+            }
+        }
+        assert.equal(calls, 0);
+        const wrongOutput = path.join(directory, 'wrong-source.json');
+        const wrong = spawnSync('dotnet', [collectorPath, '--producer-intake', wrongOutput, '0'.repeat(40)],
+            { cwd: root, encoding: 'utf8', timeout: 30_000 });
+        assert.equal(wrong.status, 1);
+        assert.equal(fs.existsSync(wrongOutput), false);
+    }
+    finally
+    {
+        globalThis.fetch = oldFetch;
+    }
+});
 
 test('semantic owner metadata resolves original compiled business contracts and refuses nonexistent methods', () =>
 {
@@ -65,8 +119,9 @@ test('all original registry coordinates select production GET routes and extensi
     const directory = path.join(root, '.tmp/query-matrix-route-controls', randomUUID());
     fs.mkdirSync(directory, { recursive: true, mode: 0o700 });
     const registry = buildQueryCaseRegistry({
-        tier: 'scale-s', registrySchema: queryRegistrySchemas[1],
+        tier: 'scale-s', registrySchema: queryRegistrySchemas[2],
         threadReplies: { articleId: 1, rootId: '1', pageSize: 1, expectedReplies: [] },
+        relatedReading: { articleId: 1, related: [], previous: null, next: null },
         binding: { sourceCommit, dataScaleRunId: 'route-control', fixtureGeneration: 'route-control',
             seedReceiptDigest: computeSha256('controlled-route-seed'), expectedModelDigest: computeSha256('controlled-route-model'),
             businessEpochUtc: '2026-10-08T00:00:00.000Z' },
@@ -91,9 +146,67 @@ test('all original registry coordinates select production GET routes and extensi
     assert.equal(control.registryDigest, registry.contentDigest);
     assert.equal(control.qualification, 'not-performed');
     assert.equal(control.scope, 'original-endpoint-registration-and-routing-only');
-    assert.deepEqual(control.results.filter((entry) => entry.status === 'matched').map((entry) => entry.id), [...queryCaseIds, threadReplyCaseId]);
+    assert.deepEqual(control.results.filter((entry) => entry.status === 'matched').map((entry) => entry.id), queryCaseIdsForSchema(registry.schema));
     assert.equal(control.results.find((entry) => entry.id === threadReplyCaseId).runtimeExecutionBlocked, true);
     assert.equal(control.results.filter((entry) => entry.status === 'unmatched').length, 2);
+});
+
+test('related/prev-next probe consumes original POD and preserves aliases while refusing malformed projections', async () =>
+{
+    const sourceCommit = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: root, encoding: 'utf8' }).stdout.trim();
+    const directory = path.join(root, '.tmp/query-matrix-related-controls', randomUUID());
+    const native = spawnSync('dotnet', [path.join(root, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll'),
+        '--related-payload-controls', directory, sourceCommit], { cwd: root, encoding: 'utf8', timeout: 60_000 });
+    assert.equal(native.status, 0, native.stderr);
+    const receipt = JSON.parse(fs.readFileSync(path.join(directory, 'related-payload-controls.json')));
+    assert.equal(receipt.sourceCommit, sourceCommit);
+    assert.equal(receipt.qualification, 'not-performed');
+    const binding = { sourceCommit, dataScaleRunId: 'related-codec-control', fixtureGeneration: 'codec-only',
+        seedReceiptDigest: computeSha256('no-admitted-seed'), expectedModelDigest: computeSha256('no-admitted-model'),
+        businessEpochUtc: '2026-10-08T00:00:00.000Z' };
+    const row = { id: 2, title: 'neighbor', summary: null, createTime: binding.businessEpochUtc, reason: 'related-control' };
+    const relatedReading = { articleId: 1, related: [row], previous: { ...row, reason: 'previous-control' },
+        next: { ...row, id: 3, title: 'next', summary: 'next-summary', reason: 'next-control' } };
+    const registry = buildQueryCaseRegistry({ tier: 'scale-xs', binding, registrySchema: queryRegistrySchemas[2], relatedReading,
+        publicArticles: [], visibleComments: [], categories: [], tags: [], canaries: {} });
+    const coordinate = registry.cases.at(-1).coordinate;
+    const decode = (await loadQueryPayloadDecoders(registry.schema))[relatedReadingCaseId];
+    const payload = new Uint8Array(Buffer.from(receipt.payload, 'base64'));
+    assert.deepEqual(decode(payload), coordinate.expectedPayloadProjection);
+    assert.deepEqual(decode(new Uint8Array(Buffer.from(receipt.emptyPayload, 'base64'))), { related: [], previous: null, next: null });
+    const sample = { binding, path: coordinate.path, status: 200, contentType: 'application/octet-stream', inputCursor: null,
+        body: encodeAedsFrame(coordinate.frameType, payload) };
+    assert.deepEqual(verifyQueryTraversal({ coordinate, binding, samples: [sample], decode }), { itemCount: 3, pageCount: 1 });
+    const swapped = structuredClone(coordinate);
+    [swapped.expectedPayloadProjection.previous, swapped.expectedPayloadProjection.next]
+        = [swapped.expectedPayloadProjection.next, swapped.expectedPayloadProjection.previous];
+    assert.throws(() => verifyQueryTraversal({ coordinate: swapped, binding, samples: [sample], decode }));
+    assert.throws(() => verifyQueryTraversal({ coordinate, binding, samples: [sample, sample], decode }));
+    const set = (offset, value) => (bytes) =>
+    {
+        new DataView(bytes.buffer).setInt32(offset, value, true);
+        return bytes;
+    };
+    for (const alter of [(bytes) => bytes.slice(0, -1), (bytes) => Uint8Array.from([...bytes, 0]),
+        set(0, 7), set(24, -1), set(28, 2147483647), set(128, 2147483647),
+        (bytes) =>
+        {
+            bytes[4] = 2;
+            return bytes;
+        },
+        (bytes) =>
+        {
+            bytes[20] = 2;
+            return bytes;
+        },
+        (bytes) =>
+        {
+            bytes[132] = 0xff;
+            return bytes;
+        }])
+    {
+        assert.throws(() => decode(alter(payload.slice())));
+    }
 });
 
 test('original canonical factory/verifier/visibility export mapped read expectations with refusal controls', () =>

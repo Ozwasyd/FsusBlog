@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import { registerHooks, stripTypeScriptTypes } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { queryCaseIdsForSchema, queryRegistrySchemas, threadReplyCaseId } from './query-case-registry.mjs';
+import { queryCaseIdsForSchema, queryRegistrySchemas, threadReplyCaseId, relatedReadingCaseId } from './query-case-registry.mjs';
 
 const frontendRoot = new URL('../../src/frontend/src/', import.meta.url);
 let decodersPromise;
@@ -65,10 +65,15 @@ async function loadProductAdapters()
     {
         hook.deregister();
     }
-    return Object.fromEntries(queryCaseIdsForSchema(queryRegistrySchemas[1]).map((id) =>
+    return Object.fromEntries(queryCaseIdsForSchema(queryRegistrySchemas.at(-1)).map((id) =>
     {
         let decode = article.mapArticlePageFromPodPayload;
-        if (id.startsWith('article-detail'))
+        if (id === relatedReadingCaseId)
+        {
+            decode = (payload) => boundedRelatedReadingPayload(payload, article.mapRelatedReadingFromPodPayload,
+                sizes.RELATED_READING_HEADER_POD_SIZE, sizes.RELATED_READING_ITEM_POD_SIZE);
+        }
+        else if (id.startsWith('article-detail'))
         {
             decode = (payload) => ({ items: [article.mapArticleDetailFromPodPayload(payload)] });
         }
@@ -100,6 +105,52 @@ async function loadProductAdapters()
         }
         return [id, decode];
     }));
+}
+
+function boundedRelatedReadingPayload(payload, decode, headerSize, recordSize)
+{
+    if (!(payload instanceof Uint8Array) || payload.byteLength < headerSize + 4)
+    {
+        throw new Error('related_reading_payload_header_invalid');
+    }
+    const view = new DataView(payload.buffer, payload.byteOffset, payload.byteLength);
+    const count = view.getInt32(0, true);
+    if (count < 0 || count > 6 || payload[4] > 1 || payload[5] > 1)
+    {
+        throw new Error('related_reading_payload_count_or_flags_invalid');
+    }
+    const records = count + payload[4] + payload[5];
+    const blobLengthOffset = headerSize + records * recordSize;
+    if (blobLengthOffset + 4 > payload.byteLength)
+    {
+        throw new Error('related_reading_payload_records_truncated');
+    }
+    const blobLength = view.getInt32(blobLengthOffset, true);
+    if (blobLength < 0 || blobLength !== payload.byteLength - blobLengthOffset - 4)
+    {
+        throw new Error('related_reading_payload_blob_or_trailing_bytes_invalid');
+    }
+    const blob = payload.subarray(blobLengthOffset + 4);
+    const utf8 = new TextDecoder('utf-8', { fatal: true });
+    for (let index = 0; index < records; index += 1)
+    {
+        const offset = headerSize + index * recordSize;
+        if (view.getInt32(offset, true) < 1 || payload[offset + 12] > 1)
+        {
+            throw new Error('related_reading_payload_record_invalid');
+        }
+        for (const field of [16, 24, 32])
+        {
+            const start = view.getInt32(offset + field, true);
+            const length = view.getInt32(offset + field + 4, true);
+            if (start < 0 || length < 0 || start > blobLength || length > blobLength - start)
+            {
+                throw new Error('related_reading_payload_slice_invalid');
+            }
+            utf8.decode(blob.subarray(start, start + length));
+        }
+    }
+    return decode(payload);
 }
 
 /** Check envelope/record bounds; item semantics remain with the current product adapter. */

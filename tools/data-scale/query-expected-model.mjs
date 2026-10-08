@@ -2,10 +2,10 @@ import { buildQueryCaseRegistry, requireQueryBinding } from './query-case-regist
 import { computeSha256 } from './runtime-plan.mjs';
 
 /** Compose original-owner expectations. This does not admit or create fixtures. */
-export function mapCanonicalQueryExpectedModel({ articles, comments, canaries, binding, registrySchema, threadReplies })
+export function mapCanonicalQueryExpectedModel({ articles, comments, canaries, binding, registrySchema, threadReplies, relatedReading })
 {
     requireQueryBinding(binding);
-    if (threadReplies !== undefined && !registrySchema)
+    if ((threadReplies !== undefined || relatedReading !== undefined) && !registrySchema)
     {
         throw new Error('thread reply inputs require explicit versioned expected model selection');
     }
@@ -26,7 +26,8 @@ export function mapCanonicalQueryExpectedModel({ articles, comments, canaries, b
         articlePlanDigest: articles.planDigest, articleGraphDigest: articles.graphDigest,
         publicArticles: articles.publicArticles, visibleComments: comments.visibleComments,
         categories: articles.categories, tags: articles.tags, canaries,
-        ...(registrySchema ? { registrySchema, threadReplies: threadReplies ?? null } : {})
+        ...(registrySchema ? { registrySchema, threadReplies: threadReplies ?? null } : {}),
+        ...(relatedReading !== undefined ? { relatedReading } : {})
     };
     if (computeSha256(model) !== binding.expectedModelDigest)
     {

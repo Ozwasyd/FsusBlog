@@ -20,10 +20,20 @@ export function failedQueryMatrix(tier, binding, reason, registrySchema)
 {
     return {
         schema: 'fsusblog.data-scale-query-matrix-evaluation.v1', tier, binding: binding ?? null,
-        ...(registrySchema?.endsWith('.v2') ? { registrySchema } : {}),
+        ...(registrySchema && !registrySchema.endsWith('.v1') ? { registrySchema } : {}),
         status: 'failed', qualification: 'not-performed', unknownIds: [],
         results: queryCaseIdsForSchema(registrySchema).map((id) => ({ id, status: 'failed', metrics: null, failureReasons: [reason] }))
     };
+}
+
+function refuseNativeProducerIntake({ collectorPath, directory, repositoryRoot, binding })
+{
+    execFileSync('dotnet', [collectorPath, '--producer-intake',
+        path.join(directory, 'query-producer-intake.json'), binding.sourceCommit],
+    { cwd: repositoryRoot, timeout: 30_000, stdio: 'pipe' });
+    // The supplied original Inspect contracts unconditionally forbid execution.
+    // A substituted process returning zero cannot admit an expected model here.
+    throw new Error('current_original_producer_intake_cannot_authorize_queries');
 }
 
 /** Read-only product probe; provisioning and qualification remain original-owner operations. */
@@ -120,7 +130,8 @@ export async function runQueryMatrix({ registry, policies, baseUrl, secret, capt
     }
 }
 
-export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = root })
+export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = root,
+    collectorPath = path.join(repositoryRoot, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll') })
 {
     let binding;
     let registrySchema;
@@ -135,6 +146,9 @@ export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = ro
         }
         const input = read('query-expected-input.json');
         registrySchema = input.registrySchema;
+        // The actual native intake precedes expected mapping and every HTTP/capture.
+        // It consumes no caller scalar map or verified flag as producer authority.
+        refuseNativeProducerIntake({ collectorPath, directory, repositoryRoot, binding });
         const model = mapCanonicalQueryExpectedModel({ ...input, binding });
         if (model.tier !== tier)
         {
@@ -165,7 +179,7 @@ export async function runQueryMatrixFiles({ tier, directory, repositoryRoot = ro
             baseUrl: runtime.backend.baseUrl, secret: fs.readFileSync(path.join(directory, 'query-observation.secret'), 'utf8').trim(),
             captureDirectory: path.join(directory, 'query-captures'), bindingPath: path.join(directory, 'query-capture-binding.json'),
             connectionPath: path.join(directory, 'query-connection.secret'),
-            collectorPath: path.join(repositoryRoot, 'tools/data-scale/query-plan-collector/bin/Release/net10.0/QueryPlanCollector.dll'),
+            collectorPath,
             verifyRuntime: () => verifyDataScaleRuntimeLiveness({ repositoryRoot, runtimeReceipt: runtime }) });
     }
     catch

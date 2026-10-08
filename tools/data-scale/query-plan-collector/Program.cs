@@ -11,6 +11,16 @@ using NpgsqlTypes;
 
 try
 {
+    if (args.Length == 3 && args[0] == "--producer-intake")
+    {
+        CanonicalQueryProducerIntake.RefuseMissingInputs(args[1], args[2]);
+        return 0;
+    }
+    if (args.Length == 3 && args[0] == "--related-payload-controls")
+    {
+        CollectorControls.RunRelatedPayloadControls(args[1], args[2]);
+        return 0;
+    }
     if (args.Length == 3 && args[0] == "--search-payload-controls")
     {
         CollectorControls.RunSearchPayloadControls(args[1], args[2]);
@@ -38,6 +48,7 @@ try
     }
     if (args.Length == 6 && args[0] == "--expected-articles")
     {
+        CanonicalQueryProducerIntake.RefuseMissingInputs(args[5] + ".producer-intake.json", args[4]);
         await CanonicalQueryExpectedArticles.ExportAsync(args[1], args[2], args[3], args[4], args[5]);
         return 0;
     }

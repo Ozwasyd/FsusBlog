@@ -23,6 +23,10 @@ function frameName(id)
     {
         return 'CommentThreadReplyCursor';
     }
+    if (id === relatedReadingCaseId)
+    {
+        return 'ArticleRelatedReading';
+    }
     if (id.startsWith('comment-nested'))
     {
         return 'CommentChildCursor';
@@ -54,7 +58,8 @@ export const queryCaseIds = Object.freeze([
 ]);
 
 export const threadReplyCaseId = 'comment-thread-replies';
-export const queryRegistrySchemas = Object.freeze(['fsusblog.data-scale-query-registry.v1', 'fsusblog.data-scale-query-registry.v2']);
+export const relatedReadingCaseId = 'article-related-prev-next';
+export const queryRegistrySchemas = Object.freeze(['fsusblog.data-scale-query-registry.v1', 'fsusblog.data-scale-query-registry.v2', 'fsusblog.data-scale-query-registry.v3']);
 
 /** Version additions stay with this single registry; v1's sixteen IDs remain frozen. */
 export function queryCaseIdsForSchema(schema = queryRegistrySchemas[0])
@@ -63,14 +68,27 @@ export function queryCaseIdsForSchema(schema = queryRegistrySchemas[0])
     {
         throw new Error('unsupported query registry schema');
     }
-    return schema === queryRegistrySchemas[0] ? [...queryCaseIds] : [...queryCaseIds, threadReplyCaseId];
+    const ids = [...queryCaseIds];
+    if (schema !== queryRegistrySchemas[0])
+    {
+        ids.push(threadReplyCaseId);
+    }
+    if (schema === queryRegistrySchemas[2])
+    {
+        ids.push(relatedReadingCaseId);
+    }
+    return ids;
 }
 
 /** Current canonical source has no qualified comment role/revision reader. Never trust a caller's verified flag. */
 export function queryExecutionBlockers(id)
 {
-    return id === threadReplyCaseId
-        ? ['canonical_comment_normalized_role_reader_unavailable', 'canonical_comment_exact_revision_reader_unavailable'] : [];
+    if (id === threadReplyCaseId)
+    {
+        return ['canonical_comment_normalized_role_reader_unavailable', 'canonical_comment_exact_revision_reader_unavailable'];
+    }
+    return id === relatedReadingCaseId
+        ? ['canonical_article_related_semantic_coordinates_missing', 'canonical_article_related_current_publication_receipt_missing'] : [];
 }
 
 export const queryMatrixTiers = Object.freeze(['scale-xs', 'scale-s', 'scale-m']);
@@ -131,6 +149,15 @@ export function buildQueryCaseInventory(binding, registrySchema = queryRegistryS
             inputFields = ['publicArticles', type === 'category' ? 'categories' : 'tags', 'pageSize'];
             parameters = [`${type}Id`, 'page', 'size', 'cursor'];
         }
+        else if (id === relatedReadingCaseId)
+        {
+            kind = 'prev-next';
+            routePattern = '/api/binary/article/{articleId:int}/related.aeds';
+            inputFields = ['relatedReading.articleId', 'relatedReading.related', 'relatedReading.previous', 'relatedReading.next'];
+            parameters = ['articleId'];
+            order = [];
+            pagination = 'none';
+        }
         else if (id.startsWith('article-detail'))
         {
             kind = 'detail';
@@ -160,11 +187,13 @@ export function buildQueryCaseInventory(binding, registrySchema = queryRegistryS
                 ...(order === null ? ['search_ranking_role_contract_missing'] : [])],
             ...(id === threadReplyCaseId ? { coverageScope: 'rooted-reply-cursor',
                 requiredInputTypes: { articleId: 'positive Int32', rootId: 'positive Int64 decimal string', pageSize: 'integer 1..100',
-                    expectedReplies: 'explicit ordered CommentReplyItemDto id/content/time/root/parent/depth/deleted/edited projection array' } } : {}) };
+                    expectedReplies: 'explicit ordered CommentReplyItemDto id/content/time/root/parent/depth/deleted/edited projection array' } } : {}),
+            ...(id === relatedReadingCaseId ? { coverageScope: 'related-reading-prev-next-envelope',
+                requiredInputTypes: { articleId: 'positive Int32', related: 'explicit ordered RelatedReadingItem array, at most six',
+                    previous: 'explicit RelatedReadingItem or null', next: 'explicit RelatedReadingItem or null' } } : {}) };
     });
-    const inventory = { schema: registrySchema === queryRegistrySchemas[0]
-        ? 'fsusblog.data-scale-query-inventory.v1' : 'fsusblog.data-scale-query-inventory.v2', binding,
-    qualification: 'not-performed', releaseEvidenceEligible: false, cases };
+    const inventory = { schema: registrySchema.replace('-registry.', '-inventory.'), binding,
+        qualification: 'not-performed', releaseEvidenceEligible: false, cases };
     return { ...inventory, contentDigest: computeSha256(inventory) };
 }
 
@@ -448,13 +477,17 @@ function pageCoordinate(rows, pageSize, offset, path, requirePriorPage = false, 
  * This pure registry is not runtime admission or a qualification receipt.
  */
 export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleComments, categories, tags, canaries, pageSize = 10, commentPageSize = 1,
-    registrySchema = queryRegistrySchemas[0], threadReplies })
+    registrySchema = queryRegistrySchemas[0], threadReplies, relatedReading })
 {
     requireQueryBinding(binding);
     queryCaseIdsForSchema(registrySchema);
     if (registrySchema === queryRegistrySchemas[0] && threadReplies !== undefined)
     {
         throw new Error('thread reply inputs require explicit v2 registry selection');
+    }
+    if (relatedReading !== undefined && registrySchema !== queryRegistrySchemas[2])
+    {
+        throw new Error('related reading inputs require explicit v3 registry selection');
     }
     if (!queryMatrixTiers.includes(tier) || !Number.isSafeInteger(pageSize) || pageSize < 1 || pageSize > 100
         || !Number.isSafeInteger(commentPageSize) || commentPageSize < 1 || commentPageSize > 100)
@@ -636,15 +669,53 @@ export function buildQueryCaseRegistry({ tier, binding, publicArticles, visibleC
             return { path: `/api/binary/article/search/query.aeds?q=${encodeURIComponent(canary.token)}`, token: canary.token, expectedItems };
         });
     }
-    if (registrySchema === queryRegistrySchemas[1])
+    if (registrySchema !== queryRegistrySchemas[0])
     {
         add(threadReplyCaseId, () => threadReplyCoordinate(threadReplies));
         const entry = cases.at(-1);
         entry.status = 'blocked';
         entry.failureReasons = [...(entry.failureReasons ?? []), ...queryExecutionBlockers(threadReplyCaseId)];
     }
+    if (registrySchema === queryRegistrySchemas[2])
+    {
+        add(relatedReadingCaseId, () => relatedReadingCoordinate(relatedReading));
+        const entry = cases.at(-1);
+        entry.status = 'blocked';
+        entry.failureReasons = [...(entry.failureReasons ?? []), ...queryExecutionBlockers(relatedReadingCaseId)];
+    }
     const result = { schema: registrySchema, tier, binding, cases, inventory: buildQueryCaseInventory(binding, registrySchema) };
     return { ...result, contentDigest: computeSha256(result) };
+}
+
+/** Related and neighboring roles may legitimately reference the same native article. */
+function relatedReadingCoordinate(input)
+{
+    if (!input || !Number.isInteger(input.articleId) || input.articleId < 1 || input.articleId > 2147483647
+        || !Array.isArray(input.related) || input.related.length > 6 || input.previous === undefined || input.next === undefined)
+    {
+        throw new Error('typed related reading article/related/previous/next inputs missing');
+    }
+    const item = (row) =>
+    {
+        if (!row || !Number.isInteger(row.id) || row.id < 1 || row.id > 2147483647 || row.id === input.articleId
+            || typeof row.title !== 'string' || typeof row.reason !== 'string'
+            || !(row.summary === null || typeof row.summary === 'string') || !Number.isFinite(Date.parse(row.createTime)))
+        {
+            throw new Error('typed related reading item fields invalid');
+        }
+        return { id: row.id, title: row.title, summary: row.summary,
+            createTime: new Date(row.createTime).toISOString(), reason: row.reason };
+    };
+    const related = input.related.map(item);
+    uniqueRows(related, 'explicit related reading list');
+    const previous = input.previous === null ? null : item(input.previous);
+    const next = input.next === null ? null : item(input.next);
+    if (previous && next && previous.id === next.id)
+    {
+        throw new Error('previous and next must be distinct article coordinates');
+    }
+    return { path: `/api/binary/article/${input.articleId}/related.aeds`, expectedItems: [],
+        expectedPayloadProjection: { related, previous, next } };
 }
 
 /** Explicit probe coordinates are structural inputs, never qualified producer roles or revision authority. */
