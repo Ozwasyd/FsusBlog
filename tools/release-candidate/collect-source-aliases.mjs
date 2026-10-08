@@ -11,7 +11,7 @@ export const submoduleCheckoutIdentitySchema = 'fsusblog.candidate-submodule-che
 function git(root, args, allowedStatuses = [0])
 {
     const env = Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith('GIT_')));
-    const result = spawnSync('git', ['--no-replace-objects', '-C', root, ...args], {
+    const result = spawnSync('git', ['--no-replace-objects', '-c', 'core.fsmonitor=false', '-c', 'core.untrackedCache=false', '-C', root, ...args], {
         env: { ...env, GIT_OPTIONAL_LOCKS: '0', GIT_NO_LAZY_FETCH: '1', GIT_CONFIG_NOSYSTEM: '1', GIT_CONFIG_GLOBAL: '/dev/null' },
         maxBuffer: 128 * 1024 * 1024
     });

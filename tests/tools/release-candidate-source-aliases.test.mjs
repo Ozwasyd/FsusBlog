@@ -132,11 +132,19 @@ test('submodule nested checkout closure is refused instead of admitting only the
     assert.throws(() => collectSubmoduleCheckoutIdentities(f.inputs()), /nested submodule checkout closure capability/u);
 });
 
-test('submodule dirty observation never invokes configured external diff or text conversion', (t) =>
+test('submodule dirty observation never invokes configured external diff text conversion or fsmonitor', (t) =>
 {
     const f = fixture(t);
     execFileSync('git', ['-C', f.checkoutRoot, 'config', 'diff.external', '/does-not-exist-candidate-external-diff']);
     fs.writeFileSync(path.join(f.checkoutRoot, 'source.txt'), 'staged bytes\n');
     execFileSync('git', ['-C', f.checkoutRoot, 'add', 'source.txt']);
+    const gitDir = execFileSync('git', ['-C', f.checkoutRoot, 'rev-parse', '--absolute-git-dir'], { encoding: 'utf8' }).trim();
+    const hook = path.join(gitDir, 'candidate-fsmonitor.sh');
+    fs.writeFileSync(hook, '#!/bin/sh\nprintf observed > "$0.observed"\nprintf "candidate-token\\0"\n', { mode: 0o755 });
+    execFileSync('git', ['-C', f.checkoutRoot, 'config', 'core.fsmonitor', hook]);
+    execFileSync('git', ['-C', f.checkoutRoot, 'ls-files']);
+    assert.equal(fs.existsSync(`${hook}.observed`), true);
+    fs.rmSync(`${hook}.observed`);
     assert.equal(collectSubmoduleCheckoutIdentities(f.inputs()).checkouts.component.dirty, true);
+    assert.equal(fs.existsSync(`${hook}.observed`), false);
 });
