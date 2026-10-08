@@ -114,6 +114,15 @@ remain unavailable. This composition does not provide a durable store or a
 default identity/site permission adapter: those authorities must be supplied and
 independently qualified before job delivery is admitted.
 
+The durable job worker applies one monotonic wall deadline from its successful
+claim through export, nested stages, independent verification and the final commit
+boundaries. The limit comes from the unchanged canonical provider budget. Caller
+and durable cancellation remain distinct from deadline exhaustion; existing
+sandbox failures and their receipts retain precedence. Late results cannot become
+downloadable success, including providers that ignore the cancellation token.
+This deadline does not qualify cleanup or aggregate multi-stage CPU, file or I/O
+accounting, which remain separate acceptance requirements.
+
 Sandbox finalization preserves the first observed budget or execution failure if caller cancellation arrives during cleanup. With no earlier failure, requested cancellation is still recorded. Physical cleanup must independently qualify the empty process tree, removed run directory, transient unit and cgroup; an unqualified cleanup remains fail closed and cannot become a qualified budget or cancellation receipt.
 
 Sandbox plans require the canonical lower-case 32-digit run identity. Both success
