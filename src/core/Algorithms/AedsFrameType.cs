@@ -270,5 +270,6 @@ public enum AedsFrameType : ushort
     AuthoringWorkspaceSnapshotResponse = 271,
     WritingAidPreferenceSnapshotResponse = 272,
     WritingAidPreferenceUpdateRequest = 273,
-    WritingAidPreferenceReceiptResponse = 274
+    WritingAidPreferenceReceiptResponse = 274,
+    UploadAssetPreview = 275
 }

@@ -36,7 +36,7 @@ function retainedManifest()
     source.frameTypes = source.frameTypes.filter((frame) => frame.goldenOrder < 236);
     source.goldenCatalog.defaultEvidence = source.goldenCatalog.defaultEvidence.filter((entry) =>
         !entry.endsWith('/ArticlePropertyValueReadWireTests.cs') && !entry.endsWith('/AuthoringWorkspaceSnapshotWireTests.cs')
-        && !entry.endsWith('/WritingAidPreferenceWireTests.cs'));
+        && !entry.endsWith('/WritingAidPreferenceWireTests.cs') && !entry.endsWith('/UploadAssetPreviewCodecTests.cs'));
     return source;
 }
 
@@ -58,7 +58,7 @@ test('the original producer owns five products with manifest-derived identities 
         .sort((left, right) => left.goldenOrder - right.goldenOrder)
         .map((frame) => ({ name: frame.name, value: frame.value, family: frame.goldenFamily })));
     assert.equal(golden.frames.filter(frame => frame.value <= 252).length, 244);
-    assert.equal(golden.frames.length, 266);
+    assert.equal(golden.frames.length, 267);
 });
 
 test('the Canvas and article-link additions retain independently named roots and wire identities', () =>
@@ -156,6 +156,7 @@ for (const [label, mutate, expected] of [
     test(`the original renderer refuses ${label} before any output`, () =>
     {
         const source = structuredClone(manifest);
+        source.reservedFrameValues = [{ name: 'ReservationProbe', value: 65533, ownerIssue: 1975, reason: 'Synthetic negative-control reservation; no production allocation' }];
         mutate(source);
         assert.throws(() => renderAedsProtocolOutputs(source), expected);
     });
@@ -185,9 +186,10 @@ test('source values and explicit metadata, not old output values, determine the 
 test('pending allocations stay outside every generated active frame and golden catalog', () =>
 {
     const outputs = new Map(renderAedsProtocolOutputs(manifest));
-    assert.deepEqual(manifest.reservedFrameValues.map(({ name, value, ownerIssue }) => [name, value, ownerIssue]), [
-        ['UploadAssetPreview', 275, 1975]
-    ]);
+    assert.deepEqual(manifest.reservedFrameValues, []);
+    assert.deepEqual(manifest.frameTypes.find(frame => frame.name === 'UploadAssetPreview'), {
+        name: 'UploadAssetPreview', value: 275, goldenFamily: 'upload-response', goldenOrder: 266
+    });
     for (const reservation of manifest.reservedFrameValues)
     {
         assert.ok(manifest.frameTypes.every(frame => frame.value !== reservation.value && frame.name !== reservation.name));
@@ -219,13 +221,14 @@ for (const [label, mutate, expected] of [
     ['retired reservation ID', source => { source.reservedFrameValues[0].value = source.retiredFrameValues[0].value; }, /reuses retired value/u],
     ['already active reservation ID', source => { source.reservedFrameValues[0].value = 253; }, /collides with an unadmitted reservation/u],
     ['already active reservation name', source => { source.reservedFrameValues[0].name = source.frameTypes[0].name; }, /collides with an unadmitted reservation/u],
-    ['active frame takes reserved ID', source => { source.frameTypes[0].value = 275; }, /collides with an unadmitted reservation/u],
-    ['active frame takes reserved name', source => { source.frameTypes[0].name = 'UploadAssetPreview'; }, /collides with an unadmitted reservation/u]
+    ['active frame takes reserved ID', source => { source.frameTypes[0].value = 65533; }, /collides with an unadmitted reservation/u],
+    ['active frame takes reserved name', source => { source.frameTypes[0].name = 'ReservationProbe'; }, /collides with an unadmitted reservation/u]
 ])
 {
     test(`the original renderer refuses ${label} before producing admitted frames`, () =>
     {
         const source = structuredClone(manifest);
+        source.reservedFrameValues = [{ name: 'ReservationProbe', value: 65533, ownerIssue: 1975, reason: 'Synthetic negative-control reservation; no production allocation' }];
         mutate(source);
         assert.throws(() => renderAedsProtocolOutputs(source), expected);
     });

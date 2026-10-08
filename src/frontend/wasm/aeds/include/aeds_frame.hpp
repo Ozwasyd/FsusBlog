@@ -306,6 +306,7 @@ enum class FrameType : std::uint16_t
     WritingAidPreferenceSnapshotResponse = 272,
     WritingAidPreferenceUpdateRequest = 273,
     WritingAidPreferenceReceiptResponse = 274,
+    UploadAssetPreview = 275,
 };
 
 [[nodiscard]] constexpr bool IsRetiredFrameType(std::uint16_t raw) noexcept
@@ -597,6 +598,7 @@ enum class FrameType : std::uint16_t
         case FrameType::WritingAidPreferenceSnapshotResponse:
         case FrameType::WritingAidPreferenceUpdateRequest:
         case FrameType::WritingAidPreferenceReceiptResponse:
+        case FrameType::UploadAssetPreview:
             return true;
         default:
             return false;

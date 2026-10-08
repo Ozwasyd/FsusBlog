@@ -267,6 +267,7 @@ export const FrameType = {
   WritingAidPreferenceSnapshotResponse: 272,
   WritingAidPreferenceUpdateRequest: 273,
   WritingAidPreferenceReceiptResponse: 274,
+  UploadAssetPreview: 275,
 } as const;
 
 export type FrameType = typeof FrameType[keyof typeof FrameType];

@@ -35,14 +35,7 @@
             "reason": "precise-anonymous-credential-ticket-response"
         }
     ],
-    "reservedFrameValues": [
-        {
-            "name": "UploadAssetPreview",
-            "value": 275,
-            "ownerIssue": 1975,
-            "reason": "supersedes conflicting candidate frame 253; exact consumer regeneration and admission pending"
-        }
-    ],
+    "reservedFrameValues": [],
     "anonymousPrivacyContract": {
         "circuitId": "fsus.anonymous.comment.v5",
         "publicInputLayoutVersion": 6,
@@ -1657,6 +1650,12 @@
             "value": 274,
             "goldenFamily": "writing-aid-preference",
             "goldenOrder": 265
+        },
+        {
+            "name": "UploadAssetPreview",
+            "value": 275,
+            "goldenFamily": "upload-response",
+            "goldenOrder": 266
         }
     ],
     "goldenCatalog": {
@@ -1667,7 +1666,8 @@
             "tests/backend/Unit/UserLocalePreferenceCodecAndNormalizeTests.cs",
             "tests/backend/Unit/ArticlePropertyValueReadWireTests.cs",
             "tests/backend/Unit/AuthoringWorkspaceSnapshotWireTests.cs",
-            "tests/backend/Unit/WritingAidPreferenceWireTests.cs"
+            "tests/backend/Unit/WritingAidPreferenceWireTests.cs",
+            "tests/backend/Unit/UploadAssetPreviewCodecTests.cs"
         ]
     }
 }

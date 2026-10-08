@@ -109,7 +109,7 @@
         },
         {
             "path": "src/core/Algorithms/AedsFrameType.cs",
-            "sha256": "0b3426232b76065bad12b9b98532c5ff5f2afbcb13be963f83933a84826577e8"
+            "sha256": "d2c5de946e04f65f1ed7f9f219949bd09c51fc4a2e1ce457d5c5d2ccc891052d"
         },
         {
             "path": "src/core/Cache/PodBinaryCodec.ArticleCanvasLink.Generated.cs",
@@ -157,7 +157,7 @@
         },
         {
             "path": "src/frontend/wasm/aeds/include/aeds_frame.hpp",
-            "sha256": "bf1cda474f1399d0bc700e216d54a6687bd98a1154e0980c440483914de1e63f"
+            "sha256": "1eeffef6cd402c4f1b633079804b9301bd3f6429563a6f3d8c46f40d677a3147"
         },
         {
             "path": "src/frontend/wasm/aeds/include/article_canvas_link_wire.generated.hpp",
@@ -181,7 +181,7 @@
         },
         {
             "path": "src/frontend/wasm/web/protocol/frame.ts",
-            "sha256": "520b85c5f2beb3cef3f13b91970770ce11b495d1dc992a483c34104067b5dd84"
+            "sha256": "3403e5a4881cb84b4e5aacd9e4c16c2a55b5360e31aee014ec627122c34b9d13"
         },
         {
             "path": "src/migration/OfflineMigrationCatalogEntries.generated.cs",
@@ -189,7 +189,7 @@
         },
         {
             "path": "src/shared/AedsFrameHeader.cs",
-            "sha256": "a856766a6b05cf6feb612f3c179423c014071b81a437ed9c9798fdea7700e3ef"
+            "sha256": "6ef58c634ef5502d3aac17239d427975e95aad17b43f2eb67ecb6e648ecc605b"
         },
         {
             "path": "src/shared/Contracts/Validation/fsusblog.openapi.json",
@@ -197,7 +197,7 @@
         },
         {
             "path": "tests/backend/Fixtures/aeds-golden-catalog.json",
-            "sha256": "94cd1a32ae3f69d8430806e0ef5c7c8993faeb040148b3546a3c0b4477336df2"
+            "sha256": "3936254e4b62f5d50c3c1559e65ae3923f7ff4975f6c52c0cd6e0e50bb8b7779"
         },
         {
             "path": "tests/fixtures/protocol/article-canvas-link-wire-golden.json",
