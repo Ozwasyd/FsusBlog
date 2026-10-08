@@ -196,6 +196,10 @@ public interface ICommentThreadFixturePort
         CommentFixtureMutationPlan plan,
         CancellationToken cancellationToken = default);
 
+    Task<CommentFixtureDeliveryObservation> ObserveDeliveryAsync(
+        CommentFixtureMutationResult authority,
+        CancellationToken cancellationToken = default);
+
     Task<CommentThreadFixtureResult> ExecuteAsync(
         CommentThreadFixturePlan plan,
         CancellationToken cancellationToken = default);
@@ -231,7 +235,9 @@ public sealed partial class CommentThreadFixturePort(
     CommentFixtureCacheProbe cacheProbe,
     ISqlSugarClient db,
     IAuthoringModerationCommands moderationCommands,
-    TimeProvider timeProvider) : ICommentThreadFixturePort
+    TimeProvider timeProvider,
+    IAuthoringModerationQueue moderationQueue,
+    IMessageQueryService messageQueries) : ICommentThreadFixturePort
 {
     private const string PlanSchema = "fsusblog.comment-thread-fixture-plan.v1";
     private const string ResultSchema = "fsusblog.comment-thread-fixture-result.v1";
@@ -900,7 +906,9 @@ public sealed partial class CommentThreadFixturePort(
         string role,
         FixtureIdentity identity,
         Comment row,
-        CancellationToken cancellationToken)
+        CancellationToken cancellationToken,
+        string? initialContent = null,
+        bool restoreCapabilityCustody = true)
     {
         string? custodySecret = anonymousCapabilities.TryGet(
             binding.Owner,
@@ -928,7 +936,8 @@ public sealed partial class CommentThreadFixturePort(
             row.IsDeleted,
             identity.OperationPlanDigest);
         if (!IsExactAnonymousOperationReference(reference, binding, expected)
-            || !StringComparer.Ordinal.Equals(reference!.ContentDigest, AnonymousContentDigest(row.Content))
+            || !StringComparer.Ordinal.Equals(reference!.ContentDigest, AnonymousContentDigest(initialContent ?? row.Content))
+            || !managementCapabilities.VerifyCapability(reference.ManagementSecret, row.ManagementCapabilityHash!)
             || reference.ParentId != row.ParentId?.ToString(CultureInfo.InvariantCulture)
             || (reference.RootId ?? reference.CommentId.ToString(CultureInfo.InvariantCulture))
                 != (row.RootId ?? row.Id).ToString(CultureInfo.InvariantCulture)
@@ -939,7 +948,7 @@ public sealed partial class CommentThreadFixturePort(
                 Encoding.UTF8.GetBytes(custodySecret),
                 Encoding.UTF8.GetBytes(reference.ManagementSecret)))
             throw new InvalidOperationException($"Anonymous comment role {role} has conflicting capability custody.");
-        if (custodySecret is null)
+        if (custodySecret is null && restoreCapabilityCustody)
             anonymousCapabilities.Store(binding.Owner, binding.TestSession, row.Id, reference.ManagementSecret);
     }
 

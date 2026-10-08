@@ -27,6 +27,24 @@ moderation status or an invented transition.
 and rereads with read-port models. These controls do not provide PostgreSQL
 transaction, native proof, nullifier or delivery acceptance evidence.
 
+`ICommentThreadFixturePort.ObserveDeliveryAsync` separately consumes the mutation
+observation and rereads the public permalink, first admin queue page, article/root
+cursor generations, exact outbox references and per-consumer delivery records.
+Required consumers come from `CommentMutationOutboxConsumers.RequiredFor`; the
+bounded queue catalog digest comes from `BoundedQueueDeliveryCatalog.Embedded`.
+Reply notices reuse the actual dispatcher's source-event derivation and reread the
+recipient conversation API. The observer performs no commands, worker drain,
+message insertion, cache update or projection repair. It keeps missing/pending,
+failed/poison and duplicate observations available for an independent verifier.
+
+This single-pass API does not claim a full queue traversal, native Redis/stream
+delivery or terminal acceptance. Public comment DTOs expose edit state rather than
+an exact revision, and the current outbox envelope has no comment revision field;
+the observer must not invent either value. Complete version binding, per-event
+input/output proof, recipient entitlement and current-run queue/drain qualification
+remain open requirements. The routing controls use read-port models and the real
+cache policy/command callback, without claiming a real Redis or message backend.
+
 ## Bounded channel delivery contracts
 
 `config/testing/bounded-channel-delivery-contracts.json` is the only delivery contract catalog that produces bounded channels in C# source, and the schema is `config/testing/bounded-channel-delivery-contracts.schema.json`. `tools/governance/bounded-channel-contracts.mjs` will parse direct factory, packaging factory and indirect factory owner, and use `source file + containing type + assigned slot` to form a stable discovery key; catalog and discovery must be bidirectional exact, and cannot be released with wildcard, Markdown inventory or missing items baseline.

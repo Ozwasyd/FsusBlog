@@ -5,17 +5,22 @@ using System.Text.Json;
 
 using FsusBlog.Server.Entities;
 using FsusBlog.Server.Infrastructure.Cache;
+using FsusBlog.Server.Infrastructure.Operations;
 using FsusBlog.Server.Interfaces;
 using FsusBlog.Server.Models.CommentIdentity;
 using FsusBlog.Server.Models.Dtos;
 using FsusBlog.Server.Services;
 using FsusBlog.Server.Services.Authoring;
+using FsusBlog.Server.Services.Background;
 using FsusBlog.Server.Services.Fixtures;
 using FsusBlog.Server.Services.Security;
+using FsusBlog.Shared.Contracts.Outputs;
 
 using NSubstitute;
 
 using SqlSugar;
+
+using StackExchange.Redis;
 
 namespace FsusBlog.Server.Tests.Unit;
 
@@ -92,6 +97,50 @@ public sealed class CommentFixtureMutationRoutingTests
         Assert.Empty(model.Moderation.ReceivedCalls());
     }
 
+    [Theory]
+    [InlineData(CommentMutationEventTypes.Created)]
+    [InlineData(CommentMutationEventTypes.Edited)]
+    [InlineData(CommentMutationEventTypes.ReplyNotificationRequested)]
+    public async Task DeliveryObservation_ReadsProductionContractsAndModelsWithoutCommands(string eventType)
+    {
+        var model = new Model("report");
+        model.PrepareDelivery(eventType);
+        CommentFixtureMutationResult authority = await model.Port.ExecuteMutationAsync(model.Plan);
+        model.Author.ClearReceivedCalls();
+        model.Governance.ClearReceivedCalls();
+        model.Moderation.ClearReceivedCalls();
+        CommentFixtureDeliveryObservation result = await model.Port.ObserveDeliveryAsync(authority);
+
+        Assert.Equal(BoundedQueueDeliveryCatalog.Embedded.Digest, result.BoundedQueueCatalogDigest);
+        CommentFixtureOutboxObservation observed = Assert.Single(result.Outbox);
+        Assert.Equal(CommentMutationOutboxConsumers.RequiredFor(eventType), observed.RequiredConsumers);
+        Assert.Empty(observed.MissingConsumers);
+        Assert.All(observed.Consumers, consumer => Assert.Equal(3, consumer.LeaseGeneration));
+        Assert.Equal("article:42", result.CacheIdentity);
+        Assert.Equal("article:42:root:41", result.RootCacheIdentity);
+        Assert.Equal("11", result.CacheGeneration);
+        Assert.Equal("11", result.RootCacheGeneration);
+        await model.RedisDb.Received(1).StringGetAsync("fsus:blog:comment-cursor-version:article:42");
+        await model.RedisDb.Received(1).StringGetAsync("fsus:blog:comment-cursor-version:article:42:root:41");
+        await model.PublicQueries.Received(1).GetPermalinkContextAsync(42, 41);
+        await model.Queue.Received(1).ListCommentModerationQueuePageAsync(null, 100, null, CancellationToken.None);
+        Assert.Empty(model.Author.ReceivedCalls());
+        Assert.Empty(model.Governance.ReceivedCalls());
+        Assert.Empty(model.Moderation.ReceivedCalls());
+        Assert.Empty(model.InitialComments.ReceivedCalls());
+        if (eventType == CommentMutationEventTypes.ReplyNotificationRequested)
+        {
+            CommentFixtureReplyNoticeObservation notice = Assert.Single(result.ReplyNotices);
+            Assert.Equal(12, notice.CurrentEligibleRecipientAccountId);
+            Assert.Equal(12, notice.ObservedRecipientAccountId);
+            Assert.True(notice.RecipientApiVisible);
+            Assert.Equal("81", Assert.Single(notice.Messages).MessageId);
+            await model.Messages.Received(1).GetAccountConversationDetailAsync(12, 71, null, CancellationToken.None);
+        }
+        else
+            Assert.Empty(result.ReplyNotices);
+    }
+
     private sealed class Model
     {
         private static readonly DateTime s_now = new(2026, 7, 20, 12, 0, 0, DateTimeKind.Utc);
@@ -104,6 +153,9 @@ public sealed class CommentFixtureMutationRoutingTests
         public IAuthoringModerationCommands Moderation { get; } = Substitute.For<IAuthoringModerationCommands>();
         public ICommentQueryService PublicQueries { get; } = Substitute.For<ICommentQueryService>();
         public ICommentEndpointService InitialComments { get; } = Substitute.For<ICommentEndpointService>();
+        public IAuthoringModerationQueue Queue { get; } = Substitute.For<IAuthoringModerationQueue>();
+        public IMessageQueryService Messages { get; } = Substitute.For<IMessageQueryService>();
+        public IDatabase RedisDb { get; } = Substitute.For<IDatabase>();
         public CommentThreadFixturePort Port
         {
             get;
@@ -194,15 +246,66 @@ public sealed class CommentFixtureMutationRoutingTests
             {
                 ExpectedAppealTargetEventId = hidden ? 31 : null
             };
+            var redis = Substitute.For<IRedisOperationExecutor>();
+            var multiplexer = Substitute.For<IConnectionMultiplexer>();
+            multiplexer.GetDatabase().Returns(RedisDb);
+            RedisDb.StringGetAsync(Arg.Any<RedisKey>(), Arg.Any<CommandFlags>()).Returns((RedisValue)"11");
+            redis.ExecuteAsync(RedisOperationPort.CommentFixture,
+                Arg.Any<Func<IConnectionMultiplexer, CancellationToken, Task<RedisValue>>>(), Arg.Any<CancellationToken>())
+                .Returns(call => call.ArgAt<Func<IConnectionMultiplexer, CancellationToken, Task<RedisValue>>>(1)(
+                    multiplexer, call.ArgAt<CancellationToken>(2)));
+            Queue.ListCommentModerationQueuePageAsync(null, 100, null, Arg.Any<CancellationToken>())
+                .Returns(new CommentModerationQueueResponse([], 0, 0, 0));
             Port = new(InitialComments, Substitute.For<ICommentAnonymousFixtureProvider>(),
                 Substitute.For<ICommentAnonymousFixtureCapabilityVault>(), Substitute.For<ICommentAnonymousFixtureOperationLedger>(),
                 Author, Substitute.For<ICommentManagementCapabilityService>(), PublicQueries, Governance,
-                new CommentFixtureCacheProbe(Substitute.For<IRedisOperationExecutor>(), Substitute.For<ICachePolicyRegistry>()),
-                Db, Moderation, new FixedClock());
+                new CommentFixtureCacheProbe(redis, new CachePolicyRegistry()),
+                Db, Moderation, new FixedClock(), Queue, Messages);
             Db.ClearReceivedCalls();
             Author.ClearReceivedCalls();
             Governance.ClearReceivedCalls();
             Moderation.ClearReceivedCalls();
+        }
+
+        public void PrepareDelivery(string eventType)
+        {
+            var item = new CommentMutationOutboxEvent
+            {
+                Id = 51,
+                EventId = "018ff010-1234-7abc-8def-0123456789ab",
+                EventType = eventType,
+                ArticleId = 42,
+                CommentId = 41,
+                RootId = 41,
+                ReplyToAccountId = 12,
+                Status = CommentMutationOutboxStatus.Processed,
+                LeaseGeneration = 3
+            };
+            Db.Queryable<CommentMutationOutboxEvent>().ToListAsync(Arg.Any<CancellationToken>()).Returns([item]);
+            var deliveries = Query<CommentMutationOutboxDelivery>();
+            deliveries.ToListAsync(Arg.Any<CancellationToken>()).Returns(CommentMutationOutboxConsumers.RequiredFor(eventType)
+                .Select(consumer => new CommentMutationOutboxDelivery
+                {
+                    OutboxEventId = item.Id,
+                    ConsumerName = consumer,
+                    Status = CommentMutationOutboxDeliveryStatus.Completed,
+                    LeaseGeneration = 3,
+                    ResultDigest = new string('b', 64)
+                }).ToList());
+            var conversations = Query<MessageConversation>();
+            conversations.ToListAsync(Arg.Any<CancellationToken>()).Returns([new MessageConversation
+            {
+                Id = 71,
+                InitiatorAccountId = 12,
+                IsSystemSource = true,
+                SourceMessageId = CommentMutationOutboxWorker.BuildSourceEventId(item.EventId, "reply")
+            }]);
+            Messages.GetAccountConversationDetailAsync(12, 71, null, Arg.Any<CancellationToken>())
+                .Returns(new ConversationDetailResponse
+                {
+                    ConversationId = "71",
+                    Messages = [new ConversationMessageResponse { MessageId = "81" }]
+                });
         }
 
         private ISugarQueryable<T> Query<T>() where T : class, new()
