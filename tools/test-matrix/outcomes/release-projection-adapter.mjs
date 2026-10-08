@@ -10,7 +10,8 @@ export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthority
     const failedProjectionIds = exactIds(evidence?.failedIds ?? [], 'failed projection IDs');
     const blockedProjectionIds = exactIds(evidence?.blockedIds ?? [], 'blocked projection IDs');
     const reasons = [];
-    const terminal = new Set([...verifiedProjectionIds, ...failedProjectionIds, ...blockedProjectionIds]);
+    const terminalIds = [...verifiedProjectionIds, ...failedProjectionIds, ...blockedProjectionIds];
+    const terminal = new Set(terminalIds);
     for (const id of requiredProjectionIds.filter((id) => !producedProjectionIds.includes(id)))
     {
         reasons.push(reason('contract.missing-evidence', releaseProjectionOutcomeProducerId, { evidenceId: id }));
@@ -23,11 +24,23 @@ export function adaptReleaseProjectionSemanticOutcome({ identity, inputAuthority
     {
         reasons.push(reason('contract.missing-evidence', releaseProjectionOutcomeProducerId, { evidenceId: `${id}:terminal` }));
     }
+    for (const id of terminal)
+    {
+        if (!requiredProjectionIds.includes(id) || !producedProjectionIds.includes(id)
+            || terminalIds.filter((actual) => actual === id).length > 1)
+        {
+            reasons.push(reason('contract.ambiguous-evidence', releaseProjectionOutcomeProducerId, { evidenceId: `${id}:terminal` }));
+        }
+    }
     for (const id of [...failedProjectionIds, ...blockedProjectionIds])
     {
         reasons.push(reason('product.state-mismatch', releaseProjectionOutcomeProducerId, { semanticId: id }));
     }
     const semanticDigests = evidence?.semanticDigests ?? {};
+    for (const id of Object.keys(semanticDigests).filter((id) => !verifiedProjectionIds.includes(id)))
+    {
+        reasons.push(reason('contract.ambiguous-evidence', releaseProjectionOutcomeProducerId, { evidenceId: `${id}:digest` }));
+    }
     for (const id of verifiedProjectionIds)
     {
         if (!/^sha256:[0-9a-f]{64}$/u.test(String(semanticDigests[id] ?? '')))
