@@ -72,19 +72,18 @@ internal sealed class SandboxCanonicalDocumentRendererAdapter : ICanonicalDocume
             input.Locale,
             input.Assets);
 
-        DocumentExportSandboxResult sandboxResult = await _sandbox.ExecuteAsync(
+        DocumentExportSandboxResult sandboxResult = await _sandbox.ExecuteCanonicalRendererAsync(
             task,
             input,
-            _tool,
             (output, token) => DocumentExportDigest.SerializeAsync(output, request, token),
             cancellationToken);
-        DocumentExportSandboxRuntime.ValidateReceipt(
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(
             sandboxResult.Receipt,
             sandboxResult.Plan,
             task,
             input,
             _tool,
-            sandboxResult.Plan.HostBuildDigest,
+            _sandbox.HostBuildDigest,
             sandboxResult.OutputBytes);
         DocumentExportRendererResponse response = DocumentExportDigest.Deserialize<DocumentExportRendererResponse>(
             sandboxResult.OutputBytes);

@@ -80,7 +80,7 @@ The frontend fast gate runs `check:fsusui-boundary` in strict-by-default mode, s
 
 ## Standalone document export boundary
 
-Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` has an implementation in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
+Document export freezes the caller's source, metadata, properties, assets, required fonts, canonical renderer identity, and reading-style authority before provider selection. The closed catalog declares `self-contained-html`, `pdf`, `docx`, and `epub`; only `self-contained-html` is active in the current slice. Unknown formats, per-call tools, parser substitutions, provider fallbacks, floating tool versions, and caller-selected commands fail closed.
 
 Task admission binds frozen renderer ID/version to that format's sole catalog provider.
 Result admission binds the supplied provider to the task and reuses complete catalog
@@ -95,6 +95,16 @@ semantic and output digests; normalized formats retain their declared semantic
 identity independently of byte identity.
 
 The provider registry is the sole composition point for the implemented provider. Its replaceable canonical-renderer adapter invokes the exact sandbox-registered renderer with the fixed `render` argument. The HTML provider does not parse Markdown: it accepts the canonical renderer's digest-bound semantic fragment, applies a closed streaming HTML/SVG sanitizer, embeds frozen images and fonts, and independently verifies the completed document and receipt. The artifact carries a hash-bound CSP, has no script or runtime network dependency, and uses private authorized delivery with a 24-hour cleanup TTL; it is not a public static-root artifact.
+
+The internal canonical-renderer stage resolves its tool from that same closed registry
+while retaining the final task, input and provider identity in its sandbox plan.
+It shares the original executor and cleanup, with every resource limit tightened
+to the minimum of the final provider and renderer limits. Dedicated stage validators
+bind the renderer tool and the sandbox's frozen host build identity; final provider
+validators require the final provider's own tool binding. Inactive final formats are
+refused before request writing. A renderer-stage receipt alone does not qualify a
+format conversion performed on the host, and dormant DOCX/EPUB package modules do
+not activate their catalog entries or job providers.
 
 The same registry exposes the implemented provider through the sole durable-job
 provider contract. Its verification adapter retains the sandbox's frozen tool and

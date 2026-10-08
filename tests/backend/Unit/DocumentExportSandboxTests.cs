@@ -71,6 +71,45 @@ public sealed class DocumentExportSandboxTests : IDisposable
             temporaryResult.OutputBytes);
         Assert.NotEqual(result.Receipt.RunId, temporaryResult.Receipt.RunId);
         Assert.Empty(Directory.EnumerateDirectories(_fixture.RunsRoot));
+
+        DocumentExportSandboxResult rendererResult = await _fixture.CreateSandbox().ExecuteCanonicalRendererAsync(
+            task,
+            input,
+            (output, token) => output.WriteAsync(DocumentExportTestToolFixture.RequestBytes(input), token).AsTask());
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(
+            rendererResult.Receipt,
+            rendererResult.Plan,
+            task,
+            input,
+            _fixture.Tool,
+            _fixture.HostBuildDigest,
+            rendererResult.OutputBytes);
+        Assert.Equal(task.ContentDigest, rendererResult.Plan.TaskDigest);
+        Assert.Equal(task.ProviderId, rendererResult.Plan.ProviderId);
+        Assert.Empty(Directory.EnumerateDirectories(_fixture.RunsRoot));
+
+        foreach (DocumentExportProviderContract provider in DocumentExportContractCatalog.Providers.Where(
+            candidate => !candidate.ImplementationAvailable))
+        {
+            DocumentExportTask inactiveTask = DocumentExportContractValidator.Seal(task with
+            {
+                FormatId = provider.FormatId,
+                ProviderId = provider.ProviderId,
+                ProviderVersion = provider.ProviderVersion,
+                ContentDigest = string.Empty
+            });
+            bool requestWritten = false;
+            await Assert.ThrowsAsync<InvalidOperationException>(() => _fixture.CreateSandbox().ExecuteCanonicalRendererAsync(
+                inactiveTask,
+                input,
+                (_, _) =>
+                {
+                    requestWritten = true;
+                    return Task.CompletedTask;
+                }));
+            Assert.False(requestWritten);
+            Assert.Empty(Directory.EnumerateDirectories(_fixture.RunsRoot));
+        }
     }
 
     [Fact]
@@ -184,6 +223,15 @@ public sealed class DocumentExportSandboxTests : IDisposable
             Assert.True(exception.Receipt.ProcessTreeTerminated);
             Assert.True(exception.Receipt.RunDirectoryRemoved);
             DocumentExportSandboxRuntime.ValidateFailureReceipt(
+                exception.Receipt,
+                exception.Plan,
+                task,
+                input,
+                _fixture.Tool,
+                _fixture.HostBuildDigest,
+                "failed",
+                "execution-failed");
+            DocumentExportSandboxRuntime.ValidateCanonicalRendererFailureReceipt(
                 exception.Receipt,
                 exception.Plan,
                 task,
@@ -537,6 +585,24 @@ public sealed class DocumentExportSandboxTests : IDisposable
             DocumentExportContractCatalog.RequireProvider(task.FormatId),
             _fixture.Tool,
             _fixture.HostBuildDigest);
+        DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(
+            result.Plan, task, input, _fixture.Tool, _fixture.HostBuildDigest);
+        DocumentExportToolContract substitutedTool = _fixture.Tool with
+        {
+            ToolId = "document-export-pdf-toolchain",
+            ToolVersion = "unimplemented-v1"
+        };
+        DocumentExportSandboxPlan substitutedPlan = DocumentExportSandboxRuntime.SealPlan(result.Plan with
+        {
+            ToolId = substitutedTool.ToolId,
+            ToolVersion = substitutedTool.ToolVersion
+        });
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidatePlan(
+            substitutedPlan, task, input, DocumentExportContractCatalog.RequireProvider(task.FormatId), substitutedTool, _fixture.HostBuildDigest));
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateCanonicalRendererPlan(
+            substitutedPlan, task, input, substitutedTool, _fixture.HostBuildDigest));
+        Assert.Throws<InvalidDataException>(() => DocumentExportSandboxRuntime.ValidateCanonicalRendererReceipt(
+            result.Receipt, result.Plan, task, input, _fixture.Tool, DocumentExportTestToolFixture.Digest("other-build"), result.OutputBytes));
         string[] invalidRunIds =
         [
             null!,
