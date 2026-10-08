@@ -146,6 +146,7 @@ export function operationsFromOpenApi(openapi = loadOpenApi())
                 responseFrame: operation['x-fsus-response-frame'] || null,
                 errorFrame: operation['x-fsus-error-frame'] || null,
                 auth: operation['x-fsus-auth'] || null,
+                credentialPolicy: operation['x-fsus-credential-policy'] || null,
                 pow: operation['x-fsus-pow'],
                 cache: operation['x-fsus-cache'] || null,
                 rateLimit: operation['x-fsus-rate-limit'] || null,
@@ -192,7 +193,8 @@ export function generateFrontendRoutes(openapi = loadOpenApi())
     const operations = operationsFromOpenApi(openapi);
     for (const op of operations)
     {
-        if (!['anonymous', 'optional', 'user', 'admin'].includes(op.auth) || typeof op.pow !== 'boolean' || !op.rateLimit || !op.method)
+        if (!['anonymous', 'optional', 'user', 'admin'].includes(op.auth) || typeof op.pow !== 'boolean' || !op.rateLimit || !op.method
+            || !['include', 'omit'].includes(op.credentialPolicy) || (op.auth !== 'anonymous' && op.credentialPolicy !== 'include'))
         {
             throw new Error(`fsus_binary_route_metadata_missing:${op.operationId}`);
         }
@@ -257,5 +259,6 @@ export function generateFrontendRoutes(openapi = loadOpenApi())
 
 function resolveCredentialPolicy(op)
 {
-    return op.auth === 'anonymous' ? 'omit' : 'include';
+    if (!['include', 'omit'].includes(op.credentialPolicy)) throw new Error(`fsus_binary_credential_policy_missing:${op.operationId}`);
+    return op.credentialPolicy;
 }

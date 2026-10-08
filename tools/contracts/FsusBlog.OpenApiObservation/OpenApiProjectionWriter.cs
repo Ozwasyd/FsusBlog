@@ -56,6 +56,7 @@ internal static class OpenApiProjectionWriter
                 ["x-fsus-response-frame"] = op.ResponseFrame,
                 ["x-fsus-error-frame"] = op.ErrorFrame,
                 ["x-fsus-auth"] = op.Auth,
+                ["x-fsus-credential-policy"] = op.CredentialPolicy,
                 ["x-fsus-pow"] = op.Pow,
                 ["x-fsus-content-type"] = "application/octet-stream",
                 ["x-fsus-success-status"] = op.SuccessStatus,

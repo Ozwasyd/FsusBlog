@@ -1,8 +1,14 @@
 using System.Text.Json.Nodes;
 
+using FsusBlog.Server.Infrastructure.Filters;
+using FsusBlog.Server.Infrastructure.Policies;
+
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Builder;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Routing;
+using Microsoft.AspNetCore.Routing.Patterns;
+using Microsoft.AspNetCore.RateLimiting;
 
 namespace FsusBlog.OpenApiObservation;
 
@@ -15,11 +21,40 @@ internal static class OpenApiObservationSelfTest
         TestRequestObserver(completed);
         TestContainerRequestObserver(repositoryRoot, completed);
         TestStatusObserver(completed);
+        TestCredentialPolicy(completed);
         TestMerger(completed);
         TestCensus(completed);
         TestFontThemeCensus(completed);
         Console.WriteLine($"[openapi-observation-self-test] ok cases={completed.Count} {string.Join(',', completed)}");
         return 0;
+    }
+
+    private static void TestCredentialPolicy(ICollection<string> completed)
+    {
+        static RouteEndpoint Endpoint(params object[] metadata)
+            => new(_ => Task.CompletedTask, RoutePatternFactory.Parse("/api/binary/self-test"), 0,
+                new EndpointMetadataCollection(metadata), "credential-self-test");
+
+        var anonymous = new AllowAnonymousAttribute();
+        Assert(OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(anonymous), "POST") == "include",
+            "anonymous login/bootstrap must retain credentials");
+        Assert(OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(anonymous), "GET") == "include",
+            "anonymous security/read-proof must retain credentials");
+        Assert(OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(anonymous, new EnableRateLimitingAttribute("public_read")), "GET") == "omit",
+            "public read must omit credentials");
+        Assert(OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(anonymous, StrongAnonymousRequestMetadata.Instance), "POST") == "omit",
+            "strong anonymous writes must omit credentials");
+        Assert(OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(anonymous, new BinaryCredentialPolicyMetadata(BinaryCredentialPolicy.Omit)), "GET") == "omit",
+            "explicit public omission must survive observation");
+        Assert(OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(new AuthorizeAttribute()), "GET") == "include",
+            "authenticated operations must retain credentials");
+        AssertThrows("authenticated credential omission",
+            () => OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(new AuthorizeAttribute(), new BinaryCredentialPolicyMetadata(BinaryCredentialPolicy.Omit)), "GET"),
+            "authenticated binary endpoint cannot omit credentials");
+        AssertThrows("unknown credential policy",
+            () => OpenApiObservationHost.ClassifyCredentialPolicy(Endpoint(anonymous, new BinaryCredentialPolicyMetadata((BinaryCredentialPolicy)99)), "GET"),
+            "binary endpoint credential policy is invalid");
+        completed.Add("credential-policy");
     }
 
     private static void TestCatalogLoader(string repositoryRoot, ICollection<string> completed)
@@ -458,7 +493,7 @@ internal static class OpenApiObservationSelfTest
             new Dictionary<int, IReadOnlyList<string>>
             {
                 [StatusCodes.Status500InternalServerError] = ["compiled-self-test-error"]
-            });
+            }) { CredentialPolicy = "omit" };
 
     private static void Assert(bool condition, string message)
     {

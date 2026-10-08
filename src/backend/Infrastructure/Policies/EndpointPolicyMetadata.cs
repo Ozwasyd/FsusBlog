@@ -22,6 +22,16 @@ public sealed class RestrictedAccountActionMetadata(RestrictedAccountAction acti
     public RestrictedAccountAction Action { get; } = action;
 }
 
+/// <summary>Controls whether browser binary requests participate in cookie credentials.</summary>
+public enum BinaryCredentialPolicy
+{
+    Include,
+    Omit
+}
+
+/// <summary>Publishes an endpoint credential decision for the compiled route descriptor.</summary>
+public sealed record BinaryCredentialPolicyMetadata(BinaryCredentialPolicy Policy);
+
 public sealed class NoStoreResponseMetadata
 {
     public static readonly NoStoreResponseMetadata Instance = new();
