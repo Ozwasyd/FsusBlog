@@ -1735,3 +1735,52 @@ against the expected candidate HEAD before accepting any `.py` path. Unchecked
 Python paths remain unsupported. This checks AST syntax only; compiled, import,
 native, runtime, and release qualification remain unrun, and the default
 qualification and full-stage routes are unchanged.
+
+## Original upload lifecycle development regression
+
+`AssetUploadLifecycleAcceptanceTests` uses the public `FileService` constructor,
+original owner/token sessions, real PostgreSQL databases and original isolated
+`ReleaseStoragePaths` filesystem roots. It covers single/multipart, out-of-order
+chunks, acknowledged-chunk retries, failed chunk/commit postconditions, repeated
+and concurrent commit, malformed media metadata, ledger tamper and pre-cancellation.
+It invokes no cleanup worker and creates no final aggregate or qualification receipt.
+
+```bash
+FSUSBLOG_TEST_RUN_ID=upload-lifecycle-current \
+FSUSBLOG_UPLOAD_LIFECYCLE_ARTIFACTS=/tmp/fsus-upload-lifecycle-evidence \
+dotnet test tests/backend/FsusBlog.Server.Tests.csproj --no-restore \
+  --filter FullyQualifiedName~AssetUploadLifecycleAcceptanceTests
+```
+
+Use the repository's actual digest-pinned PostgreSQL service setup. Each case owns
+a fresh database and uniquely marked filesystem root. Subresults bind current git
+HEAD, actual source-file hashes, any dirty source patch, contract/policy hashes,
+session/bitmap/working/object hashes and actual ledger postconditions. Tokens and
+original file bytes are excluded. Passed-case teardown removes only its marked
+root; failed-case roots and JSON observations are retained. If the canonical test
+project cannot compile, report that failure separately; linked development test
+runs do not repair or satisfy its gate.
+
+This bounded regression does not satisfy #2077 prerequisites #2074/#1779, HTTP
+and gateway nonexposure, multi-process crash/restart, cross-volume journal, Windows
+junctions, the complete path/platform matrix or promotion/ledger fault qualification.
+Those gates remain open; source and standalone regression results cannot substitute
+for their acceptance.
+
+## Registered upload preview consumer controls
+
+UploadAssetPreview uses the sole protocol manifest registration275, upload-response
+family/order266. Generate enums and the267-record catalog with
+`node tools/frontend/generate-aeds-protocol.mjs`; use its `--check` and the original
+protocol, Canvas/link, property, workspace and WritingAid producer/decoder tests.
+Preview controls must read a newly emitted frame from the current original upload
+and PostgreSQL endpoint run, with `FSUSBLOG_PREVIEW_BUDGET_TEST_FRAME` naming that
+artifact. Run `UploadAssetObservationTests`, `UploadAssetPreviewCodecTests`,
+`BackendGoldenCatalogTests` and the original upload lifecycle tests in the standard
+backend project. Run the matching original frontend API/adapter controls, native
+`UploadAssetPreviewSmokeTests.cpp` and newly built basic/speed Wasm decoders.
+Preserve malformed payload/header/CRC, length/padding/metadata, retired/unknown root,
+former253-as-Canvas and one-byte-over-budget refusals. Pin source commit/run identity
+and inspect actual object/media/SHA/ledger and owned teardown results. These checks
+establish bounded consumer behavior; they do not grant browser/provider rights,
+article-operation/revision authority or terminal migration/security qualification.

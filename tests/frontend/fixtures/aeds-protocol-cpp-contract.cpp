@@ -391,6 +391,20 @@ int main(int argc, char** argv)
                     return 17;
                 }
             }
+            else if (frame_type >= 272 && frame_type <= 274)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::WritingAidPreferencePayloadInvalid)
+                {
+                    return 18;
+                }
+            }
+            else if (frame_type == 275)
+            {
+                if (decoded.error_code != FsusBlog::Aeds::ErrorCode::UploadAssetPreviewPayloadInvalid)
+                {
+                    return 19;
+                }
+            }
             else if (!decoded.ok || decoded.frame_type != frame_type || decoded.payload_len != 0U)
             {
                 return 12;

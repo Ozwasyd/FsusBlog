@@ -1745,6 +1745,20 @@ generatedAt=UTC ticks encoded by the SearchIndexUpdated POD
 
 所有上传端点在 `/api/binary/upload/` 路径下，需要 admin principal + `article.write` 权限。分片上传是唯一入口，`uploadId` 由服务端生成并返回，wire 格式固定为 32 位 GUID `N` 格式；status、part map、part upload、complete 和 abort 路由都必须携带 `X-Fsus-Upload-Token`，并与创建会话的 admin principal 同时匹配。非法 id 返回 validation error；不存在、过期、旧/损坏 manifest、owner 不符以及缺失或错误 token 都返回同一个 `404 UPLOAD_SESSION_NOT_FOUND`。服务层在 session lock 内读取一次且仅接受 v4 manifest；manifest 保存 token 的 SHA-256 而非原 token，使用固定时间哈希比较。旧版本与损坏会话会删除而不迁移。`/part` 必须携带明确 `Content-Length`，chunked transfer-encoding 返回 411；上传总大小上限为 20 MiB，Kestrel request body limit 必须覆盖该上限和协议开销。允许的目标图片格式为 jpg/jpeg/png/gif/webp，品牌图标生成允许额外上传 `ico` favicon 成品；AVIF 与 SVG 在具备像素维度、metadata bomb、decoder 风险防护和 SVG 清洗前不属于 upload allow-list。`.upload-sessions` manifest 和 part 文件只允许 owner read/write，manifest 使用随机 sibling temp path 后原子发布。
 
+已确认分片的重传必须与原私有 working-file 对应区域逐字节一致，并满足原请求 payload SHA；验证失败不写 working file/bitmap，验证成功只返回原真实进度，保留 completed 状态。原生产 commit 在 instance-scoped 私有 commit copy 上验证完整长度、SHA 和图片 media/dimensions 后才 promotion；同一完成会话的重试还须核对实际文件与唯一 AssetId 账本的 identity、storage、owner、state、SHA 与 metadata，不能仅凭 URL/file exists 返回成功。
+
+### Completed upload preview
+
+`POST /api/binary/upload/{uploadId}/preview` reuses the original admin ArticleWrite/PoW,
+owner/token/expiry and completed-session checks and the `UploadCompleteRequest` body.
+The response uses the sole registered `UploadAssetPreview` frame **275**, upload-response
+family and golden order **266**. Canvas keeps frame253 and native error11; preview
+uses error16. The 760-byte POD and full original bytes fit the existing 8MiB complete
+frame: at most8,387,832 image bytes. Larger images are refused before native-file
+allocation; original20MiB upload/commit and internal observation remain supported.
+The read recomputes native bytes, media, SHA, asset version and canonical reference
+facts together. It grants no article operation, revision or verified attachment intent.
+
 ### `UploadInitDto`（初始化响应）
 
 ```json

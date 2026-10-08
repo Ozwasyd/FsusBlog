@@ -7,6 +7,7 @@
 #include "property_value_read.generated.hpp"
 #include "authoring_workspace_snapshot_wire.generated.hpp"
 #include "writing_aid_preference_wire.generated.hpp"
+#include "upload_asset_preview_pod.hpp"
 #include "font_theme_admin_pods.hpp"
 #include "pod_views.hpp"
 
@@ -67,6 +68,8 @@ const char* ToErrorString(ErrorCode errorCode)
             return "authoring_workspace_snapshot_payload_invalid";
         case ErrorCode::WritingAidPreferencePayloadInvalid:
             return "writing_aid_preference_payload_invalid";
+        case ErrorCode::UploadAssetPreviewPayloadInvalid:
+            return "upload_asset_preview_payload_invalid";
         case ErrorCode::AuthoringCanvasPayloadInvalid:
             return "authoring_canvas_payload_invalid";
         case ErrorCode::ArticlePayloadInvalid:
@@ -175,6 +178,11 @@ DecodeResult DecodeFrame(const std::uint8_t* frame, std::size_t frameLen)
         && !ValidateWritingAidPreferencePayload(FrameType, payload, PayloadLength))
     {
         return MakeError(ErrorCode::WritingAidPreferencePayloadInvalid);
+    }
+
+    if (FrameType == 275 && !FsusBlog::Pod::UploadPreview::Parse(payload, PayloadLength))
+    {
+        return MakeError(ErrorCode::UploadAssetPreviewPayloadInvalid);
     }
 
     DecodeResult ok{};
