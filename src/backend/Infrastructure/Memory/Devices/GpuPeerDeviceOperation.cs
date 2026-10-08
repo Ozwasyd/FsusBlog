@@ -6,12 +6,23 @@ namespace FsusBlog.Server.Infrastructure.Memory.Devices;
 public sealed class GpuPeerDeviceOperation : IDisposable
 {
     private readonly TaskCompletionSource<MemoryOperationResult<GpuPeerDeviceOperation>> _completion = new(TaskCreationOptions.RunContinuationsAsynchronously);
-    internal GpuPeerDeviceOperation(GpuAllocation destination) => Destination = destination;
+    internal GpuPeerDeviceOperation(GpuAllocation source, GpuAllocation destination)
+    {
+        Source = source;
+        Destination = destination;
+    }
+    internal GpuAllocation Source
+    {
+        get;
+    }
     internal GpuAllocation Destination
     {
         get;
     }
-    internal bool Quarantined { get; set; }
+    internal bool Quarantined
+    {
+        get; set;
+    }
     internal GpuPeerTransfer? Transfer
     {
         get; set;

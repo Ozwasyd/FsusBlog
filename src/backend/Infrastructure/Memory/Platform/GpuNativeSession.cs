@@ -135,7 +135,12 @@ internal sealed class GpuNativeSession : IGpuPeerDriverSession
             {
                 throw new InvalidOperationException("Device allocation is unknown or held by a submission.");
             }
-            Invoke(() => { _api.FreeDevice(address); _devices.Remove(address); return 0; });
+            Invoke(() =>
+            {
+                _api.FreeDevice(address);
+                _devices.Remove(address);
+                return 0;
+            });
         }
     }
 
@@ -162,7 +167,12 @@ internal sealed class GpuNativeSession : IGpuPeerDriverSession
             {
                 throw new InvalidOperationException("Host allocation is unknown or held by a submission.");
             }
-            Invoke(() => { _api.FreeHost(address); _hosts.Remove(address); return 0; });
+            Invoke(() =>
+            {
+                _api.FreeHost(address);
+                _hosts.Remove(address);
+                return 0;
+            });
         }
     }
 
@@ -340,7 +350,11 @@ internal sealed class GpuNativeSession : IGpuPeerDriverSession
         }
         if (state.Peer is { } peer)
         {
-            WithPeer(peer, () => { Release(); return 0; });
+            WithPeer(peer, () =>
+            {
+                Release();
+                return 0;
+            });
         }
         else
         {
