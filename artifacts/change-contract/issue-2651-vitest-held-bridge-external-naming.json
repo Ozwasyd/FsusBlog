@@ -1,0 +1,14 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/test/frontend-vitest-outcome-bridge.mjs",
+                "tools/test/frontend-vitest-outcome-reporter.mjs",
+                "tools/test/frontend-vitest-outcome-runner.mjs"
+            ],
+            "reason": "Preserve the original attempt runner FSUSBLOG_ATTEMPT_ARTIFACT_ROOT and FSUSBLOG_ATTEMPT_RESULT_PATH environment ABI. Declare the registered tools/**/*.mjs naming surface for the native observer modules; native source identity, worker assertion observation and durable report events do not introduce alternate envelope, scheduler or registry authority."
+        }
+    ]
+}
