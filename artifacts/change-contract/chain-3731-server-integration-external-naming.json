@@ -5,7 +5,8 @@
             "id": "post-runtime-observation-authority",
             "paths": [
                 "config/contracts/behavior-fact-extractors.json",
-                "docs/architecture/monolithic-distributed-boundary.md"
+                "docs/architecture/monolithic-distributed-boundary.md",
+                "docs/releases/blue-green-deployment-runbook.md"
             ],
             "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
         },
@@ -26,14 +27,19 @@
         {
             "id": "content-doc-exactness-authority",
             "paths": [
-                "docs/api/contracts.md"
+                "docs/api/contracts.md",
+                "docs/architecture/overview.md"
             ],
             "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
         },
         {
             "id": "css-like-contract",
             "paths": [
-                "docs/architecture/admin-operations-health-boundary.md"
+                "docs/api/aeds-only-policy.md",
+                "docs/api/quick-reference.md",
+                "docs/api/stability.md",
+                "docs/architecture/admin-operations-health-boundary.md",
+                "docs/releases/release-identity.md"
             ],
             "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
         },
@@ -102,6 +108,13 @@
                 "tools/deployment/zero-downtime-rehearsal.sh"
             ],
             "reason": "Preserve original current-only release, CLI, contract, diagnostic and test-machine identifiers while integrating their actual owners; preserve immutable codec/file/native catalog and OpenAPI byte controls, and refuse disconnected native qualification without a naming or acceptance waiver."
+        },
+        {
+            "id": "auth-security-doc-exactness-authority",
+            "paths": [
+                "docs/api/schemas-and-errors.md"
+            ],
+            "reason": "Preserve existing external contract names while regenerating current-only documentation from actual compiled observations through the original registered producer; no qualification or naming waiver."
         }
     ]
 }

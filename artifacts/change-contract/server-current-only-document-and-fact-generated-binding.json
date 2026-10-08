@@ -2,11 +2,15 @@
     "schema": "fsusblog.generated-output-binding.v1",
     "sources": [
         "docs/online-database-migration-operations.md",
-        "src/backend/Program.cs",
         "src/backend/Modules/Endpoints/ReleaseSchemaQualificationEndpoints.cs",
-        "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+        "src/backend/Program.cs",
         "tools/contracts/FsusBlog.RuntimeRoleObservation/Models.cs",
-        "tools/fact-extractors/test-matrix/extract.mjs"
+        "tools/contracts/FsusBlog.RuntimeRoleObservation/Program.cs",
+        "tools/fact-extractors/test-matrix/extract.mjs",
+        "tools/release/check-release-final.mjs",
+        "tools/test-evidence/canonical-release-authorities.mjs",
+        "tools/test-evidence/release-authority-facts-contract.mjs",
+        "tools/test-matrix/post-runtime-producer-registry.mjs"
     ],
     "outputs": [
         {
@@ -56,6 +60,10 @@
         {
             "path": "docs/testing.md",
             "sha256": "7fb1b7149f464e1e4fed6068a09cf34120f6c1f0e26147acae02fc0574093cd8"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "sha256": "cb6dd373fde9e4f04437c41b3f744a109bedf020b469f3b2089d72c822e76e51"
         }
     ]
 }
