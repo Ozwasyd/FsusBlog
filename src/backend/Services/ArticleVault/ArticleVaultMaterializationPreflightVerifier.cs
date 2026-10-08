@@ -19,7 +19,7 @@ public static class ArticleVaultMaterializationPreflightVerifier
         ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateIdentity(operation, bundle.Plan));
         if (result.Outcome is not (ArticleVaultExecutionOutcome.Completed or ArticleVaultExecutionOutcome.NoOp))
         {
-            throw new InvalidDataException("article_vault_materialization_server_not_accepted");
+            throw new ArticleVaultExecutionRejectedException("article_vault_materialization_server_not_accepted");
         }
 
         var instructions = new List<ArticleVaultMaterializationInstruction>();
@@ -39,11 +39,11 @@ public static class ArticleVaultMaterializationPreflightVerifier
                     VaultSyncDecision.PullCreate or VaultSyncDecision.PullUpdate => item.Server.Source,
                     VaultSyncDecision.PullDelete or VaultSyncDecision.PushDelete => null,
                     VaultSyncDecision.NoOp or VaultSyncDecision.PushCreate or VaultSyncDecision.PushUpdate => item.Local.Source,
-                    _ => throw new InvalidDataException("article_vault_materialization_decision_blocked")
+                    _ => throw new ArticleVaultExecutionRejectedException("article_vault_materialization_decision_blocked")
                 };
                 if (newSource is not null && server.ArticleContentSha256 != newSource.Sha256)
                 {
-                    throw new InvalidDataException("article_vault_materialization_server_source_mismatch");
+                    throw new ArticleVaultExecutionRejectedException("article_vault_materialization_server_source_mismatch");
                 }
 
                 ArticleVaultArticleManifest article = articles[item.PortableArticleIdentity];
@@ -58,9 +58,10 @@ public static class ArticleVaultMaterializationPreflightVerifier
                     ArticleVaultMaterializationInstructionCodec.Schema,
                     ArticleVaultMaterializationInstructionCodec.Version,
                     bundle.Plan.SiteIdentity, bundle.Plan.VaultIdentity, bundle.Plan.DeviceIdentity, operation.AgentIdentity,
-                    bundle.PlanReference, bundle.PlanSha256, result.ResultReference, result.ContentSha256,
+                    bundle.PlanReference, bundle.PlanSha256, bundle.Plan.RootManifestSha256,
+                    result.ResultReference, result.ContentSha256,
                     group.GroupIdentity, item.OperationIdentity, item.PortableArticleIdentity,
-                    article.PathProjection, action, oldSource, newSource, item.Base.ContentSha256,
+                    article.PathProjection, action, oldSource, newSource, item.Local.MetadataManifestSha256, item.Base.ContentSha256,
                     operation.OperationIdentity, string.Empty);
                 instructions.Add(instruction with
                 {
