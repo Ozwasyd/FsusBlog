@@ -21,9 +21,36 @@
                 "tools/test-matrix/correctness-input-manifest.mjs",
                 "tools/test-matrix/scheduler-correctness-finalizer.mjs",
                 "tools/test-matrix/scheduler.mjs",
-                "tools/test/bundles/bundle-steps.mjs"
+                "tools/test/backend-atomic-bridge.mjs",
+                "tools/test/backend-atomic-outcomes.mjs",
+                "tools/test/backend-atomic-producers.mjs",
+                "tools/test/bundles/bundle-steps.mjs",
+                "tools/test/frontend-atomic/manifest-admission.mjs",
+                "tools/test/frontend-atomic/manifest-entry.mjs",
+                "tools/test/frontend-atomic/manifest-projection.mjs",
+                "tools/test/frontend-atomic/property-model-perf.mjs",
+                "tools/test/frontend-atomic/visual-projection.mjs",
+                "tools/test/public-runtime-producers/compiler-adapter.mjs",
+                "tools/test/public-runtime-producers/declarations.mjs",
+                "tools/test/public-runtime-producers/projection.mjs",
+                "tools/test/public-runtime-producers/settled-reset-adapter.mjs",
+                "tools/test/static-atomic/assertion-membership.mjs",
+                "tools/test/static-atomic/compiler-bridge.mjs",
+                "tools/test/static-atomic/declarations.mjs",
+                "tools/test/static-atomic/producer.mjs",
+                "tools/test/static-atomic/summary.mjs",
+                "tools/test/static-atomic/terminal-bridge.mjs"
             ],
-            "reason": "preserve original process/replay naming while consuming exact framework ebf0d6e0 and scheduler terminal2eda290cc source; exclusive atomic consumers use internal aliases and keep each original source owner"
+            "reason": "preserve original process/replay naming while consuming exact canonical terminal and backend/static/frontend/public lane bridges; private atomic planner consumers keep original source owners"
+        },
+        {
+            "id": "shell-environment-variable",
+            "paths": [
+                "tools/test/lanes/frontend-perf-regression.sh",
+                "tools/test/lanes/frontend-property.sh",
+                "tools/test/lanes/frontend-state-machines.sh"
+            ],
+            "reason": "preserve original frontend lane wrapper environment contracts from exact be307751 source without changing commands or resource policies"
         }
     ]
 }

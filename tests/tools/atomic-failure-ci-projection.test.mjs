@@ -4,13 +4,13 @@ import os from 'node:os';
 import path from 'node:path';
 import test from 'node:test';
 
-const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
+const { checkAtomicWorkflowMaterial, collectCompiledAtomicTerminalMaterial, createCompiledAtomicRuntimeCiBinding, projectAtomicCiMaterial, projectCompiledAtomicCiMaterial, projectCompiledAtomicRuntimeCiMaterial, projectCanonicalLaneAtomicCiMaterial } = await import(new URL('../../tools/test-matrix/atomic-failure/ci-projection.mjs', import.meta.url));
 const { compileAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/compiler.mjs', import.meta.url));
 const { AtomicProducerExecutionError, executeCompiledAtomicProducerDag } = await import(new URL('../../tools/test-matrix/atomic-producers/execution.mjs', import.meta.url));
 const { digestCanonical, sealContentDigest } = await import(new URL('../../tools/test/attempt-provenance.mjs', import.meta.url));
 const { loadRuntimeStateAuthority } = await import(new URL('../../tools/test-runtime/catalog.mjs', import.meta.url));
 const { readCanonicalSchedulerCheckpoint } = await import(new URL('../../tools/test-matrix/scheduler.mjs', import.meta.url));
-import { atomicFixture, hostLimits } from './support/atomic-failure-fixture.mjs';
+import { atomicFixture, hostLimits, originalLaneFixture, composeOriginalLaneFixtures } from './support/atomic-failure-fixture.mjs';
 import { atomicExecutionOptions, atomicFixture as compilerFixture, atomicReference, rebindAtomicFixture } from './support/atomic-producer-fixture.mjs';
 import { writeCanonicalSchedulerFixture } from './support/canonical-scheduler-fixture.mjs';
 
@@ -452,3 +452,80 @@ test('original runtime catalog drift is refused before a later admission wave', 
         fs.writeFileSync(input.runtimeCatalogPath, JSON.stringify(catalog));
         assert.throws(() => binding.stateConflictPolicy.assertCurrent(), /drifted/u);
     }));
+
+const laneHostLimits = { maxDepth: 60, maxNodes: 200000, maxBytes: 20000000, maxItems: 140000 };
+
+for (const kind of ['backend', 'static', 'frontend', 'public-runtime'])
+{
+    test(`canonical planner consumes the original ${kind} lane compiler without launching children`, async (t) =>
+    {
+        const { material, frontendContexts } = composeOriginalLaneFixtures([originalLaneFixture(t, kind)]);
+        const result = await projectCanonicalLaneAtomicCiMaterial(material, laneHostLimits, frontendContexts);
+        assert.equal(result.compiledDagDigest, material.compiled.contentDigest);
+        assert.equal(result.completeSourceCoverage, true);
+        assert.equal(result.laneBindings.length, 1);
+        assert.equal(result.laneBindings[0].kind, kind);
+        assert.equal(result.qualificationEligible, false);
+        assert.equal(result.executableAdmissionPending, true);
+        assert.equal(result.verificationStatus, 'unverified');
+        if (kind === 'public-runtime')
+        {
+            assert.equal(result.ciProjection, null);
+            assert.ok(result.runtimeStatePendingProducerIds.length > 0);
+            assert.equal(result.laneBindings[0].runtimeAuthorityStatus, 'unverified');
+        }
+        else
+        {
+            assert.equal(result.ciProjection.jobs.length, 1);
+            assert.equal(result.ciProjection.jobs[0].invocationCount, 1);
+            assert.equal(result.ciProjection.jobs[0].producerIds.length, material.compiled.steps.length);
+        }
+    });
+}
+
+test('one canonical whole graph consumes backend, thirteen static producers and frontend source memberships', async (t) =>
+{
+    const fragments = ['backend', 'static', 'frontend'].map((kind) => originalLaneFixture(t, kind));
+    const { material, frontendContexts } = composeOriginalLaneFixtures(fragments);
+    const before = structuredClone(material);
+    const result = await projectCanonicalLaneAtomicCiMaterial(material, laneHostLimits, frontendContexts);
+    assert.equal(result.completeSourceCoverage, true);
+    assert.equal(result.laneBindings.length, 3);
+    assert.equal(result.laneBindings.find((binding) => binding.kind === 'static').producerIds.length, 13);
+    assert.equal(result.ciProjection.jobs.length, 1);
+    assert.equal(result.ciProjection.jobs[0].invocationCount, 1);
+    assert.equal(result.ciProjection.jobs[0].receiptBindings.length, material.compiled.steps.length);
+    assert.equal(new Set(result.ciProjection.jobs[0].receiptBindings.map((binding) => binding.artifactName)).size, material.compiled.steps.length);
+    assert.deepEqual(material, before);
+});
+
+test('all four original lane bridges share the canonical graph while missing public state admission stays pending', async (t) =>
+{
+    const { material, frontendContexts } = composeOriginalLaneFixtures(['backend', 'static', 'frontend', 'public-runtime']
+        .map((kind) => originalLaneFixture(t, kind)));
+    const result = await projectCanonicalLaneAtomicCiMaterial(material, laneHostLimits, frontendContexts);
+    assert.equal(result.laneBindings.length, 4);
+    assert.deepEqual(result.unconsumedProducerIds, []);
+    const originalPublicProducer = material.lanes.find((lane) => lane.kind === 'public-runtime').input.declarations.nodes[0].id;
+    assert.ok(result.runtimeStatePendingProducerIds.includes(originalPublicProducer));
+    assert.equal(result.ciProjection, null);
+    assert.equal(result.qualificationEligible, false);
+});
+
+test('lane consumption exposes omitted domains and refuses duplicate primary ownership', async (t) =>
+{
+    const { material, frontendContexts } = composeOriginalLaneFixtures(['backend', 'static'].map((kind) => originalLaneFixture(t, kind)));
+    const omitted = { ...material, lanes: [material.lanes[0]] };
+    const result = await projectCanonicalLaneAtomicCiMaterial(omitted, laneHostLimits, frontendContexts);
+    assert.equal(result.completeSourceCoverage, false);
+    assert.equal(result.unconsumedProducerIds.length, 13);
+    const duplicate = { ...material, lanes: [...material.lanes, { ...material.lanes[0], id: 'duplicate-backend-source' }] };
+    await assert.rejects(projectCanonicalLaneAtomicCiMaterial(duplicate, laneHostLimits, frontendContexts), /multiple lane/u);
+});
+
+test('canonical lane projection refuses cross-run replay source without rewriting any producer', async (t) =>
+{
+    const { material, frontendContexts } = composeOriginalLaneFixtures([originalLaneFixture(t, 'static')]);
+    await assert.rejects(projectCanonicalLaneAtomicCiMaterial({ ...material, context: { ...material.context, schedulerRunId: 'other-run' },
+        graphRef: { ...material.graphRef, path: '.tmp/test-runs/other-run/graph.json' } }, laneHostLimits, frontendContexts), /replay run/u);
+});

@@ -60,6 +60,125 @@ async function compiledCiGraph(material, runtimeAuthority = null)
 
 const compiledCiFields = ['compiled', 'matrix', 'authorities', 'ciPlan', 'graphRef', 'context', 'selectedIds'];
 
+async function originalLaneCompilation(lane, frontendContexts)
+{
+    if (lane.kind === 'backend')
+    {
+        exactFields(lane.options, [], 'backend lane options');
+        const { compileBackendAtomicBridge } = await import(new URL('../../test/backend-atomic-bridge.mjs', import.meta.url));
+        const binding = compileBackendAtomicBridge(lane.input);
+        return { compiled: binding.compiled, binding };
+    }
+    if (lane.kind === 'static')
+    {
+        exactFields(lane.options, [], 'static lane options');
+        const { bindStaticAtomicCompilation } = await import(new URL('../../test/static-atomic/compiler-bridge.mjs', import.meta.url));
+        return bindStaticAtomicCompilation(lane.input);
+    }
+    if (lane.kind === 'frontend')
+    {
+        exactFields(lane.options, [], 'frontend lane options');
+        exactFields(lane.input, ['compiled', 'matrix', 'authorities', 'groupId'], 'frontend lane source');
+        const { prepareFrontendManifestAdmission } = await import(new URL('../../test/frontend-atomic/manifest-admission.mjs', import.meta.url));
+        requireFact(frontendContexts?.[lane.id], 'original frontend current-run admission context required');
+        const binding = prepareFrontendManifestAdmission(lane.input.compiled,
+            { ...frontendContexts[lane.id], ...lane.input });
+        return { compiled: lane.input.compiled, binding };
+    }
+    if (lane.kind === 'public-runtime')
+    {
+        const { compilePublicRuntimeProducerDag } = await import(new URL('../../test/public-runtime-producers/compiler-adapter.mjs', import.meta.url));
+        const binding = compilePublicRuntimeProducerDag(lane.input, lane.options);
+        return { compiled: binding.compiled, binding };
+    }
+    throw new Error('atomic failure projection: original lane compiler capability unavailable');
+}
+
+function originalLaneStepIds(lane, original)
+{
+    if (lane.kind === 'static')
+    {
+        return [...new Set([...original.binding.projectionIds,
+            ...original.binding.producerBindings.flatMap((binding) => [binding.producerId, ...binding.dependsOn])])];
+    }
+    if (lane.kind === 'public-runtime')
+    {
+        return [...lane.input.declarations.nodes.map((node) => node.id), ...lane.input.declarations.externalDependencies];
+    }
+    return original.compiled.steps.filter((step) => step.kind !== 'always-run-finalizer').map((step) => step.id);
+}
+
+/**
+ * Consume original lane admissions and bind every physical step to the sole
+ * owner-supplied whole graph. Never execute lane wrappers or combine matrices.
+ * Frontend host contexts are passed only to its original admission API; they
+ * cannot promote this always-DATA_ONLY source projection to runtime evidence.
+ */
+export async function projectCanonicalLaneAtomicCiMaterial(input, hostLimits, frontendContexts = {})
+{
+    const material = admitMaterial(input, hostLimits);
+    const hasState = Object.hasOwn(material, 'runtimeAuthority');
+    exactFields(material, [...compiledCiFields, 'worktreeFingerprint', 'lanes',
+        ...(hasState ? ['runtimeAuthority'] : [])], 'canonical lane CI input');
+    digestFact(material.worktreeFingerprint, 'canonical lane worktree fingerprint');
+    const { verifyCompiledAtomicProducerDag } = await import(new URL('../atomic-producers/compiler.mjs', import.meta.url));
+    const { isAtomicExecutable, resolveAtomicReplayPlan } = await import(new URL('../atomic-producers/contract.mjs', import.meta.url));
+    const { digestCanonical } = await import(new URL('../../test/attempt-provenance.mjs', import.meta.url));
+    const compiled = verifyCompiledAtomicProducerDag(material.compiled, material.matrix, material.authorities);
+    sameFact(material.graphRef.objectDigest, compiled.contentDigest, 'canonical lane graph reference');
+    currentReference(material.graphRef, material.context, 'canonical lane graph reference');
+    requireFact(Array.isArray(material.lanes) && material.lanes.length > 0, 'original lane sources required');
+    stableIds(material.lanes.map((lane) => lane.id), 'lane source IDs');
+    const byId = new Map(compiled.steps.map((step) => [step.id, step]));
+    const claims = new Map();
+    const laneBindings = [];
+    for (const lane of material.lanes)
+    {
+        exactFields(lane, ['id', 'kind', 'input', 'options'], 'original lane source');
+        const original = await originalLaneCompilation(lane, frontendContexts);
+        const originalById = new Map(original.compiled.steps.map((step) => [step.id, step]));
+        const ownedIds = originalLaneStepIds(lane, original);
+        for (const id of ownedIds)
+        {
+            const step = originalById.get(id);
+            requireFact(step, 'original lane binding references a missing compiled producer');
+            requireFact(byId.has(step.id), `original lane producer absent from canonical matrix: ${step.id}`);
+            sameFact(byId.get(step.id), step, `original lane step ${step.id}`);
+            const consumers = claims.get(step.id) ?? [];
+            requireFact(consumers.length === 0 || step.kind !== 'atomic-producer',
+                `multiple lane executable/projection owners: ${step.id}`);
+            consumers.push(lane.id);
+            claims.set(step.id, consumers);
+        }
+        laneBindings.push({ id: lane.id, kind: lane.kind,
+            originalBindingDigest: original.binding.contentDigest ?? digestCanonical(original.binding),
+            compiledFragmentDigest: original.compiled.contentDigest,
+            producerIds: ownedIds.filter((id) => isAtomicExecutable(originalById.get(id))).sort(),
+            originalBinding: original.binding, runtimeAuthorityStatus: original.binding.runtimeAuthorityStatus ?? 'unverified' });
+    }
+    for (const step of compiled.steps.filter(isAtomicExecutable))
+    {
+        const replay = resolveAtomicReplayPlan(material.authorities.replayPlans, step.replayPlanRef).plan;
+        sameFact(replay.source, { commit: material.context.sourceCommit, worktreeFingerprint: material.worktreeFingerprint },
+            `canonical lane replay source ${step.id}`);
+        sameFact(replay.run.id, material.context.schedulerRunId, `canonical lane replay run ${step.id}`);
+    }
+    const unconsumedProducerIds = compiled.steps.filter(isAtomicExecutable).filter((step) => !claims.has(step.id))
+        .map((step) => step.id).sort();
+    const runtimeStatePendingProducerIds = hasState ? [] : compiled.steps.filter((step) => step.stateAccessRef)
+        .map((step) => step.id).sort();
+    const ciInput = Object.fromEntries(compiledCiFields.map((field) => [field, material[field]]));
+    const ciProjection = runtimeStatePendingProducerIds.length ? null
+        : hasState ? (await projectCompiledAtomicRuntimeCiMaterial({ ...ciInput, runtimeAuthority: material.runtimeAuthority }, hostLimits)).ciProjection
+            : await projectCompiledAtomicCiMaterial(ciInput, hostLimits);
+    return sealProjection({ schema: 'fsusblog.canonical-lane-atomic-ci-material.v1', context: material.context,
+        worktreeFingerprint: material.worktreeFingerprint, compiledDagDigest: compiled.contentDigest,
+        graphRef: material.graphRef, ciProjection, laneBindings: laneBindings.sort((a, b) => a.id.localeCompare(b.id)),
+        unconsumedProducerIds, completeSourceCoverage: unconsumedProducerIds.length === 0,
+        runtimeStatePendingProducerIds, executableAdmissionPending: true,
+        canonicalExecutionOwner: 'executeCompiledAtomicProducerDag', qualificationEligible: false });
+}
+
 export async function projectCompiledAtomicCiMaterial(input, hostLimits)
 {
     const material = admitMaterial(input, hostLimits);

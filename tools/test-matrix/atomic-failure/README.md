@@ -32,6 +32,32 @@ to be installed; its independently tested dependency is
 and history are consumed unchanged by a normal merge. Missing or ambiguous canonical CI ownership
 and runtime `stateAccessRef` without its canonical fact bridge are refused.
 
+`projectCanonicalLaneAtomicCiMaterial` consumes original backend, static, frontend
+and public-runtime lane admissions. It invokes `compileBackendAtomicBridge`,
+`bindStaticAtomicCompilation`, `prepareFrontendManifestAdmission` and
+`compilePublicRuntimeProducerDag` from exact source9690f092, ab9a2493, be307751 and
+43470d5c. The canonical global matrix/compiled DAG remains owner-supplied. Every
+original lane step must match that graph exactly; duplicate primary owners,
+cross-run/source replay and missing graph children are refused. Static thirteen
+producer assertion memberships and original public runtime requirements remain
+bound to original source bindings. Pure fragment compilation invokes no producer.
+The API neither assembles a production matrix nor calls lane executor wrappers.
+Frontend held contexts are passed only to its original admission API; no callback
+can promote this DATA_ONLY result. Unconsumed executable IDs are explicit. Missing
+canonical runtime state facts keep `ciProjection: null` and pending producer IDs;
+no empty state access or runtime success is fabricated. With complete static/build
+sources, the existing canonical CI projection yields one invocation per shared
+runner for all consumed lanes. Global job maps never come from lane fragments.
+
+Lane execution requires original preparation ports: static/backend pre-execution
+context checks currently live inside their executor wrappers, and backend/frontend
+admission accepts only scoped graphs. The original owners must expose preparation
+against the canonical global graph, with owned-step scope, and original terminal
+projection against its complete vector. The integration must execute the global
+DAG once rather than execute one wrapper per lane. Public reset/admission remains
+with the original public/runtime authority owner. No synthetic fixture compilation
+or original lane component test qualifies native/runtime/CI acceptance.
+
 `projectCompiledAtomicRuntimeCiMaterial` extends the compiler/CI-plan projection
 with the original runtime state's catalogue and registry facts. Each original
 `stateAccessRef` must bind its catalogue digest and exact entry digest through
