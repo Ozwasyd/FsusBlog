@@ -716,7 +716,7 @@ test('compiled C# observation self-test executes real loader, merger, and reques
     assert.match(result.stdout, /self-test.*ok/iu);
 });
 
-test('pre-3177 normal producer isolates only the exact owned JSON routes and emits the AEDS observation', {
+test('normal producer includes the exact current Font/Theme AEDS census without retired JSON exclusions', {
     timeout: 120_000
 }, () =>
 {
@@ -742,14 +742,65 @@ test('pre-3177 normal producer isolates only the exact owned JSON routes and emi
         });
         const diagnostic = `${result.stdout}\n${result.stderr}`;
         assert.equal(result.status, 0, diagnostic);
-        assert.match(diagnostic, /pre-#3177 known non-AEDS routes excluded count=8:/u);
+        assert.doesNotMatch(diagnostic, /known non-AEDS routes excluded/u);
         const observation = readJson(path.join(directory, 'observation.json'));
         assert.ok(observation.operations.some((operation) =>
             operation.operationId === 'binary_get_article_articleId_int_related_aeds'
             && operation.responseFrame === 'ArticleRelatedReading'));
-        assert.ok(observation.operations.every((operation) =>
-            !operation.path.startsWith('/api/binary/author/ops/fonts/')
-            && !operation.path.startsWith('/api/binary/author/ops/themes/')));
+        const fontThemeOperations = observation.operations.filter((operation) =>
+            operation.path.startsWith('/api/binary/author/ops/fonts/')
+            || operation.path.startsWith('/api/binary/author/ops/themes/'));
+        const expectedFrames = [
+            ['/api/binary/author/ops/fonts/activations', 'FontActivationList'],
+            ['/api/binary/author/ops/fonts/registry', 'FontRegistryList'],
+            ['/api/binary/author/ops/fonts/registry/{fontId}', 'FontRegistryDetail'],
+            ['/api/binary/author/ops/themes/activations', 'ThemeActivationList'],
+            ['/api/binary/author/ops/themes/activations/{scope}', 'ThemeActivation'],
+            ['/api/binary/author/ops/themes/activations/{scope}/history', 'ThemeActivationHistory'],
+            ['/api/binary/author/ops/themes/registry', 'ThemeRegistryList'],
+            ['/api/binary/author/ops/themes/registry/{themeId}', 'ThemeRegistryDetail']
+        ];
+        assert.deepEqual(fontThemeOperations.map((operation) => ({
+            method: operation.method,
+            path: operation.path,
+            protocol: operation.protocol,
+            aedsVersion: operation.aedsVersion,
+            requestFrame: operation.requestFrame,
+            responseFrame: operation.responseFrame,
+            errorFrame: operation.errorFrame,
+            auth: operation.auth,
+            credentialPolicy: operation.credentialPolicy,
+            permission: operation.permission,
+            pow: operation.pow,
+            rateLimit: operation.rateLimit,
+            cache: operation.cache,
+            success: operation.responses.filter((response) => response.kind === 'success'),
+            protocolState: operation.protocolState
+        })), expectedFrames.map(([path, responseFrame]) => ({
+            method: 'GET',
+            path,
+            protocol: 'AEDS',
+            aedsVersion: 2,
+            requestFrame: null,
+            responseFrame,
+            errorFrame: 'ApiError',
+            auth: 'admin',
+            credentialPolicy: 'include',
+            permission: 'system.config',
+            pow: false,
+            rateLimit: 'fixed_ip',
+            cache: 'no-store',
+            success: [{
+                status: 200,
+                kind: 'success',
+                schemaRef: `aeds://frame/${responseFrame}`,
+                contentType: 'application/octet-stream',
+                resultPlacement: 'aeds.frame.payload',
+                nullable: false,
+                publicErrorRef: null
+            }],
+            protocolState: 'active-aeds-only'
+        })));
     }
     finally
     {
