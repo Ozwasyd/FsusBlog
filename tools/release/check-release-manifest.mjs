@@ -114,10 +114,10 @@ try
             }
             const verification = { manifest, releaseIdContract: RELEASE_ID_CONTRACT,
                 trustPolicyReference: options['trust-policy'], trustPolicySha256: options['trust-policy-sha256'],
-                readBytes: reference => readExplicitReleaseArtifact(reference,
-                    reference === plan?.manifest.reference ? plan.manifest.sha256.replace(/^sha256:/u, '')
+                readBytes: (reference, expectedDigest) => readExplicitReleaseArtifact(reference,
+                    expectedDigest?.replace(/^sha256:/u, '') ?? (reference === plan?.manifest.reference ? plan.manifest.sha256.replace(/^sha256:/u, '')
                         : reference === manifest.currentSchema.receipt.reference ? manifest.currentSchema.receipt.sha256
-                            : findArtifactDigest(manifest.identity, reference), 64 * 1024 * 1024) };
+                            : findArtifactDigest(manifest.identity, reference)), 64 * 1024 * 1024) };
             if (plan)
             {
                 beginCurrentActivationSwitch(plan, verification);

@@ -2,6 +2,7 @@
 import { createHash, createPublicKey, sign, verify } from 'node:crypto';
 
 import { canonicalize } from '../fact-extractors/lib/canonicalize.mjs';
+import { validateCurrentReleaseAssetInventory } from '../storage/release-asset-value-contract.mjs';
 
 import { releaseIdentityRosterArtifacts } from './release-manifest-identity-contract.mjs';
 import { createReleaseManifestValueContract, deriveReleaseCandidateId, deriveReleaseManifestContentDigest } from './release-manifest-value-contract.mjs';
@@ -58,7 +59,7 @@ export function verifyReleaseManifestArtifacts({ manifest, releaseIdContract, tr
     const artifacts = [...releaseIdentityRosterArtifacts(manifest.identity), { name: 'currentSchema.receipt',
         reference: manifest.currentSchema.receipt.reference, sha256: `sha256:${manifest.currentSchema.receipt.sha256}` }].map(artifact =>
     {
-        const bytes = readBytes(artifact.reference);
+        const bytes = readBytes(artifact.reference, artifact.sha256);
         if (!Buffer.isBuffer(bytes) || bytes.length === 0 || bytes.length > 64 * 1024 * 1024)
         {
             fail(`${artifact.name} is not bounded artifact bytes`);
@@ -69,6 +70,21 @@ export function verifyReleaseManifestArtifacts({ manifest, releaseIdContract, tr
         }
         opened.set(artifact.reference, bytes);
         return { ...artifact, bytes: bytes.length };
+    });
+    const inventoryBytes = opened.get(manifest.identity.frontend.assetManifest.reference);
+    const inventory = JSON.parse(new TextDecoder('utf-8', { fatal: true }).decode(inventoryBytes));
+    const inventoryAssets = validateCurrentReleaseAssetInventory(inventory, manifest.releaseId, releaseIdContract);
+    const inventoryRoot = manifest.identity.frontend.assetManifest.reference.slice(0,
+        manifest.identity.frontend.assetManifest.reference.lastIndexOf('/'));
+    const currentAssets = inventoryAssets.map(asset =>
+    {
+        const bytes = readBytes(`${inventoryRoot}/${asset.path}`, asset.sha256);
+        if (!Buffer.isBuffer(bytes) || bytes.length !== asset.bytes
+            || `sha256:${createHash('sha256').update(bytes).digest('hex')}` !== asset.sha256)
+        {
+            fail(`current inventory asset byte digest or size mismatch: ${asset.path}`);
+        }
+        return asset;
     });
     const receiptBytes = opened.get(manifest.currentSchema.receipt.reference);
     if (receiptBytes.length > 1024 * 1024)
@@ -121,6 +137,6 @@ export function verifyReleaseManifestArtifacts({ manifest, releaseIdContract, tr
     {
         fail('Ed25519 signature verification failed');
     }
-    return { candidateId: manifest.candidateId, manifestContentDigest: manifest.contentDigest, artifacts,
+    return { candidateId: manifest.candidateId, manifestContentDigest: manifest.contentDigest, artifacts, currentAssets,
         signatureVerified: true, nativeClaimEligible: false, actualDatabaseObserved: false };
 }
