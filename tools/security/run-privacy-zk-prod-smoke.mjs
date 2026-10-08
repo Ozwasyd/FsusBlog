@@ -49,10 +49,10 @@ const configuration = configPaths
     .map((file) => readJsonc(resolveRepoPath(file)))
     .reduce((merged, current) => deepMerge(merged, current), {});
 
-const zkProd = readSection(configuration, ['AnonymousIdentity', 'ZkProd']);
+const zkCommentPolicy = readSection(configuration, ['AnonymousIdentity', 'ZkCommentPolicy']);
 const zkVerifier = readSection(configuration, ['AnonymousIdentity', 'ZkVerifier']);
 const credentialIssuer = readSection(configuration, ['AnonymousCredentialIssuer', 'BlindRsa']);
-const enabled = readBoolEnv('FSUSBLOG_ZK_PROD_ENABLED') ?? readBool(zkProd.Enabled) ?? false;
+const enabled = readBoolEnv('FSUSBLOG_ZK_COMMENT_POLICY_ENABLED') ?? readBool(zkCommentPolicy.Enabled) ?? false;
 const traceId = `zk-prod-smoke-${Date.now().toString(36)}`;
 const realEvidence = args.realEvidence ? readRealEvidence(args.realEvidence) : null;
 
@@ -74,7 +74,7 @@ else if (!enabled)
     checks.push({
         id: 'feature-flag-off',
         status: 'expected_unavailable',
-        detail: 'AnonymousIdentity:ZkProd:Enabled=false'
+        detail: 'AnonymousIdentity:ZkCommentPolicy:Enabled=false'
     });
 }
 else
@@ -146,15 +146,13 @@ function inspectArtifacts()
 {
     const nativeLibraryPath = normalizeString(
         process.env.FSUSBLOG_ZK_NATIVE_VERIFIER_LIB
-      ?? zkVerifier.NativeLibraryPath
-      ?? zkVerifier.NativeGroth16?.LibraryPath
-      ?? zkProd.NativeVerifierLibraryPath);
+      ?? zkVerifier.NativeGroth16?.LibraryPath);
     const nativeVerifier = nativeLibraryPath.length > 0 && existsSync(resolveRepoPath(nativeLibraryPath));
 
     const trustedSetupPath = normalizeString(
         args.trustedSetupManifest
       ?? process.env.FSUSBLOG_ZK_TRUSTED_SETUP_MANIFEST
-      ?? zkProd.TrustedSetupManifestPath
+      ?? zkVerifier.TrustedSetupManifestPath
       ?? DEFAULT_TRUSTED_SETUP);
     const trustedSetup = readOptionalJson(trustedSetupPath);
     const trustedSetupReady = trustedSetup?.production_usable === true &&
@@ -166,7 +164,7 @@ function inspectArtifacts()
 
     const credentialHash = normalizeString(
         process.env.FSUSBLOG_ZK_ISSUER_PUBLIC_KEY_HASH ?? credentialIssuer.PublicKeyHash).toLowerCase();
-    const credential = readBool(zkProd.CredentialReady) === true || isSha256Hex(credentialHash);
+    const credential = isSha256Hex(credentialHash);
 
     const safeArtifacts = {
         nativeVerifierConfigured: nativeVerifier,

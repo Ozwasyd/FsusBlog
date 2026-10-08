@@ -232,12 +232,6 @@
             "source": "operator-env",
             "expectedValue": "Absolute host directory containing the reviewed non-secret ZK configuration."
         },
-        "FSUSBLOG_ZK_CREDENTIAL_READY": {
-            "requirement": "defaulted",
-            "source": "compose-default",
-            "defaultValue": "true",
-            "expectedValue": "true only when production credential bootstrap evidence is ready."
-        },
         "FSUSBLOG_ZK_GROTH16_VERIFYING_KEY": {
             "requirement": "must-set-at-deploy",
             "source": "operator-env",
@@ -264,12 +258,6 @@
             "defaultValue": "managed:mcl",
             "expectedValue": "Approved production verifier backend library identity."
         },
-        "FSUSBLOG_ZK_PROD_ENABLED": {
-            "requirement": "defaulted",
-            "source": "compose-default",
-            "defaultValue": "true",
-            "expectedValue": "true; missing ZK material remains fail-closed."
-        },
         "FSUSBLOG_ZK_SECRET_DIR": {
             "requirement": "must-set-at-deploy",
             "source": "operator-env",
@@ -279,12 +267,6 @@
             "requirement": "must-set-at-deploy",
             "source": "operator-env",
             "expectedValue": "Container path to the reviewed trusted-setup manifest under /app/config/zk."
-        },
-        "FSUSBLOG_ZK_TRUSTED_SETUP_VERIFIED": {
-            "requirement": "defaulted",
-            "source": "compose-default",
-            "defaultValue": "true",
-            "expectedValue": "true only after the mounted trusted setup passes its independent verification."
         },
         "FSUSBLOG_ZK_VERIFIER_ENABLED": {
             "requirement": "defaulted",
@@ -323,6 +305,12 @@
             "requirement": "must-set-at-deploy",
             "source": "operator-env",
             "expectedValue": "Canonical HTTPS public origin with no path component."
+        },
+        "FSUSBLOG_ZK_COMMENT_POLICY_ENABLED": {
+            "requirement": "defaulted",
+            "source": "compose-default",
+            "defaultValue": "true",
+            "expectedValue": "true; missing ZK material remains fail-closed."
         }
     }
 }

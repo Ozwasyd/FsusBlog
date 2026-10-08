@@ -21,7 +21,7 @@ test('privacy ZK production smoke records feature flag off as expected unavailab
     {
         const config = writeJson(dir, 'off.json', {
             AnonymousIdentity: {
-                ZkProd: {
+                ZkCommentPolicy: {
                     Enabled: false
                 }
             }
@@ -46,12 +46,11 @@ test('privacy ZK production smoke fails require-real when real prover evidence i
     {
         const config = writeJson(dir, 'enabled.json', {
             AnonymousIdentity: {
-                ZkProd: {
-                    Enabled: true,
-                    CredentialReady: true
+                ZkCommentPolicy: {
+                    Enabled: true
                 },
                 ZkVerifier: {
-                    NativeLibraryPath: path.join(dir, 'missing-native.so')
+                    NativeGroth16: { LibraryPath: path.join(dir, 'missing-native.so') }
                 }
             }
         });
@@ -73,7 +72,7 @@ test('privacy ZK production smoke accepts sanitized real full-chain evidence', (
     {
         const config = writeJson(dir, 'enabled.json', {
             AnonymousIdentity: {
-                ZkProd: {
+                ZkCommentPolicy: {
                     Enabled: true
                 }
             }
@@ -121,7 +120,7 @@ test('privacy ZK production smoke rejects real evidence without local artifact f
     {
         const config = writeJson(dir, 'enabled.json', {
             AnonymousIdentity: {
-                ZkProd: {
+                ZkCommentPolicy: {
                     Enabled: true
                 }
             }
@@ -147,7 +146,7 @@ test('privacy ZK production smoke rejects boolean-only or hashing-only real evid
     {
         const config = writeJson(dir, 'enabled.json', {
             AnonymousIdentity: {
-                ZkProd: {
+                ZkCommentPolicy: {
                     Enabled: true
                 }
             }
@@ -184,7 +183,7 @@ test('privacy ZK production smoke rejects real evidence without prover performan
     {
         const config = writeJson(dir, 'enabled.json', {
             AnonymousIdentity: {
-                ZkProd: {
+                ZkCommentPolicy: {
                     Enabled: true
                 }
             }

@@ -370,6 +370,21 @@ describe('mapCommentPolicySnapshotFromPayload', () => {
     })
   })
 
+  it.each(['dev_verifier_disallowed', 'legacy_fallback_disallowed', 'credential_unready'])('rejects retired product readiness reason %s on the wire', reason => {
+    const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
+    pod.fill(1, 0, 9)
+    pod[3] = 4
+    writeInt32(pod, 9, 2500)
+    writeInt32(pod, 13, 10000)
+    const language = textBytes('en')
+    const hash = textBytes('9'.repeat(64))
+    const unavailable = textBytes(reason)
+    writeSliceRef(pod, 17, 0, language.length)
+    writeSliceRef(pod, 25, language.length, hash.length)
+    writeSliceRef(pod, 33, language.length + hash.length, unavailable.length)
+    expect(() => mapCommentPolicySnapshotFromPayload(buildPayload(pod, blobParts(language, hash, unavailable)))).toThrow('comment_policy_snapshot_fields_invalid')
+  })
+
   it.each(['zero-chars', 'hard-chars', 'zero-bytes', 'hard-bytes', 'padded-offsets', 'missing-hash', 'missing-language', 'missing-reason-ref', 'trailing-blob', 'invalid-utf8'])('rejects a current policy with %s', defect => {
     const pod = new Uint8Array(COMMENT_POLICY_SNAPSHOT_POD_SIZE)
     pod.fill(1, 0, 9)

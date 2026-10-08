@@ -15,10 +15,8 @@ test('privacy ZK production release gate accepts disabled safe baseline', () =>
     {
         const config = writeJson(dir, 'off.json', {
             AnonymousIdentity: {
-                ZkProd: {
-                    Enabled: false,
-                    AllowDevVerifier: false,
-                    FallbackToLegacyAnonymous: false
+                ZkCommentPolicy: {
+                    Enabled: false
                 }
             }
         });
@@ -39,10 +37,9 @@ test('privacy ZK production release gate rejects bypass flags even when disabled
     {
         const config = writeJson(dir, 'unsafe.json', {
             AnonymousIdentity: {
-                ZkProd: {
+                ZkCommentPolicy: {
                     Enabled: false,
-                    AllowDevVerifier: true,
-                    FallbackToLegacyAnonymous: false
+                    AllowDevVerifier: true
                 }
             }
         });
@@ -397,27 +394,20 @@ function completeSmokeEvidence(dir, overrides = {})
     return evidence;
 }
 
-function enabledConfig({ nativeLibrary, issuerPrivateKey, verifyingKeyHash, smoke })
+function enabledConfig({ nativeLibrary, issuerPrivateKey, verifyingKeyHash })
 {
     return {
         AnonymousIdentity: {
-            ZkProd: {
+            ZkCommentPolicy: {
                 Enabled: true,
-                RequireNativeVerifier: true,
                 RequireCredential: true,
-                RequireTrustedSetupVerified: true,
-                AllowDevVerifier: false,
-                FallbackToLegacyAnonymous: false,
-                VerifierBackend: 'native_groth16',
-                TrustedSetupVerified: true,
-                CredentialReady: true,
-                VerifyingKeyHash: verifyingKeyHash,
-                SmokeEvidencePath: smoke
+                RequireTrustedSetupVerified: true
             },
             ZkVerifier: {
                 Backend: 'native_groth16',
                 VerifyingKeyHash: verifyingKeyHash,
-                NativeLibraryPath: nativeLibrary
+                NativeGroth16: { LibraryPath: nativeLibrary },
+                VerifyingKeyManifestPath: writeJson(path.dirname(issuerPrivateKey), 'verifying-key-manifest.json', { production_usable: true, verifying_key_hash: verifyingKeyHash })
             }
         },
         AnonymousCredentialIssuer: {

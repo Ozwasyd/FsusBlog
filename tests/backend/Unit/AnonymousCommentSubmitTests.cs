@@ -1554,7 +1554,7 @@ public sealed class AnonymousCommentSubmitTests(
         }
     }
 
-    private sealed class FixedZkAnonymousProofService(ZkProdPolicySnapshot policy) : IZkAnonymousProofService
+    private sealed class FixedZkAnonymousProofService(ZkCommentPolicySnapshot policy) : IZkAnonymousProofService
     {
         public AnonymousCommentPolicySnapshot CurrentCommentPolicy
         {
@@ -1566,10 +1566,10 @@ public sealed class AnonymousCommentSubmitTests(
 
         public ZkAnonymousPolicySnapshot CurrentZkPolicy { get; } = new(true, true, "comment.create", []);
 
-        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = policy;
+        public ZkCommentPolicySnapshot CurrentZkCommentPolicy { get; } = policy;
 
         public static FixedZkAnonymousProofService Available()
-            => new(new ZkProdPolicySnapshot(
+            => new(new ZkCommentPolicySnapshot(
                 Enabled: true,
                 NativeVerifierConfigured: true,
                 TrustedSetupVerified: true,
@@ -1578,7 +1578,7 @@ public sealed class AnonymousCommentSubmitTests(
                 UnavailableReason: string.Empty));
 
         public static FixedZkAnonymousProofService Unavailable(string reason)
-            => new(new ZkProdPolicySnapshot(
+            => new(new ZkCommentPolicySnapshot(
                 Enabled: true,
                 NativeVerifierConfigured: false,
                 TrustedSetupVerified: true,

@@ -914,7 +914,7 @@ public sealed class CommentAnonymousFixtureProvider(
 internal sealed class CommentFixtureZkSimulationProofService(
     IZkAnonymousProofService proofService) : IZkAnonymousProofService
 {
-    private static readonly ZkProdPolicySnapshot s_simulationReadiness = new(
+    private static readonly ZkCommentPolicySnapshot s_simulationReadiness = new(
         Enabled: true,
         NativeVerifierConfigured: true,
         TrustedSetupVerified: true,
@@ -926,7 +926,7 @@ internal sealed class CommentFixtureZkSimulationProofService(
 
     public ZkAnonymousPolicySnapshot CurrentZkPolicy => proofService.CurrentZkPolicy;
 
-    public ZkProdPolicySnapshot CurrentZkProdPolicy => s_simulationReadiness;
+    public ZkCommentPolicySnapshot CurrentZkCommentPolicy => s_simulationReadiness;
 
     public Task<ZkProofVerificationResult> VerifyCommentProofAsync(
         ZkProofVerificationRequest request,

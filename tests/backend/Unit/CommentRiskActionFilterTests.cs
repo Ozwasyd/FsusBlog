@@ -448,7 +448,7 @@ public sealed class CommentRiskActionFilterTests
     {
         public AnonymousCommentPolicySnapshot CurrentCommentPolicy { get; } = AnonymousCommentPolicySnapshot.Default with { ZkAnonymousEnabled = true };
         public ZkAnonymousPolicySnapshot CurrentZkPolicy { get; } = new(true, true, "comment.create", []);
-        public ZkProdPolicySnapshot CurrentZkProdPolicy { get; } = new(true, true, true, true, true, string.Empty);
+        public ZkCommentPolicySnapshot CurrentZkCommentPolicy { get; } = new(true, true, true, true, true, string.Empty);
 
         public static FixedZkAnonymousProofService Available() => new();
 

@@ -114,11 +114,6 @@ function resolveCurrentReadiness(
             : CommentPolicyReadiness.ContractInvalid;
     }
 
-    if (reason === 'dev_verifier_disallowed' || reason === 'legacy_fallback_disallowed')
-    {
-        return CommentPolicyReadiness.PolicyUnavailable;
-    }
-
     if (reason === 'native_backend_required')
     {
         return CommentPolicyReadiness.VerifierMissing;
@@ -143,7 +138,7 @@ function resolveCurrentReadiness(
         return CommentPolicyReadiness.PolicyUnavailable;
     }
 
-    if (reason === 'credential_unready' || reason === 'credential_issuer_unavailable')
+    if (reason === 'credential_issuer_unavailable')
     {
         return CommentPolicyReadiness.CredentialRootMissing;
     }

@@ -12,7 +12,7 @@ namespace FsusBlog.Server.Services.Security;
 
 public sealed class NativeGroth16ZkProofBackend : IProductionZkProofBackend, IDisposable
 {
-    private const string BackendName = ZkProdOptions.NativeGroth16Backend;
+    private const string BackendName = ZkVerifierOptions.NativeGroth16Backend;
     private const string BackendUnavailableReason = "backend_unavailable";
     private readonly NativeGroth16ZkProofBackendOptions _options;
     private readonly INativeGroth16VerifierLibrary _library;
@@ -152,9 +152,7 @@ internal sealed record NativeGroth16ZkProofBackendOptions(
             Environment.GetEnvironmentVariable(VerifyingKeyEnvironmentVariable),
             DefaultVerifyingKeyPath());
         string verifyingKeyHash = NormalizeSha256(
-            configuration[$"{SectionName}:VerifyingKeySha256"] ??
-            configuration[$"{SectionName}:VerifyingKeyHash"] ??
-            configuration["AnonymousIdentity:ZkVerifier:VerifyingKeyHash"]);
+            ZkVerifierOptions.FromConfiguration(configuration).VerifyingKeyHash);
         string entryPoint = NormalizeToken(configuration[$"{SectionName}:EntryPoint"], DefaultEntryPoint, 128);
 
         return new NativeGroth16ZkProofBackendOptions(
