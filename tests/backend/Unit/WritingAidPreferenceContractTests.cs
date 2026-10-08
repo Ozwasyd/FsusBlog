@@ -7,6 +7,41 @@ namespace FsusBlog.Server.Tests.Unit;
 public sealed class WritingAidPreferenceContractTests
 {
     [Fact]
+    public void Receipt_BindsDeviceScopeAndClosedActionWithoutAcceptingUnimplementedMigration()
+    {
+        WritingAidPreferenceReceipt receipt = Receipt("update", 2, new(1, true, false, true));
+        Assert.True(WritingAidPreferenceReceiptValidator.Validate(receipt, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { DeviceScope = "raw-session" }, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { Action = "migrate-legacy" }, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { Status = "prepared" }, receipt.Previous.Owner));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(receipt with { OperationId = Guid.NewGuid() }, receipt.Previous.Owner));
+    }
+
+    [Fact]
+    public void InitializationReceipt_RequiresAbsentRowAndServerDefaultsEvenAfterResealing()
+    {
+        WritingAidPreferenceReceipt initial = Receipt("initialize", 0, WritingAidPreferenceContract.Defaults);
+        Assert.True(WritingAidPreferenceReceiptValidator.Validate(initial, initial.Previous.Owner));
+        WritingAidPreferenceReceipt overwrite = Receipt("initialize", 1, WritingAidPreferenceContract.Defaults);
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(overwrite, overwrite.Previous.Owner));
+        WritingAidPreferenceReceipt nondefault = Receipt("initialize", 0, new(1, true, false, false));
+        Assert.False(WritingAidPreferenceReceiptValidator.Validate(nondefault, nondefault.Previous.Owner));
+    }
+
+    private static WritingAidPreferenceReceipt Receipt(string action, long revision, WritingAidPreferenceValues values)
+    {
+        var owner = new WritingAidPreferenceOwner("account:1", "site:test");
+        WritingAidPreferenceValues defaults = WritingAidPreferenceContract.Defaults;
+        var previous = new WritingAidPreferenceSnapshot(owner, revision, defaults,
+            WritingAidPreferenceValidator.ComputeDigest(owner, revision, defaults));
+        var committed = new WritingAidPreferenceSnapshot(owner, revision + 1, values,
+            WritingAidPreferenceValidator.ComputeDigest(owner, revision + 1, values));
+        var receipt = new WritingAidPreferenceReceipt(Guid.NewGuid(), "device:" + new string('a', 64),
+            previous, committed, action, "committed", string.Empty);
+        return receipt with { ContentDigest = WritingAidPreferenceReceiptValidator.ComputeDigest(receipt) };
+    }
+
+    [Fact]
     public void Defaults_AreIndependentAndDisabled()
         => Assert.Equal(new WritingAidPreferenceValues(1, false, false, false), WritingAidPreferenceContract.Defaults);
 

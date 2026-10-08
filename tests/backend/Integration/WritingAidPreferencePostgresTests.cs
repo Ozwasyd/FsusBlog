@@ -24,6 +24,58 @@ public sealed class WritingAidPreferencePostgresTests(PostgresSchemaMigrationFix
     private static readonly WritingAidPreferenceOwner s_owner = new("account:42", "site:test");
 
     [Fact]
+    public async Task BoundedJournal_RefusesOverflowPreservesAllReplayIdentitiesAndDoesNotBlockAnotherOwner()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        var first = new WritingAidPreferenceUpdate(0, Guid.NewGuid(), new(1, true, false, false));
+        Assert.True((await Service(db).UpdateWritingAidPreferenceAsync(s_owner, DeviceA, first)).Success);
+        for (long revision = 1; revision < 256; revision++)
+        {
+            Assert.Equal(WritingAidPreferenceOutcome.Success,
+                (await Service(db).UpdateWritingAidPreferenceAsync(s_owner, DeviceA,
+                    new(revision, Guid.NewGuid(), new(1, revision % 2 == 0, false, false)))).Outcome);
+        }
+        WritingAidPreferenceResult overflow = await Service(db).UpdateWritingAidPreferenceAsync(s_owner, DeviceA,
+            new(256, Guid.NewGuid(), WritingAidPreferenceContract.Defaults));
+        Assert.Equal(WritingAidPreferenceOutcome.Unavailable, overflow.Outcome);
+        Assert.Null(overflow.Receipt);
+        Assert.Equal(256, await CountAsync(db, "user_authoring_preference_operation"));
+        Assert.Equal(256, (await Service(db).GetWritingAidPreferenceAsync(s_owner)).Snapshot!.Revision);
+        Assert.Equal(WritingAidPreferenceOutcome.Replayed,
+            (await Service(db).UpdateWritingAidPreferenceAsync(s_owner, DeviceA, first)).Outcome);
+        Assert.Equal(WritingAidPreferenceOutcome.IdempotencyConflict,
+            (await Service(db).UpdateWritingAidPreferenceAsync(s_owner, DeviceA, first with
+            {
+                Values = WritingAidPreferenceContract.Defaults
+            })).Outcome);
+        Assert.Equal(WritingAidPreferenceOutcome.Success,
+            (await Service(db).InitializeWritingAidPreferenceAsync(s_owner with { UserScope = "account:43" }, DeviceA, Guid.NewGuid())).Outcome);
+    }
+
+    [Fact]
+    public async Task Initialization_IsOneTimeScopedIdempotentAndNeverOverwritesSubsequentPreferences()
+    {
+        using SqlSugarClient db = await CreateDatabaseAsync();
+        Guid operation = Guid.NewGuid();
+        WritingAidPreferenceResult initial = await Service(db).InitializeWritingAidPreferenceAsync(s_owner, DeviceA, operation);
+        Assert.Equal(WritingAidPreferenceOutcome.Success, initial.Outcome);
+        Assert.Equal("initialize", initial.Receipt!.Action);
+        Assert.Equal(WritingAidPreferenceContract.Defaults, initial.Snapshot!.Values);
+        Assert.True(WritingAidPreferenceReceiptValidator.Validate(initial.Receipt, s_owner));
+        var values = new WritingAidPreferenceValues(1, true, true, true);
+        Assert.True((await Service(db).UpdateWritingAidPreferenceAsync(s_owner, DeviceA, new(1, Guid.NewGuid(), values))).Success);
+        Assert.Equal(WritingAidPreferenceOutcome.Replayed,
+            (await Service(db).InitializeWritingAidPreferenceAsync(s_owner, DeviceA, operation)).Outcome);
+        Assert.Equal(WritingAidPreferenceOutcome.RevisionConflict,
+            (await Service(db).InitializeWritingAidPreferenceAsync(s_owner, DeviceB, Guid.NewGuid())).Outcome);
+        Assert.Equal(WritingAidPreferenceOutcome.IdempotencyConflict,
+            (await Service(db).UpdateWritingAidPreferenceAsync(s_owner, DeviceA,
+                new(0, operation, WritingAidPreferenceContract.Defaults))).Outcome);
+        Assert.Equal(values, (await Service(db).GetWritingAidPreferenceAsync(s_owner)).Snapshot!.Values);
+        Assert.Equal(2, await CountAsync(db, "user_authoring_preference_operation"));
+    }
+
+    [Fact]
     public async Task EveryCombination_PersistsThroughProductionCommandAndReloadsFromAnotherClient()
     {
         using SqlSugarClient db = await CreateDatabaseAsync();
