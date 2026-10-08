@@ -64,7 +64,8 @@
     },
     "remaining": [
         "Independent non-author current-source read-only review",
-        "Previous accepted-base trusted contract executed separately against frozen evidence-only commit",
+        "Actual GitHub PR metadata/labels review not run; local proposed contract check has errors=[] using proposed release-note:none label. API writes prohibited in current task.",
+        "Global project full scan fails with original binding diagnostics and file findings; no full-project qualification claimed",
         "Any future norm/checker promotion remains explicit owner decision; no consumer/runtime acceptance inferred"
     ],
     "prohibitionsPreserved": [
@@ -73,5 +74,47 @@
         "No production resource/destructive migration/fabricated receipt",
         "No ProjectXML Git replacement-ref remediation",
         "No API write/merge/issue closure/deployment"
-    ]
+    ],
+    "actualProjectFullScan": {
+        "testedCandidateCommit": "07473a3028ab90509b5c4d02c04a953ee6efb8cd",
+        "testedSourceCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "command": "node tools/frontend/check-frontend-style.mjs --mode full",
+        "exitCode": 1,
+        "status": "failed; stale exemptions remain withdrawn and real file findings remain visible",
+        "bindingDiagnostics": [
+            "[frontend-style] baseline configuration digest is stale",
+            "[frontend-style] baseline source-state digest is stale",
+            "[frontend-style] baseline generatedFrom does not match the current source-state digest"
+        ],
+        "fileFindingLines": 83344,
+        "totalOutputLines": 83347,
+        "log": ".tmp/chain-3640-fresh/narrow-original-full.log",
+        "logSha256": "1c377b21c24968728465caf163ef1dd10f8d267f5cb96f810c5c12f92a431c63",
+        "logBytes": 11819053,
+        "frontendLockedManifestCustody": {
+            "package.json": "a974aa30008f51922b138dc70520e2a786d6aa5995049b47bf26a6f132bd9731",
+            "package-lock.json": "a174e2f3fabff0c591174819da0ba6b07b3e191ace78ffcb0cb77151bcaf1258"
+        },
+        "setupEvidence": "Initial missing-frontend-dependency and subsequent warm-cache failures preserved in task receipts. Verified equal package/lock manifests, copied actual locked dependency cache, then preserved both derived cache files and ran original full checker cold. No source, norm, baseline or finding filters changed.",
+        "derivedCacheArchive": {
+            "purpose": "After verifying and copying complete locked frontend dependencies, preserve setup-era derived lint cache and run unchanged original checker cold. No source/baseline/policy edits.",
+            "saved": {
+                "eslint.cache": {
+                    "sha256": "c6d5746cd7a96a2fa631356114b210d6265d7918ee3c545573b3d5731174267a",
+                    "bytes": 19948302
+                },
+                "eslint.cache-key": {
+                    "sha256": "10a9235b1bd12794e45488ba39c0992b7fa243caa4c433a434bb7d4249213365",
+                    "bytes": 65
+                }
+            }
+        },
+        "qualificationEligible": false
+    },
+    "trustedAcceptedBaseRange": {
+        "authoritySourceCommit": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+        "testedCandidateCommit": "07473a3028ab90509b5c4d02c04a953ee6efb8cd",
+        "exitCode": 0,
+        "log": ".tmp/chain-3640-fresh/narrow-accepted-base-trusted-range.log"
+    }
 }
