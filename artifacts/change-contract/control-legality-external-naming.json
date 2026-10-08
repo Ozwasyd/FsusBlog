@@ -1,0 +1,32 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "json-wire-key",
+            "paths": [
+                "config/frontend/control-legality.json",
+                "tests/frontend/package-lock.json",
+                "tests/frontend/package.json",
+                "tests/governance/frontend-test-layout.json",
+                "tests/tools/package-lock.json",
+                "tests/tools/package.json"
+            ],
+            "reason": "Preserve the exact existing JSON schema, npm lock/package and ownership-manifest field spellings consumed by their canonical tooling. This naming declaration grants no runtime or control-registration acceptance."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/testing.generated.md"
+            ],
+            "reason": "The existing test-document generator preserves matrix contract identifiers and CSS-like command/document spelling; the output is bound separately to its producer and actual SHA-256."
+        },
+        {
+            "id": "environment-variable",
+            "paths": [
+                "tools/frontend/control-legality/admission.mjs",
+                "tools/frontend/control-legality/source.mjs"
+            ],
+            "reason": "Preserve Node process and repository tooling environment spellings at the canonical source-admission boundary. Internal option names remain repository governed; this declaration changes no authority or failure gate."
+        }
+    ]
+}
