@@ -46,6 +46,8 @@ function fixture(markup, script = baseScript, style = '')
 }
 const cases = [
     { name: 'baseline', content: fixture(baseMarkup), expected: null },
+    { name: 'public-icon-star-export', content: fixture(baseMarkup.replace('<p>Current content</p>', '<Busy/><p>Current content</p>'),
+        baseScript + 'import {Loading as Busy} from "@ozwasyd/element-plus/icons-vue";'), expected: null },
     { name: 'two-task-page-headers', content: fixture(baseMarkup + header), expected: 'task-header-not-exact-one' },
     { name: 'three-same-priority-primary-buttons', content: fixture(baseMarkup.replace(action, action.repeat(3))), expected: 'primary-action-not-exact' },
     { name: 'section-card-card-nesting', content: fixture(baseMarkup.replace('<p>Current content</p>', '<section data-fsus-surface="data-region" data-fsus-material="boundary"><section data-fsus-surface="data-region" data-fsus-material="boundary">Nested</section></section>')), expected: 'forbidden-surface-nesting' },
@@ -102,6 +104,14 @@ try
             await page.locator('main').waitFor();
             assert.deepEqual(runtimeErrors, [], 'negative controls must render without runtime errors');
             const graph = run.source.graph([join(output, item.name + '.vue')]);
+            if (item.name === 'public-icon-star-export')
+            {
+                assert.equal(await page.locator('svg').count(), 1, 'actual public icon must render');
+                const call = graph.nodes.find((node) => node.tag === 'Busy');
+                assert.equal(call.origin.kind, 'fsusui-public');
+                assert.ok(call.definition.endsWith('/icons-vue/src/components/loading.vue'));
+                assert.ok(graph.nodes.some((node) => node.file === call.definition && node.tag === 'svg'));
+            }
             const candidate = structuredClone(archetype);
             if (item.contractInput)
             {

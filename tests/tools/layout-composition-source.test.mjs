@@ -46,6 +46,41 @@ test('public aliases follow the real withInstall property factory and source fil
     assert.ok(graph.nodes.some((node) => node.file === call.definition && node.origin.kind === 'native-variants' && node.origin.default === 'h1'));
 });
 
+test('public icon star exports reach actual Vue SVG source and bind source path configuration', () =>
+{
+    const s = source();
+    const file = fixture('<script setup>import {Loading as Busy} from "@ozwasyd/element-plus/icons-vue"</script><template><Busy/></template>');
+    const graph = s.graph([file]);
+    assert.deepEqual(graph.errors, []);
+    const call = graph.nodes.find((node) => node.tag === 'Busy');
+    assert.equal(call.origin.kind, 'fsusui-public');
+    assert.ok(call.definition.endsWith('/icons-vue/src/components/loading.vue'));
+    assert.ok(graph.nodes.some((node) => node.file === call.definition && node.tag === 'svg' && node.origin.kind === 'native'));
+    assert.ok(graph.sourceIdentity.resolutionInputs.some((input) => input.path.endsWith('/vue/tsconfig.base.json') && input.digest.length === 64));
+});
+
+test('named reexports preserve local ownership instead of laundering a public-looking alias', () =>
+{
+    fixture('<template><div data-fsus-surface="control-group"/></template>', 'ExportOwner.vue');
+    fixture('export {default as Toolbar} from "./ExportOwner.vue";', 'Exports.ts');
+    const graph = source().graph([fixture('<script setup>import {Toolbar as FsusToolbar} from "./Exports";</script><template><FsusToolbar/></template>')]);
+    assert.deepEqual(graph.errors, []);
+    const call = graph.nodes.find((node) => node.tag === 'FsusToolbar');
+    assert.equal(call.origin.kind, 'local');
+    assert.ok(call.definition.endsWith('/ExportOwner.vue'));
+});
+
+test('conflicting star exports fail closed instead of choosing an arbitrary component source', () =>
+{
+    fixture('<template><div/></template>', 'FirstOwner.vue');
+    fixture('<template><section/></template>', 'SecondOwner.vue');
+    fixture('export {default as Toolbar} from "./FirstOwner.vue";', 'FirstExports.ts');
+    fixture('export {default as Toolbar} from "./SecondOwner.vue";', 'SecondExports.ts');
+    fixture('export * from "./FirstExports";export * from "./SecondExports";', 'AmbiguousExports.ts');
+    const graph = source().graph([fixture('<script setup>import {Toolbar} from "./AmbiguousExports";</script><template><Toolbar/></template>')]);
+    assert.ok(graph.errors.some((error) => error.reason === 'unknown-component-source' && error.message.includes('ambiguous')));
+});
+
 test('slot branches, teleport and responsive directives retain concrete node locations', () =>
 {
     fixture('<template><slot :open="true"/></template>', 'SlotOwner.vue');
@@ -68,6 +103,17 @@ test('unknown component and dynamic source fail closed despite plausible labels'
 {
     const graph = source().graph([fixture('<template><UnknownPanel data-fsus-surface="document"/><component :is="unknownView"/></template>')]);
     assert.equal(graph.errors.filter((error) => error.reason === 'unknown-component-source').length, 2);
+});
+
+test('finite native component alternatives retain every actual source branch', () =>
+{
+    const graph = source().graph([fixture('<template><component :is="active ? \'section\' : \'article\'"/></template>')]);
+    assert.deepEqual(graph.errors, []);
+    const node = graph.nodes.find((node) => node.tag === 'component');
+    assert.equal(node.origin.kind, 'native-variants');
+    assert.deepEqual(node.origin.values, ['section', 'article']);
+    const unknown = source().graph([fixture('<template><component :is="active ? \'section\' : missingComponent"/></template>')]);
+    assert.ok(unknown.errors.some((error) => error.reason === 'unknown-component-source'));
 });
 
 test('route-name branching resolves useRoute aliases and computed element access', () =>

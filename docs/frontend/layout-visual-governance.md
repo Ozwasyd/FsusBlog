@@ -152,7 +152,11 @@ path helpers, route maps and lazy component imports; unknown expressions fail
 closed. It creates no route/file allowlist or alternate composition contract.
 SFC nodes retain slots, branch directives, teleports, exact public/local import
 origins and original source locations/digests. Public aliases follow their actual
-export factories. Unsupported dynamic components and state bindings remain
+export factories and unambiguous named/star reexports. Upstream module aliases
+come from the actual FsusUI source path configuration, whose bytes are included
+in the resolver identity and drift checks; a generated declaration bundle cannot
+stand in for the active Vue source. Finite native alternatives retain every
+resolved tag and reject an unresolved alternative. Unsupported dynamic components and state bindings remain
 errors rather than a source-only acceptance result.
 
 `compositionProbePlugin` adds test-only source markers before the actual Vue

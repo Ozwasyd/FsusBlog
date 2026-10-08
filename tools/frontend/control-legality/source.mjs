@@ -87,6 +87,22 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
     const parsed = new Map();
     const exported = new Map();
     const publicNames = new Map();
+    const resolutionInputs = [];
+    let upstreamPaths = [];
+    if (mode === 'local')
+    {
+        const configFile = path.join(fsusUIRoot, 'vue/tsconfig.base.json');
+        const config = ts.readConfigFile(configFile, (file) => fs.readFileSync(file, 'utf8'));
+        if (config.error || config.config.extends)
+        {
+            fail('unresolved FsusUI source path configuration');
+        }
+        resolutionInputs.push({ path: configFile, digest: controlDigest(fs.readFileSync(configFile, 'utf8')) });
+        upstreamPaths = Object.entries(config.config.compilerOptions?.paths ?? {})
+            .sort(([left], [right]) => right.replace('*', '').length - left.replace('*', '').length)
+            .map(([pattern, targets]) => ({ pattern, targets,
+                base: path.resolve(path.dirname(configFile), config.config.compilerOptions?.baseUrl ?? '.') }));
+    }
     const vueRuntime = require('vue');
     const upstreamIdentity = () =>
     {
@@ -130,7 +146,23 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         if (upstream && mode === 'local' && specifier.startsWith('@element-plus/'))
         {
-            return exactFile(path.join(fsusUIRoot, 'vue/packages', specifier.slice('@element-plus/'.length)));
+            for (const { pattern, targets, base } of upstreamPaths)
+            {
+                const wildcard = pattern.indexOf('*');
+                const matches = wildcard < 0 ? pattern === specifier
+                    : specifier.startsWith(pattern.slice(0, wildcard)) && specifier.endsWith(pattern.slice(wildcard + 1));
+                if (!matches)
+                {
+                    continue;
+                }
+                if (!Array.isArray(targets) || targets.length !== 1 || typeof targets[0] !== 'string')
+                {
+                    fail(`ambiguous FsusUI source alias ${specifier}`);
+                }
+                const capture = wildcard < 0 ? '' : specifier.slice(wildcard, specifier.length - (pattern.length - wildcard - 1));
+                return exactFile(path.resolve(base, targets[0].replace('*', capture)));
+            }
+            fail(`absent FsusUI source alias ${specifier}`);
         }
         return { package: specifier };
     };
@@ -365,6 +397,11 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         }
         const next = new Set([...seen, key]);
         const record = parse(file);
+        const exportedSource = exportsOf(file).get(name);
+        if (exportedSource?.ambiguous || exportedSource?.unresolved)
+        {
+            fail(`ambiguous/unresolved component export ${key}`);
+        }
         for (const { ast } of record.scripts)
         {
             for (const statement of ast.statements)
@@ -706,13 +743,14 @@ export function createControlSourceResolver({ repositoryRoot, fsusUIRoot, mode =
         return inspect(source.definition, source.exportName);
     };
     return { ts, dom, parse, resolveTag, resolveImport, resolveExpression, publicIdentity, addRegistrations,
+        modulePath, exportsOf,
         isInteractive,
         identity: { mode, package: packageId, publicRoot, packageDigest: controlDigest(metadata),
-            upstream: initialUpstreamIdentity, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,
+            upstream: initialUpstreamIdentity, resolutionInputs, parsers: { typescript: ts.version, vueSfc: require('@vue/compiler-sfc/package.json').version,
                 vueDom: require('@vue/compiler-dom/package.json').version } },
         sourceBindings: () =>
         {
-            const files = [...parsed.values()].map((record) => ({ path: record.file, digest: controlDigest(record.content) }));
+            const files = [...resolutionInputs, ...[...parsed.values()].map((record) => ({ path: record.file, digest: controlDigest(record.content) }))];
             const errors = files.filter((file) => !fs.existsSync(file.path) || file.digest !== controlDigest(fs.readFileSync(file.path, 'utf8')))
                 .map((file) => ({ path: file.path, reason: 'parsed-source-changed-during-scan' }));
             if (controlDigest(initialUpstreamIdentity) !== controlDigest(upstreamIdentity()))

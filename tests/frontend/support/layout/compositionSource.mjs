@@ -47,7 +47,7 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         if (specifier.startsWith('@element-plus/') && file.startsWith(upstream + '/'))
         {
-            return exact(resolve(upstream, 'vue/packages', specifier.slice('@element-plus/'.length)));
+            return resolver.modulePath(specifier, file, true);
         }
         fail(`unresolved/private import ${specifier} in ${file}`);
     }
@@ -78,6 +78,15 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
         }
         seen.add(identity);
         const record = resolver.parse(file);
+        const exported = resolver.exportsOf(file).get(name);
+        if (exported?.ambiguous || exported?.unresolved)
+        {
+            fail(`ambiguous/unresolved component export ${identity}`);
+        }
+        if (exported && (exported.file !== file || exported.name !== name))
+        {
+            return exportComponent(exported.file, exported.name, seen);
+        }
         function follow(expression)
         {
             if (ts.isIdentifier(expression))
@@ -351,11 +360,18 @@ export function createCompositionSource({ repositoryRoot, fsusUIRoot, parserRoot
                     if (!origin)
                     {
                         const targets = resolver.resolveExpression(file, exp);
-                        if (targets.length !== 1)
+                        if (targets.length > 1 && targets.every((target) => target.kind === 'native'))
+                        {
+                            origin = { kind: 'native-variants', values: [...new Set(targets.map((target) => target.name))] };
+                        }
+                        else if (targets.length !== 1)
                         {
                             fail(`ambiguous dynamic component ${file}:${offset}`);
                         }
-                        origin = targets[0];
+                        else
+                        {
+                            origin = targets[0];
+                        }
                     }
                 }
                 else if (file.startsWith(upstream + '/') && record.imports.has(node.tag))
