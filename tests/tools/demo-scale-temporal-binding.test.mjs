@@ -33,6 +33,8 @@ test('demo and scale field mappings reference only catalog-owned business roles'
     }
     assert.equal(demoTemporalFieldMappings.find((mapping) => mapping.field === 'article-revision.created-at').roleId, 'article.revision');
     assert.equal(demoTemporalFieldMappings.find((mapping) => mapping.field === 'article-publication.published-at').roleId, 'article.publication');
+    assert.equal(demoTemporalFieldMappings.find((mapping) => mapping.field === 'article-rights-snapshot.created-at').roleId, 'article.revision');
+    assert.equal(demoTemporalFieldMappings.find((mapping) => mapping.field === 'comment-revision.created-at').roleId, 'comment.created');
 });
 
 test('demo cannot claim a binding before canonical producer registration exists', () =>

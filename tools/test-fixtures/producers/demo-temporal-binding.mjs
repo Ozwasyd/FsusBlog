@@ -10,7 +10,7 @@ export const demoTemporalFieldMappings = Object.freeze([
     ['article-revision.created-at', 'article.revision'],
     ['article-publication.published-at', 'article.publication'],
     ['article-rights-policy.created-at', 'article.created'],
-    ['article-rights-snapshot.created-at', 'article.publication'],
+    ['article-rights-snapshot.created-at', 'article.revision'],
     ['comment.create-time', 'comment.created'],
     ['comment.moderated-at', 'comment.moderated'],
     ['comment-revision.created-at', 'comment.created'],
