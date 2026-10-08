@@ -14,7 +14,7 @@ namespace FsusBlog.Server.Services.ArticleVault;
 public sealed class PostgresArticleVaultOperationCheckpointStore(
     NpgsqlDataSource dataSource,
     IArticleVaultExecutionStore executionStore,
-    TimeProvider timeProvider) : IArticleVaultOperationCheckpointStore
+    TimeProvider timeProvider) : IArticleVaultOperationCheckpointStore, IArticleVaultRecoveryOperationCheckpointWriter
 {
     public async Task RegisterAsync(
         ArticleVaultOperationIdentity identity,
@@ -55,11 +55,45 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
         await RequireIdentityAsync(connection, null, identity, false, cancellationToken);
     }
 
-    public async Task AppendAsync(
+    public Task AppendAsync(
         ArticleVaultOperationIdentity identity,
         ArticleVaultSyncPlan plan,
         ArticleVaultOperationCheckpoint checkpoint,
         CancellationToken cancellationToken = default)
+        => AppendCoreAsync(identity, plan, checkpoint, null, cancellationToken);
+
+    /// <summary>
+    /// Stages the canonical journal in the same locked operation transaction, then appends its
+    /// exact checkpoint. Replays revalidate the journal binding. This is fact persistence only;
+    /// backup authentication, current decision admission and native/base verification stay owned.
+    /// </summary>
+    public Task AppendAsync(
+        ArticleVaultResolutionOperationPlan operationPlan,
+        ArticleVaultResolutionPlan proposal,
+        ArticleVaultResolutionPlanInput current,
+        ArticleVaultRecoveryJournal journal,
+        ArticleVaultOperationCheckpoint checkpoint,
+        ArticleVaultRecoveryJournalAssociation association,
+        IArticleVaultTransactionalRecoveryJournalStore journalStore,
+        CancellationToken cancellationToken = default)
+    {
+        ArgumentNullException.ThrowIfNull(operationPlan);
+        ArgumentNullException.ThrowIfNull(proposal);
+        ArgumentNullException.ThrowIfNull(current);
+        ArgumentNullException.ThrowIfNull(journal);
+        ArgumentNullException.ThrowIfNull(association);
+        ArgumentNullException.ThrowIfNull(journalStore);
+        ArticleVaultOperationVerifier.Require(ArticleVaultResolutionOperationPlanner.ValidateStructure(operationPlan));
+        return AppendCoreAsync(operationPlan.Operation, operationPlan.SyncPlan, checkpoint,
+            new(operationPlan, proposal, current, journal, association, journalStore), cancellationToken);
+    }
+
+    private async Task AppendCoreAsync(
+        ArticleVaultOperationIdentity identity,
+        ArticleVaultSyncPlan plan,
+        ArticleVaultOperationCheckpoint checkpoint,
+        RecoveryAppend? recovery,
+        CancellationToken cancellationToken)
     {
         ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateIdentity(identity, plan));
         if (checkpoint.Sequence < 0)
@@ -78,6 +112,14 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
         {
             ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.VerifyHistory(
                 identity, plan, stored, checkpoint.Sequence, checkpoint.ContentSha256));
+            if (!ArticleVaultOperationCodec.Serialize(replay).AsSpan().SequenceEqual(
+                ArticleVaultOperationCodec.Serialize(checkpoint)))
+            {
+                throw Rejected("article_vault_operation_append_conflict");
+            }
+
+            await StageRecoveryAsync(transaction, recovery, checkpoint,
+                stored.Count > 1 ? stored[^2] : null, cancellationToken);
             if (!ArticleVaultOperationCodec.Serialize(replay).AsSpan().SequenceEqual(
                 ArticleVaultOperationCodec.Serialize(checkpoint)))
             {
@@ -103,18 +145,17 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
         }
 
         ArticleVaultOperationVerifier.Require(appendValidation);
-        long nowUnixMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
-        if (checkpoint.RecordedAtUnixMs > nowUnixMs
-            || nowUnixMs > identity.DeadlineUnixMs
-                && checkpoint.State is not (VaultOperationState.Cancelled or VaultOperationState.RecoveryRequired or VaultOperationState.Blocked))
-        {
-            throw Rejected("article_vault_operation_current_deadline_invalid");
-        }
+        RequireAppendWindow(identity, checkpoint);
 
         if (checkpoint.ServerResult is not null)
         {
             await VerifyServerResultAsync(identity, checkpoint, cancellationToken);
         }
+
+        await StageRecoveryAsync(transaction, recovery, checkpoint, previous, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(identity, plan, previous, checkpoint));
+        RequireAppendWindow(identity, checkpoint);
 
         await using var insert = new NpgsqlCommand("""
             INSERT INTO article_vault_operation_checkpoint (
@@ -127,8 +168,36 @@ public sealed class PostgresArticleVaultOperationCheckpointStore(
         insert.Parameters.AddWithValue("digest", checkpoint.ContentSha256);
         insert.Parameters.AddWithValue("json", Encode(checkpoint));
         await insert.ExecuteNonQueryAsync(cancellationToken);
+        // Checkpoint SQL may wait after journal admission. Reuse the canonical exact replay
+        // verifier before commit so backup/proposal expiry and protection remain its authority.
+        await StageRecoveryAsync(transaction, recovery, checkpoint, previous, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        ArticleVaultOperationVerifier.Require(ArticleVaultOperationVerifier.ValidateAppend(identity, plan, previous, checkpoint));
+        RequireAppendWindow(identity, checkpoint);
         await transaction.CommitAsync(cancellationToken);
     }
+
+    private static Task StageRecoveryAsync(NpgsqlTransaction transaction, RecoveryAppend? recovery,
+        ArticleVaultOperationCheckpoint checkpoint, ArticleVaultOperationCheckpoint? previous,
+        CancellationToken cancellationToken)
+        => recovery is null ? Task.CompletedTask : recovery.Store.StageAsync(transaction, recovery.Plan,
+            recovery.Proposal, recovery.Current, recovery.Journal, checkpoint, previous,
+            recovery.Association, cancellationToken);
+
+    private void RequireAppendWindow(ArticleVaultOperationIdentity identity, ArticleVaultOperationCheckpoint checkpoint)
+    {
+        long nowUnixMs = timeProvider.GetUtcNow().ToUnixTimeMilliseconds();
+        if (checkpoint.RecordedAtUnixMs > nowUnixMs
+            || nowUnixMs > identity.DeadlineUnixMs
+                && checkpoint.State is not (VaultOperationState.Cancelled or VaultOperationState.RecoveryRequired or VaultOperationState.Blocked))
+        {
+            throw Rejected("article_vault_operation_current_deadline_invalid");
+        }
+    }
+
+    private sealed record RecoveryAppend(ArticleVaultResolutionOperationPlan Plan, ArticleVaultResolutionPlan Proposal,
+        ArticleVaultResolutionPlanInput Current, ArticleVaultRecoveryJournal Journal,
+        ArticleVaultRecoveryJournalAssociation Association, IArticleVaultTransactionalRecoveryJournalStore Store);
 
     public async Task<IReadOnlyList<ArticleVaultOperationCheckpoint>> ReadThroughAsync(
         ArticleVaultOperationIdentity identity,
