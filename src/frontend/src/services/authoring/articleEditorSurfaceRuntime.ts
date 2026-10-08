@@ -127,7 +127,11 @@ export class ArticleEditorSurfaceRuntime
         const state = this.state;
         if (state.pending && ['planned', 'awaiting-ack', 'paused'].includes(state.pending.status))
         {
-            if (state.pending.targetSurface === state.desiredSurface)
+            const intent = this.binding.anchors.userIntent;
+            const current = this.owner.isCurrentContext(state.pending.before.document)
+                && state.pending.anchorCommand?.intent.generation === intent.generation;
+            if (state.pending.targetSurface === state.desiredSurface && current
+                && (state.pending.status !== 'paused' || intent.state === 'manual'))
             {
                 return state.pending;
             }
@@ -141,7 +145,7 @@ export class ArticleEditorSurfaceRuntime
         const planned = this.binding.continuity.transitionSurface(state.desiredSurface,
             this.binding.positionBinding(), capture, restore);
         this.pendingRef = planned.requestRef;
-        return this.binding.continuity.apply(planned.requestRef);
+        return planned.status === 'planned' ? this.binding.continuity.apply(planned.requestRef) : planned;
     }
 
     /** Withdraw only this domain's plan; no editor, attachment, tool or document lease is released. */
