@@ -1,0 +1,59 @@
+{
+    "testedSourceCommit": "b70d3115e66a28c76e3c4497f1fe509da37f2e30",
+    "sourceBranch": "codex/chain-3521-ledger-conflicts-current",
+    "actualMasterBase": "cb6f4e4a174ac65735707c7e44286352803e742b",
+    "baseLedgerBlob": "305549363ffb55ae4310415645f13615cf40390e",
+    "correctedLedgerBlob": "00f850a2fbbc5e5afe1c1c201e0b1f21117beee3",
+    "ownPreviousCanonicalIncrement": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+    "ownPreviousIncrementBeforeBlobEqualsActualMaster": true,
+    "actualDeclarationHistory": [
+        "013367ae64211e53e1891264d817caf5fbec414e",
+        "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd"
+    ],
+    "changedFiles": [
+        "tests/test-retention-replacements.json"
+    ],
+    "mergedIds": 8,
+    "rowsBefore": 1526,
+    "rowsAfter": 1518,
+    "originalReplacementReferencesRetained": 31,
+    "bothReasonsPreservedVerbatim": true,
+    "allDistinctOriginalIdsPreserved": true,
+    "otherEntriesAndAssertionFieldsUnchanged": true,
+    "checkersTestsFrozenSnapshotsMatrixTransactionHistoryUnchanged": true,
+    "newAcceptedRowsAdded": false,
+    "baselineOriginalControls": {
+        "testedSourceCommit": "cb6f4e4a174ac65735707c7e44286352803e742b",
+        "exitCode": 1,
+        "tests": 40,
+        "pass": 39,
+        "fail": 1,
+        "skipped": 0,
+        "exactFailure": "#2348 canonical MFA retirement retains before identities without post-baseline self-admission; eight conflicting replacement declarations"
+    },
+    "publicationOriginalControls": {
+        "testedSourceCommit": "b70d3115e66a28c76e3c4497f1fe509da37f2e30",
+        "exitCode": 0,
+        "tests": 40,
+        "pass": 40,
+        "fail": 0,
+        "skipped": 0
+    },
+    "publicationRangeExitCode": 0,
+    "publicationDiffCheckExitCode": 0,
+    "new3594Implementation": false,
+    "broaderInventoryOrRuntimeTestsRerun": false,
+    "separateMigrationAudit35ReferencesUnchanged": true,
+    "qualification": false,
+    "historyPolicyPromotion": false,
+    "issuesClosed": false,
+    "chainComplete": false,
+    "remainingGates": [
+        "Independent #3594 reviewer recheck of this exact bounded increment.",
+        "The separate seven excluded Migration target owners and #2040 Audit historical transition remain unaccepted.",
+        "Real SDK/native owner and full current compiled after-inventory/runtime acceptance remain separate gates.",
+        "Root #3521 independent current epoch promotion and dependent #3520 admission remain blocked."
+    ],
+    "prCreated": false,
+    "prQueue": "GitHub content writes remain queued; isolated source/evidence pushes only."
+}

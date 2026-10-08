@@ -1,0 +1,13 @@
+{
+  "testedCommit": "e1255aae94acb4eeaee861bc184cd8e472789f4e",
+  "baseCommit": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/test-replacement-transaction.test.mjs",
+    "tests/tools/test-suite-convergence.test.mjs"
+  ],
+  "exitCode": 0,
+  "durationSeconds": 19.943,
+  "qualification": false
+}

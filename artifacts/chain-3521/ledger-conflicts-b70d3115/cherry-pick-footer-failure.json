@@ -1,0 +1,7 @@
+{
+  "commit": "e1255aae94acb4eeaee861bc184cd8e472789f4e",
+  "outcome": "range validator exit1: git cherry-pick -x appended provenance after required final Refs footer",
+  "sourceControls": "40/40 passed on this identical source tree",
+  "action": "amend unpublished commit footer position; preserve -x provenance in body and all source blobs",
+  "qualification": false
+}

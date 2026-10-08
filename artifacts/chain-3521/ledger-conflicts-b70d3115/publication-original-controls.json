@@ -1,0 +1,15 @@
+{
+  "testedCommit": "b70d3115e66a28c76e3c4497f1fe509da37f2e30",
+  "baseCommit": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "--test",
+    "tests/tools/test-replacement-transaction.test.mjs",
+    "tests/tools/test-suite-convergence.test.mjs"
+  ],
+  "exitCode": 0,
+  "durationSeconds": 18.81,
+  "finishedAtUtc": "2026-10-08T10:32:30.937177+00:00",
+  "repeatReason": "bind exact final publication SHA after required footer relocation, with unchanged source tree",
+  "qualification": false
+}

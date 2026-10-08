@@ -1,0 +1,289 @@
+{
+  "inspectedMaster": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "auditedMaster": "aaba7b8c84ecfb336c71443e30d9fd82d21fb16d",
+  "beforeLedgerBlob": "305549363ffb55ae4310415645f13615cf40390e",
+  "existingCanonicalCorrection": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+  "existingCorrectionExactBeforeBlobMatch": true,
+  "pairs": [
+    {
+      "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+      "declarations": [
+        {
+          "index": 138,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/BlacklistServiceMutationTests.cs#BlacklistServiceMutationTests.BanUserAsync_PersistsNormalizedReasonAndPublishesCommittedVersion"
+            ],
+            "reason": "The real PostgreSQL mutation test retains durable banned status, normalized stored reason and committed generation, then observes the bounded local ban projection and a zero-database-read hit. The retired Redis string representation is not restored."
+          },
+          "idLine": 1117,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1518,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.UserAuthPostgresConcurrencyTests.BlacklistService_BanPersistsNormalizedReasonAndPublishesOneGeneration#case-0000"
+            ],
+            "reason": "Issue #3543 checks the current PostgreSQL ban mutation, normalized durable reason, monotonic generation and local projection. The retired Redis string-cache assertion is not retained by the bounded projection architecture."
+          },
+          "idLine": 13562,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+      "declarations": [
+        {
+          "index": 139,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/BlacklistServiceMutationTests.cs#BlacklistServiceMutationTests.UnbanUserAsync_PreservesVersionedNormalProjectionAgainstStaleBan"
+            ],
+            "reason": "The current mutation persists normal status and clears the reason, publishes the incremented generation as a present normal projection and rejects a stale banned replay; this preserves the versioned-normal-state invariant after the Redis cache cutover."
+          },
+          "idLine": 1125,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1519,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+            "path": "tests/backend/Unit/BlacklistServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.UserAuthPostgresConcurrencyTests.BlacklistService_UnbanPublishesVersionedNormalStateWithoutErasingHistory#case-0000"
+            ],
+            "reason": "Issue #3543 checks that an actual PostgreSQL unban clears the durable reason, increments the generation and publishes a known normal local projection. The former Redis key-removal assertion is intentionally retired."
+          },
+          "idLine": 13570,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+      "declarations": [
+        {
+          "index": 140,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/AdminSessionTouchPersistenceTests.cs#AdminSessionTouchPersistenceTests.ValidatedSession_QueuesThenPersistsLastSeenUsingInjectedClock",
+              "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath"
+            ],
+            "reason": "Current validation queues the touch rather than writing synchronously. The real PostgreSQL test proves active-session admission, no premature write, drained LastSeen persistence at the injected epoch and unchanged expiries; the TestServer owner proves exact raw-token forwarding to the admin validator."
+          },
+          "idLine": 1133,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1520,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_UsesOnlyReadyLocalProjection_AndFailsClosedForUnknown#case-0000",
+              "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000",
+              "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#FsusBlog.Server.Tests.AdminSessionProjectionTouchIntegrationTests.ShutdownFlush_DrainsQueuedTouchBeforeWorkerStops#case-0000"
+            ],
+            "reason": "Issue #3543 maps active-session acceptance to the ready projection, coalesced scheduling to the bounded touch queue, and durable last-seen persistence to the actual PostgreSQL worker flush; the old synchronous request-path database touch is retired."
+          },
+          "idLine": 13578,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+      "declarations": [
+        {
+          "index": 141,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath",
+              "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_RevokedSessionFailsAuthenticationAndClearsOnlyAdminCookies"
+            ],
+            "reason": "Real signed JWT requests exercise the configured bearer handler, exact admin-token forwarding and separation from the ordinary validator; revocation returns 401 and clears only admin cookies instead of relying on method-body metadata."
+          },
+          "idLine": 1142,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1521,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath#case-0000",
+              "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0001",
+              "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0002"
+            ],
+            "reason": "Issue #3543 replaces private handler metadata inspection with TestServer acceptance of a signed admin token and wrong-key/tampered-signature rejection before the session validator runs."
+          },
+          "idLine": 13588,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+      "declarations": [
+        {
+          "index": 142,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch",
+              "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.TouchScheduler_TrackingAndQueueAreStrictlyBounded",
+              "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#AdminSessionProjectionTouchIntegrationTests.TouchCasConflict_PerformsOneAuthorityRefreshOutsideRequestPath",
+              "xunit:tests/backend/Unit/AdminSessionTouchPersistenceTests.cs#AdminSessionTouchPersistenceTests.QueuedTouch_RejectsChangedAuthorityAndRequestsRefresh"
+            ],
+            "reason": "Current executable owners prove bounded local validation and coalesced touch queues, plus real PostgreSQL rejection and authority refresh for each changed validation version, token, revocation, idle expiry and absolute expiry. The explicit validation version supersedes the retired private xmin and MemoryCache implementation details."
+          },
+          "idLine": 1151,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1522,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+            "path": "tests/backend/Unit/AdminSessionValidationServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.TouchScheduler_TrackingAndQueueAreStrictlyBounded#case-0000",
+              "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000",
+              "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#FsusBlog.Server.Tests.AdminSessionProjectionTouchIntegrationTests.TouchCasConflict_PerformsOneAuthorityRefreshOutsideRequestPath#case-0000"
+            ],
+            "reason": "Issue #3543 maps the old bounded snapshot assertion to the bounded projection/touch queue and proves the replacement validation-version CAS against actual PostgreSQL with one authority refresh; the former row-version predicate is retired."
+          },
+          "idLine": 13598,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+      "declarations": [
+        {
+          "index": 143,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeProjectsViewsLocallyWithoutRedisOverlay",
+              "xunit:tests/backend/Unit/ArticleDetailViewProjectionTests.cs#ArticleDetailViewProjectionTests.Project_UsesMaximumWithoutAllowingOutOfOrderRegression"
+            ],
+            "reason": "The current service call graph binds cached detail reads to the local view projection rather than Redis; the projection behavior test proves the maximum displayed view count and rejects out-of-order regression."
+          },
+          "idLine": 1162,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1523,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+            "path": "tests/backend/Unit/ArticleServiceValidationTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.GetByIdAsync_RuntimeProjectsViewsLocallyWithoutRedisOverlay#case-0000",
+              "xunit:tests/backend/Unit/ArticleDetailViewProjectionTests.cs#FsusBlog.Server.Tests.Unit.ArticleDetailViewProjectionTests.Project_UsesMaximumWithoutAllowingOutOfOrderRegression#case-0000"
+            ],
+            "reason": "Issue #3543 retires the former Redis sorted-set overlay and binds current GetById projection wiring plus executable monotonic local view projection behavior."
+          },
+          "idLine": 13608,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+      "declarations": [
+        {
+          "index": 144,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+            "path": "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.BannedWrite_ReturnsLocked"
+            ],
+            "reason": "The current account projection and banned snapshot still stop the real middleware pipeline and return 423; only the retired legacy-user setup and method name changed."
+          },
+          "idLine": 1171,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1524,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+            "path": "tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#FsusBlog.Server.Tests.Unit.BannedUserMiddlewareIdentityKindTests.BannedWrite_ReturnsLocked#case-0000"
+            ],
+            "reason": "Issue #3543 preserves the observable 423 rejection for a banned write through the current account-subject and projection boundary, without restoring legacy user identity."
+          },
+          "idLine": 13617,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+      "declarations": [
+        {
+          "index": 145,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+            "path": "tests/backend/Unit/RelatedReadingServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.RankingProjection_PreservesLegacyBusinessWeightsAndReasons",
+              "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation"
+            ],
+            "reason": "The current scoring owners retain exact category, tag, keyword and time weights and reason labels, while additionally checking duplicate tags and case-insensitive cross-field keyword matching. The original parent mapping retains its separate benchmark lane."
+          },
+          "idLine": 1179,
+          "idOriginCommit": "013367ae64211e53e1891264d817caf5fbec414e",
+          "idOriginSummary": "fix(test)!: integrate observed temporal owners as work in progress"
+        },
+        {
+          "index": 1525,
+          "entry": {
+            "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+            "path": "tests/backend/Unit/RelatedReadingServiceTests.cs",
+            "replacementTestIds": [
+              "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#FsusBlog.Server.Tests.Unit.RelatedReadingServiceTests.RankingProjection_PreservesLegacyBusinessWeightsAndReasons#case-0000",
+              "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#FsusBlog.Server.Tests.Unit.RelatedReadingServiceTests.ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation#case-0000"
+            ],
+            "reason": "Issue #3543 binds the same category, shared-tag, keyword and publication-time reason oracles to the current ranking and scoring functions, including duplicate-tag and cross-field negatives."
+          },
+          "idLine": 13625,
+          "idOriginCommit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+          "idOriginSummary": "fix(governance): integrate exact retention owners as work in progress"
+        }
+      ]
+    }
+  ],
+  "qualification": false
+}

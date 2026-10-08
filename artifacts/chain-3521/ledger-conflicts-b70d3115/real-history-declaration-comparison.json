@@ -1,0 +1,222 @@
+[
+  {
+    "commit": "013367ae64211e53e1891264d817caf5fbec414e",
+    "ledgerBlob": "305549363ffb55ae4310415645f13615cf40390e",
+    "declarationExactMatches": [
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+        "currentIndex": 138,
+        "historicalExactEntryIndexes": [
+          138
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+        "currentIndex": 1518,
+        "historicalExactEntryIndexes": [
+          1518
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+        "currentIndex": 139,
+        "historicalExactEntryIndexes": [
+          139
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+        "currentIndex": 1519,
+        "historicalExactEntryIndexes": [
+          1519
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+        "currentIndex": 140,
+        "historicalExactEntryIndexes": [
+          140
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+        "currentIndex": 1520,
+        "historicalExactEntryIndexes": [
+          1520
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+        "currentIndex": 141,
+        "historicalExactEntryIndexes": [
+          141
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+        "currentIndex": 1521,
+        "historicalExactEntryIndexes": [
+          1521
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+        "currentIndex": 142,
+        "historicalExactEntryIndexes": [
+          142
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+        "currentIndex": 1522,
+        "historicalExactEntryIndexes": [
+          1522
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+        "currentIndex": 143,
+        "historicalExactEntryIndexes": [
+          143
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+        "currentIndex": 1523,
+        "historicalExactEntryIndexes": [
+          1523
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+        "currentIndex": 144,
+        "historicalExactEntryIndexes": [
+          144
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+        "currentIndex": 1524,
+        "historicalExactEntryIndexes": [
+          1524
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+        "currentIndex": 145,
+        "historicalExactEntryIndexes": [
+          145
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+        "currentIndex": 1525,
+        "historicalExactEntryIndexes": [
+          1525
+        ]
+      }
+    ]
+  },
+  {
+    "commit": "3129a0b45c10022f3d340b9ca5b5fd2c6b80d7cd",
+    "ledgerBlob": "172ec004899d2bb3d94917b54babd5e4daf178dc",
+    "declarationExactMatches": [
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+        "currentIndex": 138,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+        "currentIndex": 1518,
+        "historicalExactEntryIndexes": [
+          1510
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+        "currentIndex": 139,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+        "currentIndex": 1519,
+        "historicalExactEntryIndexes": [
+          1511
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+        "currentIndex": 140,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+        "currentIndex": 1520,
+        "historicalExactEntryIndexes": [
+          1512
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+        "currentIndex": 141,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+        "currentIndex": 1521,
+        "historicalExactEntryIndexes": [
+          1513
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+        "currentIndex": 142,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+        "currentIndex": 1522,
+        "historicalExactEntryIndexes": [
+          1514
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+        "currentIndex": 143,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+        "currentIndex": 1523,
+        "historicalExactEntryIndexes": [
+          1515
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+        "currentIndex": 144,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+        "currentIndex": 1524,
+        "historicalExactEntryIndexes": [
+          1516
+        ]
+      },
+      {
+        "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+        "currentIndex": 145,
+        "historicalExactEntryIndexes": []
+      },
+      {
+        "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+        "currentIndex": 1525,
+        "historicalExactEntryIndexes": [
+          1517
+        ]
+      }
+    ]
+  }
+]

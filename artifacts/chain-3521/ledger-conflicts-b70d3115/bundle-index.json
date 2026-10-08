@@ -1,0 +1,101 @@
+{
+    "testedSourceCommit": "b70d3115e66a28c76e3c4497f1fe509da37f2e30",
+    "sourceBranch": "codex/chain-3521-ledger-conflicts-current",
+    "qualification": false,
+    "files": {
+        "handoff-summary.json": {
+            "bytes": 2584,
+            "sha256": "a763ae2eb7ef0957589081ad95082c6bf05da6ddf73fba0ca584b1b764780075"
+        },
+        "actual-conflict-declarations-and-history.json": {
+            "bytes": 21291,
+            "sha256": "eb5a552cd78f960a8d5d180d4fdaa6c985f4170522d4f8cc33125ff29d27c0b6"
+        },
+        "real-history-declaration-comparison.json": {
+            "bytes": 9141,
+            "sha256": "78d865cb537f70836e7f64e5137bce72d02453c5f958db15c6df74b91ee0c69c"
+        },
+        "current-preservation-proof.json": {
+            "bytes": 8979,
+            "sha256": "035ff39874e00b149f357d3ab38a25c56ad7191592f0d72add86c5c211e2d2cd"
+        },
+        "exact-current-scope-proof.json": {
+            "bytes": 751,
+            "sha256": "3229a485df7a842b07dc0eccb7024905a653e7cfefb32cfcbe0396da119fc84b"
+        },
+        "baseline-original-controls.json": {
+            "bytes": 360,
+            "sha256": "4b595b672056f6228bffac91a55d810a882e1228efd71041385484ecea33e18a"
+        },
+        "corrected-original-controls.json": {
+            "bytes": 420,
+            "sha256": "303c35fec947e5d35d3580eb991df48f528533a937bcd6e5cf9e1686227cffb0"
+        },
+        "cherry-pick-footer-failure.json": {
+            "bytes": 371,
+            "sha256": "1dd36d4cd5a070e230fec0788b4ad3c487f3c030a6307591855c90cf9e7da8e5"
+        },
+        "publication-original-controls.json": {
+            "bytes": 589,
+            "sha256": "edee1024300ab3754b2288779a22d629e322e5387e0215fd3f3af185208efdd1"
+        },
+        "publication-range.json": {
+            "bytes": 328,
+            "sha256": "d011e688a6de08d32d21a4cffc74d269b2217cc7ac2f880b36d538aca3e1d74c"
+        },
+        "pr-increment-draft.md": {
+            "bytes": 1245,
+            "sha256": "c92731c3442dd48e2bd0edd04a389820ea8c45c06b2d4866a0c1af611196229a"
+        },
+        "baseline-original-controls.log.gz": {
+            "bytes": 2639,
+            "sha256": "953e79a3e632c02676e9ac781cabe958621d7ae7be6c094529963da4d4fc830e"
+        },
+        "corrected-original-controls.log.gz": {
+            "bytes": 1973,
+            "sha256": "2efc283072a3a79b5ec67903e806f0de3e2eb4c9535b715f90014951a1868700"
+        },
+        "publication-original-controls.log.gz": {
+            "bytes": 1968,
+            "sha256": "bc24cd7f7c3de6f38839b0fd8f21fe2b997a5de6043615f0b2327841a566fe03"
+        },
+        "publication-range.log.gz": {
+            "bytes": 99,
+            "sha256": "7a5fc6863ac85c4a509ae2c3f6fb922ccd8a20d12862e0a633adea3dda4161b3"
+        }
+    },
+    "rawLogs": [
+        {
+            "archive": "baseline-original-controls.log.gz",
+            "format": "gzip; deterministic transport mtime0",
+            "originalBytes": 9424,
+            "originalSha256": "afdd91300057449bebcf2f0b0aac8328625f17072d5815edb9ba16cc701e3236",
+            "originalFileName": "baseline-original-controls.log",
+            "runtimeQualification": false
+        },
+        {
+            "archive": "corrected-original-controls.log.gz",
+            "format": "gzip; deterministic transport mtime0",
+            "originalBytes": 5325,
+            "originalSha256": "f6ae0620f667213e8432e8365f78348b5ab562af9242f1f313ff96330a2f49db",
+            "originalFileName": "corrected-original-controls.log",
+            "runtimeQualification": false
+        },
+        {
+            "archive": "publication-original-controls.log.gz",
+            "format": "gzip; deterministic transport mtime0",
+            "originalBytes": 5322,
+            "originalSha256": "cefedd777ef95c31f6982656280326fea7a8e9f0bc1bab2f557572f89ae9e833",
+            "originalFileName": "publication-original-controls.log",
+            "runtimeQualification": false
+        },
+        {
+            "archive": "publication-range.log.gz",
+            "format": "gzip; deterministic transport mtime0",
+            "originalBytes": 81,
+            "originalSha256": "fc57bd1ed669a973dbfa3d618b2a5c3895f39d0b0ec1cb66bcf962e6f9190732",
+            "originalFileName": "publication-range.log",
+            "runtimeQualification": false
+        }
+    ]
+}

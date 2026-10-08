@@ -1,0 +1,117 @@
+{
+  "base": "cb6f4e4a174ac65735707c7e44286352803e742b",
+  "existingOwnCanonicalCorrection": "86841bac2fb0cdbeb8baa02b218869529abbf093",
+  "candidateLedgerBlob": "00f850a2fbbc5e5afe1c1c201e0b1f21117beee3",
+  "beforeRows": 1526,
+  "afterRows": 1518,
+  "distinctIdSetUnchanged": true,
+  "otherEntriesByteValuesUnchanged": true,
+  "otherManifestFieldsUnchanged": true,
+  "eightMergedEntries": [
+    {
+      "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.BanUserAsync_PersistsBannedStatusAndCachesNormalizedReason",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/BlacklistServiceMutationTests.cs#BlacklistServiceMutationTests.BanUserAsync_PersistsNormalizedReasonAndPublishesCommittedVersion",
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.UserAuthPostgresConcurrencyTests.BlacklistService_BanPersistsNormalizedReasonAndPublishesOneGeneration#case-0000"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BlacklistServiceTests.cs#BlacklistServiceTests.UnbanUserAsync_PublishesVersionedNormalStateInsteadOfRemovingKey",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/BlacklistServiceMutationTests.cs#BlacklistServiceMutationTests.UnbanUserAsync_PreservesVersionedNormalProjectionAgainstStaleBan",
+        "xunit:tests/backend/Unit/UserAuthPostgresConcurrencyTests.cs#FsusBlog.Server.Tests.Unit.UserAuthPostgresConcurrencyTests.BlacklistService_UnbanPublishesVersionedNormalStateWithoutErasingHistory#case-0000"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_AllowsActiveSessionAndUpdatesLastSeen",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/AdminSessionTouchPersistenceTests.cs#AdminSessionTouchPersistenceTests.ValidatedSession_QueuesThenPersistsLastSeenUsingInjectedClock",
+        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath",
+        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_UsesOnlyReadyLocalProjection_AndFailsClosedForUnknown#case-0000",
+        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000",
+        "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#FsusBlog.Server.Tests.AdminSessionProjectionTouchIntegrationTests.ShutdownFlush_DrainsQueuedTouchBeforeWorkerStops#case-0000"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.JwtBearerEvents_RuntimeHandlerValidatesAdminSessionAfterTokenSignature",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath",
+        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#UserSessionJwtAuthenticationTests.AdminEndpoint_RevokedSessionFailsAuthenticationAndClearsOnlyAdminCookies",
+        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.AdminEndpoint_KeepsIndependentAdminSessionValidationPath#case-0000",
+        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0001",
+        "xunit:tests/backend/Unit/UserSessionJwtAuthenticationTests.cs#FsusBlog.Server.Tests.Unit.UserSessionJwtAuthenticationTests.ProtectedEndpoint_RejectsInvalidAccessTokenBeforeSessionValidation#case-0002"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    },
+    {
+      "id": "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_RuntimeMetadataUsesBoundedSnapshotAndRowVersionGuardForLastSeenTouch",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch",
+        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#AdminSessionValidationServiceTests.TouchScheduler_TrackingAndQueueAreStrictlyBounded",
+        "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#AdminSessionProjectionTouchIntegrationTests.TouchCasConflict_PerformsOneAuthorityRefreshOutsideRequestPath",
+        "xunit:tests/backend/Unit/AdminSessionTouchPersistenceTests.cs#AdminSessionTouchPersistenceTests.QueuedTouch_RejectsChangedAuthorityAndRequestsRefresh",
+        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.TouchScheduler_TrackingAndQueueAreStrictlyBounded#case-0000",
+        "xunit:tests/backend/Unit/AdminSessionValidationServiceTests.cs#FsusBlog.Server.Tests.Unit.AdminSessionValidationServiceTests.ValidateAsync_OneThousandConcurrentReads_DoNotReadAuthority_AndCoalesceTouch#case-0000",
+        "xunit:tests/backend/Integration/AdminSessionProjectionTouchIntegrationTests.cs#FsusBlog.Server.Tests.AdminSessionProjectionTouchIntegrationTests.TouchCasConflict_PerformsOneAuthorityRefreshOutsideRequestPath#case-0000"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    },
+    {
+      "id": "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeOverlaysProjectedViewsOnCachedArticleDetail",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#ArticleServiceValidationTests.GetByIdAsync_RuntimeProjectsViewsLocallyWithoutRedisOverlay",
+        "xunit:tests/backend/Unit/ArticleDetailViewProjectionTests.cs#ArticleDetailViewProjectionTests.Project_UsesMaximumWithoutAllowingOutOfOrderRegression",
+        "xunit:tests/backend/Unit/ArticleServiceValidationTests.cs#FsusBlog.Server.Tests.Unit.ArticleServiceValidationTests.GetByIdAsync_RuntimeProjectsViewsLocallyWithoutRedisOverlay#case-0000",
+        "xunit:tests/backend/Unit/ArticleDetailViewProjectionTests.cs#FsusBlog.Server.Tests.Unit.ArticleDetailViewProjectionTests.Project_UsesMaximumWithoutAllowingOutOfOrderRegression#case-0000"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    },
+    {
+      "id": "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.InvokeAsync_LegacyUserWithBannedState_ReturnsLocked",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#BannedUserMiddlewareIdentityKindTests.BannedWrite_ReturnsLocked",
+        "xunit:tests/backend/Unit/BannedUserMiddlewareIdentityKindTests.cs#FsusBlog.Server.Tests.Unit.BannedUserMiddlewareIdentityKindTests.BannedWrite_ReturnsLocked#case-0000"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    },
+    {
+      "id": "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.KeywordAndScoringPath_PreservesCategoryTagAndTimeReasons",
+      "oldEntryCount": 2,
+      "newEntryCount": 1,
+      "replacementIds": [
+        "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.RankingProjection_PreservesLegacyBusinessWeightsAndReasons",
+        "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#RelatedReadingServiceTests.ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation",
+        "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#FsusBlog.Server.Tests.Unit.RelatedReadingServiceTests.RankingProjection_PreservesLegacyBusinessWeightsAndReasons#case-0000",
+        "xunit:tests/backend/Unit/RelatedReadingServiceTests.cs#FsusBlog.Server.Tests.Unit.RelatedReadingServiceTests.ScoringPath_DeduplicatesTagsAndMatchesKeywordsWithoutCrossFieldConcatenation#case-0000"
+      ],
+      "originalReasonsPreservedVerbatim": true,
+      "unionExact": true
+    }
+  ],
+  "semanticAcceptanceClaimed": false,
+  "qualification": false
+}

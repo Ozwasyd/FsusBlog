@@ -1,0 +1,11 @@
+{
+  "testedCommit": "b70d3115e66a28c76e3c4497f1fe509da37f2e30",
+  "command": [
+    "/workspace/chain-3521-evidence/toolchains/node-v24.16.0-linux-x64/bin/node",
+    "tools/governance/check-change-contract.mjs",
+    "--range",
+    "cb6f4e4a174ac65735707c7e44286352803e742b..HEAD"
+  ],
+  "exitCode": 0,
+  "qualification": false
+}
