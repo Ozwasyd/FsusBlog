@@ -423,13 +423,13 @@ public sealed class SecurityAdminPolicyDefaultsTests
     [Fact]
     public void Simulate_DisabledModeAllowsAllAndObserveModeReportsMatchedRules()
     {
-        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(BuildConfiguration(("AntiCrawler:Mode", "disabled"))));
+        var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(BuildConfiguration(("AntiCrawler:Mode", "enforce"), ("Security:RiskControl:GlobalMode", "disabled"))));
         service.AddRule(new AntiCrawlerRuleRequest("block-rule", true, "user-agent", "python", "block", 100, null), "test");
 
         AntiCrawlerSimulationResult disabledResult = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "python", "1.2.3.4", null, 0));
         Assert.Equal("disabled_allow", disabledResult.FinalAction);
 
-        var observeService = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(BuildConfiguration(("AntiCrawler:Mode", "observe"))));
+        var observeService = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(BuildConfiguration(("AntiCrawler:Mode", "enforce"), ("Security:RiskControl:GlobalMode", "observe"))));
         observeService.AddRule(new AntiCrawlerRuleRequest("block-rule", true, "user-agent", "python", "block", 100, null), "test");
 
         AntiCrawlerSimulationResult observeResult = observeService.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "python", "1.2.3.4", null, 0));
@@ -784,30 +784,29 @@ public sealed class SecurityAdminPolicyDefaultsTests
     {
         var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
 
-        // Default: RequireChallengeScore=50, BlockScore=100
-        // Add a rule that brings score to exactly 50 → require_challenge
-        service.AddRule(new AntiCrawlerRuleRequest("at-threshold", true, "user-agent", "threshold-agent", "challenge", 50, null), "test");
-        AntiCrawlerSimulationResult atThreshold = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "threshold-agent", "1.2.3.4", null, 0));
+        SecurityRiskActionThresholds thresholds = service.CurrentRiskPolicy.ResolveActionPolicy(RiskActionNames.PublicRead).Thresholds;
+        Assert.Equal(20, thresholds.ChallengeScore);
+        Assert.Equal(90, thresholds.BlockScore);
+
+        AntiCrawlerSimulationResult atThreshold = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "Mozilla", "1.2.3.4", null, 20));
         Assert.Equal("require_challenge", atThreshold.FinalAction);
         Assert.True(atThreshold.WouldRequireChallenge);
         Assert.False(atThreshold.WouldBlock);
 
-        // Add a rule that brings score to exactly 100 → block
-        service.AddRule(new AntiCrawlerRuleRequest("at-block", true, "user-agent", "block-agent", "block", 100, null), "test");
-        AntiCrawlerSimulationResult atBlock = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "block-agent", "1.2.3.4", null, 0));
+        AntiCrawlerSimulationResult atBlock = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "Mozilla", "1.2.3.4", null, 90));
         Assert.Equal("block", atBlock.FinalAction);
         Assert.True(atBlock.WouldBlock);
+        Assert.False(atBlock.WouldRequireChallenge);
 
-        // Score between thresholds: 50-99 → require_challenge
-        service.AddRule(new AntiCrawlerRuleRequest("mid", true, "user-agent", "mid-agent", "challenge", 75, null), "test");
-        AntiCrawlerSimulationResult midScore = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "mid-agent", "1.2.3.4", null, 0));
-        Assert.Equal("require_challenge", midScore.FinalAction);
+        AntiCrawlerSimulationResult belowBlock = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "Mozilla", "1.2.3.4", null, 89));
+        Assert.Equal("require_challenge", belowBlock.FinalAction);
+        Assert.True(belowBlock.WouldRequireChallenge);
+        Assert.False(belowBlock.WouldBlock);
 
-        // Score below threshold: 49 → allow
-        service.AddRule(new AntiCrawlerRuleRequest("low", true, "user-agent", "low-agent", "challenge", 49, null), "test");
-        AntiCrawlerSimulationResult lowScore = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "low-agent", "1.2.3.4", null, 0));
-        Assert.Equal("allow", lowScore.FinalAction);
-        Assert.False(lowScore.WouldRequireChallenge);
+        AntiCrawlerSimulationResult belowChallenge = service.Simulate(new AntiCrawlerSimulationRequest("GET", "/", "Mozilla", "1.2.3.4", null, 19));
+        Assert.Equal("allow", belowChallenge.FinalAction);
+        Assert.False(belowChallenge.WouldRequireChallenge);
+        Assert.False(belowChallenge.WouldBlock);
     }
 
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Boundary)]
@@ -901,16 +900,21 @@ public sealed class SecurityAdminPolicyDefaultsTests
         var service = new SecurityAdminPolicyService(CurrentRiskPolicyTestConfiguration.WithCurrentRiskPolicy(new ConfigurationBuilder().Build()));
         var original = service.CurrentRiskPolicy;
 
-        var externalSnapshot = original with
+        SecurityRiskPolicy modified = original with
         {
             SnapshotId = "external-risk",
             GlobalMode = "strict"
         };
+        Assert.Throws<ArgumentException>(() => service.ApplyRiskControlPolicySnapshot(modified));
+        Assert.Same(original, service.CurrentRiskPolicy);
 
+        SecurityRiskPolicy externalSnapshot = modified.Seal();
+        Assert.NotEqual(original.Digest, externalSnapshot.Digest);
         service.ApplyRiskControlPolicySnapshot(externalSnapshot);
 
         Assert.Equal("external-risk", service.CurrentRiskPolicy.SnapshotId);
         Assert.Equal("strict", service.CurrentRiskPolicy.GlobalMode);
+        Assert.Equal(externalSnapshot.Digest, service.CurrentRiskPolicy.Digest);
     }
 
     [CoversBehavior("configuration-error-security-policy", BehaviorTestKind.Positive)]
