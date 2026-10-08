@@ -36,8 +36,10 @@ async function host(initialSurface: 'live' | 'source' = 'source', initialSource 
         global: { components: { ElDrawer, ElIcon } }, props: {
         modelValue: source, ...(productionWrapper ? {} : { mode: initialSurface }), documentIdentity: owner.documentIdentity,
         'onUpdate:modelValue': async (value: string): Promise<void> => { await wrapper.setProps({ modelValue: value }); },
-        onEditorFocus: (event: 'focusin' | 'focusout') => runtime?.consumeFocus(event),
-        onSelectionChange: (event: Parameters<ArticleEditorRuntimeBinding['consumeSelection']>[0]) => runtime?.consumeSelection(event),
+        ...(productionWrapper ? {
+            onEditorFocus: (event: 'focusin' | 'focusout') => runtime?.consumeFocus(event),
+            onSelectionChange: (event: Parameters<ArticleEditorRuntimeBinding['consumeSelection']>[0]) => runtime?.consumeSelection(event)
+        } : {}),
         onTransaction: (result: MarkdownEditorDispatchResult) => {
             if (!result.accepted) return;
             runtime?.consumeTransaction(result);
