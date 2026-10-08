@@ -53,6 +53,10 @@ internal static class OsPageNativeApi
         {
             return null;
         }
+        if (strategy == OsPageStrategy.ExplicitLarge && explicitPageBytes == 0)
+        {
+            throw new ArgumentOutOfRangeException(nameof(explicitPageBytes));
+        }
         if (OperatingSystem.IsLinux())
         {
             return new LinuxOsPageNativeApi(strategy == OsPageStrategy.ExplicitLarge ? explicitPageBytes : 0);

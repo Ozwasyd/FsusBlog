@@ -7,6 +7,64 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OsNumaTopologyTests
 {
+    [Theory]
+    [InlineData(0)]
+    [InlineData(1)]
+    [InlineData(63)]
+    [InlineData(64)]
+    [InlineData(4094)]
+    [InlineData(4095)]
+    public unsafe void BindMaskRetainsOnlyTheTargetAfterKernelMaximumDecrement(int node)
+    {
+        int calls = 0;
+        OsPageCall result = LinuxOsNumaRangeApi.Bind(123, 4096, node,
+            (address, bytes, mode, mask, maximumNode, flags) =>
+            {
+                calls++;
+                Assert.Equal((nint)123, address);
+                Assert.Equal((nuint)4096, bytes);
+                Assert.Equal(2, mode);
+                Assert.Equal(0U, flags);
+                // Model the documented get_nodes/get_bitmap boundary, without
+                // invoking mbind or asserting any native NUMA capability.
+                int copiedBits = checked((int)(maximumNode - 1));
+                Assert.InRange(copiedBits, node + 1, 4096);
+                int copiedWords = (copiedBits + 63) / 64;
+                Assert.InRange(copiedWords, 1, 64);
+                Assert.Equal(node / 64 + 1, copiedWords);
+                for (int word = 0; word < copiedWords; word++)
+                {
+                    ulong copied = mask[word];
+                    if (word == copiedWords - 1 && copiedBits % 64 != 0)
+                    {
+                        copied &= (1UL << (copiedBits % 64)) - 1;
+                    }
+                    Assert.Equal(word == node / 64 ? 1UL << (node % 64) : 0UL, copied);
+                }
+                return new OsPageCall(false, 22);
+            });
+        Assert.Equal(1, calls);
+        Assert.Equal(new OsPageCall(false, 22), result);
+    }
+
+    [Theory]
+    [InlineData(int.MinValue)]
+    [InlineData(-1)]
+    [InlineData(4096)]
+    [InlineData(int.MaxValue)]
+    public unsafe void OutOfRangeBindNodesNeverReachTheCall(int node)
+    {
+        int calls = 0;
+        OsPageCall result = LinuxOsNumaRangeApi.Bind(123, 4096, node,
+            (address, bytes, mode, mask, maximumNode, flags) =>
+            {
+                calls++;
+                return new OsPageCall(true, 0);
+            });
+        Assert.Equal(0, calls);
+        Assert.Equal(new OsPageCall(false, 95), result);
+    }
+
     [Fact]
     public void DisabledObservationLeavesDetectionUnknownWithoutReadingTheOs()
     {

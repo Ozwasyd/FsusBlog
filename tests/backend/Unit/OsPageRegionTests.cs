@@ -10,6 +10,39 @@ namespace FsusBlog.Server.Tests.Unit;
 
 public sealed class OsPageRegionTests
 {
+    [Theory]
+    [InlineData(MemoryCapabilityMode.Auto)]
+    [InlineData(MemoryCapabilityMode.Required)]
+    public void ExplicitLargeZeroSizeNeverReturnsANormalAdapter(MemoryCapabilityMode mode)
+    {
+        ArgumentOutOfRangeException error = Assert.Throws<ArgumentOutOfRangeException>(() =>
+            OsPageNativeApi.Detect(OsPageStrategy.ExplicitLarge, 0, mode));
+        Assert.Equal("explicitPageBytes", error.ParamName);
+    }
+
+    [Fact]
+    public void DisabledExplicitLargeZeroSizeStillReturnsBeforeAdapterConstruction()
+    {
+        Assert.Null(OsPageNativeApi.Detect(OsPageStrategy.ExplicitLarge, 0, MemoryCapabilityMode.Disabled));
+    }
+
+    [Fact]
+    public void ValidExplicitLargeSizeNeverSelectsTheNormalBackend()
+    {
+        IOsPageNativeApi? native = OsPageNativeApi.Detect(OsPageStrategy.ExplicitLarge, 2097152);
+        if (OperatingSystem.IsLinux())
+        {
+            Assert.NotNull(native);
+            Assert.True(native.UsesExplicitLargePages);
+            Assert.Equal("linux-mmap-hugetlb", native.Backend);
+            Assert.Equal(2097152, native.PageBytes);
+        }
+        else
+        {
+            Assert.Null(native);
+        }
+    }
+
     [Fact]
     public void DisabledNeverConstructsAnOsAdapterAndOmissionUsesAutoDiscovery()
     {
