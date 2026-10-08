@@ -61,10 +61,6 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
     }
     const contract = archetype.compositionContract;
     const errors = graph.errors.map((item) => ({ ...item, phase: 'static' }));
-    for (const node of graph.nodes.filter((node) => node.conditional?.some((condition) => condition.expression)))
-    {
-        errors.push({ file: node.file, sourceNode: node.id, reason: 'unknown-conditional-state-binding', phase: 'static-dom' });
-    }
     const sourceNodes = new Map(graph.nodes.map((node) => [node.id, node]));
     const nodes = observation.nodes;
     const byIndex = new Map(nodes.map((node) => [node.index, node]));
@@ -84,6 +80,38 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
         }
         return ancestors;
     };
+    for (const source of graph.nodes.filter((node) => node.conditional?.some((condition) => condition.expression)))
+    {
+        const calls = graph.nodes.filter((call) => call.origin.kind === 'fsusui-public' && call.definition === source.file);
+        const bindings = graph.structuralBindings?.filter((binding) => binding.sourceNode === source.id) ?? [];
+        const complete = calls.length > 0 && calls.every((call) => nodes.some((node) => node.sourceCall === call.id) && source.conditional.every((condition) =>
+        {
+            const matches = bindings.filter((binding) => binding.callNode === call.id && binding.directive === condition.name
+                && binding.expression === condition.expression && typeof binding.expected === 'boolean'
+                && binding.inputDigest === compositionDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs }));
+            return matches.length === 1;
+        }));
+        if (!complete)
+        {
+            errors.push({ file: source.file, sourceNode: source.id, reason: 'unknown-conditional-state-binding', phase: 'static-dom' });
+            continue;
+        }
+        for (const binding of bindings)
+        {
+            for (const callRoot of nodes.filter((node) => node.sourceCall === binding.callNode))
+            {
+                const rendered = nodes.filter((node) => (node.sourceNode === source.id || node.sourceCall === source.id)
+                    && ancestry(node).some((ancestor) => ancestor.index === callRoot.index));
+                const mismatch = binding.directive === 'if' ? rendered.length !== (binding.expected ? 1 : 0)
+                    : binding.directive === 'show' ? rendered.length !== 1 || (!binding.expected && !rendered[0]?.hidden) : true;
+                if (mismatch)
+                {
+                    errors.push({ file: source.file, sourceNode: source.id, callNode: binding.callNode,
+                        reason: 'structural-condition-render-mismatch', phase: 'static-dom', expected: binding.expected, rendered: rendered.length });
+                }
+            }
+        }
+    }
     // Every public provenance assertion must reach an actual public component call and its parsed definition.
     function publicSource(node)
     {
@@ -140,6 +168,17 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
         {
             errors.push(error('unknown-dynamic-native-tag', node));
         }
+        if (source.origin.kind === 'native-prop')
+        {
+            const call = ancestry(node).map((ancestor) => sourceNodes.get(ancestor.sourceCall)).find((candidate) => candidate?.definition === source.file);
+            const bindings = graph.nativePropBindings?.filter((binding) => binding.sourceNode === source.id
+                && call?.id === binding.callNode
+                && binding.inputDigest === compositionDigest({ attributes: call.attributes, directives: call.directives, slots: call.slotInputs })) ?? [];
+            if (bindings.length !== 1 || bindings[0].tag !== node.tag)
+            {
+                errors.push(error('unknown-dynamic-native-tag', node));
+            }
+        }
         for (const name of ['data-fsus-owner', 'data-fsus-region', 'data-fsus-action', 'data-fsus-action-priority', 'data-fsus-chrome', 'data-fsus-content'])
         {
             if (node.attributes[name] === undefined)
@@ -155,7 +194,8 @@ export function analyzeCompositionDom({ archetype, graph, observation, identity,
     }
     const owners = nodes.filter((node) => node.owner);
     for (const node of nodes.filter((node) => node.owner || node.region || node.action || node.surface || node.material
-        || node.responsibility || node.content || node.tag === 'h1' || node.semanticRole === 'heading'))
+        || node.responsibility || node.content || node.tag === 'h1' || node.semanticRole === 'heading'
+        || ['native-prop', 'native-variants'].includes(sourceNodes.get(node.sourceNode)?.origin.kind)))
     {
         validateSource(node);
     }

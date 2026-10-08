@@ -319,7 +319,11 @@ path helpers, route maps and lazy component imports; unknown expressions fail
 closed. It creates no route/file allowlist or alternate composition contract.
 SFC nodes retain slots, branch directives, teleports, exact public/local import
 origins and original source locations/digests. Public aliases follow their actual
-export factories. Unsupported dynamic components and state bindings remain
+export factories and unambiguous named/star reexports. Upstream module aliases
+come from the actual FsusUI source path configuration, whose bytes are included
+in the resolver identity and drift checks; a generated declaration bundle cannot
+stand in for the active Vue source. Finite native alternatives retain every
+resolved tag and reject an unresolved alternative. Unsupported dynamic components and state bindings remain
 errors rather than a source-only acceptance result.
 
 `compositionProbePlugin` adds test-only source markers before the actual Vue
@@ -327,6 +331,38 @@ compiler. It checks the original source bytes and rejects authored marker
 attributes. It never writes product files. The browser probe retains hidden
 nodes, joins native/component markers to parsed sources, and checks heading,
 action, region, material, nesting, chrome and content-order observations.
+Structural conditions inside a public component may be resolved only from that
+exact call's literal props/defaults and statically provided slots, through the
+actual parsed `computed`/`Boolean` expressions. The source graph binds all parsed
+resolver inputs, including prop declarations. The DOM join checks each rendered
+call's conditional element count; dynamic props, conditional/dynamic slots,
+ancestor-dependent branches, loops and arbitrary functions remain unbound.
+This bounded structural proof neither supplies product state bindings nor
+qualifies a source-only result. A missing public surface/material emission stays
+an upstream capability error even when the component's structural conditions
+are proven.
+An unbounded native `tag` prop can be proven only for an actual call whose
+literal/default input resolves to a native tag. `nativePropBindings` bind that
+call and its inputs; every rendered native prop node is checked against the
+nearest matching call. A dynamic input or unknown component name remains an
+`unbound-native-prop-source` error, and an actual mismatched tag is rejected.
+The same binding follows `withDefaults(defineProps<...>(), ...)` only when the
+inline type actually declares the prop and its default is an exact literal.
+Shadowed macros, unknown defaults, object spreads and computed default keys
+cannot establish proof. Referenced types remain unsupported and fail closed.
+Call-level `v-bind` is bounded only for an object with literal keys and primitive
+literal values. Unknown spreads, computed keys, prototype inputs and collisions
+with another source of the same prop remain unbound; attribute precedence is
+never guessed from separate inventories.
+A native component selector may also have a finite tag union proven from an
+actual top-level constant arrow function. Every return must be a native literal
+or a conditional of native literals, and every path must return. The supported
+flow is limited to blocks, conditionals and ordinary variable/expression
+statements; unknown returns, fallthrough, async functions, loops, mutable or
+template-shadowed bindings are rejected. Return type annotations establish no
+proof. All rendered native union nodes are checked against the complete union,
+including nodes without semantic ownership attributes. This proves possible
+tags only; the selector's business state and branch visibility remain unbound.
 Caller-provided classes or surface attributes cannot establish public provenance.
 A missing upstream surface/material capability and unbound conditional state
 remain failed observations. Receipt verification recomputes the joined verdict;
