@@ -1,0 +1,129 @@
+{
+    "schema": "fsusblog.issue-3534-style-baseline.v1",
+    "status": "source-diagnostic-only",
+    "runId": "issue-3534-20261008",
+    "observedAt": "2026-10-08T02:41:24.815815+00:00",
+    "baseCommit": "3bc9bacd55b4453ed0abd48632c6a1bb3f7944f8",
+    "nodeVersion": "v24.19.0",
+    "npmVersion": "11.9.0",
+    "files": [
+        {
+            "path": "tools/docs/behavior-document-consistency-final.mjs",
+            "gitBlob": "099381d8e22a0ac823ed7855485ae061467d39e8",
+            "sha256": "87ebe7a63017ed80e370928c25da59ac7dbd5f05265acc175e078b1177dad267"
+        },
+        {
+            "path": "tests/tools/behavior-document-consistency-final.test.mjs",
+            "gitBlob": "a5da76e93a03d159bf5679a70dd9bc6e725e9eaa",
+            "sha256": "1e5f7895509d197d922f3bee160a442136da95a5bc0b842ce142ec9b6b8d4053"
+        },
+        {
+            "path": "eslint.config.mjs",
+            "gitBlob": "f3ddc42af7c5672ae5111a922ed474102637a679",
+            "sha256": "c64ed65c7d5098f1740d0468d0f46d564f9f9e1a05092d0c09171f0c2bebe2de"
+        },
+        {
+            "path": "tools/frontend/style-toolchain/eslint.config.mjs",
+            "gitBlob": "e025c8826fc4436b23bc77f44d27ea429eeccc32",
+            "sha256": "5d092d2aa8d103bcc02157eb453e93dd8c02e42b8af7a8a074769b5e9046f635"
+        },
+        {
+            "path": "tools/frontend/check-frontend-style.mjs",
+            "gitBlob": "9ad32515a023d564ca3db6942dabea7e2058d248",
+            "sha256": "258c6e65260d6dc619c3e0789294001a0f76cbc8b462b61017755cfbe15acb75"
+        },
+        {
+            "path": "config/development/frontend-style-policy.json",
+            "gitBlob": "d5ae39652071899d9eb10529b57bfc0680d85acf",
+            "sha256": "68f70a1e37e02746ba556bcb6fd6c7765df59b4f6137bac14246d2333373af85"
+        },
+        {
+            "path": "config/development/frontend-style-rule-registry.json",
+            "gitBlob": "459b501e13eb867aa4ba13025408377fefe73432",
+            "sha256": "96d5f40b3556e6e62fbea94fff10ce8cb5fcc0993958d309847f0eff6b3062a5"
+        },
+        {
+            "path": "config/development/frontend-style-baseline.json",
+            "gitBlob": "54f72b80a36a9c4cb1d0a6d29418d77c5faad2b2",
+            "sha256": "65e8d1930aa8e4830602aa7774862aeb65b79c19e3279deb3897804e23aab4e0"
+        },
+        {
+            "path": "config/development/frontend-style-reviewed-residual.json",
+            "gitBlob": "082fe1ef336d2a5677baf7dd0d5d799eed6a988b",
+            "sha256": "600f2e05c0fc7ce7727b1a949673355dab99a9e7ec01378f5c480aa4c1b270f8"
+        },
+        {
+            "path": "tools/frontend/style-toolchain/package-lock.json",
+            "gitBlob": "cda087663517c681f64ea2a6facdeae13e3df98d",
+            "sha256": "60f134a5a2bb4f3f251a444beac02c4fa1c079c7cdd8bf624c843b0ba1fa14c4"
+        },
+        {
+            "path": "tools/governance/javascript-format-parser/package-lock.json",
+            "gitBlob": "ff99582d27b6a034261cc9ad12e3b781c8156f80",
+            "sha256": "d427a3504343c6fe44422cb7c2ec9fec898c9e2f2db502c550a76440a76174b9"
+        },
+        {
+            "path": "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
+            "gitBlob": "e99c6eadde1c8fe4ee97960770b940aa2ce9dd6e",
+            "sha256": "cb0e6bb7f2beb2fa300bdcb08e3617692212c50eb7c165e59ba69108d301c40b"
+        }
+    ],
+    "diagnostics": [
+        {
+            "path": "tests/tools/behavior-document-consistency-final.test.mjs",
+            "diagnosticCount": 602,
+            "ruleCounts": {
+                "@stylistic/semi": 584,
+                "import-x/no-relative-parent-imports": 4,
+                "import-x/order": 2,
+                "@stylistic/brace-style": 5,
+                "curly": 4,
+                "@stylistic/max-statements-per-line": 1,
+                "no-regex-spaces": 2
+            }
+        },
+        {
+            "path": "tools/docs/behavior-document-consistency-final.mjs",
+            "diagnosticCount": 0,
+            "ruleCounts": {}
+        }
+    ],
+    "logs": [
+        {
+            "path": "artifacts/style/issue-3534-baseline/baseline-changed-style.log",
+            "sha256": "6febef63b6573f0ebda9f0ed74bb6dc48be41aaa8f57acef5b416f9fc6207658"
+        },
+        {
+            "path": "artifacts/style/issue-3534-baseline/baseline-eslint.json",
+            "sha256": "a0f45a01b59be351e100a3b3ddab84d5106747cc3778dd33c5e8ccaad81b90c2"
+        },
+        {
+            "path": "artifacts/style/issue-3534-baseline/baseline-residual.log",
+            "sha256": "682897450ec7bf2cd214d50205e51f3f347ccadcf6d0c342adaa0815f1cabff6"
+        },
+        {
+            "path": "artifacts/style/issue-3534-baseline/baseline-scanner-tests.log",
+            "sha256": "e23741bf4272c6292a4565abbebfb2e28bbc69e51ef3b340fbac91887f147de1"
+        },
+        {
+            "path": "artifacts/style/issue-3534-baseline/baseline-scanner-tests-configured.log",
+            "sha256": "bcfafa8df3f66565b4bcac5e6053afc7d25bc19a7b3b66a26b9b90f2deb47bd2"
+        },
+        {
+            "path": "artifacts/style/issue-3534-baseline/baseline-docclaim.log",
+            "sha256": "e8eac0e0fc4ff49d9700790cda5177088bb91e7e315e354afe1898ee2b0e79a4"
+        },
+        {
+            "path": "artifacts/style/issue-3534-baseline/setup-dotnet.log",
+            "sha256": "d4ebd9449cd7a71c010c9db67ce15d4b6c771d11b315b682d60cc306e91ebd00"
+        }
+    ],
+    "baselineFindings": [
+        "602 diagnostics, all in the test owner; scanner has zero findings.",
+        "Reviewed residual validator passes 149 paths / 329 diagnostics / zero other; historical entries include both owners, but their exact reviewed bytes differ from current master. No rebind or baseline update is authorized.",
+        "With task-local parser file modes and umask corrected, current master has 58/60 scanner tests passing. Two helper-backed controls reject the current four-space package lock because the scanner requires canonical two-space lock JSON. This pre-existing behavior is not waived or changed by style migration.",
+        "Current DocClaim tests pass 16/16.",
+        "Initial missing tool installations and parser-mode failures are preserved separately from configured runs."
+    ],
+    "acceptance": "OPEN; evidence is not a qualification receipt"
+}
