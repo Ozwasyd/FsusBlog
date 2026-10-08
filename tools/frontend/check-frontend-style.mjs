@@ -15,6 +15,10 @@ import {
 } from './reviewed-residual-classification.mjs';
 import { compareSourceUnitFindings } from './source-unit-style-diff.mjs';
 
+const { resolveLocalFsusUiApplicationProject } = await import(
+    new URL('../../src/frontend/scripts/run-local-fsusui-typecheck.mjs', import.meta.url)
+);
+
 const scriptPath = fileURLToPath(import.meta.url);
 const defaultRoot = path.resolve(path.dirname(scriptPath), '../..');
 const defaultPolicyPath = 'config/development/frontend-style-policy.json';
@@ -383,6 +387,9 @@ function runEslint(files, fix)
         return [];
     }
     const executable = path.join(root, policy.toolchain.eslint);
+    // External source types can change without a Blog source edit. Recheck the local program;
+    // registry-installed mode retains its existing content cache.
+    const localApplicationProject = resolveLocalFsusUiApplicationProject({ repositoryRoot: root });
     const cache = path.join(root, '.tmp/frontend-style/eslint.cache');
     const cacheKeyFile = path.join(root, '.tmp/frontend-style/eslint.cache-key');
     const cacheKey = sha256(`${configurationDigest()}\n${sourceStateDigest()}`);
@@ -398,13 +405,14 @@ function runEslint(files, fix)
     const args = [
         executable,
         '--config', path.join(root, policy.eslintConfig),
-        '--cache',
-        '--cache-location', cache,
-        '--cache-strategy', 'content',
         '--format', 'json',
         '--no-error-on-unmatched-pattern',
         '--no-warn-ignored'
     ];
+    if (!localApplicationProject)
+    {
+        args.push('--cache', '--cache-location', cache, '--cache-strategy', 'content');
+    }
     if (fix)
     {
         args.push('--fix');
@@ -1432,7 +1440,8 @@ function checkSourceDiff(args, files)
     try
     {
         // The original ESLint CLI loads identical original configuration in a separate base root.
-        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package])
+        for (const file of [policy.eslintConfig, 'tools/frontend/style-toolchain/eslint.config.mjs', policy.toolchain.package,
+            'src/frontend/scripts/run-local-fsusui-typecheck.mjs', 'src/frontend/scripts/fsusui-root.mjs'])
         {
             const destination = path.join(scratch, file);
             fs.mkdirSync(path.dirname(destination), { recursive: true });
