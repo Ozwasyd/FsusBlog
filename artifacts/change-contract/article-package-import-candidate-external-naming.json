@@ -1,0 +1,22 @@
+{
+    "schema": "fsusblog.external-naming-exceptions.v1",
+    "exceptions": [
+        {
+            "id": "environment-variable",
+            "paths": [
+                "src/shared/Contracts/ArticlePackages/ArticlePackageChecksums.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidateBytes.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageImportCandidatePlanner.cs",
+                "src/shared/Contracts/ArticlePackages/ArticlePackageInventory.cs"
+            ],
+            "reason": "Register only the additive canonical inventory/checksum and pure import candidate source paths within the existing process-spelling closure. No trusted naming policy or process/environment spelling changes."
+        },
+        {
+            "id": "css-like-contract",
+            "paths": [
+                "docs/api/contracts.md"
+            ],
+            "reason": "Preserve the caller-visible candidate reason and digest-domain spellings in the maintained API contract."
+        }
+    ]
+}

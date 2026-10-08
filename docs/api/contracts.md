@@ -3101,3 +3101,65 @@ still requires the exact persisted/source reads, real FsusUI parser diagnostics
 and provider-backed dependency, asset, privacy and rights policies, frozen full
 metadata, archive/checksum binding and independent end-to-end evidence. A valid
 component candidate satisfies none of those unavailable authority gates.
+
+## Pure import candidate validation and request plans
+
+`ArticlePackageImportCandidateBytes.Validate` is a shared, pure intermediate
+component for #2402 and #2411. Its inputs are already-read file bytes and supplied
+inventory records. It does not open a ZIP, claim archive-reader safety, create a
+temporary resource or replace the complete package schema. Both collections are
+copied by one bounded count and indexed traversal. It admits at most 1,002 files,
+1,000 articles and 64 MiB of actual aggregate bytes; overflow is rejected before
+copying byte buffers. Inventory descriptors, actual byte lengths and the total
+budget are checked before copying. Checksum verification, manifest parsing and
+raw metadata checks use only owned byte copies. Invalid input, cancellation or one
+invalid article leaves the whole candidate absent; no valid subset escapes.
+
+The exact manifest article set must equal the Markdown file set using each
+explicit portable identity's filename token. Every original source byte metadata
+field is verified against those same bytes. Asset entries are refused until their
+actual authority exists. Source coordinates, lifecycle, canonical/property hashes
+and asserted metadata remain untrusted source claims; matching their finite schema
+and bytes does not establish persisted provenance or parse Markdown. Complete
+schema fields requiring syntax, references, assets, rights, taxonomy or privacy
+remain rejected by the existing closed candidate codec, including empty assertions.
+
+The checksum component excludes `checksums.json` from its rows to avoid circular
+hashing. The separate package-bytes digest includes that document's exact bytes,
+the manifest and every article. Under
+`fsusblog.article-package.import-candidate.bytes.v1`, framing uses a UInt32
+big-endian UTF-8 domain frame and file count, ordinal paths with UInt32 big-endian
+UTF-8 lengths, and UInt64 big-endian data lengths with exact byte payloads. It is a
+finite byte-set digest, never the accepted full package semantic digest. Returned
+file bytes are detached copies. Mutating caller storage or returned copies cannot
+rewrite the frozen candidate.
+
+`ArticlePackageImportCandidatePlanner.TryCreatePlan` freezes that candidate with
+the existing `ArticleRelationActorContext`, explicit mode, policy digest and UTC
+creation/expiry interval. These are caller assertions, not observed permission
+facts. Default `CreateNew` accepts no requested targets and records a new identity
+requirement for every article; it neither generates an identity nor copies a source
+database ID. `UpdateRequested` requires exactly one explicit positive target ID and
+expected revision per portable article, with no duplicate target ID or missing row.
+These remain requested hints, never resolved targets or permission to update.
+
+The plan digest under `fsusblog.article-package.import-candidate.plan.v1` binds the
+package-bytes, checksum and finite-manifest digests, actor/site/permission assertion,
+mode, policy, exact UTC ticks and the sorted whole target requirement set. Values
+are framed as strict UTF-8 strings preceded by big-endian Int64 byte lengths; scalar
+values and counts are big-endian Int64. Create requirements use zero numeric payloads
+and an explicit new-identity flag, while update coordinates must be positive.
+No source title, slug, article ID or publication status resolves a target.
+
+`ValidateRequestBinding` compares only supplied current assertions with the frozen
+request and byte-set digest. It rejects drift, non-UTC times, times before creation
+and the inclusive expiry boundary. It never refreshes a plan or reads current
+permissions, target revisions, schema, assets or retention. A successful comparison
+is not an execution or freshness receipt. All plans always reject
+`RequireExecutionAuthority()` with `article_package_import_authority_unavailable`.
+The immutable required-authority list retains archive intake, complete schema,
+persisted canonical sources, real FsusUI syntax, persisted relations/embed plans,
+frozen public projection retention, asset/dependency and rights/privacy policies,
+current target and actor permissions, and independent execution qualification.
+The original provider, zero-write runtime, cleanup, interruption and integration
+acceptance gates remain outstanding; this component supplies no synthetic receipt.
