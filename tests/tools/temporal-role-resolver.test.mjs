@@ -581,7 +581,8 @@ test('entity registrations keep undefined source fields unbound and validate exa
         mutate(binding);
         assert.throws(() => validateTemporalDomainProducerInventory(invalid), pattern);
     };
-    change((binding) => binding.fieldMappings.push({ ...binding.unsupportedFields[0], consumer: 'entity-lifecycle' }), /cannot be mapped/u);
+    change((binding) => binding.fieldMappings.push({ field: binding.unsupportedFields[0].field,
+        roleId: 'article.created', consumer: 'entity-lifecycle' }), /cannot be mapped/u);
     change((binding) => binding.unsupportedFields.push(structuredClone(binding.unsupportedFields[0])), /duplicated/u);
     change((binding) =>
     {
