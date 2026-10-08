@@ -10,7 +10,7 @@ const {
     scanExpectedQueryProductionIsolation,
     validateExpectedQueryCaseCatalog
 } = await import(new URL('../../tools/data-scale/expected-query-case-catalog.mjs', import.meta.url));
-const { queryCaseIds } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
+const { buildQueryCaseInventory, queryCaseIds } = await import(new URL('../../tools/data-scale/query-case-registry.mjs', import.meta.url));
 const { computeSha256 } = await import(new URL('../../tools/data-scale/runtime-plan.mjs', import.meta.url));
 const { validateJsonSchema } = await import(new URL('../../tools/test-matrix/schema-validator/validate.mjs', import.meta.url));
 
@@ -26,27 +26,22 @@ function seal(value)
     return value;
 }
 
+// Valid synthetic identity only invokes inventory declarations; it is not a seed/query receipt.
+const syntheticInventoryBinding = {
+    sourceCommit: 'a'.repeat(40),
+    dataScaleRunId: 'synthetic-schema-control',
+    fixtureGeneration: 'synthetic-schema-control',
+    seedReceiptDigest: syntheticDigest('inventory-seed'),
+    expectedModelDigest: syntheticDigest('inventory-model'),
+    businessEpochUtc: '2024-02-29T23:59:59.000Z'
+};
+const declaredInventory = buildQueryCaseInventory(syntheticInventoryBinding);
+
 function caseDomainAndKind(id)
 {
-    if (id.startsWith('comment-root'))
-    {
-        return { domain: 'comment', kind: 'public-list' };
-    }
-    if (id.startsWith('comment-nested'))
-    {
-        return { domain: 'comment', kind: 'public-thread' };
-    }
-    for (const [prefix, kind] of [
-        ['article-list', 'latest-list'], ['category', 'category-filter'],
-        ['tag', 'tag-filter'], ['article-detail', 'detail'], ['search', 'search-hit']
-    ])
-    {
-        if (id.startsWith(prefix))
-        {
-            return { domain: 'article', kind };
-        }
-    }
-    assert.fail(`original query authority has an unmapped kind: ${id}`);
+    const declared = declaredInventory.cases.find((entry) => entry.id === id);
+    assert.ok(declared, `original query authority lacks a declaration for ${id}`);
+    return { domain: declared.domain, kind: declared.kind };
 }
 
 /** Synthetic validator declarations only; no plan, generator, query, or receipt is exercised. */

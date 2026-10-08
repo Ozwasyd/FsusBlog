@@ -87,21 +87,43 @@ serializer's exceptions; this seam does not swallow them into a successful
 report.
 
 The catalog, contract, inspector and their original catalog/query controls are
-consumed byte-for-byte from distribution owner source
-`f5abc68cb455ceff9d23e025cba1b617b3a7e567`. The source catalog is recomputed from
+consumed from actual integrated master
+`aaba7b8c84ecfb336c71443e30d9fd82d21fb16d`, where PR #4021 merged the distribution
+owner's content-shape digest refusal. These files match the revised original
+source `fbf689f71fd864fceb9c8432defa8fee224e1626` byte-for-byte. The earlier
+`f5abc68cb455ceff9d23e025cba1b617b3a7e567` consumption is historical. The source catalog is recomputed from
 the integrated checkout's actual content/media/temporal/article/variant
 authority bytes and validated there. Its eight unavailable capabilities are
 preserved. No assignment compiler, actual DB statistics reader, scenario
 receipt or query-runner admission is supplied by this seam.
 
+## Canonical query inventory consumption
+
+`inspectExpectedQueryOwnerInventory(binding)` calls the original
+`buildQueryCaseInventory(binding)` from published query owner source
+`e66650ec61b56af6e45bcb393b98cd648a3ccef8`. It preserves the original inventory
+and its source-byte owner identities, then reports missing kinds using only
+the closed schema vocabulary. It retains unresolved canonical role bindings,
+scenario applicability and per-case blockers. Raw collector input fields,
+route parameters and the declared anonymous actor cannot substitute for
+canonical graph roles. This inspection is always blocked and unqualified;
+it does not normalize an incomplete inventory into accepted `currentInputs`.
+
+The original owner declares seven kinds across sixteen case IDs. In
+particular, middle/last comment cursors and nested expansion declare
+`pagination-order`; nested expansion explicitly does not establish a full
+`public-thread`. Seventeen required kinds lack original owner declarations.
+The earlier synthetic control mapping is not production coverage evidence.
+
 ## Current integration limits
 
 The actual canonical registry has 16 query IDs, while the closed schema requires
 24 article/comment semantic kinds. Top/prev-next/negative search/derived
-consistency and moderation/visibility/region/actor/permission/deleted-thread
+consistency and full-thread/moderation/visibility/region/actor/permission/deleted-thread
 coverage are incomplete. The validator preserves these failures; no complete
-catalog artifact is checked in. There is no canonical owner projection export
-or complete comment/assignment/actual-statistics intake connected to this
+catalog artifact is checked in. The original owner inventory is available;
+its closed canonical role/scenario projection and complete
+comment/assignment/actual-statistics intake are not connected to this
 module. The source distribution inspector above is a real bounded component,
 and its blocked report is preserved rather than promoted to qualification.
 
@@ -117,6 +139,7 @@ qualification.
 Rollback removes this module, schema, dedicated controls and module-local
 documentation together. No product data, wire protocol, query implementation,
 threshold, original registry, seed or production configuration changes.
-To roll back only the distribution-consumption follow-up, remove its new
-inspector export/import, imported distribution source/control files and intake
-test while preserving the base catalog/schema/validator from PR #4011.
+To roll back only this consumer follow-up, remove its inspector exports/imports,
+dedicated intake tests and follow-up metadata/documentation while preserving
+the base catalog/schema/validator from PR #4011 and the master-owned
+distribution source/control files.

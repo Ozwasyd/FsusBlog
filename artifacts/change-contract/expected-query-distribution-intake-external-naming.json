@@ -4,12 +4,9 @@
         {
             "id": "environment-variable",
             "paths": [
-                "tools/data-scale/distribution-catalog.mjs",
-                "tools/data-scale/distribution-contract.mjs",
-                "tools/data-scale/distribution-query-binding.mjs",
                 "tools/data-scale/expected-query-case-catalog.mjs"
             ],
-            "reason": "Consume the supplied original distribution source files byte-for-byte and connect their original applicability inspector to the original query inventory. The trusted registry covers these tool modules under environment-variable; internal APIs retain camelCase, existing uppercase scan tokens remain refusal controls, and no environment setting or production input is introduced."
+            "reason": "Consume the master-owned distribution inspector and published original query-owner inventory without another registry or runner. The trusted registry covers this tool module under environment-variable; internal APIs retain camelCase, existing uppercase scan tokens remain refusal controls, and no environment setting or production input is introduced. Canonical distribution modules retain their master-owned naming manifest."
         }
     ]
 }
