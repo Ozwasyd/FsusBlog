@@ -338,6 +338,10 @@ export function assertLoadTransportCohort(identity, observations)
  * Optional request callerSignal/deadlineSignal identify distinct dispatcher origins;
  * the legacy merged signal alone cannot prove cancellation versus dispatcher deadline.
  * Failure provenance stays in onObservation, preserving the returned route sample shape.
+ * responseFacts accompanies headers/error/completion events with explicit availability.
+ * bytesReceived counts de-framed body data delivered by IncomingMessage, not wire bytes;
+ * it is zero before headers, without implying an observed HTTP status or content type.
+ * bodyState is complete only after the body end event; first terminal facts are frozen.
  * close() destroys owned sockets and waits for outstanding request cleanup.
  */
 export async function createOpenLoopLoadClientTransport({ policy: candidate, endpoint, runBinding,
@@ -453,6 +457,26 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
         let failureStage = null;
         let phase = 'dns';
         let failureRecorded = false;
+        let responseHeaders = null;
+        let receivedBodyBytes = 0;
+        let responseBodyEnded = false;
+        let terminalResponseFacts = null;
+
+        function responseFacts()
+        {
+            function headerFact(value, source, missingReason)
+            {
+                return value !== null ? { status: 'ok', value, source }
+                    : { status: 'unavailable', value: null, reason: missingReason, source };
+            }
+            return freeze({ httpStatus: headerFact(responseHeaders?.httpStatus ?? null,
+                'node:http.IncomingMessage.statusCode', 'response-headers-not-received'),
+            contentType: headerFact(responseHeaders?.contentType ?? null,
+                'node:http.IncomingMessage.headers.content-type',
+                responseHeaders === null ? 'response-headers-not-received' : 'content-type-header-absent'),
+            bytesReceived: { status: 'ok', value: receivedBodyBytes, unit: 'bytes', source: 'node:http.IncomingMessage.data' },
+            bodyState: responseHeaders === null ? 'not-started' : responseBodyEnded ? 'complete' : 'partial' });
+        }
 
         function recordFailure(error, event, oracleSignal)
         {
@@ -487,7 +511,8 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                 cancellation: { origin: cancellationOrigin,
                     abortedSignals: event === 'deadline' ? [] : aborted.map(([name]) => name) } });
             observe('request-error', { sampleId: arrival.sampleId, sequence: arrival.sequence,
-                routeId: arrival.routeId, transport, failureFacts });
+                routeId: arrival.routeId, transport, failureFacts,
+                responseFacts: terminalResponseFacts ?? responseFacts() });
         }
         try
         {
@@ -546,6 +571,7 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                         return;
                     }
                     settled = true;
+                    terminalResponseFacts = responseFacts();
                     clearTimeout(timer);
                     requestSignal.removeEventListener('abort', abort);
                     if (error !== null && error !== undefined)
@@ -645,11 +671,14 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                 request.once('response', (incoming) =>
                 {
                     response = incoming;
+                    responseHeaders = { httpStatus: incoming.statusCode ?? null,
+                        contentType: incoming.headers['content-type'] === undefined ? null
+                            : String(incoming.headers['content-type']).split(';', 1)[0].trim().toLowerCase() };
                     try
                     {
                         transport = freeze({ ...transport, httpVersion: incoming.httpVersion });
                         verifyLoadTransportObservation(identity, transport);
-                        observe('response-headers', { sampleId: arrival.sampleId, transport });
+                        observe('response-headers', { sampleId: arrival.sampleId, transport, responseFacts: responseFacts() });
                     }
                     catch (error)
                     {
@@ -659,11 +688,14 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                     phase = 'body';
                     stageTimeout('body', policy.bodyTimeoutMs);
                     const chunks = [];
-                    let bytes = 0;
                     incoming.on('data', (chunk) =>
                     {
-                        bytes += chunk.length;
-                        if (bytes > contract.maximumBodyBytes)
+                        if (settled)
+                        {
+                            return;
+                        }
+                        receivedBodyBytes += chunk.length;
+                        if (receivedBodyBytes > contract.maximumBodyBytes)
                         {
                             finish(transportError('body-size-out-of-bounds'), null, 'control-error');
                             return;
@@ -682,6 +714,11 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                     });
                     incoming.once('end', () =>
                     {
+                        if (settled)
+                        {
+                            return;
+                        }
+                        responseBodyEnded = true;
                         try
                         {
                             const body = Buffer.concat(chunks);
@@ -713,7 +750,8 @@ export async function createOpenLoopLoadClientTransport({ policy: candidate, end
                     : combined.aborted ? 'cancelled' : failureStage;
                 sample.ok = false;
             }
-            observe('request-completed', { sampleId: arrival.sampleId, transport, failureStage, ok: sample.ok });
+            observe('request-completed', { sampleId: arrival.sampleId, transport, failureStage, ok: sample.ok,
+                responseFacts: terminalResponseFacts ?? responseFacts() });
             return { ...sample, transport, transportFailureStage: failureStage };
         }
         catch (error)
