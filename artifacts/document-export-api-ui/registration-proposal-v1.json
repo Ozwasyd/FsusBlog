@@ -257,10 +257,12 @@
       "failed": 0,
       "skipped": 0
     },
-    "qualification": "Original execution evidence only. Shared queue source enumeration alone is not execution; original running DLL/SDK/test hashes will be supplied in local handed manifest, no new reviewer acceptance.",
-    "portableSourceEvidence": "artifacts/document-export-api-ui/original83-source-binding.json",
-    "portableTrx": "artifacts/document-export-api-ui/original83-results.trx",
-    "portableRawLog": "artifacts/document-export-api-ui/original83-execution.log"
+    "qualification": "Original execution evidence only. Shared queue source enumeration alone is not execution; original running DLL/SDK/test hashes will be supplied in local handed manifest, no new reviewer acceptance. Historical portable evidence is explicitly external to this minimal master component.",
+    "portableSourceEvidence": "https://github.com/Ozwasyd/FsusBlog/blob/502e51056d7e28bb60142b42b7706e3f8c6878c0/artifacts/document-export-api-ui/original83-source-binding.json",
+    "portableTrx": "https://github.com/Ozwasyd/FsusBlog/blob/502e51056d7e28bb60142b42b7706e3f8c6878c0/artifacts/document-export-api-ui/original83-results.trx",
+    "portableRawLog": "https://github.com/Ozwasyd/FsusBlog/blob/502e51056d7e28bb60142b42b7706e3f8c6878c0/artifacts/document-export-api-ui/original83-execution.log",
+    "publishedEvidenceSourceCommit": "502e51056d7e28bb60142b42b7706e3f8c6878c0",
+    "portableFilesIncludedInThisTree": false
   },
   "allocation": {
     "frameNumbersAssigned": false,
@@ -280,7 +282,8 @@
       "files": 3,
       "violations": 0
     },
-    "qualification": "Fresh locked restore/build/test of final source; original83notrepeated. Managed payload/actor/refusal/bounds only; no new native/TS/fullframe/HTTPauth/download qualification."
+    "qualification": "Historical bounded-wire source run only; this minimal master component is separately validated as96backend/82frontend in its handoff. Managed payload/actor/refusal/bounds only; no native/TS/fullframe/HTTPauth/download qualification.",
+    "source": "c1e493168fcc6701ef2ce35e91d481ec83d6085e"
   },
   "reviewedSourceHashes": {
     "src/core/Mapping/Models/DocumentExportModels.cs": "3d311922d3a4e3b972392903435132265ca10c3b6762e2d4dd8046bdf41699b4",
