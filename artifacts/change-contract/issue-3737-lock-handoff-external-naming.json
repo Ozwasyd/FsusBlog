@@ -7,9 +7,10 @@
                 "tests/governance/test-lifecycle-registry.json",
                 "config/testing/correctness-attempt-producers.json",
                 "tests/fixtures/test-matrix/release-final-execution-target-authority.json",
-                "tests/backend/packages.lock.json"
+                "tests/backend/packages.lock.json",
+                "tests/migration/packages.lock.json"
             ],
-            "reason": "Preserve the original NuGet and governance serialized field, package and project spellings while consuming exact approved lock, lifecycle, retention and canonical inventory source deltas."
+            "reason": "Preserve original NuGet and governance serialized field, package and project spellings for the approved consumer locks, lifecycle and canonical inventory source deltas, including the exact migration-test SQLite lock edge."
         },
         {
             "id": "environment-variable",
