@@ -1,15 +1,29 @@
 import { createRequire } from 'node:module';
 const require = createRequire(new URL('../../../../src/frontend/package.json', import.meta.url));
 const ts = require('typescript');
+export function collectBinaryRouteFunctionNames(source)
+{
+    const names = [];
+    const ast = ts.createSourceFile('routes.ts', source, ts.ScriptTarget.Latest, true);
+    function visit(node)
+    {
+        if (ts.isFunctionDeclaration(node) && node.name && node.parameters[0]?.type?.getText(ast) === 'BinaryRouteRequest') names.push(node.name.text);
+        ts.forEachChild(node, visit);
+    }
+    visit(ast);
+    return names;
+}
+
 const retired = new Set(['binaryUrl', 'resourceUrl', 'privateScope', 'requestBinaryUrl', 'binary_legacy_request']);
 
 /** Audit parsed imports, route objects and calls, including Vue script bodies. */
-export function auditBinaryRouteCalls(source, filename, operations, { transportOwner = false } = {})
+export function auditBinaryRouteCalls(source, filename, operations, { transportOwner = false, routeCallNames = new Set() } = {})
 {
     if (filename.endsWith('.vue')) source = [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/gu)].map(match => match[1]).join('\n');
     const ast = ts.createSourceFile(filename, source, ts.ScriptTarget.Latest, true);
     const errors = [];
     const aliases = new Set(['requestBinaryOnly', 'requestBinaryJson']);
+    const routeFunctions = new Set([...routeCallNames, ...collectBinaryRouteFunctionNames(source)]);
     const rawImports = new Set();
     const definitions = new Map();
     const parameters = new Map();
@@ -23,6 +37,7 @@ export function auditBinaryRouteCalls(source, filename, operations, { transportO
         {
             const name = node.propertyName?.text ?? node.name.text;
             if (aliases.has(name)) aliases.add(node.name.text);
+            if (routeFunctions.has(name)) routeFunctions.add(node.name.text);
             if (name === 'binaryRequest') rawImports.add(node.name.text);
         }
         if (ts.isVariableDeclaration(node) && ts.isIdentifier(node.name) && node.initializer)
@@ -105,6 +120,7 @@ export function auditBinaryRouteCalls(source, filename, operations, { transportO
         {
             const name = ts.isPropertyAccessExpression(node.expression) ? node.expression.name.text : text(node.expression);
             if (aliases.has(name)) request(node.arguments[0]);
+            if (routeFunctions.has(name)) route(node.arguments[0]);
             if (!transportOwner && rawImports.has(name)) fail(node, 'raw binaryRequest bypasses transport owner');
             if (name === 'fetch' && binaryPath(node.arguments[0])) fail(node, 'direct binary fetch bypasses generated routes');
         }

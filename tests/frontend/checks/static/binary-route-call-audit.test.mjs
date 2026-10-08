@@ -20,3 +20,11 @@ for (const [name, source] of [
     ['raw import alias', `import {binaryRequest as load} from '@/api/binaryApiClient';load('/api/binary/category')`],
     ['missing descriptor', `requestBinaryOnly({frameType:1})`]
 ]) test(`rejects ${name}`, () => assert.ok(check(source).length > 0));
+
+test('rejects raw paths passed to a typed operation helper', () => {
+    assert.ok(auditBinaryRouteCalls(`import { requestAuthoringBinary as load } from './authoring'; load('/api/binary/custom');`, 'api.ts', operations,
+        { routeCallNames: new Set(['requestAuthoringBinary']) }).length > 0);
+});
+test('rejects non-imported aliases of requestBinaryOnly', () => {
+    assert.ok(check(`const load=requestBinaryOnly; load({url:'https://evil.example',frameType:1})`).length > 0);
+});

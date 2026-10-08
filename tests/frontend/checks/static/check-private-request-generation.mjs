@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { auditBinaryRouteCalls } from './binary-route-call-audit.mjs';
+import { auditBinaryRouteCalls, collectBinaryRouteFunctionNames } from './binary-route-call-audit.mjs';
 
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
@@ -22,13 +22,15 @@ function fail(message)
 }
 
 const sourceFiles = filesUnder(sourceRoot).filter(path => statSync(path).isFile() && /\.(ts|vue)$/.test(path));
+const routeCallNames = new Set(sourceFiles.flatMap(path => collectBinaryRouteFunctionNames(readFileSync(path, 'utf8'))));
 const generated = readFileSync(resolve(sourceRoot, 'generated/fsusBinaryRoutes.ts'), 'utf8');
 const operations = new Set([...generated.matchAll(/"(binary_[^"]+)":/gu)].map(match => match[1]));
 for (const path of sourceFiles)
 {
     const name = relative(sourceRoot, path);
     const errors = auditBinaryRouteCalls(readFileSync(path, 'utf8'), name, operations, {
-        transportOwner: name === 'services/binaryTransport.ts'
+        transportOwner: name === 'services/binaryTransport.ts',
+        routeCallNames
     });
     if (errors.length) fail(errors.join('\n'));
 }
