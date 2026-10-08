@@ -1372,6 +1372,46 @@ function structuralNodeIdentity(node, parser)
     return createHash('sha256').update(JSON.stringify(shape(node))).digest('hex');
 }
 
+function explicitScannerImportDeclaration(statement, parser, file)
+{
+    if (!parser.isVariableStatement(statement) || statement.modifiers?.length
+        || (statement.declarationList.flags & (parser.NodeFlags.Let | parser.NodeFlags.Const | parser.NodeFlags.Using)) !== parser.NodeFlags.Const
+        || statement.declarationList.declarations.length !== 1)
+    {
+        return null;
+    }
+    const declaration = statement.declarationList.declarations[0];
+    const initializer = declaration.initializer;
+    if (!parser.isObjectBindingPattern(declaration.name) || !initializer || !parser.isAwaitExpression(initializer))
+    {
+        return null;
+    }
+    const call = initializer.expression;
+    if (!parser.isCallExpression(call) || call.expression.kind !== parser.SyntaxKind.ImportKeyword
+        || call.arguments.length !== 1 || call.typeArguments?.length)
+    {
+        return null;
+    }
+    const url = call.arguments[0];
+    if (!parser.isNewExpression(url) || !parser.isIdentifier(url.expression) || url.expression.text !== 'URL'
+        || url.arguments?.length !== 2 || url.typeArguments?.length)
+    {
+        return null;
+    }
+    const [specifier, base] = url.arguments;
+    const relative = path.posix.relative(path.posix.dirname(file), scannerImplementationPath);
+    if (!parser.isStringLiteral(specifier) || specifier.text !== relative
+        || !parser.isPropertyAccessExpression(base) || base.name.text !== 'url'
+        || !parser.isMetaProperty(base.expression) || base.expression.keywordToken !== parser.SyntaxKind.ImportKeyword
+        || base.expression.name.text !== 'meta'
+        || declaration.name.elements.some((binding) => binding.dotDotDotToken || binding.initializer
+            || !parser.isIdentifier(binding.name) || (binding.propertyName && !parser.isIdentifier(binding.propertyName))))
+    {
+        return null;
+    }
+    return declaration;
+}
+
 function assertedFixtureProperties(sourceFile, parser, context)
 {
     // v1 admits only the reviewed complete IO program and complete fourteen-field
@@ -1380,8 +1420,29 @@ function assertedFixtureProperties(sourceFile, parser, context)
     const callbackShape = '355a8d983d2d52070759c70b2d4e9a94e53f068f9556ffaac32ae6ab2507ad4d';
     const helperPath = 'tests/tools/support/zero-legacy-scanner-fixture.mjs';
     const imports = new Map();
+    const explicitDeclarations = new Set();
+    const intrinsicNames = new Set(['Object', 'JSON', 'Buffer', 'URL', 'Reflect', 'Function', 'global', 'globalThis', 'eval']);
+    let ambiguousImport = false;
+    const registerImport = (name, modulePath, imported, node) =>
+    {
+        if (imports.has(name) || intrinsicNames.has(name))
+        {
+            ambiguousImport = true;
+        }
+        imports.set(name, { modulePath, imported, node });
+    };
     for (const statement of sourceFile.statements)
     {
+        const explicitDeclaration = explicitScannerImportDeclaration(statement, parser, context.file);
+        if (explicitDeclaration)
+        {
+            explicitDeclarations.add(explicitDeclaration);
+            for (const binding of explicitDeclaration.name.elements)
+            {
+                registerImport(binding.name.text, scannerImplementationPath, (binding.propertyName ?? binding.name).text, binding.name);
+            }
+            continue;
+        }
         if (!parser.isImportDeclaration(statement) || !parser.isStringLiteral(statement.moduleSpecifier))
         {
             continue;
@@ -1392,13 +1453,13 @@ function assertedFixtureProperties(sourceFile, parser, context)
         const clause = statement.importClause;
         if (clause?.name)
         {
-            imports.set(clause.name.text, { modulePath, imported: 'default', node: clause.name });
+            registerImport(clause.name.text, modulePath, 'default', clause.name);
         }
         if (clause?.namedBindings && parser.isNamedImports(clause.namedBindings))
         {
             for (const binding of clause.namedBindings.elements)
             {
-                imports.set(binding.name.text, { modulePath, imported: (binding.propertyName ?? binding.name).text, node: binding.name });
+                registerImport(binding.name.text, modulePath, (binding.propertyName ?? binding.name).text, binding.name);
             }
         }
     }
@@ -1407,13 +1468,25 @@ function assertedFixtureProperties(sourceFile, parser, context)
         ['createZeroLegacyScannerFixture', helperPath, 'createZeroLegacyScannerFixture'],
         ['scanZeroLegacyGovernance', scannerImplementationPath, 'scanZeroLegacyGovernance']
     ];
-    if (requiredImports.some(([name, modulePath, imported]) => imports.get(name)?.modulePath !== modulePath
+    if (ambiguousImport || requiredImports.some(([name, modulePath, imported]) => imports.get(name)?.modulePath !== modulePath
         || imports.get(name)?.imported !== imported))
     {
         return new Set();
     }
-    const protectedNames = new Set([...imports.keys(), 'Object', 'JSON', 'Buffer', 'Reflect', 'Function', 'global', 'globalThis', 'eval']);
+    const protectedNames = new Set([...imports.keys(), ...intrinsicNames]);
     let unsupported = false;
+    const bindingNames = (binding) =>
+    {
+        if (parser.isIdentifier(binding))
+        {
+            return [binding.text];
+        }
+        if (parser.isObjectBindingPattern(binding) || parser.isArrayBindingPattern(binding))
+        {
+            return binding.elements.flatMap((element) => parser.isBindingElement(element) ? bindingNames(element.name) : []);
+        }
+        return [];
+    };
     const rootIdentifier = (node) =>
     {
         while (parser.isPropertyAccessExpression(node) || parser.isElementAccessExpression(node))
@@ -1429,8 +1502,8 @@ function assertedFixtureProperties(sourceFile, parser, context)
             unsupported = true;
         }
         if ((parser.isVariableDeclaration(node) || parser.isParameter(node) || parser.isFunctionDeclaration(node)
-            || parser.isClassDeclaration(node)) && node.name && parser.isIdentifier(node.name)
-            && protectedNames.has(node.name.text))
+            || parser.isClassDeclaration(node)) && node.name && !explicitDeclarations.has(node)
+            && bindingNames(node.name).some((name) => protectedNames.has(name)))
         {
             unsupported = true;
         }
@@ -1455,6 +1528,11 @@ function assertedFixtureProperties(sourceFile, parser, context)
         }
         if (parser.isIdentifier(node) && ['JSON', 'Object', 'Buffer'].includes(node.text)
             && !(parser.isPropertyAccessExpression(node.parent) && node.parent.expression === node))
+        {
+            unsupported = true;
+        }
+        if (parser.isIdentifier(node) && node.text === 'URL'
+            && !(parser.isNewExpression(node.parent) && node.parent.expression === node))
         {
             unsupported = true;
         }

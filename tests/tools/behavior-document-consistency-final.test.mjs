@@ -7,7 +7,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 
-import {
+const {
     buildFinalConsistencyReport,
     buildVerifiedFinalConsistencyReport,
     scanZeroLegacyGovernance,
@@ -15,7 +15,7 @@ import {
     validateZeroLegacyScan,
     zeroLegacyRequiredPathClasses,
     zeroLegacyScanSchema
-} from '../../tools/docs/behavior-document-consistency-final.mjs';
+} = await import(new URL('../../tools/docs/behavior-document-consistency-final.mjs', import.meta.url));
 
 import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs';
 const { digestCatalog } = await import(new URL('../../tools/contracts/behavior-contract-catalog.mjs', import.meta.url));
@@ -777,6 +777,9 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         "import { scanZeroLegacyGovernance } from '../../tools/docs/behavior-document-consistency-final.mjs'",
         "import { createZeroLegacyScannerFixture } from './support/zero-legacy-scanner-fixture.mjs'"
     ].join('\n');
+    const explicitImport = "const { scanZeroLegacyGovernance } = await import(new URL('../../tools/docs/behavior-document-consistency-final.mjs', import.meta.url));";
+    const explicitImports = imports.replace(
+        "import { scanZeroLegacyGovernance } from '../../tools/docs/behavior-document-consistency-final.mjs'", explicitImport);
     const scannerPath = 'tools/docs/behavior-document-consistency-final.mjs';
     const helperPath = 'tests/tools/support/zero-legacy-scanner-fixture.mjs';
     const scanner = fs.readFileSync(path.join(repositorySourceRoot, scannerPath), 'utf8');
@@ -800,23 +803,57 @@ test('zero-legacy fixture classification requires the complete reviewed source t
         ['global-write', `${representative}\nJSON.stringify = replacement\n`, helper, imports, true],
         ['global-delete', `${representative}\ndelete JSON.stringify\n`, helper, imports, true],
         ['global-increment', `${representative}\nJSON.stringify++\n`, helper, imports, true],
-        ['global-alias', `${representative}\nconst aliased = JSON\n`, helper, imports, true]
+        ['global-alias', `${representative}\nconst aliased = JSON\n`, helper, imports, true],
+        ['explicit-url', representative, helper, explicitImports, false],
+        ['explicit-url-alias', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }',
+            '{ scanZeroLegacyGovernance, validateZeroLegacyScan: scanValidator }'), false],
+        ['explicit-url-wrong-source', representative, helper, explicitImports.replace('behavior-document-consistency-final.mjs', 'fake-scanner.mjs'), true],
+        ['explicit-url-normalized-alias', representative, helper, explicitImports.replace('../../tools/', '../../tools/./'), true],
+        ['explicit-url-wrong-base', representative, helper, explicitImports.replace('import.meta.url', "'file:///invented/'"), true],
+        ['explicit-url-property-base', representative, helper, explicitImports.replace('import.meta.url', 'import.meta.other'), true],
+        ['explicit-url-computed-base', representative, helper, explicitImports.replace('import.meta.url', "import.meta['url']"), true],
+        ['explicit-url-nonliteral', representative, helper, explicitImports.replace("'../../tools/docs/behavior-document-consistency-final.mjs'", 'scannerPath'), true],
+        ['explicit-url-template', representative, helper, explicitImports.replace("'../../tools/docs/behavior-document-consistency-final.mjs'", '`../../tools/docs/behavior-document-consistency-final.mjs`'), true],
+        ['explicit-url-loader', representative, helper, explicitImports.replace('await import(', 'await loader('), true],
+        ['explicit-url-no-await', representative, helper, explicitImports.replace('await import(', 'import('), true],
+        ['explicit-url-mutable-binding', representative, helper, explicitImports.replace('const { scanZeroLegacyGovernance }', 'let { scanZeroLegacyGovernance }'), true],
+        ['explicit-url-default-binding', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ scanZeroLegacyGovernance = fakeScanner }'), true],
+        ['explicit-url-rest-binding', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ ...scanZeroLegacyGovernance }'), true],
+        ['explicit-url-wrong-export', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ fakeScanner: scanZeroLegacyGovernance }'), true],
+        ['explicit-url-intrinsic-binding', representative, helper, explicitImports.replace('{ scanZeroLegacyGovernance }', '{ scanZeroLegacyGovernance, JSON }'), true],
+        ['explicit-url-constructor-shadow', representative, helper, `${explicitImports}\nconst URL = fakeURL;`, true],
+        ['explicit-url-destructured-shadow', representative, helper, `${explicitImports}\nconst { URL } = fakeURL;`, true],
+        ['explicit-url-constructor-alias', representative, helper, `${explicitImports}\nconst aliased = URL;`, true],
+        ['explicit-url-constructor-mutation', representative, helper, `${explicitImports}\nURL = fakeURL;`, true],
+        ['explicit-url-scanner-shadow', representative, helper, `${explicitImports}\nfunction other({ scanZeroLegacyGovernance }) {}`, true],
+        ['explicit-url-duplicate-binding', representative, helper, `${explicitImports}\n${explicitImport}`, true],
+        ['explicit-url-scanner-byte-change', representative, helper, explicitImports, true, `${scanner}\n// Modified scanner bytes.\n`],
+        ['static-scanner-byte-change', representative, helper, imports, true, `${scanner}\n// Modified scanner bytes.\n`]
     ];
-    for (const [name, callback, helperSource, importSource, rejected] of variants)
+    const rejectionRules = [
+        'lastVerifiedCommit', 'lastReviewedCommit', 'contentBaselineSha', 'approvedContentDigest',
+        'maximumVerificationDistance', 'baselineValue', 'expectedValue', 'allowStaleUntil',
+        'ignoreDifference', 'lastReviewedAt', 'verifiedAt', 'waiver'
+    ].map((field) => `forbidden-machine-field:${field}`);
+    rejectionRules.push('forbidden-self-certification:verified', 'forbidden-self-certification:reviewed');
+    for (const [name, callback, helperSource, importSource, rejected, scannerSource = scanner] of variants)
     {
         if (rejected)
         {
-            assert.ok(callback !== representative || helperSource !== helper || importSource !== imports,
+            assert.ok(callback !== representative || helperSource !== helper || importSource !== imports || scannerSource !== scanner,
                 `${name} must change a real mutation input`);
         }
         const repositoryRoot = repositoryFixture(t, {
-            [scannerPath]: scanner,
+            [scannerPath]: scannerSource,
             [helperPath]: helperSource,
             [probe]: `${importSource}\n${callback}`
         });
-        const findings = scanZeroLegacyGovernance(repositoryRoot).findings.filter((finding) => finding.file === probe
-            && finding.rule === 'forbidden-machine-field:lastVerifiedCommit');
-        assert.equal(findings.length > 0, rejected, name);
+        const rules = new Set(scanZeroLegacyGovernance(repositoryRoot).findings.filter((finding) => finding.file === probe)
+            .map((finding) => finding.rule));
+        for (const rule of rejectionRules)
+        {
+            assert.equal(rules.has(rule), rejected, `${name}: ${rule}`);
+        }
     }
 });
 
@@ -1676,8 +1713,8 @@ test('zero-legacy parser authority rejects link mode byte and locked dependency 
 
 test('zero-legacy lock admission preserves bytes while requiring strict duplicate-free JSON', async (t) =>
 {
-    const files = { 'config/testing/parser-authority-behavior-qualification.yaml': 'command: current-claim-cli\n' }
-    const lockDocument = JSON.parse(parserLock)
+    const files = { 'config/testing/parser-authority-behavior-qualification.yaml': 'command: current-claim-cli\n' };
+    const lockDocument = JSON.parse(parserLock);
     for (const [name, lockBytes] of [
         ['four-space', `${JSON.stringify(lockDocument, null, 4)}\n`],
         ['tabs', `${JSON.stringify(lockDocument, null, '\t')}\n`],
@@ -1687,13 +1724,13 @@ test('zero-legacy lock admission preserves bytes while requiring strict duplicat
     {
         await t.test(name, (context) =>
         {
-            const repositoryRoot = repositoryFixture(context, files)
-            const lockPath = path.join(repositoryRoot, 'src/frontend/package-lock.json')
-            fs.writeFileSync(lockPath, lockBytes)
-            const before = fs.readFileSync(lockPath)
-            assert.deepEqual(scanZeroLegacyGovernance(repositoryRoot).findings, [])
-            assert.ok(fs.readFileSync(lockPath).equals(before), 'scanner changed admitted lock bytes')
-        })
+            const repositoryRoot = repositoryFixture(context, files);
+            const lockPath = path.join(repositoryRoot, 'src/frontend/package-lock.json');
+            fs.writeFileSync(lockPath, lockBytes);
+            const before = fs.readFileSync(lockPath);
+            assert.deepEqual(scanZeroLegacyGovernance(repositoryRoot).findings, []);
+            assert.ok(fs.readFileSync(lockPath).equals(before), 'scanner changed admitted lock bytes');
+        });
     }
     for (const [name, lockBytes] of [
         ['duplicate-root', parserLock.replace('{', '{ "name": "duplicate",')],
@@ -1706,15 +1743,15 @@ test('zero-legacy lock admission preserves bytes while requiring strict duplicat
     {
         await t.test(name, (context) =>
         {
-            const repositoryRoot = repositoryFixture(context, files)
-            const lockPath = path.join(repositoryRoot, 'src/frontend/package-lock.json')
-            fs.writeFileSync(lockPath, lockBytes)
-            const before = fs.readFileSync(lockPath)
-            assert.throws(() => scanZeroLegacyGovernance(repositoryRoot), /strict duplicate-free JSON/u)
-            assert.ok(fs.readFileSync(lockPath).equals(before), 'refusal changed lock bytes')
-        })
+            const repositoryRoot = repositoryFixture(context, files);
+            const lockPath = path.join(repositoryRoot, 'src/frontend/package-lock.json');
+            fs.writeFileSync(lockPath, lockBytes);
+            const before = fs.readFileSync(lockPath);
+            assert.throws(() => scanZeroLegacyGovernance(repositoryRoot), /strict duplicate-free JSON/u);
+            assert.ok(fs.readFileSync(lockPath).equals(before), 'refusal changed lock bytes');
+        });
     }
-})
+});
 
 test('zero-legacy Markdown machine fences recognize every JavaScript line terminator', (t) =>
 {
